@@ -105,10 +105,12 @@ function finalizeFingerprints(node, deps) {
   };
 
   const dependencyInput = {
-    calls: deps.calls,
-    references: deps.references,
-    usesTypes: deps.usesTypes,
-    imports: deps.imports,
+    outgoing: {
+      calls: deps.calls,
+      references: deps.references,
+      usesTypes: deps.usesTypes,
+      imports: deps.imports,
+    },
   };
 
   node.structural_fp = structuralFingerprint(structuralInput);
