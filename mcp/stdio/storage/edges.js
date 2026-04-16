@@ -1,5 +1,5 @@
 const INSERT_SQL = `
-  INSERT INTO edges (from_id, to_id, relation, source_file, source_line, confidence, extractor)
+  INSERT OR IGNORE INTO edges (from_id, to_id, relation, source_file, source_line, confidence, extractor)
   VALUES ($from_id, $to_id, $relation, $source_file, $source_line, $confidence, $extractor)
 `;
 

@@ -73,9 +73,23 @@ function containsEdge(fromNode, toNode) {
   };
 }
 
+// Only capture meaningful docs — skip trivial command docs, sparc modes, etc.
+const MEANINGFUL_DOC_NAMES = new Set([
+  'readme', 'changelog', 'architecture', 'contributing', 'migration',
+  'decisions', 'claude', 'agents', 'api', 'guide', 'overview', 'design',
+]);
+
 function isDocument(relPath) {
   const base = basename(relPath).toLowerCase();
-  return base.startsWith('readme') || DOCUMENT_EXTENSIONS.has(extname(relPath).toLowerCase());
+  const nameNoExt = base.replace(/\.[^.]+$/, '');
+  if (!DOCUMENT_EXTENSIONS.has(extname(relPath).toLowerCase())) return false;
+  // Must be a meaningful doc name OR in a docs/ directory OR be a README
+  if (base.startsWith('readme')) return true;
+  if (MEANINGFUL_DOC_NAMES.has(nameNoExt)) return true;
+  const dir = dirname(relPath).toLowerCase();
+  if (dir.includes('docs') || dir.includes('doc')) return true;
+  // Skip random .md files in deep command/config directories
+  return false;
 }
 
 function isConfig(relPath) {

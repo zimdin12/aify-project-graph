@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const NODE_TYPES = [
   'Repository', 'File', 'Module', 'Function', 'Method', 'Class',
@@ -42,5 +42,7 @@ export function createSchema(db) {
     CREATE INDEX IF NOT EXISTS idx_edges_from      ON edges(from_id, relation);
     CREATE INDEX IF NOT EXISTS idx_edges_to        ON edges(to_id, relation);
     CREATE INDEX IF NOT EXISTS idx_edges_relation  ON edges(relation);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_unique ON edges(from_id, to_id, relation);
+    CREATE INDEX IF NOT EXISTS idx_edges_source_file ON edges(source_file);
   `);
 }

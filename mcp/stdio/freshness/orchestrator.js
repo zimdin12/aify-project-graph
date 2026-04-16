@@ -15,6 +15,7 @@ import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
 import { resolveRefs } from '../ingest/resolver.js';
 import { detectCommunities } from '../analysis/communities.js';
+import { detectMentions } from '../analysis/mentions.js';
 
 const EXTRACTOR_VERSION = '0.1.0';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
@@ -55,10 +56,14 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         plugins: [laravelRoutesPlugin],
       });
 
-      for (const node of special.nodes) upsertNode(db, node);
-      for (const edge of special.edges) upsertEdge(db, edge);
-      for (const node of specialPlugins.nodes) upsertNode(db, node);
-      for (const edge of specialPlugins.edges) upsertEdge(db, edge);
+      // Batch all inserts in a transaction for performance
+      const batchInsert = db.transaction(() => {
+        for (const node of special.nodes) upsertNode(db, node);
+        for (const edge of special.edges) upsertEdge(db, edge);
+        for (const node of specialPlugins.nodes) upsertNode(db, node);
+        for (const edge of specialPlugins.edges) upsertEdge(db, edge);
+      });
+      batchInsert();
 
       const refs = [...specialPlugins.refs, ...(manifest.dirtyEdges ?? [])];
       const existingFiles = [];
@@ -76,6 +81,13 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         }
 
         existingFiles.push(relPath);
+
+        // Skip files larger than 1MB to prevent string length crashes on large C/C++ files
+        const fileStat = await stat(absPath);
+        if (fileStat.size > 1_000_000) {
+          continue;
+        }
+
         deleteNodesForFile(db, relPath);
 
         const source = await readFile(absPath, 'utf8');
@@ -86,10 +98,14 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       }
 
       const resolved = resolveRefs({ db, refs });
-      for (const edge of resolved.edges) upsertEdge(db, edge);
+      const batchResolvedEdges = db.transaction(() => {
+        for (const edge of resolved.edges) upsertEdge(db, edge);
+      });
+      batchResolvedEdges();
 
-      // Community detection (Louvain)
+      // Post-indexing analysis
       const communityResult = detectCommunities(db);
+      await detectMentions(db, repoRoot);
 
       const nodeCount = countNodes(db);
       const edgeCount = countEdges(db);
