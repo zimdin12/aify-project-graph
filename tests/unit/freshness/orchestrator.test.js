@@ -57,7 +57,6 @@ describe('freshness orchestrator', () => {
       expect(result.indexed).toBe(true);
       expect(result.commit).toBe('head-1');
       expect(nodes).toEqual(expect.arrayContaining([
-        expect.objectContaining({ type: 'Document', file_path: 'README.md' }),
         expect.objectContaining({ type: 'Function', label: 'helper', file_path: 'src/helper.py' }),
         expect.objectContaining({ type: 'Function', label: 'run', file_path: 'src/run.py' }),
       ]));

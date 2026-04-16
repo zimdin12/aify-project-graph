@@ -14,7 +14,16 @@ export default {
     { type: 'Function', nodeTypes: ['method_declaration'], field: 'name', signatureFields: ['parameters'] },
   ],
   refs: {
-    imports: [{ nodeTypes: ['import_declaration'], field: 'path' }],
+    imports: [{
+      nodeTypes: ['import_declaration'],
+      descendantTypes: ['scoped_identifier', 'identifier'],
+      extractTargets: ({ node, source }) => {
+        const pathNode = node.namedChildren.find((child) =>
+          ['scoped_identifier', 'identifier'].includes(child.type)
+        );
+        return pathNode ? [source.slice(pathNode.startIndex, pathNode.endIndex)] : [];
+      },
+    }],
     calls: [{ nodeTypes: ['method_invocation'], field: 'name' }],
   },
 };

@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, stat as fsStat } from 'node:fs/promises';
 import { basename, dirname, extname, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from './fingerprint.js';
@@ -233,7 +233,16 @@ export async function sweepFilesystem({ repoRoot }) {
       }
 
       const parentNode = await ensureDirectory(dirname(entryRelPath) === '.' ? '.' : dirname(entryRelPath));
-      const content = await readFile(entryAbsPath, 'utf8');
+
+      // Guard: skip binary/non-UTF8/unreadable files + cap at 500KB for sweep files
+      let content;
+      try {
+        const fileStat = await fsStat(entryAbsPath);
+        if (fileStat.size > 500_000) continue;
+        content = await readFile(entryAbsPath, 'utf8');
+      } catch {
+        continue; // Skip unreadable or non-UTF8 files
+      }
 
       let node = null;
       if (isDocument(entryRelPath)) {

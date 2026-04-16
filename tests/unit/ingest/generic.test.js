@@ -4,6 +4,9 @@ import python from '../../../mcp/stdio/ingest/languages/python.js';
 import php from '../../../mcp/stdio/ingest/languages/php.js';
 import c from '../../../mcp/stdio/ingest/languages/c.js';
 import typescript from '../../../mcp/stdio/ingest/languages/typescript.js';
+import java from '../../../mcp/stdio/ingest/languages/java.js';
+import ruby from '../../../mcp/stdio/ingest/languages/ruby.js';
+import rust from '../../../mcp/stdio/ingest/languages/rust.js';
 
 function findNode(nodes, type, label) {
   return nodes.find((node) => node.type === type && node.label === label);
@@ -271,5 +274,68 @@ describe('generic extractor', () => {
 
     expect(findRef(tsResult.refs, 'USES_TYPE', 'run', 'Greeter')).toBeTruthy();
     expect(findRef(tsResult.refs, 'USES_TYPE', 'run', 'Runner')).toBeTruthy();
+  });
+
+  it('emits Java import refs from import_declaration descendants', () => {
+    const source = [
+      'import java.util.List;',
+      'import com.example.Service;',
+      '',
+      'class Greeter {}',
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'src/Greeter.java',
+      source,
+      config: java,
+    });
+
+    expect(findRef(result.refs, 'IMPORTS', 'Greeter.java', 'java.util.List')).toBeTruthy();
+    expect(findRef(result.refs, 'IMPORTS', 'Greeter.java', 'com.example.Service')).toBeTruthy();
+  });
+
+  it('limits Ruby imports to require statements', () => {
+    const source = [
+      'require "json"',
+      'require_relative "lib/worker"',
+      'foo(bar)',
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'app/main.rb',
+      source,
+      config: ruby,
+    });
+
+    expect(findRef(result.refs, 'IMPORTS', 'main.rb', 'json')).toBeTruthy();
+    expect(findRef(result.refs, 'IMPORTS', 'main.rb', 'lib/worker')).toBeTruthy();
+    expect(findRef(result.refs, 'IMPORTS', 'main.rb', 'foo')).toBeFalsy();
+    expect(findRef(result.refs, 'CALLS', 'main.rb', 'foo')).toBeFalsy();
+  });
+
+  it('supports Rust impl blocks as class containers for methods', () => {
+    const source = [
+      'struct Greeter;',
+      'impl Greeter {',
+      '  fn run() {}',
+      '}',
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'src/greeter.rs',
+      source,
+      config: rust,
+    });
+
+    expect(findNode(result.nodes, 'Class', 'Greeter')).toBeTruthy();
+    expect(findNode(result.nodes, 'Method', 'run')).toBeTruthy();
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: 'CONTAINS', from_label: 'Greeter', to_label: 'run' }),
+      ]),
+    );
   });
 });

@@ -38,20 +38,20 @@ function buildPaths(db, node, direction, maxDepth, topK, visited) {
     ? db.all(
         `SELECT n.id AS node_id, n.label, n.file_path, n.start_line, n.confidence AS node_confidence, e.confidence AS edge_confidence
          FROM edges e JOIN nodes n ON n.id = e.to_id
-         WHERE e.from_id = $id AND e.relation IN ('CALLS', 'INVOKES')
+         WHERE e.from_id = $id AND e.relation IN ('CALLS', 'INVOKES', 'REFERENCES')
          ORDER BY e.confidence DESC LIMIT $limit`,
         { id: nodeId, limit: topK }
       )
     : db.all(
         `SELECT n.id AS node_id, n.label, n.file_path, n.start_line, n.confidence AS node_confidence, e.confidence AS edge_confidence
          FROM edges e JOIN nodes n ON n.id = e.from_id
-         WHERE e.to_id = $id AND e.relation IN ('CALLS', 'INVOKES')
+         WHERE e.to_id = $id AND e.relation IN ('CALLS', 'INVOKES', 'REFERENCES')
          ORDER BY e.confidence DESC LIMIT $limit`,
         { id: nodeId, limit: topK }
       );
 
   for (const edge of edges) {
-    const child = buildPaths(db, edge, direction, maxDepth - 1, topK, new Set(visited));
+    const child = buildPaths(db, edge, direction, maxDepth - 1, topK, visited);
     if (child.length > 0) {
       result.children.push(...child);
     } else {

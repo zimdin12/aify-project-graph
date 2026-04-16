@@ -89,6 +89,14 @@ function extractTextFromRule(node, source, rule) {
   return extractTextsFromRule(node, source, rule)[0] ?? '';
 }
 
+function extractNameFromRule(node, source, rule) {
+  if (typeof rule.extractName === 'function') {
+    return rule.extractName({ node, source });
+  }
+
+  return extractTextFromRule(node, source, rule);
+}
+
 function buildSignature(node, source, rule) {
   const parts = [];
   if (rule.signatureFields?.length) {
@@ -182,7 +190,13 @@ function isReferenceCandidate({ node, owner, ancestors, config, source }) {
   if (isInsideParameterList(ancestors)) return false;
   if (isInsideTypeAnnotation(ancestors)) return false;
 
-  if (matchesAncestorField(node, ancestors, config.symbols, source, (rule) => Boolean(rule.field))) {
+  if (matchesAncestorField(
+    node,
+    ancestors,
+    config.symbols,
+    source,
+    (rule) => Boolean(rule.field) || Boolean(rule.descendantTypes?.length),
+  )) {
     return false;
   }
 
@@ -223,6 +237,18 @@ function makeBaseNode({
   };
 }
 
+function pushUniqueEdge(edges, edge) {
+  const exists = edges.some((candidate) =>
+    candidate.relation === edge.relation
+    && candidate.from_id === edge.from_id
+    && candidate.to_id === edge.to_id
+  );
+
+  if (!exists) {
+    edges.push(edge);
+  }
+}
+
 function finalizeFingerprints(node, deps) {
   const structuralInput = {
     qname: node.extra.qname,
@@ -254,6 +280,7 @@ export function extractFile({ filePath, source, config }) {
   const moduleLabel = moduleNameForPath(filePath);
   const fileLabel = basename(filePath);
   const symbolDeps = new Map();
+  const symbolsById = new Map();
 
   const fileNode = makeBaseNode({
     type: 'File',
@@ -278,7 +305,7 @@ export function extractFile({ filePath, source, config }) {
   });
 
   nodes.push(fileNode, moduleNode);
-  edges.push({
+  pushUniqueEdge(edges, {
     relation: 'CONTAINS',
     from_id: moduleNode.id,
     to_id: fileNode.id,
@@ -303,7 +330,7 @@ export function extractFile({ filePath, source, config }) {
     let nextParentClass = parentClass;
 
     if (symbolRule) {
-      const name = extractTextFromRule(node, source, symbolRule).trim();
+      const name = extractNameFromRule(node, source, symbolRule).trim();
       if (name) {
         const explicitType = symbolRule.type;
         const resolvedType = explicitType === 'Function' && parentClass ? 'Method' : explicitType;
@@ -334,29 +361,34 @@ export function extractFile({ filePath, source, config }) {
           },
         });
 
-        nodes.push(createdNode);
-        symbolDeps.set(createdNode.id, {
-          calls: [],
-          references: [],
-          usesTypes: [],
-          imports: [],
-        });
+        const existingNode = symbolsById.get(createdNode.id);
+        const activeNode = existingNode ?? createdNode;
+        if (!existingNode) {
+          nodes.push(createdNode);
+          symbolsById.set(createdNode.id, createdNode);
+          symbolDeps.set(createdNode.id, {
+            calls: [],
+            references: [],
+            usesTypes: [],
+            imports: [],
+          });
+        }
 
         const parentNode = parentClass ?? fileNode;
-        edges.push({
+        pushUniqueEdge(edges, {
           relation: parentClass ? 'CONTAINS' : 'DEFINES',
           from_id: parentNode.id,
-          to_id: createdNode.id,
+          to_id: activeNode.id,
           from_label: parentNode.label,
-          to_label: createdNode.label,
+          to_label: activeNode.label,
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: symbolRule.confidence ?? config.confidence?.node ?? 1.0,
           extractor: config.language,
         });
 
-        nextOwner = createdNode;
-        nextParentClass = resolvedType === 'Class' ? createdNode : parentClass;
+        nextOwner = activeNode;
+        nextParentClass = resolvedType === 'Class' ? activeNode : parentClass;
       }
     }
 

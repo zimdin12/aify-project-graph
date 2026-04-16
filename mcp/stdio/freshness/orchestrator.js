@@ -22,8 +22,28 @@ const PARSER_BUNDLE_VERSION = '2026.04.16';
 const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema'];
 const IGNORED_DIRS = new Set(['.git', '.aify-graph', 'node_modules']);
 
+// TTL cache: skip git checks if the graph was confirmed fresh within the last 5 seconds
+const freshCache = new Map(); // repoRoot → { ts, result }
+const FRESH_TTL_MS = 5000;
+
 export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-graph'), force = false }) {
+  // Fast path: if we confirmed freshness recently and no force, return cached result
+  if (!force) {
+    const cached = freshCache.get(repoRoot);
+    if (cached && Date.now() - cached.ts < FRESH_TTL_MS) {
+      return cached.result;
+    }
+  }
+
   return withWriteLock(repoRoot, async () => {
+    // Double-check cache inside lock (another call may have populated it)
+    if (!force) {
+      const cached = freshCache.get(repoRoot);
+      if (cached && Date.now() - cached.ts < FRESH_TTL_MS) {
+        return cached.result;
+      }
+    }
+
     const manifestState = await loadManifest(graphDir);
     const manifest = manifestState.manifest;
     const commit = await getHeadCommit(repoRoot);
@@ -38,10 +58,29 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
 
     const db = openDb(join(graphDir, 'graph.sqlite'));
     try {
-      const fullRebuild = force || manifestState.status !== 'ok' || !manifest.commit;
+      const fullRebuild = force || manifestState.status !== 'ok' || !manifest.commit || manifest.status === 'indexing';
       const filesToProcess = fullRebuild
         ? await listRepoFiles(repoRoot)
         : await expandAffectedFiles(db, repoRoot, initialChanged);
+
+      // Noop path: if no files to process and not a full rebuild, return early
+      if (!fullRebuild && filesToProcess.length === 0) {
+        db.close();
+        const noopResult = {
+          indexed: true, commit, indexedAt: manifest.indexedAt,
+          schemaVersion: SCHEMA_VERSION, extractorVersion: EXTRACTOR_VERSION,
+          parserBundleVersion: PARSER_BUNDLE_VERSION,
+          dirtyFiles: [], dirtyEdgeCount: (manifest.dirtyEdges ?? []).length,
+          unresolvedEdges: (manifest.dirtyEdges ?? []).length,
+          nodes: manifest.nodes ?? 0, edges: manifest.edges ?? 0,
+          processedFiles: [],
+        };
+        freshCache.set(repoRoot, { ts: Date.now(), result: noopResult });
+        return noopResult;
+      }
+
+      // Mark manifest as indexing BEFORE mutating DB — crash safety
+      await writeManifest(graphDir, { ...manifest, status: 'indexing' });
 
       if (fullRebuild) {
         db.exec('DELETE FROM edges; DELETE FROM nodes;');
@@ -77,6 +116,8 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
 
         const config = maybeGetLanguageConfig(relPath);
         if (!config) {
+          // File became unsupported — clean up any old nodes from previous index
+          deleteNodesForFile(db, relPath);
           continue;
         }
 
@@ -85,6 +126,8 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         // Skip files larger than 1MB to prevent string length crashes on large C/C++ files
         const fileStat = await stat(absPath);
         if (fileStat.size > 1_000_000) {
+          // File grew too large — clean up old nodes but don't re-extract
+          deleteNodesForFile(db, relPath);
           continue;
         }
 
@@ -111,6 +154,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       const edgeCount = countEdges(db);
 
       const nextManifest = {
+        status: 'ok',  // Clear the 'indexing' marker — rebuild succeeded
         commit,
         indexedAt: new Date().toISOString(),
         nodes: nodeCount,
