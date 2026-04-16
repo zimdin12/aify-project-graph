@@ -1,6 +1,6 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { join, extname } from 'node:path';
+import { join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
@@ -19,7 +19,7 @@ export function startDashboard({ db, port = 0 }) {
     if (req.url === '/api/graph') {
       const nodes = db.all('SELECT * FROM nodes LIMIT 5000');
       const edges = db.all('SELECT * FROM edges LIMIT 10000');
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
       res.end(JSON.stringify({ nodes, edges }));
       return;
     }
@@ -29,7 +29,7 @@ export function startDashboard({ db, port = 0 }) {
       const edgeCount = db.get('SELECT count(*) AS c FROM edges').c;
       const types = db.all('SELECT type, count(*) AS c FROM nodes GROUP BY type ORDER BY c DESC');
       const relations = db.all('SELECT relation, count(*) AS c FROM edges GROUP BY relation ORDER BY c DESC');
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
       res.end(JSON.stringify({ nodeCount, edgeCount, types, relations }));
       return;
     }
@@ -41,7 +41,7 @@ export function startDashboard({ db, port = 0 }) {
         'SELECT * FROM nodes WHERE label LIKE $q LIMIT 20',
         { q: `%${q}%` }
       );
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
       res.end(JSON.stringify(results));
       return;
     }
@@ -51,15 +51,22 @@ export function startDashboard({ db, port = 0 }) {
       const node = db.get('SELECT * FROM nodes WHERE id = $id', { id });
       const incoming = db.all('SELECT * FROM edges WHERE to_id = $id LIMIT 20', { id });
       const outgoing = db.all('SELECT * FROM edges WHERE from_id = $id LIMIT 20', { id });
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
       res.end(JSON.stringify({ node, incoming, outgoing }));
       return;
     }
 
-    // Static files — serve the SPA
+    // Static files — serve the SPA (with path traversal protection)
     let filePath = req.url === '/' ? '/index.html' : req.url;
+    const staticDir = resolve(join(__dirname, 'static'));
+    const resolved = resolve(join(staticDir, filePath));
+    if (!resolved.startsWith(staticDir)) {
+      res.writeHead(400);
+      res.end('Bad request');
+      return;
+    }
     try {
-      const content = await readFile(join(__dirname, 'static', filePath));
+      const content = await readFile(resolved);
       const ext = extname(filePath);
       res.writeHead(200, { 'Content-Type': MIME[ext] || 'text/plain' });
       res.end(content);

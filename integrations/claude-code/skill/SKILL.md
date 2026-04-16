@@ -10,10 +10,20 @@ This repo has (or can have) a project graph at `.aify-graph/graph.sqlite`. Use g
 ## Hard rules
 
 1. **MUST** call `graph_report()` on first interaction with an unfamiliar repo. This is the orientation step.
-2. **MUST** call `graph_impact(symbol="X")` before editing any symbol with more than one caller. Non-negotiable.
+2. **MUST** call `graph_impact(symbol="X")` before editing any symbol with more than one caller. Then follow the decision protocol:
+   - **0 impact edges:** proceed freely.
+   - **1-5 edges:** read each affected file before editing.
+   - **6+ edges or edges across module boundaries:** stop and confirm the change scope with the user before proceeding.
 3. **Do NOT** pre-fetch whole subgraphs "just in case." (Exception: `graph_report()` is the mandatory orientation step — it is not a subgraph prefetch.)
-4. **Do NOT** call every verb at session start. The graph builds on first query if needed.
+4. **Do NOT** call every verb at session start. The graph builds automatically on first query — this may take 1-60 seconds depending on repo size. Do not retry or call graph_index separately.
 5. **Do NOT** call `graph_whereis` with a partial name — use `graph_search` instead when you only know part of the symbol name.
+
+## Graph seems wrong?
+
+1. Call `graph_status()` — check `dirtyEdgeCount` and `unresolvedEdges`.
+2. If stale: run `graph_index(force=true)` to rebuild from scratch.
+3. Call `graph_status()` again — confirm node/edge counts look reasonable.
+4. Retry your original query.
 
 ## When to reach for which verb
 

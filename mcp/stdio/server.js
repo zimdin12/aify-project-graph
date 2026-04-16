@@ -234,11 +234,15 @@ rl.on('line', async (line) => {
       const normalized = { ...args, repoRoot };
       if (args?.node && !args?.symbol) normalized.symbol = args.node;
       if (args?.from && !args?.symbol) normalized.symbol = args.from;
+      // Clamp numeric params to safe ranges
+      if (normalized.depth != null) normalized.depth = Math.min(Math.max(Number(normalized.depth) || 1, 1), 10);
+      if (normalized.top_k != null) normalized.top_k = Math.min(Math.max(Number(normalized.top_k) || 10, 1), 200);
+      if (normalized.limit != null) normalized.limit = Math.min(Math.max(Number(normalized.limit) || 20, 1), 100);
       const result = await tool.handler(normalized);
       const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
       send({ jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text }] } });
     } catch (err) {
-      send({ jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text: `ERROR: ${err.message}` }], isError: true } });
+      send({ jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text: `ERROR [${name}]: ${err.message}` }], isError: true } });
     }
     return;
   }
