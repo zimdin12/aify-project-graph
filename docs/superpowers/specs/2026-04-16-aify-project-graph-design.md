@@ -98,8 +98,9 @@ From [the medium critique](https://medium.com/data-science-in-your-pocket/andrej
 │  └─────────────────────────────────────────────────────┘    │
 │  ┌─────────────────────────────────────────────────────┐    │
 │  │  Ingest layer                                       │    │
-│  │  - Tree-sitter parsers (Python, TS/JS in v1)        │    │
-│  │  - Pluggable Extractor interface per language       │    │
+│  │  - One generic config-driven walker (all languages)  │    │
+│  │  - ~30-line per-language configs (10 languages v1)  │    │
+│  │  - Framework plugin enrichers (Laravel routes v1)   │    │
 │  │  - Cross-file resolver                              │    │
 │  │  - Per-symbol fingerprint bookkeeping               │    │
 │  └─────────────────────────────────────────────────────┘    │
@@ -117,7 +118,7 @@ From [the medium critique](https://medium.com/data-science-in-your-pocket/andrej
 - **No daemon.** The MCP stdio server is launched by the agent runtime (Claude Code / Codex MCP config) when needed. When the agent isn't asking, nothing is running.
 - **No containers at runtime.** Docker artifacts ship for CI/benchmarks/standalone use only.
 - **Per-repo state.** All state lives in `<repo>/.aify-graph/`. Portable, throwaway, no global registry.
-- **Single language for the server.** Node.js (matches the `aify-comms` `mcp/stdio/server.js` pattern). Tree-sitter has first-class Node bindings; SQLite has an official Node driver.
+- **Single language for the server.** Node.js (matches the `aify-comms` `mcp/stdio/server.js` pattern). Tree-sitter has first-class Node bindings; SQLite is accessed via `better-sqlite3` (the most-used synchronous SQLite binding for Node).
 
 ### Data layout on disk
 
@@ -376,7 +377,7 @@ The graph is **on-demand and git-diff-aware**. From the agent's perspective, the
 2. Server reads `.aify-graph/manifest.json` to get the stored commit + dirty file list.
 3. Server runs `git rev-parse HEAD` and `git status --porcelain` against the repo.
 4. Decision tree:
-   - **Same HEAD, clean tree** → serve from kuzu directly. Latency target: <200ms warm.
+   - **Same HEAD, clean tree** → serve from SQLite directly. Latency target: <200ms warm.
    - **Same HEAD, dirty files** → re-extract dirty files, reconcile cross-file edges, persist, serve. Latency: cold first query <2s for typical (≤10 dirty files).
    - **HEAD changed, no other dirt** → diff `manifest.commit..HEAD`, re-extract only changed files, reconcile, persist, serve.
    - **manifest missing / corrupt / schema_version mismatch** → fall back to full rebuild via `graph_index(force=true)`.
@@ -402,7 +403,7 @@ Identity is stable (§4) — fingerprints are change-detection metadata, not ide
 - **`dependency_fp`** = `hash(sorted list of outgoing references: call targets, read references, type uses, raised exceptions, imported names)`
   Changes when the symbol's *body* changes in a way that affects what it depends on. A cosmetic body edit that doesn't change any call/reference leaves this unchanged. Drives **outgoing edge invalidation** — any edge pointing *from* this symbol.
 
-Both fingerprints are stored on the symbol node in kuzu alongside `id` and other properties.
+Both fingerprints are stored on the symbol row in SQLite alongside `id` and other properties.
 
 ### Reindex protocol
 
@@ -424,9 +425,13 @@ When a file changes:
 
 Body-only edits are the most common thing that happens to a codebase. If we ignored them, a function could change its callees — the exact edge type we care about most — and the graph would silently lie to the agent. Splitting identity (stable) from structural state (incoming invalidation) from dependency state (outgoing invalidation) gives us correct incremental behavior without rebuilding the whole file every time.
 
+### v1 implementation note
+
+v1 ships a **simplified incremental path**: when a file changes, all edges sourced from or targeting symbols in that file are dropped and rebuilt from the re-extracted output. This is correct (no stale edges) but less surgical than the full fingerprint-diff protocol above. The fingerprint-diff optimization (only invalidating edges whose fingerprints actually changed) is a v1.1 performance improvement. Both paths produce the same end-state; the fingerprint-diff version just does less work per reindex.
+
 ### Other scale considerations
 
-- **Storage size**: SQLite is columnar and compact. At 1M nodes / ~10M edges, expected on-disk size is in the low-hundreds-of-MB range. Acceptable.
+- **Storage size**: SQLite is row-oriented and compact. At 1M nodes / ~10M edges, expected on-disk size is in the low-hundreds-of-MB range. Acceptable.
 - **Ingest throughput**: Tree-sitter is fast (hundreds of files/sec on a modern machine). The bottleneck is cross-file resolution, which we mitigate by indexing per-symbol from day one.
 - **Query latency**: SQLite handles bounded BFS over property graphs efficiently. Our top_k + depth caps keep result sets small enough that latency is rarely an issue.
 
@@ -509,16 +514,28 @@ aify-project-graph/
         summary.js
         report.js
       extractors/
-        base.js                      # Extractor interface
-        python.js                    # tree-sitter-python
-        typescript.js                # tree-sitter-typescript (covers TS + TSX + JS + JSX)
+        generic.js                   # config-driven generic extractor (one walker, all languages)
+        base.js                      # Extractor interface + framework plugin enrich() hook
+      languages/                     # ~30-line configs per language
+        python.js
+        javascript.js
+        typescript.js
+        php.js
+        c.js
+        cpp.js
+        go.js
+        rust.js
+        ruby.js
+        java.js
+      frameworks/
+        laravel.js                   # Laravel routes plugin (v1)
       schema/
-        nodes.cypher                 # SQLite DDL
-        edges.cypher
+        ddl.sql                      # SQLite DDL (CREATE TABLE)
+        migrations/                  # versioned schema bumps
         migrations/                  # versioned schema bumps
       query/
         budget.js                    # token-budget enforcement + compact-line renderer
-        rank.js                      # top-K seed + community centrality
+        rank.js                      # top-K ranking (depth, confidence, test proximity, fan-in)
       ingest/
         resolver.js                  # cross-file resolution
         fingerprint.js               # per-symbol fingerprint logic
@@ -571,7 +588,7 @@ v1 ships when ALL of the following are true:
 
 These are NOT design questions — they're things the implementation plan needs to resolve, listed here so we don't lose them:
 
-1. **Manifest format.** Decided: **JSON with atomic-rename writes.** Keeps the manifest inspectable and debuggable; atomic rename gives us crash safety without a DB dependency outside kuzu.
+1. **Manifest format.** Decided: **JSON with atomic-rename writes.** Keeps the manifest inspectable and debuggable; atomic rename gives us crash safety without a DB dependency outside the graph.sqlite file itself.
 2. **Python entrypoint detection.** How do we identify "test functions" reliably across pytest, unittest, doctest? Per-extractor heuristic + opt-in config in `.aify-graph/config.json`.
 3. **TypeScript module resolution.** We follow `tsconfig.json` paths if present, fall back to relative resolution. Do we shell out to a TS resolver or reimplement? Lean: small reimplementation; avoid TS-server dependency.
 4. **Tree-sitter / extractor version drift.** Tracked **independently** of schema migration. A tree-sitter grammar upgrade can change extractor behavior (more accurate parses, new node labels) without changing the persisted DB layout. The manifest carries `extractorVersion` + `parserBundleVersion` alongside `schemaVersion`. A schema migration only runs when the persisted DB layout actually changes. On extractor-version drift without schema drift, the freshness layer marks affected files dirty and re-extracts them lazily on next query.
