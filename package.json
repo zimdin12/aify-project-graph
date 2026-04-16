@@ -1,0 +1,32 @@
+{
+  "name": "aify-project-graph",
+  "version": "0.0.1",
+  "description": "On-demand codebase graph map for coding agents (Claude Code, Codex). Tree-sitter extraction → SQLite graph → compact MCP query verbs.",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "tree-sitter": "^0.22.0",
+    "tree-sitter-python": "^0.23.0",
+    "tree-sitter-typescript": "^0.23.0",
+    "tree-sitter-php": "^0.23.0",
+    "tree-sitter-c": "^0.23.0",
+    "tree-sitter-cpp": "^0.23.0",
+    "tree-sitter-go": "^0.23.0",
+    "tree-sitter-rust": "^0.23.0",
+    "tree-sitter-ruby": "^0.23.0",
+    "tree-sitter-java": "^0.23.0",
+    "proper-lockfile": "^4.1.2",
+    "execa": "^9.5.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

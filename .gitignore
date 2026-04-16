@@ -1,0 +1,6 @@
+node_modules/
+.aify-graph/
+coverage/
+*.log
+.DS_Store
+vendor/
