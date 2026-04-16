@@ -1,19 +1,88 @@
-# Install In Codex
+# Install aify-project-graph for Codex
 
-1. Clone this repo where you want to keep the MCP server code.
-2. Run `npm install`.
-3. Run `npm test` and confirm the suite is green.
-4. Make sure your checkout includes `mcp/stdio/server.js`. If it does not, pull the latest `main` first; the MCP stdio entrypoint lands separately from the ingest/freshness stack.
+## Prerequisites
 
-Add an MCP entry in Codex's config (`~/.codex/mcp.json` or your equivalent Codex MCP config) that launches:
+- Node.js >= 20
+- git
+- Codex CLI (`codex` or `codex-aify`)
+
+## Steps
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/zimdin12/aify-project-graph.git
+cd aify-project-graph
+npm install
+npm test   # should be all green
+```
+
+### 2. Register the MCP server
+
+Add to your Codex MCP config. The config file is typically at `~/.codex/mcp.json` or can be set per-project.
 
 ```json
 {
-  "aify-project-graph": {
-    "command": "node",
-    "args": ["C:/path/to/aify-project-graph/mcp/stdio/server.js"]
+  "mcpServers": {
+    "aify-project-graph": {
+      "command": "node",
+      "args": ["<path-to-aify-project-graph>/mcp/stdio/server.js"]
+    }
   }
 }
 ```
 
-Restart Codex after saving the config. Then open the target repo you want to analyze and verify the install by calling `graph_status()` or `graph_report()`. The graph data is stored per target repo under `.aify-graph/graph.sqlite`.
+Replace `<path-to-aify-project-graph>` with the absolute path where you cloned the repo. **Use forward slashes on Windows** (e.g. `C:/Docker/aify-project-graph/mcp/stdio/server.js`).
+
+The `cwd` for the MCP server is inherited from your Codex session — it will use the repo you have open as the target to scan.
+
+### 3. Restart Codex
+
+Close and reopen your Codex session (or `codex-aify` if using the aify wrapper) so the MCP server is picked up.
+
+### 4. Verify
+
+In your Codex session, call:
+
+```
+graph_status()
+```
+
+First call auto-builds the graph (10-60 seconds depending on repo size). Then:
+
+```
+graph_report()
+```
+
+Should return a project orientation digest with directory layout, languages, entry points, hub symbols, and community clusters.
+
+### 5. Start using
+
+Key verbs for navigation:
+
+```
+graph_report()                          # orient in the project
+graph_whereis(symbol="MyClass")         # find definition
+graph_callers(symbol="myFunction")      # who calls this?
+graph_callees(symbol="myFunction")      # what does this call?
+graph_path(from="handleRequest")        # trace execution path
+graph_impact(symbol="User")             # what breaks if I change this?
+graph_module_tree(path="src")           # directory/file hierarchy
+graph_summary(node="MyClass")           # compact node digest
+graph_neighbors(node="X")              # all edges around X
+```
+
+## How it works
+
+- Scans your project with tree-sitter (10 languages supported)
+- Builds a graph in `.aify-graph/graph.sqlite` (local to each repo)
+- Stays fresh automatically — detects git changes and reindexes on every query
+- Returns compact NODE/EDGE lines with file:line citations
+- No backend server, no container — runs inside the MCP stdio process
+
+## Troubleshooting
+
+- **`better-sqlite3` build fails:** Install native build tools for your OS.
+- **Graph seems stale:** `graph_index(force=true)` for full rebuild.
+- **`unresolvedEdges > 0`:** Some cross-file refs couldn't be resolved. Usually harmless. Try `graph_index(force=true)` if it's many.
+- **Codex dispatch errors:** Make sure the path to `server.js` uses forward slashes on Windows. Backslash paths can cause `AbsolutePathBuf` errors.
