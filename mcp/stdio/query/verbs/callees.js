@@ -5,7 +5,7 @@ import { rankCallees } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
-export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10 }) {
+export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
@@ -44,13 +44,15 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10 }) 
 
     if (edges.length === 0) return 'NO CALLEES';
 
-    const mapped = edges.map(e => ({
+    let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: 'CALLS',
       source_file: e.to_file, source_line: e.to_line,
       confidence: e.confidence, depth: e.depth ?? 1,
       from_type: 'Function', fan_in: 1,
       to_label: e.to_label,
     }));
+    if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
+    if (mapped.length === 0) return file ? `NO CALLEES in "${file}"` : 'NO CALLEES';
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });

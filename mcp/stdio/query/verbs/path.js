@@ -3,27 +3,122 @@ import { openDb } from '../../storage/db.js';
 import { renderPath } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
-export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5, top_k = 3 }) {
+const ROOT_TYPE_PRIORITY = new Map([
+  ['Entrypoint', 0],
+  ['Route', 1],
+  ['Function', 2],
+  ['Method', 3],
+  ['Test', 4],
+  ['Class', 5],
+  ['Interface', 6],
+  ['Type', 7],
+  ['Variable', 8],
+  ['Symbol', 9],
+  ['Module', 10],
+  ['File', 11],
+  ['Document', 12],
+  ['Config', 13],
+  ['Directory', 14],
+  ['Schema', 15],
+]);
+
+const EDGE_PRIORITY = new Map([
+  ['INVOKES', 0],
+  ['CALLS', 1],
+  ['TESTS', 2],
+  ['REFERENCES', 3],
+]);
+
+const MODE_RELATIONS = {
+  execution: ['INVOKES', 'CALLS'],
+  dependency: ['INVOKES', 'CALLS', 'TESTS', 'REFERENCES'],
+};
+
+export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5, top_k = 3, mode = 'execution' }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = db.all('SELECT * FROM nodes WHERE label = $label', { label: symbol });
     if (sources.length === 0) return 'NO MATCH';
 
-    const root = sources[0];
-    const paths = buildPaths(db, root, direction, depth, top_k, new Set());
+    const root = selectBestRoot(sources);
+    const relations = MODE_RELATIONS[mode] ?? MODE_RELATIONS.execution;
+    const explorationWidth = Math.max(top_k * 4, 12);
+    const path = buildPaths(db, root, {
+      direction,
+      maxDepth: depth,
+      explorationWidth,
+      relations,
+      visited: new Set(),
+    });
 
-    if (paths.length === 0) return 'NO PATHS';
-    return renderPath(paths);
+    if (!path) return 'NO PATHS';
+    return renderPath(trimPaths([path], top_k));
   } finally {
     db.close();
   }
 }
 
-function buildPaths(db, node, direction, maxDepth, topK, visited) {
+export function selectBestRoot(nodes) {
+  return [...nodes].sort((a, b) => {
+    const typeDelta = rootPriority(a.type) - rootPriority(b.type);
+    if (typeDelta !== 0) return typeDelta;
+
+    const confidenceDelta = (b.confidence ?? 0) - (a.confidence ?? 0);
+    if (confidenceDelta !== 0) return confidenceDelta;
+
+    const fileDelta = (a.file_path ?? '').length - (b.file_path ?? '').length;
+    if (fileDelta !== 0) return fileDelta;
+
+    return (a.start_line ?? 0) - (b.start_line ?? 0);
+  })[0];
+}
+
+function rootPriority(type) {
+  return ROOT_TYPE_PRIORITY.get(type) ?? 999;
+}
+
+function edgePriority(relation) {
+  return EDGE_PRIORITY.get(relation) ?? 999;
+}
+
+function sortConnections(rows) {
+  return [...rows].sort((a, b) => {
+    const relationDelta = edgePriority(a.relation) - edgePriority(b.relation);
+    if (relationDelta !== 0) return relationDelta;
+
+    const edgeConfidenceDelta = (b.edge_confidence ?? 0) - (a.edge_confidence ?? 0);
+    if (edgeConfidenceDelta !== 0) return edgeConfidenceDelta;
+
+    const nodeTypeDelta = rootPriority(a.node_type) - rootPriority(b.node_type);
+    if (nodeTypeDelta !== 0) return nodeTypeDelta;
+
+    const nodeConfidenceDelta = (b.node_confidence ?? 0) - (a.node_confidence ?? 0);
+    if (nodeConfidenceDelta !== 0) return nodeConfidenceDelta;
+
+    return (a.label ?? '').localeCompare(b.label ?? '');
+  });
+}
+
+export function trimPaths(paths, topK) {
+  return paths.map((path) => ({
+    ...path,
+    children: trimPaths((path.children ?? []).slice(0, topK), topK),
+  }));
+}
+
+export function buildPaths(db, node, {
+  direction,
+  maxDepth,
+  explorationWidth,
+  relations,
+  visited,
+}) {
   const nodeId = node.node_id ?? node.id;
-  if (maxDepth <= 0 || visited.has(nodeId)) return [];
-  visited.add(nodeId);
+  if (!nodeId || maxDepth <= 0 || visited.has(nodeId)) return null;
+
+  const nextVisited = new Set(visited);
+  nextVisited.add(nodeId);
 
   const result = {
     symbol: node.label,
@@ -33,37 +128,48 @@ function buildPaths(db, node, direction, maxDepth, topK, visited) {
     children: [],
   };
 
-  // Get next-hop edges
+  const relFilter = relations.map((_, index) => `$rel${index}`).join(', ');
+  const relParams = Object.fromEntries(relations.map((relation, index) => [`rel${index}`, relation]));
   const edges = direction === 'out'
     ? db.all(
-        `SELECT n.id AS node_id, n.label, n.file_path, n.start_line, n.confidence AS node_confidence, e.confidence AS edge_confidence
+        `SELECT n.id AS node_id, n.label, n.type AS node_type, n.file_path, n.start_line,
+                n.confidence AS node_confidence, e.relation, e.confidence AS edge_confidence
          FROM edges e JOIN nodes n ON n.id = e.to_id
-         WHERE e.from_id = $id AND e.relation IN ('CALLS', 'INVOKES', 'REFERENCES')
+         WHERE e.from_id = $id AND e.relation IN (${relFilter})
          ORDER BY e.confidence DESC LIMIT $limit`,
-        { id: nodeId, limit: topK }
+        { id: nodeId, limit: explorationWidth, ...relParams }
       )
     : db.all(
-        `SELECT n.id AS node_id, n.label, n.file_path, n.start_line, n.confidence AS node_confidence, e.confidence AS edge_confidence
+        `SELECT n.id AS node_id, n.label, n.type AS node_type, n.file_path, n.start_line,
+                n.confidence AS node_confidence, e.relation, e.confidence AS edge_confidence
          FROM edges e JOIN nodes n ON n.id = e.from_id
-         WHERE e.to_id = $id AND e.relation IN ('CALLS', 'INVOKES', 'REFERENCES')
+         WHERE e.to_id = $id AND e.relation IN (${relFilter})
          ORDER BY e.confidence DESC LIMIT $limit`,
-        { id: nodeId, limit: topK }
+        { id: nodeId, limit: explorationWidth, ...relParams }
       );
 
-  for (const edge of edges) {
-    const child = buildPaths(db, edge, direction, maxDepth - 1, topK, visited);
-    if (child.length > 0) {
-      result.children.push(...child);
-    } else {
-      result.children.push({
-        symbol: edge.label,
-        file: edge.file_path,
-        line: edge.start_line,
-        confidence: edge.node_confidence ?? 0.9,
-        children: [],
-      });
+  for (const edge of sortConnections(edges)) {
+    const child = buildPaths(db, edge, {
+      direction,
+      maxDepth: maxDepth - 1,
+      explorationWidth,
+      relations,
+      visited: nextVisited,
+    });
+
+    if (child) {
+      result.children.push(child);
+      continue;
     }
+
+    result.children.push({
+      symbol: edge.label,
+      file: edge.file_path,
+      line: edge.start_line,
+      confidence: edge.node_confidence ?? edge.edge_confidence ?? 0.9,
+      children: [],
+    });
   }
 
-  return [result];
+  return result;
 }

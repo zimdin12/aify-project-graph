@@ -13,6 +13,7 @@ import { graphReport } from './query/verbs/report.js';
 import { graphPath } from './query/verbs/path.js';
 import { graphDashboard } from './query/verbs/dashboard.js';
 import { graphSearch } from './query/verbs/search.js';
+import { graphFile } from './query/verbs/file.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -99,17 +100,33 @@ const TOOLS = [
     },
   },
 
+  // ── File-level ───────────────────────────────────────────────
+  {
+    name: 'graph_file',
+    handler: graphFile,
+    description: 'Everything about one file in a single call: what it defines, imports, who calls into it, what it calls out, and which tests cover it. Replaces chaining whereis + callers + callees for each symbol.',
+    schema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'File path (e.g. "service/db.py", "src/auth/token.ts"). Partial match supported.' },
+        top_k: { type: 'integer', default: 20, description: 'Max items per section' },
+      },
+      required: ['path'],
+    },
+  },
+
   // ── Analysis ─────────────────────────────────────────────────
   {
     name: 'graph_callers',
     handler: graphCallers,
-    description: 'Who calls this symbol? Returns EDGE lines ranked by: depth ASC, confidence DESC, test proximity, fan-in. Shows file:line of each caller. Increase top_k for more results.',
+    description: 'Who calls this symbol? Returns EDGE lines ranked by: depth ASC, confidence DESC, test proximity, fan-in. Use `file` to scope results to a specific directory.',
     schema: {
       type: 'object',
       properties: {
         symbol: { type: 'string', description: 'Symbol name to find callers of' },
         depth: { type: 'integer', default: 1, description: 'Hop depth (1=direct callers, 2=callers of callers, etc.)' },
         top_k: { type: 'integer', default: 10, description: 'Max edges to return' },
+        file: { type: 'string', description: 'Filter: only show callers from this directory (e.g. "service/routers")' },
       },
       required: ['symbol'],
     },
@@ -117,13 +134,14 @@ const TOOLS = [
   {
     name: 'graph_callees',
     handler: graphCallees,
-    description: 'What does this symbol call? Returns EDGE lines. Useful for understanding what a function depends on.',
+    description: 'What does this symbol call? Returns EDGE lines. Use `file` to scope results to a specific directory.',
     schema: {
       type: 'object',
       properties: {
         symbol: { type: 'string', description: 'Symbol name to find callees of' },
         depth: { type: 'integer', default: 1, description: 'Hop depth' },
         top_k: { type: 'integer', default: 10, description: 'Max edges to return' },
+        file: { type: 'string', description: 'Filter: only show callees in this directory' },
       },
       required: ['symbol'],
     },
@@ -160,14 +178,15 @@ const TOOLS = [
   {
     name: 'graph_path',
     handler: graphPath,
-    description: 'Trace execution path as a readable story. "What happens when handleRequest runs?" Returns indented PATH tree showing the call chain from entry to leaf. direction="in" traces backwards (who calls this chain).',
+    description: 'Trace execution path as a readable story. "What happens when handleRequest runs?" Returns indented PATH tree. mode="execution" (default) follows only INVOKES+CALLS; mode="dependency" also follows TESTS+REFERENCES.',
     schema: {
       type: 'object',
       properties: {
         symbol: { type: 'string', description: 'Starting symbol to trace from' },
         direction: { type: 'string', enum: ['out', 'in'], default: 'out', description: 'out=forward (what does it call), in=backward (what calls it)' },
         depth: { type: 'integer', default: 5, description: 'Max trace depth' },
-        top_k: { type: 'integer', default: 3, description: 'Max branches per node' },
+        top_k: { type: 'integer', default: 3, description: 'Max branches per node shown (explores wider, trims at render)' },
+        mode: { type: 'string', enum: ['execution', 'dependency'], default: 'execution', description: 'execution=INVOKES+CALLS only, dependency=all edge types' },
       },
       required: ['symbol'],
     },

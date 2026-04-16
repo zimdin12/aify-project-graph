@@ -5,6 +5,8 @@ import { estimateTokens, enforceBudget }
   from '../../../mcp/stdio/query/budget.js';
 import { rankCallers }
   from '../../../mcp/stdio/query/rank.js';
+import { buildPaths, selectBestRoot, trimPaths }
+  from '../../../mcp/stdio/query/verbs/path.js';
 
 // ── renderer ──────────────────────────────────────────────────
 
@@ -98,5 +100,73 @@ describe('rank', () => {
     ];
     const ranked = rankCallers(edges);
     expect(ranked.map(e => e.from_id)).toEqual(['t', 'b', 'a', 'c']);
+  });
+});
+
+// ── path helpers ─────────────────────────────────────────────
+
+describe('path helpers', () => {
+  it('selectBestRoot prefers executable node types', () => {
+    const root = selectBestRoot([
+      { id: 'doc', type: 'Document', label: 'broadcast', file_path: 'docs/broadcast.md', start_line: 1, confidence: 1.0 },
+      { id: 'fn', type: 'Function', label: 'broadcast', file_path: 'src/broadcast.py', start_line: 10, confidence: 0.9 },
+      { id: 'route', type: 'Route', label: 'broadcast', file_path: 'routes.py', start_line: 5, confidence: 0.8 },
+    ]);
+
+    expect(root.id).toBe('route');
+  });
+
+  it('buildPaths allows sibling branches to revisit the same node', () => {
+    const edgeMap = {
+      root: [
+        { node_id: 'alpha', label: 'alpha', node_type: 'Function', file_path: 'src/a.py', start_line: 10, node_confidence: 0.9, relation: 'CALLS', edge_confidence: 0.9 },
+        { node_id: 'beta', label: 'beta', node_type: 'Function', file_path: 'src/b.py', start_line: 20, node_confidence: 0.9, relation: 'CALLS', edge_confidence: 0.8 },
+      ],
+      alpha: [
+        { node_id: 'shared', label: 'shared', node_type: 'Function', file_path: 'src/shared.py', start_line: 30, node_confidence: 0.9, relation: 'CALLS', edge_confidence: 0.9 },
+      ],
+      beta: [
+        { node_id: 'shared', label: 'shared', node_type: 'Function', file_path: 'src/shared.py', start_line: 30, node_confidence: 0.9, relation: 'CALLS', edge_confidence: 0.9 },
+      ],
+      shared: [],
+    };
+
+    const db = {
+      all: (_sql, params) => edgeMap[params.id] ?? [],
+    };
+
+    const path = buildPaths(db, {
+      id: 'root',
+      label: 'handleRequest',
+      file_path: 'src/server.py',
+      start_line: 1,
+      confidence: 1.0,
+    }, {
+      direction: 'out',
+      maxDepth: 3,
+      explorationWidth: 12,
+      relations: ['CALLS'],
+      visited: new Set(),
+    });
+
+    expect(path.children).toHaveLength(2);
+    expect(path.children[0].children[0].symbol).toBe('shared');
+    expect(path.children[1].children[0].symbol).toBe('shared');
+  });
+
+  it('trimPaths keeps broader exploration but limits rendered branches', () => {
+    const trimmed = trimPaths([{
+      symbol: 'root',
+      file: 'src/root.py',
+      line: 1,
+      confidence: 1,
+      children: [
+        { symbol: 'a', file: 'a.py', line: 1, confidence: 1, children: [] },
+        { symbol: 'b', file: 'b.py', line: 1, confidence: 1, children: [] },
+        { symbol: 'c', file: 'c.py', line: 1, confidence: 1, children: [] },
+      ],
+    }], 2);
+
+    expect(trimmed[0].children.map((child) => child.symbol)).toEqual(['a', 'b']);
   });
 });

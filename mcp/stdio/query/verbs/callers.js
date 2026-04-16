@@ -5,7 +5,7 @@ import { rankCallers } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
-export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10 }) {
+export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
@@ -47,13 +47,16 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10 }) 
 
     if (edges.length === 0) return 'NO CALLERS';
 
-    const mapped = edges.map(e => ({
+    let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: 'CALLS',
       source_file: e.from_file, source_line: e.from_line,
       confidence: e.confidence, depth: e.depth ?? 1,
       from_type: e.from_type, fan_in: 1,
       from_label: e.from_label,
     }));
+    // File scope filter: only show callers from a specific directory
+    if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
+    if (mapped.length === 0) return file ? `NO CALLERS from "${file}"` : 'NO CALLERS';
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
