@@ -77,7 +77,7 @@ describe('integration: full verb pipeline', () => {
   });
 
   it('graph_neighbors returns edges around authenticate', async () => {
-    const out = await graphNeighbors({ repoRoot: repo, node: 'authenticate' });
+    const out = await graphNeighbors({ repoRoot: repo, symbol: 'authenticate' });
     expect(out).not.toBe('NO MATCH');
     expect(out).not.toBe('NO NEIGHBORS');
   });
@@ -96,7 +96,7 @@ describe('integration: full verb pipeline', () => {
   });
 
   it('graph_summary returns digest for User class', async () => {
-    const out = await graphSummary({ repoRoot: repo, node: 'User' });
+    const out = await graphSummary({ repoRoot: repo, symbol: 'User' });
     expect(out).toContain('NODE');
     expect(out).toContain('User');
   });
@@ -109,7 +109,7 @@ describe('integration: full verb pipeline', () => {
   });
 
   it('graph_path traces execution from handle_request', async () => {
-    const out = await graphPath({ repoRoot: repo, from: 'handle_request', direction: 'out', depth: 3 });
+    const out = await graphPath({ repoRoot: repo, symbol: 'handle_request', direction: 'out', depth: 3 });
     // Should show a path through authenticate/get_user/format_response
     expect(out === 'NO PATHS' || out.includes('PATH')).toBe(true);
   });

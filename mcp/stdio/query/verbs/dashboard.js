@@ -18,13 +18,18 @@ export async function graphDashboard({ repoRoot, port }) {
   }
 
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
-  const result = await startDashboard({ db, port: port || 0 });
+  try {
+    const result = await startDashboard({ db, port: port || 0 });
 
-  activeDashboard = result;
+    activeDashboard = { ...result, db };
 
-  return {
-    url: result.url,
-    port: result.port,
-    status: 'running',
-  };
+    return {
+      url: result.url,
+      port: result.port,
+      status: 'running',
+    };
+  } catch (err) {
+    db.close();
+    throw err;
+  }
 }

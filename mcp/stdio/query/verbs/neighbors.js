@@ -10,15 +10,17 @@ const ALL_RELATIONS = [
   'TESTS', 'DEPENDS_ON', 'MENTIONS', 'INVOKES', 'CONFIGURES',
 ];
 
-export async function graphNeighbors({ repoRoot, node, edge_types = [], depth = 1, top_k = 20 }) {
+export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth = 1, top_k = 20 }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const targets = db.all('SELECT id FROM nodes WHERE label = $label', { label: node });
+    const targets = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
     if (targets.length === 0) return 'NO MATCH';
 
     const types = edge_types.length ? edge_types : ALL_RELATIONS;
-    const relFilter = types.map(t => `'${t}'`).join(',');
+    const safeTypes = types.filter(t => ALL_RELATIONS.includes(t));
+    if (safeTypes.length === 0) return 'NO MATCH';
+    const relFilter = safeTypes.map(t => `'${t}'`).join(',');
     const nodeId = targets[0].id;
 
     const edges = db.all(

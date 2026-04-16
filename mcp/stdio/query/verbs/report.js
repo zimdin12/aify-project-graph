@@ -99,13 +99,34 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
     const communities = communitySummary(db);
     if (communities.size > 0) {
       lines.push(`COMMUNITIES ${communities.size} detected`);
+      let clusterCount = 0;
       for (const [cid, members] of communities) {
-        const memberStr = members.map(m => `${m.label}(${m.type.toLowerCase()})`).join(', ');
+        if (clusterCount >= 10) break;
+        const memberStr = members.map(m => `${m.label}(${(m.type ?? 'unknown').toLowerCase()})`).join(', ');
         lines.push(`  CLUSTER ${cid}: ${memberStr}`);
+        clusterCount++;
       }
     }
 
-    return lines.join('\n');
+    // Token budget enforcement
+    const TOKEN_BUDGET = 1500;
+    const estimateTokens = (text) => Math.ceil(text.length / 4);
+    let output = lines.join('\n');
+    if (estimateTokens(output) > TOKEN_BUDGET) {
+      // Truncate from the bottom: communities first, then dirs, then entries
+      const sections = ['  CLUSTER', 'DIR ', 'ENTRY '];
+      for (const prefix of sections) {
+        while (estimateTokens(lines.join('\n')) > TOKEN_BUDGET) {
+          const idx = lines.findLastIndex(l => l.startsWith(prefix));
+          if (idx === -1) break;
+          lines.splice(idx, 1);
+        }
+      }
+      lines.push('TRUNCATED — output exceeded token budget');
+      output = lines.join('\n');
+    }
+
+    return output;
   } finally {
     db.close();
   }

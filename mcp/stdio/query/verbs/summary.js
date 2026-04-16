@@ -3,11 +3,11 @@ import { openDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
-export async function graphSummary({ repoRoot, node }) {
+export async function graphSummary({ repoRoot, symbol }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const rows = db.all('SELECT * FROM nodes WHERE label = $label LIMIT 1', { label: node });
+    const rows = db.all('SELECT * FROM nodes WHERE label = $label LIMIT 1', { label: symbol });
     if (rows.length === 0) return 'NO NODE';
     const n = rows[0];
 

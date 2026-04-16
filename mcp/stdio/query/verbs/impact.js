@@ -22,7 +22,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
          SELECT from_id, 1 FROM edges WHERE to_id = $tid AND relation IN (${relFilter})
          UNION ALL
          SELECT e.from_id, i.depth + 1 FROM edges e JOIN impact i ON e.to_id = i.node_id
-         WHERE e.relation IN (${relFilter}) AND i.depth < $depth
+         WHERE e.relation IN (${relFilter}) AND i.depth < $depth AND i.depth <= 10
        )
        SELECT DISTINCT e.*, n.label AS from_label, n.type AS from_type,
               n.file_path AS from_file, n.start_line AS from_line, i.depth

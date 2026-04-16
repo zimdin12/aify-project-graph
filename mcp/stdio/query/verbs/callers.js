@@ -35,7 +35,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10 }) 
            SELECT from_id, 1 FROM edges WHERE to_id = $tid AND relation = 'CALLS'
            UNION ALL
            SELECT e.from_id, c.depth + 1 FROM edges e JOIN callers c ON e.to_id = c.caller_id
-           WHERE e.relation = 'CALLS' AND c.depth < $depth
+           WHERE e.relation = 'CALLS' AND c.depth < $depth AND c.depth <= 10
          )
          SELECT DISTINCT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line, c.depth
          FROM callers c JOIN edges e ON e.from_id = c.caller_id JOIN nodes n ON n.id = e.from_id
@@ -52,6 +52,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10 }) 
       source_file: e.from_file, source_line: e.from_line,
       confidence: e.confidence, depth: e.depth ?? 1,
       from_type: e.from_type, fan_in: 1,
+      from_label: e.from_label,
     }));
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);

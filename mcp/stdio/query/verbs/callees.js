@@ -32,7 +32,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10 }) 
            SELECT to_id, 1 FROM edges WHERE from_id = $sid AND relation = 'CALLS'
            UNION ALL
            SELECT e.to_id, c.depth + 1 FROM edges e JOIN callees c ON e.from_id = c.callee_id
-           WHERE e.relation = 'CALLS' AND c.depth < $depth
+           WHERE e.relation = 'CALLS' AND c.depth < $depth AND c.depth <= 10
          )
          SELECT DISTINCT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line, c.depth
          FROM callees c JOIN edges e ON e.to_id = c.callee_id JOIN nodes n ON n.id = e.to_id
@@ -49,6 +49,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10 }) 
       source_file: e.to_file, source_line: e.to_line,
       confidence: e.confidence, depth: e.depth ?? 1,
       from_type: 'Function', fan_in: 1,
+      to_label: e.to_label,
     }));
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
