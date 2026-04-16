@@ -8,6 +8,7 @@ export async function withWriteLock(repoRoot, fn) {
   await mkdir(graphDir, { recursive: true });
   const release = await lockfile.lock(lockPath, {
     realpath: false,
+    stale: 600000,  // 10 minutes — large repos can take minutes to index
     retries: { retries: 5, factor: 1.5, minTimeout: 25, maxTimeout: 250 },
   });
 
