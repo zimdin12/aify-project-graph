@@ -121,9 +121,11 @@ function matchesAncestorField(node, ancestors, rules = [], source, fieldPredicat
     const rule = matchRule(ancestor, rules);
     if (!rule || !fieldPredicate(rule)) continue;
 
-    const fieldNode = ancestor.childForFieldName(rule.field);
-    if (nodeWithin(node, fieldNode)) {
-      return true;
+    if (rule.field) {
+      const fieldNode = ancestor.childForFieldName(rule.field);
+      if (nodeWithin(node, fieldNode)) {
+        return true;
+      }
     }
 
     if (rule.descendantTypes?.length) {
