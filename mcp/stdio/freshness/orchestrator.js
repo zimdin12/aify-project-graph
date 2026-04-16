@@ -14,6 +14,7 @@ import { sweepFilesystem } from '../ingest/sweep.js';
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
 import { resolveRefs } from '../ingest/resolver.js';
+import { detectCommunities } from '../analysis/communities.js';
 
 const EXTRACTOR_VERSION = '0.1.0';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
@@ -86,6 +87,9 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
 
       const resolved = resolveRefs({ db, refs });
       for (const edge of resolved.edges) upsertEdge(db, edge);
+
+      // Community detection (Louvain)
+      const communityResult = detectCommunities(db);
 
       const nodeCount = countNodes(db);
       const edgeCount = countEdges(db);

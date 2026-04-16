@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { communitySummary } from '../../analysis/communities.js';
 
 export async function graphReport({ repoRoot, top_k = 20 }) {
   await ensureFresh({ repoRoot });
@@ -70,6 +71,16 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
 
     for (const h of hubs) {
       lines.push(`HUB ${h.label} ${h.type.toLowerCase()} ${h.file_path} ${h.fan_in} incoming`);
+    }
+
+    // Community summary (Louvain clusters)
+    const communities = communitySummary(db);
+    if (communities.size > 0) {
+      lines.push(`COMMUNITIES ${communities.size} detected`);
+      for (const [cid, members] of communities) {
+        const memberStr = members.map(m => `${m.label}(${m.type.toLowerCase()})`).join(', ');
+        lines.push(`  CLUSTER ${cid}: ${memberStr}`);
+      }
     }
 
     return lines.join('\n');

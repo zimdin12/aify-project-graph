@@ -10,18 +10,20 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
+    "execa": "^9.5.0",
+    "graphology": "^0.26.0",
+    "graphology-communities-louvain": "^2.0.2",
+    "proper-lockfile": "^4.1.2",
     "tree-sitter": "^0.22.0",
-    "tree-sitter-python": "^0.23.0",
-    "tree-sitter-typescript": "^0.23.0",
-    "tree-sitter-php": "^0.23.0",
     "tree-sitter-c": "^0.23.0",
     "tree-sitter-cpp": "^0.23.0",
     "tree-sitter-go": "^0.23.0",
-    "tree-sitter-rust": "^0.23.0",
-    "tree-sitter-ruby": "^0.23.0",
     "tree-sitter-java": "^0.23.0",
-    "proper-lockfile": "^4.1.2",
-    "execa": "^9.5.0"
+    "tree-sitter-php": "^0.23.0",
+    "tree-sitter-python": "^0.23.0",
+    "tree-sitter-ruby": "^0.23.0",
+    "tree-sitter-rust": "^0.23.0",
+    "tree-sitter-typescript": "^0.23.0"
   },
   "devDependencies": {
     "vitest": "^3.0.0"
