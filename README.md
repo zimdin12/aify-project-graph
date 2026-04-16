@@ -2,7 +2,7 @@
 
 On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph in a local SQLite file, and exposes high-intent query verbs over MCP. Agents navigate code, trace execution paths, and assess blast radius — using compact responses instead of reading files.
 
-**19.7x token reduction** measured on real navigation-and-edit workflows (39k tokens without → 2k with). 10 languages. No server, no container, no cloud.
+**2.8x average token reduction** measured across 5 A/B test pairs on real codebases (Python, Node, PHP, C/C++). Up to **4.1x** on well-structured repos. 10 languages. No server, no container, no cloud.
 
 ## Inspiration
 
@@ -199,7 +199,8 @@ We ran controlled A/B tests: same task, same model, same repo — only differenc
 | aify-comms | 32 files | 13,750 | **6,000** | **2.3x** |
 | mem0-fork | 915 files | 49,000 | **15,490** | **3.2x** |
 | lc-api (Laravel) | 1,902 files | 15,500 | **5,750** | **2.7x** |
-| **Average** | | **27,063** | **8,660** | **3.1x** |
+| echoes (C/C++ game) | 250+ files | 36,250 | **21,250** | **1.7x** |
+| **Average** | | **28,900** | **11,178** | **2.8x** |
 
 ### Realistic usage (graph + file reads together)
 
