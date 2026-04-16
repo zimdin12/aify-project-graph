@@ -7,11 +7,12 @@ import { ensureFresh } from '../../freshness/orchestrator.js';
 const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS'];
 
 export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
+  if (!symbol) return 'ERROR: symbol parameter is required';
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const targets = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
-    if (targets.length === 0) return 'NO MATCH';
+    if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
     const tid = targets[0].id;
 
     const relFilter = IMPACT_RELATIONS.map(r => `'${r}'`).join(',');
@@ -33,7 +34,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       { tid, depth }
     );
 
-    if (edges.length === 0) return 'NO IMPACT';
+    if (edges.length === 0) return `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_status().`;
 
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,

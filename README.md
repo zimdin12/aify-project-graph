@@ -115,7 +115,7 @@ cp -r <path>/aify-project-graph/integrations/claude-code/skill \
 
 ## Query verbs
 
-13 verbs organized by purpose:
+15 verbs organized by purpose:
 
 ### Discovery — orient in a new project
 | Verb | What it does | Example |
@@ -128,12 +128,14 @@ cp -r <path>/aify-project-graph/integrations/claude-code/skill \
 ### Analysis — understand code before changing it
 | Verb | What it does | Example |
 |---|---|---|
+| `graph_preflight(symbol="get_db")` | One-shot edit safety check: location, callers, impact, test coverage, trust signal | **Call before editing any symbol** |
+| `graph_file(path="src/auth/token.ts")` | Everything about one file: defines, imports, callers-in, callees-out, test coverage | Understand a file in one call |
 | `graph_callers(symbol="get_db")` | Who calls this? Ranked by depth, confidence, test proximity | Before understanding usage |
 | `graph_callees(symbol="handle")` | What does this call? | Before understanding dependencies |
 | `graph_neighbors(symbol="User")` | All connections: calls, refs, imports, extends, tests | Full picture of a symbol |
-| `graph_impact(symbol="User")` | Blast radius: what breaks if I change this? | **MUST call before editing** |
+| `graph_impact(symbol="User")` | Deep blast radius analysis via transitive edge walk | When you need full dependency tree |
 | `graph_path(symbol="handleRequest")` | Trace execution path as a readable story | Understand flow end-to-end |
-| `graph_summary(symbol="User")` | Quick digest: type, file, top edges | One-glance overview |
+| `graph_summary(symbol="User")` | Quick digest: type, file, top edges (prefer `graph_whereis` with `expand=true`) | One-glance overview |
 
 ### Administrative
 | Verb | What it does |
@@ -170,7 +172,7 @@ PATH handleRequest src/server.ts:10
 | Tier | Languages | Accuracy |
 |---|---|---|
 | **Tier 1** (90%+) | Python, JavaScript, TypeScript, Go, Ruby, Java | Explicit imports + clear structure |
-| **Tier 2** (70-80%) | PHP, C, Rust, Kotlin | Framework magic or preprocessor gaps |
+| **Tier 2** (70-80%) | PHP, C, Rust | Framework magic or preprocessor gaps |
 | **Tier 3** (60%) | C++ | Templates/ADL limit static analysis |
 
 Adding a new language = writing a ~30-line config file.
@@ -199,7 +201,7 @@ Tested on real codebases:
 - [Install for Claude Code](install.claude.md)
 - [Install for Codex](install.codex.md)
 - [Install for OpenCode](install.opencode.md)
-- [Query format reference](docs/query-format.md)
+- [Query format reference](SKILL.md)
 - [Dogfood baseline](docs/dogfood/baseline-2026-04-16.md)
 
 ## License

@@ -6,11 +6,12 @@ import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
 export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
+  if (!symbol) return 'ERROR: symbol parameter is required';
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
-    if (sources.length === 0) return 'NO MATCH';
+    if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
     const sourceIds = sources.map(s => s.id);
 
     let edges;
@@ -42,7 +43,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       );
     }
 
-    if (edges.length === 0) return 'NO CALLEES';
+    if (edges.length === 0) return `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
 
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: 'CALLS',
@@ -52,7 +53,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       to_label: e.to_label,
     }));
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0) return file ? `NO CALLEES in "${file}"` : 'NO CALLEES';
+    if (mapped.length === 0) return file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });

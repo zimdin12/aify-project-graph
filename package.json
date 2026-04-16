@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "better-sqlite3": "^11.0.0",
-    "execa": "^9.5.0",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
     "proper-lockfile": "^4.1.2",

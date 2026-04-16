@@ -6,12 +6,13 @@ import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
 export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
+  if (!symbol) return 'ERROR: symbol parameter is required';
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // Find target node(s)
     const targets = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
-    if (targets.length === 0) return 'NO MATCH';
+    if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
     const targetIds = targets.map(t => t.id);
 
     // Gather incoming CALLS edges (depth 1 for now; recursive CTE for depth > 1)
@@ -45,7 +46,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       );
     }
 
-    if (edges.length === 0) return 'NO CALLERS';
+    if (edges.length === 0) return `NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
 
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: 'CALLS',
@@ -56,7 +57,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     }));
     // File scope filter: only show callers from a specific directory
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0) return file ? `NO CALLERS from "${file}"` : 'NO CALLERS';
+    if (mapped.length === 0) return file ? `NO CALLERS from "${file}"` : `NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });

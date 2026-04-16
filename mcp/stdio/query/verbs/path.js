@@ -39,7 +39,7 @@ export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = db.all('SELECT * FROM nodes WHERE label = $label', { label: symbol });
-    if (sources.length === 0) return 'NO MATCH';
+    if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
 
     const root = selectBestRoot(sources);
     const relations = MODE_RELATIONS[mode] ?? MODE_RELATIONS.execution;
@@ -52,7 +52,7 @@ export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5
       visited: new Set(),
     });
 
-    if (!path) return 'NO PATHS';
+    if (!path) return `NO PATHS from "${symbol}". The symbol may be a leaf node with no outgoing calls. Try graph_neighbors(symbol="${symbol}") to see all connections.`;
     return renderPath(trimPaths([path], top_k));
   } finally {
     db.close();

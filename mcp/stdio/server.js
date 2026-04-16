@@ -67,6 +67,7 @@ const TOOLS = [
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Partial symbol name to search (e.g. "UserCont" finds "UserController")' },
+        kind: { type: 'string', enum: ['code', 'all'], default: 'code', description: 'code=functions/classes only (default), all=include docs/dirs/configs' },
         type: { type: 'string', description: 'Filter by node type: Function, Method, Class, Interface, Type, Test, File, Route, Entrypoint' },
         file: { type: 'string', description: 'Filter by file path prefix (e.g. "src/auth" only searches in src/auth/)' },
         limit: { type: 'integer', default: 20, description: 'Max results' },
@@ -178,7 +179,7 @@ const TOOLS = [
   {
     name: 'graph_impact',
     handler: graphImpact,
-    description: 'What breaks if I change this symbol? Walks CALLS + REFERENCES + USES_TYPE + TESTS edges transitively. MUST call before editing any symbol with >1 caller. Returns EDGE lines showing the blast radius.',
+    description: 'Deep drill-down for blast radius analysis. Walks CALLS + REFERENCES + USES_TYPE + TESTS edges transitively. For quick edit safety checks, prefer graph_preflight. Returns EDGE lines showing the blast radius.',
     schema: {
       type: 'object',
       properties: {
@@ -208,7 +209,7 @@ const TOOLS = [
   {
     name: 'graph_summary',
     handler: graphSummary,
-    description: 'Compact digest of a single symbol: type, file:line, top 3 incoming + 3 outgoing edges. Quick overview without full callers/callees query.',
+    description: 'Compact digest of a single symbol: type, file:line, top 3 incoming + 3 outgoing edges. (Backward compat — prefer graph_whereis with expand=true)',
     schema: {
       type: 'object',
       properties: {

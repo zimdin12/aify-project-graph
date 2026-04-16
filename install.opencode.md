@@ -1,5 +1,7 @@
 # Install In OpenCode
 
+> **STATUS: PROVISIONAL** -- OpenCode MCP support has not yet been verified with this server. The configuration below is our best guess based on OpenCode's documented MCP interface. If you encounter issues, please report them.
+
 1. Clone this repo where you want to keep the MCP server code.
 2. Run `npm install`.
 3. Run `npm test` and confirm the suite is green.

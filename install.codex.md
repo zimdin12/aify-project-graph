@@ -65,11 +65,13 @@ graph_report()                          # orient in the project
 graph_whereis(symbol="MyClass")         # find definition
 graph_callers(symbol="myFunction")      # who calls this?
 graph_callees(symbol="myFunction")      # what does this call?
-graph_path(from="handleRequest")        # trace execution path
+graph_path(symbol="handleRequest")      # trace execution path
 graph_impact(symbol="User")             # what breaks if I change this?
 graph_module_tree(path="src")           # directory/file hierarchy
-graph_summary(node="MyClass")           # compact node digest
-graph_neighbors(node="X")              # all edges around X
+graph_preflight(symbol="get_db")        # one-shot edit safety check
+graph_file(path="src/auth/token.ts")    # everything about one file
+graph_whereis(symbol="MyClass", expand=true)  # definition + top edges
+graph_neighbors(symbol="X")             # all edges around X
 ```
 
 ## How it works

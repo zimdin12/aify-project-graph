@@ -11,15 +11,16 @@ const ALL_RELATIONS = [
 ];
 
 export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth = 1, top_k = 20 }) {
+  if (!symbol) return 'ERROR: symbol parameter is required';
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const targets = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
-    if (targets.length === 0) return 'NO MATCH';
+    if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
 
     const types = edge_types.length ? edge_types : ALL_RELATIONS;
     const safeTypes = types.filter(t => ALL_RELATIONS.includes(t));
-    if (safeTypes.length === 0) return 'NO MATCH';
+    if (safeTypes.length === 0) return `NO MATCH — none of the requested edge_types are valid. Valid types: ${ALL_RELATIONS.join(', ')}.`;
     const relFilter = safeTypes.map(t => `'${t}'`).join(',');
     const nodeId = targets[0].id;
 
@@ -32,7 +33,7 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
       { id: nodeId }
     );
 
-    if (edges.length === 0) return 'NO NEIGHBORS';
+    if (edges.length === 0) return `NO NEIGHBORS for "${symbol}". The symbol may be isolated. Try graph_whereis(symbol="${symbol}") to confirm it exists, or graph_search(query="${symbol}") for similar names.`;
 
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
