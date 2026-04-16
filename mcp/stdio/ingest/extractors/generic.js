@@ -162,7 +162,9 @@ export function extractFile({ filePath, source, config }) {
     extractor: config.language,
   });
 
-  const visit = (node, owner = null, parentClass = null) => {
+  const MAX_VISIT_DEPTH = 80;
+  const visit = (node, owner = null, parentClass = null, depth = 0) => {
+    if (depth > MAX_VISIT_DEPTH) return;
     const symbolRule = matchRule(node, config.symbols);
     let nextOwner = owner;
     let nextParentClass = parentClass;
@@ -254,7 +256,7 @@ export function extractFile({ filePath, source, config }) {
     }
 
     for (const child of node.namedChildren) {
-      visit(child, nextOwner, nextParentClass);
+      visit(child, nextOwner, nextParentClass, depth + 1);
     }
   };
 
