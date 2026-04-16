@@ -140,15 +140,33 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         refs.push(...extracted.refs);
       }
 
-      const resolved = resolveRefs({ db, refs });
-      const batchResolvedEdges = db.transaction(() => {
-        for (const edge of resolved.edges) upsertEdge(db, edge);
-      });
-      batchResolvedEdges();
+      let resolved = { edges: [], unresolved: [] };
+      try {
+        resolved = resolveRefs({ db, refs });
+        const batchResolvedEdges = db.transaction(() => {
+          for (const edge of resolved.edges) upsertEdge(db, edge);
+        });
+        batchResolvedEdges();
+      } catch (err) {
+        // Resolution failed on large graph — proceed with partial edges
+        resolved = { edges: [], unresolved: refs };
+      }
 
-      // Post-indexing analysis
-      const communityResult = detectCommunities(db);
-      await detectMentions(db, repoRoot);
+      // Post-indexing analysis (skip on very large graphs to avoid OOM)
+      const nodeCount0 = countNodes(db);
+      let communityResult = { communities: 0 };
+      if (nodeCount0 <= 20000) {
+        try {
+          communityResult = detectCommunities(db);
+        } catch (err) {
+          // Community detection failed (OOM on large graphs) — non-fatal
+        }
+        try {
+          await detectMentions(db, repoRoot);
+        } catch (err) {
+          // Mentions detection failed — non-fatal
+        }
+      }
 
       const nodeCount = countNodes(db);
       const edgeCount = countEdges(db);
