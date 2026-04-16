@@ -51,14 +51,16 @@ function resolveTarget(ref, index) {
     return index.byQname.get(ref.target);
   }
 
-  const suffixMatch = uniqueOrNull(index.byQnameSuffix.get(ref.target) ?? []);
-  if (suffixMatch) {
-    return suffixMatch;
-  }
-
   const labelMatch = uniqueOrNull(index.byLabel.get(ref.target) ?? []);
   if (labelMatch) {
     return labelMatch;
+  }
+
+  if (/[.\\]/u.test(ref.target)) {
+    const suffixMatch = uniqueOrNull(index.byQnameSuffix.get(ref.target) ?? []);
+    if (suffixMatch) {
+      return suffixMatch;
+    }
   }
 
   return null;

@@ -1,0 +1,206 @@
+import { readdir, readFile, stat } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { openDb } from '../storage/db.js';
+import { SCHEMA_VERSION } from '../storage/schema.js';
+import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/nodes.js';
+import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
+import { getHeadCommit, getDirtyFiles, getChangedFiles } from './git.js';
+import { loadManifest, writeManifest } from './manifest.js';
+import { withWriteLock } from './lock.js';
+import { getLanguageConfig } from '../ingest/languages/index.js';
+import { extractFile } from '../ingest/extractors/generic.js';
+import { sweepFilesystem } from '../ingest/sweep.js';
+import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
+import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
+import { resolveRefs } from '../ingest/resolver.js';
+
+const EXTRACTOR_VERSION = '0.1.0';
+const PARSER_BUNDLE_VERSION = '2026.04.16';
+const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema'];
+const IGNORED_DIRS = new Set(['.git', '.aify-graph', 'node_modules']);
+
+export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-graph'), force = false }) {
+  return withWriteLock(repoRoot, async () => {
+    const manifestState = await loadManifest(graphDir);
+    const manifest = manifestState.manifest;
+    const commit = await getHeadCommit(repoRoot);
+    const dirtyFiles = [...new Set([
+      ...(await getDirtyFiles(repoRoot)),
+      ...(manifest.dirtyFiles ?? []),
+    ])];
+    const changedFromCommit = !force && manifest.commit && manifest.commit !== commit
+      ? await getChangedFiles(repoRoot, manifest.commit, commit)
+      : [];
+    const initialChanged = [...new Set([...dirtyFiles, ...changedFromCommit])];
+
+    const db = openDb(join(graphDir, 'graph.sqlite'));
+    try {
+      const fullRebuild = force || manifestState.status !== 'ok' || !manifest.commit;
+      const filesToProcess = fullRebuild
+        ? await listRepoFiles(repoRoot)
+        : await expandAffectedFiles(db, repoRoot, initialChanged);
+
+      if (fullRebuild) {
+        db.exec('DELETE FROM edges; DELETE FROM nodes;');
+      }
+
+      clearSpecialNodes(db);
+
+      const special = await sweepFilesystem({ repoRoot });
+      const specialPlugins = await applyFrameworkPlugins({
+        repoRoot,
+        result: { nodes: [], edges: [], refs: [] },
+        plugins: [laravelRoutesPlugin],
+      });
+
+      for (const node of special.nodes) upsertNode(db, node);
+      for (const edge of special.edges) upsertEdge(db, edge);
+      for (const node of specialPlugins.nodes) upsertNode(db, node);
+      for (const edge of specialPlugins.edges) upsertEdge(db, edge);
+
+      const refs = [...specialPlugins.refs, ...(manifest.dirtyEdges ?? [])];
+      const existingFiles = [];
+
+      for (const relPath of filesToProcess) {
+        const absPath = join(repoRoot, relPath);
+        if (!existsSync(absPath)) {
+          deleteNodesForFile(db, relPath);
+          continue;
+        }
+
+        const config = maybeGetLanguageConfig(relPath);
+        if (!config) {
+          continue;
+        }
+
+        existingFiles.push(relPath);
+        deleteNodesForFile(db, relPath);
+
+        const source = await readFile(absPath, 'utf8');
+        const extracted = extractFile({ filePath: relPath, source, config });
+        for (const node of extracted.nodes) upsertNode(db, node);
+        for (const edge of extracted.edges) upsertEdge(db, edge);
+        refs.push(...extracted.refs);
+      }
+
+      const resolved = resolveRefs({ db, refs });
+      for (const edge of resolved.edges) upsertEdge(db, edge);
+
+      const nextManifest = {
+        commit,
+        indexedAt: new Date().toISOString(),
+        schemaVersion: SCHEMA_VERSION,
+        extractorVersion: EXTRACTOR_VERSION,
+        parserBundleVersion: PARSER_BUNDLE_VERSION,
+        dirtyFiles: [],
+        dirtyEdges: resolved.unresolved,
+      };
+      await writeManifest(graphDir, nextManifest);
+
+      return {
+        indexed: true,
+        commit,
+        indexedAt: nextManifest.indexedAt,
+        schemaVersion: SCHEMA_VERSION,
+        extractorVersion: EXTRACTOR_VERSION,
+        parserBundleVersion: PARSER_BUNDLE_VERSION,
+        dirtyFiles: [],
+        dirtyEdgeCount: resolved.unresolved.length,
+        unresolvedEdges: resolved.unresolved.length,
+        nodes: countNodes(db),
+        edges: countEdges(db),
+        processedFiles: existingFiles,
+      };
+    } finally {
+      db.close();
+    }
+  });
+}
+
+function clearSpecialNodes(db) {
+  const placeholders = SPECIAL_TYPES.map((_, index) => `$type${index}`);
+  const params = Object.fromEntries(SPECIAL_TYPES.map((type, index) => [`type${index}`, type]));
+
+  db.run(
+    `DELETE FROM edges
+     WHERE from_id IN (SELECT id FROM nodes WHERE type IN (${placeholders.join(', ')}))
+        OR to_id IN (SELECT id FROM nodes WHERE type IN (${placeholders.join(', ')}))`,
+    params,
+  );
+  db.run(`DELETE FROM nodes WHERE type IN (${placeholders.join(', ')})`, params);
+}
+
+function deleteNodesForFile(db, filePath) {
+  deleteEdgesByFile(db, filePath);
+  const existing = getNodesByFile(db, filePath);
+  for (const node of existing) {
+    deleteNode(db, node.id);
+  }
+}
+
+function maybeGetLanguageConfig(filePath) {
+  try {
+    return getLanguageConfig(filePath);
+  } catch {
+    return null;
+  }
+}
+
+async function expandAffectedFiles(db, repoRoot, changedFiles) {
+  const affected = new Set();
+
+  for (const filePath of changedFiles) {
+    affected.add(filePath);
+
+    const existingNodes = getNodesByFile(db, filePath);
+    if (existingNodes.length === 0) {
+      continue;
+    }
+
+    const ids = existingNodes.map((node) => node.id);
+    const placeholders = ids.map((_, index) => `$id${index}`);
+    const params = Object.fromEntries(ids.map((id, index) => [`id${index}`, id]));
+    const callers = db.all(
+      `SELECT DISTINCT source_file
+       FROM edges
+       WHERE to_id IN (${placeholders.join(', ')})
+         AND source_file != ''`,
+      params,
+    );
+
+    for (const caller of callers) {
+      if (caller.source_file && existsSync(join(repoRoot, caller.source_file))) {
+        affected.add(caller.source_file);
+      }
+    }
+  }
+
+  return [...affected];
+}
+
+async function listRepoFiles(repoRoot, currentDir = repoRoot) {
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (IGNORED_DIRS.has(entry.name)) continue;
+      files.push(...await listRepoFiles(repoRoot, join(currentDir, entry.name)));
+      continue;
+    }
+
+    const absPath = join(currentDir, entry.name);
+    const fileStat = await stat(absPath);
+    if (!fileStat.isFile()) continue;
+    files.push(normalizeRelativePath(repoRoot, absPath));
+  }
+
+  return files;
+}
+
+function normalizeRelativePath(repoRoot, absPath) {
+  return absPath
+    .slice(repoRoot.length + 1)
+    .replace(/\\/g, '/');
+}
