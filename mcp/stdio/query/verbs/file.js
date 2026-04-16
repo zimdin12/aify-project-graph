@@ -10,6 +10,7 @@ import { ensureFresh } from '../../freshness/orchestrator.js';
  * One verb replaces: whereis + callers + callees for every symbol in the file.
  */
 export async function graphFile({ repoRoot, path, top_k = 20 }) {
+  if (!path || typeof path !== 'string') return 'ERROR: path parameter is required (e.g. graph_file(path="service/db.py"))';
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
