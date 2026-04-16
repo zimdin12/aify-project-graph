@@ -187,13 +187,37 @@ Adding a new language = writing a ~30-line config file.
 
 Noop (no changes): 170ms on small repos, ~1.2s on large.
 
-## Dogfood results
+## A/B Test Results
 
-Tested on real codebases:
+We ran controlled A/B tests: same task, same model, same repo — only difference is whether the agent has graph tools.
 
-- **aify-comms** (Python+Node): 516 nodes, 1322 edges, 7 edge types active, 26 communities
-- **mem0-fork** (Python+TS+JS): 6669 nodes, 14262 edges, 458 communities, indexed in 10s
-- **echoes_of_the_fallen** (C/C++ game): 357,258 nodes, 749,134 edges — stress test passed
+### Graph-only vs files-only (feature planning)
+
+| Repo | Size | Files-only tokens | Graph-only tokens | Reduction |
+|---|---|---|---|---|
+| aify-comms | 32 files | 30,000 | **7,400** | **4.1x** |
+| aify-comms | 32 files | 13,750 | **6,000** | **2.3x** |
+| mem0-fork | 915 files | 49,000 | **15,490** | **3.2x** |
+| lc-api (Laravel) | 1,902 files | 15,500 | **5,750** | **2.7x** |
+| **Average** | | **27,063** | **8,660** | **3.1x** |
+
+### Realistic usage (graph + file reads together)
+
+| Repo | Files-only | Graph + Files | Savings | Notes |
+|---|---|---|---|---|
+| lc-api | 15,500 tok | **13,350 tok** | 14% | Equal confidence, better architecture decisions |
+| mem0-fork | 49,000 tok | **~22,000 tok** | 55% | Found full 3-phase dedup algorithm |
+
+The graph doesn't replace file reading — it **focuses** it. Instead of reading 10 files to find the right 2, the graph points you directly there.
+
+### Dogfood repos
+
+| Repo | Language | Files | Nodes | Edges | Index time |
+|---|---|---|---|---|---|
+| aify-comms | Python+Node | 32 | 482 | 1,151 | 1s |
+| mem0-fork | Python+TS+JS | 915 | 6,514 | 13,773 | 10s |
+| lc-api (Laravel) | PHP | 1,902 | 11,572 | 20,628 | 12s |
+| echoes_of_the_fallen | C/C++ | 250+ | 357,258 | 749,134 | ~3min |
 
 ## Detailed docs
 
