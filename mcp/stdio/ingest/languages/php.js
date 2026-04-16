@@ -1,9 +1,27 @@
 import Php from 'tree-sitter-php';
 
+function extractImportTargets({ node, source }) {
+  const clause = node.namedChildren.find((child) => child.type === 'namespace_use_clause');
+  if (clause) {
+    return [source.slice(clause.startIndex, clause.endIndex)];
+  }
+
+  const baseNode = node.namedChildren.find((child) => child.type === 'namespace_name');
+  const groupNode = node.namedChildren.find((child) => child.type === 'namespace_use_group');
+  if (!baseNode || !groupNode) return [];
+
+  const base = source.slice(baseNode.startIndex, baseNode.endIndex);
+  return groupNode.namedChildren
+    .filter((child) => child.type === 'namespace_use_clause')
+    .map((child) => `${base}\\${source.slice(child.startIndex, child.endIndex)}`);
+}
+
 export default {
   language: 'php',
   parser: Php.php ?? Php,
   extensions: ['.php'],
+  testDetector: ({ label, resolvedType }) =>
+    ['Function', 'Method'].includes(resolvedType) && /^test/u.test(label),
   confidence: {
     node: 0.75,
     import: 0.75,
@@ -26,11 +44,13 @@ export default {
     imports: [
       {
         nodeTypes: ['namespace_use_declaration'],
-        descendantTypes: ['qualified_name'],
+        extractTargets: extractImportTargets,
       },
     ],
     calls: [
       { nodeTypes: ['function_call_expression'], field: 'function' },
     ],
+    extends: [{ nodeTypes: ['base_clause'], descendantTypes: ['name'] }],
+    implements: [{ nodeTypes: ['class_interface_clause'], descendantTypes: ['name'] }],
   },
 };

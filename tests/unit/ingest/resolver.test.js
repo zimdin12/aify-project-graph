@@ -103,6 +103,26 @@ describe('cross-file resolver', () => {
         confidence: 0.95,
         extractor: 'python',
       },
+      {
+        from_id: 'route:imported-helper',
+        from_label: 'imported-helper',
+        relation: 'IMPORTS',
+        target: 'src.helpers.helper',
+        source_file: 'src/run.py',
+        source_line: 1,
+        confidence: 0.95,
+        extractor: 'python',
+      },
+      {
+        from_id: 'php:route',
+        from_label: 'route',
+        relation: 'IMPORTS',
+        target: 'app\\Http\\Controllers\\HomeController.index',
+        source_file: 'routes/web.php',
+        source_line: 1,
+        confidence: 0.75,
+        extractor: 'php',
+      },
     ];
 
     const result = resolveRefs({ db, refs });
@@ -111,6 +131,8 @@ describe('cross-file resolver', () => {
       expect.objectContaining({ from_id: 'fn:run', to_id: 'fn:helper', relation: 'CALLS' }),
       expect.objectContaining({ from_id: 'route:get-home', to_id: 'method:index', relation: 'INVOKES' }),
       expect.objectContaining({ from_id: 'doc:readme', to_id: 'fn:helper', relation: 'MENTIONS' }),
+      expect.objectContaining({ from_id: 'route:imported-helper', to_id: 'fn:helper', relation: 'IMPORTS' }),
+      expect.objectContaining({ from_id: 'php:route', to_id: 'method:index', relation: 'IMPORTS' }),
     ]));
 
     expect(result.unresolved).toEqual([

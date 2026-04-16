@@ -28,6 +28,22 @@ function normalizeImportTarget(text) {
   return text.trim().replace(/^["'<]+|[>"']+$/g, '');
 }
 
+function buildImportTargets(node, source, rule, filePath) {
+  const rawTargets = rule.extractTargets
+    ? rule.extractTargets({ node, source, filePath })
+    : extractTextsFromRule(node, source, rule);
+  const normalized = rawTargets
+    .map((target) => normalizeImportTarget(target))
+    .filter(Boolean);
+
+  if (rule.prefixFirst && normalized.length > 1) {
+    const [prefix, ...rest] = normalized;
+    return rest.map((target) => `${prefix}${rule.separator ?? '.'}${target}`);
+  }
+
+  return normalized;
+}
+
 function normalizeCallTarget(text) {
   const raw = text.trim();
   const stripped = raw.split(/\s+/u)[0];
@@ -35,23 +51,42 @@ function normalizeCallTarget(text) {
   return parts[parts.length - 1] ?? raw;
 }
 
-function extractTextFromRule(node, source, rule) {
+function normalizeReferenceTarget(text) {
+  const raw = text.trim();
+  const parts = raw.split(/::|->|\./u);
+  return parts[parts.length - 1] ?? raw;
+}
+
+function extractTextsFromRule(node, source, rule) {
+  if (!rule.field && !rule.descendantTypes?.length) {
+    const text = nodeText(node, source);
+    return text ? [text] : [];
+  }
+
   if (rule.field) {
-    return nodeText(node.childForFieldName(rule.field), source);
+    const text = nodeText(node.childForFieldName(rule.field), source);
+    return text ? [text] : [];
   }
 
   if (rule.descendantTypes?.length) {
+    const matches = [];
     const queue = [...node.namedChildren];
     while (queue.length) {
       const current = queue.shift();
       if (rule.descendantTypes.includes(current.type)) {
-        return nodeText(current, source);
+        const text = nodeText(current, source);
+        if (text) matches.push(text);
       }
       queue.push(...current.namedChildren);
     }
+    return matches;
   }
 
-  return '';
+  return [];
+}
+
+function extractTextFromRule(node, source, rule) {
+  return extractTextsFromRule(node, source, rule)[0] ?? '';
 }
 
 function buildSignature(node, source, rule) {
@@ -65,8 +100,99 @@ function buildSignature(node, source, rule) {
   return parts.join(' ').trim();
 }
 
-function matchRule(node, rules = []) {
-  return rules.find((rule) => rule.nodeTypes.includes(node.type));
+function matchRule(node, rules = [], parent = null) {
+  return rules.find((rule) =>
+    rule.nodeTypes.includes(node.type)
+    && (!rule.parentTypes?.length || (parent && rule.parentTypes.includes(parent.type)))
+  );
+}
+
+function nodeWithin(candidate, container) {
+  return Boolean(
+    candidate
+      && container
+      && candidate.startIndex >= container.startIndex
+      && candidate.endIndex <= container.endIndex
+  );
+}
+
+function matchesAncestorField(node, ancestors, rules = [], source, fieldPredicate = () => true) {
+  for (const ancestor of ancestors) {
+    const rule = matchRule(ancestor, rules);
+    if (!rule || !fieldPredicate(rule)) continue;
+
+    const fieldNode = ancestor.childForFieldName(rule.field);
+    if (nodeWithin(node, fieldNode)) {
+      return true;
+    }
+
+    if (rule.descendantTypes?.length) {
+      const queue = [...ancestor.namedChildren];
+      while (queue.length) {
+        const current = queue.shift();
+        if (rule.descendantTypes.includes(current.type) && nodeWithin(node, current)) {
+          return true;
+        }
+        queue.push(...current.namedChildren);
+      }
+    }
+  }
+
+  return false;
+}
+
+function isInsideParameterList(ancestors) {
+  const PARAMETER_TYPES = new Set([
+    'parameters',
+    'formal_parameters',
+    'parameter_list',
+    'typed_parameter',
+    'simple_parameter',
+    'required_parameter',
+    'optional_parameter',
+    'default_parameter',
+    'variadic_parameter',
+    'typed_default_parameter',
+    'receiver',
+  ]);
+
+  return ancestors.some((ancestor) => PARAMETER_TYPES.has(ancestor.type));
+}
+
+function isInsideTypeAnnotation(ancestors) {
+  const TYPE_ANNOTATION_TYPES = new Set([
+    'type',
+    'type_annotation',
+    'predefined_type',
+    'type_parameters',
+    'generic_type',
+  ]);
+
+  return ancestors.some((ancestor) => TYPE_ANNOTATION_TYPES.has(ancestor.type));
+}
+
+function isReferenceCandidate({ node, owner, ancestors, config, source }) {
+  if (!owner) return false;
+
+  const target = normalizeReferenceTarget(nodeText(node, source));
+  if (!target) return false;
+  if (['self', 'this', 'cls', 'super', 'class'].includes(target)) return false;
+  if (isInsideParameterList(ancestors)) return false;
+  if (isInsideTypeAnnotation(ancestors)) return false;
+
+  if (matchesAncestorField(node, ancestors, config.symbols, source, (rule) => Boolean(rule.field))) {
+    return false;
+  }
+
+  if (matchesAncestorField(node, ancestors, config.refs?.imports ?? [], source, (rule) => Boolean(rule.field) || Boolean(rule.descendantTypes?.length))) {
+    return false;
+  }
+
+  if (matchesAncestorField(node, ancestors, config.refs?.calls ?? [], source, (rule) => Boolean(rule.field))) {
+    return false;
+  }
+
+  return true;
 }
 
 function makeBaseNode({
@@ -163,9 +289,14 @@ export function extractFile({ filePath, source, config }) {
   });
 
   const MAX_VISIT_DEPTH = 80;
-  const visit = (node, owner = null, parentClass = null, depth = 0) => {
+  const referenceRules = config.refs?.references ?? [
+    { nodeTypes: ['identifier', 'type_identifier', 'name'] },
+  ];
+
+  const visit = (node, owner = null, parentClass = null, depth = 0, ancestors = []) => {
     if (depth > MAX_VISIT_DEPTH) return;
-    const symbolRule = matchRule(node, config.symbols);
+    const parentNode = ancestors[ancestors.length - 1] ?? null;
+    const symbolRule = matchRule(node, config.symbols, parentNode);
     let nextOwner = owner;
     let nextParentClass = parentClass;
 
@@ -174,12 +305,19 @@ export function extractFile({ filePath, source, config }) {
       if (name) {
         const explicitType = symbolRule.type;
         const resolvedType = explicitType === 'Function' && parentClass ? 'Method' : explicitType;
+        const detectedType = config.testDetector?.({
+          label: name,
+          filePath,
+          node,
+          resolvedType,
+          parentClass: parentClass?.label ?? '',
+        }) ? 'Test' : resolvedType;
         const qname = parentClass
           ? `${parentClass.extra.qname}.${name}`
           : `${moduleLabel}.${name}`;
         const signature = buildSignature(node, source, symbolRule);
         const createdNode = makeBaseNode({
-          type: resolvedType,
+          type: detectedType,
           label: name,
           filePath,
           startLine: lineNumber(node),
@@ -220,10 +358,9 @@ export function extractFile({ filePath, source, config }) {
       }
     }
 
-    const importRule = matchRule(node, config.refs?.imports);
+    const importRule = matchRule(node, config.refs?.imports, parentNode);
     if (importRule) {
-      const target = normalizeImportTarget(extractTextFromRule(node, source, importRule));
-      if (target) {
+      for (const target of buildImportTargets(node, source, importRule, filePath)) {
         refs.push({
           from_id: fileNode.id,
           from_label: fileNode.label,
@@ -237,30 +374,122 @@ export function extractFile({ filePath, source, config }) {
       }
     }
 
-    const callRule = matchRule(node, config.refs?.calls);
+    const callRule = matchRule(node, config.refs?.calls, parentNode);
     if (callRule && nextOwner) {
       const target = normalizeCallTarget(extractTextFromRule(node, source, callRule));
       if (target) {
-        refs.push({
+        const baseRef = {
           from_id: nextOwner.id,
           from_label: nextOwner.label,
-          relation: 'CALLS',
           target,
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: callRule.confidence ?? config.confidence?.call ?? config.confidence?.node ?? 1.0,
           extractor: config.language,
+        };
+
+        refs.push({
+          ...baseRef,
+          relation: 'CALLS',
         });
+
+        if (nextOwner.type === 'Test') {
+          refs.push({
+            ...baseRef,
+            relation: 'TESTS',
+          });
+        }
         symbolDeps.get(nextOwner.id)?.calls.push(target);
       }
     }
 
+    const referenceRule = matchRule(node, referenceRules, parentNode);
+    if (referenceRule && isReferenceCandidate({ node, owner: nextOwner, ancestors, config, source })) {
+      const target = normalizeReferenceTarget(extractTextFromRule(node, source, referenceRule));
+      if (target) {
+        refs.push({
+          from_id: nextOwner.id,
+          from_label: nextOwner.label,
+          relation: 'REFERENCES',
+          target,
+          source_file: filePath,
+          source_line: lineNumber(node),
+          confidence: referenceRule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          extractor: config.language,
+        });
+        symbolDeps.get(nextOwner.id)?.references.push(target);
+      }
+    }
+
+    for (const rule of config.refs?.extends ?? []) {
+      if (!nextOwner || nextOwner.type !== 'Class') continue;
+      if (!matchRule(node, [rule], parentNode)) continue;
+
+      for (const targetText of extractTextsFromRule(node, source, rule)) {
+        const target = normalizeReferenceTarget(targetText);
+        if (!target) continue;
+        refs.push({
+          from_id: nextOwner.id,
+          from_label: nextOwner.label,
+          relation: 'EXTENDS',
+          target,
+          source_file: filePath,
+          source_line: lineNumber(node),
+          confidence: rule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          extractor: config.language,
+        });
+        symbolDeps.get(nextOwner.id)?.references.push(target);
+      }
+    }
+
+    for (const rule of config.refs?.implements ?? []) {
+      if (!nextOwner || nextOwner.type !== 'Class') continue;
+      if (!matchRule(node, [rule], parentNode)) continue;
+
+      for (const targetText of extractTextsFromRule(node, source, rule)) {
+        const target = normalizeReferenceTarget(targetText);
+        if (!target) continue;
+        refs.push({
+          from_id: nextOwner.id,
+          from_label: nextOwner.label,
+          relation: 'IMPLEMENTS',
+          target,
+          source_file: filePath,
+          source_line: lineNumber(node),
+          confidence: rule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          extractor: config.language,
+        });
+        symbolDeps.get(nextOwner.id)?.references.push(target);
+      }
+    }
+
+    for (const rule of config.refs?.usesTypes ?? []) {
+      if (!nextOwner) continue;
+      if (!matchRule(node, [rule], parentNode)) continue;
+
+      for (const targetText of extractTextsFromRule(node, source, rule)) {
+        const target = normalizeReferenceTarget(targetText);
+        if (!target) continue;
+        refs.push({
+          from_id: nextOwner.id,
+          from_label: nextOwner.label,
+          relation: 'USES_TYPE',
+          target,
+          source_file: filePath,
+          source_line: lineNumber(node),
+          confidence: rule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          extractor: config.language,
+        });
+        symbolDeps.get(nextOwner.id)?.usesTypes.push(target);
+      }
+    }
+
     for (const child of node.namedChildren) {
-      visit(child, nextOwner, nextParentClass, depth + 1);
+      visit(child, nextOwner, nextParentClass, depth + 1, [...ancestors, node]);
     }
   };
 
-  visit(tree.rootNode, null, null);
+  visit(tree.rootNode, null, null, 0, []);
 
   finalizeFingerprints(fileNode, {
     calls: [],

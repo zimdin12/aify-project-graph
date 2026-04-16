@@ -103,7 +103,7 @@ describe('freshness orchestrator', () => {
       }),
       expect.objectContaining({
         relation: 'IMPORTS',
-        target: 'helper',
+        target: expect.stringMatching(/(^helper$|^helper\.helper$)/),
         source_file: 'src/run.py',
       }),
     ]));

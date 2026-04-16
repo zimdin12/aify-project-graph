@@ -78,17 +78,36 @@ function preferProximate(matches, sourceFile) {
   return null;
 }
 
+function lookupCandidates(target) {
+  const candidates = new Set([target]);
+  const dotted = target
+    .replace(/\\/g, '.')
+    .replace(/\//g, '.')
+    .replace(/^\.+/u, '')
+    .replace(/\.{2,}/g, '.');
+
+  if (dotted) {
+    candidates.add(dotted);
+  }
+
+  return [...candidates].filter(Boolean);
+}
+
 function resolveTarget(ref, index) {
   // Exact qname always wins
-  if (index.byQname.has(ref.target)) {
-    return index.byQname.get(ref.target);
+  for (const candidate of lookupCandidates(ref.target)) {
+    if (index.byQname.has(candidate)) {
+      return index.byQname.get(candidate);
+    }
   }
 
   // Qname suffix match (e.g. "HomeController.index")
-  if (/[.\\]/u.test(ref.target)) {
-    const suffixMatches = index.byQnameSuffix.get(ref.target) ?? [];
-    const suffixMatch = preferProximate(suffixMatches, ref.source_file);
-    if (suffixMatch) return suffixMatch;
+  if (/[.\\/]/u.test(ref.target)) {
+    for (const candidate of lookupCandidates(ref.target)) {
+      const suffixMatches = index.byQnameSuffix.get(candidate) ?? [];
+      const suffixMatch = preferProximate(suffixMatches, ref.source_file);
+      if (suffixMatch) return suffixMatch;
+    }
   }
 
   // Label match — but skip common names to avoid false global magnets

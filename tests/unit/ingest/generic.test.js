@@ -3,6 +3,7 @@ import { extractFile } from '../../../mcp/stdio/ingest/extractors/generic.js';
 import python from '../../../mcp/stdio/ingest/languages/python.js';
 import php from '../../../mcp/stdio/ingest/languages/php.js';
 import c from '../../../mcp/stdio/ingest/languages/c.js';
+import typescript from '../../../mcp/stdio/ingest/languages/typescript.js';
 
 function findNode(nodes, type, label) {
   return nodes.find((node) => node.type === type && node.label === label);
@@ -27,6 +28,7 @@ describe('generic extractor', () => {
       '',
       'def run():',
       '    hello("world")',
+      '    return Greeter',
       '',
     ].join('\n');
 
@@ -54,6 +56,7 @@ describe('generic extractor', () => {
     expect(findRef(result.refs, 'IMPORTS', 'greeter.py', 'os')).toBeTruthy();
     expect(findRef(result.refs, 'CALLS', 'hello', 'print')).toBeTruthy();
     expect(findRef(result.refs, 'CALLS', 'run', 'hello')).toBeTruthy();
+    expect(findRef(result.refs, 'REFERENCES', 'run', 'Greeter')).toBeTruthy();
   });
 
   it('extracts PHP classes, methods, imports, and function calls', () => {
@@ -119,5 +122,154 @@ describe('generic extractor', () => {
       confidence: 0.75,
       extractor: 'c',
     });
+  });
+
+  it('emits REFERENCES for non-call symbol usage inside call arguments', () => {
+    const source = [
+      'def get_db():',
+      '    pass',
+      '',
+      'def route(Depends):',
+      '    return Depends(get_db)',
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'service/routes.py',
+      source,
+      config: python,
+    });
+
+    expect(findRef(result.refs, 'CALLS', 'route', 'Depends')).toBeTruthy();
+    expect(findRef(result.refs, 'REFERENCES', 'route', 'get_db')).toBeTruthy();
+  });
+
+  it('emits inheritance refs for class extension and interface implementation', () => {
+    const pythonSource = [
+      'class Base:',
+      '    pass',
+      '',
+      'class Child(Base):',
+      '    pass',
+      '',
+    ].join('\n');
+
+    const pythonResult = extractFile({
+      filePath: 'service/models.py',
+      source: pythonSource,
+      config: python,
+    });
+
+    expect(findRef(pythonResult.refs, 'EXTENDS', 'Child', 'Base')).toBeTruthy();
+
+    const tsSource = [
+      'interface Runner {}',
+      'class Base {}',
+      'class Child extends Base implements Runner {}',
+      '',
+    ].join('\n');
+
+    const tsResult = extractFile({
+      filePath: 'src/models.ts',
+      source: tsSource,
+      config: typescript,
+    });
+
+    expect(findRef(tsResult.refs, 'EXTENDS', 'Child', 'Base')).toBeTruthy();
+    expect(findRef(tsResult.refs, 'IMPLEMENTS', 'Child', 'Runner')).toBeTruthy();
+  });
+
+  it('types test functions as Test and emits TESTS refs for their calls', () => {
+    const source = [
+      'def helper():',
+      '    pass',
+      '',
+      'def test_helper():',
+      '    helper()',
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'tests/test_helper.py',
+      source,
+      config: python,
+    });
+
+    expect(findNode(result.nodes, 'Test', 'test_helper')).toBeTruthy();
+    expect(findRef(result.refs, 'CALLS', 'test_helper', 'helper')).toBeTruthy();
+    expect(findRef(result.refs, 'TESTS', 'test_helper', 'helper')).toBeTruthy();
+  });
+
+  it('emits multiple import refs for Python from-import statements', () => {
+    const source = [
+      'from service.db import get_db, close_db',
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'service/routes.py',
+      source,
+      config: python,
+    });
+
+    expect(findRef(result.refs, 'IMPORTS', 'routes.py', 'service.db.get_db')).toBeTruthy();
+    expect(findRef(result.refs, 'IMPORTS', 'routes.py', 'service.db.close_db')).toBeTruthy();
+  });
+
+  it('emits named TypeScript imports with module-qualified targets', () => {
+    const source = [
+      "import { foo, bar as baz } from './helpers';",
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'src/main.ts',
+      source,
+      config: typescript,
+    });
+
+    expect(findRef(result.refs, 'IMPORTS', 'main.ts', 'helpers.foo')).toBeTruthy();
+    expect(findRef(result.refs, 'IMPORTS', 'main.ts', 'helpers.bar')).toBeTruthy();
+  });
+
+  it('emits USES_TYPE refs for signature annotations without downgrading them to REFERENCES', () => {
+    const pythonSource = [
+      'class Greeter:',
+      '    pass',
+      '',
+      'def run(item: Greeter) -> Greeter:',
+      '    return item',
+      '',
+    ].join('\n');
+
+    const pythonResult = extractFile({
+      filePath: 'service/types.py',
+      source: pythonSource,
+      config: python,
+    });
+
+    const pythonTypeRefs = pythonResult.refs.filter((ref) =>
+      ref.from_label === 'run' && ref.relation === 'USES_TYPE' && ref.target === 'Greeter'
+    );
+    expect(pythonTypeRefs).toHaveLength(2);
+    expect(findRef(pythonResult.refs, 'REFERENCES', 'run', 'Greeter')).toBeFalsy();
+
+    const tsSource = [
+      'interface Runner {}',
+      'class Greeter {}',
+      'function run(item: Greeter): Runner {',
+      '  return item as unknown as Runner;',
+      '}',
+      '',
+    ].join('\n');
+
+    const tsResult = extractFile({
+      filePath: 'src/types.ts',
+      source: tsSource,
+      config: typescript,
+    });
+
+    expect(findRef(tsResult.refs, 'USES_TYPE', 'run', 'Greeter')).toBeTruthy();
+    expect(findRef(tsResult.refs, 'USES_TYPE', 'run', 'Runner')).toBeTruthy();
   });
 });
