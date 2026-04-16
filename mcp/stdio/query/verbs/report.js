@@ -3,6 +3,21 @@ import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { communitySummary } from '../../analysis/communities.js';
 
+// Filter out noise from report output
+const NOISE_LABELS = new Set([
+  'requirements.txt', 'package-lock.json', 'yarn.lock', '.gitignore',
+  '.eslintrc', '.prettierrc', 'tsconfig.json', '.editorconfig',
+]);
+const NOISE_ENTRY_PATTERNS = [/^index\.(css|html)$/i, /^__init__\.py$/];
+
+function isNoisyEntry(label) {
+  return NOISE_ENTRY_PATTERNS.some(p => p.test(label));
+}
+
+function isNoisyDoc(label) {
+  return NOISE_LABELS.has(label);
+}
+
 export async function graphReport({ repoRoot, top_k = 20 }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
@@ -34,12 +49,15 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
        GROUP BY n.id ORDER BY children DESC LIMIT 10`
     );
 
-    // Hub symbols (most incoming edges)
+    // Hub symbols (most incoming edges, excluding common names)
     const hubs = db.all(
       `SELECT n.label, n.type, n.file_path, count(e.from_id) AS fan_in
        FROM nodes n JOIN edges e ON e.to_id = n.id
        WHERE n.type IN ('Function', 'Method', 'Class', 'Interface')
        AND e.relation IN ('CALLS', 'REFERENCES')
+       AND n.label NOT IN ('close','open','read','write','get','set','json',
+         'log','print','send','parse','init','run','test','str','int','len',
+         '__init__','__str__','__repr__','raise_for_status','toString')
        GROUP BY n.id ORDER BY fan_in DESC LIMIT 10`
     );
 
@@ -58,7 +76,9 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
     }
 
     for (const e of entries) {
-      lines.push(`ENTRY ${e.label} ${e.file_path}:${e.start_line}`);
+      if (!isNoisyEntry(e.label)) {
+        lines.push(`ENTRY ${e.label} ${e.file_path}:${e.start_line}`);
+      }
     }
 
     for (const d of dirs) {
@@ -66,7 +86,9 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
     }
 
     for (const d of docs) {
-      lines.push(`DOC ${d.label} ${d.file_path}`);
+      if (!isNoisyDoc(d.label)) {
+        lines.push(`DOC ${d.label} ${d.file_path}`);
+      }
     }
 
     for (const h of hubs) {
