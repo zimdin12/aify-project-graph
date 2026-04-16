@@ -21,6 +21,8 @@ describe('manifest persistence', () => {
     expect(result.status).toBe('missing');
     expect(result.manifest).toMatchObject({
       commit: null,
+      nodes: 0,
+      edges: 0,
       dirtyFiles: [],
       dirtyEdges: [],
     });
@@ -30,6 +32,8 @@ describe('manifest persistence', () => {
     const manifest = {
       commit: 'abc123',
       indexedAt: '2026-04-16T00:00:00Z',
+      nodes: 12,
+      edges: 34,
       schemaVersion: 1,
       extractorVersion: '0.1.0',
       parserBundleVersion: '2026.04.16',

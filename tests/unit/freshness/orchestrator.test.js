@@ -70,6 +70,8 @@ describe('freshness orchestrator', () => {
 
     const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
     expect(manifest.commit).toBe('head-1');
+    expect(manifest.nodes).toBeGreaterThan(0);
+    expect(manifest.edges).toBeGreaterThan(0);
     expect(manifest.dirtyEdges).toEqual([]);
   });
 

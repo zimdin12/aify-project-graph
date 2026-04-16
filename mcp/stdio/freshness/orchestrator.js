@@ -87,9 +87,14 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       const resolved = resolveRefs({ db, refs });
       for (const edge of resolved.edges) upsertEdge(db, edge);
 
+      const nodeCount = countNodes(db);
+      const edgeCount = countEdges(db);
+
       const nextManifest = {
         commit,
         indexedAt: new Date().toISOString(),
+        nodes: nodeCount,
+        edges: edgeCount,
         schemaVersion: SCHEMA_VERSION,
         extractorVersion: EXTRACTOR_VERSION,
         parserBundleVersion: PARSER_BUNDLE_VERSION,
@@ -108,8 +113,8 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         dirtyFiles: [],
         dirtyEdgeCount: resolved.unresolved.length,
         unresolvedEdges: resolved.unresolved.length,
-        nodes: countNodes(db),
-        edges: countEdges(db),
+        nodes: nodeCount,
+        edges: edgeCount,
         processedFiles: existingFiles,
       };
     } finally {

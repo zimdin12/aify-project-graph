@@ -8,6 +8,8 @@ function defaultManifest() {
   return {
     commit: null,
     indexedAt: null,
+    nodes: 0,
+    edges: 0,
     schemaVersion: 1,
     extractorVersion: '0.0.0',
     parserBundleVersion: '0.0.0',
