@@ -5,19 +5,44 @@ description: Use when working in a repo that has `.aify-graph/` or when you need
 
 # aify-project-graph
 
-This repo has (or can have) a project graph at `.aify-graph/graph.sqlite`. Use graph tools **before** reaching for grep, file reads, or directory listings.
+This repo has (or can have) a project graph at `.aify-graph/graph.sqlite`.
+
+## The graph is a MAP, not the source of truth
+
+Use it to **navigate** — find where things are, who calls what, what the blast radius is. But the map can be stale or incomplete. The workflow is:
+
+1. **Navigate with graph** — find the right files, symbols, and relationships
+2. **Verify with file reads** — read the actual code before making decisions
+3. **Act** — edit with confidence because you checked both graph and source
+
+The graph tells you WHERE to look. The source code tells you WHAT to do. Never skip step 2 for safety-critical changes.
 
 ## Hard rules
 
 1. **MUST** call `graph_report()` on first interaction with an unfamiliar repo.
 2. **MUST** call `graph_preflight(symbol="X")` before editing any symbol with non-trivial fan-in. Follow the decision:
-   - **SAFE** — proceed.
+   - **SAFE** — proceed (but still read the target function).
    - **REVIEW** — read each caller file before editing.
    - **CONFIRM** — stop and confirm the change scope with the user before editing.
-3. **Do NOT** pre-fetch subgraphs "just in case." (Exception: `graph_report()` is the mandatory orientation step.)
-4. **Do NOT** call every verb at session start. The graph builds on first query (may take 1-60s on large repos).
-5. **Do NOT** call `graph_whereis` with a partial name — use `graph_search` instead.
-6. If trust shows `missing_internal > 0`, prefer direct file reads for safety-critical edits.
+3. **Always verify graph results against actual source** before acting on them. The graph shows structure as of the last index — files may have changed since.
+4. **Do NOT** pre-fetch subgraphs "just in case." (Exception: `graph_report()` is the mandatory orientation step.)
+5. **Do NOT** call every verb at session start. The graph builds on first query (may take 1-60s on large repos).
+6. **Do NOT** call `graph_whereis` with a partial name — use `graph_search` instead.
+7. **Do NOT** call graph verbs in parallel — serialize them to avoid lock contention.
+8. If trust shows weak confidence, prefer direct file reads for safety-critical edits.
+
+## Typical workflow
+
+```
+graph_report()           → orient: what is this project?
+graph_search("dispatch") → find: where is the dispatch code?
+graph_file("api_v2.py")  → understand: what does this file do?
+graph_preflight("X")     → safety check: is it safe to edit?
+Read the actual code      → verify: confirm what the graph told you
+Edit with confidence      → act: you know the blast radius
+```
+
+The graph saves you from reading 10 files to find the right 2. Then you read those 2 files properly before acting.
 
 ## Graph seems wrong?
 
@@ -99,3 +124,11 @@ DECISION: CONFIRM — 42 callers across module boundaries
 - Search is case-insensitive: `user` finds `User`, `UserController`
 - Default kind is `code` — excludes docs/dirs. Use `kind="all"` to include them.
 - `graph_report()` replaces `graph_search + graph_module_tree` for orientation — don't chain all verbs serially.
+- If search returns nothing useful, try a shorter query or use `graph_module_tree` to browse by directory.
+
+## What the graph CANNOT tell you
+
+- **Function signatures and docstrings** — the graph stores structure (who calls what), not code content. Use `Read` for actual code.
+- **Runtime behavior** — dynamic dispatch, reflection, eval, monkey-patching are invisible to static analysis.
+- **What triggers a function with 0 callers** — entry points called by the runtime (event handlers, CLI commands, cron jobs) may not have graph edges. Check the code.
+- **Recent uncommitted changes** — the graph refreshes on git state. Unsaved edits in your editor are not reflected until you query again.
