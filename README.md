@@ -2,7 +2,7 @@
 
 On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph in a local SQLite file, and exposes high-intent query verbs over MCP. Agents navigate code, trace execution paths, and assess blast radius — using compact responses instead of reading files.
 
-**4.2x token reduction** on real navigation-and-edit workflows. 10 languages. No server, no container, no cloud.
+**19.7x token reduction** measured on real navigation-and-edit workflows (39k tokens without → 2k with). 10 languages. No server, no container, no cloud.
 
 ## Inspiration
 

@@ -71,6 +71,23 @@ graph_report()
 
 Should return a project orientation digest with directory layout, languages, entry points, hub symbols.
 
+### 6. Start using
+
+Key verbs:
+
+```
+graph_report()                                # orient in the project
+graph_search(query="dispatch")                # fuzzy search for symbols
+graph_whereis(symbol="get_db")                # exact definition lookup
+graph_file(path="service/db.py")              # everything about one file
+graph_preflight(symbol="get_db")              # edit safety check (SAFE/REVIEW/CONFIRM)
+graph_callers(symbol="get_db")                # who calls this?
+graph_callees(symbol="broadcast")             # what does this call?
+graph_path(symbol="handleRequest")            # trace execution path
+graph_impact(symbol="User")                   # blast radius analysis
+graph_whereis(symbol="X", expand=true)        # definition + top edges
+```
+
 ## Troubleshooting
 
 - **`better-sqlite3` build fails:** Install native build tools (Windows: `windows-build-tools` or VS Build Tools; macOS: Xcode CLT; Linux: `build-essential`).

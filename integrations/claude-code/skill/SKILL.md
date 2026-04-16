@@ -34,12 +34,12 @@ The graph tells you WHERE to look. The source code tells you WHAT to do. Never s
 ## Typical workflow
 
 ```
-graph_report()           → orient: what is this project?
-graph_search("dispatch") → find: where is the dispatch code?
-graph_file("api_v2.py")  → understand: what does this file do?
-graph_preflight("X")     → safety check: is it safe to edit?
-Read the actual code      → verify: confirm what the graph told you
-Edit with confidence      → act: you know the blast radius
+graph_report()                        → orient: what is this project?
+graph_search(query="dispatch")        → find: where is the dispatch code?
+graph_file(path="service/api_v2.py")  → understand: what does this file do?
+graph_preflight(symbol="get_db")      → safety check: is it safe to edit?
+Read the actual code                  → verify: confirm what the graph told you
+Edit with confidence                  → act: you know the blast radius
 ```
 
 The graph saves you from reading 10 files to find the right 2. Then you read those 2 files properly before acting.
@@ -77,7 +77,7 @@ The graph saves you from reading 10 files to find the right 2. Then you read tho
 | "Graph health" | `graph_status()` |
 | "Full rebuild" | `graph_index(force=true)` |
 | "Visual browser" | `graph_dashboard()` (human-only, do NOT call automatically) |
-| "Find all Classes" | `graph_search(query="", type="Class", kind="all")` |
+| "Find all Classes" | `graph_search(query="class", type="Class", kind="all")` |
 
 ## Key parameters
 
