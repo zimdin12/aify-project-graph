@@ -79,16 +79,25 @@ function preferProximate(matches, sourceFile) {
 }
 
 function lookupCandidates(target) {
-  const candidates = new Set([target]);
-  const dotted = target
+  // Strip quotes/angles from #include paths: "Engine.h" → Engine.h, <stdio.h> → stdio.h
+  const stripped = target.replace(/^["'<]+|[>"']+$/g, '').trim();
+  const candidates = new Set([target, stripped]);
+
+  // Convert path separators to dots for module-style matching
+  const dotted = stripped
     .replace(/\\/g, '.')
     .replace(/\//g, '.')
     .replace(/^\.+/u, '')
     .replace(/\.{2,}/g, '.');
+  if (dotted) candidates.add(dotted);
 
-  if (dotted) {
-    candidates.add(dotted);
-  }
+  // For include paths like "rendering/ParticleRenderer.h", also try just the filename
+  const basename = stripped.includes('/') ? stripped.split('/').pop() : null;
+  if (basename) candidates.add(basename);
+
+  // Strip extension for matching against labels: "Engine.h" → "Engine"
+  const noExt = stripped.replace(/\.[^.]+$/, '');
+  if (noExt && noExt !== stripped) candidates.add(noExt);
 
   return [...candidates].filter(Boolean);
 }
