@@ -11,6 +11,7 @@ import { graphImpact } from './query/verbs/impact.js';
 import { graphSummary } from './query/verbs/summary.js';
 import { graphReport } from './query/verbs/report.js';
 import { graphPath } from './query/verbs/path.js';
+import { graphDashboard } from './query/verbs/dashboard.js';
 
 const TOOLS = [
   {
@@ -67,6 +68,11 @@ const TOOLS = [
     name: 'graph_path', handler: graphPath,
     description: 'Trace execution path as a readable story. "What happens if I enter this function?"',
     schema: { type: 'object', properties: { from: { type: 'string' }, direction: { type: 'string', enum: ['out', 'in'], default: 'out' }, depth: { type: 'integer', default: 5 }, top_k: { type: 'integer', default: 3 } }, required: ['from'] },
+  },
+  {
+    name: 'graph_dashboard', handler: graphDashboard,
+    description: 'Start a local web dashboard to visually browse the project graph. Returns URL.',
+    schema: { type: 'object', properties: { port: { type: 'integer' } } },
   },
 ];
 

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>aify-project-graph</title>
+  <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; display: flex; height: 100vh; }
+
+    #sidebar { width: 320px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; overflow: hidden; }
+    #sidebar h1 { font-size: 14px; padding: 12px 16px; border-bottom: 1px solid #30363d; color: #58a6ff; }
+
+    #search-box { padding: 8px 16px; border-bottom: 1px solid #30363d; }
+    #search-box input { width: 100%; padding: 6px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; }
+    #search-box input:focus { outline: none; border-color: #58a6ff; }
+
+    #stats { padding: 12px 16px; border-bottom: 1px solid #30363d; font-size: 12px; color: #8b949e; }
+    #stats .stat { display: flex; justify-content: space-between; padding: 2px 0; }
+    #stats .stat-value { color: #c9d1d9; font-weight: 600; }
+
+    #filters { padding: 12px 16px; border-bottom: 1px solid #30363d; font-size: 12px; }
+    #filters label { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; margin-bottom: 4px; cursor: pointer; }
+    #filters input[type=checkbox] { accent-color: #58a6ff; }
+
+    #node-detail { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 12px; }
+    #node-detail h3 { color: #58a6ff; margin-bottom: 8px; font-size: 14px; }
+    #node-detail .field { padding: 3px 0; }
+    #node-detail .field-label { color: #8b949e; }
+    #node-detail .edge-list { margin-top: 8px; }
+    #node-detail .edge-item { padding: 3px 0; border-bottom: 1px solid #21262d; cursor: pointer; }
+    #node-detail .edge-item:hover { color: #58a6ff; }
+
+    #graph-container { flex: 1; position: relative; }
+    #cy { width: 100%; height: 100%; }
+
+    #legend { position: absolute; bottom: 12px; right: 12px; background: #161b22dd; border: 1px solid #30363d; border-radius: 8px; padding: 8px 12px; font-size: 11px; }
+    #legend .item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
+    #legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+  </style>
+</head>
+<body>
+  <div id="sidebar">
+    <h1>aify-project-graph</h1>
+    <div id="search-box">
+      <input type="text" id="search" placeholder="Search symbols..." />
+    </div>
+    <div id="stats">Loading...</div>
+    <div id="filters"></div>
+    <div id="node-detail">
+      <p style="color: #8b949e;">Click a node to inspect it.</p>
+    </div>
+  </div>
+  <div id="graph-container">
+    <div id="cy"></div>
+    <div id="legend">
+      <div class="item"><div class="dot" style="background:#58a6ff"></div> Function/Method</div>
+      <div class="item"><div class="dot" style="background:#f0883e"></div> Class/Interface</div>
+      <div class="item"><div class="dot" style="background:#3fb950"></div> File</div>
+      <div class="item"><div class="dot" style="background:#bc8cff"></div> Route/Entrypoint</div>
+      <div class="item"><div class="dot" style="background:#8b949e"></div> Directory/Config/Doc</div>
+    </div>
+  </div>
+  <script>
+    const TYPE_COLORS = {
+      Function: '#58a6ff', Method: '#58a6ff', Test: '#58a6ff',
+      Class: '#f0883e', Interface: '#f0883e', Type: '#f0883e',
+      File: '#3fb950', Module: '#3fb950',
+      Route: '#bc8cff', Entrypoint: '#bc8cff',
+      Directory: '#8b949e', Config: '#8b949e', Document: '#8b949e',
+      Schema: '#8b949e', Variable: '#6e7681', Symbol: '#6e7681',
+      Repository: '#da3633',
+    };
+
+    const TYPE_SIZES = {
+      Repository: 30, Directory: 20, File: 15, Module: 15,
+      Class: 18, Interface: 18, Function: 12, Method: 10,
+      Route: 14, Entrypoint: 14, Test: 10,
+      default: 8,
+    };
+
+    let cy, allData;
+    const activeTypes = new Set();
+
+    async function init() {
+      const [graphData, stats] = await Promise.all([
+        fetch('/api/graph').then(r => r.json()),
+        fetch('/api/stats').then(r => r.json()),
+      ]);
+      allData = graphData;
+
+      // Stats
+      const statsEl = document.getElementById('stats');
+      statsEl.innerHTML = `
+        <div class="stat"><span>Nodes</span><span class="stat-value">${stats.nodeCount}</span></div>
+        <div class="stat"><span>Edges</span><span class="stat-value">${stats.edgeCount}</span></div>
+        ${stats.types.map(t => `<div class="stat"><span>${t.type}</span><span class="stat-value">${t.c}</span></div>`).join('')}
+      `;
+
+      // Filters
+      const types = [...new Set(graphData.nodes.map(n => n.type))].sort();
+      types.forEach(t => activeTypes.add(t));
+      const filtersEl = document.getElementById('filters');
+      filtersEl.innerHTML = types.map(t =>
+        `<label><input type="checkbox" checked value="${t}"> ${t} (${graphData.nodes.filter(n => n.type === t).length})</label>`
+      ).join('');
+      filtersEl.querySelectorAll('input').forEach(cb => {
+        cb.addEventListener('change', () => {
+          if (cb.checked) activeTypes.add(cb.value);
+          else activeTypes.delete(cb.value);
+          renderGraph();
+        });
+      });
+
+      // Search
+      document.getElementById('search').addEventListener('input', async (e) => {
+        const q = e.target.value.trim();
+        if (q.length < 2) return;
+        const results = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
+        if (results.length > 0) {
+          const node = cy.getElementById(results[0].id);
+          if (node.length) {
+            cy.animate({ center: { eles: node }, zoom: 2 }, { duration: 300 });
+            node.select();
+            showNodeDetail(results[0].id);
+          }
+        }
+      });
+
+      renderGraph();
+    }
+
+    function renderGraph() {
+      const nodes = allData.nodes.filter(n => activeTypes.has(n.type));
+      const nodeIds = new Set(nodes.map(n => n.id));
+      const edges = allData.edges.filter(e => nodeIds.has(e.from_id) && nodeIds.has(e.to_id));
+
+      const elements = [
+        ...nodes.map(n => ({
+          data: {
+            id: n.id, label: n.label, type: n.type,
+            file_path: n.file_path, start_line: n.start_line,
+          },
+        })),
+        ...edges.map((e, i) => ({
+          data: {
+            id: `e${i}`, source: e.from_id, target: e.to_id,
+            relation: e.relation, confidence: e.confidence,
+          },
+        })),
+      ];
+
+      if (cy) cy.destroy();
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements,
+        style: [
+          {
+            selector: 'node',
+            style: {
+              label: 'data(label)',
+              'font-size': 8,
+              color: '#c9d1d9',
+              'text-outline-color': '#0d1117',
+              'text-outline-width': 1.5,
+              'background-color': (ele) => TYPE_COLORS[ele.data('type')] || '#6e7681',
+              width: (ele) => TYPE_SIZES[ele.data('type')] || TYPE_SIZES.default,
+              height: (ele) => TYPE_SIZES[ele.data('type')] || TYPE_SIZES.default,
+            },
+          },
+          {
+            selector: 'edge',
+            style: {
+              width: 1,
+              'line-color': '#30363d',
+              'target-arrow-color': '#30363d',
+              'target-arrow-shape': 'triangle',
+              'curve-style': 'bezier',
+              opacity: 0.5,
+            },
+          },
+          {
+            selector: 'node:selected',
+            style: {
+              'border-width': 3,
+              'border-color': '#f0883e',
+            },
+          },
+          {
+            selector: 'edge:selected',
+            style: {
+              'line-color': '#f0883e',
+              'target-arrow-color': '#f0883e',
+              width: 2,
+              opacity: 1,
+            },
+          },
+        ],
+        layout: {
+          name: 'cose',
+          animate: false,
+          nodeRepulsion: 8000,
+          idealEdgeLength: 80,
+          nodeOverlap: 20,
+        },
+      });
+
+      cy.on('tap', 'node', (e) => showNodeDetail(e.target.id()));
+    }
+
+    async function showNodeDetail(nodeId) {
+      const data = await fetch(`/api/node/${encodeURIComponent(nodeId)}`).then(r => r.json());
+      if (!data.node) return;
+      const n = data.node;
+      const detail = document.getElementById('node-detail');
+      detail.innerHTML = `
+        <h3>${n.label}</h3>
+        <div class="field"><span class="field-label">Type:</span> ${n.type}</div>
+        <div class="field"><span class="field-label">File:</span> ${n.file_path}:${n.start_line}</div>
+        <div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>
+        <div class="field"><span class="field-label">Confidence:</span> ${n.confidence}</div>
+        <div class="edge-list">
+          <h3>Incoming (${data.incoming.length})</h3>
+          ${data.incoming.map(e => `<div class="edge-item" onclick="focusNode('${e.from_id}')">${e.relation} from ${e.from_id.split('/').pop()} (${e.source_file}:${e.source_line})</div>`).join('')}
+        </div>
+        <div class="edge-list">
+          <h3>Outgoing (${data.outgoing.length})</h3>
+          ${data.outgoing.map(e => `<div class="edge-item" onclick="focusNode('${e.to_id}')">${e.relation} to ${e.to_id.split('/').pop()} (${e.source_file}:${e.source_line})</div>`).join('')}
+        </div>
+      `;
+    }
+
+    window.focusNode = (id) => {
+      const node = cy.getElementById(id);
+      if (node.length) {
+        cy.animate({ center: { eles: node }, zoom: 2 }, { duration: 300 });
+        node.select();
+        showNodeDetail(id);
+      }
+    };
+
+    init();
+  </script>
+</body>
+</html>
