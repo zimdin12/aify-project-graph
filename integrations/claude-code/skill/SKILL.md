@@ -1,106 +1,101 @@
 ---
 name: aify-project-graph
-description: Use when working in a repo that has `.aify-graph/` or when you need to understand unfamiliar code structure. Provides 13 graph navigation verbs (graph_report, graph_search, graph_whereis, graph_callers, graph_callees, graph_neighbors, graph_impact, graph_path, graph_summary, graph_module_tree, graph_status, graph_index, graph_dashboard) that replace grep and multi-file reads with compact, token-efficient answers. MUST call graph_report on first interaction with an unfamiliar repo. MUST call graph_impact before editing any symbol with more than one caller.
+description: Use when working in a repo that has `.aify-graph/` or when you need to understand unfamiliar code structure. Provides graph-based navigation verbs that replace grep and multi-file reads with compact, token-efficient answers. MUST call graph_report on first interaction with an unfamiliar repo. MUST call graph_preflight before editing any symbol with non-trivial fan-in.
 ---
 
 # aify-project-graph
 
-This repo has (or can have) a project graph at `.aify-graph/graph.sqlite`. Use graph tools **before** reaching for grep, file reads, or directory listings when navigating code structure.
+This repo has (or can have) a project graph at `.aify-graph/graph.sqlite`. Use graph tools **before** reaching for grep, file reads, or directory listings.
 
 ## Hard rules
 
-1. **MUST** call `graph_report()` on first interaction with an unfamiliar repo. This is the orientation step.
-2. **MUST** call `graph_impact(symbol="X")` before editing any symbol with more than one caller. Then follow the decision protocol:
-   - **0 impact edges:** proceed freely.
-   - **1-5 edges:** read each affected file before editing.
-   - **6+ edges or edges across module boundaries:** stop and confirm the change scope with the user before proceeding.
-3. **Do NOT** pre-fetch whole subgraphs "just in case." (Exception: `graph_report()` is the mandatory orientation step — it is not a subgraph prefetch.)
-4. **Do NOT** call every verb at session start. The graph builds automatically on first query — this may take 1-60 seconds depending on repo size. Do not retry or call graph_index separately.
-5. **Do NOT** call `graph_whereis` with a partial name — use `graph_search` instead when you only know part of the symbol name.
+1. **MUST** call `graph_report()` on first interaction with an unfamiliar repo.
+2. **MUST** call `graph_preflight(symbol="X")` before editing any symbol with non-trivial fan-in. Follow the decision:
+   - **SAFE** — proceed.
+   - **REVIEW** — read each caller file before editing.
+   - **CONFIRM** — stop and confirm the change scope with the user before editing.
+3. **Do NOT** pre-fetch subgraphs "just in case." (Exception: `graph_report()` is the mandatory orientation step.)
+4. **Do NOT** call every verb at session start. The graph builds on first query (may take 1-60s on large repos).
+5. **Do NOT** call `graph_whereis` with a partial name — use `graph_search` instead.
+6. If trust shows `missing_internal > 0`, prefer direct file reads for safety-critical edits.
 
 ## Graph seems wrong?
 
-1. Call `graph_status()` — check `dirtyEdgeCount` and `unresolvedEdges`.
-2. If stale: run `graph_index(force=true)` to rebuild from scratch.
-3. Call `graph_status()` again — confirm node/edge counts look reasonable.
-4. Retry your original query.
+1. `graph_status()` — check trust signals
+2. `graph_index(force=true)` — rebuild from scratch
+3. `graph_status()` again — verify counts
+4. Retry your query
 
-## When to reach for which verb
+## Core verbs (use these daily)
 
-### Discovery — orient and find things
 | Situation | Verb |
 |---|---|
 | "What is this project?" | `graph_report()` |
-| "Find a symbol — I only know part of the name" | `graph_search(query="UserCont")` |
-| "Find a symbol — I know the exact name" | `graph_whereis(symbol="UserController")` |
-| "What's in this directory?" | `graph_module_tree(path="src/auth")` |
-| "Find all Classes in this repo" | `graph_search(query="", type="Class")` |
-| "Find functions in the auth module" | `graph_search(query="", type="Function", file="src/auth")` |
-
-### Analysis — understand before changing
-| Situation | Verb |
-|---|---|
-| "What calls X?" | `graph_callers(symbol="X")` |
+| "Find a symbol (partial name)" | `graph_search(query="UserCont")` |
+| "Find a symbol (exact name)" | `graph_whereis(symbol="X")` |
+| "Find + edges (quick overview)" | `graph_whereis(symbol="X", expand=true)` |
+| "Everything about this file" | `graph_file(path="service/db.py")` |
+| "Who calls X?" | `graph_callers(symbol="X")` |
+| "Who calls X from this dir only?" | `graph_callers(symbol="X", file="service/")` |
 | "What does X call?" | `graph_callees(symbol="X")` |
-| "All connections around X" | `graph_neighbors(symbol="X")` |
+| "Is it safe to edit X?" | `graph_preflight(symbol="X")` |
 | "What breaks if I change X?" | `graph_impact(symbol="X")` |
-| "Trace the execution path from X" | `graph_path(symbol="X")` |
-| "Quick overview of X" | `graph_summary(symbol="X")` |
+| "Trace execution from X" | `graph_path(symbol="X")` |
+| "Trace with all edge types" | `graph_path(symbol="X", mode="dependency")` |
 
-### Administrative
+## Advanced verbs
+
 | Situation | Verb |
 |---|---|
-| "Is the graph ready?" | `graph_status()` |
-| "Rebuild from scratch" | `graph_index(force=true)` |
-| "Browse visually" | `graph_dashboard()` (opens browser — human-facing, do NOT call automatically) |
+| "All connections around X" | `graph_neighbors(symbol="X", edge_types=["EXTENDS"])` |
+| "Directory hierarchy" | `graph_module_tree(path="src")` |
+| "Graph health" | `graph_status()` |
+| "Full rebuild" | `graph_index(force=true)` |
+| "Visual browser" | `graph_dashboard()` (human-only, do NOT call automatically) |
+| "Find all Classes" | `graph_search(query="", type="Class", kind="all")` |
 
 ## Key parameters
 
-Most verbs accept these optional params:
-
-- **`top_k`** — max results returned (default 10-30 depending on verb). Increase when `TRUNCATED` appears.
-- **`depth`** — hop depth for traversal verbs (callers, callees, impact, path). 1=direct, 2=two hops, etc.
-- **`type`** — filter by node type in `graph_search`: Function, Method, Class, Interface, Type, Test, File, Route, Entrypoint.
-- **`file`** — filter by file path prefix in `graph_search`: e.g. `file="src/auth"` only searches in that directory.
+- **`top_k`** — max results (increase when `TRUNCATED` appears)
+- **`depth`** — hop depth for traversal verbs (1=direct, 2=two hops)
+- **`file`** — scope callers/callees to a directory (e.g. `file="service/"`)
+- **`expand`** — on whereis, include top edges (replaces graph_summary)
+- **`mode`** — on path: `execution` (CALLS+INVOKES) vs `dependency` (all edges)
+- **`kind`** — on search: `code` (default, excludes docs/dirs) vs `all`
 
 ## Response format
 
-Query verbs return compact line format with file:line citations:
-
 ```
-NODE 5d9e7ebe function get_db service/db.py:217
-EDGE abc123→5d9e7ebe CALLS service/routers/api_v2.py:918 conf=0.95
-TRUNCATED 32 more (use top_k=20)
+NODE id type label file:line
+EDGE from_label→to_label RELATION file:line conf=0.95
+TRUNCATED N more (use top_k=20)
 ```
 
-Path traces return indented stories:
-
+Path traces:
 ```
 PATH handleRequest src/server.ts:10
   -> validateToken src/auth.ts:12 conf=0.95
-    -> jwt.verify external:0 conf=0.80
-  -> User.findById src/models/user.ts:34 conf=0.90
 ```
 
-When `TRUNCATED` appears, the result was capped. Follow the suggestion in parentheses (e.g., increase `top_k` or `depth`) to retrieve remaining items.
+Preflight:
+```
+PREFLIGHT get_db function service/db.py:217
+CALLERS 42 total (top 5): ...
+IMPACT 42 CALLS, 3 REFERENCES, 0 TESTS
+TESTS NONE
+TRUST OK — 12 unresolved edges
+DECISION: CONFIRM — 42 callers across module boundaries
+```
 
 ## Confidence scores
 
-- `1.0` — direct syntactic relationship (explicit call, import, class definition)
-- `0.8-0.95` — high-confidence inferred relationship
-- `0.6-0.8` — framework-inferred (facades, route dispatch, convention-based)
-- `0.5-0.6` — structural guess (C++ templates, macro-generated code)
+- `1.0` — direct syntactic (explicit call, import)
+- `0.8-0.95` — high-confidence inferred
+- `0.6-0.8` — framework-inferred (facades, routes)
+- `0.5-0.6` — structural guess (C++ templates)
 
-Lower confidence = more magic involved. Direct calls sort first in results.
+## Search tips
 
-## Trust signals
-
-If `graph_status()` reports `unresolvedEdges > 0` or `dirtyEdgeCount > 0`, the graph is partially stale. For safety-critical edits, prefer fresh `Read` and run `graph_index(force=true)` if needed.
-
-## Do NOT
-
-- Read file contents through the graph — use `Read` for source code, graph for structure.
-- Assume graph content was pre-injected into your context — it wasn't.
-- Treat `graph_report()` as authoritative when `dirtyFiles` is non-empty.
-- Run `graph_index()` repeatedly — it auto-triggers on first query if missing or stale.
-- Call `graph_dashboard()` automatically — it opens a browser and is for human inspection only.
+- Search is case-insensitive: `user` finds `User`, `UserController`
+- Default kind is `code` — excludes docs/dirs. Use `kind="all"` to include them.
+- `graph_report()` replaces `graph_search + graph_module_tree` for orientation — don't chain all verbs serially.

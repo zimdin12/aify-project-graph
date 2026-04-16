@@ -14,6 +14,7 @@ import { graphPath } from './query/verbs/path.js';
 import { graphDashboard } from './query/verbs/dashboard.js';
 import { graphSearch } from './query/verbs/search.js';
 import { graphFile } from './query/verbs/file.js';
+import { graphPreflight } from './query/verbs/preflight.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -76,12 +77,13 @@ const TOOLS = [
   {
     name: 'graph_whereis',
     handler: graphWhereis,
-    description: 'Find exactly where a symbol is defined. Returns NODE lines with file:line. Use for exact name lookups — for partial matches use graph_search instead.',
+    description: 'Find exactly where a symbol is defined. Returns NODE lines with file:line. Use expand=true to also get top incoming/outgoing edges (replaces graph_summary).',
     schema: {
       type: 'object',
       properties: {
         symbol: { type: 'string', description: 'Exact symbol name (function, class, method, etc.)' },
         limit: { type: 'integer', default: 5, description: 'Max matches if name is ambiguous' },
+        expand: { type: 'boolean', default: false, description: 'Include top 3 incoming + 3 outgoing edges (like graph_summary)' },
       },
       required: ['symbol'],
     },
@@ -116,6 +118,18 @@ const TOOLS = [
   },
 
   // ── Analysis ─────────────────────────────────────────────────
+  {
+    name: 'graph_preflight',
+    handler: graphPreflight,
+    description: 'One-shot edit safety check. Shows: location, callers, impact, test coverage, trust signal, and a SAFE/REVIEW/CONFIRM decision recommendation. MUST call before editing any symbol with non-trivial fan-in. Replaces chaining whereis + callers + impact + summary.',
+    schema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'Symbol you are about to edit' },
+      },
+      required: ['symbol'],
+    },
+  },
   {
     name: 'graph_callers',
     handler: graphCallers,

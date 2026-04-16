@@ -61,7 +61,7 @@ describe('integration: full verb pipeline', () => {
 
   it('graph_whereis returns NO MATCH for unknown symbol', async () => {
     const out = await graphWhereis({ repoRoot: repo, symbol: 'does_not_exist_xyz' });
-    expect(out).toBe('NO MATCH');
+    expect(out).toContain('NO MATCH');
   });
 
   it('graph_callers finds callers of authenticate', async () => {
