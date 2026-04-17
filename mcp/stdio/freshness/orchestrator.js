@@ -11,7 +11,7 @@ import { withWriteLock } from './lock.js';
 import { getLanguageConfig } from '../ingest/languages/index.js';
 import { extractFile } from '../ingest/extractors/generic.js';
 import { sweepFilesystem } from '../ingest/sweep.js';
-import { IGNORED_DIRS } from '../ingest/ignored-dirs.js';
+import { IGNORED_DIRS, loadEffectiveIgnoredDirs } from '../ingest/ignored-dirs.js';
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
 import { resolveRefs } from '../ingest/resolver.js';
@@ -65,8 +65,9 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         || !manifest.commit
         || manifest.status === 'indexing'
         || schemaMismatch;
+      const effectiveIgnoredDirs = loadEffectiveIgnoredDirs(repoRoot);
       const filesToProcess = fullRebuild
-        ? await listRepoFiles(repoRoot)
+        ? await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs)
         : await expandAffectedFiles(db, repoRoot, initialChanged);
 
       // Noop path: if no files to process and not a full rebuild, return early
@@ -94,7 +95,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
 
       clearSpecialNodes(db);
 
-      const special = await sweepFilesystem({ repoRoot });
+      const special = await sweepFilesystem({ repoRoot, ignoredDirs: effectiveIgnoredDirs });
       const specialPlugins = await applyFrameworkPlugins({
         repoRoot,
         result: { nodes: [], edges: [], refs: [] },
@@ -310,14 +311,14 @@ async function expandAffectedFiles(db, repoRoot, changedFiles) {
   return [...affected];
 }
 
-async function listRepoFiles(repoRoot, currentDir = repoRoot) {
+async function listRepoFiles(repoRoot, currentDir = repoRoot, ignoredDirs = IGNORED_DIRS) {
   const entries = await readdir(currentDir, { withFileTypes: true });
   const files = [];
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      if (IGNORED_DIRS.has(entry.name)) continue;
-      files.push(...await listRepoFiles(repoRoot, join(currentDir, entry.name)));
+      if (ignoredDirs.has(entry.name)) continue;
+      files.push(...await listRepoFiles(repoRoot, join(currentDir, entry.name), ignoredDirs));
       continue;
     }
 

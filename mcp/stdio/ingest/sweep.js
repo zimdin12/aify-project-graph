@@ -178,7 +178,7 @@ function extractConfigKeys(content, relPath) {
     .sort();
 }
 
-export async function sweepFilesystem({ repoRoot }) {
+export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS }) {
   const nodes = [];
   const edges = [];
   const directories = new Map();
@@ -217,7 +217,7 @@ export async function sweepFilesystem({ repoRoot }) {
   async function visit(absPath, relPath = '.') {
     const entries = await readdir(absPath, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.isDirectory() && IGNORED_DIRS.has(entry.name)) {
+      if (entry.isDirectory() && ignoredDirs.has(entry.name)) {
         continue;
       }
 
