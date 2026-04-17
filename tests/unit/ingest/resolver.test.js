@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
 import { resolveRefs } from '../../../mcp/stdio/ingest/resolver.js';
+import { extractFile } from '../../../mcp/stdio/ingest/extractors/generic.js';
+import cpp from '../../../mcp/stdio/ingest/languages/cpp.js';
 
 describe('cross-file resolver', () => {
   let dir;
@@ -178,5 +180,37 @@ describe('cross-file resolver', () => {
     ]);
     expect(result.unresolved).toEqual([]);
     expect(allSpy).not.toHaveBeenCalledWith('SELECT * FROM nodes');
+  });
+
+  it('links a C++ out-of-class method back to its owning class via CONTAINS', async () => {
+    const fixtureDir = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'tiny-cpp-methods');
+    const headerSource = await readFile(join(fixtureDir, 'Foo.h'), 'utf8');
+    const cppSource = await readFile(join(fixtureDir, 'Foo.cpp'), 'utf8');
+
+    const headerResult = extractFile({
+      filePath: 'src/Foo.h',
+      source: headerSource,
+      config: cpp,
+    });
+    const cppResult = extractFile({
+      filePath: 'src/Foo.cpp',
+      source: cppSource,
+      config: cpp,
+    });
+
+    for (const node of [...headerResult.nodes, ...cppResult.nodes]) {
+      upsertNode(db, node);
+    }
+
+    const result = resolveRefs({ db, refs: [...headerResult.refs, ...cppResult.refs] });
+    expect(result.edges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          relation: 'CONTAINS',
+          from_id: headerResult.nodes.find((node) => node.type === 'Class' && node.label === 'Foo').id,
+          to_id: cppResult.nodes.find((node) => node.type === 'Method' && node.label === 'bar').id,
+        }),
+      ]),
+    );
   });
 });

@@ -97,6 +97,15 @@ function extractNameFromRule(node, source, rule) {
   return extractTextFromRule(node, source, rule);
 }
 
+function extractSymbolInfo(node, source, rule) {
+  if (typeof rule.extractSymbolInfo === 'function') {
+    return rule.extractSymbolInfo({ node, source }) ?? null;
+  }
+
+  const name = extractNameFromRule(node, source, rule).trim();
+  return name ? { name } : null;
+}
+
 function buildSignature(node, source, rule) {
   const parts = [];
   if (rule.signatureFields?.length) {
@@ -336,19 +345,23 @@ export function extractFile({ filePath, source, config }) {
     let nextParentClass = parentClass;
 
     if (symbolRule) {
-      const name = extractNameFromRule(node, source, symbolRule).trim();
+      const symbolInfo = extractSymbolInfo(node, source, symbolRule);
+      const name = symbolInfo?.name?.trim() ?? '';
       if (name) {
-        const explicitType = symbolRule.type;
-        const resolvedType = explicitType === 'Function' && parentClass ? 'Method' : explicitType;
+        const parentClassLabel = symbolInfo?.parentClass ?? parentClass?.label ?? '';
+        const parentClassQname = symbolInfo?.parentClassQname ?? parentClass?.extra?.qname ?? parentClassLabel;
+        const syntheticOwnerTarget = symbolInfo?.parentClass ?? '';
+        const explicitType = symbolInfo?.type ?? symbolRule.type;
+        const resolvedType = explicitType === 'Function' && parentClassLabel ? 'Method' : explicitType;
         const detectedType = config.testDetector?.({
           label: name,
           filePath,
           node,
           resolvedType,
-          parentClass: parentClass?.label ?? '',
+          parentClass: parentClassLabel,
         }) ? 'Test' : resolvedType;
-        const qname = parentClass
-          ? `${parentClass.extra.qname}.${name}`
+        const qname = parentClassQname
+          ? `${parentClassQname}.${name}`
           : `${moduleLabel}.${name}`;
         const signature = buildSignature(node, source, symbolRule);
         const createdNode = makeBaseNode({
@@ -363,7 +376,7 @@ export function extractFile({ filePath, source, config }) {
             qname,
             signature,
             decorators: [],
-            parent_class: parentClass?.label ?? '',
+            parent_class: parentClassLabel,
           },
         });
 
@@ -392,6 +405,18 @@ export function extractFile({ filePath, source, config }) {
           confidence: symbolRule.confidence ?? config.confidence?.node ?? 1.0,
           extractor: config.language,
         });
+
+        if (!parentClass && syntheticOwnerTarget && detectedType === 'Method') {
+          refs.push({
+            from_target: syntheticOwnerTarget,
+            to_id: activeNode.id,
+            relation: 'CONTAINS',
+            source_file: filePath,
+            source_line: lineNumber(node),
+            confidence: symbolRule.confidence ?? config.confidence?.node ?? 1.0,
+            extractor: config.language,
+          });
+        }
 
         nextOwner = activeNode;
         nextParentClass = resolvedType === 'Class' ? activeNode : parentClass;

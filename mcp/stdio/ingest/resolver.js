@@ -135,6 +135,28 @@ export function resolveRefs({ db, refs }) {
   const unresolved = [];
 
   for (const ref of refs) {
+    if (ref.from_target && ref.to_id) {
+      const ownerNode = resolveTarget({
+        target: ref.from_target,
+        source_file: ref.source_file,
+      }, resolvers);
+      if (!ownerNode) {
+        unresolved.push(ref);
+        continue;
+      }
+
+      edges.push({
+        from_id: ownerNode.id,
+        to_id: ref.to_id,
+        relation: ref.relation,
+        source_file: ref.source_file,
+        source_line: ref.source_line,
+        confidence: ref.confidence,
+        extractor: ref.extractor,
+      });
+      continue;
+    }
+
     const targetNode = resolveTarget(ref, resolvers);
     if (!targetNode) {
       unresolved.push(ref);

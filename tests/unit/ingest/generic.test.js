@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { extractFile } from '../../../mcp/stdio/ingest/extractors/generic.js';
 import python from '../../../mcp/stdio/ingest/languages/python.js';
 import php from '../../../mcp/stdio/ingest/languages/php.js';
 import c from '../../../mcp/stdio/ingest/languages/c.js';
+import cpp from '../../../mcp/stdio/ingest/languages/cpp.js';
 import typescript from '../../../mcp/stdio/ingest/languages/typescript.js';
 import java from '../../../mcp/stdio/ingest/languages/java.js';
 import ruby from '../../../mcp/stdio/ingest/languages/ruby.js';
@@ -335,6 +338,27 @@ describe('generic extractor', () => {
     expect(result.edges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ relation: 'CONTAINS', from_label: 'Greeter', to_label: 'run' }),
+      ]),
+    );
+  });
+
+  it('extracts out-of-class C++ method definitions as Method with parent class metadata', () => {
+    const fixtureDir = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'tiny-cpp-methods');
+    const source = readFileSync(join(fixtureDir, 'Foo.cpp'), 'utf8');
+
+    const result = extractFile({
+      filePath: 'src/Foo.cpp',
+      source,
+      config: cpp,
+    });
+
+    const method = findNode(result.nodes, 'Method', 'bar');
+    expect(method).toBeTruthy();
+    expect(method.extra.parent_class).toBe('Foo');
+    expect(method.extra.qname).toBe('Foo.bar');
+    expect(result.refs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: 'CONTAINS', from_target: 'Foo', to_id: method.id }),
       ]),
     );
   });
