@@ -3,7 +3,7 @@ import { basename, dirname, extname, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from './fingerprint.js';
 
-const IGNORED_DIRS = new Set(['.git', '.aify-graph', 'node_modules']);
+import { IGNORED_DIRS } from './ignored-dirs.js';
 const DOCUMENT_EXTENSIONS = new Set(['.md', '.rst', '.txt']);
 const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml']);
 const ENTRYPOINT_BASENAMES = new Set(['artisan', 'manage.py']);

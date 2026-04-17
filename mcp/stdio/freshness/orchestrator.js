@@ -11,6 +11,7 @@ import { withWriteLock } from './lock.js';
 import { getLanguageConfig } from '../ingest/languages/index.js';
 import { extractFile } from '../ingest/extractors/generic.js';
 import { sweepFilesystem } from '../ingest/sweep.js';
+import { IGNORED_DIRS } from '../ingest/ignored-dirs.js';
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
 import { resolveRefs } from '../ingest/resolver.js';
@@ -20,7 +21,6 @@ import { detectMentions } from '../analysis/mentions.js';
 const EXTRACTOR_VERSION = '0.1.0';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
 const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema'];
-const IGNORED_DIRS = new Set(['.git', '.aify-graph', 'node_modules']);
 const EXTRACTION_CHUNK_SIZE = 500;
 
 // TTL cache: skip git checks if the graph was confirmed fresh within the last 5 seconds
