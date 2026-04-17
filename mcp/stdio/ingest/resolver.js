@@ -22,6 +22,9 @@ function buildIndex(nodes) {
   const byQname = new Map();
   const byQnameSuffix = new Map();
 
+  // Gate suffix index for large graphs — it's O(nodes * avg_qname_depth) and OOMs above ~50k nodes
+  const buildSuffixes = nodes.length <= 50000;
+
   for (const node of nodes) {
     const qname = node.extra?.qname ?? '';
     if (!byLabel.has(node.label)) byLabel.set(node.label, []);
@@ -30,11 +33,13 @@ function buildIndex(nodes) {
     if (qname) {
       byQname.set(qname, node);
 
-      const parts = qname.split('.');
-      for (let i = 0; i < parts.length; i += 1) {
-        const suffix = parts.slice(i).join('.');
-        if (!byQnameSuffix.has(suffix)) byQnameSuffix.set(suffix, []);
-        byQnameSuffix.get(suffix).push(node);
+      if (buildSuffixes) {
+        const parts = qname.split('.');
+        for (let i = 0; i < parts.length; i += 1) {
+          const suffix = parts.slice(i).join('.');
+          if (!byQnameSuffix.has(suffix)) byQnameSuffix.set(suffix, []);
+          byQnameSuffix.get(suffix).push(node);
+        }
       }
     }
   }

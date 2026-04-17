@@ -192,7 +192,11 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         extractorVersion: EXTRACTOR_VERSION,
         parserBundleVersion: PARSER_BUNDLE_VERSION,
         dirtyFiles: [],
-        dirtyEdges: resolved.unresolved,
+        // Cap dirty edges in manifest to prevent huge JSON serialization on large repos
+        dirtyEdges: resolved.unresolved.length > 500
+          ? resolved.unresolved.slice(0, 500)
+          : resolved.unresolved,
+        dirtyEdgeCount: resolved.unresolved.length,
       };
       await writeManifest(graphDir, nextManifest);
 
