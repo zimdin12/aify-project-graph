@@ -58,6 +58,7 @@ describe('schema', () => {
     ).all().map(r => r.name);
     expect(indexes).toEqual(expect.arrayContaining([
       'idx_nodes_label',
+      'idx_nodes_qname',
       'idx_nodes_file_path',
       'idx_nodes_type',
       'idx_edges_from',

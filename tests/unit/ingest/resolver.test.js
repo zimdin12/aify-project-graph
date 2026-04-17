@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -138,5 +138,45 @@ describe('cross-file resolver', () => {
     expect(result.unresolved).toEqual([
       expect.objectContaining({ relation: 'IMPORTS', target: 'os' }),
     ]);
+  });
+
+  it('resolves against a large node table without any full-table node load', () => {
+    for (let i = 0; i < 10000; i += 1) {
+      upsertNode(db, {
+        id: `fn:bulk:${i}`,
+        type: 'Function',
+        label: `bulk_${i}`,
+        file_path: `src/bulk/${i}.py`,
+        start_line: 1,
+        end_line: 2,
+        language: 'python',
+        confidence: 1.0,
+        structural_fp: `s:${i}`,
+        dependency_fp: `d:${i}`,
+        extra: { qname: `src.bulk.bulk_${i}` },
+      });
+    }
+
+    const allSpy = vi.spyOn(db, 'all');
+    const refs = [
+      {
+        from_id: 'fn:worker',
+        from_label: 'worker',
+        relation: 'CALLS',
+        target: 'bulk_9999',
+        source_file: 'src/worker.py',
+        source_line: 10,
+        confidence: 0.95,
+        extractor: 'python',
+      },
+    ];
+
+    const result = resolveRefs({ db, refs });
+
+    expect(result.edges).toEqual([
+      expect.objectContaining({ from_id: 'fn:worker', to_id: 'fn:bulk:9999', relation: 'CALLS' }),
+    ]);
+    expect(result.unresolved).toEqual([]);
+    expect(allSpy).not.toHaveBeenCalledWith('SELECT * FROM nodes');
   });
 });

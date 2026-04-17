@@ -59,7 +59,12 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
 
     const db = openDb(join(graphDir, 'graph.sqlite'));
     try {
-      const fullRebuild = force || manifestState.status !== 'ok' || !manifest.commit || manifest.status === 'indexing';
+      const schemaMismatch = (manifest.schemaVersion ?? 1) !== SCHEMA_VERSION;
+      const fullRebuild = force
+        || manifestState.status !== 'ok'
+        || !manifest.commit
+        || manifest.status === 'indexing'
+        || schemaMismatch;
       const filesToProcess = fullRebuild
         ? await listRepoFiles(repoRoot)
         : await expandAffectedFiles(db, repoRoot, initialChanged);

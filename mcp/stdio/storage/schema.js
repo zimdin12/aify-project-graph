@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const NODE_TYPES = [
   'Repository', 'File', 'Module', 'Function', 'Method', 'Class',
@@ -37,6 +37,7 @@ export function createSchema(db) {
     );
 
     CREATE INDEX IF NOT EXISTS idx_nodes_label     ON nodes(label);
+    CREATE INDEX IF NOT EXISTS idx_nodes_qname     ON nodes(json_extract(extra, '$.qname'));
     CREATE INDEX IF NOT EXISTS idx_nodes_file_path ON nodes(file_path);
     CREATE INDEX IF NOT EXISTS idx_nodes_type      ON nodes(type);
     CREATE INDEX IF NOT EXISTS idx_edges_from      ON edges(from_id, relation);

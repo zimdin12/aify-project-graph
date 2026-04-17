@@ -10,41 +10,16 @@ function parseExtra(node) {
   return node.extra;
 }
 
-function loadNodes(db) {
-  return db.all('SELECT * FROM nodes').map((node) => ({
-    ...node,
-    extra: parseExtra(node),
-  }));
+function normalizeNode(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    extra: parseExtra(row),
+  };
 }
 
-function buildIndex(nodes) {
-  const byLabel = new Map();
-  const byQname = new Map();
-  const byQnameSuffix = new Map();
-
-  // Gate suffix index for large graphs — it's O(nodes * avg_qname_depth) and OOMs above ~50k nodes
-  const buildSuffixes = nodes.length <= 50000;
-
-  for (const node of nodes) {
-    const qname = node.extra?.qname ?? '';
-    if (!byLabel.has(node.label)) byLabel.set(node.label, []);
-    byLabel.get(node.label).push(node);
-
-    if (qname) {
-      byQname.set(qname, node);
-
-      if (buildSuffixes) {
-        const parts = qname.split('.');
-        for (let i = 0; i < parts.length; i += 1) {
-          const suffix = parts.slice(i).join('.');
-          if (!byQnameSuffix.has(suffix)) byQnameSuffix.set(suffix, []);
-          byQnameSuffix.get(suffix).push(node);
-        }
-      }
-    }
-  }
-
-  return { byLabel, byQname, byQnameSuffix };
+function normalizeRows(rows = []) {
+  return rows.map(normalizeNode);
 }
 
 // Common names that should NOT match globally — too ambiguous
@@ -60,35 +35,26 @@ const COMMON_NAMES = new Set([
   '__init__', '__str__', '__repr__', 'self', 'this', 'cls', 'super',
 ]);
 
-function uniqueOrNull(matches = []) {
-  return matches.length === 1 ? matches[0] : null;
-}
-
 function preferProximate(matches, sourceFile) {
   if (!matches || matches.length === 0) return null;
   if (matches.length === 1) return matches[0];
 
-  // Same file wins
-  const sameFile = matches.filter(m => m.file_path === sourceFile);
+  const sameFile = matches.filter((m) => m.file_path === sourceFile);
   if (sameFile.length === 1) return sameFile[0];
 
-  // Same directory wins
   const sourceDir = sourceFile.includes('/') ? sourceFile.slice(0, sourceFile.lastIndexOf('/')) : '';
   if (sourceDir) {
-    const sameDir = matches.filter(m => m.file_path.startsWith(sourceDir + '/'));
+    const sameDir = matches.filter((m) => m.file_path.startsWith(`${sourceDir}/`));
     if (sameDir.length === 1) return sameDir[0];
   }
 
-  // Too ambiguous — don't resolve
   return null;
 }
 
 function lookupCandidates(target) {
-  // Strip quotes/angles from #include paths: "Engine.h" → Engine.h, <stdio.h> → stdio.h
   const stripped = target.replace(/^["'<]+|[>"']+$/g, '').trim();
   const candidates = new Set([target, stripped]);
 
-  // Convert path separators to dots for module-style matching
   const dotted = stripped
     .replace(/\\/g, '.')
     .replace(/\//g, '.')
@@ -96,58 +62,80 @@ function lookupCandidates(target) {
     .replace(/\.{2,}/g, '.');
   if (dotted) candidates.add(dotted);
 
-  // For include paths like "rendering/ParticleRenderer.h", also try just the filename
   const basename = stripped.includes('/') ? stripped.split('/').pop() : null;
   if (basename) candidates.add(basename);
 
-  // Strip extension for matching against labels: "Engine.h" → "Engine"
   const noExt = stripped.replace(/\.[^.]+$/, '');
   if (noExt && noExt !== stripped) candidates.add(noExt);
 
   return [...candidates].filter(Boolean);
 }
 
-function resolveTarget(ref, index) {
-  // Exact qname always wins
+function buildResolvers(db) {
+  const findByExactQname = db.raw.prepare(`
+    SELECT *
+    FROM nodes
+    WHERE json_extract(extra, '$.qname') = ?
+  `);
+
+  const findByQnameSuffix = db.raw.prepare(`
+    SELECT *
+    FROM nodes
+    WHERE json_extract(extra, '$.qname') = ?
+       OR json_extract(extra, '$.qname') LIKE ?
+  `);
+
+  const findByLabel = db.raw.prepare(`
+    SELECT *
+    FROM nodes
+    WHERE label = ?
+  `);
+
+  return {
+    findByExactQname(candidate) {
+      return normalizeRows(findByExactQname.all(candidate));
+    },
+    findByQnameSuffix(candidate) {
+      return normalizeRows(findByQnameSuffix.all(candidate, `%.${candidate}`));
+    },
+    findByLabel(label) {
+      return normalizeRows(findByLabel.all(label));
+    },
+  };
+}
+
+function resolveTarget(ref, resolvers) {
   for (const candidate of lookupCandidates(ref.target)) {
-    if (index.byQname.has(candidate)) {
-      return index.byQname.get(candidate);
+    const exactMatch = preferProximate(resolvers.findByExactQname(candidate), ref.source_file);
+    if (exactMatch) {
+      return exactMatch;
     }
   }
 
-  // Qname suffix match (e.g. "HomeController.index")
   if (/[.\\/]/u.test(ref.target)) {
     for (const candidate of lookupCandidates(ref.target)) {
-      const suffixMatches = index.byQnameSuffix.get(candidate) ?? [];
-      const suffixMatch = preferProximate(suffixMatches, ref.source_file);
+      const suffixMatch = preferProximate(resolvers.findByQnameSuffix(candidate), ref.source_file);
       if (suffixMatch) return suffixMatch;
     }
   }
 
-  // Label match — but skip common names to avoid false global magnets
-  const labelMatches = index.byLabel.get(ref.target) ?? [];
+  const labelMatches = resolvers.findByLabel(ref.target);
   if (COMMON_NAMES.has(ref.target)) {
-    // For common names, ONLY resolve if same-file match
-    const sameFile = labelMatches.filter(m => m.file_path === ref.source_file);
+    const sameFile = labelMatches.filter((m) => m.file_path === ref.source_file);
     if (sameFile.length === 1) return sameFile[0];
     return null;
   }
 
-  // Non-common names: prefer proximate, fall back to unique global
-  const proximate = preferProximate(labelMatches, ref.source_file);
-  if (proximate) return proximate;
-
-  return null;
+  return preferProximate(labelMatches, ref.source_file);
 }
 
 export function resolveRefs({ db, refs }) {
-  const nodes = loadNodes(db);
-  const index = buildIndex(nodes);
+  const resolvers = buildResolvers(db);
   const edges = [];
   const unresolved = [];
 
   for (const ref of refs) {
-    const targetNode = resolveTarget(ref, index);
+    const targetNode = resolveTarget(ref, resolvers);
     if (!targetNode) {
       unresolved.push(ref);
       continue;
