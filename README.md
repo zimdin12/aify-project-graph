@@ -190,17 +190,19 @@ Noop (no changes): ~170ms on small repos, <1s on medium.
 
 ## A/B Test Results
 
-Controlled A/B tests with real subagents: same task, same model, same repo — only difference is whether the agent uses graph verbs or only Read/Grep/Glob. Both agents can read source files freely; this is **realistic mode**, not "graph-only vs files-only."
+Controlled A/B tests with real subagents: same task, same model, same repo — only difference is whether the agent uses graph verbs or only Read/Grep/Glob.
 
-### Headline finding
+### Three task regimes
 
-**The graph is a structural accelerator for multi-file trace/orientation, roughly tied with grep for single-symbol search.**
+Graph's value depends heavily on task shape. Measured across 5 real codebases (Node, Python, PHP+Laravel, C++) with real subagents:
 
-| Task type | Token savings (graph vs files-only) |
-|---|---|
-| **Trace** (walk a call chain across files) | **−6.5% average** |
-| **Search** (find a symbol + its top callers) | **−0.6% average** (effectively tied) |
-| Blended mixed workload | −3.8% average |
+| Task shape | Token savings | Graph's role |
+|---|---|---|
+| **Orient / report / hub-rank** | **−25% avg** (up to **−39%**) | Irreplaceable — grep can't rank by resolved edges |
+| **Trace** multi-file chain | **−6.5% avg** (up to **−23.8%**) | Structural accelerator when edges model the path |
+| **Search** single-symbol lookup | 0% (tied) | Grep's home turf — graph matches, doesn't beat |
+
+**Tool-use reduction**: on orient tasks, graph averaged **3.2 tool calls** vs **16.8 for grep-based approach** — a 5.3× reduction in round-trips. This matters more than raw tokens for agent latency and cost (each tool call re-sends the prompt).
 
 The A–E extraction improvements (PHP traits/method-params/facades, Python decorators, C++ out-of-class methods, ECS lambdas, External boundary terminals) are *edge-quality* improvements — they help exactly the workloads where relationships are the bottleneck, not the workloads where grep is already local-optimal.
 
