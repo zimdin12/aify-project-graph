@@ -22,6 +22,54 @@ function normalizeRows(rows = []) {
   return rows.map(normalizeNode);
 }
 
+// Language-family groupings. Candidates in the same family are preferred over
+// candidates in another family when resolving code-like relations (CALLS,
+// EXTENDS, etc.). Keeps PHP `DB::table()` from resolving to a CSS `.table`
+// selector, C++ method calls from resolving to a Python function of the same
+// name, and so on.
+const LANGUAGE_FAMILY = new Map([
+  ['php', 'php'],
+  ['laravel', 'php'],  // Laravel plugin emits routes as PHP
+  ['javascript', 'js_ts'],
+  ['typescript', 'js_ts'],
+  ['c', 'c_cpp'],
+  ['cpp', 'c_cpp'],
+  ['glsl', 'glsl'],    // GLSL borrows from C but runs in a different address space
+  ['css', 'css'],
+  ['python', 'python'],
+  ['rust', 'rust'],
+  ['go', 'go'],
+  ['ruby', 'ruby'],
+  ['java', 'java'],
+]);
+
+function languageFamily(lang) {
+  if (!lang) return 'unknown';
+  return LANGUAGE_FAMILY.get(lang) ?? lang;
+}
+
+// Relations that must stay inside the same language family. A PHP CALLS
+// ref should never resolve to a CSS node. Import-style relations (and the
+// synthetic CONTAINS ownership emitted for out-of-class methods, where the
+// owner is guaranteed same-language) are allowed to fall through to cross-
+// family matches — that's how `#include "Engine.h"` can point at a File
+// node whose language bucket doesn't match.
+const HARD_GATED_RELATIONS = new Set([
+  'CALLS', 'INVOKES', 'EXTENDS', 'IMPLEMENTS', 'USES_TYPE', 'TESTS', 'REFERENCES',
+]);
+
+function filterByLanguageFamily(matches, ref) {
+  if (!matches || matches.length === 0) return matches;
+  const refFamily = languageFamily(ref.extractor);
+  if (refFamily === 'unknown') return matches;
+  const sameFamily = matches.filter((m) => languageFamily(m.language) === refFamily);
+  if (sameFamily.length > 0) return sameFamily;
+  // No same-family candidates. If the relation is hard-gated, treat as
+  // unresolved rather than crossing families.
+  if (HARD_GATED_RELATIONS.has(ref.relation)) return [];
+  return matches;
+}
+
 // Common names that should NOT match globally — too ambiguous
 const COMMON_NAMES = new Set([
   'close', 'open', 'read', 'write', 'get', 'set', 'put', 'delete', 'update',
@@ -106,7 +154,8 @@ function buildResolvers(db) {
 
 function resolveTarget(ref, resolvers) {
   for (const candidate of lookupCandidates(ref.target)) {
-    const exactMatch = preferProximate(resolvers.findByExactQname(candidate), ref.source_file);
+    const exactRaw = resolvers.findByExactQname(candidate);
+    const exactMatch = preferProximate(filterByLanguageFamily(exactRaw, ref), ref.source_file);
     if (exactMatch) {
       return exactMatch;
     }
@@ -114,12 +163,14 @@ function resolveTarget(ref, resolvers) {
 
   if (/[.\\/]/u.test(ref.target)) {
     for (const candidate of lookupCandidates(ref.target)) {
-      const suffixMatch = preferProximate(resolvers.findByQnameSuffix(candidate), ref.source_file);
+      const suffixRaw = resolvers.findByQnameSuffix(candidate);
+      const suffixMatch = preferProximate(filterByLanguageFamily(suffixRaw, ref), ref.source_file);
       if (suffixMatch) return suffixMatch;
     }
   }
 
-  const labelMatches = resolvers.findByLabel(ref.target);
+  const labelRaw = resolvers.findByLabel(ref.target);
+  const labelMatches = filterByLanguageFamily(labelRaw, ref);
   if (COMMON_NAMES.has(ref.target)) {
     const sameFile = labelMatches.filter((m) => m.file_path === ref.source_file);
     if (sameFile.length === 1) return sameFile[0];

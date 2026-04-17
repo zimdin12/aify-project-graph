@@ -142,6 +142,94 @@ describe('cross-file resolver', () => {
     ]);
   });
 
+  it('does not resolve PHP CALLS to a CSS class_selector of the same name', () => {
+    // Regression: DB::table('users') in PHP was falsely resolving to a CSS
+    // .table selector in a stylesheet. CALLS is hard-gated to same language
+    // family, so with no PHP 'table' method present the ref should be
+    // unresolved rather than crossing into CSS.
+    upsertNode(db, {
+      id: 'css:table-selector',
+      type: 'Class',
+      label: 'table',
+      file_path: 'public/css/app.css',
+      start_line: 10,
+      end_line: 10,
+      language: 'css',
+      confidence: 0.7,
+      structural_fp: 'scss',
+      dependency_fp: 'dcss',
+      extra: { qname: 'public.css.app.table' },
+    });
+
+    const refs = [
+      {
+        from_id: 'php:caller',
+        from_label: 'SomeService',
+        relation: 'CALLS',
+        target: 'table',
+        source_file: 'app/Service.php',
+        source_line: 42,
+        confidence: 0.75,
+        extractor: 'php',
+      },
+    ];
+
+    const result = resolveRefs({ db, refs });
+    expect(result.edges).toEqual([]);
+    expect(result.unresolved).toEqual([
+      expect.objectContaining({ relation: 'CALLS', target: 'table', extractor: 'php' }),
+    ]);
+  });
+
+  it('resolves PHP CALLS to a PHP method even when a CSS selector of the same name exists', () => {
+    // When a real PHP candidate exists it wins — cross-family CSS noise
+    // should not preempt the same-family match.
+    upsertNode(db, {
+      id: 'css:table-selector',
+      type: 'Class',
+      label: 'table',
+      file_path: 'public/css/app.css',
+      start_line: 10,
+      end_line: 10,
+      language: 'css',
+      confidence: 0.7,
+      structural_fp: 'scss',
+      dependency_fp: 'dcss',
+      extra: { qname: 'public.css.app.table' },
+    });
+    upsertNode(db, {
+      id: 'php:table-method',
+      type: 'Method',
+      label: 'table',
+      file_path: 'app/QueryBuilder.php',
+      start_line: 20,
+      end_line: 30,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'sphp',
+      dependency_fp: 'dphp',
+      extra: { qname: 'app.QueryBuilder.table', parent_class: 'QueryBuilder' },
+    });
+
+    const refs = [
+      {
+        from_id: 'php:caller2',
+        from_label: 'Svc',
+        relation: 'CALLS',
+        target: 'table',
+        source_file: 'app/OtherService.php',
+        source_line: 1,
+        confidence: 0.75,
+        extractor: 'php',
+      },
+    ];
+
+    const result = resolveRefs({ db, refs });
+    expect(result.edges).toEqual([
+      expect.objectContaining({ from_id: 'php:caller2', to_id: 'php:table-method', relation: 'CALLS' }),
+    ]);
+  });
+
   it('resolves against a large node table without any full-table node load', () => {
     for (let i = 0; i < 10000; i += 1) {
       upsertNode(db, {
