@@ -7,6 +7,7 @@ import php from '../../../mcp/stdio/ingest/languages/php.js';
 import c from '../../../mcp/stdio/ingest/languages/c.js';
 import cpp from '../../../mcp/stdio/ingest/languages/cpp.js';
 import typescript from '../../../mcp/stdio/ingest/languages/typescript.js';
+import javascript from '../../../mcp/stdio/ingest/languages/javascript.js';
 import java from '../../../mcp/stdio/ingest/languages/java.js';
 import ruby from '../../../mcp/stdio/ingest/languages/ruby.js';
 import rust from '../../../mcp/stdio/ingest/languages/rust.js';
@@ -348,6 +349,51 @@ describe('generic extractor', () => {
 
     const result = extractFile({
       filePath: 'src/Foo.cpp',
+      source,
+      config: cpp,
+    });
+
+    const method = findNode(result.nodes, 'Method', 'bar');
+    expect(method).toBeTruthy();
+    expect(method.extra.parent_class).toBe('Foo');
+    expect(method.extra.qname).toBe('Foo.bar');
+    expect(result.refs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ relation: 'CONTAINS', from_target: 'Foo', to_id: method.id }),
+      ]),
+    );
+  });
+
+  it('emits REFERENCES for TypeScript and JavaScript decorators', () => {
+    const fixtureDir = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'tiny-typescript');
+    const tsSource = readFileSync(join(fixtureDir, 'decorators.ts'), 'utf8');
+    const jsSource = readFileSync(join(fixtureDir, 'decorators.js'), 'utf8');
+
+    const tsResult = extractFile({
+      filePath: 'src/decorators.ts',
+      source: tsSource,
+      config: typescript,
+    });
+    const jsResult = extractFile({
+      filePath: 'src/decorators.js',
+      source: jsSource,
+      config: javascript,
+    });
+
+    expect(findRef(tsResult.refs, 'REFERENCES', 'AppController', 'Controller')).toBeTruthy();
+    expect(findRef(tsResult.refs, 'REFERENCES', 'list', 'Get')).toBeTruthy();
+    expect(findRef(tsResult.refs, 'REFERENCES', 'TodoStore', 'observable')).toBeTruthy();
+
+    expect(findRef(jsResult.refs, 'REFERENCES', 'Widget', 'Component')).toBeTruthy();
+    expect(findRef(jsResult.refs, 'REFERENCES', 'boot', 'action')).toBeTruthy();
+  });
+
+  it('extracts template-specialized C++ methods as Method with stripped template scope', () => {
+    const fixtureDir = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'tiny-cpp-methods');
+    const source = readFileSync(join(fixtureDir, 'FooTemplate.cpp'), 'utf8');
+
+    const result = extractFile({
+      filePath: 'src/FooTemplate.cpp',
       source,
       config: cpp,
     });

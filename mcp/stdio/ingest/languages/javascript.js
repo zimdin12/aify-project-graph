@@ -1,4 +1,5 @@
 import TypeScript from 'tree-sitter-typescript';
+import { extractDecoratorReferences } from '../extractors/decorators.js';
 
 function normalizeImportSource(text) {
   return text.replace(/^\.\/+|^\.\.\/+/u, '').replace(/\//g, '.');
@@ -24,9 +25,21 @@ function extractImportTargets({ node, source }) {
   return [importSource];
 }
 
+function postExtractJavaScript({ tree, source, filePath, nodes }) {
+  return extractDecoratorReferences({
+    tree,
+    source,
+    filePath,
+    nodes,
+    language: 'javascript',
+    ownerTypes: ['class_declaration', 'method_definition', 'public_field_definition'],
+  });
+}
+
 export default {
   language: 'javascript',
   parser: TypeScript.tsx,
+  postExtract: postExtractJavaScript,
   extensions: ['.js', '.jsx', '.mjs', '.cjs'],
   testDetector: ({ label, resolvedType, filePath }) =>
     ['Function', 'Method'].includes(resolvedType)

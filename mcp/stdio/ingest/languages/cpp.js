@@ -55,6 +55,33 @@ function findEnclosingFunctionLabel(fnDef, source) {
   return '';
 }
 
+function extractQualifiedScopeSegments(node, source) {
+  if (!node) return [];
+  if (node.type === 'qualified_identifier') {
+    return [
+      ...extractQualifiedScopeSegments(node.childForFieldName('scope'), source),
+      ...extractQualifiedScopeSegments(node.childForFieldName('name'), source),
+    ];
+  }
+  if (node.type === 'template_type') {
+    return extractQualifiedScopeSegments(node.childForFieldName('name'), source);
+  }
+  const text = nodeText(node, source).trim();
+  return text ? [text] : [];
+}
+
+function findCppNamedDeclarator(node) {
+  if (!node) return null;
+  if (['identifier', 'field_identifier', 'qualified_identifier'].includes(node.type)) return node;
+  const direct = node.childForFieldName?.('declarator');
+  if (direct) return findCppNamedDeclarator(direct);
+  for (const child of node.namedChildren ?? []) {
+    const found = findCppNamedDeclarator(child);
+    if (found) return found;
+  }
+  return null;
+}
+
 function postExtractCpp({ tree, source, filePath, nodes }) {
   const refs = [];
   const functionsInFile = nodes.filter(
@@ -126,6 +153,22 @@ function postExtractCpp({ tree, source, filePath, nodes }) {
 
 function extractCppFunctionSymbol({ node, source }) {
   const declarator = node.childForFieldName('declarator');
+  const namedDeclarator = findCppNamedDeclarator(declarator);
+  if (namedDeclarator?.type === 'qualified_identifier') {
+    const scopeChain = extractQualifiedScopeSegments(namedDeclarator.childForFieldName('scope'), source);
+    const name = nodeText(namedDeclarator.childForFieldName('name'), source).trim();
+    const parentClass = scopeChain.at(-1) ?? '';
+    const parentClassQname = scopeChain.join('.');
+    if (name && parentClass) {
+      return {
+        name,
+        parentClass,
+        parentClassQname,
+        type: 'Method',
+      };
+    }
+  }
+
   const declaratorText = nodeText(declarator, source);
   const qualifiedMatch = declaratorText.match(/(?:^|[\s*&])((?:[A-Za-z_][\w]*::)+)(~?[A-Za-z_]\w*)\s*\(/u);
   if (qualifiedMatch) {
@@ -134,7 +177,7 @@ function extractCppFunctionSymbol({ node, source }) {
     return {
       name: qualifiedMatch[2],
       parentClass,
-      parentClassQname: parentClass,
+      parentClassQname: scopeChain.join('.'),
       type: 'Method',
     };
   }
