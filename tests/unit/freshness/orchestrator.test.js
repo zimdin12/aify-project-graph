@@ -23,6 +23,7 @@ describe('freshness orchestrator', () => {
   let repoRoot;
 
   beforeEach(async () => {
+    vi.resetModules();
     repoRoot = await mkdtemp(join(tmpdir(), 'apg-orchestrator-'));
     await mkdir(join(repoRoot, 'src'), { recursive: true });
 
@@ -98,5 +99,55 @@ describe('freshness orchestrator', () => {
     // (improved resolver may resolve the IMPORTS edge, leaving only CALLS dirty)
     expect(manifest.dirtyEdges.length).toBeGreaterThanOrEqual(1);
     expect(manifest.dirtyEdges.some(e => e.target === 'helper' && e.source_file === 'src/run.py')).toBe(true);
+  });
+
+  it('keeps previously committed chunks when a later file write fails', async () => {
+    for (let i = 0; i <= 500; i += 1) {
+      const name = `file-${String(i).padStart(3, '0')}.py`;
+      await writeFile(join(repoRoot, 'src', name), `def fn_${i}():\n    return ${i}\n`);
+    }
+
+    getHeadCommit.mockResolvedValue('head-chunk');
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const nodesModule = await import('../../../mcp/stdio/storage/nodes.js');
+    const realUpsertNode = nodesModule.upsertNode;
+    const seenFiles = new Set();
+    const failedFiles = new Set();
+
+    vi.spyOn(nodesModule, 'upsertNode').mockImplementation((db, node) => {
+      if (node.file_path?.startsWith('src/file-')) {
+        if (!seenFiles.has(node.file_path)) {
+          seenFiles.add(node.file_path);
+          if (seenFiles.size === 501 && !failedFiles.has(node.file_path)) {
+            failedFiles.add(node.file_path);
+            throw new Error('simulated write failure');
+          }
+        }
+      }
+      return realUpsertNode(db, node);
+    });
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const result = await ensureFresh({ repoRoot });
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const committed = db.get(`
+        SELECT COUNT(DISTINCT file_path) AS count
+        FROM nodes
+        WHERE file_path LIKE 'src/file-%'
+      `).count;
+
+      expect(committed).toBe(500);
+      expect(result.nodes).toBeGreaterThan(0);
+    } finally {
+      db.close();
+    }
+
+    const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+    expect(manifest.status).toBe('ok');
+    expect(manifest.commit).toBe('head-chunk');
   });
 });

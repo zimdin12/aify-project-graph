@@ -21,6 +21,7 @@ const EXTRACTOR_VERSION = '0.1.0';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
 const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema'];
 const IGNORED_DIRS = new Set(['.git', '.aify-graph', 'node_modules']);
+const EXTRACTION_CHUNK_SIZE = 500;
 
 // TTL cache: skip git checks if the graph was confirmed fresh within the last 5 seconds
 const freshCache = new Map(); // repoRoot → { ts, result }
@@ -107,41 +108,64 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       const refs = [...specialPlugins.refs, ...(manifest.dirtyEdges ?? [])];
       const existingFiles = [];
 
-      // Wrap ALL per-file extraction in one transaction — 50-100x faster on large repos
+      // Extract in bounded chunks so a mid-run failure only loses the current chunk.
+      let chunkSize = 0;
       db.raw.exec('BEGIN');
       try {
-
       for (const relPath of filesToProcess) {
-        const absPath = join(repoRoot, relPath);
-        if (!existsSync(absPath)) {
-          deleteNodesForFile(db, relPath);
-          continue;
-        }
-
-        const config = maybeGetLanguageConfig(relPath);
-        if (!config) {
-          deleteNodesForFile(db, relPath);
-          continue;
-        }
-
-        existingFiles.push(relPath);
-
-        const fileStat = await stat(absPath);
-        if (fileStat.size > 1_000_000) {
-          deleteNodesForFile(db, relPath);
-          continue;
-        }
-
-        deleteNodesForFile(db, relPath);
-
         try {
-          const source = await readFile(absPath, 'utf8');
-          const extracted = extractFile({ filePath: relPath, source, config });
+          const absPath = join(repoRoot, relPath);
+          if (!existsSync(absPath)) {
+            deleteNodesForFile(db, relPath);
+            continue;
+          }
+
+          const config = maybeGetLanguageConfig(relPath);
+          if (!config) {
+            deleteNodesForFile(db, relPath);
+            continue;
+          }
+
+          existingFiles.push(relPath);
+
+          const fileStat = await stat(absPath);
+          if (fileStat.size > 1_000_000) {
+            deleteNodesForFile(db, relPath);
+            continue;
+          }
+
+          deleteNodesForFile(db, relPath);
+
+          let source;
+          try {
+            source = await readFile(absPath, 'utf8');
+          } catch {
+            // Skip files that fail to read — non-fatal
+            continue;
+          }
+
+          let extracted;
+          try {
+            extracted = extractFile({ filePath: relPath, source, config });
+          } catch {
+            // Skip files that fail to parse — non-fatal
+            continue;
+          }
+
           for (const node of extracted.nodes) upsertNode(db, node);
           for (const edge of extracted.edges) upsertEdge(db, edge);
           refs.push(...extracted.refs);
+          chunkSize += 1;
+          if (chunkSize >= EXTRACTION_CHUNK_SIZE) {
+            db.raw.exec('COMMIT');
+            db.raw.exec('BEGIN');
+            chunkSize = 0;
+          }
         } catch {
-          // Skip files that fail to parse — non-fatal
+          // File-scope failure: discard the current chunk and keep going.
+          try { db.raw.exec('ROLLBACK'); } catch {}
+          db.raw.exec('BEGIN');
+          chunkSize = 0;
         }
       }
 
