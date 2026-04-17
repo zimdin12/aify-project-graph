@@ -12,7 +12,13 @@ function nodeText(node, source) {
 // parameters (Transform&, CameraTarget&, etc.) are completely invisible.
 // This postExtract emits USES_TYPE refs from the enclosing function to each
 // component type.
-const ECS_TERMINATOR_FIELDS = new Set(['each', 'iter', 'run']);
+// Common ECS query terminators where a lambda declares the component types.
+// - flecs: .each / .iter / .run
+// - entt: .view<T...>().each / .for_each
+// - EnTT / bevy_ecs ports: .for_each
+// The detection fires on method+lambda shape (not library-specific), so
+// new ECS libraries with a similar API join automatically.
+const ECS_TERMINATOR_FIELDS = new Set(['each', 'iter', 'run', 'for_each']);
 
 function normalizeTypeName(raw) {
   if (!raw) return '';

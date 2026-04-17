@@ -127,49 +127,48 @@ function postExtractPhp({ tree, source, filePath, fileNode, nodes, symbolsById }
       }
     }
 
-    // (c) __construct parameters with type hints → USES_TYPE from enclosing class
+    // (c) Method parameters with type hints → USES_TYPE from enclosing class.
+    // Originally __construct only (classic DI); extended to all methods since
+    // typed parameters on any method are real class-level dependencies
+    // (e.g. public function store(UserService $svc, Request $req)). Same
+    // primitive skip list, same confidence.
     if (node.type === 'method_declaration') {
-      const nameNode = node.childForFieldName('name');
-      const name = nodeText(nameNode, source);
-      if (name === '__construct') {
-        const params = node.childForFieldName('parameters');
-        const ctorLine = node.startPosition.row + 1;
-        const ownerClass = classAtLine(ctorLine);
-        if (params && ownerClass) {
-          for (const p of params.namedChildren) {
-            // simple_parameter or property_promotion_parameter — both can have a type
-            const typeNode = p.childForFieldName('type');
-            if (!typeNode) continue;
-            // Named type — can be a union/intersection/simple. Walk for `name` / `qualified_name`.
-            const names = [];
-            const queue = [typeNode];
-            while (queue.length) {
-              const cur = queue.shift();
-              if (cur.type === 'name' || cur.type === 'qualified_name' || cur.type === 'named_type') {
-                if (cur.type === 'named_type') {
-                  queue.push(...cur.namedChildren);
-                } else {
-                  names.push(nodeText(cur, source).trim());
-                }
-              } else {
+      const params = node.childForFieldName('parameters');
+      const methodLine = node.startPosition.row + 1;
+      const ownerClass = classAtLine(methodLine);
+      if (params && ownerClass) {
+        for (const p of params.namedChildren) {
+          // simple_parameter or property_promotion_parameter — both can have a type.
+          const typeNode = p.childForFieldName('type');
+          if (!typeNode) continue;
+          // Named type — can be a union/intersection/simple. Walk for `name` / `qualified_name`.
+          const names = [];
+          const queue = [typeNode];
+          while (queue.length) {
+            const cur = queue.shift();
+            if (cur.type === 'name' || cur.type === 'qualified_name' || cur.type === 'named_type') {
+              if (cur.type === 'named_type') {
                 queue.push(...cur.namedChildren);
+              } else {
+                names.push(nodeText(cur, source).trim());
               }
+            } else {
+              queue.push(...cur.namedChildren);
             }
-            for (const typeName of names) {
-              if (!typeName) continue;
-              // Skip primitive types
-              if (['string', 'int', 'float', 'bool', 'array', 'object', 'mixed', 'void', 'null', 'iterable', 'callable', 'self', 'static', 'parent'].includes(typeName.toLowerCase())) continue;
-              refs.push({
-                from_id: ownerClass.id,
-                from_label: ownerClass.label,
-                relation: 'USES_TYPE',
-                target: typeName,
-                source_file: filePath,
-                source_line: ctorLine,
-                confidence: 0.8,
-                extractor: 'php',
-              });
-            }
+          }
+          for (const typeName of names) {
+            if (!typeName) continue;
+            if (['string', 'int', 'float', 'bool', 'array', 'object', 'mixed', 'void', 'null', 'iterable', 'callable', 'self', 'static', 'parent'].includes(typeName.toLowerCase())) continue;
+            refs.push({
+              from_id: ownerClass.id,
+              from_label: ownerClass.label,
+              relation: 'USES_TYPE',
+              target: typeName,
+              source_file: filePath,
+              source_line: methodLine,
+              confidence: 0.8,
+              extractor: 'php',
+            });
           }
         }
       }
