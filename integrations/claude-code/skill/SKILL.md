@@ -132,3 +132,38 @@ DECISION: CONFIRM — 42 callers across module boundaries
 - **Runtime behavior** — dynamic dispatch, reflection, eval, monkey-patching are invisible to static analysis.
 - **What triggers a function with 0 callers** — entry points called by the runtime (event handlers, CLI commands, cron jobs) may not have graph edges. Check the code.
 - **Recent uncommitted changes** — the graph refreshes on git state. Unsaved edits in your editor are not reflected until you query again.
+- **C++ templates** — specialisations like `Foo<int>::bar()` aren't yet extracted as methods. Plain class/method + virtual dispatch works fine.
+
+## Supported languages
+
+12 total via config-driven generic extractor:
+
+- **Code**: Python, JavaScript, TypeScript, PHP (incl. traits/enums/interfaces), C, C++ (incl. out-of-class `Class::method` definitions), Go, Rust, Ruby, Java
+- **Shaders**: GLSL (vert/frag/comp/tesc/tese/geom/mesh/task + Vulkan raytracing stages)
+- **Styles**: CSS (class selectors, keyframes, @import)
+
+## Qualified name queries
+
+When a method is defined out-of-class (common in C++ `.cpp` files), the graph stores it as `ClassName.methodName`. Prefer `graph_whereis(symbol="ChunkRenderer.Render")` over a bare `"Render"` query to disambiguate.
+
+For PHP/Laravel, the module identity is the namespace path (`App.Models.User` for `namespace App\Models; class User`), so `use App\Models\User;` imports resolve correctly.
+
+## Project config: `.aifyignore` and `.aifyinclude`
+
+Projects can override the default indexed-dirs list at repo root:
+
+```
+# .aifyignore — add these to the defaults
+legacy/
+experiments/
+
+# .aifyinclude — un-exclude from the defaults
+build          # include a build/ dir that contains hand-written code
+vendor         # include vendored code (Go-style)
+```
+
+One bare directory name per line. Read at every `graph_index` — no restart required.
+
+## Crash recovery
+
+If a rebuild crashes mid-run (OOM, kill), the next `graph_index` call will detect the partial state and resume from the committed chunks rather than starting over. Cross-file refs for pre-crash files may be incomplete until a clean `graph_index(force=true)`.

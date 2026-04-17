@@ -164,15 +164,19 @@ PATH handleRequest src/server.ts:10
 
 ## Languages
 
-10 languages supported via config-driven generic extractor:
+12 languages supported via config-driven generic extractor:
 
 | Tier | Languages | Accuracy |
 |---|---|---|
 | **Tier 1** (90%+) | Python, JavaScript, TypeScript, Go, Ruby, Java | Explicit imports + clear structure |
-| **Tier 2** (70-80%) | PHP, C, Rust | Framework magic or preprocessor gaps |
-| **Tier 3** (60%) | C++ | Templates/ADL limit static analysis |
+| **Tier 2** (70-85%) | PHP (incl. traits/enums/interfaces, member/static/nullsafe calls, namespace-based module qname), C, C++ (incl. out-of-class `Class::method` definitions), Rust | Framework magic or preprocessor gaps |
+| **Tier 3** (60-70%) | C++ templates (specialisations `Foo<int>::bar` not yet handled), GLSL, CSS | Template-heavy C++, shader/style subset |
 
 Adding a new language = writing a ~30-line config file.
+
+Project-level escape hatches at repo root:
+- `.aifyignore` — additional dirs to exclude on top of defaults
+- `.aifyinclude` — un-exclude from defaults (e.g. `build` or `vendor` when they hold real code)
 
 ## Performance
 
