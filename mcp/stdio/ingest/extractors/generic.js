@@ -277,7 +277,13 @@ export function extractFile({ filePath, source, config }) {
   const edges = [];
   const refs = [];
   const lineCount = source.length === 0 ? 0 : source.split('\n').length;
-  const moduleLabel = moduleNameForPath(filePath);
+  const pathBasedLabel = moduleNameForPath(filePath);
+  // Language configs may override the module identity (e.g. PHP derives it
+  // from the `namespace` directive so imports like `use App\Models\User`
+  // actually resolve to the right module).
+  const moduleLabel = typeof config.moduleFromAst === 'function'
+    ? (config.moduleFromAst({ tree, source, filePath, defaultLabel: pathBasedLabel }) || pathBasedLabel)
+    : pathBasedLabel;
   const fileLabel = basename(filePath);
   const symbolDeps = new Map();
   const symbolsById = new Map();
