@@ -190,29 +190,50 @@ Noop (no changes): ~170ms on small repos, <1s on medium.
 
 ## A/B Test Results
 
-Controlled A/B tests with real subagents: same task, same model, same repo — only difference is whether the agent uses graph verbs or only Read/Grep/Glob. Both agents could freely read source files; this is **realistic mode**, not "graph-only vs files-only."
+Controlled A/B tests with real subagents: same task, same model, same repo — only difference is whether the agent uses graph verbs or only Read/Grep/Glob. Both agents can read source files freely; this is **realistic mode**, not "graph-only vs files-only."
 
-### Realistic mode (graph + files vs files-only)
+### Headline finding
 
-| Repo | Task type | Tokens (graph) | Tokens (files) | Savings | Wall-clock |
-|---|---|---|---|---|---|
-| aify-project-graph (Node) | Search: entry + top callees | 29,954 | 38,377 | **−22%** | 2.6× faster |
-| aify-project-graph (Node) | Plan: add new verb | 40,467 | 38,074 | +6% | 1.3× faster |
-| aify-claude (Python) | Search | 32,608 | 44,613 | **−27%** | 2.2× faster |
-| aify-claude (Python) | Plan: add cron dispatch | 40,924 | 46,522 | **−12%** | graph slower |
-| mem0-fork (Python+TS) | Search | 29,618 | 47,039 | **−37%** | 1.4× faster |
-| mem0-fork (Python+TS) | Plan: add Redis backend | 35,545 | 41,783 | **−15%** | graph slower |
-| echoes (C++) | Search: AudioSystem | 31,111 | 33,826 | −8% | ≈equal |
-| echoes (C++) | Orient: architecture | 29,709 | 42,614 | **−30%** | 1.3× faster |
+**The graph is a structural accelerator for multi-file trace/orientation, roughly tied with grep for single-symbol search.**
 
-**Average: −24% tokens on search/orient tasks, −13% on "plan a feature" tasks.**
+| Task type | Token savings (graph vs files-only) |
+|---|---|
+| **Trace** (walk a call chain across files) | **−6.5% average** |
+| **Search** (find a symbol + its top callers) | **−0.6% average** (effectively tied) |
+| Blended mixed workload | −3.8% average |
 
-The graph doesn't replace file reading — it **focuses** it. Instead of reading 10 files to find the right 2, the graph points you directly there. Biggest wins on orientation and architecture questions; smaller wins (or parity) on narrow symbol lookups where grep is already targeted.
+The A–E extraction improvements (PHP traits/method-params/facades, Python decorators, C++ out-of-class methods, ECS lambdas, External boundary terminals) are *edge-quality* improvements — they help exactly the workloads where relationships are the bottleneck, not the workloads where grep is already local-optimal.
 
-### Caveats
+### Per-repo results (post-A-E rebuild)
 
-- On **C++ repos**, `graph_callers` / `graph_preflight` currently under-report because out-of-class method definitions in `.cpp` files lose their class ownership during extraction. Fix in progress. Orientation queries (`graph_report`, `graph_whereis`, `graph_path`) are unaffected.
-- Earlier releases over-counted nodes on repos containing `.claude/worktrees/` or `build/_deps/` (CMake vendored libraries). Current release excludes those by default — see [IGNORED_DIRS](mcp/stdio/ingest/ignored-dirs.js). If your project legitimately keeps code under `build/` or `vendor/`, file an issue — configurable overrides are on the roadmap.
+| Repo | Trace Δ | Search Δ | Notable |
+|---|---|---|---|
+| aify-project-graph (Node) | −2.3% | −2.5% | Small repo — both methods converge |
+| aify-claude (Python) | **−13.7%** | −1.2% | Graph cleanly identified 3 wake mechanisms on POST /dispatch trace |
+| mem0-fork (Python + TS) | +7.9% | −1.9% | `Memory.add → _add_to_vector_store → …` is a linear chain in one file; reading wins |
+| **echoes (C++)** | **−23.8%** | +4.9% | **Flagship trace win.** Full input→movement pipeline traced via `graph_report + whereis + callees` |
+| lc-api (Laravel PHP) | +12.5% | −2.6% | Trace loss exposes Laravel middleware-group (`Kernel.php` config array) as a known extraction gap |
+
+### When to use the graph
+
+- **✅ Orient in an unfamiliar repo** (`graph_report`, `graph_whereis(expand=true)`)
+- **✅ Trace execution across 3+ files** (input pipelines, request handlers, middleware chains where modeled)
+- **✅ Impact/blast-radius on a symbol with non-trivial fan-in** (`graph_preflight`, `graph_callers` with class-level rollup)
+- **✅ Framework-pattern navigation** — Laravel routes/traits/facades, Flecs ECS systems, Python decorators
+
+### When grep/read is fine (or better)
+
+- ❌ Find a single known symbol by exact name
+- ❌ Linear call chains in one file
+- ❌ Dynamic dispatch that static analysis can't see (service-container resolution, reflection, metaclasses)
+- ❌ Config-driven flow (Laravel middleware groups, route parameters as strings)
+
+### Honest limits remaining
+
+- **Laravel middleware-group expansion**: `Kernel.php` declares `allow-end-user → ['require-token', 'throttle-...']`. The static extractor sees the array but doesn't emit edges, so trace tasks crossing a middleware boundary fall back to Read.
+- **C++ templates** `Foo<T>::bar()` now work for single-template cases, but nested templates and SFINAE specializations are still regex/AST-limited.
+- **Dynamic dispatch** (`app(Foo::class)`, `$factory->create($kind)`, Python reflection): captured where statically declared (Item 4 heuristics), invisible otherwise.
+- **Earlier releases** over-counted nodes on repos containing `.claude/worktrees/` or `build/_deps/`. Current release excludes those by default. If your project legitimately keeps code under `build/` or `vendor/`, use `.aifyinclude` to opt back in.
 
 ### Dogfood repos (current, post end-test)
 
