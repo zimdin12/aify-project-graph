@@ -1,0 +1,13 @@
+@import 'base.css';
+
+.header {
+  padding: 1rem;
+}
+
+.card > .title {
+  font-weight: bold;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}

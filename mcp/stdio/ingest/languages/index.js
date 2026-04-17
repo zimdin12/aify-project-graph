@@ -9,6 +9,7 @@ import rust from './rust.js';
 import ruby from './ruby.js';
 import java from './java.js';
 import glsl from './glsl.js';
+import css from './css.js';
 
 export const LANGUAGE_CONFIGS = [
   python,
@@ -22,6 +23,7 @@ export const LANGUAGE_CONFIGS = [
   ruby,
   java,
   glsl,
+  css,
 ];
 
 export function getLanguageConfig(filePath) {
