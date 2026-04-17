@@ -8,6 +8,7 @@ import go from './go.js';
 import rust from './rust.js';
 import ruby from './ruby.js';
 import java from './java.js';
+import glsl from './glsl.js';
 
 export const LANGUAGE_CONFIGS = [
   python,
@@ -20,6 +21,7 @@ export const LANGUAGE_CONFIGS = [
   rust,
   ruby,
   java,
+  glsl,
 ];
 
 export function getLanguageConfig(filePath) {
