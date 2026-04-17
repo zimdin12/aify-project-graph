@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 function parseExtra(node) {
   if (!node?.extra) return {};
   if (typeof node.extra === 'string') {
@@ -180,8 +182,39 @@ function resolveTarget(ref, resolvers) {
   return preferProximate(labelMatches, ref.source_file);
 }
 
+function normalizeExternalTarget(target) {
+  return String(target ?? '')
+    .trim()
+    .replace(/^["'<]+|[>"']+$/g, '');
+}
+
+function createExternalNode(ref) {
+  const label = normalizeExternalTarget(ref.target);
+  const family = languageFamily(ref.extractor);
+  const id = `external:${createHash('sha1').update(`${family}:${label}`).digest('hex').slice(0, 16)}`;
+  return {
+    id,
+    type: 'External',
+    label,
+    file_path: '',
+    start_line: 0,
+    end_line: 0,
+    language: family === 'unknown' ? '' : family,
+    confidence: ref.confidence ?? 0.5,
+    structural_fp: '',
+    dependency_fp: '',
+    extra: {
+      external: true,
+      sourceExtractor: ref.extractor ?? '',
+      sourceRelation: ref.relation ?? '',
+    },
+  };
+}
+
 export function resolveRefs({ db, refs }) {
   const resolvers = buildResolvers(db);
+  const nodes = [];
+  const seenNodeIds = new Set();
   const edges = [];
   const unresolved = [];
 
@@ -210,6 +243,23 @@ export function resolveRefs({ db, refs }) {
 
     const targetNode = resolveTarget(ref, resolvers);
     if (!targetNode) {
+      if (ref.relation === 'CALLS' && ref.from_id && ref.target) {
+        const externalNode = createExternalNode(ref);
+        if (!seenNodeIds.has(externalNode.id)) {
+          seenNodeIds.add(externalNode.id);
+          nodes.push(externalNode);
+        }
+        edges.push({
+          from_id: ref.from_id,
+          to_id: externalNode.id,
+          relation: ref.relation,
+          source_file: ref.source_file,
+          source_line: ref.source_line,
+          confidence: ref.confidence,
+          extractor: ref.extractor,
+        });
+        continue;
+      }
       unresolved.push(ref);
       continue;
     }
@@ -225,5 +275,5 @@ export function resolveRefs({ db, refs }) {
     });
   }
 
-  return { edges, unresolved };
+  return { nodes, edges, unresolved };
 }

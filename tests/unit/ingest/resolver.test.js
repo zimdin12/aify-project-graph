@@ -140,6 +140,40 @@ describe('cross-file resolver', () => {
     expect(result.unresolved).toEqual([
       expect.objectContaining({ relation: 'IMPORTS', target: 'os' }),
     ]);
+    expect(result.nodes).toEqual([]);
+  });
+
+  it('materializes unresolved CALLS as External terminal nodes', () => {
+    const refs = [
+      {
+        from_id: 'fn:run',
+        from_label: 'run',
+        relation: 'CALLS',
+        target: 'SDL_GetKeyboardState',
+        source_file: 'src/run.cpp',
+        source_line: 7,
+        confidence: 0.8,
+        extractor: 'cpp',
+      },
+    ];
+
+    const result = resolveRefs({ db, refs });
+
+    expect(result.nodes).toEqual([
+      expect.objectContaining({
+        type: 'External',
+        label: 'SDL_GetKeyboardState',
+        file_path: '',
+      }),
+    ]);
+    expect(result.edges).toEqual([
+      expect.objectContaining({
+        from_id: 'fn:run',
+        to_id: result.nodes[0].id,
+        relation: 'CALLS',
+      }),
+    ]);
+    expect(result.unresolved).toEqual([]);
   });
 
   it('does not resolve PHP CALLS to a CSS class_selector of the same name', () => {
@@ -175,10 +209,13 @@ describe('cross-file resolver', () => {
     ];
 
     const result = resolveRefs({ db, refs });
-    expect(result.edges).toEqual([]);
-    expect(result.unresolved).toEqual([
-      expect.objectContaining({ relation: 'CALLS', target: 'table', extractor: 'php' }),
+    expect(result.nodes).toEqual([
+      expect.objectContaining({ type: 'External', label: 'table' }),
     ]);
+    expect(result.edges).toEqual([
+      expect.objectContaining({ from_id: 'php:caller', to_id: result.nodes[0].id, relation: 'CALLS' }),
+    ]);
+    expect(result.unresolved).toEqual([]);
   });
 
   it('resolves PHP CALLS to a PHP method even when a CSS selector of the same name exists', () => {

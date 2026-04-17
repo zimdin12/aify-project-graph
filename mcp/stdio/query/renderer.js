@@ -1,5 +1,11 @@
+function formatLocation(filePath, line) {
+  if (filePath === 'external') return 'external';
+  if (filePath && filePath.length > 0) return `${filePath}:${line ?? 0}`;
+  return 'external';
+}
+
 export function renderNodeLine(n) {
-  return `NODE ${n.id} ${(n.type ?? 'unknown').toLowerCase()} ${n.label} ${n.file_path}:${n.start_line}`;
+  return `NODE ${n.id} ${(n.type ?? 'unknown').toLowerCase()} ${n.label} ${formatLocation(n.file_path, n.start_line)}`;
 }
 
 export function renderEdgeLine(e) {
@@ -24,8 +30,8 @@ export function renderPath(paths, indent = 0) {
   const lines = [];
   for (const p of paths) {
     const prefix = indent === 0
-      ? `PATH ${p.symbol} ${p.file}:${p.line}`
-      : `${'  '.repeat(indent)}→ ${p.symbol} ${p.file}:${p.line} conf=${Number(p.confidence).toFixed(2)}`;
+      ? `PATH ${p.symbol} ${formatLocation(p.file, p.line)}`
+      : `${'  '.repeat(indent)}→ ${p.symbol} ${formatLocation(p.file, p.line)} conf=${Number(p.confidence).toFixed(2)}`;
     lines.push(prefix);
     if (p.children && p.children.length > 0) {
       lines.push(renderPath(p.children, indent + 1));

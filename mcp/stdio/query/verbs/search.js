@@ -44,8 +44,8 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
       clauses.push('type = $type');
       params.type = type;
     } else if (kind === 'code') {
-      // Default: exclude docs/dirs/configs unless explicitly requested
-      clauses.push("type NOT IN ('Document', 'Directory', 'Config')");
+      // Default: exclude docs/dirs/configs/external terminals unless explicitly requested.
+      clauses.push("type NOT IN ('Document', 'Directory', 'Config', 'External')");
     }
 
     if (file) {

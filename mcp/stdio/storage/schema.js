@@ -4,6 +4,7 @@ const NODE_TYPES = [
   'Repository', 'File', 'Module', 'Function', 'Method', 'Class',
   'Interface', 'Type', 'Variable', 'Symbol', 'Test',
   'Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema',
+  'External',
 ];
 
 export { NODE_TYPES };

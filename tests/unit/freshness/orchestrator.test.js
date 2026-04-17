@@ -92,13 +92,31 @@ describe('freshness orchestrator', () => {
     getChangedFiles.mockResolvedValue([]);
 
     const result = await ensureFresh({ repoRoot });
-    expect(result.dirtyEdgeCount).toBeGreaterThanOrEqual(1);
+    expect(result.dirtyEdgeCount).toBe(0);
 
     const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
-    // At least one dirty edge should reference 'helper' from run.py
-    // (improved resolver may resolve the IMPORTS edge, leaving only CALLS dirty)
-    expect(manifest.dirtyEdges.length).toBeGreaterThanOrEqual(1);
-    expect(manifest.dirtyEdges.some(e => e.target === 'helper' && e.source_file === 'src/run.py')).toBe(true);
+    expect(manifest.dirtyEdges).toEqual([]);
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const external = db.get(`
+        SELECT type, label
+        FROM nodes
+        WHERE type = 'External' AND label = 'helper'
+      `);
+      const call = db.get(`
+        SELECT relation
+        FROM edges
+        WHERE source_file = 'src/run.py'
+          AND relation = 'CALLS'
+          AND to_id = (SELECT id FROM nodes WHERE type = 'External' AND label = 'helper')
+      `);
+
+      expect(external).toEqual(expect.objectContaining({ type: 'External', label: 'helper' }));
+      expect(call).toEqual(expect.objectContaining({ relation: 'CALLS' }));
+    } finally {
+      db.close();
+    }
   });
 
   it('keeps previously committed chunks when a later file write fails', async () => {

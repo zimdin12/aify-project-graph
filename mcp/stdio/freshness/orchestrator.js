@@ -217,13 +217,15 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       let resolved = { edges: [], unresolved: [] };
       try {
         resolved = resolveRefs({ db, refs });
-        const batchResolvedEdges = db.transaction(() => {
+        const batchResolvedGraph = db.transaction(() => {
+          for (const node of resolved.nodes ?? []) upsertNode(db, node);
           for (const edge of resolved.edges) upsertEdge(db, edge);
         });
-        batchResolvedEdges();
+        batchResolvedGraph();
+        cleanupOrphanExternalNodes(db);
       } catch (err) {
         // Resolution failed on large graph — proceed with partial edges
-        resolved = { edges: [], unresolved: refs };
+        resolved = { nodes: [], edges: [], unresolved: refs };
       }
 
       // Post-indexing analysis (skip on very large graphs to avoid OOM)
@@ -369,4 +371,16 @@ function normalizeRelativePath(repoRoot, absPath) {
   return absPath
     .slice(repoRoot.length + 1)
     .replace(/\\/g, '/');
+}
+
+function cleanupOrphanExternalNodes(db) {
+  db.run(`
+    DELETE FROM nodes
+    WHERE type = 'External'
+      AND id NOT IN (
+        SELECT from_id FROM edges
+        UNION
+        SELECT to_id FROM edges
+      )
+  `);
 }

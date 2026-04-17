@@ -14,12 +14,13 @@ const ROOT_TYPE_PRIORITY = new Map([
   ['Type', 7],
   ['Variable', 8],
   ['Symbol', 9],
-  ['Module', 10],
-  ['File', 11],
-  ['Document', 12],
-  ['Config', 13],
-  ['Directory', 14],
-  ['Schema', 15],
+  ['External', 10],
+  ['Module', 11],
+  ['File', 12],
+  ['Document', 13],
+  ['Config', 14],
+  ['Directory', 15],
+  ['Schema', 16],
 ]);
 
 const EDGE_PRIORITY = new Map([
