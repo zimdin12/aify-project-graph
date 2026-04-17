@@ -61,11 +61,9 @@ The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product 
 
 Tell your agent:
 
-> Read `install.claude.md` from the aify-project-graph repo and install it globally for this environment.
+> Read `AGENTS.md` from https://github.com/zimdin12/aify-project-graph and install it for this environment.
 
-Or for Codex:
-
-> Read `install.codex.md` from the aify-project-graph repo and install it globally for this environment.
+The agent-facing install doc is self-contained: it clones the repo, wires the MCP config for your runtime (Claude Code / Codex / OpenCode), installs the skill, and tells you the one manual step (restart).
 
 ### Manual install
 
@@ -135,7 +133,6 @@ cp -r <path>/aify-project-graph/integrations/claude-code/skill \
 | `graph_neighbors(symbol="User")` | All connections: calls, refs, imports, extends, tests | Full picture of a symbol |
 | `graph_impact(symbol="User")` | Deep blast radius analysis via transitive edge walk | When you need full dependency tree |
 | `graph_path(symbol="handleRequest")` | Trace execution path as a readable story | Understand flow end-to-end |
-| `graph_summary(symbol="User")` | Quick digest: type, file, top edges (prefer `graph_whereis` with `expand=true`) | One-glance overview |
 
 ### Administrative
 | Verb | What it does |
@@ -183,9 +180,9 @@ Adding a new language = writing a ~30-line config file.
 |---|---|---|---|
 | Small (32 files) | **1 second** | **~160ms** | 516 |
 | Medium (915 files) | **10 seconds** | **~1.3s** | 6,669 |
-| Large (250+ code files) | **~3 minutes** | not measured | 357,258 |
+| Large C/C++ (251 files) | **21 seconds** | ~1s | 4,000 |
 
-Noop (no changes): 170ms on small repos, ~1.2s on large.
+Noop (no changes): ~170ms on small repos, <1s on medium.
 
 ## A/B Test Results
 
@@ -218,14 +215,15 @@ The graph doesn't replace file reading — it **focuses** it. Instead of reading
 | aify-comms | Python+Node | 32 | 482 | 1,151 | 1s |
 | mem0-fork | Python+TS+JS | 915 | 6,514 | 13,773 | 10s |
 | lc-api (Laravel) | PHP | 1,902 | 11,572 | 20,628 | 12s |
-| echoes_of_the_fallen | C/C++ | 250+ | 357,258 | 749,134 | ~3min |
+| echoes_of_the_fallen | C/C++ | 251 | 4,000 | 6,811 | 21s |
 
 ## Detailed docs
 
+- [AGENTS.md](AGENTS.md) — one-stop agent-driven install (preferred)
 - [Design spec](docs/superpowers/specs/2026-04-16-aify-project-graph-design.md)
-- [Install for Claude Code](install.claude.md)
-- [Install for Codex](install.codex.md)
-- [Install for OpenCode](install.opencode.md)
+- [Install for Claude Code](install.claude.md) — human walkthrough
+- [Install for Codex](install.codex.md) — human walkthrough
+- [Install for OpenCode](install.opencode.md) — human walkthrough
 - [Query format reference](SKILL.md)
 - [Dogfood baseline](docs/dogfood/baseline-2026-04-16.md)
 

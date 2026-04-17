@@ -1,23 +1,75 @@
-# Install In OpenCode
+# Install aify-project-graph for OpenCode
 
-> **STATUS: PROVISIONAL** -- OpenCode MCP support has not yet been verified with this server. The configuration below is our best guess based on OpenCode's documented MCP interface. If you encounter issues, please report them.
+## Prerequisites
 
-1. Clone this repo where you want to keep the MCP server code.
-2. Run `npm install`.
-3. Run `npm test` and confirm the suite is green.
-4. Make sure your checkout includes `mcp/stdio/server.js`. If it does not, pull the latest `main` first; the MCP stdio entrypoint lands separately from the ingest/freshness stack.
+- Node.js >= 20
+- git
+- OpenCode CLI
 
-OpenCode needs the same stdio launch target as the other runtimes:
+## Steps
+
+### 1. Clone and install
+
+```bash
+git clone https://github.com/zimdin12/aify-project-graph.git
+cd aify-project-graph
+npm install
+npm test   # verify: all green
+```
+
+### 2. Register the MCP server
+
+Add to your OpenCode MCP config (typically `~/.opencode/config.json` under the `mcpServers` key, or per-project in `.opencode/config.json`):
 
 ```json
 {
-  "aify-project-graph": {
-    "command": "node",
-    "args": ["C:/path/to/aify-project-graph/mcp/stdio/server.js"]
+  "mcpServers": {
+    "aify-project-graph": {
+      "command": "node",
+      "args": ["<path-to-aify-project-graph>/mcp/stdio/server.js"]
+    }
   }
 }
 ```
 
-`# TODO: confirm the exact OpenCode MCP config path and final config wrapper shape.`
+Replace `<path-to-aify-project-graph>` with the absolute path. **Use forward slashes on Windows** (e.g. `C:/Docker/aify-project-graph/mcp/stdio/server.js`).
 
-Once that entry is in place, restart OpenCode, open the repo you want to analyze, and verify the install by calling `graph_status()` or `graph_report()`. The graph data is stored per target repo under `.aify-graph/graph.sqlite`.
+The `cwd` is inherited from your OpenCode session, so the graph targets the repo you have open.
+
+### 3. Restart OpenCode
+
+### 4. Verify
+
+In OpenCode, call:
+
+```
+graph_status()
+```
+
+First call auto-builds the graph (seconds to a couple of minutes depending on repo size). Then:
+
+```
+graph_report()
+```
+
+Returns a project orientation digest with directory layout, languages, entry points, and hub symbols.
+
+### 5. Start using
+
+```
+graph_report()                         # orient in the project
+graph_whereis(symbol="MyClass")        # find definition
+graph_callers(symbol="myFunction")     # who calls this?
+graph_callees(symbol="myFunction")     # what does this call?
+graph_path(symbol="handleRequest")     # trace execution path
+graph_impact(symbol="User")            # blast radius
+graph_preflight(symbol="get_db")       # one-shot edit safety check
+graph_file(path="src/auth/token.ts")   # everything about one file
+graph_whereis(symbol="X", expand=true) # definition + top edges
+```
+
+## Troubleshooting
+
+- **`better-sqlite3` build fails:** install native build tools for your OS.
+- **Path errors on Windows:** use forward slashes in the `args` entry.
+- **`unresolvedEdges > 0`:** some cross-file refs couldn't be resolved. Usually harmless — run `graph_index(force=true)` if it's a lot.
