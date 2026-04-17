@@ -47,11 +47,13 @@ Add an entry under `mcpServers` in the runtime's config file. The value is ident
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["<absolute-path-to-clone>/mcp/stdio/server.js"]
+      "args": ["--max-old-space-size=8192", "<absolute-path-to-clone>/mcp/stdio/server.js"]
     }
   }
 }
 ```
+
+The `--max-old-space-size=8192` flag (8 GB heap) is operational safety for indexing very large repos. Default Node heap is ~2 GB which is enough for small/medium projects but can fail on repos with >100k extractable symbols. Adjust to what your machine has — 4096 is fine on 8 GB RAM machines; 8192 is recommended on 16 GB+.
 
 Rules:
 - Use absolute path. On Windows, **forward slashes** (`C:/...`), not backslashes.

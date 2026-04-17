@@ -26,11 +26,13 @@ Add to your Codex MCP config. The config file is typically at `~/.codex/mcp.json
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["<path-to-aify-project-graph>/mcp/stdio/server.js"]
+      "args": ["--max-old-space-size=8192", "<path-to-aify-project-graph>/mcp/stdio/server.js"]
     }
   }
 }
 ```
+
+The `--max-old-space-size=8192` flag gives Node an 8 GB heap for indexing. Safe default — adjust down to 4096 on lower-memory machines, up to 16384 for very large codebases.
 
 Replace `<path-to-aify-project-graph>` with the absolute path where you cloned the repo. **Use forward slashes on Windows** (e.g. `C:/Docker/aify-project-graph/mcp/stdio/server.js`).
 

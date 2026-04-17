@@ -26,12 +26,14 @@ Add to your Claude Code MCP config (`~/.claude/mcp.json` or project-level `.clau
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["<path-to-aify-project-graph>/mcp/stdio/server.js"],
+      "args": ["--max-old-space-size=8192", "<path-to-aify-project-graph>/mcp/stdio/server.js"],
       "cwd": "<path-to-target-repo>"
     }
   }
 }
 ```
+
+The `--max-old-space-size=8192` flag gives Node an 8 GB heap for indexing. Safe default — adjust down to 4096 on lower-memory machines, up to 16384 for very large codebases.
 
 Replace `<path-to-aify-project-graph>` with the absolute path to where you cloned the repo (use forward slashes on Windows).
 

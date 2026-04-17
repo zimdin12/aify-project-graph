@@ -2,7 +2,7 @@
 
 On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph in a local SQLite file, and exposes high-intent query verbs over MCP. Agents navigate code, trace execution paths, and assess blast radius — using compact responses instead of reading files.
 
-**2.8x average token reduction** measured across 5 A/B test pairs on real codebases (Python, Node, PHP, C/C++). Up to **4.1x** on well-structured repos. 10 languages. No server, no container, no cloud.
+Typical token savings **~20–30%** on realistic agent tasks (graph + file reads together), with larger wins on orientation/architecture questions and smaller wins on specific-symbol lookups. Measured across 4 A/B test pairs on real codebases (Python, Node, PHP, C++). 10 languages. No server, no container, no cloud.
 
 ## Inspiration
 
@@ -186,27 +186,29 @@ Noop (no changes): ~170ms on small repos, <1s on medium.
 
 ## A/B Test Results
 
-We ran controlled A/B tests: same task, same model, same repo — only difference is whether the agent has graph tools.
+Controlled A/B tests with real subagents: same task, same model, same repo — only difference is whether the agent uses graph verbs or only Read/Grep/Glob. Both agents could freely read source files; this is **realistic mode**, not "graph-only vs files-only."
 
-### Graph-only vs files-only (feature planning)
+### Realistic mode (graph + files vs files-only)
 
-| Repo | Size | Files-only tokens | Graph-only tokens | Reduction |
-|---|---|---|---|---|
-| aify-comms | 32 files | 30,000 | **7,400** | **4.1x** |
-| aify-comms | 32 files | 13,750 | **6,000** | **2.3x** |
-| mem0-fork | 915 files | 49,000 | **15,490** | **3.2x** |
-| lc-api (Laravel) | 1,902 files | 15,500 | **5,750** | **2.7x** |
-| echoes (C/C++ game) | 250+ files | 36,250 | **21,250** | **1.7x** |
-| **Average** | | **28,900** | **11,178** | **2.8x** |
+| Repo | Task type | Tokens (graph) | Tokens (files) | Savings | Wall-clock |
+|---|---|---|---|---|---|
+| aify-project-graph (Node) | Search: entry + top callees | 29,954 | 38,377 | **−22%** | 2.6× faster |
+| aify-project-graph (Node) | Plan: add new verb | 40,467 | 38,074 | +6% | 1.3× faster |
+| aify-claude (Python) | Search | 32,608 | 44,613 | **−27%** | 2.2× faster |
+| aify-claude (Python) | Plan: add cron dispatch | 40,924 | 46,522 | **−12%** | graph slower |
+| mem0-fork (Python+TS) | Search | 29,618 | 47,039 | **−37%** | 1.4× faster |
+| mem0-fork (Python+TS) | Plan: add Redis backend | 35,545 | 41,783 | **−15%** | graph slower |
+| echoes (C++) | Search: AudioSystem | 31,111 | 33,826 | −8% | ≈equal |
+| echoes (C++) | Orient: architecture | 29,709 | 42,614 | **−30%** | 1.3× faster |
 
-### Realistic usage (graph + file reads together)
+**Average: −24% tokens on search/orient tasks, −13% on "plan a feature" tasks.**
 
-| Repo | Files-only | Graph + Files | Savings | Notes |
-|---|---|---|---|---|
-| lc-api | 15,500 tok | **13,350 tok** | 14% | Equal confidence, better architecture decisions |
-| mem0-fork | 49,000 tok | **~22,000 tok** | 55% | Found full 3-phase dedup algorithm |
+The graph doesn't replace file reading — it **focuses** it. Instead of reading 10 files to find the right 2, the graph points you directly there. Biggest wins on orientation and architecture questions; smaller wins (or parity) on narrow symbol lookups where grep is already targeted.
 
-The graph doesn't replace file reading — it **focuses** it. Instead of reading 10 files to find the right 2, the graph points you directly there.
+### Caveats
+
+- On **C++ repos**, `graph_callers` / `graph_preflight` currently under-report because out-of-class method definitions in `.cpp` files lose their class ownership during extraction. Fix in progress. Orientation queries (`graph_report`, `graph_whereis`, `graph_path`) are unaffected.
+- Earlier releases over-counted nodes on repos containing `.claude/worktrees/` or `build/_deps/` (CMake vendored libraries). Current release excludes those by default — see [IGNORED_DIRS](mcp/stdio/ingest/ignored-dirs.js). If your project legitimately keeps code under `build/` or `vendor/`, file an issue — configurable overrides are on the roadmap.
 
 ### Dogfood repos
 
