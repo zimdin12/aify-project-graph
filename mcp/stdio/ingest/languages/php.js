@@ -1,5 +1,184 @@
 import Php from 'tree-sitter-php';
 
+function nodeText(node, source) {
+  if (!node) return '';
+  return source.slice(node.startIndex, node.endIndex);
+}
+
+// Laravel-style facade map. Calls like `Cache::get('key')` are static-looking
+// but at runtime resolve to a concrete manager class. We emit a REFERENCES
+// edge from the source file to the underlying class so `graph_callers` on
+// e.g. CacheManager shows up wherever Cache::* is used. Unresolved facade
+// targets surface as External boundary nodes (item 2 / dev's Wave 2.2).
+const FACADE_MAP = new Map([
+  ['Cache', 'Illuminate\\Cache\\CacheManager'],
+  ['DB', 'Illuminate\\Database\\DatabaseManager'],
+  ['Log', 'Illuminate\\Log\\LogManager'],
+  ['Route', 'Illuminate\\Routing\\Router'],
+  ['Auth', 'Illuminate\\Auth\\AuthManager'],
+  ['Session', 'Illuminate\\Session\\SessionManager'],
+  ['Storage', 'Illuminate\\Filesystem\\FilesystemManager'],
+  ['View', 'Illuminate\\View\\Factory'],
+  ['Config', 'Illuminate\\Config\\Repository'],
+  ['Event', 'Illuminate\\Events\\Dispatcher'],
+  ['Queue', 'Illuminate\\Queue\\QueueManager'],
+  ['Request', 'Illuminate\\Http\\Request'],
+  ['Response', 'Illuminate\\Routing\\ResponseFactory'],
+  ['Str', 'Illuminate\\Support\\Str'],
+  ['Arr', 'Illuminate\\Support\\Arr'],
+  ['Schema', 'Illuminate\\Database\\Schema\\Builder'],
+  ['Artisan', 'Illuminate\\Console\\Application'],
+  ['Hash', 'Illuminate\\Hashing\\HashManager'],
+  ['Gate', 'Illuminate\\Auth\\Access\\Gate'],
+  ['Mail', 'Illuminate\\Mail\\Mailer'],
+]);
+
+// Post-extract: adds refs for three Laravel/PHP dynamic-dispatch patterns
+// that don't fit the per-node rule system cleanly.
+//   (a) app(Foo::class) / resolve(Foo::class) → REFERENCES to Foo
+//   (b) Facade::method() where Facade is in FACADE_MAP → REFERENCES to the
+//       underlying manager class (noisy if many facades; lets agents still
+//       find "what uses Cache?")
+//   (c) Constructor injection: public function __construct(UserService $svc)
+//       → USES_TYPE from the enclosing class to UserService
+// All three are static, conservative, and Laravel-neutral (rules fire on
+// pattern shape, not project type — false positives are rare because the
+// shapes are specific).
+function postExtractPhp({ tree, source, filePath, fileNode, nodes, symbolsById }) {
+  const refs = [];
+  // Map class nodes in this file by the class's start line so we can attach
+  // constructor-injection USES_TYPE to the right Class.
+  const classesInFile = nodes.filter((n) => n.type === 'Class' && n.file_path === filePath);
+
+  function classAtLine(line) {
+    // Class whose start_line <= line <= end_line (pick the innermost by
+    // tightest range, handles nested class in interface).
+    let best = null;
+    for (const c of classesInFile) {
+      if (c.start_line <= line && line <= c.end_line) {
+        if (!best || (c.end_line - c.start_line) < (best.end_line - best.start_line)) {
+          best = c;
+        }
+      }
+    }
+    return best;
+  }
+
+  function extractClassNameFromConstAccess(node) {
+    // class_constant_access_expression shape: Foo::class
+    // Children: [class, ::, identifier("class")]. Class is either `name` or
+    // a qualified_name.
+    const scope = node.namedChildren.find((c) => c.type === 'name' || c.type === 'qualified_name');
+    if (!scope) return '';
+    return nodeText(scope, source).trim();
+  }
+
+  function walk(node) {
+    // (a) app(Foo::class) or resolve(Foo::class)
+    if (node.type === 'function_call_expression') {
+      const fnNode = node.childForFieldName('function');
+      const fnName = nodeText(fnNode, source).trim();
+      if (fnName === 'app' || fnName === 'resolve' || fnName === 'make') {
+        const args = node.childForFieldName('arguments');
+        if (args) {
+          for (const arg of args.namedChildren) {
+            // arg is `argument`, inner is the actual expression
+            const inner = arg.namedChildren[0] ?? arg;
+            if (inner?.type === 'class_constant_access_expression') {
+              const target = extractClassNameFromConstAccess(inner);
+              if (target) {
+                refs.push({
+                  from_id: fileNode.id,
+                  from_label: fileNode.label,
+                  relation: 'REFERENCES',
+                  target,
+                  source_file: filePath,
+                  source_line: node.startPosition.row + 1,
+                  confidence: 0.7,
+                  extractor: 'php',
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // (b) Facade::method() — scoped_call_expression with scope matching FACADE_MAP
+    if (node.type === 'scoped_call_expression') {
+      const scopeNode = node.childForFieldName('scope');
+      const scopeText = nodeText(scopeNode, source).trim();
+      if (FACADE_MAP.has(scopeText)) {
+        const realClass = FACADE_MAP.get(scopeText);
+        refs.push({
+          from_id: fileNode.id,
+          from_label: fileNode.label,
+          relation: 'REFERENCES',
+          target: realClass,
+          source_file: filePath,
+          source_line: node.startPosition.row + 1,
+          confidence: 0.65,
+          extractor: 'php',
+        });
+      }
+    }
+
+    // (c) __construct parameters with type hints → USES_TYPE from enclosing class
+    if (node.type === 'method_declaration') {
+      const nameNode = node.childForFieldName('name');
+      const name = nodeText(nameNode, source);
+      if (name === '__construct') {
+        const params = node.childForFieldName('parameters');
+        const ctorLine = node.startPosition.row + 1;
+        const ownerClass = classAtLine(ctorLine);
+        if (params && ownerClass) {
+          for (const p of params.namedChildren) {
+            // simple_parameter or property_promotion_parameter — both can have a type
+            const typeNode = p.childForFieldName('type');
+            if (!typeNode) continue;
+            // Named type — can be a union/intersection/simple. Walk for `name` / `qualified_name`.
+            const names = [];
+            const queue = [typeNode];
+            while (queue.length) {
+              const cur = queue.shift();
+              if (cur.type === 'name' || cur.type === 'qualified_name' || cur.type === 'named_type') {
+                if (cur.type === 'named_type') {
+                  queue.push(...cur.namedChildren);
+                } else {
+                  names.push(nodeText(cur, source).trim());
+                }
+              } else {
+                queue.push(...cur.namedChildren);
+              }
+            }
+            for (const typeName of names) {
+              if (!typeName) continue;
+              // Skip primitive types
+              if (['string', 'int', 'float', 'bool', 'array', 'object', 'mixed', 'void', 'null', 'iterable', 'callable', 'self', 'static', 'parent'].includes(typeName.toLowerCase())) continue;
+              refs.push({
+                from_id: ownerClass.id,
+                from_label: ownerClass.label,
+                relation: 'USES_TYPE',
+                target: typeName,
+                source_file: filePath,
+                source_line: ctorLine,
+                confidence: 0.8,
+                extractor: 'php',
+              });
+            }
+          }
+        }
+      }
+    }
+
+    for (const child of node.namedChildren) walk(child);
+  }
+
+  walk(tree.rootNode);
+  return { refs };
+}
+
+
 // PHP's module identity is its `namespace` directive, not its file path. So
 // `app/Models/User.php` with `namespace App\Models;` has module qname
 // `App.Models.User` — matching what `use App\Models\User;` in another file
@@ -40,6 +219,7 @@ export default {
   parser: Php.php ?? Php,
   extensions: ['.php'],
   moduleFromAst,
+  postExtract: postExtractPhp,
   testDetector: ({ label, resolvedType }) =>
     ['Function', 'Method'].includes(resolvedType) && /^test/u.test(label),
   confidence: {

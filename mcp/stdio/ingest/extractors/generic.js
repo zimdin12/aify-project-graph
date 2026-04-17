@@ -574,5 +574,16 @@ export function extractFile({ filePath, source, config }) {
     finalizeFingerprints(node, symbolDeps.get(node.id));
   }
 
+  // Language configs may append more refs/edges after the main walker. Used
+  // for framework-specific patterns (e.g. PHP detects app(Foo::class),
+  // facades, constructor injection) that don't fit the per-node rule shape.
+  if (typeof config.postExtract === 'function') {
+    const extra = config.postExtract({
+      tree, source, filePath, nodes, edges, refs, fileNode, moduleNode, symbolsById,
+    });
+    if (extra?.refs) refs.push(...extra.refs);
+    if (extra?.edges) edges.push(...extra.edges);
+  }
+
   return { nodes, edges, refs };
 }
