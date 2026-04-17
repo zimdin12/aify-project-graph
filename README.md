@@ -214,14 +214,16 @@ The graph doesn't replace file reading — it **focuses** it. Instead of reading
 - On **C++ repos**, `graph_callers` / `graph_preflight` currently under-report because out-of-class method definitions in `.cpp` files lose their class ownership during extraction. Fix in progress. Orientation queries (`graph_report`, `graph_whereis`, `graph_path`) are unaffected.
 - Earlier releases over-counted nodes on repos containing `.claude/worktrees/` or `build/_deps/` (CMake vendored libraries). Current release excludes those by default — see [IGNORED_DIRS](mcp/stdio/ingest/ignored-dirs.js). If your project legitimately keeps code under `build/` or `vendor/`, file an issue — configurable overrides are on the roadmap.
 
-### Dogfood repos
+### Dogfood repos (current, post end-test)
 
 | Repo | Language | Files | Nodes | Edges | Index time |
 |---|---|---|---|---|---|
-| aify-comms | Python+Node | 32 | 482 | 1,151 | 1s |
-| mem0-fork | Python+TS+JS | 915 | 6,514 | 13,773 | 10s |
-| lc-api (Laravel) | PHP | 1,902 | 11,572 | 20,628 | 12s |
-| echoes_of_the_fallen | C/C++ | 251 | 4,000 | 6,811 | 21s |
+| aify-claude | Python+Node | 32 | 469 | 1,103 | 2s |
+| mem0-fork | Python+TS+JS | 926 | 6,672 | 13,772 | 16s |
+| lc-api (Laravel) | PHP | 1,820 | 14,467 | 43,858 | 69s |
+| echoes_of_the_fallen | C/C++ + GLSL | 322 | 6,128 | 17,612 | 34s |
+
+Numbers reflect the full extractor stack: out-of-class C++ methods, PHP traits/enums/interfaces/namespace-based modules, member+static+nullsafe PHP calls, facade + `app(X::class)` + constructor-DI REFERENCES, GLSL shader functions, CSS class selectors, flecs ECS lambda component types, External boundary nodes for unresolved cross-module references, and family-gated cross-language resolution.
 
 ## Detailed docs
 

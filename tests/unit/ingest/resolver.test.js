@@ -143,6 +143,60 @@ describe('cross-file resolver', () => {
     expect(result.nodes).toEqual([]);
   });
 
+  it('materializes unresolved USES_TYPE as External terminal node', () => {
+    const refs = [
+      {
+        from_id: 'cls:UserController',
+        from_label: 'UserController',
+        relation: 'USES_TYPE',
+        target: 'Illuminate\\Http\\Request',
+        source_file: 'app/Http/Controllers/UserController.php',
+        source_line: 14,
+        confidence: 0.8,
+        extractor: 'php',
+      },
+    ];
+    const result = resolveRefs({ db, refs });
+    expect(result.nodes).toEqual([
+      expect.objectContaining({ type: 'External', label: 'Illuminate\\Http\\Request' }),
+    ]);
+    expect(result.edges).toEqual([
+      expect.objectContaining({ from_id: 'cls:UserController', relation: 'USES_TYPE' }),
+    ]);
+  });
+
+  it('materializes qualified REFERENCES as External, leaves bare-name REFERENCES dirty', () => {
+    const refs = [
+      {
+        from_id: 'file:foo',
+        from_label: 'Foo.php',
+        relation: 'REFERENCES',
+        target: 'Illuminate\\Cache\\CacheManager',
+        source_file: 'app/Foo.php',
+        source_line: 5,
+        confidence: 0.65,
+        extractor: 'php',
+      },
+      {
+        from_id: 'file:foo',
+        from_label: 'Foo.php',
+        relation: 'REFERENCES',
+        target: 'something_lowercase',
+        source_file: 'app/Foo.php',
+        source_line: 6,
+        confidence: 0.6,
+        extractor: 'php',
+      },
+    ];
+    const result = resolveRefs({ db, refs });
+    expect(result.nodes).toEqual([
+      expect.objectContaining({ type: 'External', label: 'Illuminate\\Cache\\CacheManager' }),
+    ]);
+    expect(result.unresolved).toEqual([
+      expect.objectContaining({ relation: 'REFERENCES', target: 'something_lowercase' }),
+    ]);
+  });
+
   it('materializes unresolved CALLS as External terminal nodes', () => {
     const refs = [
       {

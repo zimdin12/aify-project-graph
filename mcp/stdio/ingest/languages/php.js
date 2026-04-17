@@ -104,10 +104,14 @@ function postExtractPhp({ tree, source, filePath, fileNode, nodes, symbolsById }
       }
     }
 
-    // (b) Facade::method() — scoped_call_expression with scope matching FACADE_MAP
+    // (b) Facade::method() — scoped_call_expression with scope matching FACADE_MAP.
+    // Strip the leading `\` that tree-sitter-php preserves for root-namespaced
+    // facade calls like `\DB::select(...)` and `\Log::error(...)` — lc-api
+    // writes facades this way consistently and we were missing 481 calls.
     if (node.type === 'scoped_call_expression') {
       const scopeNode = node.childForFieldName('scope');
-      const scopeText = nodeText(scopeNode, source).trim();
+      const rawScope = nodeText(scopeNode, source).trim();
+      const scopeText = rawScope.replace(/^\\+/, '');
       if (FACADE_MAP.has(scopeText)) {
         const realClass = FACADE_MAP.get(scopeText);
         refs.push({

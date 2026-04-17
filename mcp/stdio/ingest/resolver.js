@@ -188,6 +188,33 @@ function normalizeExternalTarget(target) {
     .replace(/^["'<]+|[>"']+$/g, '');
 }
 
+// Decide whether an unresolved ref should be materialized as an External
+// terminal node or left in dirtyEdges. Dev's rule (from design discussion):
+//  - CALLS: always materialize. Terminal hop in trace output.
+//  - USES_TYPE: always materialize. High-signal; DI targets, facade classes,
+//    etc. are real dependencies even if the framework source is excluded.
+//  - REFERENCES: materialize only when target is clearly type-like to avoid
+//    flooding with bare-name noise. "Type-like" = has a namespace/class
+//    separator (\, ., ::) or starts with an uppercase segment.
+//  - Other relations: leave dirty.
+// Also skips COMMON_NAMES (close/open/get/etc.) to prevent hundreds of
+// External nodes all labeled "get".
+function shouldMaterializeExternal(ref) {
+  if (!ref.from_id || !ref.target) return false;
+  const label = normalizeExternalTarget(ref.target);
+  if (!label) return false;
+  if (COMMON_NAMES.has(label)) return false;
+  if (ref.relation === 'CALLS') return true;
+  if (ref.relation === 'USES_TYPE') return true;
+  if (ref.relation === 'REFERENCES') {
+    if (/[\\.]|::/.test(label)) return true;
+    const firstSeg = label.split(/[\\.::]/)[0] ?? '';
+    if (firstSeg && firstSeg[0] >= 'A' && firstSeg[0] <= 'Z') return true;
+    return false;
+  }
+  return false;
+}
+
 function createExternalNode(ref) {
   const label = normalizeExternalTarget(ref.target);
   const family = languageFamily(ref.extractor);
@@ -243,7 +270,7 @@ export function resolveRefs({ db, refs }) {
 
     const targetNode = resolveTarget(ref, resolvers);
     if (!targetNode) {
-      if (ref.relation === 'CALLS' && ref.from_id && ref.target) {
+      if (shouldMaterializeExternal(ref)) {
         const externalNode = createExternalNode(ref);
         if (!seenNodeIds.has(externalNode.id)) {
           seenNodeIds.add(externalNode.id);
