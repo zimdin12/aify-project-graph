@@ -20,5 +20,6 @@ export default {
     imports: [{ nodeTypes: ['preproc_include'], field: 'path', confidence: 0.6 }],
     calls: [{ nodeTypes: ['call_expression'], field: 'function', confidence: 0.6 }],
     extends: [{ nodeTypes: ['base_class_clause'], descendantTypes: ['type_identifier'], confidence: 0.6 }],
+    references: [],
   },
 };
