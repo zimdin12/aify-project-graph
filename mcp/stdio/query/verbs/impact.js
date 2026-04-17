@@ -3,6 +3,7 @@ import { openDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { expandClassRollupTargets } from './target_rollup.js';
 
 const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS'];
 
@@ -11,16 +12,16 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const targets = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
+    const { targets, targetIds, rolledUp, header } = expandClassRollupTargets(db, symbol);
     if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
-    const tid = targets[0].id;
 
     const relFilter = IMPACT_RELATIONS.map(r => `'${r}'`).join(',');
+    const placeholders = targetIds.map((_, index) => `$tid${index}`).join(', ');
+    const params = Object.fromEntries(targetIds.map((id, index) => [`tid${index}`, id]));
 
-    // Recursive CTE: who depends on this symbol transitively?
     const edges = db.all(
       `WITH RECURSIVE impact(node_id, depth) AS (
-         SELECT from_id, 1 FROM edges WHERE to_id = $tid AND relation IN (${relFilter})
+         SELECT from_id, 1 FROM edges WHERE to_id IN (${placeholders}) AND relation IN (${relFilter})
          UNION ALL
          SELECT e.from_id, i.depth + 1 FROM edges e JOIN impact i ON e.to_id = i.node_id
          WHERE e.relation IN (${relFilter}) AND i.depth < $depth AND i.depth <= 10
@@ -31,7 +32,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
        JOIN nodes n ON n.id = e.from_id
        WHERE e.relation IN (${relFilter})
        LIMIT 100`,
-      { tid, depth }
+      { ...params, depth }
     );
 
     if (edges.length === 0) return `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_status().`;
@@ -43,7 +44,8 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       from_type: e.from_type, fan_in: 1,
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
-    return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
+    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
+    return rolledUp ? `${header}\n${body}` : body;
   } finally {
     db.close();
   }

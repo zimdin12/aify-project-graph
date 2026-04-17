@@ -1,12 +1,20 @@
 import { describe, it, expect } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { renderNodeLine, renderEdgeLine, renderCompact, renderPath }
   from '../../../mcp/stdio/query/renderer.js';
 import { estimateTokens, enforceBudget }
   from '../../../mcp/stdio/query/budget.js';
 import { rankCallers }
   from '../../../mcp/stdio/query/rank.js';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
+import { upsertEdge } from '../../../mcp/stdio/storage/edges.js';
 import { buildPaths, selectBestRoot, trimPaths }
   from '../../../mcp/stdio/query/verbs/path.js';
+import { collapseCallerEdges, expandClassRollupTargets }
+  from '../../../mcp/stdio/query/verbs/target_rollup.js';
 
 // ── renderer ──────────────────────────────────────────────────
 
@@ -17,6 +25,14 @@ describe('renderer', () => {
       file_path: 'src/a.py', start_line: 42,
     });
     expect(line).toBe('NODE n_foo function foo src/a.py:42');
+  });
+
+  it('renders external nodes without a fake file location', () => {
+    const line = renderNodeLine({
+      id: 'ext_sdl', type: 'External', label: 'SDL_GetKeyboardState',
+      file_path: '', start_line: 0,
+    });
+    expect(line).toBe('NODE ext_sdl external SDL_GetKeyboardState external');
   });
 
   it('renders an edge line', () => {
@@ -53,7 +69,7 @@ describe('renderer', () => {
     const out = renderPath(paths);
     expect(out).toContain('PATH handleRequest src/server.ts:10');
     expect(out).toContain('  → validateToken src/auth.ts:12 conf=0.95');
-    expect(out).toContain('    → jwt.verify external:0 conf=0.80');
+    expect(out).toContain('    → jwt.verify external conf=0.80');
     expect(out).toContain('  → User.findById src/user.ts:34 conf=0.90');
   });
 });
@@ -168,5 +184,74 @@ describe('path helpers', () => {
     }], 2);
 
     expect(trimmed[0].children.map((child) => child.symbol)).toEqual(['a', 'b']);
+  });
+});
+
+// ── class rollup helpers ─────────────────────────────────────
+
+describe('class rollup helpers', () => {
+  it('expands class targets to include contained methods', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'apg-rollup-'));
+    const db = openDb(join(dir, 'graph.sqlite'));
+
+    try {
+      upsertNode(db, {
+        id: 'class:audio', type: 'Class', label: 'AudioSystem',
+        file_path: 'engine/AudioSystem.h', start_line: 1, end_line: 30,
+        language: 'cpp', confidence: 1, structural_fp: 's1', dependency_fp: 'd1',
+        extra: { qname: 'AudioSystem' },
+      });
+      upsertNode(db, {
+        id: 'method:init', type: 'Method', label: 'initialize',
+        file_path: 'engine/AudioSystem.cpp', start_line: 5, end_line: 15,
+        language: 'cpp', confidence: 1, structural_fp: 's2', dependency_fp: 'd2',
+        extra: { qname: 'AudioSystem.initialize' },
+      });
+      upsertNode(db, {
+        id: 'method:update', type: 'Method', label: 'update',
+        file_path: 'engine/AudioSystem.cpp', start_line: 20, end_line: 35,
+        language: 'cpp', confidence: 1, structural_fp: 's3', dependency_fp: 'd3',
+        extra: { qname: 'AudioSystem.update' },
+      });
+      upsertEdge(db, {
+        from_id: 'class:audio', to_id: 'method:init', relation: 'CONTAINS',
+        source_file: 'engine/AudioSystem.cpp', source_line: 5, confidence: 1, extractor: 'cpp',
+      });
+      upsertEdge(db, {
+        from_id: 'class:audio', to_id: 'method:update', relation: 'CONTAINS',
+        source_file: 'engine/AudioSystem.cpp', source_line: 20, confidence: 1, extractor: 'cpp',
+      });
+
+      const rollup = expandClassRollupTargets(db, 'AudioSystem');
+      expect(rollup.rolledUp).toBe(true);
+      expect(rollup.targetIds).toEqual(expect.arrayContaining(['class:audio', 'method:init', 'method:update']));
+      expect(rollup.header).toBe('ROLLUP Class "AudioSystem" across 2 methods');
+    } finally {
+      db.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('collapses duplicate callers into one rolled-up row', () => {
+    const collapsed = collapseCallerEdges([
+      {
+        from_id: 'fn:tick', depth: 1, confidence: 0.8, fan_in: 1,
+        from_type: 'Function', from_label: 'tick', source_file: 'engine/Game.cpp', source_line: 10,
+      },
+      {
+        from_id: 'fn:tick', depth: 1, confidence: 0.9, fan_in: 1,
+        from_type: 'Function', from_label: 'tick', source_file: 'engine/Game.cpp', source_line: 12,
+      },
+    ], 'AudioSystem');
+
+    expect(collapsed).toEqual([
+      expect.objectContaining({
+        from_id: 'fn:tick',
+        fan_in: 2,
+        confidence: 0.9,
+        source_line: 12,
+        to_label: 'AudioSystem',
+      }),
+    ]);
   });
 });
