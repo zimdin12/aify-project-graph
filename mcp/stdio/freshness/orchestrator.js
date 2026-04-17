@@ -60,15 +60,48 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
     const db = openDb(join(graphDir, 'graph.sqlite'));
     try {
       const schemaMismatch = (manifest.schemaVersion ?? 1) !== SCHEMA_VERSION;
-      const fullRebuild = force
+
+      // Crash-recovery: if the previous run wrote `status: 'indexing'` and
+      // crashed before flipping to `'ok'`, the chunked-commit code has
+      // already preserved some nodes in SQLite. We can resume from that
+      // partial state instead of wiping and starting over — but only when
+      // the schema/commit still match. Cross-file refs emitted by
+      // previously-processed files were held in JS at crash time and are
+      // lost, so the resumed graph will have complete nodes/DEFINES/CONTAINS
+      // but potentially incomplete CALLS/IMPORTS/EXTENDS for pre-crash
+      // files. A follow-up `force=true` gives a clean graph.
+      const existingNodeCount = countNodes(db);
+      const canResumeFromPartial = !force
+        && !schemaMismatch
+        && manifest.status === 'indexing'
+        && manifest.commit
+        && manifest.commit === commit
+        && existingNodeCount > 0;
+
+      const fullRebuild = !canResumeFromPartial && (force
         || manifestState.status !== 'ok'
         || !manifest.commit
         || manifest.status === 'indexing'
-        || schemaMismatch;
+        || schemaMismatch);
+
       const effectiveIgnoredDirs = loadEffectiveIgnoredDirs(repoRoot);
-      const filesToProcess = fullRebuild
-        ? await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs)
-        : await expandAffectedFiles(db, repoRoot, initialChanged);
+      let filesToProcess;
+      let resumedFromPartial = false;
+      if (fullRebuild) {
+        filesToProcess = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
+      } else if (canResumeFromPartial) {
+        const allFiles = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
+        const alreadyProcessed = new Set(
+          db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).map((row) => row.file_path),
+        );
+        filesToProcess = allFiles.filter((relPath) => !alreadyProcessed.has(relPath));
+        resumedFromPartial = true;
+        // Intentional console warning: callers/agents should know cross-file
+        // refs for pre-crash files may be incomplete until next force rebuild.
+        console.warn(`[aify-project-graph] Resuming crashed rebuild: ${alreadyProcessed.size} files already indexed, ${filesToProcess.length} pending. Run graph_index(force=true) for a clean rebuild if cross-file edges look incomplete.`);
+      } else {
+        filesToProcess = await expandAffectedFiles(db, repoRoot, initialChanged);
+      }
 
       // Noop path: if no files to process and not a full rebuild, return early
       if (!fullRebuild && filesToProcess.length === 0) {
@@ -243,6 +276,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         nodes: nodeCount,
         edges: edgeCount,
         processedFiles: existingFiles,
+        resumedFromPartial,
       };
     } finally {
       db.close();
