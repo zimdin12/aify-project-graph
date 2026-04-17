@@ -82,9 +82,12 @@ export default {
     extends: [{ nodeTypes: ['base_clause'], descendantTypes: ['name'] }],
     implements: [
       { nodeTypes: ['class_interface_clause'], descendantTypes: ['name'] },
-      // `use SomeTrait;` inside a class body → treat as IMPLEMENTS (composition
-      // of behavior). Scoped to declaration_list parent so we don't catch the
-      // top-of-file `namespace use` imports.
+      // `use SomeTrait;` inside a class body. Semantically this is trait
+      // composition (mixin), not interface implementation. We reuse the
+      // IMPLEMENTS edge as an intentional approximation to avoid a schema
+      // change; if/when we introduce a USES_TRAIT relation, this rule should
+      // switch to it. Scoped to parentTypes=['declaration_list'] so we do not
+      // catch the top-of-file `namespace_use_declaration` (the import form).
       { nodeTypes: ['use_declaration'], parentTypes: ['declaration_list'], descendantTypes: ['name'] },
     ],
   },
