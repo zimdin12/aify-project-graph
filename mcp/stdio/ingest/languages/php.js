@@ -49,6 +49,12 @@ export default {
     ],
     calls: [
       { nodeTypes: ['function_call_expression'], field: 'function' },
+      // Method call on an object: $obj->method(), $this->service->doThing()
+      { nodeTypes: ['member_call_expression'], field: 'name' },
+      // Static method / class constant call: Class::method(), Facade::get()
+      { nodeTypes: ['scoped_call_expression'], field: 'name' },
+      // Nullsafe method call (PHP 8+): $obj?->method()
+      { nodeTypes: ['nullsafe_member_call_expression'], field: 'name' },
     ],
     extends: [{ nodeTypes: ['base_clause'], descendantTypes: ['name'] }],
     implements: [{ nodeTypes: ['class_interface_clause'], descendantTypes: ['name'] }],
