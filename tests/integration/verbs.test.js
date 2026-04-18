@@ -14,6 +14,8 @@ import { graphImpact } from '../../mcp/stdio/query/verbs/impact.js';
 import { graphSummary } from '../../mcp/stdio/query/verbs/summary.js';
 import { graphReport } from '../../mcp/stdio/query/verbs/report.js';
 import { graphPath } from '../../mcp/stdio/query/verbs/path.js';
+import { graphSearch } from '../../mcp/stdio/query/verbs/search.js';
+import { graphLookup } from '../../mcp/stdio/query/verbs/lookup.js';
 
 const FIXTURE = 'tests/fixtures/integration/sample-project';
 
@@ -62,6 +64,37 @@ describe('integration: full verb pipeline', () => {
   it('graph_whereis returns NO MATCH for unknown symbol', async () => {
     const out = await graphWhereis({ repoRoot: repo, symbol: 'does_not_exist_xyz' });
     expect(out).toContain('NO MATCH');
+  });
+
+  it('graph_lookup returns the exact definition for a known symbol', async () => {
+    const out = await graphLookup({ repoRoot: repo, symbol: 'handle_request' });
+    expect(out).toBe('src/main.py:4');
+  });
+
+  it('graph_lookup resolves qualified Class.method form to the method node', async () => {
+    // User.__init__ is a method on the User class in src/auth.py.
+    // Exact label match would fail (label is '__init__'), so the fallback
+    // must match via parent_class='User'.
+    const out = await graphLookup({ repoRoot: repo, symbol: 'User.__init__' });
+    expect(out).toContain('src/auth.py:');
+    expect(out).not.toContain('NO MATCH');
+  });
+
+  it('graph_lookup resolves C++-style Class::method form (cross-syntax)', async () => {
+    // Same node, different qualifier syntax — :: should be treated as a
+    // separator the same way '.' is. Fixture is Python but the normalizer
+    // should still resolve it.
+    const out = await graphLookup({ repoRoot: repo, symbol: 'User::__init__' });
+    expect(out).toContain('src/auth.py:');
+    expect(out).not.toContain('NO MATCH');
+  });
+
+  it('graph_search prefers exact hits over broader substring matches', async () => {
+    const out = await graphSearch({ repoRoot: repo, query: 'get_user' });
+    const lines = out.trim().split('\n');
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain('get_user');
+    expect(out).not.toContain('get_user_profile');
   });
 
   it('graph_callers finds callers of authenticate', async () => {
