@@ -176,6 +176,36 @@ function subsystems(db, limit = 6) {
     .map(r => ({ path: r.path, why: `${r.file_count} files`, score: r.file_count }));
 }
 
+// Role inference from file path + symbol name. The point is to help agents
+// pick the RIGHT hub for the task shape, not just the highest-fan one.
+// On lc-api, brief-only Run 1 got misled because `Application` (an entity
+// hub) was the top hub — the model anchored on it for "change request
+// handling safely" even though entity hubs aren't the right surface for
+// that question. Role hints let the agent disambiguate.
+// Matches segments like `DomainRepository.php` where the role word is
+// glued to other PascalCase words. Uses substring match, not word boundary.
+function classifyRole(label, file, type) {
+  const f = String(file || '').toLowerCase();
+  const l = String(label || '').toLowerCase();
+  const fileOrLabelHas = (needles) => needles.some(n => f.includes(n) || l.includes(n));
+  if (fileOrLabelHas(['middleware', 'kernel'])) return 'middleware';
+  if (fileOrLabelHas(['controller'])) return 'handler';
+  if (fileOrLabelHas(['/route', 'router', '/routes/'])) return 'routing';
+  if (fileOrLabelHas(['/entity/', '/entities/', '/models/', 'entity.', 'model.', 'record.'])
+      || /entity$|model$|record$/.test(l)) return 'entity';
+  if (fileOrLabelHas(['factory', 'builder', 'provider'])) return 'factory';
+  if (fileOrLabelHas(['repository', 'repo.', 'dao'])) return 'repository';
+  if (fileOrLabelHas(['/request', 'formrequest']) && type === 'Class') return 'request/validation';
+  if (fileOrLabelHas(['/service', '/processor', '/command', '/job', '/task'])) return 'service';
+  if (/render|format|serializ/.test(l)) return 'renderer';
+  if (fileOrLabelHas(['/storage/', '/database/', '/db.', 'storage.', '/store/'])) return 'storage';
+  if (fileOrLabelHas(['resolve', 'orchestr', 'freshness', 'pipeline', 'ingest'])) return 'pipeline';
+  if (type === 'Class') return 'class';
+  if (type === 'Method') return 'method';
+  if (type === 'Function') return 'fn';
+  return (type || 'symbol').toLowerCase();
+}
+
 function hubs(db, limit = 5) {
   const stop = [...STOPWORD_LABELS].map(s => `'${s.replace(/'/g, "''")}'`).join(',');
   const rows = q(db,
@@ -187,7 +217,10 @@ function hubs(db, limit = 5) {
        AND n.label NOT IN (${stop})
      GROUP BY n.id
      ORDER BY fan_in DESC LIMIT $limit`, { limit: limit * 3 });
-  return rows.filter(r => !isNoisyFile(r.file)).slice(0, limit);
+  return rows
+    .filter(r => !isNoisyFile(r.file))
+    .slice(0, limit)
+    .map(r => ({ ...r, role: classifyRole(r.label, r.file, r.type) }));
 }
 
 function readFirst(db, limit = 6) {
@@ -322,7 +355,9 @@ function renderMarkdown(data) {
 
   if (hubsArr.length) {
     lines.push('## Key symbols');
-    for (const h of hubsArr) lines.push(`- \`${h.label}\` (${h.type.toLowerCase()}) \`${h.file}:${h.line}\` — ${h.fan_in} incoming`);
+    for (const h of hubsArr) {
+      lines.push(`- \`${h.label}\` (${h.role}) \`${h.file}:${h.line}\` — ${h.fan_in} incoming`);
+    }
     lines.push('');
   }
 
@@ -371,7 +406,9 @@ function renderAgentMarkdown(data) {
   }
   if (hubsArr.length) {
     lines.push('HUBS:');
-    for (const h of hubsArr.slice(0, 4)) lines.push(`  ${h.label} ${h.file}:${h.line} fan=${h.fan_in}`);
+    for (const h of hubsArr.slice(0, 4)) {
+      lines.push(`  [${h.role}] ${h.label} ${h.file}:${h.line} fan=${h.fan_in}`);
+    }
   }
   if (readFirstArr.length) {
     lines.push('READ:');
@@ -408,7 +445,7 @@ function renderJson(data, repoRoot) {
     },
     entrypoints: entries,
     subsystems: subs,
-    hubs: hubsArr.map(h => ({ label: h.label, type: h.type, file: h.file, line: h.line, fan_in: h.fan_in })),
+    hubs: hubsArr.map(h => ({ label: h.label, type: h.type, role: h.role, file: h.file, line: h.line, fan_in: h.fan_in })),
     read_first: readFirstArr,
     tests,
     risks: risksArr,

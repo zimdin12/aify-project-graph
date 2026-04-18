@@ -33,6 +33,27 @@ const REPOS = {
       ],
     },
   },
+  'lc-api': {
+    root: 'C:/Users/Administrator/lc-api',
+    prompt: [
+      'You are onboarding to this Laravel API to change request handling safely.',
+      'Return exactly 4 lines:',
+      'ENTRYPOINT: <path>',
+      'SUBSYSTEM: <path> - <why>',
+      'SUBSYSTEM: <path> - <why>',
+      'SUBSYSTEM: <path> - <why>',
+    ].join('\n'),
+    rubric: {
+      entrypoint: [/public\/index\.php/i, /\bartisan\b/i, /routes\//i],
+      subsystemRoots: [
+        'app/Http/Controllers',
+        'app/Http/Middleware',
+        'app/Components',
+        'app/Services',
+        'app/Jobs',
+      ],
+    },
+  },
 };
 
 const args = process.argv.slice(2);
@@ -191,7 +212,8 @@ for (const repoId of selectedRepoIds) {
   }
   const briefText = readFileSync(briefPath, 'utf8');
 
-  for (const arm of ['brief-only', 'lean-mcp']) {
+  const armFilter = process.env.A1_ARMS ? process.env.A1_ARMS.split(',') : ['brief-only', 'lean-mcp'];
+  for (const arm of armFilter) {
     const withMCP = arm === 'lean-mcp';
     const home = await makeHome({ withMCP });
     for (let rep = 1; rep <= repeats; rep++) {
