@@ -15,34 +15,36 @@ import { graphDashboard } from './query/verbs/dashboard.js';
 import { graphSearch } from './query/verbs/search.js';
 import { graphFile } from './query/verbs/file.js';
 import { graphPreflight } from './query/verbs/preflight.js';
+import { graphChangePlan } from './query/verbs/change_plan.js';
+import { graphOnboard } from './query/verbs/onboard.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
   {
     name: 'graph_status',
     handler: graphStatus,
-    description: 'Check if graph is indexed. Returns JSON: {indexed, nodes, edges, commit, dirtyFiles, unresolvedEdges, dirtyEdgeCount}. Use to verify the graph is ready before querying.',
+    description: 'Return graph status: indexed, counts, dirty files, unresolved edges.',
     schema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'graph_index',
     handler: graphIndex,
-    description: 'Build or rebuild the graph. Auto-runs on first query if needed. Use force=true to rebuild from scratch (clears stale data). Returns {indexed, nodes, edges, commit}.',
+    description: 'Build or rebuild the graph. force=true does a full rebuild.',
     schema: {
       type: 'object',
       properties: {
-        force: { type: 'boolean', default: false, description: 'Force full rebuild from scratch' },
+        force: { type: 'boolean', default: false, description: 'Full rebuild from scratch.' },
       },
     },
   },
   {
     name: 'graph_dashboard',
     handler: graphDashboard,
-    description: 'Open interactive graph browser in a web browser. Returns {url, port}. Click nodes to inspect, search symbols, filter by type, trace paths visually.',
+    description: 'Open the interactive graph browser. Returns {url, port}.',
     schema: {
       type: 'object',
       properties: {
-        port: { type: 'integer', description: 'Port to listen on (auto-picks if omitted)' },
+        port: { type: 'integer', description: 'Port to listen on.' },
       },
     },
   },
@@ -51,26 +53,26 @@ const TOOLS = [
   {
     name: 'graph_report',
     handler: graphReport,
-    description: 'Full project orientation in one call. Returns: REPO stats, LANGS breakdown, ENTRY points, DIR structure, DOC list, HUB symbols (most-referenced), COMMUNITIES (clustered subsystems). Call this FIRST on any unfamiliar repo.',
+    description: 'Repo orientation: stats, entrypoints, hubs, communities. Use first on unfamiliar repos.',
     schema: {
       type: 'object',
       properties: {
-        top_k: { type: 'integer', default: 20, description: 'Max items per category' },
+        top_k: { type: 'integer', default: 20, description: 'Max items per section.' },
       },
     },
   },
   {
     name: 'graph_search',
     handler: graphSearch,
-    description: 'Fuzzy search for symbols by partial name. Supports filtering by type (Function, Class, Method, etc.) and file path prefix. Returns NODE lines. Use when you don\'t know the exact symbol name.',
+    description: 'Partial-name symbol search with optional type and file filters. Prefer graph_whereis for exact names.',
     schema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Partial symbol name to search (e.g. "UserCont" finds "UserController")' },
-        kind: { type: 'string', enum: ['code', 'all'], default: 'code', description: 'code=functions/classes only (default), all=include docs/dirs/configs' },
-        type: { type: 'string', description: 'Filter by node type: Function, Method, Class, Interface, Type, Test, File, Route, Entrypoint' },
-        file: { type: 'string', description: 'Filter by file path prefix (e.g. "src/auth" only searches in src/auth/)' },
-        limit: { type: 'integer', default: 20, description: 'Max results' },
+        query: { type: 'string', description: 'Partial symbol name.' },
+        kind: { type: 'string', enum: ['code', 'all'], default: 'code', description: 'code or all node kinds.' },
+        type: { type: 'string', description: 'Optional node type filter.' },
+        file: { type: 'string', description: 'Optional file path prefix.' },
+        limit: { type: 'integer', default: 20, description: 'Max results.' },
       },
       required: ['query'],
     },
@@ -78,13 +80,13 @@ const TOOLS = [
   {
     name: 'graph_whereis',
     handler: graphWhereis,
-    description: 'Find exactly where a symbol is defined. Returns NODE lines with file:line. Use expand=true to also get top incoming/outgoing edges (replaces graph_summary).',
+    description: 'Exact symbol definition lookup. Prefer this for known names. Use expand=true for top incoming/outgoing edges.',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Exact symbol name (function, class, method, etc.)' },
-        limit: { type: 'integer', default: 5, description: 'Max matches if name is ambiguous' },
-        expand: { type: 'boolean', default: false, description: 'Include top 3 incoming + 3 outgoing edges (like graph_summary)' },
+        symbol: { type: 'string', description: 'Exact symbol name.' },
+        limit: { type: 'integer', default: 5, description: 'Max matches.' },
+        expand: { type: 'boolean', default: false, description: 'Include top incoming/outgoing edges.' },
       },
       required: ['symbol'],
     },
@@ -92,13 +94,13 @@ const TOOLS = [
   {
     name: 'graph_module_tree',
     handler: graphModuleTree,
-    description: 'Show directory + file + symbol hierarchy under a path. Like "ls -R" but with symbol details. Returns NODE lines sorted by path.',
+    description: 'Directory/file/symbol tree under a path.',
     schema: {
       type: 'object',
       properties: {
-        path: { type: 'string', default: '.', description: 'Directory path to explore (e.g. "src/auth", "service/routers")' },
-        depth: { type: 'integer', default: 2, description: 'How deep to recurse (1=files only, 2=files+symbols)' },
-        top_k: { type: 'integer', default: 30, description: 'Max nodes to return' },
+        path: { type: 'string', default: '.', description: 'Repo-relative directory path.' },
+        depth: { type: 'integer', default: 2, description: 'Tree depth.' },
+        top_k: { type: 'integer', default: 30, description: 'Max nodes.' },
       },
     },
   },
@@ -107,14 +109,39 @@ const TOOLS = [
   {
     name: 'graph_file',
     handler: graphFile,
-    description: 'Everything about one file in a single call: what it defines, imports, who calls into it, what it calls out, and which tests cover it. Replaces chaining whereis + callers + callees for each symbol.',
+    description: 'One-file digest: definitions, imports, callers, callees, tests.',
     schema: {
       type: 'object',
       properties: {
-        path: { type: 'string', description: 'File path (e.g. "service/db.py", "src/auth/token.ts"). Partial match supported.' },
-        top_k: { type: 'integer', default: 20, description: 'Max items per section' },
+        path: { type: 'string', description: 'File path or prefix.' },
+        top_k: { type: 'integer', default: 20, description: 'Max items per section.' },
       },
       required: ['path'],
+    },
+  },
+  {
+    name: 'graph_change_plan',
+    handler: graphChangePlan,
+    description: 'Change brief for a symbol: risk, callers, deps, tests, read order.',
+    schema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'Symbol to change.' },
+        top_k: { type: 'integer', default: 6, description: 'Max recommendations.' },
+      },
+      required: ['symbol'],
+    },
+  },
+  {
+    name: 'graph_onboard',
+    handler: graphOnboard,
+    description: 'Onboarding brief for a repo or subtree: entrypoints, key files, hubs, tests, read order.',
+    schema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', default: '.', description: 'Repo-relative path.' },
+        top_k: { type: 'integer', default: 6, description: 'Max items per section.' },
+      },
     },
   },
 
@@ -122,11 +149,11 @@ const TOOLS = [
   {
     name: 'graph_preflight',
     handler: graphPreflight,
-    description: 'One-shot edit safety check. Shows: location, callers, impact, test coverage, trust signal, and a SAFE/REVIEW/CONFIRM decision recommendation. MUST call before editing any symbol with non-trivial fan-in. Replaces chaining whereis + callers + impact + summary.',
+    description: 'Edit safety check: location, callers, impact, tests, trust, decision.',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Symbol you are about to edit' },
+        symbol: { type: 'string', description: 'Symbol to edit.' },
       },
       required: ['symbol'],
     },
@@ -134,14 +161,14 @@ const TOOLS = [
   {
     name: 'graph_callers',
     handler: graphCallers,
-    description: 'Who calls this symbol? Returns EDGE lines ranked by: depth ASC, confidence DESC, test proximity, fan-in. Use `file` to scope results to a specific directory.',
+    description: 'Incoming execution edges for a symbol. Includes CALLS, INVOKES, PASSES_THROUGH.',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Symbol name to find callers of' },
-        depth: { type: 'integer', default: 1, description: 'Hop depth (1=direct callers, 2=callers of callers, etc.)' },
-        top_k: { type: 'integer', default: 10, description: 'Max edges to return' },
-        file: { type: 'string', description: 'Filter: only show callers from this directory (e.g. "service/routers")' },
+        symbol: { type: 'string', description: 'Target symbol.' },
+        depth: { type: 'integer', default: 1, description: 'Hop depth.' },
+        top_k: { type: 'integer', default: 10, description: 'Max edges.' },
+        file: { type: 'string', description: 'Optional file or dir prefix.' },
       },
       required: ['symbol'],
     },
@@ -149,14 +176,14 @@ const TOOLS = [
   {
     name: 'graph_callees',
     handler: graphCallees,
-    description: 'What does this symbol call? Returns EDGE lines. Use `file` to scope results to a specific directory.',
+    description: 'Outgoing execution edges for a symbol. Includes CALLS, INVOKES, PASSES_THROUGH.',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Symbol name to find callees of' },
-        depth: { type: 'integer', default: 1, description: 'Hop depth' },
-        top_k: { type: 'integer', default: 10, description: 'Max edges to return' },
-        file: { type: 'string', description: 'Filter: only show callees in this directory' },
+        symbol: { type: 'string', description: 'Source symbol.' },
+        depth: { type: 'integer', default: 1, description: 'Hop depth.' },
+        top_k: { type: 'integer', default: 10, description: 'Max edges.' },
+        file: { type: 'string', description: 'Optional file or dir prefix.' },
       },
       required: ['symbol'],
     },
@@ -164,14 +191,14 @@ const TOOLS = [
   {
     name: 'graph_neighbors',
     handler: graphNeighbors,
-    description: 'All connections around a symbol — calls, references, imports, extends, tests, mentions, etc. Filter by edge_types to narrow. Use for exploring unknown symbols.',
+    description: 'Nearby edges for a symbol, optionally filtered by edge type.',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Symbol name to explore' },
-        edge_types: { type: 'array', items: { type: 'string' }, default: [], description: 'Filter: CALLS, REFERENCES, IMPORTS, EXTENDS, IMPLEMENTS, USES_TYPE, TESTS, MENTIONS, INVOKES, CONTAINS, DEFINES. Empty = all.' },
-        depth: { type: 'integer', default: 1, description: 'Hop depth' },
-        top_k: { type: 'integer', default: 20, description: 'Max edges' },
+        symbol: { type: 'string', description: 'Symbol to explore.' },
+        edge_types: { type: 'array', items: { type: 'string' }, default: [], description: 'Optional edge type filter.' },
+        depth: { type: 'integer', default: 1, description: 'Hop depth.' },
+        top_k: { type: 'integer', default: 20, description: 'Max edges.' },
       },
       required: ['symbol'],
     },
@@ -179,13 +206,13 @@ const TOOLS = [
   {
     name: 'graph_impact',
     handler: graphImpact,
-    description: 'Deep drill-down for blast radius analysis. Walks CALLS + REFERENCES + USES_TYPE + TESTS edges transitively. For quick edit safety checks, prefer graph_preflight. Returns EDGE lines showing the blast radius.',
+    description: 'Transitive blast radius for a symbol across calls, refs, and tests.',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Symbol to analyze impact of' },
-        depth: { type: 'integer', default: 3, description: 'Transitive depth (1=direct dependents, 3=3 hops out)' },
-        top_k: { type: 'integer', default: 30, description: 'Max impact edges to return' },
+        symbol: { type: 'string', description: 'Symbol to analyze.' },
+        depth: { type: 'integer', default: 3, description: 'Transitive depth.' },
+        top_k: { type: 'integer', default: 30, description: 'Max edges.' },
       },
       required: ['symbol'],
     },
@@ -193,15 +220,15 @@ const TOOLS = [
   {
     name: 'graph_path',
     handler: graphPath,
-    description: 'Trace execution path as a readable story. "What happens when handleRequest runs?" Returns indented PATH tree. mode="execution" (default) follows only INVOKES+CALLS; mode="dependency" also follows TESTS+REFERENCES.',
+    description: 'Readable path trace from a symbol. execution=CALLS/INVOKES/PASSES_THROUGH; dependency=broader.',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Starting symbol to trace from' },
-        direction: { type: 'string', enum: ['out', 'in'], default: 'out', description: 'out=forward (what does it call), in=backward (what calls it)' },
-        depth: { type: 'integer', default: 5, description: 'Max trace depth' },
-        top_k: { type: 'integer', default: 3, description: 'Max branches per node shown (explores wider, trims at render)' },
-        mode: { type: 'string', enum: ['execution', 'dependency'], default: 'execution', description: 'execution=INVOKES+CALLS only, dependency=all edge types' },
+        symbol: { type: 'string', description: 'Start symbol.' },
+        direction: { type: 'string', enum: ['out', 'in'], default: 'out', description: 'Trace forward or backward.' },
+        depth: { type: 'integer', default: 5, description: 'Max path depth.' },
+        top_k: { type: 'integer', default: 3, description: 'Max branches per node.' },
+        mode: { type: 'string', enum: ['execution', 'dependency'], default: 'execution', description: 'execution or dependency mode.' },
       },
       required: ['symbol'],
     },
@@ -209,16 +236,51 @@ const TOOLS = [
   {
     name: 'graph_summary',
     handler: graphSummary,
-    description: 'Compact digest of a single symbol: type, file:line, top 3 incoming + 3 outgoing edges. (Backward compat — prefer graph_whereis with expand=true)',
+    description: 'Compact symbol digest. Prefer graph_whereis(expand=true).',
     schema: {
       type: 'object',
       properties: {
-        symbol: { type: 'string', description: 'Symbol name to summarize' },
+        symbol: { type: 'string', description: 'Symbol to summarize.' },
       },
       required: ['symbol'],
     },
   },
 ];
+
+const LEAN_TOOL_NAMES = new Set([
+  'graph_impact',
+  'graph_callers',
+  'graph_path',
+  'graph_report',
+  'graph_change_plan',
+]);
+
+function resolveToolset(argv = process.argv.slice(2), env = process.env) {
+  const arg = argv.find(token => token.startsWith('--toolset='));
+  if (arg) return arg.slice('--toolset='.length);
+  const envProfile = (env.AIFY_GRAPH_PROFILE || '').trim();
+  return envProfile || 'full';
+}
+
+function defaultOutputMode(toolset, env = process.env) {
+  if ((env.AIFY_GRAPH_OUTPUT || '').trim()) return env.AIFY_GRAPH_OUTPUT;
+  return toolset === 'lean' ? 'compact' : '';
+}
+
+function selectListedTools(toolset) {
+  if (toolset === 'lean') {
+    return TOOLS.filter(tool => LEAN_TOOL_NAMES.has(tool.name));
+  }
+  return TOOLS;
+}
+
+const ACTIVE_TOOLSET = resolveToolset();
+const ACTIVE_TOOLS = TOOLS;
+const LISTED_TOOLS = selectListedTools(ACTIVE_TOOLSET);
+const DEFAULT_OUTPUT_MODE = defaultOutputMode(ACTIVE_TOOLSET);
+if (DEFAULT_OUTPUT_MODE) {
+  process.env.AIFY_GRAPH_OUTPUT = DEFAULT_OUTPUT_MODE;
+}
 
 const rl = readline.createInterface({ input: process.stdin });
 function send(msg) { process.stdout.write(JSON.stringify(msg) + '\n'); }
@@ -245,7 +307,7 @@ rl.on('line', async (line) => {
     send({
       jsonrpc: '2.0', id: req.id,
       result: {
-        tools: TOOLS.map(t => ({
+        tools: LISTED_TOOLS.map(t => ({
           name: t.name,
           description: t.description,
           inputSchema: t.schema,
@@ -257,7 +319,7 @@ rl.on('line', async (line) => {
 
   if (req.method === 'tools/call') {
     const { name, arguments: args } = req.params;
-    const tool = TOOLS.find(t => t.name === name);
+    const tool = ACTIVE_TOOLS.find(t => t.name === name);
     if (!tool) {
       send({ jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `unknown tool: ${name}` } });
       return;
