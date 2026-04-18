@@ -45,12 +45,41 @@ const REPOS = {
     ].join('\n'),
     rubric: {
       entrypoint: [/public\/index\.php/i, /\bartisan\b/i, /routes\//i],
+      // Broadened per dev's post-hoc adjudication: Laravel-semantic answers
+      // (Kernel.php, RouteServiceProvider, Http/Requests) are valid
+      // answers to the prompt even though the first rubric missed them.
       subsystemRoots: [
         'app/Http/Controllers',
         'app/Http/Middleware',
+        'app/Http/Kernel',
+        'app/Http/Requests',
+        'app/Providers/RouteServiceProvider',
         'app/Components',
         'app/Services',
         'app/Jobs',
+      ],
+    },
+  },
+  'echoes': {
+    root: 'C:/Users/Administrator/echoes_of_the_fallen',
+    prompt: [
+      'You are onboarding to this C++ game engine to work on gameplay systems.',
+      'Return exactly 4 lines:',
+      'ENTRYPOINT: <path>',
+      'SUBSYSTEM: <path> - <why>',
+      'SUBSYSTEM: <path> - <why>',
+      'SUBSYSTEM: <path> - <why>',
+    ].join('\n'),
+    rubric: {
+      entrypoint: [/game\/main\.cpp/i, /\bEngine\.(cpp|h)\b/i],
+      subsystemRoots: [
+        'engine/core',
+        'engine/rendering',
+        'engine/voxel',
+        'engine/ecs',
+        'engine/input',
+        'engine/physics',
+        'engine/debug',
       ],
     },
   },
