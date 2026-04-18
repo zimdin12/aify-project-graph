@@ -98,12 +98,13 @@ Drop `.aify-graph/tasks.json` (written by the `graph-map-tasks` skill) and `brie
 
 ### Claude Code skills
 
-Two skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/):
+Three workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/):
 
 - **`graph-map-functionality`** — agent reads `brief.json` + directory structure + commit vocabulary, proposes `functionality.json`, shows user a diff before writing. Preserves user-edited features (`source: "user"`) on refresh.
 - **`graph-map-tasks`** — source-agnostic. Detects whatever task MCP is connected (ClickUp, Asana, Linear, Jira, GitHub Issues) or falls back to a plaintext file. Attributes tasks to features via commit refs + branch names + tags + fuzzy title match. Writes `tasks.json`.
+- **`graph-pull-context`** — wraps `graph_pull` for plan/debug/review workflows. Picks layer defaults by intent, summarizes cross-layer context, and points the agent at the next 1-3 files to read instead of dumping raw JSON.
 
-Invoke with `/graph-map-functionality` or `/graph-map-tasks` in Claude Code.
+Invoke with `/graph-map-functionality`, `/graph-map-tasks`, or `/graph-pull-context` in Claude Code.
 
 ### Regenerating
 

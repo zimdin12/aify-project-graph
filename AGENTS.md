@@ -83,7 +83,7 @@ Runtime-specific config paths:
 
 ### 3. Install the skills (Claude Code only)
 
-Copy all four skills so the agent learns the verb contract AND the editing workflow (functionality.json, tasks.json, drift detection):
+Copy all five skills so the agent learns the verb contract, the editing workflow, and the cross-layer pull flow (functionality.json, tasks.json, drift detection, graph_pull wrapping):
 
 ```bash
 # Global (all projects for this user)
@@ -92,6 +92,7 @@ cp -r <target-path>/integrations/claude-code/skill ~/.claude/skills/aify-project
 cp -r <target-path>/integrations/claude-code/skills/graph-map-functionality ~/.claude/skills/
 cp -r <target-path>/integrations/claude-code/skills/graph-map-tasks ~/.claude/skills/
 cp -r <target-path>/integrations/claude-code/skills/graph-anchor-drift ~/.claude/skills/
+cp -r <target-path>/integrations/claude-code/skills/graph-pull-context ~/.claude/skills/
 ```
 
 What each skill does:
@@ -99,6 +100,7 @@ What each skill does:
 - **graph-map-functionality** — agent proposes `.aify-graph/functionality.json` (user's feature map); never hand-authored
 - **graph-map-tasks** — source-agnostic task→feature attribution (ClickUp, Asana, Linear, Jira, GitHub Issues, or plaintext)
 - **graph-anchor-drift** — detects stale/broken feature anchors from diffs and proposes targeted patches
+- **graph-pull-context** — wraps `graph_pull` with plan/debug/review layer defaults and a read-next summary
 
 Codex and OpenCode don't use skill files — the MCP tool descriptions are self-documenting for them, and the skills above are conversational workflows that only work in Claude Code.
 

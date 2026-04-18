@@ -39,16 +39,26 @@ Replace `<path-to-aify-project-graph>` with the absolute path to where you clone
 
 Replace `<path-to-target-repo>` with the repo you want to index.
 
-### 3. Install the skill
+### 3. Install the skills
 
-Copy the skill folder into Claude Code's skill discovery path:
+Copy the core skill plus the workflow skills into Claude Code's skill discovery path:
 
 ```bash
 # Global (all projects)
+mkdir -p ~/.claude/skills
 cp -r <path-to-aify-project-graph>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-functionality ~/.claude/skills/
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-tasks ~/.claude/skills/
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-anchor-drift ~/.claude/skills/
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-pull-context ~/.claude/skills/
 
 # OR project-scoped (this repo only)
+mkdir -p <target-repo>/.claude/skills
 cp -r <path-to-aify-project-graph>/integrations/claude-code/skill <target-repo>/.claude/skills/aify-project-graph
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-functionality <target-repo>/.claude/skills/
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-tasks <target-repo>/.claude/skills/
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-anchor-drift <target-repo>/.claude/skills/
+cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-pull-context <target-repo>/.claude/skills/
 ```
 
 ### 4. Restart Claude Code
