@@ -19,14 +19,16 @@ npm test   # verify: all green
 
 ### 2. Register the MCP server
 
-Add to your OpenCode MCP config (typically `~/.opencode/config.json` under the `mcpServers` key, or per-project in `.opencode/config.json`):
+Add to your OpenCode MCP config (typically `~/.opencode/config.json` under the `mcpServers` key, or per-project in `.opencode/config.json`).
+
+Recommended: use the lean profile on OpenCode. It keeps the highest-signal workflow verbs and trims passive MCP/tool-surface overhead that showed up in the Codex/OpenCode-style benchmarks.
 
 ```json
 {
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["--max-old-space-size=8192", "<path-to-aify-project-graph>/mcp/stdio/server.js"]
+      "args": ["--max-old-space-size=8192", "<path-to-aify-project-graph>/mcp/stdio/server.js", "--toolset=lean"]
     }
   }
 }
@@ -60,15 +62,28 @@ Returns a project orientation digest with directory layout, languages, entry poi
 
 ```
 graph_report()                         # orient in the project
-graph_whereis(symbol="MyClass")        # find definition
-graph_callers(symbol="myFunction")     # who calls this?
-graph_callees(symbol="myFunction")     # what does this call?
+graph_lookup(symbol="MyClass")         # fast exact-name lookup
 graph_path(symbol="handleRequest")     # trace execution path
-graph_impact(symbol="User")            # blast radius
+graph_change_plan(symbol="User")       # plan a safe multi-file change
 graph_preflight(symbol="get_db")       # one-shot edit safety check
 graph_file(path="src/auth/token.ts")   # everything about one file
-graph_whereis(symbol="X", expand=true) # definition + top edges
+graph_onboard(path="src")              # curated entrypoints + read order
 ```
+
+If you want the full low-level traversal surface on OpenCode (`graph_search`, `graph_whereis`, `graph_callers`, `graph_neighbors`, `graph_dashboard`, etc.), remove `--toolset=lean` from the args and restart OpenCode.
+
+### Even cheaper: use the static briefs
+
+`.aify-graph/brief.agent.md` is a precomputed ~350-token orientation artifact that replaces most orient-shaped MCP calls. Paste it into your system prompt or user message at session start — measured data shows brief-only beats lean-MCP by **−21% to −32% tokens** on orient tasks with quality equal or better.
+
+Four brief variants ship at `.aify-graph/`:
+
+- `brief.agent.md` — combined, best default
+- `brief.onboard.md` — stripped, new-to-this-repo sessions (~250 tok)
+- `brief.plan.md` — features, open tasks by feature, feature-tagged recent commits (~310 tok)
+- `brief.md` — human-readable full version
+
+Regen: `node scripts/graph-brief.mjs <repoRoot>` (automatic on next graph index).
 
 ## Troubleshooting
 
