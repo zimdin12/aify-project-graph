@@ -5,7 +5,7 @@ import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { expandClassRollupTargets } from './target_rollup.js';
 
-const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS'];
+const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS', 'INVOKES', 'PASSES_THROUGH'];
 
 export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
@@ -27,9 +27,11 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
          WHERE e.relation IN (${relFilter}) AND i.depth < $depth AND i.depth <= 10
        )
        SELECT DISTINCT e.*, n.label AS from_label, n.type AS from_type,
-              n.file_path AS from_file, n.start_line AS from_line, i.depth
+              n.file_path AS from_file, n.start_line AS from_line,
+              t.label AS to_label, i.depth
        FROM impact i JOIN edges e ON e.from_id = i.node_id
        JOIN nodes n ON n.id = e.from_id
+       LEFT JOIN nodes t ON t.id = e.to_id
        WHERE e.relation IN (${relFilter})
        LIMIT 100`,
       { ...params, depth }
@@ -41,7 +43,8 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
       source_file: e.from_file, source_line: e.from_line,
       confidence: e.confidence, depth: e.depth ?? 1,
-      from_type: e.from_type, fan_in: 1,
+      from_type: e.from_type, from_label: e.from_label,
+      to_label: e.to_label, fan_in: 1,
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
