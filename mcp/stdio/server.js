@@ -249,11 +249,22 @@ const TOOLS = [
   },
 ];
 
+// Lean profile (v2, 2026-04-19): trimmed from 5 → 3 verbs after the
+// cross-language A/B validation showed 14/14 lean-MCP runs across 4
+// languages and 2 task shapes made zero MCP calls. See
+// docs/dogfood/ab-results-2026-04-19-a2-cross-repo.md.
+//
+// Dropped:
+//   graph_report   — static brief artifacts replace it for orient tasks
+//   graph_callers  — failed routing even on plan prompts that asked for callers
+//
+// Kept — these three represent graph-monopoly surfaces (questions rg and
+// shell can't answer cheaply) where a live verb may still earn routing on
+// the right prompt shape. Hidden verbs remain callable via tools/call for
+// scripts that explicitly request them by name.
 const LEAN_TOOL_NAMES = new Set([
   'graph_impact',
-  'graph_callers',
   'graph_path',
-  'graph_report',
   'graph_change_plan',
 ]);
 

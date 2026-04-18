@@ -74,13 +74,15 @@ describe('server toolset selection', () => {
     expect(names).toContain('graph_dashboard');
   });
 
-  it('exposes only the monopoly verbs in lean mode', async () => {
+  it('exposes only the monopoly verbs in lean mode (v2: 3 verbs)', async () => {
+    // Lean profile trimmed 5 → 3 on 2026-04-19 after 14/14 zero-MCP-call
+    // bench evidence. graph_report (displaced by briefs) and graph_callers
+    // (failed routing on plan tasks) removed; graph_impact, graph_path,
+    // graph_change_plan retained as graph-monopoly surfaces.
     const tools = extractTools(await runToolRpc(['--toolset=lean']));
-    const names = tools.map(tool => tool.name);
+    const names = tools.map(tool => tool.name).sort();
     expect(names).toEqual([
-      'graph_report',
       'graph_change_plan',
-      'graph_callers',
       'graph_impact',
       'graph_path',
     ]);
@@ -88,11 +90,9 @@ describe('server toolset selection', () => {
 
   it('supports lean profile through the environment', async () => {
     const lines = await runToolRpc([], { AIFY_GRAPH_PROFILE: 'lean' });
-    const names = extractTools(lines).map(tool => tool.name);
+    const names = extractTools(lines).map(tool => tool.name).sort();
     expect(names).toEqual([
-      'graph_report',
       'graph_change_plan',
-      'graph_callers',
       'graph_impact',
       'graph_path',
     ]);
