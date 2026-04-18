@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import readline from 'node:readline';
+import fs from 'node:fs';
+import path from 'node:path';
 import { graphStatus } from './query/verbs/status.js';
 import { graphIndex } from './query/verbs/index.js';
 import { graphWhereis } from './query/verbs/whereis.js';
@@ -294,7 +296,7 @@ rl.on('line', async (line) => {
       jsonrpc: '2.0', id: req.id,
       result: {
         protocolVersion: '2024-11-05',
-        capabilities: { tools: {} },
+        capabilities: { tools: {}, resources: {} },
         serverInfo: { name: 'aify-project-graph', version: '0.1.0' },
       },
     });
@@ -314,6 +316,69 @@ rl.on('line', async (line) => {
         })),
       },
     });
+    return;
+  }
+
+  if (req.method === 'resources/list') {
+    // Expose static briefs + overlay artifacts as MCP resources so clients
+    // can auto-pull them at session start instead of requiring manual paste.
+    // URIs are aify:// so there's no ambiguity with arbitrary file reads.
+    const repoRoot = process.cwd();
+    const aifyDir = path.join(repoRoot, '.aify-graph');
+    const candidates = [
+      { file: 'brief.agent.md',   name: 'Project brief (agent prompt substrate)',  desc: 'Dense key/value orientation. Paste into system/user prompt for orient-shaped sessions. ~350 tokens.', mime: 'text/markdown' },
+      { file: 'brief.onboard.md', name: 'Project brief (onboarding variant)',      desc: 'Stripped brief for new-to-this-repo sessions. ~250 tokens.', mime: 'text/markdown' },
+      { file: 'brief.plan.md',    name: 'Project brief (plan variant)',            desc: 'Features + open tasks by feature + feature-tagged recent commits + risks. For change-planning sessions. ~310 tokens.', mime: 'text/markdown' },
+      { file: 'brief.md',         name: 'Project brief (human readable)',          desc: 'Full human-readable brief. ~500 tokens.', mime: 'text/markdown' },
+      { file: 'brief.json',       name: 'Project brief (machine-readable)',        desc: 'JSON equivalent for scripts.', mime: 'application/json' },
+      { file: 'functionality.json', name: 'Functionality overlay (L2)',            desc: 'User-curated feature map: features + symbol/file/route/doc anchors. Validated against code graph on each regen.', mime: 'application/json' },
+      { file: 'tasks.json',       name: 'Task overlay (L3)',                       desc: 'External task tracker snapshot with feature attribution. Written by the graph-map-tasks skill.', mime: 'application/json' },
+    ];
+    const resources = [];
+    for (const c of candidates) {
+      const p = path.join(aifyDir, c.file);
+      if (fs.existsSync(p)) {
+        resources.push({
+          uri: `aify://${c.file}`,
+          name: c.name,
+          description: c.desc,
+          mimeType: c.mime,
+        });
+      }
+    }
+    send({ jsonrpc: '2.0', id: req.id, result: { resources } });
+    return;
+  }
+
+  if (req.method === 'resources/read') {
+    const { uri } = req.params || {};
+    if (!uri || !uri.startsWith('aify://')) {
+      send({ jsonrpc: '2.0', id: req.id, error: { code: -32602, message: `invalid resource uri: ${uri}` } });
+      return;
+    }
+    const fileName = uri.slice('aify://'.length);
+    // Whitelist the filenames we expose — never read arbitrary aify:// URIs.
+    const allowed = new Set([
+      'brief.agent.md', 'brief.onboard.md', 'brief.plan.md',
+      'brief.md', 'brief.json',
+      'functionality.json', 'tasks.json',
+    ]);
+    if (!allowed.has(fileName)) {
+      send({ jsonrpc: '2.0', id: req.id, error: { code: -32602, message: `resource not exposed: ${fileName}` } });
+      return;
+    }
+    const p = path.join(process.cwd(), '.aify-graph', fileName);
+    if (!fs.existsSync(p)) {
+      send({ jsonrpc: '2.0', id: req.id, error: { code: -32602, message: `resource not found: ${fileName}. Run graph indexing + graph-brief.mjs first.` } });
+      return;
+    }
+    try {
+      const text = fs.readFileSync(p, 'utf8');
+      const mime = fileName.endsWith('.json') ? 'application/json' : 'text/markdown';
+      send({ jsonrpc: '2.0', id: req.id, result: { contents: [{ uri, mimeType: mime, text }] } });
+    } catch (err) {
+      send({ jsonrpc: '2.0', id: req.id, error: { code: -32603, message: `failed to read ${fileName}: ${err.message}` } });
+    }
     return;
   }
 
