@@ -27,32 +27,40 @@ on orient tasks) across three languages after A2.0–A2.2 shipped:
 | aify-project-graph | Node | 57,116 | 83,605 | **−32%** | 3/3 | 3/3 | 0/3 |
 | lc-api | PHP | 67,186 | 91,083 | **−26%** | 0/3 (expert 2/3) | 0/3 (expert 3/3) | 0/3 |
 | echoes | C++ | 63,389 | 93,219 | **−32%** | 3/3 | 0/3 (expert 3/3) | 0/3 |
+| mem0-fork | Python | 70,636 | 106,553 | **−33%** | 0/3 (expert ~2/3) | 0/3 (expert ~2/3) | 0/3 |
 
 Median effective-token calc: `input_tokens - cached_input_tokens + output_tokens`.
 
 ## Robust findings (not sensitive to rubric)
 
-### 1. Token win is consistent cross-language: −26% to −32%
+### 1. Token win is consistent cross-language: −26% to −33%
 
 The size of the savings barely moves across repo size (122 files → 1819 files),
-language family (JS, PHP, C++), or repo age. Static artifact delivery is
+language family (JS, PHP, C++, Python), or repo age. Static artifact delivery is
 structurally cheaper than live MCP for this task shape regardless of
 surface detail.
 
+Average token savings across four repos: **~30%**.
+
 ### 2. Live lean-MCP does not earn model routing on orient tasks
 
-Across **9 out of 9** lean-mcp runs, the model made **0 MCP calls**.
+Across **12 out of 12** lean-mcp runs, the model made **0 MCP calls**.
 It explored with shell (rg/cat/ls) every time. This confirms the A1
 signal cross-language:
 
 - On self-repo: 0/3 runs used MCP
 - On lc-api: 0/3 runs used MCP
 - On echoes: 0/3 runs used MCP
+- On mem0-fork: 0/3 runs used MCP
 
 The lean profile's 5 verbs (`graph_impact`, `graph_callers`, `graph_path`,
 `graph_report`, `graph_change_plan`) are ignored on orient-shaped prompts
 even when the agent has them loaded. Shell is cheaper for the model to
 route to, and the static brief is cheaper still.
+
+This is strong evidence for pruning the lean live profile further on orient
+task shapes, or — equivalently — preferring static brief delivery over
+live MCP whenever the session is orient-heavy.
 
 ### 3. Shell exploration is 8–16× more commands than brief consumption
 
@@ -109,19 +117,21 @@ brief alone can't answer those questions.
 
 ## Raw data
 
-See `.aify-graph/bench-a1-live-*.json` in the repo root for per-run
-transcripts, token usage breakdowns, and final answers. Three artifacts
-for this round:
+See `bench-a1-live-*.json` in the repo root for per-run transcripts,
+token usage breakdowns, and final answers. Four artifacts for this round:
 
 - self-repo bench (N=3, after brief-content fixes): 2026-04-18
 - lc-api bench (N=3, after role-aware hub fixes): 2026-04-18
 - echoes bench (N=3): 2026-04-19
+- mem0-fork bench (N=3): 2026-04-19
 
 ## Not validated yet
 
-- mem0-fork (Python) — same prompt, not run. Would add a fourth data point
-  and confirm the thesis on a large Python repo. ~4 minutes of codex time.
 - Non-orient task shapes — change-planning, blast-radius analysis. These
   are where live MCP verbs may finally earn their manifest cost. A2's
   brief.plan.md + tasks.json integration targets this case but hasn't
-  been benchmarked head-to-head yet.
+  been benchmarked head-to-head yet. This is the most important next
+  benchmark: it's the one that could change the live-profile answer.
+- Larger repos beyond ~1800 files (e.g. Linux kernel scale) — untested.
+  Brief artifact generation time and per-file index time would need
+  validation at 10k+ file scale.

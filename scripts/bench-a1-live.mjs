@@ -60,6 +60,28 @@ const REPOS = {
       ],
     },
   },
+  'mem0-fork': {
+    root: 'C:/Docker/aify-openmemory/mem0-fork',
+    prompt: [
+      'You are onboarding to the core memory pipeline in this repo.',
+      'Return exactly 4 lines:',
+      'ENTRYPOINT: <path>',
+      'SUBSYSTEM: <path> - <why>',
+      'SUBSYSTEM: <path> - <why>',
+      'SUBSYSTEM: <path> - <why>',
+    ].join('\n'),
+    rubric: {
+      entrypoint: [/mem0\/memory\/main\.py/i, /mem0\/memory\//i, /mem0\/__init__\.py/i],
+      subsystemRoots: [
+        'mem0/memory',
+        'mem0/vector_stores',
+        'mem0/graphs',
+        'mem0/llms',
+        'mem0/embeddings',
+        'mem0/utils',
+      ],
+    },
+  },
   'echoes': {
     root: 'C:/Users/Administrator/echoes_of_the_fallen',
     prompt: [
