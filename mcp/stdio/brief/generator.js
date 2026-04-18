@@ -13,6 +13,7 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
+import { loadFunctionality, validateAnchors, hasOverlay } from '../overlay/loader.js';
 
 const NOISE_LABELS = new Set([
   'requirements.txt', 'package-lock.json', 'yarn.lock', '.gitignore',
@@ -307,12 +308,17 @@ function recentActivity(repoRoot, limit = 5) {
 // Trust/health signal. Must be a ROUTING line, not comfort text — the agent
 // should change strategy when trust is weak (e.g., prefer direct file reads
 // over graph queries). Issues are phrased actionably.
-function trust(snapshot, entries, subs, hubsArr) {
+function trust(snapshot, entries, subs, hubsArr, overlayHealth) {
   const issues = [];
   let tip = '';
   if (snapshot.unresolvedEdges > 2000) {
     issues.push(`${snapshot.unresolvedEdges} unresolved edges`);
     tip = 'prefer direct file reads for cross-file impact questions';
+  }
+  if (overlayHealth?.broken?.length) {
+    const ids = overlayHealth.broken.map(b => b.feature.id).slice(0, 3).join(', ');
+    issues.push(`${overlayHealth.broken.length} features with stale anchors (${ids})`);
+    tip = tip || 'functionality overlay may be out of date; verify feature→code links before trusting';
   }
   if (entries.length === 0) {
     issues.push('no entrypoints detected');
@@ -330,7 +336,7 @@ function trust(snapshot, entries, subs, hubsArr) {
 // ---------- renderers ----------
 
 function renderMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth } = data;
   const lines = [];
   lines.push('# Project Brief');
   lines.push('');
@@ -350,6 +356,15 @@ function renderMarkdown(data) {
   if (subs.length) {
     lines.push('## Subsystems');
     for (const s of subs) lines.push(`- \`${s.path}\` — ${s.score} files`);
+    lines.push('');
+  }
+
+  if (overlayHealth?.valid?.length) {
+    lines.push('## Features');
+    for (const { feature } of overlayHealth.valid) {
+      const anchors = [...feature.anchors.symbols, ...feature.anchors.files].slice(0, 3).join(', ');
+      lines.push(`- **${feature.label || feature.id}** (\`${feature.id}\`) — ${feature.description}${anchors ? ` · anchors: ${anchors}` : ''}`);
+    }
     lines.push('');
   }
 
@@ -391,7 +406,7 @@ function renderMarkdown(data) {
 
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
 function renderAgentMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
@@ -403,6 +418,16 @@ function renderAgentMarkdown(data) {
   if (subs.length) {
     lines.push('SUBSYS:');
     for (const s of subs.slice(0, 4)) lines.push(`  ${s.path} (${s.score} files)`);
+  }
+  // FEATURES only if the user-authored overlay exists. Keeps briefs clean on
+  // repos that haven't adopted functionality.json yet.
+  if (overlayHealth?.valid?.length) {
+    lines.push('FEATURES:');
+    for (const { feature } of overlayHealth.valid.slice(0, 5)) {
+      const label = feature.label || feature.id;
+      const anchors = feature.anchors.symbols.slice(0, 2).join(',');
+      lines.push(`  ${feature.id}: ${label}${anchors ? ' [' + anchors + ']' : ''}`);
+    }
   }
   if (hubsArr.length) {
     lines.push('HUBS:');
@@ -432,7 +457,7 @@ function renderAgentMarkdown(data) {
 }
 
 function renderJson(data, repoRoot) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth } = data;
   return {
     generated_at: new Date().toISOString(),
     repo: {
@@ -450,6 +475,23 @@ function renderJson(data, repoRoot) {
     tests,
     risks: risksArr,
     recent_activity: recent,
+    features: {
+      version: overlay?.version ?? null,
+      valid: (overlayHealth?.valid ?? []).map(v => ({
+        id: v.feature.id,
+        label: v.feature.label,
+        description: v.feature.description,
+        anchors: v.feature.anchors,
+        resolved_anchors: v.resolved,
+        anchor_health: `${v.totalResolved}/${v.totalDeclared}`,
+      })),
+      broken: (overlayHealth?.broken ?? []).map(v => ({
+        id: v.feature.id,
+        label: v.feature.label,
+        missing_anchors: v.resolved,
+        anchor_health: `${v.totalResolved}/${v.totalDeclared}`,
+      })),
+    },
   };
 }
 
@@ -466,8 +508,15 @@ export function generateBrief({ repoRoot }) {
     const tests = testAnchors(db);
     const risksArr = risks(db);
     const recent = recentActivity(repoRoot);
-    const health = trust(snapshot, entries, subs, hubsArr);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health };
+
+    // L2 overlay: if functionality.json exists, ingest + validate against graph.
+    const overlay = loadFunctionality(repoRoot);
+    const overlayHealth = overlay.features.length > 0
+      ? validateAnchors(overlay.features, db)
+      : { valid: [], broken: [] };
+
+    const health = trust(snapshot, entries, subs, hubsArr, overlayHealth);
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);

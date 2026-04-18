@@ -1,0 +1,63 @@
+{
+  "_comment": "Example .aify-graph/functionality.json for this repo. Copy to .aify-graph/functionality.json in any repo and edit the features. Anchors are validated against the code graph at brief-generation time — stale anchors surface in the brief's TRUST line.",
+  "version": "0.1",
+  "features": [
+    {
+      "id": "graph-ingest",
+      "label": "Graph ingest & extraction",
+      "description": "AST-based graph extraction via tree-sitter across 10+ languages. Walks files, builds nodes/edges, writes to SQLite.",
+      "anchors": {
+        "symbols": ["walk", "digest", "applyFrameworkPlugins"],
+        "files": ["mcp/stdio/ingest/*", "mcp/stdio/ingest/extractors/*", "mcp/stdio/ingest/languages/*"],
+        "routes": [],
+        "docs": []
+      },
+      "source": "user",
+      "tags": ["ingest", "tree-sitter"]
+    },
+    {
+      "id": "freshness",
+      "label": "Freshness orchestrator",
+      "description": "Detects changed files, manages graph lock, decides whether to rebuild or update-in-place.",
+      "anchors": {
+        "symbols": ["ensureFresh", "getChangedFiles", "getDirtyFiles"],
+        "files": ["mcp/stdio/freshness/*"]
+      },
+      "source": "user",
+      "tags": ["freshness"]
+    },
+    {
+      "id": "query-verbs",
+      "label": "MCP query verbs",
+      "description": "Graph query surface exposed as MCP tools: lookup, path, impact, callers, report.",
+      "anchors": {
+        "symbols": ["graphLookup", "graphPath", "graphImpact", "graphCallers", "graphReport"],
+        "files": ["mcp/stdio/query/verbs/*", "mcp/stdio/query/renderer.js"]
+      },
+      "source": "user",
+      "tags": ["query", "mcp"]
+    },
+    {
+      "id": "brief-artifacts",
+      "label": "Brief artifact generator",
+      "description": "Static brief.md / brief.agent.md / brief.json emitted at index time. Orient substrate for agents.",
+      "anchors": {
+        "symbols": ["generateBrief", "renderAgentMarkdown", "classifyRole"],
+        "files": ["mcp/stdio/brief/*"]
+      },
+      "source": "user",
+      "tags": ["brief", "a1"]
+    },
+    {
+      "id": "functionality-overlay",
+      "label": "Functionality overlay (L2)",
+      "description": "File-backed feature map linking code to user-curated functionality. Anchored on symbols, files, routes, docs. Validated against the graph.",
+      "anchors": {
+        "symbols": ["loadFunctionality", "validateAnchors", "featuresForFile"],
+        "files": ["mcp/stdio/overlay/*"]
+      },
+      "source": "user",
+      "tags": ["overlay", "a2"]
+    }
+  ]
+}
