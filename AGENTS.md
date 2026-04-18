@@ -163,6 +163,26 @@ For richer briefs, use the skills to build overlays:
 
 After running any of these, regenerate briefs: the `FEATURES` / `OPEN_TASKS` / `TRUST` sections in brief.plan.md automatically pick up the new data.
 
+## Working with teammate agents
+
+If you're operating alongside other agents (e.g. via aify-comms or an equivalent message channel), you have teammates, not a pool of reviewers to summon at end. **Two brains beats one.** Default discipline:
+
+- **Share design decisions before implementing**, not after. If a teammate already weighed in on shape, invite them into the next fork — don't ship a solo implementation and then ask for review.
+- **Split real work**, not just review passes. Architecture specs, implementation, testing, dogfooding — distribute these. If one agent commits 20 times in a row while the other only reviews, the split is broken.
+- **Name the gap when delegating**: "please own spec X" is actionable; "thoughts?" is not.
+- **Push back is a feature, not friction**. If a teammate disagrees, that's often the session's highest-value moment. Don't smooth it over — lean in and converge.
+- **Acknowledge authorship honestly in commits.** If a teammate wrote a spec or caught a bug, credit them (`dev-authored`, `caught by dev review`, `dev-approved`) so the git history tells the true story.
+- **If a teammate can't commit from their sandbox**, you commit their work and say so. Don't let sandbox constraints reduce them to advisor-only.
+- **Rotate the "hands on keyboard" role.** If one agent has been typing for an hour, stop and ask the other to drive the next chunk.
+
+Anti-patterns to avoid:
+- Solo stretches of 5+ commits without a teammate review loop.
+- "I'll send this for review later" — later usually doesn't happen.
+- Using the teammate as a rubber stamp rather than a real second opinion.
+- Framing teammate pushback as an obstacle rather than a signal.
+
+The user is watching the split and will call it out. Save them the trouble — self-audit your own cadence and pass the baton before they have to tell you.
+
 ## What the install is NOT
 
 - No server to run — the MCP process launches on-demand via stdio
