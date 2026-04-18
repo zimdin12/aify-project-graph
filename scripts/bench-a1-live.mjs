@@ -211,7 +211,10 @@ for (const repoId of selectedRepoIds) {
       console.log(`${code === 0 ? 'OK' : 'ERR'} dur=${(dur/1000).toFixed(0)}s eff_tok=${effTok ?? '?'} pass=${score.pass} cmds=${commands.length} mcp=${mcpCalls.length}`);
       results.push({ repoId, arm, rep, code, dur, effTok, score, mcpCalls, commands: commands.length, finalAnswer, stderr: code !== 0 ? stderr.slice(0, 400) : '' });
     }
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 3 }).catch(() => {
+      // Windows sometimes locks temp subdirs (PowerShell profile data etc.);
+      // leaking a temp dir is cheaper than killing the benchmark mid-run.
+    });
   }
 }
 

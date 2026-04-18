@@ -65,31 +65,115 @@ function repoSnapshot(db) {
   return { files: totalFiles, symbols: totalNodes, edges: totalEdges, languages: langs, unresolvedEdges, trustLevel };
 }
 
-function entryPoints(db, limit = 5) {
+// Canonical "real entry" detection: combines filesystem evidence (package.json
+// main/bin, shebang lines, well-known entry filenames) with graph-indexed
+// Entrypoint/Route nodes. Filesystem findings rank above graph-heuristic
+// entries because graph Entrypoint classification fires on any `index.*`,
+// which frequently misses the actual program entry (e.g., server.js / app.py).
+function readJsonSafe(path) {
+  try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
+}
+
+function detectFromPackageJson(repoRoot) {
+  const pkg = readJsonSafe(join(repoRoot, 'package.json'));
+  if (!pkg) return [];
+  const out = [];
+  if (typeof pkg.main === 'string') out.push({ file: pkg.main, why: 'package.json main', source: 'pkg' });
+  if (pkg.bin) {
+    const bins = typeof pkg.bin === 'string' ? [['bin', pkg.bin]] : Object.entries(pkg.bin);
+    for (const [name, file] of bins) out.push({ file, why: `bin: ${name}`, source: 'pkg' });
+  }
+  return out;
+}
+
+function detectCanonicalEntries(db) {
+  // Canonical filenames in project-root-ish locations. Scoped tight to avoid
+  // bringing in tests/fixtures/ and nested third-party copies.
   const rows = q(db,
-    `SELECT label, type, file_path AS file, start_line AS line
-     FROM nodes
-     WHERE type IN ('Entrypoint', 'Route')
-     ORDER BY type, label LIMIT $limit`, { limit: limit * 2 });
+    `SELECT label, file_path AS file FROM nodes
+     WHERE type = 'File'
+       AND label IN ('server.js', 'main.py', 'app.py', 'index.php',
+                     'main.go', 'main.rs', 'main.cpp', 'app.js',
+                     'cli.js', 'cli.ts', 'artisan')
+       AND file_path NOT LIKE 'tests/%'
+       AND file_path NOT LIKE 'test/%'
+       AND file_path NOT LIKE 'node_modules/%'
+       AND file_path NOT LIKE 'vendor/%'
+     LIMIT 10`);
+  // Prefer shallower paths first (root-level server.js beats nested ones).
   return rows
-    .filter(r => !NOISE_ENTRY_PATTERNS.some(p => p.test(r.label)))
-    .slice(0, limit)
-    .map(r => ({ ...r, why: r.type === 'Route' ? 'declared route' : 'entry file' }));
+    .map(r => ({ file: r.file, why: `canonical entry: ${r.label}`, source: 'canonical', depth: r.file.split('/').length }))
+    .sort((a, b) => a.depth - b.depth);
+}
+
+function entryPoints(db, repoRoot, limit = 5) {
+  const out = [];
+  const seen = new Set();
+  const add = (entry) => {
+    if (!entry || !entry.file) return;
+    const key = entry.file.replaceAll('\\', '/');
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ label: entry.label || key.split('/').pop(), file: key, line: entry.line ?? 1, why: entry.why });
+  };
+
+  // 1. package.json main/bin (most authoritative)
+  for (const e of detectFromPackageJson(repoRoot)) add(e);
+
+  // 2. Canonical entry filenames (server.js, main.py, etc.) in non-noisy locations
+  for (const e of detectCanonicalEntries(db)) add(e);
+
+  // 3. Graph-declared Route nodes (Laravel routes etc.)
+  const routes = q(db,
+    `SELECT label, file_path AS file, start_line AS line FROM nodes
+     WHERE type = 'Route' ORDER BY label LIMIT 3`);
+  for (const r of routes) add({ ...r, why: 'declared route' });
+
+  // 4. Fall back to graph Entrypoint nodes, minus obvious noise.
+  const graphEntries = q(db,
+    `SELECT label, file_path AS file, start_line AS line FROM nodes
+     WHERE type = 'Entrypoint'
+       AND file_path NOT LIKE 'tests/%'
+       AND file_path NOT LIKE 'test/%'
+       AND file_path NOT LIKE '%/__init__.py'
+     LIMIT 10`);
+  for (const r of graphEntries) {
+    if (!NOISE_ENTRY_PATTERNS.some(p => p.test(r.label))) {
+      add({ ...r, why: 'entry file' });
+    }
+  }
+
+  return out.slice(0, limit);
 }
 
 function subsystems(db, limit = 6) {
+  // For each Directory node, count File nodes whose parent is exactly this
+  // dir (path = `<dir>/<basename>` with no further slashes). CONTAINS edges
+  // in this graph don't connect Directory→File, so we use path matching.
+  // This gives the direct-file count per dir, surfacing leaf subsystems
+  // (mcp/stdio/ingest, mcp/stdio/query) over parents (mcp, mcp/stdio).
   const rows = q(db,
-    `SELECT n.label AS path, count(e.to_id) AS score
-     FROM nodes n LEFT JOIN edges e ON e.from_id = n.id AND e.relation = 'CONTAINS'
+    `SELECT n.file_path AS path,
+            (SELECT COUNT(*) FROM nodes f
+             WHERE f.type = 'File'
+               AND f.file_path LIKE n.file_path || '/%'
+               AND instr(substr(f.file_path, length(n.file_path) + 2), '/') = 0
+            ) AS file_count
+     FROM nodes n
      WHERE n.type = 'Directory'
-     GROUP BY n.id
-     HAVING score >= 3
-     ORDER BY score DESC LIMIT $limit`, { limit });
-  return rows.map(r => ({
-    path: r.path,
-    why: `${r.score} children`,
-    score: r.score,
-  }));
+       AND n.file_path != '.'
+       AND n.file_path != ''
+       AND n.file_path NOT LIKE 'tests/%'
+       AND n.file_path NOT LIKE 'test/%'
+       AND n.file_path NOT LIKE 'node_modules/%'
+       AND n.file_path NOT LIKE 'vendor/%'
+       AND n.file_path NOT LIKE '.%'
+       AND n.file_path NOT IN ('tests', 'test', 'vendor', 'node_modules', 'docs', 'scripts')
+     ORDER BY file_count DESC`);
+  return rows
+    .filter(r => r.file_count >= 3)
+    .slice(0, limit)
+    .map(r => ({ path: r.path, why: `${r.file_count} files`, score: r.file_count }));
 }
 
 function hubs(db, limit = 5) {
@@ -338,7 +422,7 @@ export function generateBrief({ repoRoot }) {
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const snapshot = repoSnapshot(db);
-    const entries = entryPoints(db);
+    const entries = entryPoints(db, repoRoot);
     const subs = subsystems(db);
     const hubsArr = hubs(db);
     const readFirstArr = readFirst(db);
