@@ -1,8 +1,8 @@
 # aify-project-graph
 
-On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph in a local SQLite file, and exposes high-intent query verbs over MCP. Agents navigate code, trace execution paths, and assess blast radius — using compact responses instead of reading files.
+On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph in a local SQLite file, and exposes high-intent MCP tools over stdio. Agents navigate code, trace execution paths, plan changes, and onboard into unfamiliar subsystems using compact responses instead of reading files blindly.
 
-Typical token savings **~20–30%** on realistic agent tasks (graph + file reads together), with larger wins on orientation/architecture questions and smaller wins on specific-symbol lookups. Measured across 4 A/B test pairs on real codebases (Python, Node, PHP, C++). 10 languages. No server, no container, no cloud.
+Current Codex/OpenCode guidance uses a reduced `--toolset=lean` profile because the full MCP surface was adding passive overhead even on tasks that never touched graph tools. The broad full-profile run is still published in [docs/dogfood/ab-results-2026-04-18.md](docs/dogfood/ab-results-2026-04-18.md), but the current recommended profile is the lean follow-up in [docs/dogfood/ab-results-2026-04-18-lean.md](docs/dogfood/ab-results-2026-04-18-lean.md) plus the higher-`N` exact-lookup rerun in [docs/dogfood/ab-results-2026-04-18-lean-search-n5.md](docs/dogfood/ab-results-2026-04-18-lean-search-n5.md). 12 languages. No server, no container, no cloud.
 
 ## Inspiration
 
@@ -32,11 +32,11 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 | **Storage** | In-memory NetworkX (ephemeral) | SQLite (persistent across sessions) |
 | **Scale** | ~100k nodes (Python memory limit) | 350k+ nodes tested, 1M target |
 | **Freshness** | Full rebuild every run | Git-diff-aware incremental |
-| **Languages** | Per-language Python extractors | Config-driven generic walker (10 langs, ~30 lines per config) |
+| **Languages** | Per-language Python extractors | Config-driven generic walker (12 langs, ~30 lines per config) |
 | **Node types** | Code symbols only | Code + directories, docs, configs, routes, entry points, schemas |
 | **Path tracing** | No | `graph_path` — readable execution stories |
 | **Community detection** | Leiden | Louvain (same quality, JS-native) |
-| **Framework awareness** | No | Plugin system (Laravel routes in v1) |
+| **Framework awareness** | No | Plugin system (Laravel routes + middleware in v1) |
 | **Dashboard** | No | Cytoscape.js interactive browser |
 | **Fuzzy search** | No | `graph_search` with partial name + type + file filters |
 
@@ -54,6 +54,64 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 ```
 
 The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product of `git init`.
+
+## Static briefs & overlays
+
+Five artifacts generated at `.aify-graph/` on every index:
+
+- **`brief.md`** (~500 tok, human-readable) — full orientation: snapshot, entrypoints, subsystems, features, hubs with role tags, read-first list, tests, risks, recent activity.
+- **`brief.agent.md`** (~350 tok, prompt substrate) — dense key/value form of the above. Paste into any agent's system/developer prompt for orient-shaped sessions.
+- **`brief.onboard.md`** (~250 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity and risks.
+- **`brief.plan.md`** (~310 tok) — leads with **features + anchors**, **recent commits feature-tagged**, **open tasks grouped by feature**, and risk areas. For "about to change something" sessions.
+- **`brief.json`** — machine-readable equivalent of everything.
+
+Briefs are **cache-discipline stable** — deterministic ordering, no timestamps in the agent brief, files only rewritten when content actually changes. Prefix-cache survives across sessions while HEAD doesn't move.
+
+### Functionality overlay (L2)
+
+Drop `.aify-graph/functionality.json` in any repo to map **user-defined features** to code:
+
+```json
+{
+  "version": "0.1",
+  "features": [
+    {
+      "id": "auth",
+      "label": "Authentication & tokens",
+      "description": "User login, API token validation, session handling.",
+      "anchors": {
+        "symbols": ["RequireToken.handle", "authenticate"],
+        "files": ["app/Http/Middleware/RequireToken.php", "app/Http/Controllers/Api/Auth/*"]
+      },
+      "source": "user",
+      "tags": ["http", "security"]
+    }
+  ]
+}
+```
+
+Anchors are validated against the graph on every brief regen — stale or broken anchors surface in the brief's `TRUST` line as an actionable routing signal. Sample at [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json).
+
+### Task overlay (L3)
+
+Drop `.aify-graph/tasks.json` (written by the `graph-map-tasks` skill) and `brief.plan.md` automatically adds an `OPEN_TASKS` section grouped by feature.
+
+### Claude Code skills
+
+Two skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/):
+
+- **`graph-map-functionality`** — agent reads `brief.json` + directory structure + commit vocabulary, proposes `functionality.json`, shows user a diff before writing. Preserves user-edited features (`source: "user"`) on refresh.
+- **`graph-map-tasks`** — source-agnostic. Detects whatever task MCP is connected (ClickUp, Asana, Linear, Jira, GitHub Issues) or falls back to a plaintext file. Attributes tasks to features via commit refs + branch names + tags + fuzzy title match. Writes `tasks.json`.
+
+Invoke with `/graph-map-functionality` or `/graph-map-tasks` in Claude Code.
+
+### Regenerating
+
+```bash
+node scripts/graph-brief.mjs <repoRoot>
+```
+
+Rebuilds all five briefs + reads `functionality.json` + `tasks.json` if present. User-curated files (`functionality.json`, `tasks.json`) are preserved across full graph rebuilds (`bench-rebuild.mjs`).
 
 ## Install
 
@@ -82,25 +140,29 @@ Then register the MCP server in your agent's config:
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["<path>/aify-project-graph/mcp/stdio/server.js"]
+      "args": ["--max-old-space-size=8192", "<path>/aify-project-graph/mcp/stdio/server.js"]
     }
   }
 }
 ```
 
-**Codex** (`~/.codex/mcp.json`):
+**Codex** (`~/.codex/mcp.json`, recommended lean profile):
 ```json
 {
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["<path>/aify-project-graph/mcp/stdio/server.js"]
+      "args": ["--max-old-space-size=8192", "<path>/aify-project-graph/mcp/stdio/server.js", "--toolset=lean"]
     }
   }
 }
 ```
 
-Replace `<path>` with the absolute path (forward slashes on Windows).
+**OpenCode** uses the same recommended lean args.
+
+Lean mode keeps the workflow verbs that benchmarked best on Codex/OpenCode (`graph_report`, `graph_onboard`, `graph_change_plan`, `graph_preflight`, `graph_path`, `graph_file`) and swaps exact-name lookup to `graph_lookup(symbol="X")`. If you want every low-level traversal verb in Codex/OpenCode, drop `--toolset=lean` and run the full toolset instead.
+
+Replace `<path>` with the absolute path (forward slashes on Windows). `8192` is recommended on 16 GB+ machines; `4096` is acceptable on smaller machines.
 
 Restart your agent. The graph builds automatically on first query.
 
@@ -113,11 +175,12 @@ cp -r <path>/aify-project-graph/integrations/claude-code/skill \
 
 ## Query verbs
 
-15 verbs organized by purpose:
+MCP tools organized by purpose:
 
 ### Discovery — orient in a new project
 | Verb | What it does | Example |
 |---|---|---|
+| `graph_onboard(path=".")` | Curated onboarding brief: scope stats, key files, hub symbols, test anchors, reading order | Learn a repo or subsystem efficiently |
 | `graph_report()` | Full project orientation: files, languages, entry points, hub symbols, community clusters | First thing to call on any unfamiliar repo |
 | `graph_search(query="UserCont")` | Fuzzy symbol search with type/file filters | Find symbols by partial name |
 | `graph_whereis(symbol="get_db")` | Exact definition lookup: file:line | When you know the exact name |
@@ -126,6 +189,7 @@ cp -r <path>/aify-project-graph/integrations/claude-code/skill \
 ### Analysis — understand code before changing it
 | Verb | What it does | Example |
 |---|---|---|
+| `graph_change_plan(symbol="get_db")` | One-shot change brief: trust, risk, caller/dependency/test signals, recommended file read order | Plan a safe multi-file change |
 | `graph_preflight(symbol="get_db")` | One-shot edit safety check: location, callers, impact, test coverage, trust signal | **Call before editing any symbol** |
 | `graph_file(path="src/auth/token.ts")` | Everything about one file: defines, imports, callers-in, callees-out, test coverage | Understand a file in one call |
 | `graph_callers(symbol="get_db")` | Who calls this? Ranked by depth, confidence, test proximity | Before understanding usage |
@@ -180,71 +244,95 @@ Project-level escape hatches at repo root:
 
 ## Performance
 
-| Repo size | Index time | Query latency | Nodes |
-|---|---|---|---|
-| Small (32 files) | **1 second** | **~160ms** | 516 |
-| Medium (915 files) | **10 seconds** | **~1.3s** | 6,669 |
-| Large C/C++ (251 files) | **21 seconds** | ~1s | 4,000 |
+Cold rebuild numbers from the 2026-04-18 dogfood run:
 
-Noop (no changes): ~170ms on small repos, <1s on medium.
+| Repo | Nodes | Edges | Rebuild time | Peak RSS | Unresolved edges |
+|---|---:|---:|---:|---:|---:|
+| aify-project-graph | 892 | 1,750 | 7s | 136 MB | 4,574 |
+| aify-claude | 827 | 2,726 | 8s | 143 MB | 7,708 |
+| mem0-fork | 8,840 | 31,630 | 129s | 347 MB | 66,504 |
+| lc-api | 16,253 | 56,849 | 152s | 455 MB | 42,832 |
+| echoes_of_the_fallen | 6,415 | 18,920 | 129s | 328 MB | 6,534 |
+
+These are warmup rebuilds, not steady-state query latency. Incremental/noop sessions are much cheaper than these cold passes.
 
 ## A/B Test Results
 
-Controlled A/B tests with real subagents: same task, same model, same repo — only difference is whether the agent uses graph verbs or only Read/Grep/Glob.
+Controlled Codex A/B with identical prompts, same model (`gpt-5.4`), same reasoning (`medium`). There are now three relevant artifacts:
 
-### Three task regimes
+- Full MCP profile broad run (`N=3`): [docs/dogfood/ab-results-2026-04-18.md](docs/dogfood/ab-results-2026-04-18.md)
+- Lean MCP profile broad run (`N=3`): [docs/dogfood/ab-results-2026-04-18-lean.md](docs/dogfood/ab-results-2026-04-18-lean.md)
+- Lean exact-lookup rerun (`N=5`): [docs/dogfood/ab-results-2026-04-18-lean-search-n5.md](docs/dogfood/ab-results-2026-04-18-lean-search-n5.md)
 
-Graph's value depends heavily on task shape. Measured across 5 real codebases (Node, Python, PHP+Laravel, C++) with real subagents:
+The original `lc-api` trace prompt in the full-profile run was underspecified, so the published Laravel trace row below still uses the corrected rerun in [docs/dogfood/ab-results-2026-04-18-lcapi-trace-expanded-rerun.md](docs/dogfood/ab-results-2026-04-18-lcapi-trace-expanded-rerun.md).
 
-| Task shape | Token savings | Graph's role |
+### Lean-profile takeaway
+
+- The broad full-profile run was structurally honest but paid too much passive tool-surface tax on Codex/OpenCode.
+- The lean follow-up improved the **overall median task-cell delta** from `+3.6%` to **`-1.0%`**.
+- Lean preserved the strongest use case: orient/onboard still won with a category median of **`-7.9%`**.
+- Lean repaired one of the clearest quality misses from the original broad run: `aify-claude / dispatch-request-trace` went from a graph-side regression to `C3/P0/W0`.
+- Exact-lookup results under lean are best described as **near parity to small-win**, not as a universal headline. The higher-`N` exact-lookup rerun landed at **`-0.2%` median** and **`-17.8%` average**, but that category remains cache-sensitive enough that hero numbers are not stable.
+
+### What The Full-Profile 2026-04-18 Run Showed
+
+| Task shape | Measured result | What it means |
 |---|---|---|
-| **Orient / report / hub-rank** | **−25% avg** (up to **−39%**) | Irreplaceable — grep can't rank by resolved edges |
-| **Trace** multi-file chain | **−6.5% avg** (up to **−23.8%**) | Structural accelerator when edges model the path |
-| **Search** single-symbol lookup | 0% (tied) | Grep's home turf — graph matches, doesn't beat |
+| **Orient / onboard** | `4/5` repos cheaper. Average `-20.7%`, median `-17.8%`. `echoes` was the exception at `+16.6%`. | Strongest current use case. The graph helps most when it can rank entrypoints, hubs, and reading order. |
+| **Search / exact lookup** | `1/5` repos cheaper. Median `+3.6%` loss. Average `-14.4%` is dominated by one huge Laravel win (`lc-api` `-94.2%`). | Usually still grep/read territory. The graph can win when namespace/framework structure makes the direct jump unusually cheap. |
+| **Trace / multi-file chain** | Mixed and not a headline win yet. After correcting the Laravel trace prompt, `1/5` repos got cheaper, `4/5` got more expensive. Average `+3.6%`, median `+4.5%`. | Useful only when the graph models the path cleanly. Do not promise generic trace savings today. |
 
-**Tool-use reduction**: on orient tasks, graph averaged **3.2 tool calls** vs **16.8 for grep-based approach** — a 5.3× reduction in round-trips. This matters more than raw tokens for agent latency and cost (each tool call re-sends the prompt).
+- Overall average token delta after replacing the bad Laravel trace row: **`-10.5%`**, but the overall **median task-cell delta was `+3.6%`**. The average is skewed by the `lc-api` search outlier.
+- Wall-clock time in this harness got worse across every category: search `+24.0%`, trace `+101.3%`, orient `+198.5%`.
+- Tool ops still fell overall (`-6.5%`) and more noticeably on orient tasks (`-16.7%`), which matters for agent back-and-forth even when elapsed time does not improve.
+- The most important quality regression in the run was `aify-claude` trace: graph-enabled runs were only `1/3` correct versus baseline `3/3`.
 
-The A–E extraction improvements (PHP traits/method-params/facades, Python decorators, C++ out-of-class methods, ECS lambdas, External boundary terminals) are *edge-quality* improvements — they help exactly the workloads where relationships are the bottleneck, not the workloads where grep is already local-optimal.
+The practical takeaway is simple: the graph is paying for itself when structure is the bottleneck, not when the task is “find one line fast.”
 
-### Per-repo results (post-A-E rebuild)
+### Per-Repo Snapshot (2026-04-18)
 
-| Repo | Trace Δ | Search Δ | Notable |
-|---|---|---|---|
-| aify-project-graph (Node) | −2.3% | −2.5% | Small repo — both methods converge |
-| aify-claude (Python) | **−13.7%** | −1.2% | Graph cleanly identified 3 wake mechanisms on POST /dispatch trace |
-| mem0-fork (Python + TS) | +7.9% | −1.9% | `Memory.add → _add_to_vector_store → …` is a linear chain in one file; reading wins |
-| **echoes (C++)** | **−23.8%** | +4.9% | **Flagship trace win.** Full input→movement pipeline traced via `graph_report + whereis + callees` |
-| lc-api (Laravel PHP) | +12.5% | −2.6% | Trace loss exposes Laravel middleware-group (`Kernel.php` config array) as a known extraction gap |
+| Repo | Search Δ | Trace Δ | Orient Δ | Notes |
+|---|---:|---:|---:|---|
+| aify-project-graph | `+3.8%` | `+10.6%` | `-20.1%` | Small repo. Orient benefits, but exact lookup and trace do not. |
+| aify-claude | `+3.6%` | `+4.5%` | `-11.6%` | Search/trace both worse. Graph trace quality regressed (`1/3` correct vs baseline `3/3`). |
+| mem0-fork | `+11.1%` | `-6.0%` | `-17.8%` | Good example of graph helping a structural trace and orient task, but not exact lookup. |
+| lc-api | `-94.2%` | `+2.7%`* | `-70.5%` | Huge exact-lookup win on a namespaced Laravel controller. `*` trace comes from the corrected expanded-middleware rerun and was equal-quality on both sides. |
+| echoes_of_the_fallen | `+3.6%` | `+6.3%` | `+16.6%` | Current C++ prompts still favor grep/read more than the graph on both trace and orient. |
 
 ### When to use the graph
 
-- **✅ Orient in an unfamiliar repo** (`graph_report`, `graph_whereis(expand=true)`)
-- **✅ Trace execution across 3+ files** (input pipelines, request handlers, middleware chains where modeled)
+- **✅ Orient in an unfamiliar repo** (`graph_onboard`, `graph_report`, `graph_whereis(expand=true)`)
+- **✅ Plan a non-trivial change** (`graph_change_plan`, `graph_preflight`)
+- **✅ Trace execution across 3+ files when the graph models the path cleanly** (middleware chains, explicit structural flows). `graph_path` prefers `PASSES_THROUGH` middleware branches ahead of the parallel direct `INVOKES` shortcut when both exist.
 - **✅ Impact/blast-radius on a symbol with non-trivial fan-in** (`graph_preflight`, `graph_callers` with class-level rollup)
 - **✅ Framework-pattern navigation** — Laravel routes/traits/facades, Flecs ECS systems, Python decorators
 
 ### When grep/read is fine (or better)
 
-- ❌ Find a single known symbol by exact name
+- ❌ Find a single known symbol by exact name, especially on small repos
 - ❌ Linear call chains in one file
 - ❌ Dynamic dispatch that static analysis can't see (service-container resolution, reflection, metaclasses)
-- ❌ Config-driven flow (Laravel middleware groups, route parameters as strings)
+- ❌ Framework/vendor internals outside the indexed repo boundary
 
 ### Honest limits remaining
 
-- **Laravel middleware-group expansion**: `Kernel.php` declares `allow-end-user → ['require-token', 'throttle-...']`. The static extractor sees the array but doesn't emit edges, so trace tasks crossing a middleware boundary fall back to Read.
+- **Exact-lookup remains cache-sensitive**: the full MCP profile paid too much passive tool tax on Codex/OpenCode, which is why the recommended install now uses `--toolset=lean`. Under lean, exact-name lookups moved much closer to parity, but the category still does not justify big savings claims.
+- **Trace-task quality is not monotonic**: the graph is a navigation aid, not an autopilot. `aify-claude`’s `POST /dispatch` trace regressed with graph available, which is why source reads still decide correctness.
+- **Inherited framework entrypoints outside the repo**: some middleware classes override template hooks like `handleRequest()` but inherit the public `handle()` entrypoint from a base class outside the indexed tree. Those hops may still surface as honest `External` boundaries unless an in-repo ancestor defines the entrypoint.
+- **Two-phase framework enrichment**: Laravel route/middleware expansion now works via symbolic late binding. A second post-extraction plugin pass would generalize cleaner framework-native chains to FastAPI/Express/NestJS-style patterns and reduce remaining shortcut/external fallbacks.
 - **C++ templates** `Foo<T>::bar()` now work for single-template cases, but nested templates and SFINAE specializations are still regex/AST-limited.
 - **Dynamic dispatch** (`app(Foo::class)`, `$factory->create($kind)`, Python reflection): captured where statically declared (Item 4 heuristics), invisible otherwise.
 - **Earlier releases** over-counted nodes on repos containing `.claude/worktrees/` or `build/_deps/`. Current release excludes those by default. If your project legitimately keeps code under `build/` or `vendor/`, use `.aifyinclude` to opt back in.
 
-### Dogfood repos (current, post end-test)
+### Dogfood Rebuilds (2026-04-18)
 
-| Repo | Language | Files | Nodes | Edges | Index time |
-|---|---|---|---|---|---|
-| aify-claude | Python+Node | 32 | 469 | 1,103 | 2s |
-| mem0-fork | Python+TS+JS | 926 | 6,672 | 13,772 | 16s |
-| lc-api (Laravel) | PHP | 1,820 | 14,467 | 43,858 | 69s |
-| echoes_of_the_fallen | C/C++ + GLSL | 322 | 6,128 | 17,612 | 34s |
+| Repo | Nodes | Edges | Rebuild | Peak RSS | Unresolved edges |
+|---|---:|---:|---:|---:|---:|
+| aify-project-graph | 892 | 1,750 | 7s | 136 MB | 4,574 |
+| aify-claude | 827 | 2,726 | 8s | 143 MB | 7,708 |
+| mem0-fork | 8,840 | 31,630 | 129s | 347 MB | 66,504 |
+| lc-api | 16,253 | 56,849 | 152s | 455 MB | 42,832 |
+| echoes_of_the_fallen | 6,415 | 18,920 | 129s | 328 MB | 6,534 |
 
 Numbers reflect the full extractor stack: out-of-class C++ methods, PHP traits/enums/interfaces/namespace-based modules, member+static+nullsafe PHP calls, facade + `app(X::class)` + constructor-DI REFERENCES, GLSL shader functions, CSS class selectors, flecs ECS lambda component types, External boundary nodes for unresolved cross-module references, and family-gated cross-language resolution.
 
@@ -253,9 +341,11 @@ Numbers reflect the full extractor stack: out-of-class C++ methods, PHP traits/e
 - [AGENTS.md](AGENTS.md) — one-stop agent-driven install (preferred)
 - [Design spec](docs/superpowers/specs/2026-04-16-aify-project-graph-design.md)
 - [Install for Claude Code](install.claude.md) — human walkthrough
-- [Install for Codex](install.codex.md) — human walkthrough
-- [Install for OpenCode](install.opencode.md) — human walkthrough
+- [Install for Codex](install.codex.md) — human walkthrough (recommended lean profile)
+- [Install for OpenCode](install.opencode.md) — human walkthrough (recommended lean profile)
 - [Query format reference](SKILL.md)
+- [Dogfood A/B results (2026-04-18)](docs/dogfood/ab-results-2026-04-18.md)
+- [Dogfood lc-api trace rerun (2026-04-18)](docs/dogfood/ab-results-2026-04-18-lcapi-trace-expanded-rerun.md)
 - [Dogfood baseline](docs/dogfood/baseline-2026-04-16.md)
 
 ## License
