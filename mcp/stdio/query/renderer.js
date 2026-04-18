@@ -6,12 +6,14 @@
 // Compact mode strips repeated symbols, `EDGE`/arrow noise, and default
 // confidence values. Target: 25-50% fewer tokens on impact/callers/path
 // without losing information the caller actually needs.
-const ENV_MODE = (process.env.AIFY_GRAPH_OUTPUT || '').toLowerCase();
-const DEFAULT_COMPACT = ENV_MODE === 'compact';
+function defaultCompactFromEnv() {
+  const envMode = (process.env.AIFY_GRAPH_OUTPUT || '').toLowerCase();
+  return envMode === 'compact';
+}
 
 function useCompact(opts) {
   if (opts && typeof opts.compact === 'boolean') return opts.compact;
-  return DEFAULT_COMPACT;
+  return defaultCompactFromEnv();
 }
 
 function formatLocation(filePath, line) {
@@ -101,7 +103,9 @@ function renderPathCompact(paths, indent = 0) {
 }
 
 export function renderPath(paths, indentOrOpts = 0) {
-  const opts = typeof indentOrOpts === 'object' ? indentOrOpts : { compact: DEFAULT_COMPACT };
+  const opts = typeof indentOrOpts === 'object'
+    ? indentOrOpts
+    : { compact: defaultCompactFromEnv() };
   const indent = typeof indentOrOpts === 'number' ? indentOrOpts : 0;
   if (useCompact(opts)) return renderPathCompact(paths);
   return renderPathVerbose(paths, indent);
