@@ -13,7 +13,7 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
-import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile } from '../overlay/loader.js';
+import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
 
 const NOISE_LABELS = new Set([
   'requirements.txt', 'package-lock.json', 'yarn.lock', '.gitignore',
@@ -359,7 +359,7 @@ function recentActivityWithFiles(repoRoot, features, limit = 10) {
 // Trust/health signal. Must be a ROUTING line, not comfort text — the agent
 // should change strategy when trust is weak (e.g., prefer direct file reads
 // over graph queries). Issues are phrased actionably.
-function trust(snapshot, entries, subs, hubsArr, overlayHealth) {
+function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges) {
   const issues = [];
   let tip = '';
   if (snapshot.unresolvedEdges > 2000) {
@@ -370,6 +370,11 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth) {
     const ids = overlayHealth.broken.map(b => b.feature.id).slice(0, 3).join(', ');
     issues.push(`${overlayHealth.broken.length} features with stale anchors (${ids})`);
     tip = tip || 'functionality overlay may be out of date; verify feature→code links before trusting';
+  }
+  if (brokenFeatureEdges?.length) {
+    const preview = brokenFeatureEdges.slice(0, 3).map(e => `${e.from}→${e.to}`).join(', ');
+    issues.push(`${brokenFeatureEdges.length} feature edges point at missing features (${preview})`);
+    tip = tip || 'clean up depends_on/related_to references in functionality.json';
   }
   if (entries.length === 0) {
     issues.push('no entrypoints detected');
@@ -477,7 +482,8 @@ function renderAgentMarkdown(data) {
     for (const { feature } of overlayHealth.valid.slice(0, 5)) {
       const label = feature.label || feature.id;
       const anchors = feature.anchors.symbols.slice(0, 2).join(',');
-      lines.push(`  ${feature.id}: ${label}${anchors ? ' [' + anchors + ']' : ''}`);
+      const deps = feature.depends_on.length ? ` deps=[${feature.depends_on.slice(0, 3).join(',')}]` : '';
+      lines.push(`  ${feature.id}: ${label}${anchors ? ' [' + anchors + ']' : ''}${deps}`);
     }
   }
   if (hubsArr.length) {
@@ -564,7 +570,8 @@ function renderPlanAgentMarkdown(data) {
         ...resolved.symbols.slice(0, 2),
         ...resolved.files.slice(0, 2),
       ].slice(0, 3).join(',');
-      lines.push(`  ${feature.id}: ${feature.label || feature.id}${anchors ? ' [' + anchors + ']' : ''}`);
+      const deps = feature.depends_on.length ? ` deps=[${feature.depends_on.slice(0, 3).join(',')}]` : '';
+      lines.push(`  ${feature.id}: ${feature.label || feature.id}${anchors ? ' [' + anchors + ']' : ''}${deps}`);
     }
   }
   // Open tasks grouped by feature — from .aify-graph/tasks.json if present.
@@ -611,7 +618,7 @@ function renderPlanAgentMarkdown(data) {
 }
 
 function renderJson(data, repoRoot) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges } = data;
   return {
     // Deliberately omit a timestamp — it would force brief.json to rewrite
     // on every regen, defeating the content-hash-guarded cache-discipline
@@ -639,15 +646,19 @@ function renderJson(data, repoRoot) {
         label: v.feature.label,
         description: v.feature.description,
         anchors: v.feature.anchors,
+        depends_on: v.feature.depends_on,
+        related_to: v.feature.related_to,
         resolved_anchors: v.resolved,
         anchor_health: `${v.totalResolved}/${v.totalDeclared}`,
       })),
       broken: (overlayHealth?.broken ?? []).map(v => ({
         id: v.feature.id,
         label: v.feature.label,
+        depends_on: v.feature.depends_on,
         missing_anchors: v.resolved,
         anchor_health: `${v.totalResolved}/${v.totalDeclared}`,
       })),
+      broken_edges: (brokenFeatureEdges ?? []),
     },
   };
 }
@@ -671,6 +682,9 @@ export function generateBrief({ repoRoot }) {
     const overlayHealth = overlay.features.length > 0
       ? validateAnchors(overlay.features, db)
       : { valid: [], broken: [] };
+    const brokenFeatureEdges = overlay.features.length > 0
+      ? validateFeatureEdges(overlay.features)
+      : [];
     // Recent commits with feature attribution — cheap L3 feeding brief.plan.md
     // without adding a live verb. Only computed if overlay exists, since
     // feature tags would be empty otherwise.
@@ -680,8 +694,8 @@ export function generateBrief({ repoRoot }) {
     // L3 tasks from external tracker (written by graph-map-tasks skill).
     const tasksArtifact = loadTasks(repoRoot);
 
-    const health = trust(snapshot, entries, subs, hubsArr, overlayHealth);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, recentWithFiles, tasksArtifact };
+    const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges);
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);

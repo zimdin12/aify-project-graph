@@ -19,6 +19,7 @@ import { graphFile } from './query/verbs/file.js';
 import { graphPreflight } from './query/verbs/preflight.js';
 import { graphChangePlan } from './query/verbs/change_plan.js';
 import { graphOnboard } from './query/verbs/onboard.js';
+import { graphPull } from './query/verbs/pull.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -245,6 +246,23 @@ const TOOLS = [
         symbol: { type: 'string', description: 'Symbol to summarize.' },
       },
       required: ['symbol'],
+    },
+  },
+  {
+    name: 'graph_pull',
+    handler: graphPull,
+    description: 'Cross-layer pull for a node. Node can be file path, feature id, symbol, or task id. Returns code+functionality+tasks+activity layers (selective via layers param).',
+    schema: {
+      type: 'object',
+      properties: {
+        node: { type: 'string', description: 'File path, feature id, symbol name, or task id.' },
+        layers: {
+          type: 'array',
+          items: { type: 'string', enum: ['code', 'functionality', 'tasks', 'docs', 'activity'] },
+          description: 'Optional layer filter. Defaults to code+functionality+tasks+activity.',
+        },
+      },
+      required: ['node'],
     },
   },
 ];

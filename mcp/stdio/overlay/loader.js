@@ -60,9 +60,34 @@ function normalizeFeature(f) {
       routes: Array.isArray(f.anchors?.routes) ? f.anchors.routes.filter(Boolean) : [],
       docs: Array.isArray(f.anchors?.docs) ? f.anchors.docs.filter(Boolean) : [],
     },
+    // v0.2: explicit feature→feature edges. depends_on is a hard dependency
+    // (A breaks if B breaks). related_to is a weaker coupling (A touches B's
+    // concepts but isn't strictly dependent). Both are user-curated;
+    // algorithmic inference deliberately NOT auto-materialized here — would
+    // be noisy through utility hubs. A separate skill-based "propose
+    // dependencies" flow is deferred until v0.3.
+    depends_on: Array.isArray(f.depends_on) ? f.depends_on.filter(Boolean) : [],
+    related_to: Array.isArray(f.related_to) ? f.related_to.filter(Boolean) : [],
     source: f.source || 'user',
     tags: Array.isArray(f.tags) ? f.tags : [],
   };
+}
+
+// Return list of { from: featureId, to: featureId, kind: 'depends_on'|'related_to' }
+// edges that point at features that DO NOT EXIST in the overlay. Surfaces
+// broken-reference drift so the Trust line can flag it.
+export function validateFeatureEdges(features) {
+  const ids = new Set(features.map(f => f.id));
+  const broken = [];
+  for (const f of features) {
+    for (const dep of f.depends_on) {
+      if (!ids.has(dep)) broken.push({ from: f.id, to: dep, kind: 'depends_on' });
+    }
+    for (const rel of f.related_to) {
+      if (!ids.has(rel)) broken.push({ from: f.id, to: rel, kind: 'related_to' });
+    }
+  }
+  return broken;
 }
 
 // Check which anchors actually resolve in the current graph. Surfaces rot
