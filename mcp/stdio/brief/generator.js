@@ -306,6 +306,23 @@ function recentActivity(repoRoot, limit = 5) {
   }
 }
 
+// Load tasks.json if present (written by the graph-map-tasks skill).
+// This is cross-layer L3 — task tracker data linked to features.
+function loadTasks(repoRoot) {
+  const path = join(repoRoot, '.aify-graph', 'tasks.json');
+  if (!existsSync(path)) return { tasks: [], source: null };
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8'));
+    return {
+      tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
+      source: raw.source || 'unknown',
+      fetched_at: raw.fetched_at,
+    };
+  } catch {
+    return { tasks: [], source: null };
+  }
+}
+
 // Recent commits with touched-files + feature attribution. Used by
 // brief.plan.md to show "what's been changing where." Fixed commit count
 // keeps prompt-cache stable.
@@ -537,7 +554,7 @@ function renderOnboardAgentMarkdown(data) {
 // attribution (similar-change context), then RISKS. Drops ENTRY/HUBS which
 // are orient-specific noise for a change-planning session.
 function renderPlanAgentMarkdown(data) {
-  const { snapshot, risksArr, health, overlayHealth, recentWithFiles } = data;
+  const { snapshot, risksArr, health, overlayHealth, recentWithFiles, tasksArtifact } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   if (overlayHealth?.valid?.length) {
@@ -548,6 +565,29 @@ function renderPlanAgentMarkdown(data) {
         ...resolved.files.slice(0, 2),
       ].slice(0, 3).join(',');
       lines.push(`  ${feature.id}: ${feature.label || feature.id}${anchors ? ' [' + anchors + ']' : ''}`);
+    }
+  }
+  // Open tasks grouped by feature — from .aify-graph/tasks.json if present.
+  if (tasksArtifact?.tasks?.length) {
+    const byFeature = new Map();
+    const unattributed = [];
+    for (const t of tasksArtifact.tasks) {
+      if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
+      if (!t.features || t.features.length === 0) { unattributed.push(t); continue; }
+      for (const fid of t.features) {
+        if (!byFeature.has(fid)) byFeature.set(fid, []);
+        byFeature.get(fid).push(t);
+      }
+    }
+    if (byFeature.size > 0 || unattributed.length > 0) {
+      lines.push(`OPEN_TASKS (${tasksArtifact.source || 'unknown'}):`);
+      for (const [fid, tasks] of byFeature) {
+        const preview = tasks.slice(0, 3).map(t => t.id).join(',');
+        lines.push(`  ${fid}: ${tasks.length} (${preview})`);
+      }
+      if (unattributed.length > 0 && byFeature.size < 6) {
+        lines.push(`  (unattributed): ${unattributed.length}`);
+      }
     }
   }
   if (recentWithFiles?.length) {
@@ -634,9 +674,11 @@ export function generateBrief({ repoRoot }) {
     const recentWithFiles = overlay.features.length > 0
       ? recentActivityWithFiles(repoRoot, overlay.features, 10)
       : [];
+    // L3 tasks from external tracker (written by graph-map-tasks skill).
+    const tasksArtifact = loadTasks(repoRoot);
 
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, recentWithFiles };
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, recentWithFiles, tasksArtifact };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);
