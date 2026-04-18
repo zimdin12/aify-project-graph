@@ -205,12 +205,19 @@ for (const repoId of selectedRepoIds) {
   const repo = REPOS[repoId];
   if (!repo) { console.log(`SKIP unknown repo ${repoId}`); continue; }
 
-  const briefPath = join(repo.root, '.aify-graph', 'brief.agent.md');
+  // Brief variant picker: A1_BRIEF=agent (default) | onboard | plan
+  const briefVariant = process.env.A1_BRIEF || 'agent';
+  const briefFile = briefVariant === 'agent' ? 'brief.agent.md'
+    : briefVariant === 'onboard' ? 'brief.onboard.md'
+    : briefVariant === 'plan' ? 'brief.plan.md'
+    : 'brief.agent.md';
+  const briefPath = join(repo.root, '.aify-graph', briefFile);
   if (!existsSync(briefPath)) {
-    console.log(`SKIP ${repoId} — brief.agent.md missing; run graph-brief.mjs first`);
+    console.log(`SKIP ${repoId} — ${briefFile} missing; run graph-brief.mjs first`);
     continue;
   }
   const briefText = readFileSync(briefPath, 'utf8');
+  console.log(`  (using ${briefFile}, ${briefText.length}B ~${Math.ceil(briefText.length / 4)}tok)`);
 
   const armFilter = process.env.A1_ARMS ? process.env.A1_ARMS.split(',') : ['brief-only', 'lean-mcp'];
   for (const arm of armFilter) {
