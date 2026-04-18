@@ -613,7 +613,10 @@ function renderPlanAgentMarkdown(data) {
 function renderJson(data, repoRoot) {
   const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth } = data;
   return {
-    generated_at: new Date().toISOString(),
+    // Deliberately omit a timestamp — it would force brief.json to rewrite
+    // on every regen, defeating the content-hash-guarded cache-discipline
+    // we use for brief.agent.md. Consumers who want "when was this made?"
+    // can stat the file mtime.
     repo: {
       root: repoRoot,
       files: snapshot.files,
