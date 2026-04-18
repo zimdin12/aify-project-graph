@@ -23,21 +23,35 @@ const DEFAULT_LAYERS = ['code', 'functionality', 'tasks', 'activity'];
 
 function detectNodeKind(db, node) {
   if (!node) return { kind: 'unknown' };
-  // Task id heuristic: uppercase-prefix + hyphen + alphanumeric (CU-123, T-45)
-  if (/^[A-Z]{1,5}-\w{2,}$/.test(node)) return { kind: 'task' };
-  // File path: has a slash or ends in a known extension
-  if (/\//.test(node) || /\.(js|ts|py|php|cpp|h|go|rs|rb|java|md|json)$/i.test(node)) {
-    return { kind: 'file', value: node };
+  // Task id heuristic: any alphanumeric prefix + hyphen + id (CU-123, eng-42,
+  // GH-1234). Kept broad because task exact match against tasks.json already
+  // runs before this fallback — the heuristic only matters when tasks.json
+  // is stale or missing the id.
+  if (/^[A-Za-z]{1,5}-\w{2,}$/.test(node)) return { kind: 'task' };
+  // File path: has a slash or ends in a known extension — but only if it
+  // actually exists as a File node. Otherwise fall through so a path-shaped
+  // string doesn't shadow a real symbol lookup.
+  const looksFileish = /\//.test(node) || /\.(js|ts|py|php|cpp|h|go|rs|rb|java|md|json)$/i.test(node);
+  if (looksFileish) {
+    const fileHit = db.get(
+      `SELECT file_path FROM nodes WHERE type = 'File' AND file_path = $p LIMIT 1`, { p: node });
+    if (fileHit) return { kind: 'file', value: node };
   }
-  // Check db for symbol
+  // Symbol lookup
   const sym = db.get(
-    `SELECT label, type, file_path, start_line FROM nodes
+    `SELECT id, label, type, file_path, start_line FROM nodes
      WHERE label = $node AND type IN ('Function','Method','Class','Interface','Type')
      LIMIT 1`, { node });
   if (sym) return { kind: 'symbol', value: sym };
-  // Check if it matches a feature id (caller must pass overlay features; we
-  // can't resolve here without loading overlay separately).
   return { kind: 'unknown', value: node };
+}
+
+// Helper: attach { total, truncated, limit } metadata to a capped collection
+// so callers know when they're seeing a summary vs complete results.
+function capped(items, limit) {
+  const total = items.length;
+  const truncated = total > limit;
+  return { items: items.slice(0, limit), total, truncated, limit };
 }
 
 function loadTasksSafe(repoRoot) {
@@ -71,11 +85,11 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
     if (!fileNode) {
       out.layers.code = { error: 'file not in graph', path: filePath };
     } else {
-      const symbols = db.all(
+      const symbolsRaw = db.all(
         `SELECT label, type, start_line FROM nodes
          WHERE file_path = $p AND type IN ('Function','Method','Class','Interface','Type')
-         ORDER BY start_line LIMIT 20`, { p: filePath });
-      out.layers.code = { file: filePath, symbols };
+         ORDER BY start_line LIMIT 200`, { p: filePath });
+      out.layers.code = { file: filePath, symbols: capped(symbolsRaw, 20) };
     }
   }
 
@@ -92,11 +106,20 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
       (t.files_hint || []).includes(filePath)
       || (t.features || []).some(fid => featuresForFile(features, filePath).includes(fid))
     );
-    out.layers.tasks = matched.slice(0, 10).map(t => ({ id: t.id, title: t.title, status: t.status, features: t.features }));
+    out.layers.tasks = capped(
+      matched.map(t => ({ id: t.id, title: t.title, status: t.status, features: t.features })),
+      10
+    );
   }
 
   if (layers.has('activity')) {
-    out.layers.activity = recentCommitsForFile(repoRoot, filePath, 5);
+    out.layers.activity = capped(recentCommitsForFile(repoRoot, filePath, 5), 5);
+  }
+
+  if (layers.has('docs')) {
+    // Dev review: explicit empty marker instead of omitting — signals "no docs
+    // attribution for file nodes yet" rather than implying parity with feature.
+    out.layers.docs = { note: 'docs attribution for file nodes is v1.1 work; use feature-level pull for doc anchors' };
   }
 
   return out;
@@ -116,13 +139,13 @@ function pullFeature({ db, featureId, features, allTasks, repoRoot, layers }) {
          WHERE type IN ('File','Directory') AND file_path GLOB $g LIMIT 15`, { g: glob });
       for (const r of rows) if (!hits.includes(r.file_path)) hits.push(r.file_path);
     }
-    const symbols = db.all(
+    const symbolsRaw = feature.anchors.symbols.length > 0 ? db.all(
       `SELECT label, type, file_path, start_line FROM nodes
-       WHERE label IN (${feature.anchors.symbols.map((_, i) => `$s${i}`).join(',') || "''"})
+       WHERE label IN (${feature.anchors.symbols.map((_, i) => `$s${i}`).join(',')})
        AND type IN ('Function','Method','Class','Interface','Type')`,
       Object.fromEntries(feature.anchors.symbols.map((s, i) => [`s${i}`, s]))
-    );
-    out.layers.code = { files: hits.slice(0, 15), symbols };
+    ) : [];
+    out.layers.code = { files: capped(hits, 15), symbols: capped(symbolsRaw, 20) };
   }
 
   if (layers.has('functionality')) {
@@ -134,8 +157,10 @@ function pullFeature({ db, featureId, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('tasks')) {
-    const matched = allTasks.filter(t => (t.features || []).includes(featureId));
-    out.layers.tasks = matched.slice(0, 10).map(t => ({ id: t.id, title: t.title, status: t.status }));
+    const matched = allTasks
+      .filter(t => (t.features || []).includes(featureId))
+      .map(t => ({ id: t.id, title: t.title, status: t.status }));
+    out.layers.tasks = capped(matched, 10);
   }
 
   if (layers.has('activity')) {
@@ -166,13 +191,15 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
   const out = { node: { kind: 'symbol', label: sym.label, type: sym.type, file: sym.file_path, line: sym.start_line }, layers: {} };
 
   if (layers.has('code')) {
-    const callers = db.all(
+    // Dev review: use resolved symbol id directly, not label. Same-named
+    // methods across files would otherwise all match.
+    const callersRaw = db.all(
       `SELECT DISTINCT fn.label, fn.file_path, fn.start_line
        FROM edges e JOIN nodes fn ON fn.id = e.from_id
-       WHERE e.to_id IN (SELECT id FROM nodes WHERE label = $l)
+       WHERE e.to_id = $id
          AND e.relation IN ('CALLS','REFERENCES','USES_TYPE')
-       LIMIT 8`, { l: sym.label });
-    out.layers.code = { callers, file: sym.file_path };
+       LIMIT 100`, { id: sym.id });
+    out.layers.code = { callers: capped(callersRaw, 8), file: sym.file_path };
   }
 
   if (layers.has('functionality')) {
@@ -181,15 +208,21 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('tasks')) {
-    const matched = allTasks.filter(t =>
-      (t.title || '').toLowerCase().includes(sym.label.toLowerCase())
-      || (t.files_hint || []).includes(sym.file_path)
-    );
-    out.layers.tasks = matched.slice(0, 10).map(t => ({ id: t.id, title: t.title, status: t.status }));
+    const matched = allTasks
+      .filter(t =>
+        (t.title || '').toLowerCase().includes(sym.label.toLowerCase())
+        || (t.files_hint || []).includes(sym.file_path)
+      )
+      .map(t => ({ id: t.id, title: t.title, status: t.status }));
+    out.layers.tasks = capped(matched, 10);
   }
 
   if (layers.has('activity')) {
-    out.layers.activity = recentCommitsForFile(repoRoot, sym.file_path, 5);
+    out.layers.activity = capped(recentCommitsForFile(repoRoot, sym.file_path, 5), 5);
+  }
+
+  if (layers.has('docs')) {
+    out.layers.docs = { note: 'docs attribution for symbol nodes is v1.1 work; use feature-level pull' };
   }
 
   return out;
@@ -216,11 +249,16 @@ function pullTask({ taskId, features, allTasks, repoRoot, layers }) {
       const raw = execFileSync('git',
         ['-C', repoRoot, 'log', `--grep=${task.id}`, '--pretty=format:%h|%ad|%s', '--date=short', '-n', '8'],
         { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-      out.layers.activity = raw.trim().split('\n').filter(Boolean).map(l => {
+      const items = raw.trim().split('\n').filter(Boolean).map(l => {
         const [sha, date, subject] = l.split('|');
         return { sha, date, subject };
       });
-    } catch { out.layers.activity = []; }
+      out.layers.activity = capped(items, 8);
+    } catch { out.layers.activity = capped([], 8); }
+  }
+
+  if (layers.has('docs')) {
+    out.layers.docs = { note: 'docs attribution for task nodes is v1.1 work' };
   }
 
   return out;
