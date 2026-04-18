@@ -8,12 +8,12 @@
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const REPOS = {
   'aify-project-graph': {
-    root: 'C:/Docker/aify-project-graph',
+    root: resolve('.').replaceAll('\\', '/'),
     prompt: [
       'You are onboarding to this repo. Identify the MCP entrypoint file and the 3 main subsystems.',
       'Return exactly 4 lines:',
@@ -24,10 +24,12 @@ const REPOS = {
     ].join('\n'),
     rubric: {
       entrypoint: [/mcp\/stdio\/server\.js/i],
-      subsystems: [
-        /mcp\/stdio\/(query|ingest|freshness|storage|brief)/i,
-        /mcp\/stdio\/(query|ingest|freshness|storage|brief)/i,
-        /mcp\/stdio\/(query|ingest|freshness|storage|brief)/i,
+      subsystemRoots: [
+        'mcp/stdio/query',
+        'mcp/stdio/ingest',
+        'mcp/stdio/freshness',
+        'mcp/stdio/storage',
+        'mcp/stdio/brief',
       ],
     },
   },
@@ -87,54 +89,89 @@ async function makeHome({ withMCP }) {
 async function runCell({ home, repo, prompt }) {
   return new Promise((res) => {
     const started = Date.now();
+    const answerPath = join(home, `${basename(repo.root)}-last-answer.txt`);
     // Pipe prompt via stdin to avoid shell quoting hell on Windows.
     const child = spawn('codex', [
       'exec', '--json', '--ephemeral', '--color', 'never',
       '-s', 'read-only', '-C', repo.root,
       '-m', 'gpt-5.4',
+      '-o', answerPath,
       '-',
     ], { env: { ...process.env, HOME: home, USERPROFILE: home }, shell: true });
     let stdout = '';
     let stderr = '';
     child.stdout.on('data', d => stdout += d.toString());
     child.stderr.on('data', d => stderr += d.toString());
-    child.on('exit', code => {
+    child.on('exit', async code => {
       const dur = Date.now() - started;
-      res({ code, stdout, stderr, dur });
+      let finalAnswer = '';
+      try {
+        finalAnswer = await readFile(answerPath, 'utf8');
+      } catch {}
+      res({ code, stdout, stderr, dur, finalAnswer: finalAnswer.trim() });
     });
     child.stdin.end(prompt);
   });
 }
 
 function parseUsage(stdout) {
-  let finalAnswer = '';
-  let usage = null;
+  let fallbackUsage = null;
+  let turnUsage = null;
   let commands = [];
   let mcpCalls = [];
   for (const line of stdout.split('\n')) {
     if (!line.trim()) continue;
     try {
       const j = JSON.parse(line);
-      if (j.type === 'agent_message' && j.message) finalAnswer = j.message;
       if (j.type === 'item.completed' && j.item) {
-        if (j.item.type === 'agent_message' && j.item.text) finalAnswer = j.item.text;
         if (j.item.type === 'command_execution') commands.push(j.item.command || j.item);
         if (j.item.type === 'mcp_tool_call') mcpCalls.push(`${j.item.server}.${j.item.tool}`);
       }
-      if (j.type === 'turn.completed' && j.usage) usage = j.usage;
-      if (j.type === 'token_count' && j.info && j.info.total_token_usage) usage = j.info.total_token_usage;
+      if (j.type === 'turn.completed' && j.usage) turnUsage = j.usage;
+      if (!turnUsage && j.type === 'token_count' && j.info && j.info.total_token_usage) {
+        fallbackUsage = j.info.total_token_usage;
+      }
     } catch {}
   }
-  return { finalAnswer, usage, commands, mcpCalls };
+  return { usage: turnUsage || fallbackUsage, commands, mcpCalls };
+}
+
+function normalizePath(text) {
+  return String(text || '').replaceAll('\\', '/').trim().toLowerCase();
+}
+
+function extractSubsystemPaths(answer) {
+  const out = [];
+  for (const rawLine of String(answer || '').split('\n')) {
+    const line = rawLine.trim();
+    if (!/^SUBSYSTEM:/i.test(line)) continue;
+    const body = line.replace(/^SUBSYSTEM:\s*/i, '');
+    const [pathPart] = body.split(/\s+-\s+/, 1);
+    out.push(normalizePath(pathPart));
+  }
+  return [...new Set(out)];
 }
 
 function scoreAnswer(answer, rubric) {
   const entryOK = rubric.entrypoint.some(re => re.test(answer));
-  let subMatches = 0;
-  for (const re of rubric.subsystems) {
-    if (re.test(answer)) subMatches++;
-  }
-  return { entry_ok: entryOK, subsystem_matches: subMatches, pass: entryOK && subMatches >= 3 };
+  const subsystemPaths = extractSubsystemPaths(answer);
+  const matched = subsystemPaths.filter(path => rubric.subsystemRoots.some(root => path.startsWith(normalizePath(root))));
+  const distinctMatches = [...new Set(matched)];
+  return {
+    entry_ok: entryOK,
+    subsystem_matches: distinctMatches.length,
+    subsystems: distinctMatches,
+    pass: entryOK && distinctMatches.length >= 3,
+  };
+}
+
+function median(values) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
 }
 
 // ---------- main ----------
@@ -164,11 +201,11 @@ for (const repoId of selectedRepoIds) {
 
       process.stdout.write(`  ${repoId} ${arm} #${rep}... `);
       const start = Date.now();
-      const { code, stdout, stderr, dur } = await runCell({ home, repo, prompt });
+      const { code, stdout, stderr, dur, finalAnswer } = await runCell({ home, repo, prompt });
       if (code !== 0 || stdout.length < 100) {
         console.log(`(stderr: ${stderr.slice(0, 300)}) (stdout len=${stdout.length})`);
       }
-      const { finalAnswer, usage, commands, mcpCalls } = parseUsage(stdout);
+      const { usage, commands, mcpCalls } = parseUsage(stdout);
       const score = scoreAnswer(finalAnswer, repo.rubric);
       const effTok = usage ? (usage.input_tokens - (usage.cached_input_tokens || 0) + (usage.output_tokens || 0)) : null;
       console.log(`${code === 0 ? 'OK' : 'ERR'} dur=${(dur/1000).toFixed(0)}s eff_tok=${effTok ?? '?'} pass=${score.pass} cmds=${commands.length} mcp=${mcpCalls.length}`);
@@ -189,10 +226,10 @@ for (const r of results) {
 for (const [key, runs] of Object.entries(byCell)) {
   const ok = runs.filter(r => r.code === 0);
   if (ok.length === 0) { console.log(`${key.padEnd(40)} all failed`); continue; }
-  const medTok = ok.map(r => r.effTok ?? Infinity).sort((a,b) => a-b)[Math.floor(ok.length/2)];
+  const medTok = median(ok.map(r => r.effTok ?? Infinity));
   const passRate = ok.filter(r => r.score.pass).length / ok.length;
-  const medCmds = ok.map(r => r.commands).sort((a,b) => a-b)[Math.floor(ok.length/2)];
-  const medMcp = ok.map(r => r.mcpCalls.length).sort((a,b) => a-b)[Math.floor(ok.length/2)];
+  const medCmds = median(ok.map(r => r.commands));
+  const medMcp = median(ok.map(r => r.mcpCalls.length));
   console.log(`${key.padEnd(40)} med_tok=${medTok} pass=${(passRate*100).toFixed(0)}% cmds=${medCmds} mcp_calls=${medMcp}`);
 }
 const elapsed = ((Date.now() - startedAt) / 1000 / 60).toFixed(1);
