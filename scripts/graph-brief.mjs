@@ -13,5 +13,7 @@ const repoRoot = resolve(repoRootArg);
 const stats = generateBrief({ repoRoot });
 console.log(`brief.md         ${stats.md_bytes}B (~${stats.md_tokens_est} tok)`);
 console.log(`brief.agent.md   ${stats.agent_bytes}B (~${stats.agent_tokens_est} tok)`);
+console.log(`brief.onboard.md ${stats.onboard_bytes}B (~${stats.onboard_tokens_est} tok)`);
+console.log(`brief.plan.md    ${stats.plan_bytes}B (~${stats.plan_tokens_est} tok)`);
 console.log(`brief.json       ${stats.json_bytes}B`);
 console.log(`wrote to ${repoRoot}/.aify-graph/`);

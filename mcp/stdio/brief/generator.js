@@ -13,7 +13,7 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
-import { loadFunctionality, validateAnchors, hasOverlay } from '../overlay/loader.js';
+import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile } from '../overlay/loader.js';
 
 const NOISE_LABELS = new Set([
   'requirements.txt', 'package-lock.json', 'yarn.lock', '.gitignore',
@@ -272,15 +272,18 @@ function testAnchors(db, limit = 3) {
 }
 
 function risks(db, limit = 3) {
-  // Files with high fan-in from refresh/state/freshness/orchestrator-ish logic,
-  // and high-degree nodes in file-root positions. Cheap heuristic.
+  // Files with high fan-in. Skip noisy files and empty/root file_paths
+  // (some aggregate rows slip through without a real path).
   const rows = q(db,
     `SELECT n.file_path AS file, count(e.from_id) AS fan
      FROM nodes n JOIN edges e ON e.to_id = n.id
      WHERE e.relation IN ('CALLS', 'REFERENCES')
+       AND n.file_path IS NOT NULL
+       AND n.file_path != ''
+       AND n.file_path != '.'
      GROUP BY n.file_path
      ORDER BY fan DESC LIMIT $limit`, { limit: limit * 3 });
-  return rows.filter(r => !isNoisyFile(r.file)).slice(0, limit)
+  return rows.filter(r => r.file && !isNoisyFile(r.file)).slice(0, limit)
     .map(r => ({ file: r.file, why: `${r.fan} inbound refs` }));
 }
 
@@ -300,6 +303,37 @@ function recentActivity(repoRoot, limit = 5) {
     });
   } catch {
     return []; // Not a git repo — skip section
+  }
+}
+
+// Recent commits with touched-files + feature attribution. Used by
+// brief.plan.md to show "what's been changing where." Fixed commit count
+// keeps prompt-cache stable.
+function recentActivityWithFiles(repoRoot, features, limit = 10) {
+  try {
+    const raw = execFileSync('git',
+      ['-C', repoRoot, 'log', '--name-only', '--pretty=format:===%h|%an|%ad|%s', '--date=short', '-n', String(limit)],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const commits = [];
+    let current = null;
+    for (const line of raw.split('\n')) {
+      if (line.startsWith('===')) {
+        if (current) commits.push(current);
+        const [sha, author, date, subject] = line.slice(3).split('|');
+        current = { sha, author, date, subject, files: [], features: new Set() };
+      } else if (line.trim() && current) {
+        current.files.push(line.trim());
+        const featureIds = featuresForFile(features, line.trim());
+        for (const id of featureIds) current.features.add(id);
+      }
+    }
+    if (current) commits.push(current);
+    return commits.map(c => ({
+      sha: c.sha, author: c.author, date: c.date, subject: c.subject,
+      files: c.files, features: [...c.features],
+    }));
+  } catch {
+    return [];
   }
 }
 
@@ -456,6 +490,86 @@ function renderAgentMarkdown(data) {
   return lines.join('\n');
 }
 
+// --- typed-brief variants (A2.2) ---
+// brief.onboard.md: trimmed for "you're new here, what's the shape?"
+// Drops RECENT/TESTS/RISKS, keeps ENTRY/SUBSYS/HUBS/READ/FEATURES/TRUST.
+function renderOnboardAgentMarkdown(data) {
+  const { snapshot, entries, subs, hubsArr, readFirstArr, health, overlayHealth } = data;
+  const lines = [];
+  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
+  const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
+  if (langStr) lines.push(`LANG: ${langStr}`);
+  if (entries.length) {
+    lines.push('ENTRY:');
+    for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);
+  }
+  if (subs.length) {
+    lines.push('SUBSYS:');
+    for (const s of subs.slice(0, 4)) lines.push(`  ${s.path} (${s.score} files)`);
+  }
+  if (overlayHealth?.valid?.length) {
+    lines.push('FEATURES:');
+    for (const { feature } of overlayHealth.valid.slice(0, 5)) {
+      lines.push(`  ${feature.id}: ${feature.label || feature.id}`);
+    }
+  }
+  if (hubsArr.length) {
+    lines.push('HUBS:');
+    for (const h of hubsArr.slice(0, 4)) {
+      lines.push(`  [${h.role}] ${h.label} ${h.file}:${h.line}`);
+    }
+  }
+  if (readFirstArr.length) {
+    lines.push('READ:');
+    for (const r of readFirstArr.slice(0, 4)) lines.push(`  ${r.file}`);
+  }
+  if (health.issues.length) {
+    const tip = health.tip ? ` → ${health.tip}` : '';
+    lines.push(`TRUST ${health.level}: ${health.issues.join('; ')}${tip}`);
+  } else {
+    lines.push(`TRUST ${health.level}`);
+  }
+  return lines.join('\n');
+}
+
+// brief.plan.md: for "I'm about to change something — what's the context?"
+// Leads with FEATURES + anchors, then RECENT activity with feature
+// attribution (similar-change context), then RISKS. Drops ENTRY/HUBS which
+// are orient-specific noise for a change-planning session.
+function renderPlanAgentMarkdown(data) {
+  const { snapshot, risksArr, health, overlayHealth, recentWithFiles } = data;
+  const lines = [];
+  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
+  if (overlayHealth?.valid?.length) {
+    lines.push('FEATURES:');
+    for (const { feature, resolved } of overlayHealth.valid.slice(0, 6)) {
+      const anchors = [
+        ...resolved.symbols.slice(0, 2),
+        ...resolved.files.slice(0, 2),
+      ].slice(0, 3).join(',');
+      lines.push(`  ${feature.id}: ${feature.label || feature.id}${anchors ? ' [' + anchors + ']' : ''}`);
+    }
+  }
+  if (recentWithFiles?.length) {
+    lines.push('RECENT (feature-tagged):');
+    for (const c of recentWithFiles.slice(0, 6)) {
+      const featureTag = c.features.length ? ' {' + c.features.slice(0, 3).join(',') + '}' : '';
+      lines.push(`  ${c.date} ${c.sha}${featureTag} ${c.subject}`);
+    }
+  }
+  if (risksArr.length) {
+    lines.push('RISK:');
+    for (const r of risksArr.slice(0, 3)) lines.push(`  ${r.file} (${r.why})`);
+  }
+  if (health.issues.length) {
+    const tip = health.tip ? ` → ${health.tip}` : '';
+    lines.push(`TRUST ${health.level}: ${health.issues.join('; ')}${tip}`);
+  } else {
+    lines.push(`TRUST ${health.level}`);
+  }
+  return lines.join('\n');
+}
+
 function renderJson(data, repoRoot) {
   const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth } = data;
   return {
@@ -514,12 +628,20 @@ export function generateBrief({ repoRoot }) {
     const overlayHealth = overlay.features.length > 0
       ? validateAnchors(overlay.features, db)
       : { valid: [], broken: [] };
+    // Recent commits with feature attribution — cheap L3 feeding brief.plan.md
+    // without adding a live verb. Only computed if overlay exists, since
+    // feature tags would be empty otherwise.
+    const recentWithFiles = overlay.features.length > 0
+      ? recentActivityWithFiles(repoRoot, overlay.features, 10)
+      : [];
 
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth };
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, recentWithFiles };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);
+    const onboardMd = renderOnboardAgentMarkdown(data);
+    const planMd = renderPlanAgentMarkdown(data);
     const json = renderJson(data, repoRoot);
     const jsonStr = JSON.stringify(json, null, 2);
 
@@ -530,6 +652,8 @@ export function generateBrief({ repoRoot }) {
     const writes = {
       'brief.md': md,
       'brief.agent.md': agentMd,
+      'brief.onboard.md': onboardMd,
+      'brief.plan.md': planMd,
       'brief.json': jsonStr,
     };
     let changed = 0;
@@ -545,9 +669,13 @@ export function generateBrief({ repoRoot }) {
     return {
       md_bytes: md.length,
       agent_bytes: agentMd.length,
+      onboard_bytes: onboardMd.length,
+      plan_bytes: planMd.length,
       json_bytes: jsonStr.length,
       md_tokens_est: Math.ceil(md.length / 4),
       agent_tokens_est: Math.ceil(agentMd.length / 4),
+      onboard_tokens_est: Math.ceil(onboardMd.length / 4),
+      plan_tokens_est: Math.ceil(planMd.length / 4),
       files_changed: changed,
     };
   } finally {
