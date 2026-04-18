@@ -125,13 +125,56 @@ token usage breakdowns, and final answers. Four artifacts for this round:
 - echoes bench (N=3): 2026-04-19
 - mem0-fork bench (N=3): 2026-04-19
 
-## Not validated yet
+## Plan-task validation (2026-04-19)
 
-- Non-orient task shapes — change-planning, blast-radius analysis. These
-  are where live MCP verbs may finally earn their manifest cost. A2's
-  brief.plan.md + tasks.json integration targets this case but hasn't
-  been benchmarked head-to-head yet. This is the most important next
-  benchmark: it's the one that could change the live-profile answer.
+One-shot plan-task bench on self-repo: "Plan a change to `graph_lookup`
+qualified-symbol resolution. Return target file, top 3 callers, regression
+risk, test path, confidence."
+
+| Arm | Median tokens | Pass rate | Cmds | MCP calls |
+|---|---:|---:|---:|:---:|
+| brief-only (brief.plan.md) | 92,030 | 2/3 | 35 | 0 |
+| lean-mcp | 94,478 | 1/2 usable* | 22 | **0** |
+
+*Third lean-mcp run errored due to operator-killed codex process; counted
+as failed but excluded from median.
+
+### The headline
+
+**Lean-MCP made zero MCP calls even on plan tasks.** The plan prompt
+explicitly asks for callers, regression risk, and tests — questions that
+`graph_callers`, `graph_impact`, and `graph_change_plan` are designed
+to answer. The agent still chose shell over graph verbs in both usable
+lean-mcp runs.
+
+Combined with the four orient-task cells: **14 out of 14 lean-mcp runs
+made zero MCP calls**, across four languages and two task shapes.
+
+This is decisive evidence that the current lean live profile does not
+earn its manifest cost. Two options:
+
+1. **Shrink the live profile further** — drop the verbs that never fire
+   on realistic task shapes. Candidates for removal: `graph_callers`,
+   `graph_change_plan` (both failed to fire on plan tasks where they
+   should have).
+2. **Leave the profile; rely on static artifacts** — users who need
+   graph data get it from briefs + `functionality.json` + `tasks.json`.
+   Live MCP becomes a fallback for extremely precise queries where the
+   brief genuinely can't answer.
+
+### Plan-task quality & cost narrowed
+
+On plan tasks the token delta between arms is small (~2.6%), much
+smaller than the ~30% on orient tasks. Why: brief.plan.md doesn't carry
+enough symbol-specific detail (callers/impact/test paths) for the plan
+question, so both arms explore heavily with shell. Neither brief nor
+live MCP is a strong win on this shape without further design.
+
+### Still not validated
+
 - Larger repos beyond ~1800 files (e.g. Linux kernel scale) — untested.
   Brief artifact generation time and per-file index time would need
   validation at 10k+ file scale.
+- Plan tasks on non-self repos — only tested on self. Would benefit
+  from cross-repo validation (lc-api/echoes/mem0) if we want to harden
+  the plan-task conclusion.

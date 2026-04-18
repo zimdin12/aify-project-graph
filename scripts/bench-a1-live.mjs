@@ -11,18 +11,39 @@ import { existsSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 
+// A1_TASK env: 'orient' (default) or 'plan' — plan tasks target the
+// shape where lean-MCP verbs might finally earn routing (impact,
+// callers, change-plan).
+
+const ORIENT_PROMPT = [
+  'You are onboarding to this repo. Identify the MCP entrypoint file and the 3 main subsystems.',
+  'Return exactly 4 lines:',
+  'ENTRYPOINT: <path>',
+  'SUBSYSTEM: <path> - <why>',
+  'SUBSYSTEM: <path> - <why>',
+  'SUBSYSTEM: <path> - <why>',
+].join('\n');
+
+const PLAN_PROMPT_SELF = [
+  'I need to modify how `graph_lookup` resolves qualified symbols like `Class::method`.',
+  'Plan the change. Return exactly 5 lines:',
+  'TARGET_FILE: <path> (the primary file to edit)',
+  'CALLERS: <file:line>, <file:line>, <file:line> (top 3 callers to inspect)',
+  'REGRESSION_RISK: <path> (one file most at risk of breaking)',
+  'TESTS_TO_RUN: <path>',
+  'CONFIDENCE: <low|medium|high>',
+].join('\n');
+
 const REPOS = {
   'aify-project-graph': {
     root: resolve('.').replaceAll('\\', '/'),
-    prompt: [
-      'You are onboarding to this repo. Identify the MCP entrypoint file and the 3 main subsystems.',
-      'Return exactly 4 lines:',
-      'ENTRYPOINT: <path>',
-      'SUBSYSTEM: <path> - <why>',
-      'SUBSYSTEM: <path> - <why>',
-      'SUBSYSTEM: <path> - <why>',
-    ].join('\n'),
-    rubric: {
+    prompt: process.env.A1_TASK === 'plan' ? PLAN_PROMPT_SELF : ORIENT_PROMPT,
+    rubric: process.env.A1_TASK === 'plan' ? {
+      targetFile: [/mcp\/stdio\/query\/verbs\/lookup\.js/i],
+      // Caller must include at least one file that actually invokes graphLookup
+      callerMustMatch: [/server\.js/i, /tools\/call/i, /verbs\/index/i],
+      testMustMatch: [/tests\/integration\/verbs\.test\.js/i, /tests\/.*lookup/i],
+    } : {
       entrypoint: [/mcp\/stdio\/server\.js/i],
       subsystemRoots: [
         'mcp/stdio/query',
@@ -225,6 +246,20 @@ function extractSubsystemPaths(answer) {
 }
 
 function scoreAnswer(answer, rubric) {
+  // Plan-task scorer: rubric has targetFile + callerMustMatch + testMustMatch
+  if (rubric.targetFile) {
+    const text = String(answer || '');
+    const targetOK = rubric.targetFile.some(re => re.test(text));
+    const callerOK = !rubric.callerMustMatch || rubric.callerMustMatch.some(re => re.test(text));
+    const testOK = !rubric.testMustMatch || rubric.testMustMatch.some(re => re.test(text));
+    return {
+      target_ok: targetOK,
+      caller_ok: callerOK,
+      test_ok: testOK,
+      pass: targetOK && callerOK && testOK,
+    };
+  }
+  // Orient-task scorer (default)
   const entryOK = rubric.entrypoint.some(re => re.test(answer));
   const subsystemPaths = extractSubsystemPaths(answer);
   const matched = subsystemPaths.filter(path => rubric.subsystemRoots.some(root => path.startsWith(normalizePath(root))));
