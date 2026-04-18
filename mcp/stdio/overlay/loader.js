@@ -91,11 +91,13 @@ export function validateAnchors(features, db) {
     }
 
     for (const file of feature.anchors.files) {
-      // Convert glob-ish patterns to SQL GLOB
-      const pattern = file.includes('*') ? file : file;
+      // Accept File OR Directory nodes — feature anchors may point at a
+      // directory glob where the graph indexes the dir but not individual
+      // files under it (e.g. .md files in skill dirs).
+      const pattern = file;
       const hit = db.get(
         `SELECT file_path FROM nodes
-         WHERE type = 'File' AND file_path GLOB $pattern
+         WHERE type IN ('File','Directory') AND file_path GLOB $pattern
          LIMIT 1`, { pattern });
       if (hit) resolved.files.push(file);
       else resolved.missing_files.push(file);

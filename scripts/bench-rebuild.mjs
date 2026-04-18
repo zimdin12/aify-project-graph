@@ -3,7 +3,7 @@
 // Usage: node scripts/bench-rebuild.mjs <repoRoot>
 // Exits 0 on success, 1 on failure. Prints a single JSON line to stdout.
 
-import { rm } from 'node:fs/promises';
+import { rm, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { ensureFresh } from '../mcp/stdio/freshness/orchestrator.js';
@@ -17,9 +17,26 @@ if (!repoRoot) {
 
 const graphDir = join(repoRoot, '.aify-graph');
 
-// Clean state — remove stale lock dir and any half-written graph
+// User-curated overlay files that MUST survive a rebuild. Graph artifacts
+// (graph.sqlite, manifest.json, brief.*) are derived and get recomputed;
+// these are source-of-truth and can't be regenerated from the graph.
+const PRESERVE = ['functionality.json', 'tasks.json'];
+
+const preserved = {};
 if (existsSync(graphDir)) {
+  for (const name of PRESERVE) {
+    const p = join(graphDir, name);
+    if (existsSync(p)) {
+      preserved[name] = await readFile(p);
+    }
+  }
   await rm(graphDir, { recursive: true, force: true });
+}
+if (Object.keys(preserved).length > 0) {
+  await mkdir(graphDir, { recursive: true });
+  for (const [name, content] of Object.entries(preserved)) {
+    await writeFile(join(graphDir, name), content);
+  }
 }
 
 let peakRssMb = 0;
