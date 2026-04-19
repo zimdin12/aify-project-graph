@@ -106,7 +106,7 @@ Briefs are **cache-discipline stable** — deterministic ordering, no timestamps
 
 ### Functionality overlay (L2) — load-bearing, set up day one
 
-> **`functionality.json` is the overlay that makes briefs work on plan tasks.** Without it, `brief.plan.md` is ~70 tokens of headers with no action-bearing content. With it, per-feature "open this file, tests are here, N callers" guidance appears and brief-only wins plan tasks by −19% tokens / −28% duration (bench data 2026-04-19). **Recommended:** run `/graph-map-functionality` in Claude Code (or hand-author from the sample) on day one of using aify-project-graph.
+> **`functionality.json` is the overlay that makes briefs work on plan tasks.** Without it, `brief.plan.md` is ~70 tokens of headers with no action-bearing content. With it, per-feature "open this file, tests are here, N callers" guidance appears and brief-only wins plan tasks by −19% tokens / −28% duration (bench data 2026-04-19). **Recommended:** run `/graph-build-all` in Claude Code — it indexes the graph, generates all briefs, and proposes `functionality.json` in one pass (30-90s). Or for a narrower step, `/graph-build-functionality` alone. On Codex/OpenCode (no skills), hand-author from [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json) and run `node scripts/graph-brief.mjs <repo>`.
 
 Drop `.aify-graph/functionality.json` in any repo to map **user-defined features** to code:
 
@@ -133,17 +133,30 @@ Anchors are validated against the graph on every brief regen — stale or broken
 
 ### Task overlay (L3)
 
-Drop `.aify-graph/tasks.json` (written by the `graph-map-tasks` skill) and `brief.plan.md` automatically adds an `OPEN_TASKS` section grouped by feature.
+Drop `.aify-graph/tasks.json` (written by the `/graph-build-tasks` skill) and `brief.plan.md` automatically adds an `OPEN_TASKS` section grouped by feature.
 
 ### Claude Code skills
 
-Three workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/):
+Nine workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/) plus one core skill at [`integrations/claude-code/skill/`](integrations/claude-code/skill/):
 
-- **`graph-map-functionality`** — agent reads `brief.json` + directory structure + commit vocabulary, proposes `functionality.json`, shows user a diff before writing. Preserves user-edited features (`source: "user"`) on refresh.
-- **`graph-map-tasks`** — source-agnostic. Detects whatever task MCP is connected (ClickUp, Asana, Linear, Jira, GitHub Issues) or falls back to a plaintext file. Attributes tasks to features via commit refs + branch names + tags + fuzzy title match. Writes `tasks.json`.
-- **`graph-pull-context`** — wraps `graph_pull` for plan/debug/review workflows. Picks layer defaults by intent, summarizes cross-layer context, and points the agent at the next 1-3 files to read instead of dumping raw JSON.
+**Build / refresh:**
+- **`/graph-build-all`** — first-time setup / full refresh (graph + briefs + functionality proposal). 30-90s first run, incremental thereafter.
+- **`/graph-build-briefs`** — regenerate briefs only (~2-3s). After hand-editing overlay files.
+- **`/graph-build-functionality`** — propose or refresh `functionality.json` from graph + docs + commit vocabulary. Shows diff; preserves user edits.
+- **`/graph-build-tasks`** — source-agnostic task→feature sync (ClickUp, Asana, Linear, Jira, GitHub Issues, plaintext).
 
-Invoke with `/graph-map-functionality`, `/graph-map-tasks`, or `/graph-pull-context` in Claude Code.
+**Edit (surgical mutation):**
+- **`/graph-feature-edit`** — add / edit / link / unlink / rename / merge / remove a single feature. Validates anchors; diff before write; auto-regen briefs.
+- **`/graph-task-edit`** — same for tasks.
+
+**Repair:**
+- **`/graph-anchor-drift`** — detect stale feature anchors from a diff / git range and propose targeted patches.
+
+**Work:**
+- **`/graph-walk-bugs`** — engine-out bug-fixing walk. Weighted topological order (roots first, leaves last), surfaces open bug-like tasks per feature with inclusion reasons, cycles + trust signal at end.
+- **`/graph-pull-context`** — wraps `graph_pull` with intent-aware layer defaults (plan / debug / review) and a read-next summary.
+
+Invoke any of the above as `/<skill-name>` in Claude Code.
 
 ### Regenerating
 
