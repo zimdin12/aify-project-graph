@@ -117,9 +117,18 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('docs')) {
-    // Dev review: explicit empty marker instead of omitting — signals "no docs
-    // attribution for file nodes yet" rather than implying parity with feature.
-    out.layers.docs = { note: 'docs attribution for file nodes is v1.1 work; use feature-level pull for doc anchors' };
+    // Docs that MENTION any symbol defined in this file.
+    const docs = db.all(
+      `SELECT DISTINCT d.label, d.file_path
+       FROM edges e
+       JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
+       JOIN nodes s ON s.id = e.to_id AND s.file_path = $p
+       WHERE e.relation = 'MENTIONS'
+       LIMIT 20`, { p: filePath });
+    out.layers.docs = capped(
+      docs.map(d => ({ label: d.label, file: d.file_path })),
+      10
+    );
   }
 
   return out;
@@ -181,7 +190,24 @@ function pullFeature({ db, featureId, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('docs')) {
-    out.layers.docs = feature.anchors.docs;
+    // Declared doc anchors + Docs that MENTION any symbol in this feature's
+    // anchored files. Two sources merged so users see both what they
+    // curated and what the graph observed.
+    const fileGlobs = feature.anchors.files || [];
+    const inferred = fileGlobs.length > 0 ? db.all(
+      `SELECT DISTINCT d.label, d.file_path
+       FROM edges e
+       JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
+       JOIN nodes s ON s.id = e.to_id
+       WHERE e.relation = 'MENTIONS'
+         AND (${fileGlobs.map((_, i) => `s.file_path GLOB $g${i}`).join(' OR ')})
+       LIMIT 30`,
+      Object.fromEntries(fileGlobs.map((g, i) => [`g${i}`, g]))
+    ) : [];
+    out.layers.docs = {
+      declared: feature.anchors.docs,
+      inferred: capped(inferred.map(d => ({ label: d.label, file: d.file_path })), 10),
+    };
   }
 
   return out;
@@ -222,13 +248,23 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('docs')) {
-    out.layers.docs = { note: 'docs attribution for symbol nodes is v1.1 work; use feature-level pull' };
+    // Docs that MENTION this specific symbol id.
+    const docs = db.all(
+      `SELECT DISTINCT d.label, d.file_path
+       FROM edges e
+       JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
+       WHERE e.relation = 'MENTIONS' AND e.to_id = $id
+       LIMIT 20`, { id: sym.id });
+    out.layers.docs = capped(
+      docs.map(d => ({ label: d.label, file: d.file_path })),
+      10
+    );
   }
 
   return out;
 }
 
-function pullTask({ taskId, features, allTasks, repoRoot, layers }) {
+function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
   const task = allTasks.find(t => t.id === taskId);
   if (!task) return { node: { kind: 'task', id: taskId }, error: 'task not found in tasks.json' };
   const out = { node: { kind: 'task', id: task.id, title: task.title, status: task.status, url: task.url }, layers: {} };
@@ -258,7 +294,32 @@ function pullTask({ taskId, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('docs')) {
-    out.layers.docs = { note: 'docs attribution for task nodes is v1.1 work' };
+    // Docs MENTIONing any symbol in a feature the task targets.
+    const featureIds = task.features || [];
+    if (featureIds.length > 0) {
+      const globs = [];
+      for (const fid of featureIds) {
+        const f = features.find(x => x.id === fid);
+        if (f) globs.push(...(f.anchors.files || []));
+      }
+      if (globs.length > 0) {
+        const docs = db.all(
+          `SELECT DISTINCT d.label, d.file_path
+           FROM edges e
+           JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
+           JOIN nodes s ON s.id = e.to_id
+           WHERE e.relation = 'MENTIONS'
+             AND (${globs.map((_, i) => `s.file_path GLOB $g${i}`).join(' OR ')})
+           LIMIT 20`,
+          Object.fromEntries(globs.map((g, i) => [`g${i}`, g]))
+        );
+        out.layers.docs = capped(docs.map(d => ({ label: d.label, file: d.file_path })), 10);
+      } else {
+        out.layers.docs = capped([], 10);
+      }
+    } else {
+      out.layers.docs = capped([], 10);
+    }
   }
 
   return out;
@@ -291,7 +352,7 @@ export async function graphPull({ repoRoot, node, layers }) {
     // Task id?
     const taskMatch = allTasks.find(t => t.id === node);
     if (taskMatch) {
-      const result = pullTask({ taskId: node, features, allTasks, repoRoot, layers: layerSet });
+      const result = pullTask({ db, taskId: node, features, allTasks, repoRoot, layers: layerSet });
       return JSON.stringify(result, null, 2);
     }
     // File or symbol?

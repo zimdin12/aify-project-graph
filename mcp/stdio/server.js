@@ -20,6 +20,7 @@ import { graphPreflight } from './query/verbs/preflight.js';
 import { graphChangePlan } from './query/verbs/change_plan.js';
 import { graphOnboard } from './query/verbs/onboard.js';
 import { graphPull } from './query/verbs/pull.js';
+import { graphFind } from './query/verbs/find.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -263,6 +264,25 @@ const TOOLS = [
         },
       },
       required: ['node'],
+    },
+  },
+  {
+    name: 'graph_find',
+    handler: graphFind,
+    description: 'Fast cross-layer text search across code symbols, functionality features, tasks, and docs. Returns ranked hits per layer + flat top-N. Use for "find anything matching X" questions.',
+    schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Search term.' },
+        layers: {
+          type: 'array',
+          items: { type: 'string', enum: ['code', 'features', 'tasks', 'docs'] },
+          description: 'Optional layer filter. Defaults to all four.',
+        },
+        limit: { type: 'integer', default: 10, description: 'Max hits per layer + flat top-N.' },
+        fresh: { type: 'boolean', default: false, description: 'Run ensureFresh before searching (slower, catches uncommitted changes).' },
+      },
+      required: ['query'],
     },
   },
 ];
