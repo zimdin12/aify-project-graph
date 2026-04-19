@@ -28,7 +28,16 @@ That's the entire install. The agent clones the repo, writes your MCP config, co
 
 ## Usage in one sentence
 
-After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-setup` skill builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief for 1.5-2.9× faster work.
+After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-build-all` skill builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief for 1.5-2.9× faster work.
+
+**Narrower skills for specific jobs:**
+- `/graph-build-briefs` — refresh just the briefs (~2-3s, after hand-editing `functionality.json`/`tasks.json`)
+- `/graph-build-functionality` — propose/refresh the feature map (~30-60s, LLM proposal + review)
+- `/graph-build-tasks` — sync tasks from your tracker (~10-60s — ClickUp/Asana/Linear/Jira/GitHub/plaintext)
+- `/graph-anchor-drift` — fix stale feature anchors after renames/moves (~5-15s)
+- `/graph-pull-context` — get cross-layer context for a specific symbol/file/feature/task (seconds)
+
+**Typical full `/graph-build-all` timing**: 30-90s first run. Subsequent reindex is git-diff-aware — <100ms if nothing changed, seconds if a few files edited. Briefs regenerate in 2-3s regardless of repo size. Functionality proposal (the bottleneck) is ~30-60s for an LLM pass.
 
 ## Inspiration
 

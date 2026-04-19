@@ -1,6 +1,6 @@
 ---
 name: aify-project-graph
-description: Use AT THE START of any session in a repo that has `.aify-graph/` — the precomputed briefs are the fastest way to orient and often avoid 2-5 shell calls. Also use when planning changes, tracing execution, or pulling cross-layer context. Prefer static briefs first; use live verbs only for precision queries the brief cannot answer. If `.aify-graph/` is missing, run `/graph-setup` to create it.
+description: Use AT THE START of any session in a repo that has `.aify-graph/` — the precomputed briefs are the fastest way to orient and often avoid 2-5 shell calls. Also use when planning changes, tracing execution, or pulling cross-layer context. Prefer static briefs first; use live verbs only for precision queries the brief cannot answer. If `.aify-graph/` is missing, run `/graph-build-all` to create it.
 ---
 
 # aify-project-graph
@@ -21,7 +21,7 @@ If it exists, **read it first** — it's 250-400 tokens of dense orientation (en
 - For change-planning: read `brief.plan.md` (has `open:` / `tests:` / `load:` per feature)
 - For cross-layer context on a specific thing: `graph_pull(node="X")`
 
-If `.aify-graph/` is missing, tell the user to run `/graph-setup` — it builds everything in one pass.
+If `.aify-graph/` is missing, tell the user to run `/graph-build-all` — it builds everything in one pass.
 
 ## Default workflow after reading the brief
 

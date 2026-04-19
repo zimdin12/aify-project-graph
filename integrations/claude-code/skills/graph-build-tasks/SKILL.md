@@ -1,9 +1,9 @@
 ---
-name: graph-map-tasks
-description: Use when the user wants to import or sync tasks into `.aify-graph/tasks.json`. Source-agnostic: ClickUp, Asana, Linear, Jira, GitHub Issues, or plaintext. Maps tasks to existing features and keeps evidence for every attribution.
+name: graph-build-tasks
+description: Use when the user wants to import or sync tasks into `.aify-graph/tasks.json`. Source-agnostic — ClickUp, Asana, Linear, Jira, GitHub Issues, or plaintext. Maps tasks to existing features and keeps evidence for every attribution. Typical runtime ~10-60s depending on tracker API speed + task count.
 ---
 
-# graph-map-tasks
+# graph-build-tasks
 
 Link external tasks to the repo’s feature map and write `.aify-graph/tasks.json`.
 

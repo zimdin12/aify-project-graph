@@ -89,17 +89,18 @@ Copy all five skills so the agent learns the verb contract, the editing workflow
 # Global (all projects for this user)
 mkdir -p ~/.claude/skills
 cp -r <target-path>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
-cp -r <target-path>/integrations/claude-code/skills/graph-map-functionality ~/.claude/skills/
-cp -r <target-path>/integrations/claude-code/skills/graph-map-tasks ~/.claude/skills/
-cp -r <target-path>/integrations/claude-code/skills/graph-anchor-drift ~/.claude/skills/
-cp -r <target-path>/integrations/claude-code/skills/graph-pull-context ~/.claude/skills/
+for s in graph-build-all graph-build-briefs graph-build-functionality graph-build-tasks graph-anchor-drift graph-pull-context; do
+  cp -r <target-path>/integrations/claude-code/skills/$s ~/.claude/skills/
+done
 ```
 
 What each skill does:
-- **aify-project-graph** — core verb contract + navigation rules
-- **graph-map-functionality** — agent proposes `.aify-graph/functionality.json` (user's feature map); never hand-authored
-- **graph-map-tasks** — source-agnostic task→feature attribution (ClickUp, Asana, Linear, Jira, GitHub Issues, or plaintext)
-- **graph-anchor-drift** — detects stale/broken feature anchors from diffs and proposes targeted patches
+- **aify-project-graph** — core contract: reads briefs first at session start, uses live verbs only for precision
+- **graph-build-all** — first-time setup / full refresh (graph + all briefs + functionality proposal). 30-90s first run, incremental after
+- **graph-build-briefs** — regenerate just the brief files after hand-editing functionality.json/tasks.json (~2-3s)
+- **graph-build-functionality** — propose or refresh `functionality.json`; diff-based review (~30-60s)
+- **graph-build-tasks** — source-agnostic task→feature attribution (ClickUp/Asana/Linear/Jira/GitHub/plaintext)
+- **graph-anchor-drift** — detects stale/broken feature anchors from diffs, proposes targeted patches
 - **graph-pull-context** — wraps `graph_pull` with plan/debug/review layer defaults and a read-next summary
 
 Codex and OpenCode don't use skill files — the MCP tool descriptions are self-documenting for them, and the skills above are conversational workflows that only work in Claude Code.
@@ -125,7 +126,7 @@ If you see tool not found errors, the config didn't take effect — recheck the 
 
 On Claude Code:
 ```
-/graph-map-functionality
+/graph-build-functionality
 ```
 The skill reads the graph, drafts a `functionality.json` with feature anchors, and shows a diff for the user to accept. Takes 1-2 minutes and one user review pass.
 
@@ -178,8 +179,8 @@ node <target-repo>/scripts/graph-brief.mjs <target-repo>
 
 For richer briefs, use the skills to build overlays:
 
-1. `/graph-map-functionality` — agent proposes `.aify-graph/functionality.json` from repo structure; user reviews diff
-2. `/graph-map-tasks` — agent pulls open tasks from whatever tracker is connected (ClickUp/Asana/Linear/Jira/GitHub) and attributes them to features
+1. `/graph-build-functionality` — agent proposes `.aify-graph/functionality.json` from repo structure; user reviews diff
+2. `/graph-build-tasks` — agent pulls open tasks from whatever tracker is connected (ClickUp/Asana/Linear/Jira/GitHub) and attributes them to features
 3. `/graph-anchor-drift` — run after commits that touched anchored code; proposes targeted anchor patches
 
 After running any of these, regenerate briefs: the `FEATURES` / `OPEN_TASKS` / `TRUST` sections in brief.plan.md automatically pick up the new data.

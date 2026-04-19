@@ -1,9 +1,9 @@
 ---
-name: graph-map-functionality
-description: Use when the user wants a feature/functionality map for the repo. Produces or updates `.aify-graph/functionality.json` from the graph, docs, directory structure, and commit vocabulary. Preserve user edits and always show a diff before writing.
+name: graph-build-functionality
+description: Use when the user wants to build or refresh the feature/functionality map for the repo. Produces or updates `.aify-graph/functionality.json` from the graph, docs, directory structure, and commit vocabulary. Preserve user edits and always show a diff before writing. Typical runtime ~30-60s (LLM proposal + user review). For full rebuild including code+briefs, use `/graph-build-all`.
 ---
 
-# graph-map-functionality
+# graph-build-functionality
 
 Create or refresh `.aify-graph/functionality.json`, the human-curated feature map for the repo.
 

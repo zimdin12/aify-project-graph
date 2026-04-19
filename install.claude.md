@@ -51,18 +51,16 @@ Do NOT add `--toolset=lean` for Claude Code — Claude Code uses the full toolse
 ```bash
 mkdir -p ~/.claude/skills
 cp -r <CLONE_PATH>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
-cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-setup ~/.claude/skills/
-cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-map-functionality ~/.claude/skills/
-cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-map-tasks ~/.claude/skills/
-cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-anchor-drift ~/.claude/skills/
-cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-pull-context ~/.claude/skills/
+for s in graph-build-all graph-build-briefs graph-build-functionality graph-build-tasks graph-anchor-drift graph-pull-context; do
+  cp -r <CLONE_PATH>/integrations/claude-code/skills/$s ~/.claude/skills/
+done
 ```
 
 ## Step 4 — tell the user to restart
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-setup` skill will build everything in one pass (30-90 seconds). After that, every new session automatically reads the brief and saves you 1.5-2.9× wall-clock time.
+> Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-build-all` skill will build everything in one pass (30-90 seconds). After that, every new session automatically reads the brief and saves you 1.5-2.9× wall-clock time. For narrower jobs you also have `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-anchor-drift`, and `/graph-pull-context` — use whichever fits.
 
 ## Verify (after restart — agent can't do this before)
 
