@@ -10,117 +10,37 @@ A local MCP server that indexes the user's current repo into a SQLite-backed cod
 
 Check the user's runtime. This guide covers:
 
-- **Claude Code** — MCP config at `~/.claude/mcp.json`; skills at `~/.claude/skills/`
-- **Codex** — MCP config at `~/.codex/mcp.json`
-- **OpenCode** — MCP config at `~/.opencode/config.json` (or `.opencode/config.json` per project)
+- **Claude Code** — MCP servers stored under `mcpServers` in `~/.claude/settings.json` (use `claude mcp add` CLI, do not hand-edit). Skills at `~/.claude/skills/`.
+- **Codex** — MCP servers registered via `codex mcp add` CLI (writes `~/.codex/mcp.json`).
+- **OpenCode** — MCP servers under `mcp` in `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json`.
 
 If unsure, ask the user which they're in.
 
 ## Install (all runtimes)
 
-### 1. Clone the repo
+The install is driven by one of three runtime-specific agent-executable docs. Read the one matching the user's runtime and follow every step:
 
-Ask the user where they want the source. Typical choices:
-- Windows: `C:/Docker/aify-project-graph` or `C:/Users/<user>/code/aify-project-graph`
-- macOS/Linux: `~/code/aify-project-graph` or `/opt/aify-project-graph`
+- **Claude Code (native Windows / macOS / Linux)** → [`install.claude.md`](install.claude.md)
+- **Codex (WSL or native Linux)** → [`install.codex.md`](install.codex.md)
+- **OpenCode** → [`install.opencode.md`](install.opencode.md)
 
-Then:
+Each doc pins the clone to a runtime-specific path so two runtimes on the same machine (e.g. Claude Code on Windows + Codex in WSL) don't collide on one `better-sqlite3` native binary:
 
-```bash
-git clone https://github.com/zimdin12/aify-project-graph.git <target-path>
-cd <target-path>
-npm install
-npm test     # expect: all tests green
-```
+| Runtime | Pinned clone path | MCP registration method |
+|---|---|---|
+| Claude Code | `~/.claude/plugins/aify-project-graph` | `claude mcp add --scope user` (writes `~/.claude/settings.json`) |
+| Codex | `~/.codex/plugins/aify-project-graph` | `codex mcp add` |
+| OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |
 
-If tests fail on `better-sqlite3`, install native build tools:
-- Windows: VS Build Tools (`npm install -g windows-build-tools` or install "Desktop development with C++" via Visual Studio Installer)
-- macOS: `xcode-select --install`
-- Linux: `apt install build-essential` (or distro equivalent)
+**Profile:** Claude Code uses the full toolset (17 visible verbs). Codex and OpenCode use `--toolset=lean` (3 visible: `graph_impact`, `graph_path`, `graph_change_plan`; the other 14 remain callable by name via `tools/call`).
 
-### 2. Register the MCP server
+**Platform gotcha:** `better-sqlite3` is native — the compiled binary has to match the runtime. If the same clone is shared across Windows and WSL, load fails with `not a valid Win32 application` or equivalent. The pinned paths above already separate the clones; if you still see this error, run `npm rebuild better-sqlite3` in the runtime you plan to use.
 
-Add an entry under `mcpServers` in the runtime's config file. Claude Code keeps the full toolset. Codex and OpenCode should use the lean profile to reduce passive MCP/tool-surface overhead.
+**Skills** (Claude Code only) — the install doc copies the whole `integrations/claude-code/skill{,s}/` tree with a directory loop, so new skills are picked up without updating these docs. Codex and OpenCode don't load skill files; MCP tool descriptions are self-documenting there.
 
-```json
-{
-  "mcpServers": {
-    "aify-project-graph": {
-      "command": "node",
-      "args": ["--max-old-space-size=8192", "<absolute-path-to-clone>/mcp/stdio/server.js"]
-    }
-  }
-}
-```
+**Verify** — on first session after restart: `graph_status()` should return `indexed: false` then any query verb triggers an auto-build. If the tool is not found, the MCP didn't register (rerun the relevant install-doc step).
 
-For **Codex** and **OpenCode**, append `--toolset=lean` to the args:
-
-```json
-{
-  "mcpServers": {
-    "aify-project-graph": {
-      "command": "node",
-      "args": ["--max-old-space-size=8192", "<absolute-path-to-clone>/mcp/stdio/server.js", "--toolset=lean"]
-    }
-  }
-}
-```
-
-The `--max-old-space-size=8192` flag (8 GB heap) is operational safety for indexing very large repos. Default Node heap is ~2 GB which is enough for small/medium projects but can fail on repos with >100k extractable symbols. Adjust to what your machine has — 4096 is fine on 8 GB RAM machines; 8192 is recommended on 16 GB+.
-
-Rules:
-- Use absolute path. On Windows, **forward slashes** (`C:/...`), not backslashes.
-- If the config file has other `mcpServers` entries, merge — don't overwrite.
-- If the file doesn't exist yet, create it with just the `{"mcpServers": {...}}` wrapper.
-
-Runtime-specific config paths:
-
-| Runtime | Config path |
-|---|---|
-| Claude Code | `~/.claude/mcp.json` (global) or `.claude/mcp.json` (project) |
-| Codex | `~/.codex/mcp.json` (global) or per-project equivalent |
-| OpenCode | `~/.opencode/config.json` (global) or `.opencode/config.json` (project) |
-
-### 3. Install the skills (Claude Code only)
-
-Copy all five skills so the agent learns the verb contract, the editing workflow, and the cross-layer pull flow (functionality.json, tasks.json, drift detection, graph_pull wrapping):
-
-```bash
-# Global (all projects for this user)
-mkdir -p ~/.claude/skills
-cp -r <target-path>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
-for s in graph-build-all graph-build-briefs graph-build-functionality graph-build-tasks graph-feature-edit graph-task-edit graph-anchor-drift graph-pull-context graph-walk-bugs graph-dashboard; do
-  cp -r <target-path>/integrations/claude-code/skills/$s ~/.claude/skills/
-done
-```
-
-What each skill does:
-- **aify-project-graph** — core contract: reads briefs first at session start, uses live verbs only for precision
-- **graph-build-all** — first-time setup / full refresh (graph + all briefs + functionality proposal). 30-90s first run, incremental after
-- **graph-build-briefs** — regenerate just the brief files after hand-editing functionality.json/tasks.json (~2-3s)
-- **graph-build-functionality** — propose or refresh `functionality.json`; diff-based review (~30-60s)
-- **graph-build-tasks** — source-agnostic task→feature attribution (ClickUp/Asana/Linear/Jira/GitHub/plaintext)
-- **graph-anchor-drift** — detects stale/broken feature anchors from diffs, proposes targeted patches
-- **graph-pull-context** — wraps `graph_pull` with plan/debug/review layer defaults and a read-next summary
-
-Codex and OpenCode don't use skill files — the MCP tool descriptions are self-documenting for them, and the skills above are conversational workflows that only work in Claude Code.
-
-### 4. Restart the runtime
-
-The MCP server and skill are picked up on agent restart. **This is the only step the user must do themselves** (you can't restart your host).
-
-### 5. Verify
-
-On next session, call in order:
-
-```
-graph_status()    # should report indexed: true (or an immediate auto-build)
-graph_report()    # should return a compact project orientation
-```
-
-If you see tool not found errors, the config didn't take effect — recheck the path (absolute, forward slashes) and that the runtime was fully restarted.
-
-### 6. Day-1 setup: build the functionality overlay
+## Day-1 setup: build the functionality overlay
 
 **This step is not optional if you want the planning briefs to do work.** The empty-overlay case was measured (2026-04-19 deep bench): `brief.plan.md` shrinks to ~70 tokens of headers with no action-bearing content, and brief-only loses tokens vs live MCP on plan tasks. With a populated `.aify-graph/functionality.json`, plan briefs gain `open:/tests:/load:` per feature and brief-only wins plan tasks −19% tokens / −28% duration.
 

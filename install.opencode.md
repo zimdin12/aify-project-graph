@@ -1,68 +1,104 @@
 # Install aify-project-graph for OpenCode
 
-**You are an agent reading this to install aify-project-graph for the user. Execute every step. The user's only manual action is restarting OpenCode at the end.**
+**You are an agent reading this to install aify-project-graph for the user. Execute every step exactly. The user's only manual action is restarting OpenCode at the end.**
 
-## Prerequisites to check
+## Context: WSL vs native
+
+If the user runs OpenCode in WSL on Windows while also running Claude Code on native Windows, the two need **separate clones** — `better-sqlite3` is a native module and its compiled binary must match the runtime. Install this doc inside the environment where OpenCode actually runs.
+
+## Prerequisites
 
 ```bash
-node --version   # must be >= 20
-git --version    # must be installed
+node --version     # must be >= 20
+git --version
 ```
 
-If either fails, stop and tell the user to install them.
+If either fails, stop and tell the user to install the missing tool.
 
-## Step 1 — clone + build
-
-Ask where to put the source (typical: Windows `C:/Docker/aify-project-graph`, macOS/Linux `~/code/aify-project-graph`). Then:
+## Step 1 — clone to the fixed install path
 
 ```bash
-git clone https://github.com/zimdin12/aify-project-graph.git <CLONE_PATH>
-cd <CLONE_PATH>
+CLONE_PATH="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/plugins/aify-project-graph"
+
+if [ ! -d "$CLONE_PATH" ]; then
+  mkdir -p "$(dirname "$CLONE_PATH")"
+  git clone https://github.com/zimdin12/aify-project-graph.git "$CLONE_PATH"
+else
+  git -C "$CLONE_PATH" pull --ff-only
+fi
+
+cd "$CLONE_PATH"
 npm install
-npm test                                    # should show 144 passing
+npm test              # expect: 144 passing
 ```
 
-If `better-sqlite3` build fails, install native build tools (Windows: VS Build Tools; macOS: `xcode-select --install`; Linux: `apt install build-essential`).
+If the native module fails on load (`better_sqlite3.node is not a valid ... application`):
 
-Store `<CLONE_PATH>` as absolute path with forward slashes.
-
-## Step 2 — write the MCP config
-
-File: `~/.opencode/config.json` (global) or `.opencode/config.json` (per-project). Merge if `mcpServers` exists:
-
-```json
-{
-  "mcpServers": {
-    "aify-project-graph": {
-      "command": "node",
-      "args": ["--max-old-space-size=8192", "<CLONE_PATH>/mcp/stdio/server.js", "--toolset=lean"]
-    }
-  }
-}
+```bash
+npm rebuild better-sqlite3
 ```
 
-`--toolset=lean` keeps the MCP surface small. Hidden verbs are still callable by name.
+If `npm install` cannot compile the native module, install `build-essential` (Linux / WSL) or platform equivalent.
 
-## Step 3 — tell the user to restart
+## Step 2 — register the MCP server
 
-OpenCode doesn't load Claude-Code skill files. The MCP tool descriptions are self-documenting. Tell the user:
+OpenCode config lives at `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.json`. Patch it via a short Node script so existing `mcp` entries are merged, not overwritten.
 
-> Install done. **Restart OpenCode** so the MCP server loads. In any repo, call `graph_status()` (auto-indexes on first call). For best wins, run once per repo:
+```bash
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.json"
+mkdir -p "$(dirname "$CONFIG_FILE")"
+if [ ! -f "$CONFIG_FILE" ]; then
+  echo '{"$schema":"https://opencode.ai/config.json"}' > "$CONFIG_FILE"
+fi
+
+node -e '
+  const fs = require("fs");
+  const file = process.argv[1];
+  const serverPath = process.argv[2];
+  let data = {};
+  try { data = JSON.parse(fs.readFileSync(file, "utf-8")); } catch (_) {}
+  if (!data || typeof data !== "object") data = {};
+  if (!data.$schema) data.$schema = "https://opencode.ai/config.json";
+  if (!data.mcp || typeof data.mcp !== "object" || Array.isArray(data.mcp)) data.mcp = {};
+  data.mcp["aify-project-graph"] = {
+    type: "local",
+    enabled: true,
+    command: ["node", "--max-old-space-size=8192", serverPath, "--toolset=lean"],
+  };
+  fs.writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
+' "$CONFIG_FILE" "$CLONE_PATH/mcp/stdio/server.js"
+```
+
+Recommended profile is `--toolset=lean` (3 visible verbs: `graph_impact`, `graph_path`, `graph_change_plan`). Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 17-verb surface.
+
+## Step 3 — skills
+
+OpenCode does not load Claude-Code skill files. **Skip this step.**
+
+## Step 4 — tell the user to restart
+
+Tell the user (paraphrase is fine):
+
+> Install done. **Restart OpenCode** so the MCP server loads. In any repo, call `graph_status()` — auto-indexes on first call. For the full brief workflow (1.5-2.9× faster orient, 17-35% cheaper tokens), run once per target repo:
 >
 > ```bash
-> node <CLONE_PATH>/scripts/graph-brief.mjs <YOUR_REPO>
+> node "$CLONE_PATH/scripts/graph-brief.mjs" /path/to/your/repo
 > ```
 >
-> Then paste `<YOUR_REPO>/.aify-graph/brief.agent.md` into your session prompt. For plan tasks, hand-author `.aify-graph/functionality.json` (sample at `<CLONE_PATH>/docs/examples/functionality.sample.json`) and re-run graph-brief.mjs.
+> Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. For plan tasks, hand-author `.aify-graph/functionality.json` (sample at `$CLONE_PATH/docs/examples/functionality.sample.json`) and re-run graph-brief.mjs.
 
-## Verify
+(Expand `$CLONE_PATH` to the absolute path for the user's copy.)
+
+## Verify (after restart)
 
 ```
 graph_status()
 ```
 
+Returns `indexed: false` initially; any query verb triggers the first build.
+
 ## Troubleshooting
 
-- **Path errors on Windows**: forward slashes in the args
-- **`better-sqlite3` native module flips**: `npm rebuild better-sqlite3` in the runtime you plan to use
-- **Graph stale**: `graph_index(force=true)`
+- **MCP tool not visible** → check `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.json` has the `mcp.aify-project-graph` entry; rerun Step 2 if missing.
+- **`better-sqlite3` flipped platforms** (same clone across Windows/WSL) → clone separately in each environment, or `npm rebuild better-sqlite3` in the runtime you plan to use.
+- **Graph seems stale** → `graph_index(force=true)` for full rebuild.

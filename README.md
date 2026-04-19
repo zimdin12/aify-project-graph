@@ -24,7 +24,9 @@ Read install.codex.md from https://github.com/zimdin12/aify-project-graph and in
 Read install.opencode.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart OpenCode when you're done.
 ```
 
-That's the entire install. The agent clones the repo, writes your MCP config, copies the skills, and tells you when to restart. Takes 2-3 minutes.
+That's the entire install. The agent clones the repo to a pinned path (`~/.claude/plugins/aify-project-graph`, `~/.codex/plugins/aify-project-graph`, or `~/.config/opencode/plugins/aify-project-graph` depending on runtime), registers the MCP server via the runtime's CLI, copies skills (Claude Code only), and tells you when to restart. Takes 2-3 minutes.
+
+**WSL + native Windows:** if you run Claude Code on Windows and Codex/OpenCode in WSL, install the tool **separately in each environment** — `better-sqlite3` is a native module and the compiled binary must match the runtime (Windows `.node` ≠ Linux `.so`). The install docs pin each runtime to its own filesystem path, so the two clones don't collide.
 
 ## Usage in one sentence
 
@@ -137,7 +139,7 @@ Drop `.aify-graph/tasks.json` (written by the `/graph-build-tasks` skill) and `b
 
 ### Claude Code skills
 
-Nine workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/) plus one core skill at [`integrations/claude-code/skill/`](integrations/claude-code/skill/):
+Ten workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/) plus one core skill at [`integrations/claude-code/skill/`](integrations/claude-code/skill/):
 
 **Build / refresh:**
 - **`/graph-build-all`** — first-time setup / full refresh (graph + briefs + functionality proposal). 30-90s first run, incremental thereafter.
@@ -171,63 +173,27 @@ Rebuilds all five briefs + reads `functionality.json` + `tasks.json` if present.
 
 ## Install
 
-### One-line agent prompt
+The preferred install is agent-driven (see "Install in one paste" at the top). The agent reads the runtime-specific install doc and executes every step.
 
-Tell your agent:
+Under the hood each install doc does the same thing:
 
-> Read `AGENTS.md` from https://github.com/zimdin12/aify-project-graph and install it for this environment.
+1. Clones to a pinned path inside the runtime's home
+   - Claude Code: `~/.claude/plugins/aify-project-graph`
+   - Codex: `~/.codex/plugins/aify-project-graph`
+   - OpenCode: `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph`
+2. Runs `npm install && npm test` (144 passing expected)
+3. Registers the MCP server via the runtime's native CLI or config
+   - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude/settings.json` → `mcpServers`)
+   - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`
+   - OpenCode: JSON-patch `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json` → `mcp.aify-project-graph`
+4. Copies skills from `integrations/claude-code/skill{,s}/` to `~/.claude/skills/` (Claude Code only; Codex / OpenCode skip)
+5. User restarts the runtime
 
-The agent-facing install doc is self-contained: it clones the repo, wires the MCP config for your runtime (Claude Code / Codex / OpenCode), installs the skill, and tells you the one manual step (restart).
+**Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_impact`, `graph_path`, `graph_change_plan`). The other 14 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile (all 17 visible) by default.
 
-### Manual install
+**Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms and load fails — install per-runtime into the pinned paths above (each runtime gets its own clone, own build), or run `npm rebuild better-sqlite3` in the runtime you currently use. `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 
-```bash
-git clone https://github.com/zimdin12/aify-project-graph.git
-cd aify-project-graph
-npm install
-npm test  # verify: should be all green
-```
-
-Then register the MCP server in your agent's config:
-
-**Claude Code** (`~/.claude/mcp.json`):
-```json
-{
-  "mcpServers": {
-    "aify-project-graph": {
-      "command": "node",
-      "args": ["--max-old-space-size=8192", "<path>/aify-project-graph/mcp/stdio/server.js"]
-    }
-  }
-}
-```
-
-**Codex** (`~/.codex/mcp.json`, recommended lean profile):
-```json
-{
-  "mcpServers": {
-    "aify-project-graph": {
-      "command": "node",
-      "args": ["--max-old-space-size=8192", "<path>/aify-project-graph/mcp/stdio/server.js", "--toolset=lean"]
-    }
-  }
-}
-```
-
-**OpenCode** uses the same recommended lean args.
-
-Lean mode keeps the workflow verbs that benchmarked best on Codex/OpenCode (`graph_report`, `graph_onboard`, `graph_change_plan`, `graph_preflight`, `graph_path`, `graph_file`) and swaps exact-name lookup to `graph_lookup(symbol="X")`. If you want every low-level traversal verb in Codex/OpenCode, drop `--toolset=lean` and run the full toolset instead.
-
-Replace `<path>` with the absolute path (forward slashes on Windows). `8192` is recommended on 16 GB+ machines; `4096` is acceptable on smaller machines.
-
-Restart your agent. The graph builds automatically on first query.
-
-### Install the skill (Claude Code only)
-
-```bash
-cp -r <path>/aify-project-graph/integrations/claude-code/skill \
-  ~/.claude/skills/aify-project-graph
-```
+For the full step-by-step per runtime see [`install.claude.md`](install.claude.md), [`install.codex.md`](install.codex.md), [`install.opencode.md`](install.opencode.md). They are agent-executable — paste the "Install in one paste" prompt above and the agent follows them.
 
 ## Query verbs
 
@@ -394,11 +360,11 @@ Numbers reflect the full extractor stack: out-of-class C++ methods, PHP traits/e
 
 ## Detailed docs
 
-- [AGENTS.md](AGENTS.md) — one-stop agent-driven install (preferred)
+- [AGENTS.md](AGENTS.md) — shared install reference (Claude Code / Codex / OpenCode)
 - [Design spec](docs/superpowers/specs/2026-04-16-aify-project-graph-design.md)
-- [Install for Claude Code](install.claude.md) — human walkthrough
-- [Install for Codex](install.codex.md) — human walkthrough (recommended lean profile)
-- [Install for OpenCode](install.opencode.md) — human walkthrough (recommended lean profile)
+- [Install for Claude Code](install.claude.md) — agent-executable
+- [Install for Codex](install.codex.md) — agent-executable (lean profile)
+- [Install for OpenCode](install.opencode.md) — agent-executable (lean profile)
 - [Query format reference](SKILL.md)
 - [Dogfood A/B results (2026-04-18)](docs/dogfood/ab-results-2026-04-18.md)
 - [Dogfood lc-api trace rerun (2026-04-18)](docs/dogfood/ab-results-2026-04-18-lcapi-trace-expanded-rerun.md)
