@@ -18,13 +18,22 @@ import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
 
-// relations is OPT-IN: kept out of default layers so graph_pull stays compact
-// unless the caller asks for direct graph neighbors. Data shape per node kind:
-//   symbol:  { callers, callees }
-//   file:    { imports, imported_by, defines }
-//   feature: { inputs, outputs }  (cross-feature-boundary, rolled up by feature)
+// Layer inventory:
+//   code          — file/symbol neighborhood (files, symbols, callers)
+//   functionality — feature membership, dependents
+//   tasks         — tasks referencing this node
+//   docs          — Documents that MENTION this node (via MENTIONS edges)
+//   activity      — recent git commits
+//   relations     — DIRECT graph neighbors (OPT-IN). Compact, local.
+//                   symbol:  { callers, callees }
+//                   file:    { imports, imported_by, defines }
+//                   feature: { inputs, outputs } cross-feature-boundary, rolled up
+//   transitive    — CLOSURE blast radius for features (OPT-IN, heavier).
+//                   transitive_{dependencies,dependents} + {upstream,downstream}_files
+//                   Separated from relations per dev review: truncation-prone,
+//                   trust-sensitive, different tuning.
 // Every capped list carries { items, total, truncated, limit } metadata.
-const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations'];
+const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive'];
 const DEFAULT_LAYERS = ['code', 'functionality', 'tasks', 'activity'];
 
 function detectNodeKind(db, node) {
@@ -225,6 +234,115 @@ function relationsForFeature(db, feature, features, limit = 10) {
   };
 }
 
+// Transitive closure of feature dependencies. Walks either direction via
+// visited-set BFS, detects cycles and returns them explicitly. Cycle-safe:
+// a feature already in `visited` is never re-expanded.
+function walkFeatureClosure(startId, features, direction) {
+  const byId = new Map(features.map(f => [f.id, f]));
+  const edgesForDir = direction === 'dependencies'
+    ? (f) => f.depends_on || []                             // walk UP
+    : features
+        .reduce((acc, f) => {
+          for (const dep of (f.depends_on || [])) {
+            if (!acc.has(dep)) acc.set(dep, []);
+            acc.get(dep).push(f.id);
+          }
+          return acc;
+        }, new Map())                                       // walk DOWN (reverse index)
+        .get.bind(null);
+
+  const visited = new Set();
+  const cycles = [];
+  const queue = [startId];
+  const result = [];
+
+  while (queue.length > 0) {
+    const current = queue.shift();
+    if (visited.has(current)) continue;
+    visited.add(current);
+    if (current !== startId) result.push(current);
+    const feature = byId.get(current);
+    if (!feature) continue;
+
+    let nextIds;
+    if (direction === 'dependencies') {
+      nextIds = feature.depends_on || [];
+    } else {
+      // Walk dependents — features whose depends_on includes `current`
+      nextIds = features.filter(f => (f.depends_on || []).includes(current)).map(f => f.id);
+    }
+
+    for (const n of nextIds) {
+      if (visited.has(n)) {
+        // Cycle — if n was already visited AND is in our walk ancestor chain
+        if (result.includes(n) || n === startId) {
+          const pair = [current, n].sort().join('↔');
+          if (!cycles.includes(pair)) cycles.push(pair);
+        }
+        continue;
+      }
+      queue.push(n);
+    }
+  }
+
+  return { features: result, cycles };
+}
+
+function filesForFeatures(db, features, featureIds, cap) {
+  const selected = featureIds
+    .map(id => features.find(f => f.id === id))
+    .filter(Boolean);
+  const allFiles = new Set();
+  for (const f of selected) {
+    for (const glob of (f.anchors.files || [])) {
+      const rows = db.all(
+        `SELECT file_path FROM nodes
+         WHERE type IN ('File','Directory') AND file_path GLOB $g LIMIT 100`,
+        { g: glob });
+      for (const r of rows) allFiles.add(r.file_path);
+      if (allFiles.size >= cap * 4) break; // short-circuit if we've got way more than cap
+    }
+  }
+  return capped([...allFiles], cap);
+}
+
+// Transitive relations for features only. Direction can be 'downstream',
+// 'upstream', or 'both' (default). Returns summary counts + capped lists.
+// Returns a skip-reason if the feature is too weakly anchored for trust.
+function transitiveForFeature(db, feature, features, opts = {}) {
+  const { direction = 'both', featureCap = 20, fileCap = 50 } = opts;
+
+  // Trust gate: if feature has no anchors AT ALL, skip transitive — dev
+  // review: transitive compounds bad feature maps faster than direct.
+  const anchorCount = (feature.anchors.symbols || []).length
+    + (feature.anchors.files || []).length
+    + (feature.anchors.routes || []).length;
+  if (anchorCount === 0) {
+    return { transitive_skipped: 'reason=weak_feature_no_anchors' };
+  }
+
+  const out = {};
+  const allCycles = [];
+
+  if (direction === 'upstream' || direction === 'both') {
+    const { features: depIds, cycles } = walkFeatureClosure(feature.id, features, 'dependencies');
+    out.transitive_dependencies = capped(depIds, featureCap);
+    out.upstream_files = filesForFeatures(db, features, depIds, fileCap);
+    for (const c of cycles) if (!allCycles.includes(c)) allCycles.push(c);
+  }
+
+  if (direction === 'downstream' || direction === 'both') {
+    const { features: depIds, cycles } = walkFeatureClosure(feature.id, features, 'dependents');
+    out.transitive_dependents = capped(depIds, featureCap);
+    out.downstream_files = filesForFeatures(db, features, depIds, fileCap);
+    for (const c of cycles) if (!allCycles.includes(c)) allCycles.push(c);
+  }
+
+  if (allCycles.length > 0) out.cycles_detected = allCycles;
+
+  return out;
+}
+
 function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
   const out = { node: { kind: 'file', path: filePath }, layers: {} };
 
@@ -287,7 +405,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
   return out;
 }
 
-function pullFeature({ db, featureId, features, allTasks, repoRoot, layers }) {
+function pullFeature({ db, featureId, features, allTasks, repoRoot, layers, opts = {} }) {
   const feature = features.find(f => f.id === featureId);
   if (!feature) return { node: { kind: 'feature', id: featureId }, error: 'feature not found in functionality.json' };
   const out = { node: { kind: 'feature', id: featureId, label: feature.label, description: feature.description }, layers: {} };
@@ -344,6 +462,12 @@ function pullFeature({ db, featureId, features, allTasks, repoRoot, layers }) {
 
   if (layers.has('relations')) {
     out.layers.relations = relationsForFeature(db, feature, features);
+  }
+
+  if (layers.has('transitive')) {
+    out.layers.transitive = transitiveForFeature(db, feature, features, {
+      direction: opts.direction || 'both',
+    });
   }
 
   if (layers.has('docs')) {
@@ -438,7 +562,26 @@ function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('code')) {
-    out.layers.code = { files: task.files_hint || [] };
+    // task→feature→files chain: show both the task's own files_hint AND the
+    // anchored files of every feature the task targets. Agent gets
+    // "what files could contain this issue?" in one call instead of two.
+    const featureFiles = new Set();
+    for (const fid of (task.features || [])) {
+      const f = features.find(x => x.id === fid);
+      if (!f) continue;
+      for (const glob of (f.anchors.files || [])) {
+        // Resolve glob against graph file list
+        const rows = db.all(
+          `SELECT file_path FROM nodes
+           WHERE type IN ('File','Directory') AND file_path GLOB $g LIMIT 30`,
+          { g: glob });
+        for (const r of rows) featureFiles.add(r.file_path);
+      }
+    }
+    out.layers.code = {
+      files_hint: task.files_hint || [],
+      feature_files: capped([...featureFiles], 30),
+    };
   }
 
   if (layers.has('activity')) {
@@ -488,7 +631,7 @@ function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
 
 // ---------- main ----------
 
-export async function graphPull({ repoRoot, node, layers }) {
+export async function graphPull({ repoRoot, node, layers, direction }) {
   if (!node) return 'ERROR: node parameter is required (file path, feature id, symbol name, or task id)';
   await ensureFresh({ repoRoot });
 
@@ -507,7 +650,7 @@ export async function graphPull({ repoRoot, node, layers }) {
     // Resolve node kind. Try feature id first (cheap exact match).
     const featureMatch = features.find(f => f.id === node);
     if (featureMatch) {
-      const result = pullFeature({ db, featureId: node, features, allTasks, repoRoot, layers: layerSet });
+      const result = pullFeature({ db, featureId: node, features, allTasks, repoRoot, layers: layerSet, opts: { direction } });
       return JSON.stringify(result, null, 2);
     }
     // Task id?

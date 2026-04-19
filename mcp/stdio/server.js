@@ -252,15 +252,20 @@ const TOOLS = [
   {
     name: 'graph_pull',
     handler: graphPull,
-    description: 'Cross-layer pull for a node. Node can be file path, feature id, symbol, or task id. Default layers: code+functionality+tasks+activity. Opt-in: docs (MENTIONS edges), relations (direct graph neighbors — callers/callees for a symbol, imports/imported_by/defines for a file, cross-feature inputs/outputs rolled up by feature).',
+    description: 'Cross-layer pull for a node (file, feature, symbol, or task). Default layers: code+functionality+tasks+activity. Opt-in layers: docs (MENTIONS edges), relations (direct graph neighbors — callers/callees/imports/cross-feature inputs-outputs), transitive (feature-only: closure of depends_on up and/or down + anchored files for each). For transitive, pass direction="downstream"|"upstream"|"both" (default both).',
     schema: {
       type: 'object',
       properties: {
         node: { type: 'string', description: 'File path, feature id, symbol name, or task id.' },
         layers: {
           type: 'array',
-          items: { type: 'string', enum: ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations'] },
-          description: 'Optional layer filter. Defaults to code+functionality+tasks+activity. Pass ["relations"] alone to get just the direct graph-neighbor view for a symbol/file/feature.',
+          items: { type: 'string', enum: ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive'] },
+          description: 'Optional layer filter. Defaults to code+functionality+tasks+activity.',
+        },
+        direction: {
+          type: 'string',
+          enum: ['downstream', 'upstream', 'both'],
+          description: 'For transitive layer: walk direction. Default both.',
         },
       },
       required: ['node'],

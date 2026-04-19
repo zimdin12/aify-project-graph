@@ -51,7 +51,7 @@ Do NOT add `--toolset=lean` for Claude Code — Claude Code uses the full toolse
 ```bash
 mkdir -p ~/.claude/skills
 cp -r <CLONE_PATH>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
-for s in graph-build-all graph-build-briefs graph-build-functionality graph-build-tasks graph-anchor-drift graph-pull-context; do
+for s in graph-build-all graph-build-briefs graph-build-functionality graph-build-tasks graph-feature-edit graph-task-edit graph-anchor-drift graph-pull-context graph-walk-bugs; do
   cp -r <CLONE_PATH>/integrations/claude-code/skills/$s ~/.claude/skills/
 done
 ```
