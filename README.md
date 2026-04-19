@@ -156,6 +156,9 @@ Nine workflow skills ship at [`integrations/claude-code/skills/`](integrations/c
 - **`/graph-walk-bugs`** — engine-out bug-fixing walk. Weighted topological order (roots first, leaves last), surfaces open bug-like tasks per feature with inclusion reasons, cycles + trust signal at end.
 - **`/graph-pull-context`** — wraps `graph_pull` with intent-aware layer defaults (plan / debug / review) and a read-next summary.
 
+**Visualize:**
+- **`/graph-dashboard`** — launches the 2D multi-layer interactive dashboard in your browser. Shows code + features + tasks + docs with cross-layer edges. Curated edges (feature anchors, depends_on) are dashed blue; inferred edges (doc MENTIONS) are dotted green. Layer toggle panel on the left. Works in lean and full profile.
+
 Invoke any of the above as `/<skill-name>` in Claude Code.
 
 ### Regenerating

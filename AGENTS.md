@@ -89,7 +89,7 @@ Copy all five skills so the agent learns the verb contract, the editing workflow
 # Global (all projects for this user)
 mkdir -p ~/.claude/skills
 cp -r <target-path>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
-for s in graph-build-all graph-build-briefs graph-build-functionality graph-build-tasks graph-feature-edit graph-task-edit graph-anchor-drift graph-pull-context graph-walk-bugs; do
+for s in graph-build-all graph-build-briefs graph-build-functionality graph-build-tasks graph-feature-edit graph-task-edit graph-anchor-drift graph-pull-context graph-walk-bugs graph-dashboard; do
   cp -r <target-path>/integrations/claude-code/skills/$s ~/.claude/skills/
 done
 ```

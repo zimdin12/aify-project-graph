@@ -23,6 +23,8 @@ If it exists, **read it first** — it's 250-400 tokens of dense orientation (en
 
 If `.aify-graph/` is missing, tell the user to run `/graph-build-all` — it builds everything in one pass.
 
+If the user wants to **see** the graph visually (not just query it), run `/graph-dashboard` — launches an interactive 2D multi-layer view in the browser with code + features + tasks + docs + cross-layer edges.
+
 ## Default workflow after reading the brief
 
 1. **Use live verbs only when the brief is not enough** (precision queries)
