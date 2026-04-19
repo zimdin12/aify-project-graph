@@ -738,8 +738,14 @@ function renderPlanAgentMarkdown(data) {
   if (enrichedRisks?.length) {
     lines.push('RISK:');
     for (const r of enrichedRisks.slice(0, 3)) {
-      const featureTag = r.features.length ? ` in [${r.features.slice(0, 2).join(',')}]` : '';
-      const testTag = r.nearest_test ? ` · test: ${r.nearest_test}` : '';
+      // Uniform tagging — feature membership OR explicit orphan marker, plus
+      // nearest test OR "no nearby test." High-fan-in files with no feature
+      // are the orphan-detection signal surfaced inline; tests-or-nothing is
+      // better than a silent missing suffix.
+      const featureTag = r.features.length
+        ? ` in [${r.features.slice(0, 2).join(',')}]`
+        : ' (orphan — no feature)';
+      const testTag = r.nearest_test ? ` · test: ${r.nearest_test}` : ' · no nearby test';
       lines.push(`  ${r.file} (${r.why})${featureTag}${testTag}`);
     }
   }

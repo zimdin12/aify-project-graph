@@ -1,169 +1,80 @@
 ---
 name: aify-project-graph
-description: Use when working in a repo that has `.aify-graph/` or when you need to understand unfamiliar code structure. Provides graph-based navigation verbs that replace grep and multi-file reads with compact, token-efficient answers. MUST call graph_report on first interaction with an unfamiliar repo. MUST call graph_preflight before editing any symbol with non-trivial fan-in.
+description: Use when working in a repo that has `.aify-graph/` or when you need a project map for orientation, planning, trace, or cross-layer pull. Prefer static briefs first; use live verbs only for precision queries the brief cannot answer.
 ---
 
 # aify-project-graph
 
-This repo has (or can have) a project graph at `.aify-graph/graph.sqlite`.
+This graph is a **map**, not the source of truth. Use it to narrow the search space, then read the real files before changing code.
 
-## The graph is a MAP, not the source of truth
+## Default workflow
 
-Use it to **navigate** — find where things are, who calls what, what the blast radius is. But the map can be stale or incomplete. The workflow is:
+1. **Read a brief first**
+   - `brief.agent.md` for general orientation
+   - `brief.onboard.md` for first-contact onboarding
+   - `brief.plan.md` before a non-trivial change
+2. **Use live verbs only when the brief is not enough**
+3. **Verify in source files before acting**
 
-1. **Navigate with graph** — find the right files, symbols, and relationships
-2. **Verify with file reads** — read the actual code before making decisions
-3. **Act** — edit with confidence because you checked both graph and source
+The benchmark result is clear: briefs usually beat live MCP on orient-shaped tasks. Reach for live verbs when you need precision, not by default.
 
-The graph tells you WHERE to look. The source code tells you WHAT to do. Never skip step 2 for safety-critical changes.
+## Use live verbs for
+
+**Lean profile** (default for Codex/OpenCode install, 3 verbs listed in `tools/list`):
+- `graph_change_plan(symbol="X")` — safe change planning
+- `graph_path(symbol="X")` — execution / route / middleware flow
+- `graph_impact(symbol="X")` — blast radius
+
+**Still callable in lean mode** (by name via `tools/call`, just hidden from `tools/list` to reduce manifest tax):
+- `graph_preflight(symbol="X")` — edit safety gate for high-fan-in symbols
+- `graph_pull(node="X")` — cross-layer pull (code + features + tasks + activity)
+- `graph_find(query="X")` — cross-layer disambiguator (NOT an rg replacement)
+
+**Full profile only** (Claude Code default): `graph_lookup`, `graph_whereis`, `graph_search`, `graph_callers`, `graph_callees`, `graph_neighbors`, `graph_report`, `graph_onboard`, `graph_file`, `graph_module_tree`, `graph_dashboard`, `graph_summary`, `graph_status`, `graph_index`.
+
+## Use grep/read first for
+
+- exact lookup when you already know the area
+- single-file debugging
+- checking real code text, conditions, signatures, comments
+- any situation where trust is weak and the graph may be incomplete
 
 ## Hard rules
 
-1. **MUST** call `graph_report()` on first interaction with an unfamiliar repo.
-2. **MUST** call `graph_preflight(symbol="X")` before editing any symbol with non-trivial fan-in. Follow the decision:
-   - **SAFE** — proceed (but still read the target function).
-   - **REVIEW** — read each caller file before editing.
-   - **CONFIRM** — stop and confirm the change scope with the user before editing.
-3. **Always verify graph results against actual source** before acting on them. The graph shows structure as of the last index — files may have changed since.
-4. **Do NOT** pre-fetch subgraphs "just in case." (Exception: `graph_report()` is the mandatory orientation step.)
-5. **Do NOT** call every verb at session start. The graph builds on first query (may take 1-60s on large repos).
-6. **Do NOT** call `graph_whereis` with a partial name — use `graph_search` instead.
-7. **Do NOT** call graph verbs in parallel — serialize them to avoid lock contention.
-8. If trust shows weak confidence, prefer direct file reads for safety-critical edits.
+- Do not rely on the graph without reading the target files.
+- Do not prefetch lots of graph verbs “just in case.”
+- Do not call graph verbs in parallel.
+- If trust is weak, be more conservative and read more source.
 
-## Typical workflow
+## Good patterns
 
-```
-graph_report()                        → orient: what is this project?
-graph_search(query="dispatch")        → find: where is the dispatch code?
-graph_file(path="service/api_v2.py")  → understand: what does this file do?
-graph_preflight(symbol="get_db")      → safety check: is it safe to edit?
-Read the actual code                  → verify: confirm what the graph told you
-Edit with confidence                  → act: you know the blast radius
-```
+### Orientation
+- read `brief.agent.md`
+- if still fuzzy on full profile: `graph_report()` or `graph_onboard(path="...")`
+- on lean profile: use `graph_pull(node="<subsystem-dir>")` instead — same data across layers
 
-The graph saves you from reading 10 files to find the right 2. Then you read those 2 files properly before acting.
+### Planning a change
+- read `brief.plan.md`
+- call `graph_change_plan(symbol="X")`
+- if the change crosses layers, call `graph_pull(node="X")`
+- read the 1-3 files it points you to
 
-## Graph seems wrong?
+### Trace / routing
+- call `graph_path(symbol="X")`
+- verify the returned files in source
 
-1. `graph_status()` — check trust signals
-2. `graph_index(force=true)` — rebuild from scratch
-3. `graph_status()` again — verify counts
-4. Retry your query
+### Edit safety
+- call `graph_preflight(symbol="X")`
+- obey the SAFE / REVIEW / CONFIRM decision
 
-## Core verbs (use these daily)
+## Reality check
 
-| Situation | Verb |
-|---|---|
-| "What is this project?" | `graph_report()` |
-| "Find a symbol (partial name)" | `graph_search(query="UserCont")` |
-| "Find a symbol (exact name)" | `graph_whereis(symbol="X")` |
-| "Find + edges (quick overview)" | `graph_whereis(symbol="X", expand=true)` |
-| "Everything about this file" | `graph_file(path="service/db.py")` |
-| "Who calls X?" | `graph_callers(symbol="X")` |
-| "Who calls X from this dir only?" | `graph_callers(symbol="X", file="service/")` |
-| "What does X call?" | `graph_callees(symbol="X")` |
-| "Is it safe to edit X?" | `graph_preflight(symbol="X")` |
-| "What breaks if I change X?" | `graph_impact(symbol="X")` |
-| "Trace execution from X" | `graph_path(symbol="X")` |
-| "Trace with all edge types" | `graph_path(symbol="X", mode="dependency")` |
+What the graph does well:
+- repo orientation
+- narrowing a change-reading set
+- showing callers / impact / path / feature context
 
-## Advanced verbs
-
-| Situation | Verb |
-|---|---|
-| "All connections around X" | `graph_neighbors(symbol="X", edge_types=["EXTENDS"])` |
-| "Directory hierarchy" | `graph_module_tree(path="src")` |
-| "Graph health" | `graph_status()` |
-| "Full rebuild" | `graph_index(force=true)` |
-| "Visual browser" | `graph_dashboard()` (human-only, do NOT call automatically) |
-| "Find all Classes" | `graph_search(query="class", type="Class", kind="all")` |
-
-## Key parameters
-
-- **`top_k`** — max results (increase when `TRUNCATED` appears)
-- **`depth`** — hop depth for traversal verbs (1=direct, 2=two hops)
-- **`file`** — scope callers/callees to a directory (e.g. `file="service/"`)
-- **`expand`** — on whereis, include top edges (replaces graph_summary)
-- **`mode`** — on path: `execution` (CALLS+INVOKES) vs `dependency` (all edges)
-- **`kind`** — on search: `code` (default, excludes docs/dirs) vs `all`
-
-## Response format
-
-```
-NODE id type label file:line
-EDGE from_label→to_label RELATION file:line conf=0.95
-TRUNCATED N more (use top_k=20)
-```
-
-Path traces:
-```
-PATH handleRequest src/server.ts:10
-  -> validateToken src/auth.ts:12 conf=0.95
-```
-
-Preflight:
-```
-PREFLIGHT get_db function service/db.py:217
-CALLERS 42 total (top 5): ...
-IMPACT 42 CALLS, 3 REFERENCES, 0 TESTS
-TESTS NONE
-TRUST OK — 12 unresolved edges
-DECISION: CONFIRM — 42 callers across module boundaries
-```
-
-## Confidence scores
-
-- `1.0` — direct syntactic (explicit call, import)
-- `0.8-0.95` — high-confidence inferred
-- `0.6-0.8` — framework-inferred (facades, routes)
-- `0.5-0.6` — structural guess (C++ templates)
-
-## Search tips
-
-- Search is case-insensitive: `user` finds `User`, `UserController`
-- Default kind is `code` — excludes docs/dirs. Use `kind="all"` to include them.
-- `graph_report()` replaces `graph_search + graph_module_tree` for orientation — don't chain all verbs serially.
-- If search returns nothing useful, try a shorter query or use `graph_module_tree` to browse by directory.
-
-## What the graph CANNOT tell you
-
-- **Function signatures and docstrings** — the graph stores structure (who calls what), not code content. Use `Read` for actual code.
-- **Runtime behavior** — dynamic dispatch, reflection, eval, monkey-patching are invisible to static analysis.
-- **What triggers a function with 0 callers** — entry points called by the runtime (event handlers, CLI commands, cron jobs) may not have graph edges. Check the code.
-- **Recent uncommitted changes** — the graph refreshes on git state. Unsaved edits in your editor are not reflected until you query again.
-- **C++ templates** — specialisations like `Foo<int>::bar()` aren't yet extracted as methods. Plain class/method + virtual dispatch works fine.
-
-## Supported languages
-
-12 total via config-driven generic extractor:
-
-- **Code**: Python, JavaScript, TypeScript, PHP (incl. traits/enums/interfaces), C, C++ (incl. out-of-class `Class::method` definitions), Go, Rust, Ruby, Java
-- **Shaders**: GLSL (vert/frag/comp/tesc/tese/geom/mesh/task + Vulkan raytracing stages)
-- **Styles**: CSS (class selectors, keyframes, @import)
-
-## Qualified name queries
-
-When a method is defined out-of-class (common in C++ `.cpp` files), the graph stores it as `ClassName.methodName`. Prefer `graph_whereis(symbol="ChunkRenderer.Render")` over a bare `"Render"` query to disambiguate.
-
-For PHP/Laravel, the module identity is the namespace path (`App.Models.User` for `namespace App\Models; class User`), so `use App\Models\User;` imports resolve correctly.
-
-## Project config: `.aifyignore` and `.aifyinclude`
-
-Projects can override the default indexed-dirs list at repo root:
-
-```
-# .aifyignore — add these to the defaults
-legacy/
-experiments/
-
-# .aifyinclude — un-exclude from the defaults
-build          # include a build/ dir that contains hand-written code
-vendor         # include vendored code (Go-style)
-```
-
-One bare directory name per line. Read at every `graph_index` — no restart required.
-
-## Crash recovery
-
-If a rebuild crashes mid-run (OOM, kill), the next `graph_index` call will detect the partial state and resume from the committed chunks rather than starting over. Cross-file refs for pre-crash files may be incomplete until a clean `graph_index(force=true)`.
+What it does not do:
+- replace file reading
+- know runtime-only behavior
+- guarantee completeness when trust is weak
