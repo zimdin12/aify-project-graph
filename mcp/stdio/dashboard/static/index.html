@@ -17,6 +17,7 @@
     #search-box input:focus { outline: none; border-color: #58a6ff; }
 
     #stats { padding: 12px 16px; border-bottom: 1px solid #30363d; font-size: 12px; color: #8b949e; }
+    #stats .section-title { margin-top: 8px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6e7681; }
     #stats .stat { display: flex; justify-content: space-between; padding: 2px 0; }
     #stats .stat-value { color: #c9d1d9; font-weight: 600; }
 
@@ -59,18 +60,56 @@
       <div class="item"><div class="dot" style="background:#f0883e"></div> Class/Interface</div>
       <div class="item"><div class="dot" style="background:#3fb950"></div> File</div>
       <div class="item"><div class="dot" style="background:#bc8cff"></div> Route/Entrypoint</div>
+      <div class="item"><div class="dot" style="background:#d29922"></div> External boundary</div>
       <div class="item"><div class="dot" style="background:#8b949e"></div> Directory/Config/Doc</div>
+      <div class="item"><div class="dot" style="background:#f2cc60"></div> PASSES_THROUGH</div>
+      <div class="item"><div class="dot" style="background:#58a6ff"></div> CALLS / INVOKES</div>
     </div>
   </div>
   <script>
+    // Per-layer palette (dev-approved 2D multi-layer spec):
+    //   code = muted gray circles
+    //   features = blue rounded-rect
+    //   tasks = amber diamonds
+    //   docs = green hexagons
+    const LAYER_COLORS = {
+      code: '#8b949e',    // muted gray
+      feature: '#58a6ff', // blue
+      task: '#d29922',    // amber
+      doc: '#3fb950',     // green
+    };
+    const LAYER_SHAPES = {
+      code: 'ellipse',
+      feature: 'round-rectangle',
+      task: 'diamond',
+      doc: 'hexagon',
+    };
+
+    // Code-sublayer kind colors — used for code-layer nodes only, to keep
+    // the older type-based palette for code readability. Feature/task/doc
+    // nodes use the layer color only.
     const TYPE_COLORS = {
       Function: '#58a6ff', Method: '#58a6ff', Test: '#58a6ff',
       Class: '#f0883e', Interface: '#f0883e', Type: '#f0883e',
       File: '#3fb950', Module: '#3fb950',
       Route: '#bc8cff', Entrypoint: '#bc8cff',
+      External: '#d29922',
       Directory: '#8b949e', Config: '#8b949e', Document: '#8b949e',
       Schema: '#8b949e', Variable: '#6e7681', Symbol: '#6e7681',
       Repository: '#da3633',
+    };
+
+    const RELATION_COLORS = {
+      PASSES_THROUGH: '#f2cc60',
+      INVOKES: '#58a6ff',
+      CALLS: '#4493f8',
+      REFERENCES: '#8b949e',
+      USES_TYPE: '#7ee787',
+      IMPORTS: '#79c0ff',
+      EXTENDS: '#ffa657',
+      IMPLEMENTS: '#f778ba',
+      TESTS: '#3fb950',
+      default: '#30363d',
     };
 
     const TYPE_SIZES = {
@@ -82,33 +121,68 @@
 
     let cy, allData;
     const activeTypes = new Set();
+    const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
+    let multilayerMode = true; // fetch multilayer by default; fall back to code-only if overlay missing
 
     async function init() {
+      // Try multilayer first; if response is minimal, stay in this mode
+      // and let toggle controls hide empty layers.
       const [graphData, stats] = await Promise.all([
-        fetch('/api/graph').then(r => r.json()),
+        fetch('/api/graph-multilayer').then(r => r.json()).catch(() =>
+          fetch('/api/graph').then(r => r.json())),
         fetch('/api/stats').then(r => r.json()),
       ]);
       allData = graphData;
 
       // Stats
       const statsEl = document.getElementById('stats');
+      const topRelations = stats.relations.slice(0, 5);
       statsEl.innerHTML = `
         <div class="stat"><span>Nodes</span><span class="stat-value">${stats.nodeCount}</span></div>
         <div class="stat"><span>Edges</span><span class="stat-value">${stats.edgeCount}</span></div>
+        <div class="section-title">Top node types</div>
         ${stats.types.map(t => `<div class="stat"><span>${t.type}</span><span class="stat-value">${t.c}</span></div>`).join('')}
+        <div class="section-title">Top relations</div>
+        ${topRelations.map(r => `<div class="stat"><span>${r.relation}</span><span class="stat-value">${r.c}</span></div>`).join('')}
       `;
 
       // Filters
-      const types = [...new Set(graphData.nodes.map(n => n.type))].sort();
-      types.forEach(t => activeTypes.add(t));
+      const isMultilayer = graphData.nodes.length > 0 && 'layer' in graphData.nodes[0];
       const filtersEl = document.getElementById('filters');
-      filtersEl.innerHTML = types.map(t =>
-        `<label><input type="checkbox" checked value="${t}"> ${t} (${graphData.nodes.filter(n => n.type === t).length})</label>`
+      let filterHtml = '';
+
+      if (isMultilayer) {
+        // Layer toggle group (top of filter panel, dev's spec)
+        const layers = ['code', 'feature', 'task', 'doc'];
+        const layerCounts = Object.fromEntries(
+          layers.map(l => [l, graphData.nodes.filter(n => n.layer === l).length])
+        );
+        filterHtml += `<div class="section-title" style="margin-top:0">Layers</div>`;
+        filterHtml += layers
+          .filter(l => layerCounts[l] > 0)
+          .map(l => `<label data-layer="${l}"><input type="checkbox" checked data-layer="${l}"> <span style="color:${LAYER_COLORS[l]};">●</span> ${l} (${layerCounts[l]})</label>`)
+          .join('');
+        filterHtml += `<div class="section-title">Code-node types</div>`;
+      }
+
+      const types = [...new Set(graphData.nodes.map(n => n.kind || n.type))].filter(Boolean).sort();
+      types.forEach(t => activeTypes.add(t));
+      filterHtml += types.map(t =>
+        `<label><input type="checkbox" checked data-type="${t}"> ${t} (${graphData.nodes.filter(n => (n.kind || n.type) === t).length})</label>`
       ).join('');
-      filtersEl.querySelectorAll('input').forEach(cb => {
+      filtersEl.innerHTML = filterHtml;
+
+      filtersEl.querySelectorAll('input[data-layer]').forEach(cb => {
         cb.addEventListener('change', () => {
-          if (cb.checked) activeTypes.add(cb.value);
-          else activeTypes.delete(cb.value);
+          if (cb.checked) activeLayers.add(cb.dataset.layer);
+          else activeLayers.delete(cb.dataset.layer);
+          renderGraph();
+        });
+      });
+      filtersEl.querySelectorAll('input[data-type]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          if (cb.checked) activeTypes.add(cb.dataset.type);
+          else activeTypes.delete(cb.dataset.type);
           renderGraph();
         });
       });
@@ -132,11 +206,48 @@
     }
 
     function renderGraph() {
-      const nodes = allData.nodes.filter(n => activeTypes.has(n.type));
-      const nodeIds = new Set(nodes.map(n => n.id));
-      const edges = allData.edges.filter(e => nodeIds.has(e.from_id) && nodeIds.has(e.to_id));
+      // Detect multilayer payload shape (has `layer` field) vs legacy code-only.
+      const isMultilayer = allData.nodes.length > 0 && 'layer' in allData.nodes[0];
 
-      const elements = [
+      const nodes = isMultilayer
+        ? allData.nodes.filter(n => activeLayers.has(n.layer) && (n.layer !== 'code' || activeTypes.has(n.kind || n.type)))
+        : allData.nodes.filter(n => activeTypes.has(n.type));
+      const nodeIds = new Set(nodes.map(n => n.id));
+      const edges = isMultilayer
+        ? allData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+        : allData.edges.filter(e => nodeIds.has(e.from_id) && nodeIds.has(e.to_id));
+
+      const elements = isMultilayer ? [
+        ...nodes.map(n => ({
+          data: {
+            id: n.id,
+            label: n.label,
+            layer: n.layer,
+            kind: n.kind,
+            type: n.kind,  // compat for legacy styles
+            file_path: n.file_path,
+            start_line: n.start_line,
+            description: n.description,
+            status: n.status,
+            source: n.source,
+            depends_on: n.depends_on,
+            related_to: n.related_to,
+            features: n.features,
+            tags: n.tags,
+          },
+        })),
+        ...edges.map(e => ({
+          data: {
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            relation: e.relation,
+            edge_class: e.edge_class,
+            provenance: e.provenance,
+            confidence: e.confidence,
+          },
+        })),
+      ] : [
         ...nodes.map(n => ({
           data: {
             id: n.id, label: n.label, type: n.type,
@@ -164,20 +275,58 @@
               color: '#c9d1d9',
               'text-outline-color': '#0d1117',
               'text-outline-width': 1.5,
-              'background-color': (ele) => TYPE_COLORS[ele.data('type')] || '#6e7681',
-              width: (ele) => TYPE_SIZES[ele.data('type')] || TYPE_SIZES.default,
-              height: (ele) => TYPE_SIZES[ele.data('type')] || TYPE_SIZES.default,
+              // Layer-first palette: feature/task/doc nodes use layer color.
+              // Code-layer nodes still use per-type color for sub-kind readability.
+              'background-color': (ele) => {
+                const layer = ele.data('layer');
+                if (layer && layer !== 'code') return LAYER_COLORS[layer];
+                return TYPE_COLORS[ele.data('kind') || ele.data('type')] || '#6e7681';
+              },
+              'shape': (ele) => LAYER_SHAPES[ele.data('layer')] || 'ellipse',
+              width: (ele) => {
+                const layer = ele.data('layer');
+                if (layer === 'feature') return 22;
+                if (layer === 'task') return 16;
+                if (layer === 'doc') return 14;
+                return TYPE_SIZES[ele.data('kind') || ele.data('type')] || TYPE_SIZES.default;
+              },
+              height: (ele) => {
+                const layer = ele.data('layer');
+                if (layer === 'feature') return 16;
+                if (layer === 'task') return 16;
+                if (layer === 'doc') return 14;
+                return TYPE_SIZES[ele.data('kind') || ele.data('type')] || TYPE_SIZES.default;
+              },
             },
           },
           {
             selector: 'edge',
             style: {
-              width: 1,
-              'line-color': '#30363d',
-              'target-arrow-color': '#30363d',
+              width: (ele) => ele.data('relation') === 'PASSES_THROUGH' ? 2 : 1.25,
+              'line-color': (ele) => {
+                const cls = ele.data('edge_class');
+                if (cls === 'cross-layer') {
+                  // Curated vs inferred distinction per dev's ask
+                  return ele.data('provenance') === 'curated' ? '#58a6ff' : '#7ee787';
+                }
+                return RELATION_COLORS[ele.data('relation')] || RELATION_COLORS.default;
+              },
+              'line-style': (ele) => {
+                if (ele.data('edge_class') === 'cross-layer') {
+                  return ele.data('provenance') === 'curated' ? 'dashed' : 'dotted';
+                }
+                return 'solid';
+              },
+              'target-arrow-color': (ele) => {
+                const cls = ele.data('edge_class');
+                if (cls === 'cross-layer') {
+                  return ele.data('provenance') === 'curated' ? '#58a6ff' : '#7ee787';
+                }
+                return RELATION_COLORS[ele.data('relation')] || RELATION_COLORS.default;
+              },
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
-              opacity: 0.5,
+              opacity: (ele) => ele.data('edge_class') === 'cross-layer' ? 0.45 : 0.7,
             },
           },
           {
@@ -195,6 +344,15 @@
               width: 2,
               opacity: 1,
             },
+          },
+          // Hooks for dev's interaction layer (selected-node neighborhood mode)
+          {
+            selector: '.dimmed',
+            style: { opacity: 0.15 },
+          },
+          {
+            selector: '.highlighted',
+            style: { 'border-width': 3, 'border-color': '#58a6ff', 'z-index': 10 },
           },
         ],
         layout: {
@@ -214,19 +372,20 @@
       if (!data.node) return;
       const n = data.node;
       const detail = document.getElementById('node-detail');
+      const renderLocation = (filePath, line) => filePath ? `${filePath}:${line}` : 'external';
       detail.innerHTML = `
         <h3>${n.label}</h3>
         <div class="field"><span class="field-label">Type:</span> ${n.type}</div>
-        <div class="field"><span class="field-label">File:</span> ${n.file_path}:${n.start_line}</div>
+        <div class="field"><span class="field-label">File:</span> ${renderLocation(n.file_path, n.start_line)}</div>
         <div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>
         <div class="field"><span class="field-label">Confidence:</span> ${n.confidence}</div>
         <div class="edge-list">
           <h3>Incoming (${data.incoming.length})</h3>
-          ${data.incoming.map(e => `<div class="edge-item" onclick="focusNode('${e.from_id}')">${e.relation} from ${e.from_id.split('/').pop()} (${e.source_file}:${e.source_line})</div>`).join('')}
+          ${data.incoming.map(e => `<div class="edge-item" onclick="focusNode('${e.from_id}')">${e.relation} from ${e.from_label} [${e.from_type}] (${renderLocation(e.from_file, e.from_line)})</div>`).join('')}
         </div>
         <div class="edge-list">
           <h3>Outgoing (${data.outgoing.length})</h3>
-          ${data.outgoing.map(e => `<div class="edge-item" onclick="focusNode('${e.to_id}')">${e.relation} to ${e.to_id.split('/').pop()} (${e.source_file}:${e.source_line})</div>`).join('')}
+          ${data.outgoing.map(e => `<div class="edge-item" onclick="focusNode('${e.to_id}')">${e.relation} to ${e.to_label} [${e.to_type}] (${renderLocation(e.to_file, e.to_line)})</div>`).join('')}
         </div>
       `;
     }
