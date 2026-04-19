@@ -119,6 +119,25 @@ graph_report()    # should return a compact project orientation
 
 If you see tool not found errors, the config didn't take effect — recheck the path (absolute, forward slashes) and that the runtime was fully restarted.
 
+### 6. Day-1 setup: build the functionality overlay
+
+**This step is not optional if you want the planning briefs to do work.** The empty-overlay case was measured (2026-04-19 deep bench): `brief.plan.md` shrinks to ~70 tokens of headers with no action-bearing content, and brief-only loses tokens vs live MCP on plan tasks. With a populated `.aify-graph/functionality.json`, plan briefs gain `open:/tests:/load:` per feature and brief-only wins plan tasks −19% tokens / −28% duration.
+
+On Claude Code:
+```
+/graph-map-functionality
+```
+The skill reads the graph, drafts a `functionality.json` with feature anchors, and shows a diff for the user to accept. Takes 1-2 minutes and one user review pass.
+
+On Codex/OpenCode (no skill support):
+```bash
+cp <target-path>/docs/examples/functionality.sample.json <target-repo>/.aify-graph/functionality.json
+# hand-edit to match the user's feature mental model
+node <target-path>/scripts/graph-brief.mjs <target-repo>   # regenerate briefs
+```
+
+Check the result: `brief.plan.md` should now have a FEATURES section with `open:` / `tests:` / `load:` lines per feature. If it's thin (~70 tokens), the overlay is empty and the above step was skipped or failed.
+
 ## Using it afterwards
 
 Key verbs — invoke on demand, not all at session start:

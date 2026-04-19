@@ -164,7 +164,12 @@ const REPOS = {
         }
       : {
           type: 'orient',
-          entrypoint: [/mem0\/memory\/main\.py/i, /mem0\/memory\//i, /mem0\/__init__\.py/i],
+          entrypoint: [/mem0\/memory\/main\.py/i, /mem0\/memory\//i, /mem0\/__init__\.py/i, /openmemory\/api\/(main|app)/i, /openmemory\/api\/app\/routers/i],
+          // Broadened 2026-04-19: mem0-fork is a split-package repo. Real
+          // answers live under both mem0/ (the library) and openmemory/ (the
+          // API wrapper). Strict mem0-only rubric produced 0/3 artifacts;
+          // semantic-valid answers (openmemory/api/app/utils/enhanced_memory.py
+          // as orchestrator etc.) are correct for "core memory pipeline."
           subsystemRoots: [
             'mem0/memory',
             'mem0/vector_stores',
@@ -172,6 +177,9 @@ const REPOS = {
             'mem0/llms',
             'mem0/embeddings',
             'mem0/utils',
+            'openmemory/api/app/utils',
+            'openmemory/api/app/routers',
+            'openmemory/api/app',
           ],
         },
   },

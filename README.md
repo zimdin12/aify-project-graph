@@ -57,6 +57,8 @@ The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product 
 
 ## Static briefs & overlays
 
+**Measured (2026-04-19, 48 live codex runs across 4 languages):** brief-only delivery is **1.5–2.9× faster wall-clock** and **17–35% cheaper in tokens** than live lean-MCP on orient tasks. Wall-clock speed-up is the bigger story: no shell round-trips, no model reasoning loop to pick the right tool — the agent reads once and answers. Full matrix at [docs/dogfood/ab-results-2026-04-19-deep-summary.md](docs/dogfood/ab-results-2026-04-19-deep-summary.md).
+
 Five artifacts generated at `.aify-graph/` on every index:
 
 - **`brief.md`** (~500 tok, human-readable) — full orientation: snapshot, entrypoints, subsystems, features, hubs with role tags, read-first list, tests, risks, recent activity.
@@ -67,7 +69,9 @@ Five artifacts generated at `.aify-graph/` on every index:
 
 Briefs are **cache-discipline stable** — deterministic ordering, no timestamps in the agent brief, files only rewritten when content actually changes. Prefix-cache survives across sessions while HEAD doesn't move.
 
-### Functionality overlay (L2)
+### Functionality overlay (L2) — load-bearing, set up day one
+
+> **`functionality.json` is the overlay that makes briefs work on plan tasks.** Without it, `brief.plan.md` is ~70 tokens of headers with no action-bearing content. With it, per-feature "open this file, tests are here, N callers" guidance appears and brief-only wins plan tasks by −19% tokens / −28% duration (bench data 2026-04-19). **Recommended:** run `/graph-map-functionality` in Claude Code (or hand-author from the sample) on day one of using aify-project-graph.
 
 Drop `.aify-graph/functionality.json` in any repo to map **user-defined features** to code:
 

@@ -269,7 +269,7 @@ const TOOLS = [
   {
     name: 'graph_find',
     handler: graphFind,
-    description: 'Fast cross-layer text search across code symbols, functionality features, tasks, and docs. Returns ranked hits per layer + flat top-N. Use for "find anything matching X" questions.',
+    description: 'Cross-layer disambiguator: one query returns matches across code + features + tasks + docs in one ranked response. Use when you want to know "what does X refer to across layers?" — NOT as an rg replacement for text search (rg is faster for pure code text).',
     schema: {
       type: 'object',
       properties: {
