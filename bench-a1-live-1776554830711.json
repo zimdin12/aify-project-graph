@@ -1,0 +1,226 @@
+{
+  "results": [
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 187462,
+      "effTok": 40720,
+      "score": {
+        "target_ok": true,
+        "caller_ok": false,
+        "test_ok": true,
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 36,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/ingest/resolver.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 148252,
+      "effTok": 92030,
+      "score": {
+        "target_ok": true,
+        "caller_ok": true,
+        "test_ok": true,
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 35,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/server.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 129376,
+      "effTok": 94817,
+      "score": {
+        "target_ok": true,
+        "caller_ok": true,
+        "test_ok": true,
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 26,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js (the primary file to edit)\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/server.js (one file most at risk of breaking)\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 157967,
+      "effTok": 86483,
+      "score": {
+        "target_ok": true,
+        "caller_ok": true,
+        "test_ok": true,
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 17,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/server.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 151201,
+      "effTok": 102473,
+      "score": {
+        "target_ok": true,
+        "caller_ok": false,
+        "test_ok": true,
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 27,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/ingest/extractors/generic.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 1,
+      "dur": 1897,
+      "effTok": null,
+      "score": {
+        "target_ok": true,
+        "caller_ok": false,
+        "test_ok": true,
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 0,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/ingest/extractors/generic.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "aify-project-graph/brief-only": [
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 187462,
+        "effTok": 40720,
+        "score": {
+          "target_ok": true,
+          "caller_ok": false,
+          "test_ok": true,
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 36,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/ingest/resolver.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 148252,
+        "effTok": 92030,
+        "score": {
+          "target_ok": true,
+          "caller_ok": true,
+          "test_ok": true,
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 35,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/server.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 129376,
+        "effTok": 94817,
+        "score": {
+          "target_ok": true,
+          "caller_ok": true,
+          "test_ok": true,
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 26,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js (the primary file to edit)\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/server.js (one file most at risk of breaking)\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      }
+    ],
+    "aify-project-graph/lean-mcp": [
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 157967,
+        "effTok": 86483,
+        "score": {
+          "target_ok": true,
+          "caller_ok": true,
+          "test_ok": true,
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 17,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/server.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 151201,
+        "effTok": 102473,
+        "score": {
+          "target_ok": true,
+          "caller_ok": false,
+          "test_ok": true,
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 27,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/ingest/extractors/generic.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 1,
+        "dur": 1897,
+        "effTok": null,
+        "score": {
+          "target_ok": true,
+          "caller_ok": false,
+          "test_ok": true,
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 0,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nCALLERS: tests/integration/verbs.test.js:70, tests/integration/verbs.test.js:78, tests/integration/verbs.test.js:87\nREGRESSION_RISK: mcp/stdio/ingest/extractors/generic.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      }
+    ]
+  }
+}

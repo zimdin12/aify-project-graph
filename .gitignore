@@ -6,3 +6,4 @@ coverage/
 vendor/
 .tmp/
 .claude/
+bench-a1-live-*.json

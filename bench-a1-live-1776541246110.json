@@ -1,0 +1,272 @@
+{
+  "results": [
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 14556,
+      "effTok": 38710,
+      "score": {
+        "entry_ok": false,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "mcp/stdio/ingest"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 0,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/query/verbs/index.js\nSUBSYSTEM: mcp/stdio/ingest - language extraction, resolution, sweep, and fingerprinting feed the graph build\nSUBSYSTEM: mcp/stdio - stdio-facing MCP runtime layer, freshness orchestration, storage, and query rendering\nSUBSYSTEM: . - core aify-project-graph package/root subsystem that ties the indexed project graph together",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 10538,
+      "effTok": 41932,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "mcp/stdio/ingest",
+          "mcp/stdio/query"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 0,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/ingest - builds the code graph by sweeping files, extracting symbols, and resolving edges\nSUBSYSTEM: mcp/stdio/query - exposes the graph_* verbs and renders query results for MCP clients\nSUBSYSTEM: mcp/stdio - hosts the stdio MCP runtime, orchestration, freshness checks, and DB wiring",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 9416,
+      "effTok": 41758,
+      "score": {
+        "entry_ok": false,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/ingest",
+          "mcp/stdio/query",
+          "mcp/stdio/storage"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 0,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/query/verbs/index.js\nSUBSYSTEM: mcp/stdio/ingest - language extraction and graph-building pipeline\nSUBSYSTEM: mcp/stdio/query - MCP verb layer and compact result rendering\nSUBSYSTEM: mcp/stdio/storage - SQLite graph persistence via `openDb` and related DB access",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 38382,
+      "effTok": 49110,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/query",
+          "mcp/stdio/ingest",
+          "mcp/stdio/freshness"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [
+        "aify-project-graph.graph_report"
+      ],
+      "commands": 7,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query - MCP-facing verb layer; `server.js` registers `graph_*` tools here for report, path, impact, file, and onboarding queries\nSUBSYSTEM: mcp/stdio/ingest - graph construction pipeline; language configs, extractors, sweeps, framework plugins, and resolver logic turn repo files into nodes and edges\nSUBSYSTEM: mcp/stdio/freshness - indexing coordinator; `ensureFresh` decides rebuild vs incremental update, manages manifest/lock/git state, and keeps the graph current",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 29165,
+      "effTok": 56625,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/ingest",
+          "mcp/stdio/freshness",
+          "mcp/stdio/query"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 6,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/ingest - parses repo files across supported languages/frameworks and emits graph nodes/edges from source\nSUBSYSTEM: mcp/stdio/freshness - manages manifest/git-based freshness checks and orchestrates incremental or full reindexing\nSUBSYSTEM: mcp/stdio/query - implements the MCP-facing verbs that read the SQLite graph and return onboarding/impact/path reports",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 39368,
+      "effTok": 60847,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/query",
+          "mcp/stdio/ingest",
+          "mcp/stdio/storage"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 12,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query - MCP tool surface; `server.js` wires graph verbs here and handlers like `report`, `path`, and `preflight` serve the runtime\nSUBSYSTEM: mcp/stdio/ingest - indexing pipeline; tree-sitter language configs, extractors, filesystem sweep, framework plugins, and ref resolution build the graph\nSUBSYSTEM: mcp/stdio/storage - SQLite persistence layer; schema plus node/edge/db modules store and query the graph state across sessions",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "aify-project-graph/brief-only": [
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 14556,
+        "effTok": 38710,
+        "score": {
+          "entry_ok": false,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "mcp/stdio/ingest"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 0,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/query/verbs/index.js\nSUBSYSTEM: mcp/stdio/ingest - language extraction, resolution, sweep, and fingerprinting feed the graph build\nSUBSYSTEM: mcp/stdio - stdio-facing MCP runtime layer, freshness orchestration, storage, and query rendering\nSUBSYSTEM: . - core aify-project-graph package/root subsystem that ties the indexed project graph together",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 10538,
+        "effTok": 41932,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "mcp/stdio/ingest",
+            "mcp/stdio/query"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 0,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/ingest - builds the code graph by sweeping files, extracting symbols, and resolving edges\nSUBSYSTEM: mcp/stdio/query - exposes the graph_* verbs and renders query results for MCP clients\nSUBSYSTEM: mcp/stdio - hosts the stdio MCP runtime, orchestration, freshness checks, and DB wiring",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 9416,
+        "effTok": 41758,
+        "score": {
+          "entry_ok": false,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/ingest",
+            "mcp/stdio/query",
+            "mcp/stdio/storage"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 0,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/query/verbs/index.js\nSUBSYSTEM: mcp/stdio/ingest - language extraction and graph-building pipeline\nSUBSYSTEM: mcp/stdio/query - MCP verb layer and compact result rendering\nSUBSYSTEM: mcp/stdio/storage - SQLite graph persistence via `openDb` and related DB access",
+        "stderr": ""
+      }
+    ],
+    "aify-project-graph/lean-mcp": [
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 38382,
+        "effTok": 49110,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/query",
+            "mcp/stdio/ingest",
+            "mcp/stdio/freshness"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [
+          "aify-project-graph.graph_report"
+        ],
+        "commands": 7,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query - MCP-facing verb layer; `server.js` registers `graph_*` tools here for report, path, impact, file, and onboarding queries\nSUBSYSTEM: mcp/stdio/ingest - graph construction pipeline; language configs, extractors, sweeps, framework plugins, and resolver logic turn repo files into nodes and edges\nSUBSYSTEM: mcp/stdio/freshness - indexing coordinator; `ensureFresh` decides rebuild vs incremental update, manages manifest/lock/git state, and keeps the graph current",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 29165,
+        "effTok": 56625,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/ingest",
+            "mcp/stdio/freshness",
+            "mcp/stdio/query"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 6,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/ingest - parses repo files across supported languages/frameworks and emits graph nodes/edges from source\nSUBSYSTEM: mcp/stdio/freshness - manages manifest/git-based freshness checks and orchestrates incremental or full reindexing\nSUBSYSTEM: mcp/stdio/query - implements the MCP-facing verbs that read the SQLite graph and return onboarding/impact/path reports",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 39368,
+        "effTok": 60847,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/query",
+            "mcp/stdio/ingest",
+            "mcp/stdio/storage"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 12,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query - MCP tool surface; `server.js` wires graph verbs here and handlers like `report`, `path`, and `preflight` serve the runtime\nSUBSYSTEM: mcp/stdio/ingest - indexing pipeline; tree-sitter language configs, extractors, filesystem sweep, framework plugins, and ref resolution build the graph\nSUBSYSTEM: mcp/stdio/storage - SQLite persistence layer; schema plus node/edge/db modules store and query the graph state across sessions",
+        "stderr": ""
+      }
+    ]
+  }
+}

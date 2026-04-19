@@ -1,0 +1,319 @@
+{
+  "taskShape": "orient",
+  "results": [
+    {
+      "repoId": "echoes",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 37478,
+      "effTok": 61584,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "engine/voxel",
+          "engine/core",
+          "engine/rendering"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/voxel - core gameplay world state lives here, including voxel edits and chunk/simulation interactions\nSUBSYSTEM: engine/core - this is the engine orchestration layer where gameplay systems likely hook into lifecycle and shared runtime services\nSUBSYSTEM: engine/rendering - gameplay work needs render integration for visible state changes, debugging, and player feedback",
+      "stderr": ""
+    },
+    {
+      "repoId": "echoes",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 42158,
+      "effTok": 61887,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "engine/voxel",
+          "engine/core",
+          "engine/rendering"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/voxel - gameplay world state, chunk edits, and `WorldBuffer`-driven simulation live here\nSUBSYSTEM: engine/core - the main engine loop and shared runtime plumbing connect gameplay systems into the app\nSUBSYSTEM: engine/rendering - gameplay changes usually need render-side integration for world feedback and visibility",
+      "stderr": ""
+    },
+    {
+      "repoId": "echoes",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 34777,
+      "effTok": 58565,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "engine/voxel",
+          "engine/core",
+          "engine/rendering"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/voxel - core gameplay world state, chunk edits, and simulation-facing voxel data live here\nSUBSYSTEM: engine/core - engine lifecycle and shared runtime services that gameplay systems plug into\nSUBSYSTEM: engine/rendering - gameplay features usually need a render integration path to become visible in-game",
+      "stderr": ""
+    },
+    {
+      "repoId": "echoes",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 84571,
+      "effTok": 46184,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "engine/core/engine_gameplay.cpp",
+          "game/ecs/gamecomponents.h",
+          "game/systems/voxelinteractionsystem.cpp"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 14,
+      "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/core/Engine_gameplay.cpp - engine-side gameplay loop; owns world ticking, new game/load/save, resets, and the callbacks that bridge engine to game logic\nSUBSYSTEM: game/ecs/GameComponents.h - defines the gameplay state model you will edit: health, skills, inventory, magic, status effects, voxel interaction, and AI-facing components\nSUBSYSTEM: game/systems/VoxelInteractionSystem.cpp - high-value gameplay system example; touches mining, placing, combat, loot, particles, sounds, and skill XP against the voxel world",
+      "stderr": ""
+    },
+    {
+      "repoId": "echoes",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 91577,
+      "effTok": 105098,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "engine/core/engine_gameplay.cpp",
+          "game/ecs/gamecomponents.h",
+          "game/systems/"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 15,
+      "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/core/Engine_gameplay.cpp - engine-side gameplay loop, state transitions, save/load, and the callback seam into game code\nSUBSYSTEM: game/ecs/GameComponents.h - core gameplay state model for player, health, skills, inventory, gear, magic, and status effects\nSUBSYSTEM: game/systems/ - concrete ECS gameplay systems (movement, voxel interaction, skills, inventory, death, mobs) registered from `game/main.cpp`",
+      "stderr": ""
+    },
+    {
+      "repoId": "echoes",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 108919,
+      "effTok": 94917,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "engine/core/engine_gameplay.cpp",
+          "game/ecs/gamecomponents.h",
+          "game/systems/voxelinteractionsystem.cpp"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [
+        "aify-comms.comms_register",
+        "aify-comms.comms_channel_join",
+        "aify-comms.comms_channel_join"
+      ],
+      "commands": 19,
+      "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/core/Engine_gameplay.cpp - owns the per-frame Playing loop after startup and is the engine-side bridge into ECS progression, callbacks, save/load, and mob/gameplay ticks\nSUBSYSTEM: game/ecs/GameComponents.h - defines the gameplay ECS data model that every player, skill, inventory, status, death, and magic system shares\nSUBSYSTEM: game/systems/VoxelInteractionSystem.cpp - best concrete gameplay seam into the voxel world: combat, mining, placement, loot, and skill XP through raycasts and ChunkManager",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "echoes/orient/brief-only": [
+      {
+        "repoId": "echoes",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 37478,
+        "effTok": 61584,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "engine/voxel",
+            "engine/core",
+            "engine/rendering"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/voxel - core gameplay world state lives here, including voxel edits and chunk/simulation interactions\nSUBSYSTEM: engine/core - this is the engine orchestration layer where gameplay systems likely hook into lifecycle and shared runtime services\nSUBSYSTEM: engine/rendering - gameplay work needs render integration for visible state changes, debugging, and player feedback",
+        "stderr": ""
+      },
+      {
+        "repoId": "echoes",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 42158,
+        "effTok": 61887,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "engine/voxel",
+            "engine/core",
+            "engine/rendering"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/voxel - gameplay world state, chunk edits, and `WorldBuffer`-driven simulation live here\nSUBSYSTEM: engine/core - the main engine loop and shared runtime plumbing connect gameplay systems into the app\nSUBSYSTEM: engine/rendering - gameplay changes usually need render-side integration for world feedback and visibility",
+        "stderr": ""
+      },
+      {
+        "repoId": "echoes",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 34777,
+        "effTok": 58565,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "engine/voxel",
+            "engine/core",
+            "engine/rendering"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/voxel - core gameplay world state, chunk edits, and simulation-facing voxel data live here\nSUBSYSTEM: engine/core - engine lifecycle and shared runtime services that gameplay systems plug into\nSUBSYSTEM: engine/rendering - gameplay features usually need a render integration path to become visible in-game",
+        "stderr": ""
+      }
+    ],
+    "echoes/orient/lean-mcp": [
+      {
+        "repoId": "echoes",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 84571,
+        "effTok": 46184,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "engine/core/engine_gameplay.cpp",
+            "game/ecs/gamecomponents.h",
+            "game/systems/voxelinteractionsystem.cpp"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 14,
+        "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/core/Engine_gameplay.cpp - engine-side gameplay loop; owns world ticking, new game/load/save, resets, and the callbacks that bridge engine to game logic\nSUBSYSTEM: game/ecs/GameComponents.h - defines the gameplay state model you will edit: health, skills, inventory, magic, status effects, voxel interaction, and AI-facing components\nSUBSYSTEM: game/systems/VoxelInteractionSystem.cpp - high-value gameplay system example; touches mining, placing, combat, loot, particles, sounds, and skill XP against the voxel world",
+        "stderr": ""
+      },
+      {
+        "repoId": "echoes",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 91577,
+        "effTok": 105098,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "engine/core/engine_gameplay.cpp",
+            "game/ecs/gamecomponents.h",
+            "game/systems/"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 15,
+        "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/core/Engine_gameplay.cpp - engine-side gameplay loop, state transitions, save/load, and the callback seam into game code\nSUBSYSTEM: game/ecs/GameComponents.h - core gameplay state model for player, health, skills, inventory, gear, magic, and status effects\nSUBSYSTEM: game/systems/ - concrete ECS gameplay systems (movement, voxel interaction, skills, inventory, death, mobs) registered from `game/main.cpp`",
+        "stderr": ""
+      },
+      {
+        "repoId": "echoes",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 108919,
+        "effTok": 94917,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "engine/core/engine_gameplay.cpp",
+            "game/ecs/gamecomponents.h",
+            "game/systems/voxelinteractionsystem.cpp"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [
+          "aify-comms.comms_register",
+          "aify-comms.comms_channel_join",
+          "aify-comms.comms_channel_join"
+        ],
+        "commands": 19,
+        "finalAnswer": "ENTRYPOINT: game/main.cpp\nSUBSYSTEM: engine/core/Engine_gameplay.cpp - owns the per-frame Playing loop after startup and is the engine-side bridge into ECS progression, callbacks, save/load, and mob/gameplay ticks\nSUBSYSTEM: game/ecs/GameComponents.h - defines the gameplay ECS data model that every player, skill, inventory, status, death, and magic system shares\nSUBSYSTEM: game/systems/VoxelInteractionSystem.cpp - best concrete gameplay seam into the voxel world: combat, mining, placement, loot, and skill XP through raycasts and ChunkManager",
+        "stderr": ""
+      }
+    ]
+  }
+}

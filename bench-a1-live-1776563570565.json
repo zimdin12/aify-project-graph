@@ -1,0 +1,491 @@
+{
+  "taskShape": "plan",
+  "results": [
+    {
+      "repoId": "lc-api",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 87731,
+      "effTok": 72740,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "routes/api_v1.php (route `GET /company-details/{company}` is introduced here)"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (country-specific branching and response orchestration are concentrated here)"
+          },
+          "TESTS_TO_RUN": {
+            "ok": false,
+            "value": "tests/Feature/CompanyDetailsApiTest.php"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 13,
+      "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)\nENTRY_OR_WIRING: routes/api_v1.php (route `GET /company-details/{company}` is introduced here)\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php (country-specific branching and response orchestration are concentrated here)\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 94906,
+      "effTok": 74564,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "routes/api_v1.php"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "TESTS_TO_RUN": {
+            "ok": false,
+            "value": "tests/Feature/CompanyDetailsApiTest.php"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 10,
+      "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 156729,
+      "effTok": 91763,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "routes/api_v1.php"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "TESTS_TO_RUN": {
+            "ok": false,
+            "value": "tests/Feature/CompanyDetailsApiTest.php"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 20,
+      "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 152307,
+      "effTok": 88756,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "routes/api_v1.php"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "TESTS_TO_RUN": {
+            "ok": false,
+            "value": "tests/Feature/CompanyDetailsApiTest.php"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "high"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 19,
+      "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: high",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 69192,
+      "effTok": 71664,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "routes/api_v1.php (route or provider file that introduces the flow)"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (one middleware/controller file most at risk)"
+          },
+          "TESTS_TO_RUN": {
+            "ok": false,
+            "value": "tests/Feature/CompanyDetailsApiTest.php"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "high"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 9,
+      "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)\nENTRY_OR_WIRING: routes/api_v1.php (route or provider file that introduces the flow)\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php (one middleware/controller file most at risk)\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: high",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 123922,
+      "effTok": 34210,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "routes/api_v1.php"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+          },
+          "TESTS_TO_RUN": {
+            "ok": false,
+            "value": "tests/Feature"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "high"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 18,
+      "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature\nCONFIDENCE: high",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "lc-api/plan/brief-only": [
+      {
+        "repoId": "lc-api",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 87731,
+        "effTok": 72740,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "routes/api_v1.php (route `GET /company-details/{company}` is introduced here)"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (country-specific branching and response orchestration are concentrated here)"
+            },
+            "TESTS_TO_RUN": {
+              "ok": false,
+              "value": "tests/Feature/CompanyDetailsApiTest.php"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 13,
+        "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)\nENTRY_OR_WIRING: routes/api_v1.php (route `GET /company-details/{company}` is introduced here)\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php (country-specific branching and response orchestration are concentrated here)\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 94906,
+        "effTok": 74564,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "routes/api_v1.php"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "TESTS_TO_RUN": {
+              "ok": false,
+              "value": "tests/Feature/CompanyDetailsApiTest.php"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 10,
+        "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 156729,
+        "effTok": 91763,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "routes/api_v1.php"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "TESTS_TO_RUN": {
+              "ok": false,
+              "value": "tests/Feature/CompanyDetailsApiTest.php"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 20,
+        "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: medium",
+        "stderr": ""
+      }
+    ],
+    "lc-api/plan/lean-mcp": [
+      {
+        "repoId": "lc-api",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 152307,
+        "effTok": 88756,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "routes/api_v1.php"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "TESTS_TO_RUN": {
+              "ok": false,
+              "value": "tests/Feature/CompanyDetailsApiTest.php"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "high"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 19,
+        "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: high",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 69192,
+        "effTok": 71664,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "routes/api_v1.php (route or provider file that introduces the flow)"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php (one middleware/controller file most at risk)"
+            },
+            "TESTS_TO_RUN": {
+              "ok": false,
+              "value": "tests/Feature/CompanyDetailsApiTest.php"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "high"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 9,
+        "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php (the primary file to edit first)\nENTRY_OR_WIRING: routes/api_v1.php (route or provider file that introduces the flow)\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php (one middleware/controller file most at risk)\nTESTS_TO_RUN: tests/Feature/CompanyDetailsApiTest.php\nCONFIDENCE: high",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 123922,
+        "effTok": 34210,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "routes/api_v1.php"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "app/Http/Controllers/Api/Company/CompanyDetailsController.php"
+            },
+            "TESTS_TO_RUN": {
+              "ok": false,
+              "value": "tests/Feature"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "high"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 18,
+        "finalAnswer": "TARGET_FILE: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nENTRY_OR_WIRING: routes/api_v1.php\nREGRESSION_RISK: app/Http/Controllers/Api/Company/CompanyDetailsController.php\nTESTS_TO_RUN: tests/Feature\nCONFIDENCE: high",
+        "stderr": ""
+      }
+    ]
+  }
+}

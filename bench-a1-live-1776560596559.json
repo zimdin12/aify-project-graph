@@ -1,0 +1,274 @@
+{
+  "results": [
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 40220,
+      "effTok": 58384,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/query/verbs",
+          "mcp/stdio/ingest/languages",
+          "mcp/stdio/ingest"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - implements the MCP query surface, including graph lookup/path-style verbs\nSUBSYSTEM: mcp/stdio/ingest/languages - holds language-specific extraction logic for building the code graph\nSUBSYSTEM: mcp/stdio/ingest - runs the core ingest pipeline that resolves, walks, and digests source into graph data",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 49317,
+      "effTok": 58579,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/query/verbs",
+          "mcp/stdio/ingest/languages",
+          "mcp/stdio/ingest"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - largest query-facing surface; implements the MCP graph verbs clients call\nSUBSYSTEM: mcp/stdio/ingest/languages - language-specific extraction layer for building the code graph across supported languages\nSUBSYSTEM: mcp/stdio/ingest - core ingest pipeline that walks, digests, resolves, and stores graph data",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 36035,
+      "effTok": 58086,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/query/verbs",
+          "mcp/stdio/ingest/languages",
+          "mcp/stdio/ingest"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - MCP query layer; implements the exposed graph verbs such as lookup/path/report\nSUBSYSTEM: mcp/stdio/ingest/languages - language-specific extraction; parses JS/PHP/Python into graph symbols and edges\nSUBSYSTEM: mcp/stdio/ingest - core indexing pipeline; walks files, resolves symbols, and feeds storage/freshness",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 106580,
+      "effTok": 78625,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/query/verbs",
+          "mcp/stdio/freshness",
+          "mcp/stdio/ingest"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 12,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - defines the `graph_*` MCP handlers, so this is the agent-facing query surface\nSUBSYSTEM: mcp/stdio/freshness - coordinates auto-indexing, git/file change detection, and incremental rebuilds before queries run\nSUBSYSTEM: mcp/stdio/ingest - does tree-sitter extraction, cross-file resolution, and framework-aware graph building",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 88555,
+      "effTok": 82131,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/query/verbs",
+          "mcp/stdio/ingest/languages",
+          "mcp/stdio/ingest"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 13,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - the user-facing MCP tool handlers live here; `server.js` dispatches almost every verb from this folder\nSUBSYSTEM: mcp/stdio/ingest/languages - per-language tree-sitter configs/extractors define what symbols and edges the graph can index\nSUBSYSTEM: mcp/stdio/ingest - the generic indexing pipeline walks files, runs extraction/plugins, and resolves cross-file references",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 83941,
+      "effTok": 89700,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 3,
+        "subsystems": [
+          "mcp/stdio/freshness",
+          "mcp/stdio/ingest",
+          "mcp/stdio/query"
+        ],
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 15,
+      "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/freshness - owns ensureFresh, rebuild vs incremental reindex decisions, manifest/git checks, and query-time freshness\nSUBSYSTEM: mcp/stdio/ingest - extracts files into nodes/edges/refs via sweep, language configs, extractors, and resolver\nSUBSYSTEM: mcp/stdio/query - implements the MCP query surface, ranking, budgeting, and compact result rendering",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "aify-project-graph/brief-only": [
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 40220,
+        "effTok": 58384,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/query/verbs",
+            "mcp/stdio/ingest/languages",
+            "mcp/stdio/ingest"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - implements the MCP query surface, including graph lookup/path-style verbs\nSUBSYSTEM: mcp/stdio/ingest/languages - holds language-specific extraction logic for building the code graph\nSUBSYSTEM: mcp/stdio/ingest - runs the core ingest pipeline that resolves, walks, and digests source into graph data",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 49317,
+        "effTok": 58579,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/query/verbs",
+            "mcp/stdio/ingest/languages",
+            "mcp/stdio/ingest"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - largest query-facing surface; implements the MCP graph verbs clients call\nSUBSYSTEM: mcp/stdio/ingest/languages - language-specific extraction layer for building the code graph across supported languages\nSUBSYSTEM: mcp/stdio/ingest - core ingest pipeline that walks, digests, resolves, and stores graph data",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 36035,
+        "effTok": 58086,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/query/verbs",
+            "mcp/stdio/ingest/languages",
+            "mcp/stdio/ingest"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - MCP query layer; implements the exposed graph verbs such as lookup/path/report\nSUBSYSTEM: mcp/stdio/ingest/languages - language-specific extraction; parses JS/PHP/Python into graph symbols and edges\nSUBSYSTEM: mcp/stdio/ingest - core indexing pipeline; walks files, resolves symbols, and feeds storage/freshness",
+        "stderr": ""
+      }
+    ],
+    "aify-project-graph/lean-mcp": [
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 106580,
+        "effTok": 78625,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/query/verbs",
+            "mcp/stdio/freshness",
+            "mcp/stdio/ingest"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 12,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - defines the `graph_*` MCP handlers, so this is the agent-facing query surface\nSUBSYSTEM: mcp/stdio/freshness - coordinates auto-indexing, git/file change detection, and incremental rebuilds before queries run\nSUBSYSTEM: mcp/stdio/ingest - does tree-sitter extraction, cross-file resolution, and framework-aware graph building",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 88555,
+        "effTok": 82131,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/query/verbs",
+            "mcp/stdio/ingest/languages",
+            "mcp/stdio/ingest"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 13,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/query/verbs - the user-facing MCP tool handlers live here; `server.js` dispatches almost every verb from this folder\nSUBSYSTEM: mcp/stdio/ingest/languages - per-language tree-sitter configs/extractors define what symbols and edges the graph can index\nSUBSYSTEM: mcp/stdio/ingest - the generic indexing pipeline walks files, runs extraction/plugins, and resolves cross-file references",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 83941,
+        "effTok": 89700,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 3,
+          "subsystems": [
+            "mcp/stdio/freshness",
+            "mcp/stdio/ingest",
+            "mcp/stdio/query"
+          ],
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 15,
+        "finalAnswer": "ENTRYPOINT: mcp/stdio/server.js\nSUBSYSTEM: mcp/stdio/freshness - owns ensureFresh, rebuild vs incremental reindex decisions, manifest/git checks, and query-time freshness\nSUBSYSTEM: mcp/stdio/ingest - extracts files into nodes/edges/refs via sweep, language configs, extractors, and resolver\nSUBSYSTEM: mcp/stdio/query - implements the MCP query surface, ranking, budgeting, and compact result rendering",
+        "stderr": ""
+      }
+    ]
+  }
+}

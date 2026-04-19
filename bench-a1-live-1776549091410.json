@@ -1,0 +1,120 @@
+{
+  "results": [
+    {
+      "repoId": "lc-api",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 120699,
+      "effTok": 74349,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "app/components/api/application/services/applicationservice.php"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 16,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: routes - versioned API contracts live in api_v1.php, api_v2.php, and api_v3.php, so this is where request URLs and controller targets first split\nSUBSYSTEM: app/Http - Kernel.php, middleware, controllers, and FormRequests define auth, throttling, logging, validation, and request normalization before business logic runs\nSUBSYSTEM: app/Components/Api/Application/Services/ApplicationService.php - application create/update/prefill flows converge here after controllers, so request-shape changes should be traced through this write path",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 115855,
+      "effTok": 71956,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 0,
+        "subsystems": [],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 14,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Http/Kernel.php - global and grouped middleware here control CORS, auth, throttling, logging, and request context before controllers run\nSUBSYSTEM: routes/ - versioned API route files (api_v1.php, api_v2.php, api_v3.php) define the public request surface and show which middleware/controller each endpoint hits\nSUBSYSTEM: app/Http/Requests - FormRequests are the safest boundary for authorization, validation, and request payload shaping before thin controllers hand off to services",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 87505,
+      "effTok": 70986,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 0,
+        "subsystems": [],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 15,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - maps api/api-v2/api-v3 route files and rate limits, so versioned request flow starts here\nSUBSYSTEM: app/Http/Kernel.php - defines the global and api middleware stack, including token auth, throttling, Sentry context, and request logging\nSUBSYSTEM: app/Http/Requests - FormRequest classes handle authorization, validation, and input normalization before thin controllers hand off to services",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "lc-api/brief-only": [
+      {
+        "repoId": "lc-api",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 120699,
+        "effTok": 74349,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "app/components/api/application/services/applicationservice.php"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 16,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: routes - versioned API contracts live in api_v1.php, api_v2.php, and api_v3.php, so this is where request URLs and controller targets first split\nSUBSYSTEM: app/Http - Kernel.php, middleware, controllers, and FormRequests define auth, throttling, logging, validation, and request normalization before business logic runs\nSUBSYSTEM: app/Components/Api/Application/Services/ApplicationService.php - application create/update/prefill flows converge here after controllers, so request-shape changes should be traced through this write path",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 115855,
+        "effTok": 71956,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 0,
+          "subsystems": [],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 14,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Http/Kernel.php - global and grouped middleware here control CORS, auth, throttling, logging, and request context before controllers run\nSUBSYSTEM: routes/ - versioned API route files (api_v1.php, api_v2.php, api_v3.php) define the public request surface and show which middleware/controller each endpoint hits\nSUBSYSTEM: app/Http/Requests - FormRequests are the safest boundary for authorization, validation, and request payload shaping before thin controllers hand off to services",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 87505,
+        "effTok": 70986,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 0,
+          "subsystems": [],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 15,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - maps api/api-v2/api-v3 route files and rate limits, so versioned request flow starts here\nSUBSYSTEM: app/Http/Kernel.php - defines the global and api middleware stack, including token auth, throttling, Sentry context, and request logging\nSUBSYSTEM: app/Http/Requests - FormRequest classes handle authorization, validation, and input normalization before thin controllers hand off to services",
+        "stderr": ""
+      }
+    ]
+  }
+}

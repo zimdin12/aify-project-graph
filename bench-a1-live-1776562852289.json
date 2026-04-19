@@ -1,0 +1,491 @@
+{
+  "taskShape": "plan",
+  "results": [
+    {
+      "repoId": "aify-project-graph",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 140197,
+      "effTok": 73803,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/lookup.js"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "mcp/stdio/server.js"
+          },
+          "REGRESSION_RISK": {
+            "ok": false,
+            "value": "mcp/stdio/query/verbs/pull.js"
+          },
+          "TESTS_TO_RUN": {
+            "ok": true,
+            "value": "tests/integration/verbs.test.js"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 17,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/pull.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 82037,
+      "effTok": 78184,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/lookup.js"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "mcp/stdio/server.js"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/whereis.js"
+          },
+          "TESTS_TO_RUN": {
+            "ok": true,
+            "value": "tests/integration/verbs.test.js"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 10,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/whereis.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 88757,
+      "effTok": 80451,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/lookup.js"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "mcp/stdio/server.js"
+          },
+          "REGRESSION_RISK": {
+            "ok": false,
+            "value": "mcp/stdio/query/verbs/pull.js"
+          },
+          "TESTS_TO_RUN": {
+            "ok": true,
+            "value": "tests/integration/verbs.test.js"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 11,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/pull.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 123902,
+      "effTok": 96088,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/lookup.js"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "mcp/stdio/server.js"
+          },
+          "REGRESSION_RISK": {
+            "ok": false,
+            "value": "mcp/stdio/ingest/extractors/generic.js"
+          },
+          "TESTS_TO_RUN": {
+            "ok": true,
+            "value": "tests/integration/verbs.test.js"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 18,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/ingest/extractors/generic.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 113876,
+      "effTok": 101135,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/lookup.js"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "mcp/stdio/server.js"
+          },
+          "REGRESSION_RISK": {
+            "ok": false,
+            "value": "mcp/stdio/ingest/resolver.js"
+          },
+          "TESTS_TO_RUN": {
+            "ok": true,
+            "value": "tests/integration/verbs.test.js"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "high"
+          }
+        },
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 17,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/ingest/resolver.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: high",
+      "stderr": ""
+    },
+    {
+      "repoId": "aify-project-graph",
+      "taskShape": "plan",
+      "briefFile": "brief.plan.md",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 125630,
+      "effTok": 92571,
+      "score": {
+        "type": "plan_lines",
+        "checks": {
+          "TARGET_FILE": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/lookup.js"
+          },
+          "ENTRY_OR_WIRING": {
+            "ok": true,
+            "value": "mcp/stdio/server.js"
+          },
+          "REGRESSION_RISK": {
+            "ok": true,
+            "value": "mcp/stdio/query/verbs/whereis.js"
+          },
+          "TESTS_TO_RUN": {
+            "ok": true,
+            "value": "tests/integration/verbs.test.js"
+          },
+          "CONFIDENCE": {
+            "ok": true,
+            "value": "medium"
+          }
+        },
+        "pass": true
+      },
+      "mcpCalls": [],
+      "commands": 15,
+      "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/whereis.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "aify-project-graph/plan/brief-only": [
+      {
+        "repoId": "aify-project-graph",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 140197,
+        "effTok": 73803,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/lookup.js"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "mcp/stdio/server.js"
+            },
+            "REGRESSION_RISK": {
+              "ok": false,
+              "value": "mcp/stdio/query/verbs/pull.js"
+            },
+            "TESTS_TO_RUN": {
+              "ok": true,
+              "value": "tests/integration/verbs.test.js"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 17,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/pull.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 82037,
+        "effTok": 78184,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/lookup.js"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "mcp/stdio/server.js"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/whereis.js"
+            },
+            "TESTS_TO_RUN": {
+              "ok": true,
+              "value": "tests/integration/verbs.test.js"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 10,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/whereis.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 88757,
+        "effTok": 80451,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/lookup.js"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "mcp/stdio/server.js"
+            },
+            "REGRESSION_RISK": {
+              "ok": false,
+              "value": "mcp/stdio/query/verbs/pull.js"
+            },
+            "TESTS_TO_RUN": {
+              "ok": true,
+              "value": "tests/integration/verbs.test.js"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 11,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/pull.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      }
+    ],
+    "aify-project-graph/plan/lean-mcp": [
+      {
+        "repoId": "aify-project-graph",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 123902,
+        "effTok": 96088,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/lookup.js"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "mcp/stdio/server.js"
+            },
+            "REGRESSION_RISK": {
+              "ok": false,
+              "value": "mcp/stdio/ingest/extractors/generic.js"
+            },
+            "TESTS_TO_RUN": {
+              "ok": true,
+              "value": "tests/integration/verbs.test.js"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 18,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/ingest/extractors/generic.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 113876,
+        "effTok": 101135,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/lookup.js"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "mcp/stdio/server.js"
+            },
+            "REGRESSION_RISK": {
+              "ok": false,
+              "value": "mcp/stdio/ingest/resolver.js"
+            },
+            "TESTS_TO_RUN": {
+              "ok": true,
+              "value": "tests/integration/verbs.test.js"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "high"
+            }
+          },
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 17,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/ingest/resolver.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: high",
+        "stderr": ""
+      },
+      {
+        "repoId": "aify-project-graph",
+        "taskShape": "plan",
+        "briefFile": "brief.plan.md",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 125630,
+        "effTok": 92571,
+        "score": {
+          "type": "plan_lines",
+          "checks": {
+            "TARGET_FILE": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/lookup.js"
+            },
+            "ENTRY_OR_WIRING": {
+              "ok": true,
+              "value": "mcp/stdio/server.js"
+            },
+            "REGRESSION_RISK": {
+              "ok": true,
+              "value": "mcp/stdio/query/verbs/whereis.js"
+            },
+            "TESTS_TO_RUN": {
+              "ok": true,
+              "value": "tests/integration/verbs.test.js"
+            },
+            "CONFIDENCE": {
+              "ok": true,
+              "value": "medium"
+            }
+          },
+          "pass": true
+        },
+        "mcpCalls": [],
+        "commands": 15,
+        "finalAnswer": "TARGET_FILE: mcp/stdio/query/verbs/lookup.js\nENTRY_OR_WIRING: mcp/stdio/server.js\nREGRESSION_RISK: mcp/stdio/query/verbs/whereis.js\nTESTS_TO_RUN: tests/integration/verbs.test.js\nCONFIDENCE: medium",
+        "stderr": ""
+      }
+    ]
+  }
+}

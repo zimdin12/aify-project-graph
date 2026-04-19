@@ -1,0 +1,291 @@
+{
+  "taskShape": "orient",
+  "results": [
+    {
+      "repoId": "mem0-fork",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 56984,
+      "effTok": 73098,
+      "score": {
+        "type": "orient",
+        "entry_ok": false,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "mem0/vector_stores"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 4,
+      "finalAnswer": "ENTRYPOINT: embedchain/embedchain/app.py\nSUBSYSTEM: embedchain/embedchain/loaders - ingestion layer for pulling source data into the memory pipeline\nSUBSYSTEM: embedchain/embedchain/chunkers - transforms loaded content into retrieval-friendly chunks before embedding/storage\nSUBSYSTEM: mem0/vector_stores - persistence and similarity-search backend for stored memory embeddings",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 37225,
+      "effTok": 58596,
+      "score": {
+        "type": "orient",
+        "entry_ok": false,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "mem0/vector_stores"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: embedchain/embedchain/app.py\nSUBSYSTEM: embedchain/embedchain/loaders - ingestion layer for pulling raw content from many source types into the memory flow\nSUBSYSTEM: embedchain/embedchain/chunkers - preprocessing layer that turns loaded content into chunks before embedding/storage\nSUBSYSTEM: mem0/vector_stores - backend storage/retrieval layer that persists vectors and powers memory lookup",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 73524,
+      "effTok": 72240,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "mem0/memory/main.py",
+          "mem0/vector_stores"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 7,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - orchestrates hybrid search, smart adds, and conversation-memory handling before results are synced back through the API\nSUBSYSTEM: mem0/memory/main.py - core Mem0 pipeline for fact extraction, update/dedupe decisions, vector writes, graph writes, and search\nSUBSYSTEM: mem0/vector_stores - pluggable persistence/retrieval layer backing memory add, search, and delete across storage providers",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 161079,
+      "effTok": 112724,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "mem0/memory/main.py",
+          "mem0/memory/graph_memory.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 23,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/app/utils/enhanced_memory.py\nSUBSYSTEM: openmemory/api/app/utils/memory.py - builds the shared Mem0 client and runtime config, including LLM/embedder/vector/graph provider wiring and fork-specific patches.\nSUBSYSTEM: mem0/memory/main.py - owns the core add/search/update flow: fact extraction, dedup/action selection, vector writes, history, and graph dispatch.\nSUBSYSTEM: mem0/memory/graph_memory.py - owns Neo4j entity/relationship extraction and graph search, which is the graph half of the hybrid memory pipeline.",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 115519,
+      "effTok": 87354,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "mem0/memory/main.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 18,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/main.py\nSUBSYSTEM: openmemory/api/app/routers/memories.py - primary ingest/search layer; validates requests and syncs SQL metadata/state around memory operations\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - orchestration for hybrid search, dedup, smart fact extraction, conversation handling, and related-memory ranking\nSUBSYSTEM: mem0/memory/main.py - core engine that executes add/search/update/delete across embeddings, vector storage, graph storage, and history",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "taskShape": "orient",
+      "briefFile": "brief.agent.md",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 174198,
+      "effTok": 66380,
+      "score": {
+        "type": "orient",
+        "entry_ok": true,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "mem0/memory/main.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 32,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/main.py\nSUBSYSTEM: openmemory/api/app/routers/memories.py - primary add/search/conversation ingress; hands requests into the memory pipeline and syncs results into SQLite\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - fork-specific orchestration for hybrid search, fact extraction/review, dedup, and async graph enrichment\nSUBSYSTEM: mem0/memory/main.py - core mem0 engine that actually embeds, vector-searches, and writes vector plus graph memory state",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "mem0-fork/orient/brief-only": [
+      {
+        "repoId": "mem0-fork",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 56984,
+        "effTok": 73098,
+        "score": {
+          "type": "orient",
+          "entry_ok": false,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "mem0/vector_stores"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 4,
+        "finalAnswer": "ENTRYPOINT: embedchain/embedchain/app.py\nSUBSYSTEM: embedchain/embedchain/loaders - ingestion layer for pulling source data into the memory pipeline\nSUBSYSTEM: embedchain/embedchain/chunkers - transforms loaded content into retrieval-friendly chunks before embedding/storage\nSUBSYSTEM: mem0/vector_stores - persistence and similarity-search backend for stored memory embeddings",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 37225,
+        "effTok": 58596,
+        "score": {
+          "type": "orient",
+          "entry_ok": false,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "mem0/vector_stores"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: embedchain/embedchain/app.py\nSUBSYSTEM: embedchain/embedchain/loaders - ingestion layer for pulling raw content from many source types into the memory flow\nSUBSYSTEM: embedchain/embedchain/chunkers - preprocessing layer that turns loaded content into chunks before embedding/storage\nSUBSYSTEM: mem0/vector_stores - backend storage/retrieval layer that persists vectors and powers memory lookup",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 73524,
+        "effTok": 72240,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "mem0/memory/main.py",
+            "mem0/vector_stores"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 7,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - orchestrates hybrid search, smart adds, and conversation-memory handling before results are synced back through the API\nSUBSYSTEM: mem0/memory/main.py - core Mem0 pipeline for fact extraction, update/dedupe decisions, vector writes, graph writes, and search\nSUBSYSTEM: mem0/vector_stores - pluggable persistence/retrieval layer backing memory add, search, and delete across storage providers",
+        "stderr": ""
+      }
+    ],
+    "mem0-fork/orient/lean-mcp": [
+      {
+        "repoId": "mem0-fork",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 161079,
+        "effTok": 112724,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "mem0/memory/main.py",
+            "mem0/memory/graph_memory.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 23,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/app/utils/enhanced_memory.py\nSUBSYSTEM: openmemory/api/app/utils/memory.py - builds the shared Mem0 client and runtime config, including LLM/embedder/vector/graph provider wiring and fork-specific patches.\nSUBSYSTEM: mem0/memory/main.py - owns the core add/search/update flow: fact extraction, dedup/action selection, vector writes, history, and graph dispatch.\nSUBSYSTEM: mem0/memory/graph_memory.py - owns Neo4j entity/relationship extraction and graph search, which is the graph half of the hybrid memory pipeline.",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 115519,
+        "effTok": 87354,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "mem0/memory/main.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 18,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/main.py\nSUBSYSTEM: openmemory/api/app/routers/memories.py - primary ingest/search layer; validates requests and syncs SQL metadata/state around memory operations\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - orchestration for hybrid search, dedup, smart fact extraction, conversation handling, and related-memory ranking\nSUBSYSTEM: mem0/memory/main.py - core engine that executes add/search/update/delete across embeddings, vector storage, graph storage, and history",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "taskShape": "orient",
+        "briefFile": "brief.agent.md",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 174198,
+        "effTok": 66380,
+        "score": {
+          "type": "orient",
+          "entry_ok": true,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "mem0/memory/main.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 32,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/main.py\nSUBSYSTEM: openmemory/api/app/routers/memories.py - primary add/search/conversation ingress; hands requests into the memory pipeline and syncs results into SQLite\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - fork-specific orchestration for hybrid search, fact extraction/review, dedup, and async graph enrichment\nSUBSYSTEM: mem0/memory/main.py - core mem0 engine that actually embeds, vector-searches, and writes vector plus graph memory state",
+        "stderr": ""
+      }
+    ]
+  }
+}

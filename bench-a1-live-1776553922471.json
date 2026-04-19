@@ -1,0 +1,258 @@
+{
+  "results": [
+    {
+      "repoId": "mem0-fork",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 89940,
+      "effTok": 70636,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "mem0/memory/main.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 13,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/main.py\nSUBSYSTEM: openmemory/api/app/routers/memories.py - primary memory API surface for create/list/search flows, ACL checks, and state transitions\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - orchestrates smart_add_memory and hybrid_search across vector, graph, and temporal retrieval\nSUBSYSTEM: mem0/memory/main.py - core Mem0 pipeline implementation where add/search behavior and backend integration actually execute",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 130504,
+      "effTok": 73406,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "mem0/vector_stores",
+          "mem0/utils/factory.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 13,
+      "finalAnswer": "ENTRYPOINT: mem0/memory/main.py\nSUBSYSTEM: openmemory/api/app/utils/memory.py - builds and caches the Mem0 client, loads repo-specific config, and hands app/MCP calls into the core `Memory` object\nSUBSYSTEM: mem0/vector_stores - persistence and similarity-search boundary for memories; provider-specific retrieval, filtering, and storage behavior lives here\nSUBSYSTEM: mem0/utils/factory.py - wires the LLM, embedder, vector store, graph store, and reranker providers, so config changes here reshape the whole pipeline",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 76597,
+      "effTok": 69459,
+      "score": {
+        "entry_ok": false,
+        "subsystem_matches": 1,
+        "subsystems": [
+          "mem0/vector_stores"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 7,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: embedchain/embedchain/loaders - ingress layer for external content before memory processing\nSUBSYSTEM: embedchain/embedchain/chunkers - controls how content is split for embedding and retrieval\nSUBSYSTEM: mem0/vector_stores - persistence and query backends for stored memory embeddings",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 150346,
+      "effTok": 106553,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "mem0/memory/main.py",
+          "mem0/memory/graph_memory.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 24,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - advanced-mode orchestrator for hybrid search, fact review, deduplication, and async graph extraction\nSUBSYSTEM: mem0/memory/main.py - core mem0 engine that builds the embedder/vector/LLM/graph backends and runs add/search across vector and graph stores\nSUBSYSTEM: mem0/memory/graph_memory.py - Neo4j entity/relationship layer behind graph add/search/delete, supplying the graph half of hybrid memory",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 137674,
+      "effTok": 134363,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "mem0/memory/main.py",
+          "mem0/memory/graph_memory.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 22,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/app/utils/enhanced_memory.py\nSUBSYSTEM: openmemory/api/app/utils/memory.py - builds the configured singleton `mem0.Memory` client from config/env and applies repo-specific provider fixes\nSUBSYSTEM: mem0/memory/main.py - core add/search engine that initializes vector, LLM, reranker, and graph backends and splits work into vector-store and graph paths\nSUBSYSTEM: mem0/memory/graph_memory.py - graph enrichment layer for entity extraction, relationship writes, graph search, and cleanup on deletes",
+      "stderr": ""
+    },
+    {
+      "repoId": "mem0-fork",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 113743,
+      "effTok": 105762,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "mem0/memory/main.py",
+          "mem0/memory/graph_memory.py"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 22,
+      "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - advanced-mode orchestrator for hybrid search, fact extraction/review, dedup, and batched graph kickoff\nSUBSYSTEM: mem0/memory/main.py - canonical Memory.add/search implementation that owns embeddings, vector-store writes, updates/deletes, and graph dispatch\nSUBSYSTEM: mem0/memory/graph_memory.py - Neo4j graph engine for entity extraction, relation creation, graph search, and delete cleanup",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "mem0-fork/brief-only": [
+      {
+        "repoId": "mem0-fork",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 89940,
+        "effTok": 70636,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "mem0/memory/main.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 13,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/main.py\nSUBSYSTEM: openmemory/api/app/routers/memories.py - primary memory API surface for create/list/search flows, ACL checks, and state transitions\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - orchestrates smart_add_memory and hybrid_search across vector, graph, and temporal retrieval\nSUBSYSTEM: mem0/memory/main.py - core Mem0 pipeline implementation where add/search behavior and backend integration actually execute",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 130504,
+        "effTok": 73406,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "mem0/vector_stores",
+            "mem0/utils/factory.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 13,
+        "finalAnswer": "ENTRYPOINT: mem0/memory/main.py\nSUBSYSTEM: openmemory/api/app/utils/memory.py - builds and caches the Mem0 client, loads repo-specific config, and hands app/MCP calls into the core `Memory` object\nSUBSYSTEM: mem0/vector_stores - persistence and similarity-search boundary for memories; provider-specific retrieval, filtering, and storage behavior lives here\nSUBSYSTEM: mem0/utils/factory.py - wires the LLM, embedder, vector store, graph store, and reranker providers, so config changes here reshape the whole pipeline",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 76597,
+        "effTok": 69459,
+        "score": {
+          "entry_ok": false,
+          "subsystem_matches": 1,
+          "subsystems": [
+            "mem0/vector_stores"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 7,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: embedchain/embedchain/loaders - ingress layer for external content before memory processing\nSUBSYSTEM: embedchain/embedchain/chunkers - controls how content is split for embedding and retrieval\nSUBSYSTEM: mem0/vector_stores - persistence and query backends for stored memory embeddings",
+        "stderr": ""
+      }
+    ],
+    "mem0-fork/lean-mcp": [
+      {
+        "repoId": "mem0-fork",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 150346,
+        "effTok": 106553,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "mem0/memory/main.py",
+            "mem0/memory/graph_memory.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 24,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - advanced-mode orchestrator for hybrid search, fact review, deduplication, and async graph extraction\nSUBSYSTEM: mem0/memory/main.py - core mem0 engine that builds the embedder/vector/LLM/graph backends and runs add/search across vector and graph stores\nSUBSYSTEM: mem0/memory/graph_memory.py - Neo4j entity/relationship layer behind graph add/search/delete, supplying the graph half of hybrid memory",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 137674,
+        "effTok": 134363,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "mem0/memory/main.py",
+            "mem0/memory/graph_memory.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 22,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/app/utils/enhanced_memory.py\nSUBSYSTEM: openmemory/api/app/utils/memory.py - builds the configured singleton `mem0.Memory` client from config/env and applies repo-specific provider fixes\nSUBSYSTEM: mem0/memory/main.py - core add/search engine that initializes vector, LLM, reranker, and graph backends and splits work into vector-store and graph paths\nSUBSYSTEM: mem0/memory/graph_memory.py - graph enrichment layer for entity extraction, relationship writes, graph search, and cleanup on deletes",
+        "stderr": ""
+      },
+      {
+        "repoId": "mem0-fork",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 113743,
+        "effTok": 105762,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "mem0/memory/main.py",
+            "mem0/memory/graph_memory.py"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 22,
+        "finalAnswer": "ENTRYPOINT: openmemory/api/app/routers/memories.py\nSUBSYSTEM: openmemory/api/app/utils/enhanced_memory.py - advanced-mode orchestrator for hybrid search, fact extraction/review, dedup, and batched graph kickoff\nSUBSYSTEM: mem0/memory/main.py - canonical Memory.add/search implementation that owns embeddings, vector-store writes, updates/deletes, and graph dispatch\nSUBSYSTEM: mem0/memory/graph_memory.py - Neo4j graph engine for entity extraction, relation creation, graph search, and delete cleanup",
+        "stderr": ""
+      }
+    ]
+  }
+}

@@ -1,0 +1,232 @@
+{
+  "results": [
+    {
+      "repoId": "lc-api",
+      "arm": "brief-only",
+      "rep": 1,
+      "code": 0,
+      "dur": 46745,
+      "effTok": 4759,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 2,
+        "subsystems": [
+          "app/components/api/application/services/applicationservice.php",
+          "app/components/api/application/entity/application.php"
+        ],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 1,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Components/Api/Application/Services/ApplicationService.php - service-layer orchestration is the safest first stop for HTTP request behavior in this codebase's \"fat services\" structure\nSUBSYSTEM: app/Components/Api/Application/Entity/Application.php - high-fan hub model likely coupled to request payload persistence, relations, and downstream side effects\nSUBSYSTEM: tests/CreatesApplication.php - test bootstrap is the fastest place to anchor regression coverage before changing request handling",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "arm": "brief-only",
+      "rep": 2,
+      "code": 0,
+      "dur": 85391,
+      "effTok": 67186,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 0,
+        "subsystems": [],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 14,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - wires `api`, `api/v2`, and `api/v3` plus request rate limiters, so it is the top-level request dispatch map\nSUBSYSTEM: app/Http/Kernel.php - applies global and route middleware for CORS, auth/token setup, throttling, Sentry context, and request logging before controllers run\nSUBSYSTEM: app/Http/Requests - holds the FormRequest validation/authorization layer, the safest place to change accepted input without leaking logic into controllers",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "arm": "brief-only",
+      "rep": 3,
+      "code": 0,
+      "dur": 96947,
+      "effTok": 73217,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 0,
+        "subsystems": [],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 17,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - maps `api`, `api/v2`, and `api/v3` plus central rate-limit definitions, so versioned request entry fans out here\nSUBSYSTEM: app/Http/Kernel.php - defines the global and `api` middleware stacks, including token auth, user hydration, logging, and throttling\nSUBSYSTEM: app/Http/Requests - this is the safest boundary for request-contract changes because FormRequests handle authorization, validation, and payload shaping before thin controllers call services",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "arm": "lean-mcp",
+      "rep": 1,
+      "code": 0,
+      "dur": 141546,
+      "effTok": 93992,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 0,
+        "subsystems": [],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 24,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Http/Kernel.php - middleware order and aliases for CORS, auth, token checks, logging, and throttling are defined here\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - API v1/v2/v3 are mounted here and custom rate limiters are registered here, so versioned request flow branches here\nSUBSYSTEM: app/Http/Requests - FormRequest classes centralize validation and per-endpoint authorization, making this the safest place to change accepted input",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "arm": "lean-mcp",
+      "rep": 2,
+      "code": 0,
+      "dur": 160303,
+      "effTok": 91083,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 0,
+        "subsystems": [],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 26,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - mounts `/api`, `/api/v2`, and `/api/v3` and wires in request rate limiters, so versioned request flow starts here\nSUBSYSTEM: app/Http/Kernel.php - defines the global and API middleware chain for auth, throttling, Sentry context, and request logging\nSUBSYSTEM: app/Http/Requests - holds FormRequest authorization and validation, the safest place to change input contracts before thin controllers delegate onward",
+      "stderr": ""
+    },
+    {
+      "repoId": "lc-api",
+      "arm": "lean-mcp",
+      "rep": 3,
+      "code": 0,
+      "dur": 115084,
+      "effTok": 73675,
+      "score": {
+        "entry_ok": true,
+        "subsystem_matches": 0,
+        "subsystems": [],
+        "pass": false
+      },
+      "mcpCalls": [],
+      "commands": 17,
+      "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - mounts the versioned API route trees and defines named rate limiters, so scope and rollout of request changes start here\nSUBSYSTEM: app/Http/Kernel.php - composes the global and API middleware pipeline, so auth, throttling, logging, CORS, and request ordering are controlled here\nSUBSYSTEM: app/Http/Requests - FormRequest classes own endpoint-level authorization, validation, and input shaping, making this the safest place for request-contract changes",
+      "stderr": ""
+    }
+  ],
+  "byCell": {
+    "lc-api/brief-only": [
+      {
+        "repoId": "lc-api",
+        "arm": "brief-only",
+        "rep": 1,
+        "code": 0,
+        "dur": 46745,
+        "effTok": 4759,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 2,
+          "subsystems": [
+            "app/components/api/application/services/applicationservice.php",
+            "app/components/api/application/entity/application.php"
+          ],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 1,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Components/Api/Application/Services/ApplicationService.php - service-layer orchestration is the safest first stop for HTTP request behavior in this codebase's \"fat services\" structure\nSUBSYSTEM: app/Components/Api/Application/Entity/Application.php - high-fan hub model likely coupled to request payload persistence, relations, and downstream side effects\nSUBSYSTEM: tests/CreatesApplication.php - test bootstrap is the fastest place to anchor regression coverage before changing request handling",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "arm": "brief-only",
+        "rep": 2,
+        "code": 0,
+        "dur": 85391,
+        "effTok": 67186,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 0,
+          "subsystems": [],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 14,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - wires `api`, `api/v2`, and `api/v3` plus request rate limiters, so it is the top-level request dispatch map\nSUBSYSTEM: app/Http/Kernel.php - applies global and route middleware for CORS, auth/token setup, throttling, Sentry context, and request logging before controllers run\nSUBSYSTEM: app/Http/Requests - holds the FormRequest validation/authorization layer, the safest place to change accepted input without leaking logic into controllers",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "arm": "brief-only",
+        "rep": 3,
+        "code": 0,
+        "dur": 96947,
+        "effTok": 73217,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 0,
+          "subsystems": [],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 17,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - maps `api`, `api/v2`, and `api/v3` plus central rate-limit definitions, so versioned request entry fans out here\nSUBSYSTEM: app/Http/Kernel.php - defines the global and `api` middleware stacks, including token auth, user hydration, logging, and throttling\nSUBSYSTEM: app/Http/Requests - this is the safest boundary for request-contract changes because FormRequests handle authorization, validation, and payload shaping before thin controllers call services",
+        "stderr": ""
+      }
+    ],
+    "lc-api/lean-mcp": [
+      {
+        "repoId": "lc-api",
+        "arm": "lean-mcp",
+        "rep": 1,
+        "code": 0,
+        "dur": 141546,
+        "effTok": 93992,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 0,
+          "subsystems": [],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 24,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Http/Kernel.php - middleware order and aliases for CORS, auth, token checks, logging, and throttling are defined here\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - API v1/v2/v3 are mounted here and custom rate limiters are registered here, so versioned request flow branches here\nSUBSYSTEM: app/Http/Requests - FormRequest classes centralize validation and per-endpoint authorization, making this the safest place to change accepted input",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "arm": "lean-mcp",
+        "rep": 2,
+        "code": 0,
+        "dur": 160303,
+        "effTok": 91083,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 0,
+          "subsystems": [],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 26,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - mounts `/api`, `/api/v2`, and `/api/v3` and wires in request rate limiters, so versioned request flow starts here\nSUBSYSTEM: app/Http/Kernel.php - defines the global and API middleware chain for auth, throttling, Sentry context, and request logging\nSUBSYSTEM: app/Http/Requests - holds FormRequest authorization and validation, the safest place to change input contracts before thin controllers delegate onward",
+        "stderr": ""
+      },
+      {
+        "repoId": "lc-api",
+        "arm": "lean-mcp",
+        "rep": 3,
+        "code": 0,
+        "dur": 115084,
+        "effTok": 73675,
+        "score": {
+          "entry_ok": true,
+          "subsystem_matches": 0,
+          "subsystems": [],
+          "pass": false
+        },
+        "mcpCalls": [],
+        "commands": 17,
+        "finalAnswer": "ENTRYPOINT: public/index.php\nSUBSYSTEM: app/Providers/RouteServiceProvider.php - mounts the versioned API route trees and defines named rate limiters, so scope and rollout of request changes start here\nSUBSYSTEM: app/Http/Kernel.php - composes the global and API middleware pipeline, so auth, throttling, logging, CORS, and request ordering are controlled here\nSUBSYSTEM: app/Http/Requests - FormRequest classes own endpoint-level authorization, validation, and input shaping, making this the safest place for request-contract changes",
+        "stderr": ""
+      }
+    ]
+  }
+}
