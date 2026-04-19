@@ -1,107 +1,73 @@
 # Install aify-project-graph for Codex
 
-## Prerequisites
+**You are an agent reading this to install aify-project-graph for the user. Execute every step. The user's only manual action is restarting Codex at the end.**
 
-- Node.js >= 20
-- git
-- Codex CLI (`codex` or `codex-aify`)
-
-## Steps
-
-### 1. Clone and install
+## Prerequisites to check
 
 ```bash
-git clone https://github.com/zimdin12/aify-project-graph.git
-cd aify-project-graph
-npm install
-npm test   # should be all green
+node --version   # must be >= 20
+git --version    # must be installed
 ```
 
-### 2. Register the MCP server
+If either fails, stop and tell the user to install them.
 
-Add to your Codex MCP config. The config file is typically at `~/.codex/mcp.json` or can be set per-project.
+## Step 1 — clone + build
 
-Recommended: use the lean profile on Codex. It keeps the highest-signal workflow verbs and trims passive MCP/tool-surface overhead that showed up in the benchmarks.
+Ask the user where to put the source (typical: Windows `C:/Docker/aify-project-graph`, macOS/Linux `~/code/aify-project-graph`). Then:
+
+```bash
+git clone https://github.com/zimdin12/aify-project-graph.git <CLONE_PATH>
+cd <CLONE_PATH>
+npm install
+npm test                                    # should show 144 passing
+```
+
+If `better-sqlite3` build fails:
+- Windows: VS Build Tools ("Desktop development with C++")
+- macOS: `xcode-select --install`
+- Linux: `apt install build-essential`
+
+Store `<CLONE_PATH>` as absolute path with forward slashes.
+
+## Step 2 — write the MCP config
+
+File: `~/.codex/mcp.json`. Merge with existing `mcpServers` if present:
 
 ```json
 {
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["--max-old-space-size=8192", "<path-to-aify-project-graph>/mcp/stdio/server.js", "--toolset=lean"]
+      "args": ["--max-old-space-size=8192", "<CLONE_PATH>/mcp/stdio/server.js", "--toolset=lean"]
     }
   }
 }
 ```
 
-The `--max-old-space-size=8192` flag gives Node an 8 GB heap for indexing. Safe default — adjust down to 4096 on lower-memory machines, up to 16384 for very large codebases.
+`--toolset=lean` exposes 3 high-value verbs (graph_impact, graph_path, graph_change_plan) instead of 17. Measured: 48-run bench showed zero MCP routing on the full lean profile, so fewer visible tools means less manifest overhead without losing functionality (hidden verbs stay callable by name).
 
-Replace `<path-to-aify-project-graph>` with the absolute path where you cloned the repo. **Use forward slashes on Windows** (e.g. `C:/Docker/aify-project-graph/mcp/stdio/server.js`).
+## Step 3 — tell the user to restart
 
-The `cwd` for the MCP server is inherited from your Codex session — it will use the repo you have open as the target to scan.
+Codex doesn't support skills the way Claude Code does — the MCP tool descriptions are self-documenting. Tell the user:
 
-### 3. Restart Codex
+> Install done. **Restart Codex** so the MCP server loads. In any repo, call `graph_status()` first (auto-indexes on first call). For the full static-brief workflow, run this one-time setup per repo:
+>
+> ```bash
+> node <CLONE_PATH>/scripts/graph-brief.mjs <YOUR_REPO>
+> ```
+>
+> Then paste `<YOUR_REPO>/.aify-graph/brief.agent.md` into prompts for ~30% cheaper, 1.5-2.9× faster orientation. For plan tasks, hand-author `<YOUR_REPO>/.aify-graph/functionality.json` (sample at `<CLONE_PATH>/docs/examples/functionality.sample.json`) and re-run graph-brief.mjs.
 
-Close and reopen your Codex session (or `codex-aify` if using the aify wrapper) so the MCP server is picked up.
-
-### 4. Verify
-
-In your Codex session, call:
+## Verify (after restart)
 
 ```
 graph_status()
 ```
 
-First call auto-builds the graph (10-60 seconds depending on repo size). Then:
-
-```
-graph_report()
-```
-
-Should return a project orientation digest with directory layout, languages, entry points, hub symbols, and community clusters.
-
-### 5. Start using
-
-Key verbs for navigation in the recommended lean profile:
-
-```
-graph_report()                          # orient in the project
-graph_lookup(symbol="MyClass")          # fast exact-name lookup
-graph_path(symbol="handleRequest")      # trace execution path
-graph_change_plan(symbol="User")        # plan a safe multi-file change
-graph_preflight(symbol="get_db")        # one-shot edit safety check
-graph_file(path="src/auth/token.ts")    # everything about one file
-graph_onboard(path="src")               # curated entrypoints + read order
-```
-
-If you want the full low-level traversal surface on Codex (`graph_search`, `graph_whereis`, `graph_callers`, `graph_neighbors`, `graph_dashboard`, etc.), remove `--toolset=lean` from the args and restart Codex.
-
-### Even cheaper: use the static briefs
-
-`.aify-graph/brief.agent.md` is a precomputed ~350-token orientation artifact that replaces most orient-shaped MCP calls. Paste it into your system prompt or user message for any session where you need to "understand this repo."
-
-Measured data: brief-only beats lean-MCP by **−21% to −32% tokens** on orient tasks with quality equal or better across self-repo (Node) and lc-api (PHP/Laravel). Codex agents consistently preferred reading the brief over invoking MCP verbs when the brief contained the answer.
-
-Four brief variants ship at `.aify-graph/`:
-
-- `brief.agent.md` — combined, best default for one-shot prompts
-- `brief.onboard.md` — stripped, for new-to-this-repo sessions (~250 tok)
-- `brief.plan.md` — leads with features, open tasks by feature, feature-tagged recent commits (~310 tok)
-- `brief.md` — human-readable full version
-
-Regen: `node scripts/graph-brief.mjs <repoRoot>` (automatic on next graph index).
-
-## How it works
-
-- Scans your project with tree-sitter (10 languages supported)
-- Builds a graph in `.aify-graph/graph.sqlite` (local to each repo)
-- Stays fresh automatically — detects git changes and reindexes on every query
-- Returns compact NODE/EDGE lines with file:line citations
-- No backend server, no container — runs inside the MCP stdio process
+Returns `indexed: false` initially, then `indexed: true` after first auto-build.
 
 ## Troubleshooting
 
-- **`better-sqlite3` build fails:** Install native build tools for your OS.
-- **Graph seems stale:** `graph_index(force=true)` for full rebuild.
-- **`unresolvedEdges > 0`:** Some cross-file refs couldn't be resolved. Usually harmless. Try `graph_index(force=true)` if it's many.
-- **Codex dispatch errors:** Make sure the path to `server.js` uses forward slashes on Windows. Backslash paths can cause `AbsolutePathBuf` errors.
+- **`AbsolutePathBuf` errors on Windows**: forward slashes only in the MCP args path (`C:/...`)
+- **`better-sqlite3` flipped platforms** (Windows/WSL): `cd <CLONE_PATH> && npm rebuild better-sqlite3` from the runtime you plan to use
+- **Graph seems stale**: `graph_index(force=true)` for full rebuild

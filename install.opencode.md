@@ -1,92 +1,68 @@
 # Install aify-project-graph for OpenCode
 
-## Prerequisites
+**You are an agent reading this to install aify-project-graph for the user. Execute every step. The user's only manual action is restarting OpenCode at the end.**
 
-- Node.js >= 20
-- git
-- OpenCode CLI
-
-## Steps
-
-### 1. Clone and install
+## Prerequisites to check
 
 ```bash
-git clone https://github.com/zimdin12/aify-project-graph.git
-cd aify-project-graph
-npm install
-npm test   # verify: all green
+node --version   # must be >= 20
+git --version    # must be installed
 ```
 
-### 2. Register the MCP server
+If either fails, stop and tell the user to install them.
 
-Add to your OpenCode MCP config (typically `~/.opencode/config.json` under the `mcpServers` key, or per-project in `.opencode/config.json`).
+## Step 1 — clone + build
 
-Recommended: use the lean profile on OpenCode. It keeps the highest-signal workflow verbs and trims passive MCP/tool-surface overhead that showed up in the Codex/OpenCode-style benchmarks.
+Ask where to put the source (typical: Windows `C:/Docker/aify-project-graph`, macOS/Linux `~/code/aify-project-graph`). Then:
+
+```bash
+git clone https://github.com/zimdin12/aify-project-graph.git <CLONE_PATH>
+cd <CLONE_PATH>
+npm install
+npm test                                    # should show 144 passing
+```
+
+If `better-sqlite3` build fails, install native build tools (Windows: VS Build Tools; macOS: `xcode-select --install`; Linux: `apt install build-essential`).
+
+Store `<CLONE_PATH>` as absolute path with forward slashes.
+
+## Step 2 — write the MCP config
+
+File: `~/.opencode/config.json` (global) or `.opencode/config.json` (per-project). Merge if `mcpServers` exists:
 
 ```json
 {
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["--max-old-space-size=8192", "<path-to-aify-project-graph>/mcp/stdio/server.js", "--toolset=lean"]
+      "args": ["--max-old-space-size=8192", "<CLONE_PATH>/mcp/stdio/server.js", "--toolset=lean"]
     }
   }
 }
 ```
 
-The `--max-old-space-size=8192` flag gives Node an 8 GB heap for indexing. Safe default — adjust down to 4096 on lower-memory machines, up to 16384 for very large codebases.
+`--toolset=lean` keeps the MCP surface small. Hidden verbs are still callable by name.
 
-Replace `<path-to-aify-project-graph>` with the absolute path. **Use forward slashes on Windows** (e.g. `C:/Docker/aify-project-graph/mcp/stdio/server.js`).
+## Step 3 — tell the user to restart
 
-The `cwd` is inherited from your OpenCode session, so the graph targets the repo you have open.
+OpenCode doesn't load Claude-Code skill files. The MCP tool descriptions are self-documenting. Tell the user:
 
-### 3. Restart OpenCode
+> Install done. **Restart OpenCode** so the MCP server loads. In any repo, call `graph_status()` (auto-indexes on first call). For best wins, run once per repo:
+>
+> ```bash
+> node <CLONE_PATH>/scripts/graph-brief.mjs <YOUR_REPO>
+> ```
+>
+> Then paste `<YOUR_REPO>/.aify-graph/brief.agent.md` into your session prompt. For plan tasks, hand-author `.aify-graph/functionality.json` (sample at `<CLONE_PATH>/docs/examples/functionality.sample.json`) and re-run graph-brief.mjs.
 
-### 4. Verify
-
-In OpenCode, call:
+## Verify
 
 ```
 graph_status()
 ```
 
-First call auto-builds the graph (seconds to a couple of minutes depending on repo size). Then:
-
-```
-graph_report()
-```
-
-Returns a project orientation digest with directory layout, languages, entry points, and hub symbols.
-
-### 5. Start using
-
-```
-graph_report()                         # orient in the project
-graph_lookup(symbol="MyClass")         # fast exact-name lookup
-graph_path(symbol="handleRequest")     # trace execution path
-graph_change_plan(symbol="User")       # plan a safe multi-file change
-graph_preflight(symbol="get_db")       # one-shot edit safety check
-graph_file(path="src/auth/token.ts")   # everything about one file
-graph_onboard(path="src")              # curated entrypoints + read order
-```
-
-If you want the full low-level traversal surface on OpenCode (`graph_search`, `graph_whereis`, `graph_callers`, `graph_neighbors`, `graph_dashboard`, etc.), remove `--toolset=lean` from the args and restart OpenCode.
-
-### Even cheaper: use the static briefs
-
-`.aify-graph/brief.agent.md` is a precomputed ~350-token orientation artifact that replaces most orient-shaped MCP calls. Paste it into your system prompt or user message at session start — measured data shows brief-only beats lean-MCP by **−21% to −32% tokens** on orient tasks with quality equal or better.
-
-Four brief variants ship at `.aify-graph/`:
-
-- `brief.agent.md` — combined, best default
-- `brief.onboard.md` — stripped, new-to-this-repo sessions (~250 tok)
-- `brief.plan.md` — features, open tasks by feature, feature-tagged recent commits (~310 tok)
-- `brief.md` — human-readable full version
-
-Regen: `node scripts/graph-brief.mjs <repoRoot>` (automatic on next graph index).
-
 ## Troubleshooting
 
-- **`better-sqlite3` build fails:** install native build tools for your OS.
-- **Path errors on Windows:** use forward slashes in the `args` entry.
-- **`unresolvedEdges > 0`:** some cross-file refs couldn't be resolved. Usually harmless — run `graph_index(force=true)` if it's a lot.
+- **Path errors on Windows**: forward slashes in the args
+- **`better-sqlite3` native module flips**: `npm rebuild better-sqlite3` in the runtime you plan to use
+- **Graph stale**: `graph_index(force=true)`

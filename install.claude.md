@@ -1,107 +1,79 @@
 # Install aify-project-graph for Claude Code
 
-## Prerequisites
+**You are an agent reading this to install aify-project-graph for the user. Execute every step. The user's only manual action is restarting Claude Code at the end.**
 
-- Node.js >= 20
-- git
-- The repo you want to index
-
-## Steps
-
-### 1. Clone or locate aify-project-graph
+## Prerequisites to check
 
 ```bash
-git clone https://github.com/zimdin12/aify-project-graph.git
-cd aify-project-graph
-npm install
-npm test   # should be all green
+node --version   # must be >= 20
+git --version    # must be installed
 ```
 
-### 2. Register the MCP server
+If either fails, stop and tell the user to install them.
 
-Add to your Claude Code MCP config (`~/.claude/mcp.json` or project-level `.claude/mcp.json`):
+## Step 1 — clone + build
+
+Ask the user where to put the source (typical choices: Windows `C:/Docker/aify-project-graph`, macOS/Linux `~/code/aify-project-graph`). Then:
+
+```bash
+git clone https://github.com/zimdin12/aify-project-graph.git <CLONE_PATH>
+cd <CLONE_PATH>
+npm install
+npm test                                    # should show 144 passing
+```
+
+If `better-sqlite3` build fails:
+- Windows: VS Build Tools ("Desktop development with C++")
+- macOS: `xcode-select --install`
+- Linux: `apt install build-essential`
+
+Store `<CLONE_PATH>` — you'll need the absolute path below. Convert Windows backslashes to forward slashes.
+
+## Step 2 — write the MCP config
+
+File path: `~/.claude/mcp.json` (global). If it exists, merge with `mcpServers`. If not, create it:
 
 ```json
 {
   "mcpServers": {
     "aify-project-graph": {
       "command": "node",
-      "args": ["--max-old-space-size=8192", "<path-to-aify-project-graph>/mcp/stdio/server.js"],
-      "cwd": "<path-to-target-repo>"
+      "args": ["--max-old-space-size=8192", "<CLONE_PATH>/mcp/stdio/server.js"]
     }
   }
 }
 ```
 
-The `--max-old-space-size=8192` flag gives Node an 8 GB heap for indexing. Safe default — adjust down to 4096 on lower-memory machines, up to 16384 for very large codebases.
+Do NOT add `--toolset=lean` for Claude Code — Claude Code uses the full toolset.
 
-Replace `<path-to-aify-project-graph>` with the absolute path to where you cloned the repo (use forward slashes on Windows).
-
-Replace `<path-to-target-repo>` with the repo you want to index.
-
-### 3. Install the skills
-
-Copy the core skill plus the workflow skills into Claude Code's skill discovery path:
+## Step 3 — install all five skills
 
 ```bash
-# Global (all projects)
 mkdir -p ~/.claude/skills
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-functionality ~/.claude/skills/
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-tasks ~/.claude/skills/
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-anchor-drift ~/.claude/skills/
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-pull-context ~/.claude/skills/
-
-# OR project-scoped (this repo only)
-mkdir -p <target-repo>/.claude/skills
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skill <target-repo>/.claude/skills/aify-project-graph
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-functionality <target-repo>/.claude/skills/
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-map-tasks <target-repo>/.claude/skills/
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-anchor-drift <target-repo>/.claude/skills/
-cp -r <path-to-aify-project-graph>/integrations/claude-code/skills/graph-pull-context <target-repo>/.claude/skills/
+cp -r <CLONE_PATH>/integrations/claude-code/skill ~/.claude/skills/aify-project-graph
+cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-setup ~/.claude/skills/
+cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-map-functionality ~/.claude/skills/
+cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-map-tasks ~/.claude/skills/
+cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-anchor-drift ~/.claude/skills/
+cp -r <CLONE_PATH>/integrations/claude-code/skills/graph-pull-context ~/.claude/skills/
 ```
 
-### 4. Restart Claude Code
+## Step 4 — tell the user to restart
 
-The MCP server and skill are picked up on restart.
+Tell the user (paraphrase is fine):
 
-### 5. Verify
+> Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-setup` skill will build everything in one pass (30-90 seconds). After that, every new session automatically reads the brief and saves you 1.5-2.9× wall-clock time.
 
-In Claude Code, run:
+## Verify (after restart — agent can't do this before)
 
 ```
 graph_status()
 ```
 
-First call will auto-build the graph (may take 10-60 seconds depending on repo size). Subsequent calls are instant.
-
-Then:
-
-```
-graph_report()
-```
-
-Should return a project orientation digest with directory layout, languages, entry points, hub symbols.
-
-### 6. Start using
-
-Key verbs:
-
-```
-graph_report()                                # orient in the project
-graph_search(query="dispatch")                # fuzzy search for symbols
-graph_whereis(symbol="get_db")                # exact definition lookup
-graph_file(path="service/db.py")              # everything about one file
-graph_preflight(symbol="get_db")              # edit safety check (SAFE/REVIEW/CONFIRM)
-graph_callers(symbol="get_db")                # who calls this?
-graph_callees(symbol="broadcast")             # what does this call?
-graph_path(symbol="handleRequest")            # trace execution path
-graph_impact(symbol="User")                   # blast radius analysis
-graph_whereis(symbol="X", expand=true)        # definition + top edges
-```
+Should return `indexed: false` initially in a fresh repo, then `indexed: true` after the first auto-build.
 
 ## Troubleshooting
 
-- **`better-sqlite3` build fails:** Install native build tools (Windows: `windows-build-tools` or VS Build Tools; macOS: Xcode CLT; Linux: `build-essential`).
-- **Graph seems stale:** Run `graph_index(force=true)` for a full rebuild.
-- **`unresolvedEdges > 0` in status:** Some cross-file references couldn't be resolved. Usually harmless — run `graph_index(force=true)` if it's a lot.
+- **`better-sqlite3` flipped platforms** (e.g. same repo from Windows and WSL): `cd <CLONE_PATH> && npm rebuild better-sqlite3`
+- **Skill not triggering**: check it lives at `~/.claude/skills/<name>/SKILL.md`, not nested deeper
+- **MCP config path errors on Windows**: use forward slashes (`C:/...`), not backslashes

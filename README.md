@@ -1,8 +1,34 @@
 # aify-project-graph
 
-On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph in a local SQLite file, and exposes high-intent MCP tools over stdio. Agents navigate code, trace execution paths, plan changes, and onboard into unfamiliar subsystems using compact responses instead of reading files blindly.
+On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph + precomputed briefs, and hands the agent a 250-token orientation substrate instead of forcing it to explore with shell.
 
-Current Codex/OpenCode guidance uses a reduced `--toolset=lean` profile because the full MCP surface was adding passive overhead even on tasks that never touched graph tools. The broad full-profile run is still published in [docs/dogfood/ab-results-2026-04-18.md](docs/dogfood/ab-results-2026-04-18.md), but the current recommended profile is the lean follow-up in [docs/dogfood/ab-results-2026-04-18-lean.md](docs/dogfood/ab-results-2026-04-18-lean.md) plus the higher-`N` exact-lookup rerun in [docs/dogfood/ab-results-2026-04-18-lean-search-n5.md](docs/dogfood/ab-results-2026-04-18-lean-search-n5.md). 12 languages. No server, no container, no cloud.
+Measured: **1.5–2.9× faster wall-clock** and **17–35% cheaper in tokens** per agent session on orient tasks (48 live codex runs, 4 languages, 2026-04-19).
+
+## Install in one paste
+
+**Copy this into Claude Code:**
+
+```
+Read install.claude.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart Claude Code when you're done.
+```
+
+**Copy this into Codex:**
+
+```
+Read install.codex.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart Codex when you're done.
+```
+
+**Copy this into OpenCode:**
+
+```
+Read install.opencode.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart OpenCode when you're done.
+```
+
+That's the entire install. The agent clones the repo, writes your MCP config, copies the skills, and tells you when to restart. Takes 2-3 minutes.
+
+## Usage in one sentence
+
+After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-setup` skill builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief for 1.5-2.9× faster work.
 
 ## Inspiration
 

@@ -1,22 +1,34 @@
 ---
 name: aify-project-graph
-description: Use when working in a repo that has `.aify-graph/` or when you need a project map for orientation, planning, trace, or cross-layer pull. Prefer static briefs first; use live verbs only for precision queries the brief cannot answer.
+description: Use AT THE START of any session in a repo that has `.aify-graph/` — the precomputed briefs are the fastest way to orient and often avoid 2-5 shell calls. Also use when planning changes, tracing execution, or pulling cross-layer context. Prefer static briefs first; use live verbs only for precision queries the brief cannot answer. If `.aify-graph/` is missing, run `/graph-setup` to create it.
 ---
 
 # aify-project-graph
 
 This graph is a **map**, not the source of truth. Use it to narrow the search space, then read the real files before changing code.
 
-## Default workflow
+## FIRST ACTION in any session
 
-1. **Read a brief first**
-   - `brief.agent.md` for general orientation
-   - `brief.onboard.md` for first-contact onboarding
-   - `brief.plan.md` before a non-trivial change
-2. **Use live verbs only when the brief is not enough**
-3. **Verify in source files before acting**
+Before calling any other tool, check whether this repo has a graph:
 
-The benchmark result is clear: briefs usually beat live MCP on orient-shaped tasks. Reach for live verbs when you need precision, not by default.
+```bash
+ls .aify-graph/brief.agent.md 2>/dev/null
+```
+
+If it exists, **read it first** — it's 250-400 tokens of dense orientation (entry points, subsystems, hubs with role tags, features, recent activity, trust line). Much cheaper than exploring with shell.
+
+- For orient / onboarding: read `brief.agent.md` or `brief.onboard.md`
+- For change-planning: read `brief.plan.md` (has `open:` / `tests:` / `load:` per feature)
+- For cross-layer context on a specific thing: `graph_pull(node="X")`
+
+If `.aify-graph/` is missing, tell the user to run `/graph-setup` — it builds everything in one pass.
+
+## Default workflow after reading the brief
+
+1. **Use live verbs only when the brief is not enough** (precision queries)
+2. **Verify in source files before acting** on anything the graph claims
+
+The benchmark result (4 languages, 48 runs): briefs are 1.5–2.9× faster wall-clock AND 17–35% cheaper in tokens than live MCP on orient tasks. Reach for live verbs only when you need precision.
 
 ## Use live verbs for
 
