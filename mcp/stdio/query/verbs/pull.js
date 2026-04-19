@@ -18,7 +18,13 @@ import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
 
-const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity'];
+// relations is OPT-IN: kept out of default layers so graph_pull stays compact
+// unless the caller asks for direct graph neighbors. Data shape per node kind:
+//   symbol:  { callers, callees }
+//   file:    { imports, imported_by, defines }
+//   feature: { inputs, outputs }  (cross-feature-boundary, rolled up by feature)
+// Every capped list carries { items, total, truncated, limit } metadata.
+const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations'];
 const DEFAULT_LAYERS = ['code', 'functionality', 'tasks', 'activity'];
 
 function detectNodeKind(db, node) {
@@ -76,6 +82,149 @@ function recentCommitsForFile(repoRoot, filePath, limit = 5) {
 
 // ---------- per-kind pulls ----------
 
+// ---------- relations helpers (opt-in layer) ----------
+
+// Symbol-level direct neighbors: callers + callees resolved by id (precision,
+// not just label — matches the dev-review fix applied to code layer in f8feb6c).
+function relationsForSymbol(db, sym, limit = 10) {
+  const callersRaw = db.all(
+    `SELECT DISTINCT fn.label, fn.type, fn.file_path, fn.start_line, e.relation
+     FROM edges e
+     JOIN nodes fn ON fn.id = e.from_id
+     WHERE e.to_id = $id
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+     LIMIT 100`, { id: sym.id });
+  const calleesRaw = db.all(
+    `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation
+     FROM edges e
+     JOIN nodes tn ON tn.id = e.to_id
+     WHERE e.from_id = $id
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+     LIMIT 100`, { id: sym.id });
+  return {
+    callers: capped(callersRaw, limit),
+    callees: capped(calleesRaw, limit),
+  };
+}
+
+// File-level direct neighbors: imports + imported_by + defines.
+// Per dev review: skip `initializers` and `used_by` — too easy to overclaim
+// without a precise language-neutral definition.
+function relationsForFile(db, filePath, limit = 10) {
+  // imports: files THIS file imports
+  const importsRaw = db.all(
+    `SELECT DISTINCT tn.file_path
+     FROM edges e
+     JOIN nodes fn ON fn.id = e.from_id
+     JOIN nodes tn ON tn.id = e.to_id
+     WHERE fn.file_path = $p
+       AND e.relation = 'IMPORTS'
+       AND tn.file_path IS NOT NULL
+       AND tn.file_path != $p
+     LIMIT 50`, { p: filePath });
+  // imported_by: files that IMPORT this file
+  const importedByRaw = db.all(
+    `SELECT DISTINCT fn.file_path
+     FROM edges e
+     JOIN nodes fn ON fn.id = e.from_id
+     JOIN nodes tn ON tn.id = e.to_id
+     WHERE tn.file_path = $p
+       AND e.relation = 'IMPORTS'
+       AND fn.file_path IS NOT NULL
+       AND fn.file_path != $p
+     LIMIT 50`, { p: filePath });
+  // defines: top symbols defined in this file
+  const definesRaw = db.all(
+    `SELECT label, type, start_line FROM nodes
+     WHERE file_path = $p AND type IN ('Function','Method','Class','Interface','Type')
+     ORDER BY start_line LIMIT 50`, { p: filePath });
+  return {
+    imports: capped(importsRaw.map(r => r.file_path), limit),
+    imported_by: capped(importedByRaw.map(r => r.file_path), limit),
+    defines: capped(definesRaw, limit),
+  };
+}
+
+// Feature-level cross-boundary neighbors, rolled up by feature.
+// inputs  = OTHER features whose symbols call into THIS feature's anchored symbols
+// outputs = OTHER features whose symbols are called by THIS feature's anchored symbols
+// "External" = no feature match for the other side.
+function relationsForFeature(db, feature, features, limit = 10) {
+  const symbols = feature.anchors.symbols || [];
+  if (symbols.length === 0) {
+    return { inputs: capped([], limit), outputs: capped([], limit) };
+  }
+  const symParams = Object.fromEntries(symbols.map((s, i) => [`s${i}`, s]));
+  const placeholders = symbols.map((_, i) => `$s${i}`).join(',');
+
+  // Callers (edges INTO this feature's symbols)
+  const incoming = db.all(
+    `SELECT DISTINCT fn.label AS caller_label, fn.file_path AS caller_file,
+            e.relation, tn.label AS target_label
+     FROM edges e
+     JOIN nodes fn ON fn.id = e.from_id
+     JOIN nodes tn ON tn.id = e.to_id
+     WHERE tn.label IN (${placeholders})
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+       AND fn.file_path IS NOT NULL`,
+    symParams);
+  // Callees (edges FROM this feature's symbols)
+  const outgoing = db.all(
+    `SELECT DISTINCT fn.label AS source_label, tn.label AS callee_label,
+            tn.file_path AS callee_file, e.relation
+     FROM edges e
+     JOIN nodes fn ON fn.id = e.from_id
+     JOIN nodes tn ON tn.id = e.to_id
+     WHERE fn.label IN (${placeholders})
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+       AND tn.file_path IS NOT NULL
+       AND tn.file_path != ''`,
+    symParams);
+
+  // Roll up by the OTHER feature (or "external" if not in any feature)
+  const inputTally = new Map(); // featureId -> { feature_id, count, evidence }
+  const outputTally = new Map();
+
+  const classify = (filePath, ownFeatureId) => {
+    const matches = featuresForFile(features, filePath);
+    const foreign = matches.filter(id => id !== ownFeatureId);
+    return foreign.length > 0 ? foreign[0] : 'external';
+  };
+
+  for (const row of incoming) {
+    const otherFeature = classify(row.caller_file, feature.id);
+    if (otherFeature === feature.id) continue; // internal, skip
+    if (!inputTally.has(otherFeature)) {
+      inputTally.set(otherFeature, { feature: otherFeature, count: 0, sample: [] });
+    }
+    const entry = inputTally.get(otherFeature);
+    entry.count++;
+    if (entry.sample.length < 2) {
+      entry.sample.push(`${row.caller_label}@${row.caller_file} → ${row.target_label}`);
+    }
+  }
+  for (const row of outgoing) {
+    const otherFeature = classify(row.callee_file, feature.id);
+    if (otherFeature === feature.id) continue;
+    if (!outputTally.has(otherFeature)) {
+      outputTally.set(otherFeature, { feature: otherFeature, count: 0, sample: [] });
+    }
+    const entry = outputTally.get(otherFeature);
+    entry.count++;
+    if (entry.sample.length < 2) {
+      entry.sample.push(`${row.source_label} → ${row.callee_label}@${row.callee_file}`);
+    }
+  }
+
+  const sortTally = (tally) =>
+    [...tally.values()].sort((a, b) => b.count - a.count);
+
+  return {
+    inputs: capped(sortTally(inputTally), limit),
+    outputs: capped(sortTally(outputTally), limit),
+  };
+}
+
 function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
   const out = { node: { kind: 'file', path: filePath }, layers: {} };
 
@@ -129,6 +278,10 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
       docs.map(d => ({ label: d.label, file: d.file_path })),
       10
     );
+  }
+
+  if (layers.has('relations')) {
+    out.layers.relations = relationsForFile(db, filePath);
   }
 
   return out;
@@ -187,6 +340,10 @@ function pullFeature({ db, featureId, features, allTasks, repoRoot, layers }) {
         out.layers.activity = [];
       }
     } catch { out.layers.activity = []; }
+  }
+
+  if (layers.has('relations')) {
+    out.layers.relations = relationsForFeature(db, feature, features);
   }
 
   if (layers.has('docs')) {
@@ -259,6 +416,10 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
       docs.map(d => ({ label: d.label, file: d.file_path })),
       10
     );
+  }
+
+  if (layers.has('relations')) {
+    out.layers.relations = relationsForSymbol(db, sym);
   }
 
   return out;

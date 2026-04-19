@@ -252,15 +252,15 @@ const TOOLS = [
   {
     name: 'graph_pull',
     handler: graphPull,
-    description: 'Cross-layer pull for a node. Node can be file path, feature id, symbol, or task id. Returns code+functionality+tasks+activity layers (selective via layers param).',
+    description: 'Cross-layer pull for a node. Node can be file path, feature id, symbol, or task id. Default layers: code+functionality+tasks+activity. Opt-in: docs (MENTIONS edges), relations (direct graph neighbors — callers/callees for a symbol, imports/imported_by/defines for a file, cross-feature inputs/outputs rolled up by feature).',
     schema: {
       type: 'object',
       properties: {
         node: { type: 'string', description: 'File path, feature id, symbol name, or task id.' },
         layers: {
           type: 'array',
-          items: { type: 'string', enum: ['code', 'functionality', 'tasks', 'docs', 'activity'] },
-          description: 'Optional layer filter. Defaults to code+functionality+tasks+activity.',
+          items: { type: 'string', enum: ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations'] },
+          description: 'Optional layer filter. Defaults to code+functionality+tasks+activity. Pass ["relations"] alone to get just the direct graph-neighbor view for a symbol/file/feature.',
         },
       },
       required: ['node'],
