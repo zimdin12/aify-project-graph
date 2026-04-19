@@ -29,9 +29,11 @@ else
 fi
 
 cd "$CLONE_PATH"
-npm install
-npm test              # expect: 144 passing
+npm install --legacy-peer-deps   # see note
+npm test                          # expect: 134 passing on clean main
 ```
+
+`--legacy-peer-deps` is needed because `tree-sitter-c` and `tree-sitter-cpp` declare incompatible `peerOptional` ranges against the `tree-sitter` host package (0.22 vs 0.21). Both versions work at runtime; npm just refuses to auto-resolve. Safe to ignore.
 
 If `npm test` fails with `better_sqlite3.node is not a valid Win32 application` (or Linux equivalent), the native binary was built on another platform. Fix with:
 
@@ -39,7 +41,9 @@ If `npm test` fails with `better_sqlite3.node is not a valid Win32 application` 
 npm rebuild better-sqlite3
 ```
 
-Then rerun `npm test` — should now be 144 passing.
+Then rerun `npm test`.
+
+If `npm test` reports `ERR_MODULE_NOT_FOUND` for `mcp/stdio/query/verbs/change_plan.js` or `onboard.js`, you are on a commit between `761595d` and when those files were committed. Pull latest main.
 
 If the initial `npm install` fails to compile `better-sqlite3`, install native build tools:
 - Windows: VS Build Tools ("Desktop development with C++")
@@ -48,7 +52,7 @@ If the initial `npm install` fails to compile `better-sqlite3`, install native b
 
 ## Step 2 — register the MCP server
 
-Use the `claude mcp` CLI, not hand-edited JSON. Claude Code reads MCP servers from `~/.claude/settings.json` → `mcpServers`; a standalone `mcp.json` is silently ignored. The CLI writes to the correct file.
+Use the `claude mcp` CLI, not hand-edited JSON. The CLI writes to `~/.claude.json` (user scope) which Claude Code reads on launch. Do NOT hand-edit this file — it is also managed by Claude Code internals. A standalone `~/.claude/mcp.json` is silently ignored. Hand-editing `~/.claude/settings.json` → `mcpServers` works but is a legacy path; prefer the CLI.
 
 ```bash
 # Idempotent — remove any prior registration first

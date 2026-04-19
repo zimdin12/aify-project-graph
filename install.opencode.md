@@ -28,8 +28,8 @@ else
 fi
 
 cd "$CLONE_PATH"
-npm install
-npm test              # expect: 144 passing
+npm install --legacy-peer-deps   # tree-sitter peer-dep mismatch; safe
+npm test
 ```
 
 If the native module fails on load (`better_sqlite3.node is not a valid ... application`):
