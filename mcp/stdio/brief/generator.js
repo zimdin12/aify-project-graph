@@ -271,6 +271,132 @@ function testAnchors(db, limit = 3) {
   return rows.map(r => ({ file: r.file, why: 'test file' }));
 }
 
+// For each valid feature, precompute action-bearing data the plan brief
+// needs: test files anchored under the feature's file globs, + a rough
+// callers count summed across feature symbols. This is what makes
+// brief.plan.md say "open these tests, N callers" instead of just listing
+// anchors. Convergent audit finding (subagent + dev, both 6.5/10): plan
+// brief was too orient-shaped; this is the highest-leverage fix.
+function enrichFeaturesForPlanning(db, validFeatures) {
+  const enriched = [];
+  for (const entry of validFeatures) {
+    const { feature } = entry;
+    const fileGlobs = feature.anchors.files || [];
+
+    // Tests related to this feature. Three signals, applied in order:
+    //   1. Symbol-reference edges (test files that CALL/REFERENCE anchored symbols)
+    //   2. Path-token match (tests whose path shares a dir token with the feature's files)
+    //   3. Glob match under feature's file anchors (covers projects that keep tests co-located)
+    let tests = [];
+    const symbols = feature.anchors.symbols || [];
+    if (symbols.length > 0) {
+      tests = db.all(
+        `SELECT DISTINCT f.file_path FROM nodes f
+         JOIN edges e ON e.from_id = f.id
+         JOIN nodes s ON s.id = e.to_id
+         WHERE s.label IN (${symbols.map((_, i) => `$s${i}`).join(',')})
+           AND e.relation IN ('CALLS', 'REFERENCES', 'TESTS', 'USES_TYPE')
+           AND (f.file_path LIKE 'tests/%' OR f.file_path LIKE 'test/%'
+                OR f.file_path LIKE '%/__tests__/%' OR f.file_path LIKE '%.test.%'
+                OR f.file_path LIKE '%.spec.%' OR f.file_path LIKE '%_test.py')
+         LIMIT 10`,
+        Object.fromEntries(symbols.map((s, i) => [`s${i}`, s]))
+      );
+    }
+    // Path-token fallback: extract meaningful tokens from feature's file globs
+    // (e.g. `mcp/stdio/freshness/*` → "freshness") and find tests whose path
+    // contains any of them.
+    if (tests.length === 0 && fileGlobs.length > 0) {
+      const tokens = new Set();
+      for (const glob of fileGlobs) {
+        for (const part of glob.split(/[/*]+/)) {
+          if (part.length >= 4 && !['mcp', 'src', 'app', 'lib', 'app/', 'tests'].includes(part)) {
+            tokens.add(part);
+          }
+        }
+      }
+      if (tokens.size > 0) {
+        const likes = [...tokens].map((_, i) => `file_path LIKE $t${i}`).join(' OR ');
+        const params = Object.fromEntries([...tokens].map((t, i) => [`t${i}`, `%${t}%`]));
+        tests = db.all(
+          `SELECT DISTINCT file_path FROM nodes
+           WHERE type = 'File'
+             AND (file_path LIKE 'tests/%' OR file_path LIKE 'test/%'
+                  OR file_path LIKE '%.test.%' OR file_path LIKE '%.spec.%'
+                  OR file_path LIKE '%_test.py')
+             AND (${likes})
+           LIMIT 5`, params);
+      }
+    }
+    // Final fallback: direct glob match (covers co-located tests)
+    if (tests.length === 0 && fileGlobs.length > 0) {
+      tests = db.all(
+        `SELECT DISTINCT file_path FROM nodes
+         WHERE type = 'File'
+           AND (file_path LIKE 'tests/%' OR file_path LIKE 'test/%'
+                OR file_path LIKE '%.test.%' OR file_path LIKE '%.spec.%')
+           AND (${fileGlobs.map((_, i) => `file_path GLOB $g${i}`).join(' OR ')})
+         LIMIT 5`,
+        Object.fromEntries(fileGlobs.map((g, i) => [`g${i}`, g]))
+      );
+    }
+
+    // Callers count: sum of incoming edges to every anchored symbol. This
+    // gives a single "how load-bearing is this feature?" number.
+    let callersTotal = 0;
+    if (symbols.length > 0) {
+      const row = db.get(
+        `SELECT COUNT(*) AS c FROM edges e
+         JOIN nodes n ON n.id = e.to_id
+         WHERE n.label IN (${symbols.map((_, i) => `$s${i}`).join(',')})
+           AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')`,
+        Object.fromEntries(symbols.map((s, i) => [`s${i}`, s]))
+      );
+      callersTotal = row?.c ?? 0;
+    }
+
+    enriched.push({
+      ...entry,
+      tests: tests.map(t => t.file_path),
+      callers_total: callersTotal,
+    });
+  }
+  return enriched;
+}
+
+// For each RISK file, compute: which features anchor it + how many callers
+// its symbols have + the closest test file. Answers "if I touch this, what
+// context matters?" without requiring a separate graph_impact call.
+function enrichRisksForPlanning(db, risksArr, features) {
+  return risksArr.map(r => {
+    const matchedFeatures = features
+      .filter(f => (f.anchors.files || []).some(g => globMatchesPath(g, r.file)))
+      .map(f => f.id);
+    // Nearest test: file in same dir or one of the feature's test files
+    const dir = r.file.split('/').slice(0, -1).join('/') || '.';
+    const nearestTest = db.get(
+      `SELECT file_path FROM nodes
+       WHERE type = 'File' AND file_path LIKE 'tests/%'
+         AND file_path LIKE $pattern
+       LIMIT 1`, { pattern: `%${dir.split('/').pop()}%` });
+    return {
+      ...r,
+      features: matchedFeatures,
+      nearest_test: nearestTest?.file_path ?? null,
+    };
+  });
+}
+
+function globMatchesPath(glob, path) {
+  if (glob === path) return true;
+  const regex = glob
+    .replace(/[.+^${}()|\\]/g, '\\$&')
+    .replace(/\*\*/g, '§§§')
+    .replace(/\*/g, '[^/]*')
+    .replace(/§§§/g, '.*');
+  return new RegExp(`^${regex}$`).test(path);
+}
+
 function risks(db, limit = 3) {
   // Files with high fan-in. Skip noisy files and empty/root file_paths
   // (some aggregate rows slip through without a real path).
@@ -560,18 +686,23 @@ function renderOnboardAgentMarkdown(data) {
 // attribution (similar-change context), then RISKS. Drops ENTRY/HUBS which
 // are orient-specific noise for a change-planning session.
 function renderPlanAgentMarkdown(data) {
-  const { snapshot, risksArr, health, overlayHealth, recentWithFiles, tasksArtifact } = data;
+  const { snapshot, health, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
-  if (overlayHealth?.valid?.length) {
+  // FEATURES now carries action-bearing data: primary file + test anchor +
+  // caller count. Agent can see "for this feature, open X, tests are at Y,
+  // touching Z symbols will ripple to N callers" without another tool call.
+  if (enrichedValid?.length) {
     lines.push('FEATURES:');
-    for (const { feature, resolved } of overlayHealth.valid.slice(0, 6)) {
-      const anchors = [
-        ...resolved.symbols.slice(0, 2),
-        ...resolved.files.slice(0, 2),
-      ].slice(0, 3).join(',');
+    for (const { feature, resolved, tests, callers_total } of enrichedValid.slice(0, 6)) {
+      const primaryFile = resolved.files[0] || '(no file anchor)';
+      const primarySym = resolved.symbols[0] || '';
+      const testStr = tests.length > 0 ? tests[0] : '(no test anchor)';
       const deps = feature.depends_on.length ? ` deps=[${feature.depends_on.slice(0, 3).join(',')}]` : '';
-      lines.push(`  ${feature.id}: ${feature.label || feature.id}${anchors ? ' [' + anchors + ']' : ''}${deps}`);
+      lines.push(`  ${feature.id}: ${feature.label || feature.id}${deps}`);
+      lines.push(`    open:  ${primaryFile}${primarySym ? ' (' + primarySym + ')' : ''}`);
+      lines.push(`    tests: ${testStr}`);
+      lines.push(`    load:  ${callers_total} callers across anchored symbols`);
     }
   }
   // Open tasks grouped by feature — from .aify-graph/tasks.json if present.
@@ -604,9 +735,13 @@ function renderPlanAgentMarkdown(data) {
       lines.push(`  ${c.date} ${c.sha}${featureTag} ${c.subject}`);
     }
   }
-  if (risksArr.length) {
+  if (enrichedRisks?.length) {
     lines.push('RISK:');
-    for (const r of risksArr.slice(0, 3)) lines.push(`  ${r.file} (${r.why})`);
+    for (const r of enrichedRisks.slice(0, 3)) {
+      const featureTag = r.features.length ? ` in [${r.features.slice(0, 2).join(',')}]` : '';
+      const testTag = r.nearest_test ? ` · test: ${r.nearest_test}` : '';
+      lines.push(`  ${r.file} (${r.why})${featureTag}${testTag}`);
+    }
   }
   if (health.issues.length) {
     const tip = health.tip ? ` → ${health.tip}` : '';
@@ -694,8 +829,16 @@ export function generateBrief({ repoRoot }) {
     // L3 tasks from external tracker (written by graph-map-tasks skill).
     const tasksArtifact = loadTasks(repoRoot);
 
+    // Plan-brief enrichment: features get tests + callers count, risks get
+    // feature attribution + nearest test. Computed here so renderers can
+    // emit action-bearing lines instead of bare anchors.
+    const enrichedValid = overlay.features.length > 0
+      ? enrichFeaturesForPlanning(db, overlayHealth.valid)
+      : [];
+    const enrichedRisks = enrichRisksForPlanning(db, risksArr, overlay.features);
+
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact };
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);
