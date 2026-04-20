@@ -1,6 +1,6 @@
 # aify-project-graph
 
-On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph + precomputed briefs, and hands the agent a 250-token orientation substrate instead of forcing it to explore with shell.
+On-demand codebase graph map for coding agents. Scans any project with tree-sitter (12 languages), builds a structural graph + precomputed briefs, and hands the agent a 300-700-token orientation substrate instead of forcing it to explore with shell.
 
 Measured (2026-04-20 cross-tester, matched-N post-audit): on shell-accessible tasks (orient, search, trace), **1.5–2.9× faster wall-clock** on Claude Code Agent + Opus (token savings **−19% to −34%**); on Codex + gpt-5.4 the same tasks are roughly parity-to-slight-regression aggregate (matched 11-vs-11: **+3.6% tokens, +11.3% duration** — codex's prompt caching + per-cell variance flatten the gain). On **overlay-dependent tasks** with `functionality.json` populated (pre-delete impact, feature drilldown, trust assessment, recent-in-feature), brief-only **gains quality** — baseline 2/4 clean vs brief 4/4 clean, **−18% tokens, −51% duration** (APG measured on dev's Codex; mechanism evident). Full per-cell matrix + Phase 2 addendum at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
 
@@ -189,7 +189,7 @@ Under the hood each install doc does the same thing:
 4. Copies skills from `integrations/claude-code/skill{,s}/` to `~/.claude/skills/` (Claude Code only; Codex / OpenCode skip)
 5. User restarts the runtime
 
-**Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_impact`, `graph_path`, `graph_change_plan`). The other 14 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile (all 17 visible) by default.
+**Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_impact`, `graph_path`, `graph_change_plan`). The other 16 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile (all 19 visible) by default.
 
 **Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms and load fails — install per-runtime into the pinned paths above (each runtime gets its own clone, own build), or run `npm rebuild better-sqlite3` in the runtime you currently use. `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 

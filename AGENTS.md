@@ -32,7 +32,7 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 | Codex | `~/.codex/plugins/aify-project-graph` | `codex mcp add` |
 | OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |
 
-**Profile:** Claude Code uses the full toolset (17 visible verbs). Codex and OpenCode use `--toolset=lean` (3 visible: `graph_impact`, `graph_path`, `graph_change_plan`; the other 14 remain callable by name via `tools/call`).
+**Profile:** Claude Code uses the full toolset (19 visible verbs). Codex and OpenCode use `--toolset=lean` (3 visible: `graph_impact`, `graph_path`, `graph_change_plan`; the other 16 remain callable by name via `tools/call`).
 
 **Platform gotcha:** `better-sqlite3` is native — the compiled binary has to match the runtime. If the same clone is shared across Windows and WSL, load fails with `not a valid Win32 application` or equivalent. The pinned paths above already separate the clones; if you still see this error, run `npm rebuild better-sqlite3` in the runtime you plan to use.
 
