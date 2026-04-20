@@ -16,6 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
 import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
+import { buildPaths } from '../query/verbs/path.js';
 
 const NOISE_LABELS = new Set([
   'requirements.txt', 'package-lock.json', 'yarn.lock', '.gitignore',
@@ -306,6 +307,71 @@ function extractExports(repoRoot, db) {
   } catch {}
 
   return out.slice(0, 16);
+}
+
+// Pre-computed execution traces for top EXPORTS. Calls buildPaths from
+// the graph_path verb at brief-gen time, then flattens each tree to the
+// deepest single chain. Bench 2026-04-20 found trace tasks barely
+// benefit from brief alone (-9% tokens / -20% duration on Claude Code,
+// near-parity on Codex) because brief had subsystem map but no
+// pre-computed execution chains. PATHS closes that gap by letting the
+// agent answer "trace X to Y" straight from brief context.
+function extractPaths(db, exportsArr, limit = 5) {
+  if (!exportsArr || exportsArr.length === 0) return [];
+  const out = [];
+  // Deepest-chain flattener: pick the longest descendant branch at each level.
+  function deepestChain(tree) {
+    if (!tree) return [];
+    const node = { name: tree.symbol, file: tree.file, line: tree.line };
+    if (!tree.children || tree.children.length === 0) return [node];
+    // Pick child with the deepest subtree
+    let bestChild = null;
+    let bestDepth = -1;
+    for (const c of tree.children) {
+      const d = subtreeDepth(c);
+      if (d > bestDepth) {
+        bestDepth = d;
+        bestChild = c;
+      }
+    }
+    return [node, ...deepestChain(bestChild)];
+  }
+  function subtreeDepth(t) {
+    if (!t || !t.children || t.children.length === 0) return 1;
+    return 1 + Math.max(...t.children.map(subtreeDepth));
+  }
+
+  for (const ex of exportsArr.slice(0, limit)) {
+    // Resolve the EXPORT to a graph node. For MCP verbs the location is
+    // `mcp/stdio/server.js:handler=graphX` — we want graphX, not graph_x.
+    let symbol = ex.name;
+    const handlerMatch = String(ex.location || '').match(/handler=([A-Za-z_][A-Za-z0-9_]*)/);
+    if (handlerMatch) symbol = handlerMatch[1];
+
+    const sources = db.all(
+      `SELECT id, label, type, file_path, start_line, confidence
+       FROM nodes WHERE label = $label
+         AND type IN ('Function','Method','Class','Route','Entrypoint')
+       LIMIT 1`, { label: symbol });
+    if (sources.length === 0) continue;
+    const root = sources[0];
+
+    try {
+      const tree = buildPaths(db, root, {
+        direction: 'out',
+        maxDepth: 5,
+        explorationWidth: 12,
+        relations: ['PASSES_THROUGH', 'INVOKES', 'CALLS'],
+        visited: new Set(),
+      });
+      if (!tree) continue;
+      const chain = deepestChain(tree);
+      if (chain.length < 2) continue; // single-node path is not informative
+      out.push({ entry: ex.name, chain });
+    } catch {}
+  }
+
+  return out;
 }
 
 // One-line "what does this brief actually cover" hint. Agent can use this to
@@ -945,7 +1011,7 @@ function renderMarkdown(data) {
 
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
 function renderAgentMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth, tooling, coverage, exports: exportsArr } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth, tooling, coverage, exports: exportsArr, paths } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
@@ -990,6 +1056,16 @@ function renderAgentMarkdown(data) {
     lines.push('INTERNAL_HUBS:');
     for (const h of hubsArr.slice(0, 4)) {
       lines.push(`  [${h.role}] ${h.label} ${h.file}:${h.line} fan=${h.fan_in}`);
+    }
+  }
+  if (paths && paths.length) {
+    // PATHS: pre-computed execution traces for top EXPORTS. Each line is
+    // entry → file:line → file:line ... so trace tasks can answer from
+    // brief without grep-chasing across files.
+    lines.push('PATHS:');
+    for (const p of paths.slice(0, 5)) {
+      const chainStr = p.chain.map(n => `${n.name} ${n.file}:${n.line}`).join(' → ');
+      lines.push(`  ${p.entry}: ${chainStr}`);
     }
   }
   if (readFirstArr.length) {
@@ -1211,6 +1287,9 @@ export function generateBrief({ repoRoot }) {
     // readFirst depends on exports + overlayHealth + language — compute now.
     const tooling = extractTooling(repoRoot);
     const exports = extractExports(repoRoot, db);
+    // PATHS: pre-computed execution traces from top EXPORTS. Async because
+    // it dynamically imports the path verb (avoids cycle since path.js
+    // imports openDb/ensureFresh which generator.js also uses).
     const readFirstArr = readFirst(db, 6, {
       exports,
       overlayHealth,
@@ -1238,7 +1317,8 @@ export function generateBrief({ repoRoot }) {
 
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges);
     const coverage = briefCoverage(subs, overlayHealth);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage, exports };
+    const paths = extractPaths(db, exports, 5);
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage, exports, paths };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);

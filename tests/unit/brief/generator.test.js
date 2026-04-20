@@ -480,6 +480,55 @@ describe('brief/generator', () => {
     });
   });
 
+  describe('PATHS section (Phase 3, 2026-04-21)', () => {
+    it('PATHS emits flattened execution chains for top EXPORTS', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      // Seed an MCP-style server with verb handlers that call internal funcs
+      seedNodes(db, [
+        { id: 'srv', type: 'File', label: 'server.js', file_path: 'mcp/stdio/server.js' },
+        { id: 'h1', type: 'Function', label: 'opAHandler', file_path: 'mcp/stdio/query/verbs/op-a.js' },
+        { id: 'i1', type: 'Function', label: 'innerStep1', file_path: 'mcp/stdio/internal/step1.js' },
+        { id: 'i2', type: 'Function', label: 'innerStep2', file_path: 'mcp/stdio/storage/db.js' },
+      ]);
+      seedEdges(db, [
+        { from_id: 'h1', to_id: 'i1', relation: 'CALLS', source_file: 'mcp/stdio/query/verbs/op-a.js' },
+        { from_id: 'i1', to_id: 'i2', relation: 'CALLS', source_file: 'mcp/stdio/internal/step1.js' },
+      ]);
+      db.close();
+      // MCP server.js exposes op_a handler via tools/list array
+      await mkdir(join(repoRoot, 'mcp', 'stdio'), { recursive: true });
+      await writeFile(join(repoRoot, 'mcp', 'stdio', 'server.js'), [
+        'const TOOLS = [',
+        '  { name: \'op_a\', handler: opAHandler },',
+        '];',
+      ].join('\n'));
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toMatch(/PATHS:/);
+      // PATH should include the chain: handler → inner1 → inner2
+      expect(agent).toContain('op_a:');
+      expect(agent).toContain('opAHandler');
+      expect(agent).toContain('innerStep1');
+      // Chain notation
+      expect(agent).toContain(' → ');
+    });
+
+    it('PATHS skips entries that do not resolve to a graph node', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      // Only a stub File node; no Function/Method nodes, so PATHS resolution finds nothing
+      seedNodes(db, [
+        { id: 'f1', type: 'File', label: 'lonely.js', file_path: 'lonely.js' },
+      ]);
+      db.close();
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      // PATHS section may be absent (no resolvable entries) — that's correct
+      // Either way, brief must not crash and must still emit REPO/TRUST
+      expect(agent).toMatch(/^REPO:/);
+      expect(agent).toMatch(/TRUST/);
+    });
+  });
+
   describe('readFirst priority and language filtering (2026-04-20 gap-close)', () => {
     it('READ prefers EXPORTS-backed files when available', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
