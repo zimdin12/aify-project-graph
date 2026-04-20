@@ -2,7 +2,7 @@
 
 On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph + precomputed briefs, and hands the agent a 250-token orientation substrate instead of forcing it to explore with shell.
 
-Measured (2026-04-20 cross-tester run): on shell-accessible tasks (orient, search, trace), **1.5–2.9× faster wall-clock** on Claude Code Agent + Opus (duration win is smaller on Codex — parity to −10% aggregate), token savings **−19% to −34%** on Claude Code and **−17%** aggregate on Codex. On **overlay-dependent tasks** (pre-delete impact, feature drilldown, trust assessment, recent-in-feature) with `functionality.json` populated, brief-only **gains quality** — baseline 2/4 clean vs brief 4/4 clean (APG measured; mechanism evident). Token/duration savings also larger there (−18% tok, −74% dur). Full per-cell matrix + Phase 2 addendum at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
+Measured (2026-04-20 cross-tester, matched-N post-audit): on shell-accessible tasks (orient, search, trace), **1.5–2.9× faster wall-clock** on Claude Code Agent + Opus (token savings **−19% to −34%**); on Codex + gpt-5.4 the same tasks are roughly parity-to-slight-regression aggregate (matched 11-vs-11: **+3.6% tokens, +11.3% duration** — codex's prompt caching + per-cell variance flatten the gain). On **overlay-dependent tasks** with `functionality.json` populated (pre-delete impact, feature drilldown, trust assessment, recent-in-feature), brief-only **gains quality** — baseline 2/4 clean vs brief 4/4 clean, **−18% tokens, −51% duration** (APG measured on dev's Codex; mechanism evident). Full per-cell matrix + Phase 2 addendum at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
 
 ## Install in one paste
 
@@ -98,10 +98,10 @@ The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product 
 
 Five artifacts generated at `.aify-graph/` on every index:
 
-- **`brief.md`** (~500 tok, human-readable) — full orientation: snapshot, tooling, coverage, entrypoints, EXPORTS (public API), subsystems, features, internal hubs, read-first list, tests, risks, recent activity.
-- **`brief.agent.md`** (~350 tok, prompt substrate) — dense key/value form of the above. Paste into any agent's system/developer prompt for orient-shaped sessions.
-- **`brief.onboard.md`** (~250 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity and risks.
-- **`brief.plan.md`** (~310 tok) — leads with **features + anchors**, **recent commits feature-tagged**, **open tasks grouped by feature**, and risk areas. For "about to change something" sessions.
+- **`brief.md`** (~700-900 tok, human-readable) — full orientation: snapshot, tooling, coverage, entrypoints, EXPORTS (public API), subsystems, features, internal hubs, read-first list, tests, risks, recent activity.
+- **`brief.agent.md`** (~300-700 tok, prompt substrate) — dense key/value form of the above; size varies with public-API surface (apg at 19 MCP verbs ≈ 700 tok; small repos without explicit exports ≈ 300 tok). Paste into any agent's system/developer prompt for orient-shaped sessions.
+- **`brief.onboard.md`** (~250-500 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity and risks.
+- **`brief.plan.md`** (~300-600 tok when `functionality.json` populated, ~70 tok when empty) — leads with **features + anchors**, **recent commits feature-tagged**, **open tasks grouped by feature**, and risk areas. For "about to change something" sessions.
 - **`brief.json`** — machine-readable equivalent of everything.
 
 Briefs are **cache-discipline stable** — deterministic ordering, no timestamps in the agent brief, files only rewritten when content actually changes. Prefix-cache survives across sessions while HEAD doesn't move.
@@ -181,9 +181,9 @@ Under the hood each install doc does the same thing:
    - Claude Code: `~/.claude/plugins/aify-project-graph`
    - Codex: `~/.codex/plugins/aify-project-graph`
    - OpenCode: `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph`
-2. Runs `npm install && npm test` (144 passing expected)
+2. Runs `npm install && npm test` (~150 passing expected; 152 as of 2026-04-20)
 3. Registers the MCP server via the runtime's native CLI or config
-   - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude/settings.json` → `mcpServers`)
+   - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude.json` — the CLI-managed location, not `~/.claude/settings.json`)
    - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`
    - OpenCode: JSON-patch `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json` → `mcp.aify-project-graph`
 4. Copies skills from `integrations/claude-code/skill{,s}/` to `~/.claude/skills/` (Claude Code only; Codex / OpenCode skip)
@@ -366,9 +366,12 @@ Numbers reflect the full extractor stack: out-of-class C++ methods, PHP traits/e
 - [Install for Codex](install.codex.md) — agent-executable (lean profile)
 - [Install for OpenCode](install.opencode.md) — agent-executable (lean profile)
 - [Query format reference](SKILL.md)
-- [Dogfood A/B results (2026-04-18)](docs/dogfood/ab-results-2026-04-18.md)
-- [Dogfood lc-api trace rerun (2026-04-18)](docs/dogfood/ab-results-2026-04-18-lcapi-trace-expanded-rerun.md)
-- [Dogfood baseline](docs/dogfood/baseline-2026-04-16.md)
+- [Dogfood cross-tester + Phase 2 (2026-04-20)](docs/dogfood/ab-results-2026-04-20-cross-tester.md) — **current headline evidence**
+- [Dogfood improvement analysis (2026-04-20)](docs/dogfood/ab-results-2026-04-20-improvement-analysis.md)
+- [Pre-launch re-analysis (2026-04-20)](docs/dogfood/ab-2026-04-20-reanalysis.md)
+- [Dogfood A/B results (2026-04-18)](docs/dogfood/ab-results-2026-04-18.md) — historical
+- [Dogfood lc-api trace rerun (2026-04-18)](docs/dogfood/ab-results-2026-04-18-lcapi-trace-expanded-rerun.md) — historical
+- [Dogfood baseline (2026-04-16)](docs/dogfood/baseline-2026-04-16.md) — historical
 
 ## License
 

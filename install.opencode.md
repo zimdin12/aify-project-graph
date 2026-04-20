@@ -29,7 +29,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: 134 passing
+npm test         # expect: ~150 passing (152 as of 2026-04-20)
 ```
 
 If the native module fails on load (`better_sqlite3.node is not a valid ... application`):

@@ -441,7 +441,11 @@ function subsystems(db, limit = 6) {
     // Drop 0-file parent directories — they crowd out leaf subsystems with
     // redundant aggregated edge counts. Bench 2026-04-20: echoes "engine (0f
     // 15489e)" crowded out engine/ecs at top-4.
-    .filter(r => r.file_count >= 2 && (r.file_count >= 2 || r.edge_count >= 50))
+    // Rescue structurally-central small directories: allow file_count >= 2
+    // OR (file_count >= 1 AND high edge density) to surface 1-2 file dirs
+    // that punch above their size (e.g. engine/ecs with few files but many
+    // consumers).
+    .filter(r => r.file_count >= 2 || (r.file_count >= 1 && r.edge_count >= 50))
     .map(r => ({
       path: r.path,
       file_count: r.file_count,

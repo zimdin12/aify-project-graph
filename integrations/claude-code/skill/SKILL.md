@@ -15,7 +15,7 @@ Before calling any other tool, check whether this repo has a graph:
 ls .aify-graph/brief.agent.md 2>/dev/null
 ```
 
-If it exists, **read it first** — it's 250-400 tokens of dense orientation. Sections (in order): `REPO` stats · `LANG` · `TOOLING` (major libs from manifests) · `COVERS` (what the brief is actually about) · `ENTRY` · `EXPORTS` (public API surface — verbs, routes, package exports) · `SUBSYS` · `FEATURES` (if overlay populated) · `INTERNAL_HUBS` (high-fan-in helpers — NOT public API; those are in EXPORTS) · `READ` · `TESTS` · `RECENT` · `TRUST`. Much cheaper than exploring with shell.
+If it exists, **read it first** — it's 300-700 tokens of dense orientation (grows with public-API surface size). Sections (in order): `REPO` stats · `LANG` · `TOOLING` (major libs from manifests) · `COVERS` (what the brief is actually about) · `ENTRY` · `EXPORTS` (public API surface — verbs, routes, package exports) · `SUBSYS` · `FEATURES` (if overlay populated) · `INTERNAL_HUBS` (high-fan-in helpers — NOT public API; those are in EXPORTS) · `READ` · `TESTS` · `RECENT` · `TRUST`. Much cheaper than exploring with shell.
 
 - For orient / onboarding: read `brief.agent.md` or `brief.onboard.md`
 - For change-planning: read `brief.plan.md` (has `open:` / `tests:` / `load:` per feature)

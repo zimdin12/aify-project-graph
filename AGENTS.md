@@ -10,7 +10,7 @@ A local MCP server that indexes the user's current repo into a SQLite-backed cod
 
 Check the user's runtime. This guide covers:
 
-- **Claude Code** — MCP servers stored under `mcpServers` in `~/.claude/settings.json` (use `claude mcp add` CLI, do not hand-edit). Skills at `~/.claude/skills/`.
+- **Claude Code** — MCP servers stored under `mcpServers` in `~/.claude.json` (use `claude mcp add` CLI, do not hand-edit; note: not `~/.claude/settings.json` which is the hooks/permissions file). Skills at `~/.claude/skills/`.
 - **Codex** — MCP servers registered via `codex mcp add` CLI (writes `~/.codex/mcp.json`).
 - **OpenCode** — MCP servers under `mcp` in `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json`.
 
@@ -28,7 +28,7 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 
 | Runtime | Pinned clone path | MCP registration method |
 |---|---|---|
-| Claude Code | `~/.claude/plugins/aify-project-graph` | `claude mcp add --scope user` (writes `~/.claude/settings.json`) |
+| Claude Code | `~/.claude/plugins/aify-project-graph` | `claude mcp add --scope user` (writes `~/.claude.json`) |
 | Codex | `~/.codex/plugins/aify-project-graph` | `codex mcp add` |
 | OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |
 
@@ -82,13 +82,13 @@ The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` 
 
 `.aify-graph/` also contains five precomputed brief artifacts that often answer orient/plan questions without a single MCP call:
 
-- **`brief.md`** (~500 tok) — human-readable full brief
-- **`brief.agent.md`** (~350 tok) — dense prompt substrate; paste into session prompt for orient sessions
-- **`brief.onboard.md`** (~250 tok) — stripped variant for new-to-this-repo sessions
-- **`brief.plan.md`** (~310 tok) — leads with features, open tasks by feature, feature-tagged recent commits, and risk areas. For change-planning sessions.
+- **`brief.md`** (~700-900 tok) — human-readable full brief
+- **`brief.agent.md`** (~300-700 tok; apg-like MCP servers with 19 verbs reach 700, smaller repos hit 300) — dense prompt substrate; paste into session prompt for orient sessions
+- **`brief.onboard.md`** (~250-500 tok) — stripped variant for new-to-this-repo sessions
+- **`brief.plan.md`** (~300-600 tok when functionality.json populated, ~70 tok when empty) — leads with features, open tasks by feature, feature-tagged recent commits, and risk areas. For change-planning sessions.
 - **`brief.json`** — machine-readable equivalent
 
-Measured on real codex runs: brief-only beats lean-MCP by **−21% to −32% tokens** on orient tasks with quality equal or better. Use briefs first; reach for MCP verbs only for precision queries the brief can't answer.
+Measured (2026-04-20 cross-tester, matched-N): brief-only beats no-graph baseline by **−19% to −34% tokens and 1.5-2.9× wall-clock** on Claude Code Agent + Opus for orient/search on small-to-medium repos. On Codex + gpt-5.4 the same shell-accessible shapes are roughly parity aggregate (+3.6% tok / +11.3% dur matched). Quality GAINS show up on overlay-dependent task shapes (pre-delete impact, feature drilldown, trust assessment, recent-in-feature) when `functionality.json` is populated: Phase 2 APG bench measured baseline 2/4 clean → brief-only 4/4 clean. Full cross-tester matrix + Phase 2 addendum at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
 
 Regenerate with:
 ```bash

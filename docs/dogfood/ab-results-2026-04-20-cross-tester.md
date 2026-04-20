@@ -1,6 +1,6 @@
 # A/B 2026-04-20 — no-graph baseline vs brief-only with aify-project-graph
 
-Two independent testers ran the same 24-cell matrix (4 repos × 3 task shapes × 2 arms) using the spec at `ab-2026-04-20-spec.v3.json`. This document summarizes graph-tech-lead's run; graph-senior-dev's independent run will be merged into a `cross-tester` section when shared.
+Two independent testers ran the same 24-cell matrix (4 repos × 3 task shapes × 2 arms) using the spec at `ab-2026-04-20-spec.v3.json`, both datasets landed and are reconciled in this document. graph-senior-dev additionally ran a Phase 2 APG-only overlay-dependent bench (8 cells) — see Phase 2 addendum section below. Post-audit correction (2026-04-20 evening): the initial Codex aggregate used mismatched-N accounting; matched 11-vs-11 figures are now used throughout.
 
 **Spec hashes (verified identical across both testers):**
 - apg brief.agent.md: `e8d64d99c4a185d68e5c479861b4c4c35d652d356731f43f6be30c76087ed829`
@@ -149,9 +149,9 @@ graph-senior-dev's independent run (codex+gpt-5.4 in WSL) landed. All 24 cells m
 |---|---:|---:|---:|---:|
 | baseline (12 cells) | 445,036 | 741,372 | 445s | 688s |
 | brief-only (11 clean) | 313,966 | 613,032 | 260s | 619s |
-| brief-only delta within tester | **−29.4% tok / −41.6% dur** (mine 11-cell) | **−17.3% tok / −10.0% dur** (dev 11-cell) | | |
+| brief-only delta (MATCHED 11-vs-11, `echoes.trace` excluded from BOTH arms) | **−29.4% tok / −41.6% dur** (mine) | **+3.6% tok / +11.3% dur** (dev) | | |
 
-Brief-only wins both testers on tokens. Wins mine on duration; closer to parity on dev's.
+**Revised honest read (2026-04-20 post-audit correction)**: on MATCHED 11-cell comparison (excluding the contaminated `echoes.trace` from both arms symmetrically), brief-only is a real win on Claude Code Agent + Opus but **roughly parity-to-slight-regression on Codex** for the shell-accessible task shapes. The earlier "−17.3% tok / −10.0% dur" claim for Codex used mismatched N (11 brief cells vs 12 baseline cells, which gave the heaviest cell `echoes.trace.baseline` to the baseline side only) — statistically misleading and now corrected. Brief wins on Claude Code for these shapes; on Codex the brief's value shows up in overlay-dependent tasks (Phase 2 addendum below), not in orient/search/trace aggregates.
 
 ### Quality agreement matrix
 
@@ -297,10 +297,10 @@ graph-senior-dev ran this single-tester on APG (the one repo with a mature `func
 | pre-delete-impact | brief-only | 46,166 | 36.1s | **pass** |
 
 **Aggregate:**
-- baseline: 214,151 tok, 130s, 2 pass / 1 partial / 1 fail
-- brief-only: 174,933 tok, 33.5s, **4/4 pass**
+- baseline: 214,151 tok, 130.3s, 2 pass / 1 partial / 1 fail
+- brief-only: 174,933 tok, 63.5s, **4/4 pass**
 - token delta: **−18.3%**
-- duration delta: **−74%**
+- duration delta: **−51.2%**
 - quality delta: **baseline 2/4 clean → brief-only 4/4 clean (+2 cells improved)**
 
 **This is the first cross-tester evidence that brief-only GAINS quality, not just parity.** Two of four cells moved from partial/fail on baseline to pass on brief. The mechanism: baseline subagents couldn't reconstruct feature-level context (which file owns which feature, what depends_on what, what's indexed reliably) from grep+git alone — they produced structurally-correct file-level answers but missed the overlay-layer context that the rubrics required. Brief-only had the overlay pre-loaded and named features explicitly.
@@ -312,7 +312,7 @@ graph-senior-dev ran this single-tester on APG (the one repo with a mature `func
 
 **Not scaled to other repos** per dev's call: *"I would not scale this to the other 3 repos preemptively unless we need the extra evidence for a doc claim; APG already shows the mechanism clearly."* Agreed — the mechanism-demonstration goal is met. Scaling would add confidence but not change the story.
 
-**Methodology note:** dev's codex harness runs the Phase 2 cells the same way as the 24-cell bench — same rubric pattern (pass/partial/fail with notes), same caching behavior, same tester. The −74% duration and quality improvement are real signals, not harness artifacts.
+**Methodology note:** dev's codex harness runs the Phase 2 cells the same way as the 24-cell bench — same rubric pattern (pass/partial/fail with notes), same caching behavior, same tester. The −51% duration and quality improvement are real signals, not harness artifacts.
 
 
 ## Bottom line (this tester only — pending dev cross-check)

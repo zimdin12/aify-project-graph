@@ -30,7 +30,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: 134 passing
+npm test         # expect: ~150 passing (152 as of 2026-04-20)
 ```
 
 A committed `.npmrc` sets `legacy-peer-deps=true` because several tree-sitter grammar packages declare `peerOptional tree-sitter@^0.21.1` while the repo pins `^0.22.0`. Both versions work at runtime; npm just refuses to auto-resolve. The `.npmrc` makes `npm install` work with no flags; do not delete it.
