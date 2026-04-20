@@ -125,6 +125,32 @@ Anti-patterns to avoid:
 
 The user is watching the split and will call it out. Save them the trouble — self-audit your own cadence and pass the baton before they have to tell you.
 
+## Multi-agent teams sharing one repo
+
+This is the "4 agents work in the same folder" case. It's supported — here's how it behaves, what's safe, and what to watch for.
+
+**What's safe out of the box:**
+
+- **Concurrent reads across agents.** SQLite (WAL mode) lets every agent call read-only verbs (`graph_report`, `graph_path`, `graph_pull`, etc.) simultaneously. No coordination needed.
+- **Concurrent writes are serialized.** Every call that could mutate the graph (`graph_index`, any verb whose `ensureFresh` decides to rebuild) goes through a two-tier lock:
+  - An in-process queue (FIFO) stops multiple verbs *within one agent's MCP server* from racing each other.
+  - `.aify-graph/.write.lock` (proper-lockfile) serializes across agent processes. The retry budget is ~3 minutes of polite backoff, which covers a peer doing a first-time full index on most repos.
+- **Stale cache never lies.** Each agent's MCP server has a 5-second freshness cache — that's per-process. If agent A reindexes, agent B sees the new state on its next verb call (at worst 5 seconds later).
+- **Overlays (`functionality.json`, `tasks.json`) are plain files.** Standard git workflow applies: whoever edits last wins. Use `/graph-feature-edit` + `/graph-task-edit` for surgical single-edits so diffs stay small and mergeable.
+
+**What to watch for:**
+
+- **First-time index on a huge repo.** If 4 agents all hit an un-indexed repo simultaneously, one wins the lock and builds; the others wait up to ~3 minutes. On very large repos (10-minute first-index), the losers may time out. Mitigation: have one agent run `graph_index()` explicitly before fanning out the team.
+- **Uncoordinated `graph_index(force=true)`.** Any agent can force a full rebuild. If two agents both decide to force-rebuild, they serialize and do the work twice in sequence. Agree on one index owner for force-rebuilds.
+- **Dashboard port conflicts.** `graph_dashboard` picks the first free port; each agent that opens one claims its own. Not a concurrency bug but it means four browser tabs if four agents launch it.
+- **Dirty-tree skew across agents.** Each agent's `graph_status` uses their *own* working-tree git state for `dirtyFiles`. If agent A has uncommitted changes, agent B won't see them — they see their own tree. That's correct, but it means "dirty" is per-agent, not shared.
+
+**Team hygiene (applies in addition to the etiquette above):**
+
+- **One agent owns the overlay lifecycle.** `/graph-build-functionality` and `/graph-build-tasks` produce JSON diffs the user reviews. Running these from multiple agents at once creates merge thrash. Designate one agent (usually the tech-lead role) to own overlay updates; others consume them.
+- **Split by feature, not by verb.** Two agents calling `graph_impact` on different symbols is fine. Two agents calling `graph_index(force=true)` at the same time is wasted work.
+- **If you see a staleness warning in your `_warnings` envelope**, a teammate likely just landed commits. Prefer re-reading the brief over forcing a reindex yourself — the next verb call will refresh via ensureFresh if needed.
+
 ## What the install is NOT
 
 - No server to run — the MCP process launches on-demand via stdio

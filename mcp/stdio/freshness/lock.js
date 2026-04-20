@@ -27,10 +27,14 @@ export async function withWriteLock(repoRoot, fn) {
     const release = await lockfile.lock(lockPath, {
       realpath: false,
       stale: 3600000, // 1 hour — large repos take 10+ minutes on first index
-      // Cross-process retry budget. In-process concurrency is already
-      // serialized by the queue above, so these retries only cover the case
-      // where another OS process holds the lock.
-      retries: { retries: 10, factor: 1.5, minTimeout: 100, maxTimeout: 2000 },
+      // Cross-process retry budget. Must survive a peer agent doing a
+      // first-time full index (seconds on small repos, minutes on large
+      // repos like echoes 250+ files). Previous 10 × (100..2000ms) =
+      // ~9s total was too short for teams of 2+ agents racing the first
+      // index. New budget: 40 retries × backoff (200..5000ms) gives
+      // ~3 minutes of polite waiting — enough to cover typical first-index
+      // cases while still timing out eventually on a truly stuck peer.
+      retries: { retries: 40, factor: 1.5, minTimeout: 200, maxTimeout: 5000 },
     });
     try {
       return await fn();

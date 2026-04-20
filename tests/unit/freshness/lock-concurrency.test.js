@@ -54,4 +54,29 @@ describe('withWriteLock — in-process concurrency', () => {
     const result = await withWriteLock(repoRoot, async () => 'ok');
     expect(result).toBe('ok');
   });
+
+  it('handles 4 concurrent callers in sequence without collision', async () => {
+    // Simulates the "4 agents working in one folder" scenario at the
+    // in-process level. Each caller must serialize; none can error out.
+    const started = [];
+    const ended = [];
+    const slow = (label, ms) => async () => {
+      started.push(label);
+      await new Promise((r) => setTimeout(r, ms));
+      ended.push(label);
+      return label;
+    };
+
+    const results = await Promise.all([
+      withWriteLock(repoRoot, slow('a', 15)),
+      withWriteLock(repoRoot, slow('b', 15)),
+      withWriteLock(repoRoot, slow('c', 15)),
+      withWriteLock(repoRoot, slow('d', 15)),
+    ]);
+
+    expect(results).toEqual(['a', 'b', 'c', 'd']);
+    // Critical serialization property: each caller finishes before the next starts.
+    expect(started).toEqual(['a', 'b', 'c', 'd']);
+    expect(ended).toEqual(['a', 'b', 'c', 'd']);
+  });
 });
