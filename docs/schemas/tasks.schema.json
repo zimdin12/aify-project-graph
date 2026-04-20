@@ -1,0 +1,81 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/zimdin12/aify-project-graph/blob/main/docs/schemas/tasks.schema.json",
+  "title": "aify-project-graph tasks overlay",
+  "description": "Task snapshot bound to features. Lives at `.aify-graph/tasks.json`. Written by /graph-build-tasks from an external tracker (ClickUp/Asana/Linear/Jira/GitHub) or hand-authored for local work. Permissively loaded; see docs/schema-versions.md.",
+  "type": "object",
+  "required": ["tasks"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version of THIS overlay (not the graph DB). Currently '0.1'."
+    },
+    "source": {
+      "type": "string",
+      "description": "Where tasks came from (e.g. 'clickup:space-123', 'asana:project-456', 'local'). Stored for provenance + re-sync reference."
+    },
+    "fetched_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp of the last sync from the tracker."
+    },
+    "tasks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/task" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "task": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "External tracker ID (e.g. 'CU-8234', 'ENG-412', '#123') OR local ID (e.g. 'T-local-42'). /graph-task-edit warns when editing tracker IDs locally — those don't sync back."
+        },
+        "title": {
+          "type": "string",
+          "description": "Short task title. Shown in brief.plan.md task-preview lines."
+        },
+        "status": {
+          "type": "string",
+          "description": "Tracker-defined status (e.g. 'open', 'in-progress', 'done', 'blocked'). Open-vs-closed is derived by brief generator — see taskFeatureRefs() in generator.js."
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Feature IDs this task belongs to. Preferred binding. Loader accepts `related_features` as alias for compatibility with older writers."
+        },
+        "related_features": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Legacy alias for `features`. Accepted for read-compatibility; new writers should use `features`."
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-form labels from the tracker (e.g. 'bug', 'P1', 'regression'). /graph-walk-bugs can filter on these."
+        },
+        "priority": {
+          "type": "string",
+          "description": "Tracker-defined priority string. Free-form so we don't lock into one tracker's vocabulary."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Link back to the tracker item."
+        },
+        "assignee": {
+          "type": "string",
+          "description": "Who owns the task (tracker user identifier)."
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Why this task was bound to these features. Written by /graph-build-tasks so attribution is auditable."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

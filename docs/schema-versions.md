@@ -91,6 +91,22 @@ Practical expectation:
 - old task snapshots are usually still readable
 - rebuilding briefs after updating tasks is enough for normal use
 
+## Formal schema files
+
+JSON Schema (draft-07) definitions live at:
+
+- `docs/schemas/functionality.schema.json` — functionality overlay
+- `docs/schemas/tasks.schema.json` — tasks overlay
+
+These are published for external consumers — CI validators, schema-aware editors, cross-tool integrations. The loader itself does NOT run these schemas (it normalizes permissively instead; see above). Use them as a reference contract, not a hard gate.
+
+Quick check with `ajv-cli`:
+
+```
+npx ajv-cli validate -s docs/schemas/functionality.schema.json -d .aify-graph/functionality.json
+npx ajv-cli validate -s docs/schemas/tasks.schema.json -d .aify-graph/tasks.json
+```
+
 ## Operator guidance
 
 - If `graph_status()` shows an unexpected `schemaVersion`, compare it to this page first.

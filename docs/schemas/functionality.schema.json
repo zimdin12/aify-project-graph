@@ -1,0 +1,95 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/zimdin12/aify-project-graph/blob/main/docs/schemas/functionality.schema.json",
+  "title": "aify-project-graph functionality overlay",
+  "description": "Hand- or agent-authored feature map for a repo. Lives at `.aify-graph/functionality.json`. Permissively loaded — missing optional fields normalize to sensible defaults at read time; see docs/schema-versions.md for the compatibility posture.",
+  "type": "object",
+  "required": ["features"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version of THIS overlay file (not the graph DB). Currently '0.2'. Missing = assumed '0.1'. Loader never fails on unknown version strings.",
+      "examples": ["0.2"]
+    },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" },
+      "description": "List of features. Order is preserved for deterministic brief output."
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "feature": {
+      "type": "object",
+      "required": ["id"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$",
+          "description": "Stable machine identifier. Kebab-case, used for cross-references in depends_on / related_to / tasks.json."
+        },
+        "label": {
+          "type": "string",
+          "description": "Human-readable name. Falls back to id if absent."
+        },
+        "description": {
+          "type": "string",
+          "description": "Short one-paragraph explanation. Shown in brief.md + brief.plan.md."
+        },
+        "anchors": {
+          "type": "object",
+          "description": "Where this feature lives in the code+docs. Used for anchor validation and file→feature attribution.",
+          "properties": {
+            "symbols": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Function/class/method names. Validated against graph nodes; missing ones surface via loud anchor validation."
+            },
+            "files": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Repo-relative file paths. Supports `path/*` globs for directory anchors."
+            },
+            "routes": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Framework routes (e.g. Laravel/Express/FastAPI). Matched against Route nodes."
+            },
+            "docs": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Repo-relative doc paths (e.g. docs/feature.md)."
+            }
+          },
+          "additionalProperties": false
+        },
+        "depends_on": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Feature IDs this feature hard-depends on (A breaks if B breaks). User-curated; validated for existence."
+        },
+        "related_to": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Feature IDs with weaker coupling. A touches B's concepts but isn't strictly dependent."
+        },
+        "source": {
+          "type": "string",
+          "enum": ["user", "llm", "clickup", "asana", "linear", "jira", "github"],
+          "description": "Provenance. `llm` entries auto-upgrade to `user` on human edit — protects curated state from future LLM proposals."
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Free-form labels. Used by /graph-walk-bugs for filtering."
+        },
+        "contracts": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional cross-feature contracts this feature publishes or consumes. Free-form doc/symbol refs."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

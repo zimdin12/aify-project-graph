@@ -45,7 +45,12 @@ export function loadFunctionality(repoRoot) {
     const features = Array.isArray(raw.features) ? raw.features.map(normalizeFeature) : [];
     return { version: raw.version || '0.1', features, mtime, path };
   } catch (err) {
-    return { version: null, features: [], mtime: 0, path, error: err.message };
+    return {
+      version: null, features: [], mtime: 0, path,
+      // Include a schema pointer so external tooling / humans know where to
+      // look for the contract when the file fails to parse.
+      error: `${err.message} (schema: docs/schemas/functionality.schema.json)`,
+    };
   }
 }
 

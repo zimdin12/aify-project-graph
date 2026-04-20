@@ -56,9 +56,15 @@ node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
 
 Now `brief.plan.md` has a FEATURES section with `open:` / `tests:` / `load:` per feature. This is what makes plan briefs worth using.
 
-### 5. (Optional) Offer to sync tasks
+### 5. Auto-offer `/graph-build-tasks` when a tracker MCP is present
 
-If the user has a task tracker (ClickUp/Asana/Linear/Jira/GitHub) connected via MCP, offer to run `/graph-build-tasks` to add `tasks.json`. Skip if no task source is detected — this is optional enrichment.
+Running `/graph-build-tasks` is the unlock that turns the graph from a static map into a daily-use tool: it activates per-feature open-task lines in `brief.plan.md`, makes `/graph-walk-bugs` usable, cross-validates feature↔task bindings, and populates the dashboard's task layer.
+
+Check for a tracker MCP in the active session (names matching `clickup`, `asana`, `linear`, `jira`, or `github`). If one is connected:
+
+> "I can sync your tracker's open tasks into `.aify-graph/tasks.json` now so the plan brief shows per-feature open work. Run `/graph-build-tasks`? (takes 10-60s)"
+
+Proceed on confirmation. Skip silently if no tracker MCP is detected — this stays optional.
 
 ### 6. Done — tell the user how to use it
 
