@@ -31,8 +31,8 @@ else
 fi
 
 cd "$CLONE_PATH"
-npm install --legacy-peer-deps   # tree-sitter peer-dep mismatch; safe
-npm test
+npm install
+npm test         # expect: 134 passing
 ```
 
 If `npm test` fails with `better_sqlite3.node is not a valid ... application`, the native binary was built on another platform:

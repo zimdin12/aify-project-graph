@@ -29,21 +29,17 @@ else
 fi
 
 cd "$CLONE_PATH"
-npm install --legacy-peer-deps   # see note
-npm test                          # expect: 134 passing on clean main
+npm install
+npm test         # expect: 134 passing
 ```
 
-`--legacy-peer-deps` is needed because `tree-sitter-c` and `tree-sitter-cpp` declare incompatible `peerOptional` ranges against the `tree-sitter` host package (0.22 vs 0.21). Both versions work at runtime; npm just refuses to auto-resolve. Safe to ignore.
+A committed `.npmrc` sets `legacy-peer-deps=true` because several tree-sitter grammar packages declare `peerOptional tree-sitter@^0.21.1` while the repo pins `^0.22.0`. Both versions work at runtime; npm just refuses to auto-resolve. The `.npmrc` makes `npm install` work with no flags; do not delete it.
 
 If `npm test` fails with `better_sqlite3.node is not a valid Win32 application` (or Linux equivalent), the native binary was built on another platform. Fix with:
 
 ```bash
 npm rebuild better-sqlite3
 ```
-
-Then rerun `npm test`.
-
-If `npm test` reports `ERR_MODULE_NOT_FOUND` for `mcp/stdio/query/verbs/change_plan.js` or `onboard.js`, you are on a commit between `761595d` and when those files were committed. Pull latest main.
 
 If the initial `npm install` fails to compile `better-sqlite3`, install native build tools:
 - Windows: VS Build Tools ("Desktop development with C++")
