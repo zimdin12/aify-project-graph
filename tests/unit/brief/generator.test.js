@@ -160,6 +160,163 @@ describe('brief/generator', () => {
     });
   });
 
+  describe('Phase 1 brief features (2026-04-20)', () => {
+    it('TOOLING line extracts deps from package.json', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [{ id: 'f1', type: 'File', label: 'a.js', file_path: 'a.js' }]);
+      db.close();
+      await writeFile(join(repoRoot, 'package.json'), JSON.stringify({
+        dependencies: { 'better-sqlite3': '^11', 'tree-sitter': '^0.22', '@types/node': '^20' },
+      }));
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toMatch(/TOOLING:/);
+      expect(agent).toContain('better-sqlite3');
+      expect(agent).toContain('tree-sitter');
+      // @types/* filtered out
+      expect(agent).not.toContain('@types/node');
+    });
+
+    it('TOOLING line extracts deps from pyproject.toml PEP-621 form', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [{ id: 'f1', type: 'File', label: 'a.py', file_path: 'a.py' }]);
+      db.close();
+      await writeFile(join(repoRoot, 'pyproject.toml'), [
+        '[project]',
+        'name = "foo"',
+        'dependencies = [',
+        '  "qdrant-client>=1.9",',
+        '  "openai>=1.0",',
+        ']',
+      ].join('\n'));
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toContain('qdrant-client');
+      expect(agent).toContain('openai');
+    });
+
+    it('TOOLING line extracts composer.json (PHP)', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [{ id: 'f1', type: 'File', label: 'a.php', file_path: 'a.php' }]);
+      db.close();
+      await writeFile(join(repoRoot, 'composer.json'), JSON.stringify({
+        require: { 'laravel/framework': '^11', 'php': '^8.2', 'ext-json': '*' },
+      }));
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toContain('framework');
+      // php + ext-* filtered out
+      expect(agent).not.toMatch(/TOOLING:.*\bphp\b/);
+      expect(agent).not.toContain('ext-json');
+    });
+
+    it('EXPORTS detects MCP-style tools/list arrays from server.js', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [{ id: 'f1', type: 'File', label: 'server.js', file_path: 'mcp/stdio/server.js' }]);
+      db.close();
+      await mkdir(join(repoRoot, 'mcp', 'stdio'), { recursive: true });
+      await writeFile(join(repoRoot, 'mcp', 'stdio', 'server.js'), [
+        'const TOOLS = [',
+        '  {',
+        '    name: \'graph_status\',',
+        '    handler: graphStatus,',
+        '    description: \'Status\',',
+        '  },',
+        '  {',
+        '    name: \'graph_pull\',',
+        '    handler: graphPull,',
+        '  },',
+        '];',
+      ].join('\n'));
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toMatch(/EXPORTS \(\d+ listed/);
+      expect(agent).toContain('graph_status');
+      expect(agent).toContain('graph_pull');
+      expect(agent).toContain('handler=graphStatus');
+    });
+
+    it('EXPORTS detects Laravel Route::* declarations', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [{ id: 'f1', type: 'File', label: 'api.php', file_path: 'routes/api.php' }]);
+      db.close();
+      await mkdir(join(repoRoot, 'routes'), { recursive: true });
+      await writeFile(join(repoRoot, 'routes', 'api.php'), [
+        "<?php",
+        "Route::get('/users/{id}', UserController::class);",
+        "Route::post('/users', UserController::class);",
+      ].join('\n'));
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toMatch(/EXPORTS/);
+      expect(agent).toContain('GET /users/{id}');
+      expect(agent).toContain('POST /users');
+      expect(agent).toContain('UserController');
+    });
+
+    it('composite SUBSYS rank drops 0-file parent directories', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      // "engine" parent with no direct files but lots of aggregated edges
+      // via children should NOT appear in SUBSYS. "engine/voxel" with real
+      // direct files should.
+      const nodes = [
+        { id: 'd1', type: 'Directory', label: 'engine', file_path: 'engine' },
+        { id: 'd2', type: 'Directory', label: 'voxel', file_path: 'engine/voxel' },
+      ];
+      for (let i = 0; i < 5; i++) {
+        nodes.push({ id: `f${i}`, type: 'File', label: `v${i}.cpp`, file_path: `engine/voxel/v${i}.cpp` });
+      }
+      seedNodes(db, nodes);
+      db.close();
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toMatch(/SUBSYS:/);
+      expect(agent).toContain('engine/voxel');
+      // The 0-file "engine" parent should NOT appear as a SUBSYS entry.
+      expect(agent).not.toMatch(/^ {2}engine \(\d+f/m);
+    });
+
+    it('INTERNAL_HUBS section is labeled explicitly (not HUBS)', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [
+        { id: 'n1', type: 'Function', label: 'openDb', file_path: 'src/db.js' },
+      ]);
+      // Create edges pointing TO openDb so it has fan-in
+      const edges = [];
+      for (let i = 0; i < 10; i++) {
+        edges.push({ from_id: `n1`, to_id: `n1`, relation: `CALLS${i}`, source_file: `src/c${i}.js` });
+      }
+      // Use distinct from_ids actually
+      const seedMoreNodes = [];
+      for (let i = 0; i < 10; i++) {
+        seedMoreNodes.push({ id: `c${i}`, type: 'Function', label: `caller${i}`, file_path: `src/c${i}.js` });
+      }
+      seedNodes(db, seedMoreNodes);
+      seedEdges(db, seedMoreNodes.map(n => ({ from_id: n.id, to_id: 'n1', relation: 'CALLS', source_file: n.file_path })));
+      db.close();
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      // Phase 1 explicit label, not HUBS alone
+      expect(agent).toMatch(/INTERNAL_HUBS:/);
+      // The old unqualified "HUBS:" label should NOT appear in agent brief
+      expect(agent).not.toMatch(/^HUBS:/m);
+    });
+
+    it('COVERS line summarizes top subsystems when no overlay present', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      const nodes = [{ id: 'd1', type: 'Directory', label: 'src', file_path: 'src' }];
+      for (let i = 0; i < 3; i++) {
+        nodes.push({ id: `f${i}`, type: 'File', label: `m${i}.js`, file_path: `src/m${i}.js` });
+      }
+      seedNodes(db, nodes);
+      db.close();
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toMatch(/COVERS:/);
+      expect(agent).toContain('fall back to direct file reads');
+    });
+  });
+
   describe('trust line content', () => {
     it('includes prescriptive tip when trust is weak', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));

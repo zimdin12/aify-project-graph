@@ -198,11 +198,12 @@ function extractExports(repoRoot, db) {
       for (const m of matches) {
         add(m[1], `${rel}:handler=${m[2]}`, 'mcp_verb');
       }
-      // For MCP servers, return up to 20 verbs — they're the explicit public
-      // API and subagents need to be able to find ANY of them by name.
-      // apg's surface is 19 tools; uncapping would grow unbounded, so 20 is
-      // a pragmatic ceiling.
-      if (out.length) return out.slice(0, 20);
+      // For MCP servers, return ALL detected verbs — they're the explicit
+      // public API and subagents need to be able to find ANY of them by name.
+      // MCP tool surfaces are bounded by design (~20-40 at the upper end),
+      // so no cap is needed. Brief grows linearly with tool count, but every
+      // verb line is load-bearing for search/trace tasks against this repo.
+      if (out.length) return out;
     } catch {}
   }
 
@@ -211,7 +212,7 @@ function extractExports(repoRoot, db) {
   if (existsSync(routesDir)) {
     try {
       const files = readdirSync(routesDir).filter(f => f.endsWith('.php'));
-      for (const f of files.slice(0, 5)) {
+      for (const f of files.slice(0, 8)) {
         const path = join(routesDir, f);
         const text = readFileSync(path, 'utf8');
         // Match Route::get('/path', [Controller::class, 'method']) or Route::apiResource('x', Controller::class)
@@ -221,11 +222,11 @@ function extractExports(repoRoot, db) {
           const uri = m[2];
           const handler = m[3].split('\\').pop();
           add(`${method} ${uri}`, `routes/${f} → ${handler}`, 'route');
-          if (out.length >= 8) break;
+          if (out.length >= 16) break;
         }
-        if (out.length >= 8) break;
+        if (out.length >= 16) break;
       }
-      if (out.length) return out.slice(0, 8);
+      if (out.length) return out.slice(0, 16);
     } catch {}
   }
 
@@ -298,7 +299,7 @@ function extractExports(repoRoot, db) {
     }
   } catch {}
 
-  return out.slice(0, 8);
+  return out.slice(0, 16);
 }
 
 // One-line "what does this brief actually cover" hint. Agent can use this to
