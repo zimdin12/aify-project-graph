@@ -908,11 +908,47 @@ function recentActivityWithFiles(repoRoot, features, limit = 10) {
 // Trust/health signal. Must be a ROUTING line, not comfort text — the agent
 // should change strategy when trust is weak (e.g., prefer direct file reads
 // over graph queries). Issues are phrased actionably.
-function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges) {
+// Read manifest.dirtyEdges and group by relation + extractor. Coarse, honest
+// breakdown — no speculative cause labels. Returns null if the manifest isn't
+// readable (e.g. before first index).
+function summarizeUnresolvedFromManifest(repoRoot) {
+  try {
+    const path = join(repoRoot, '.aify-graph', 'manifest.json');
+    if (!existsSync(path)) return null;
+    const raw = JSON.parse(readFileSync(path, 'utf8'));
+    const refs = raw.dirtyEdges ?? [];
+    if (refs.length === 0) return { total: 0, byRelation: {}, byLanguage: {} };
+    const byRelation = {};
+    const byLanguage = {};
+    for (const ref of refs) {
+      const rel = ref.relation || 'UNKNOWN';
+      const lang = ref.extractor || 'unknown';
+      byRelation[rel] = (byRelation[rel] ?? 0) + 1;
+      byLanguage[lang] = (byLanguage[lang] ?? 0) + 1;
+    }
+    return { total: refs.length, byRelation, byLanguage };
+  } catch {
+    return null;
+  }
+}
+
+function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy) {
   const issues = [];
   let tip = '';
   if (snapshot.unresolvedEdges > 2000) {
-    issues.push(`${snapshot.unresolvedEdges} unresolved edges`);
+    // Coarse cause breakdown so agents know WHICH verbs are most affected:
+    // CALLS-heavy means cross-file call graphs are unreliable; IMPORTS-heavy
+    // means third-party/external deps dominate. No speculative cause labels.
+    let suffix = '';
+    if (unresolvedBy?.byRelation) {
+      const top = Object.entries(unresolvedBy.byRelation)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 2)
+        .map(([rel, n]) => `${rel} ${n}`)
+        .join(', ');
+      if (top) suffix = ` (mostly ${top})`;
+    }
+    issues.push(`${snapshot.unresolvedEdges} unresolved edges${suffix}`);
     tip = 'prefer direct file reads for cross-file impact questions';
   }
   if (overlayHealth?.broken?.length) {
@@ -1315,7 +1351,8 @@ export function generateBrief({ repoRoot }) {
       : [];
     const enrichedRisks = enrichRisksForPlanning(db, risksArr, overlay.features);
 
-    const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges);
+    const unresolvedBy = summarizeUnresolvedFromManifest(repoRoot);
+    const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy);
     const coverage = briefCoverage(subs, overlayHealth);
     const paths = extractPaths(db, exports, 5);
     const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage, exports, paths };
