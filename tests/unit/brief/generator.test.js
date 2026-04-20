@@ -117,7 +117,7 @@ describe('brief/generator', () => {
       expect(agent).toMatch(/features with stale anchors/);
     });
 
-    it('brief.plan.md renders OPEN_TASKS section when tasks.json is present', async () => {
+    it('brief.plan.md renders per-feature open tasks inside FEATURES', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
       seedNodes(db, [
         { id: 'n1', type: 'Function', label: 'authenticate', file_path: 'src/auth.js' },
@@ -135,15 +135,20 @@ describe('brief/generator', () => {
         source: 'plaintext',
         tasks: [
           { id: 'T-1', title: 'fix login', status: 'in_progress', features: ['auth'] },
-          { id: 'T-2', title: 'unknown', status: 'open', features: [] },
+          { id: 'T-2', title: 'session cleanup', status: 'open', related_features: ['auth'] },
+          { id: 'T-3', title: 'unknown', status: 'open', features: [] },
         ],
       }));
 
       generateBrief({ repoRoot });
       const plan = readFileSync(join(repoRoot, '.aify-graph', 'brief.plan.md'), 'utf8');
-      expect(plan).toContain('OPEN_TASKS');
-      expect(plan).toContain('auth: 1');
-      expect(plan).toContain('unattributed');
+      expect(plan).toContain('FEATURES:');
+      expect(plan).toContain('auth: auth');
+      expect(plan).toContain('tasks: 2 open');
+      expect(plan).toContain('- T-1 fix login');
+      expect(plan).toContain('- T-2 session cleanup');
+      expect(plan).not.toContain('OPEN_TASKS');
+      expect(plan).not.toContain('unattributed');
     });
 
     it('brief.onboard.md is smaller than brief.agent.md (stripped variant)', async () => {

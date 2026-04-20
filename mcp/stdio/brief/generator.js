@@ -872,6 +872,26 @@ function loadTasks(repoRoot) {
   }
 }
 
+function taskFeatureRefs(task) {
+  if (Array.isArray(task.features) && task.features.length) return task.features.filter(Boolean);
+  if (Array.isArray(task.related_features) && task.related_features.length) return task.related_features.filter(Boolean);
+  return [];
+}
+
+function openTasksByFeature(tasksArtifact) {
+  const byFeature = new Map();
+  for (const t of tasksArtifact?.tasks || []) {
+    if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
+    const featureRefs = taskFeatureRefs(t);
+    if (featureRefs.length === 0) continue;
+    for (const fid of featureRefs) {
+      if (!byFeature.has(fid)) byFeature.set(fid, []);
+      byFeature.get(fid).push(t);
+    }
+  }
+  return byFeature;
+}
+
 // Recent commits with touched-files + feature attribution. Used by
 // brief.plan.md to show "what's been changing where." Fixed commit count
 // keeps prompt-cache stable.
@@ -1185,6 +1205,7 @@ function renderOnboardAgentMarkdown(data) {
 function renderPlanAgentMarkdown(data) {
   const { snapshot, health, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks } = data;
   const lines = [];
+  const tasksByFeature = openTasksByFeature(tasksArtifact);
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   // FEATURES now carries action-bearing data: primary file + test anchor +
   // caller count. Agent can see "for this feature, open X, tests are at Y,
@@ -1200,28 +1221,12 @@ function renderPlanAgentMarkdown(data) {
       lines.push(`    open:  ${primaryFile}${primarySym ? ' (' + primarySym + ')' : ''}`);
       lines.push(`    tests: ${testStr}`);
       lines.push(`    load:  ${callers_total} callers across anchored symbols`);
-    }
-  }
-  // Open tasks grouped by feature — from .aify-graph/tasks.json if present.
-  if (tasksArtifact?.tasks?.length) {
-    const byFeature = new Map();
-    const unattributed = [];
-    for (const t of tasksArtifact.tasks) {
-      if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
-      if (!t.features || t.features.length === 0) { unattributed.push(t); continue; }
-      for (const fid of t.features) {
-        if (!byFeature.has(fid)) byFeature.set(fid, []);
-        byFeature.get(fid).push(t);
-      }
-    }
-    if (byFeature.size > 0 || unattributed.length > 0) {
-      lines.push(`OPEN_TASKS (${tasksArtifact.source || 'unknown'}):`);
-      for (const [fid, tasks] of byFeature) {
-        const preview = tasks.slice(0, 3).map(t => t.id).join(',');
-        lines.push(`  ${fid}: ${tasks.length} (${preview})`);
-      }
-      if (unattributed.length > 0 && byFeature.size < 6) {
-        lines.push(`  (unattributed): ${unattributed.length}`);
+      const featureTasks = tasksByFeature.get(feature.id) || [];
+      if (featureTasks.length) {
+        lines.push(`    tasks: ${featureTasks.length} open`);
+        for (const t of featureTasks.slice(0, 2)) {
+          lines.push(`      - ${t.id} ${t.title}`);
+        }
       }
     }
   }
