@@ -71,6 +71,116 @@ function repoSnapshot(db) {
 // Entrypoint/Route nodes. Filesystem findings rank above graph-heuristic
 // entries because graph Entrypoint classification fires on any `index.*`,
 // which frequently misses the actual program entry (e.g., server.js / app.py).
+// Extract major libraries/runtimes from package manifests so the brief can
+// emit a TOOLING line. Bench 2026-04-20 found that orient-style answers were
+// downgraded when the brief never named the underlying tool (e.g. tree-sitter
+// for an extraction subsystem). This is cheap deterministic signal pulled
+// from manifests at brief-gen time.
+function extractTooling(repoRoot) {
+  const tooling = [];
+  const seen = new Set();
+  const add = (name) => {
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    tooling.push(name);
+  };
+
+  const pkg = readJsonSafe(join(repoRoot, 'package.json'));
+  if (pkg?.dependencies) {
+    for (const name of Object.keys(pkg.dependencies)) {
+      if (name.startsWith('@types/')) continue;
+      add(name);
+    }
+  }
+
+  const reqPath = join(repoRoot, 'requirements.txt');
+  if (existsSync(reqPath)) {
+    try {
+      const lines = readFileSync(reqPath, 'utf8').split(/\r?\n/);
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('-')) continue;
+        const name = trimmed.split(/[<>=!~;\s]/)[0].trim();
+        if (name) add(name);
+      }
+    } catch {}
+  }
+
+  const pyproj = join(repoRoot, 'pyproject.toml');
+  if (existsSync(pyproj)) {
+    try {
+      const text = readFileSync(pyproj, 'utf8');
+      // Poetry / uv table form: [tool.poetry.dependencies] qdrant-client = "^1.9"
+      const tableBlock = text.match(/\[(?:tool\.poetry\.dependencies|tool\.uv\.dependencies)\][\s\S]*?(?=\n\[|$)/);
+      if (tableBlock) {
+        const matches = [...tableBlock[0].matchAll(/^\s*"?([a-zA-Z][a-zA-Z0-9_.-]+)"?\s*[=:]/gm)];
+        for (const m of matches) {
+          if (m[1].toLowerCase() !== 'python') add(m[1]);
+        }
+      }
+      // PEP-621 array form: dependencies = [ "qdrant-client>=1.9", "openai>=1.0" ]
+      const arrMatch = text.match(/^\s*dependencies\s*=\s*\[([\s\S]*?)\]/m);
+      if (arrMatch) {
+        const items = [...arrMatch[1].matchAll(/"\s*([a-zA-Z][a-zA-Z0-9_.-]+)/g)];
+        for (const m of items) add(m[1]);
+      }
+    } catch {}
+  }
+
+  const cargoPath = join(repoRoot, 'Cargo.toml');
+  if (existsSync(cargoPath)) {
+    try {
+      const text = readFileSync(cargoPath, 'utf8');
+      const depBlock = text.match(/\[dependencies\][\s\S]*?(?=\n\[|$)/);
+      if (depBlock) {
+        const matches = [...depBlock[0].matchAll(/^\s*([a-zA-Z][a-zA-Z0-9_-]+)\s*=/gm)];
+        for (const m of matches) add(m[1]);
+      }
+    } catch {}
+  }
+
+  const goMod = join(repoRoot, 'go.mod');
+  if (existsSync(goMod)) {
+    try {
+      const text = readFileSync(goMod, 'utf8');
+      const requires = [...text.matchAll(/^\s*([a-z0-9.\-/]+)\s+v[\d.]+/gm)];
+      for (const m of requires) {
+        const path = m[1];
+        const name = path.split('/').pop();
+        add(name);
+      }
+    } catch {}
+  }
+
+  const composer = readJsonSafe(join(repoRoot, 'composer.json'));
+  if (composer?.require) {
+    for (const dep of Object.keys(composer.require)) {
+      if (dep === 'php' || dep.startsWith('ext-')) continue;
+      add(dep.split('/').pop());
+    }
+  }
+
+  return tooling.slice(0, 6);
+}
+
+// One-line "what does this brief actually cover" hint. Agent can use this to
+// decide quickly whether to trust the brief or fall back to baseline shell
+// exploration. Bench 2026-04-20 found the brief becomes pure overhead (+55%
+// duration in worst case) when its content is task-irrelevant; this hint lets
+// the agent abandon the brief faster.
+function briefCoverage(subs, overlayHealth) {
+  if (overlayHealth?.valid?.length) {
+    return overlayHealth.valid.slice(0, 5).map(v => v.feature.label || v.feature.id).join(', ');
+  }
+  if (subs.length) {
+    return subs.slice(0, 4).map(s => {
+      const segs = s.path.split('/').filter(Boolean);
+      return segs[segs.length - 1] || s.path;
+    }).join(', ');
+  }
+  return '';
+}
+
 function readJsonSafe(path) {
   try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
 }
@@ -588,11 +698,13 @@ function renderMarkdown(data) {
 
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
 function renderAgentMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth, tooling, coverage } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
   if (langStr) lines.push(`LANG: ${langStr}`);
+  if (tooling && tooling.length) lines.push(`TOOLING: ${tooling.join(', ')}`);
+  if (coverage) lines.push(`COVERS: ${coverage} — fall back to direct file reads for topics not listed here`);
   if (entries.length) {
     lines.push('ENTRY:');
     for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);
@@ -643,11 +755,13 @@ function renderAgentMarkdown(data) {
 // brief.onboard.md: trimmed for "you're new here, what's the shape?"
 // Drops RECENT/TESTS/RISKS, keeps ENTRY/SUBSYS/HUBS/READ/FEATURES/TRUST.
 function renderOnboardAgentMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, health, overlayHealth } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, health, overlayHealth, tooling, coverage } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
   if (langStr) lines.push(`LANG: ${langStr}`);
+  if (tooling && tooling.length) lines.push(`TOOLING: ${tooling.join(', ')}`);
+  if (coverage) lines.push(`COVERS: ${coverage}`);
   if (entries.length) {
     lines.push('ENTRY:');
     for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);
@@ -844,7 +958,9 @@ export function generateBrief({ repoRoot }) {
     const enrichedRisks = enrichRisksForPlanning(db, risksArr, overlay.features);
 
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks };
+    const tooling = extractTooling(repoRoot);
+    const coverage = briefCoverage(subs, overlayHealth);
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);
