@@ -35,7 +35,7 @@ npm install
 npm test         # expect: 165 passing (as of 2026-04-21)
 ```
 
-If `npm test` fails with `better_sqlite3.node is not a valid ... application`, the native binary was built on another platform:
+If `npm test` fails with `better_sqlite3.node is not a valid ... application`, the native binary was built on another platform. The MCP server auto-heals this on runtime startup, but the test command runs outside that path, so do it manually:
 
 ```bash
 npm rebuild better-sqlite3

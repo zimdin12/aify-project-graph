@@ -35,7 +35,7 @@ npm test         # expect: ~165 passing (165 as of 2026-04-21)
 
 A committed `.npmrc` sets `legacy-peer-deps=true` because several tree-sitter grammar packages declare `peerOptional tree-sitter@^0.21.1` while the repo pins `^0.22.0`. Both versions work at runtime; npm just refuses to auto-resolve. The `.npmrc` makes `npm install` work with no flags; do not delete it.
 
-If `npm test` fails with `better_sqlite3.node is not a valid Win32 application` (or Linux equivalent), the native binary was built on another platform. Fix with:
+If `npm test` fails with `better_sqlite3.node is not a valid Win32 application` (or Linux equivalent), the native binary was built on another platform. The MCP server auto-heals this on runtime startup, but the test command runs outside that startup path, so do it manually:
 
 ```bash
 npm rebuild better-sqlite3

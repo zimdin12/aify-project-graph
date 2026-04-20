@@ -28,7 +28,7 @@ graph_status()
 
 This auto-indexes on first call. Takes 5-60 seconds depending on repo size. Confirm `indexed: true`.
 
-If it errored (e.g. `better-sqlite3` native binary), tell the user to run `npm rebuild better-sqlite3` in the aify-project-graph clone and stop here.
+If it errored with a `better-sqlite3` native-binary complaint, the MCP server's preflight should have auto-rebuilt it on startup — if you still see this error during a tool call, tell the user to run `npm rebuild better-sqlite3` in the aify-project-graph clone manually and stop here.
 
 ### 2. Generate the five briefs
 

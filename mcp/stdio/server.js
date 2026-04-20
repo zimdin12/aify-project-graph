@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// Self-heal platform-mismatched better-sqlite3 before any DB-dependent
+// imports load. Import for side effects only — it throws if unrecoverable.
+import './preflight-native.js';
 import readline from 'node:readline';
 import fs from 'node:fs';
 import path from 'node:path';

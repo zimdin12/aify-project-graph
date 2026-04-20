@@ -34,7 +34,7 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 
 **Profile:** Claude Code uses the full toolset (19 visible verbs). Codex and OpenCode use `--toolset=lean` (3 visible: `graph_impact`, `graph_path`, `graph_change_plan`; the other 16 remain callable by name via `tools/call`).
 
-**Platform gotcha:** `better-sqlite3` is native — the compiled binary has to match the runtime. If the same clone is shared across Windows and WSL, load fails with `not a valid Win32 application` or equivalent. The pinned paths above already separate the clones; if you still see this error, run `npm rebuild better-sqlite3` in the runtime you plan to use.
+**Platform gotcha (mostly auto-handled):** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, its compiled binary flips platforms. The MCP server's **native-module preflight self-heals this on startup**: it probes the binary, and if it sees `not a valid Win32 application` / `invalid ELF header` / `ERR_DLOPEN_FAILED`, it runs `npm rebuild better-sqlite3` once automatically before accepting any tool calls. You only need to intervene if the auto-rebuild itself fails (missing compiler toolchain); in that case run `npm rebuild better-sqlite3` manually in the runtime you plan to use.
 
 **Skills** (Claude Code only) — the install doc copies the whole `integrations/claude-code/skill{,s}/` tree with a directory loop, so new skills are picked up without updating these docs. Codex and OpenCode don't load skill files; MCP tool descriptions are self-documenting there.
 
@@ -162,5 +162,5 @@ This is the "4 agents work in the same folder" case. It's supported — here's h
 - `graph_status()` returns `indexed: false` after multiple queries → check Node version (`node --version` must be ≥20)
 - `unresolvedEdges` is very large → `graph_index(force=true)` for a clean rebuild
 - Suspicious stale data → `rm -rf <target-repo>/.aify-graph` and query again to force rebuild
-- Same repo used from both Windows and WSL → native Node addons can flip platforms (`better-sqlite3` is the usual one). Re-run `npm rebuild better-sqlite3` in the runtime you plan to use.
+- Same repo used from both Windows and WSL → native Node addons can flip platforms (`better-sqlite3` is the usual one). The server's native-module preflight auto-rebuilds on startup; manual `npm rebuild better-sqlite3` only needed if the auto-rebuild itself fails.
 - Skill-specific behaviour questions → read `integrations/claude-code/skill/SKILL.md`
