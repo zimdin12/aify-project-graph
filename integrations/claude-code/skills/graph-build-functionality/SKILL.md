@@ -10,9 +10,10 @@ Create or refresh `.aify-graph/functionality.json`, the human-curated feature ma
 ## Inputs, in order
 
 1. Existing `.aify-graph/functionality.json` — user truth; refine, don’t replace
-2. `.aify-graph/brief.json` — subsystems, hubs, entrypoints
-3. Repo structure and README / architecture docs
-4. Recent commit vocabulary (`git log --oneline -30`)
+2. Architecture docs first: `docs/architecture/*`, `docs/contracts/*`, then root `*.md` matching `/architecture|overview|design/i`
+3. Repo structure: package/module boundaries, clustered subdirs, framework folders
+4. `.aify-graph/brief.json` — subsystems, hubs, entrypoints
+5. Recent commit vocabulary (`git log --oneline -30`)
 
 ## What to produce
 
@@ -27,6 +28,13 @@ Prefer 5-10 clear features over 20 tiny ones.
 
 ## Working rules
 
+- Pick one taxonomy axis for the project before drafting features and stick to it:
+  - subsystem
+  - user-capability
+  - cross-cutting concern
+  - layer
+- Let docs lead when they are concrete; use hubs/entrypoints as a fallback, not the first source of truth.
+- Prefer folder/package/module boundaries over symbol hubs when they better match the chosen taxonomy axis.
 - Preserve existing ids, labels, descriptions, tags, and any `source: "user"` entries.
 - Prefer globs for `anchors.files` instead of listing every file.
 - Only include routes/docs if the repo clearly has them.

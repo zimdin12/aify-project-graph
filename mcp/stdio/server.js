@@ -27,7 +27,7 @@ const TOOLS = [
   {
     name: 'graph_status',
     handler: graphStatus,
-    description: 'Return graph status: indexed, counts, dirty files, unresolved edges.',
+    description: 'Return graph status: indexed, counts, dirty files, unresolved edges, schemaVersion. See docs/schema-versions.md for schemaVersion meaning.',
     schema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {

@@ -32,7 +32,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: ~150 passing (153 as of 2026-04-20)
+npm test         # expect: 175 passing
 ```
 
 If `npm test` fails with `better_sqlite3.node is not a valid ... application`, the native binary was built on another platform:
@@ -106,4 +106,5 @@ Returns `indexed: false` initially; any query verb triggers the first build.
 - **Path errors on Windows** → Not applicable in WSL. If installing in Git Bash on Windows instead of WSL, use forward slashes (`C:/...`) in any hand-edited config.
 - **`better-sqlite3` flipped platforms** → happens when the same clone is used from both Windows and WSL. Fix: clone separately in each environment, or run `npm rebuild better-sqlite3` in the runtime you currently plan to use.
 - **Graph seems stale** → `graph_index(force=true)` for full rebuild.
+- **`codex exec` cancels live MCP calls** → interactive Codex works, but some non-interactive `codex exec` runs cancel MCP tool calls mid-flight. Use the brief-first workflow in `exec`, or verify live verbs in an interactive Codex session.
 - **Node heap overflow on very large repos** → raise `--max-old-space-size` above 8192.
