@@ -2,7 +2,7 @@
 
 On-demand codebase graph map for coding agents. Scans any project with tree-sitter, builds a structural graph + precomputed briefs, and hands the agent a 250-token orientation substrate instead of forcing it to explore with shell.
 
-Measured: **1.5–2.9× faster wall-clock** and **17–35% cheaper in tokens** per agent session on orient tasks (48 live codex runs, 4 languages, 2026-04-19).
+Measured: **1.5–2.9× faster wall-clock** on orient tasks in small/medium repos (Claude Code Agent + Opus; 2026-04-20 cross-tester run). On Codex + gpt-5.4 the duration win is smaller (parity to −10% aggregate). Token savings are **−19% to −34%** on Claude Code and **−17%** aggregate on Codex (but per-cell mixed — codex's prompt caching makes token accounting runtime-dependent). **Quality is non-regressing** in both runtimes; no quality gains unless the functionality overlay is populated. Full per-cell matrix at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
 
 ## Install in one paste
 

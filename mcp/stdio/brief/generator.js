@@ -9,7 +9,7 @@
 // live-MCP tool calls (expensive) to ambient context the agent reads once.
 
 import { join } from 'node:path';
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
@@ -163,6 +163,144 @@ function extractTooling(repoRoot) {
   return tooling.slice(0, 6);
 }
 
+// Universal public-API detector. Returns a list of {name, location, kind}
+// describing what the codebase externally offers. Tries strategies in order:
+//   1. MCP server tools/list style arrays (name: 'X', handler: Y)
+//   2. Laravel routes/*.php (Route::method('uri', Handler::class) -> action)
+//   3. Express / FastAPI style route calls (app.get/post, @app.route)
+//   4. Python package __init__.py re-exports (from .x import Y)
+//   5. Node package.json "exports" field
+//   6. Graph fallback: top public symbols by fan-out (excluded from INTERNAL_HUBS)
+//
+// Bench 2026-04-20 found the brief HUBS section was consistently complained
+// about by subagents as noise (4/4 in feedback experiment) because it ranks
+// internal helpers higher than public API surface. EXPORTS is the missing
+// "what does the codebase offer" signal.
+function extractExports(repoRoot, db) {
+  const out = [];
+  const seen = new Set();
+  const add = (name, location, kind) => {
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    out.push({ name, location, kind });
+  };
+
+  // Strategy 1: MCP server tool arrays. Scan for `name: '...', handler: X` pairs.
+  // Handles mcp/stdio/server.js with a TOOLS = [ { name, handler, ... }, ... ] shape.
+  const mcpCandidates = ['mcp/stdio/server.js', 'src/server.js', 'server.js'];
+  for (const rel of mcpCandidates) {
+    const p = join(repoRoot, rel);
+    if (!existsSync(p)) continue;
+    try {
+      const text = readFileSync(p, 'utf8');
+      // Match `name: 'foo',` ... `handler: bar` within a tight window (same object literal)
+      const matches = [...text.matchAll(/\{\s*name:\s*['"`]([a-z][a-z0-9_]*)['"`][\s\S]{0,400}?handler:\s*([A-Za-z_][A-Za-z0-9_]*)/g)];
+      for (const m of matches) {
+        add(m[1], `${rel}:handler=${m[2]}`, 'mcp_verb');
+      }
+      // For MCP servers, return up to 20 verbs — they're the explicit public
+      // API and subagents need to be able to find ANY of them by name.
+      // apg's surface is 19 tools; uncapping would grow unbounded, so 20 is
+      // a pragmatic ceiling.
+      if (out.length) return out.slice(0, 20);
+    } catch {}
+  }
+
+  // Strategy 2: Laravel routes/*.php (most lc-api-like shape)
+  const routesDir = join(repoRoot, 'routes');
+  if (existsSync(routesDir)) {
+    try {
+      const files = readdirSync(routesDir).filter(f => f.endsWith('.php'));
+      for (const f of files.slice(0, 5)) {
+        const path = join(routesDir, f);
+        const text = readFileSync(path, 'utf8');
+        // Match Route::get('/path', [Controller::class, 'method']) or Route::apiResource('x', Controller::class)
+        const routeMatches = [...text.matchAll(/Route::(get|post|put|patch|delete|apiResource)\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*([A-Za-z0-9_\\]+)/g)];
+        for (const m of routeMatches) {
+          const method = m[1].toUpperCase();
+          const uri = m[2];
+          const handler = m[3].split('\\').pop();
+          add(`${method} ${uri}`, `routes/${f} → ${handler}`, 'route');
+          if (out.length >= 8) break;
+        }
+        if (out.length >= 8) break;
+      }
+      if (out.length) return out.slice(0, 8);
+    } catch {}
+  }
+
+  // Strategy 3: Express/FastAPI style route declarations in any JS/TS/Python file at repo root
+  const jsCandidates = ['app.js', 'server.js', 'src/app.js', 'src/server.js'];
+  for (const rel of jsCandidates) {
+    const p = join(repoRoot, rel);
+    if (!existsSync(p)) continue;
+    try {
+      const text = readFileSync(p, 'utf8');
+      const exp = [...text.matchAll(/app\.(get|post|put|patch|delete)\s*\(\s*['"`]([^'"`]+)['"`]/g)];
+      for (const m of exp.slice(0, 8)) {
+        add(`${m[1].toUpperCase()} ${m[2]}`, rel, 'route');
+      }
+      if (out.length) return out;
+    } catch {}
+  }
+
+  // Strategy 4: Python __init__.py re-exports (package public API)
+  // Walk src-like roots looking for a top-level __init__.py with `from .x import Y`
+  const pyCandidates = [];
+  try {
+    const items = readdirSync(repoRoot, { withFileTypes: true });
+    for (const it of items) {
+      if (it.isDirectory() && !it.name.startsWith('.') && !['node_modules', 'tests', 'test', 'vendor', 'build', 'dist'].includes(it.name)) {
+        const init = join(repoRoot, it.name, '__init__.py');
+        if (existsSync(init)) pyCandidates.push({ dir: it.name, path: init });
+      }
+    }
+  } catch {}
+  for (const { dir, path } of pyCandidates.slice(0, 3)) {
+    try {
+      const text = readFileSync(path, 'utf8');
+      const imports = [...text.matchAll(/^from\s+\.[\w.]*\s+import\s+([\w,\s]+)/gm)];
+      const allNames = [...text.matchAll(/__all__\s*=\s*\[([\s\S]*?)\]/)];
+      if (allNames.length) {
+        const names = [...allNames[0][1].matchAll(/['"]([\w]+)['"]/g)];
+        for (const m of names.slice(0, 8)) add(m[1], `${dir}/__init__.py`, 'py_export');
+      } else {
+        for (const m of imports) {
+          const names = m[1].split(',').map(n => n.trim()).filter(Boolean);
+          for (const n of names) add(n, `${dir}/__init__.py`, 'py_export');
+          if (out.length >= 8) break;
+        }
+      }
+      if (out.length) return out.slice(0, 8);
+    } catch {}
+  }
+
+  // Strategy 5: Fallback — top public Function/Class/Method nodes from the graph.
+  // Ranks by outgoing edges (fan-out = called a lot internally = likely API surface).
+  // Excludes underscore-prefixed (private) and ANON/constructor-like noise.
+  try {
+    const rows = q(db,
+      `SELECT n.label, n.file_path, n.start_line, n.type, COUNT(e.to_id) AS fan_out
+       FROM nodes n
+       LEFT JOIN edges e ON e.from_id = n.id
+       WHERE n.type IN ('Function', 'Class', 'Method')
+         AND n.label NOT LIKE '\_%' ESCAPE '\\'
+         AND n.label NOT IN ('constructor','default','anonymous')
+         AND n.file_path NOT LIKE 'tests/%'
+         AND n.file_path NOT LIKE 'test/%'
+         AND n.file_path NOT LIKE 'node_modules/%'
+         AND n.file_path NOT LIKE 'vendor/%'
+       GROUP BY n.id
+       ORDER BY fan_out DESC
+       LIMIT 12`);
+    for (const r of rows.slice(0, 6)) {
+      add(r.label, `${r.file_path}:${r.start_line}`, r.type.toLowerCase());
+    }
+  } catch {}
+
+  return out.slice(0, 8);
+}
+
 // One-line "what does this brief actually cover" hint. Agent can use this to
 // decide quickly whether to trust the brief or fall back to baseline shell
 // exploration. Bench 2026-04-20 found the brief becomes pure overhead (+55%
@@ -259,17 +397,23 @@ function entryPoints(db, repoRoot, limit = 5) {
 
 function subsystems(db, limit = 6) {
   // For each Directory node, count File nodes whose parent is exactly this
-  // dir (path = `<dir>/<basename>` with no further slashes). CONTAINS edges
-  // in this graph don't connect Directory→File, so we use path matching.
-  // This gives the direct-file count per dir, surfacing leaf subsystems
-  // (mcp/stdio/ingest, mcp/stdio/query) over parents (mcp, mcp/stdio).
+  // dir (path = `<dir>/<basename>` with no further slashes). Also count
+  // outgoing edges sourced from files inside this directory (edge weight)
+  // so architecturally important but small subsystems still surface.
+  //
+  // Bench 2026-04-20 found that ranking SUBSYS by file count alone dropped
+  // echoes_of_the_fallen's engine/ecs subsystem from the brief — small
+  // directory, but structurally central. Composite score fixes this.
   const rows = q(db,
     `SELECT n.file_path AS path,
             (SELECT COUNT(*) FROM nodes f
              WHERE f.type = 'File'
                AND f.file_path LIKE n.file_path || '/%'
                AND instr(substr(f.file_path, length(n.file_path) + 2), '/') = 0
-            ) AS file_count
+            ) AS file_count,
+            (SELECT COUNT(*) FROM edges e
+             WHERE e.source_file LIKE n.file_path || '/%'
+            ) AS edge_count
      FROM nodes n
      WHERE n.type = 'Directory'
        AND n.file_path != '.'
@@ -279,12 +423,38 @@ function subsystems(db, limit = 6) {
        AND n.file_path NOT LIKE 'node_modules/%'
        AND n.file_path NOT LIKE 'vendor/%'
        AND n.file_path NOT LIKE '.%'
-       AND n.file_path NOT IN ('tests', 'test', 'vendor', 'node_modules', 'docs', 'scripts')
-     ORDER BY file_count DESC`);
-  return rows
-    .filter(r => r.file_count >= 3)
-    .slice(0, limit)
-    .map(r => ({ path: r.path, why: `${r.file_count} files`, score: r.file_count }));
+       AND n.file_path NOT LIKE '%/thirdparty/%'
+       AND n.file_path NOT LIKE '%/third_party/%'
+       AND n.file_path NOT LIKE 'thirdparty/%'
+       AND n.file_path NOT LIKE 'third_party/%'
+       AND n.file_path NOT LIKE '%/deps/%'
+       AND n.file_path NOT LIKE '%/external/%'
+       AND n.file_path NOT LIKE '%/thirdparty'
+       AND n.file_path NOT LIKE '%/third_party'
+       AND n.file_path NOT IN ('tests', 'test', 'vendor', 'node_modules', 'docs', 'scripts', 'thirdparty', 'third_party', 'deps', 'external')`);
+  // Composite score: file_count (primary) + edge_count / 5 (structural density
+  // signal). A subsystem with 10 files and 500 edges beats one with 30 files
+  // and 20 edges. Keeps primary file-count ranking intact for most repos but
+  // rescues structurally-central small directories.
+  const scored = rows
+    // Drop 0-file parent directories — they crowd out leaf subsystems with
+    // redundant aggregated edge counts. Bench 2026-04-20: echoes "engine (0f
+    // 15489e)" crowded out engine/ecs at top-4.
+    .filter(r => r.file_count >= 2 && (r.file_count >= 2 || r.edge_count >= 50))
+    .map(r => ({
+      path: r.path,
+      file_count: r.file_count,
+      edge_count: r.edge_count,
+      score: r.file_count + Math.floor((r.edge_count || 0) / 5),
+    }))
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map(r => ({
+    path: r.path,
+    why: `${r.file_count} files, ${r.edge_count} edges`,
+    score: r.score,
+    file_count: r.file_count,
+    edge_count: r.edge_count,
+  }));
 }
 
 // Role inference from file path + symbol name. The point is to help agents
@@ -334,11 +504,32 @@ function hubs(db, limit = 5) {
     .map(r => ({ ...r, role: classifyRole(r.label, r.file, r.type) }));
 }
 
-function readFirst(db, limit = 6) {
-  // Non-obvious "read first" targets: high-degree source files that an agent
-  // wouldn't automatically go read. Skip README/AGENTS.md — agents read those
-  // by default, listing them wastes brief space. Keep ARCHITECTURE docs since
-  // they're less universal.
+// Primary language extension from snapshot, used to dedupe READ candidates.
+// Bench 2026-04-20 found that mem0's READ list mixed Python and TypeScript
+// paths, which wasted subagent attention — the agent had to mentally filter
+// the wrong-language files.
+function primaryLangExt(snapshot) {
+  if (!snapshot?.languages?.length) return null;
+  const top = String(snapshot.languages[0].name || '').toLowerCase();
+  const map = {
+    'python': 'py', 'py': 'py',
+    'javascript': 'js', 'js': 'js', 'typescript': 'ts', 'ts': 'ts',
+    'java': 'java', 'kotlin': 'kt',
+    'php': 'php', 'go': 'go', 'rust': 'rs', 'ruby': 'rb',
+    'c++': 'cpp', 'cpp': 'cpp', 'c': 'c',
+    'css': 'css', 'glsl': 'glsl',
+  };
+  return map[top] || null;
+}
+
+function readFirst(db, limit = 6, opts = {}) {
+  // Non-obvious "read first" targets. Priority order:
+  //   1. Architecture docs
+  //   2. Files that back an EXPORTS entry (if passed in)
+  //   3. Files with anchored feature overlays (if passed in)
+  //   4. High-degree source files as fallback, filtered by dominant language
+  const { exports: exportsArr = [], overlayHealth, primaryExt = null } = opts;
+
   const docs = q(db,
     `SELECT label, file_path AS file FROM nodes
      WHERE type = 'Document' AND label IN ('ARCHITECTURE.md','DESIGN.md','DEVELOPMENT.md')
@@ -349,15 +540,60 @@ function readFirst(db, limit = 6) {
      WHERE n.type = 'File'
      GROUP BY n.id
      ORDER BY deg DESC LIMIT $limit`, { limit: limit * 4 });
+
   const out = [];
-  for (const d of docs) out.push({ file: d.file, why: 'architecture doc', kind: 'doc' });
-  for (const f of files) {
-    if (isNoisyFile(f.file)) continue;
-    if (/^(README|AGENTS|CONTRIBUTING)\.md$/i.test(f.label)) continue;
-    if (out.some(e => e.file === f.file)) continue;
-    out.push({ file: f.file, why: `${f.deg} connections`, kind: 'high-degree' });
+  const seen = new Set();
+  const push = (file, why, kind) => {
+    if (!file || seen.has(file) || isNoisyFile(file)) return;
+    seen.add(file);
+    out.push({ file, why, kind });
+  };
+
+  for (const d of docs) push(d.file, 'architecture doc', 'doc');
+
+  // EXPORTS-backed files: parse "<file>:<line>" or "<file> → handler" forms
+  for (const ex of (exportsArr || [])) {
+    const m = String(ex.location || '').match(/^([^:→]+?)(?::|\s→|$)/);
+    const file = m ? m[1].trim() : null;
+    if (file && !file.includes('=')) {
+      push(file, `backs EXPORT: ${ex.name}`, 'export');
+    }
     if (out.length >= limit) break;
   }
+
+  // Feature-anchored files (from overlay) — skip glob entries
+  if (overlayHealth?.valid?.length) {
+    for (const { feature } of overlayHealth.valid.slice(0, 5)) {
+      const fsrc = Array.isArray(feature.anchors?.files) ? feature.anchors.files : [];
+      for (const f of fsrc.slice(0, 2)) {
+        if (!f.includes('*') && !f.includes('?')) {
+          push(f, `anchors feature: ${feature.id}`, 'feature-anchor');
+        }
+      }
+      if (out.length >= limit) break;
+    }
+  }
+
+  // Fallback: high-degree files, prefer dominant language
+  const ranked = files
+    .filter(f => {
+      if (isNoisyFile(f.file)) return false;
+      if (/^(README|AGENTS|CONTRIBUTING)\.md$/i.test(f.label)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (!primaryExt) return b.deg - a.deg;
+      const aMatch = a.file.endsWith('.' + primaryExt) ? 1 : 0;
+      const bMatch = b.file.endsWith('.' + primaryExt) ? 1 : 0;
+      if (aMatch !== bMatch) return bMatch - aMatch;
+      return b.deg - a.deg;
+    });
+
+  for (const f of ranked) {
+    push(f.file, `${f.deg} connections`, 'high-degree');
+    if (out.length >= limit) break;
+  }
+
   return out;
 }
 
@@ -698,7 +934,7 @@ function renderMarkdown(data) {
 
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
 function renderAgentMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth, tooling, coverage } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth, tooling, coverage, exports: exportsArr } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
@@ -709,9 +945,21 @@ function renderAgentMarkdown(data) {
     lines.push('ENTRY:');
     for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);
   }
+  if (exportsArr && exportsArr.length) {
+    lines.push('EXPORTS:');
+    // Show all extracted (already capped at 16 by extractExports for MCP,
+    // 8 for others). For the common MCP-server case this is ~17 verb lines
+    // which is load-bearing public API and worth the brief bytes.
+    for (const ex of exportsArr) {
+      lines.push(`  ${ex.name} ${ex.location}`);
+    }
+  }
   if (subs.length) {
     lines.push('SUBSYS:');
-    for (const s of subs.slice(0, 4)) lines.push(`  ${s.path} (${s.score} files)`);
+    for (const s of subs.slice(0, 4)) {
+      const detail = s.edge_count !== undefined ? `${s.file_count}f ${s.edge_count}e` : `${s.score} files`;
+      lines.push(`  ${s.path} (${detail})`);
+    }
   }
   // FEATURES only if the user-authored overlay exists. Keeps briefs clean on
   // repos that haven't adopted functionality.json yet.
@@ -725,7 +973,7 @@ function renderAgentMarkdown(data) {
     }
   }
   if (hubsArr.length) {
-    lines.push('HUBS:');
+    lines.push('INTERNAL_HUBS:');
     for (const h of hubsArr.slice(0, 4)) {
       lines.push(`  [${h.role}] ${h.label} ${h.file}:${h.line} fan=${h.fan_in}`);
     }
@@ -753,9 +1001,9 @@ function renderAgentMarkdown(data) {
 
 // --- typed-brief variants (A2.2) ---
 // brief.onboard.md: trimmed for "you're new here, what's the shape?"
-// Drops RECENT/TESTS/RISKS, keeps ENTRY/SUBSYS/HUBS/READ/FEATURES/TRUST.
+// Drops RECENT/TESTS/RISKS, keeps ENTRY/SUBSYS/EXPORTS/INTERNAL_HUBS/READ/FEATURES/TRUST.
 function renderOnboardAgentMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, health, overlayHealth, tooling, coverage } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, health, overlayHealth, tooling, coverage, exports: exportsArr } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
@@ -766,9 +1014,18 @@ function renderOnboardAgentMarkdown(data) {
     lines.push('ENTRY:');
     for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);
   }
+  if (exportsArr && exportsArr.length) {
+    lines.push('EXPORTS:');
+    for (const ex of exportsArr.slice(0, 5)) {
+      lines.push(`  ${ex.name} ${ex.location}`);
+    }
+  }
   if (subs.length) {
     lines.push('SUBSYS:');
-    for (const s of subs.slice(0, 4)) lines.push(`  ${s.path} (${s.score} files)`);
+    for (const s of subs.slice(0, 4)) {
+      const detail = s.edge_count !== undefined ? `${s.file_count}f ${s.edge_count}e` : `${s.score} files`;
+      lines.push(`  ${s.path} (${detail})`);
+    }
   }
   if (overlayHealth?.valid?.length) {
     lines.push('FEATURES:');
@@ -777,7 +1034,7 @@ function renderOnboardAgentMarkdown(data) {
     }
   }
   if (hubsArr.length) {
-    lines.push('HUBS:');
+    lines.push('INTERNAL_HUBS:');
     for (const h of hubsArr.slice(0, 4)) {
       lines.push(`  [${h.role}] ${h.label} ${h.file}:${h.line}`);
     }
@@ -927,7 +1184,6 @@ export function generateBrief({ repoRoot }) {
     const entries = entryPoints(db, repoRoot);
     const subs = subsystems(db);
     const hubsArr = hubs(db);
-    const readFirstArr = readFirst(db);
     const tests = testAnchors(db);
     const risksArr = risks(db);
     const recent = recentActivity(repoRoot);
@@ -937,6 +1193,15 @@ export function generateBrief({ repoRoot }) {
     const overlayHealth = overlay.features.length > 0
       ? validateAnchors(overlay.features, db)
       : { valid: [], broken: [] };
+
+    // readFirst depends on exports + overlayHealth + language — compute now.
+    const tooling = extractTooling(repoRoot);
+    const exports = extractExports(repoRoot, db);
+    const readFirstArr = readFirst(db, 6, {
+      exports,
+      overlayHealth,
+      primaryExt: primaryLangExt(snapshot),
+    });
     const brokenFeatureEdges = overlay.features.length > 0
       ? validateFeatureEdges(overlay.features)
       : [];
@@ -958,9 +1223,8 @@ export function generateBrief({ repoRoot }) {
     const enrichedRisks = enrichRisksForPlanning(db, risksArr, overlay.features);
 
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges);
-    const tooling = extractTooling(repoRoot);
     const coverage = briefCoverage(subs, overlayHealth);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage };
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage, exports };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);

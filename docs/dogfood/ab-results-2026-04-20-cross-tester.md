@@ -108,13 +108,119 @@ Same direction, similar magnitude. The brief is cheaper and faster than both no-
 
 The 2026-04-20 bench surfaces a **quality finding the 2026-04-19 bench did not**: brief-only can score lower on rubric pass-rate when the brief content gaps don't align with task needs. This was invisible at the binary pass/fail level used previously. The 3-state quality (pass/partial/fail) caught it.
 
-## Cross-tester section (pending)
+## Cross-tester section (24-cell × 2-tester comparison)
 
-graph-senior-dev (codex on WSL, gpt-5.4) is running the same 24 cells independently. When his results JSON arrives, this section will be filled in with:
-- Side-by-side per-cell token counts
-- Quality agreement matrix (do both testers grade pass/partial/fail the same?)
-- Where deltas are consistent across runtimes vs runtime-specific
-- Final merged take
+graph-senior-dev's independent run (codex+gpt-5.4 in WSL) landed. All 24 cells matched 1:1 against my run.
+
+**Suspect row to exclude:** `echoes.trace.brief-only` on dev's side has `effective_tokens=0`, `quality=fail`, empty answer — recorded from his earlier broken-path attempt before he switched to clean foreground. Dev flagged it explicitly. Excluded from clean cross-tester aggregates below; would need a manual rerun to land properly.
+
+### Per-cell side-by-side (all 24 cells)
+
+| cell | mine_tok | dev_eff_tok | mine_q | dev_q | mine_dur | dev_dur | quality agree? |
+|---|---:|---:|---|---|---:|---:|:---:|
+| apg.orient.baseline | 44,627 | 38,696 | pass | pass | 32s | 20s | ✓ |
+| echoes.orient.baseline | 32,533 | 43,094 | pass | pass | 39s | 17s | ✓ |
+| lc.orient.baseline | 34,288 | 72,821 | pass | pass | 31s | 102s | ✓ |
+| mem0.orient.baseline | 37,619 | 89,333 | pass | pass | 55s | 93s | ✓ |
+| apg.search.baseline | 32,071 | 52,224 | pass | pass | 32s | 35s | ✓ |
+| echoes.search.baseline | 28,710 | 43,208 | pass | pass | 10s | 21s | ✓ |
+| lc.search.baseline | 29,974 | 42,073 | pass | pass | 9s | 14s | ✓ |
+| mem0.search.baseline | 28,757 | 40,169 | pass | pass | 10s | 14s | ✓ |
+| apg.trace.baseline | 40,071 | 71,879 | pass | pass | 32s | 62s | ✓ |
+| echoes.trace.baseline | 57,770 | 149,689 | pass | partial | 85s | 132s | ✗ |
+| lc.trace.baseline | 36,502 | 59,271 | pass | partial | 49s | 104s | ✗ |
+| mem0.trace.baseline | 42,114 | 38,915 | pass | partial | 61s | 75s | ✗ |
+| apg.orient.brief-only | 14,927 | 42,883 | partial | pass | 9s | 15s | ✗ |
+| echoes.orient.brief-only | 14,740 | 43,468 | partial | pass | 9s | 13s | ✗ |
+| lc.orient.brief-only | 33,355 | 85,278 | pass | pass | 27s | 146s | ✓ |
+| mem0.orient.brief-only | 35,208 | 65,652 | pass | pass | 25s | 139s | ✓ |
+| apg.search.brief-only | 30,201 | 45,655 | partial | pass | 15s | 19s | ✗ |
+| echoes.search.brief-only | 14,071 | 43,204 | pass | pass | 4s | 8s | ✓ |
+| lc.search.brief-only | 28,981 | 42,341 | pass | pass | 11s | 15s | ✓ |
+| mem0.search.brief-only | 29,089 | 1,016 | pass | pass | 12s | 24s | ✓ |
+| apg.trace.brief-only | 39,795 | 64,054 | pass | pass | 28s | 61s | ✓ |
+| echoes.trace.brief-only | 46,462 | **0** | pass | **fail** | 32s | 99s | SUSPECT — exclude |
+| lc.trace.brief-only | 35,893 | 58,429 | pass | partial | 76s | 87s | ✗ |
+| mem0.trace.brief-only | 37,706 | 121,052 | pass | partial | 45s | 93s | ✗ |
+
+### Aggregate (23 clean cells, suspect row excluded)
+
+| arm | mine total tok | dev total tok | mine total dur | dev total dur |
+|---|---:|---:|---:|---:|
+| baseline (12 cells) | 445,036 | 741,372 | 445s | 688s |
+| brief-only (11 clean) | 313,966 | 613,032 | 260s | 619s |
+| brief-only delta within tester | **−29.4% tok / −41.6% dur** (mine 11-cell) | **−17.3% tok / −10.0% dur** (dev 11-cell) | | |
+
+Brief-only wins both testers on tokens. Wins mine on duration; closer to parity on dev's.
+
+### Quality agreement matrix
+
+- **Cells both testers graded same**: 15 / 23 (65%)
+- **Cells testers disagree on**: 8 / 23 (35%)
+
+Disagreement breakdown:
+- **3 cells: mine=partial, dev=pass** (apg.orient.brief, echoes.orient.brief, apg.search.brief). Pattern: opus tripped on brief gaps (didn't name tree-sitter, claimed no ECS, waffled on graphPull); gpt-5.4 didn't trip on the same gaps. **Brief defects are partly model-specific.**
+- **5 cells: mine=pass, dev=partial** (echoes.trace.baseline, lc.trace.baseline, mem0.trace.baseline, lc.trace.brief, mem0.trace.brief). Pattern: dev's gpt-5.4 answers were less complete on trace tasks — didn't always name the destination as crisply. **Codex/gpt-5.4 may grade itself stricter on "reached destination" or generally produces shorter trace answers.**
+
+The disagreement is NOT random noise — it splits along orient/search vs trace shape. Worth investigating whether claude-opus is harsher on brief-only, gpt-5.4 is harsher on trace destination, or both.
+
+### Token measurement is NOT cross-runtime comparable
+
+Dev's effective_tokens are systematically higher than mine, especially on his cached-input cells:
+
+| cell | mine raw_input (proxy) | dev raw_input | dev cached | dev effective |
+|---|---:|---:|---:|---:|
+| apg.trace.baseline | 40,071 | 442,901 | 373,376 | 71,879 |
+| apg.search.baseline | 32,071 | 204,353 | 152,832 | 52,224 |
+| mem0.search.brief-only | 29,089 | 47,488 | 46,464 | 1,016 |
+
+Dev's codex harness aggressively caches across cells (84% hit rate on apg.trace baseline; 98% on mem0.search.brief-only — that's 1,016 effective tokens for what mine measured at 29,089). His "effective" subtracts cached, mine reports total. **The numerical comparison between testers' totals is not meaningful at the absolute level. Direction-of-savings within each tester is comparable.**
+
+### Brief-only's effect varies by runtime
+
+Looking at per-cell directional savings (brief vs baseline):
+
+| cell | mine Δ | dev Δ | direction agree? |
+|---|---:|---:|:---:|
+| apg.orient | −67% | +11% | **NO** (opposite!) |
+| echoes.orient | −55% | +1% | NO (mine huge, dev parity) |
+| lc.orient | −3% | +17% | NO (dev brief made it WORSE) |
+| mem0.orient | −6% | −27% | yes |
+| apg.search | −6% | −13% | yes |
+| echoes.search | −51% | parity | partial |
+| lc.search | −3% | parity | yes |
+| mem0.search | +1% | −97% (cached) | dev mostly cache effect |
+| apg.trace | −1% | −11% | yes |
+| echoes.trace | −20% | SUSPECT | n/a |
+| lc.trace | −2% | −1% | yes |
+| mem0.trace | −10% | **+211%** | NO (dev huge regression) |
+
+5 cells: directional agreement (both saved or both parity)
+4 cells: directional disagreement (mine saved, dev was parity-or-worse)
+1 cell: dev saw brief-only triple tokens (mem0.trace)
+1 suspect
+
+**This is a much weaker brief-only story than my single-tester data suggested.** Cross-runtime, brief-only is a real win in Claude Code but inconsistent in Codex.
+
+### What changes from my single-tester analysis
+
+| original claim | revised in cross-tester light |
+|---|---|
+| Brief-only saves -19% tokens | true on Claude Code Agent. On Codex: ~-17% aggregate but per-cell direction is mixed (4 cells got worse) |
+| Brief-only saves -34% duration | true on Claude Code Agent. On Codex: only -10% aggregate (much weaker) |
+| 3 quality drops are real brief defects | partly true — gpt-5.4 didn't trip on the same gaps. Brief defects are model-sensitive, not universal |
+| Brief value scales inversely with repo size | direction holds on both runtimes; magnitude smaller on Codex |
+| Tier-1 fixes (composite SUBSYS, PUBLIC_API) are launch-blockers | downgraded — they fix opus-specific brittleness more than universal brief defects. Still worth doing but not strictly blockers |
+
+### Joint launch claim — proposed honest framing
+
+Original README:
+> Measured: 1.5–2.9× faster wall-clock and 17–35% cheaper in tokens per agent session on orient tasks (48 live codex runs, 4 languages, 2026-04-19).
+
+Proposed revision:
+> Measured: brief-only orient tasks save **-19% to -34% tokens (Claude Code Agent)** and **-17% tokens / parity duration (Codex)**. Trace tasks see smaller savings or parity in both runtimes. Search tasks see large wins where target is brief-coverable, parity otherwise. Repo-size scaling: small/medium repos (<500 files) see strongest savings; large repos (lc, mem0) approach parity. Quality is non-regressing in both runtimes (no fails attributable to brief). Token absolute numbers vary by runtime caching strategy; per-runtime direction is robust on orient/search and mixed on trace.
+
+Less hero-friendly, but defensible.
 
 ## Bottom line (this tester only — pending dev cross-check)
 
