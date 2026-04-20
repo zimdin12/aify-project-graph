@@ -36,6 +36,24 @@ Run 4 tasks × 4 repos × 2 arms = 32 cells. Expected to show quality GAINS: bas
 
 **Scope**: dev reruns that single cell via clean manual harness, overwrites the suspect row in `docs/dogfood/ab-2026-04-20-graph-senior-dev-results.json`. ~5 min.
 
+## P1 post-launch — dashboard UX layer
+
+Four interactive features planned but never built on top of the 2D multi-layer dashboard (`mcp/stdio/dashboard/static/index.html`). All four are strictly browser-visualization work; no MCP server, brief generator, skills, or docs are affected. Dashboard is functional without them — these are polish for interactive exploration.
+
+### 3D mode (new `/3d` route)
+**Scope**: second route in `mcp/stdio/dashboard/server.js` serving an alternative static asset that renders the same multi-layer graph in 3D using Three.js or `3d-force-graph`. Layer separation becomes physical (code plane / feature plane / task plane / doc plane at different Z levels) with cross-layer edges as 3D arcs between planes. Toggle in filter panel switches between `/2d` and `/3d`. ~2-3 hr.
+
+### Selected-node neighborhood mode
+**Scope**: click a node → dim (`.dimmed` CSS class — already stubbed in `index.html`) every other node whose distance from the selected one is > 1 hop. Highlight the selected node's direct neighbors + their edges. Click empty canvas to reset. ~1 hr of Cytoscape event handling.
+
+### Role-aware detail panel for overlay nodes
+**Scope**: new sidebar `<div>` in `index.html`. On click of a Feature node: show id, label, description, anchors (symbols + files), depends_on, related_to. On click of a Task node: show id, title, status, features, files_hint. On click of a File/Class/Function: show existing graph node detail. Per-kind renderers keyed off node `layer` + `kind`. ~1-1.5 hr.
+
+### Visual trust/provenance cues beyond edge styling
+**Scope**: augment the existing edge stylesheet. Fade-by-confidence (`opacity: 0.3 + confidence * 0.7`). Animated dash pattern for inferred vs solid for curated (already partially done — extend to all edge classes). Optional color-blind-safe palette toggle. ~30-45 min.
+
+---
+
 ## P2 post-launch — polish
 
 ### `PATHS:` brief section (pre-computed traces)
