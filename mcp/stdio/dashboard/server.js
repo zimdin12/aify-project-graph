@@ -28,30 +28,34 @@ function computeCrossLayerEdges(db, repoRoot) {
   for (const feature of overlay.features) {
     const featureNodeId = `feature:${feature.id}`;
 
-    // feature → file anchors (curated)
+    // feature → file anchors (curated). Endpoint uses `code:${id}` to match
+    // how code-layer nodes are emitted in buildMultilayerGraph — otherwise
+    // the frontend drops these edges as orphans (bug caught 2026-04-20
+    // cross-tester round: every feature→file edge was silently filtered).
     for (const glob of (feature.anchors?.files || [])) {
       const rows = db.all(
-        `SELECT file_path FROM nodes
+        `SELECT id, file_path FROM nodes
          WHERE type IN ('File','Directory') AND file_path GLOB $g LIMIT 100`,
         { g: glob });
       for (const r of rows) {
         edges.push({
           from: featureNodeId,
-          to: `file:${r.file_path}`,
+          to: `code:${r.id}`,
           relation: 'ANCHORS',
           provenance: 'curated',
         });
       }
     }
-    // feature → symbol anchors (curated)
+    // feature → symbol anchors (curated). Target the symbol node itself
+    // (not its file) so the edge ends at the specific anchor.
     for (const symLabel of (feature.anchors?.symbols || [])) {
       const rows = db.all(
-        `SELECT id, file_path FROM nodes WHERE label = $l LIMIT 5`,
+        `SELECT id FROM nodes WHERE label = $l LIMIT 5`,
         { l: symLabel });
       for (const r of rows) {
         edges.push({
           from: featureNodeId,
-          to: `file:${r.file_path}`,
+          to: `code:${r.id}`,
           relation: 'ANCHORS',
           provenance: 'curated',
         });
@@ -92,9 +96,13 @@ function computeCrossLayerEdges(db, repoRoot) {
         });
       }
       for (const filePath of (task.files_hint || [])) {
+        const fileNode = db.get(
+          `SELECT id FROM nodes WHERE type = 'File' AND file_path = $p LIMIT 1`,
+          { p: filePath });
+        if (!fileNode) continue;
         edges.push({
           from: taskNodeId,
-          to: `file:${filePath}`,
+          to: `code:${fileNode.id}`,
           relation: 'HINTS',
           provenance: 'curated',
         });
@@ -106,17 +114,20 @@ function computeCrossLayerEdges(db, repoRoot) {
   // Since Documents are already in nodes table, these edges exist in the
   // edges table already — we tag them for the dashboard to style differently.
   // Returned here as "inferred" cross-layer edges.
+  // MENTIONS edges (doc → code). Use node ids directly so the endpoints
+  // match the `code:${id}` format of emitted code-layer nodes. Both docs
+  // and code nodes are in the code layer here (doc nodes live on layer
+  // 'doc' but use the same `code:${id}` id convention per server.js:179).
   const mentionsEdges = db.all(
-    `SELECT d.file_path AS from_file, s.file_path AS to_file, s.label AS to_label
+    `SELECT e.from_id AS from_id, e.to_id AS to_id
      FROM edges e
      JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
-     JOIN nodes s ON s.id = e.to_id
      WHERE e.relation = 'MENTIONS'
      LIMIT 500`);
   for (const m of mentionsEdges) {
     edges.push({
-      from: `file:${m.from_file}`,
-      to: `file:${m.to_file}`,
+      from: `code:${m.from_id}`,
+      to: `code:${m.to_id}`,
       relation: 'MENTIONS',
       provenance: 'inferred',
     });

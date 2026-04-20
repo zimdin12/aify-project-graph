@@ -101,14 +101,14 @@ function relationsForSymbol(db, sym, limit = 10) {
      FROM edges e
      JOIN nodes fn ON fn.id = e.from_id
      WHERE e.to_id = $id
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
      LIMIT 100`, { id: sym.id });
   const calleesRaw = db.all(
     `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation
      FROM edges e
      JOIN nodes tn ON tn.id = e.to_id
      WHERE e.from_id = $id
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
      LIMIT 100`, { id: sym.id });
   return {
     callers: capped(callersRaw, limit),
@@ -174,7 +174,7 @@ function relationsForFeature(db, feature, features, limit = 10) {
      JOIN nodes fn ON fn.id = e.from_id
      JOIN nodes tn ON tn.id = e.to_id
      WHERE tn.label IN (${placeholders})
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
        AND fn.file_path IS NOT NULL`,
     symParams);
   // Callees (edges FROM this feature's symbols)
@@ -185,7 +185,7 @@ function relationsForFeature(db, feature, features, limit = 10) {
      JOIN nodes fn ON fn.id = e.from_id
      JOIN nodes tn ON tn.id = e.to_id
      WHERE fn.label IN (${placeholders})
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')
+       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
        AND tn.file_path IS NOT NULL
        AND tn.file_path != ''`,
     symParams);
@@ -505,7 +505,7 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
       `SELECT DISTINCT fn.label, fn.file_path, fn.start_line
        FROM edges e JOIN nodes fn ON fn.id = e.from_id
        WHERE e.to_id = $id
-         AND e.relation IN ('CALLS','REFERENCES','USES_TYPE')
+         AND e.relation IN ('CALLS','REFERENCES','USES_TYPE','INVOKES','PASSES_THROUGH')
        LIMIT 100`, { id: sym.id });
     out.layers.code = { callers: capped(callersRaw, 8), file: sym.file_path };
   }
