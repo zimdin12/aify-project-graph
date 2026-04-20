@@ -365,7 +365,7 @@ Numbers reflect the full extractor stack: out-of-class C++ methods, PHP traits/e
 - [Install for Claude Code](install.claude.md) — agent-executable
 - [Install for Codex](install.codex.md) — agent-executable (lean profile)
 - [Install for OpenCode](install.opencode.md) — agent-executable (lean profile)
-- [Query format reference](SKILL.md)
+- [Core skill / query format reference](integrations/claude-code/skill/SKILL.md)
 - [Dogfood cross-tester + Phase 2 (2026-04-20)](docs/dogfood/ab-results-2026-04-20-cross-tester.md) — **current headline evidence**
 - [Dogfood improvement analysis (2026-04-20)](docs/dogfood/ab-results-2026-04-20-improvement-analysis.md)
 - [Pre-launch re-analysis (2026-04-20)](docs/dogfood/ab-2026-04-20-reanalysis.md)

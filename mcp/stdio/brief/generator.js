@@ -1,6 +1,8 @@
-// Brief artifact generator. Emits three files at `.aify-graph/`:
+// Brief artifact generator. Emits five files at `.aify-graph/`:
 //   brief.md        — human-readable orientation (~700-900 tokens budget)
-//   brief.agent.md  — dense prompt substrate for agent context (~300-450 tokens)
+//   brief.agent.md  — dense prompt substrate for agent context (~300-700 tokens; grows with public-API surface)
+//   brief.onboard.md — trimmed variant for new-to-this-repo sessions (~250-500 tokens)
+//   brief.plan.md   — feature-led + recent commits for change-planning (~300-600 tokens when functionality.json populated)
 //   brief.json      — machine-readable equivalent
 //
 // Runs against an already-indexed graph. Reuses the same SQL patterns as
@@ -285,7 +287,7 @@ function extractExports(repoRoot, db) {
        FROM nodes n
        LEFT JOIN edges e ON e.from_id = n.id
        WHERE n.type IN ('Function', 'Class', 'Method')
-         AND n.label NOT LIKE '\_%' ESCAPE '\\'
+         AND n.label NOT LIKE '\\_%' ESCAPE '\\'
          AND n.label NOT IN ('constructor','default','anonymous')
          AND n.file_path NOT LIKE 'tests/%'
          AND n.file_path NOT LIKE 'test/%'

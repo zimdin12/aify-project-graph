@@ -147,9 +147,10 @@ graph-senior-dev's independent run (codex+gpt-5.4 in WSL) landed. All 24 cells m
 
 | arm | mine total tok | dev total tok | mine total dur | dev total dur |
 |---|---:|---:|---:|---:|
-| baseline (12 cells) | 445,036 | 741,372 | 445s | 688s |
-| brief-only (11 clean) | 313,966 | 613,032 | 260s | 619s |
-| brief-only delta (MATCHED 11-vs-11, `echoes.trace` excluded from BOTH arms) | **−29.4% tok / −41.6% dur** (mine) | **+3.6% tok / +11.3% dur** (dev) | | |
+| baseline (12 cells, unfiltered) | 445,036 | 741,372 | 445s | 688s |
+| baseline (MATCHED 11 cells, `echoes.trace` excluded from BOTH arms) | 387,266 | 591,683 | 360s | 556s |
+| brief-only (11 cells) | 313,966 | 613,032 | 260s | 619s |
+| brief-only delta (MATCHED 11-vs-11) | **−18.9% tok / −27.7% dur** (mine) | **+3.6% tok / +11.3% dur** (dev) | | |
 
 **Revised honest read (2026-04-20 post-audit correction)**: on MATCHED 11-cell comparison (excluding the contaminated `echoes.trace` from both arms symmetrically), brief-only is a real win on Claude Code Agent + Opus but **roughly parity-to-slight-regression on Codex** for the shell-accessible task shapes. The earlier "−17.3% tok / −10.0% dur" claim for Codex used mismatched N (11 brief cells vs 12 baseline cells, which gave the heaviest cell `echoes.trace.baseline` to the baseline side only) — statistically misleading and now corrected. Brief wins on Claude Code for these shapes; on Codex the brief's value shows up in overlay-dependent tasks (Phase 2 addendum below), not in orient/search/trace aggregates.
 

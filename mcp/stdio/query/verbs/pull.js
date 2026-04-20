@@ -239,17 +239,19 @@ function relationsForFeature(db, feature, features, limit = 10) {
 // a feature already in `visited` is never re-expanded.
 function walkFeatureClosure(startId, features, direction) {
   const byId = new Map(features.map(f => [f.id, f]));
-  const edgesForDir = direction === 'dependencies'
-    ? (f) => f.depends_on || []                             // walk UP
-    : features
-        .reduce((acc, f) => {
-          for (const dep of (f.depends_on || [])) {
-            if (!acc.has(dep)) acc.set(dep, []);
-            acc.get(dep).push(f.id);
-          }
-          return acc;
-        }, new Map())                                       // walk DOWN (reverse index)
-        .get.bind(null);
+  // Prebuild the reverse index once when direction='dependents'.
+  // Previous version had dead broken code (`.get.bind(null)`) that would
+  // throw if ever called AND re-computed the index on each call — bug
+  // found in 2026-04-20 round-2 audit.
+  const dependentsIdx = direction === 'dependents'
+    ? features.reduce((acc, f) => {
+        for (const dep of (f.depends_on || [])) {
+          if (!acc.has(dep)) acc.set(dep, []);
+          acc.get(dep).push(f.id);
+        }
+        return acc;
+      }, new Map())
+    : null;
 
   const visited = new Set();
   const cycles = [];
@@ -268,8 +270,7 @@ function walkFeatureClosure(startId, features, direction) {
     if (direction === 'dependencies') {
       nextIds = feature.depends_on || [];
     } else {
-      // Walk dependents — features whose depends_on includes `current`
-      nextIds = features.filter(f => (f.depends_on || []).includes(current)).map(f => f.id);
+      nextIds = dependentsIdx.get(current) || [];
     }
 
     for (const n of nextIds) {

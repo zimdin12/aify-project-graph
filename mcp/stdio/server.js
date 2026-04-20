@@ -343,7 +343,18 @@ function send(msg) { process.stdout.write(JSON.stringify(msg) + '\n'); }
 
 rl.on('line', async (line) => {
   let req;
-  try { req = JSON.parse(line); } catch { return; }
+  try {
+    req = JSON.parse(line);
+  } catch {
+    // JSON-RPC 2.0 §4.2 — respond with -32700 Parse error so clients
+    // waiting on a matching id don't hang until their own timeout.
+    send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
+    return;
+  }
+  if (!req || typeof req !== 'object') {
+    send({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid Request' } });
+    return;
+  }
 
   if (req.method === 'initialize') {
     send({
@@ -380,7 +391,7 @@ rl.on('line', async (line) => {
     const repoRoot = process.cwd();
     const aifyDir = path.join(repoRoot, '.aify-graph');
     const candidates = [
-      { file: 'brief.agent.md',   name: 'Project brief (agent prompt substrate)',  desc: 'Dense key/value orientation. Paste into system/user prompt for orient-shaped sessions. ~350 tokens.', mime: 'text/markdown' },
+      { file: 'brief.agent.md',   name: 'Project brief (agent prompt substrate)',  desc: 'Dense key/value orientation. Paste into system/user prompt for orient-shaped sessions. ~300-700 tokens (size varies with public-API surface).', mime: 'text/markdown' },
       { file: 'brief.onboard.md', name: 'Project brief (onboarding variant)',      desc: 'Stripped brief for new-to-this-repo sessions. ~250 tokens.', mime: 'text/markdown' },
       { file: 'brief.plan.md',    name: 'Project brief (plan variant)',            desc: 'Features + open tasks by feature + feature-tagged recent commits + risks. For change-planning sessions. ~310 tokens.', mime: 'text/markdown' },
       { file: 'brief.md',         name: 'Project brief (human readable)',          desc: 'Full human-readable brief. ~500 tokens.', mime: 'text/markdown' },
@@ -437,7 +448,14 @@ rl.on('line', async (line) => {
   }
 
   if (req.method === 'tools/call') {
-    const { name, arguments: args } = req.params;
+    // Guard against missing/non-object params — avoids unhandled rejection
+    // when a malformed client sends tools/call without params. Found in
+    // 2026-04-20 round-2 audit.
+    const { name, arguments: args } = req.params || {};
+    if (!name) {
+      send({ jsonrpc: '2.0', id: req.id, error: { code: -32602, message: 'Invalid params: missing tool name' } });
+      return;
+    }
     const tool = ACTIVE_TOOLS.find(t => t.name === name);
     if (!tool) {
       send({ jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `unknown tool: ${name}` } });

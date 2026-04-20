@@ -276,6 +276,47 @@ describe('brief/generator', () => {
       expect(agent).not.toMatch(/^ {2}engine \(\d+f/m);
     });
 
+    it('composite SUBSYS rescues 1-file dir with high edge density', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      // engine/ecs: only 1 file, but 60 edges source from files inside it.
+      // Should still rank, because edge_count >= 50 trips the rescue clause.
+      // engine/bulk: 2 files, 0 edges — should rank via primary file-count path.
+      // engine/tiny: 1 file, 10 edges — must NOT rank (below both thresholds).
+      const nodes = [
+        { id: 'd1', type: 'Directory', label: 'ecs', file_path: 'engine/ecs' },
+        { id: 'f_ecs', type: 'File', label: 'world.cpp', file_path: 'engine/ecs/world.cpp' },
+        { id: 'd2', type: 'Directory', label: 'bulk', file_path: 'engine/bulk' },
+        { id: 'fb1', type: 'File', label: 'a.cpp', file_path: 'engine/bulk/a.cpp' },
+        { id: 'fb2', type: 'File', label: 'b.cpp', file_path: 'engine/bulk/b.cpp' },
+        { id: 'd3', type: 'Directory', label: 'tiny', file_path: 'engine/tiny' },
+        { id: 'ft', type: 'File', label: 't.cpp', file_path: 'engine/tiny/t.cpp' },
+      ];
+      // 60 caller files with edges sourced from engine/ecs/*
+      for (let i = 0; i < 60; i++) {
+        nodes.push({ id: `c${i}`, type: 'Function', label: `call${i}`, file_path: `engine/ecs/world.cpp` });
+      }
+      seedNodes(db, nodes);
+      // 60 edges whose source_file is inside engine/ecs — trips edge_count subquery
+      const edges = [];
+      for (let i = 0; i < 60; i++) {
+        edges.push({ from_id: `c${i}`, to_id: 'f_ecs', relation: `CALLS_${i}`, source_file: 'engine/ecs/world.cpp' });
+      }
+      // 10 edges inside engine/tiny (below 50 threshold)
+      for (let i = 0; i < 10; i++) {
+        edges.push({ from_id: 'ft', to_id: 'ft', relation: `CALLS_T_${i}`, source_file: 'engine/tiny/t.cpp' });
+      }
+      seedEdges(db, edges);
+      db.close();
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      // ecs rescued despite 1 file
+      expect(agent).toContain('engine/ecs');
+      // bulk surfaces via normal file-count path
+      expect(agent).toContain('engine/bulk');
+      // tiny filtered out of SUBSYS (1 file + <50 edges fails both rescue thresholds)
+      expect(agent).not.toMatch(/^ {2}engine\/tiny \(/m);
+    });
+
     it('INTERNAL_HUBS section is labeled explicitly (not HUBS)', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
       seedNodes(db, [

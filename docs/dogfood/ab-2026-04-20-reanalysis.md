@@ -11,7 +11,7 @@ Methodology: I read actual state (git log, test output, file counts, doc cross-r
 ## What's solid
 
 ### Main branch is genuinely fresh-clone installable
-- Confirmed via `rm -rf plugin-clone && git clone && npm install && npm test` → 144/144 green, zero flags, zero manual file copies. This was broken 8 hours ago and is now durable.
+- Confirmed via `rm -rf plugin-clone && git clone && npm install && npm test` → 144/144 green at time of re-analysis (later 152/152 after Phase 1 unit tests landed), zero flags, zero manual file copies. This was broken 8 hours ago and is now durable.
 - `.npmrc` commits `legacy-peer-deps=true` — removes ERESOLVE on fresh installs (`package.json:26` + `.npmrc`).
 - `change_plan.js` + `onboard.js` + `preflight.js` computeDecision export + `whereis.js` SEARCH_TYPES export all landed (`c39ee14`). Before this, origin/main was broken since `761595d`.
 
@@ -40,7 +40,7 @@ Two independent testers, 2 × 24 cells, both testers' JSONs on disk, reconciled 
 
 ### Finding 1 — Zero unit tests for the new Phase 1 brief features
 
-**Severity**: medium. Test count is **still 144** after Phase 1 shipped ~400 lines of new code. The existing brief generator test suite (`tests/unit/brief/generator.test.js`, 7 tests) exercises `generateBrief()` end-to-end, which happens to cover the new code paths enough for green. But:
+**Severity**: medium (at re-analysis time). Test count was **still 144** after Phase 1 shipped ~400 lines of new code. (Follow-up: 8 new Phase 1 tests landed in commit 80f30f1; count is now 152.) The existing brief generator test suite (`tests/unit/brief/generator.test.js`, 7 tests) exercises `generateBrief()` end-to-end, which happens to cover the new code paths enough for green. But:
 - `extractTooling()` parses 6 manifest formats. Zero targeted unit tests. A regex change would silently break without a dedicated test catching it.
 - `extractExports()` has 5 strategies. Zero targeted unit tests.
 - `primaryLangExt()` — no direct test.
@@ -108,7 +108,7 @@ Post-Phase 1, brief.agent.md is ~400-500 tokens (I added TOOLING + COVERS + EXPO
 Must-do before launch:
 - [x] Main is fresh-clone installable
 - [x] `npm install` works without flags
-- [x] `npm test` 144/144
+- [x] `npm test` 144/144 at re-analysis time; 152/152 after Phase 1 unit tests landed (commit 80f30f1)
 - [x] Docs honest (no universal claims beyond what data supports)
 - [x] Cross-tester bench landed + reconciled
 - [x] Quality parity achieved (3 previously-partial cells verified pass)
