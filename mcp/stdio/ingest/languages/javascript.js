@@ -11,18 +11,25 @@ function extractImportTargets({ node, source }) {
   const sourceFragment = sourceNode?.namedChildren.find((child) => child.type === 'string_fragment');
   const importSource = normalizeImportSource(source.slice(sourceFragment?.startIndex ?? 0, sourceFragment?.endIndex ?? 0));
 
-  if (!importClause || !importSource) return [importSource].filter(Boolean);
+  if (!importSource) return [];
+  // Always emit the source itself so file-level IMPORTS edges resolve. Named
+  // imports get additional source.member targets for finer-grained matching
+  // when a same-named symbol exists, but the source-only target is what
+  // actually reaches the importee file node (resolver can't match compound
+  // `path.member` labels otherwise).
+  const targets = [importSource];
+  if (!importClause) return targets;
 
   const namedImports = importClause.namedChildren.find((child) => child.type === 'named_imports');
   if (namedImports) {
-    return namedImports.namedChildren
+    for (const nameNode of namedImports.namedChildren
       .filter((child) => child.type === 'import_specifier')
       .map((specifier) => specifier.namedChildren[0])
-      .filter(Boolean)
-      .map((nameNode) => `${importSource}.${source.slice(nameNode.startIndex, nameNode.endIndex)}`);
+      .filter(Boolean)) {
+      targets.push(`${importSource}.${source.slice(nameNode.startIndex, nameNode.endIndex)}`);
+    }
   }
-
-  return [importSource];
+  return targets;
 }
 
 function postExtractJavaScript({ tree, source, filePath, nodes }) {

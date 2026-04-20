@@ -53,7 +53,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
     // 6. Trust: count unresolved edges in the same file
     const manifest = await import('../../freshness/manifest.js')
       .then(m => m.loadManifest(join(repoRoot, '.aify-graph')));
-    const dirtyCount = (manifest.manifest?.dirtyEdges ?? []).length;
+    const dirtyCount = manifest.manifest?.dirtyEdgeCount ?? (manifest.manifest?.dirtyEdges ?? []).length;
 
     // 7. Cross-module check
     const callerFiles = new Set(topCallers.map(c => c.file_path).filter(Boolean));

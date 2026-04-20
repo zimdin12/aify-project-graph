@@ -472,7 +472,33 @@ rl.on('line', async (line) => {
       if (normalized.top_k != null) normalized.top_k = Math.min(Math.max(Number(normalized.top_k) || 10, 1), 200);
       if (normalized.limit != null) normalized.limit = Math.min(Math.max(Number(normalized.limit) || 20, 1), 100);
       const result = await tool.handler(normalized);
-      const text = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      // Staleness warning: if graph is indexed but manifest commit lags HEAD,
+      // surface a warning in the response so agents don't silently act on stale
+      // data. Skip for graph_status / graph_index (they already show the facts).
+      let stalenessWarning = null;
+      if (name !== 'graph_status' && name !== 'graph_index' && result && typeof result === 'object') {
+        try {
+          const { getHeadCommit } = await import('./freshness/git.js');
+          const { loadManifest } = await import('./freshness/manifest.js');
+          const graphDir = path.join(repoRoot, '.aify-graph');
+          const [{ manifest }, head] = await Promise.all([
+            loadManifest(graphDir),
+            getHeadCommit(repoRoot).catch(() => null),
+          ]);
+          if (manifest?.commit && head && manifest.commit !== head) {
+            stalenessWarning = `graph stale: indexed at ${manifest.commit.slice(0, 7)}, current HEAD is ${head.slice(0, 7)}. Run graph_index() to refresh.`;
+          }
+        } catch {
+          // best-effort — never block a verb on staleness detection
+        }
+      }
+      let text;
+      if (typeof result === 'string') {
+        text = stalenessWarning ? `WARNING: ${stalenessWarning}\n\n${result}` : result;
+      } else {
+        const wrapped = stalenessWarning ? { _warnings: [stalenessWarning], ...result } : result;
+        text = JSON.stringify(wrapped, null, 2);
+      }
       send({ jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text }] } });
     } catch (err) {
       send({ jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text: `ERROR [${name}]: ${err.message}` }], isError: true } });

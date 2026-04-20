@@ -11,18 +11,20 @@ function extractImportTargets({ node, source }) {
   const sourceFragment = sourceNode?.namedChildren.find((child) => child.type === 'string_fragment');
   const importSource = normalizeImportSource(source.slice(sourceFragment?.startIndex ?? 0, sourceFragment?.endIndex ?? 0));
 
-  if (!importClause || !importSource) return [importSource].filter(Boolean);
+  if (!importSource) return [];
+  const targets = [importSource];
+  if (!importClause) return targets;
 
   const namedImports = importClause.namedChildren.find((child) => child.type === 'named_imports');
   if (namedImports) {
-    return namedImports.namedChildren
+    for (const nameNode of namedImports.namedChildren
       .filter((child) => child.type === 'import_specifier')
       .map((specifier) => specifier.namedChildren[0])
-      .filter(Boolean)
-      .map((nameNode) => `${importSource}.${source.slice(nameNode.startIndex, nameNode.endIndex)}`);
+      .filter(Boolean)) {
+      targets.push(`${importSource}.${source.slice(nameNode.startIndex, nameNode.endIndex)}`);
+    }
   }
-
-  return [importSource];
+  return targets;
 }
 
 function postExtractTypeScript({ tree, source, filePath, nodes }) {
