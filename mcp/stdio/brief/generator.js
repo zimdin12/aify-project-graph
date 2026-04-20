@@ -263,7 +263,11 @@ function extractExports(repoRoot, db) {
     try {
       const text = readFileSync(path, 'utf8');
       const imports = [...text.matchAll(/^from\s+\.[\w.]*\s+import\s+([\w,\s]+)/gm)];
-      const allNames = [...text.matchAll(/__all__\s*=\s*\[([\s\S]*?)\]/)];
+      // `g` flag is REQUIRED for String.prototype.matchAll — without it,
+      // matchAll throws TypeError at runtime which the outer try/catch
+      // swallows, silently killing the whole strategy. Bug caught by
+      // gap-closing test on 2026-04-20 late.
+      const allNames = [...text.matchAll(/__all__\s*=\s*\[([\s\S]*?)\]/g)];
       if (allNames.length) {
         const names = [...allNames[0][1].matchAll(/['"]([\w]+)['"]/g)];
         for (const m of names.slice(0, 8)) add(m[1], `${dir}/__init__.py`, 'py_export');
