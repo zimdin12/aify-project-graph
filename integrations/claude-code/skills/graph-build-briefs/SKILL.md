@@ -34,7 +34,7 @@ If you cannot find it, ask the user for the install path.
 node <CLONE_PATH>/scripts/graph-brief.mjs <TARGET_REPO>
 ```
 
-Output should show five file sizes and end with `wrote to <TARGET_REPO>/.aify-graph/`. Typical size (post-2026-04-20 Phase 1): `brief.agent.md` 300-600 tokens (grew with added TOOLING / COVERS / EXPORTS / INTERNAL_HUBS sections); `brief.plan.md` 300-600 tokens when functionality.json is populated, ~70 tokens when empty. If `brief.agent.md` exceeds ~700 tokens the repo likely has an unusually large public API surface (many MCP verbs or routes) — inspect EXPORTS section.
+Output should show five file sizes and end with `wrote to <TARGET_REPO>/.aify-graph/`. Typical size (post-2026-04-21 Phase 1+3): `brief.agent.md` 300-1100 tokens (TOOLING / COVERS / EXPORTS / INTERNAL_HUBS / PATHS sections — PATHS adds 200-400 tokens when EXPORTS resolve to traceable handlers); `brief.plan.md` 300-600 tokens when functionality.json is populated, ~70 tokens when empty. If `brief.agent.md` exceeds ~1200 tokens the repo likely has an unusually large public API surface (many MCP verbs or routes) — inspect EXPORTS + PATHS sections.
 
 ### 3. Sanity-check the result
 

@@ -1,6 +1,6 @@
 # aify-project-graph
 
-On-demand codebase graph map for coding agents. Scans any project with tree-sitter (12 languages), builds a structural graph + precomputed briefs, and hands the agent a 300-700-token orientation substrate instead of forcing it to explore with shell.
+On-demand codebase graph map for coding agents. Scans any project with tree-sitter (12 languages), builds a structural graph + precomputed briefs (with EXPORTS list, execution PATHS, feature overlay), and hands the agent a 300-1100-token orientation substrate instead of forcing it to explore with shell.
 
 Measured (2026-04-20 cross-tester, matched-N post-audit): on shell-accessible tasks (orient, search, trace), **1.5–2.9× faster wall-clock** on Claude Code Agent + Opus (token savings **−19% to −34%**); on Codex + gpt-5.4 the same tasks are roughly parity-to-slight-regression aggregate (matched 11-vs-11: **+3.6% tokens, +11.3% duration** — codex's prompt caching + per-cell variance flatten the gain). On **overlay-dependent tasks** with `functionality.json` populated (pre-delete impact, feature drilldown, trust assessment, recent-in-feature), brief-only **gains quality** — baseline 2/4 clean vs brief 4/4 clean, **−18% tokens, −51% duration** (APG measured on dev's Codex; mechanism evident). Full per-cell matrix + Phase 2 addendum at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
 
@@ -99,8 +99,8 @@ The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product 
 Five artifacts generated at `.aify-graph/` on every index:
 
 - **`brief.md`** (~700-900 tok, human-readable) — full orientation: snapshot, tooling, coverage, entrypoints, EXPORTS (public API), subsystems, features, internal hubs, read-first list, tests, risks, recent activity.
-- **`brief.agent.md`** (~300-700 tok, prompt substrate) — dense key/value form of the above; size varies with public-API surface (apg at 19 MCP verbs ≈ 700 tok; small repos without explicit exports ≈ 300 tok). Paste into any agent's system/developer prompt for orient-shaped sessions.
-- **`brief.onboard.md`** (~250-500 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity and risks.
+- **`brief.agent.md`** (~300-1100 tok, prompt substrate) — dense key/value form including **PATHS** (pre-computed execution chains for top EXPORTS); size varies with public-API surface (apg at 19 MCP verbs + PATHS ≈ 1000 tok; small repos without explicit exports ≈ 300 tok). Paste into any agent's system/developer prompt for orient-shaped sessions. Now answers trace-shape questions from context.
+- **`brief.onboard.md`** (~250-500 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity, risks, and PATHS.
 - **`brief.plan.md`** (~300-600 tok when `functionality.json` populated, ~70 tok when empty) — leads with **features + anchors**, **recent commits feature-tagged**, **open tasks grouped by feature**, and risk areas. For "about to change something" sessions.
 - **`brief.json`** — machine-readable equivalent of everything.
 
