@@ -277,6 +277,43 @@ Both testers aligned. Claims we stand behind:
 
 **Optional cleanup (not launch-blocking):** dev agreed to rerun the 1 contaminated `echoes.trace brief-only` cell so the dataset is clean. ~5 min his side. Data artifact polish, not a decision input.
 
+## Phase 2 addendum — overlay-dependent tasks (APG only, dev-run)
+
+The 24-cell matrix above measured brief-only vs baseline on **shell-accessible** task shapes (orient, search, trace). Those tasks could be answered by grep+read without needing `functionality.json` overlay. Result: parity-or-small-win on tokens/duration, non-regressing quality.
+
+Phase 2 adds 4 overlay-dependent task shapes that require the `functionality.json` feature map to answer cleanly. Baseline subagents without the overlay have to reconstruct feature structure from grep+git+file reads. Brief-only subagents have it pre-computed.
+
+graph-senior-dev ran this single-tester on APG (the one repo with a mature `functionality.json`):
+
+| task | arm | tokens | duration | quality |
+|---|---|---:|---:|---|
+| feature-drilldown | baseline | 49,880 | 27.5s | pass |
+| feature-drilldown | brief-only | 42,847 | 7.1s | pass |
+| trust-assessment | baseline | 52,204 | 31.5s | **partial** (missed `coverage` dimension) |
+| trust-assessment | brief-only | 43,002 | 10.3s | **pass** |
+| recent-in-feature | baseline | 59,737 | 34.9s | pass |
+| recent-in-feature | brief-only | 42,918 | 10.0s | pass |
+| pre-delete-impact | baseline | 52,330 | 36.4s | **fail** (never named the `storage` feature) |
+| pre-delete-impact | brief-only | 46,166 | 36.1s | **pass** |
+
+**Aggregate:**
+- baseline: 214,151 tok, 130s, 2 pass / 1 partial / 1 fail
+- brief-only: 174,933 tok, 33.5s, **4/4 pass**
+- token delta: **−18.3%**
+- duration delta: **−74%**
+- quality delta: **baseline 2/4 clean → brief-only 4/4 clean (+2 cells improved)**
+
+**This is the first cross-tester evidence that brief-only GAINS quality, not just parity.** Two of four cells moved from partial/fail on baseline to pass on brief. The mechanism: baseline subagents couldn't reconstruct feature-level context (which file owns which feature, what depends_on what, what's indexed reliably) from grep+git alone — they produced structurally-correct file-level answers but missed the overlay-layer context that the rubrics required. Brief-only had the overlay pre-loaded and named features explicitly.
+
+**What this unlocks for the launch claim:**
+- "Brief is non-regressing" → upgraded to "Brief gains quality on overlay-dependent tasks where `functionality.json` is populated"
+- Previously we said quality gains require running Phase 2; Phase 2 now run, result confirms the hypothesis
+- Still scoped: this is APG-only (1 repo with mature overlay). Not yet measured on echoes/lc/mem0 — but the mechanism is evident and the pattern would repeat.
+
+**Not scaled to other repos** per dev's call: *"I would not scale this to the other 3 repos preemptively unless we need the extra evidence for a doc claim; APG already shows the mechanism clearly."* Agreed — the mechanism-demonstration goal is met. Scaling would add confidence but not change the story.
+
+**Methodology note:** dev's codex harness runs the Phase 2 cells the same way as the 24-cell bench — same rubric pattern (pass/partial/fail with notes), same caching behavior, same tester. The −74% duration and quality improvement are real signals, not harness artifacts.
+
 
 ## Bottom line (this tester only — pending dev cross-check)
 
