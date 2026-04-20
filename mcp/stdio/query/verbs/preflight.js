@@ -21,7 +21,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
 
     // 2. Count callers
     const callerCount = db.get(
-      "SELECT count(*) AS c FROM edges WHERE to_id = $id AND relation IN ('CALLS','REFERENCES','INVOKES')",
+      "SELECT count(*) AS c FROM edges WHERE to_id = $id AND relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')",
       { id: node.id }
     ).c;
 
@@ -29,7 +29,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
     const topCallers = db.all(
       `SELECT n.label, n.file_path, e.source_line, e.relation, e.confidence
        FROM edges e JOIN nodes n ON n.id = e.from_id
-       WHERE e.to_id = $id AND e.relation IN ('CALLS','REFERENCES','INVOKES')
+       WHERE e.to_id = $id AND e.relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')
        ORDER BY e.confidence DESC LIMIT 5`,
       { id: node.id }
     );
@@ -115,7 +115,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
   }
 }
 
-function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence }) {
+export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence }) {
   // CONFIRM: many callers + cross-module OR weak trust
   if (callerCount > 5 && crossModule) {
     return { tier: 'CONFIRM', reason: `${callerCount} callers across module boundaries — confirm change scope with user before editing.` };

@@ -3,7 +3,7 @@ import { openDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
-const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
+export const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
 
 export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false }) {
   await ensureFresh({ repoRoot });
