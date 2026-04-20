@@ -58,9 +58,27 @@ Drop `--toolset=lean` if the user wants the full 19-verb surface (not recommende
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
 
-## Step 3 — skills
+## Step 3 — install the skills
 
-Codex does not load Claude-Code skill files. The MCP tool descriptions are self-documenting on Codex. **Skip this step.**
+Codex loads skills from `${CODEX_HOME:-$HOME/.codex}/skills/`. We ship Codex-format skills (same SKILL.md markdown as Claude Code, but with an additional `trigger:` frontmatter field that auto-activates the skill when the aify-graph MCP tools are present). Copy the whole tree dynamically so future skills are picked up without editing this doc.
+
+```bash
+CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+mkdir -p "$CODEX_HOME/skills"
+
+# Core skill
+rm -rf "$CODEX_HOME/skills/aify-project-graph"
+cp -R "$CLONE_PATH/integrations/codex/skill" "$CODEX_HOME/skills/aify-project-graph"
+
+# Peripheral skills (one subdir per skill)
+for dir in "$CLONE_PATH/integrations/codex/skills"/*/; do
+  name=$(basename "$dir")
+  rm -rf "$CODEX_HOME/skills/$name"
+  cp -R "$dir" "$CODEX_HOME/skills/$name"
+done
+```
+
+The skills auto-activate when the `graph_status` / `graph_pull` / `graph_index` MCP tools are available (i.e. after the MCP server is registered in Step 2). They cover the same workflows as the Claude Code set: `/graph-build-all`, `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-feature-edit`, `/graph-task-edit`, `/graph-anchor-drift`, `/graph-pull-context`, `/graph-walk-bugs`, `/graph-dashboard`. Codex doesn't expose them as slash commands the same way Claude Code does, but the agent reads them when relevant tasks come up.
 
 ## Step 4 — tell the user to restart
 
