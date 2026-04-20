@@ -222,6 +222,62 @@ Proposed revision:
 
 Less hero-friendly, but defensible.
 
+## graph-senior-dev's independent conclusion (verbatim posture)
+
+Dev wrote a fresh single-tester analysis from his 24-cell JSON without referencing this doc. Our conclusions converge on ship posture. His full analysis is shared at `ab-2026-04-20-graph-senior-dev-analysis.md` (comms artifact). His bottom-line launch recommendation:
+
+> I would ship now, with this exact posture:
+> - ship the current brief-first experience
+> - highlight orientation/search value
+> - avoid strong trace/performance claims
+> - explicitly treat framework-aware sections and trace aids as next improvements
+
+His shape-by-shape read mirrors mine with one honest additional caveat: on Codex + gpt-5.4, **orient duration is not a universal win** — his runtime saw parity or slight regression on lc.orient and mem0.orient. This is already reflected in the per-runtime scoping in README.
+
+His strongest independent finding: **framework-aware brief generation is justified by data, not taste**. His lc-api cells are the clearest case where the current generic brief underperforms — promoting Laravel-specific EXPORTS contributor from P2 (architectural / nice-to-have) to P1 (post-launch).
+
+His strongest independent caveat: one row (`echoes.trace brief-only`, `effective_tokens=0`, empty answer) is contaminated from his earlier broken-harness path and should be excluded — we agree, aggregates above already exclude it.
+
+## Consolidated launch posture
+
+Both testers aligned. Claims we stand behind:
+
+**Confident (data from both testers supports):**
+1. Brief-first workflow is **launch-ready for orient + search tasks**, especially on small/medium repos (< ~500 files).
+2. **Search is the cleanest universal win shape** — consistent savings across both runtimes.
+3. Quality is **non-regressing** on the 24 benched task shapes (after Phase 1 fixes — commit `120266d`). No fail states attributable to brief.
+4. **APG itself is the strongest demonstration repo** — clean results on both runtimes, brief-first is the better default there.
+
+**Runtime-qualified (true on one runtime, not universal):**
+5. 1.5-2.9× wall-clock speed-up **on Claude Code Agent + Opus for orient tasks on small repos** — not universal. On Codex + gpt-5.4, orient duration is parity-to-slight-regression. Scoped in README.
+6. −19% to −34% token savings **on Claude Code**. Codex is −17% aggregate with per-cell variance due to prompt caching. Scoped in README.
+
+**Deliberately NOT claimed:**
+7. No "trace tasks are reliably faster/better with brief" claim — both testers saw mixed or partial-quality results on trace. Backlog item for v2.
+8. No "brief improves quality over baseline" claim — both testers saw parity, not gain, on the 24 benched shapes. Quality gains require `functionality.json` overlay populated and overlay-dependent task shapes — measurable via deferred Phase 2 bench (post-launch backlog).
+
+**Launch-blocker list (all addressed):**
+| concern | disposition |
+|---|---|
+| Main branch broken for fresh clones (missing change_plan + onboard) | Fixed `c39ee14` |
+| npm install peer-dep ERESOLVE | Fixed `c39ee14` (.npmrc) |
+| Install docs overclaimed token savings universally | Fixed `120266d` + `8ddc68c` (per-runtime scoping) |
+| HUBS misread as public API by agents | Fixed `120266d` (renamed to INTERNAL_HUBS + added EXPORTS) |
+| 3 opus-specific quality drops | Fixed `120266d` + verified; now pass |
+| Cross-tester rubric drift on trace "reached destination" | Known, rubric-strictness diff; not a product issue |
+
+**Post-launch backlog (agreed deferred):**
+| # | item | why deferred |
+|---|---|---|
+| P1 post-launch | Laravel-specific EXPORTS contributor (middleware aliases, route chain resolution) | dev's lc-api data argues strongly for it; generic handling already works for the minimum case |
+| P1 post-launch | Phase 2 overlay-dependent bench (32 cells: pre-delete impact, feature drilldown, trust, recent-in-feature) | measures quality gains; ship claim doesn't currently include "better than baseline" so not a blocker |
+| P2 post-launch | `PATHS:` section — pre-computed traces at brief-gen time | trace tasks barely benefit from brief currently; would close that gap |
+| P2 post-launch | Per-subsystem briefs for large monorepos | addresses repo-size falloff (lc, mem0 get single-digit savings vs apg/echoes 27-37%) |
+| P3 post-launch | Task-shape-specific brief variants (`brief.search.md`, `brief.trace.md`) | speculative; ordering optimization |
+
+**Optional cleanup (not launch-blocking):** dev agreed to rerun the 1 contaminated `echoes.trace brief-only` cell so the dataset is clean. ~5 min his side. Data artifact polish, not a decision input.
+
+
 ## Bottom line (this tester only — pending dev cross-check)
 
 - Brief-only arm wins **-19% tokens, -34% duration** in aggregate vs no-graph baseline.
