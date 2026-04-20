@@ -30,7 +30,7 @@ If the user wants to **see** the graph visually (not just query it), run `/graph
 1. **Use live verbs only when the brief is not enough** (precision queries)
 2. **Verify in source files before acting** on anything the graph claims
 
-The benchmark result (2026-04-20 cross-tester): briefs are **1.5-2.9× faster wall-clock and −19% to −34% tokens on Claude Code Agent + Opus**; **−17% tokens / parity duration on Codex + gpt-5.4**. Quality is **non-regressing** in both runtimes. Quality GAINS require the functionality overlay populated and overlay-dependent task shapes. Reach for live verbs only when you need precision the brief can't answer.
+The benchmark result (2026-04-20 cross-tester, matched-N): briefs are **1.5-2.9× faster wall-clock and −19% to −34% tokens on Claude Code Agent + Opus** for shell-accessible tasks; on **Codex + gpt-5.4** the same shapes are **roughly parity-to-slight-regression aggregate (+3.6% tok / +11.3% dur matched 11-vs-11)** — codex's prompt caching flattens the savings. Quality is **non-regressing** on both runtimes. Quality GAINS show up on overlay-dependent tasks (requires `functionality.json` populated): **baseline 2/4 clean → brief 4/4 clean, −18% tok, −51% dur on Codex**. Reach for live verbs only when you need precision the brief can't answer.
 
 ## Use live verbs for
 

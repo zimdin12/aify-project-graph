@@ -94,7 +94,7 @@ The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product 
 
 ## Static briefs & overlays
 
-**Measured (2026-04-20 cross-tester, Claude Code Agent + Codex):** brief-only vs no-graph baseline saves **−19% to −34% tokens and 1.5-2.9× wall-clock on Claude Code Agent + Opus**; **−17% tokens / parity duration on Codex + gpt-5.4** (codex's prompt caching makes the savings harder to see). **Quality is non-regressing in both runtimes** — never flat-fails, occasionally partial on opus when brief content is thin. Quality GAINS require populating `functionality.json` and hitting overlay-dependent task shapes (pre-delete impact, feature drilldown, trust assessment, recent-in-feature). Older 2026-04-19 bench (vs live lean-MCP) showed similar direction — full matrix at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
+**Measured (2026-04-20 cross-tester, post-audit matched-N):** brief-only vs no-graph baseline saves **−19% to −34% tokens and 1.5-2.9× wall-clock on Claude Code Agent + Opus** (shell-accessible tasks, small-to-medium repos); on **Codex + gpt-5.4** the same shapes are roughly **parity-to-slight-regression aggregate (+3.6% tokens, +11.3% duration matched 11-vs-11)** — codex's prompt caching flattens savings and per-cell direction is mixed. **Quality is non-regressing** in both runtimes on these shapes. Quality GAINS show up on **overlay-dependent task shapes** (pre-delete impact, feature drilldown, trust assessment, recent-in-feature) when `functionality.json` is populated — measured on Codex: **baseline 2/4 clean → brief-only 4/4 clean, −18% tokens, −51% duration**. Full matrix at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
 
 Five artifacts generated at `.aify-graph/` on every index:
 
@@ -181,7 +181,7 @@ Under the hood each install doc does the same thing:
    - Claude Code: `~/.claude/plugins/aify-project-graph`
    - Codex: `~/.codex/plugins/aify-project-graph`
    - OpenCode: `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph`
-2. Runs `npm install && npm test` (~150 passing expected; 152 as of 2026-04-20)
+2. Runs `npm install && npm test` (~150 passing expected; 153 as of 2026-04-20)
 3. Registers the MCP server via the runtime's native CLI or config
    - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude.json` — the CLI-managed location, not `~/.claude/settings.json`)
    - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`

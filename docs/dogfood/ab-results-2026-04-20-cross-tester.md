@@ -251,7 +251,7 @@ Both testers aligned. Claims we stand behind:
 
 **Runtime-qualified (true on one runtime, not universal):**
 5. 1.5-2.9× wall-clock speed-up **on Claude Code Agent + Opus for orient tasks on small repos** — not universal. On Codex + gpt-5.4, orient duration is parity-to-slight-regression. Scoped in README.
-6. −19% to −34% token savings **on Claude Code**. Codex is −17% aggregate with per-cell variance due to prompt caching. Scoped in README.
+6. −19% to −34% token savings **on Claude Code** (matched 11-vs-11). Codex matched 11-vs-11 is **+3.6% tok / +11.3% dur** — roughly parity-to-slight-regression on shell-accessible shapes due to prompt caching (per-cell mixed, see per-cell table). The Codex win lives in overlay-dependent tasks (Phase 2 addendum).
 
 **Deliberately NOT claimed:**
 7. No "trace tasks are reliably faster/better with brief" claim — both testers saw mixed or partial-quality results on trace. Backlog item for v2.

@@ -32,7 +32,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: ~150 passing (152 as of 2026-04-20)
+npm test         # expect: ~150 passing (153 as of 2026-04-20)
 ```
 
 If `npm test` fails with `better_sqlite3.node is not a valid ... application`, the native binary was built on another platform:
@@ -66,7 +66,7 @@ Codex does not load Claude-Code skill files. The MCP tool descriptions are self-
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart Codex** so the MCP server loads. In any repo, call `graph_status()` — auto-indexes on first call. For the static-brief workflow (cross-tester 2026-04-20: −17% tokens aggregate on Codex; parity-to-−10% duration; non-regressing quality), run this one-time setup per target repo:
+> Install done. **Restart Codex** so the MCP server loads. In any repo, call `graph_status()` — auto-indexes on first call. For the static-brief workflow (cross-tester 2026-04-20 matched-N on shell-accessible tasks: roughly parity aggregate on Codex due to prompt caching; the real Codex win is on overlay-dependent tasks where brief-only goes baseline 2/4 clean → brief 4/4 clean, −18% tokens, −51% duration), run this one-time setup per target repo:
 >
 > ```bash
 > node ~/.codex/plugins/aify-project-graph/scripts/graph-brief.mjs /path/to/your/repo
