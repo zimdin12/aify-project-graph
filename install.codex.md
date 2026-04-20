@@ -32,7 +32,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: 175 passing
+npm test         # expect: 165 passing (as of 2026-04-21)
 ```
 
 If `npm test` fails with `better_sqlite3.node is not a valid ... application`, the native binary was built on another platform:
