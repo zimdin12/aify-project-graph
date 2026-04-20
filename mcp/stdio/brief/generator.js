@@ -1359,6 +1359,20 @@ export function generateBrief({ repoRoot }) {
       onboard_tokens_est: Math.ceil(onboardMd.length / 4),
       plan_tokens_est: Math.ceil(planMd.length / 4),
       files_changed: changed,
+      // Anchor validation summary so the CLI + callers can print a loud
+      // warning when anchors are broken. Replaces the "silent `broken: []`"
+      // failure mode that made "all good" indistinguishable from "not checked".
+      anchorValidation: {
+        checkedFeatures: overlayHealth.valid.length + overlayHealth.broken.length,
+        brokenFeatures: overlayHealth.broken.length,
+        sample: overlayHealth.broken.slice(0, 5).map((b) => ({
+          feature: b.feature.id,
+          resolved: b.totalResolved,
+          declared: b.totalDeclared,
+          missingSymbols: b.resolved.missing_symbols.slice(0, 3),
+          missingFiles: b.resolved.missing_files.slice(0, 3),
+        })),
+      },
     };
   } finally {
     db.close();
