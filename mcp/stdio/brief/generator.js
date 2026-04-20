@@ -946,10 +946,13 @@ function renderAgentMarkdown(data) {
     for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);
   }
   if (exportsArr && exportsArr.length) {
-    lines.push('EXPORTS:');
-    // Show all extracted (already capped at 16 by extractExports for MCP,
-    // 8 for others). For the common MCP-server case this is ~17 verb lines
-    // which is load-bearing public API and worth the brief bytes.
+    // NOT_INDEXED hint: header includes total count so agent knows whether
+    // the EXPORTS list is COMPLETE (e.g. 19/19 for MCP servers) or a
+    // sampled top-N (fallback mode). If the agent's target isn't in this
+    // list, they should grep rather than assume it doesn't exist.
+    // Bench 2026-04-20 feedback: lc-trace agent asked for explicit
+    // "what's NOT in the index" signal to fail fast on wrong premises.
+    lines.push(`EXPORTS (${exportsArr.length} listed — target missing from list? grep):`);
     for (const ex of exportsArr) {
       lines.push(`  ${ex.name} ${ex.location}`);
     }

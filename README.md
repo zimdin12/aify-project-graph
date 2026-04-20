@@ -30,7 +30,7 @@ That's the entire install. The agent clones the repo to a pinned path (`~/.claud
 
 ## Usage in one sentence
 
-After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-build-all` skill builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief for 1.5-2.9× faster work.
+After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-build-all` skill builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief — see headline metrics at top of this README for runtime-specific numbers.
 
 **Narrower skills for specific jobs:**
 - `/graph-build-briefs` — refresh just the briefs (~2-3s, after hand-editing `functionality.json`/`tasks.json`)
@@ -94,11 +94,11 @@ The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product 
 
 ## Static briefs & overlays
 
-**Measured (2026-04-19, 48 live codex runs across 4 languages):** brief-only delivery is **1.5–2.9× faster wall-clock** and **17–35% cheaper in tokens** than live lean-MCP on orient tasks. Wall-clock speed-up is the bigger story: no shell round-trips, no model reasoning loop to pick the right tool — the agent reads once and answers. Full matrix at [docs/dogfood/ab-results-2026-04-19-deep-summary.md](docs/dogfood/ab-results-2026-04-19-deep-summary.md).
+**Measured (2026-04-20 cross-tester, Claude Code Agent + Codex):** brief-only vs no-graph baseline saves **−19% to −34% tokens and 1.5-2.9× wall-clock on Claude Code Agent + Opus**; **−17% tokens / parity duration on Codex + gpt-5.4** (codex's prompt caching makes the savings harder to see). **Quality is non-regressing in both runtimes** — never flat-fails, occasionally partial on opus when brief content is thin. Quality GAINS require populating `functionality.json` and hitting overlay-dependent task shapes (pre-delete impact, feature drilldown, trust assessment, recent-in-feature). Older 2026-04-19 bench (vs live lean-MCP) showed similar direction — full matrix at [docs/dogfood/ab-results-2026-04-20-cross-tester.md](docs/dogfood/ab-results-2026-04-20-cross-tester.md).
 
 Five artifacts generated at `.aify-graph/` on every index:
 
-- **`brief.md`** (~500 tok, human-readable) — full orientation: snapshot, entrypoints, subsystems, features, hubs with role tags, read-first list, tests, risks, recent activity.
+- **`brief.md`** (~500 tok, human-readable) — full orientation: snapshot, tooling, coverage, entrypoints, EXPORTS (public API), subsystems, features, internal hubs, read-first list, tests, risks, recent activity.
 - **`brief.agent.md`** (~350 tok, prompt substrate) — dense key/value form of the above. Paste into any agent's system/developer prompt for orient-shaped sessions.
 - **`brief.onboard.md`** (~250 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity and risks.
 - **`brief.plan.md`** (~310 tok) — leads with **features + anchors**, **recent commits feature-tagged**, **open tasks grouped by feature**, and risk areas. For "about to change something" sessions.

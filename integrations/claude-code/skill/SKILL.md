@@ -15,7 +15,7 @@ Before calling any other tool, check whether this repo has a graph:
 ls .aify-graph/brief.agent.md 2>/dev/null
 ```
 
-If it exists, **read it first** — it's 250-400 tokens of dense orientation (entry points, subsystems, hubs with role tags, features, recent activity, trust line). Much cheaper than exploring with shell.
+If it exists, **read it first** — it's 250-400 tokens of dense orientation. Sections (in order): `REPO` stats · `LANG` · `TOOLING` (major libs from manifests) · `COVERS` (what the brief is actually about) · `ENTRY` · `EXPORTS` (public API surface — verbs, routes, package exports) · `SUBSYS` · `FEATURES` (if overlay populated) · `INTERNAL_HUBS` (high-fan-in helpers — NOT public API; those are in EXPORTS) · `READ` · `TESTS` · `RECENT` · `TRUST`. Much cheaper than exploring with shell.
 
 - For orient / onboarding: read `brief.agent.md` or `brief.onboard.md`
 - For change-planning: read `brief.plan.md` (has `open:` / `tests:` / `load:` per feature)
@@ -30,7 +30,7 @@ If the user wants to **see** the graph visually (not just query it), run `/graph
 1. **Use live verbs only when the brief is not enough** (precision queries)
 2. **Verify in source files before acting** on anything the graph claims
 
-The benchmark result (4 languages, 48 runs): briefs are 1.5–2.9× faster wall-clock AND 17–35% cheaper in tokens than live MCP on orient tasks. Reach for live verbs only when you need precision.
+The benchmark result (2026-04-20 cross-tester): briefs are **1.5-2.9× faster wall-clock and −19% to −34% tokens on Claude Code Agent + Opus**; **−17% tokens / parity duration on Codex + gpt-5.4**. Quality is **non-regressing** in both runtimes. Quality GAINS require the functionality overlay populated and overlay-dependent task shapes. Reach for live verbs only when you need precision the brief can't answer.
 
 ## Use live verbs for
 
@@ -80,6 +80,23 @@ The benchmark result (4 languages, 48 runs): briefs are 1.5–2.9× faster wall-
 ### Edit safety
 - call `graph_preflight(symbol="X")`
 - obey the SAFE / REVIEW / CONFIRM decision
+
+## Pre-action graph consultation
+
+Before doing anything risky or destructive, consult the graph. This is a class of high-value moves agents often skip:
+
+| about to do | risk | verb to call first | what it tells you |
+|---|---|---|---|
+| Delete a file | breaks callers, orphans features/tasks/tests | `graph_pull(node="path/to/file.ext", layers=["code","functionality","tasks","relations"])` | every symbol defined here + callers + features anchored + tasks referencing |
+| Rename or move a symbol | breaks every caller | `graph_impact(symbol="X")` | blast radius ranked by depth + confidence |
+| Remove a route or endpoint | breaks API consumers, framework hooks | `graph_impact(symbol="handler")` + grep route table | consumers + framework wiring |
+| Merge two features | anchor overlap, dep conflict | `graph_pull(node="featureA")` + `graph_pull(node="featureB")` | overlap diff |
+| Extract a module / split a file | exposes hidden coupling | `graph_pull(node="src/file.ext", layers=["relations","code"])` | external deps in/out |
+| Bump or remove a dependency | breaks every importer | `graph_pull(node="dep-name")` | importers list |
+| Edit a high-fan-in symbol | many consumers may regress | `graph_preflight(symbol="X")` | SAFE / REVIEW / CONFIRM gate |
+| Review a PR | what subsystems/features affected | `graph_pull(node="file")` for each touched file | feature attribution per file |
+
+Most of these compose existing verbs — no special workflow needed. The value is **remembering to ask** before acting. If the task looks destructive or cross-cutting, reach for the graph first.
 
 ## Reality check
 

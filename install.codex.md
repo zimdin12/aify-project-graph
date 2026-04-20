@@ -66,7 +66,7 @@ Codex does not load Claude-Code skill files. The MCP tool descriptions are self-
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart Codex** so the MCP server loads. In any repo, call `graph_status()` — auto-indexes on first call. For the full static-brief workflow (1.5-2.9× faster orientation, 17-35% cheaper tokens on orient tasks), run this one-time setup per target repo:
+> Install done. **Restart Codex** so the MCP server loads. In any repo, call `graph_status()` — auto-indexes on first call. For the static-brief workflow (cross-tester 2026-04-20: −17% tokens aggregate on Codex; parity-to-−10% duration; non-regressing quality), run this one-time setup per target repo:
 >
 > ```bash
 > node ~/.codex/plugins/aify-project-graph/scripts/graph-brief.mjs /path/to/your/repo
