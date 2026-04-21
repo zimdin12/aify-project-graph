@@ -4,46 +4,73 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>aify-project-graph</title>
-  <script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <!-- Vendored locally (served by dashboard server from node_modules). No CDN
+       dependency — avoids Edge-freeze on cold loads when unpkg hangs. -->
+  <script src="/vendor/cytoscape.min.js"></script>
+  <script src="/vendor/3d-force-graph.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; display: flex; height: 100vh; }
 
-    #sidebar { width: 320px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; overflow: hidden; }
+    #sidebar { width: 340px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; overflow: hidden; }
     #sidebar h1 { font-size: 14px; padding: 12px 16px; border-bottom: 1px solid #30363d; color: #58a6ff; }
+    #sidebar .mode-line { padding: 8px 16px; border-bottom: 1px solid #30363d; font-size: 11px; color: #8b949e; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    #sidebar .mode-line a { color: #58a6ff; text-decoration: none; }
+    #sidebar .mode-line a:hover { text-decoration: underline; }
 
     #search-box { padding: 8px 16px; border-bottom: 1px solid #30363d; }
     #search-box input { width: 100%; padding: 6px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; }
     #search-box input:focus { outline: none; border-color: #58a6ff; }
 
     #stats { padding: 12px 16px; border-bottom: 1px solid #30363d; font-size: 12px; color: #8b949e; }
-    #stats .section-title { margin-top: 8px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6e7681; }
-    #stats .stat { display: flex; justify-content: space-between; padding: 2px 0; }
-    #stats .stat-value { color: #c9d1d9; font-weight: 600; }
+    #stats .section-title,
+    #filters .section-title,
+    #node-detail .section-title { margin-top: 10px; margin-bottom: 6px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6e7681; }
+    #stats .stat { display: flex; justify-content: space-between; padding: 2px 0; gap: 8px; }
+    #stats .stat-value { color: #c9d1d9; font-weight: 600; text-align: right; }
 
     #filters { padding: 12px 16px; border-bottom: 1px solid #30363d; font-size: 12px; }
-    #filters label { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; margin-bottom: 4px; cursor: pointer; }
-    #filters input[type=checkbox] { accent-color: #58a6ff; }
+    #filters .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .toggle-pill { padding: 4px 8px; border-radius: 999px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; cursor: pointer; font-size: 11px; }
+    .toggle-pill.active { border-color: #58a6ff; background: #12233b; }
+    .toggle-pill:hover { border-color: #58a6ff; }
+    #focus-controls { display: flex; gap: 6px; margin-top: 8px; }
+    .mini-button { padding: 5px 8px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; cursor: pointer; font-size: 11px; }
+    .mini-button:hover { border-color: #58a6ff; }
 
     #node-detail { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 12px; }
     #node-detail h3 { color: #58a6ff; margin-bottom: 8px; font-size: 14px; }
-    #node-detail .field { padding: 3px 0; }
+    #node-detail .field { padding: 3px 0; line-height: 1.5; }
     #node-detail .field-label { color: #8b949e; }
-    #node-detail .edge-list { margin-top: 8px; }
-    #node-detail .edge-item { padding: 3px 0; border-bottom: 1px solid #21262d; cursor: pointer; }
-    #node-detail .edge-item:hover { color: #58a6ff; }
+    #node-detail .list { display: flex; flex-direction: column; gap: 4px; }
+    #node-detail .list-item { padding: 6px 8px; border: 1px solid #21262d; border-radius: 6px; background: #0d1117; }
+    #node-detail .edge-item { padding: 6px 8px; border: 1px solid #21262d; border-radius: 6px; background: #0d1117; cursor: pointer; }
+    #node-detail .edge-item:hover { color: #58a6ff; border-color: #58a6ff; }
+    #node-detail .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    #node-detail .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid #30363d; border-radius: 999px; font-size: 11px; background: #0d1117; }
+    #node-detail .code-block { margin-top: 6px; padding: 8px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; color: #8b949e; white-space: pre-wrap; word-break: break-word; }
+    #node-detail .trust-meter { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+    #node-detail .trust-bar { flex: 1; height: 8px; border-radius: 999px; background: #21262d; overflow: hidden; }
+    #node-detail .trust-bar-fill { height: 100%; background: linear-gradient(90deg, #da3633, #d29922, #3fb950); }
 
     #graph-container { flex: 1; position: relative; }
-    #cy { width: 100%; height: 100%; }
+    #cy, #fg3d { width: 100%; height: 100%; }
+    #fg3d { display: none; }
 
-    #legend { position: absolute; bottom: 12px; right: 12px; background: #161b22dd; border: 1px solid #30363d; border-radius: 8px; padding: 8px 12px; font-size: 11px; }
+    #legend { position: absolute; bottom: 12px; right: 12px; background: #161b22dd; border: 1px solid #30363d; border-radius: 8px; padding: 8px 12px; font-size: 11px; max-width: 240px; }
     #legend .item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-    #legend .dot { width: 10px; height: 10px; border-radius: 50%; }
+    #legend .swatch { width: 12px; height: 12px; border: 1px solid #30363d; flex: 0 0 auto; }
+    #legend .dot { border-radius: 50%; }
+    #legend .line { width: 18px; height: 0; border-top: 2px solid; flex: 0 0 auto; }
   </style>
 </head>
 <body>
   <div id="sidebar">
     <h1>aify-project-graph</h1>
+    <div class="mode-line">
+      <span id="mode-label">2D mode</span>
+      <a id="mode-link" href="/3d">open 3D</a>
+    </div>
     <div id="search-box">
       <input type="text" id="search" placeholder="Search symbols..." />
     </div>
@@ -55,28 +82,24 @@
   </div>
   <div id="graph-container">
     <div id="cy"></div>
+    <div id="fg3d"></div>
     <div id="legend">
-      <div class="item"><div class="dot" style="background:#58a6ff"></div> Function/Method</div>
-      <div class="item"><div class="dot" style="background:#f0883e"></div> Class/Interface</div>
-      <div class="item"><div class="dot" style="background:#3fb950"></div> File</div>
-      <div class="item"><div class="dot" style="background:#bc8cff"></div> Route/Entrypoint</div>
-      <div class="item"><div class="dot" style="background:#d29922"></div> External boundary</div>
-      <div class="item"><div class="dot" style="background:#8b949e"></div> Directory/Config/Doc</div>
-      <div class="item"><div class="dot" style="background:#f2cc60"></div> PASSES_THROUGH</div>
-      <div class="item"><div class="dot" style="background:#58a6ff"></div> CALLS / INVOKES</div>
+      <div class="item"><div class="swatch dot" style="background:#8b949e"></div> Code nodes</div>
+      <div class="item"><div class="swatch" style="background:#58a6ff;border-radius:6px"></div> Features</div>
+      <div class="item"><div class="swatch" style="background:#d29922;transform:rotate(45deg)"></div> Tasks</div>
+      <div class="item"><div class="swatch" style="background:#3fb950;clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%)"></div> Docs</div>
+      <div class="item"><div class="line" style="border-color:#58a6ff;border-top-style:dashed"></div> Curated cross-layer</div>
+      <div class="item"><div class="line" style="border-color:#7ee787;border-top-style:dotted"></div> Inferred cross-layer</div>
+      <div class="item"><div class="line" style="border-color:#58a6ff"></div> CALLS / INVOKES</div>
+      <div class="item"><div class="line" style="border-color:#f2cc60"></div> PASSES_THROUGH</div>
     </div>
   </div>
   <script>
-    // Per-layer palette (dev-approved 2D multi-layer spec):
-    //   code = muted gray circles
-    //   features = blue rounded-rect
-    //   tasks = amber diamonds
-    //   docs = green hexagons
     const LAYER_COLORS = {
-      code: '#8b949e',    // muted gray
-      feature: '#58a6ff', // blue
-      task: '#d29922',    // amber
-      doc: '#3fb950',     // green
+      code: '#8b949e',
+      feature: '#58a6ff',
+      task: '#d29922',
+      doc: '#3fb950',
     };
     const LAYER_SHAPES = {
       code: 'ellipse',
@@ -84,21 +107,16 @@
       task: 'diamond',
       doc: 'hexagon',
     };
-
-    // Code-sublayer kind colors — used for code-layer nodes only, to keep
-    // the older type-based palette for code readability. Feature/task/doc
-    // nodes use the layer color only.
     const TYPE_COLORS = {
       Function: '#58a6ff', Method: '#58a6ff', Test: '#58a6ff',
       Class: '#f0883e', Interface: '#f0883e', Type: '#f0883e',
       File: '#3fb950', Module: '#3fb950',
       Route: '#bc8cff', Entrypoint: '#bc8cff',
       External: '#d29922',
-      Directory: '#8b949e', Config: '#8b949e', Document: '#8b949e',
+      Directory: '#8b949e', Config: '#8b949e', Document: '#3fb950',
       Schema: '#8b949e', Variable: '#6e7681', Symbol: '#6e7681',
       Repository: '#da3633',
     };
-
     const RELATION_COLORS = {
       PASSES_THROUGH: '#f2cc60',
       INVOKES: '#58a6ff',
@@ -111,120 +129,325 @@
       TESTS: '#3fb950',
       default: '#30363d',
     };
-
     const TYPE_SIZES = {
       Repository: 30, Directory: 20, File: 15, Module: 15,
       Class: 18, Interface: 18, Function: 12, Method: 10,
       Route: 14, Entrypoint: 14, Test: 10,
       default: 8,
     };
-
-    let cy, allData;
+    const layerZ = { code: 0, feature: 160, task: 320, doc: 480 };
     const activeTypes = new Set();
     const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
-    let multilayerMode = true; // fetch multilayer by default; fall back to code-only if overlay missing
+    const activeEdgeClasses = new Set(['code', 'cross-layer']);
+    const activeProvenance = new Set(['code', 'curated', 'inferred']);
+    const is3DMode = window.location.pathname === '/3d';
 
-    async function init() {
-      // Try multilayer first; if response is minimal, stay in this mode
-      // and let toggle controls hide empty layers.
-      const [graphData, stats] = await Promise.all([
-        fetch('/api/graph-multilayer').then(r => r.json()).catch(() =>
-          fetch('/api/graph').then(r => r.json())),
-        fetch('/api/stats').then(r => r.json()),
-      ]);
-      allData = graphData;
+    let cy = null;
+    let fg3d = null;
+    let allData = null;
+    let currentFocusNodeId = null;
 
-      // Stats
+    function renderLocation(filePath, line) {
+      return filePath ? `${filePath}${line ? `:${line}` : ''}` : 'external';
+    }
+
+    function renderBadge(label, value, tone = 'default') {
+      const colors = { default: '#8b949e', good: '#3fb950', warn: '#d29922', info: '#58a6ff' };
+      return `<span class="tag"><span style="color:${colors[tone]};">●</span>${label}: ${value}</span>`;
+    }
+
+    function trustSummary(node) {
+      if (node.layer === 'feature') {
+        const source = node.source || 'unknown';
+        const confidence = source === 'user' ? 0.95 : source === 'skill' ? 0.7 : 0.55;
+        return {
+          score: confidence,
+          badges: [
+            renderBadge('source', source, source === 'user' ? 'good' : 'warn'),
+            renderBadge('layer', 'feature', 'info'),
+          ],
+        };
+      }
+      if (node.layer === 'task') {
+        return {
+          score: 0.82,
+          badges: [
+            renderBadge('source', node.source || 'tracker', 'info'),
+            renderBadge('status', node.status || 'unknown', node.status === 'open' ? 'warn' : 'default'),
+          ],
+        };
+      }
+      const confidence = node.confidence == null ? 0.75 : Number(node.confidence);
+      return {
+        score: confidence,
+        badges: [
+          renderBadge('layer', node.layer || 'code', 'info'),
+          renderBadge('confidence', confidence.toFixed(2), confidence > 0.8 ? 'good' : confidence > 0.55 ? 'warn' : 'default'),
+        ],
+      };
+    }
+
+    function edgeColor(edge) {
+      if ((edge.edge_class || 'code') === 'cross-layer') {
+        return edge.provenance === 'curated' ? '#58a6ff' : '#7ee787';
+      }
+      return RELATION_COLORS[edge.relation] || RELATION_COLORS.default;
+    }
+
+    function toggleSet(set, key) {
+      if (set.has(key)) set.delete(key);
+      else set.add(key);
+    }
+
+    function clearNeighborhoodMode() {
+      currentFocusNodeId = null;
+      if (cy) {
+        cy.elements().removeClass('dimmed highlighted');
+      }
+      if (fg3d) {
+        fg3d.nodeColor(node => node.__color);
+        fg3d.linkColor(link => edgeColor(link));
+      }
+    }
+
+    function neighborIdsFor(nodeId) {
+      const ids = new Set([nodeId]);
+      for (const edge of allData.edges) {
+        if (edge.source === nodeId) ids.add(edge.target);
+        if (edge.target === nodeId) ids.add(edge.source);
+      }
+      return ids;
+    }
+
+    function applyNeighborhoodMode(nodeId) {
+      currentFocusNodeId = nodeId;
+      const ids = neighborIdsFor(nodeId);
+      if (cy) {
+        cy.elements().addClass('dimmed').removeClass('highlighted');
+        const node = cy.getElementById(nodeId);
+        node.removeClass('dimmed').addClass('highlighted');
+        node.closedNeighborhood().removeClass('dimmed');
+      }
+      if (fg3d) {
+        fg3d.nodeColor(node => ids.has(node.id) ? node.__color : 'rgba(100,100,100,0.12)');
+        fg3d.linkColor(link => {
+          const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+          const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+          return ids.has(sourceId) && ids.has(targetId) ? edgeColor(link) : 'rgba(100,100,100,0.08)';
+        });
+      }
+    }
+
+    function renderList(items, formatter, empty = 'none') {
+      if (!items || !items.length) return `<div class="list-item">${empty}</div>`;
+      return items.map(formatter).join('');
+    }
+
+    function renderRolePanel(node, codeDetail = null) {
+      const detail = document.getElementById('node-detail');
+      const trust = trustSummary(node);
+
+      if (node.layer === 'feature') {
+        detail.innerHTML = `
+          <h3>${node.label}</h3>
+          <div class="field"><span class="field-label">Kind:</span> Feature</div>
+          <div class="field"><span class="field-label">Description:</span> ${node.description || '—'}</div>
+          <div class="trust-meter">
+            <span class="field-label">Trust</span>
+            <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
+          </div>
+          <div class="tag-list">${trust.badges.join('')}</div>
+          <div class="section-title">Depends on</div>
+          <div class="list">${renderList(node.depends_on, item => `<div class="list-item">${item}</div>`)}</div>
+          <div class="section-title">Related to</div>
+          <div class="list">${renderList(node.related_to, item => `<div class="list-item">${item}</div>`)}</div>
+          <div class="section-title">Anchors</div>
+          <div class="code-block">${JSON.stringify(node.anchors || {}, null, 2)}</div>
+        `;
+        return;
+      }
+
+      if (node.layer === 'task') {
+        detail.innerHTML = `
+          <h3>${node.label}</h3>
+          <div class="field"><span class="field-label">Kind:</span> Task</div>
+          <div class="field"><span class="field-label">Status:</span> ${node.status || '—'}</div>
+          <div class="field"><span class="field-label">Assignee:</span> ${node.assignee || '—'}</div>
+          <div class="field"><span class="field-label">URL:</span> ${node.url ? `<a href="${node.url}" target="_blank" rel="noreferrer" style="color:#58a6ff">${node.url}</a>` : '—'}</div>
+          <div class="trust-meter">
+            <span class="field-label">Trust</span>
+            <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
+          </div>
+          <div class="tag-list">${trust.badges.join('')}</div>
+          <div class="section-title">Features</div>
+          <div class="list">${renderList(node.features, item => `<div class="list-item">${item}</div>`)}</div>
+        `;
+        return;
+      }
+
+      if (node.layer === 'doc') {
+        detail.innerHTML = `
+          <h3>${node.label}</h3>
+          <div class="field"><span class="field-label">Kind:</span> ${node.kind || 'Document'}</div>
+          <div class="field"><span class="field-label">Path:</span> ${renderLocation(node.file_path, node.start_line)}</div>
+          <div class="trust-meter">
+            <span class="field-label">Trust</span>
+            <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
+          </div>
+          <div class="tag-list">${trust.badges.join('')}</div>
+          ${codeDetail ? `
+            <div class="section-title">Incoming</div>
+            <div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} from ${e.from_label}</div>`)}</div>
+            <div class="section-title">Outgoing</div>
+            <div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${e.relation} to ${e.to_label}</div>`)}</div>
+          ` : ''}
+        `;
+        return;
+      }
+
+      const n = codeDetail?.node || node;
+      detail.innerHTML = `
+        <h3>${n.label}</h3>
+        <div class="field"><span class="field-label">Kind:</span> ${n.type || n.kind}</div>
+        <div class="field"><span class="field-label">Path:</span> ${renderLocation(n.file_path, n.start_line)}</div>
+        <div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>
+        <div class="trust-meter">
+          <span class="field-label">Trust</span>
+          <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
+        </div>
+        <div class="tag-list">${trust.badges.join('')}</div>
+        ${codeDetail ? `
+          <div class="section-title">Incoming (${codeDetail.incoming.length})</div>
+          <div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} from ${e.from_label} [${e.from_type}] (${renderLocation(e.from_file, e.from_line)})</div>`)}</div>
+          <div class="section-title">Outgoing (${codeDetail.outgoing.length})</div>
+          <div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${e.relation} to ${e.to_label} [${e.to_type}] (${renderLocation(e.to_file, e.to_line)})</div>`)}</div>
+        ` : ''}
+      `;
+    }
+
+    async function showNodeDetail(nodeId) {
+      const node = allData.nodes.find(n => n.id === nodeId);
+      if (!node) return;
+      if (node.layer && node.layer !== 'code' && node.kind !== 'Document') {
+        renderRolePanel(node);
+        return;
+      }
+      const codeId = nodeId.startsWith('code:') ? nodeId.slice('code:'.length) : nodeId;
+      const data = await fetch(`/api/node/${encodeURIComponent(codeId)}`).then(r => r.json()).catch(() => null);
+      if (!data?.node) {
+        renderRolePanel(node);
+        return;
+      }
+      renderRolePanel(node, data);
+    }
+
+    function buildFilters(graphData) {
+      const filtersEl = document.getElementById('filters');
+      const isMultilayer = graphData.nodes.length > 0 && 'layer' in graphData.nodes[0];
+      let filterHtml = '';
+
+      if (isMultilayer) {
+        const layers = ['code', 'feature', 'task', 'doc'];
+        const layerCounts = Object.fromEntries(layers.map(l => [l, graphData.nodes.filter(n => n.layer === l).length]));
+        filterHtml += `<div class="section-title" style="margin-top:0">Layers</div><div class="pill-row">`;
+        filterHtml += layers.filter(l => layerCounts[l] > 0).map(l => (
+          `<button class="toggle-pill active" type="button" data-layer="${l}"><span style="color:${LAYER_COLORS[l]};">●</span> ${l} (${layerCounts[l]})</button>`
+        )).join('');
+        filterHtml += `</div>
+          <div class="section-title">Edge classes</div><div class="pill-row">
+            <button class="toggle-pill active" type="button" data-edge-class="code">code edges</button>
+            <button class="toggle-pill active" type="button" data-edge-class="cross-layer">cross-layer</button>
+          </div>
+          <div class="section-title">Trust / provenance</div><div class="pill-row">
+            <button class="toggle-pill active" type="button" data-provenance="code">code-native</button>
+            <button class="toggle-pill active" type="button" data-provenance="curated">curated</button>
+            <button class="toggle-pill active" type="button" data-provenance="inferred">inferred</button>
+          </div>`;
+      }
+
+      const types = [...new Set(graphData.nodes.map(n => n.kind || n.type))].filter(Boolean).sort();
+      types.forEach(t => activeTypes.add(t));
+      filterHtml += `<div class="section-title">Node types</div><div class="pill-row">`;
+      filterHtml += types.map(t => (
+        `<button class="toggle-pill active" type="button" data-type="${t}">${t} (${graphData.nodes.filter(n => (n.kind || n.type) === t).length})</button>`
+      )).join('');
+      filterHtml += `</div>
+        <div id="focus-controls">
+          <button class="mini-button" id="focus-neighborhood" type="button">Neighborhood mode</button>
+          <button class="mini-button" id="clear-focus" type="button">Clear focus</button>
+        </div>`;
+      filtersEl.innerHTML = filterHtml;
+
+      filtersEl.querySelectorAll('[data-layer]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          toggleSet(activeLayers, btn.dataset.layer);
+          btn.classList.toggle('active', activeLayers.has(btn.dataset.layer));
+          renderGraph(false);
+        });
+      });
+      filtersEl.querySelectorAll('[data-edge-class]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          toggleSet(activeEdgeClasses, btn.dataset.edgeClass);
+          btn.classList.toggle('active', activeEdgeClasses.has(btn.dataset.edgeClass));
+          renderGraph(false);
+        });
+      });
+      filtersEl.querySelectorAll('[data-provenance]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          toggleSet(activeProvenance, btn.dataset.provenance);
+          btn.classList.toggle('active', activeProvenance.has(btn.dataset.provenance));
+          renderGraph(false);
+        });
+      });
+      filtersEl.querySelectorAll('[data-type]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          toggleSet(activeTypes, btn.dataset.type);
+          btn.classList.toggle('active', activeTypes.has(btn.dataset.type));
+          renderGraph(false);
+        });
+      });
+      document.getElementById('focus-neighborhood').addEventListener('click', () => {
+        if (currentFocusNodeId) applyNeighborhoodMode(currentFocusNodeId);
+      });
+      document.getElementById('clear-focus').addEventListener('click', clearNeighborhoodMode);
+    }
+
+    function renderStats(graphData, stats) {
       const statsEl = document.getElementById('stats');
       const topRelations = stats.relations.slice(0, 5);
+      const multilayerCounts = graphData.counts || {};
       statsEl.innerHTML = `
         <div class="stat"><span>Nodes</span><span class="stat-value">${stats.nodeCount}</span></div>
         <div class="stat"><span>Edges</span><span class="stat-value">${stats.edgeCount}</span></div>
+        ${Object.keys(multilayerCounts).length ? `
+          <div class="section-title">Multilayer</div>
+          ${Object.entries(multilayerCounts).map(([k, v]) => `<div class="stat"><span>${k.replaceAll('_', ' ')}</span><span class="stat-value">${v}</span></div>`).join('')}
+        ` : ''}
         <div class="section-title">Top node types</div>
         ${stats.types.map(t => `<div class="stat"><span>${t.type}</span><span class="stat-value">${t.c}</span></div>`).join('')}
         <div class="section-title">Top relations</div>
         ${topRelations.map(r => `<div class="stat"><span>${r.relation}</span><span class="stat-value">${r.c}</span></div>`).join('')}
       `;
-
-      // Filters
-      const isMultilayer = graphData.nodes.length > 0 && 'layer' in graphData.nodes[0];
-      const filtersEl = document.getElementById('filters');
-      let filterHtml = '';
-
-      if (isMultilayer) {
-        // Layer toggle group (top of filter panel, dev's spec)
-        const layers = ['code', 'feature', 'task', 'doc'];
-        const layerCounts = Object.fromEntries(
-          layers.map(l => [l, graphData.nodes.filter(n => n.layer === l).length])
-        );
-        filterHtml += `<div class="section-title" style="margin-top:0">Layers</div>`;
-        filterHtml += layers
-          .filter(l => layerCounts[l] > 0)
-          .map(l => `<label data-layer="${l}"><input type="checkbox" checked data-layer="${l}"> <span style="color:${LAYER_COLORS[l]};">●</span> ${l} (${layerCounts[l]})</label>`)
-          .join('');
-        filterHtml += `<div class="section-title">Code-node types</div>`;
-      }
-
-      const types = [...new Set(graphData.nodes.map(n => n.kind || n.type))].filter(Boolean).sort();
-      types.forEach(t => activeTypes.add(t));
-      filterHtml += types.map(t =>
-        `<label><input type="checkbox" checked data-type="${t}"> ${t} (${graphData.nodes.filter(n => (n.kind || n.type) === t).length})</label>`
-      ).join('');
-      filtersEl.innerHTML = filterHtml;
-
-      filtersEl.querySelectorAll('input[data-layer]').forEach(cb => {
-        cb.addEventListener('change', () => {
-          if (cb.checked) activeLayers.add(cb.dataset.layer);
-          else activeLayers.delete(cb.dataset.layer);
-          renderGraph();
-        });
-      });
-      filtersEl.querySelectorAll('input[data-type]').forEach(cb => {
-        cb.addEventListener('change', () => {
-          if (cb.checked) activeTypes.add(cb.dataset.type);
-          else activeTypes.delete(cb.dataset.type);
-          renderGraph();
-        });
-      });
-
-      // Search
-      document.getElementById('search').addEventListener('input', async (e) => {
-        const q = e.target.value.trim();
-        if (q.length < 2) return;
-        const results = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
-        if (results.length > 0) {
-          const node = cy.getElementById(results[0].id);
-          if (node.length) {
-            cy.animate({ center: { eles: node }, zoom: 2 }, { duration: 300 });
-            node.select();
-            showNodeDetail(results[0].id);
-          }
-        }
-      });
-
-      renderGraph();
     }
 
-    function renderGraph() {
-      // Detect multilayer payload shape (has `layer` field) vs legacy code-only.
+    function buildElements() {
       const isMultilayer = allData.nodes.length > 0 && 'layer' in allData.nodes[0];
-
       const nodes = isMultilayer
         ? allData.nodes.filter(n => activeLayers.has(n.layer) && (n.layer !== 'code' || activeTypes.has(n.kind || n.type)))
         : allData.nodes.filter(n => activeTypes.has(n.type));
       const nodeIds = new Set(nodes.map(n => n.id));
       const edges = isMultilayer
-        ? allData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+        ? allData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target) && activeEdgeClasses.has(e.edge_class || 'code') && activeProvenance.has(e.provenance || 'code'))
         : allData.edges.filter(e => nodeIds.has(e.from_id) && nodeIds.has(e.to_id));
 
-      const elements = isMultilayer ? [
+      return isMultilayer ? [
         ...nodes.map(n => ({
           data: {
             id: n.id,
             label: n.label,
             layer: n.layer,
             kind: n.kind,
-            type: n.kind,  // compat for legacy styles
+            type: n.kind,
             file_path: n.file_path,
             start_line: n.start_line,
             description: n.description,
@@ -234,6 +457,11 @@
             related_to: n.related_to,
             features: n.features,
             tags: n.tags,
+            anchors: n.anchors,
+            assignee: n.assignee,
+            url: n.url,
+            confidence: n.confidence,
+            language: n.language,
           },
         })),
         ...edges.map(e => ({
@@ -248,21 +476,84 @@
           },
         })),
       ] : [
-        ...nodes.map(n => ({
-          data: {
-            id: n.id, label: n.label, type: n.type,
-            file_path: n.file_path, start_line: n.start_line,
-          },
-        })),
-        ...edges.map((e, i) => ({
-          data: {
-            id: `e${i}`, source: e.from_id, target: e.to_id,
-            relation: e.relation, confidence: e.confidence,
-          },
-        })),
+        ...nodes.map(n => ({ data: { id: n.id, label: n.label, type: n.type, file_path: n.file_path, start_line: n.start_line } })),
+        ...edges.map((e, i) => ({ data: { id: `e${i}`, source: e.from_id, target: e.to_id, relation: e.relation, confidence: e.confidence } })),
       ];
+    }
 
+    // Large-graph banner: warn the user when we degraded the layout so they
+    // know what they're looking at. Injected once and reused.
+    function showLargeGraphBanner(active, nodeCount) {
+      let banner = document.getElementById('large-graph-banner');
+      if (!active) { if (banner) banner.remove(); return; }
+      if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'large-graph-banner';
+        banner.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#3a2d0e;border:1px solid #cba94a;color:#f0d58c;padding:8px 14px;border-radius:6px;font-size:12px;max-width:720px;z-index:10;line-height:1.4;';
+        document.getElementById('graph-container').appendChild(banner);
+      }
+      banner.innerHTML = `⚠ Large graph (${nodeCount.toLocaleString()} nodes). Using fast <code>grid</code> layout — a proper force layout would freeze the browser at this size. Filter by subsystem, search for a specific symbol, or reduce the layer set for a physically-organized view.`;
+    }
+
+    function render3DGraph(elements) {
+      document.getElementById('cy').style.display = 'none';
+      const container = document.getElementById('fg3d');
+      container.style.display = 'block';
+      container.innerHTML = '';
+      const nodes = elements.filter(e => e.data.label).map(e => ({
+        ...e.data,
+        __color: e.data.layer && e.data.layer !== 'code'
+          ? LAYER_COLORS[e.data.layer]
+          : TYPE_COLORS[e.data.kind || e.data.type] || '#6e7681',
+      }));
+      const links = elements.filter(e => e.data.source).map(e => ({ ...e.data }));
+      fg3d = ForceGraph3D()(container)
+        .backgroundColor('#0d1117')
+        .graphData({ nodes, links })
+        .nodeLabel(node => `${node.label}\n${node.layer || node.kind || node.type}`)
+        .nodeColor(node => node.__color)
+        .nodeVal(node => {
+          if (node.layer === 'feature') return 8;
+          if (node.layer === 'task') return 6;
+          if (node.layer === 'doc') return 5;
+          return 4;
+        })
+        .linkColor(link => edgeColor(link))
+        .linkWidth(link => (link.edge_class || 'code') === 'cross-layer' ? 1.3 : 0.7)
+        .linkOpacity(link => (link.edge_class || 'code') === 'cross-layer' ? 0.35 : 0.18)
+        .linkCurvature(link => (link.edge_class || 'code') === 'cross-layer' ? 0.18 : 0)
+        .linkDirectionalParticles(link => (link.edge_class || 'code') === 'cross-layer' ? 1 : 0)
+        .linkDirectionalParticleWidth(1.6)
+        .onNodeClick(node => {
+          currentFocusNodeId = node.id;
+          showNodeDetail(node.id);
+          applyNeighborhoodMode(node.id);
+          fg3d.cameraPosition({ x: node.x || 0, y: node.y || 0, z: (layerZ[node.layer] ?? 0) + 220 }, node, 700);
+        });
+
+      fg3d.graphData().nodes.forEach(node => {
+        node.fz = layerZ[node.layer] ?? 0;
+      });
+      fg3d.d3Force('charge').strength(-90);
+    }
+
+    function render2DGraph(elements) {
+      document.getElementById('fg3d').style.display = 'none';
+      document.getElementById('cy').style.display = 'block';
       if (cy) cy.destroy();
+      // Large-graph guard: cose layout on >3k nodes pegs the main thread long
+      // enough that Edge declares the page "not responding." On echoes
+      // (6452 nodes / 17391 edges) this consistently hangs the browser. We
+      // switch to the instant 'grid' layout and show a banner telling the
+      // user to filter by subsystem for a usable view. Keeps the dashboard
+      // usable on ANY repo size instead of crashing on the large ones.
+      const nodeCount = elements.filter(e => e.group === 'nodes' || (!e.group && e.data && !e.data.source)).length;
+      const LARGE_GRAPH_THRESHOLD = 3000;
+      const isLargeGraph = nodeCount > LARGE_GRAPH_THRESHOLD;
+      const layoutConfig = isLargeGraph
+        ? { name: 'grid', avoidOverlap: true, condense: true }
+        : { name: 'cose', animate: false, nodeRepulsion: 8000, idealEdgeLength: 80, nodeOverlap: 20 };
+      showLargeGraphBanner(isLargeGraph, nodeCount);
       cy = cytoscape({
         container: document.getElementById('cy'),
         elements,
@@ -275,8 +566,6 @@
               color: '#c9d1d9',
               'text-outline-color': '#0d1117',
               'text-outline-width': 1.5,
-              // Layer-first palette: feature/task/doc nodes use layer color.
-              // Code-layer nodes still use per-type color for sub-kind readability.
               'background-color': (ele) => {
                 const layer = ele.data('layer');
                 if (layer && layer !== 'code') return LAYER_COLORS[layer];
@@ -303,101 +592,92 @@
             selector: 'edge',
             style: {
               width: (ele) => ele.data('relation') === 'PASSES_THROUGH' ? 2 : 1.25,
-              'line-color': (ele) => {
-                const cls = ele.data('edge_class');
-                if (cls === 'cross-layer') {
-                  // Curated vs inferred distinction per dev's ask
-                  return ele.data('provenance') === 'curated' ? '#58a6ff' : '#7ee787';
-                }
-                return RELATION_COLORS[ele.data('relation')] || RELATION_COLORS.default;
-              },
+              'line-color': (ele) => edgeColor(ele.data()),
               'line-style': (ele) => {
-                if (ele.data('edge_class') === 'cross-layer') {
+                if ((ele.data('edge_class') || 'code') === 'cross-layer') {
                   return ele.data('provenance') === 'curated' ? 'dashed' : 'dotted';
                 }
                 return 'solid';
               },
-              'target-arrow-color': (ele) => {
-                const cls = ele.data('edge_class');
-                if (cls === 'cross-layer') {
-                  return ele.data('provenance') === 'curated' ? '#58a6ff' : '#7ee787';
-                }
-                return RELATION_COLORS[ele.data('relation')] || RELATION_COLORS.default;
-              },
+              'target-arrow-color': (ele) => edgeColor(ele.data()),
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
-              opacity: (ele) => ele.data('edge_class') === 'cross-layer' ? 0.45 : 0.7,
+              opacity: (ele) => {
+                const conf = ele.data('confidence');
+                const base = (ele.data('edge_class') || 'code') === 'cross-layer' ? 0.45 : 0.7;
+                if (conf == null) return base;
+                return Math.max(0.18, Math.min(1, base * (0.35 + conf)));
+              },
             },
           },
-          {
-            selector: 'node:selected',
-            style: {
-              'border-width': 3,
-              'border-color': '#f0883e',
-            },
-          },
-          {
-            selector: 'edge:selected',
-            style: {
-              'line-color': '#f0883e',
-              'target-arrow-color': '#f0883e',
-              width: 2,
-              opacity: 1,
-            },
-          },
-          // Hooks for dev's interaction layer (selected-node neighborhood mode)
-          {
-            selector: '.dimmed',
-            style: { opacity: 0.15 },
-          },
-          {
-            selector: '.highlighted',
-            style: { 'border-width': 3, 'border-color': '#58a6ff', 'z-index': 10 },
-          },
+          { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#f0883e' } },
+          { selector: 'edge:selected', style: { 'line-color': '#f0883e', 'target-arrow-color': '#f0883e', width: 2, opacity: 1 } },
+          { selector: '.dimmed', style: { opacity: 0.15 } },
+          { selector: '.highlighted', style: { 'border-width': 3, 'border-color': '#58a6ff', 'z-index': 10 } },
         ],
-        layout: {
-          name: 'cose',
-          animate: false,
-          nodeRepulsion: 8000,
-          idealEdgeLength: 80,
-          nodeOverlap: 20,
-        },
+        layout: layoutConfig,
       });
 
-      cy.on('tap', 'node', (e) => showNodeDetail(e.target.id()));
+      cy.on('tap', 'node', (e) => {
+        currentFocusNodeId = e.target.id();
+        showNodeDetail(currentFocusNodeId);
+        applyNeighborhoodMode(currentFocusNodeId);
+      });
     }
 
-    async function showNodeDetail(nodeId) {
-      const data = await fetch(`/api/node/${encodeURIComponent(nodeId)}`).then(r => r.json());
-      if (!data.node) return;
-      const n = data.node;
-      const detail = document.getElementById('node-detail');
-      const renderLocation = (filePath, line) => filePath ? `${filePath}:${line}` : 'external';
-      detail.innerHTML = `
-        <h3>${n.label}</h3>
-        <div class="field"><span class="field-label">Type:</span> ${n.type}</div>
-        <div class="field"><span class="field-label">File:</span> ${renderLocation(n.file_path, n.start_line)}</div>
-        <div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>
-        <div class="field"><span class="field-label">Confidence:</span> ${n.confidence}</div>
-        <div class="edge-list">
-          <h3>Incoming (${data.incoming.length})</h3>
-          ${data.incoming.map(e => `<div class="edge-item" onclick="focusNode('${e.from_id}')">${e.relation} from ${e.from_label} [${e.from_type}] (${renderLocation(e.from_file, e.from_line)})</div>`).join('')}
-        </div>
-        <div class="edge-list">
-          <h3>Outgoing (${data.outgoing.length})</h3>
-          ${data.outgoing.map(e => `<div class="edge-item" onclick="focusNode('${e.to_id}')">${e.relation} to ${e.to_label} [${e.to_type}] (${renderLocation(e.to_file, e.to_line)})</div>`).join('')}
-        </div>
-      `;
+    function renderGraph(resetFocus = false) {
+      if (resetFocus) currentFocusNodeId = null;
+      const elements = buildElements();
+      if (is3DMode) render3DGraph(elements);
+      else render2DGraph(elements);
     }
 
     window.focusNode = (id) => {
+      currentFocusNodeId = id;
+      if (fg3d) {
+        const node = fg3d.graphData().nodes.find(n => n.id === id);
+        if (node) {
+          showNodeDetail(id);
+          applyNeighborhoodMode(id);
+          fg3d.cameraPosition({ x: node.x || 0, y: node.y || 0, z: (layerZ[node.layer] ?? 0) + 220 }, node, 700);
+        }
+        return;
+      }
+      if (!cy) return;
       const node = cy.getElementById(id);
       if (node.length) {
         cy.animate({ center: { eles: node }, zoom: 2 }, { duration: 300 });
         node.select();
         showNodeDetail(id);
+        applyNeighborhoodMode(id);
       }
     };
+
+    async function init() {
+      const [graphData, stats] = await Promise.all([
+        fetch('/api/graph-multilayer').then(r => r.json()).catch(() => fetch('/api/graph').then(r => r.json())),
+        fetch('/api/stats').then(r => r.json()),
+      ]);
+      allData = graphData;
+      document.getElementById('mode-label').textContent = is3DMode ? '3D mode' : '2D mode';
+      document.getElementById('mode-link').href = is3DMode ? '/' : '/3d';
+      document.getElementById('mode-link').textContent = is3DMode ? 'open 2D' : 'open 3D';
+
+      renderStats(graphData, stats);
+      buildFilters(graphData);
+
+      document.getElementById('search').addEventListener('input', async (e) => {
+        const q = e.target.value.trim();
+        if (q.length < 2) return;
+        const results = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
+        if (results.length > 0) {
+          const targetId = results[0].layer ? results[0].id : `code:${results[0].id}`;
+          focusNode(targetId);
+        }
+      });
+
+      renderGraph(true);
+    }
 
     init();
   </script>

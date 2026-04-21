@@ -332,6 +332,29 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       return;
     }
 
+    // Vendored JS libs — serve cytoscape + 3d-force-graph from node_modules.
+    // Drops the unpkg dependency that was freezing Edge on cold loads when
+    // the CDN hung or the browser blocked third-party scripts.
+    if (req.url === '/vendor/cytoscape.min.js' || req.url === '/vendor/3d-force-graph.min.js') {
+      const pkgMap = {
+        '/vendor/cytoscape.min.js': '../../../node_modules/cytoscape/dist/cytoscape.min.js',
+        '/vendor/3d-force-graph.min.js': '../../../node_modules/3d-force-graph/dist/3d-force-graph.min.js',
+      };
+      try {
+        const path = resolve(join(__dirname, pkgMap[req.url]));
+        const content = await readFile(path);
+        res.writeHead(200, {
+          'Content-Type': 'application/javascript',
+          'Cache-Control': 'public, max-age=86400',
+        });
+        res.end(content);
+      } catch (err) {
+        res.writeHead(500);
+        res.end(`vendor lib missing — run 'npm install' in the aify-project-graph clone. ${err.message}`);
+      }
+      return;
+    }
+
     // Static files — serve the SPA (with path traversal protection)
     let filePath = req.url === '/' ? '/index.html' : req.url;
     const staticDir = resolve(join(__dirname, 'static'));

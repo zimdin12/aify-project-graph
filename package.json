@@ -9,7 +9,9 @@
     "test:watch": "node ./scripts/run-vitest.mjs --watch"
   },
   "dependencies": {
+    "3d-force-graph": "^1.80.0",
     "better-sqlite3": "^11.0.0",
+    "cytoscape": "^3.30.4",
     "graphology": "^0.26.0",
     "graphology-communities-louvain": "^2.0.2",
     "proper-lockfile": "^4.1.2",
