@@ -7,6 +7,7 @@ import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/n
 import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
 import { getHeadCommit, getDirtyFiles, getChangedFiles } from './git.js';
 import { loadManifest, writeManifest } from './manifest.js';
+import { readDirtyEdgesSidecar, writeDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
 import { withWriteLock } from './lock.js';
 import { getLanguageConfig } from '../ingest/languages/index.js';
 import { extractFile } from '../ingest/extractors/generic.js';
@@ -144,7 +145,13 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       });
       batchInsert();
 
-      const refs = [...specialPlugins.refs, ...(manifest.dirtyEdges ?? [])];
+      // Carry forward unresolved edges from the previous run so resolution
+      // can retry them. Prefer the full sidecar (complete list) over the
+      // manifest sample (capped at 500) — the sample is only a fallback
+      // for older graphs written before the sidecar existed.
+      const sidecarEdges = await readDirtyEdgesSidecar(graphDir);
+      const carryForward = sidecarEdges !== null ? sidecarEdges : (manifest.dirtyEdges ?? []);
+      const refs = [...specialPlugins.refs, ...carryForward];
       const existingFiles = [];
 
       // Extract in bounded chunks so a mid-run failure only loses the current chunk.
@@ -257,13 +264,17 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         extractorVersion: EXTRACTOR_VERSION,
         parserBundleVersion: PARSER_BUNDLE_VERSION,
         dirtyFiles: [],
-        // Cap dirty edges in manifest to prevent huge JSON serialization on large repos
+        // Manifest keeps a 500-row SAMPLE for breakdown queries (status/health).
+        // The full authoritative list goes to the sidecar below — this prevents
+        // the manifest from ballooning on huge unresolved backlogs while still
+        // preserving all state for next-run carry-forward.
         dirtyEdges: resolved.unresolved.length > 500
           ? resolved.unresolved.slice(0, 500)
           : resolved.unresolved,
         dirtyEdgeCount: resolved.unresolved.length,
       };
       await writeManifest(graphDir, nextManifest);
+      await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
 
       return {
         indexed: true,
