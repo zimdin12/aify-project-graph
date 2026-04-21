@@ -15,8 +15,17 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
 
-const UNRESOLVED_WEAK = 2000;
-const UNRESOLVED_OK = 500;
+// Single source of truth for trust-level thresholds. graph_health and the
+// brief's trust() both consume this so they can't drift. Echoes bench
+// 2026-04-21 showed them disagreeing (brief said "strong" while health said
+// "weak (5421 unresolved)" on the same state) — fixed by centralizing.
+export const UNRESOLVED_WEAK = 2000;
+export const UNRESOLVED_OK = 500;
+export function computeTrustLevel(unresolvedEdges) {
+  if (unresolvedEdges > UNRESOLVED_WEAK) return 'weak';
+  if (unresolvedEdges > UNRESOLVED_OK) return 'ok';
+  return 'strong';
+}
 
 export async function graphHealth({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
@@ -73,9 +82,7 @@ export async function graphHealth({ repoRoot }) {
     }
   }
 
-  const trust = unresolvedEdges > UNRESOLVED_WEAK ? 'weak'
-    : unresolvedEdges > UNRESOLVED_OK ? 'ok'
-    : 'strong';
+  const trust = computeTrustLevel(unresolvedEdges);
 
   // Plain-prose summary — one line per axis — so agents don't need to
   // interpret several numeric fields. Each axis states a decision, not a

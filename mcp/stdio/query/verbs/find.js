@@ -133,8 +133,18 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
   if (!query || query.trim().length < 1) {
     return 'ERROR: query parameter is required (minimum 1 character)';
   }
-  const q = query.trim();
+  // Server-side tokenization: compound queries like "pressure vacuum gas"
+  // silently returned empty before — each word was passed as one literal
+  // substring match, so the search only fired if any label/text contained
+  // the exact multi-word string verbatim. Real-world callers type natural
+  // phrases and hit empty. Fix: split on whitespace, try the full string
+  // first (for exact-phrase hits), then each token, and union results with
+  // per-token scores summed. Echoes bench 2026-04-21 flagged this twice.
+  const raw = query.trim();
+  const tokens = raw.split(/\s+/u).filter(Boolean);
+  const queries = tokens.length > 1 ? [raw, ...tokens] : [raw];
   const perLayer = Math.max(1, Math.min(limit, 20));
+  const q = raw; // canonical reported query
 
   // By default, skip ensureFresh — "fast search" is the contract here.
   // Staleness on identifier-text search is acceptable; callers who need
@@ -157,10 +167,27 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
       hits: { code: [], features: [], tasks: [], docs: [] },
     };
 
-    if (layerSet.has('code')) results.hits.code = searchCode(db, q, perLayer);
-    if (layerSet.has('features')) results.hits.features = searchFeatures(overlay.features, q, perLayer);
-    if (layerSet.has('tasks')) results.hits.tasks = searchTasks(tasks, q, perLayer);
-    if (layerSet.has('docs')) results.hits.docs = searchDocs(db, q, perLayer);
+    // Multi-token search: run each per-layer searcher for every query
+    // variant, dedupe by (layer, id/file/line) key, keep the best score.
+    const mergeHits = (hits) => {
+      const byKey = new Map();
+      for (const h of hits) {
+        const key = `${h.layer}|${h.kind ?? ''}|${h.label ?? ''}|${h.file ?? ''}|${h.line ?? ''}|${h.id ?? ''}`;
+        const prev = byKey.get(key);
+        if (!prev || h.score > prev.score) byKey.set(key, h);
+      }
+      return [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, perLayer);
+    };
+    const runLayer = (layer, fn) => {
+      if (!layerSet.has(layer)) return [];
+      const all = queries.flatMap((term) => fn(term));
+      return mergeHits(all);
+    };
+
+    results.hits.code = runLayer('code', (term) => searchCode(db, term, perLayer));
+    results.hits.features = runLayer('features', (term) => searchFeatures(overlay.features, term, perLayer));
+    results.hits.tasks = runLayer('tasks', (term) => searchTasks(tasks, term, perLayer));
+    results.hits.docs = runLayer('docs', (term) => searchDocs(db, term, perLayer));
 
     // Flat top-k if user wants a simple merge
     const flat = [

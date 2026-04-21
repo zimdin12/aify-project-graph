@@ -48,6 +48,16 @@ If `.aify-graph/` is missing, tell the user to run `/graph-build-all` — it bui
 
 If the user wants to **see** the graph visually (not just query it), run `/graph-dashboard` — launches an interactive 2D multi-layer view in the browser with code + features + tasks + docs + cross-layer edges.
 
+## Default pattern: MIXED mode (graph for orientation, Read/Grep for details)
+
+Measured on the 2026-04-22 echoes bench (9 agents × 3 variants × 3 task classes): **mixed mode beats pure graph-only by 8-19% tokens and matches no-graph on time, while producing the best DEBUG quality (32% fewer tokens, 33% less time than no-graph).** The winning shape is:
+
+- **Graph for ORIENTATION questions** — "what features touch this? what tasks are on those features? who last edited? what contracts are nearby? what sibling bugs are open?" Call `graph_consequences`, `graph_pull`, `graph_health`, read the relevant brief.
+- **Read/Grep for DETAIL questions** — "what line is this condition? what does this function actually do? is this hardcoded? what's the exact signature?"
+- **For line-level audits (contract compliance, config-authority reviews): skip the graph entirely.** It adds cost without value on pure line-by-line work. No orientation need → no graph call.
+
+The failure mode to avoid: calling graph_find once, getting empty, giving up. Use graph for the question it's shaped for; drop to Grep immediately when the question shape changes.
+
 ## Default workflow after reading the brief
 
 1. **Use live verbs only when the brief is not enough** (precision queries)

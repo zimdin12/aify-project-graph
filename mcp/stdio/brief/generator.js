@@ -15,6 +15,7 @@ import { writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
+import { computeTrustLevel } from '../query/verbs/health.js';
 import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
 import { buildPaths } from '../query/verbs/path.js';
 
@@ -95,8 +96,8 @@ function repoSnapshot(db, repoRoot) {
   } catch {
     // Fall through with 0; the trust line will then say "ok".
   }
-  const trustLevel = unresolvedEdges > 2000 ? 'weak'
-    : unresolvedEdges > 500 ? 'ok' : 'strong';
+  // Shared with graph_health — single source of truth for thresholds.
+  const trustLevel = computeTrustLevel(unresolvedEdges);
   return { files: totalFiles, symbols: totalNodes, edges: totalEdges, languages: langs, unresolvedEdges, trustLevel };
 }
 
