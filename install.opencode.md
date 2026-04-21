@@ -29,7 +29,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: ~165 passing (165 as of 2026-04-21)
+npm test         # expect: ~190 passing (193 as of 2026-04-21)
 ```
 
 If the native module fails on load (`better_sqlite3.node is not a valid ... application`). The MCP server auto-heals this on runtime startup; for the install-time test run, do it manually:
