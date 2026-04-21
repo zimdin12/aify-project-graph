@@ -29,6 +29,10 @@ If the user wants to **see** the graph visually (not just query it), run `/graph
 
 1. **Use live verbs only when the brief is not enough** (precision queries)
 2. **Verify in source files before acting** on anything the graph claims
+3. **Read the `TRUST` line first — it gates which verbs are worth calling:**
+   - `TRUST ok` → full verb suite earns its keep. `graph_impact`, `graph_whereis`, `graph_callers` are faster and cheaper than Grep-and-read on familiar territory.
+   - `TRUST weak` → prefer **briefs + a single-term `graph_find` + Grep**. `graph_whereis`/`graph_impact` on a weak-trust graph will often return fewer or wrong edges vs Grep; the 80/20 tools at weak trust are the precomputed briefs and `graph_find` (for cross-layer ID lookup with one clean token).
+   - This is empirically measured on a real echoes planning task: TRUST=weak bench showed `graph_whereis` redundant with Grep; briefs + one `graph_find` did the heavy lifting and the other verbs broke even or lost.
 
 The benchmark result (2026-04-20 cross-tester, matched-N): briefs are **1.5-2.9× faster wall-clock and −19% to −34% tokens on Claude Code Agent + Opus** for shell-accessible tasks; on **Codex + gpt-5.4** the same shapes are **roughly parity-to-slight-regression aggregate (+3.6% tok / +11.3% dur matched 11-vs-11)** — codex's prompt caching flattens the savings. Quality is **non-regressing** on both runtimes. Quality GAINS show up on overlay-dependent tasks (requires `functionality.json` populated): **baseline 2/4 clean → brief 4/4 clean, −18% tok, −51% dur on Codex**. Reach for live verbs only when you need precision the brief can't answer.
 
