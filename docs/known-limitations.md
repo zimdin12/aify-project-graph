@@ -25,6 +25,16 @@ reach the symbol, then Grep within each for the specific lines.
 Measured on the 2026-04-22 echoes bench: mixed-mode (graph for the set,
 Grep for lines) produced the best results on this class of question.
 
+## Brief TRUST can drift from live `graph_health` between regens
+
+`brief.json` captures the manifest's `dirtyEdgeCount` at the moment briefs were generated. `graph_health()` reads the same field live. If a reindex happens between brief regen and the health call, both surfaces use the same threshold function but different input counts — they'll disagree on the TRUST label ("weak" in brief vs "strong" in health or vice versa).
+
+**Why.** Briefs are file-backed snapshots; the verb is live. Not a threshold bug, not a bug in either reader — a cache-vs-live mismatch by design.
+
+**Impact.** Agents reading both surfaces in the same session may see contradictory TRUST verdicts.
+
+**Workaround.** As of 2026-04-22 `graph_health` checks `brief.json.graph_indexed_at` against `manifest.indexedAt` and adds `brief-stale: regenerate with graph-brief.mjs` to its summary string + a `briefStaleVsManifest: true` structured field when they diverge. Run `node scripts/graph-brief.mjs <repo>` to bring the brief back in sync.
+
 ## Incremental indexing does not fully converge to `graph_index(force=true)`
 
 When only a subset of files change, `graph_index()` re-extracts those

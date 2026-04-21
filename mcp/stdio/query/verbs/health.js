@@ -84,6 +84,27 @@ export async function graphHealth({ repoRoot }) {
 
   const trust = computeTrustLevel(unresolvedEdges);
 
+  // Brief-vs-live staleness check. Echoes 2026-04-22 bench saw
+  // brief.plan.md say "TRUST weak: 5424 unresolved" while graph_health
+  // said "trust=strong (500 unresolved)" at the same moment. Same
+  // thresholds, different inputs — brief was cached with an older
+  // manifest snapshot. Fix: compare brief's recorded graph_indexed_at
+  // against the current manifest.indexedAt; warn when they diverge so
+  // consumers know the brief needs regen.
+  let briefStaleVsManifest = false;
+  try {
+    const briefJsonPath = join(graphDir, 'brief.json');
+    if (existsSync(briefJsonPath)) {
+      const briefJson = JSON.parse(readFileSync(briefJsonPath, 'utf8'));
+      const briefIndexedAt = briefJson.graph_indexed_at;
+      if (briefIndexedAt && manifest?.indexedAt && briefIndexedAt !== manifest.indexedAt) {
+        briefStaleVsManifest = true;
+      }
+    }
+  } catch {
+    // brief.json missing or malformed — skip the check
+  }
+
   // Plain-prose summary — one line per axis — so agents don't need to
   // interpret several numeric fields. Each axis states a decision, not a
   // measurement.
@@ -99,6 +120,9 @@ export async function graphHealth({ repoRoot }) {
   } else {
     verdicts.push('overlay=none');
   }
+  if (briefStaleVsManifest) {
+    verdicts.push('brief-stale: regenerate with graph-brief.mjs');
+  }
 
   return {
     indexed: true,
@@ -109,6 +133,7 @@ export async function graphHealth({ repoRoot }) {
     commit: manifest?.commit ?? null,
     currentHead: head,
     stale,
+    briefStaleVsManifest,
     overlay,
     summary: verdicts.join(' · '),
   };

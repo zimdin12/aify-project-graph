@@ -9,6 +9,44 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+## 2026-04-22 (post-bench) — post-mortem fixes
+
+Echoes manager's 39-agent post-mortem surfaced several items I missed on
+first read. Shipping the gap closures here:
+
+### Added
+
+- **`graph_health.briefStaleVsManifest`** — boolean + summary-string signal
+  when `brief.json.graph_indexed_at` diverges from `manifest.indexedAt`.
+  Fixes the "brief says weak, health says strong" same-moment disagreement
+  that the 39-agent bench flagged (different inputs, same thresholds —
+  not a threshold bug, a cache-vs-live drift). Verdicts now include
+  `brief-stale: regenerate with graph-brief.mjs` when detected.
+- `docs/known-limitations.md` entry on the brief-vs-live drift with the
+  new workaround.
+
+### Fixed
+
+- Clean-clone regression from `1fa037a`: 12 untracked fixture files under
+  `tests/fixtures/ingest/tiny-laravel-middleware{,-conflict}/` now tracked
+  in git. Previously 7 tests passed on dirty checkouts + failed on clean.
+- AGENTS.md + README.md stale claim that "Codex/OpenCode don't load skill
+  files" — Codex has shipped skills since commit `7a09dcb`. Corrected to
+  "Claude Code + Codex both load skills; OpenCode skips."
+- AGENTS.md verb count `19 → 21` (graph_consequences + graph_health added
+  earlier this session).
+
+### Still open from manager's post-mortem (NOT fixed this round)
+
+- **Incremental-indexing convergence regression** (manager's P0). Same
+  commit produces different `dirtyEdgeCount` on incremental vs force-rebuild
+  (500 vs 5424 on echoes). Documented in known-limitations; fix pending
+  root-cause investigation.
+- **15 never-invoked verbs** across 39 agents — manager's cognitive-surface
+  argument for deprecation. Separate design pass.
+- **Cross-repo bench** to validate mixed-mode findings outside Echoes.
+  Manager's methodology caveat; needs their cycles, not a code fix.
+
 ## 2026-04-22 (late) — graph_consequences correctness + Claude-Code-scoped bench
 
 Echoes manager ran three deep-test rounds + one 2×2 (totaling 39 agents) this
