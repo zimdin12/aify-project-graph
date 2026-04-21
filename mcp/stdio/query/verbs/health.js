@@ -9,7 +9,7 @@
 // the overlay validator + the brief's trust logic already expose.
 
 import { join } from 'node:path';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { openDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getHeadCommit } from '../../freshness/git.js';
