@@ -23,7 +23,7 @@ export const IGNORED_DIRS = new Set([
   '__pycache__', '.pytest_cache', '.tox', '.venv', 'venv', 'env',
   'build', 'dist', 'out', 'target',
   '.next', '.nuxt', '.svelte-kit',
-  '.tmp', 'tmp', '.codex_tmp',
+  '.tmp', 'tmp', '.codex_tmp', 'worktrees',
   'coverage', '.nyc_output',
 ]);
 

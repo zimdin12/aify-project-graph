@@ -14,6 +14,7 @@ import { graphNeighbors } from './query/verbs/neighbors.js';
 import { graphModuleTree } from './query/verbs/module_tree.js';
 import { graphImpact } from './query/verbs/impact.js';
 import { graphSummary } from './query/verbs/summary.js';
+import { graphHealth } from './query/verbs/health.js';
 import { graphReport } from './query/verbs/report.js';
 import { graphPath } from './query/verbs/path.js';
 import { graphDashboard } from './query/verbs/dashboard.js';
@@ -43,6 +44,12 @@ const TOOLS = [
         force: { type: 'boolean', default: false, description: 'Full rebuild from scratch.' },
       },
     },
+  },
+  {
+    name: 'graph_health',
+    handler: graphHealth,
+    description: 'Single-call "is the graph usable right now?" check. Aggregates indexed state, trust level, unresolved-edge count, staleness (indexed commit vs HEAD), and overlay validity into one summary string + structured fields. Use at session start instead of stringing graph_status + graph_index + brief.plan.md parsing.',
+    schema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
     name: 'graph_dashboard',

@@ -8,6 +8,14 @@ trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_
 
 This graph is a **map**, not the source of truth. Use it to narrow the search space, then read the real files before changing code.
 
+## Fastest health check: `graph_health()`
+
+Single-call synthesis of "is the graph usable right now?" — returns a one-line summary plus structured fields (trust level, unresolved-edge count, staleness, overlay validity). Use this instead of stringing `graph_status` + `graph_index` + parsing `brief.plan.md`'s TRUST line. Example output:
+
+```
+nodes=6452 edges=19147 · trust=weak (5227 unresolved) · fresh · overlay=clean (10 features)
+```
+
 ## FIRST ACTION in any session
 
 Before calling any other tool, check whether this repo has a graph:
@@ -57,6 +65,14 @@ The benchmark result (2026-04-20 cross-tester, matched-N): briefs are **1.5-2.9�
 - single-file debugging
 - checking real code text, conditions, signatures, comments
 - any situation where trust is weak and the graph may be incomplete
+- **per-line granularity questions** — `graph_callers` is function-granular; if you need "which LINE called X," Grep wins by schema (measured on echoes: graph collapses many in-function sites to one edge)
+- **symbols appearing in >10 files** — `graph_whereis` tends to lose to Grep here; the candidate set is too wide for graph's exact-match advantage to kick in
+
+## When NOT to use graph verbs (anti-patterns)
+
+- Do NOT use `graph_impact` / `graph_whereis` as a substitute for reading code. They tell you *what connects*, not *what the code does*.
+- Do NOT use compound multi-word queries in `graph_find("A B C")` — measured on echoes: compound queries return empty where single-token (`graph_find("A")`) returns full results. Tokenize to one strong keyword.
+- Do NOT reload graph tool schemas (ToolSearch) speculatively. If you're not going to use graph verbs, don't pay the schema-load cost.
 
 ## Hard rules
 
