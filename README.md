@@ -72,7 +72,7 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 | **Languages** | Per-language Python extractors | Config-driven generic walker (12 langs, ~30 lines per config) |
 | **Node types** | Code symbols only | Code + directories, docs, configs, routes, entry points, schemas |
 | **Path tracing** | No | `graph_path` — readable execution stories |
-| **Community detection** | Leiden | Louvain (same quality, JS-native) |
+| **Community detection** | Leiden | Louvain (current JS-native choice) |
 | **Framework awareness** | No | Plugin system (Laravel routes + middleware in v1) |
 | **Dashboard** | No | Cytoscape.js interactive browser |
 | **Fuzzy search** | No | `graph_search` with partial name + type + file filters |
@@ -99,7 +99,7 @@ The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product 
 Five artifacts generated at `.aify-graph/` on every index:
 
 - **`brief.md`** (~700-900 tok, human-readable) — full orientation: snapshot, tooling, coverage, entrypoints, EXPORTS (public API), subsystems, features, internal hubs, read-first list, tests, risks, recent activity.
-- **`brief.agent.md`** (~300-1100 tok, prompt substrate) — dense key/value form including **PATHS** (pre-computed execution chains for top EXPORTS); size varies with public-API surface (apg at 19 MCP verbs + PATHS ≈ 1000 tok; small repos without explicit exports ≈ 300 tok). Paste into any agent's system/developer prompt for orient-shaped sessions. Now answers trace-shape questions from context.
+- **`brief.agent.md`** (~300-1100 tok, prompt substrate) — dense key/value form including **PATHS** (pre-computed execution chains for top EXPORTS); size varies with public-API surface (apg at 21 MCP verbs + PATHS ≈ 1000 tok; small repos without explicit exports ≈ 300 tok). Paste into any agent's system/developer prompt for orient-shaped sessions. Now answers trace-shape questions from context.
 - **`brief.onboard.md`** (~250-500 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity, risks, and PATHS.
 - **`brief.plan.md`** (~300-600 tok when `functionality.json` populated, ~70 tok when empty) — leads with **features + anchors**, **recent commits feature-tagged**, **open tasks grouped by feature**, and risk areas. For "about to change something" sessions.
 - **`brief.json`** — machine-readable equivalent of everything.
@@ -108,7 +108,7 @@ Briefs are **cache-discipline stable** — deterministic ordering, no timestamps
 
 ### Functionality overlay (L2) — load-bearing, set up day one
 
-> **`functionality.json` is the overlay that makes briefs work on plan tasks.** Without it, `brief.plan.md` is ~70 tokens of headers with no action-bearing content. With it, per-feature "open this file, tests are here, N callers" guidance appears and brief-only wins plan tasks by −19% tokens / −28% duration (bench data 2026-04-19). **Recommended:** run `/graph-build-all` in Claude Code — it indexes the graph, generates all briefs, and proposes `functionality.json` in one pass (30-90s). Or for a narrower step, `/graph-build-functionality` alone. On Codex/OpenCode (no skills), hand-author from [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json) and run `node scripts/graph-brief.mjs <repo>`.
+> **`functionality.json` is the overlay that makes briefs work on plan tasks.** Without it, `brief.plan.md` is ~70 tokens of headers with no action-bearing content. With it, per-feature "open this file, tests are here, N callers" guidance appears and brief-only wins plan tasks by −19% tokens / −28% duration (bench data 2026-04-19). **Recommended:** run `/graph-build-all` in Claude Code, or use the shipped `graph-build-functionality` skill in Codex. On OpenCode (no skills), hand-author from [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json) and run `node scripts/graph-brief.mjs <repo>`.
 
 Drop `.aify-graph/functionality.json` in any repo to map **user-defined features** to code:
 
@@ -198,7 +198,7 @@ Under the hood each install doc does the same thing:
 4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
 5. User restarts the runtime
 
-**Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_impact`, `graph_path`, `graph_change_plan`). The other 16 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile (all 19 visible) by default.
+**Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_impact`, `graph_path`, `graph_change_plan`). The other 18 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile (all 21 visible) by default.
 
 **Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms — but the MCP server has a **native-module preflight** that detects this on startup and auto-runs `npm rebuild better-sqlite3` once before accepting tool calls. You'll see one line on stderr when it triggers. Manual intervention only if auto-rebuild itself fails (e.g. missing compiler). `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 

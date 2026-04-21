@@ -50,7 +50,10 @@ On Claude Code:
 ```
 The skill reads the graph, drafts a `functionality.json` with feature anchors, and shows a diff for the user to accept. Takes 1-2 minutes and one user review pass.
 
-On Codex/OpenCode (no skill support):
+On Codex:
+Use the shipped `graph-build-functionality` skill. Codex loads it from `~/.codex/skills/` after install; it is not a slash command, but the agent should follow it when the user asks to build or refresh the feature overlay.
+
+On OpenCode (no skills), or if you want the manual fallback:
 ```bash
 cp <target-path>/docs/examples/functionality.sample.json <target-repo>/.aify-graph/functionality.json
 # hand-edit to match the user's feature mental model
