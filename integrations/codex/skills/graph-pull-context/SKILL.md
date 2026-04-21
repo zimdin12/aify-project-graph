@@ -1,7 +1,6 @@
 ---
 name: graph-pull-context
 description: Use when the user asks for everything connected to a file, feature, task, or symbol. Wraps `graph_pull` with intent-based layer selection and turns the JSON into a short cross-layer summary plus a read-next list.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-pull-context

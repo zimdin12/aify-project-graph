@@ -1,7 +1,6 @@
 ---
 name: graph-build-functionality
 description: Use when the user wants to build or refresh the feature/functionality map for the repo. Produces or updates `.aify-graph/functionality.json` from the graph, docs, directory structure, and commit vocabulary. Preserve user edits and always show a diff before writing. Typical runtime ~30-60s (LLM proposal + user review). For full rebuild including code+briefs, use `/graph-build-all`.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-build-functionality

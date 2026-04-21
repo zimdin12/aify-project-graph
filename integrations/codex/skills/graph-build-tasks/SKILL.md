@@ -1,7 +1,6 @@
 ---
 name: graph-build-tasks
 description: Use when the user wants to import or sync tasks into `.aify-graph/tasks.json`. Source-agnostic — ClickUp, Asana, Linear, Jira, GitHub Issues, or plaintext. Maps tasks to existing features and keeps evidence for every attribution. Typical runtime ~10-60s depending on tracker API speed + task count.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-build-tasks

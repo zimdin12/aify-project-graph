@@ -1301,10 +1301,14 @@ function renderJson(data, repoRoot) {
   // (rendered) and have to be recomputed from tasks.json by any consumer."
   const tasksByFeature = openTasksByFeature(tasksArtifact);
   return {
-    // Deliberately omit a timestamp — it would force brief.json to rewrite
-    // on every regen, defeating the content-hash-guarded cache-discipline
-    // we use for brief.agent.md. Consumers who want "when was this made?"
-    // can stat the file mtime.
+    // We intentionally use manifest.indexedAt (already emitted) rather than a
+    // fresh Date.now() for graph_indexed_at: adding wall-clock on every
+    // render would defeat the content-hash-guarded cache that keeps brief
+    // files byte-identical across no-op regens. Echoes PM Tier B #8 wanted
+    // "brief is fresh but graph is N commits behind" detection — same
+    // manifest.indexedAt gives them that signal without the cache churn.
+    graph_indexed_at: data.manifestIndexedAt ?? null,
+    graph_commit: data.manifestCommit ?? null,
     repo: {
       root: repoRoot,
       files: snapshot.files,
@@ -1426,7 +1430,19 @@ export function generateBrief({ repoRoot }) {
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy);
     const coverage = briefCoverage(subs, overlayHealth);
     const paths = extractPaths(db, exports, 5);
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage, exports, paths };
+    // Pull indexedAt + commit from the manifest so brief.json carries them
+    // without forcing cache churn on unchanged regens.
+    let manifestIndexedAt = null;
+    let manifestCommit = null;
+    try {
+      const mPath = join(repoRoot, '.aify-graph', 'manifest.json');
+      if (existsSync(mPath)) {
+        const m = JSON.parse(readFileSync(mPath, 'utf8'));
+        manifestIndexedAt = m.indexedAt ?? null;
+        manifestCommit = m.commit ?? null;
+      }
+    } catch { /* ignore */ }
+    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage, exports, paths, manifestIndexedAt, manifestCommit };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);

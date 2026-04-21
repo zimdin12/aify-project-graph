@@ -1,7 +1,6 @@
 ---
 name: graph-task-edit
 description: Use when the user wants to surgically add/edit/remove/link/unlink/rename a single task in `.aify-graph/tasks.json` — not a full sync from a tracker. Examples "add a local task for refactor", "link CU-123 to feature auth", "remove T-local-42", "edit CU-200 status=done". Validates feature references, shows a diff, confirms before writing, then rebuilds briefs as part of the same transaction.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-task-edit

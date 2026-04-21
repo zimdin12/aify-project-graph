@@ -1,7 +1,6 @@
 ---
 name: graph-build-all
 description: Use when the user says "generate project graphs", "build graph for this repo", "rebuild everything", "index this repo from scratch", or opens a new repo that has no `.aify-graph/` directory yet. Runs the full build in one pass — graph index, all five briefs, and a proposed functionality.json. Partial-build skills exist for narrower jobs (see below).
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-build-all

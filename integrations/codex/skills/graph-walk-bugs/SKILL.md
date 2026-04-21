@@ -1,7 +1,6 @@
 ---
 name: graph-walk-bugs
 description: Use when the user wants engine-out bug fixing — walk features in dependency order (roots first, leaves last), surface open bug-like tasks per feature, and work through them so root fixes propagate before side-feature fixes. Produces a walk plan; user or agent iterates.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-walk-bugs

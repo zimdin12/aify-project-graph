@@ -93,7 +93,7 @@ describe('graph_consequences — cross-layer traversal', () => {
     db.close();
 
     const result = await graphConsequences({ repoRoot, target: 'helper' });
-    expect(result.risk_flags).toEqual(expect.arrayContaining([expect.stringMatching(/no adjacent tests/i)]));
+    expect(result.risk_flags).toEqual(expect.arrayContaining([expect.stringMatching(/no_test_coverage/i)]));
   });
 
   it('flags orphan code when no feature anchors the symbol', async () => {
@@ -104,7 +104,7 @@ describe('graph_consequences — cross-layer traversal', () => {
 
     const result = await graphConsequences({ repoRoot, target: 'orphanFn' });
     expect(result.features_touching).toEqual([]);
-    expect(result.risk_flags).toEqual(expect.arrayContaining([expect.stringMatching(/orphan code/i)]));
+    expect(result.risk_flags).toEqual(expect.arrayContaining([expect.stringMatching(/orphan_anchor/i)]));
   });
 
   it('accepts file path as target', async () => {

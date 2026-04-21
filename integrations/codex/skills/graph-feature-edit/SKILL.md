@@ -1,7 +1,6 @@
 ---
 name: graph-feature-edit
 description: Use when the user wants to surgically add/edit/remove/link/unlink/rename/merge a single feature in `.aify-graph/functionality.json` — not a full refresh. Examples "add a feature for caching", "link auth depends_on sessions", "rename auth-old to authentication", "merge old-billing into billing". Validates anchors, shows a diff, confirms before writing, then rebuilds briefs as part of the same transaction.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-feature-edit

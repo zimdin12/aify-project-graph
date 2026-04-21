@@ -1,7 +1,6 @@
 ---
 name: graph-anchor-drift
 description: Use when feature anchors may be stale after renames, moves, or deletes. Compares the current diff (or chosen git range) against `.aify-graph/functionality.json`, proposes targeted anchor fixes, and never writes without confirmation.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-anchor-drift

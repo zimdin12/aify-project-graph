@@ -1,7 +1,6 @@
 ---
 name: graph-dashboard
 description: Use when the user says "open the graph dashboard", "show me the graph visually", "I want to see the feature layout", or asks for a visual view of the project graph. Launches the interactive 2D multi-layer dashboard (code + features + tasks + docs + cross-layer edges). Works in lean and full profile.
-trigger: tool_available("graph_status") OR tool_available("graph_pull") OR tool_available("graph_index")
 ---
 
 # graph-dashboard
