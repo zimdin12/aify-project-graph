@@ -15,6 +15,7 @@ import { graphModuleTree } from './query/verbs/module_tree.js';
 import { graphImpact } from './query/verbs/impact.js';
 import { graphSummary } from './query/verbs/summary.js';
 import { graphHealth } from './query/verbs/health.js';
+import { graphConsequences } from './query/verbs/consequences.js';
 import { graphReport } from './query/verbs/report.js';
 import { graphPath } from './query/verbs/path.js';
 import { graphDashboard } from './query/verbs/dashboard.js';
@@ -50,6 +51,18 @@ const TOOLS = [
     handler: graphHealth,
     description: 'Single-call "is the graph usable right now?" check. Aggregates indexed state, trust level, unresolved-edge count, staleness (indexed commit vs HEAD), and overlay validity into one summary string + structured fields. Use at session start instead of stringing graph_status + graph_index + brief.plan.md parsing.',
     schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'graph_consequences',
+    handler: graphConsequences,
+    description: 'Cross-layer traversal: "what breaks if I touch X?" Input: symbol name OR file path. Output: contracts potentially affected, features touching this symbol, open tasks on those features, adjacent tests, last-touched git history, risk flags. Use BEFORE planning a non-trivial change — it produces the grounding set an editor-agent actually needs. Flagship verb for cross-cutting planning and pre-edit safety checks.',
+    schema: {
+      type: 'object',
+      properties: {
+        target: { type: 'string', description: 'Symbol name or repo-relative file path.' },
+      },
+      required: ['target'],
+    },
   },
   {
     name: 'graph_dashboard',

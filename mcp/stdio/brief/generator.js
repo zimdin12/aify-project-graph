@@ -53,6 +53,22 @@ function count(db, sql, params = {}) {
 
 // ---------- data gatherers ----------
 
+// Composite feature-health tier. Synthesis-only — no new data:
+//   🟢 healthy — all anchors resolve, has contract(s), task overhang under control
+//   🟡 watch   — anchors resolve but thin (no contract OR task overhang 10-20)
+//   🔴 risk    — broken anchors OR severe task overhang (>20)
+// Per echoes PM 2026-04-21: "features are binary today (resolved/not).
+// pcas-simulation (22 tasks, 0 tests) and world-buffer (1 contract, strong
+// test coverage) both read ✓." This tier fixes that binary reading.
+export function computeCoverage({ resolved, declared, taskCount, contractCount }) {
+  const anchorRatio = declared === 0 ? 1 : resolved / declared;
+  if (anchorRatio < 1) return { tier: '🔴', label: 'risk', reason: 'broken anchors' };
+  if (taskCount > 20) return { tier: '🔴', label: 'risk', reason: `${taskCount} open tasks` };
+  if (taskCount > 10) return { tier: '🟡', label: 'watch', reason: `${taskCount} open tasks` };
+  if (contractCount === 0) return { tier: '🟡', label: 'watch', reason: 'no contract binding' };
+  return { tier: '🟢', label: 'healthy', reason: 'anchors resolve · has contract · low task overhang' };
+}
+
 function repoSnapshot(db, repoRoot) {
   const totalNodes = count(db, 'SELECT count(*) AS c FROM nodes');
   const totalEdges = count(db, 'SELECT count(*) AS c FROM edges');
@@ -1307,6 +1323,7 @@ function renderJson(data, repoRoot) {
       version: overlay?.version ?? null,
       valid: (overlayHealth?.valid ?? []).map(v => {
         const featureTasks = tasksByFeature.get(v.feature.id) ?? [];
+        const contractCount = (v.feature.contracts ?? []).length;
         return {
           id: v.feature.id,
           label: v.feature.label,
@@ -1328,6 +1345,18 @@ function renderJson(data, repoRoot) {
             priority: t.priority ?? null,
             url: t.url ?? null,
           })),
+          // Coverage gradient: composite health signal so a reader can tell
+          // skeletal features from load-bearing ones at a glance. Three tiers:
+          //   🟢 healthy: anchors resolve, has contract, low task overhang
+          //   🟡 watch:   anchors resolve but thin (no contract OR >10 tasks)
+          //   🔴 risk:    broken anchors OR severe task overhang (>20)
+          // Pure synthesis from the fields above — no new data.
+          coverage: computeCoverage({
+            resolved: v.totalResolved,
+            declared: v.totalDeclared,
+            taskCount: featureTasks.length,
+            contractCount,
+          }),
         };
       }),
       broken: (overlayHealth?.broken ?? []).map(v => ({

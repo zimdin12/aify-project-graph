@@ -7,6 +7,21 @@ description: Use AT THE START of any session in a repo that has `.aify-graph/` �
 
 This graph is a **map**, not the source of truth. Use it to narrow the search space, then read the real files before changing code.
 
+## Flagship traversal verb: `graph_consequences(target)`
+
+The verb to call **before planning a non-trivial change** — answers "what breaks if I touch X?" by traversing every layer at once. Input: a symbol name OR a repo-relative file path. Output:
+
+- Contracts potentially affected (from feature.contracts the symbol anchors into)
+- Features touching the symbol (from anchors)
+- Open tasks on those features
+- Adjacent test files
+- Last-touched git history
+- Risk flags (no adjacent tests, orphan code, contract count)
+
+Per the 2026-04-21 echoes A/B: 0 of 8 test agents asked for this because the verb didn't exist; they all reached for `find`/`whereis` instead. This is the verb you actually want for cross-cutting planning.
+
+Don't use this for simple lookups (Grep wins). Use it when the *consequence chain matters* — refactor planning, pre-delete safety check, contract-impact review.
+
 ## Fastest health check: `graph_health()`
 
 Single-call synthesis of "is the graph usable right now?" — returns a one-line summary plus structured fields (trust level, unresolved-edge count, staleness, overlay validity). Use this instead of stringing `graph_status` + `graph_index` + parsing `brief.plan.md`'s TRUST line. Example output:

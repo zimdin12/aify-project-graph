@@ -73,6 +73,9 @@ function normalizeFeature(f) {
     // dependencies" flow is deferred until v0.3.
     depends_on: Array.isArray(f.depends_on) ? f.depends_on.filter(Boolean) : [],
     related_to: Array.isArray(f.related_to) ? f.related_to.filter(Boolean) : [],
+    // Contracts layer: doc/symbol refs this feature publishes or consumes.
+    // Used by graph_consequences to bubble affected contracts on a change.
+    contracts: Array.isArray(f.contracts) ? f.contracts.filter(Boolean) : [],
     source: f.source || 'user',
     tags: Array.isArray(f.tags) ? f.tags : [],
   };
