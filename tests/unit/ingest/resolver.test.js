@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
+import { upsertEdge } from '../../../mcp/stdio/storage/edges.js';
 import { resolveRefs } from '../../../mcp/stdio/ingest/resolver.js';
 import { extractFile } from '../../../mcp/stdio/ingest/extractors/generic.js';
 import cpp from '../../../mcp/stdio/ingest/languages/cpp.js';
@@ -165,7 +166,12 @@ describe('cross-file resolver', () => {
     ]);
   });
 
-  it('materializes qualified REFERENCES as External, leaves bare-name REFERENCES dirty', () => {
+  it('materializes qualified REFERENCES as External, silently drops local-scope bare-name REFERENCES', () => {
+    // Bare-lowercase REFERENCES targets that don't match any label in the
+    // graph are local-scope false-positives (loop vars, params, etc.). They
+    // shouldn't pollute dirtyEdges — they will never resolve and they
+    // inflate the trust=weak count on every real repo. Behavior changed
+    // 2026-04-21: silently drop rather than add to unresolved.
     const refs = [
       {
         from_id: 'file:foo',
@@ -181,7 +187,7 @@ describe('cross-file resolver', () => {
         from_id: 'file:foo',
         from_label: 'Foo.php',
         relation: 'REFERENCES',
-        target: 'something_lowercase',
+        target: 'something_lowercase', // local var — dropped silently
         source_file: 'app/Foo.php',
         source_line: 6,
         confidence: 0.6,
@@ -192,9 +198,7 @@ describe('cross-file resolver', () => {
     expect(result.nodes).toEqual([
       expect.objectContaining({ type: 'External', label: 'Illuminate\\Cache\\CacheManager' }),
     ]);
-    expect(result.unresolved).toEqual([
-      expect.objectContaining({ relation: 'REFERENCES', target: 'something_lowercase' }),
-    ]);
+    expect(result.unresolved).toEqual([]); // local-scope silently dropped
   });
 
   it('materializes unresolved CALLS as External terminal nodes', () => {
@@ -227,6 +231,181 @@ describe('cross-file resolver', () => {
         relation: 'CALLS',
       }),
     ]);
+    expect(result.unresolved).toEqual([]);
+  });
+
+  it('resolves symbolic middleware chains and reuses newly materialized External hops', () => {
+    upsertNode(db, {
+      id: 'method:require-token',
+      type: 'Method',
+      label: 'handle',
+      file_path: 'app/Http/Middleware/RequireToken.php',
+      start_line: 10,
+      end_line: 20,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'srt',
+      dependency_fp: 'drt',
+      extra: { qname: 'App.Http.Middleware.RequireToken.RequireToken.handle' },
+    });
+
+    const refs = [
+      {
+        from_id: 'route:company-details',
+        from_label: 'GET /company-details/{company}',
+        relation: 'PASSES_THROUGH',
+        target: 'RequireToken.handle',
+        source_file: 'routes/api.php',
+        source_line: 1,
+        confidence: 0.72,
+        extractor: 'laravel',
+      },
+      {
+        from_target: 'RequireToken.handle',
+        from_label: 'RequireToken',
+        relation: 'PASSES_THROUGH',
+        target: 'NonIntrusiveThrottle.handle',
+        source_file: 'routes/api.php',
+        source_line: 1,
+        confidence: 0.72,
+        extractor: 'laravel',
+      },
+      {
+        from_target: 'NonIntrusiveThrottle.handle',
+        from_label: 'NonIntrusiveThrottle',
+        relation: 'PASSES_THROUGH',
+        target: 'HomeController.index',
+        source_file: 'routes/api.php',
+        source_line: 1,
+        confidence: 0.72,
+        extractor: 'laravel',
+      },
+    ];
+
+    const result = resolveRefs({ db, refs });
+    const throttleExternal = result.nodes.find((node) => node.label === 'NonIntrusiveThrottle.handle');
+
+    expect(throttleExternal).toEqual(expect.objectContaining({
+      type: 'External',
+      label: 'NonIntrusiveThrottle.handle',
+    }));
+    expect(result.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        from_id: 'route:company-details',
+        to_id: 'method:require-token',
+        relation: 'PASSES_THROUGH',
+      }),
+      expect.objectContaining({
+        from_id: 'method:require-token',
+        to_id: throttleExternal.id,
+        relation: 'PASSES_THROUGH',
+      }),
+      expect.objectContaining({
+        from_id: throttleExternal.id,
+        to_id: 'method:index',
+        relation: 'PASSES_THROUGH',
+      }),
+    ]));
+    expect(result.unresolved).toEqual([]);
+  });
+
+  it('resolves inherited middleware entrypoints through EXTENDS chains', () => {
+    upsertNode(db, {
+      id: 'class:throttle',
+      type: 'Class',
+      label: 'Throttle',
+      file_path: 'app/Http/Middleware/Throttle.php',
+      start_line: 10,
+      end_line: 70,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'st1',
+      dependency_fp: 'dt1',
+      extra: { qname: 'App.Http.Middleware.Throttle.Throttle' },
+    });
+    upsertNode(db, {
+      id: 'method:throttle-handle',
+      type: 'Method',
+      label: 'handle',
+      file_path: 'app/Http/Middleware/Throttle.php',
+      start_line: 27,
+      end_line: 35,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'st2',
+      dependency_fp: 'dt2',
+      extra: { qname: 'App.Http.Middleware.Throttle.Throttle.handle' },
+    });
+    upsertNode(db, {
+      id: 'class:non-intrusive-throttle',
+      type: 'Class',
+      label: 'NonIntrusiveThrottle',
+      file_path: 'app/Http/Middleware/NonIntrusiveThrottle.php',
+      start_line: 16,
+      end_line: 28,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'st3',
+      dependency_fp: 'dt3',
+      extra: { qname: 'App.Http.Middleware.NonIntrusiveThrottle.NonIntrusiveThrottle' },
+    });
+    upsertEdge(db, {
+      from_id: 'class:throttle',
+      to_id: 'method:throttle-handle',
+      relation: 'CONTAINS',
+      source_file: 'app/Http/Middleware/Throttle.php',
+      source_line: 27,
+      confidence: 1.0,
+      extractor: 'php',
+    });
+    upsertEdge(db, {
+      from_id: 'class:non-intrusive-throttle',
+      to_id: 'class:throttle',
+      relation: 'EXTENDS',
+      source_file: 'app/Http/Middleware/NonIntrusiveThrottle.php',
+      source_line: 16,
+      confidence: 1.0,
+      extractor: 'php',
+    });
+
+    const refs = [
+      {
+        from_id: 'route:company-details',
+        from_label: 'GET /company-details/{company}',
+        relation: 'PASSES_THROUGH',
+        target: 'NonIntrusiveThrottle.handle',
+        source_file: 'routes/api.php',
+        source_line: 1,
+        confidence: 0.72,
+        extractor: 'laravel',
+      },
+      {
+        from_target: 'NonIntrusiveThrottle.handle',
+        from_label: 'NonIntrusiveThrottle',
+        relation: 'PASSES_THROUGH',
+        target: 'HomeController.index',
+        source_file: 'routes/api.php',
+        source_line: 1,
+        confidence: 0.72,
+        extractor: 'laravel',
+      },
+    ];
+
+    const result = resolveRefs({ db, refs });
+
+    expect(result.nodes).toEqual([]);
+    expect(result.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        from_id: 'route:company-details',
+        to_id: 'method:throttle-handle',
+        relation: 'PASSES_THROUGH',
+      }),
+      expect.objectContaining({
+        from_id: 'method:throttle-handle',
+        to_id: 'method:index',
+        relation: 'PASSES_THROUGH',
+      }),
+    ]));
     expect(result.unresolved).toEqual([]);
   });
 
