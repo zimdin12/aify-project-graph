@@ -47,7 +47,7 @@ describe('schema', () => {
     const cols = db.prepare("PRAGMA table_info(edges)").all().map(r => r.name);
     expect(cols).toEqual(expect.arrayContaining([
       'from_id', 'to_id', 'relation', 'source_file', 'source_line',
-      'confidence', 'extractor',
+      'confidence', 'provenance', 'extractor',
     ]));
   });
 

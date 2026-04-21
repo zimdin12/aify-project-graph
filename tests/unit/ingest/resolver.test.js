@@ -229,9 +229,127 @@ describe('cross-file resolver', () => {
         from_id: 'fn:run',
         to_id: result.nodes[0].id,
         relation: 'CALLS',
+        provenance: 'AMBIGUOUS',
       }),
     ]);
     expect(result.unresolved).toEqual([]);
+  });
+
+  it('tags exact resolution as EXTRACTED, inheritance resolution as INFERRED, and external fallback as AMBIGUOUS', () => {
+    upsertNode(db, {
+      id: 'class:throttle',
+      type: 'Class',
+      label: 'NonIntrusiveThrottle',
+      file_path: 'app/Http/Middleware/NonIntrusiveThrottle.php',
+      start_line: 10,
+      end_line: 40,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'p1',
+      dependency_fp: 'p2',
+      extra: { qname: 'App.Http.Middleware.NonIntrusiveThrottle.NonIntrusiveThrottle' },
+    });
+    upsertNode(db, {
+      id: 'class:base-throttle',
+      type: 'Class',
+      label: 'Throttle',
+      file_path: 'app/Http/Middleware/Throttle.php',
+      start_line: 10,
+      end_line: 40,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'p3',
+      dependency_fp: 'p4',
+      extra: { qname: 'App.Http.Middleware.Throttle.Throttle' },
+    });
+    upsertNode(db, {
+      id: 'method:throttle-handle',
+      type: 'Method',
+      label: 'handle',
+      file_path: 'app/Http/Middleware/Throttle.php',
+      start_line: 20,
+      end_line: 30,
+      language: 'php',
+      confidence: 1.0,
+      structural_fp: 'p5',
+      dependency_fp: 'p6',
+      extra: { qname: 'App.Http.Middleware.Throttle.Throttle.handle' },
+    });
+    upsertEdge(db, {
+      from_id: 'class:base-throttle',
+      to_id: 'method:throttle-handle',
+      relation: 'CONTAINS',
+      source_file: 'app/Http/Middleware/Throttle.php',
+      source_line: 20,
+      confidence: 1.0,
+      extractor: 'php',
+    });
+    upsertEdge(db, {
+      from_id: 'class:throttle',
+      to_id: 'class:base-throttle',
+      relation: 'EXTENDS',
+      source_file: 'app/Http/Middleware/NonIntrusiveThrottle.php',
+      source_line: 10,
+      confidence: 1.0,
+      extractor: 'php',
+    });
+
+    const refs = [
+      {
+        from_id: 'fn:run',
+        from_label: 'run',
+        relation: 'CALLS',
+        target: 'helper',
+        source_file: 'src/run.py',
+        source_line: 2,
+        confidence: 0.95,
+        provenance: 'EXTRACTED',
+        extractor: 'python',
+      },
+      {
+        from_id: 'route:middleware',
+        from_label: 'GET /middleware',
+        relation: 'PASSES_THROUGH',
+        target: 'NonIntrusiveThrottle.handle',
+        source_file: 'routes/api.php',
+        source_line: 1,
+        confidence: 0.72,
+        provenance: 'INFERRED',
+        extractor: 'laravel',
+      },
+      {
+        from_id: 'fn:run',
+        from_label: 'run',
+        relation: 'CALLS',
+        target: 'SDL_GetKeyboardState',
+        source_file: 'src/run.cpp',
+        source_line: 7,
+        confidence: 0.8,
+        provenance: 'EXTRACTED',
+        extractor: 'cpp',
+      },
+    ];
+
+    const result = resolveRefs({ db, refs });
+    expect(result.edges).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        from_id: 'fn:run',
+        to_id: 'fn:helper',
+        relation: 'CALLS',
+        provenance: 'EXTRACTED',
+      }),
+      expect.objectContaining({
+        from_id: 'route:middleware',
+        to_id: 'method:throttle-handle',
+        relation: 'PASSES_THROUGH',
+        provenance: 'INFERRED',
+      }),
+      expect.objectContaining({
+        from_id: 'fn:run',
+        relation: 'CALLS',
+        provenance: 'AMBIGUOUS',
+      }),
+    ]));
   });
 
   it('resolves symbolic middleware chains and reuses newly materialized External hops', () => {

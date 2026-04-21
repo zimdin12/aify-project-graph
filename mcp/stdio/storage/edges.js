@@ -1,6 +1,6 @@
 const INSERT_SQL = `
-  INSERT OR IGNORE INTO edges (from_id, to_id, relation, source_file, source_line, confidence, extractor)
-  VALUES ($from_id, $to_id, $relation, $source_file, $source_line, $confidence, $extractor)
+  INSERT OR IGNORE INTO edges (from_id, to_id, relation, source_file, source_line, confidence, provenance, extractor)
+  VALUES ($from_id, $to_id, $relation, $source_file, $source_line, $confidence, $provenance, $extractor)
 `;
 
 export function upsertEdge(db, edge) {
@@ -11,6 +11,7 @@ export function upsertEdge(db, edge) {
     source_file: edge.source_file ?? '',
     source_line: edge.source_line ?? 0,
     confidence: edge.confidence ?? 1.0,
+    provenance: edge.provenance ?? 'EXTRACTED',
     extractor: edge.extractor ?? 'generic',
   });
 }

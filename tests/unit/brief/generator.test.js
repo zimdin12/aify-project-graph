@@ -752,7 +752,7 @@ describe('brief/generator', () => {
         join(repoRoot, '.aify-graph', 'manifest.json'),
         JSON.stringify({
           commit: 'abc123', indexedAt: new Date().toISOString(),
-          nodes: 10, edges: 10, schemaVersion: 3, extractorVersion: '0.1.0',
+          nodes: 10, edges: 10, schemaVersion: 4, extractorVersion: '0.1.0',
           status: 'ok', dirtyFiles: [],
           dirtyEdges: [], // sampled (capped) list can be empty
           dirtyEdgeCount: 2500, // > 2000 threshold → weak

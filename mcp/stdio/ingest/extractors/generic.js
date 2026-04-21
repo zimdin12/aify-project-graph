@@ -403,6 +403,7 @@ export function extractFile({ filePath, source, config }) {
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: symbolRule.confidence ?? config.confidence?.node ?? 1.0,
+          provenance: 'EXTRACTED',
           extractor: config.language,
         });
 
@@ -414,6 +415,7 @@ export function extractFile({ filePath, source, config }) {
             source_file: filePath,
             source_line: lineNumber(node),
             confidence: symbolRule.confidence ?? config.confidence?.node ?? 1.0,
+            provenance: 'EXTRACTED',
             extractor: config.language,
           });
         }
@@ -434,6 +436,7 @@ export function extractFile({ filePath, source, config }) {
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: importRule.confidence ?? config.confidence?.import ?? config.confidence?.node ?? 1.0,
+          provenance: 'EXTRACTED',
           extractor: config.language,
         });
       }
@@ -450,6 +453,7 @@ export function extractFile({ filePath, source, config }) {
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: callRule.confidence ?? config.confidence?.call ?? config.confidence?.node ?? 1.0,
+          provenance: 'EXTRACTED',
           extractor: config.language,
         };
 
@@ -480,6 +484,7 @@ export function extractFile({ filePath, source, config }) {
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: referenceRule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          provenance: 'EXTRACTED',
           extractor: config.language,
         });
         symbolDeps.get(nextOwner.id)?.references.push(target);
@@ -501,6 +506,7 @@ export function extractFile({ filePath, source, config }) {
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: rule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          provenance: 'EXTRACTED',
           extractor: config.language,
         });
         symbolDeps.get(nextOwner.id)?.references.push(target);
@@ -522,6 +528,7 @@ export function extractFile({ filePath, source, config }) {
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: rule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          provenance: 'EXTRACTED',
           extractor: config.language,
         });
         symbolDeps.get(nextOwner.id)?.references.push(target);
@@ -543,6 +550,7 @@ export function extractFile({ filePath, source, config }) {
           source_file: filePath,
           source_line: lineNumber(node),
           confidence: rule.confidence ?? config.confidence?.reference ?? config.confidence?.node ?? 1.0,
+          provenance: 'EXTRACTED',
           extractor: config.language,
         });
         symbolDeps.get(nextOwner.id)?.usesTypes.push(target);

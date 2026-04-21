@@ -37,8 +37,8 @@ export async function detectMentions(db, repoRoot) {
         const targetId = symbolMap.get(word);
         if (targetId && targetId !== doc.id) {
           db.run(
-            `INSERT OR IGNORE INTO edges (from_id, to_id, relation, source_file, source_line, confidence, extractor)
-             VALUES ($from_id, $to_id, 'MENTIONS', $source_file, 0, 0.6, 'mentions')`,
+            `INSERT OR IGNORE INTO edges (from_id, to_id, relation, source_file, source_line, confidence, provenance, extractor)
+             VALUES ($from_id, $to_id, 'MENTIONS', $source_file, 0, 0.6, 'INFERRED', 'mentions')`,
             { from_id: doc.id, to_id: targetId, source_file: doc.file_path }
           );
           added++;

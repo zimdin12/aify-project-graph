@@ -307,12 +307,17 @@ function resolveViaInheritance(ref, resolvers) {
       ref,
     );
     const member = pickSingleProximate(inheritedMembers, ref.source_file);
-    if (member) return member;
+    if (member) return { node: member, provenance: 'INFERRED' };
 
     queue.push(...filterByLanguageFamily(resolvers.findExtendedParents(current.id), ref));
   }
 
   return null;
+}
+
+function pickProvenance(matches, fallback = 'EXTRACTED') {
+  if (!matches || matches.length <= 1) return fallback;
+  return 'AMBIGUOUS';
 }
 
 function resolveTarget(ref, resolvers) {
@@ -323,17 +328,19 @@ function resolveTarget(ref, resolvers) {
 
   for (const candidate of targetCandidates) {
     const exactRaw = resolvers.findByExactQname(candidate);
-    const exactMatch = preferProximate(filterByLanguageFamily(exactRaw, ref), ref.source_file);
+    const exactMatches = filterByLanguageFamily(exactRaw, ref);
+    const exactMatch = preferProximate(exactMatches, ref.source_file);
     if (exactMatch) {
-      return exactMatch;
+      return { node: exactMatch, provenance: pickProvenance(exactMatches, 'EXTRACTED') };
     }
   }
 
   if (/[.\\/]/u.test(ref.target)) {
     for (const candidate of targetCandidates) {
       const suffixRaw = resolvers.findByQnameSuffix(candidate);
-      const suffixMatch = preferProximate(filterByLanguageFamily(suffixRaw, ref), ref.source_file);
-      if (suffixMatch) return suffixMatch;
+      const suffixMatches = filterByLanguageFamily(suffixRaw, ref);
+      const suffixMatch = preferProximate(suffixMatches, ref.source_file);
+      if (suffixMatch) return { node: suffixMatch, provenance: pickProvenance(suffixMatches, 'INFERRED') };
     }
   }
 
@@ -345,19 +352,19 @@ function resolveTarget(ref, resolvers) {
   if (ref.relation === 'IMPORTS' && /[\\/]/u.test(ref.target)) {
     const filePathMatches = resolvers.findByFilePathSuffix(ref.target);
     const filePathMatch = preferProximate(filePathMatches, ref.source_file);
-    if (filePathMatch) return filePathMatch;
+    if (filePathMatch) return { node: filePathMatch, provenance: pickProvenance(filePathMatches, 'INFERRED') };
   }
 
   const labelRaw = resolvers.findByLabel(ref.target);
   const labelMatches = filterByLanguageFamily(labelRaw, ref);
   if (COMMON_NAMES.has(ref.target)) {
     const sameFile = labelMatches.filter((m) => m.file_path === ref.source_file);
-    if (sameFile.length === 1) return sameFile[0];
+    if (sameFile.length === 1) return { node: sameFile[0], provenance: 'INFERRED' };
     return null;
   }
 
   const labelMatch = preferProximate(labelMatches, ref.source_file);
-  if (labelMatch) return labelMatch;
+  if (labelMatch) return { node: labelMatch, provenance: pickProvenance(labelMatches, 'EXTRACTED') };
 
   return resolveViaInheritance(ref, resolvers);
 }
@@ -464,7 +471,7 @@ export function resolveRefs({ db, refs }) {
         registerNode(sourceExternal);
         fromId = sourceExternal.id;
       } else {
-        fromId = ownerNode.id;
+        fromId = ownerNode.node.id;
       }
     }
 
@@ -476,6 +483,7 @@ export function resolveRefs({ db, refs }) {
         source_file: ref.source_file,
         source_line: ref.source_line,
         confidence: ref.confidence,
+        provenance: ref.provenance ?? 'EXTRACTED',
         extractor: ref.extractor,
       });
       continue;
@@ -493,6 +501,7 @@ export function resolveRefs({ db, refs }) {
           source_file: ref.source_file,
           source_line: ref.source_line,
           confidence: ref.confidence,
+          provenance: 'AMBIGUOUS',
           extractor: ref.extractor,
         });
         continue;
@@ -519,11 +528,12 @@ export function resolveRefs({ db, refs }) {
 
     edges.push({
       from_id: fromId,
-      to_id: targetNode.id,
+      to_id: targetNode.node.id,
       relation: ref.relation,
       source_file: ref.source_file,
       source_line: ref.source_line,
       confidence: ref.confidence,
+      provenance: ref.provenance ?? targetNode.provenance ?? 'EXTRACTED',
       extractor: ref.extractor,
     });
   }

@@ -254,6 +254,7 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
           source_file: relPath,
           source_line: 1,
           confidence: 0.75,
+          provenance: 'INFERRED',
           extractor: 'laravel',
         });
 
@@ -273,6 +274,7 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
           source_file: relPath,
           source_line: 1,
           confidence: 0.72,
+          provenance: 'INFERRED',
           extractor: 'laravel',
         });
 
@@ -285,6 +287,7 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
             source_file: relPath,
             source_line: 1,
             confidence: 0.72,
+            provenance: 'INFERRED',
             extractor: 'laravel',
           });
         }
@@ -297,6 +300,7 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
           source_file: relPath,
           source_line: 1,
           confidence: 0.72,
+          provenance: 'INFERRED',
           extractor: 'laravel',
         });
       }

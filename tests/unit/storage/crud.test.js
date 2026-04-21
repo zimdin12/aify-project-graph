@@ -112,6 +112,16 @@ describe('edge CRUD', () => {
     expect(edges.length).toBe(1);
     expect(edges[0].to_id).toBe('b');
     expect(edges[0].relation).toBe('CALLS');
+    expect(edges[0].provenance).toBe('EXTRACTED');
+  });
+
+  it('stores explicit provenance when provided', () => {
+    upsertEdge(db, {
+      from_id: 'a', to_id: 'b', relation: 'PASSES_THROUGH',
+      source_file: 'x.py', source_line: 3, confidence: 0.72, provenance: 'INFERRED', extractor: 'laravel',
+    });
+    const edges = listEdges(db, { from_id: 'a' });
+    expect(edges[0].provenance).toBe('INFERRED');
   });
 
   it('listEdges filters by relation', () => {

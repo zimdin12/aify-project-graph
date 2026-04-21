@@ -37,7 +37,7 @@ describe('graph_consequences — cross-layer traversal', () => {
     const commit = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
       commit, indexedAt: new Date().toISOString(), nodes: 0, edges: 0,
-      schemaVersion: 3, extractorVersion: '0.1.0',
+      schemaVersion: 4, extractorVersion: '0.1.0',
       status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
     }));
   });

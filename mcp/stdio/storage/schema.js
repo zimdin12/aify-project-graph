@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 const NODE_TYPES = [
   'Repository', 'File', 'Module', 'Function', 'Method', 'Class',
@@ -32,6 +32,7 @@ export function createSchema(db) {
       source_file   TEXT NOT NULL DEFAULT '',
       source_line   INTEGER NOT NULL DEFAULT 0,
       confidence    REAL NOT NULL DEFAULT 1.0,
+      provenance    TEXT NOT NULL DEFAULT 'EXTRACTED',
       extractor     TEXT NOT NULL DEFAULT 'generic',
       FOREIGN KEY (from_id) REFERENCES nodes(id),
       FOREIGN KEY (to_id) REFERENCES nodes(id)
@@ -47,4 +48,9 @@ export function createSchema(db) {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_edges_unique ON edges(from_id, to_id, relation);
     CREATE INDEX IF NOT EXISTS idx_edges_source_file ON edges(source_file);
   `);
+
+  const edgeCols = db.prepare("PRAGMA table_info(edges)").all().map((r) => r.name);
+  if (!edgeCols.includes('provenance')) {
+    db.exec(`ALTER TABLE edges ADD COLUMN provenance TEXT NOT NULL DEFAULT 'EXTRACTED';`);
+  }
 }

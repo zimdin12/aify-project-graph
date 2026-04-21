@@ -38,7 +38,7 @@ describe('graph_health — synthesis of graph state signals', () => {
 
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
       commit: 'abc123', indexedAt: new Date().toISOString(),
-      nodes: 100, edges: 200, schemaVersion: 3, extractorVersion: '0.1.0',
+      nodes: 100, edges: 200, schemaVersion: 4, extractorVersion: '0.1.0',
       status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
     }));
 
@@ -55,7 +55,7 @@ describe('graph_health — synthesis of graph state signals', () => {
 
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
       commit: 'abc123', indexedAt: new Date().toISOString(),
-      nodes: 100, edges: 200, schemaVersion: 3, extractorVersion: '0.1.0',
+      nodes: 100, edges: 200, schemaVersion: 4, extractorVersion: '0.1.0',
       status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 5227,
     }));
 
@@ -71,7 +71,7 @@ describe('graph_health — synthesis of graph state signals', () => {
 
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
       commit: 'abc123', indexedAt: new Date().toISOString(),
-      nodes: 0, edges: 0, schemaVersion: 3, extractorVersion: '0.1.0',
+      nodes: 0, edges: 0, schemaVersion: 4, extractorVersion: '0.1.0',
       status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
     }));
     await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
@@ -93,7 +93,7 @@ describe('graph_health — synthesis of graph state signals', () => {
     db.close();
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
       commit: 'abc123', indexedAt: new Date().toISOString(),
-      nodes: 10, edges: 20, schemaVersion: 3, extractorVersion: '0.1.0',
+      nodes: 10, edges: 20, schemaVersion: 4, extractorVersion: '0.1.0',
       status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 100,
     }));
 
