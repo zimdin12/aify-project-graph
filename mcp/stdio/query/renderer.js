@@ -26,12 +26,22 @@ export function renderNodeLine(n) {
   return `NODE ${n.id} ${(n.type ?? 'unknown').toLowerCase()} ${n.label} ${formatLocation(n.file_path, n.start_line)}`;
 }
 
+// Provenance tag: only show when NOT the default EXTRACTED (the AST case).
+// INFERRED / AMBIGUOUS are the signals worth surfacing — they tell agents
+// "this edge came from heuristic resolution or framework synthesis, treat
+// it with less trust." EXTRACTED stays silent to keep output terse.
+function renderProvenanceTag(p) {
+  if (!p || p === 'EXTRACTED') return '';
+  return ` prov=${p}`;
+}
+
 // Verbose edge line (original format, preserved for backward compat).
 function renderEdgeVerbose(e) {
   const conf = ` conf=${Number(e.confidence ?? 1.0).toFixed(2)}`;
+  const prov = renderProvenanceTag(e.provenance);
   const fromRef = e.from_label ?? e.from_id;
   const toRef = e.to_label ?? e.to_id;
-  return `EDGE ${fromRef}→${toRef} ${e.relation} ${e.source_file ?? '?'}:${e.source_line ?? '?'}${conf}`;
+  return `EDGE ${fromRef}→${toRef} ${e.relation} ${e.source_file ?? '?'}:${e.source_line ?? '?'}${conf}${prov}`;
 }
 
 // Compact edge line: `<caller_file>:<caller_line> <from_label> <rel> <to_label>`.
@@ -45,7 +55,8 @@ function renderEdgeCompact(e) {
   const to = e.to_label ? ` ${e.to_label}` : '';
   const conf = Number(e.confidence ?? 1.0);
   const confTag = conf < 0.75 ? ` conf=${conf.toFixed(2)}` : '';
-  return `${loc} ${from} ${e.relation}${to}${confTag}`;
+  const provTag = renderProvenanceTag(e.provenance);
+  return `${loc} ${from} ${e.relation}${to}${confTag}${provTag}`;
 }
 
 export function renderEdgeLine(e, opts) {

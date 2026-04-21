@@ -50,7 +50,9 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
       source_file: e.to_file, source_line: e.to_line,
-      confidence: e.confidence, depth: e.depth ?? 1,
+      confidence: e.confidence,
+      provenance: e.provenance ?? 'EXTRACTED',
+      depth: e.depth ?? 1,
       from_type: 'Function', fan_in: 1,
       to_label: e.to_label,
     }));

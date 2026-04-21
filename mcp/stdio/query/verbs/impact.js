@@ -42,7 +42,9 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
       source_file: e.from_file, source_line: e.from_line,
-      confidence: e.confidence, depth: e.depth ?? 1,
+      confidence: e.confidence,
+      provenance: e.provenance ?? 'EXTRACTED',
+      depth: e.depth ?? 1,
       from_type: e.from_type, from_label: e.from_label,
       to_label: e.to_label, fan_in: 1,
     }));

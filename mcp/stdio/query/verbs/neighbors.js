@@ -38,7 +38,9 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
       source_file: e.source_file, source_line: e.source_line,
-      confidence: e.confidence, depth: 1, from_type: 'Function', fan_in: 1,
+      confidence: e.confidence,
+      provenance: e.provenance ?? 'EXTRACTED',
+      depth: 1, from_type: 'Function', fan_in: 1,
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
     return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}` });
