@@ -148,9 +148,60 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     const matchedFiles = new Set(matches.map((n) => n.file_path).filter(Boolean));
     const matchedSymbols = new Set(symbolNodes.map((n) => n.label));
 
-    // 2. Features touching this symbol/file
+    // 2. Features touching this symbol/file. Three paths to a hit, in order:
+    //   (a) anchor_match=symbol — feature.anchors.symbols contains the symbol
+    //   (b) anchor_match=file   — feature.anchors.files contains the file (or dir glob)
+    //   (c) anchor_match=task   — a task in tasks.json references this file
+    //                             (via files_hint OR title substring on basename)
+    //                             and that task is bound to the feature.
+    // Path (c) was missing before 2026-04-22; echoes manager found that
+    // `graph_consequences("engine/voxel/ChunkTimeSkip.cpp")` returned empty
+    // features despite `tasks.json` mapping the file to chunk-management via
+    // a task. The verb now surfaces that link explicitly.
     const features = [];
     const affectedFeatureIds = new Set();
+    // Pre-compute task-based reverse lookup before iterating features so
+    // we know which features are reached by task references to matchedFiles.
+    const featureIdsReachedViaTasks = new Map(); // featureId → [taskId, ...]
+    const tasksPath = join(repoRoot, '.aify-graph', 'tasks.json');
+    let tasksRaw = null;
+    if (existsSync(tasksPath) && matchedFiles.size > 0) {
+      try {
+        tasksRaw = JSON.parse(readFileSync(tasksPath, 'utf8'));
+        // Precompute basenames for two confidence tiers:
+        //   high — task.files_hint[] exact match (clean contract)
+        //   low  — task.title substring-matches a file basename, but ONLY
+        //          if the basename is >=8 chars OR contains uppercase
+        //          (CamelCase convention: "ChunkTimeSkip" ok;
+        //          "helpers" rejected). Reduces false-positives on short
+        //          common words while catching real identifier references.
+        const fileBasenames = [...matchedFiles].map((p) => {
+          const slash = p.lastIndexOf('/');
+          const raw = slash >= 0 ? p.slice(slash + 1) : p;
+          const dot = raw.lastIndexOf('.');
+          return dot > 0 ? raw.slice(0, dot) : raw;
+        });
+        const titleMatchBasenames = fileBasenames.filter((b) => b.length >= 8 || /[A-Z]/.test(b));
+        for (const t of tasksRaw.tasks ?? []) {
+          const fileHintHit = Array.isArray(t.files_hint)
+            && t.files_hint.some((h) => matchedFiles.has(h) || [...matchedFiles].some((p) => p.endsWith('/' + h)));
+          const titleHit = !fileHintHit
+            && typeof t.title === 'string'
+            && titleMatchBasenames.some((b) => t.title.toLowerCase().includes(b.toLowerCase()));
+          if (!fileHintHit && !titleHit) continue;
+          const refs = t.features ?? t.related_features ?? [];
+          for (const fid of refs) {
+            if (!featureIdsReachedViaTasks.has(fid)) featureIdsReachedViaTasks.set(fid, []);
+            featureIdsReachedViaTasks.get(fid).push({
+              id: t.id,
+              match: fileHintHit ? 'files_hint' : 'title_substring',
+            });
+          }
+        }
+      } catch {
+        // malformed tasks.json — skip reverse lookup
+      }
+    }
     if (hasOverlay(repoRoot)) {
       const overlay = loadFunctionality(repoRoot);
       for (const f of overlay.features ?? []) {
@@ -160,11 +211,13 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
           if (pattern.endsWith('/*')) return [...matchedFiles].some((p) => p.startsWith(pattern.slice(0, -1)));
           return matchedFiles.has(pattern);
         });
-        if (symbolHit || fileHit) {
+        const taskHit = featureIdsReachedViaTasks.has(f.id);
+        if (symbolHit || fileHit || taskHit) {
           features.push({
             id: f.id,
             label: f.label,
-            anchor_match: symbolHit ? 'symbol' : 'file',
+            anchor_match: symbolHit ? 'symbol' : fileHit ? 'file' : 'task',
+            reached_via_tasks: taskHit ? featureIdsReachedViaTasks.get(f.id) : undefined,
             contracts: f.contracts ?? [],
             anchor_docs: f.anchors?.docs ?? [],
             depends_on: f.depends_on ?? [],
@@ -183,26 +236,43 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     const contracts = [...new Set(features.flatMap((f) => f.contracts))].filter(Boolean);
     const specDocs = [...new Set(features.flatMap((f) => f.anchor_docs ?? []))].filter(Boolean);
 
-    // 4. Open tasks bound to affected features
+    // 4. Open tasks bound to affected features. Reuse the tasks.json already
+    // loaded above (if present) instead of re-reading/re-parsing.
     const tasks = [];
-    const tasksPath = join(repoRoot, '.aify-graph', 'tasks.json');
-    if (existsSync(tasksPath)) {
-      try {
-        const raw = JSON.parse(readFileSync(tasksPath, 'utf8'));
-        for (const t of raw.tasks ?? []) {
-          if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
-          const featureRefs = t.features ?? t.related_features ?? [];
-          if (!featureRefs.some((f) => affectedFeatureIds.has(f))) continue;
-          tasks.push({
-            id: t.id,
-            title: t.title ?? '',
-            status: t.status ?? null,
-            priority: t.priority ?? null,
-            features: featureRefs.filter((f) => affectedFeatureIds.has(f)),
-          });
+    if (tasksRaw?.tasks) {
+      for (const t of tasksRaw.tasks) {
+        if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
+        const featureRefs = t.features ?? t.related_features ?? [];
+        if (!featureRefs.some((f) => affectedFeatureIds.has(f))) continue;
+        tasks.push({
+          id: t.id,
+          title: t.title ?? '',
+          status: t.status ?? null,
+          priority: t.priority ?? null,
+          features: featureRefs.filter((f) => affectedFeatureIds.has(f)),
+        });
+      }
+    }
+
+    // 4b. Co-consumer files — other files anchored by the same feature(s).
+    // Echoes manager: `graph_consequences("sharc_update.comp.glsl")` missed
+    // `sharc_resolve.comp.glsl` as a co-consumer; both live under the same
+    // feature but the verb only surfaced the queried file. Fix: surface the
+    // peer set explicitly so refactor planners see the full blast radius.
+    const coConsumerFiles = [];
+    if (affectedFeatureIds.size > 0 && hasOverlay(repoRoot)) {
+      const overlay2 = loadFunctionality(repoRoot);
+      const seen = new Set([...matchedFiles]);
+      for (const f of overlay2.features ?? []) {
+        if (!affectedFeatureIds.has(f.id)) continue;
+        for (const anchor of f.anchors?.files ?? []) {
+          if (anchor.endsWith('/*')) continue; // skip globs — agents can expand themselves
+          if (seen.has(anchor)) continue;
+          seen.add(anchor);
+          coConsumerFiles.push({ file: anchor, via_feature: f.id });
+          if (coConsumerFiles.length >= 10) break;
         }
-      } catch {
-        // ignore parse errors — tasks optional
+        if (coConsumerFiles.length >= 10) break;
       }
     }
 
@@ -264,6 +334,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       contracts_potentially_affected: contracts,
       spec_docs: specDocs,
       features_touching: features,
+      co_consumer_files: coConsumerFiles,
       open_tasks_on_those_features: tasks,
       top_related_tasks: rankedTasks.slice(0, 3), // highest-signal subset
       tests_adjacent: tests,

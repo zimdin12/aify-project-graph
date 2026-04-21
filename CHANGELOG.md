@@ -9,6 +9,45 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+## 2026-04-22 (late) — graph_consequences correctness + Claude-Code-scoped bench
+
+Echoes manager ran three deep-test rounds + one 2×2 (totaling 39 agents) this
+day. Two correctness bugs in `graph_consequences` shipped as fixes; the
+behavioral bench findings are Claude-Code-scoped (Codex re-bench pending).
+
+### Added
+
+- **`graph_consequences` — task→file reverse lookup.** New third anchor_match
+  path: `anchor_match: 'task'`. Features now get surfaced via tasks that
+  reference the target file (`task.files_hint[]` exact/suffix match — high
+  confidence; `task.title` substring match on basename ≥8 chars or CamelCase
+  — low confidence). Each task hit carries `{id, match}` so consumers can
+  filter by confidence tier. Previously: feature was only reached via direct
+  anchor; tasks that mapped a file to a feature via task.features[] were
+  invisible.
+- **`graph_consequences.co_consumer_files[]`.** When the target file's
+  features anchor other files too, they're surfaced as peers with
+  `{file, via_feature}`. Echoes manager's bench flagged
+  `graph_consequences("sharc_update.comp.glsl")` missing `sharc_resolve.comp.glsl`
+  — this surfaces the peer set explicitly for refactor planning.
+
+### Fixed
+
+- Race between `graph_consequences` and task-based feature links was
+  undefined for files not anchored in `functionality.json`. Affected files
+  returned empty `features_touching` / `contracts_potentially_affected` /
+  `open_tasks_on_those_features`. Now resolves through the task layer.
+
+### Benchmark scope (important caveat)
+
+Two behavioral findings this round are **Claude Code–scoped**, not universal:
+- "Full manifest is cheaper than lean" — measured only on Claude Code + Opus
+- "Full SKILL.md prose drives 3.3× more graph use" — same scope
+
+The lean profile remains as-is for Codex/OpenCode until we have a Codex-side
+2×2 re-run. Do not act on these findings for other runtimes without
+confirmation.
+
 ## 2026-04-22 — graph-as-map evolution
 
 The graph moved from "searchable database" to **map-for-agents**. Three
