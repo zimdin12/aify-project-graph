@@ -4,6 +4,14 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+function waitExit(child) {
+  return new Promise((resolve) => {
+    if (child.exitCode !== null) return resolve();
+    child.once('exit', () => resolve());
+    child.once('close', () => resolve());
+  });
+}
+
 function withJsonLine(child, requests) {
   return new Promise((resolve) => {
     const responses = [];
@@ -46,7 +54,13 @@ describe('MCP resources — briefs + overlays exposed over stdio', () => {
 
   afterAll(async () => {
     child.kill();
-    await rm(repo, { recursive: true, force: true });
+    await waitExit(child);
+    // Windows holds file descriptors briefly after a child exits. Retry
+    // rmdir a few times rather than letting EBUSY fail the whole suite.
+    for (let i = 0; i < 10; i++) {
+      try { await rm(repo, { recursive: true, force: true }); return; } catch {}
+      await new Promise((r) => setTimeout(r, 100));
+    }
   });
 
   it('initialize advertises resources capability', async () => {

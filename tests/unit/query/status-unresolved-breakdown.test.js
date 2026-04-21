@@ -59,7 +59,7 @@ describe('graph_status — unresolvedBy coarse breakdown', () => {
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify(manifest));
 
     const status = await graphStatus({ repoRoot });
-    expect(status.unresolvedBy).toEqual({ total: 0, byRelation: {}, byLanguage: {} });
+    expect(status.unresolvedBy).toEqual({ total: 0, sample_size: 0, byRelation: {}, byLanguage: {} });
   });
 
   it('flags sampling when total refs reach the manifest cap (500)', async () => {

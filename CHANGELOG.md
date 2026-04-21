@@ -9,6 +9,54 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-04-21 — provenance consumption + P0 state-loss fix
+
+**Added**
+
+- **Per-edge `provenance` surfaced across read verbs.** Schema v4 producer
+  side tagged edges EXTRACTED (AST), INFERRED (heuristic/framework), or
+  AMBIGUOUS (external fallback) in `92af81a`. Consumer side completed
+  this round: `graph_impact`, `graph_callers`, `graph_callees`,
+  `graph_neighbors`, `graph_pull` (relations layer), and `graph_path`
+  now carry the field. Rendered edge lines show `prov=INFERRED|AMBIGUOUS`;
+  EXTRACTED stays silent to keep output terse.
+- New regression tests: `tests/unit/query/provenance-surface.test.js`
+  (4) and `provenance-surface-pull-path.test.js` (2).
+
+**Fixed**
+
+- **P0: 500-cap `manifest.dirtyEdges` state loss across incremental runs.**
+  Diagnosed 2026-04-21 via `scripts/diagnose-convergence.mjs` — not a
+  convergence algorithm drift, a state truncation. Each run dropped any
+  unresolved edges past row 500 when carrying them forward. Fix shape
+  (dev-approved): new `.aify-graph/dirty-edges.full.json` sidecar holds
+  the authoritative complete list; the 500-row `manifest.dirtyEdges`
+  stays as a breakdown-query sample for `graph_status`/`graph_health`.
+  Orchestrator reads sidecar first, falls back to manifest sample for
+  older graphs. Unblocks the git post-commit hook (task #100) — force
+  rebuilds are no longer the only path to convergence.
+  Tests: 4 new sidecar unit tests. Full suite 230 green.
+
+**Added**
+
+- **Git `post-commit` hook** (`scripts/install-hooks.mjs` + `scripts/hooks/post-commit`
+  + `scripts/graph-reindex-hook.mjs`). Installs a background-executing
+  hook so commits keep the graph and briefs synced with HEAD without
+  blocking. Refuses to overwrite foreign hooks without `--force`;
+  `--remove` cleanly uninstalls ours. 6 new integration tests.
+- `graph_status.unresolvedBy` now exposes both `total` (authoritative,
+  from `dirtyEdgeCount`) and `sample_size` (rows in the 500-row
+  breakdown slice). Percentages derived from byRelation/byLanguage sum
+  to `sample_size`; `total` tells you the true scale even when sampled.
+
+**Fixed**
+
+- `tests/integration/mcp-resources.test.js` Windows EBUSY flake:
+  teardown now waits for child exit and retries rmdir, so repeated
+  runs don't fail with transient file-lock errors.
+
+
+
 ## 2026-04-22 (post-bench) — post-mortem fixes
 
 Echoes manager's 39-agent post-mortem surfaced several items I missed on

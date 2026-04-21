@@ -35,25 +35,23 @@ Grep for lines) produced the best results on this class of question.
 
 **Workaround.** As of 2026-04-22 `graph_health` checks `brief.json.graph_indexed_at` against `manifest.indexedAt` and adds `brief-stale: regenerate with graph-brief.mjs` to its summary string + a `briefStaleVsManifest: true` structured field when they diverge. Run `node scripts/graph-brief.mjs <repo>` to bring the brief back in sync.
 
-## Incremental indexing does not fully converge to `graph_index(force=true)`
+## Incremental indexing: residual drift from `graph_index(force=true)`
 
-When only a subset of files change, `graph_index()` re-extracts those
-files in place. For most purposes this matches a full rebuild — but
-the unresolved-edge count can drift: refs that were resolvable in the
-full-rebuild graph remain in `manifest.dirtyEdges` after incremental
-passes until the next full rebuild.
+Fixed 2026-04-21 (commit f3ebee1): the main source of
+incremental-vs-force divergence was a 500-row cap on
+`manifest.dirtyEdges` that silently dropped unresolved edges past row
+500 each run. A full sidecar (`.aify-graph/dirty-edges.full.json`) now
+carries the complete unresolved list forward. Incremental should
+converge with force for that mechanism.
 
-**Why.** Incremental resolution sees only the currently-extracted files;
-cross-file references that the full-graph pass would have resolved may
-stay dirty until a global pass re-sees them.
+Residual drift possible in theory — incremental resolution sees only
+the currently-extracted files, so cross-file refs the full pass would
+have resolved may stay dirty until a global pass re-sees them — but
+no longer compounds via state loss.
 
-**Impact.** `graph_health()` trust can read weaker than a fresh full
-rebuild would. Verb results stay correct for files that were
-re-extracted; you'll see stale-looking unresolved counts for the rest.
-
-**Workaround.** Run `graph_index(force=true)` after large refactors or
-long-running incremental sessions. Measured 2026-04-22 on echoes:
-17,290 unresolved → 5,227 after force-rebuild (−70%).
+**Workaround (still).** Run `graph_index(force=true)` after large
+refactors or long-running incremental sessions if unresolved counts
+look stale.
 
 ## Multi-repo live verbs require per-repo MCP registration
 

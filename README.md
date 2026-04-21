@@ -171,6 +171,15 @@ node scripts/graph-brief.mjs <repoRoot>
 
 Rebuilds all five briefs + reads `functionality.json` + `tasks.json` if present. User-curated files (`functionality.json`, `tasks.json`) are preserved across full graph rebuilds (`bench-rebuild.mjs`).
 
+### Auto-reindex on commit (optional)
+
+```bash
+node scripts/install-hooks.mjs <repoRoot>          # install
+node scripts/install-hooks.mjs <repoRoot> --remove # uninstall
+```
+
+Installs a git `post-commit` hook that runs `ensureFresh` + regenerates briefs in the background after every commit. The hook returns immediately so commits stay fast; reindex output lands in `.aify-graph/hook.log`. Idempotent — re-running replaces our own hook. Refuses to overwrite a foreign `post-commit` hook unless you pass `--force`.
+
 ## Install
 
 The preferred install is agent-driven (see "Install in one paste" at the top). The agent reads the runtime-specific install doc and executes every step.

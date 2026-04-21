@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# aify-project-graph post-commit hook.
+# Reindex the graph + regenerate briefs in the background so the commit
+# returns immediately and the graph stays in sync with HEAD.
+#
+# Logs land in .aify-graph/hook.log (appended) so you can diagnose failures
+# without blocking your commit. Safe to re-run; no-op if graph isn't
+# initialized yet.
+
+set -u
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -z "${REPO_ROOT}" ] && exit 0
+[ -d "${REPO_ROOT}/.aify-graph" ] || exit 0
+
+SCRIPT="${REPO_ROOT}/scripts/graph-reindex-hook.mjs"
+[ -f "${SCRIPT}" ] || exit 0
+
+LOG="${REPO_ROOT}/.aify-graph/hook.log"
+# Detach: redirect stdout/stderr, close stdin, run in background. The hook
+# returns immediately; reindex completes later in the background.
+nohup node "${SCRIPT}" "${REPO_ROOT}" >>"${LOG}" 2>&1 </dev/null &
+disown 2>/dev/null || true
+exit 0
