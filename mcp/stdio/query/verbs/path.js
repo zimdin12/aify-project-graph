@@ -24,15 +24,16 @@ const ROOT_TYPE_PRIORITY = new Map([
 ]);
 
 const EDGE_PRIORITY = new Map([
-  ['INVOKES', 0],
-  ['CALLS', 1],
-  ['TESTS', 2],
-  ['REFERENCES', 3],
+  ['PASSES_THROUGH', 0],
+  ['INVOKES', 1],
+  ['CALLS', 2],
+  ['TESTS', 3],
+  ['REFERENCES', 4],
 ]);
 
 const MODE_RELATIONS = {
-  execution: ['INVOKES', 'CALLS'],
-  dependency: ['INVOKES', 'CALLS', 'TESTS', 'REFERENCES'],
+  execution: ['PASSES_THROUGH', 'INVOKES', 'CALLS'],
+  dependency: ['PASSES_THROUGH', 'INVOKES', 'CALLS', 'TESTS', 'REFERENCES'],
 };
 
 export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5, top_k = 3, mode = 'execution' }) {
@@ -108,6 +109,31 @@ export function trimPaths(paths, topK) {
   }));
 }
 
+function collectPathNodeIds(path, out = new Set()) {
+  if (!path) return out;
+  if (path.id) out.add(path.id);
+  for (const child of path.children ?? []) {
+    collectPathNodeIds(child, out);
+  }
+  return out;
+}
+
+function pruneShadowedChildren(children = []) {
+  const kept = [];
+  const descendantIds = new Set();
+
+  for (const child of children) {
+    if (child.id && descendantIds.has(child.id)) {
+      continue;
+    }
+
+    kept.push(child);
+    collectPathNodeIds(child, descendantIds);
+  }
+
+  return kept;
+}
+
 export function buildPaths(db, node, {
   direction,
   maxDepth,
@@ -122,6 +148,7 @@ export function buildPaths(db, node, {
   nextVisited.add(nodeId);
 
   const result = {
+    id: nodeId,
     symbol: node.label,
     file: node.file_path,
     line: node.start_line,
@@ -172,5 +199,6 @@ export function buildPaths(db, node, {
     });
   }
 
+  result.children = pruneShadowedChildren(result.children);
   return result;
 }

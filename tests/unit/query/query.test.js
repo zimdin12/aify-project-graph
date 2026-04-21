@@ -170,6 +170,96 @@ describe('path helpers', () => {
     expect(path.children[1].children[0].symbol).toBe('shared');
   });
 
+  it('buildPaths prefers PASSES_THROUGH middleware hops ahead of direct invokes', () => {
+    const edgeMap = {
+      route: [
+        { node_id: 'mw', label: 'handle', node_type: 'Method', file_path: 'app/Http/Middleware/RequireToken.php', start_line: 10, node_confidence: 0.9, relation: 'PASSES_THROUGH', edge_confidence: 0.9 },
+        { node_id: 'controller', label: 'show', node_type: 'Method', file_path: 'app/Http/Controllers/ProfileController.php', start_line: 20, node_confidence: 0.9, relation: 'INVOKES', edge_confidence: 0.8 },
+      ],
+      mw: [
+        { node_id: 'controller', label: 'show', node_type: 'Method', file_path: 'app/Http/Controllers/ProfileController.php', start_line: 20, node_confidence: 0.9, relation: 'PASSES_THROUGH', edge_confidence: 0.9 },
+      ],
+      controller: [],
+    };
+
+    const db = {
+      all: (_sql, params) => edgeMap[params.id] ?? [],
+    };
+
+    const path = buildPaths(db, {
+      id: 'route',
+      label: 'GET /profile',
+      file_path: 'routes/api.php',
+      start_line: 1,
+      confidence: 1.0,
+    }, {
+      direction: 'out',
+      maxDepth: 3,
+      explorationWidth: 12,
+      relations: ['PASSES_THROUGH', 'INVOKES', 'CALLS'],
+      visited: new Set(),
+    });
+
+    expect(path.children[0].symbol).toBe('handle');
+    expect(path.children[0].children[0].symbol).toBe('show');
+    expect(path.children).toHaveLength(1);
+  });
+
+  it('buildPaths preserves middleware chain order across multi-hop PASSES_THROUGH', () => {
+    // Pairs with the laravel-plugin conflict-order fixture: when the plugin
+    // emits a chain Route -> mw1 -> mw2 -> controller in route-declared order,
+    // buildPaths must render it in that same order — not reversed, not
+    // deduplicated, not reordered by any ranking heuristic.
+    const edgeMap = {
+      route: [
+        { node_id: 'mw1', label: 'handle', node_type: 'Method', file_path: 'app/Http/Middleware/RequireToken.php', start_line: 10, node_confidence: 0.9, relation: 'PASSES_THROUGH', edge_confidence: 0.9 },
+      ],
+      mw1: [
+        { node_id: 'mw2', label: 'handle', node_type: 'Method', file_path: 'app/Http/Middleware/ThrottleNonIntrusive.php', start_line: 10, node_confidence: 0.9, relation: 'PASSES_THROUGH', edge_confidence: 0.9 },
+      ],
+      mw2: [
+        { node_id: 'controller', label: 'show', node_type: 'Method', file_path: 'app/Http/Controllers/ProfileController.php', start_line: 20, node_confidence: 0.9, relation: 'PASSES_THROUGH', edge_confidence: 0.9 },
+      ],
+      controller: [],
+    };
+
+    const db = {
+      all: (_sql, params) => edgeMap[params.id] ?? [],
+    };
+
+    const path = buildPaths(db, {
+      id: 'route',
+      label: 'GET /profile',
+      file_path: 'routes/api.php',
+      start_line: 1,
+      confidence: 1.0,
+    }, {
+      direction: 'out',
+      maxDepth: 4,
+      explorationWidth: 12,
+      relations: ['PASSES_THROUGH', 'INVOKES', 'CALLS'],
+      visited: new Set(),
+    });
+
+    // Exactly one top-level branch (the chain, not a fan-out).
+    expect(path.children).toHaveLength(1);
+
+    // Flatten the single linear chain and assert the file order matches the
+    // emission order: RequireToken → ThrottleNonIntrusive → ProfileController.
+    const chain = [];
+    let cursor = path.children[0];
+    while (cursor) {
+      chain.push(cursor.file);
+      cursor = cursor.children?.[0];
+    }
+
+    expect(chain).toEqual([
+      'app/Http/Middleware/RequireToken.php',
+      'app/Http/Middleware/ThrottleNonIntrusive.php',
+      'app/Http/Controllers/ProfileController.php',
+    ]);
+  });
+
   it('trimPaths keeps broader exploration but limits rendered branches', () => {
     const trimmed = trimPaths([{
       symbol: 'root',

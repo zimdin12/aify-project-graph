@@ -16,6 +16,8 @@ describe('filesystem sweep', () => {
     await mkdir(join(repoDir, 'src'), { recursive: true });
     await mkdir(join(repoDir, 'routes'), { recursive: true });
     await mkdir(join(repoDir, 'db', 'migrations'), { recursive: true });
+    await mkdir(join(repoDir, '.tmp', 'codex-home'), { recursive: true });
+    await mkdir(join(repoDir, '.codex', 'sessions'), { recursive: true });
 
     await writeFile(
       join(repoDir, 'README.md'),
@@ -28,6 +30,8 @@ describe('filesystem sweep', () => {
     await writeFile(join(repoDir, 'src', 'main.py'), 'def main():\n    return 0\n');
     await writeFile(join(repoDir, 'routes', 'web.php'), '<?php\nRoute::get("/", HomeController::class);\n');
     await writeFile(join(repoDir, 'db', 'migrations', '001_init.sql'), 'create table users (id integer primary key);\n');
+    await writeFile(join(repoDir, '.tmp', 'codex-home', 'scratch.py'), 'def tmp_fn():\n    return 1\n');
+    await writeFile(join(repoDir, '.codex', 'sessions', 'session.py'), 'def session_fn():\n    return 1\n');
   });
 
   afterEach(async () => {
@@ -65,5 +69,13 @@ describe('filesystem sweep', () => {
       expect.objectContaining({ relation: 'CONTAINS', from_path: 'routes', to_path: 'routes/web.php' }),
       expect.objectContaining({ relation: 'CONTAINS', from_path: 'db/migrations', to_path: 'db/migrations/001_init.sql' }),
     ]));
+  });
+
+  it('ignores runtime scratch directories like .tmp and .codex', async () => {
+    const result = await sweepFilesystem({ repoRoot: repoDir });
+
+    const ignoredPaths = new Set(result.nodes.map((node) => node.file_path));
+    expect([...ignoredPaths].some((path) => path.startsWith('.tmp/'))).toBe(false);
+    expect([...ignoredPaths].some((path) => path.startsWith('.codex/'))).toBe(false);
   });
 });

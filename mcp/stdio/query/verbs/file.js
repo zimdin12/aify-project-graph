@@ -80,7 +80,7 @@ function graphFileInner(db, fileNode, top_k) {
        FROM edges e
        JOIN nodes n ON n.id = e.from_id
        JOIN nodes t ON t.id = e.to_id
-       WHERE e.to_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES')
+       WHERE e.to_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH')
        AND n.file_path != $path
        ORDER BY e.confidence DESC LIMIT $limit`,
       { ...params, path: fileNode.file_path }
@@ -98,7 +98,7 @@ function graphFileInner(db, fileNode, top_k) {
        FROM edges e
        JOIN nodes n ON n.id = e.to_id
        JOIN nodes t ON t.id = e.from_id
-       WHERE e.from_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES')
+       WHERE e.from_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH')
        AND n.file_path != $path
        ORDER BY e.confidence DESC LIMIT $limit`,
       { ...params, path: fileNode.file_path }

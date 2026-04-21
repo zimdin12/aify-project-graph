@@ -7,6 +7,7 @@ import { ensureFresh } from '../../freshness/orchestrator.js';
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
 const STRUCTURE_TYPES = new Set(['File', 'Module', 'Entrypoint', 'Route', 'Schema']);
 // Document, Directory, Config are lowest priority
+const EXACT_SYMBOL_RE = /^[A-Za-z_][A-Za-z0-9_.$:-]*$/;
 
 function scoreNode(node, query) {
   let score = 0;
@@ -29,30 +30,53 @@ function scoreNode(node, query) {
   return score;
 }
 
+function buildSearchFilters({ type, file, kind }) {
+  const clauses = [];
+  const params = {};
+
+  if (type) {
+    clauses.push('type = $type');
+    params.type = type;
+  } else if (kind === 'code') {
+    // Default: exclude docs/dirs/configs/external terminals unless explicitly requested.
+    clauses.push("type NOT IN ('Document', 'Directory', 'Config', 'External')");
+  }
+
+  if (file) {
+    clauses.push('file_path LIKE $file');
+    params.file = `${file}%`;
+  }
+
+  return { clauses, params };
+}
+
 export async function graphSearch({ repoRoot, query, type, file, kind = 'code', limit = 20 }) {
   if (!query || query.trim().length === 0) {
     return 'QUERY_TOO_SHORT — provide at least 1 character';
   }
 
+  const normalizedQuery = query.trim();
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const clauses = ['label LIKE $q'];
-    const params = { q: `%${query}%`, limit: Math.min(limit, 100) };
+    const cappedLimit = Math.min(limit, 100);
+    const { clauses: baseClauses, params: baseParams } = buildSearchFilters({ type, file, kind });
 
-    if (type) {
-      clauses.push('type = $type');
-      params.type = type;
-    } else if (kind === 'code') {
-      // Default: exclude docs/dirs/configs/external terminals unless explicitly requested.
-      clauses.push("type NOT IN ('Document', 'Directory', 'Config', 'External')");
+    // Fast path: exact symbol-style queries should not pay the broad substring scan
+    // when we already have a direct hit.
+    if (EXACT_SYMBOL_RE.test(normalizedQuery)) {
+      const exactClauses = ['label = $label', ...baseClauses];
+      const exactHits = db.all(
+        `SELECT * FROM nodes WHERE ${exactClauses.join(' AND ')} LIMIT $limit`,
+        { ...baseParams, label: normalizedQuery, limit: cappedLimit }
+      );
+      if (exactHits.length > 0) {
+        return renderCompact({ nodes: exactHits, edges: [] });
+      }
     }
 
-    if (file) {
-      clauses.push('file_path LIKE $file');
-      params.file = `${file}%`;
-    }
-
+    const clauses = ['label LIKE $q', ...baseClauses];
+    const params = { ...baseParams, q: `%${normalizedQuery}%`, limit: cappedLimit };
     const where = clauses.join(' AND ');
     // Fetch more than needed so we can re-rank in memory
     const hits = db.all(
@@ -61,12 +85,12 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
     );
 
     if (hits.length === 0) {
-      return `NO RESULTS for "${query}". Try graph_search(query="${query}", kind="all") to include docs/configs, or check graph_status() to verify the graph covers your files.`;
+      return `NO RESULTS for "${normalizedQuery}". Try graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or check graph_status() to verify the graph covers your files.`;
     }
 
     // Re-rank by agent-intent scoring
     const scored = hits
-      .map(n => ({ ...n, _score: scoreNode(n, query) }))
+      .map(n => ({ ...n, _score: scoreNode(n, normalizedQuery) }))
       .sort((a, b) => b._score - a._score)
       .slice(0, limit);
 

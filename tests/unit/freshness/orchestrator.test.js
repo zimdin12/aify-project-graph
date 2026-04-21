@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
@@ -73,6 +73,77 @@ describe('freshness orchestrator', () => {
     expect(manifest.nodes).toBeGreaterThan(0);
     expect(manifest.edges).toBeGreaterThan(0);
     expect(manifest.dirtyEdges).toEqual([]);
+  });
+
+  it('preserves framework Route nodes while reindexing the backing route file', async () => {
+    const fixtureRoot = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'tiny-laravel-middleware');
+    await mkdir(join(repoRoot, 'app', 'Http', 'Controllers'), { recursive: true });
+    await mkdir(join(repoRoot, 'app', 'Http', 'Middleware'), { recursive: true });
+    await mkdir(join(repoRoot, 'routes'), { recursive: true });
+    await copyFile(join(fixtureRoot, 'composer.json'), join(repoRoot, 'composer.json'));
+    await copyFile(join(fixtureRoot, 'app', 'Http', 'Kernel.php'), join(repoRoot, 'app', 'Http', 'Kernel.php'));
+    await copyFile(join(fixtureRoot, 'app', 'Http', 'Controllers', 'ProfileController.php'), join(repoRoot, 'app', 'Http', 'Controllers', 'ProfileController.php'));
+    await copyFile(join(fixtureRoot, 'app', 'Http', 'Middleware', 'RequireToken.php'), join(repoRoot, 'app', 'Http', 'Middleware', 'RequireToken.php'));
+    await copyFile(join(fixtureRoot, 'app', 'Http', 'Middleware', 'ThrottleNonIntrusive.php'), join(repoRoot, 'app', 'Http', 'Middleware', 'ThrottleNonIntrusive.php'));
+    await copyFile(join(fixtureRoot, 'routes', 'api.php'), join(repoRoot, 'routes', 'api.php'));
+
+    getHeadCommit.mockResolvedValue('head-laravel');
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot });
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const route = db.get(`
+        SELECT id, type, label, file_path
+        FROM nodes
+        WHERE type = 'Route' AND label = 'GET /profile'
+      `);
+      const executionEdges = db.get(`
+        SELECT COUNT(*) AS count
+        FROM edges
+        WHERE relation IN ('INVOKES', 'PASSES_THROUGH')
+      `);
+      const orphanedFrom = db.get(`
+        SELECT COUNT(*) AS count
+        FROM edges e
+        WHERE e.relation IN ('INVOKES', 'PASSES_THROUGH')
+          AND NOT EXISTS (SELECT 1 FROM nodes WHERE id = e.from_id)
+      `);
+      const chain = db.all(`
+        SELECT f.label AS from_label, f.file_path AS from_file, e.relation, t.label AS to_label, t.file_path AS to_file
+        FROM edges e
+        JOIN nodes f ON f.id = e.from_id
+        JOIN nodes t ON t.id = e.to_id
+        WHERE e.relation IN ('INVOKES', 'PASSES_THROUGH')
+          AND (
+            f.label = 'GET /profile'
+            OR f.label = 'handle'
+            OR t.label = 'show'
+          )
+        ORDER BY
+          CASE e.relation WHEN 'PASSES_THROUGH' THEN 0 ELSE 1 END,
+          f.label,
+          t.label
+      `);
+
+      expect(route).toEqual(expect.objectContaining({
+        type: 'Route',
+        label: 'GET /profile',
+        file_path: 'routes/api.php',
+      }));
+      expect(executionEdges.count).toBeGreaterThan(0);
+      expect(orphanedFrom.count).toBe(0);
+      expect(chain).toEqual(expect.arrayContaining([
+        expect.objectContaining({ from_label: 'GET /profile', from_file: 'routes/api.php', relation: 'PASSES_THROUGH', to_label: 'handle', to_file: 'app/Http/Middleware/RequireToken.php' }),
+        expect.objectContaining({ from_label: 'handle', from_file: 'app/Http/Middleware/RequireToken.php', relation: 'PASSES_THROUGH', to_label: 'handle', to_file: 'app/Http/Middleware/ThrottleNonIntrusive.php' }),
+        expect.objectContaining({ from_label: 'handle', from_file: 'app/Http/Middleware/ThrottleNonIntrusive.php', relation: 'PASSES_THROUGH', to_label: 'show', to_file: 'app/Http/Controllers/ProfileController.php' }),
+      ]));
+    } finally {
+      db.close();
+    }
   });
 
   it('reindexes dependent caller files when a target file changes', async () => {

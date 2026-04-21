@@ -5,6 +5,8 @@ import { rankCallees } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 
+const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
+
 export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
   await ensureFresh({ repoRoot });
@@ -22,7 +24,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       edges = db.all(
         `SELECT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line
          FROM edges e JOIN nodes n ON n.id = e.to_id
-         WHERE e.from_id IN (${placeholders}) AND e.relation = 'CALLS'
+         WHERE e.from_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
          LIMIT 100`,
         params
       );
@@ -30,14 +32,14 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       const sid = sourceIds[0];
       edges = db.all(
         `WITH RECURSIVE callees(callee_id, depth) AS (
-           SELECT to_id, 1 FROM edges WHERE from_id = $sid AND relation = 'CALLS'
+           SELECT to_id, 1 FROM edges WHERE from_id = $sid AND relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
            UNION ALL
            SELECT e.to_id, c.depth + 1 FROM edges e JOIN callees c ON e.from_id = c.callee_id
-           WHERE e.relation = 'CALLS' AND c.depth < $depth AND c.depth <= 10
+           WHERE e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')}) AND c.depth < $depth AND c.depth <= 10
          )
          SELECT DISTINCT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line, c.depth
          FROM callees c JOIN edges e ON e.to_id = c.callee_id JOIN nodes n ON n.id = e.to_id
-         WHERE e.relation = 'CALLS'
+         WHERE e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
          LIMIT 100`,
         { sid, depth }
       );
@@ -46,7 +48,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (edges.length === 0) return `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
 
     let mapped = edges.map(e => ({
-      from_id: e.from_id, to_id: e.to_id, relation: 'CALLS',
+      from_id: e.from_id, to_id: e.to_id, relation: e.relation,
       source_file: e.to_file, source_line: e.to_line,
       confidence: e.confidence, depth: e.depth ?? 1,
       from_type: 'Function', fan_in: 1,

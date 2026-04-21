@@ -303,6 +303,7 @@ function deleteNodesForFile(db, filePath) {
   deleteEdgesByFile(db, filePath);
   const existing = getNodesByFile(db, filePath);
   for (const node of existing) {
+    if (SPECIAL_TYPES.includes(node.type)) continue;
     deleteNode(db, node.id);
   }
 }

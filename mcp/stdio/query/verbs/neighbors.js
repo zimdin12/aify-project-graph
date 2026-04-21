@@ -7,7 +7,7 @@ import { ensureFresh } from '../../freshness/orchestrator.js';
 const ALL_RELATIONS = [
   'CONTAINS', 'DEFINES', 'DECLARES', 'IMPORTS', 'EXPORTS',
   'CALLS', 'REFERENCES', 'EXTENDS', 'IMPLEMENTS', 'USES_TYPE',
-  'TESTS', 'DEPENDS_ON', 'MENTIONS', 'INVOKES', 'CONFIGURES',
+  'TESTS', 'DEPENDS_ON', 'MENTIONS', 'INVOKES', 'PASSES_THROUGH', 'CONFIGURES',
 ];
 
 export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth = 1, top_k = 20 }) {
