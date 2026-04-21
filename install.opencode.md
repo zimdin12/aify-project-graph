@@ -29,7 +29,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: ~190 passing (193 as of 2026-04-21)
+npm test         # expect: ~210 passing (212 as of 2026-04-22)
 ```
 
 If the native module fails on load (`better_sqlite3.node is not a valid ... application`). The MCP server auto-heals this on runtime startup; for the install-time test run, do it manually:
@@ -69,7 +69,7 @@ node -e '
 ' "$CONFIG_FILE" "$CLONE_PATH/mcp/stdio/server.js"
 ```
 
-Recommended profile is `--toolset=lean` (3 visible verbs: `graph_impact`, `graph_path`, `graph_change_plan`). Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 19-verb surface.
+Recommended profile is `--toolset=lean` (3 visible verbs: `graph_impact`, `graph_path`, `graph_change_plan`). Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 21-verb surface.
 
 ### Multi-repo caveat — MCP is cwd-bound
 

@@ -32,7 +32,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
-npm test         # expect: 193 passing (as of 2026-04-21)
+npm test         # expect: 212 passing (as of 2026-04-22)
 ```
 
 If `npm test` fails with `better_sqlite3.node is not a valid ... application`, the native binary was built on another platform. The MCP server auto-heals this on runtime startup, but the test command runs outside that path, so do it manually:
@@ -54,7 +54,7 @@ codex mcp add aify-project-graph \
   -- node --max-old-space-size=8192 "$CLONE_PATH/mcp/stdio/server.js" --toolset=lean
 ```
 
-Drop `--toolset=lean` if the user wants the full 19-verb surface (not recommended on Codex).
+Drop `--toolset=lean` if the user wants the full 21-verb surface (not recommended on Codex).
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
 
