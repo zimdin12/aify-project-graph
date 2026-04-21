@@ -32,11 +32,11 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 | Codex | `~/.codex/plugins/aify-project-graph` | `codex mcp add` |
 | OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |
 
-**Profile:** Claude Code uses the full toolset (19 visible verbs). Codex and OpenCode use `--toolset=lean` (3 visible: `graph_impact`, `graph_path`, `graph_change_plan`; the other 16 remain callable by name via `tools/call`).
+**Profile:** Claude Code uses the full toolset (21 visible verbs). Codex and OpenCode use `--toolset=lean` (3 visible: `graph_impact`, `graph_path`, `graph_change_plan`; the other 18 remain callable by name via `tools/call`).
 
 **Platform gotcha (mostly auto-handled):** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, its compiled binary flips platforms. The MCP server's **native-module preflight self-heals this on startup**: it probes the binary, and if it sees `not a valid Win32 application` / `invalid ELF header` / `ERR_DLOPEN_FAILED`, it runs `npm rebuild better-sqlite3` once automatically before accepting any tool calls. You only need to intervene if the auto-rebuild itself fails (missing compiler toolchain); in that case run `npm rebuild better-sqlite3` manually in the runtime you plan to use.
 
-**Skills** (Claude Code only) — the install doc copies the whole `integrations/claude-code/skill{,s}/` tree with a directory loop, so new skills are picked up without updating these docs. Codex and OpenCode don't load skill files; MCP tool descriptions are self-documenting there.
+**Skills** — the install doc copies the whole `integrations/<runtime>/skill{,s}/` tree with a directory loop, so new skills are picked up without updating these docs. **Both Claude Code and Codex support skills natively**: Claude Code loads from `~/.claude/skills/`, Codex from `~/.codex/skills/` (see `install.codex.md` Step 3). OpenCode doesn't load skill files today; MCP tool descriptions are self-documenting there.
 
 **Verify** — on first session after restart: `graph_status()` should return `indexed: false` then any query verb triggers an auto-build. If the tool is not found, the MCP didn't register (rerun the relevant install-doc step).
 

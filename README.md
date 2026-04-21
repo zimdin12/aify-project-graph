@@ -24,7 +24,7 @@ Read install.codex.md from https://github.com/zimdin12/aify-project-graph and in
 Read install.opencode.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart OpenCode when you're done.
 ```
 
-That's the entire install. The agent clones the repo to a pinned path (`~/.claude/plugins/aify-project-graph`, `~/.codex/plugins/aify-project-graph`, or `~/.config/opencode/plugins/aify-project-graph` depending on runtime), registers the MCP server via the runtime's CLI, copies skills (Claude Code only), and tells you when to restart. Takes 2-3 minutes.
+That's the entire install. The agent clones the repo to a pinned path (`~/.claude/plugins/aify-project-graph`, `~/.codex/plugins/aify-project-graph`, or `~/.config/opencode/plugins/aify-project-graph` depending on runtime), registers the MCP server via the runtime's CLI, copies skills (Claude Code and Codex both get skills; OpenCode skips), and tells you when to restart. Takes 2-3 minutes.
 
 **WSL + native Windows:** if you run Claude Code on Windows and Codex/OpenCode in WSL, install the tool **separately in each environment** — `better-sqlite3` is a native module and the compiled binary must match the runtime (Windows `.node` ≠ Linux `.so`). The install docs pin each runtime to its own filesystem path, so the two clones don't collide.
 
@@ -186,7 +186,7 @@ Under the hood each install doc does the same thing:
    - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude.json` — the CLI-managed location, not `~/.claude/settings.json`)
    - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`
    - OpenCode: JSON-patch `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json` → `mcp.aify-project-graph`
-4. Copies skills from `integrations/claude-code/skill{,s}/` to `~/.claude/skills/` (Claude Code only; Codex / OpenCode skip)
+4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
 5. User restarts the runtime
 
 **Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_impact`, `graph_path`, `graph_change_plan`). The other 16 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile (all 19 visible) by default.
