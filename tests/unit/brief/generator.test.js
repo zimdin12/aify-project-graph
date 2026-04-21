@@ -738,20 +738,26 @@ describe('brief/generator', () => {
   describe('trust line content', () => {
     it('includes prescriptive tip when trust is weak', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
-      // Seed 2100 distinct nodes + a unique low-confidence edge per pair.
       const nodes = [];
-      for (let i = 0; i < 2101; i++) {
+      for (let i = 0; i < 10; i++) {
         nodes.push({ id: `n${i}`, type: 'Function', label: `fn${i}`, file_path: `src/${i}.js` });
       }
       seedNodes(db, nodes);
-      for (let i = 0; i < 2100; i++) {
-        db.run(
-          `INSERT INTO edges (from_id, to_id, relation, source_file, source_line, confidence, extractor)
-           VALUES ('n' || $i, 'n' || ($i + 1), 'CALLS', 'x', 0, 0.5, 'generic')`,
-          { i },
-        );
-      }
       db.close();
+
+      // Brief trust signal now reads from manifest.dirtyEdgeCount so it
+      // agrees with graph_status (fixed 2026-04-21 after echoes bench).
+      // Seed a manifest with enough unresolved refs to trigger TRUST=weak.
+      await writeFile(
+        join(repoRoot, '.aify-graph', 'manifest.json'),
+        JSON.stringify({
+          commit: 'abc123', indexedAt: new Date().toISOString(),
+          nodes: 10, edges: 10, schemaVersion: 3, extractorVersion: '0.1.0',
+          status: 'ok', dirtyFiles: [],
+          dirtyEdges: [], // sampled (capped) list can be empty
+          dirtyEdgeCount: 2500, // > 2000 threshold → weak
+        }),
+      );
 
       generateBrief({ repoRoot });
       const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');

@@ -5,9 +5,10 @@ import { join } from 'node:path';
 // special-node sweeping (sweep). Kept here so they stay in sync.
 //
 // Rules of thumb:
-// - VCS / tool metadata: .git, .claude, .vs, .vscode, .idea
+// - VCS / tool metadata: .git, .claude, .codex, .opencode, .vs, .vscode, .idea
 // - Package / dep caches: node_modules, vendor, __pycache__, .venv, venv, env, .pytest_cache, .tox
 // - Build output / generated: build, dist, out, target, .next, .nuxt, .svelte-kit
+// - Runtime scratch: .tmp, tmp
 // - Our own graph dir: .aify-graph
 // - Coverage artefacts: coverage, .nyc_output
 //
@@ -16,12 +17,13 @@ import { join } from 'node:path';
 // that want additional exclusions on top of the defaults can list them in
 // `.aifyignore` (same format). Both files are optional.
 export const IGNORED_DIRS = new Set([
-  '.git', '.aify-graph', '.claude',
+  '.git', '.aify-graph', '.claude', '.codex', '.opencode',
   '.vs', '.vscode', '.idea',
   'node_modules', 'vendor',
   '__pycache__', '.pytest_cache', '.tox', '.venv', 'venv', 'env',
   'build', 'dist', 'out', 'target',
   '.next', '.nuxt', '.svelte-kit',
+  '.tmp', 'tmp', '.codex_tmp',
   'coverage', '.nyc_output',
 ]);
 

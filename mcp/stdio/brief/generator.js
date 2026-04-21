@@ -53,7 +53,7 @@ function count(db, sql, params = {}) {
 
 // ---------- data gatherers ----------
 
-function repoSnapshot(db) {
+function repoSnapshot(db, repoRoot) {
   const totalNodes = count(db, 'SELECT count(*) AS c FROM nodes');
   const totalEdges = count(db, 'SELECT count(*) AS c FROM edges');
   const totalFiles = count(db, "SELECT count(*) AS c FROM nodes WHERE type = 'File'");
@@ -61,9 +61,24 @@ function repoSnapshot(db) {
     `SELECT language AS name, count(*) AS files FROM nodes
      WHERE type = 'File' AND language != ''
      GROUP BY language ORDER BY files DESC LIMIT 6`);
-  // Trust proxy: count edges whose confidence < 1.0 (loose resolutions, facades, etc.)
-  const unresolvedEdges = count(db,
-    "SELECT count(*) AS c FROM edges WHERE confidence < 1.0");
+  // Trust signal: refs the resolver couldn't match to any node at ingest
+  // time. Reads manifest.dirtyEdgeCount (set by freshness/orchestrator) —
+  // same number reported by graph_status. Previously this counted
+  // `edges WHERE confidence < 1.0` which is a DIFFERENT thing (heuristic
+  // resolutions still produce real edges, just lower-confidence), and
+  // diverged from the index's own count by ~3-4× on real repos. Echoes
+  // bench 2026-04-21: brief said "19046 unresolved" while index said 5227;
+  // this fix aligns the two.
+  let unresolvedEdges = 0;
+  try {
+    const manifestPath = join(repoRoot, '.aify-graph', 'manifest.json');
+    if (existsSync(manifestPath)) {
+      const raw = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      unresolvedEdges = raw.dirtyEdgeCount ?? (raw.dirtyEdges?.length ?? 0);
+    }
+  } catch {
+    // Fall through with 0; the trust line will then say "ok".
+  }
   const trustLevel = unresolvedEdges > 2000 ? 'weak'
     : unresolvedEdges > 500 ? 'ok' : 'strong';
   return { files: totalFiles, symbols: totalNodes, edges: totalEdges, languages: langs, unresolvedEdges, trustLevel };
@@ -1332,7 +1347,7 @@ function renderJson(data, repoRoot) {
 export function generateBrief({ repoRoot }) {
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const snapshot = repoSnapshot(db);
+    const snapshot = repoSnapshot(db, repoRoot);
     const entries = entryPoints(db, repoRoot);
     const subs = subsystems(db);
     const hubsArr = hubs(db);
