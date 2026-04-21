@@ -1,0 +1,390 @@
+{
+  "repoRoot": "C:\\Docker\\aify-project-graph",
+  "timestamp": "2026-04-21T19-32-33-612Z",
+  "baseline": {
+    "nodes": 1268,
+    "edges": 3044,
+    "unresolved": 696
+  },
+  "incremental": {
+    "nodes": 1277,
+    "edges": 3016,
+    "unresolved": 2709,
+    "unresolvedSample": [
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "graphology",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "graphology-communities-louvain",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "parse",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "run",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "set",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "get",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "push",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "node:fs.promises.readFile",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "node:path.join",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "REFERENCES",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "docs",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "REFERENCES",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "docs",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "set",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "REFERENCES",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "docs",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "get",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "run",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:path.join",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:fs.writeFileSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:fs.readFileSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:fs.existsSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:child_process.execFileSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:crypto.createHash",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "storage.db.js.openDb",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.loadFunctionality",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.validateAnchors",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.hasOverlay",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.featuresForFile",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.validateFeatureEdges",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "test",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "get",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "parse",
+        "extractor": "javascript"
+      }
+    ]
+  },
+  "force": {
+    "nodes": 1277,
+    "edges": 3016,
+    "unresolved": 2709,
+    "unresolvedSample": [
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "graphology",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "graphology-communities-louvain",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "parse",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "run",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "set",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "get",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/communities.js",
+        "target": "push",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "node:fs.promises.readFile",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "node:path.join",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "REFERENCES",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "docs",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "REFERENCES",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "docs",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "set",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "REFERENCES",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "docs",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "get",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/analysis/mentions.js",
+        "target": "run",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:path.join",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:fs.writeFileSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:fs.readFileSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:fs.existsSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:child_process.execFileSync",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "node:crypto.createHash",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "storage.db.js.openDb",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.loadFunctionality",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.validateAnchors",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.hasOverlay",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.featuresForFile",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "IMPORTS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "overlay.loader.js.validateFeatureEdges",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "test",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "get",
+        "extractor": "javascript"
+      },
+      {
+        "relation": "CALLS",
+        "source_file": "mcp/stdio/brief/generator.js",
+        "target": "parse",
+        "extractor": "javascript"
+      }
+    ]
+  },
+  "edgeDivergence": {
+    "bothCount": 3016,
+    "incrementalOnlyCount": 0,
+    "forceOnlyCount": 0,
+    "incrementalOnlySample": [],
+    "forceOnlySample": []
+  }
+}
