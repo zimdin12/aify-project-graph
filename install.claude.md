@@ -62,6 +62,22 @@ Do **not** pass `--toolset=lean` for Claude Code — Claude Code uses the full t
 
 The `--max-old-space-size=8192` gives Node an 8 GB heap, needed for repos with >100k extractable symbols. On 8 GB RAM machines, use `4096` instead.
 
+### Multi-repo caveat — MCP is cwd-bound
+
+The registered MCP server has ONE `repoRoot` — whatever directory Claude Code was launched from. Live verbs (`graph_change_plan`, `graph_impact`, `graph_path`, etc.) query that graph only. If you call them while working in a different repo, they return `NO MATCH`.
+
+What still works cross-repo:
+- **Reading static briefs** — agents that read `.aify-graph/brief.*.md` directly work for any repo that has a graph. This is the recommended cross-repo path and matches the skill's "brief-first" discipline.
+- **`/graph-build-all`** and sibling build-skills — they operate on the target repo's `.aify-graph/` by shelling to `scripts/graph-brief.mjs` with the repo path.
+
+What does NOT work cross-repo with a single registration:
+- Any live MCP verb query against a repo different from where Claude Code was launched.
+
+Options for multi-repo teams:
+- **Per-repo launch.** Launch a separate Claude Code session from each repo. Each one auto-uses the same MCP registration but the verbs operate on the local cwd.
+- **Rely on static briefs.** The measured win (−36% tool calls on orient tasks) comes from the briefs, not the live verbs — for most work briefs alone are enough.
+- **Register multiple MCP instances.** Future option if live-verb cross-repo becomes common; not yet supported out of the box.
+
 ## Step 3 — install the skills
 
 Copy the whole skills tree dynamically so future skills are picked up without editing this doc.

@@ -58,6 +58,18 @@ Drop `--toolset=lean` if the user wants the full 19-verb surface (not recommende
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
 
+### Multi-repo caveat — MCP is cwd-bound
+
+The registered MCP server has ONE `repoRoot` — whatever directory Codex was launched from. Live verbs (`graph_impact`, `graph_path`, `graph_change_plan`, etc.) query that graph only. Calling them while working in a different repo returns `NO MATCH`.
+
+What still works cross-repo:
+- **Reading static briefs** directly from `.aify-graph/brief.*.md` in the target repo. This is the recommended cross-repo path and matches the skill's "brief-first" discipline.
+- `/graph-build-all` and sibling build skills — they shell out to `scripts/graph-brief.mjs <repo>` with the target path.
+
+Options for multi-repo teams:
+- **Per-repo launch.** Launch Codex from each repo you work in; the same MCP registration applies but verbs operate on that cwd.
+- **Rely on static briefs.** On Codex the brief-first workflow is already the safe path (see Codex-exec caveat below) — briefs cover most real usage without any live verb calls.
+
 ## Step 3 — install the skills
 
 Codex loads skills from `${CODEX_HOME:-$HOME/.codex}/skills/`. We ship Codex-format skills (same SKILL.md markdown as Claude Code, but with an additional `trigger:` frontmatter field that auto-activates the skill when the aify-graph MCP tools are present). Copy the whole tree dynamically so future skills are picked up without editing this doc.

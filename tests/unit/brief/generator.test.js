@@ -151,6 +151,62 @@ describe('brief/generator', () => {
       expect(plan).not.toContain('unattributed');
     });
 
+    it('brief.json embeds task_count + tasks[] per feature (programmatic consumers)', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [
+        { id: 'n1', type: 'Function', label: 'authenticate', file_path: 'src/auth.js' },
+      ]);
+      db.close();
+
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        features: [{ id: 'auth', anchors: { symbols: ['authenticate'] } }],
+      }));
+      await writeFile(join(repoRoot, '.aify-graph', 'tasks.json'), JSON.stringify({
+        version: '0.1',
+        source: 'plaintext',
+        tasks: [
+          { id: 'CU-1', title: 'fix login', status: 'in_progress', priority: 'high', features: ['auth'], url: 'https://x/CU-1' },
+          { id: 'CU-2', title: 'session cleanup', status: 'open', related_features: ['auth'] },
+          { id: 'CU-3', title: 'done work', status: 'done', features: ['auth'] },
+        ],
+      }));
+
+      generateBrief({ repoRoot });
+      const json = JSON.parse(readFileSync(join(repoRoot, '.aify-graph', 'brief.json'), 'utf8'));
+      const authFeature = json.features.valid.find(f => f.id === 'auth');
+      expect(authFeature).toBeTruthy();
+      expect(authFeature.task_count).toBe(2); // open + in_progress only, not done
+      expect(authFeature.tasks).toHaveLength(2);
+      expect(authFeature.tasks[0]).toMatchObject({
+        id: 'CU-1',
+        title: 'fix login',
+        status: 'in_progress',
+        priority: 'high',
+        url: 'https://x/CU-1',
+      });
+      // Feature without tasks is not a feature schema failure
+      const otherValid = json.features.valid.filter(f => f.id !== 'auth');
+      for (const f of otherValid) expect(f.task_count).toBe(0);
+    });
+
+    it('brief.json features[].task_count defaults to 0 when no tasks.json exists', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [
+        { id: 'n1', type: 'Function', label: 'foo', file_path: 'src/a.js' },
+      ]);
+      db.close();
+
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        features: [{ id: 'f1', anchors: { symbols: ['foo'] } }],
+      }));
+      // No tasks.json written
+      generateBrief({ repoRoot });
+      const json = JSON.parse(readFileSync(join(repoRoot, '.aify-graph', 'brief.json'), 'utf8'));
+      const f1 = json.features.valid.find(f => f.id === 'f1');
+      expect(f1.task_count).toBe(0);
+      expect(f1.tasks).toEqual([]);
+    });
+
     it('brief.onboard.md is smaller than brief.agent.md (stripped variant)', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
       seedNodes(db, [

@@ -1261,7 +1261,13 @@ function renderPlanAgentMarkdown(data) {
 }
 
 function renderJson(data, repoRoot) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, tasksArtifact } = data;
+  // Pre-compute tasks-by-feature so programmatic consumers of brief.json
+  // (e.g. /graph-walk-bugs, future graph-lint) don't need to re-parse
+  // tasks.json and re-apply the open/attribution filter. Echoes PM
+  // feedback 2026-04-21: "per-feature task counts are only in brief.plan.md
+  // (rendered) and have to be recomputed from tasks.json by any consumer."
+  const tasksByFeature = openTasksByFeature(tasksArtifact);
   return {
     // Deliberately omit a timestamp — it would force brief.json to rewrite
     // on every regen, defeating the content-hash-guarded cache-discipline
@@ -1284,16 +1290,31 @@ function renderJson(data, repoRoot) {
     recent_activity: recent,
     features: {
       version: overlay?.version ?? null,
-      valid: (overlayHealth?.valid ?? []).map(v => ({
-        id: v.feature.id,
-        label: v.feature.label,
-        description: v.feature.description,
-        anchors: v.feature.anchors,
-        depends_on: v.feature.depends_on,
-        related_to: v.feature.related_to,
-        resolved_anchors: v.resolved,
-        anchor_health: `${v.totalResolved}/${v.totalDeclared}`,
-      })),
+      valid: (overlayHealth?.valid ?? []).map(v => {
+        const featureTasks = tasksByFeature.get(v.feature.id) ?? [];
+        return {
+          id: v.feature.id,
+          label: v.feature.label,
+          description: v.feature.description,
+          anchors: v.feature.anchors,
+          depends_on: v.feature.depends_on,
+          related_to: v.feature.related_to,
+          resolved_anchors: v.resolved,
+          anchor_health: `${v.totalResolved}/${v.totalDeclared}`,
+          // Pre-materialized task binding so programmatic consumers (e.g.
+          // /graph-walk-bugs) don't re-parse tasks.json. Capped at 10 per
+          // feature to keep brief.json size bounded on task-heavy repos;
+          // task_count reports the true total.
+          task_count: featureTasks.length,
+          tasks: featureTasks.slice(0, 10).map(t => ({
+            id: t.id,
+            title: t.title ?? '',
+            status: t.status ?? null,
+            priority: t.priority ?? null,
+            url: t.url ?? null,
+          })),
+        };
+      }),
       broken: (overlayHealth?.broken ?? []).map(v => ({
         id: v.feature.id,
         label: v.feature.label,

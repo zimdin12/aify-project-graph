@@ -125,6 +125,15 @@ Anti-patterns to avoid:
 
 The user is watching the split and will call it out. Save them the trouble — self-audit your own cadence and pass the baton before they have to tell you.
 
+## Multi-repo: one MCP server works on one repo at a time
+
+The registered MCP server binds to ONE `repoRoot` — the directory where the runtime (Claude Code / Codex / OpenCode) was launched. Live verbs (`graph_impact`, `graph_path`, `graph_change_plan`, …) query that graph only. Calling a live verb while working in a different repo returns `NO MATCH`.
+
+- **Cross-repo path that works:** read static briefs (`.aify-graph/brief.agent.md` etc.) in the target repo directly. Agents do this in the benchmarked "brief-first" workflow and it's the dominant win (measured −36% tool calls on orient tasks).
+- **For live verbs in a different repo:** launch the runtime FROM that repo so the MCP server's cwd matches. The skills and registration are the same.
+
+No multi-root MCP registration exists today. If your team regularly needs live verbs across multiple repos, the current options are per-repo launches or leaning on static briefs. A future `graph_export` verb could also unblock cross-tool / cross-repo consumers.
+
 ## Multi-agent teams sharing one repo
 
 This is the "4 agents work in the same folder" case. It's supported — here's how it behaves, what's safe, and what to watch for.

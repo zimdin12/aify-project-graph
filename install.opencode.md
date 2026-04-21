@@ -71,6 +71,10 @@ node -e '
 
 Recommended profile is `--toolset=lean` (3 visible verbs: `graph_impact`, `graph_path`, `graph_change_plan`). Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 19-verb surface.
 
+### Multi-repo caveat — MCP is cwd-bound
+
+The registered MCP server has ONE `repoRoot` — whatever directory OpenCode was launched from. Live verbs query that graph only; calls from a different cwd return `NO MATCH`. Cross-repo works via the static briefs (`.aify-graph/brief.*.md`) that agents can read directly. Launch OpenCode from each target repo if you need live verbs there.
+
 ## Step 3 — skills
 
 OpenCode does not load Claude-Code skill files. **Skip this step.**
