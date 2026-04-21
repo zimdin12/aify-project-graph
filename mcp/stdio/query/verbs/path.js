@@ -161,7 +161,8 @@ export function buildPaths(db, node, {
   const edges = direction === 'out'
     ? db.all(
         `SELECT n.id AS node_id, n.label, n.type AS node_type, n.file_path, n.start_line,
-                n.confidence AS node_confidence, e.relation, e.confidence AS edge_confidence
+                n.confidence AS node_confidence, e.relation, e.confidence AS edge_confidence,
+                e.provenance AS edge_provenance
          FROM edges e JOIN nodes n ON n.id = e.to_id
          WHERE e.from_id = $id AND e.relation IN (${relFilter})
          ORDER BY e.confidence DESC LIMIT $limit`,
@@ -169,7 +170,8 @@ export function buildPaths(db, node, {
       )
     : db.all(
         `SELECT n.id AS node_id, n.label, n.type AS node_type, n.file_path, n.start_line,
-                n.confidence AS node_confidence, e.relation, e.confidence AS edge_confidence
+                n.confidence AS node_confidence, e.relation, e.confidence AS edge_confidence,
+                e.provenance AS edge_provenance
          FROM edges e JOIN nodes n ON n.id = e.from_id
          WHERE e.to_id = $id AND e.relation IN (${relFilter})
          ORDER BY e.confidence DESC LIMIT $limit`,
@@ -186,6 +188,7 @@ export function buildPaths(db, node, {
     });
 
     if (child) {
+      child.provenance = edge.edge_provenance ?? 'EXTRACTED';
       result.children.push(child);
       continue;
     }
@@ -195,6 +198,7 @@ export function buildPaths(db, node, {
       file: edge.file_path,
       line: edge.start_line,
       confidence: edge.node_confidence ?? edge.edge_confidence ?? 0.9,
+      provenance: edge.edge_provenance ?? 'EXTRACTED',
       children: [],
     });
   }

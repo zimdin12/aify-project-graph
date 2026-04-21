@@ -97,22 +97,23 @@ function recentCommitsForFile(repoRoot, filePath, limit = 5) {
 // not just label — matches the dev-review fix applied to code layer in f8feb6c).
 function relationsForSymbol(db, sym, limit = 10) {
   const callersRaw = db.all(
-    `SELECT DISTINCT fn.label, fn.type, fn.file_path, fn.start_line, e.relation
+    `SELECT DISTINCT fn.label, fn.type, fn.file_path, fn.start_line, e.relation, e.provenance
      FROM edges e
      JOIN nodes fn ON fn.id = e.from_id
      WHERE e.to_id = $id
        AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
      LIMIT 100`, { id: sym.id });
   const calleesRaw = db.all(
-    `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation
+    `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation, e.provenance
      FROM edges e
      JOIN nodes tn ON tn.id = e.to_id
      WHERE e.from_id = $id
        AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
      LIMIT 100`, { id: sym.id });
+  const withProv = (r) => ({ ...r, provenance: r.provenance ?? 'EXTRACTED' });
   return {
-    callers: capped(callersRaw, limit),
-    callees: capped(calleesRaw, limit),
+    callers: capped(callersRaw.map(withProv), limit),
+    callees: capped(calleesRaw.map(withProv), limit),
   };
 }
 

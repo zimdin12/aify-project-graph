@@ -79,9 +79,10 @@ export function renderCompact({ nodes = [], edges = [], truncated = 0, suggestio
 function renderPathVerbose(paths, indent = 0) {
   const lines = [];
   for (const p of paths) {
+    const provTag = indent === 0 ? '' : renderProvenanceTag(p.provenance);
     const prefix = indent === 0
       ? `PATH ${p.symbol} ${formatLocation(p.file, p.line)}`
-      : `${'  '.repeat(indent)}→ ${p.symbol} ${formatLocation(p.file, p.line)} conf=${Number(p.confidence).toFixed(2)}`;
+      : `${'  '.repeat(indent)}→ ${p.symbol} ${formatLocation(p.file, p.line)} conf=${Number(p.confidence).toFixed(2)}${provTag}`;
     lines.push(prefix);
     if (p.children && p.children.length > 0) {
       lines.push(renderPathVerbose(p.children, indent + 1));
@@ -102,9 +103,10 @@ function renderPathCompact(paths, indent = 0) {
     // Only show confidence when it's genuinely low (< 0.75). Most resolved
     // edges sit at 0.90 and surfacing that on every row is pure noise.
     const confTag = conf < 0.75 ? ` conf=${conf.toFixed(2)}` : '';
+    const provTag = indent === 0 ? '' : renderProvenanceTag(p.provenance);
     const prefix = indent === 0
       ? `PATH ${p.symbol} ${formatLocation(p.file, p.line)}`
-      : `${'  '.repeat(indent)}${p.symbol} ${formatLocation(p.file, p.line)}${confTag}`;
+      : `${'  '.repeat(indent)}${p.symbol} ${formatLocation(p.file, p.line)}${confTag}${provTag}`;
     lines.push(prefix);
     if (p.children && p.children.length > 0) {
       lines.push(renderPathCompact(p.children, indent + 1));
