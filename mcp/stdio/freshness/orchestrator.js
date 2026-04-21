@@ -111,8 +111,12 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
           indexed: true, commit, indexedAt: manifest.indexedAt,
           schemaVersion: SCHEMA_VERSION, extractorVersion: EXTRACTOR_VERSION,
           parserBundleVersion: PARSER_BUNDLE_VERSION,
-          dirtyFiles: [], dirtyEdgeCount: (manifest.dirtyEdges ?? []).length,
-          unresolvedEdges: (manifest.dirtyEdges ?? []).length,
+          dirtyFiles: [],
+          // Prefer authoritative dirtyEdgeCount (unchanged by the 500-row
+          // manifest sample cap); fall back to sample length for older
+          // graphs written before dirtyEdgeCount existed.
+          dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+          unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
           nodes: manifest.nodes ?? 0, edges: manifest.edges ?? 0,
           processedFiles: [],
         };

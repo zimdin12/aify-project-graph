@@ -159,9 +159,12 @@ export function validateAnchors(features, db) {
       + resolved.routes.length + resolved.docs.length;
     const entry = { feature, resolved, totalDeclared, totalResolved };
 
-    // A feature is "broken" if more than half of declared anchors don't resolve
-    // OR if it has zero resolving anchors at all.
-    if (totalDeclared > 0 && (totalResolved === 0 || totalResolved * 2 < totalDeclared)) {
+    // A feature is "broken" if it has zero declared anchors (no way to
+    // verify it maps to anything), zero resolved, or less than half of
+    // declared anchors resolve. Zero-anchor was previously treated as
+    // valid — dev audit 11b90fb flagged that a feature without anchors
+    // can't be validated and should not silently pass.
+    if (totalDeclared === 0 || totalResolved === 0 || totalResolved * 2 < totalDeclared) {
       broken.push(entry);
     } else {
       valid.push(entry);

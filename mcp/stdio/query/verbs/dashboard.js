@@ -3,16 +3,19 @@ import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { startDashboard } from '../../dashboard/server.js';
 
-let activeDashboard = null;
+// Keyed by repoRoot so calling graph_dashboard from different repos in the
+// same process doesn't silently return the URL of the first repo's server
+// (the previous single-slot state caused exactly that — dev audit 11b90fb).
+const activeDashboards = new Map();
 
 export async function graphDashboard({ repoRoot, port }) {
   await ensureFresh({ repoRoot });
 
-  // If already running, return existing URL
-  if (activeDashboard) {
+  const existing = activeDashboards.get(repoRoot);
+  if (existing) {
     return {
-      url: activeDashboard.url,
-      port: activeDashboard.port,
+      url: existing.url,
+      port: existing.port,
       status: 'already_running',
     };
   }
@@ -21,7 +24,7 @@ export async function graphDashboard({ repoRoot, port }) {
   try {
     const result = await startDashboard({ db, port: port || 0 });
 
-    activeDashboard = { ...result, db };
+    activeDashboards.set(repoRoot, { ...result, db });
 
     return {
       url: result.url,

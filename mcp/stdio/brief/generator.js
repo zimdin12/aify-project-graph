@@ -250,12 +250,25 @@ function extractExports(repoRoot, db) {
       for (const f of files.slice(0, 8)) {
         const path = join(routesDir, f);
         const text = readFileSync(path, 'utf8');
-        // Match Route::get('/path', [Controller::class, 'method']) or Route::apiResource('x', Controller::class)
-        const routeMatches = [...text.matchAll(/Route::(get|post|put|patch|delete|apiResource)\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*([A-Za-z0-9_\\]+)/g)];
+        // Match both forms:
+        //   Route::get('/x', Controller::class)                 → bare class
+        //   Route::get('/x', [Controller::class, 'method'])     → array-call
+        //   Route::apiResource('x', Controller::class)
+        // Previous regex only caught the bare form — dev audit 11b90fb
+        // flagged that array-form controllers were silently dropped, which
+        // is the idiomatic Laravel 8+ routing shape.
+        const routeRe = /Route::(get|post|put|patch|delete|apiResource)\s*\(\s*['"`]([^'"`]+)['"`]\s*,\s*(?:\[\s*([A-Za-z0-9_\\]+)::class\s*,\s*['"`]([A-Za-z0-9_]+)['"`]\s*\]|([A-Za-z0-9_\\]+))/g;
+        const routeMatches = [...text.matchAll(routeRe)];
         for (const m of routeMatches) {
           const method = m[1].toUpperCase();
           const uri = m[2];
-          const handler = m[3].split('\\').pop();
+          let handler;
+          if (m[3]) {
+            // Array form: [Controller::class, 'method']
+            handler = `${m[3].split('\\').pop()}@${m[4]}`;
+          } else {
+            handler = m[5].split('\\').pop();
+          }
           add(`${method} ${uri}`, `routes/${f} → ${handler}`, 'route');
           if (out.length >= 16) break;
         }
@@ -924,6 +937,18 @@ function openTasksByFeature(tasksArtifact) {
   return byFeature;
 }
 
+// Separate accessor for tasks with no feature attribution — brief.plan.md
+// surfaces them in their own section instead of silently dropping them
+// (dev audit 11b90fb). Shape mirrors openTasksByFeature's filter.
+function openTasksWithoutFeatures(tasksArtifact) {
+  const out = [];
+  for (const t of tasksArtifact?.tasks || []) {
+    if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
+    if (taskFeatureRefs(t).length === 0) out.push(t);
+  }
+  return out;
+}
+
 // Recent commits with touched-files + feature attribution. Used by
 // brief.plan.md to show "what's been changing where." Fixed commit count
 // keeps prompt-cache stable.
@@ -1260,6 +1285,19 @@ function renderPlanAgentMarkdown(data) {
           lines.push(`      - ${t.id} ${t.title}`);
         }
       }
+    }
+  }
+  const unattributed = openTasksWithoutFeatures(tasksArtifact);
+  if (unattributed.length) {
+    // Tasks that reference no feature still need visibility — previously
+    // dropped from brief.plan.md silently. Cap at 5 so deeply-unmapped
+    // backlogs don't flood the prompt.
+    lines.push('UNATTRIBUTED TASKS:');
+    for (const t of unattributed.slice(0, 5)) {
+      lines.push(`  ${t.id} ${t.title}`);
+    }
+    if (unattributed.length > 5) {
+      lines.push(`  +${unattributed.length - 5} more (attach to a feature in functionality.json)`);
     }
   }
   if (recentWithFiles?.length) {

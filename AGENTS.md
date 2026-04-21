@@ -83,7 +83,7 @@ The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` 
 `.aify-graph/` also contains five precomputed brief artifacts that often answer orient/plan questions without a single MCP call:
 
 - **`brief.md`** (~700-900 tok) — human-readable full brief
-- **`brief.agent.md`** (~300-1100 tok; includes **PATHS** pre-computed execution chains for top EXPORTS — apg with 19 MCP verbs + PATHS ≈ 1000 tok, small repos without explicit exports ≈ 300 tok) — dense prompt substrate; paste into session prompt for orient + trace sessions
+- **`brief.agent.md`** (~300-1100 tok; includes **PATHS** pre-computed execution chains for top EXPORTS — apg with 21 MCP verbs + PATHS ≈ 1000 tok, small repos without explicit exports ≈ 300 tok) — dense prompt substrate; paste into session prompt for orient + trace sessions
 - **`brief.onboard.md`** (~250-500 tok) — stripped variant for new-to-this-repo sessions (drops PATHS, recent, risks)
 - **`brief.plan.md`** (~300-600 tok when functionality.json populated, ~70 tok when empty) — leads with features, open tasks by feature, feature-tagged recent commits, and risk areas. For change-planning sessions.
 - **`brief.json`** — machine-readable equivalent
