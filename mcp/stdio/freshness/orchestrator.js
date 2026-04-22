@@ -13,7 +13,7 @@ import { withWriteLock } from './lock.js';
 import { getLanguageConfig } from '../ingest/languages/index.js';
 import { extractFile } from '../ingest/extractors/generic.js';
 import { sweepFilesystem } from '../ingest/sweep.js';
-import { IGNORED_DIRS, loadEffectiveIgnoredDirs } from '../ingest/ignored-dirs.js';
+import { IGNORED_DIRS, loadEffectiveIgnoredDirs, normalizeRepoRelativePath, pathContainsIgnoredDir } from '../ingest/ignored-dirs.js';
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
 import { pythonWebPlugin } from '../ingest/frameworks/python_web.js';
@@ -327,13 +327,10 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
 }
 
 function shouldCarryForwardRef(ref, repoRoot, ignoredDirs, filesToProcess) {
-  const sourceFile = typeof ref?.source_file === 'string'
-    ? ref.source_file.replace(/\\/g, '/')
-    : '';
+  const sourceFile = normalizeRepoRelativePath(ref?.source_file);
   if (!sourceFile) return false;
   if (filesToProcess.includes(sourceFile)) return false;
-  const segments = sourceFile.split('/').filter(Boolean);
-  if (segments.some((segment) => ignoredDirs.has(segment))) return false;
+  if (pathContainsIgnoredDir(sourceFile, ignoredDirs)) return false;
   return existsSync(join(repoRoot, sourceFile));
 }
 

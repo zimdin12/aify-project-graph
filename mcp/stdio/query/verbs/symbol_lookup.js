@@ -71,6 +71,79 @@ function preferConcrete(rows) {
   return concrete.length > 0 ? concrete : rows;
 }
 
+function parseExtra(row) {
+  if (!row) return {};
+  if (typeof row.extra === 'string') {
+    try {
+      return JSON.parse(row.extra);
+    } catch {
+      return {};
+    }
+  }
+  return row.extra ?? {};
+}
+
+function canonicalSymbolKey(row) {
+  const extra = parseExtra(row);
+  const qparts = normalizeQname(extra?.qname ?? '');
+  if (qparts.length > 0) return `${row.type ?? 'Symbol'}:${qparts.join('.')}`;
+
+  const parentClass = normalizeQualifiedPart(extra?.parent_class ?? '');
+  if (parentClass) return `${row.type ?? 'Symbol'}:${parentClass}.${row.label ?? ''}`;
+
+  return `${row.type ?? 'Symbol'}:${row.label ?? ''}:${row.file_path ?? ''}`;
+}
+
+function displaySymbolCandidate(row) {
+  const extra = parseExtra(row);
+  const qparts = normalizeQname(extra?.qname ?? '');
+  if (qparts.length > 0) return qparts.join('::');
+
+  const parentClass = normalizeQualifiedPart(extra?.parent_class ?? '');
+  if (parentClass) return `${parentClass}::${row.label}`;
+
+  return row.label ?? '(unknown)';
+}
+
+function candidateSortKey(a, b) {
+  const confidenceDelta = (b.confidence ?? 0) - (a.confidence ?? 0);
+  if (confidenceDelta !== 0) return confidenceDelta;
+  const fileDelta = (a.file_path ?? '').localeCompare(b.file_path ?? '');
+  if (fileDelta !== 0) return fileDelta;
+  return (a.start_line ?? 0) - (b.start_line ?? 0);
+}
+
+export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
+  if (!symbol || QUALIFIER_RE.test(symbol)) return null;
+
+  const concrete = preferConcrete(rows);
+  if (concrete.length <= 1) return null;
+
+  const groups = new Map();
+  for (const row of concrete) {
+    const key = canonicalSymbolKey(row);
+    const existing = groups.get(key);
+    if (existing) {
+      if ((row.confidence ?? 0) > (existing.confidence ?? 0)) groups.set(key, row);
+      continue;
+    }
+    groups.set(key, row);
+  }
+
+  if (groups.size <= 1) return null;
+
+  const candidates = [...groups.values()]
+    .sort(candidateSortKey)
+    .slice(0, limit)
+    .map((row) => `- ${displaySymbolCandidate(row)} ${row.file_path}:${row.start_line ?? 0}`);
+
+  return [
+    `AMBIGUOUS MATCH for "${symbol}". ${groups.size} concrete candidates found:`,
+    ...candidates,
+    'Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.',
+  ].join('\n');
+}
+
 // Try an exact label match first, then a class-qualified fallback.
 // `typesClause` is the SQL fragment used inside IN (...) — callers pass
 // their own set (whereis and preflight include Test, path uses all nodes).

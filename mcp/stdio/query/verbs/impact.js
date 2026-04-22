@@ -12,7 +12,8 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const { targets, targetIds, rolledUp, header } = expandClassRollupTargets(db, symbol);
+    const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);
+    if (error) return error;
     if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
 
     const relFilter = IMPACT_RELATIONS.map(r => `'${r}'`).join(',');

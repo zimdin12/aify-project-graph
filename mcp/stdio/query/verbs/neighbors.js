@@ -3,6 +3,8 @@ import { openDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { selectBestRoot } from './path.js';
+import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 
 const ALL_RELATIONS = [
   'CONTAINS', 'DEFINES', 'DECLARES', 'IMPORTS', 'EXPORTS',
@@ -15,14 +17,16 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const targets = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
+    const targets = resolveSymbol(db, symbol);
     if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    const ambiguity = buildAmbiguousMatchMessage(symbol, targets);
+    if (ambiguity) return ambiguity;
 
     const types = edge_types.length ? edge_types : ALL_RELATIONS;
     const safeTypes = types.filter(t => ALL_RELATIONS.includes(t));
     if (safeTypes.length === 0) return `NO MATCH — none of the requested edge_types are valid. Valid types: ${ALL_RELATIONS.join(', ')}.`;
     const relFilter = safeTypes.map(t => `'${t}'`).join(',');
-    const nodeId = targets[0].id;
+    const nodeId = selectBestRoot(targets).id;
 
     const edges = db.all(
       `SELECT e.*, n.label AS neighbor_label, n.file_path AS neighbor_file, n.start_line AS neighbor_line

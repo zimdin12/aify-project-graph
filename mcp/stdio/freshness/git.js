@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { loadEffectiveIgnoredDirs, normalizeRepoRelativePath, pathContainsIgnoredDir } from '../ingest/ignored-dirs.js';
 
 function normalizeLines(stdout) {
   return stdout
@@ -14,12 +15,13 @@ export async function getHeadCommit(repoRoot) {
 
 export async function getDirtyFiles(repoRoot) {
   const stdout = execGit(repoRoot, ['status', '--porcelain']);
+  const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
 
   return stdout
     .split(/\r?\n/u)
-    .map((line) => line.slice(3).trim())
+    .map((line) => normalizeRepoRelativePath(line.slice(3).trim()))
     .filter(Boolean)
-    .map((line) => line.replace(/\\/g, '/'));
+    .filter((line) => !pathContainsIgnoredDir(line, ignoredDirs));
 }
 
 export async function getChangedFiles(repoRoot, fromRef, toRef = 'HEAD') {

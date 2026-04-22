@@ -72,3 +72,16 @@ export function hasAifyOverrides(repoRoot) {
   return existsSync(join(repoRoot, '.aifyignore'))
     || existsSync(join(repoRoot, '.aifyinclude'));
 }
+
+export function normalizeRepoRelativePath(path) {
+  return String(path || '')
+    .replace(/\\/g, '/')
+    .replace(/^\.?\//, '');
+}
+
+export function pathContainsIgnoredDir(path, ignoredDirs = IGNORED_DIRS) {
+  const normalized = normalizeRepoRelativePath(path);
+  if (!normalized) return false;
+  const segments = normalized.split('/').filter(Boolean);
+  return segments.some((segment) => ignoredDirs.has(segment));
+}

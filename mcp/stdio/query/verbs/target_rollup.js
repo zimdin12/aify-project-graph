@@ -1,4 +1,4 @@
-import { resolveSymbol } from './symbol_lookup.js';
+import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 
 function placeholders(values, prefix) {
   return {
@@ -13,8 +13,19 @@ export function expandClassRollupTargets(db, symbol) {
   // disambiguating via extra.qname when the parent is named. Critical
   // for C++ where agents naturally ask `GpuSimFramework::setGravAxis`.
   const targets = resolveSymbol(db, symbol);
+  const ambiguity = buildAmbiguousMatchMessage(symbol, targets);
+  if (ambiguity) {
+    return {
+      targets: [],
+      targetIds: [],
+      rolledUp: false,
+      header: '',
+      methodIds: [],
+      error: ambiguity,
+    };
+  }
   if (targets.length === 0) {
-    return { targets: [], targetIds: [], rolledUp: false, header: '', methodIds: [] };
+    return { targets: [], targetIds: [], rolledUp: false, header: '', methodIds: [], error: '' };
   }
 
   const classTargets = targets.filter((target) => target.type === 'Class');
@@ -25,6 +36,7 @@ export function expandClassRollupTargets(db, symbol) {
       rolledUp: false,
       header: '',
       methodIds: [],
+      error: '',
     };
   }
 
@@ -47,7 +59,7 @@ export function expandClassRollupTargets(db, symbol) {
   const label = classCount === 1 ? 'Class' : 'Classes';
   const header = `ROLLUP ${label} "${symbol}" across ${methodCount} method${methodCount === 1 ? '' : 's'}`;
 
-  return { targets, targetIds, rolledUp: true, header, methodIds };
+  return { targets, targetIds, rolledUp: true, header, methodIds, error: '' };
 }
 
 export function collapseCallerEdges(edges, rolledUpSymbol) {

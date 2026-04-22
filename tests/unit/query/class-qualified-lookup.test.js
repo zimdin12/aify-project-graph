@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
 import {
+  buildAmbiguousMatchMessage,
   resolveSymbol,
   splitQualifiedSymbol,
 } from '../../../mcp/stdio/query/verbs/symbol_lookup.js';
@@ -100,6 +101,33 @@ describe('resolveSymbol — class-qualified C++ / dotted symbols', () => {
     const rows = resolveSymbol(db, 'UnknownParent::setGravAxis');
     // Both bare-name rows returned; caller picks via selectBestRoot or similar.
     expect(rows.map(r => r.id).sort()).toEqual(['m:gpu-set', 'm:other-set']);
+  });
+
+  it('flags unqualified multi-owner matches as ambiguous instead of silently guessing', () => {
+    const rows = resolveSymbol(db, 'setGravAxis');
+    const message = buildAmbiguousMatchMessage('setGravAxis', rows);
+    expect(message).toContain('AMBIGUOUS MATCH');
+    expect(message).toContain('GpuSimFramework::setGravAxis');
+    expect(message).toContain('OtherClass::setGravAxis');
+  });
+
+  it('does not flag duplicate declaration/definition rows for the same qname as ambiguous', () => {
+    upsertNode(db, {
+      id: 'm:alloc-decl',
+      type: 'Method',
+      label: 'allocateSlot',
+      file_path: 'include/LodCascadeBuffer.hpp',
+      start_line: 3,
+      end_line: 3,
+      language: 'cpp',
+      confidence: 0.8,
+      structural_fp: '',
+      dependency_fp: '',
+      extra: { qname: 'LodCascadeBuffer.allocateSlot', parent_class: 'LodCascadeBuffer' },
+    });
+
+    const rows = resolveSymbol(db, 'allocateSlot');
+    expect(buildAmbiguousMatchMessage('allocateSlot', rows)).toBeNull();
   });
 
   it('prefers concrete nodes over External fallbacks for qualified queries', () => {

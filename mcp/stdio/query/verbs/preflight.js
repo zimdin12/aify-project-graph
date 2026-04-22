@@ -2,6 +2,8 @@ import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
+import { selectBestRoot } from './path.js';
+import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 
 /**
  * One-shot edit safety check. Combines whereis + callers + impact + tests + trust
@@ -13,12 +15,11 @@ export async function graphPreflight({ repoRoot, symbol }) {
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // 1. Find the symbol
-    const nodes = db.all(
-      "SELECT * FROM nodes WHERE label = $label AND type IN ('Function','Method','Class','Interface','Type','Test') LIMIT 5",
-      { label: symbol }
-    );
+    const nodes = resolveSymbol(db, symbol, "'Function','Method','Class','Interface','Type','Test'");
     if (nodes.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
-    const node = nodes[0];
+    const ambiguity = buildAmbiguousMatchMessage(symbol, nodes);
+    if (ambiguity) return ambiguity;
+    const node = selectBestRoot(nodes);
 
     // 2. Count callers
     const callerCount = db.get(

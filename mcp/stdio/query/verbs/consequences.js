@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process';
 import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
+import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 
 // Class names often appear multiple times — forward declarations in
 // headers + the definition body in a .cpp/.ts. Prefer non-header files
@@ -126,10 +127,13 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // body. `start_line` is populated for definitions; forward decls often
     // still have one but come from headers. Heuristic: pick the node whose
     // file is NOT a header (.h/.hpp) when a non-header definition exists.
-    const allSymbolMatches = db.all(
-      `SELECT id, label, type, file_path, start_line, end_line FROM nodes
-       WHERE label = $t AND type IN ('Function','Method','Class','Interface','Type')
-       LIMIT 40`, { t: input });
+    const allSymbolMatches = resolveSymbol(
+      db,
+      input,
+      "'Function','Method','Class','Interface','Type'",
+    );
+    const ambiguity = buildAmbiguousMatchMessage(input, allSymbolMatches);
+    if (ambiguity) return ambiguity;
     const symbolNodes = pickPrimarySymbol(allSymbolMatches);
     const referencedIn = allSymbolMatches
       .filter((n) => !symbolNodes.some((s) => s.id === n.id))

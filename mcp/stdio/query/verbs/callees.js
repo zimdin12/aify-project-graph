@@ -4,6 +4,8 @@ import { renderCompact } from '../renderer.js';
 import { rankCallees } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { selectBestRoot } from './path.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -12,9 +14,12 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const sources = db.all('SELECT id FROM nodes WHERE label = $label', { label: symbol });
+    const sources = resolveSymbol(db, symbol);
     if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
-    const sourceIds = sources.map(s => s.id);
+    const ambiguity = buildAmbiguousMatchMessage(symbol, sources);
+    if (ambiguity) return ambiguity;
+    const root = selectBestRoot(sources);
+    const sourceIds = [root.id];
 
     let edges;
     if (depth <= 1) {
@@ -29,17 +34,25 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
         params
       );
     } else {
-      const sid = sourceIds[0];
+      const sid = root.id;
       edges = db.all(
-        `WITH RECURSIVE callees(callee_id, depth) AS (
-           SELECT to_id, 1 FROM edges WHERE from_id = $sid AND relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+        `WITH RECURSIVE callees(from_id, to_id, depth) AS (
+           SELECT from_id, to_id, 1
+           FROM edges
+           WHERE from_id = $sid AND relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
            UNION ALL
-           SELECT e.to_id, c.depth + 1 FROM edges e JOIN callees c ON e.from_id = c.callee_id
+           SELECT e.from_id, e.to_id, c.depth + 1
+           FROM edges e
+           JOIN callees c ON e.from_id = c.to_id
            WHERE e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')}) AND c.depth < $depth AND c.depth <= 10
          )
          SELECT DISTINCT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line, c.depth
-         FROM callees c JOIN edges e ON e.to_id = c.callee_id JOIN nodes n ON n.id = e.to_id
-         WHERE e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+         FROM callees c
+         JOIN edges e
+           ON e.from_id = c.from_id
+          AND e.to_id = c.to_id
+          AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+         JOIN nodes n ON n.id = e.to_id
          LIMIT 100`,
         { sid, depth }
       );

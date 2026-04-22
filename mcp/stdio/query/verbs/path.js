@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { renderPath } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
-import { resolveSymbol } from './symbol_lookup.js';
+import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 
 const ROOT_TYPE_PRIORITY = new Map([
   ['Entrypoint', 0],
@@ -43,6 +43,8 @@ export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5
   try {
     const sources = resolveSymbol(db, symbol);
     if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    const ambiguity = buildAmbiguousMatchMessage(symbol, sources);
+    if (ambiguity) return ambiguity;
 
     const root = selectBestRoot(sources);
     const relations = MODE_RELATIONS[mode] ?? MODE_RELATIONS.execution;

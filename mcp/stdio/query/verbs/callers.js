@@ -13,7 +13,8 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const { targets, targetIds, rolledUp, header } = expandClassRollupTargets(db, symbol);
+    const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);
+    if (error) return error;
     if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
 
     const placeholders = targetIds.map((_, i) => `$t${i}`).join(',');
@@ -31,15 +32,23 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       );
     } else {
       edges = db.all(
-        `WITH RECURSIVE callers(caller_id, depth) AS (
-           SELECT from_id, 1 FROM edges WHERE to_id IN (${placeholders}) AND relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+        `WITH RECURSIVE callers(from_id, to_id, depth) AS (
+           SELECT from_id, to_id, 1
+           FROM edges
+           WHERE to_id IN (${placeholders}) AND relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
            UNION ALL
-           SELECT e.from_id, c.depth + 1 FROM edges e JOIN callers c ON e.to_id = c.caller_id
+           SELECT e.from_id, e.to_id, c.depth + 1
+           FROM edges e
+           JOIN callers c ON e.to_id = c.from_id
            WHERE e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')}) AND c.depth < $depth AND c.depth <= 10
          )
          SELECT DISTINCT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line, c.depth
-         FROM callers c JOIN edges e ON e.from_id = c.caller_id JOIN nodes n ON n.id = e.from_id
-         WHERE e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+         FROM callers c
+         JOIN edges e
+           ON e.from_id = c.from_id
+          AND e.to_id = c.to_id
+          AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+         JOIN nodes n ON n.id = e.from_id
          LIMIT 100`,
         { ...params, depth }
       );
