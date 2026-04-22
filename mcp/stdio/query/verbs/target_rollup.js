@@ -1,3 +1,5 @@
+import { resolveSymbol } from './symbol_lookup.js';
+
 function placeholders(values, prefix) {
   return {
     sql: values.map((_, index) => `$${prefix}${index}`).join(','),
@@ -6,7 +8,11 @@ function placeholders(values, prefix) {
 }
 
 export function expandClassRollupTargets(db, symbol) {
-  const targets = db.all('SELECT id, type, label FROM nodes WHERE label = $label', { label: symbol });
+  // resolveSymbol handles class-qualified forms (C++ `Class::method`,
+  // dotted `Class.method`) by falling back to the bare name and
+  // disambiguating via extra.qname when the parent is named. Critical
+  // for C++ where agents naturally ask `GpuSimFramework::setGravAxis`.
+  const targets = resolveSymbol(db, symbol);
   if (targets.length === 0) {
     return { targets: [], targetIds: [], rolledUp: false, header: '', methodIds: [] };
   }

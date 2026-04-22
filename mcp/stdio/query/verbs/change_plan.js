@@ -5,6 +5,7 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { selectBestRoot } from './path.js';
 import { computeDecision } from './preflight.js';
 import { expandClassRollupTargets } from './target_rollup.js';
+import { resolveSymbol } from './symbol_lookup.js';
 
 const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Test', 'Route', 'Entrypoint'];
 const INCOMING_RELATIONS = ['CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH'];
@@ -76,12 +77,8 @@ function buildReadOrder({ root, targetFiles, callerFiles, dependencyFiles, testF
 }
 
 export function buildChangePlan(db, { symbol, top_k = 6, dirtyCount = 0 }) {
-  const candidates = db.all(
-    `SELECT * FROM nodes
-     WHERE label = $label AND type IN (${SEARCH_TYPES.map((type) => `'${type}'`).join(',')})
-     LIMIT 20`,
-    { label: symbol },
-  );
+  const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
+  const candidates = resolveSymbol(db, symbol, typesClause);
   if (candidates.length === 0) {
     return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
   }

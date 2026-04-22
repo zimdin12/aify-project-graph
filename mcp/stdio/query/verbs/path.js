@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { renderPath } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { resolveSymbol } from './symbol_lookup.js';
 
 const ROOT_TYPE_PRIORITY = new Map([
   ['Entrypoint', 0],
@@ -40,7 +41,7 @@ export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const sources = db.all('SELECT * FROM nodes WHERE label = $label', { label: symbol });
+    const sources = resolveSymbol(db, symbol);
     if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
 
     const root = selectBestRoot(sources);
