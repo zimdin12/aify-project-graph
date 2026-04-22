@@ -5,6 +5,8 @@ import { join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
+const DASHBOARD_NODE_LIMIT = 25000;
+const DASHBOARD_EDGE_LIMIT = 120000;
 
 // Load a JSON overlay file from .aify-graph/, tolerating missing files.
 function loadOverlayJson(repoRoot, name) {
@@ -150,7 +152,7 @@ function buildOverlayNodes(repoRoot) {
         label: f.label || f.id,
         description: f.description || '',
         tags: f.tags || [],
-        source: f.source || 'user',
+        origin: f.source || 'user',
         depends_on: f.depends_on || [],
         related_to: f.related_to || [],
         anchors: f.anchors || {},
@@ -169,7 +171,7 @@ function buildOverlayNodes(repoRoot) {
         assignee: t.assignee,
         features: t.features || [],
         files_hint: t.files_hint || [],
-        source: tasksFile.source || 'unknown',
+        origin: tasksFile.source || 'unknown',
       });
     }
   }
@@ -185,6 +187,8 @@ const MIME = {
 };
 
 export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
+  const nodeColumns = new Set(db.all('PRAGMA table_info(nodes)').map((row) => row.name));
+  const hasCommunityId = nodeColumns.has('community_id');
   // Normalize a code-graph node to the unified dashboard shape.
   const normalizeCodeNode = (n) => ({
     id: `code:${n.id}`,
@@ -195,6 +199,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     start_line: n.start_line,
     language: n.language,
     confidence: n.confidence,
+    community_id: n.community_id,
   });
   // Normalize a code edge to the unified edge shape.
   const normalizeCodeEdge = (e) => ({
@@ -215,9 +220,20 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
 
     // API routes
     if (req.url === '/api/graph') {
-      const nodes = db.all('SELECT * FROM nodes LIMIT 5000');
-      const edges = db.all('SELECT * FROM edges LIMIT 10000');
-      writeJson({ nodes, edges });
+      const totalNodes = db.get('SELECT count(*) AS c FROM nodes').c;
+      const totalEdges = db.get('SELECT count(*) AS c FROM edges').c;
+      const nodes = db.all(`SELECT * FROM nodes LIMIT ${DASHBOARD_NODE_LIMIT}`);
+      const edges = db.all(`SELECT * FROM edges LIMIT ${DASHBOARD_EDGE_LIMIT}`);
+      writeJson({
+        nodes,
+        edges,
+        meta: {
+          total_nodes: totalNodes,
+          total_edges: totalEdges,
+          truncated_nodes: totalNodes > DASHBOARD_NODE_LIMIT,
+          truncated_edges: totalEdges > DASHBOARD_EDGE_LIMIT,
+        },
+      });
       return;
     }
 
@@ -225,11 +241,17 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     // cross-layer edges, all normalized with { layer, edge_class,
     // provenance, confidence } per dev's interaction-layer contract.
     if (req.url === '/api/graph-multilayer') {
+      const totalNodes = db.get('SELECT count(*) AS c FROM nodes').c;
+      const totalEdges = db.get('SELECT count(*) AS c FROM edges').c;
       const codeNodes = db.all(
-        `SELECT id, type, label, file_path, start_line, language, confidence
-         FROM nodes LIMIT 5000`).map(normalizeCodeNode);
+        `SELECT id, type, label, file_path, start_line, language, confidence${hasCommunityId ? ', community_id' : ''}
+         FROM nodes
+         ORDER BY ${hasCommunityId ? 'COALESCE(community_id, 2147483647),' : ''} type, id
+         LIMIT ${DASHBOARD_NODE_LIMIT}`).map(normalizeCodeNode);
       const codeEdges = db.all(
-        `SELECT from_id, to_id, relation, confidence FROM edges LIMIT 10000`
+        `SELECT from_id, to_id, relation, confidence FROM edges
+         ORDER BY relation, from_id, to_id
+         LIMIT ${DASHBOARD_EDGE_LIMIT}`
       ).map(normalizeCodeEdge);
 
       const overlayNodes = buildOverlayNodes(repoRoot).map(n => ({
@@ -239,7 +261,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
         kind: n.type,
         description: n.description,
         status: n.status,
-        source: n.source,
+        origin: n.origin,
         feature_id: n.type === 'Feature' ? n.id.slice('feature:'.length) : undefined,
         task_id: n.type === 'Task' ? n.task_id : undefined,
         url: n.url,
@@ -271,6 +293,12 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
           doc_nodes: codeNodes.filter(n => n.layer === 'doc').length,
           code_edges: codeEdges.length,
           cross_edges: crossEdges.length,
+        },
+        meta: {
+          total_code_nodes: totalNodes,
+          total_code_edges: totalEdges,
+          truncated_nodes: totalNodes > DASHBOARD_NODE_LIMIT,
+          truncated_edges: totalEdges > DASHBOARD_EDGE_LIMIT,
         },
       });
       return;
