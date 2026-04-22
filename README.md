@@ -72,10 +72,12 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 | **Languages** | Per-language Python extractors | Config-driven generic walker (12 langs, ~30 lines per config) |
 | **Node types** | Code symbols only | Code + directories, docs, configs, routes, entry points, schemas |
 | **Path tracing** | No | `graph_path` — readable execution stories |
-| **Community detection** | Leiden | Louvain (current JS-native choice) |
+| **Community detection** | Leiden | Louvain — chosen on purpose (see note below the table) |
 | **Framework awareness** | No | Plugin system (Laravel routes + middleware in v1) |
 | **Dashboard** | No | Cytoscape.js interactive browser |
 | **Fuzzy search** | No | `graph_search` with partial name + type + file filters |
+
+**On Leiden vs Louvain.** Leiden is the better algorithm in the clustering literature (guaranteed well-connected communities, modestly higher modularity). We use Louvain anyway, and not because we're waiting on something. Community IDs here are a navigation hint — they group related symbols in brief output and color the dashboard. That use case is insensitive to the 5–10% modularity delta Leiden buys. A pure-JS Leiden port would be weeks of work for a gain that would not change a single brief line or dashboard rendering, so we bought down the scope permanently. Louvain is the shipped choice, not a placeholder.
 
 ## How it works
 

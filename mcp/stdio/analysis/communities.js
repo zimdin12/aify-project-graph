@@ -7,6 +7,12 @@ import louvain from 'graphology-communities-louvain';
  * writes community_id back to each node row.
  *
  * Returns { communities: number, assignments: Map<nodeId, communityId> }
+ *
+ * Louvain is the final choice here, not a placeholder. Community IDs are
+ * used as navigation hints in brief output and dashboard coloring — jobs
+ * that are insensitive to the modularity delta between Louvain and Leiden.
+ * A pure-JS Leiden port would be weeks of work for no visible change in
+ * any user-facing surface, so we don't take it.
  */
 export function detectCommunities(db) {
   const nodes = db.all('SELECT id, type, label FROM nodes');
