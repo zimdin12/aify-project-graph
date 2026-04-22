@@ -1,0 +1,6 @@
+{"event":"graph-stats","nodes":1390,"rawEdges":3216,"uniqueEdges":3149}
+{"event":"louvain","elapsedMs":10,"communities":89,"modularity":0.7214,"topSizes":[164,143,109,96,94,82,65,60,57,53],"singletons":26}
+{"event":"leiden-modularity","elapsedMs":38,"communities":310,"modularity":0.5171,"topSizes":[57,34,34,33,28,28,26,26,24,17],"singletons":26}
+{"event":"leiden-cpm-0.01","elapsedMs":28,"communities":317,"modularity":0.611,"topSizes":[258,31,31,29,29,24,18,16,15,13],"singletons":26}
+{"event":"leiden-cpm-0.001","elapsedMs":20,"communities":324,"modularity":0.5347,"topSizes":[82,57,57,48,29,27,18,17,17,15],"singletons":26}
+{"event":"delta","louvain_modularity":0.7214,"leiden_default_modularity":0.5171,"best_leiden_variant":"leiden-cpm-0.01","best_leiden_modularity":0.611,"verdict":"louvain modularity higher"}

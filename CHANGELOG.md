@@ -9,6 +9,51 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-04-22 — Leiden + class-qualified lookup + 6 new framework plugins
+
+**Added**
+
+- **Leiden community detection** (`ngraph.leiden`, MIT) replaces Louvain,
+  matching graphify's design inspiration. Seeded mulberry32 PRNG (seed=42)
+  keeps community_ids stable across identical reindexes — an improvement
+  over the previous Louvain setup, which was not explicitly seeded.
+  Honest bench (`docs/dogfood/communities-bench-2026-04-22.json`) on
+  apg's own graph: Louvain 0.72 modularity / 89 communities vs Leiden
+  default 0.52 / 310 communities. Raw modularity favors Louvain on
+  small graphs; Leiden wins on guaranteed-connected communities and
+  graphify parity. Net neutral-to-slightly-negative on modularity,
+  structural-guarantee + determinism positive, so we ship Leiden.
+  `scripts/communities-bench.mjs` kept for future re-measurement.
+
+- **Class-qualified symbol lookup** (shared `resolveSymbol` helper)
+  fixes NO-MATCH on `Class::method`, `A::B::method`, `Module.Class.method`
+  that failed the echoes CC lean-half 2×2. Disambiguates by
+  `extra.qname` when multiple bare matches exist. Wired into
+  `graph_change_plan`, `graph_impact`, `graph_path`,
+  `expandClassRollupTargets`. Tests: `class-qualified-lookup.test.js`.
+
+- **6 framework plugins added** (previously only Laravel):
+  - `python_web` — FastAPI + Flask, including FastAPI `Depends(fn)` as
+    PASSES_THROUGH so DI chains are traceable.
+  - `node_web` — Express / Koa / Fastify / Hono, with middleware
+    chains emitted as PASSES_THROUGH between handler args.
+  - `nestjs` — `@Controller` class prefix + `@Get/@Post/@UseGuards`
+    decorator stacks.
+  - `rails` — `config/routes.rb` with full `resources :x` expansion,
+    `only:`/`except:` filters, `namespace`/`scope` nesting.
+  - `spring` — `@RestController` + `@RequestMapping` + `@GetMapping`
+    etc. on Java and Kotlin sources.
+  - `cpp_frameworks` — Qt4/5 signal/slot connects + `emit sig()` +
+    Google Test (TEST/TEST_F/TEST_P) + Catch2 (TEST_CASE/SCENARIO).
+  Each plugin auto-detects via the repo's dependency manifest; no-op
+  on repos that don't use the framework. Tests: `frameworks.test.js`
+  (8) and `cpp-frameworks.test.js` (6).
+
+**Deps**
+
+- Added: `ngraph.graph`, `ngraph.leiden`.
+- Removed: `graphology`, `graphology-communities-louvain`.
+
 ### 2026-04-21 — provenance consumption + P0 state-loss fix
 
 **Added**

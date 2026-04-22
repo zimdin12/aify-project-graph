@@ -73,7 +73,7 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 | **Node types** | Code symbols only | Code + directories, docs, configs, routes, entry points, schemas |
 | **Path tracing** | No | `graph_path` — readable execution stories |
 | **Community detection** | Leiden | Leiden (ngraph.leiden, MIT) — matched |
-| **Framework awareness** | No | Plugin system: Laravel, Rails, Spring, NestJS, FastAPI/Flask, Express/Koa/Fastify/Hono |
+| **Framework awareness** | No | Plugin system: Laravel, Rails, Spring, NestJS, FastAPI/Flask, Express/Koa/Fastify/Hono, Qt signals/slots, Google Test + Catch2 |
 | **Dashboard** | No | Cytoscape.js interactive browser |
 | **Fuzzy search** | No | `graph_search` with partial name + type + file filters |
 
@@ -190,7 +190,7 @@ Under the hood each install doc does the same thing:
    - Claude Code: `~/.claude/plugins/aify-project-graph`
    - Codex: `~/.codex/plugins/aify-project-graph`
    - OpenCode: `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph`
-2. Runs `npm install && npm test` (~230 passing expected; 236 as of 2026-04-21 main baseline)
+2. Runs `npm install && npm test` (~250 passing expected; 257 as of 2026-04-22 main baseline)
 3. Registers the MCP server via the runtime's native CLI or config
    - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude.json` — the CLI-managed location, not `~/.claude/settings.json`)
    - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`
@@ -336,7 +336,7 @@ The practical takeaway is simple: the graph is paying for itself when structure 
 - **✅ Plan a non-trivial change** (`graph_change_plan`, `graph_preflight`)
 - **✅ Trace execution across 3+ files when the graph models the path cleanly** (middleware chains, explicit structural flows). `graph_path` prefers `PASSES_THROUGH` middleware branches ahead of the parallel direct `INVOKES` shortcut when both exist.
 - **✅ Impact/blast-radius on a symbol with non-trivial fan-in** (`graph_preflight`, `graph_callers` with class-level rollup)
-- **✅ Framework-pattern navigation** — Laravel, Rails, Spring, NestJS, FastAPI/Flask, Express/Koa/Fastify/Hono, Flecs ECS systems, Python decorators
+- **✅ Framework-pattern navigation** — Laravel, Rails, Spring, NestJS, FastAPI/Flask, Express/Koa/Fastify/Hono, Qt signals/slots, Google Test + Catch2, Python decorators
 
 ### When grep/read is fine (or better)
 

@@ -20,6 +20,7 @@ import { nodeWebPlugin } from '../ingest/frameworks/node_web.js';
 import { nestjsPlugin } from '../ingest/frameworks/nestjs.js';
 import { railsPlugin } from '../ingest/frameworks/rails.js';
 import { springPlugin } from '../ingest/frameworks/spring.js';
+import { cppFrameworksPlugin } from '../ingest/frameworks/cpp_frameworks.js';
 import { resolveRefs } from '../ingest/resolver.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
@@ -149,6 +150,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
           nestjsPlugin,
           railsPlugin,
           springPlugin,
+          cppFrameworksPlugin,
         ],
       });
 
