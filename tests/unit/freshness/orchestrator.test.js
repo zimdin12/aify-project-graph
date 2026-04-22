@@ -232,6 +232,35 @@ describe('freshness orchestrator', () => {
     }
   });
 
+  it('skips incremental reindex work for already-indexed untracked files too', async () => {
+    await writeFile(join(repoRoot, 'src', 'scratch.py'), 'def scratch():\n    return 1\n');
+
+    getHeadCommit.mockResolvedValue('head-1');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot });
+
+    await writeFile(join(repoRoot, 'src', 'scratch.py'), 'def scratch():\n    return 2\n');
+    getHeadCommit.mockResolvedValue('head-1');
+    getDirtyFileEntries.mockResolvedValue([{ path: 'src/scratch.py', status: '??', untracked: true }]);
+    getDirtyFiles.mockResolvedValue(['src/scratch.py']);
+    getChangedFiles.mockResolvedValue([]);
+
+    const result = await ensureFresh({ repoRoot });
+    expect(result.processedFiles).toEqual([]);
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const node = db.get(`SELECT label FROM nodes WHERE file_path = 'src/scratch.py' LIMIT 1`);
+      expect(node).toEqual(expect.objectContaining({ label: 'scratch.py' }));
+    } finally {
+      db.close();
+    }
+  });
+
   it('keeps previously committed chunks when a later file write fails', async () => {
     for (let i = 0; i <= 500; i += 1) {
       const name = `file-${String(i).padStart(3, '0')}.py`;

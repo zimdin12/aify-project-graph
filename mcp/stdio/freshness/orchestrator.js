@@ -341,8 +341,7 @@ function shouldCarryForwardRef(ref, repoRoot, ignoredDirs, filesToProcess) {
 }
 
 function shouldDeferUntrackedFreshness(db, filePath, entry) {
-  if (!entry?.untracked) return false;
-  return getNodesByFile(db, filePath).length === 0;
+  return Boolean(entry?.untracked);
 }
 
 function clearSpecialNodes(db) {
