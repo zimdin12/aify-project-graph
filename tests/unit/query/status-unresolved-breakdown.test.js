@@ -40,11 +40,13 @@ describe('graph_status — unresolvedBy coarse breakdown', () => {
         { relation: 'REFERENCES', extractor: 'cpp' },
       ],
       dirtyEdgeCount: 5,
+      trustDirtyEdgeCount: 4,
     };
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify(manifest));
 
     const status = await graphStatus({ repoRoot });
     expect(status.unresolvedBy.total).toBe(5);
+    expect(status.trustUnresolvedEdges).toBe(4);
     expect(status.unresolvedBy.byRelation).toEqual({ CALLS: 3, IMPORTS: 1, REFERENCES: 1 });
     expect(status.unresolvedBy.byLanguage).toEqual({ javascript: 3, python: 1, cpp: 1 });
   });

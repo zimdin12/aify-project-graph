@@ -16,6 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
+import { getUnresolvedCounts } from '../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
 import { buildPaths } from '../query/verbs/path.js';
 
@@ -91,7 +92,7 @@ function repoSnapshot(db, repoRoot) {
     const manifestPath = join(repoRoot, '.aify-graph', 'manifest.json');
     if (existsSync(manifestPath)) {
       const raw = JSON.parse(readFileSync(manifestPath, 'utf8'));
-      unresolvedEdges = raw.dirtyEdgeCount ?? (raw.dirtyEdges?.length ?? 0);
+      unresolvedEdges = getUnresolvedCounts(raw).trust;
     }
   } catch {
     // Fall through with 0; the trust line will then say "ok".

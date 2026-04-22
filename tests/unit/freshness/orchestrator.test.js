@@ -73,6 +73,7 @@ describe('freshness orchestrator', () => {
     expect(manifest.nodes).toBeGreaterThan(0);
     expect(manifest.edges).toBeGreaterThan(0);
     expect(manifest.dirtyEdges).toEqual([]);
+    expect(manifest.trustDirtyEdgeCount).toBe(0);
   });
 
   it('preserves framework Route nodes while reindexing the backing route file', async () => {
@@ -238,5 +239,85 @@ describe('freshness orchestrator', () => {
     const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
     expect(manifest.status).toBe('ok');
     expect(manifest.commit).toBe('head-chunk');
+  });
+
+  it('does not carry sidecar unresolved refs into a force rebuild', async () => {
+    await writeFile(join(repoRoot, 'src', 'main.py'), 'def main():\n    return 1\n');
+    await mkdir(join(repoRoot, '.aify-graph'), { recursive: true });
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'old-head',
+      indexedAt: '2026-04-21T00:00:00.000Z',
+      nodes: 0,
+      edges: 0,
+      schemaVersion: 4,
+      extractorVersion: '0.1.0',
+      status: 'ok',
+      dirtyFiles: [],
+      dirtyEdges: [{ source_file: 'ghost.py', relation: 'CALLS', target: 'missing', extractor: 'python' }],
+      dirtyEdgeCount: 1,
+      trustDirtyEdgeCount: 1,
+    }));
+    await writeFile(join(repoRoot, '.aify-graph', 'dirty-edges.full.json'), JSON.stringify({
+      dirtyEdges: [{ source_file: 'ghost.py', relation: 'CALLS', target: 'missing', extractor: 'python' }],
+    }));
+
+    getHeadCommit.mockResolvedValue('head-force');
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const result = await ensureFresh({ repoRoot, force: true });
+
+    expect(result.dirtyEdgeCount).toBe(0);
+    expect(result.trustDirtyEdgeCount).toBe(0);
+    const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+    expect(manifest.dirtyEdgeCount).toBe(0);
+    expect(manifest.trustDirtyEdgeCount).toBe(0);
+    expect(manifest.dirtyEdges).toEqual([]);
+  });
+
+  it('drops stale unresolved refs for reprocessed files and ignored scratch paths', async () => {
+    await writeFile(join(repoRoot, 'src', 'run.py'), 'def run():\n    return 1\n');
+
+    getHeadCommit.mockResolvedValue('head-a');
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot });
+
+    await writeFile(join(repoRoot, '.aify-graph', 'dirty-edges.full.json'), JSON.stringify({
+      dirtyEdges: [
+        { source_file: 'src/run.py', relation: 'CALLS', target: 'ghost', extractor: 'python' },
+        { source_file: '.codex_tmp/task89batch/Ghost.cpp', relation: 'CALLS', target: 'ghost', extractor: 'cpp' },
+      ],
+    }));
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'head-a',
+      indexedAt: '2026-04-21T00:00:00.000Z',
+      nodes: 1,
+      edges: 1,
+      schemaVersion: 4,
+      extractorVersion: '0.1.0',
+      status: 'ok',
+      dirtyFiles: [],
+      dirtyEdges: [],
+      dirtyEdgeCount: 2,
+      trustDirtyEdgeCount: 2,
+    }));
+
+    await writeFile(join(repoRoot, 'src', 'run.py'), 'def run_clean():\n    return 1\n');
+    getHeadCommit.mockResolvedValue('head-b');
+    getDirtyFiles.mockResolvedValue(['src/run.py']);
+    getChangedFiles.mockResolvedValue([]);
+
+    const result = await ensureFresh({ repoRoot });
+    expect(result.dirtyEdgeCount).toBe(0);
+    expect(result.trustDirtyEdgeCount).toBe(0);
+
+    const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+    expect(manifest.dirtyEdgeCount).toBe(0);
+    expect(manifest.trustDirtyEdgeCount).toBe(0);
+    expect(manifest.dirtyEdges).toEqual([]);
   });
 });

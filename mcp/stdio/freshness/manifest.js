@@ -15,6 +15,8 @@ function defaultManifest() {
     parserBundleVersion: '0.0.0',
     dirtyFiles: [],
     dirtyEdges: [],
+    dirtyEdgeCount: 0,
+    trustDirtyEdgeCount: null,
   };
 }
 

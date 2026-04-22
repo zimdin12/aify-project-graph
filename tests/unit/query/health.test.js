@@ -65,6 +65,23 @@ describe('graph_health — synthesis of graph state signals', () => {
     expect(result.summary).toMatch(/trust=weak \(5227 unresolved\)/);
   });
 
+  it('uses trustDirtyEdgeCount so unresolved CONTAINS noise does not force weak trust', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db.close();
+
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123', indexedAt: new Date().toISOString(),
+      nodes: 100, edges: 200, schemaVersion: 4, extractorVersion: '0.1.0',
+      status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 5227, trustDirtyEdgeCount: 600,
+    }));
+
+    const result = await graphHealth({ repoRoot });
+    expect(result.trust).toBe('ok');
+    expect(result.unresolvedEdges).toBe(5227);
+    expect(result.trustUnresolvedEdges).toBe(600);
+    expect(result.summary).toMatch(/trust=ok \(600 trust-relevant unresolved, 5227 total\)/);
+  });
+
   it('reports broken overlay state when functionality.json has broken anchors', async () => {
     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     db.close();

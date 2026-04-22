@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadManifest } from '../../freshness/manifest.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 
 const HUB_NOISE = new Set([
   'get', 'set', 'run', 'init', 'test', 'close', 'open', 'read', 'write',
@@ -150,7 +151,7 @@ export async function graphOnboard({ repoRoot, path = '.', top_k = 6 }) {
   await ensureFresh({ repoRoot });
   const graphDir = join(repoRoot, '.aify-graph');
   const { manifest } = await loadManifest(graphDir);
-  const dirtyCount = manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length ?? 0;
+  const { trust: dirtyCount } = getUnresolvedCounts(manifest);
   const db = openDb(join(graphDir, 'graph.sqlite'));
   try {
     return buildOnboard(db, { path, top_k, dirtyCount });

@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 
 /**
  * One-shot edit safety check. Combines whereis + callers + impact + tests + trust
@@ -53,7 +54,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
     // 6. Trust: count unresolved edges in the same file
     const manifest = await import('../../freshness/manifest.js')
       .then(m => m.loadManifest(join(repoRoot, '.aify-graph')));
-    const dirtyCount = manifest.manifest?.dirtyEdgeCount ?? (manifest.manifest?.dirtyEdges ?? []).length;
+    const { trust: dirtyCount } = getUnresolvedCounts(manifest.manifest);
 
     // 7. Cross-module check
     const callerFiles = new Set(topCallers.map(c => c.file_path).filter(Boolean));

@@ -2,11 +2,13 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getHeadCommit, getDirtyFiles } from '../../freshness/git.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { openDb } from '../../storage/db.js';
 
 export async function graphStatus({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
   const { status: mStatus, manifest } = await loadManifest(graphDir);
+  const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
   const commit = await getHeadCommit(repoRoot).catch(() => null);
   const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
 
@@ -38,11 +40,12 @@ export async function graphStatus({ repoRoot }) {
     commit: manifest.commit ?? null,
     currentHead: commit,
     dirtyFiles,
-    unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
-    dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+    unresolvedEdges,
+    trustUnresolvedEdges,
+    dirtyEdgeCount: unresolvedEdges,
     unresolvedBy: summarizeUnresolved(
       manifest.dirtyEdges ?? [],
-      manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+      unresolvedEdges,
     ),
     schemaVersion: manifest.schemaVersion ?? 1,
     extractorVersion: manifest.extractorVersion ?? '0.0.0',

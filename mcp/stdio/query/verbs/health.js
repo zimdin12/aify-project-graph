@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { openDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getHeadCommit } from '../../freshness/git.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
 
 // Single source of truth for trust-level thresholds. graph_health and the
@@ -43,7 +44,7 @@ export async function graphHealth({ repoRoot }) {
   const { manifest } = await loadManifest(graphDir);
   const head = await getHeadCommit(repoRoot).catch(() => null);
   const stale = Boolean(manifest?.commit && head && manifest.commit !== head);
-  const unresolvedEdges = manifest?.dirtyEdgeCount ?? (manifest?.dirtyEdges?.length ?? 0);
+  const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
 
   // Live counts agree with graph_status + graph_report
   let nodes = manifest?.nodes ?? 0;
@@ -82,7 +83,7 @@ export async function graphHealth({ repoRoot }) {
     }
   }
 
-  const trust = computeTrustLevel(unresolvedEdges);
+  const trust = computeTrustLevel(trustUnresolvedEdges);
 
   // Brief-vs-live staleness check. Echoes 2026-04-22 bench saw
   // brief.plan.md say "TRUST weak: 5424 unresolved" while graph_health
@@ -110,7 +111,11 @@ export async function graphHealth({ repoRoot }) {
   // measurement.
   const verdicts = [];
   verdicts.push(`nodes=${nodes} edges=${edges}`);
-  verdicts.push(`trust=${trust} (${unresolvedEdges} unresolved)`);
+  verdicts.push(
+    trustUnresolvedEdges === unresolvedEdges
+      ? `trust=${trust} (${unresolvedEdges} unresolved)`
+      : `trust=${trust} (${trustUnresolvedEdges} trust-relevant unresolved, ${unresolvedEdges} total)`,
+  );
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
   if (overlay.present) {
@@ -128,6 +133,7 @@ export async function graphHealth({ repoRoot }) {
     indexed: true,
     trust,
     unresolvedEdges,
+    trustUnresolvedEdges,
     nodes,
     edges,
     commit: manifest?.commit ?? null,

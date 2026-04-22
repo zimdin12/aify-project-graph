@@ -8,6 +8,7 @@ import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
 import { getHeadCommit, getDirtyFiles, getChangedFiles } from './git.js';
 import { loadManifest, writeManifest } from './manifest.js';
 import { readDirtyEdgesSidecar, writeDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
+import { countTrustRelevantDirtyEdges } from './unresolved-metrics.js';
 import { withWriteLock } from './lock.js';
 import { getLanguageConfig } from '../ingest/languages/index.js';
 import { extractFile } from '../ingest/extractors/generic.js';
@@ -113,6 +114,8 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       // Noop path: if no files to process and not a full rebuild, return early
       if (!fullRebuild && filesToProcess.length === 0) {
         db.close();
+        const trustDirtyEdgeCount = manifest.trustDirtyEdgeCount
+          ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length);
         const noopResult = {
           indexed: true, commit, indexedAt: manifest.indexedAt,
           schemaVersion: SCHEMA_VERSION, extractorVersion: EXTRACTOR_VERSION,
@@ -122,6 +125,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
           // manifest sample cap); fall back to sample length for older
           // graphs written before dirtyEdgeCount existed.
           dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+          trustDirtyEdgeCount,
           unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
           nodes: manifest.nodes ?? 0, edges: manifest.edges ?? 0,
           processedFiles: [],
@@ -163,12 +167,16 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       });
       batchInsert();
 
-      // Carry forward unresolved edges from the previous run so resolution
-      // can retry them. Prefer the full sidecar (complete list) over the
-      // manifest sample (capped at 500) — the sample is only a fallback
-      // for older graphs written before the sidecar existed.
+      // Carry forward unresolved edges from the previous incremental run so
+      // resolution can retry them. Full rebuilds intentionally start from
+      // source truth only. Also drop stale refs whose source file is ignored,
+      // missing, or being reprocessed in this run.
       const sidecarEdges = await readDirtyEdgesSidecar(graphDir);
-      const carryForward = sidecarEdges !== null ? sidecarEdges : (manifest.dirtyEdges ?? []);
+      const carryForward = fullRebuild
+        ? []
+        : (sidecarEdges !== null ? sidecarEdges : (manifest.dirtyEdges ?? [])).filter((ref) => (
+          shouldCarryForwardRef(ref, repoRoot, effectiveIgnoredDirs, filesToProcess)
+        ));
       const refs = [...specialPlugins.refs, ...carryForward];
       const existingFiles = [];
 
@@ -271,6 +279,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
 
       const nodeCount = countNodes(db);
       const edgeCount = countEdges(db);
+      const trustDirtyEdgeCount = countTrustRelevantDirtyEdges(resolved.unresolved);
 
       const nextManifest = {
         status: 'ok',  // Clear the 'indexing' marker — rebuild succeeded
@@ -290,6 +299,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
           ? resolved.unresolved.slice(0, 500)
           : resolved.unresolved,
         dirtyEdgeCount: resolved.unresolved.length,
+        trustDirtyEdgeCount,
       };
       await writeManifest(graphDir, nextManifest);
       await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
@@ -303,6 +313,7 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         parserBundleVersion: PARSER_BUNDLE_VERSION,
         dirtyFiles: [],
         dirtyEdgeCount: resolved.unresolved.length,
+        trustDirtyEdgeCount,
         unresolvedEdges: resolved.unresolved.length,
         nodes: nodeCount,
         edges: edgeCount,
@@ -313,6 +324,17 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       db.close();
     }
   });
+}
+
+function shouldCarryForwardRef(ref, repoRoot, ignoredDirs, filesToProcess) {
+  const sourceFile = typeof ref?.source_file === 'string'
+    ? ref.source_file.replace(/\\/g, '/')
+    : '';
+  if (!sourceFile) return false;
+  if (filesToProcess.includes(sourceFile)) return false;
+  const segments = sourceFile.split('/').filter(Boolean);
+  if (segments.some((segment) => ignoredDirs.has(segment))) return false;
+  return existsSync(join(repoRoot, sourceFile));
 }
 
 function clearSpecialNodes(db) {
