@@ -35,6 +35,29 @@ const EXTRACTION_CHUNK_SIZE = 500;
 const freshCache = new Map(); // repoRoot → { ts, result }
 const FRESH_TTL_MS = 5000;
 
+function buildDeferredPartialResumeResult({ db, manifest, commit }) {
+  return {
+    indexed: true,
+    commit,
+    indexedAt: manifest.indexedAt,
+    schemaVersion: SCHEMA_VERSION,
+    extractorVersion: EXTRACTOR_VERSION,
+    parserBundleVersion: PARSER_BUNDLE_VERSION,
+    dirtyFiles: [],
+    dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+    trustDirtyEdgeCount: manifest.trustDirtyEdgeCount
+      ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length),
+    unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+    nodes: countNodes(db),
+    edges: countEdges(db),
+    processedFiles: [],
+    resumedFromPartial: false,
+    partialResumeDeferred: true,
+    alreadyProcessedFiles: db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).length,
+    pendingFiles: null,
+  };
+}
+
 export async function ensureFresh({
   repoRoot,
   graphDir = join(repoRoot, '.aify-graph'),
@@ -47,6 +70,34 @@ export async function ensureFresh({
     const cached = freshCache.get(repoRoot);
     if (cached && Date.now() - cached.ts < FRESH_TTL_MS) {
       return cached.result;
+    }
+  }
+
+  // Read-like callers should not queue behind a large/stuck rebuild just to
+  // discover that the graph is partial. Do the cheap manifest/DB check before
+  // taking the write lock and fail fast with a degraded-mode result.
+  if (!force && !allowLargePartialResume) {
+    const manifestState = await loadManifest(graphDir);
+    const manifest = manifestState.manifest;
+    const commit = await getHeadCommit(repoRoot).catch(() => null);
+    const dbPath = join(graphDir, 'graph.sqlite');
+    if (
+      manifest.status === 'indexing'
+      && manifest.commit
+      && manifest.commit === commit
+      && (manifest.schemaVersion ?? 1) === SCHEMA_VERSION
+      && existsSync(dbPath)
+    ) {
+      const db = openDb(dbPath);
+      try {
+        if (countNodes(db) > 0) {
+          const deferredResult = buildDeferredPartialResumeResult({ db, manifest, commit });
+          freshCache.set(repoRoot, { ts: Date.now(), result: deferredResult });
+          return deferredResult;
+        }
+      } finally {
+        db.close();
+      }
     }
   }
 
@@ -109,55 +160,13 @@ export async function ensureFresh({
           db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).map((row) => row.file_path),
         );
         if (!allowLargePartialResume) {
-          const deferredResult = {
-            indexed: true,
-            commit,
-            indexedAt: manifest.indexedAt,
-            schemaVersion: SCHEMA_VERSION,
-            extractorVersion: EXTRACTOR_VERSION,
-            parserBundleVersion: PARSER_BUNDLE_VERSION,
-            dirtyFiles: [],
-            dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
-            trustDirtyEdgeCount: manifest.trustDirtyEdgeCount
-              ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length),
-            unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
-            nodes: countNodes(db),
-            edges: countEdges(db),
-            processedFiles: [],
-            resumedFromPartial: false,
-            partialResumeDeferred: true,
-            alreadyProcessedFiles: alreadyProcessed.size,
-            pendingFiles: null,
-          };
+          const deferredResult = buildDeferredPartialResumeResult({ db, manifest, commit });
+          deferredResult.alreadyProcessedFiles = alreadyProcessed.size;
           freshCache.set(repoRoot, { ts: Date.now(), result: deferredResult });
           return deferredResult;
         }
         const allFiles = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
         filesToProcess = allFiles.filter((relPath) => !alreadyProcessed.has(relPath));
-        if (!allowLargePartialResume && filesToProcess.length > partialResumeLimit) {
-          const deferredResult = {
-            indexed: true,
-            commit,
-            indexedAt: manifest.indexedAt,
-            schemaVersion: SCHEMA_VERSION,
-            extractorVersion: EXTRACTOR_VERSION,
-            parserBundleVersion: PARSER_BUNDLE_VERSION,
-            dirtyFiles: [],
-            dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
-            trustDirtyEdgeCount: manifest.trustDirtyEdgeCount
-              ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length),
-            unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
-            nodes: countNodes(db),
-            edges: countEdges(db),
-            processedFiles: [],
-            resumedFromPartial: false,
-            partialResumeDeferred: true,
-            alreadyProcessedFiles: alreadyProcessed.size,
-            pendingFiles: filesToProcess.length,
-          };
-          freshCache.set(repoRoot, { ts: Date.now(), result: deferredResult });
-          return deferredResult;
-        }
         resumedFromPartial = true;
         // Intentional console warning: callers/agents should know cross-file
         // refs for pre-crash files may be incomplete until next force rebuild.
@@ -173,7 +182,6 @@ export async function ensureFresh({
 
       // Noop path: if no files to process and not a full rebuild, return early
       if (!fullRebuild && filesToProcess.length === 0) {
-        db.close();
         const trustDirtyEdgeCount = manifest.trustDirtyEdgeCount
           ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length);
         const noopResult = {
