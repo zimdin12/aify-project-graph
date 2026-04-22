@@ -1,6 +1,16 @@
 import createGraph from 'ngraph.graph';
 import * as leiden from 'ngraph.leiden';
 
+const SUMMARY_EXCLUDED_TYPES = new Set([
+  'External',
+  'Repository',
+  'File',
+  'Module',
+  'Directory',
+  'Document',
+  'Config',
+]);
+
 /**
  * Run Leiden community detection on the graph stored in SQLite.
  * Reads nodes + edges, builds an ngraph, runs Leiden, writes
@@ -45,15 +55,16 @@ export function detectCommunities(db) {
     return { communities: 0, assignments: new Map() };
   }
 
-  // Leiden. Deterministic random seed keeps clusters stable across runs
-  // when the graph itself hasn't changed — important so community_id
-  // doesn't churn in every brief on every index.
+  // Leiden. Deterministic random seed keeps partitions stable across runs
+  // when the graph itself hasn't changed. Leiden's internal class labels
+  // are still arbitrary, so we canonicalize them below before persisting.
   const result = leiden.detectClusters(g, { random: seededRandom(42) });
 
-  const assignments = new Map();
+  const rawAssignments = new Map();
   g.forEachNode((node) => {
-    assignments.set(node.id, result.getClass(node.id));
+    rawAssignments.set(node.id, result.getClass(node.id));
   });
+  const assignments = canonicalizeAssignments(rawAssignments);
 
   const updateExtra = db.raw.prepare('UPDATE nodes SET extra = ? WHERE id = ?');
   const readExtra = db.raw.prepare('SELECT extra FROM nodes WHERE id = ?');
@@ -74,9 +85,39 @@ export function detectCommunities(db) {
   };
 }
 
+// Leiden's class labels are arbitrary. Canonicalize by (size desc,
+// lexicographically-smallest member id asc) so equal partitions keep the
+// same persisted IDs even if the library flips raw labels across runs.
+function canonicalizeAssignments(assignments) {
+  const groups = new Map();
+  for (const [nodeId, rawId] of assignments) {
+    if (!groups.has(rawId)) {
+      groups.set(rawId, { size: 0, minNodeId: nodeId });
+    }
+    const group = groups.get(rawId);
+    group.size += 1;
+    if (nodeId.localeCompare(group.minNodeId) < 0) group.minNodeId = nodeId;
+  }
+
+  const remap = new Map(
+    [...groups.entries()]
+      .sort((a, b) => (
+        b[1].size - a[1].size ||
+        a[1].minNodeId.localeCompare(b[1].minNodeId)
+      ))
+      .map(([rawId], index) => [rawId, index + 1]),
+  );
+
+  const canonical = new Map();
+  for (const [nodeId, rawId] of assignments) {
+    canonical.set(nodeId, remap.get(rawId));
+  }
+  return canonical;
+}
+
 // Deterministic seeded PRNG (mulberry32) so repeated indexes of an
-// unchanged graph produce identical community_ids. ngraph.leiden accepts
-// any function returning floats in [0, 1).
+// unchanged graph produce identical partitions. ngraph.leiden accepts any
+// function returning floats in [0, 1).
 function seededRandom(seed) {
   let a = seed >>> 0;
   return function () {
@@ -97,11 +138,13 @@ export function communitySummary(db, topPerCommunity = 5) {
            (SELECT count(*) FROM edges e WHERE e.to_id = n.id) AS fan_in
     FROM nodes n
     WHERE json_extract(n.extra, '$.community_id') IS NOT NULL
+      AND n.type NOT IN ('External', 'Repository', 'File', 'Module', 'Directory', 'Document', 'Config')
     ORDER BY community_id, fan_in DESC
   `);
 
   const groups = new Map();
   for (const r of rows) {
+    if (SUMMARY_EXCLUDED_TYPES.has(r.type)) continue;
     const cid = r.community_id;
     if (!groups.has(cid)) groups.set(cid, []);
     const members = groups.get(cid);
