@@ -53,6 +53,23 @@ no longer compounds via state loss.
 refactors or long-running incremental sessions if unresolved counts
 look stale.
 
+## Unresolved count can jump after a schema bump
+
+After a schema-version bump that forces a full rebuild, `unresolvedEdges`
+may appear to spike sharply. Example from the v3→v4 transition on apg:
+`5424 → 10336`.
+
+**Why.** This is not necessarily a new regression in extraction. The v4
+sidecar fix (`f3ebee1`) stopped leaking unresolved state through the old
+500-row manifest cap, so post-bump rebuilds can expose the honest full
+count that earlier runs under-reported.
+
+**Impact.** A one-time count jump after upgrade looks scary if you read it
+as "quality got worse." Often it just means the count is finally truthful.
+
+**Workaround.** Treat the first post-bump rebuild as a visibility reset, not
+as comparative trend data. Compare subsequent runs on the same schema.
+
 ## Multi-repo live verbs require per-repo MCP registration
 
 The MCP server binds to ONE `repoRoot` — the directory where the

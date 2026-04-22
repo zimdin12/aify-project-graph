@@ -70,21 +70,20 @@ describe('server toolset selection', () => {
     const tools = extractTools(await runToolRpc());
     const names = tools.map(tool => tool.name);
     expect(names).toContain('graph_callers');
-    expect(names).toContain('graph_summary');
     expect(names).toContain('graph_dashboard');
+    expect(names).not.toContain('graph_summary');
+    expect(names).not.toContain('graph_report');
+    expect(names).not.toContain('graph_onboard');
+    expect(names).not.toContain('graph_lookup');
   });
 
-  it('exposes only the monopoly verbs in lean mode (v2: 3 verbs)', async () => {
-    // Lean profile trimmed 5 → 3 on 2026-04-19 after 14/14 zero-MCP-call
-    // bench evidence. graph_report (displaced by briefs) and graph_callers
-    // (failed routing on plan tasks) removed; graph_impact, graph_path,
-    // graph_change_plan retained as graph-monopoly surfaces.
+  it('exposes the new lean-3 verbs in lean mode (v3)', async () => {
     const tools = extractTools(await runToolRpc(['--toolset=lean']));
     const names = tools.map(tool => tool.name).sort();
     expect(names).toEqual([
       'graph_change_plan',
-      'graph_impact',
-      'graph_path',
+      'graph_consequences',
+      'graph_pull',
     ]);
   });
 
@@ -93,8 +92,8 @@ describe('server toolset selection', () => {
     const names = extractTools(lines).map(tool => tool.name).sort();
     expect(names).toEqual([
       'graph_change_plan',
-      'graph_impact',
-      'graph_path',
+      'graph_consequences',
+      'graph_pull',
     ]);
   });
 

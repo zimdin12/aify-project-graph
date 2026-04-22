@@ -69,10 +69,57 @@ describe('resolveSymbol — class-qualified C++ / dotted symbols', () => {
     expect(rows[0].id).toBe('m:gpu-set');
   });
 
+  it('matches template-qualified parent names against stripped stored class names', () => {
+    const rows = resolveSymbol(db, 'GpuSimFramework<float>::setGravAxis');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe('m:gpu-set');
+  });
+
+  it('matches namespace-qualified qname suffixes before bare-label fallback', () => {
+    const namespaced = {
+      id: 'm:ns-set',
+      type: 'Method',
+      label: 'tick',
+      file_path: 'src/gpu.cpp',
+      start_line: 9,
+      end_line: 12,
+      language: 'cpp',
+      confidence: 1,
+      structural_fp: '',
+      dependency_fp: '',
+      extra: { qname: 'engine.voxel.GpuSimFramework.tick', parent_class: 'GpuSimFramework' },
+    };
+    upsertNode(db, namespaced);
+
+    const rows = resolveSymbol(db, 'engine::voxel::GpuSimFramework::tick');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe('m:ns-set');
+  });
+
   it('falls back to all bare matches when the parent class does not appear in any qname', () => {
     const rows = resolveSymbol(db, 'UnknownParent::setGravAxis');
     // Both bare-name rows returned; caller picks via selectBestRoot or similar.
     expect(rows.map(r => r.id).sort()).toEqual(['m:gpu-set', 'm:other-set']);
+  });
+
+  it('prefers concrete nodes over External fallbacks for qualified queries', () => {
+    upsertNode(db, {
+      id: 'ext:set',
+      type: 'External',
+      label: 'setGravAxis',
+      file_path: '',
+      start_line: 0,
+      end_line: 0,
+      language: '',
+      confidence: 0.4,
+      structural_fp: '',
+      dependency_fp: '',
+      extra: { external: true },
+    });
+
+    const rows = resolveSymbol(db, 'GpuSimFramework::setGravAxis');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].type).toBe('Method');
   });
 
   it('returns empty on true non-match', () => {

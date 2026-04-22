@@ -20,19 +20,26 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     const params = Object.fromEntries(targetIds.map((id, index) => [`tid${index}`, id]));
 
     const edges = db.all(
-      `WITH RECURSIVE impact(node_id, depth) AS (
-         SELECT from_id, 1 FROM edges WHERE to_id IN (${placeholders}) AND relation IN (${relFilter})
+      `WITH RECURSIVE impact(from_id, to_id, depth) AS (
+         SELECT from_id, to_id, 1
+         FROM edges
+         WHERE to_id IN (${placeholders}) AND relation IN (${relFilter})
          UNION ALL
-         SELECT e.from_id, i.depth + 1 FROM edges e JOIN impact i ON e.to_id = i.node_id
+         SELECT e.from_id, e.to_id, i.depth + 1
+         FROM edges e
+         JOIN impact i ON e.to_id = i.from_id
          WHERE e.relation IN (${relFilter}) AND i.depth < $depth AND i.depth <= 10
        )
        SELECT DISTINCT e.*, n.label AS from_label, n.type AS from_type,
               n.file_path AS from_file, n.start_line AS from_line,
               t.label AS to_label, i.depth
-       FROM impact i JOIN edges e ON e.from_id = i.node_id
+       FROM impact i
+       JOIN edges e
+         ON e.from_id = i.from_id
+        AND e.to_id = i.to_id
+        AND e.relation IN (${relFilter})
        JOIN nodes n ON n.id = e.from_id
        LEFT JOIN nodes t ON t.id = e.to_id
-       WHERE e.relation IN (${relFilter})
        LIMIT 100`,
       { ...params, depth }
     );

@@ -315,24 +315,45 @@ const TOOLS = [
   },
 ];
 
-// Lean profile (v2, 2026-04-19): trimmed from 5 → 3 verbs after the
-// cross-language A/B validation showed 14/14 lean-MCP runs across 4
-// languages and 2 task shapes made zero MCP calls. See
-// docs/dogfood/ab-results-2026-04-19-a2-cross-repo.md.
-//
-// Dropped:
-//   graph_report   — static brief artifacts replace it for orient tasks
-//   graph_callers  — failed routing even on plan prompts that asked for callers
-//
-// Kept — these three represent graph-monopoly surfaces (questions rg and
-// shell can't answer cheaply) where a live verb may still earn routing on
-// the right prompt shape. Hidden verbs remain callable via tools/call for
-// scripts that explicitly request them by name.
+// Lean profile (v3, 2026-04-22): redesigned from the old impact/path/plan
+// trio after the combined v1+v2 Codex + Claude bench feedback showed:
+// - `graph_consequences` was the consistently highest-rated live planning verb
+// - `graph_pull` carried the overlay-dependent wins briefs couldn't answer alone
+// - `graph_change_plan` was the only old lean verb with repeat positives
+// Evidence: docs/dogfood/ab-results-2026-04-20-cross-tester.md and manager's
+// v1+v2 lean-half post-mortem notes. Hidden verbs remain callable via tools/call.
 const LEAN_TOOL_NAMES = new Set([
-  'graph_impact',
-  'graph_path',
+  'graph_consequences',
+  'graph_pull',
   'graph_change_plan',
 ]);
+
+// Full profile still keeps all 21 verbs callable, but the tools/list surface
+// hides the low-value legacy orient aliases that briefs replaced. This trims
+// passive manifest tax without breaking scripts that call them by name.
+const HIDDEN_FULL_TOOL_NAMES = new Set([
+  'graph_summary',
+  'graph_report',
+  'graph_onboard',
+  'graph_lookup',
+]);
+
+// Tier B — kept visible in `tools/list` but with a one-line description in
+// place of the full prose. Agents can still discover them by name, and the
+// short form cuts the manifest token tax on verbs that are useful but rarely
+// the first reach. Full descriptions are used whenever the tool is actually
+// invoked; this only shapes the listing.
+const SHORT_DESCRIPTIONS = new Map([
+  ['graph_search',      'Fuzzy symbol search. Use when the exact name is unknown.'],
+  ['graph_health',      'Graph trust + dirty-edge breakdown. Run to assess indexing quality.'],
+  ['graph_file',        'Whole-file digest (symbols + exports). Use when briefs do not cover the file.'],
+  ['graph_module_tree', 'Directory → feature roll-up. Use to see repo layout in graph form.'],
+]);
+
+function projectToShortDescription(tool) {
+  const short = SHORT_DESCRIPTIONS.get(tool.name);
+  return short ? { ...tool, description: short } : tool;
+}
 
 function resolveToolset(argv = process.argv.slice(2), env = process.env) {
   const arg = argv.find(token => token.startsWith('--toolset='));
@@ -350,7 +371,9 @@ function selectListedTools(toolset) {
   if (toolset === 'lean') {
     return TOOLS.filter(tool => LEAN_TOOL_NAMES.has(tool.name));
   }
-  return TOOLS;
+  return TOOLS
+    .filter(tool => !HIDDEN_FULL_TOOL_NAMES.has(tool.name))
+    .map(projectToShortDescription);
 }
 
 const ACTIVE_TOOLSET = resolveToolset();

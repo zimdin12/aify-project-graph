@@ -198,7 +198,7 @@ Under the hood each install doc does the same thing:
 4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
 5. User restarts the runtime
 
-**Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_impact`, `graph_path`, `graph_change_plan`). The other 18 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile (all 21 visible) by default.
+**Lean profile** (`--toolset=lean`) exposes 3 visible verbs on `tools/list` (`graph_consequences`, `graph_pull`, `graph_change_plan`). The other 18 verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile by default, but low-value legacy orient aliases stay hidden from `tools/list` there too and remain callable by name.
 
 **Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms — but the MCP server has a **native-module preflight** that detects this on startup and auto-runs `npm rebuild better-sqlite3` once before accepting tool calls. You'll see one line on stderr when it triggers. Manual intervention only if auto-rebuild itself fails (e.g. missing compiler). `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 

@@ -35,6 +35,42 @@ export function splitQualifiedSymbol(symbol) {
   };
 }
 
+function stripTemplateArgs(value) {
+  let depth = 0;
+  let out = '';
+  for (const ch of value) {
+    if (ch === '<') {
+      depth += 1;
+      continue;
+    }
+    if (ch === '>') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0) out += ch;
+  }
+  return out;
+}
+
+function normalizeQualifiedPart(value) {
+  if (typeof value !== 'string') return '';
+  const stripped = stripTemplateArgs(value.trim());
+  const pieces = stripped.split(/::|\./).map((part) => part.trim()).filter(Boolean);
+  return pieces.at(-1) ?? '';
+}
+
+function normalizeQname(qname) {
+  return String(qname || '')
+    .split('.')
+    .map(normalizeQualifiedPart)
+    .filter(Boolean);
+}
+
+function preferConcrete(rows) {
+  const concrete = rows.filter((row) => row.type !== 'External');
+  return concrete.length > 0 ? concrete : rows;
+}
+
 // Try an exact label match first, then a class-qualified fallback.
 // `typesClause` is the SQL fragment used inside IN (...) — callers pass
 // their own set (whereis and preflight include Test, path uses all nodes).
@@ -51,6 +87,18 @@ export function resolveSymbol(db, symbol, typesClause = null) {
   const { parent, name } = splitQualifiedSymbol(symbol);
   if (!name) return exact;
 
+  const dotted = symbol.replace(/::/g, '.');
+  const qnameHits = db.all(
+    `SELECT * FROM nodes
+     WHERE (
+       json_extract(extra, '$.qname') = $qname
+       OR json_extract(extra, '$.qname') LIKE $qnameSuffix
+     ) ${typeFilter}
+     LIMIT 50`,
+    { qname: dotted, qnameSuffix: `%.${dotted}` },
+  );
+  if (qnameHits.length > 0) return preferConcrete(qnameHits);
+
   const byName = db.all(
     `SELECT * FROM nodes WHERE label = $label ${typeFilter} LIMIT 50`,
     { label: name },
@@ -58,20 +106,20 @@ export function resolveSymbol(db, symbol, typesClause = null) {
   if (byName.length === 0 || !parent) return byName;
 
   // Disambiguate by parent class when multiple rows share the bare name.
-  // Uses extra.qname (stored as JSON) — dot-separated in generic.js, so we
-  // compare the last dot-separated segment of parent against the
-  // second-to-last segment of qname.
-  const parentBare = splitQualifiedSymbol(parent).name;
+  // Uses both parent_class and qname suffixes, but normalizes template and
+  // namespace decoration so `Foo<T>::bar`, `ns::Foo::bar`, and a stripped
+  // stored qname still converge on the same method rows.
+  const parentBare = normalizeQualifiedPart(parent);
   const matchingParent = byName.filter((row) => {
     try {
       const extra = typeof row.extra === 'string' ? JSON.parse(row.extra) : row.extra;
-      const qname = extra?.qname ?? '';
-      if (!qname) return false;
-      const parts = qname.split('.');
-      return parts.length >= 2 && parts[parts.length - 2] === parentBare;
+      const parentClass = normalizeQualifiedPart(extra?.parent_class ?? '');
+      if (parentClass && parentClass === parentBare) return true;
+      const qparts = normalizeQname(extra?.qname ?? '');
+      return qparts.length >= 2 && qparts[qparts.length - 2] === parentBare;
     } catch {
       return false;
     }
   });
-  return matchingParent.length > 0 ? matchingParent : byName;
+  return matchingParent.length > 0 ? preferConcrete(matchingParent) : preferConcrete(byName);
 }

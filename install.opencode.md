@@ -69,7 +69,7 @@ node -e '
 ' "$CONFIG_FILE" "$CLONE_PATH/mcp/stdio/server.js"
 ```
 
-Recommended profile is `--toolset=lean` (3 visible verbs: `graph_impact`, `graph_path`, `graph_change_plan`). Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 21-verb surface.
+Recommended profile is `--toolset=lean` (3 visible verbs: `graph_consequences`, `graph_pull`, `graph_change_plan`). Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 21-verb surface.
 
 ### Multi-repo caveat — MCP is cwd-bound
 
