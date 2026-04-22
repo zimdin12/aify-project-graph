@@ -39,8 +39,11 @@ function isPlatformMismatch(err) {
 
 function tryLoad() {
   try {
-    // Throwaway load — if this succeeds, the binary is healthy.
-    require('better-sqlite3');
+    // `better-sqlite3` defers binding load until Database construction, so a
+    // plain require() is not enough to detect cross-platform binary flips.
+    const Database = require('better-sqlite3');
+    const db = new Database(':memory:');
+    db.close();
     return { ok: true };
   } catch (err) {
     return { ok: false, err };

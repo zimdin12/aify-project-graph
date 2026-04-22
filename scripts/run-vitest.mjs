@@ -1,3 +1,7 @@
+// Keep `npm test` consistent with MCP startup: if this checkout was last used
+// from another platform (Windows vs WSL), the preflight rebuilds better-sqlite3
+// once before Vitest boots.
+import '../mcp/stdio/preflight-native.js';
 import { startVitest } from 'vitest/node';
 
 const args = process.argv.slice(2);

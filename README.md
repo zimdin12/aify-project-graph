@@ -190,7 +190,7 @@ Under the hood each install doc does the same thing:
    - Claude Code: `~/.claude/plugins/aify-project-graph`
    - Codex: `~/.codex/plugins/aify-project-graph`
    - OpenCode: `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph`
-2. Runs `npm install && npm test` (~250 passing expected; 257 as of 2026-04-22 main baseline)
+2. Runs `npm install && npm test` (the full suite should pass; the exact count changes as coverage grows)
 3. Registers the MCP server via the runtime's native CLI or config
    - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude.json` — the CLI-managed location, not `~/.claude/settings.json`)
    - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`
@@ -209,10 +209,13 @@ For the full step-by-step per runtime see [`install.claude.md`](install.claude.m
 MCP tools organized by purpose:
 
 ### Discovery — orient in a new project
+
+Read the static briefs first. `graph_onboard` and `graph_report` are kept as compatibility verbs for live orientation, but they are no longer the primary routing surface.
+
 | Verb | What it does | Example |
 |---|---|---|
-| `graph_onboard(path=".")` | Curated onboarding brief: scope stats, key files, hub symbols, test anchors, reading order | Learn a repo or subsystem efficiently |
-| `graph_report()` | Full project orientation: files, languages, entry points, hub symbols, community clusters | First thing to call on any unfamiliar repo |
+| `graph_onboard(path=".")` | Legacy compatibility onboarding brief: scope stats, key files, hub symbols, test anchors, reading order | Live fallback when the static briefs are missing or stale |
+| `graph_report()` | Legacy compatibility project orientation: files, languages, entry points, hub symbols, community clusters | Live fallback when you still need orientation after reading the briefs |
 | `graph_search(query="UserCont")` | Fuzzy symbol search with type/file filters | Find symbols by partial name |
 | `graph_whereis(symbol="get_db")` | Exact definition lookup: file:line | When you know the exact name |
 | `graph_module_tree(path="src/auth")` | Directory + file + symbol hierarchy | Explore a specific area |
@@ -332,7 +335,7 @@ The practical takeaway is simple: the graph is paying for itself when structure 
 
 ### When to use the graph
 
-- **✅ Orient in an unfamiliar repo** (`graph_onboard`, `graph_report`, `graph_whereis(expand=true)`)
+- **✅ Orient in an unfamiliar repo** (read `brief.agent.md` first; use `graph_onboard` / `graph_report` only as live fallbacks)
 - **✅ Plan a non-trivial change** (`graph_change_plan`, `graph_preflight`)
 - **✅ Trace execution across 3+ files when the graph models the path cleanly** (middleware chains, explicit structural flows). `graph_path` prefers `PASSES_THROUGH` middleware branches ahead of the parallel direct `INVOKES` shortcut when both exist.
 - **✅ Impact/blast-radius on a symbol with non-trivial fan-in** (`graph_preflight`, `graph_callers` with class-level rollup)

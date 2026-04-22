@@ -67,7 +67,7 @@ Check the result: `brief.plan.md` should now have a FEATURES section with `open:
 Key verbs — invoke on demand, not all at session start:
 
 ```
-graph_report()                               # orient
+graph_report()                               # live orient fallback; prefer brief.agent.md first
 graph_preflight(symbol="get_db")             # SAFE/REVIEW/CONFIRM before editing
 graph_path(symbol="handleRequest")           # execution trace
 graph_impact(symbol="User")                  # blast radius
