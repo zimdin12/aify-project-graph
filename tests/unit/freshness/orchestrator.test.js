@@ -439,7 +439,7 @@ describe('freshness orchestrator', () => {
 
     expect(result.partialResumeDeferred).toBe(true);
     expect(result.alreadyProcessedFiles).toBe(1);
-    expect(result.pendingFiles).toBe(2);
+    expect(result.pendingFiles).toBeNull();
     expect(result.processedFiles).toEqual([]);
 
     const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));

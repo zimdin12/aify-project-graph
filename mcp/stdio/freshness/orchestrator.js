@@ -105,10 +105,34 @@ export async function ensureFresh({
       if (fullRebuild) {
         filesToProcess = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
       } else if (canResumeFromPartial) {
-        const allFiles = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
         const alreadyProcessed = new Set(
           db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).map((row) => row.file_path),
         );
+        if (!allowLargePartialResume) {
+          const deferredResult = {
+            indexed: true,
+            commit,
+            indexedAt: manifest.indexedAt,
+            schemaVersion: SCHEMA_VERSION,
+            extractorVersion: EXTRACTOR_VERSION,
+            parserBundleVersion: PARSER_BUNDLE_VERSION,
+            dirtyFiles: [],
+            dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+            trustDirtyEdgeCount: manifest.trustDirtyEdgeCount
+              ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length),
+            unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+            nodes: countNodes(db),
+            edges: countEdges(db),
+            processedFiles: [],
+            resumedFromPartial: false,
+            partialResumeDeferred: true,
+            alreadyProcessedFiles: alreadyProcessed.size,
+            pendingFiles: null,
+          };
+          freshCache.set(repoRoot, { ts: Date.now(), result: deferredResult });
+          return deferredResult;
+        }
+        const allFiles = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
         filesToProcess = allFiles.filter((relPath) => !alreadyProcessed.has(relPath));
         if (!allowLargePartialResume && filesToProcess.length > partialResumeLimit) {
           const deferredResult = {
