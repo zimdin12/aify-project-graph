@@ -12,6 +12,7 @@
         "routes": [],
         "docs": []
       },
+      "tests": ["tests/unit/ingest/generic.test.js", "tests/unit/ingest/frameworks.test.js"],
       "source": "user",
       "tags": ["ingest", "tree-sitter"]
     },
@@ -23,6 +24,7 @@
         "symbols": ["ensureFresh", "getChangedFiles", "getDirtyFiles"],
         "files": ["mcp/stdio/freshness/*"]
       },
+      "tests": ["tests/unit/freshness/orchestrator.test.js", "tests/unit/freshness/git.test.js"],
       "source": "user",
       "tags": ["freshness"]
     },
@@ -34,6 +36,7 @@
         "symbols": ["graphLookup", "graphPath", "graphImpact", "graphCallers", "graphReport"],
         "files": ["mcp/stdio/query/verbs/*", "mcp/stdio/query/renderer.js"]
       },
+      "tests": ["tests/integration/verbs.test.js", "tests/integration/server-toolset.test.js"],
       "source": "user",
       "tags": ["query", "mcp"]
     },
@@ -45,6 +48,7 @@
         "symbols": ["generateBrief", "renderAgentMarkdown", "classifyRole"],
         "files": ["mcp/stdio/brief/*"]
       },
+      "tests": ["tests/unit/brief/generator.test.js"],
       "source": "user",
       "tags": ["brief", "a1"]
     },
@@ -56,6 +60,7 @@
         "symbols": ["loadFunctionality", "validateAnchors", "featuresForFile"],
         "files": ["mcp/stdio/overlay/*"]
       },
+      "tests": ["tests/unit/overlay/loader.test.js"],
       "source": "user",
       "tags": ["overlay", "a2"]
     }

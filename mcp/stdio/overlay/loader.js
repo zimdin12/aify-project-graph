@@ -23,6 +23,7 @@ import { join } from 'node:path';
 //           routes: ["POST /auth/login"],
 //           docs: ["docs/auth.md"]
 //         },
+//         tests: ["tests/test_main.cpp"],
 //         source: "user",     // user | llm | clickup (Horizon B+)
 //         tags: []
 //       }
@@ -65,6 +66,10 @@ function normalizeFeature(f) {
       routes: Array.isArray(f.anchors?.routes) ? f.anchors.routes.filter(Boolean) : [],
       docs: Array.isArray(f.anchors?.docs) ? f.anchors.docs.filter(Boolean) : [],
     },
+    // Optional explicit per-feature test anchors. Useful for repos with a
+    // monolithic test entrypoint (e.g. single tests/test_main.cpp) where
+    // automatic test attribution is too weak to infer cleanly.
+    tests: Array.isArray(f.tests) ? f.tests.filter(Boolean) : [],
     // v0.2: explicit feature→feature edges. depends_on is a hard dependency
     // (A breaks if B breaks). related_to is a weaker coupling (A touches B's
     // concepts but isn't strictly dependent). Both are user-curated;

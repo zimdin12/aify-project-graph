@@ -30,6 +30,8 @@ Single-call synthesis of "is the graph usable right now?" — returns a one-line
 nodes=6452 edges=19147 · trust=weak (5227 unresolved) · fresh · overlay=clean (10 features)
 ```
 
+If the summary includes `rebuild-incomplete: status=indexing`, do **not** keep hammering live read verbs. Run `graph_index(force=true)` out of band, or fall back to briefs + source reads until the rebuild finishes.
+
 ## FIRST ACTION in any session
 
 Before calling any other tool, check whether this repo has a graph:
@@ -115,6 +117,7 @@ When ranking impact or path output, treat `INFERRED` and especially `AMBIGUOUS` 
 - Do not call graph verbs in parallel.
 - If trust is weak, be more conservative and read more source.
 - **Mine the overlay links before planning.** When planning a feature X, don't stop at the brief — open `functionality.json` (or `brief.json.features`) and read `X.contracts[]` doc-by-doc, skim related `brief.json.features.valid[].tasks[]` for X (shipped so you don't re-parse `tasks.json`), and check `X.depends_on` + `X.related_to`. The graph stores these links; plans routinely ignore them. That's a skill-prompt failure, not a tool limitation.
+- **Use explicit `tests[]` in functionality.json when inference is weak.** On repos with one shared test entrypoint (for example a single `tests/test_main.cpp`), automatic test attribution is often too weak. Put `tests: ["tests/test_main.cpp"]` on the relevant features so `brief.plan.md` stops pretending there is no test anchor.
 - **Reach for `graph_impact` on cross-cutting tasks.** Any plan that touches more than one feature should call `graph_impact(symbol=...)` on the central symbol before writing steps. Search-style verbs (`graph_find`, `graph_whereis`) are for lookup; `graph_impact` is for "what breaks if I touch this" — that's what cross-cutting planning actually needs.
 - **Line-number citations must be Read-verified.** If you write `file.ext:42` in a plan or doc, the line has to have been Read in the same session. Graph verbs print line numbers confidently even when the underlying index is weak — citing them unverified creates a false grounding signal. If you don't want to Read, write the citation as `file.ext:~42 (unverified)`.
 

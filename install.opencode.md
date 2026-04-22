@@ -89,7 +89,7 @@ Tell the user (paraphrase is fine):
 > node "$CLONE_PATH/scripts/graph-brief.mjs" /path/to/your/repo
 > ```
 >
-> Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. For plan tasks, hand-author `.aify-graph/functionality.json` (sample at `$CLONE_PATH/docs/examples/functionality.sample.json`) and re-run graph-brief.mjs.
+> Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. For plan tasks, hand-author `.aify-graph/functionality.json` (sample at `$CLONE_PATH/docs/examples/functionality.sample.json`) and re-run graph-brief.mjs. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
 
 (Expand `$CLONE_PATH` to the absolute path for the user's copy.)
 

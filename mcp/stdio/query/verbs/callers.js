@@ -3,14 +3,15 @@ import { openDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { rankCallers } from '../rank.js';
 import { enforceBudget } from '../budget.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { collapseCallerEdges, expandClassRollupTargets } from './target_rollup.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
 export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_callers' });
+  if (freshnessWarning) return freshnessWarning;
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);

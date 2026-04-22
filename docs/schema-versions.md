@@ -72,6 +72,7 @@ No standalone migration step today.
 Current behavior:
 - the loader accepts older shapes and normalizes missing optional fields to defaults
 - fields such as `depends_on` / `related_to` are optional; if absent, they load as empty arrays
+- optional `tests[]` per feature is supported for explicit test anchors on repos where automatic attribution is weak
 - stale anchors or references to missing features show up as validation/trust issues rather than hard parse failures
 
 Practical expectation:

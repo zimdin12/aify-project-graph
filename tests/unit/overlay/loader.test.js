@@ -52,6 +52,7 @@ describe('overlay/loader', () => {
             label: 'Authentication',
             description: 'Session tokens.',
             anchors: { symbols: ['authenticate'], files: ['src/auth/*'] },
+            tests: ['tests/test_main.cpp'],
             source: 'user',
           },
         ],
@@ -61,6 +62,7 @@ describe('overlay/loader', () => {
       expect(out.features).toHaveLength(1);
       expect(out.features[0].id).toBe('auth');
       expect(out.features[0].anchors.symbols).toEqual(['authenticate']);
+      expect(out.features[0].tests).toEqual(['tests/test_main.cpp']);
       expect(out.features[0].anchors.routes).toEqual([]); // defaulted
       expect(out.features[0].anchors.docs).toEqual([]);
     });

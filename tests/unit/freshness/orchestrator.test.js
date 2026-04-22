@@ -394,4 +394,55 @@ describe('freshness orchestrator', () => {
     expect(manifest.trustDirtyEdgeCount).toBe(0);
     expect(manifest.dirtyEdges).toEqual([]);
   });
+
+  it('defers huge partial-resume work for read-like callers when requested', async () => {
+    await writeFile(join(repoRoot, 'src', 'a.py'), 'def a():\n    return 1\n');
+    await writeFile(join(repoRoot, 'src', 'b.py'), 'def b():\n    return 1\n');
+    await writeFile(join(repoRoot, 'src', 'c.py'), 'def c():\n    return 1\n');
+    await mkdir(join(repoRoot, '.aify-graph'), { recursive: true });
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      db.run(
+        `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, structural_fp, dependency_fp, extra)
+         VALUES ('f-a', 'File', 'a.py', 'src/a.py', 1, 0, 'python', 1.0, '', '', '{}')`,
+      );
+    } finally {
+      db.close();
+    }
+
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'head-partial',
+      indexedAt: '2026-04-23T00:00:00.000Z',
+      nodes: 1,
+      edges: 0,
+      schemaVersion: 4,
+      extractorVersion: '0.1.0',
+      status: 'indexing',
+      dirtyFiles: [],
+      dirtyEdges: [],
+      dirtyEdgeCount: 0,
+      trustDirtyEdgeCount: 0,
+    }));
+
+    getHeadCommit.mockResolvedValue('head-partial');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const result = await ensureFresh({
+      repoRoot,
+      allowLargePartialResume: false,
+      partialResumeLimit: 1,
+    });
+
+    expect(result.partialResumeDeferred).toBe(true);
+    expect(result.alreadyProcessedFiles).toBe(1);
+    expect(result.pendingFiles).toBe(2);
+    expect(result.processedFiles).toEqual([]);
+
+    const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+    expect(manifest.status).toBe('indexing');
+  });
 });

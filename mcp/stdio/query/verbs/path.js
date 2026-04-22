@@ -1,8 +1,8 @@
 import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { renderPath } from '../renderer.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 const ROOT_TYPE_PRIORITY = new Map([
   ['Entrypoint', 0],
@@ -38,7 +38,8 @@ const MODE_RELATIONS = {
 };
 
 export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5, top_k = 3, mode = 'execution' }) {
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_path' });
+  if (freshnessWarning) return freshnessWarning;
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = resolveSymbol(db, symbol);

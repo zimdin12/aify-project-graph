@@ -57,6 +57,7 @@ On OpenCode (no skills), or if you want the manual fallback:
 ```bash
 cp <target-path>/docs/examples/functionality.sample.json <target-repo>/.aify-graph/functionality.json
 # hand-edit to match the user's feature mental model
+# add feature-level `tests` arrays on repos with monolithic/shared test files
 node <target-path>/scripts/graph-brief.mjs <target-repo>   # regenerate briefs
 ```
 

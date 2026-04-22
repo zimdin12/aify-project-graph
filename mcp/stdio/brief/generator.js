@@ -756,9 +756,9 @@ function enrichFeaturesForPlanning(db, validFeatures) {
     //   1. Symbol-reference edges (test files that CALL/REFERENCE anchored symbols)
     //   2. Path-token match (tests whose path shares a dir token with the feature's files)
     //   3. Glob match under feature's file anchors (covers projects that keep tests co-located)
-    let tests = [];
+    let tests = (feature.tests || []).map((file_path) => ({ file_path }));
     const symbols = feature.anchors.symbols || [];
-    if (symbols.length > 0) {
+    if (tests.length === 0 && symbols.length > 0) {
       tests = db.all(
         `SELECT DISTINCT f.file_path FROM nodes f
          JOIN edges e ON e.from_id = f.id
@@ -1368,13 +1368,14 @@ function renderJson(data, repoRoot) {
       valid: (overlayHealth?.valid ?? []).map(v => {
         const featureTasks = tasksByFeature.get(v.feature.id) ?? [];
         const contractCount = (v.feature.contracts ?? []).length;
-        return {
-          id: v.feature.id,
-          label: v.feature.label,
-          description: v.feature.description,
-          anchors: v.feature.anchors,
-          depends_on: v.feature.depends_on,
-          related_to: v.feature.related_to,
+      return {
+        id: v.feature.id,
+        label: v.feature.label,
+        description: v.feature.description,
+        anchors: v.feature.anchors,
+        tests: v.feature.tests,
+        depends_on: v.feature.depends_on,
+        related_to: v.feature.related_to,
           resolved_anchors: v.resolved,
           anchor_health: `${v.totalResolved}/${v.totalDeclared}`,
           // Pre-materialized task binding so programmatic consumers (e.g.

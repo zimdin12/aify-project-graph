@@ -18,9 +18,9 @@ import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 // Class names often appear multiple times — forward declarations in
 // headers + the definition body in a .cpp/.ts. Prefer non-header files
@@ -116,7 +116,8 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     };
   }
 
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_consequences' });
+  if (freshnessWarning) return freshnessWarning;
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
 

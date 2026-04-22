@@ -63,6 +63,11 @@
           },
           "additionalProperties": false
         },
+        "tests": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional explicit test file anchors for this feature. Useful when one monolithic test file covers many features and automatic attribution is too weak."
+        },
         "depends_on": {
           "type": "array",
           "items": { "type": "string" },

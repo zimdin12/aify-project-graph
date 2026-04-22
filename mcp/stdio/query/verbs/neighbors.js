@@ -2,9 +2,9 @@ import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { enforceBudget } from '../budget.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 const ALL_RELATIONS = [
   'CONTAINS', 'DEFINES', 'DECLARES', 'IMPORTS', 'EXPORTS',
@@ -14,7 +14,8 @@ const ALL_RELATIONS = [
 
 export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth = 1, top_k = 20 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_neighbors' });
+  if (freshnessWarning) return freshnessWarning;
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const targets = resolveSymbol(db, symbol);

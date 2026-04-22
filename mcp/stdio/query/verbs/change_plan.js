@@ -1,12 +1,12 @@
 import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { computeDecision } from './preflight.js';
 import { expandClassRollupTargets } from './target_rollup.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Test', 'Route', 'Entrypoint'];
 const INCOMING_RELATIONS = ['CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH'];
@@ -190,7 +190,8 @@ export function buildChangePlan(db, { symbol, top_k = 6, dirtyCount = 0 }) {
 
 export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_change_plan' });
+  if (freshnessWarning) return freshnessWarning;
   const graphDir = join(repoRoot, '.aify-graph');
   const { manifest } = await loadManifest(graphDir);
   const { trust: dirtyCount } = getUnresolvedCounts(manifest);

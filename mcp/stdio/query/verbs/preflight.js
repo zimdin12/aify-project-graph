@@ -1,9 +1,9 @@
 import { join } from 'node:path';
 import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 /**
  * One-shot edit safety check. Combines whereis + callers + impact + tests + trust
@@ -11,7 +11,8 @@ import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
  */
 export async function graphPreflight({ repoRoot, symbol }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_preflight' });
+  if (freshnessWarning) return freshnessWarning;
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // 1. Find the symbol

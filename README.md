@@ -108,7 +108,7 @@ Briefs are **cache-discipline stable** — deterministic ordering, no timestamps
 
 ### Functionality overlay (L2) — load-bearing, set up day one
 
-> **`functionality.json` is the overlay that makes briefs work on plan tasks.** Without it, `brief.plan.md` is ~70 tokens of headers with no action-bearing content. With it, per-feature "open this file, tests are here, N callers" guidance appears and brief-only wins plan tasks by −19% tokens / −28% duration (bench data 2026-04-19). **Recommended:** run `/graph-build-all` in Claude Code, or use the shipped `graph-build-functionality` skill in Codex. On OpenCode (no skills), hand-author from [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json) and run `node scripts/graph-brief.mjs <repo>`.
+> **`functionality.json` is the overlay that makes briefs work on plan tasks.** Without it, `brief.plan.md` is ~70 tokens of headers with no action-bearing content. With it, per-feature "open this file, tests are here, N callers" guidance appears and brief-only wins plan tasks by −19% tokens / −28% duration (bench data 2026-04-19). **Recommended:** run `/graph-build-all` in Claude Code, or use the shipped `graph-build-functionality` skill in Codex. On OpenCode (no skills), hand-author from [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json) and run `node scripts/graph-brief.mjs <repo>`. On repos with monolithic/shared tests, add explicit `tests` arrays per feature instead of relying purely on auto-attribution.
 
 Drop `.aify-graph/functionality.json` in any repo to map **user-defined features** to code:
 

@@ -35,7 +35,13 @@ const EXTRACTION_CHUNK_SIZE = 500;
 const freshCache = new Map(); // repoRoot → { ts, result }
 const FRESH_TTL_MS = 5000;
 
-export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-graph'), force = false }) {
+export async function ensureFresh({
+  repoRoot,
+  graphDir = join(repoRoot, '.aify-graph'),
+  force = false,
+  allowLargePartialResume = true,
+  partialResumeLimit = 250,
+}) {
   // Fast path: if we confirmed freshness recently and no force, return cached result
   if (!force) {
     const cached = freshCache.get(repoRoot);
@@ -104,6 +110,30 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
           db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).map((row) => row.file_path),
         );
         filesToProcess = allFiles.filter((relPath) => !alreadyProcessed.has(relPath));
+        if (!allowLargePartialResume && filesToProcess.length > partialResumeLimit) {
+          const deferredResult = {
+            indexed: true,
+            commit,
+            indexedAt: manifest.indexedAt,
+            schemaVersion: SCHEMA_VERSION,
+            extractorVersion: EXTRACTOR_VERSION,
+            parserBundleVersion: PARSER_BUNDLE_VERSION,
+            dirtyFiles: [],
+            dirtyEdgeCount: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+            trustDirtyEdgeCount: manifest.trustDirtyEdgeCount
+              ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length),
+            unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
+            nodes: countNodes(db),
+            edges: countEdges(db),
+            processedFiles: [],
+            resumedFromPartial: false,
+            partialResumeDeferred: true,
+            alreadyProcessedFiles: alreadyProcessed.size,
+            pendingFiles: filesToProcess.length,
+          };
+          freshCache.set(repoRoot, { ts: Date.now(), result: deferredResult });
+          return deferredResult;
+        }
         resumedFromPartial = true;
         // Intentional console warning: callers/agents should know cross-file
         // refs for pre-crash files may be incomplete until next force rebuild.

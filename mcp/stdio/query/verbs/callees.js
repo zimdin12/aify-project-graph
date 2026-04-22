@@ -3,15 +3,16 @@ import { openDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { rankCallees } from '../rank.js';
 import { enforceBudget } from '../budget.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
 export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_callees' });
+  if (freshnessWarning) return freshnessWarning;
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = resolveSymbol(db, symbol);

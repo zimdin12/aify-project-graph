@@ -151,6 +151,31 @@ describe('brief/generator', () => {
       expect(plan).not.toContain('unattributed');
     });
 
+    it('brief.plan.md prefers explicit feature tests from functionality.json', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [
+        { id: 'n1', type: 'Function', label: 'authenticate', file_path: 'src/auth.js' },
+        { id: 't1', type: 'File', label: 'test_main.cpp', file_path: 'tests/test_main.cpp' },
+      ]);
+      db.close();
+
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        features: [{
+          id: 'auth',
+          anchors: { symbols: ['authenticate'] },
+          tests: ['tests/test_main.cpp'],
+        }],
+      }));
+
+      generateBrief({ repoRoot });
+      const plan = readFileSync(join(repoRoot, '.aify-graph', 'brief.plan.md'), 'utf8');
+      expect(plan).toContain('tests: tests/test_main.cpp');
+
+      const json = JSON.parse(readFileSync(join(repoRoot, '.aify-graph', 'brief.json'), 'utf8'));
+      const authFeature = json.features.valid.find((f) => f.id === 'auth');
+      expect(authFeature.tests).toEqual(['tests/test_main.cpp']);
+    });
+
     it('brief.json embeds task_count + tasks[] per feature (programmatic consumers)', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
       seedNodes(db, [

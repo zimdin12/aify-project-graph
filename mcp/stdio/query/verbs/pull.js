@@ -15,8 +15,8 @@ import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
+import { ensureFreshForReadVerb } from './read_freshness.js';
 
 // Layer inventory:
 //   code          — file/symbol neighborhood (files, symbols, callers)
@@ -635,7 +635,8 @@ function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
 
 export async function graphPull({ repoRoot, node, layers, direction }) {
   if (!node) return 'ERROR: node parameter is required (file path, feature id, symbol name, or task id)';
-  await ensureFresh({ repoRoot });
+  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_pull' });
+  if (freshnessWarning) return freshnessWarning;
 
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   const layerSet = new Set(
