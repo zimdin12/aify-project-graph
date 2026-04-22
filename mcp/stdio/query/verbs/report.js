@@ -95,7 +95,7 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
       lines.push(`HUB ${h.label} ${h.type.toLowerCase()} ${h.file_path} ${h.fan_in} incoming`);
     }
 
-    // Community summary (Louvain clusters)
+    // Community summary (Leiden clusters)
     const communities = communitySummary(db);
     if (communities.size > 0) {
       lines.push(`COMMUNITIES ${communities.size} detected`);

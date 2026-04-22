@@ -1,18 +1,18 @@
-import Graph from 'graphology';
-import louvain from 'graphology-communities-louvain';
+import createGraph from 'ngraph.graph';
+import * as leiden from 'ngraph.leiden';
 
 /**
- * Run Louvain community detection on the graph stored in SQLite.
- * Reads nodes + edges, builds a graphology graph, runs Louvain,
- * writes community_id back to each node row.
+ * Run Leiden community detection on the graph stored in SQLite.
+ * Reads nodes + edges, builds an ngraph, runs Leiden, writes
+ * community_id back to each node row.
  *
  * Returns { communities: number, assignments: Map<nodeId, communityId> }
  *
- * Louvain is the final choice here, not a placeholder. Community IDs are
- * used as navigation hints in brief output and dashboard coloring — jobs
- * that are insensitive to the modularity delta between Louvain and Leiden.
- * A pure-JS Leiden port would be weeks of work for no visible change in
- * any user-facing surface, so we don't take it.
+ * Why Leiden and not Louvain: graphify (the design inspiration) uses
+ * Leiden; Leiden gives strictly better partition quality than Louvain
+ * — guaranteed well-connected communities and modestly higher
+ * modularity on typical code graphs. ngraph.leiden (anvaka, MIT) is a
+ * maintained JS port that drops into ngraph.graph with no native deps.
  */
 export function detectCommunities(db) {
   const nodes = db.all('SELECT id, type, label FROM nodes');
@@ -20,58 +20,71 @@ export function detectCommunities(db) {
 
   if (nodes.length === 0) return { communities: 0, assignments: new Map() };
 
-  const g = new Graph({ type: 'undirected', allowSelfLoops: false });
+  const g = createGraph();
 
-  // Add nodes
   for (const n of nodes) {
-    if (!g.hasNode(n.id)) {
-      g.addNode(n.id, { type: n.type, label: n.label });
-    }
+    g.addNode(n.id, { type: n.type, label: n.label });
   }
 
-  // Add edges (undirected for community detection)
+  // Undirected, deduped edges — leiden treats weights as symmetric and
+  // a duplicated link is a self-inflicted weight boost. The key combines
+  // the two endpoints in sorted order so A→B and B→A collapse.
+  const seen = new Set();
   for (const e of edges) {
-    if (g.hasNode(e.from_id) && g.hasNode(e.to_id) && e.from_id !== e.to_id) {
-      try {
-        g.addEdge(e.from_id, e.to_id, {
-          weight: e.confidence ?? 1.0,
-        });
-      } catch {
-        // Skip duplicate edges (graphology throws on duplicates in undirected mode)
-      }
-    }
+    if (!g.hasNode(e.from_id) || !g.hasNode(e.to_id)) continue;
+    if (e.from_id === e.to_id) continue;
+    const key = e.from_id < e.to_id
+      ? `${e.from_id}|${e.to_id}`
+      : `${e.to_id}|${e.from_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    g.addLink(e.from_id, e.to_id, { weight: e.confidence ?? 1.0 });
   }
 
-  if (g.order < 2 || g.size === 0) {
+  if (g.getNodesCount() < 2 || g.getLinksCount() === 0) {
     return { communities: 0, assignments: new Map() };
   }
 
-  // Run Louvain
-  const communities = louvain(g, { resolution: 1.0 });
+  // Leiden. Deterministic random seed keeps clusters stable across runs
+  // when the graph itself hasn't changed — important so community_id
+  // doesn't churn in every brief on every index.
+  const result = leiden.detectClusters(g, { random: seededRandom(42) });
 
-  // Write community_id back to SQLite
-  const update = db.raw.prepare('UPDATE nodes SET extra = json_set(extra, \'$.community_id\', ?) WHERE id = ?');
-  const updateCommunity = db.raw.prepare('UPDATE nodes SET extra = ? WHERE id = ?');
+  const assignments = new Map();
+  g.forEachNode((node) => {
+    assignments.set(node.id, result.getClass(node.id));
+  });
 
-  const txn = db.raw.transaction((assignments) => {
-    for (const [nodeId, communityId] of Object.entries(assignments)) {
-      // Store community_id in the extra JSON field
-      const row = db.raw.prepare('SELECT extra FROM nodes WHERE id = ?').get(nodeId);
-      if (row) {
-        const extra = JSON.parse(row.extra || '{}');
-        extra.community_id = communityId;
-        updateCommunity.run(JSON.stringify(extra), nodeId);
-      }
+  const updateExtra = db.raw.prepare('UPDATE nodes SET extra = ? WHERE id = ?');
+  const readExtra = db.raw.prepare('SELECT extra FROM nodes WHERE id = ?');
+  const txn = db.raw.transaction((pairs) => {
+    for (const [nodeId, communityId] of pairs) {
+      const row = readExtra.get(nodeId);
+      if (!row) continue;
+      const extra = JSON.parse(row.extra || '{}');
+      extra.community_id = communityId;
+      updateExtra.run(JSON.stringify(extra), nodeId);
     }
   });
-  txn(communities);
-
-  // Count unique communities
-  const uniqueCommunities = new Set(Object.values(communities)).size;
+  txn([...assignments]);
 
   return {
-    communities: uniqueCommunities,
-    assignments: new Map(Object.entries(communities)),
+    communities: new Set(assignments.values()).size,
+    assignments,
+  };
+}
+
+// Deterministic seeded PRNG (mulberry32) so repeated indexes of an
+// unchanged graph produce identical community_ids. ngraph.leiden accepts
+// any function returning floats in [0, 1).
+function seededRandom(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
 
