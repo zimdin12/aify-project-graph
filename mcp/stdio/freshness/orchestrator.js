@@ -15,6 +15,11 @@ import { sweepFilesystem } from '../ingest/sweep.js';
 import { IGNORED_DIRS, loadEffectiveIgnoredDirs } from '../ingest/ignored-dirs.js';
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
+import { pythonWebPlugin } from '../ingest/frameworks/python_web.js';
+import { nodeWebPlugin } from '../ingest/frameworks/node_web.js';
+import { nestjsPlugin } from '../ingest/frameworks/nestjs.js';
+import { railsPlugin } from '../ingest/frameworks/rails.js';
+import { springPlugin } from '../ingest/frameworks/spring.js';
 import { resolveRefs } from '../ingest/resolver.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
@@ -137,7 +142,14 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
       const specialPlugins = await applyFrameworkPlugins({
         repoRoot,
         result: { nodes: [], edges: [], refs: [] },
-        plugins: [laravelRoutesPlugin],
+        plugins: [
+          laravelRoutesPlugin,
+          pythonWebPlugin,
+          nodeWebPlugin,
+          nestjsPlugin,
+          railsPlugin,
+          springPlugin,
+        ],
       });
 
       // Batch all inserts in a transaction for performance

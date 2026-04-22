@@ -73,7 +73,7 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 | **Node types** | Code symbols only | Code + directories, docs, configs, routes, entry points, schemas |
 | **Path tracing** | No | `graph_path` — readable execution stories |
 | **Community detection** | Leiden | Leiden (ngraph.leiden, MIT) — matched |
-| **Framework awareness** | No | Plugin system (Laravel routes + middleware in v1) |
+| **Framework awareness** | No | Plugin system: Laravel, Rails, Spring, NestJS, FastAPI/Flask, Express/Koa/Fastify/Hono |
 | **Dashboard** | No | Cytoscape.js interactive browser |
 | **Fuzzy search** | No | `graph_search` with partial name + type + file filters |
 
@@ -336,7 +336,7 @@ The practical takeaway is simple: the graph is paying for itself when structure 
 - **✅ Plan a non-trivial change** (`graph_change_plan`, `graph_preflight`)
 - **✅ Trace execution across 3+ files when the graph models the path cleanly** (middleware chains, explicit structural flows). `graph_path` prefers `PASSES_THROUGH` middleware branches ahead of the parallel direct `INVOKES` shortcut when both exist.
 - **✅ Impact/blast-radius on a symbol with non-trivial fan-in** (`graph_preflight`, `graph_callers` with class-level rollup)
-- **✅ Framework-pattern navigation** — Laravel routes/traits/facades, Flecs ECS systems, Python decorators
+- **✅ Framework-pattern navigation** — Laravel, Rails, Spring, NestJS, FastAPI/Flask, Express/Koa/Fastify/Hono, Flecs ECS systems, Python decorators
 
 ### When grep/read is fine (or better)
 
