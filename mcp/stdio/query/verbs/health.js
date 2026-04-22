@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { openDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
+import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
@@ -42,6 +43,7 @@ export async function graphHealth({ repoRoot }) {
   }
 
   const { manifest } = await loadManifest(graphDir);
+  const manifestStatus = manifest?.status ?? 'ok';
   const head = await getHeadCommit(repoRoot).catch(() => null);
   const stale = Boolean(manifest?.commit && head && manifest.commit !== head);
   const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
@@ -105,6 +107,10 @@ export async function graphHealth({ repoRoot }) {
   } catch {
     // brief.json missing or malformed — skip the check
   }
+  const unresolvedCategorizationStaleVsManifest = (() => {
+    const categorizationIndexedAt = readArtifactIndexedAt(join(graphDir, 'unresolved-categorization.json'));
+    return Boolean(categorizationIndexedAt && manifest?.indexedAt && categorizationIndexedAt !== manifest.indexedAt);
+  })();
 
   // Plain-prose summary — one line per axis — so agents don't need to
   // interpret several numeric fields. Each axis states a decision, not a
@@ -116,6 +122,7 @@ export async function graphHealth({ repoRoot }) {
       ? `trust=${trust} (${unresolvedEdges} unresolved)`
       : `trust=${trust} (${trustUnresolvedEdges} trust-relevant unresolved, ${unresolvedEdges} total)`,
   );
+  if (manifestStatus !== 'ok') verdicts.push(`rebuild-incomplete: status=${manifestStatus} (run graph_index(force=true))`);
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
   if (overlay.present) {
@@ -128,6 +135,9 @@ export async function graphHealth({ repoRoot }) {
   if (briefStaleVsManifest) {
     verdicts.push('brief-stale: regenerate with graph-brief.mjs');
   }
+  if (unresolvedCategorizationStaleVsManifest) {
+    verdicts.push('categorization-stale: regenerate via graph_index()');
+  }
 
   return {
     indexed: true,
@@ -139,7 +149,9 @@ export async function graphHealth({ repoRoot }) {
     commit: manifest?.commit ?? null,
     currentHead: head,
     stale,
+    manifestStatus,
     briefStaleVsManifest,
+    unresolvedCategorizationStaleVsManifest,
     overlay,
     summary: verdicts.join(' · '),
   };

@@ -37,6 +37,7 @@ export async function graphStatus({ repoRoot }) {
     nodes: liveNodes ?? manifest.nodes ?? 0,
     edges: liveEdges ?? manifest.edges ?? 0,
     indexedAt: manifest.indexedAt ?? null,
+    manifestStatus: manifest.status ?? 'ok',
     commit: manifest.commit ?? null,
     currentHead: commit,
     dirtyFiles,

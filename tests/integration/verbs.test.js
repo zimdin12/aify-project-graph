@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { mkdtemp, rm, cp } from 'node:fs/promises';
+import { mkdtemp, rm, cp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -48,10 +48,22 @@ describe('integration: full verb pipeline', () => {
     expect(r.indexed).toBe(true);
     expect(r.nodes).toBeGreaterThan(0);
     expect(r.edges).toBeGreaterThan(0);
+    expect(r.artifacts.briefs.plan_bytes).toBeGreaterThan(0);
+    expect(r.artifacts.unresolvedCategorization.total).toBeGreaterThanOrEqual(0);
     // Status should now agree
     const s = await graphStatus({ repoRoot: repo });
     expect(s.indexed).toBe(true);
     expect(s.nodes).toBeGreaterThan(0);
+  });
+
+  it('graph_index refreshes derived artifacts against the same manifest indexedAt', async () => {
+    await graphIndex({ repoRoot: repo, force: true });
+    const manifest = JSON.parse(await readFile(join(repo, '.aify-graph', 'manifest.json'), 'utf8'));
+    const briefJson = JSON.parse(await readFile(join(repo, '.aify-graph', 'brief.json'), 'utf8'));
+    const categorization = JSON.parse(await readFile(join(repo, '.aify-graph', 'unresolved-categorization.json'), 'utf8'));
+
+    expect(briefJson.graph_indexed_at).toBe(manifest.indexedAt);
+    expect(categorization.graph_indexed_at).toBe(manifest.indexedAt);
   });
 
   it('graph_whereis finds handle_request', async () => {

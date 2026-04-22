@@ -45,6 +45,7 @@ describe('graph_health — synthesis of graph state signals', () => {
     const result = await graphHealth({ repoRoot });
     expect(result.indexed).toBe(true);
     expect(result.trust).toBe('strong');
+    expect(result.manifestStatus).toBe('ok');
     expect(result.unresolvedEdges).toBe(0);
     expect(result.summary).toMatch(/trust=strong/);
   });
@@ -121,5 +122,40 @@ describe('graph_health — synthesis of graph state signals', () => {
     expect(result.summary).toMatch(/trust=/);
     expect(result.summary).toMatch(/fresh|stale/);
     expect(result.summary).toMatch(/overlay=/);
+  });
+
+  it('surfaces incomplete rebuild state from manifest.status', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db.close();
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123', indexedAt: new Date().toISOString(),
+      nodes: 10, edges: 20, schemaVersion: 4, extractorVersion: '0.1.0',
+      status: 'indexing', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
+    }));
+
+    const result = await graphHealth({ repoRoot });
+    expect(result.manifestStatus).toBe('indexing');
+    expect(result.summary).toContain('rebuild-incomplete: status=indexing');
+  });
+
+  it('flags stale unresolved categorization separately from stale briefs', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db.close();
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123', indexedAt: '2026-04-23T00:00:00.000Z',
+      nodes: 10, edges: 20, schemaVersion: 4, extractorVersion: '0.1.0',
+      status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
+    }));
+    await writeFile(join(repoRoot, '.aify-graph', 'brief.json'), JSON.stringify({
+      graph_indexed_at: '2026-04-23T00:00:00.000Z',
+    }));
+    await writeFile(join(repoRoot, '.aify-graph', 'unresolved-categorization.json'), JSON.stringify({
+      graph_indexed_at: '2026-04-22T00:00:00.000Z',
+    }));
+
+    const result = await graphHealth({ repoRoot });
+    expect(result.briefStaleVsManifest).toBe(false);
+    expect(result.unresolvedCategorizationStaleVsManifest).toBe(true);
+    expect(result.summary).toContain('categorization-stale: regenerate via graph_index()');
   });
 });

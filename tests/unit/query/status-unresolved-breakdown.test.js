@@ -47,6 +47,7 @@ describe('graph_status — unresolvedBy coarse breakdown', () => {
     const status = await graphStatus({ repoRoot });
     expect(status.unresolvedBy.total).toBe(5);
     expect(status.trustUnresolvedEdges).toBe(4);
+    expect(status.manifestStatus).toBe('ok');
     expect(status.unresolvedBy.byRelation).toEqual({ CALLS: 3, IMPORTS: 1, REFERENCES: 1 });
     expect(status.unresolvedBy.byLanguage).toEqual({ javascript: 3, python: 1, cpp: 1 });
   });

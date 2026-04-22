@@ -1,10 +1,26 @@
 import { join } from 'node:path';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { writeUnresolvedCategorization } from '../../freshness/unresolved-categorization.js';
 import { openDb } from '../../storage/db.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
+import { generateBrief } from '../../brief/generator.js';
 
 export async function graphIndex({ repoRoot, paths, force = false }) {
   const result = await ensureFresh({ repoRoot, force });
+
+  result.artifacts = {};
+
+  try {
+    result.artifacts.briefs = generateBrief({ repoRoot });
+  } catch (err) {
+    result.artifacts.briefs = { error: err.message };
+  }
+
+  try {
+    result.artifacts.unresolvedCategorization = await writeUnresolvedCategorization({ repoRoot });
+  } catch (err) {
+    result.artifacts.unresolvedCategorization = { error: err.message };
+  }
 
   // Loud anchor validation: report unresolved anchors in functionality.json
   // so users can distinguish "all valid" from "never checked". Always emit

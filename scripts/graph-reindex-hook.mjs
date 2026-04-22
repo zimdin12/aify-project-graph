@@ -8,6 +8,7 @@
 
 import { resolve } from 'node:path';
 import { ensureFresh } from '../mcp/stdio/freshness/orchestrator.js';
+import { writeUnresolvedCategorization } from '../mcp/stdio/freshness/unresolved-categorization.js';
 import { generateBrief } from '../mcp/stdio/brief/generator.js';
 
 const [, , repoRootArg] = process.argv;
@@ -18,11 +19,13 @@ try {
   const result = await ensureFresh({ repoRoot });
   const reindexMs = Date.now() - startedAt;
   const brief = generateBrief({ repoRoot });
+  const categorization = await writeUnresolvedCategorization({ repoRoot });
   const totalMs = Date.now() - startedAt;
   console.log(`[${new Date().toISOString()}] post-commit: ${result.nodes}N/${result.edges}E reindexed in ${reindexMs}ms; briefs regenerated in ${totalMs - reindexMs}ms (total ${totalMs}ms)`);
   if (result.dirtyEdgeCount > 0) {
     console.log(`  unresolved=${result.dirtyEdgeCount} (see .aify-graph/dirty-edges.full.json)`);
   }
+  console.log(`  categorization=${categorization.total} source=${categorization.source}`);
   process.exit(0);
 } catch (err) {
   console.error(`[${new Date().toISOString()}] post-commit FAILED: ${err?.message ?? err}`);
