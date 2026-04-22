@@ -11,7 +11,7 @@ vi.mock('node:child_process', () => ({
   execFileSync,
 }));
 
-import { getDirtyFiles } from '../../../mcp/stdio/freshness/git.js';
+import { getDirtyFileEntries, getDirtyFiles } from '../../../mcp/stdio/freshness/git.js';
 
 describe('getDirtyFiles', () => {
   let repoRoot;
@@ -48,5 +48,15 @@ describe('getDirtyFiles', () => {
 
     const files = await getDirtyFiles(repoRoot);
     expect(files).toEqual(['.codex_tmp/task89batch/tmp.py']);
+  });
+
+  it('preserves tracked vs untracked status in the richer dirty-file entry API', async () => {
+    execFileSync.mockReturnValue(' M src/app.py\n?? src/new_file.py\n');
+
+    const entries = await getDirtyFileEntries(repoRoot);
+    expect(entries).toEqual([
+      { path: 'src/app.py', status: ' M', untracked: false },
+      { path: 'src/new_file.py', status: '??', untracked: true },
+    ]);
   });
 });

@@ -5,7 +5,7 @@ import { openDb } from '../storage/db.js';
 import { SCHEMA_VERSION } from '../storage/schema.js';
 import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/nodes.js';
 import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
-import { getHeadCommit, getDirtyFiles, getChangedFiles } from './git.js';
+import { getHeadCommit, getDirtyFileEntries, getChangedFiles } from './git.js';
 import { loadManifest, writeManifest } from './manifest.js';
 import { readDirtyEdgesSidecar, writeDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
 import { countTrustRelevantDirtyEdges } from './unresolved-metrics.js';
@@ -56,8 +56,9 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
     const manifestState = await loadManifest(graphDir);
     const manifest = manifestState.manifest;
     const commit = await getHeadCommit(repoRoot);
+    const dirtyEntries = await getDirtyFileEntries(repoRoot);
     const dirtyFiles = [...new Set([
-      ...(await getDirtyFiles(repoRoot)),
+      ...dirtyEntries.map((entry) => entry.path),
       ...(manifest.dirtyFiles ?? []),
     ])];
     const changedFromCommit = !force && manifest.commit && manifest.commit !== commit
@@ -109,6 +110,11 @@ export async function ensureFresh({ repoRoot, graphDir = join(repoRoot, '.aify-g
         console.warn(`[aify-project-graph] Resuming crashed rebuild: ${alreadyProcessed.size} files already indexed, ${filesToProcess.length} pending. Run graph_index(force=true) for a clean rebuild if cross-file edges look incomplete.`);
       } else {
         filesToProcess = await expandAffectedFiles(db, repoRoot, initialChanged);
+        const dirtyEntryMap = new Map(dirtyEntries.map((entry) => [entry.path, entry]));
+        filesToProcess = filesToProcess.filter((filePath) => {
+          const entry = dirtyEntryMap.get(filePath);
+          return !shouldDeferUntrackedFreshness(db, filePath, entry);
+        });
       }
 
       // Noop path: if no files to process and not a full rebuild, return early
@@ -332,6 +338,11 @@ function shouldCarryForwardRef(ref, repoRoot, ignoredDirs, filesToProcess) {
   if (filesToProcess.includes(sourceFile)) return false;
   if (pathContainsIgnoredDir(sourceFile, ignoredDirs)) return false;
   return existsSync(join(repoRoot, sourceFile));
+}
+
+function shouldDeferUntrackedFreshness(db, filePath, entry) {
+  if (!entry?.untracked) return false;
+  return getNodesByFile(db, filePath).length === 0;
 }
 
 function clearSpecialNodes(db) {

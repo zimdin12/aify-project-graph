@@ -100,26 +100,25 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
   const input = target ?? symbol;
   if (!input) return 'ERROR: target (symbol or file path) is required';
 
+  // Task-id targets are overlay-native. Resolve them before freshness so
+  // task-centric planning doesn't pay a whole-graph refresh cost just to
+  // read tasks.json + functionality.json.
+  const taskMatch = resolveTaskTarget(repoRoot, input);
+  if (taskMatch) {
+    return {
+      target: input,
+      resolved_from_task: taskMatch.task,
+      features_touching: taskMatch.features,
+      contracts_potentially_affected: taskMatch.contracts,
+      open_tasks_on_those_features: taskMatch.siblingTasks,
+      top_related_tasks: rankTasks(taskMatch.siblingTasks).slice(0, 3),
+      note: 'Input matched a task id. For per-symbol/file consequences, pass a symbol or file path.',
+    };
+  }
+
   await ensureFresh({ repoRoot });
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    // 0. Short-circuit: if target looks like a task id, resolve via tasks.json
-    // → feature refs → re-enter consequences with the first anchored symbol/file.
-    // Lets agents go from a tracker ID straight to the consequence map without
-    // having to look up which feature / files the task is bound to first.
-    // Echoes PM Tier B #5: "currently symbol|file. Make tasks a valid target."
-    const taskMatch = resolveTaskTarget(repoRoot, input);
-    if (taskMatch) {
-      return {
-        target: input,
-        resolved_from_task: taskMatch.task,
-        features_touching: taskMatch.features,
-        contracts_potentially_affected: taskMatch.contracts,
-        open_tasks_on_those_features: taskMatch.siblingTasks,
-        top_related_tasks: rankTasks(taskMatch.siblingTasks).slice(0, 3),
-        note: 'Input matched a task id. For per-symbol/file consequences, pass a symbol or file path.',
-      };
-    }
 
     // 1. Resolve input to concrete code nodes (symbol match OR file match).
     // For a class name that exists in multiple files (forward decls in

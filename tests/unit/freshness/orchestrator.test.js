@@ -6,11 +6,13 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 
 const getHeadCommit = vi.fn();
 const getDirtyFiles = vi.fn();
+const getDirtyFileEntries = vi.fn();
 const getChangedFiles = vi.fn();
 const withWriteLock = vi.fn();
 
 vi.mock('../../../mcp/stdio/freshness/git.js', () => ({
   getHeadCommit,
+  getDirtyFileEntries,
   getDirtyFiles,
   getChangedFiles,
 }));
@@ -28,10 +30,15 @@ describe('freshness orchestrator', () => {
     await mkdir(join(repoRoot, 'src'), { recursive: true });
 
     getHeadCommit.mockReset();
+    getDirtyFileEntries.mockReset();
     getDirtyFiles.mockReset();
     getChangedFiles.mockReset();
     withWriteLock.mockReset();
     withWriteLock.mockImplementation(async (_repoRoot, fn) => fn());
+    getDirtyFileEntries.mockImplementation(async () =>
+      (getDirtyFiles.getMockImplementation()
+        ? (await getDirtyFiles())?.map((path) => ({ path, status: ' M', untracked: false })) ?? []
+        : []));
   });
 
   afterEach(async () => {
@@ -44,6 +51,7 @@ describe('freshness orchestrator', () => {
     await writeFile(join(repoRoot, 'src', 'run.py'), 'from helper import helper\n\ndef run():\n    helper()\n');
 
     getHeadCommit.mockResolvedValue('head-1');
+    getDirtyFileEntries.mockResolvedValue([]);
     getDirtyFiles.mockResolvedValue([]);
     getChangedFiles.mockResolvedValue([]);
 
@@ -89,6 +97,7 @@ describe('freshness orchestrator', () => {
     await copyFile(join(fixtureRoot, 'routes', 'api.php'), join(repoRoot, 'routes', 'api.php'));
 
     getHeadCommit.mockResolvedValue('head-laravel');
+    getDirtyFileEntries.mockResolvedValue([]);
     getDirtyFiles.mockResolvedValue([]);
     getChangedFiles.mockResolvedValue([]);
 
@@ -152,6 +161,7 @@ describe('freshness orchestrator', () => {
     await writeFile(join(repoRoot, 'src', 'run.py'), 'from helper import helper\n\ndef run():\n    helper()\n');
 
     getHeadCommit.mockResolvedValue('head-1');
+    getDirtyFileEntries.mockResolvedValue([]);
     getDirtyFiles.mockResolvedValue([]);
     getChangedFiles.mockResolvedValue([]);
 
@@ -160,6 +170,7 @@ describe('freshness orchestrator', () => {
 
     await writeFile(join(repoRoot, 'src', 'helper.py'), 'def new_helper():\n    return 1\n');
     getHeadCommit.mockResolvedValue('head-1');
+    getDirtyFileEntries.mockResolvedValue([{ path: 'src/helper.py', status: ' M', untracked: false }]);
     getDirtyFiles.mockResolvedValue(['src/helper.py']);
     getChangedFiles.mockResolvedValue([]);
 
@@ -191,6 +202,36 @@ describe('freshness orchestrator', () => {
     }
   });
 
+  it('skips incremental reindex work for brand-new untracked files not yet in the graph', async () => {
+    await writeFile(join(repoRoot, 'src', 'main.py'), 'def main():\n    return 1\n');
+
+    getHeadCommit.mockResolvedValue('head-1');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot });
+
+    await writeFile(join(repoRoot, 'src', 'new_helper.py'), 'def helper():\n    return 2\n');
+    getHeadCommit.mockResolvedValue('head-1');
+    getDirtyFileEntries.mockResolvedValue([{ path: 'src/new_helper.py', status: '??', untracked: true }]);
+    getDirtyFiles.mockResolvedValue(['src/new_helper.py']);
+    getChangedFiles.mockResolvedValue([]);
+
+    const result = await ensureFresh({ repoRoot });
+    expect(result.processedFiles).toEqual([]);
+    expect(result.dirtyEdgeCount).toBe(0);
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const newFileNode = db.get(`SELECT id FROM nodes WHERE file_path = 'src/new_helper.py' LIMIT 1`);
+      expect(newFileNode).toBeUndefined();
+    } finally {
+      db.close();
+    }
+  });
+
   it('keeps previously committed chunks when a later file write fails', async () => {
     for (let i = 0; i <= 500; i += 1) {
       const name = `file-${String(i).padStart(3, '0')}.py`;
@@ -198,6 +239,7 @@ describe('freshness orchestrator', () => {
     }
 
     getHeadCommit.mockResolvedValue('head-chunk');
+    getDirtyFileEntries.mockResolvedValue([]);
     getDirtyFiles.mockResolvedValue([]);
     getChangedFiles.mockResolvedValue([]);
 
@@ -262,6 +304,7 @@ describe('freshness orchestrator', () => {
     }));
 
     getHeadCommit.mockResolvedValue('head-force');
+    getDirtyFileEntries.mockResolvedValue([]);
     getDirtyFiles.mockResolvedValue([]);
     getChangedFiles.mockResolvedValue([]);
 
@@ -280,6 +323,7 @@ describe('freshness orchestrator', () => {
     await writeFile(join(repoRoot, 'src', 'run.py'), 'def run():\n    return 1\n');
 
     getHeadCommit.mockResolvedValue('head-a');
+    getDirtyFileEntries.mockResolvedValue([]);
     getDirtyFiles.mockResolvedValue([]);
     getChangedFiles.mockResolvedValue([]);
 
@@ -308,6 +352,7 @@ describe('freshness orchestrator', () => {
 
     await writeFile(join(repoRoot, 'src', 'run.py'), 'def run_clean():\n    return 1\n');
     getHeadCommit.mockResolvedValue('head-b');
+    getDirtyFileEntries.mockResolvedValue([{ path: 'src/run.py', status: ' M', untracked: false }]);
     getDirtyFiles.mockResolvedValue(['src/run.py']);
     getChangedFiles.mockResolvedValue([]);
 
