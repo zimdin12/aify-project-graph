@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { loadEffectiveIgnoredDirs, normalizeRepoRelativePath, pathContainsIgnoredDir } from '../ingest/ignored-dirs.js';
 
 function normalizeLines(stdout) {
@@ -14,6 +16,15 @@ export async function getHeadCommit(repoRoot) {
 }
 
 export async function getDirtyFileEntries(repoRoot) {
+  return getDirtyFileEntriesSync(repoRoot);
+}
+
+export async function getDirtyFiles(repoRoot) {
+  const entries = await getDirtyFileEntries(repoRoot);
+  return entries.map((entry) => entry.path);
+}
+
+export function getDirtyFileEntriesSync(repoRoot) {
   const stdout = execGit(repoRoot, ['status', '--porcelain']);
   const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
 
@@ -21,6 +32,7 @@ export async function getDirtyFileEntries(repoRoot) {
     .split(/\r?\n/u)
     .map(parseStatusLine)
     .filter(Boolean)
+    .flatMap((entry) => expandEntry(repoRoot, entry))
     .map((entry) => ({
       ...entry,
       path: normalizeRepoRelativePath(entry.path),
@@ -29,9 +41,8 @@ export async function getDirtyFileEntries(repoRoot) {
     .filter((entry) => !pathContainsIgnoredDir(entry.path, ignoredDirs));
 }
 
-export async function getDirtyFiles(repoRoot) {
-  const entries = await getDirtyFileEntries(repoRoot);
-  return entries.map((entry) => entry.path);
+export function getDirtyFilesSync(repoRoot) {
+  return getDirtyFileEntriesSync(repoRoot).map((entry) => entry.path);
 }
 
 export async function getChangedFiles(repoRoot, fromRef, toRef = 'HEAD') {
@@ -60,4 +71,30 @@ function parseStatusLine(line) {
     path: filePath,
     untracked: status === '??',
   };
+}
+
+function expandEntry(repoRoot, entry) {
+  const normalized = normalizeRepoRelativePath(entry.path);
+  if (!entry.untracked || !normalized.endsWith('/')) return [{ ...entry, path: normalized }];
+  return expandUntrackedDirectory(repoRoot, normalized).map((path) => ({ ...entry, path }));
+}
+
+function expandUntrackedDirectory(repoRoot, relDir) {
+  const absDir = join(repoRoot, relDir);
+  if (!existsSync(absDir)) return [relDir];
+  const out = [];
+  const walk = (absPath, relPath) => {
+    const entries = readdirSync(absPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const nextAbs = join(absPath, entry.name);
+      const nextRel = normalizeRepoRelativePath(join(relPath, entry.name));
+      if (entry.isDirectory()) {
+        walk(nextAbs, nextRel);
+      } else {
+        out.push(nextRel);
+      }
+    }
+  };
+  walk(absDir, relDir);
+  return out.length > 0 ? out : [relDir];
 }

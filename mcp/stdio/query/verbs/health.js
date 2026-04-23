@@ -12,10 +12,12 @@ import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
+import { getDirtyFiles } from '../../freshness/git.js';
 import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
+import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 
 // Single source of truth for trust-level thresholds. graph_health and the
 // brief's trust() both consume this so they can't drift. Echoes bench
@@ -45,6 +47,7 @@ export async function graphHealth({ repoRoot }) {
   const { manifest } = await loadManifest(graphDir);
   const manifestStatus = manifest?.status ?? 'ok';
   const head = await getHeadCommit(repoRoot).catch(() => null);
+  const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
   const stale = Boolean(manifest?.commit && head && manifest.commit !== head);
   const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
 
@@ -64,12 +67,16 @@ export async function graphHealth({ repoRoot }) {
   }
 
   // Overlay health
+  const functionality = hasOverlay(repoRoot) ? loadFunctionality(repoRoot) : { features: [] };
+  const tasksArtifact = loadTasksArtifact(repoRoot);
+  const overlayQuality = summarizeOverlayQuality(functionality.features ?? [], tasksArtifact.tasks ?? []);
+  const dirtySeams = summarizeDirtySeams(functionality.features ?? [], dirtyFiles);
   let overlay = { present: false, checked: 0, broken: 0, sample: [] };
-  if (hasOverlay(repoRoot)) {
+  if (functionality.features.length > 0 || hasOverlay(repoRoot)) {
     try {
       const db = openExistingDb(dbPath);
       try {
-        const { features } = loadFunctionality(repoRoot);
+        const { features } = functionality;
         const { valid, broken } = validateAnchors(features ?? [], db);
         overlay = {
           present: true,
@@ -126,11 +133,37 @@ export async function graphHealth({ repoRoot }) {
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
   if (overlay.present) {
-    verdicts.push(overlay.broken === 0
-      ? `overlay=clean (${overlay.checked} features)`
-      : `overlay=broken ${overlay.broken}/${overlay.checked}`);
+    if (overlayQuality.featureCount === 0) {
+      verdicts.push('overlay=empty');
+    } else {
+    const qualityBits = [
+      `tests ${overlayQuality.featuresWithTests}/${overlayQuality.featureCount}`,
+      `docs ${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount}`,
+      `deps ${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount}`,
+      `related ${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}`,
+    ];
+    if (overlayQuality.tasksTotal > 0) {
+      qualityBits.push(`tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}`);
+    }
+    verdicts.push(
+      overlay.broken === 0
+        ? `overlay=clean (${overlay.checked} features; ${qualityBits.join(', ')})`
+        : `overlay=broken ${overlay.broken}/${overlay.checked} (${qualityBits.join(', ')})`,
+    );
+    }
   } else {
     verdicts.push('overlay=none');
+  }
+  if (dirtyFiles.length > 0) {
+    if (dirtySeams.features.length > 0) {
+      const preview = dirtySeams.features.slice(0, 3)
+        .map((f) => `${f.id}(${f.file_count})`)
+        .join(', ');
+      const orphan = dirtySeams.orphanDirtyFiles > 0 ? `, orphan ${dirtySeams.orphanDirtyFiles}` : '';
+      verdicts.push(`dirty-seams: ${preview}${orphan}`);
+    } else {
+      verdicts.push(`dirty=${dirtyFiles.length} files`);
+    }
   }
   if (briefStaleVsManifest) {
     verdicts.push('brief-stale: regenerate with graph-brief.mjs');
@@ -146,6 +179,8 @@ export async function graphHealth({ repoRoot }) {
     trustUnresolvedEdges,
     nodes,
     edges,
+    dirtyFiles,
+    dirtySeams,
     commit: manifest?.commit ?? null,
     currentHead: head,
     stale,
@@ -153,6 +188,7 @@ export async function graphHealth({ repoRoot }) {
     briefStaleVsManifest,
     unresolvedCategorizationStaleVsManifest,
     overlay,
+    overlayQuality,
     summary: verdicts.join(' · '),
   };
 }

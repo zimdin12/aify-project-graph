@@ -119,4 +119,21 @@ describe('graph_consequences — cross-layer traversal', () => {
     const result = await graphConsequences({ repoRoot, target: 'src/a.js' });
     expect(result.features_touching.map((f) => f.id)).toContain('core');
   });
+
+  it('surfaces dirty overlap when the target touches currently modified feature files', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    insertNode(db, { id: 'f1', type: 'File', label: 'a.js', file_path: 'src/a.js' });
+    db.close();
+
+    await mkdir(join(repoRoot, 'src'), { recursive: true });
+    await writeFile(join(repoRoot, 'src', 'a.js'), 'console.log("dirty");\n');
+    await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+      features: [{ id: 'core', anchors: { files: ['src/a.js'] } }],
+    }));
+
+    const result = await graphConsequences({ repoRoot, target: 'src/a.js' });
+    expect(result.dirty_overlap.direct_files).toContain('src/a.js');
+    expect(result.dirty_overlap.affected_features[0]).toMatchObject({ id: 'core', file_count: 1 });
+    expect(result.risk_flags).toEqual(expect.arrayContaining([expect.stringMatching(/dirty_local_seam/i)]));
+  });
 });

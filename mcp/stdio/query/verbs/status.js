@@ -4,6 +4,8 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { getHeadCommit, getDirtyFiles } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { openExistingDb } from '../../storage/db.js';
+import { hasOverlay, loadFunctionality } from '../../overlay/loader.js';
+import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 
 export async function graphStatus({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
@@ -11,6 +13,10 @@ export async function graphStatus({ repoRoot }) {
   const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
   const commit = await getHeadCommit(repoRoot).catch(() => null);
   const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+  const functionality = hasOverlay(repoRoot) ? loadFunctionality(repoRoot) : { features: [] };
+  const tasksArtifact = loadTasksArtifact(repoRoot);
+  const overlayQuality = summarizeOverlayQuality(functionality.features ?? [], tasksArtifact.tasks ?? []);
+  const dirtySeams = summarizeDirtySeams(functionality.features ?? [], dirtyFiles);
 
   // Live DB counts — graph_report uses these, so status agrees with report
   // when the DB is fresher than the manifest (e.g. after an ensureFresh pass
@@ -48,6 +54,8 @@ export async function graphStatus({ repoRoot }) {
       manifest.dirtyEdges ?? [],
       unresolvedEdges,
     ),
+    overlayQuality,
+    dirtySeams,
     schemaVersion: manifest.schemaVersion ?? 1,
     extractorVersion: manifest.extractorVersion ?? '0.0.0',
   };

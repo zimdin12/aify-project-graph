@@ -7,8 +7,21 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+
+function initGitRepo(repoRoot) {
+  const runGit = (...args) => execFileSync('git', ['-C', repoRoot, ...args], { stdio: 'ignore' });
+  runGit('init', '-q');
+  runGit('config', 'user.email', 'test@test');
+  runGit('config', 'user.name', 'test');
+}
+
+function gitCommit(repoRoot, message) {
+  execFileSync('git', ['-C', repoRoot, 'add', '.'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', repoRoot, 'commit', '-m', message], { stdio: 'ignore' });
+}
 
 describe('graph_health — synthesis of graph state signals', () => {
   let repoRoot;
@@ -157,5 +170,62 @@ describe('graph_health — synthesis of graph state signals', () => {
     expect(result.briefStaleVsManifest).toBe(false);
     expect(result.unresolvedCategorizationStaleVsManifest).toBe(true);
     expect(result.summary).toContain('categorization-stale: regenerate via graph_index()');
+  });
+
+  it('surfaces overlay quality and dirty seams when the working tree intersects mapped features', async () => {
+    initGitRepo(repoRoot);
+    await mkdir(join(repoRoot, 'src'), { recursive: true });
+    await writeFile(join(repoRoot, 'src', 'auth.js'), 'export function login() { return true; }\n');
+    gitCommit(repoRoot, 'init');
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db.close();
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+      indexedAt: new Date().toISOString(),
+      nodes: 1,
+      edges: 0,
+      schemaVersion: 4,
+      extractorVersion: '0.1.0',
+      status: 'ok',
+      dirtyFiles: [],
+      dirtyEdges: [],
+      dirtyEdgeCount: 0,
+    }));
+    await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+      features: [{
+        id: 'auth',
+        label: 'Auth',
+        anchors: { files: ['src/auth.js'], docs: ['docs/auth.md'] },
+        tests: ['tests/test_main.cpp'],
+        depends_on: ['core'],
+        related_to: ['session'],
+      }],
+    }));
+    await writeFile(join(repoRoot, '.aify-graph', 'tasks.json'), JSON.stringify({
+      tasks: [
+        { id: 'T-1', title: 'linked', status: 'open', features: ['auth'] },
+        { id: 'T-2', title: 'loose', status: 'open', features: [] },
+      ],
+    }));
+    await writeFile(join(repoRoot, 'src', 'auth.js'), 'export function login() { return false; }\n');
+
+    const result = await graphHealth({ repoRoot });
+    expect(result.overlayQuality).toMatchObject({
+      featureCount: 1,
+      featuresWithTests: 1,
+      featuresWithDocs: 1,
+      featuresWithDependsOn: 1,
+      featuresWithRelatedTo: 1,
+      tasksTotal: 2,
+      linkedTasks: 1,
+      unlinkedTasks: 1,
+    });
+    expect(result.dirtySeams.features[0]).toMatchObject({
+      id: 'auth',
+      file_count: 1,
+    });
+    expect(result.summary).toContain('dirty-seams: auth(1)');
+    expect(result.summary).toContain('tasks 1/2');
   });
 });

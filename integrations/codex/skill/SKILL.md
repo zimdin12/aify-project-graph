@@ -36,6 +36,10 @@ Read verbs are **snapshot-first**. The one exception is first use in a repo with
 - missing on first use → let the initial bootstrap happen, then switch to snapshot discipline
 - stale / dirty working tree → use the current snapshot for orientation, then verify in source
 
+`graph_health()` and the briefs now also surface two map-quality signals you should actually use:
+- `OVERLAY:` / `OVERLAY GAPS:` — how many features have `tests[]`, `anchors.docs`, `depends_on`, `related_to`, and how many open tasks are actually linked. Thin overlay means the map will mostly orient, not dominate.
+- `DIRTY:` / `DIRTY SEAMS:` — which mapped features currently intersect dirty files. If your bug/change target overlaps those files, trust current source + diff over cached structural inference.
+
 ## FIRST ACTION in any session
 
 Before calling any other tool, check whether this repo has a graph:

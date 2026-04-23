@@ -16,8 +16,10 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
+import { getDirtyFilesSync } from '../freshness/git.js';
 import { getUnresolvedCounts } from '../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
+import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../overlay/quality.js';
 import { buildPaths } from '../query/verbs/path.js';
 
 const NOISE_LABELS = new Set([
@@ -901,29 +903,6 @@ function recentActivity(repoRoot, limit = 5) {
   }
 }
 
-// Load tasks.json if present (written by the graph-map-tasks skill).
-// This is cross-layer L3 — task tracker data linked to features.
-function loadTasks(repoRoot) {
-  const path = join(repoRoot, '.aify-graph', 'tasks.json');
-  if (!existsSync(path)) return { tasks: [], source: null };
-  try {
-    const raw = JSON.parse(readFileSync(path, 'utf8'));
-    return {
-      tasks: Array.isArray(raw.tasks) ? raw.tasks : [],
-      source: raw.source || 'unknown',
-      fetched_at: raw.fetched_at,
-    };
-  } catch {
-    return { tasks: [], source: null };
-  }
-}
-
-function taskFeatureRefs(task) {
-  if (Array.isArray(task.features) && task.features.length) return task.features.filter(Boolean);
-  if (Array.isArray(task.related_features) && task.related_features.length) return task.related_features.filter(Boolean);
-  return [];
-}
-
 function openTasksByFeature(tasksArtifact) {
   const byFeature = new Map();
   for (const t of tasksArtifact?.tasks || []) {
@@ -1125,7 +1104,10 @@ function renderMarkdown(data) {
 
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
 function renderAgentMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health, overlayHealth, tooling, coverage, exports: exportsArr, paths } = data;
+  const {
+    snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health,
+    overlayHealth, tooling, coverage, exports: exportsArr, paths, overlayQuality, dirtySeams,
+  } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
@@ -1166,6 +1148,16 @@ function renderAgentMarkdown(data) {
       lines.push(`  ${feature.id}: ${label}${anchors ? ' [' + anchors + ']' : ''}${deps}`);
     }
   }
+  if (overlayQuality?.featureCount) {
+    const parts = [
+      `tests=${overlayQuality.featuresWithTests}/${overlayQuality.featureCount}`,
+      `docs=${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount}`,
+      `deps=${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount}`,
+      `related=${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}`,
+    ];
+    if (overlayQuality.tasksTotal > 0) parts.push(`tasks=${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}`);
+    lines.push(`OVERLAY: ${parts.join(' ')}`);
+  }
   if (hubsArr.length) {
     lines.push('INTERNAL_HUBS:');
     for (const h of hubsArr.slice(0, 4)) {
@@ -1193,6 +1185,11 @@ function renderAgentMarkdown(data) {
   if (recent.length) {
     lines.push('RECENT:');
     for (const c of recent.slice(0, 3)) lines.push(`  ${c.date} ${c.subject}`);
+  }
+  if (dirtySeams?.totalDirtyFiles > 0) {
+    const preview = dirtySeams.features.slice(0, 3).map((f) => `${f.id}(${f.file_count})`).join(', ');
+    const orphan = dirtySeams.orphanDirtyFiles > 0 ? ` orphan=${dirtySeams.orphanDirtyFiles}` : '';
+    lines.push(`DIRTY: ${dirtySeams.totalDirtyFiles} files${preview ? ' ' + preview : ''}${orphan}`);
   }
   if (health.issues.length) {
     const tip = health.tip ? ` → ${health.tip}` : '';
@@ -1261,7 +1258,10 @@ function renderOnboardAgentMarkdown(data) {
 // attribution (similar-change context), then RISKS. Drops ENTRY/HUBS which
 // are orient-specific noise for a change-planning session.
 function renderPlanAgentMarkdown(data) {
-  const { snapshot, health, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks } = data;
+  const {
+    snapshot, health, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks,
+    overlayQuality, dirtySeams,
+  } = data;
   const lines = [];
   const tasksByFeature = openTasksByFeature(tasksArtifact);
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
@@ -1279,6 +1279,12 @@ function renderPlanAgentMarkdown(data) {
       lines.push(`    open:  ${primaryFile}${primarySym ? ' (' + primarySym + ')' : ''}`);
       lines.push(`    tests: ${testStr}`);
       lines.push(`    load:  ${callers_total} callers across anchored symbols`);
+      if ((feature.anchors.docs || []).length > 0) {
+        lines.push(`    docs:  ${feature.anchors.docs.slice(0, 2).join(', ')}`);
+      }
+      if ((feature.related_to || []).length > 0) {
+        lines.push(`    related: [${feature.related_to.slice(0, 3).join(',')}]`);
+      }
       const featureTasks = tasksByFeature.get(feature.id) || [];
       if (featureTasks.length) {
         lines.push(`    tasks: ${featureTasks.length} open`);
@@ -1286,6 +1292,28 @@ function renderPlanAgentMarkdown(data) {
           lines.push(`      - ${t.id} ${t.title}`);
         }
       }
+    }
+  }
+  if (overlayQuality?.featureCount) {
+    lines.push('OVERLAY GAPS:');
+    lines.push(
+      `  tests ${overlayQuality.featuresWithTests}/${overlayQuality.featureCount} · docs ${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount} · deps ${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount} · related ${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}${overlayQuality.tasksTotal > 0 ? ` · linked tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}` : ''}`,
+    );
+    if (overlayQuality.featuresWithTests < overlayQuality.featureCount) {
+      lines.push('  next: add explicit tests[] where one shared test file covers multiple features');
+    }
+    if (overlayQuality.unlinkedTasks > 0) {
+      lines.push(`  next: attach ${overlayQuality.unlinkedTasks} open task(s) to a feature`);
+    }
+  }
+  if (dirtySeams?.totalDirtyFiles > 0) {
+    lines.push('DIRTY SEAMS:');
+    for (const feature of dirtySeams.features.slice(0, 4)) {
+      lines.push(`  ${feature.id}: ${feature.file_count} dirty file(s) · ${feature.files.slice(0, 2).join(', ')}`);
+    }
+    if (dirtySeams.orphanDirtyFiles > 0) {
+      const sample = dirtySeams.orphanFilesSample.length ? ` · ${dirtySeams.orphanFilesSample.join(', ')}` : '';
+      lines.push(`  orphan dirty files: ${dirtySeams.orphanDirtyFiles}${sample}`);
     }
   }
   const unattributed = openTasksWithoutFeatures(tasksArtifact);
@@ -1332,7 +1360,11 @@ function renderPlanAgentMarkdown(data) {
 }
 
 function renderJson(data, repoRoot) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, tasksArtifact } = data;
+  const {
+    snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent,
+    health, overlay, overlayHealth, brokenFeatureEdges, tasksArtifact,
+    overlayQuality, dirtySeams,
+  } = data;
   // Pre-compute tasks-by-feature so programmatic consumers of brief.json
   // (e.g. /graph-walk-bugs, future graph-lint) don't need to re-parse
   // tasks.json and re-apply the open/attribution filter. Echoes PM
@@ -1363,6 +1395,8 @@ function renderJson(data, repoRoot) {
     tests,
     risks: risksArr,
     recent_activity: recent,
+    overlay_quality: overlayQuality,
+    dirty_seams: dirtySeams,
     features: {
       version: overlay?.version ?? null,
       valid: (overlayHealth?.valid ?? []).map(v => {
@@ -1456,7 +1490,12 @@ export function generateBrief({ repoRoot }) {
       ? recentActivityWithFiles(repoRoot, overlay.features, 10)
       : [];
     // L3 tasks from external tracker (written by graph-map-tasks skill).
-    const tasksArtifact = loadTasks(repoRoot);
+    const tasksArtifact = loadTasksArtifact(repoRoot);
+    const overlayQuality = summarizeOverlayQuality(overlay.features, tasksArtifact.tasks);
+    let dirtySeams = { totalDirtyFiles: 0, mappedDirtyFiles: 0, orphanDirtyFiles: 0, features: [], orphanFilesSample: [] };
+    try {
+      dirtySeams = summarizeDirtySeams(overlay.features, getDirtyFilesSync(repoRoot));
+    } catch {}
 
     // Plan-brief enrichment: features get tests + callers count, risks get
     // feature attribution + nearest test. Computed here so renderers can
@@ -1482,7 +1521,32 @@ export function generateBrief({ repoRoot }) {
         manifestCommit = m.commit ?? null;
       }
     } catch { /* ignore */ }
-    const data = { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlay, overlayHealth, brokenFeatureEdges, recentWithFiles, tasksArtifact, enrichedValid, enrichedRisks, tooling, coverage, exports, paths, manifestIndexedAt, manifestCommit };
+    const data = {
+      snapshot,
+      entries,
+      subs,
+      hubsArr,
+      readFirstArr,
+      tests,
+      risksArr,
+      recent,
+      health,
+      overlay,
+      overlayHealth,
+      overlayQuality,
+      dirtySeams,
+      brokenFeatureEdges,
+      recentWithFiles,
+      tasksArtifact,
+      enrichedValid,
+      enrichedRisks,
+      tooling,
+      coverage,
+      exports,
+      paths,
+      manifestIndexedAt,
+      manifestCommit,
+    };
 
     const md = renderMarkdown(data);
     const agentMd = renderAgentMarkdown(data);

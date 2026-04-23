@@ -19,6 +19,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
+import { summarizeDirtySeams } from '../../overlay/quality.js';
+import { getDirtyFiles } from '../../freshness/git.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
@@ -120,6 +122,8 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
+    const functionality = hasOverlay(repoRoot) ? loadFunctionality(repoRoot) : { features: [] };
+    const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
 
     // 1. Resolve input to concrete code nodes (symbol match OR file match).
     // For a class name that exists in multiple files (forward decls in
@@ -206,9 +210,8 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
         // malformed tasks.json — skip reverse lookup
       }
     }
-    if (hasOverlay(repoRoot)) {
-      const overlay = loadFunctionality(repoRoot);
-      for (const f of overlay.features ?? []) {
+    if (functionality.features.length > 0) {
+      for (const f of functionality.features ?? []) {
         const symbolHit = (f.anchors?.symbols ?? []).some((s) => matchedSymbols.has(s));
         const fileHit = (f.anchors?.files ?? []).some((pattern) => {
           // Cheap glob: `foo/*` → matches any file under foo/
@@ -264,10 +267,9 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // feature but the verb only surfaced the queried file. Fix: surface the
     // peer set explicitly so refactor planners see the full blast radius.
     const coConsumerFiles = [];
-    if (affectedFeatureIds.size > 0 && hasOverlay(repoRoot)) {
-      const overlay2 = loadFunctionality(repoRoot);
+    if (affectedFeatureIds.size > 0 && functionality.features.length > 0) {
       const seen = new Set([...matchedFiles]);
-      for (const f of overlay2.features ?? []) {
+      for (const f of functionality.features ?? []) {
         if (!affectedFeatureIds.has(f.id)) continue;
         for (const anchor of f.anchors?.files ?? []) {
           if (anchor.endsWith('/*')) continue; // skip globs — agents can expand themselves
@@ -315,6 +317,19 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // Full list stays in open_tasks_on_those_features for completeness, but
     // top_related saves agents from scanning 22-item flat arrays.
     const rankedTasks = rankTasks(tasks);
+    const dirtySeams = summarizeDirtySeams(functionality.features ?? [], dirtyFiles);
+    const dirtyOverlap = {
+      direct_files: dirtyFiles.filter((file) => matchedFiles.has(file)),
+      affected_features: dirtySeams.features
+        .filter((feature) => affectedFeatureIds.has(feature.id))
+        .map((feature) => ({
+          id: feature.id,
+          label: feature.label,
+          file_count: feature.file_count,
+          files: feature.files.slice(0, 5),
+        })),
+      orphan_dirty_files: dirtySeams.orphanFilesSample.filter((file) => matchedFiles.has(file)),
+    };
 
     const riskFlags = [];
     if (tests.length === 0 && symbolNodes.length > 0) riskFlags.push('no_test_coverage — no adjacent tests, regression risk');
@@ -323,6 +338,11 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     if (features.length > 1) riskFlags.push(`cross_feature_boundary — touches ${features.length} features`);
     if (tasks.length > 20) riskFlags.push(`task_overhang — ${tasks.length} open tasks on affected features`);
     if (referencedIn.length > 5) riskFlags.push(`high_fan_in — symbol appears in ${referencedIn.length + symbolNodes.length} files`);
+    const dirtyOverlapCount = dirtyOverlap.direct_files.length
+      + dirtyOverlap.affected_features.reduce((sum, feature) => sum + feature.file_count, 0);
+    if (dirtyOverlapCount > 0) {
+      riskFlags.push(`dirty_local_seam — ${dirtyOverlapCount} dirty file(s) intersect this target or its mapped features`);
+    }
 
     return attachReadWarnings({
       target: input,
@@ -343,6 +363,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       top_related_tasks: rankedTasks.slice(0, 3), // highest-signal subset
       tests_adjacent: tests,
       last_touched: lastTouched,
+      dirty_overlap: dirtyOverlap,
       risk_flags: riskFlags,
     }, freshness.warnings);
   } finally {

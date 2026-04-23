@@ -104,6 +104,7 @@ Five artifacts generated at `.aify-graph/` on every index:
 - **`brief.agent.md`** (~300-1100 tok, prompt substrate) — dense key/value form including **PATHS** (pre-computed execution chains for top EXPORTS); size varies with public-API surface (apg at 21 MCP verbs + PATHS ≈ 1000 tok; small repos without explicit exports ≈ 300 tok). Paste into any agent's system/developer prompt for orient-shaped sessions. Now answers trace-shape questions from context.
 - **`brief.onboard.md`** (~250-500 tok) — stripped variant focused on new-to-this-repo sessions. Drops recent activity, risks, and PATHS.
 - **`brief.plan.md`** (~300-600 tok when `functionality.json` populated, ~70 tok when empty) — leads with **features + anchors**, **recent commits feature-tagged**, **open tasks grouped by feature**, and risk areas. For "about to change something" sessions.
+- `brief.agent.md` now also carries `OVERLAY:` and `DIRTY:` summary lines when those signals exist, and `brief.plan.md` adds `OVERLAY GAPS:` / `DIRTY SEAMS:` sections so agents can tell whether the map is thin or whether the current bug seam is actively being edited.
 - **`brief.json`** — machine-readable equivalent of everything.
 
 Briefs are **cache-discipline stable** — deterministic ordering, no timestamps in the agent brief, files only rewritten when content actually changes. Prefix-cache survives across sessions while HEAD doesn't move.
@@ -136,6 +137,8 @@ Drop `.aify-graph/functionality.json` in any repo to map **user-defined features
 Anchors are validated against the graph on every brief regen — stale or broken anchors surface in the brief's `TRUST` line as an actionable routing signal. Sample at [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json).
 
 **Map quality ceiling:** if the graph still feels thin after a clean rebuild, the next fix is usually a richer overlay, not another verb. The highest-value fields are `tests[]`, `depends_on`, `related_to`, and `anchors.docs`.
+
+**Dirty worktree matters:** on active feature branches, graph quality depends not just on the indexed snapshot but on whether the seam you care about is currently dirty. `graph_health()` now surfaces `dirty-seams:` and the briefs surface `DIRTY:` / `DIRTY SEAMS:` so agents can see when source-of-truth reasoning should prioritize current diffs over cached map structure.
 
 ### Task overlay (L3)
 

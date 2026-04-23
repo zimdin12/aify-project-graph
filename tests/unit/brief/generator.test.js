@@ -5,6 +5,14 @@ import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { generateBrief } from '../../../mcp/stdio/brief/generator.js';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+
+function initGitRepo(repoRoot) {
+  const runGit = (...args) => execFileSync('git', ['-C', repoRoot, ...args], { stdio: 'ignore' });
+  runGit('init', '-q');
+  runGit('config', 'user.email', 'test@test');
+  runGit('config', 'user.name', 'test');
+}
 
 function seedNodes(db, rows) {
   for (const r of rows) {
@@ -174,6 +182,37 @@ describe('brief/generator', () => {
       const json = JSON.parse(readFileSync(join(repoRoot, '.aify-graph', 'brief.json'), 'utf8'));
       const authFeature = json.features.valid.find((f) => f.id === 'auth');
       expect(authFeature.tests).toEqual(['tests/test_main.cpp']);
+    });
+
+    it('brief.plan.md surfaces overlay gaps and dirty seams for planning sessions', async () => {
+      initGitRepo(repoRoot);
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [
+        { id: 'n1', type: 'Function', label: 'authenticate', file_path: 'src/auth.js' },
+      ]);
+      db.close();
+
+      await mkdir(join(repoRoot, 'src'), { recursive: true });
+      await writeFile(join(repoRoot, 'src', 'auth.js'), 'export function authenticate() {}\n');
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        features: [{
+          id: 'auth',
+          anchors: { symbols: ['authenticate'], files: ['src/auth.js'] },
+        }],
+      }));
+      await writeFile(join(repoRoot, '.aify-graph', 'tasks.json'), JSON.stringify({
+        tasks: [
+          { id: 'T-1', title: 'fix login', status: 'open', features: [] },
+        ],
+      }));
+
+      generateBrief({ repoRoot });
+      const plan = readFileSync(join(repoRoot, '.aify-graph', 'brief.plan.md'), 'utf8');
+      expect(plan).toContain('OVERLAY GAPS:');
+      expect(plan).toContain('tests 0/1');
+      expect(plan).toContain('linked tasks 0/1');
+      expect(plan).toContain('DIRTY SEAMS:');
+      expect(plan).toContain('auth: 1 dirty file(s)');
     });
 
     it('brief.json embeds task_count + tasks[] per feature (programmatic consumers)', async () => {
