@@ -27,6 +27,13 @@ export const IGNORED_DIRS = new Set([
   'coverage', '.nyc_output',
 ]);
 
+const PREFIX_IGNORED_DIR_RULES = [
+  { base: 'build', prefixes: ['build-', 'build_', 'cmake-build-'] },
+  { base: 'dist', prefixes: ['dist-', 'dist_'] },
+  { base: 'out', prefixes: ['out-', 'out_'] },
+  { base: 'target', prefixes: ['target-', 'target_'] },
+];
+
 function parseDirList(contents) {
   return contents
     .split(/\r?\n/)
@@ -47,9 +54,10 @@ function safeRead(path) {
 // ensureFresh; not cached — file-system reads are cheap vs. a full rebuild.
 //
 // Path patterns are NOT supported in v1 — each line is a bare directory
-// name matched against `entry.name`. This keeps semantics simple and
-// predictable. If users need path-scoped include/exclude, we can extend
-// later.
+// name matched against `entry.name`. A few high-churn build roots also
+// have built-in prefix rules (`build-*`, `build_*`, `cmake-build-*`,
+// and the same for dist/out/target) so transient build trees do not
+// pollute the graph by default. Exact opt-ins still work via `.aifyinclude`.
 export function loadEffectiveIgnoredDirs(repoRoot) {
   const effective = new Set(IGNORED_DIRS);
 
@@ -60,7 +68,10 @@ export function loadEffectiveIgnoredDirs(repoRoot) {
 
   const includeFile = safeRead(join(repoRoot, '.aifyinclude'));
   if (includeFile) {
-    for (const name of parseDirList(includeFile)) effective.delete(name);
+    for (const name of parseDirList(includeFile)) {
+      effective.delete(name);
+      effective.add(`!${name}`);
+    }
   }
 
   return effective;
@@ -79,9 +90,20 @@ export function normalizeRepoRelativePath(path) {
     .replace(/^\.?\//, '');
 }
 
+export function isIgnoredDirName(name, ignoredDirs = IGNORED_DIRS) {
+  const normalized = String(name || '').trim();
+  if (!normalized) return false;
+  if (ignoredDirs.has(`!${normalized}`)) return false;
+  if (ignoredDirs.has(normalized)) return true;
+
+  return PREFIX_IGNORED_DIR_RULES.some(({ base, prefixes }) => (
+    ignoredDirs.has(base) && prefixes.some((prefix) => normalized.startsWith(prefix))
+  ));
+}
+
 export function pathContainsIgnoredDir(path, ignoredDirs = IGNORED_DIRS) {
   const normalized = normalizeRepoRelativePath(path);
   if (!normalized) return false;
   const segments = normalized.split('/').filter(Boolean);
-  return segments.some((segment) => ignoredDirs.has(segment));
+  return segments.some((segment) => isIgnoredDirName(segment, ignoredDirs));
 }

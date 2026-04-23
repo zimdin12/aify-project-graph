@@ -1,7 +1,12 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { loadEffectiveIgnoredDirs, normalizeRepoRelativePath, pathContainsIgnoredDir } from '../ingest/ignored-dirs.js';
+import {
+  isIgnoredDirName,
+  loadEffectiveIgnoredDirs,
+  normalizeRepoRelativePath,
+  pathContainsIgnoredDir,
+} from '../ingest/ignored-dirs.js';
 
 function normalizeLines(stdout) {
   return stdout
@@ -32,7 +37,7 @@ export function getDirtyFileEntriesSync(repoRoot) {
     .split(/\r?\n/u)
     .map(parseStatusLine)
     .filter(Boolean)
-    .flatMap((entry) => expandEntry(repoRoot, entry))
+    .flatMap((entry) => expandEntry(repoRoot, entry, ignoredDirs))
     .map((entry) => ({
       ...entry,
       path: normalizeRepoRelativePath(entry.path),
@@ -73,13 +78,13 @@ function parseStatusLine(line) {
   };
 }
 
-function expandEntry(repoRoot, entry) {
+function expandEntry(repoRoot, entry, ignoredDirs) {
   const normalized = normalizeRepoRelativePath(entry.path);
   if (!entry.untracked || !normalized.endsWith('/')) return [{ ...entry, path: normalized }];
-  return expandUntrackedDirectory(repoRoot, normalized).map((path) => ({ ...entry, path }));
+  return expandUntrackedDirectory(repoRoot, normalized, ignoredDirs).map((path) => ({ ...entry, path }));
 }
 
-function expandUntrackedDirectory(repoRoot, relDir) {
+function expandUntrackedDirectory(repoRoot, relDir, ignoredDirs) {
   const absDir = join(repoRoot, relDir);
   if (!existsSync(absDir)) return [relDir];
   const out = [];
@@ -89,6 +94,7 @@ function expandUntrackedDirectory(repoRoot, relDir) {
       const nextAbs = join(absPath, entry.name);
       const nextRel = normalizeRepoRelativePath(join(relPath, entry.name));
       if (entry.isDirectory()) {
+        if (isIgnoredDirName(entry.name, ignoredDirs)) continue;
         walk(nextAbs, nextRel);
       } else {
         out.push(nextRel);

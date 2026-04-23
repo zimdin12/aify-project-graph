@@ -6,6 +6,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
+import { isIgnoredDirName } from '../ignored-dirs.js';
 
 export function stableId(parts) {
   return createHash('sha1').update(parts.join('::')).digest('hex');
@@ -38,7 +39,7 @@ export function routeNode({ filePath, label, language, startLine = 1, confidence
 
 // Recursively collect files under `root` whose extension is in `exts`.
 // Skips ignored directories (node_modules, .git, vendor, dist, build,
-// __pycache__) without needing IGNORED_DIRS import to avoid a cycle.
+// __pycache__), including common build-* prefixed scratch trees.
 const DEFAULT_IGNORED = new Set([
   'node_modules', '.git', 'vendor', 'dist', 'build', '__pycache__',
   '.next', '.nuxt', '.cache', 'target', '.venv', 'venv', '.aify-graph',
@@ -57,7 +58,7 @@ export async function walkFiles(root, exts, {
     try { entries = await readdir(dir, { withFileTypes: true }); } catch { continue; }
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (ignored.has(entry.name)) continue;
+        if (isIgnoredDirName(entry.name, ignored)) continue;
         stack.push(join(dir, entry.name));
         continue;
       }

@@ -3,7 +3,7 @@ import { basename, dirname, extname, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from './fingerprint.js';
 
-import { IGNORED_DIRS } from './ignored-dirs.js';
+import { IGNORED_DIRS, isIgnoredDirName } from './ignored-dirs.js';
 const DOCUMENT_EXTENSIONS = new Set(['.md', '.rst', '.txt']);
 const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml']);
 const ENTRYPOINT_BASENAMES = new Set(['artisan', 'manage.py']);
@@ -217,7 +217,7 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS }) 
   async function visit(absPath, relPath = '.') {
     const entries = await readdir(absPath, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.isDirectory() && ignoredDirs.has(entry.name)) {
+      if (entry.isDirectory() && isIgnoredDirName(entry.name, ignoredDirs)) {
         continue;
       }
 

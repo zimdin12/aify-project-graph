@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -29,6 +29,15 @@ describe('getDirtyFiles', () => {
     execFileSync.mockReturnValue(
       ' M src/app.py\n?? .codex_tmp/task89batch/tmp.py\n?? worktrees/echoes/scratch.cpp\n',
     );
+
+    const files = await getDirtyFiles(repoRoot);
+    expect(files).toEqual(['src/app.py']);
+  });
+
+  it('filters untracked build-prefixed scratch directories from git status output', async () => {
+    await mkdir(join(repoRoot, 'build-linux-techlead', 'tmp'), { recursive: true });
+    await writeFile(join(repoRoot, 'build-linux-techlead', 'tmp', 'scratch.cpp'), 'int x = 1;\n');
+    execFileSync.mockReturnValue('?? build-linux-techlead/\n?? src/app.py\n');
 
     const files = await getDirtyFiles(repoRoot);
     expect(files).toEqual(['src/app.py']);

@@ -18,6 +18,7 @@ describe('filesystem sweep', () => {
     await mkdir(join(repoDir, 'db', 'migrations'), { recursive: true });
     await mkdir(join(repoDir, '.tmp', 'codex-home'), { recursive: true });
     await mkdir(join(repoDir, '.codex', 'sessions'), { recursive: true });
+    await mkdir(join(repoDir, 'build-linux-techlead', 'generated'), { recursive: true });
 
     await writeFile(
       join(repoDir, 'README.md'),
@@ -32,6 +33,7 @@ describe('filesystem sweep', () => {
     await writeFile(join(repoDir, 'db', 'migrations', '001_init.sql'), 'create table users (id integer primary key);\n');
     await writeFile(join(repoDir, '.tmp', 'codex-home', 'scratch.py'), 'def tmp_fn():\n    return 1\n');
     await writeFile(join(repoDir, '.codex', 'sessions', 'session.py'), 'def session_fn():\n    return 1\n');
+    await writeFile(join(repoDir, 'build-linux-techlead', 'generated', 'scratch.cpp'), 'int generated = 1;\n');
   });
 
   afterEach(async () => {
@@ -77,5 +79,6 @@ describe('filesystem sweep', () => {
     const ignoredPaths = new Set(result.nodes.map((node) => node.file_path));
     expect([...ignoredPaths].some((path) => path.startsWith('.tmp/'))).toBe(false);
     expect([...ignoredPaths].some((path) => path.startsWith('.codex/'))).toBe(false);
+    expect([...ignoredPaths].some((path) => path.startsWith('build-linux-techlead/'))).toBe(false);
   });
 });

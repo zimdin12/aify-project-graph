@@ -13,7 +13,13 @@ import { withWriteLock } from './lock.js';
 import { getLanguageConfig } from '../ingest/languages/index.js';
 import { extractFile } from '../ingest/extractors/generic.js';
 import { sweepFilesystem } from '../ingest/sweep.js';
-import { IGNORED_DIRS, loadEffectiveIgnoredDirs, normalizeRepoRelativePath, pathContainsIgnoredDir } from '../ingest/ignored-dirs.js';
+import {
+  IGNORED_DIRS,
+  isIgnoredDirName,
+  loadEffectiveIgnoredDirs,
+  normalizeRepoRelativePath,
+  pathContainsIgnoredDir,
+} from '../ingest/ignored-dirs.js';
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
 import { pythonWebPlugin } from '../ingest/frameworks/python_web.js';
@@ -474,7 +480,7 @@ async function listRepoFiles(repoRoot, currentDir = repoRoot, ignoredDirs = IGNO
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      if (ignoredDirs.has(entry.name)) continue;
+      if (isIgnoredDirName(entry.name, ignoredDirs)) continue;
       files.push(...await listRepoFiles(repoRoot, join(currentDir, entry.name), ignoredDirs));
       continue;
     }
