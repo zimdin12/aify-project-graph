@@ -127,6 +127,10 @@ When ranking impact or path output, treat `INFERRED` and especially `AMBIGUOUS` 
 - Do not prefetch lots of graph verbs “just in case.”
 - Do not call graph verbs in parallel.
 - If trust is weak, be more conservative and read more source.
+- Keep the ignore files straight:
+  - `.gitignore` should contain `.aify-graph/`
+  - `.aifyignore` is for extra local scratch/build dirs that should not be indexed
+  - `.aifyinclude` opts default-ignored dirs back in
 - **Mine the overlay links before planning.** When planning a feature X, don't stop at the brief — open `functionality.json` (or `brief.json.features`) and read `X.contracts[]` doc-by-doc, skim related `brief.json.features.valid[].tasks[]` for X (shipped so you don't re-parse `tasks.json`), and check `X.depends_on` + `X.related_to`. The graph stores these links; plans routinely ignore them. That's a skill-prompt failure, not a tool limitation.
 - **Use explicit `tests[]` in functionality.json when inference is weak.** On repos with one shared test entrypoint (for example a single `tests/test_main.cpp`), automatic test attribution is often too weak. Put `tests: ["tests/test_main.cpp"]` on the relevant features so `brief.plan.md` stops pretending there is no test anchor.
 - **Map quality is overlay quality.** If a repo still feels thin after a clean rebuild, the next fix is usually richer overlay data: `tests[]`, `depends_on`, `related_to`, and `anchors.docs` for feature contracts. Those fields improve planning/debug quality more than another raw code query.

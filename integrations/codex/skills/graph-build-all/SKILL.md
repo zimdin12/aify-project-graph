@@ -42,6 +42,19 @@ Should emit `brief.md`, `brief.agent.md`, `brief.onboard.md`, `brief.plan.md`, `
 
 If you don't know `<AIFY_GRAPH_CLONE>`, look at the MCP config for the `aify-project-graph` server — the `args` entry contains the path.
 
+### 2.5. Fix repo hygiene before the graph drifts
+
+- ensure `<TARGET_REPO>/.gitignore` contains:
+  - `.aify-graph/`
+- if the repo has local build or scratch trees that should never be indexed, add them to `<TARGET_REPO>/.aifyignore`
+  - examples: `build-linux-techlead`, `scratch`, `tmp-local`
+- only use `.aifyinclude` when a default-ignored dir really contains source code
+
+Do not confuse these:
+- `.gitignore` keeps derived graph artifacts out of git
+- `.aifyignore` keeps extra scratch dirs out of the graph
+- `.aifyinclude` opts a default-ignored dir back into the graph
+
 ### 3. Propose the functionality overlay
 
 Run the `graph-build-functionality` skill's logic inline: read `.aify-graph/brief.json`, draft a set of 5-10 features with `anchors.symbols` and `anchors.files` globs, and fill the overlay fields that make the map actually useful on large repos:

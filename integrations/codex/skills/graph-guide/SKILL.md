@@ -73,6 +73,21 @@ graph_pull(node="task/CU-123")
 
 Raw ids still work when unambiguous, but explicit forms are clearer.
 
+## Ignore files
+
+Do not blur these together:
+
+- `.gitignore`
+  - add `.aify-graph/` here so derived graph state is not committed
+- `.aifyignore`
+  - add extra dirs here when local scratch/build trees should be excluded from indexing
+  - examples: `build-linux-techlead`, `scratch`, `tmp-local`
+- `.aifyinclude`
+  - use this to opt a default-ignored dir back in when it really contains source
+  - examples: `build`, `vendor`
+
+If a rebuild gets polluted by local build output, the fix is usually `.aifyignore`, not a graph verb.
+
 ## Optional workflow examples
 
 ### New session
@@ -100,7 +115,8 @@ Use when you just opened a repo:
 
 1. if the graph is stale or incomplete, run `graph_index(force=true)`
 2. regenerate briefs
-3. only then compare graph-vs-source quality
+3. if local build/scratch dirs polluted the graph, add them to `.aifyignore`
+4. only then compare graph-vs-source quality
 
 ### Map enrichment
 
