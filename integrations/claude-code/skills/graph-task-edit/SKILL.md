@@ -31,8 +31,8 @@ Surgical mutation of `.aify-graph/tasks.json`. For full refresh/sync from extern
 5. **Show diff** to the user.
 6. **Wait for confirmation.** Always for `remove`.
 7. **Write** `tasks.json`.
-8. **Rebuild briefs.** Run `node <CLONE_PATH>/scripts/graph-brief.mjs <REPO_ROOT>` as an explicit final step. Report new `brief.plan.md` size + OPEN_TASKS section changes.
-9. **Summary:** "wrote task X; brief.plan.md OPEN_TASKS now shows N tasks for feature Y."
+8. **Rebuild briefs.** Run `node <CLONE_PATH>/scripts/graph-brief.mjs <REPO_ROOT>` as an explicit final step. Report new `brief.plan.md` size + per-feature task line changes.
+9. **Summary:** "wrote task X; brief.plan.md now shows N open task(s) for feature Y."
 
 ## Validation rules (asymmetric — tasks are looser than features)
 
@@ -68,7 +68,7 @@ Surgical mutation of `.aify-graph/tasks.json`. For full refresh/sync from extern
 
 - Don't silently regenerate `tasks.json` from tracker on edit — that's what `/graph-build-tasks` is for.
 - Don't batch unrelated task edits. One action per invocation keeps diffs small.
-- Don't skip rebuild-briefs. OPEN_TASKS in brief.plan.md only reflects the change after regen.
+- Don't skip rebuild-briefs. `brief.plan.md` only reflects the task change after regen.
 - Don't over-validate `files_hint` — tasks can plan for files that don't exist yet (new feature work).
 - Don't auto-create features referenced by a task. If user links to unknown feature, error + tell them to run `/graph-feature-edit add` first.
 
@@ -98,7 +98,7 @@ apply? (yes / no / edit)
 - wrote tasks.json (15 tasks)
 - ran graph-brief.mjs
   brief.plan.md: 571 → 584 bytes
-  OPEN_TASKS section: auth now shows 2 (CU-42, T-local-1)
+  auth now shows 2 open tasks (CU-42, T-local-1)
 
 done.
 ```

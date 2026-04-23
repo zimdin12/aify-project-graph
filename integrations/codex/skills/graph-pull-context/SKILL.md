@@ -36,8 +36,8 @@ graph_pull(node="...", layers=["code","functionality","tasks","activity","docs"]
 ## Resolution preference
 
 Prefer:
-1. feature id
-2. task id
+1. explicit feature id (`feature:...` or `feature/...`)
+2. explicit task id (`task:...` or `task/...`)
 3. exact file path
 4. exact symbol
 

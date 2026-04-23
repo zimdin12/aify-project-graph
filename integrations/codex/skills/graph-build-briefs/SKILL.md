@@ -10,7 +10,7 @@ Regenerate all five briefs from the existing code graph + overlay files. No re-i
 ## When this skill is right
 
 - User edited `.aify-graph/functionality.json` directly and wants the brief to pick up changes
-- User edited `.aify-graph/tasks.json` (e.g. after running `/graph-build-tasks`) and wants the OPEN_TASKS section in `brief.plan.md` updated
+- User edited `.aify-graph/tasks.json` (e.g. after running `/graph-build-tasks`) and wants the per-feature task lines in `brief.plan.md` updated
 - User just ran `graph_index(force=true)` and wants briefs to match the fresh graph
 - Anything where the code graph is already correct but the briefs need a refresh
 
@@ -40,7 +40,7 @@ Output should show five file sizes and end with `wrote to <TARGET_REPO>/.aify-gr
 
 Tell the user the new sizes and whether the plan brief picked up changes. Examples:
 
-- "Regenerated briefs. `brief.plan.md` is now 558 tokens (was 310) — OPEN_TASKS section from your tasks.json added."
+- "Regenerated briefs. `brief.plan.md` is now 558 tokens (was 310) — per-feature task lines from your tasks.json were added."
 - "Regenerated briefs. `brief.plan.md` is 70 tokens — still empty because `functionality.json` has no features yet. Run `/graph-build-functionality` first."
 - "Regenerated briefs. `TRUST` line changed from `ok` to `weak: 2 features with stale anchors (auth, billing)` — run `/graph-anchor-drift` to fix."
 

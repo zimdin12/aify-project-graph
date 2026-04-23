@@ -153,7 +153,7 @@ That keeps coverage high without pretending every planning task is hard implemen
 
 ### Claude Code skills
 
-Ten workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/) plus one core skill at [`integrations/claude-code/skill/`](integrations/claude-code/skill/):
+Eleven workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/) plus one core skill at [`integrations/claude-code/skill/`](integrations/claude-code/skill/):
 
 **Build / refresh:**
 - **`/graph-build-all`** — first-time setup / full refresh (graph + briefs + functionality proposal). 30-90s first run, incremental thereafter.
@@ -169,6 +169,7 @@ Ten workflow skills ship at [`integrations/claude-code/skills/`](integrations/cl
 - **`/graph-anchor-drift`** — detect stale feature anchors from a diff / git range and propose targeted patches.
 
 **Work:**
+- **`/graph-guide`** — optional workflow guide: general usage info plus example loops for orienting, planning, debugging, rebuilding, and map enrichment.
 - **`/graph-walk-bugs`** — engine-out bug-fixing walk. Weighted topological order (roots first, leaves last), surfaces open bug-like tasks per feature with inclusion reasons, cycles + trust signal at end.
 - **`/graph-pull-context`** — wraps `graph_pull` with intent-aware layer defaults (plan / debug / review) and a read-next summary.
 
