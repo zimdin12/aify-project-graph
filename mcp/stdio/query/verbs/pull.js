@@ -14,9 +14,9 @@
 import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
 // Layer inventory:
 //   code          — file/symbol neighborhood (files, symbols, callers)
@@ -635,10 +635,10 @@ function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
 
 export async function graphPull({ repoRoot, node, layers, direction }) {
   if (!node) return 'ERROR: node parameter is required (file path, feature id, symbol name, or task id)';
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_pull' });
-  if (freshnessWarning) return freshnessWarning;
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_pull' });
+  if (freshness.blocker) return freshness.blocker;
 
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   const layerSet = new Set(
     Array.isArray(layers) && layers.length > 0
       ? layers.filter(l => ALL_LAYERS.includes(l))
@@ -653,30 +653,42 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     // Resolve node kind. Try feature id first (cheap exact match).
     const featureMatch = features.find(f => f.id === node);
     if (featureMatch) {
-      const result = pullFeature({ db, featureId: node, features, allTasks, repoRoot, layers: layerSet, opts: { direction } });
+      const result = attachReadWarnings(
+        pullFeature({ db, featureId: node, features, allTasks, repoRoot, layers: layerSet, opts: { direction } }),
+        freshness.warnings,
+      );
       return JSON.stringify(result, null, 2);
     }
     // Task id?
     const taskMatch = allTasks.find(t => t.id === node);
     if (taskMatch) {
-      const result = pullTask({ db, taskId: node, features, allTasks, repoRoot, layers: layerSet });
+      const result = attachReadWarnings(
+        pullTask({ db, taskId: node, features, allTasks, repoRoot, layers: layerSet }),
+        freshness.warnings,
+      );
       return JSON.stringify(result, null, 2);
     }
     // File or symbol?
     const detected = detectNodeKind(db, node);
     if (detected.kind === 'file') {
-      const result = pullFile({ db, filePath: detected.value, features, allTasks, repoRoot, layers: layerSet });
+      const result = attachReadWarnings(
+        pullFile({ db, filePath: detected.value, features, allTasks, repoRoot, layers: layerSet }),
+        freshness.warnings,
+      );
       return JSON.stringify(result, null, 2);
     }
     if (detected.kind === 'symbol') {
-      const result = pullSymbol({ db, sym: detected.value, features, allTasks, repoRoot, layers: layerSet });
+      const result = attachReadWarnings(
+        pullSymbol({ db, sym: detected.value, features, allTasks, repoRoot, layers: layerSet }),
+        freshness.warnings,
+      );
       return JSON.stringify(result, null, 2);
     }
-    return JSON.stringify({
+    return JSON.stringify(attachReadWarnings({
       node: { kind: 'unresolved', value: node },
       error: 'could not resolve as feature id, task id, file path, or symbol',
       hint: 'try graph_whereis(symbol=...) or graph_search(query=...) to find the right node identifier',
-    }, null, 2);
+    }, freshness.warnings), null, 2);
   } finally {
     db.close();
   }

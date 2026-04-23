@@ -1,8 +1,8 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
+import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 const HUB_NOISE = new Set([
   'get', 'set', 'run', 'init', 'test', 'close', 'open', 'read', 'write',
@@ -148,13 +148,14 @@ export function buildOnboard(db, { path = '.', top_k = 6, dirtyCount = 0 }) {
 }
 
 export async function graphOnboard({ repoRoot, path = '.', top_k = 6 }) {
-  await ensureFresh({ repoRoot });
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_onboard' });
+  if (freshness.blocker) return freshness.blocker;
   const graphDir = join(repoRoot, '.aify-graph');
   const { manifest } = await loadManifest(graphDir);
   const { trust: dirtyCount } = getUnresolvedCounts(manifest);
-  const db = openDb(join(graphDir, 'graph.sqlite'));
+  const db = openExistingDb(join(graphDir, 'graph.sqlite'));
   try {
-    return buildOnboard(db, { path, top_k, dirtyCount });
+    return prefixReadWarnings(buildOnboard(db, { path, top_k, dirtyCount }), freshness.warnings);
   } finally {
     db.close();
   }

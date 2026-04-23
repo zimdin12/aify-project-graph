@@ -22,6 +22,8 @@ Small set of real features, each with:
 - short `label`
 - one-sentence `description`
 - a few `anchors` (`symbols`, `files`, optional `routes`, optional `docs`)
+- optional `tests` when one shared or monolithic test file covers the feature better than inference will
+- optional `depends_on` / `related_to` when architecture docs make those links clear
 - `source: "llm"` on new proposals
 
 Prefer 5-10 clear features over 20 tiny ones.
@@ -38,6 +40,8 @@ Prefer 5-10 clear features over 20 tiny ones.
 - Preserve existing ids, labels, descriptions, tags, and any `source: "user"` entries.
 - Prefer globs for `anchors.files` instead of listing every file.
 - Only include routes/docs if the repo clearly has them.
+- On repos with one shared test entrypoint, prefer explicit feature-level `tests[]` over pretending there is no test anchor.
+- Add `depends_on` when one feature cannot work without another; add `related_to` for softer cross-links.
 - Validate anchors before proposing them: symbol exists, file glob matches real files.
 - Show the diff first. Write only after explicit confirmation.
 

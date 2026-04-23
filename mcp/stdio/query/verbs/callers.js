@@ -1,18 +1,18 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { rankCallers } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { collapseCallerEdges, expandClassRollupTargets } from './target_rollup.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
 export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_callers' });
-  if (freshnessWarning) return freshnessWarning;
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_callers' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);
     if (error) return error;
@@ -74,7 +74,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
-    return rolledUp ? `${header}\n${body}` : body;
+    return prefixReadWarnings(rolledUp ? `${header}\n${body}` : body, freshness.warnings);
   } finally {
     db.close();
   }

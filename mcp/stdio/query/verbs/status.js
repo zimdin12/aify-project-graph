@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getHeadCommit, getDirtyFiles } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 
 export async function graphStatus({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
@@ -20,7 +20,7 @@ export async function graphStatus({ repoRoot }) {
   const dbPath = join(graphDir, 'graph.sqlite');
   if (existsSync(dbPath)) {
     try {
-      const db = openDb(dbPath);
+      const db = openExistingDb(dbPath);
       try {
         liveNodes = db.get('SELECT count(*) AS c FROM nodes').c;
         liveEdges = db.get('SELECT count(*) AS c FROM edges').c;

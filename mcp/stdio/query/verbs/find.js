@@ -12,9 +12,10 @@
 
 import { join } from 'node:path';
 import { readFileSync, existsSync } from 'node:fs';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality } from '../../overlay/loader.js';
+import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
 const ALL_LAYERS = ['code', 'features', 'tasks', 'docs'];
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
@@ -145,12 +146,19 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
   const queries = tokens.length > 1 ? [raw, ...tokens] : [raw];
   const perLayer = Math.max(1, Math.min(limit, 20));
   const q = raw; // canonical reported query
+  let freshnessWarnings = [];
 
   // By default, skip ensureFresh — "fast search" is the contract here.
   // Staleness on identifier-text search is acceptable; callers who need
   // strong freshness can pass fresh=true or run graph_index first.
-  if (fresh) await ensureFresh({ repoRoot });
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  if (fresh) {
+    await ensureFresh({ repoRoot });
+  } else {
+    const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_find' });
+    if (freshness.blocker) return freshness.blocker;
+    freshnessWarnings = freshness.warnings;
+  }
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   const layerSet = new Set(
     Array.isArray(layers) && layers.length > 0
       ? layers.filter(l => ALL_LAYERS.includes(l))
@@ -205,7 +213,7 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
       docs: results.hits.docs.length,
     };
 
-    return JSON.stringify(results, null, 2);
+    return JSON.stringify(attachReadWarnings(results, freshnessWarnings), null, 2);
   } finally {
     db.close();
   }

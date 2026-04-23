@@ -1,10 +1,10 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { enforceBudget } from '../budget.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 const ALL_RELATIONS = [
   'CONTAINS', 'DEFINES', 'DECLARES', 'IMPORTS', 'EXPORTS',
@@ -14,9 +14,9 @@ const ALL_RELATIONS = [
 
 export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth = 1, top_k = 20 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_neighbors' });
-  if (freshnessWarning) return freshnessWarning;
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_neighbors' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const targets = resolveSymbol(db, symbol);
     if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
@@ -48,7 +48,10 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
       depth: 1, from_type: 'Function', fan_in: 1,
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
-    return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}` });
+    return prefixReadWarnings(
+      renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}` }),
+      freshness.warnings,
+    );
   } finally {
     db.close();
   }

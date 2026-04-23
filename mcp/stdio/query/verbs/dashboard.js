@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
+import { openExistingDb } from '../../storage/db.js';
 import { startDashboard } from '../../dashboard/server.js';
+import { inspectReadFreshness } from './read_freshness.js';
 
 // Keyed by repoRoot so calling graph_dashboard from different repos in the
 // same process doesn't silently return the URL of the first repo's server
@@ -9,7 +9,8 @@ import { startDashboard } from '../../dashboard/server.js';
 const activeDashboards = new Map();
 
 export async function graphDashboard({ repoRoot, port }) {
-  await ensureFresh({ repoRoot });
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_dashboard' });
+  if (freshness.blocker) return freshness.blocker;
 
   const existing = activeDashboards.get(repoRoot);
   if (existing) {
@@ -20,7 +21,7 @@ export async function graphDashboard({ repoRoot, port }) {
     };
   }
 
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const result = await startDashboard({ db, port: port || 0 });
 
@@ -30,6 +31,7 @@ export async function graphDashboard({ repoRoot, port }) {
       url: result.url,
       port: result.port,
       status: 'running',
+      warnings: freshness.warnings,
     };
   } catch (err) {
     db.close();

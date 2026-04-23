@@ -17,10 +17,10 @@
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
 // Class names often appear multiple times — forward declarations in
 // headers + the definition body in a .cpp/.ts. Prefer non-header files
@@ -116,9 +116,9 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     };
   }
 
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_consequences' });
-  if (freshnessWarning) return freshnessWarning;
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_consequences' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
 
     // 1. Resolve input to concrete code nodes (symbol match OR file match).
@@ -324,7 +324,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     if (tasks.length > 20) riskFlags.push(`task_overhang — ${tasks.length} open tasks on affected features`);
     if (referencedIn.length > 5) riskFlags.push(`high_fan_in — symbol appears in ${referencedIn.length + symbolNodes.length} files`);
 
-    return {
+    return attachReadWarnings({
       target: input,
       matched: {
         symbols: symbolNodes.map((n) => ({ label: n.label, type: n.type, file: n.file_path, line: n.start_line })),
@@ -344,7 +344,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       tests_adjacent: tests,
       last_touched: lastTouched,
       risk_flags: riskFlags,
-    };
+    }, freshness.warnings);
   } finally {
     db.close();
   }

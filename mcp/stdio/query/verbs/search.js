@@ -1,7 +1,8 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 // Code-first ranking: agents want code symbols, not docs/dirs
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
@@ -50,14 +51,21 @@ function buildSearchFilters({ type, file, kind }) {
   return { clauses, params };
 }
 
-export async function graphSearch({ repoRoot, query, type, file, kind = 'code', limit = 20 }) {
+export async function graphSearch({ repoRoot, query, type, file, kind = 'code', limit = 20, fresh = false }) {
   if (!query || query.trim().length === 0) {
     return 'QUERY_TOO_SHORT — provide at least 1 character';
   }
 
   const normalizedQuery = query.trim();
-  await ensureFresh({ repoRoot });
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  let freshnessWarnings = [];
+  if (fresh) {
+    await ensureFresh({ repoRoot });
+  } else {
+    const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_search' });
+    if (freshness.blocker) return freshness.blocker;
+    freshnessWarnings = freshness.warnings;
+  }
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const cappedLimit = Math.min(limit, 100);
     const { clauses: baseClauses, params: baseParams } = buildSearchFilters({ type, file, kind });
@@ -71,18 +79,13 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
         { ...baseParams, label: normalizedQuery, limit: cappedLimit }
       );
       if (exactHits.length > 0) {
-        return renderCompact({ nodes: exactHits, edges: [] });
+        return prefixReadWarnings(renderCompact({ nodes: exactHits, edges: [] }), freshnessWarnings);
       }
     }
-
     const clauses = ['label LIKE $q', ...baseClauses];
     const params = { ...baseParams, q: `%${normalizedQuery}%`, limit: cappedLimit };
     const where = clauses.join(' AND ');
-    // Fetch more than needed so we can re-rank in memory
-    const hits = db.all(
-      `SELECT * FROM nodes WHERE ${where} LIMIT 200`,
-      params
-    );
+    const hits = db.all(`SELECT * FROM nodes WHERE ${where} LIMIT 200`, params);
 
     if (hits.length === 0) {
       return `NO RESULTS for "${normalizedQuery}". Try graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or check graph_status() to verify the graph covers your files.`;
@@ -94,7 +97,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
       .sort((a, b) => b._score - a._score)
       .slice(0, limit);
 
-    return renderCompact({ nodes: scored, edges: [] });
+    return prefixReadWarnings(renderCompact({ nodes: scored, edges: [] }), freshnessWarnings);
   } finally {
     db.close();
   }

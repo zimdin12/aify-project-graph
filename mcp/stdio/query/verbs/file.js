@@ -1,7 +1,6 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
-import { renderCompact } from '../renderer.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
+import { openExistingDb } from '../../storage/db.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 /**
  * Everything about one file in a single call.
@@ -11,8 +10,9 @@ import { ensureFresh } from '../../freshness/orchestrator.js';
  */
 export async function graphFile({ repoRoot, path, top_k = 20 }) {
   if (!path || typeof path !== 'string') return 'ERROR: path parameter is required (e.g. graph_file(path="service/db.py"))';
-  await ensureFresh({ repoRoot });
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_file' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // Find the file node
     const fileNode = db.get(
@@ -26,9 +26,9 @@ export async function graphFile({ repoRoot, path, top_k = 20 }) {
         { pattern: `%${path}` }
       );
       if (!partial) return `NO FILE matching "${path}". Try graph_search(query="${path.split('/').pop()}") to find it.`;
-      return graphFileInner(db, partial, top_k);
+      return prefixReadWarnings(graphFileInner(db, partial, top_k), freshness.warnings);
     }
-    return graphFileInner(db, fileNode, top_k);
+    return prefixReadWarnings(graphFileInner(db, fileNode, top_k), freshness.warnings);
   } finally {
     db.close();
   }

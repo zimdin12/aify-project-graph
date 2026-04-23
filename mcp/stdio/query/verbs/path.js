@@ -1,8 +1,8 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { renderPath } from '../renderer.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 const ROOT_TYPE_PRIORITY = new Map([
   ['Entrypoint', 0],
@@ -38,9 +38,9 @@ const MODE_RELATIONS = {
 };
 
 export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5, top_k = 3, mode = 'execution' }) {
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_path' });
-  if (freshnessWarning) return freshnessWarning;
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_path' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = resolveSymbol(db, symbol);
     if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
@@ -59,7 +59,7 @@ export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5
     });
 
     if (!path) return `NO PATHS from "${symbol}". The symbol may be a leaf node with no outgoing calls. Try graph_neighbors(symbol="${symbol}") to see all connections.`;
-    return renderPath(trimPaths([path], top_k));
+    return prefixReadWarnings(renderPath(trimPaths([path], top_k)), freshness.warnings);
   } finally {
     db.close();
   }

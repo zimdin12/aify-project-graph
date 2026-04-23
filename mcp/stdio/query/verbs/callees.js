@@ -1,19 +1,19 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { rankCallees } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
 export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_callees' });
-  if (freshnessWarning) return freshnessWarning;
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_callees' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = resolveSymbol(db, symbol);
     if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
@@ -74,7 +74,10 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (mapped.length === 0) return file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
-    return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
+    return prefixReadWarnings(
+      renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` }),
+      freshness.warnings,
+    );
   } finally {
     db.close();
   }

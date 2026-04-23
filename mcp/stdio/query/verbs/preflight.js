@@ -1,9 +1,9 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 /**
  * One-shot edit safety check. Combines whereis + callers + impact + tests + trust
@@ -11,9 +11,9 @@ import { ensureFreshForReadVerb } from './read_freshness.js';
  */
 export async function graphPreflight({ repoRoot, symbol }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_preflight' });
-  if (freshnessWarning) return freshnessWarning;
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_preflight' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // 1. Find the symbol
     const nodes = resolveSymbol(db, symbol, "'Function','Method','Class','Interface','Type','Test'");
@@ -112,7 +112,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
     lines.push(`DECISION: ${decision.tier}`);
     lines.push(`  ${decision.reason}`);
 
-    return lines.join('\n');
+    return prefixReadWarnings(lines.join('\n'), freshness.warnings);
   } finally {
     db.close();
   }

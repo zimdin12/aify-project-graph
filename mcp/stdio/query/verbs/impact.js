@@ -1,17 +1,17 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { enforceBudget } from '../budget.js';
 import { expandClassRollupTargets } from './target_rollup.js';
-import { ensureFreshForReadVerb } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS', 'INVOKES', 'PASSES_THROUGH'];
 
 export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
-  const freshnessWarning = await ensureFreshForReadVerb({ repoRoot, verbName: 'graph_impact' });
-  if (freshnessWarning) return freshnessWarning;
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_impact' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);
     if (error) return error;
@@ -59,7 +59,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
-    return rolledUp ? `${header}\n${body}` : body;
+    return prefixReadWarnings(rolledUp ? `${header}\n${body}` : body, freshness.warnings);
   } finally {
     db.close();
   }

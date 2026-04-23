@@ -32,6 +32,8 @@ That's the entire install. The agent clones the repo to a pinned path (`~/.claud
 
 After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-build-all` skill builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief — see headline metrics at top of this README for runtime-specific numbers.
 
+Important runtime behavior: **read verbs are snapshot-first**. The first query in a repo with no graph yet may bootstrap the initial snapshot. After that, reads should use the last completed graph snapshot and should not silently rebuild or mutate it during normal analysis. If the graph is incomplete or stale, the right move is an explicit `graph_index(force=true)` or relying on the static briefs until the rebuild is done.
+
 **Narrower skills for specific jobs:**
 - `/graph-build-briefs` — refresh just the briefs (~2-3s, after hand-editing `functionality.json`/`tasks.json`)
 - `/graph-build-functionality` — propose/refresh the feature map (~30-60s, LLM proposal + review)
@@ -132,6 +134,8 @@ Drop `.aify-graph/functionality.json` in any repo to map **user-defined features
 ```
 
 Anchors are validated against the graph on every brief regen — stale or broken anchors surface in the brief's `TRUST` line as an actionable routing signal. Sample at [`docs/examples/functionality.sample.json`](docs/examples/functionality.sample.json).
+
+**Map quality ceiling:** if the graph still feels thin after a clean rebuild, the next fix is usually a richer overlay, not another verb. The highest-value fields are `tests[]`, `depends_on`, `related_to`, and `anchors.docs`.
 
 ### Task overlay (L3)
 

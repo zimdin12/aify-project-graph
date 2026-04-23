@@ -1,7 +1,7 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
+import { openExistingDb } from '../../storage/db.js';
 import { communitySummary } from '../../analysis/communities.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 // Filter out noise from report output
 const NOISE_LABELS = new Set([
@@ -19,8 +19,9 @@ function isNoisyDoc(label) {
 }
 
 export async function graphReport({ repoRoot, top_k = 20 }) {
-  await ensureFresh({ repoRoot });
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_report' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const totalNodes = db.get('SELECT count(*) AS c FROM nodes').c;
     const totalEdges = db.get('SELECT count(*) AS c FROM edges').c;
@@ -126,7 +127,7 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
       output = lines.join('\n');
     }
 
-    return output;
+    return prefixReadWarnings(output, freshness.warnings);
   } finally {
     db.close();
   }

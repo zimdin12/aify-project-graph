@@ -10,7 +10,7 @@
 
 import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
 import { getHeadCommit } from '../../freshness/git.js';
@@ -52,7 +52,7 @@ export async function graphHealth({ repoRoot }) {
   let nodes = manifest?.nodes ?? 0;
   let edges = manifest?.edges ?? 0;
   try {
-    const db = openDb(dbPath);
+    const db = openExistingDb(dbPath);
     try {
       nodes = db.get('SELECT count(*) AS c FROM nodes').c;
       edges = db.get('SELECT count(*) AS c FROM edges').c;
@@ -67,7 +67,7 @@ export async function graphHealth({ repoRoot }) {
   let overlay = { present: false, checked: 0, broken: 0, sample: [] };
   if (hasOverlay(repoRoot)) {
     try {
-      const db = openDb(dbPath);
+      const db = openExistingDb(dbPath);
       try {
         const { features } = loadFunctionality(repoRoot);
         const { valid, broken } = validateAnchors(features ?? [], db);

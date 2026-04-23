@@ -1,6 +1,6 @@
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
-import { ensureFresh } from '../../freshness/orchestrator.js';
+import { openExistingDb } from '../../storage/db.js';
+import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { SEARCH_TYPES } from './whereis.js';
 
 function formatLocation(filePath, line) {
@@ -21,8 +21,9 @@ function parseQualified(symbol) {
 }
 
 export async function graphLookup({ repoRoot, symbol, limit = 5 }) {
-  await ensureFresh({ repoRoot });
-  const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+  const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_lookup' });
+  if (freshness.blocker) return freshness.blocker;
+  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   const typeList = SEARCH_TYPES.map(t => `'${t}'`).join(',');
   try {
     let hits = db.all(
@@ -73,7 +74,10 @@ export async function graphLookup({ repoRoot, symbol, limit = 5 }) {
       return `NO MATCH for "${symbol}".`;
     }
 
-    return hits.map((hit) => formatLocation(hit.file_path, hit.start_line)).join('\n');
+    return prefixReadWarnings(
+      hits.map((hit) => formatLocation(hit.file_path, hit.start_line)).join('\n'),
+      freshness.warnings,
+    );
   } finally {
     db.close();
   }
