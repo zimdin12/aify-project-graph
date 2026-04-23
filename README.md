@@ -140,6 +140,8 @@ Anchors are validated against the graph on every brief regen — stale or broken
 
 **Dirty worktree matters:** on active feature branches, graph quality depends not just on the indexed snapshot but on whether the seam you care about is currently dirty. `graph_health()` now surfaces `dirty-seams:` and the briefs surface `DIRTY:` / `DIRTY SEAMS:` so agents can see when source-of-truth reasoning should prioritize current diffs over cached map structure.
 
+Live planning verbs also surface this now: `graph_consequences`, `graph_pull`, and `graph_change_plan` include dirty-seam / map-gap hints directly so an agent does not have to call `graph_health()` separately just to learn that the target sits inside an actively edited seam.
+
 ### Task overlay (L3)
 
 Drop `.aify-graph/tasks.json` (written by the `/graph-build-tasks` skill) and `brief.plan.md` automatically adds an `OPEN_TASKS` section grouped by feature.

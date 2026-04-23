@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
 import { upsertEdge } from '../../../mcp/stdio/storage/edges.js';
-import { buildChangePlan } from '../../../mcp/stdio/query/verbs/change_plan.js';
+import { buildChangePlan, buildChangePlanWithContext } from '../../../mcp/stdio/query/verbs/change_plan.js';
 import { buildOnboard } from '../../../mcp/stdio/query/verbs/onboard.js';
 
 describe('composite verbs', () => {
@@ -56,6 +56,31 @@ describe('composite verbs', () => {
     expect(out).toContain('src/main.py — top caller file');
     expect(out).toContain('tests/test_auth.py — test anchor');
     expect(out).toContain('AFFECTED FILES');
+  });
+
+  it('buildChangePlanWithContext surfaces map quality and dirty seam hints', () => {
+    const out = buildChangePlanWithContext(db, {
+      symbol: 'AuthService',
+      top_k: 5,
+      dirtyCount: 0,
+      features: [{ id: 'auth', anchors: { files: ['src/auth.py'] } }],
+      dirtyFiles: ['src/auth.py'],
+      overlayQuality: {
+        featureCount: 1,
+        featuresWithTests: 0,
+        featuresWithDocs: 0,
+        featuresWithDependsOn: 0,
+        featuresWithRelatedTo: 0,
+        tasksTotal: 2,
+        linkedTasks: 1,
+      },
+    });
+
+    expect(out).toContain('MAP QUALITY tests 0/1');
+    expect(out).toContain('linked tasks 1/2');
+    expect(out).toContain('DIRTY SEAM');
+    expect(out).toContain('target dirty: src/auth.py');
+    expect(out).toContain('feature seam: auth(1)');
   });
 
   it('buildOnboard summarizes a scoped area with a start-here sequence', () => {

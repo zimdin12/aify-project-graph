@@ -12,10 +12,11 @@
 // verb is for "give me everything about X."
 
 import { join } from 'node:path';
-import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
+import { getDirtyFiles } from '../../freshness/git.js';
+import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
 // Layer inventory:
@@ -70,11 +71,7 @@ function capped(items, limit) {
 }
 
 function loadTasksSafe(repoRoot) {
-  const p = join(repoRoot, '.aify-graph', 'tasks.json');
-  if (!existsSync(p)) return [];
-  try {
-    return JSON.parse(readFileSync(p, 'utf8')).tasks || [];
-  } catch { return []; }
+  return loadTasksArtifact(repoRoot).tasks || [];
 }
 
 function recentCommitsForFile(repoRoot, filePath, limit = 5) {
@@ -631,6 +628,37 @@ function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
   return out;
 }
 
+function summarizeDirtyOverlapForNode({ kind, value, features, dirtyFiles }) {
+  const seams = summarizeDirtySeams(features, dirtyFiles);
+  let targetFiles = [];
+  let targetFeatureIds = [];
+
+  if (kind === 'file') {
+    targetFiles = [value];
+    targetFeatureIds = featuresForFile(features, value);
+  } else if (kind === 'symbol') {
+    targetFiles = value?.file_path ? [value.file_path] : [];
+    targetFeatureIds = value?.file_path ? featuresForFile(features, value.file_path) : [];
+  } else if (kind === 'feature') {
+    targetFeatureIds = value?.id ? [value.id] : [];
+  } else if (kind === 'task') {
+    targetFeatureIds = taskFeatureRefs(value);
+    targetFiles = value?.files_hint || [];
+  }
+
+  return {
+    direct_files: targetFiles.filter((file) => dirtyFiles.includes(file)),
+    affected_features: seams.features
+      .filter((feature) => targetFeatureIds.includes(feature.id))
+      .map((feature) => ({
+        id: feature.id,
+        label: feature.label,
+        file_count: feature.file_count,
+        files: feature.files.slice(0, 5),
+      })),
+  };
+}
+
 // ---------- main ----------
 
 export async function graphPull({ repoRoot, node, layers, direction }) {
@@ -649,45 +677,74 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     const overlay = loadFunctionality(repoRoot);
     const allTasks = loadTasksSafe(repoRoot);
     const features = overlay.features;
+    const overlayQuality = summarizeOverlayQuality(features, allTasks);
+    const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
 
     // Resolve node kind. Try feature id first (cheap exact match).
     const featureMatch = features.find(f => f.id === node);
     if (featureMatch) {
-      const result = attachReadWarnings(
-        pullFeature({ db, featureId: node, features, allTasks, repoRoot, layers: layerSet, opts: { direction } }),
-        freshness.warnings,
-      );
+      const result = attachReadWarnings({
+        ...pullFeature({ db, featureId: node, features, allTasks, repoRoot, layers: layerSet, opts: { direction } }),
+        overlay_quality: overlayQuality,
+        dirty_overlap: summarizeDirtyOverlapForNode({
+          kind: 'feature',
+          value: featureMatch,
+          features,
+          dirtyFiles,
+        }),
+      },
+      freshness.warnings);
       return JSON.stringify(result, null, 2);
     }
     // Task id?
     const taskMatch = allTasks.find(t => t.id === node);
     if (taskMatch) {
-      const result = attachReadWarnings(
-        pullTask({ db, taskId: node, features, allTasks, repoRoot, layers: layerSet }),
-        freshness.warnings,
-      );
+      const result = attachReadWarnings({
+        ...pullTask({ db, taskId: node, features, allTasks, repoRoot, layers: layerSet }),
+        overlay_quality: overlayQuality,
+        dirty_overlap: summarizeDirtyOverlapForNode({
+          kind: 'task',
+          value: taskMatch,
+          features,
+          dirtyFiles,
+        }),
+      }, freshness.warnings);
       return JSON.stringify(result, null, 2);
     }
     // File or symbol?
     const detected = detectNodeKind(db, node);
     if (detected.kind === 'file') {
-      const result = attachReadWarnings(
-        pullFile({ db, filePath: detected.value, features, allTasks, repoRoot, layers: layerSet }),
-        freshness.warnings,
-      );
+      const result = attachReadWarnings({
+        ...pullFile({ db, filePath: detected.value, features, allTasks, repoRoot, layers: layerSet }),
+        overlay_quality: overlayQuality,
+        dirty_overlap: summarizeDirtyOverlapForNode({
+          kind: 'file',
+          value: detected.value,
+          features,
+          dirtyFiles,
+        }),
+      }, freshness.warnings);
       return JSON.stringify(result, null, 2);
     }
     if (detected.kind === 'symbol') {
-      const result = attachReadWarnings(
-        pullSymbol({ db, sym: detected.value, features, allTasks, repoRoot, layers: layerSet }),
-        freshness.warnings,
-      );
+      const result = attachReadWarnings({
+        ...pullSymbol({ db, sym: detected.value, features, allTasks, repoRoot, layers: layerSet }),
+        overlay_quality: overlayQuality,
+        dirty_overlap: summarizeDirtyOverlapForNode({
+          kind: 'symbol',
+          value: detected.value,
+          features,
+          dirtyFiles,
+        }),
+      }, freshness.warnings);
       return JSON.stringify(result, null, 2);
     }
     return JSON.stringify(attachReadWarnings({
       node: { kind: 'unresolved', value: node },
       error: 'could not resolve as feature id, task id, file path, or symbol',
       hint: 'try graph_whereis(symbol=...) or graph_search(query=...) to find the right node identifier',
+      overlay_quality: overlayQuality,
+      dirty_overlap: { direct_files: [], affected_features: [] },
     }, freshness.warnings), null, 2);
   } finally {
     db.close();

@@ -1,7 +1,10 @@
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
+import { getDirtyFiles } from '../../freshness/git.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
+import { featuresForFile, loadFunctionality } from '../../overlay/loader.js';
+import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { selectBestRoot } from './path.js';
 import { computeDecision } from './preflight.js';
 import { expandClassRollupTargets } from './target_rollup.js';
@@ -78,6 +81,17 @@ function buildReadOrder({ root, targetFiles, callerFiles, dependencyFiles, testF
 }
 
 export function buildChangePlan(db, { symbol, top_k = 6, dirtyCount = 0 }) {
+  return buildChangePlanWithContext(db, { symbol, top_k, dirtyCount });
+}
+
+export function buildChangePlanWithContext(db, {
+  symbol,
+  top_k = 6,
+  dirtyCount = 0,
+  features = [],
+  dirtyFiles = [],
+  overlayQuality = null,
+}) {
   const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
   const candidates = resolveSymbol(db, symbol, typesClause);
   if (candidates.length === 0) {
@@ -159,11 +173,28 @@ export function buildChangePlan(db, { symbol, top_k = 6, dirtyCount = 0 }) {
     ...dependencyFiles.map((entry) => entry.file),
     ...testFiles.map((entry) => entry.file),
   ])].slice(0, Math.max(top_k, 6));
+  const affectedFeatureIds = new Set(targetFiles.flatMap((file) => featuresForFile(features, file)));
+  const dirtySeams = summarizeDirtySeams(features, dirtyFiles);
+  const dirtyFeatureMatches = dirtySeams.features.filter((feature) => affectedFeatureIds.has(feature.id));
+  const directDirtyFiles = targetFiles.filter((file) => dirtyFiles.includes(file));
 
   const lines = [];
   lines.push(`CHANGE_PLAN ${root.label} ${(root.type ?? 'unknown').toLowerCase()} ${root.file_path}:${root.start_line}`);
   if (rollup.rolledUp) lines.push(rollup.header);
   lines.push(trustLine(dirtyCount));
+  if (overlayQuality?.featureCount) {
+    lines.push(
+      `MAP QUALITY tests ${overlayQuality.featuresWithTests}/${overlayQuality.featureCount} · docs ${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount} · deps ${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount} · related ${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}${overlayQuality.tasksTotal > 0 ? ` · linked tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}` : ''}`,
+    );
+  }
+  if (directDirtyFiles.length > 0 || dirtyFeatureMatches.length > 0) {
+    const parts = [];
+    if (directDirtyFiles.length > 0) parts.push(`target dirty: ${directDirtyFiles.join(', ')}`);
+    if (dirtyFeatureMatches.length > 0) {
+      parts.push(`feature seam: ${dirtyFeatureMatches.slice(0, 3).map((f) => `${f.id}(${f.file_count})`).join(', ')}`);
+    }
+    lines.push(`DIRTY SEAM — ${parts.join(' · ')}`);
+  }
   lines.push(`RISK ${decision.tier} — ${decision.reason}`);
   lines.push(`SIGNALS ${callerCount} caller(s), ${dependencyFiles.length} dependency file(s), ${testFiles.length} test file(s)`);
   lines.push('READ ORDER');
@@ -195,11 +226,22 @@ export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
   const graphDir = join(repoRoot, '.aify-graph');
   const { manifest } = await loadManifest(graphDir);
   const { trust: dirtyCount } = getUnresolvedCounts(manifest);
+  const functionality = loadFunctionality(repoRoot);
+  const tasksArtifact = loadTasksArtifact(repoRoot);
+  const overlayQuality = summarizeOverlayQuality(functionality.features ?? [], tasksArtifact.tasks ?? []);
+  const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
 
   const db = openExistingDb(join(graphDir, 'graph.sqlite'));
   try {
     return prefixReadWarnings(
-      buildChangePlan(db, { symbol, top_k, dirtyCount }),
+      buildChangePlanWithContext(db, {
+        symbol,
+        top_k,
+        dirtyCount,
+        features: functionality.features ?? [],
+        dirtyFiles,
+        overlayQuality,
+      }),
       freshness.warnings,
     );
   } finally {
