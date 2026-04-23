@@ -61,6 +61,12 @@ describe('graph_consequences — cross-layer traversal', () => {
     insertNode(db, { id: 'fn1', type: 'Function', label: 'updatePhase', file_path: 'src/sim.js' });
     db.close();
 
+    const commit = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit, indexedAt: new Date().toISOString(), nodes: 1, edges: 0,
+      schemaVersion: 4, extractorVersion: '0.1.0',
+      status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 4928, trustDirtyEdgeCount: 3889,
+    }));
     await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
       features: [{
         id: 'sim',
@@ -72,7 +78,7 @@ describe('graph_consequences — cross-layer traversal', () => {
     await writeFile(join(repoRoot, '.aify-graph', 'tasks.json'), JSON.stringify({
       version: '0.1', source: 'local',
       tasks: [
-        { id: 'T-1', title: 'fix phase bug', status: 'open', features: ['sim'] },
+        { id: 'T-1', title: 'fix phase bug', status: 'open', features: ['sim'], evidence: 'path:src/sim.js' },
         { id: 'T-2', title: 'closed', status: 'done', features: ['sim'] },
       ],
     }));
@@ -83,8 +89,18 @@ describe('graph_consequences — cross-layer traversal', () => {
     expect(result.features_touching).toHaveLength(1);
     expect(result.features_touching[0].id).toBe('sim');
     expect(result.contracts_potentially_affected).toContain('docs/contracts/physics-invariant.md');
+    expect(result.trust).toMatchObject({
+      level: 'weak',
+      trust_relevant_unresolved: 3889,
+      total_unresolved: 4928,
+    });
     // Open task included; closed task excluded
     expect(result.open_tasks_on_those_features.map((t) => t.id)).toEqual(['T-1']);
+    expect(result.open_tasks_on_those_features[0]).toMatchObject({
+      link_strength: 'strong',
+      evidence: 'path:src/sim.js',
+    });
+    expect(result.risk_flags).toEqual(expect.arrayContaining([expect.stringMatching(/weak_graph_trust/i)]));
   });
 
   it('flags no-adjacent-tests as regression risk', async () => {

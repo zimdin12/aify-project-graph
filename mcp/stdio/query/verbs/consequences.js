@@ -18,9 +18,12 @@ import { join } from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
+import { loadManifest } from '../../freshness/manifest.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
-import { summarizeDirtySeams } from '../../overlay/quality.js';
+import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
 import { getDirtyFiles } from '../../freshness/git.js';
+import { computeTrustLevel } from './health.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
@@ -86,8 +89,28 @@ function resolveTaskTarget(repoRoot, target) {
       const refs = t.features ?? t.related_features ?? [];
       return refs.some((f) => featureIds.includes(f));
     })
-    .map((t) => ({ id: t.id, title: t.title ?? '', status: t.status, priority: t.priority ?? null, features: t.features ?? t.related_features ?? [] }));
-  return { task: { id: task.id, title: task.title ?? '', status: task.status, features: featureIds }, features, contracts, siblingTasks };
+    .map((t) => ({
+      id: t.id,
+      title: t.title ?? '',
+      status: t.status,
+      priority: t.priority ?? null,
+      features: t.features ?? t.related_features ?? [],
+      link_strength: taskLinkStrength(t),
+      evidence: t.evidence ?? null,
+    }));
+  return {
+    task: {
+      id: task.id,
+      title: task.title ?? '',
+      status: task.status,
+      features: featureIds,
+      link_strength: taskLinkStrength(task),
+      evidence: task.evidence ?? null,
+    },
+    features,
+    contracts,
+    siblingTasks,
+  };
 }
 
 function daysAgo(dateStr) {
@@ -98,9 +121,24 @@ function daysAgo(dateStr) {
   return d;
 }
 
+async function loadTrustContext(repoRoot) {
+  const { manifest } = await loadManifest(join(repoRoot, '.aify-graph'));
+  const { total, trust } = getUnresolvedCounts(manifest);
+  const level = computeTrustLevel(trust);
+  return {
+    level,
+    trust_relevant_unresolved: trust,
+    total_unresolved: total,
+    advisory: level === 'weak'
+      ? 'Weak graph trust: prefer graph_pull(node=...) for narrower live context and verify in source.'
+      : null,
+  };
+}
+
 export async function graphConsequences({ repoRoot, target, symbol }) {
   const input = target ?? symbol;
   if (!input) return 'ERROR: target (symbol or file path) is required';
+  const trust = await loadTrustContext(repoRoot);
 
   // Task-id targets are overlay-native. Resolve them before freshness so
   // task-centric planning doesn't pay a whole-graph refresh cost just to
@@ -110,6 +148,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     return {
       target: input,
       resolved_from_task: taskMatch.task,
+      trust,
       features_touching: taskMatch.features,
       contracts_potentially_affected: taskMatch.contracts,
       open_tasks_on_those_features: taskMatch.siblingTasks,
@@ -257,6 +296,8 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
           status: t.status ?? null,
           priority: t.priority ?? null,
           features: featureRefs.filter((f) => affectedFeatureIds.has(f)),
+          link_strength: taskLinkStrength(t),
+          evidence: t.evidence ?? null,
         });
       }
     }
@@ -338,6 +379,9 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     if (features.length > 1) riskFlags.push(`cross_feature_boundary — touches ${features.length} features`);
     if (tasks.length > 20) riskFlags.push(`task_overhang — ${tasks.length} open tasks on affected features`);
     if (referencedIn.length > 5) riskFlags.push(`high_fan_in — symbol appears in ${referencedIn.length + symbolNodes.length} files`);
+    if (trust.level === 'weak') {
+      riskFlags.push('weak_graph_trust — prefer graph_pull(node=...) for narrower live context and verify in source');
+    }
     const dirtyOverlapCount = dirtyOverlap.direct_files.length
       + dirtyOverlap.affected_features.reduce((sum, feature) => sum + feature.file_count, 0);
     if (dirtyOverlapCount > 0) {
@@ -346,6 +390,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
 
     return attachReadWarnings({
       target: input,
+      trust,
       matched: {
         symbols: symbolNodes.map((n) => ({ label: n.label, type: n.type, file: n.file_path, line: n.start_line })),
         files: fileNodes.map((n) => n.file_path).filter(Boolean),
