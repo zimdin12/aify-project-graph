@@ -43,6 +43,7 @@ Prefer 5-10 clear features over 20 tiny ones.
 - On repos with one shared test entrypoint, prefer explicit feature-level `tests[]` over pretending there is no test anchor.
 - Add `depends_on` when one feature cannot work without another; add `related_to` for softer cross-links.
 - If the repo is dirty, bias enrichment toward the currently edited seam: read `graph_health()` / `brief.plan.md` for `DIRTY:` / `DIRTY SEAMS:` and make sure those features have explicit `tests[]`, `anchors.docs`, and relationship links before inventing new features elsewhere.
+- On large repos, treat overlay richness as part of "done", not polish: a skeletal file/symbol map is not enough if the brief still shows `tests 0/N`, `docs 0/N`, `deps 0/N`, or `related 0/N` for the active seams.
 - Validate anchors before proposing them: symbol exists, file glob matches real files.
 - Show the diff first. Write only after explicit confirmation.
 

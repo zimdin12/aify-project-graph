@@ -2,6 +2,12 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { featuresForFile } from './loader.js';
 
+const TASK_LINK_STRENGTHS = new Set(['strong', 'mixed', 'broad']);
+const STRONG_TASK_EVIDENCE = /\b(tag|custom[_ -]?field|component|commit|branch|path|file|files?_hint|symbol|anchor|code|diff):/i;
+const BROAD_TASK_EVIDENCE = /\b(title|description|fuzzy|spec|future|roadmap|manual|broad):/i;
+const STRONG_TASK_EVIDENCE_PHRASES = /\b(explicit task tags?|custom fields?|commit[- ]message|branch[- ]name|file paths? mentioned|files?_hint|code[- ]anchored)\b/i;
+const BROAD_TASK_EVIDENCE_PHRASES = /\b(fuzzy title|fuzzy description|future work|broad mapping|manual mapping|spec work|roadmap)\b/i;
+
 export function loadTasksArtifact(repoRoot) {
   const path = join(repoRoot, '.aify-graph', 'tasks.json');
   if (!existsSync(path)) return { tasks: [], source: null, fetched_at: null };
@@ -23,6 +29,34 @@ export function taskFeatureRefs(task) {
   return [];
 }
 
+export function taskLinkStrength(task) {
+  if (taskFeatureRefs(task).length === 0) return 'unlinked';
+
+  const declared = typeof task?.link_strength === 'string' ? task.link_strength.trim().toLowerCase() : '';
+  if (TASK_LINK_STRENGTHS.has(declared)) return declared;
+
+  const evidence = typeof task?.evidence === 'string' ? task.evidence.trim() : '';
+  const filesHint = Array.isArray(task?.files_hint) ? task.files_hint.filter(Boolean) : [];
+  const haystack = `${evidence} ${filesHint.join(' ')}`;
+  const hasStrong = filesHint.length > 0 || STRONG_TASK_EVIDENCE.test(haystack) || STRONG_TASK_EVIDENCE_PHRASES.test(haystack);
+  const hasBroad = BROAD_TASK_EVIDENCE.test(haystack) || BROAD_TASK_EVIDENCE_PHRASES.test(haystack);
+
+  if (hasStrong && hasBroad) return 'mixed';
+  if (hasStrong) return 'strong';
+  if (hasBroad) return 'broad';
+  if (evidence) return 'mixed';
+  return 'mixed';
+}
+
+export function taskLinkStrengthCounts(tasks = []) {
+  const counts = { strong: 0, mixed: 0, broad: 0 };
+  for (const task of tasks) {
+    const strength = taskLinkStrength(task);
+    if (strength === 'strong' || strength === 'mixed' || strength === 'broad') counts[strength] += 1;
+  }
+  return counts;
+}
+
 export function summarizeOverlayQuality(features = [], tasks = []) {
   const featureCount = features.length;
   const featuresWithTests = features.filter((f) => (f.tests ?? []).length > 0).length;
@@ -30,7 +64,9 @@ export function summarizeOverlayQuality(features = [], tasks = []) {
   const featuresWithDependsOn = features.filter((f) => (f.depends_on ?? []).length > 0).length;
   const featuresWithRelatedTo = features.filter((f) => (f.related_to ?? []).length > 0).length;
   const tasksTotal = tasks.length;
-  const linkedTasks = tasks.filter((t) => taskFeatureRefs(t).length > 0).length;
+  const linkedTasksList = tasks.filter((t) => taskFeatureRefs(t).length > 0);
+  const linkedTasks = linkedTasksList.length;
+  const taskLinkCounts = taskLinkStrengthCounts(linkedTasksList);
   return {
     featureCount,
     featuresWithTests,
@@ -39,6 +75,9 @@ export function summarizeOverlayQuality(features = [], tasks = []) {
     featuresWithRelatedTo,
     tasksTotal,
     linkedTasks,
+    strongTaskLinks: taskLinkCounts.strong,
+    mixedTaskLinks: taskLinkCounts.mixed,
+    broadTaskLinks: taskLinkCounts.broad,
     unlinkedTasks: Math.max(0, tasksTotal - linkedTasks),
   };
 }

@@ -38,6 +38,7 @@ Read verbs are **snapshot-first**. The one exception is first use in a repo with
 
 `graph_health()` and the briefs now also surface two map-quality signals you should actually use:
 - `OVERLAY:` / `OVERLAY GAPS:` — how many features have `tests[]`, `anchors.docs`, `depends_on`, `related_to`, and how many open tasks are actually linked. Thin overlay means the map will mostly orient, not dominate.
+- Task-link strength matters too: the map now distinguishes `strong` code/tracker-linked tasks from `broad` future/spec mappings. Treat broad links as planning hints, not proof.
 - `DIRTY:` / `DIRTY SEAMS:` — which mapped features currently intersect dirty files. If your bug/change target overlaps those files, trust current source + diff over cached structural inference.
 
 Those signals are no longer health-only: `graph_consequences`, `graph_pull`, and `graph_change_plan` now surface dirty-seam / map-gap hints directly in their output, so planning verbs can tell you when the target sits inside an actively edited seam.

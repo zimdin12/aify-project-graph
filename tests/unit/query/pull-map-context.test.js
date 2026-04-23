@@ -57,7 +57,7 @@ describe('graph_pull — map context signals', () => {
     }));
     await writeFile(join(repoRoot, '.aify-graph', 'tasks.json'), JSON.stringify({
       tasks: [
-        { id: 'T-1', title: 'linked', status: 'open', features: ['auth'] },
+        { id: 'T-1', title: 'linked', status: 'open', features: ['auth'], evidence: 'path:src/auth.js' },
         { id: 'T-2', title: 'loose', status: 'open', features: [] },
       ],
     }));
@@ -81,6 +81,9 @@ describe('graph_pull — map context signals', () => {
       featuresWithDependsOn: 1,
       tasksTotal: 2,
       linkedTasks: 1,
+      strongTaskLinks: 1,
+      mixedTaskLinks: 0,
+      broadTaskLinks: 0,
       unlinkedTasks: 1,
     });
     expect(result.dirty_overlap.direct_files).toContain('src/auth.js');

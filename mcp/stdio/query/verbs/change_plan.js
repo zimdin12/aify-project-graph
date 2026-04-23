@@ -183,8 +183,13 @@ export function buildChangePlanWithContext(db, {
   if (rollup.rolledUp) lines.push(rollup.header);
   lines.push(trustLine(dirtyCount));
   if (overlayQuality?.featureCount) {
+    const taskLinkSummary = [
+      `${overlayQuality.strongTaskLinks ?? 0} strong`,
+      `${overlayQuality.mixedTaskLinks ?? 0} mixed`,
+      `${overlayQuality.broadTaskLinks ?? 0} broad`,
+    ].filter(Boolean).join(', ');
     lines.push(
-      `MAP QUALITY tests ${overlayQuality.featuresWithTests}/${overlayQuality.featureCount} · docs ${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount} · deps ${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount} · related ${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}${overlayQuality.tasksTotal > 0 ? ` · linked tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}` : ''}`,
+      `MAP QUALITY tests ${overlayQuality.featuresWithTests}/${overlayQuality.featureCount} · docs ${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount} · deps ${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount} · related ${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}${overlayQuality.tasksTotal > 0 ? ` · linked tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}` : ''}${taskLinkSummary ? ` · task links ${taskLinkSummary}` : ''}`,
     );
   }
   if (directDirtyFiles.length > 0 || dirtyFeatureMatches.length > 0) {

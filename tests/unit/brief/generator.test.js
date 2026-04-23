@@ -142,8 +142,8 @@ describe('brief/generator', () => {
         version: '0.1',
         source: 'plaintext',
         tasks: [
-          { id: 'T-1', title: 'fix login', status: 'in_progress', features: ['auth'] },
-          { id: 'T-2', title: 'session cleanup', status: 'open', related_features: ['auth'] },
+          { id: 'T-1', title: 'fix login', status: 'in_progress', features: ['auth'], evidence: 'path:src/auth.js' },
+          { id: 'T-2', title: 'session cleanup', status: 'open', related_features: ['auth'], evidence: 'title:session cleanup touches auth' },
           { id: 'T-3', title: 'unknown', status: 'open', features: [] },
         ],
       }));
@@ -152,9 +152,9 @@ describe('brief/generator', () => {
       const plan = readFileSync(join(repoRoot, '.aify-graph', 'brief.plan.md'), 'utf8');
       expect(plan).toContain('FEATURES:');
       expect(plan).toContain('auth: auth');
-      expect(plan).toContain('tasks: 2 open');
-      expect(plan).toContain('- T-1 fix login');
-      expect(plan).toContain('- T-2 session cleanup');
+      expect(plan).toContain('tasks: 2 open (1 strong, 1 broad)');
+      expect(plan).toContain('- T-1 fix login [strong]');
+      expect(plan).toContain('- T-2 session cleanup [broad]');
       expect(plan).not.toContain('OPEN_TASKS');
       expect(plan).not.toContain('unattributed');
     });
@@ -211,6 +211,7 @@ describe('brief/generator', () => {
       expect(plan).toContain('OVERLAY GAPS:');
       expect(plan).toContain('tests 0/1');
       expect(plan).toContain('linked tasks 0/1');
+      expect(plan).toContain('task links');
       expect(plan).toContain('DIRTY SEAMS:');
       expect(plan).toContain('auth: 1 dirty file(s)');
     });
@@ -229,8 +230,8 @@ describe('brief/generator', () => {
         version: '0.1',
         source: 'plaintext',
         tasks: [
-          { id: 'CU-1', title: 'fix login', status: 'in_progress', priority: 'high', features: ['auth'], url: 'https://x/CU-1' },
-          { id: 'CU-2', title: 'session cleanup', status: 'open', related_features: ['auth'] },
+          { id: 'CU-1', title: 'fix login', status: 'in_progress', priority: 'high', features: ['auth'], url: 'https://x/CU-1', evidence: 'path:src/auth.js' },
+          { id: 'CU-2', title: 'session cleanup', status: 'open', related_features: ['auth'], evidence: 'title:session cleanup touches auth' },
           { id: 'CU-3', title: 'done work', status: 'done', features: ['auth'] },
         ],
       }));
@@ -247,6 +248,13 @@ describe('brief/generator', () => {
         status: 'in_progress',
         priority: 'high',
         url: 'https://x/CU-1',
+        link_strength: 'strong',
+        evidence: 'path:src/auth.js',
+      });
+      expect(authFeature.tasks[1]).toMatchObject({
+        id: 'CU-2',
+        link_strength: 'broad',
+        evidence: 'title:session cleanup touches auth',
       });
       // Feature without tasks is not a feature schema failure
       const otherValid = json.features.valid.filter(f => f.id !== 'auth');

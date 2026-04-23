@@ -144,6 +144,12 @@ export async function graphHealth({ repoRoot }) {
     ];
     if (overlayQuality.tasksTotal > 0) {
       qualityBits.push(`tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}`);
+      const taskLinkSummary = [
+        `${overlayQuality.strongTaskLinks ?? 0} strong`,
+        `${overlayQuality.mixedTaskLinks ?? 0} mixed`,
+        `${overlayQuality.broadTaskLinks ?? 0} broad`,
+      ].filter(Boolean).join(', ');
+      if (taskLinkSummary) qualityBits.push(`task-links ${taskLinkSummary}`);
     }
     verdicts.push(
       overlay.broken === 0

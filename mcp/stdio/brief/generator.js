@@ -19,7 +19,7 @@ import { computeTrustLevel } from '../query/verbs/health.js';
 import { getDirtyFilesSync } from '../freshness/git.js';
 import { getUnresolvedCounts } from '../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
-import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../overlay/quality.js';
+import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs, taskLinkStrength, taskLinkStrengthCounts } from '../overlay/quality.js';
 import { buildPaths } from '../query/verbs/path.js';
 
 const NOISE_LABELS = new Set([
@@ -914,6 +914,14 @@ function openTasksByFeature(tasksArtifact) {
       byFeature.get(fid).push(t);
     }
   }
+  for (const [fid, tasks] of byFeature.entries()) {
+    byFeature.set(fid, [...tasks].sort((a, b) => {
+      const rank = { strong: 0, mixed: 1, broad: 2, unlinked: 3 };
+      const diff = rank[taskLinkStrength(a)] - rank[taskLinkStrength(b)];
+      if (diff !== 0) return diff;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    }));
+  }
   return byFeature;
 }
 
@@ -927,6 +935,14 @@ function openTasksWithoutFeatures(tasksArtifact) {
     if (taskFeatureRefs(t).length === 0) out.push(t);
   }
   return out;
+}
+
+function formatTaskLinkSummary(counts = {}, { includeZeros = false } = {}) {
+  const parts = [];
+  if (includeZeros || counts.strong > 0) parts.push(`${counts.strong ?? 0} strong`);
+  if (includeZeros || counts.mixed > 0) parts.push(`${counts.mixed ?? 0} mixed`);
+  if (includeZeros || counts.broad > 0) parts.push(`${counts.broad ?? 0} broad`);
+  return parts.join(', ');
 }
 
 // Recent commits with touched-files + feature attribution. Used by
@@ -1156,6 +1172,12 @@ function renderAgentMarkdown(data) {
       `related=${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}`,
     ];
     if (overlayQuality.tasksTotal > 0) parts.push(`tasks=${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}`);
+    const taskStrengthSummary = formatTaskLinkSummary({
+      strong: overlayQuality.strongTaskLinks,
+      mixed: overlayQuality.mixedTaskLinks,
+      broad: overlayQuality.broadTaskLinks,
+    }, { includeZeros: overlayQuality.tasksTotal > 0 });
+    if (taskStrengthSummary) parts.push(`task-links=${taskStrengthSummary}`);
     lines.push(`OVERLAY: ${parts.join(' ')}`);
   }
   if (hubsArr.length) {
@@ -1287,9 +1309,10 @@ function renderPlanAgentMarkdown(data) {
       }
       const featureTasks = tasksByFeature.get(feature.id) || [];
       if (featureTasks.length) {
-        lines.push(`    tasks: ${featureTasks.length} open`);
+        const taskLinkSummary = formatTaskLinkSummary(taskLinkStrengthCounts(featureTasks));
+        lines.push(`    tasks: ${featureTasks.length} open${taskLinkSummary ? ` (${taskLinkSummary})` : ''}`);
         for (const t of featureTasks.slice(0, 2)) {
-          lines.push(`      - ${t.id} ${t.title}`);
+          lines.push(`      - ${t.id} ${t.title} [${taskLinkStrength(t)}]`);
         }
       }
     }
@@ -1297,13 +1320,16 @@ function renderPlanAgentMarkdown(data) {
   if (overlayQuality?.featureCount) {
     lines.push('OVERLAY GAPS:');
     lines.push(
-      `  tests ${overlayQuality.featuresWithTests}/${overlayQuality.featureCount} · docs ${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount} · deps ${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount} · related ${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}${overlayQuality.tasksTotal > 0 ? ` · linked tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}` : ''}`,
+      `  tests ${overlayQuality.featuresWithTests}/${overlayQuality.featureCount} · docs ${overlayQuality.featuresWithDocs}/${overlayQuality.featureCount} · deps ${overlayQuality.featuresWithDependsOn}/${overlayQuality.featureCount} · related ${overlayQuality.featuresWithRelatedTo}/${overlayQuality.featureCount}${overlayQuality.tasksTotal > 0 ? ` · linked tasks ${overlayQuality.linkedTasks}/${overlayQuality.tasksTotal}` : ''}${overlayQuality.tasksTotal > 0 ? ` · task links ${formatTaskLinkSummary({ strong: overlayQuality.strongTaskLinks, mixed: overlayQuality.mixedTaskLinks, broad: overlayQuality.broadTaskLinks }, { includeZeros: true })}` : ''}`,
     );
     if (overlayQuality.featuresWithTests < overlayQuality.featureCount) {
       lines.push('  next: add explicit tests[] where one shared test file covers multiple features');
     }
     if (overlayQuality.unlinkedTasks > 0) {
       lines.push(`  next: attach ${overlayQuality.unlinkedTasks} open task(s) to a feature`);
+    }
+    if (overlayQuality.broadTaskLinks > 0) {
+      lines.push(`  next: tighten ${overlayQuality.broadTaskLinks} broad task link(s) with path/tag/commit evidence where possible`);
     }
   }
   if (dirtySeams?.totalDirtyFiles > 0) {
@@ -1423,6 +1449,8 @@ function renderJson(data, repoRoot) {
             status: t.status ?? null,
             priority: t.priority ?? null,
             url: t.url ?? null,
+            link_strength: taskLinkStrength(t),
+            evidence: t.evidence ?? null,
           })),
           // Coverage gradient: composite health signal so a reader can tell
           // skeletal features from load-bearing ones at a glance. Three tiers:

@@ -72,7 +72,12 @@
         },
         "evidence": {
           "type": "string",
-          "description": "Why this task was bound to these features. Written by /graph-build-tasks so attribution is auditable."
+          "description": "Why this task was bound to these features. Written by /graph-build-tasks so attribution is auditable. Prefer machine-readable prefixes such as `tag:`, `commit:`, `branch:`, `path:`, `title:`, or `spec:` so brief generation can distinguish strong code-anchored links from broader/spec mappings."
+        },
+        "link_strength": {
+          "type": "string",
+          "enum": ["strong", "mixed", "broad"],
+          "description": "Optional explicit attribution strength. `strong` = direct code/tracker binding (tag/path/commit/branch), `mixed` = several weaker but consistent signals, `broad` = future/spec/title-only mapping. If omitted, the brief generator infers a best-effort tier from `evidence` and `files_hint`."
         }
       },
       "additionalProperties": true

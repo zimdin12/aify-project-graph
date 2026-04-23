@@ -44,9 +44,15 @@ If you don't know `<AIFY_GRAPH_CLONE>`, look at the MCP config for the `aify-pro
 
 ### 3. Propose the functionality overlay
 
-Run the `graph-build-functionality` skill's logic inline: read `.aify-graph/brief.json`, draft a set of 5-10 features with `anchors.symbols` and `anchors.files` globs, show the user a diff, write `.aify-graph/functionality.json` on confirmation.
+Run the `graph-build-functionality` skill's logic inline: read `.aify-graph/brief.json`, draft a set of 5-10 features with `anchors.symbols` and `anchors.files` globs, and fill the overlay fields that make the map actually useful on large repos:
+- `tests[]`
+- `anchors.docs`
+- `depends_on`
+- `related_to`
 
-Keep the proposal small. 5-10 clear features beats 20 speculative ones. Preserve any existing entries.
+Show the user a diff, write `.aify-graph/functionality.json` on confirmation.
+
+Keep the proposal small. 5-10 clear features beats 20 speculative ones. Preserve any existing entries. Do not stop at a skeletal file/symbol map if the active seams still have no tests/docs/relationships.
 
 ### 4. Regenerate briefs with the overlay populated
 
@@ -60,6 +66,12 @@ Now `brief.plan.md` has a FEATURES section with `open:` / `tests:` / `load:` per
 
 Running `/graph-build-tasks` is the unlock that turns the graph from a static map into a daily-use tool: it activates per-feature open-task lines in `brief.plan.md`, makes `/graph-walk-bugs` usable, cross-validates feature↔task bindings, and populates the dashboard's task layer.
 
+Task sync is not just about coverage. Ask the writer to preserve attribution quality:
+- `link_strength: strong|mixed|broad`
+- auditable `evidence` prefixes like `tag:`, `commit:`, `branch:`, `path:`, `title:`, `spec:`
+
+That lets the briefs distinguish hard code-anchored tasks from broad/spec planning links.
+
 Check for a tracker MCP in the active session (names matching `clickup`, `asana`, `linear`, `jira`, or `github`). If one is connected:
 
 > "I can sync your tracker's open tasks into `.aify-graph/tasks.json` now so the plan brief shows per-feature open work. Run `/graph-build-tasks`? (takes 10-60s)"
@@ -72,6 +84,7 @@ Short summary:
 - "Paste `.aify-graph/brief.agent.md` into session prompts for orient-shaped work."
 - "Paste `.aify-graph/brief.plan.md` before change-planning."
 - "Use `graph_pull(node='...')` for cross-layer context on a specific file, feature, symbol, or task."
+- "If `brief.plan.md` still says the overlay is thin, enrich `tests[]`, `anchors.docs`, `depends_on`, `related_to`, and task-link evidence before expecting the map to dominate."
 - "Run `/graph-build-all` again whenever the repo changes significantly or you want to refresh the overlay."
 
 ## What NOT to do

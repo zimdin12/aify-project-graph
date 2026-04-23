@@ -73,11 +73,15 @@ describe('composite verbs', () => {
         featuresWithRelatedTo: 0,
         tasksTotal: 2,
         linkedTasks: 1,
+        strongTaskLinks: 1,
+        mixedTaskLinks: 0,
+        broadTaskLinks: 0,
       },
     });
 
     expect(out).toContain('MAP QUALITY tests 0/1');
     expect(out).toContain('linked tasks 1/2');
+    expect(out).toContain('task links 1 strong');
     expect(out).toContain('DIRTY SEAM');
     expect(out).toContain('target dirty: src/auth.py');
     expect(out).toContain('feature seam: auth(1)');

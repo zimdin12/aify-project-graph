@@ -30,6 +30,21 @@ If multiple sources are available, ask the user which one to use.
 
 Every attribution must carry evidence. Weak evidence is okay; hidden guesswork is not.
 
+When you write `evidence`, prefer machine-readable prefixes:
+- `tag:physics`
+- `commit:CU-123 touched engine/voxel/ChunkManager.cpp`
+- `branch:feature/CU-123-gravity`
+- `path:engine/rendering/RayTracingPipeline.cpp`
+- `title:variable gravity touches planet-body-systems`
+- `spec:future networking work spans sim-coordinator + replication`
+
+Also write `link_strength`:
+- `strong` — direct code/tracker binding (`tag:`, `commit:`, `branch:`, `path:`)
+- `mixed` — several weaker but consistent signals
+- `broad` — future/spec/title-only mapping that improves coverage but is not code-anchored
+
+Prefer explicit `broad` over pretending a speculative link is hard evidence.
+
 ## Output
 
 Write normalized tasks with:
@@ -37,6 +52,7 @@ Write normalized tasks with:
 - `features`
 - `files_hint`
 - `evidence`
+- `link_strength`
 
 Keep unattributed tasks too — `features: []` is better than silent drop.
 

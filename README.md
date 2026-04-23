@@ -144,7 +144,12 @@ Live planning verbs also surface this now: `graph_consequences`, `graph_pull`, a
 
 ### Task overlay (L3)
 
-Drop `.aify-graph/tasks.json` (written by the `/graph-build-tasks` skill) and `brief.plan.md` automatically adds an `OPEN_TASKS` section grouped by feature.
+Drop `.aify-graph/tasks.json` (written by the `/graph-build-tasks` skill) and `brief.plan.md` automatically adds per-feature task lines. Task links now carry strength tiers too:
+- `strong` — direct code/tracker binding (`tag:`, `commit:`, `branch:`, `path:`)
+- `mixed` — several weaker but consistent signals
+- `broad` — future/spec/title-only mapping that improves coverage but is not code-anchored
+
+That keeps coverage high without pretending every planning task is hard implementation proof.
 
 ### Claude Code skills
 
