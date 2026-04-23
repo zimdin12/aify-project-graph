@@ -37,6 +37,49 @@ import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive'];
 const DEFAULT_LAYERS = ['code', 'functionality', 'tasks', 'activity'];
 
+function normalizeOverlayLookup(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-');
+}
+
+function parsePrefixedNode(node) {
+  const raw = String(node || '');
+  const match = raw.match(/^(feature|task)[:/](.+)$/i);
+  if (!match) return { kind: null, value: raw };
+  return { kind: match[1].toLowerCase(), value: match[2].trim() };
+}
+
+function resolveFeatureNode(node, features) {
+  const parsed = parsePrefixedNode(node);
+  const raw = parsed.kind === 'feature' ? parsed.value : String(node || '');
+  const norm = normalizeOverlayLookup(raw);
+
+  const exactId = features.find((f) => f.id === raw);
+  if (exactId) return exactId;
+  const ciId = features.find((f) => normalizeOverlayLookup(f.id) === norm);
+  if (ciId) return ciId;
+  if (parsed.kind !== 'feature') return null;
+  const exactLabel = features.find((f) => String(f.label || '') === raw);
+  if (exactLabel) return exactLabel;
+  const ciLabel = features.find((f) => normalizeOverlayLookup(f.label || '') === norm);
+  if (ciLabel) return ciLabel;
+  return null;
+}
+
+function resolveTaskNode(node, allTasks) {
+  const parsed = parsePrefixedNode(node);
+  const raw = parsed.kind === 'task' ? parsed.value : String(node || '');
+  const norm = normalizeOverlayLookup(raw);
+
+  const exactId = allTasks.find((t) => t.id === raw);
+  if (exactId) return exactId;
+  const ciId = allTasks.find((t) => normalizeOverlayLookup(t.id) === norm);
+  if (ciId) return ciId;
+  return null;
+}
+
 function detectNodeKind(db, node) {
   if (!node) return { kind: 'unknown' };
   // Task id heuristic: any alphanumeric prefix + hyphen + id (CU-123, eng-42,
@@ -679,12 +722,14 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     const features = overlay.features;
     const overlayQuality = summarizeOverlayQuality(features, allTasks);
     const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+    const prefixed = parsePrefixedNode(node);
 
-    // Resolve node kind. Try feature id first (cheap exact match).
-    const featureMatch = features.find(f => f.id === node);
+    // Resolve node kind. Feature/task prefixes are explicit routing hints:
+    // `feature:chunk-management`, `task:CU-123`.
+    const featureMatch = resolveFeatureNode(node, features);
     if (featureMatch) {
       const result = attachReadWarnings({
-        ...pullFeature({ db, featureId: node, features, allTasks, repoRoot, layers: layerSet, opts: { direction } }),
+        ...pullFeature({ db, featureId: featureMatch.id, features, allTasks, repoRoot, layers: layerSet, opts: { direction } }),
         overlay_quality: overlayQuality,
         dirty_overlap: summarizeDirtyOverlapForNode({
           kind: 'feature',
@@ -696,11 +741,10 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
       freshness.warnings);
       return JSON.stringify(result, null, 2);
     }
-    // Task id?
-    const taskMatch = allTasks.find(t => t.id === node);
+    const taskMatch = resolveTaskNode(node, allTasks);
     if (taskMatch) {
       const result = attachReadWarnings({
-        ...pullTask({ db, taskId: node, features, allTasks, repoRoot, layers: layerSet }),
+        ...pullTask({ db, taskId: taskMatch.id, features, allTasks, repoRoot, layers: layerSet }),
         overlay_quality: overlayQuality,
         dirty_overlap: summarizeDirtyOverlapForNode({
           kind: 'task',
@@ -710,6 +754,21 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
         }),
       }, freshness.warnings);
       return JSON.stringify(result, null, 2);
+    }
+    if (prefixed.kind === 'feature' || prefixed.kind === 'task') {
+      const suggestions = prefixed.kind === 'feature'
+        ? features.slice(0, 5).map((f) => `feature:${f.id}`)
+        : allTasks.slice(0, 5).map((t) => `task:${t.id}`);
+      return JSON.stringify(attachReadWarnings({
+        node: { kind: prefixed.kind, value: prefixed.value },
+        error: `${prefixed.kind} not found`,
+        hint: prefixed.kind === 'feature'
+          ? 'use a valid feature id/label, e.g. feature:chunk-management or feature/chunk-management'
+          : 'use a valid task id, e.g. task:CU-123, task/CU-123, or CU-123',
+        suggestions,
+        overlay_quality: overlayQuality,
+        dirty_overlap: { direct_files: [], affected_features: [] },
+      }, freshness.warnings), null, 2);
     }
     // File or symbol?
     const detected = detectNodeKind(db, node);
@@ -742,7 +801,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     return JSON.stringify(attachReadWarnings({
       node: { kind: 'unresolved', value: node },
       error: 'could not resolve as feature id, task id, file path, or symbol',
-      hint: 'try graph_whereis(symbol=...) or graph_search(query=...) to find the right node identifier',
+      hint: 'try feature:<id>, feature/<id>, task:<id>, task/<id>, graph_whereis(symbol=...), or graph_search(query=...) to find the right node identifier',
       overlay_quality: overlayQuality,
       dirty_overlap: { direct_files: [], affected_features: [] },
     }, freshness.warnings), null, 2);

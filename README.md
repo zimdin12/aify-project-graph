@@ -140,7 +140,7 @@ Anchors are validated against the graph on every brief regen — stale or broken
 
 **Dirty worktree matters:** on active feature branches, graph quality depends not just on the indexed snapshot but on whether the seam you care about is currently dirty. `graph_health()` now surfaces `dirty-seams:` and the briefs surface `DIRTY:` / `DIRTY SEAMS:` so agents can see when source-of-truth reasoning should prioritize current diffs over cached map structure.
 
-Live planning verbs also surface this now: `graph_consequences`, `graph_pull`, and `graph_change_plan` include dirty-seam / map-gap hints directly so an agent does not have to call `graph_health()` separately just to learn that the target sits inside an actively edited seam. Under `TRUST weak`, `graph_pull` is usually the better narrow live probe; `graph_consequences` should be treated as broader advisory context, not proof.
+Live planning verbs also surface this now: `graph_consequences`, `graph_pull`, and `graph_change_plan` include dirty-seam / map-gap hints directly so an agent does not have to call `graph_health()` separately just to learn that the target sits inside an actively edited seam. Under `TRUST weak`, `graph_pull` is usually the better narrow live probe; `graph_consequences` should be treated as broader advisory context, not proof. `graph_pull` accepts raw feature ids plus explicit overlay prefixes like `feature:terrain-generation`, `feature/terrain-generation`, `task:CU-123`, and `task/CU-123`.
 
 ### Task overlay (L3)
 

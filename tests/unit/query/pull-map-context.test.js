@@ -93,4 +93,25 @@ describe('graph_pull — map context signals', () => {
     });
     expect(result._warnings).toEqual(expect.arrayContaining([expect.stringMatching(/working tree has 1 dirty file/i)]));
   });
+
+  it('resolves feature prefixes consistently', async () => {
+    const byId = JSON.parse(await graphPull({ repoRoot, node: 'auth' }));
+    const byColon = JSON.parse(await graphPull({ repoRoot, node: 'feature:auth' }));
+    const bySlash = JSON.parse(await graphPull({ repoRoot, node: 'feature/auth' }));
+
+    expect(byId.node).toMatchObject({ kind: 'feature', id: 'auth' });
+    expect(byColon.node).toMatchObject({ kind: 'feature', id: 'auth' });
+    expect(bySlash.node).toMatchObject({ kind: 'feature', id: 'auth' });
+    expect(byColon.layers.functionality).toMatchObject({
+      depends_on: ['core'],
+    });
+  });
+
+  it('returns helpful suggestions for unknown prefixed feature nodes', async () => {
+    const result = JSON.parse(await graphPull({ repoRoot, node: 'feature:missing-feature' }));
+
+    expect(result.error).toBe('feature not found');
+    expect(result.hint).toMatch(/feature\/chunk-management|feature\/auth|feature:chunk-management|feature:auth/i);
+    expect(result.suggestions).toEqual(expect.arrayContaining(['feature:auth']));
+  });
 });

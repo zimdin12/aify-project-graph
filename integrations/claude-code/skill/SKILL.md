@@ -86,7 +86,7 @@ The benchmark result (2026-04-20 cross-tester, matched-N): briefs are **1.5-2.9�
 
 **Lean profile** (default for Codex/OpenCode install, 3 verbs listed in `tools/list`):
 - `graph_consequences(target="X")` — flagship cross-layer planning / “what breaks if I touch this?”
-- `graph_pull(node="X")` — cross-layer pull (code + features + tasks + activity)
+- `graph_pull(node="X")` — cross-layer pull (code + features + tasks + activity). For overlay targets, prefer explicit forms like `feature:terrain-generation`, `feature/terrain-generation`, `task:CU-123`, or `task/CU-123`.
 - `graph_change_plan(symbol="X")` — safe change planning
 
 **Still callable in lean mode** (by name via `tools/call`, just hidden from `tools/list` to reduce manifest tax):
