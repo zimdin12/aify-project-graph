@@ -925,6 +925,20 @@ function openTasksByFeature(tasksArtifact) {
   return byFeature;
 }
 
+// M4a: count completed tasks per feature so brief.plan.md can show
+// progress without listing them all. Open/in-progress are the noisy
+// rows; completed counts are a single number.
+function completedTaskCountsByFeature(tasksArtifact) {
+  const counts = new Map();
+  for (const t of tasksArtifact?.tasks || []) {
+    if (!t.status || !/done|complete|closed|resolved|merged|shipped/i.test(t.status)) continue;
+    for (const fid of taskFeatureRefs(t)) {
+      counts.set(fid, (counts.get(fid) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 // Separate accessor for tasks with no feature attribution — brief.plan.md
 // surfaces them in their own section instead of silently dropping them
 // (dev audit 11b90fb). Shape mirrors openTasksByFeature's filter.
@@ -1302,6 +1316,7 @@ function renderPlanAgentMarkdown(data) {
   } = data;
   const lines = [];
   const tasksByFeature = openTasksByFeature(tasksArtifact);
+  const completedByFeature = completedTaskCountsByFeature(tasksArtifact);
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   // FEATURES now carries action-bearing data: primary file + test anchor +
   // caller count. Agent can see "for this feature, open X, tests are at Y,
@@ -1324,9 +1339,11 @@ function renderPlanAgentMarkdown(data) {
         lines.push(`    related: [${feature.related_to.slice(0, 3).join(',')}]`);
       }
       const featureTasks = tasksByFeature.get(feature.id) || [];
-      if (featureTasks.length) {
+      const doneCount = completedByFeature.get(feature.id) ?? 0;
+      if (featureTasks.length || doneCount > 0) {
         const taskLinkSummary = formatTaskLinkSummary(taskLinkStrengthCounts(featureTasks));
-        lines.push(`    tasks: ${featureTasks.length} open${taskLinkSummary ? ` (${taskLinkSummary})` : ''}`);
+        const completed = doneCount > 0 ? `, ${doneCount} done` : '';
+        lines.push(`    tasks: ${featureTasks.length} open${completed}${taskLinkSummary ? ` (${taskLinkSummary})` : ''}`);
         for (const t of featureTasks.slice(0, 2)) {
           lines.push(`      - ${t.id} ${t.title} [${taskLinkStrength(t)}]`);
         }
