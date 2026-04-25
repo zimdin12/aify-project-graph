@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { getDirtyFiles } from '../../freshness/git.js';
 import { loadManifest } from '../../freshness/manifest.js';
@@ -80,6 +81,69 @@ function buildReadOrder({ root, targetFiles, callerFiles, dependencyFiles, testF
   return items;
 }
 
+function findSourceOccurrenceFiles(db, repoRoot, symbol, excludeFiles = []) {
+  if (!symbol) return [];
+  let candidateFiles = db.all(
+    `SELECT DISTINCT file_path
+     FROM nodes
+     WHERE type = 'File' AND language != '' AND file_path != ''`
+  )
+    .map((row) => row.file_path)
+    .filter((filePath) => !excludeFiles.includes(filePath));
+  if (candidateFiles.length === 0) {
+    try {
+      candidateFiles = execFileSync(
+        'git',
+        ['-C', repoRoot, 'ls-files'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024 },
+      )
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((filePath) => filePath && !filePath.startsWith('.aify-graph/') && !excludeFiles.includes(filePath));
+    } catch {
+      candidateFiles = [];
+    }
+  }
+  if (candidateFiles.length === 0) return [];
+
+  try {
+    const out = execFileSync(
+      'rg',
+      ['-l', '-w', '--fixed-strings', symbol, '--', ...candidateFiles],
+      {
+        cwd: repoRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        maxBuffer: 16 * 1024 * 1024,
+      },
+    );
+    return out.split('\n').map((line) => line.trim()).filter(Boolean);
+  } catch (err) {
+    if (typeof err?.status === 'number' && err.status === 1) return [];
+    return [];
+  }
+}
+
+function upgradeDecisionForWeakTrustOccurrenceGap({ decision, callerCount, dirtyCount, sourceOccurrenceFiles }) {
+  if (dirtyCount <= 100 || callerCount > 1 || sourceOccurrenceFiles.length <= 1) return decision;
+
+  if (sourceOccurrenceFiles.length >= 10) {
+    return {
+      tier: 'CONFIRM',
+      reason: `Graph shows ${callerCount} caller(s) but symbol text appears in ${sourceOccurrenceFiles.length} code files under weak trust — confirm scope with file reads.`,
+    };
+  }
+
+  if (decision.tier === 'SAFE') {
+    return {
+      tier: 'REVIEW',
+      reason: `Graph shows ${callerCount} caller(s) but symbol text appears in ${sourceOccurrenceFiles.length} code files under weak trust — verify caller scope in source before editing.`,
+    };
+  }
+
+  return decision;
+}
+
 export function buildChangePlan(db, { symbol, top_k = 6, dirtyCount = 0 }) {
   return buildChangePlanWithContext(db, { symbol, top_k, dirtyCount });
 }
@@ -91,6 +155,7 @@ export function buildChangePlanWithContext(db, {
   features = [],
   dirtyFiles = [],
   overlayQuality = null,
+  sourceOccurrenceFiles = [],
 }) {
   const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
   const candidates = resolveSymbol(db, symbol, typesClause);
@@ -140,6 +205,7 @@ export function buildChangePlanWithContext(db, {
     if (b === root.file_path) return 1;
     return a.localeCompare(b);
   });
+  const additionalOccurrenceFiles = sourceOccurrenceFiles.filter((file) => !targetFiles.includes(file));
 
   const callerFiles = groupByFile(incomingRows, 'from_file', 'from_label', 'relation')
     .filter((entry) => !targetFiles.includes(entry.file))
@@ -151,12 +217,17 @@ export function buildChangePlanWithContext(db, {
 
   const callerCount = new Set(incomingRows.map((row) => row.from_id)).size;
   const crossModule = new Set(callerFiles.map((entry) => fileDir(entry.file))).size > 1;
-  const decision = computeDecision({
+  const decision = upgradeDecisionForWeakTrustOccurrenceGap({
+    decision: computeDecision({
+      callerCount,
+      testCount: testFiles.length,
+      dirtyCount,
+      crossModule,
+      confidence: root.confidence ?? 1.0,
+    }),
     callerCount,
-    testCount: testFiles.length,
     dirtyCount,
-    crossModule,
-    confidence: root.confidence ?? 1.0,
+    sourceOccurrenceFiles: additionalOccurrenceFiles,
   });
 
   const readOrder = buildReadOrder({
@@ -201,7 +272,7 @@ export function buildChangePlanWithContext(db, {
     lines.push(`DIRTY SEAM — ${parts.join(' · ')}`);
   }
   lines.push(`RISK ${decision.tier} — ${decision.reason}`);
-  lines.push(`SIGNALS ${callerCount} caller(s), ${dependencyFiles.length} dependency file(s), ${testFiles.length} test file(s)`);
+  lines.push(`SIGNALS ${callerCount} caller(s), ${dependencyFiles.length} dependency file(s), ${testFiles.length} test file(s)${additionalOccurrenceFiles.length > 0 ? `, ${additionalOccurrenceFiles.length} source-occurrence file(s)` : ''}`);
   lines.push('READ ORDER');
   readOrder.forEach((step, index) => {
     lines.push(`${index + 1}. ${step.file} — ${step.reason}`);
@@ -216,6 +287,12 @@ export function buildChangePlanWithContext(db, {
     lines.push('TEST ANCHORS');
     testFiles.slice(0, top_k).forEach((entry) => {
       lines.push(`- ${entry.file} — ${entry.count} covering edge${entry.count === 1 ? '' : 's'}`);
+    });
+  }
+  if (additionalOccurrenceFiles.length > 0) {
+    lines.push('SOURCE OCCURRENCE FILES');
+    additionalOccurrenceFiles.slice(0, top_k).forEach((file) => {
+      lines.push(`- ${file}`);
     });
   }
   lines.push('AFFECTED FILES');
@@ -238,6 +315,7 @@ export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
 
   const db = openExistingDb(join(graphDir, 'graph.sqlite'));
   try {
+    const sourceOccurrenceFiles = findSourceOccurrenceFiles(db, repoRoot, symbol, []);
     return prefixReadWarnings(
       buildChangePlanWithContext(db, {
         symbol,
@@ -246,6 +324,7 @@ export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
         features: functionality.features ?? [],
         dirtyFiles,
         overlayQuality,
+        sourceOccurrenceFiles,
       }),
       freshness.warnings,
     );

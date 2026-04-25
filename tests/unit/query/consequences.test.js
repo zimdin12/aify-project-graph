@@ -112,6 +112,23 @@ describe('graph_consequences — cross-layer traversal', () => {
     expect(result.risk_flags).toEqual(expect.arrayContaining([expect.stringMatching(/no_test_coverage/i)]));
   });
 
+  it('treats test-file imports of the symbol as adjacent coverage even without resolved TESTS edges', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    insertNode(db, { id: 'fn1', type: 'Function', label: 'expandClassRollupTargets', file_path: 'src/target_rollup.js' });
+    insertNode(db, { id: 'testFile', type: 'File', label: 'query.test.js', file_path: 'tests/unit/query/query.test.js' });
+    db.close();
+
+    await mkdir(join(repoRoot, 'tests', 'unit', 'query'), { recursive: true });
+    await writeFile(
+      join(repoRoot, 'tests', 'unit', 'query', 'query.test.js'),
+      "import { expandClassRollupTargets } from '../../../src/target_rollup.js';\n",
+    );
+
+    const result = await graphConsequences({ repoRoot, target: 'expandClassRollupTargets' });
+    expect(result.tests_adjacent).toContain('tests/unit/query/query.test.js');
+    expect(result.risk_flags).not.toEqual(expect.arrayContaining([expect.stringMatching(/no_test_coverage/i)]));
+  });
+
   it('flags orphan code when no feature anchors the symbol', async () => {
     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     insertNode(db, { id: 'fn1', type: 'Function', label: 'orphanFn', file_path: 'src/x.js' });

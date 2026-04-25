@@ -121,6 +121,59 @@ function daysAgo(dateStr) {
   return d;
 }
 
+function isTestLikePath(filePath) {
+  return Boolean(filePath) && (
+    filePath.includes('/test/')
+    || filePath.includes('/tests/')
+    || filePath.startsWith('test/')
+    || filePath.startsWith('tests/')
+    || /\.test\./i.test(filePath)
+    || /\.spec\./i.test(filePath)
+  );
+}
+
+function findMentioningTestFiles(db, repoRoot, symbols = []) {
+  const needles = [...new Set(symbols.filter(Boolean))];
+  if (needles.length === 0) return [];
+  const candidateFiles = db.all(
+    `SELECT DISTINCT file_path
+     FROM nodes
+     WHERE type = 'File'
+       AND language != ''
+       AND (
+         file_path LIKE '%/test/%'
+         OR file_path LIKE '%/tests/%'
+         OR file_path LIKE 'test/%'
+         OR file_path LIKE 'tests/%'
+         OR file_path LIKE '%.test.%'
+         OR file_path LIKE '%.spec.%'
+       )`
+  ).map((row) => row.file_path);
+  if (candidateFiles.length === 0) return [];
+
+  const hits = new Set();
+  for (const needle of needles) {
+    try {
+      const out = execFileSync(
+        'rg',
+        ['-l', '-w', '--fixed-strings', needle, '--', ...candidateFiles],
+        {
+          cwd: repoRoot,
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+          maxBuffer: 16 * 1024 * 1024,
+        },
+      );
+      out.split('\n').map((line) => line.trim()).filter(Boolean).forEach((file) => hits.add(file));
+    } catch (err) {
+      if (!(typeof err?.status === 'number' && err.status === 1)) {
+        return [...hits];
+      }
+    }
+  }
+  return [...hits];
+}
+
 async function loadTrustContext(repoRoot) {
   const { manifest } = await loadManifest(join(repoRoot, '.aify-graph'));
   const { total, trust } = getUnresolvedCounts(manifest);
@@ -326,16 +379,49 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // 5. Adjacent tests — test files that reference the matched symbols/files
     const tests = [];
     if (symbolNodes.length > 0) {
-      const testRows = db.all(
+      const directTestRows = db.all(
         `SELECT DISTINCT n.file_path
          FROM edges e
          JOIN nodes n ON n.id = e.from_id
          WHERE e.to_id IN (SELECT value FROM json_each($ids))
-           AND (n.file_path LIKE '%/test/%' OR n.file_path LIKE '%/tests/%' OR n.file_path LIKE '%.test.%' OR n.file_path LIKE '%.spec.%')
+           AND (n.type = 'Test'
+             OR n.file_path LIKE '%/test/%'
+             OR n.file_path LIKE '%/tests/%'
+             OR n.file_path LIKE 'test/%'
+             OR n.file_path LIKE 'tests/%'
+             OR n.file_path LIKE '%.test.%'
+             OR n.file_path LIKE '%.spec.%')
          LIMIT 10`,
         { ids: JSON.stringify(symbolNodes.map((n) => n.id)) });
-      tests.push(...testRows.map((r) => r.file_path));
+      tests.push(...directTestRows.map((r) => r.file_path));
     }
+    if (matchedFiles.size > 0) {
+      const fileAdjacencyRows = db.all(
+        `SELECT DISTINCT fn.file_path
+         FROM edges e
+         JOIN nodes fn ON fn.id = e.from_id
+         JOIN nodes tn ON tn.id = e.to_id
+         WHERE fn.file_path IS NOT NULL
+           AND (
+             fn.type = 'Test'
+             OR fn.file_path LIKE '%/test/%'
+             OR fn.file_path LIKE '%/tests/%'
+             OR fn.file_path LIKE 'test/%'
+             OR fn.file_path LIKE 'tests/%'
+             OR fn.file_path LIKE '%.test.%'
+             OR fn.file_path LIKE '%.spec.%'
+           )
+           AND tn.file_path IN (SELECT value FROM json_each($files))
+         LIMIT 10`,
+        { files: JSON.stringify([...matchedFiles]) },
+      );
+      tests.push(...fileAdjacencyRows.map((r) => r.file_path));
+    }
+    const directUniqueTests = [...new Set(tests)].filter(isTestLikePath);
+    const mentionTests = directUniqueTests.length === 0 && symbolNodes.length > 0
+      ? findMentioningTestFiles(db, repoRoot, symbolNodes.map((node) => node.label))
+      : [];
+    const uniqueTests = [...new Set([...directUniqueTests, ...mentionTests])].filter(isTestLikePath);
 
     // 6. Last-touched: git log for the matched files
     let lastTouched = [];
@@ -373,7 +459,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     };
 
     const riskFlags = [];
-    if (tests.length === 0 && symbolNodes.length > 0) riskFlags.push('no_test_coverage — no adjacent tests, regression risk');
+    if (uniqueTests.length === 0 && symbolNodes.length > 0) riskFlags.push('no_test_coverage — no adjacent tests, regression risk');
     if (features.length === 0 && symbolNodes.length > 0) riskFlags.push('orphan_anchor — no feature maps this symbol');
     if (contracts.length > 0) riskFlags.push(`contract_binding — ${contracts.length} contract(s) may be affected`);
     if (features.length > 1) riskFlags.push(`cross_feature_boundary — touches ${features.length} features`);
@@ -406,7 +492,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       co_consumer_files: coConsumerFiles,
       open_tasks_on_those_features: tasks,
       top_related_tasks: rankedTasks.slice(0, 3), // highest-signal subset
-      tests_adjacent: tests,
+      tests_adjacent: uniqueTests,
       last_touched: lastTouched,
       dirty_overlap: dirtyOverlap,
       risk_flags: riskFlags,

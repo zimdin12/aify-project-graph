@@ -130,6 +130,15 @@ function searchDocs(db, query, limit) {
   })).sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+function capCollection(items, limit) {
+  return {
+    items: items.slice(0, limit),
+    total: items.length,
+    truncated: items.length > limit,
+    limit,
+  };
+}
+
 export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = false }) {
   if (!query || query.trim().length < 1) {
     return 'ERROR: query parameter is required (minimum 1 character)';
@@ -168,10 +177,14 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
   try {
     const overlay = loadFunctionality(repoRoot);
     const tasks = loadTasks(repoRoot);
+    const broadQuery = tokens.length === 1 && raw.length <= 5;
+    const perLayerDisplayLimit = broadQuery ? Math.min(perLayer, 2) : perLayer;
+    const topDisplayLimit = broadQuery ? Math.min(limit, 6) : limit;
 
     const results = {
       query: q,
       layers_searched: [...layerSet],
+      broad_query_capped: broadQuery,
       hits: { code: [], features: [], tasks: [], docs: [] },
     };
 
@@ -192,26 +205,39 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
       return mergeHits(all);
     };
 
-    results.hits.code = runLayer('code', (term) => searchCode(db, term, perLayer));
-    results.hits.features = runLayer('features', (term) => searchFeatures(overlay.features, term, perLayer));
-    results.hits.tasks = runLayer('tasks', (term) => searchTasks(tasks, term, perLayer));
-    results.hits.docs = runLayer('docs', (term) => searchDocs(db, term, perLayer));
+    const codeHits = runLayer('code', (term) => searchCode(db, term, perLayer));
+    const featureHits = runLayer('features', (term) => searchFeatures(overlay.features, term, perLayer));
+    const taskHits = runLayer('tasks', (term) => searchTasks(tasks, term, perLayer));
+    const docHits = runLayer('docs', (term) => searchDocs(db, term, perLayer));
 
     // Flat top-k if user wants a simple merge
     const flat = [
-      ...results.hits.code,
-      ...results.hits.features,
-      ...results.hits.tasks,
-      ...results.hits.docs,
-    ].sort((a, b) => b.score - a.score).slice(0, limit);
+      ...codeHits,
+      ...featureHits,
+      ...taskHits,
+      ...docHits,
+    ].sort((a, b) => b.score - a.score);
 
-    results.top = flat;
+    results.hits.code = capCollection(codeHits, perLayerDisplayLimit);
+    results.hits.features = capCollection(featureHits, perLayerDisplayLimit);
+    results.hits.tasks = capCollection(taskHits, perLayerDisplayLimit);
+    results.hits.docs = capCollection(docHits, perLayerDisplayLimit);
+    results.top = capCollection(flat, topDisplayLimit);
     results.totals = {
-      code: results.hits.code.length,
-      features: results.hits.features.length,
-      tasks: results.hits.tasks.length,
-      docs: results.hits.docs.length,
+      code: codeHits.length,
+      features: featureHits.length,
+      tasks: taskHits.length,
+      docs: docHits.length,
     };
+    if (broadQuery) {
+      results.truncated = {
+        code: Math.max(0, codeHits.length - perLayerDisplayLimit),
+        features: Math.max(0, featureHits.length - perLayerDisplayLimit),
+        tasks: Math.max(0, taskHits.length - perLayerDisplayLimit),
+        docs: Math.max(0, docHits.length - perLayerDisplayLimit),
+        top: Math.max(0, flat.length - topDisplayLimit),
+      };
+    }
 
     return JSON.stringify(attachReadWarnings(results, freshnessWarnings), null, 2);
   } finally {

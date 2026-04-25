@@ -134,6 +134,13 @@ describe('integration: full verb pipeline', () => {
     expect(out).toContain('src');
   });
 
+  it('graph_module_tree caps broad root views with truncation guidance', async () => {
+    const out = await graphModuleTree({ repoRoot: repo, path: '.', top_k: 20 });
+    expect(out).toContain('TRUNCATED');
+    expect(out).toMatch(/more tree node\(s\)/);
+    expect(out).toMatch(/more symbol node\(s\)/);
+  });
+
   it('graph_impact shows downstream of get_user', async () => {
     const out = await graphImpact({ repoRoot: repo, symbol: 'get_user' });
     // handle_request calls get_user, so it should show up in impact
@@ -151,6 +158,17 @@ describe('integration: full verb pipeline', () => {
     expect(out).toContain('REPO');
     expect(out).toContain('files');
     expect(out).toContain('nodes');
+  });
+
+  it('graph_report respects top_k for repeated sections', async () => {
+    const small = await graphReport({ repoRoot: repo, top_k: 1 });
+    const large = await graphReport({ repoRoot: repo, top_k: 5 });
+    const countPrefix = (text, prefix) => text.split('\n').filter((line) => line.startsWith(prefix)).length;
+
+    expect(countPrefix(small, 'DIR ')).toBeLessThanOrEqual(1);
+    expect(countPrefix(small, 'HUB ')).toBeLessThanOrEqual(1);
+    expect(countPrefix(large, 'DIR ')).toBeGreaterThanOrEqual(countPrefix(small, 'DIR '));
+    expect(countPrefix(large, 'HUB ')).toBeGreaterThanOrEqual(countPrefix(small, 'HUB '));
   });
 
   it('graph_path traces execution from handle_request', async () => {

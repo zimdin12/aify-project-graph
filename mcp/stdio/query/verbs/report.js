@@ -23,6 +23,7 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
+    const sectionLimit = Math.max(1, Math.min(top_k, 20));
     const totalNodes = db.get('SELECT count(*) AS c FROM nodes').c;
     const totalEdges = db.get('SELECT count(*) AS c FROM edges').c;
     const totalFiles = db.get("SELECT count(*) AS c FROM nodes WHERE type = 'File'").c;
@@ -31,7 +32,8 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
     const langs = db.all(
       `SELECT language, count(*) AS c FROM nodes
        WHERE type = 'File' AND language != ''
-       GROUP BY language ORDER BY c DESC LIMIT 10`
+       GROUP BY language ORDER BY c DESC LIMIT $limit`,
+      { limit: sectionLimit }
     );
 
     // Entry points
@@ -39,7 +41,7 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
       `SELECT label, file_path, start_line FROM nodes
        WHERE type IN ('Entrypoint', 'Route')
        ORDER BY type, label LIMIT $limit`,
-      { limit: top_k }
+      { limit: sectionLimit }
     );
 
     // Top directories
@@ -47,7 +49,8 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
       `SELECT n.label, count(e.to_id) AS children FROM nodes n
        LEFT JOIN edges e ON e.from_id = n.id AND e.relation = 'CONTAINS'
        WHERE n.type = 'Directory'
-       GROUP BY n.id ORDER BY children DESC LIMIT 10`
+       GROUP BY n.id ORDER BY children DESC LIMIT $limit`,
+      { limit: sectionLimit }
     );
 
     // Hub symbols (most incoming edges, excluding common names)
@@ -59,12 +62,14 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
        AND n.label NOT IN ('close','open','read','write','get','set','json',
          'log','print','send','parse','init','run','test','str','int','len',
          '__init__','__str__','__repr__','raise_for_status','toString')
-       GROUP BY n.id ORDER BY fan_in DESC LIMIT 10`
+       GROUP BY n.id ORDER BY fan_in DESC LIMIT $limit`,
+      { limit: sectionLimit }
     );
 
     // Documents
     const docs = db.all(
-      `SELECT label, file_path FROM nodes WHERE type = 'Document' LIMIT 5`
+      `SELECT label, file_path FROM nodes WHERE type = 'Document' LIMIT $limit`,
+      { limit: Math.min(sectionLimit, 5) }
     );
 
     // Build report lines
@@ -102,7 +107,7 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
       lines.push(`COMMUNITIES ${communities.size} detected`);
       let clusterCount = 0;
       for (const [cid, members] of communities) {
-        if (clusterCount >= 10) break;
+        if (clusterCount >= sectionLimit) break;
         const memberStr = members.map(m => `${m.label}(${(m.type ?? 'unknown').toLowerCase()})`).join(', ');
         lines.push(`  CLUSTER ${cid}: ${memberStr}`);
         clusterCount++;

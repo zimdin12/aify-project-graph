@@ -44,7 +44,7 @@ describe('graph_find — server-side tokenization for compound queries', () => {
     // searched, results are unioned.
     const raw = await graphFind({ repoRoot, query: 'pressure vacuum' });
     const result = JSON.parse(raw);
-    const codeLabels = result.hits.code.map((h) => h.label);
+    const codeLabels = result.hits.code.items.map((h) => h.label);
     expect(codeLabels).toContain('pressureShader');
     expect(codeLabels).toContain('vacuumSweep');
   });
@@ -56,8 +56,8 @@ describe('graph_find — server-side tokenization for compound queries', () => {
 
     const raw = await graphFind({ repoRoot, query: 'authenticate' });
     const result = JSON.parse(raw);
-    expect(result.hits.code).toHaveLength(1);
-    expect(result.hits.code[0].label).toBe('authenticate');
+    expect(result.hits.code.items).toHaveLength(1);
+    expect(result.hits.code.items[0].label).toBe('authenticate');
   });
 
   it('prefers full-phrase match when it exists (does not dilute scores)', async () => {
@@ -71,6 +71,24 @@ describe('graph_find — server-side tokenization for compound queries', () => {
     const result = JSON.parse(raw);
     // pressureVacuumHandler should score highest (matches the full phrase
     // via the first query pass). Other two match individual tokens only.
-    expect(result.hits.code[0].label).toBe('pressureVacuumHandler');
+    expect(result.hits.code.items[0].label).toBe('pressureVacuumHandler');
+  });
+
+  it('caps broad one-token queries instead of dumping the full match set', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    for (let i = 0; i < 5; i += 1) {
+      insertNode(db, { id: `f${i}`, type: 'Function', label: `graphHelper${i}`, file_path: `src/graph-${i}.js` });
+    }
+    db.close();
+
+    const raw = await graphFind({ repoRoot, query: 'graph', limit: 10 });
+    const result = JSON.parse(raw);
+
+    expect(result.broad_query_capped).toBe(true);
+    expect(result.hits.code.total).toBeGreaterThan(2);
+    expect(result.hits.code.items).toHaveLength(2);
+    expect(result.hits.code.truncated).toBe(true);
+    expect(result.top.items.length).toBeLessThanOrEqual(6);
+    expect(result.truncated.code).toBeGreaterThan(0);
   });
 });
