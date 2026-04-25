@@ -115,6 +115,29 @@ match. Since 2026-04-22 the server splits on whitespace, runs each term,
 and unions results. The full phrase is still tried first for exact-phrase
 hits.
 
+## `graph_impact` cannot introspect its own handler symbol
+
+`graph_impact("graphImpact")` returns `NO IMPACT — no edges found for
+"graphImpact"` even though the symbol exists and is the implementation
+of the verb being invoked. Same shape applies to other verbs that try
+to query their own handler.
+
+**Why.** The handler is the entry point for the verb itself, so it has
+no incoming CALLS edges from inside the indexed call graph — only the
+MCP tool dispatcher reaches it from outside, and that hop isn't an
+edge in the code graph.
+
+**Impact.** Self-referential introspection queries return empty.
+Surfaced in the 2026-04-25 token-cost bench's DEBUG task as the only
+remaining residual quality gap (−0.25 of the −0.625 quality delta;
+all other tasks now score 4-5/5).
+
+**Workaround.** For "what does this verb do" questions, read the
+handler file directly (the brief lists every verb's handler at the
+top of `brief.agent.md`). For "what calls into this verb from
+outside the graph," that's a server-tool-dispatch concern not a code
+graph concern.
+
 ## Overlay anchors are binary (resolved / not) today
 
 Every anchor in `functionality.json` is treated equally regardless of
