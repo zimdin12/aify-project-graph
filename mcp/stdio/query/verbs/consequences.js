@@ -132,6 +132,10 @@ function isTestLikePath(filePath) {
   );
 }
 
+function uniqueTestPaths(paths = []) {
+  return [...new Set(paths.filter(isTestLikePath))];
+}
+
 function findMentioningTestFiles(db, repoRoot, symbols = []) {
   const needles = [...new Set(symbols.filter(Boolean))];
   if (needles.length === 0) return [];
@@ -172,6 +176,36 @@ function findMentioningTestFiles(db, repoRoot, symbols = []) {
     }
   }
   return [...hits];
+}
+
+function findImportLinkedTestFiles(db, matchedFiles = []) {
+  if (matchedFiles.length === 0) return [];
+  const rows = db.all(
+    `SELECT DISTINCT COALESCE(NULLIF(fn.file_path, ''), NULLIF(e.source_file, '')) AS test_file
+     FROM edges e
+     LEFT JOIN nodes fn ON fn.id = e.from_id
+     JOIN nodes tn ON tn.id = e.to_id
+     WHERE e.relation = 'IMPORTS'
+       AND tn.file_path IN (SELECT value FROM json_each($files))
+       AND (
+         fn.type = 'Test'
+         OR fn.file_path LIKE '%/test/%'
+         OR fn.file_path LIKE '%/tests/%'
+         OR fn.file_path LIKE 'test/%'
+         OR fn.file_path LIKE 'tests/%'
+         OR fn.file_path LIKE '%.test.%'
+         OR fn.file_path LIKE '%.spec.%'
+         OR e.source_file LIKE '%/test/%'
+         OR e.source_file LIKE '%/tests/%'
+         OR e.source_file LIKE 'test/%'
+         OR e.source_file LIKE 'tests/%'
+         OR e.source_file LIKE '%.test.%'
+         OR e.source_file LIKE '%.spec.%'
+       )
+     LIMIT 25`,
+    { files: JSON.stringify(matchedFiles) },
+  );
+  return uniqueTestPaths(rows.map((row) => row.test_file));
 }
 
 async function loadTrustContext(repoRoot) {
@@ -380,7 +414,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     const tests = [];
     if (symbolNodes.length > 0) {
       const directTestRows = db.all(
-        `SELECT DISTINCT n.file_path
+        `SELECT DISTINCT COALESCE(NULLIF(n.file_path, ''), NULLIF(e.source_file, '')) AS test_file
          FROM edges e
          JOIN nodes n ON n.id = e.from_id
          WHERE e.to_id IN (SELECT value FROM json_each($ids))
@@ -390,19 +424,24 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
              OR n.file_path LIKE 'test/%'
              OR n.file_path LIKE 'tests/%'
              OR n.file_path LIKE '%.test.%'
-             OR n.file_path LIKE '%.spec.%')
+             OR n.file_path LIKE '%.spec.%'
+             OR e.source_file LIKE '%/test/%'
+             OR e.source_file LIKE '%/tests/%'
+             OR e.source_file LIKE 'test/%'
+             OR e.source_file LIKE 'tests/%'
+             OR e.source_file LIKE '%.test.%'
+             OR e.source_file LIKE '%.spec.%')
          LIMIT 10`,
         { ids: JSON.stringify(symbolNodes.map((n) => n.id)) });
-      tests.push(...directTestRows.map((r) => r.file_path));
+      tests.push(...directTestRows.map((r) => r.test_file));
     }
     if (matchedFiles.size > 0) {
       const fileAdjacencyRows = db.all(
-        `SELECT DISTINCT fn.file_path
+        `SELECT DISTINCT COALESCE(NULLIF(fn.file_path, ''), NULLIF(e.source_file, '')) AS test_file
          FROM edges e
          JOIN nodes fn ON fn.id = e.from_id
          JOIN nodes tn ON tn.id = e.to_id
-         WHERE fn.file_path IS NOT NULL
-           AND (
+         WHERE (
              fn.type = 'Test'
              OR fn.file_path LIKE '%/test/%'
              OR fn.file_path LIKE '%/tests/%'
@@ -410,18 +449,25 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
              OR fn.file_path LIKE 'tests/%'
              OR fn.file_path LIKE '%.test.%'
              OR fn.file_path LIKE '%.spec.%'
+             OR e.source_file LIKE '%/test/%'
+             OR e.source_file LIKE '%/tests/%'
+             OR e.source_file LIKE 'test/%'
+             OR e.source_file LIKE 'tests/%'
+             OR e.source_file LIKE '%.test.%'
+             OR e.source_file LIKE '%.spec.%'
            )
            AND tn.file_path IN (SELECT value FROM json_each($files))
          LIMIT 10`,
         { files: JSON.stringify([...matchedFiles]) },
       );
-      tests.push(...fileAdjacencyRows.map((r) => r.file_path));
+      tests.push(...fileAdjacencyRows.map((r) => r.test_file));
     }
-    const directUniqueTests = [...new Set(tests)].filter(isTestLikePath);
+    const importLinkedTests = matchedFiles.size > 0 ? findImportLinkedTestFiles(db, [...matchedFiles]) : [];
+    const directUniqueTests = uniqueTestPaths([...tests, ...importLinkedTests]);
     const mentionTests = directUniqueTests.length === 0 && symbolNodes.length > 0
       ? findMentioningTestFiles(db, repoRoot, symbolNodes.map((node) => node.label))
       : [];
-    const uniqueTests = [...new Set([...directUniqueTests, ...mentionTests])].filter(isTestLikePath);
+    const uniqueTests = uniqueTestPaths([...directUniqueTests, ...mentionTests]);
 
     // 6. Last-touched: git log for the matched files
     let lastTouched = [];

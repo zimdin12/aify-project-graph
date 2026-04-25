@@ -144,6 +144,13 @@ function upgradeDecisionForWeakTrustOccurrenceGap({ decision, callerCount, dirty
   return decision;
 }
 
+function buildSignalsCaveat({ dirtyCount, callerCount, sourceOccurrenceFiles }) {
+  if (dirtyCount <= 100) return '';
+  if (sourceOccurrenceFiles.length === 0) return '';
+  if (callerCount > 0 && sourceOccurrenceFiles.length <= callerCount * 2) return '';
+  return ' (raw indexed edges; weak trust may understate caller scope — see source-occurrence count)';
+}
+
 export function buildChangePlan(db, { symbol, top_k = 6, dirtyCount = 0 }) {
   return buildChangePlanWithContext(db, { symbol, top_k, dirtyCount });
 }
@@ -206,6 +213,12 @@ export function buildChangePlanWithContext(db, {
     return a.localeCompare(b);
   });
   const additionalOccurrenceFiles = sourceOccurrenceFiles.filter((file) => !targetFiles.includes(file));
+  const callerCount = new Set(incomingRows.map((row) => row.from_id)).size;
+  const signalsCaveat = buildSignalsCaveat({
+    dirtyCount,
+    callerCount,
+    sourceOccurrenceFiles: additionalOccurrenceFiles,
+  });
 
   const callerFiles = groupByFile(incomingRows, 'from_file', 'from_label', 'relation')
     .filter((entry) => !targetFiles.includes(entry.file))
@@ -214,8 +227,6 @@ export function buildChangePlanWithContext(db, {
     .filter((entry) => entry.file && !targetFiles.includes(entry.file))
     .slice(0, top_k);
   const testFiles = groupByFile(testRows, 'test_file', 'test_label', 'confidence').slice(0, top_k);
-
-  const callerCount = new Set(incomingRows.map((row) => row.from_id)).size;
   const crossModule = new Set(callerFiles.map((entry) => fileDir(entry.file))).size > 1;
   const decision = upgradeDecisionForWeakTrustOccurrenceGap({
     decision: computeDecision({
@@ -272,7 +283,7 @@ export function buildChangePlanWithContext(db, {
     lines.push(`DIRTY SEAM — ${parts.join(' · ')}`);
   }
   lines.push(`RISK ${decision.tier} — ${decision.reason}`);
-  lines.push(`SIGNALS ${callerCount} caller(s), ${dependencyFiles.length} dependency file(s), ${testFiles.length} test file(s)${additionalOccurrenceFiles.length > 0 ? `, ${additionalOccurrenceFiles.length} source-occurrence file(s)` : ''}`);
+  lines.push(`SIGNALS ${callerCount} caller(s), ${dependencyFiles.length} dependency file(s), ${testFiles.length} test file(s)${additionalOccurrenceFiles.length > 0 ? `, ${additionalOccurrenceFiles.length} source-occurrence file(s)` : ''}${signalsCaveat}`);
   lines.push('READ ORDER');
   readOrder.forEach((step, index) => {
     lines.push(`${index + 1}. ${step.file} — ${step.reason}`);

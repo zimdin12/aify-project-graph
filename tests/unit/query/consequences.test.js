@@ -129,6 +129,33 @@ describe('graph_consequences — cross-layer traversal', () => {
     expect(result.risk_flags).not.toEqual(expect.arrayContaining([expect.stringMatching(/no_test_coverage/i)]));
   });
 
+  it('treats cross-directory IMPORTS edges into the defining file as adjacent test coverage', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    insertNode(db, { id: 'targetFile', type: 'File', label: 'target_rollup.js', file_path: 'mcp/stdio/query/verbs/target_rollup.js' });
+    insertNode(db, { id: 'fn1', type: 'Function', label: 'expandClassRollupTargets', file_path: 'mcp/stdio/query/verbs/target_rollup.js' });
+    insertNode(db, { id: 'testModule', type: 'Module', label: 'tests.unit.query.query.test', file_path: 'tests/unit/query/query.test.js' });
+    db.run(
+      `INSERT INTO edges (from_id, to_id, relation, source_file, source_line, confidence, extractor, provenance)
+       VALUES ('testModule', 'targetFile', 'IMPORTS', 'tests/unit/query/query.test.js', 16, 0.9, 'javascript', 'EXTRACTED')`
+    );
+    db.close();
+
+    await mkdir(join(repoRoot, 'tests', 'unit', 'query'), { recursive: true });
+    await mkdir(join(repoRoot, 'mcp', 'stdio', 'query', 'verbs'), { recursive: true });
+    await writeFile(
+      join(repoRoot, 'tests', 'unit', 'query', 'query.test.js'),
+      "import { expandClassRollupTargets } from '../../../mcp/stdio/query/verbs/target_rollup.js';\n",
+    );
+    await writeFile(
+      join(repoRoot, 'mcp', 'stdio', 'query', 'verbs', 'target_rollup.js'),
+      'export function expandClassRollupTargets() { return []; }\n',
+    );
+
+    const result = await graphConsequences({ repoRoot, target: 'expandClassRollupTargets' });
+    expect(result.tests_adjacent).toContain('tests/unit/query/query.test.js');
+    expect(result.risk_flags).not.toEqual(expect.arrayContaining([expect.stringMatching(/no_test_coverage/i)]));
+  });
+
   it('flags orphan code when no feature anchors the symbol', async () => {
     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     insertNode(db, { id: 'fn1', type: 'Function', label: 'orphanFn', file_path: 'src/x.js' });

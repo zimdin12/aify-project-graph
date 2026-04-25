@@ -71,5 +71,6 @@ describe('graph_change_plan — weak-trust source-occurrence fallback', () => {
     expect(out).toContain('source-occurrence file(s)');
     expect(out).not.toContain('RISK SAFE');
     expect(out).toMatch(/RISK (REVIEW|CONFIRM)/);
+    expect(out).toContain('weak trust may understate caller scope');
   });
 });
