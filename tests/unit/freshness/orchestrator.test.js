@@ -111,6 +111,34 @@ describe('freshness orchestrator', () => {
     }
   });
 
+  it('honors path-pattern .aifyignore entries during a full rebuild', async () => {
+    await mkdir(join(repoRoot, 'generated', 'cmake'), { recursive: true });
+    await writeFile(join(repoRoot, '.aifyignore'), 'generated/**\n');
+    await writeFile(join(repoRoot, 'src', 'main.py'), 'def main():\n    return 1\n');
+    await writeFile(join(repoRoot, 'generated', 'cmake', 'scratch.py'), 'def scratch():\n    return 2\n');
+
+    getHeadCommit.mockResolvedValue('head-ignore-pattern');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot });
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const ignoredNodes = db.all(`
+        SELECT file_path
+        FROM nodes
+        WHERE file_path LIKE 'generated/%'
+      `);
+
+      expect(ignoredNodes).toEqual([]);
+    } finally {
+      db.close();
+    }
+  });
+
   it('preserves framework Route nodes while reindexing the backing route file', async () => {
     const fixtureRoot = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'tiny-laravel-middleware');
     await mkdir(join(repoRoot, 'app', 'Http', 'Controllers'), { recursive: true });

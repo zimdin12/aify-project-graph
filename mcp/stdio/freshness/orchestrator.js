@@ -180,10 +180,12 @@ export async function ensureFresh({
       } else {
         filesToProcess = await expandAffectedFiles(db, repoRoot, initialChanged);
         const dirtyEntryMap = new Map(dirtyEntries.map((entry) => [entry.path, entry]));
-        filesToProcess = filesToProcess.filter((filePath) => {
-          const entry = dirtyEntryMap.get(filePath);
-          return !shouldDeferUntrackedFreshness(db, filePath, entry);
-        });
+        filesToProcess = filesToProcess
+          .filter((filePath) => !pathContainsIgnoredDir(filePath, effectiveIgnoredDirs))
+          .filter((filePath) => {
+            const entry = dirtyEntryMap.get(filePath);
+            return !shouldDeferUntrackedFreshness(db, filePath, entry);
+          });
       }
 
       // Noop path: if no files to process and not a full rebuild, return early
@@ -480,15 +482,18 @@ async function listRepoFiles(repoRoot, currentDir = repoRoot, ignoredDirs = IGNO
 
   for (const entry of entries) {
     if (entry.isDirectory()) {
-      if (isIgnoredDirName(entry.name, ignoredDirs)) continue;
+      const relPath = normalizeRelativePath(repoRoot, join(currentDir, entry.name));
+      if (isIgnoredDirName(entry.name, ignoredDirs) || pathContainsIgnoredDir(relPath, ignoredDirs)) continue;
       files.push(...await listRepoFiles(repoRoot, join(currentDir, entry.name), ignoredDirs));
       continue;
     }
 
     const absPath = join(currentDir, entry.name);
+    const relPath = normalizeRelativePath(repoRoot, absPath);
+    if (pathContainsIgnoredDir(relPath, ignoredDirs)) continue;
     const fileStat = await stat(absPath);
     if (!fileStat.isFile()) continue;
-    files.push(normalizeRelativePath(repoRoot, absPath));
+    files.push(relPath);
   }
 
   return files;

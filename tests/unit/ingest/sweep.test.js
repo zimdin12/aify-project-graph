@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { sweepFilesystem } from '../../../mcp/stdio/ingest/sweep.js';
+import { loadEffectiveIgnoredDirs } from '../../../mcp/stdio/ingest/ignored-dirs.js';
 
 function findNode(nodes, type, filePath) {
   return nodes.find((node) => node.type === type && node.file_path === filePath);
@@ -80,5 +81,19 @@ describe('filesystem sweep', () => {
     expect([...ignoredPaths].some((path) => path.startsWith('.tmp/'))).toBe(false);
     expect([...ignoredPaths].some((path) => path.startsWith('.codex/'))).toBe(false);
     expect([...ignoredPaths].some((path) => path.startsWith('build-linux-techlead/'))).toBe(false);
+  });
+
+  it('honors path-pattern .aifyignore entries during filesystem sweep', async () => {
+    await writeFile(join(repoDir, '.aifyignore'), 'src/generated/**\n');
+    await mkdir(join(repoDir, 'src', 'generated'), { recursive: true });
+    await writeFile(join(repoDir, 'src', 'generated', 'schema.sql'), 'create table generated (id integer);\n');
+
+    const result = await sweepFilesystem({
+      repoRoot: repoDir,
+      ignoredDirs: loadEffectiveIgnoredDirs(repoDir),
+    });
+
+    const paths = new Set(result.nodes.map((node) => node.file_path));
+    expect([...paths].some((path) => path.startsWith('src/generated/'))).toBe(false);
   });
 });

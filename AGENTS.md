@@ -80,7 +80,7 @@ Verb notes by profile:
 - **Claude Code / full toolset**: `graph_search(query="dispatch")`, `graph_whereis(symbol="get_db", expand=true)`, `graph_callers(symbol="get_db")`
 - **Codex / OpenCode lean toolset**: `graph_consequences(target="get_db")`, `graph_pull(node="get_db")`, and `graph_change_plan(symbol="get_db")` are the listed surfaces. Low-level search/caller verbs are intentionally omitted from lean mode; remove `--toolset=lean` if you want the broader full surface.
 
-The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` to the target repo's `.gitignore` if not already present — the graph is derived and should never be committed. This is separate from `.aifyignore` / `.aifyinclude`, which control what the graph indexes, not what git tracks.
+The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` to the target repo's `.gitignore` if not already present — the graph is derived and should never be committed. This is separate from `.aifyignore` / `.aifyinclude`, which control what the graph indexes, not what git tracks. `.aifyignore` accepts bare directory names plus path/glob patterns such as `generated/**` and `*.tmp.cpp`.
 
 ## Team trust posture
 
@@ -105,7 +105,7 @@ Measured (2026-04-20 cross-tester, matched-N): brief-only beats no-graph baselin
 
 Regenerate with:
 ```bash
-node <target-repo>/scripts/graph-brief.mjs <target-repo>
+node <target-path>/scripts/graph-brief.mjs <target-repo>
 ```
 
 ## Functionality + task overlays (Claude Code)

@@ -80,8 +80,8 @@ Do not blur these together:
 - `.gitignore`
   - add `.aify-graph/` here so derived graph state is not committed
 - `.aifyignore`
-  - add extra dirs here when local scratch/build trees should be excluded from indexing
-  - examples: `build-linux-techlead`, `scratch`, `tmp-local`
+  - add extra dirs or path/glob patterns here when local scratch/build trees should be excluded from indexing
+  - examples: `build-linux-techlead`, `scratch`, `tmp-local`, `generated/**`, `*.tmp.cpp`
 - `.aifyinclude`
   - use this to opt a default-ignored dir back in when it really contains source
   - examples: `build`, `vendor`
@@ -115,7 +115,7 @@ Use when you just opened a repo:
 
 1. if the graph is stale or incomplete, run `graph_index(force=true)`
 2. regenerate briefs
-3. if local build/scratch dirs polluted the graph, add them to `.aifyignore`
+3. if local build/scratch dirs or generated files polluted the graph, add them to `.aifyignore`
 4. only then compare graph-vs-source quality
 
 ### Map enrichment

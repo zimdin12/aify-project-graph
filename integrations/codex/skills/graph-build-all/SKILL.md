@@ -46,13 +46,13 @@ If you don't know `<AIFY_GRAPH_CLONE>`, look at the MCP config for the `aify-pro
 
 - ensure `<TARGET_REPO>/.gitignore` contains:
   - `.aify-graph/`
-- if the repo has local build or scratch trees that should never be indexed, add them to `<TARGET_REPO>/.aifyignore`
-  - examples: `build-linux-techlead`, `scratch`, `tmp-local`
+- if the repo has local build or scratch trees that should never be indexed, add dirs or path/glob patterns to `<TARGET_REPO>/.aifyignore`
+  - examples: `build-linux-techlead`, `scratch`, `tmp-local`, `generated/**`, `*.tmp.cpp`
 - only use `.aifyinclude` when a default-ignored dir really contains source code
 
 Do not confuse these:
 - `.gitignore` keeps derived graph artifacts out of git
-- `.aifyignore` keeps extra scratch dirs out of the graph
+- `.aifyignore` keeps extra scratch dirs or path/glob patterns out of the graph
 - `.aifyinclude` opts a default-ignored dir back into the graph
 
 ### 3. Propose the functionality overlay

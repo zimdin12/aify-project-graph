@@ -51,6 +51,16 @@ describe('getDirtyFiles', () => {
     expect(files).toEqual(['src/app.py']);
   });
 
+  it('honors .aifyignore path patterns when filtering dirty files', async () => {
+    await writeFile(join(repoRoot, '.aifyignore'), 'generated/**\n*.tmp.cpp\n');
+    execFileSync.mockReturnValue(
+      ' M src/app.py\n M generated/cmake/main.cpp\n?? src/local.tmp.cpp\n',
+    );
+
+    const files = await getDirtyFiles(repoRoot);
+    expect(files).toEqual(['src/app.py']);
+  });
+
   it('honors .aifyinclude removals so intentionally-included dirs still refresh', async () => {
     await writeFile(join(repoRoot, '.aifyinclude'), '.codex_tmp\n');
     execFileSync.mockReturnValue('?? .codex_tmp/task89batch/tmp.py\n');

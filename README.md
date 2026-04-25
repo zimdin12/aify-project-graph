@@ -289,7 +289,7 @@ Adding a new language = writing a ~30-line config file.
 
 Project-level escape hatches at repo root:
 - `.gitignore` — add `.aify-graph/` here so derived graph state is not committed
-- `.aifyignore` — additional dirs to exclude on top of defaults
+- `.aifyignore` — additional dirs or path/glob patterns to exclude on top of defaults
 - `.aifyinclude` — un-exclude from defaults (e.g. `build` or `vendor` when they hold real code)
 
 ## Performance

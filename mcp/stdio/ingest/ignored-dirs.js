@@ -15,7 +15,8 @@ import { join } from 'node:path';
 // Projects that legitimately keep code under one of these names can opt back
 // in via `.aifyinclude` at the repo root (one dirname per line). Projects
 // that want additional exclusions on top of the defaults can list them in
-// `.aifyignore` (same format). Both files are optional.
+// `.aifyignore` (bare dir names plus a gitignore-style glob/path subset).
+// Both files are optional.
 export const IGNORED_DIRS = new Set([
   '.git', '.aify-graph', '.claude', '.codex', '.opencode',
   '.vs', '.vscode', '.idea',
@@ -41,6 +42,57 @@ function parseDirList(contents) {
     .filter(Boolean);
 }
 
+function normalizePattern(value) {
+  return normalizeRepoRelativePath(value)
+    .replace(/\/+$/u, '')
+    .trim();
+}
+
+function isPathPattern(value) {
+  return /[/*?[\]]/u.test(value);
+}
+
+function globToRegExp(pattern) {
+  let out = '^';
+  for (let i = 0; i < pattern.length; i += 1) {
+    const ch = pattern[i];
+    const next = pattern[i + 1];
+    if (ch === '*' && next === '*') {
+      out += '.*';
+      i += 1;
+    } else if (ch === '*') {
+      out += '[^/]*';
+    } else if (ch === '?') {
+      out += '[^/]';
+    } else {
+      out += ch.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+    }
+  }
+  out += '$';
+  return new RegExp(out, 'u');
+}
+
+function getPathPatterns(ignoredDirs) {
+  return Array.isArray(ignoredDirs?.pathPatterns) ? ignoredDirs.pathPatterns : [];
+}
+
+function pathMatchesPattern(path, pattern) {
+  const normalizedPath = normalizeRepoRelativePath(path);
+  const normalizedPattern = normalizePattern(pattern);
+  if (!normalizedPath || !normalizedPattern) return false;
+
+  if (!normalizedPattern.includes('/')) {
+    return normalizedPath
+      .split('/')
+      .some((segment) => globToRegExp(normalizedPattern).test(segment));
+  }
+
+  if (normalizedPath === normalizedPattern || normalizedPath.startsWith(`${normalizedPattern}/`)) {
+    return true;
+  }
+  return globToRegExp(normalizedPattern).test(normalizedPath);
+}
+
 function safeRead(path) {
   try {
     return readFileSync(path, 'utf8');
@@ -53,17 +105,25 @@ function safeRead(path) {
 // .aifyignore (add) and .aifyinclude (remove) overrides. Called once per
 // ensureFresh; not cached — file-system reads are cheap vs. a full rebuild.
 //
-// Path patterns are NOT supported in v1 — each line is a bare directory
-// name matched against `entry.name`. A few high-churn build roots also
-// have built-in prefix rules (`build-*`, `build_*`, `cmake-build-*`,
-// and the same for dist/out/target) so transient build trees do not
-// pollute the graph by default. Exact opt-ins still work via `.aifyinclude`.
+// Bare names match directory segments. Path/glob patterns such as
+// `generated/**` or `*.tmp.cpp` match repo-relative paths. A few high-churn
+// build roots also have built-in prefix rules (`build-*`, `build_*`,
+// `cmake-build-*`, and the same for dist/out/target) so transient build
+// trees do not pollute the graph by default. Exact opt-ins still work via
+// `.aifyinclude`.
 export function loadEffectiveIgnoredDirs(repoRoot) {
   const effective = new Set(IGNORED_DIRS);
+  const pathPatterns = [];
 
   const ignoreFile = safeRead(join(repoRoot, '.aifyignore'));
   if (ignoreFile) {
-    for (const name of parseDirList(ignoreFile)) effective.add(name);
+    for (const name of parseDirList(ignoreFile)) {
+      if (isPathPattern(name)) {
+        pathPatterns.push(normalizePattern(name));
+      } else {
+        effective.add(name);
+      }
+    }
   }
 
   const includeFile = safeRead(join(repoRoot, '.aifyinclude'));
@@ -73,6 +133,13 @@ export function loadEffectiveIgnoredDirs(repoRoot) {
       effective.add(`!${name}`);
     }
   }
+
+  Object.defineProperty(effective, 'pathPatterns', {
+    value: pathPatterns,
+    enumerable: false,
+    configurable: false,
+    writable: false,
+  });
 
   return effective;
 }
@@ -96,6 +163,10 @@ export function isIgnoredDirName(name, ignoredDirs = IGNORED_DIRS) {
   if (ignoredDirs.has(`!${normalized}`)) return false;
   if (ignoredDirs.has(normalized)) return true;
 
+  if (getPathPatterns(ignoredDirs).some((pattern) => !pattern.includes('/') && pathMatchesPattern(normalized, pattern))) {
+    return true;
+  }
+
   return PREFIX_IGNORED_DIR_RULES.some(({ base, prefixes }) => (
     ignoredDirs.has(base) && prefixes.some((prefix) => normalized.startsWith(prefix))
   ));
@@ -104,6 +175,9 @@ export function isIgnoredDirName(name, ignoredDirs = IGNORED_DIRS) {
 export function pathContainsIgnoredDir(path, ignoredDirs = IGNORED_DIRS) {
   const normalized = normalizeRepoRelativePath(path);
   if (!normalized) return false;
+  if (getPathPatterns(ignoredDirs).some((pattern) => pathMatchesPattern(normalized, pattern))) {
+    return true;
+  }
   const segments = normalized.split('/').filter(Boolean);
   return segments.some((segment) => isIgnoredDirName(segment, ignoredDirs));
 }
