@@ -77,12 +77,13 @@ describe('server toolset selection', () => {
     expect(names).not.toContain('graph_lookup');
   });
 
-  it('exposes the new lean-3 verbs in lean mode (v3)', async () => {
+  it('exposes the lean-4 verbs in lean mode (v4: adds graph_packet)', async () => {
     const tools = extractTools(await runToolRpc(['--toolset=lean']));
     const names = tools.map(tool => tool.name).sort();
     expect(names).toEqual([
       'graph_change_plan',
       'graph_consequences',
+      'graph_packet',
       'graph_pull',
     ]);
   });
@@ -93,6 +94,7 @@ describe('server toolset selection', () => {
     expect(names).toEqual([
       'graph_change_plan',
       'graph_consequences',
+      'graph_packet',
       'graph_pull',
     ]);
   });

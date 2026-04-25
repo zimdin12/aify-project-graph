@@ -26,6 +26,7 @@ import { graphChangePlan } from './query/verbs/change_plan.js';
 import { graphOnboard } from './query/verbs/onboard.js';
 import { graphPull } from './query/verbs/pull.js';
 import { graphFind } from './query/verbs/find.js';
+import { graphPacket } from './query/verbs/packet.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -51,6 +52,20 @@ const TOOLS = [
     handler: graphHealth,
     description: 'Single-call "is the graph usable right now?" check. Aggregates indexed state, trust level, unresolved-edge count, staleness (indexed commit vs HEAD), and overlay validity into one summary string + structured fields. Use at session start instead of stringing graph_status + graph_index + brief.plan.md parsing.',
     schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'graph_packet',
+    handler: graphPacket,
+    description: 'Compact one-shot agent prompt packet for a feature or task. Reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Returns fixed-schema markdown: TASK/FEATURE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass target as "feature:<id>", "task:<id>", or a bare id. Pass live=true to opt into the (slower) live-enrichment path.',
+    schema: {
+      type: 'object',
+      properties: {
+        target: { type: 'string', description: 'feature:<id> | task:<id> | bare id' },
+        budget: { type: 'integer', default: 800, description: 'Token budget for the rendered packet (section caps + final clamp).' },
+        live: { type: 'boolean', default: false, description: 'Opt into live enrichment block (slower; lands fully in M3 with readOnly verb mode).' },
+      },
+      required: ['target'],
+    },
   },
   {
     name: 'graph_consequences',
@@ -322,7 +337,12 @@ const TOOLS = [
 // - `graph_change_plan` was the only old lean verb with repeat positives
 // Evidence: docs/dogfood/ab-results-2026-04-20-cross-tester.md and manager's
 // v1+v2 lean-half post-mortem notes. Hidden verbs remain callable via tools/call.
+// Note: lean grew 3→4 for one measurement round per the 2026-04-25 v2
+// upgrade plan. graph_packet is the new flagship one-shot primitive
+// (overlay+brief read directly, no ensureFresh, no SQL); change_plan
+// stays visible until packet is measured as a full substitute.
 const LEAN_TOOL_NAMES = new Set([
+  'graph_packet',
   'graph_consequences',
   'graph_pull',
   'graph_change_plan',
