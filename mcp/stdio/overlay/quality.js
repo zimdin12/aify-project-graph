@@ -82,12 +82,33 @@ export function summarizeOverlayQuality(features = [], tasks = []) {
   };
 }
 
+// Files that look like scratch / build / cache output rather than real
+// source/docs the agent should care about. M4a refinement: lets the
+// brief's DIRTY line distinguish "20 files in src/" from "20 files in
+// build-linux/scratch/" so noise doesn't drown signal.
+const SCRATCH_DIR_PATTERNS = [
+  /^build[-_]/, /^build\//, /^dist\//, /^out\//, /^target\//,
+  /^node_modules\//, /^__pycache__\//, /^\.next\//, /^\.cache\//,
+  /^\.codex/, /^\.claude/, /^backup\//, /^saves\//, /^screenshots\//,
+  /^test_screenshots\//, /^video\//, /^generated\//, /\.tmp\./,
+];
+
+function isScratchPath(file) {
+  if (typeof file !== 'string') return false;
+  return SCRATCH_DIR_PATTERNS.some((re) => re.test(file));
+}
+
 export function summarizeDirtySeams(features = [], dirtyFiles = []) {
   const uniqueDirtyFiles = [...new Set((dirtyFiles || []).filter(Boolean))];
   const byFeature = new Map();
   const orphanFiles = [];
+  const scratchFiles = [];
 
   for (const file of uniqueDirtyFiles) {
+    if (isScratchPath(file)) {
+      scratchFiles.push(file);
+      continue;
+    }
     const featureIds = featuresForFile(features, file);
     if (featureIds.length === 0) {
       orphanFiles.push(file);
@@ -116,6 +137,7 @@ export function summarizeDirtySeams(features = [], dirtyFiles = []) {
     totalDirtyFiles: uniqueDirtyFiles.length,
     mappedDirtyFiles: featureSeams.reduce((sum, feature) => sum + feature.file_count, 0),
     orphanDirtyFiles: orphanFiles.length,
+    scratchDirtyFiles: scratchFiles.length,
     features: featureSeams,
     orphanFilesSample: orphanFiles.slice(0, 5),
   };

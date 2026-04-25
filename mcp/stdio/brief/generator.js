@@ -1123,9 +1123,18 @@ function renderAgentMarkdown(data) {
   const {
     snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health,
     overlayHealth, tooling, coverage, exports: exportsArr, paths, overlayQuality, dirtySeams,
+    manifestCommit, headCommit,
   } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
+  // SNAPSHOT line: lets brief-only agents see indexed-vs-HEAD drift without
+  // a live verb call. STALE marker when commits diverge.
+  if (manifestCommit) {
+    const idx = manifestCommit.slice(0, 7);
+    const head = headCommit ? headCommit.slice(0, 7) : '?';
+    const stale = headCommit && manifestCommit !== headCommit ? ' STALE' : '';
+    lines.push(`SNAPSHOT: indexed=${idx} head=${head}${stale}`);
+  }
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
   if (langStr) lines.push(`LANG: ${langStr}`);
   if (tooling && tooling.length) lines.push(`TOOLING: ${tooling.join(', ')}`);
@@ -1156,7 +1165,10 @@ function renderAgentMarkdown(data) {
   // FEATURES only if the user-authored overlay exists. Keeps briefs clean on
   // repos that haven't adopted functionality.json yet.
   if (overlayHealth?.valid?.length) {
-    lines.push('FEATURES:');
+    const total = overlayHealth.valid.length;
+    const shown = Math.min(total, 5);
+    const indicator = total > shown ? ` (showing ${shown}/${total} — see brief.plan.md or brief.json)` : '';
+    lines.push(`FEATURES${indicator}:`);
     for (const { feature } of overlayHealth.valid.slice(0, 5)) {
       const label = feature.label || feature.id;
       const anchors = feature.anchors.symbols.slice(0, 2).join(',');
@@ -1211,7 +1223,11 @@ function renderAgentMarkdown(data) {
   if (dirtySeams?.totalDirtyFiles > 0) {
     const preview = dirtySeams.features.slice(0, 3).map((f) => `${f.id}(${f.file_count})`).join(', ');
     const orphan = dirtySeams.orphanDirtyFiles > 0 ? ` orphan=${dirtySeams.orphanDirtyFiles}` : '';
-    lines.push(`DIRTY: ${dirtySeams.totalDirtyFiles} files${preview ? ' ' + preview : ''}${orphan}`);
+    // M4a: split source/docs vs scratch/build to reduce noise on repos with
+    // active scratch dirs. dirtySeams.scratchDirtyFiles is computed in
+    // overlay/quality.js when available; fall back to flat count otherwise.
+    const scratch = dirtySeams.scratchDirtyFiles > 0 ? ` scratch=${dirtySeams.scratchDirtyFiles}` : '';
+    lines.push(`DIRTY: ${dirtySeams.totalDirtyFiles} files${preview ? ' ' + preview : ''}${orphan}${scratch}`);
   }
   if (health.issues.length) {
     const tip = health.tip ? ` → ${health.tip}` : '';
@@ -1549,6 +1565,14 @@ export function generateBrief({ repoRoot }) {
         manifestCommit = m.commit ?? null;
       }
     } catch { /* ignore */ }
+    // Cheap git rev-parse so brief.agent.md can show indexed-vs-HEAD drift
+    // (M4a item — lets brief-only agents detect stale snapshots without a
+    // live verb call).
+    let headCommit = null;
+    try {
+      headCommit = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+    } catch { /* ignore */ }
     const data = {
       snapshot,
       entries,
@@ -1574,6 +1598,7 @@ export function generateBrief({ repoRoot }) {
       paths,
       manifestIndexedAt,
       manifestCommit,
+      headCommit,
     };
 
     const md = renderMarkdown(data);
