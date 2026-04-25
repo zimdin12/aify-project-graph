@@ -364,6 +364,36 @@ function extractExports(repoRoot, db) {
 // near-parity on Codex) because brief had subsystem map but no
 // pre-computed execution chains. PATHS closes that gap by letting the
 // agent answer "trace X to Y" straight from brief context.
+
+// M4b: filter out vendor-include traversal and type-name "calls" that
+// pollute PATHS on C++/GLSL repos. Echoes brief showed examples like
+// `main → vec4 :0` (GLSL type) and `draw → vk_mem_alloc erase` (vendor
+// include). These damage trust without adding navigational value.
+const VENDOR_PATH_PATTERNS = [
+  /\/vendor\//, /\/third[_-]?party\//, /\/external\//, /\/deps\//,
+  /\/node_modules\//, /\/vk_mem_alloc/, /\/glm\//, /\/stb_/,
+  /\/imgui/, /\/SDL/, /\/Vulkan/i, /\/eigen/,
+];
+const TYPE_NAME_PATTERNS = [
+  // GLSL primitive types
+  /^(vec|mat|ivec|uvec|bvec|dvec)[2-4]$/,
+  /^(int|uint|float|double|bool|void)$/,
+  /^(sampler\w*|image\w*|texture\w*)$/,
+  // C++ STL containers (often called as constructors)
+  /^(string|vector|map|set|array|pair|tuple|optional|unique_ptr|shared_ptr|weak_ptr)$/,
+];
+
+function isPathNoise(node) {
+  if (!node) return false;
+  // Empty/zero line is suspicious (tree-sitter assigning fallback)
+  if (node.file && /:0$/.test(`${node.file}:${node.line}`)) {
+    if (TYPE_NAME_PATTERNS.some((re) => re.test(node.symbol || ''))) return true;
+  }
+  if (TYPE_NAME_PATTERNS.some((re) => re.test(node.symbol || ''))) return true;
+  if (VENDOR_PATH_PATTERNS.some((re) => re.test(node.file || ''))) return true;
+  return false;
+}
+
 function extractPaths(db, exportsArr, limit = 5) {
   if (!exportsArr || exportsArr.length === 0) return [];
   const out = [];
@@ -372,10 +402,11 @@ function extractPaths(db, exportsArr, limit = 5) {
     if (!tree) return [];
     const node = { name: tree.symbol, file: tree.file, line: tree.line };
     if (!tree.children || tree.children.length === 0) return [node];
-    // Pick child with the deepest subtree
+    // Pick child with the deepest subtree, skipping noise
     let bestChild = null;
     let bestDepth = -1;
     for (const c of tree.children) {
+      if (isPathNoise({ symbol: c.symbol, file: c.file, line: c.line })) continue;
       const d = subtreeDepth(c);
       if (d > bestDepth) {
         bestDepth = d;
