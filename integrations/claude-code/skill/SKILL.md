@@ -84,10 +84,14 @@ The current headline result is the **apg verified-fresh postfix4 self-bench** (2
 
 ## Use live verbs for
 
-**Lean profile** (default for Codex/OpenCode install, 3 verbs listed in `tools/list`):
-- `graph_consequences(target="X")` — flagship cross-layer planning / “what breaks if I touch this?”
+**Lean profile** (default for Codex/OpenCode install, 5 verbs listed in `tools/list`):
+- `graph_packet(target="X")` — **one-shot agent prompt packet (orientation, cheap+coarse)**. Reads overlay+brief JSON directly, no SQL, no freshness rebuild. Returns ~500-900 tokens: STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Pass `feature:<id>`, `task:<id>`, or a bare symbol (auto-resolves via consequences with `MATCHED VIA: ...` line). Reach for this first when the task is scoped to a feature or task.
+- `graph_consequences(target="X")` — function-granular cross-cutting planning. Use when packet's coarse view loses precision.
 - `graph_pull(node="X")` — cross-layer pull (code + features + tasks + activity). For overlay targets, prefer explicit forms like `feature:terrain-generation`, `feature/terrain-generation`, `task:CU-123`, or `task/CU-123`.
-- `graph_change_plan(symbol="X")` — safe change planning
+- `graph_change_plan(symbol="X")` — risk gate before editing high-fan-in symbols. SIGNALS line + ranked READ ORDER.
+- `graph_health()` — single-call trust + freshness + overlay summary.
+
+**Tradeoff:** packet is the cheapest (~80-150 ms, no SQL) but coarsest. If packet's MATCHED VIA shows a symbol→feature mapping you want depth on, escalate to `graph_consequences` or `graph_change_plan`. Default-routing everything to packet trades quality for cost — use it for orient, escalate for depth.
 
 **Still callable in lean mode** (by name via `tools/call`, just hidden from `tools/list` to reduce manifest tax):
 - `graph_preflight(symbol="X")` — edit safety gate for high-fan-in symbols

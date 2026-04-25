@@ -32,7 +32,7 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 | Codex | `~/.codex/plugins/aify-project-graph` | `codex mcp add` |
 | OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |
 
-**Profile:** Claude Code uses the full callable surface, with a few legacy orient aliases hidden from `tools/list`; Codex and OpenCode use `--toolset=lean` (3 visible: `graph_consequences`, `graph_pull`, `graph_change_plan`; the other verbs remain callable by name via `tools/call`).
+**Profile:** Claude Code uses the full callable surface, with a few legacy orient aliases hidden from `tools/list`; Codex and OpenCode use `--toolset=lean` (5 visible: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`; the other verbs remain callable by name via `tools/call`).
 
 **Platform gotcha (mostly auto-handled):** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, its compiled binary flips platforms. The MCP server's **native-module preflight self-heals this on startup**: it probes the binary, and if it sees `not a valid Win32 application` / `invalid ELF header` / `ERR_DLOPEN_FAILED`, it runs `npm rebuild better-sqlite3` once automatically before accepting any tool calls. You only need to intervene if the auto-rebuild itself fails (missing compiler toolchain); in that case run `npm rebuild better-sqlite3` manually in the runtime you plan to use.
 
@@ -86,7 +86,7 @@ graph_file(path="src/auth/token.ts")         # whole-file digest
 Verb notes by profile:
 
 - **Claude Code / full toolset**: `graph_search(query="dispatch")`, `graph_whereis(symbol="get_db", expand=true)`, `graph_callers(symbol="get_db")`
-- **Codex / OpenCode lean toolset**: `graph_consequences(target="get_db")`, `graph_pull(node="get_db")`, and `graph_change_plan(symbol="get_db")` are the listed surfaces. Low-level search/caller verbs are intentionally omitted from lean mode; remove `--toolset=lean` if you want the broader full surface.
+- **Codex / OpenCode lean toolset**: `graph_packet(target="feature:auth")` (one-shot orientation, cheap+coarse), `graph_consequences(target="get_db")`, `graph_pull(node="get_db")`, `graph_change_plan(symbol="get_db")`, `graph_health()` are the listed surfaces. Reach for packet first for orientation; escalate to consequences/change_plan when packet's coarse view loses precision. Low-level search/caller verbs are intentionally omitted from lean mode; remove `--toolset=lean` if you want the broader full surface.
 
 The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` to the target repo's `.gitignore` if not already present — the graph is derived and should never be committed. This is separate from `.aifyignore` / `.aifyinclude`, which control what the graph indexes, not what git tracks. `.aifyignore` accepts bare directory names plus path/glob patterns such as `generated/**` and `*.tmp.cpp`.
 

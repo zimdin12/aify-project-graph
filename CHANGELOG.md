@@ -9,6 +9,100 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-04-26 — upgrade plan v2 executed (M0.5 → M4b)
+
+Co-designed and locked plan at `docs/superpowers/plans/2026-04-25-upgrade-plan.md`,
+executed across 12 commits. Goal: flip Codex effective-token regression
+into an improvement while preserving Claude Code wins. Theory: cut the
+steady token tax (full SKILL.md + verbose live-verb output + repeated
+overlay scans) that prompt-cache flattens on Codex but not on Claude.
+
+**Headline measurement** (apg verified-fresh self-bench, 8-task fixture):
+
+| | Pre-upgrade | Post-upgrade |
+|---|---|---|
+| Win count | 6-2 graph | 6-2 graph |
+| Net tokens vs no-graph | −17.3% | **−23.1%** |
+| Quality delta | −0.25 | −0.50 (caveat below) |
+| Trust gate | ok | ok |
+| Tests | 327 | **337** |
+
+Quality delta widened because `graph_packet` is intentionally coarser
+than `graph_change_plan`/`graph_consequences`. Skill text now explicitly
+tells agents to escalate to depth-verbs when load-bearing — recoverable
+through correct usage, not a defect.
+
+**Added**
+
+- **`graph_packet(target, budget=800, live=false)`** — new flagship
+  one-shot agent prompt packet. Reads overlay+brief JSON directly
+  (no SQL, no `ensureFresh`). Returns fixed-schema markdown:
+  `TASK/FEATURE → STATUS → FEATURES → SNAPSHOT → READ FIRST →
+  CONTRACTS → TESTS → RISKS → LIVE`. Section caps + token-estimate
+  budget. Accepts `feature:<id>`, `task:<id>`, bare ids, or bare
+  symbols (auto-resolves via `graph_consequences` with explicit
+  `MATCHED VIA:` line). Optional `live=true` enrichment with strict
+  2s budget; partial result still useful (`LIVE: timeout` /
+  `LIVE: unavailable` markers explicit).
+- **Compact Codex SKILL.md** — trimmed from 15330 chars (~3800
+  tokens) to ~3100 chars (~780 tokens). Long-form material moved to
+  `integrations/codex/skill/references/SKILL-full.md`. Verb order
+  + tradeoff guidance + edge provenance + hard rules only.
+- **Brief honesty signals**: `SNAPSHOT:` line in `brief.agent.md`
+  shows `indexed=<sha> head=<sha>` + `STALE` marker on drift;
+  `FEATURES (showing N/M)` indicator when truncated; `DIRTY:` line
+  groups source/docs vs scratch/build counts.
+- **`brief.plan.md` task counts** — open/in-progress + completed
+  count per feature.
+- **PATHS pollution filter** — vendor includes (`/vendor/`,
+  `/third_party/`, `vk_mem_alloc`, `/glm/`, `/imgui`, etc.) and GLSL
+  type-name "calls" (`vec[2-4]`, `mat[2-4]`, samplers) filtered from
+  `brief.agent.md` PATHS section.
+- **Feature `load:` metric** extended to count INVOKES +
+  PASSES_THROUGH edges and file-anchored callers (incoming edges to
+  `feature.anchors.files` globs from outside the feature) — fixes
+  `load: 0 callers` on C++ class anchors.
+- **`graph_consequences` test-adjacency fallback** to curated
+  `feature.tests[]` when TESTS-edge / file-adjacency / IMPORTS-edge
+  / mention-detection all return zero.
+- **`featuresWithInferredTests` overlay-quality metric** — counts
+  features that lack curated `tests[]` but have IMPORTS-edge
+  evidence from test files.
+- **`scripts/verb-latency-profile.mjs`** + artifact at
+  `docs/dogfood/latency-profile-2026-04-25.json`.
+
+**Changed**
+
+- **Lean profile grew 3 → 5 visible verbs**: adds `graph_packet`
+  (new) and `graph_health` (skill heavily recommends; was hidden).
+  Other lean verbs unchanged.
+- **Packet trust calculation reuses `computeTrustLevel`** from
+  `health.js` so SNAPSHOT trust never disagrees with `graph_health`
+  on the same snapshot.
+- README + AGENTS bench paragraphs updated with the −23.1% headline.
+
+**Final-bench bugs fixed in close-out**
+
+1. Packet rejected bare symbol/file targets — now auto-resolves via
+   `graph_consequences` → matched feature with `MATCHED VIA:` line.
+2. Packet trust calc disagreed with `graph_health` (different
+   threshold + raw vs trust-relevant count) — now both use
+   `getUnresolvedCounts()` + `computeTrustLevel()`.
+3. Empty packet sections silently omitted — now render `LABEL: none`
+   so agents can distinguish broken-packet from no-data.
+4. Packet `enrichLive` crashed on non-JSON `graph_consequences`
+   output (NO MATCH plain text) — now degrades gracefully.
+5. Symbol-fallback path didn't enrich LIVE because it called
+   `graph_consequences` with the resolved feature id (not a symbol)
+   — now passes the original symbol when present.
+
+**Documented as known limitation** (not in scope for this round):
+
+- Codex `exec` MCP cancellation — Codex-side behavior, not server.
+  Brief-first workflow remains the safe path.
+
+
+
 ### 2026-04-25 — dogfood + 7 fixes + clean re-bench
 
 Round driven by hands-on dogfood evaluation of the toolset on apg's

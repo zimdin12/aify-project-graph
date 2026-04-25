@@ -45,7 +45,7 @@ If `npm install` fails to compile the native module, install `build-essential` (
 
 ## Step 2 — register the MCP server
 
-Use the `codex mcp` CLI. Recommended profile is `--toolset=lean` (3 visible verbs: `graph_consequences`, `graph_pull`, `graph_change_plan`) — measured to reduce tool-surface tax on Codex while keeping the highest-value live planning surfaces. Hidden verbs remain callable by name via `tools/call`.
+Use the `codex mcp` CLI. Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`) — measured to reduce tool-surface tax on Codex while keeping the highest-value live planning surfaces plus the one-shot orientation primitive. Hidden verbs remain callable by name via `tools/call`.
 
 ```bash
 codex mcp remove aify-project-graph >/dev/null 2>&1 || true
