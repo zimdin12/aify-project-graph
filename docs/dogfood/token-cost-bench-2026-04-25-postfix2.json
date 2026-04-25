@@ -1,0 +1,222 @@
+{
+  "commit": "430b9bb",
+  "previous_commit": "1c32046",
+  "baseline_commit": "27f4d86",
+  "runtime": "Claude Code Opus 4.7 (1M)",
+  "date": "2026-04-25",
+  "method": "Re-ran identical 8-task dev-question benchmark from token-cost-bench-2026-04-25-postfix.json against commit 430b9bb (Bug B proper IMPORTS-edge fix + SIGNALS honesty caveat). Forced graph_index(force=true) before measurement because snapshot was stale (indexed 1c32046 vs HEAD 430b9bb). delta_vs_postfix1 = postfix2 tokens_est minus postfix1 tokens_est (negative = cheaper).",
+  "tasks": [
+    {
+      "id": "orient",
+      "prompt": "What is this repo about and what are its main exports?",
+      "graph": {
+        "tokens_est": 920,
+        "wall_ms": 240,
+        "quality": 5,
+        "calls": ["Read .aify-graph/brief.agent.md"],
+        "notes": "Unchanged from postfix1. Brief still ok (briefStaleVsManifest flag present but content usable).",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 2400,
+        "wall_ms": 1200,
+        "quality": 4,
+        "calls": ["ls repo root", "Read README.md", "Grep TOOLS"],
+        "notes": "Unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "graph",
+      "delta_pct": -61.7
+    },
+    {
+      "id": "trace",
+      "prompt": "How does graph_consequences work end-to-end? Trace the call flow.",
+      "graph": {
+        "tokens_est": 1400,
+        "wall_ms": 360,
+        "quality": 4,
+        "calls": ["graph_path(graphConsequences)"],
+        "notes": "Same call tree as postfix1. consequences.js:225 -> getDirtyFiles/hasOverlay/inspectReadFreshness -> ensureFresh. AMBIGUOUS edges still present.",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 2600,
+        "wall_ms": 900,
+        "quality": 5,
+        "calls": ["Grep graphConsequences", "Read consequences.js"],
+        "notes": "Unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "no_graph",
+      "delta_pct": 85.7
+    },
+    {
+      "id": "callers",
+      "prompt": "Who calls openExistingDb and from which files?",
+      "graph": {
+        "tokens_est": 720,
+        "wall_ms": 280,
+        "quality": 5,
+        "calls": ["graph_callers(openExistingDb, top_k=30)"],
+        "notes": "21 CALLS edges, all conf=0.90, file+line per edge. Identical to postfix1.",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 900,
+        "wall_ms": 600,
+        "quality": 4,
+        "calls": ["Grep openExistingDb"],
+        "notes": "Unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "graph",
+      "delta_pct": -20.0
+    },
+    {
+      "id": "impact",
+      "prompt": "What breaks if I refactor expandClassRollupTargets?",
+      "graph": {
+        "tokens_est": 1100,
+        "wall_ms": 410,
+        "quality": 3,
+        "calls": ["graph_consequences(expandClassRollupTargets)"],
+        "notes": "BUG B FIX DID NOT LAND IN OUTPUT. After force-reindex at 430b9bb: tests_adjacent: [], risk_flags still contains 'no_test_coverage'. Inspected the SQLite store directly: only 3 IMPORTS edges point at target_rollup.js (callers.js, change_plan.js, impact.js — the consumer verbs). NO test-file IMPORTS edge exists despite tests/unit/query/query.test.js literally containing `import { expandClassRollupTargets } from '.../target_rollup.js'` at line 17. Root cause is upstream: the AST extractor stored query.test.js's IMPORTS edge as a self-loop (to_file = query.test.js) — test-file import resolution is broken in the ingest layer. The IMPORTS-pass code in consequences.js:181 is correct but receives no rows because the data isn't there. Fix needs to move from query verbs to ingest/resolver.",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 1300,
+        "wall_ms": 500,
+        "quality": 5,
+        "calls": ["Grep expandClassRollupTargets -n"],
+        "notes": "Unchanged — finds 3 test files immediately.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "no_graph",
+      "delta_pct": 18.2,
+      "expected_quality_rise": "3 -> 4 or 5",
+      "actual_quality_rise": "3 -> 3 (no change)"
+    },
+    {
+      "id": "plan",
+      "prompt": "I want to change ensureFresh — read order + risk?",
+      "graph": {
+        "tokens_est": 850,
+        "wall_ms": 360,
+        "quality": 4,
+        "calls": ["graph_change_plan(ensureFresh)"],
+        "notes": "RISK CONFIRM, 4 callers, 0 test files, identical structure to postfix1. SIGNALS HONESTY CAVEAT NOT VISIBLE in output: line still reads 'SIGNALS 4 caller(s), 6 dependency file(s), 0 test file(s)' with no 'grep may show more' or 'graph-detected; rg may show more' qualifier. Either the caveat ships only when an under-report is detected and this case didn't trip the heuristic, or the surface text wasn't actually wired. Quality stays at 4 — verdict (CONFIRM) is still correct, planner action unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 1500,
+        "wall_ms": 700,
+        "quality": 5,
+        "calls": ["Grep ensureFresh count"],
+        "notes": "Unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "graph",
+      "delta_pct": -43.3
+    },
+    {
+      "id": "cross_layer",
+      "prompt": "What features touch mcp/stdio/freshness/orchestrator.js and what tests cover them?",
+      "graph": {
+        "tokens_est": 1200,
+        "wall_ms": 460,
+        "quality": 4,
+        "calls": ["graph_pull(node=mcp/stdio/freshness/orchestrator.js)"],
+        "notes": "Same as postfix1: 11 code symbols, feature=freshness, 5 recent commits, tasks=[]. No tests layer surfaced.",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 1400,
+        "wall_ms": 900,
+        "quality": 4,
+        "calls": ["Read functionality.json", "Grep tests"],
+        "notes": "Unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "graph",
+      "delta_pct": -14.3
+    },
+    {
+      "id": "health",
+      "prompt": "Is the graph fresh and trustworthy right now?",
+      "graph": {
+        "tokens_est": 320,
+        "wall_ms": 200,
+        "quality": 5,
+        "calls": ["graph_health()"],
+        "notes": "nodes=1573 edges=4116 trust=weak (9401 unresolved) fresh overlay=clean (8 features) brief-stale. Unresolved-edge count jumped from 4537 to 9401 after force-reindex — significant regression in resolver throughput. This is a NEW finding worth investigating: edge resolution is roughly 50% worse than the prior bench captured.",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 1100,
+        "wall_ms": 800,
+        "quality": 4,
+        "calls": ["Read manifest.json", "git status"],
+        "notes": "Unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "graph",
+      "delta_pct": -70.9
+    },
+    {
+      "id": "debug",
+      "prompt": "Why does graph_impact return so many edges in some cases?",
+      "graph": {
+        "tokens_est": 480,
+        "wall_ms": 350,
+        "quality": 1,
+        "calls": ["graph_impact(graphImpact, depth=3)"],
+        "notes": "Same as postfix1: NO IMPACT for graphImpact (verb-handler self-introspection limit unchanged). graph_find('graph') still capped (10/6/0/6).",
+        "delta_vs_postfix1": 0
+      },
+      "no_graph": {
+        "tokens_est": 900,
+        "wall_ms": 500,
+        "quality": 5,
+        "calls": ["Read impact.js"],
+        "notes": "Unchanged.",
+        "delta_vs_postfix1": 0
+      },
+      "winner": "no_graph",
+      "delta_pct": 87.5
+    }
+  ],
+  "summary": {
+    "graph_won": 5,
+    "no_graph_won": 3,
+    "postfix1_graph_won": 5,
+    "postfix1_no_graph_won": 3,
+    "win_flip": "none — same 5-3 split as postfix1",
+    "graph_avg_token_delta_pct": -2.4,
+    "postfix1_graph_avg_token_delta_pct": -2.4,
+    "token_delta_change_pp": 0.0,
+    "graph_avg_quality": 3.875,
+    "no_graph_avg_quality": 4.5,
+    "graph_avg_quality_delta": -0.625,
+    "postfix1_graph_avg_quality_delta": -0.625,
+    "quality_delta_change": 0.0,
+    "notes": "Zero observable delta vs postfix1 on the 8-task surface. Bug B 'fix' did not change live output for expandClassRollupTargets; SIGNALS honesty caveat not visible on the ensureFresh case. Quality and tokens identical."
+  },
+  "fix_verification": {
+    "bug_b_proper_imports_pass": {
+      "expected": "graph_consequences(expandClassRollupTargets) populates tests_adjacent with the 3 test files and drops no_test_coverage flag. Quality 3 -> 4 or 5.",
+      "observed": "NOT FIXED IN PRACTICE. Source-side IMPORTS-pass logic (consequences.js:181 findImportLinkedTestFiles) is correctly implemented and reached, but returns 0 rows because the underlying graph store has no IMPORTS edges from test files into target_rollup.js. Direct SQLite inspection: only 3 IMPORTS edges point at target_rollup.js, all from sibling verb files (callers/change_plan/impact). tests/unit/query/query.test.js literally imports target_rollup.js at line 17 yet stores its IMPORTS edge as a self-loop. The bug has moved one layer down: ingest/resolver fails to resolve test-file relative imports across deep ../../../ paths.",
+      "status": "blocked_by_upstream_extractor_bug"
+    },
+    "signals_honesty_caveat": {
+      "expected": "graph_change_plan output annotates SIGNALS line with under-report caveat (e.g., 'graph-detected; rg may show more').",
+      "observed": "Not visible on the ensureFresh case. SIGNALS line text unchanged from postfix1: 'SIGNALS 4 caller(s), 6 dependency file(s), 0 test file(s)'. Either the caveat is gated on a heuristic that didn't fire here, or it lives in a different output path. Need to check change_plan.js source to confirm.",
+      "status": "not_observed"
+    }
+  },
+  "new_bugs_surfaced": [
+    "Test-file import resolution is broken in the ingest extractor. tests/unit/query/query.test.js stores its IMPORTS edge with to_file = query.test.js (self-loop) instead of pointing at the imported module path. This is upstream of consequences.js — the IMPORTS-pass fix cannot succeed until the extractor emits real cross-file IMPORTS edges from test files. Likely affects all deep-relative test imports (../../../).",
+    "Unresolved edge count regressed from 4537 (postfix1 snapshot at 1c32046) to 9401 after force-reindex at 430b9bb — roughly 2x more unresolved edges with only 4 commits between. Resolver throughput appears to have dropped; warrants inspection of recent ingest changes.",
+    "SIGNALS honesty caveat was the second deliverable of commit 430b9bb but is not visible in the test case the commit message implies it would help. Either the heuristic is too tight or wiring is incomplete."
+  ],
+  "recommendation": "Bug B requires moving the fix from query verbs into the ingest extractor — the test-file IMPORTS edges that the consequences pass needs simply do not exist in the store. Until that lands, IMPACT quality stays at 3/5 for symbols whose only test coverage is via deep-relative test-file imports. SIGNALS caveat needs verification it's actually wired into the change_plan output path. Net effect of commit 430b9bb on this 8-task bench: zero — same 5-3 win split, same -2.4% token delta, same -0.625 quality delta. The win/loss surface from postfix1 is unchanged."
+}
