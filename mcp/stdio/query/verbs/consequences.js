@@ -467,7 +467,16 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     const mentionTests = directUniqueTests.length === 0 && symbolNodes.length > 0
       ? findMentioningTestFiles(db, repoRoot, symbolNodes.map((node) => node.label))
       : [];
-    const uniqueTests = uniqueTestPaths([...directUniqueTests, ...mentionTests]);
+    // M4a: feature.tests[] fallback. When all the above heuristics return
+    // nothing, use the curated tests[] array from each touching feature.
+    // The overlay is the source of truth when graph extraction misses;
+    // ignoring it produced false `no_test_coverage` flags on repos with
+    // shared test entrypoints (e.g. monolithic tests/test_main.cpp).
+    const inferredTests = uniqueTestPaths([...directUniqueTests, ...mentionTests]);
+    const featureTests = inferredTests.length === 0
+      ? features.flatMap((f) => f.tests || []).filter(Boolean)
+      : [];
+    const uniqueTests = uniqueTestPaths([...inferredTests, ...featureTests]);
 
     // 6. Last-touched: git log for the matched files
     let lastTouched = [];

@@ -14,6 +14,7 @@
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { computeTrustLevel } from './health.js';
 
 // Section caps come first; the final token-estimate clamp is a safety
 // rail. Predictable shape → prompt-cache friendly.
@@ -70,10 +71,11 @@ function safeDirtyCount(repoRoot) {
 }
 
 function trustTier(unresolvedEdges) {
+  // Reuse the shared computeTrustLevel from health.js so packet's SNAPSHOT
+  // line never disagrees with graph_health on the same snapshot
+  // (validation-gate bug 2). Returns 'missing' when count is unknown.
   if (unresolvedEdges == null) return 'missing';
-  if (unresolvedEdges < 200) return 'strong';
-  if (unresolvedEdges < 800) return 'ok';
-  return 'weak';
+  return computeTrustLevel(unresolvedEdges);
 }
 
 // Parse `feature:<id>` / `feature/<id>` / `task:<id>` / `task/<id>` shapes.

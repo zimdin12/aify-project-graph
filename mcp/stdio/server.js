@@ -337,15 +337,20 @@ const TOOLS = [
 // - `graph_change_plan` was the only old lean verb with repeat positives
 // Evidence: docs/dogfood/ab-results-2026-04-20-cross-tester.md and manager's
 // v1+v2 lean-half post-mortem notes. Hidden verbs remain callable via tools/call.
-// Note: lean grew 3→4 for one measurement round per the 2026-04-25 v2
+// Note: lean grew 3→5 across two refinements to the 2026-04-25 v2
 // upgrade plan. graph_packet is the new flagship one-shot primitive
 // (overlay+brief read directly, no ensureFresh, no SQL); change_plan
-// stays visible until packet is measured as a full substitute.
+// stays visible until packet is measured as a full substitute;
+// graph_health was added (M4a alignment) because the skill heavily
+// recommends it as the fastest health check and it was previously
+// callable but not visible — discoverability mismatch surfaced by
+// the validation gate.
 const LEAN_TOOL_NAMES = new Set([
   'graph_packet',
   'graph_consequences',
   'graph_pull',
   'graph_change_plan',
+  'graph_health',
 ]);
 
 // Full profile still keeps all 21 verbs callable, but the tools/list surface

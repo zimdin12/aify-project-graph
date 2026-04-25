@@ -57,7 +57,7 @@ export function taskLinkStrengthCounts(tasks = []) {
   return counts;
 }
 
-export function summarizeOverlayQuality(features = [], tasks = []) {
+export function summarizeOverlayQuality(features = [], tasks = [], db = null) {
   const featureCount = features.length;
   const featuresWithTests = features.filter((f) => (f.tests ?? []).length > 0).length;
   const featuresWithDocs = features.filter((f) => (f.anchors?.docs ?? []).length > 0).length;
@@ -67,9 +67,39 @@ export function summarizeOverlayQuality(features = [], tasks = []) {
   const linkedTasksList = tasks.filter((t) => taskFeatureRefs(t).length > 0);
   const linkedTasks = linkedTasksList.length;
   const taskLinkCounts = taskLinkStrengthCounts(linkedTasksList);
+  // M4a: featuresWithInferredTests — features that have NO curated tests[]
+  // but DO have at least one IMPORTS edge from a test file into one of their
+  // anchored files. Lets agents see "the graph found tests for this feature
+  // even though overlay didn't curate them" — closes the perception gap from
+  // the validation gate (featuresWithTests=0/8 despite 146 test IMPORTS).
+  let featuresWithInferredTests = 0;
+  if (db) {
+    try {
+      for (const f of features) {
+        if ((f.tests ?? []).length > 0) continue; // already counted in curated
+        const fileGlobs = f.anchors?.files ?? [];
+        if (fileGlobs.length === 0) continue;
+        // Build a GLOB-OR clause; cap to avoid huge SQL on overlay edge cases
+        const patterns = fileGlobs.slice(0, 6);
+        const where = patterns.map((_, i) => `tn.file_path GLOB $g${i}`).join(' OR ');
+        const params = Object.fromEntries(patterns.map((g, i) => [`g${i}`, g]));
+        const hit = db.get(
+          `SELECT 1 AS hit FROM edges e
+             JOIN nodes tn ON tn.id = e.to_id
+           WHERE e.relation = 'IMPORTS'
+             AND (e.source_file LIKE 'tests/%' OR e.source_file LIKE '%/tests/%' OR e.source_file LIKE '%.test.%' OR e.source_file LIKE '%.spec.%')
+             AND (${where})
+           LIMIT 1`,
+          params,
+        );
+        if (hit) featuresWithInferredTests += 1;
+      }
+    } catch { /* defensive — fall back to curated-only count */ }
+  }
   return {
     featureCount,
     featuresWithTests,
+    featuresWithInferredTests,
     featuresWithDocs,
     featuresWithDependsOn,
     featuresWithRelatedTo,

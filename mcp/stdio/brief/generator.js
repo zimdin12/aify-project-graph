@@ -845,16 +845,34 @@ function enrichFeaturesForPlanning(db, validFeatures) {
 
     // Callers count: sum of incoming edges to every anchored symbol. This
     // gives a single "how load-bearing is this feature?" number.
+    // M4b: extended with INVOKES + PASSES_THROUGH so framework-driven call
+    // chains count, and with file-anchored callers (incoming edges to any
+    // node in feature.anchors.files) so C++ class methods that don't share
+    // a label with the anchored symbol still register. The previous shape
+    // produced 0 for major C++ features even when their files had clear
+    // inbound traffic — validation gate / echoes tester finding.
     let callersTotal = 0;
+    const anchoredFiles = entry.feature?.anchors?.files ?? [];
     if (symbols.length > 0) {
       const row = db.get(
         `SELECT COUNT(*) AS c FROM edges e
          JOIN nodes n ON n.id = e.to_id
          WHERE n.label IN (${symbols.map((_, i) => `$s${i}`).join(',')})
-           AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE')`,
+           AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')`,
         Object.fromEntries(symbols.map((s, i) => [`s${i}`, s]))
       );
-      callersTotal = row?.c ?? 0;
+      callersTotal += row?.c ?? 0;
+    }
+    if (anchoredFiles.length > 0) {
+      const row = db.get(
+        `SELECT COUNT(*) AS c FROM edges e
+         JOIN nodes tn ON tn.id = e.to_id
+         WHERE e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
+           AND e.source_file NOT IN (SELECT file_path FROM nodes WHERE type='File' AND (${anchoredFiles.map((_, i) => `file_path GLOB $f${i}`).join(' OR ')}))
+           AND (${anchoredFiles.map((_, i) => `tn.file_path GLOB $f${i}`).join(' OR ')})`,
+        Object.fromEntries(anchoredFiles.map((g, i) => [`f${i}`, g]))
+      );
+      callersTotal += row?.c ?? 0;
     }
 
     enriched.push({
@@ -1583,7 +1601,7 @@ export function generateBrief({ repoRoot }) {
       : [];
     // L3 tasks from external tracker (written by graph-map-tasks skill).
     const tasksArtifact = loadTasksArtifact(repoRoot);
-    const overlayQuality = summarizeOverlayQuality(overlay.features, tasksArtifact.tasks);
+    const overlayQuality = summarizeOverlayQuality(overlay.features, tasksArtifact.tasks, db);
     let dirtySeams = { totalDirtyFiles: 0, mappedDirtyFiles: 0, orphanDirtyFiles: 0, features: [], orphanFilesSample: [] };
     try {
       dirtySeams = summarizeDirtySeams(overlay.features, getDirtyFilesSync(repoRoot));
