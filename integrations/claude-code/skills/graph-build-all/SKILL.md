@@ -18,31 +18,10 @@ Build (or rebuild) the complete graph + brief + overlay set for a repo in one go
 
 ## Steps
 
-### 1. Build the code graph
+### 1. Fix repo hygiene before indexing
 
-If `.aify-graph/graph.sqlite` doesn't exist, trigger index. Easiest path:
-
-```
-graph_status()
-```
-
-This auto-indexes on first call. Takes 5-60 seconds depending on repo size. Confirm `indexed: true`.
-
-If it errored with a `better-sqlite3` native-binary complaint, the MCP server's preflight should have auto-rebuilt it on startup — if you still see this error during a tool call, tell the user to run `npm rebuild better-sqlite3` in the aify-project-graph clone manually and stop here.
-
-### 2. Generate the five briefs
-
-Use the repo's own aify-project-graph clone (the path the user installed from):
-
-```bash
-node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
-```
-
-Should emit `brief.md`, `brief.agent.md`, `brief.onboard.md`, `brief.plan.md`, `brief.json` under `<TARGET_REPO>/.aify-graph/`.
-
-If you don't know `<AIFY_GRAPH_CLONE>`, look at the MCP config for the `aify-project-graph` server — the `args` entry contains the path.
-
-### 2.5. Fix repo hygiene before the graph drifts
+Do this before the first `graph_status()` / `graph_index()` call. If you skip
+it, local build output can pollute the first graph and force a slow rebuild.
 
 - ensure `<TARGET_REPO>/.gitignore` contains:
   - `.aify-graph/`
@@ -55,7 +34,45 @@ Do not confuse these:
 - `.aifyignore` keeps extra scratch dirs or path/glob patterns out of the graph
 - `.aifyinclude` opts a default-ignored dir back into the graph
 
-### 3. Propose the functionality overlay
+If you add or change `.aifyignore` after a graph already exists, run
+`graph_index(force=true)` once so previously indexed scratch nodes disappear.
+
+### 2. Build the code graph
+
+For `graph-build-all`, use the explicit indexing verb rather than relying on a
+read verb to auto-index:
+
+```
+graph_index(force=true)
+```
+
+This writes the graph snapshot, initial briefs, and unresolved-edge
+categorization from one coherent index pass. Takes 5-60 seconds depending on
+repo size, longer on large C++ repos. Confirm `indexed: true` and that
+`artifacts.briefs` / `artifacts.unresolvedCategorization` do not contain errors.
+
+If the user only wants a cheap source refresh, use `graph_index(force=false)` or
+a narrower skill instead; this skill is the full setup/rebuild path.
+
+If it errored with a `better-sqlite3` native-binary complaint, the MCP server's preflight should have auto-rebuilt it on startup — if you still see this error during a tool call, tell the user to run `npm rebuild better-sqlite3` in the aify-project-graph clone manually and stop here.
+
+### 3. Verify or regenerate the five briefs
+
+`graph_index(force=true)` normally writes the five brief files already. If any
+brief file is missing, if `artifacts.briefs` reported an error, or after later
+overlay edits, regenerate them with the repo's own aify-project-graph clone:
+
+```bash
+node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
+```
+
+This emits `brief.md`, `brief.agent.md`, `brief.onboard.md`, `brief.plan.md`,
+`brief.json`, and `unresolved-categorization.json` under
+`<TARGET_REPO>/.aify-graph/`.
+
+If you don't know `<AIFY_GRAPH_CLONE>`, look at the MCP config for the `aify-project-graph` server — the `args` entry contains the path.
+
+### 4. Propose the functionality overlay
 
 Run the `graph-build-functionality` skill's logic inline: read `.aify-graph/brief.json`, draft a set of 5-10 features with `anchors.symbols` and `anchors.files` globs, and fill the overlay fields that make the map actually useful on large repos:
 - `tests[]`
@@ -67,7 +84,7 @@ Show the user a diff, write `.aify-graph/functionality.json` on confirmation.
 
 Keep the proposal small. 5-10 clear features beats 20 speculative ones. Preserve any existing entries. Do not stop at a skeletal file/symbol map if the active seams still have no tests/docs/relationships.
 
-### 4. Regenerate briefs with the overlay populated
+### 5. Regenerate briefs with the overlay populated
 
 ```bash
 node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
@@ -75,7 +92,7 @@ node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
 
 Now `brief.plan.md` has a FEATURES section with `open:` / `tests:` / `load:` per feature. This is what makes plan briefs worth using.
 
-### 5. Auto-offer `/graph-build-tasks` when a tracker MCP is present
+### 6. Auto-offer `/graph-build-tasks` when a tracker MCP is present
 
 Running `/graph-build-tasks` is the unlock that turns the graph from a static map into a daily-use tool: it activates per-feature open-task lines in `brief.plan.md`, makes `/graph-walk-bugs` usable, cross-validates feature↔task bindings, and populates the dashboard's task layer.
 
@@ -91,7 +108,7 @@ Check for a tracker MCP in the active session (names matching `clickup`, `asana`
 
 Proceed on confirmation. Skip silently if no tracker MCP is detected — this stays optional.
 
-### 6. Done — tell the user how to use it
+### 7. Done — tell the user how to use it
 
 Short summary:
 - "Paste `.aify-graph/brief.agent.md` into session prompts for orient-shaped work."

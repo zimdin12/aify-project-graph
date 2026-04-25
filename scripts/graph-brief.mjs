@@ -3,6 +3,7 @@
 // graph is already built. Intended for index-time hook and manual runs.
 import { resolve } from 'node:path';
 import { generateBrief } from '../mcp/stdio/brief/generator.js';
+import { writeUnresolvedCategorization } from '../mcp/stdio/freshness/unresolved-categorization.js';
 
 const [, , repoRootArg] = process.argv;
 if (!repoRootArg) {
@@ -11,12 +12,24 @@ if (!repoRootArg) {
 }
 const repoRoot = resolve(repoRootArg);
 const stats = generateBrief({ repoRoot });
+let unresolvedCategorization = null;
+try {
+  unresolvedCategorization = await writeUnresolvedCategorization({ repoRoot });
+} catch (err) {
+  unresolvedCategorization = { error: err.message };
+}
 console.log(`brief.md         ${stats.md_bytes}B (~${stats.md_tokens_est} tok)`);
 console.log(`brief.agent.md   ${stats.agent_bytes}B (~${stats.agent_tokens_est} tok)`);
 console.log(`brief.onboard.md ${stats.onboard_bytes}B (~${stats.onboard_tokens_est} tok)`);
 console.log(`brief.plan.md    ${stats.plan_bytes}B (~${stats.plan_tokens_est} tok)`);
 console.log(`brief.json       ${stats.json_bytes}B`);
 console.log(`wrote to ${repoRoot}/.aify-graph/`);
+if (unresolvedCategorization?.summary) {
+  const { external, fixable, shapeIssues, unclassified } = unresolvedCategorization.summary;
+  console.log(`unresolved categories external=${external} fixable=${fixable} shape=${shapeIssues} unclassified=${unclassified}`);
+} else if (unresolvedCategorization?.error) {
+  console.log(`unresolved categories skipped: ${unresolvedCategorization.error}`);
+}
 
 // Loud anchor validation: print ONLY when something is broken. Healthy
 // overlays (or no overlay at all) stay silent to keep output terse.

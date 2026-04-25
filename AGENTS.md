@@ -44,14 +44,22 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 
 **This step is not optional if you want the planning briefs to do work.** The empty-overlay case was measured (2026-04-19 deep bench): `brief.plan.md` shrinks to ~70 tokens of headers with no action-bearing content, and brief-only loses tokens vs live MCP on plan tasks. With a populated `.aify-graph/functionality.json`, plan briefs gain `open:/tests:/load:` per feature and brief-only wins plan tasks −19% tokens / −28% duration.
 
+Before the first index in a repo, do the hygiene check that `/graph-build-all`
+does: add `.aify-graph/` to `.gitignore`, and add repo-local scratch/build
+patterns to `.aifyignore` before graph generation if needed. Examples:
+`build-linux-techlead`, `generated/**`, `*.tmp.cpp`. This prevents local
+artifacts from entering the initial graph.
+
 On Claude Code:
 ```
-/graph-build-functionality
+/graph-build-all
 ```
-The skill reads the graph, drafts a `functionality.json` with feature anchors, and shows a diff for the user to accept. Takes 1-2 minutes and one user review pass.
+The skill checks ignore hygiene, builds the graph, drafts a `functionality.json`
+with feature anchors, and shows a diff for the user to accept. Takes 1-2
+minutes and one user review pass.
 
 On Codex:
-Use the shipped `graph-build-functionality` skill. Codex loads it from `~/.codex/skills/` after install; it is not a slash command, but the agent should follow it when the user asks to build or refresh the feature overlay.
+Use the shipped `graph-build-all` skill for first setup. Codex loads it from `~/.codex/skills/` after install; it is not a slash command, but the agent should follow it when the user asks to generate project graphs. Use `graph-build-functionality` later for overlay-only refreshes.
 
 On OpenCode (no skills), or if you want the manual fallback:
 ```bash

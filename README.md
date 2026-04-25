@@ -30,7 +30,7 @@ That's the entire install. The agent clones the repo to a pinned path (`~/.claud
 
 ## Usage in one sentence
 
-After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-build-all` skill builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief — see headline metrics at top of this README for runtime-specific numbers.
+After restart, in any repo you want to navigate, say **"generate project graphs"**. The `/graph-build-all` skill first checks repo hygiene (`.gitignore` / `.aifyignore`), then builds the code graph, all briefs, and a proposed functionality map. You review the diff, accept, and every future session auto-reads the brief — see headline metrics at top of this README for runtime-specific numbers.
 
 Important runtime behavior: **read verbs are snapshot-first**. The first query in a repo with no graph yet may bootstrap the initial snapshot. After that, reads should use the last completed graph snapshot and should not silently rebuild or mutate it during normal analysis. If the graph is incomplete or stale, the right move is an explicit `graph_index(force=true)` or relying on the static briefs until the rebuild is done.
 
@@ -82,7 +82,7 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 ## How it works
 
 ```
-1. Agent calls graph_index() (or any query verb — auto-indexes on first call)
+1. Agent checks `.gitignore` / `.aifyignore`, then calls graph_index() (or any query verb — auto-indexes on first call)
 2. Tree-sitter parses every source file in the repo
 3. Generic extractor emits nodes (Function, Class, File, Route, etc.) + edges (CALLS, IMPORTS, EXTENDS, etc.)
 4. Cross-file resolver links references across files

@@ -6,26 +6,27 @@ import { loadManifest } from './manifest.js';
 const CLASSIFIERS = [
   {
     bucket: 'external-by-design:node-builtin',
-    test: (r) => /^(node:|assert|buffer|child_process|crypto|events|fs|http|https|net|os|path|process|stream|url|util|zlib)(\.|$)/.test(r.target || ''),
+    test: (r) => r.relation === 'IMPORTS'
+      && /^(node:[A-Za-z0-9_./-]+|assert|buffer|child_process|crypto|events|fs|http|https|net|os|path|process|stream|url|util|zlib)(\.|$)/.test(r.target || ''),
   },
   {
     bucket: 'external-by-design:npm',
-    test: (r) => r.extractor === 'javascript' || r.extractor === 'typescript'
-      ? /^[a-z@][a-z0-9@/_.-]*$/.test((r.target || '').split('.')[0]) && !(r.target || '').includes('/')
+    test: (r) => (r.extractor === 'javascript' || r.extractor === 'typescript') && r.relation === 'IMPORTS'
+      ? /^[a-z@][a-z0-9@/_.-]*$/.test((r.target || '').split('.')[0])
       : false,
   },
   {
     bucket: 'external-by-design:python-stdlib',
-    test: (r) => r.extractor === 'python'
+    test: (r) => r.extractor === 'python' && r.relation === 'IMPORTS'
       && /^(os|sys|re|json|math|time|datetime|typing|collections|functools|itertools|logging|pathlib|unittest|pytest|asyncio|subprocess|threading|socket|abc|dataclasses|enum|warnings|contextlib|io)(\.|$)/.test(r.target || ''),
   },
   {
     bucket: 'external-by-design:pip',
-    test: (r) => r.extractor === 'python' && !(r.target || '').includes('/') && /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$/.test(r.target || ''),
+    test: (r) => r.extractor === 'python' && r.relation === 'IMPORTS' && !(r.target || '').includes('/') && /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$/.test(r.target || ''),
   },
   {
     bucket: 'external-by-design:cpp-system',
-    test: (r) => r.extractor === 'cpp' || r.extractor === 'c'
+    test: (r) => (r.extractor === 'cpp' || r.extractor === 'c')
       ? /^(std|boost|glm|vk|vma|vulkan|<|\w+\.h)/.test(r.target || '')
       : false,
   },

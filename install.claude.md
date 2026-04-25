@@ -101,7 +101,7 @@ done
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-build-all` skill will build everything in one pass (30-90 seconds). After that, every new session automatically reads the brief and saves you 1.5-2.9× wall-clock time. For narrower jobs: `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-feature-edit`, `/graph-task-edit`, `/graph-anchor-drift`, `/graph-pull-context`, `/graph-walk-bugs`, `/graph-dashboard`.
+> Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-build-all` skill first checks `.gitignore` / `.aifyignore`, then builds everything in one pass (30-90 seconds). After that, every new session automatically reads the brief and saves you 1.5-2.9× wall-clock time. For narrower jobs: `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-feature-edit`, `/graph-task-edit`, `/graph-anchor-drift`, `/graph-pull-context`, `/graph-walk-bugs`, `/graph-dashboard`.
 
 ## Verify (after restart — agent cannot do this before)
 

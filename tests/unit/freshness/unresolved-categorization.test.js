@@ -3,6 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildUnresolvedCategorization, classifyUnresolvedRef } from '../../../mcp/stdio/freshness/unresolved-categorization.js';
+import { countTrustRelevantDirtyEdges } from '../../../mcp/stdio/freshness/unresolved-metrics.js';
 
 describe('unresolved categorization', () => {
   let repoRoot;
@@ -48,5 +49,33 @@ describe('unresolved categorization', () => {
       source_file: 'engine/core/DayNightCycle.cpp',
       extractor: 'cpp',
     })).toBe('shape-issue:contains-missing-target');
+  });
+
+  it('classifies node builtins as external imports without treating normal calls as packages', () => {
+    expect(classifyUnresolvedRef({
+      relation: 'IMPORTS',
+      target: 'node:fs.promises',
+      source_file: 'src/a.js',
+      extractor: 'javascript',
+    })).toBe('external-by-design:node-builtin');
+
+    expect(classifyUnresolvedRef({
+      relation: 'CALLS',
+      target: 'set',
+      source_file: 'src/a.js',
+      extractor: 'javascript',
+    })).toBe('fixable:call-short-name');
+  });
+
+  it('counts only fixable or unclassified unresolved refs as trust-relevant', () => {
+    const refs = [
+      { relation: 'IMPORTS', target: 'node:path', extractor: 'javascript' },
+      { relation: 'IMPORTS', target: 'react', extractor: 'javascript' },
+      { relation: 'CONTAINS', target: '', extractor: 'cpp' },
+      { relation: 'CALLS', target: 'missingInternal', extractor: 'javascript' },
+      { relation: 'IMPORTS', target: './maybe-local.js', extractor: 'javascript' },
+    ];
+
+    expect(countTrustRelevantDirtyEdges(refs)).toBe(2);
   });
 });

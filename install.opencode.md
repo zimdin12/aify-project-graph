@@ -83,7 +83,7 @@ OpenCode does not load Claude-Code skill files. **Skip this step.**
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart OpenCode** so the MCP server loads. In any repo, call `graph_status()` — auto-indexes on first call. For the static-brief workflow (measured savings on orient tasks — see README for cross-tester numbers), run once per target repo:
+> Install done. **Restart OpenCode** so the MCP server loads. In any repo, first make sure `.gitignore` contains `.aify-graph/` and add local scratch/build patterns to `.aifyignore` when needed (`build-linux-techlead`, `generated/**`, `*.tmp.cpp`). Then call `graph_status()` or `graph_index(force=true)` to build the graph. For the static-brief workflow (measured savings on orient tasks — see README for cross-tester numbers), run once per target repo:
 >
 > ```bash
 > node "$CLONE_PATH/scripts/graph-brief.mjs" /path/to/your/repo

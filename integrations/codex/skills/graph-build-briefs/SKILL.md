@@ -1,11 +1,11 @@
 ---
 name: graph-build-briefs
-description: "Use when the user wants to regenerate the brief files (`.aify-graph/brief.{md,agent.md,onboard.md,plan.md,json}`) WITHOUT re-indexing the code graph or proposing functionality changes. Common case: user hand-edited `functionality.json` or `tasks.json` and wants briefs to reflect the change. Also fine after a `graph_index(force=true)` when you want fresh briefs immediately."
+description: "Use when the user wants to regenerate the brief files (`.aify-graph/brief.{md,agent.md,onboard.md,plan.md,json}`) and unresolved categorization WITHOUT re-indexing the code graph or proposing functionality changes. Common case: user hand-edited `functionality.json` or `tasks.json` and wants briefs to reflect the change. Also fine after a `graph_index(force=true)` when you want fresh briefs immediately."
 ---
 
 # graph-build-briefs
 
-Regenerate all five briefs from the existing code graph + overlay files. No re-indexing, no functionality proposal. Fast (2-5 seconds on most repos).
+Regenerate all five briefs and `.aify-graph/unresolved-categorization.json` from the existing code graph + overlay files. No re-indexing, no functionality proposal. Fast (2-5 seconds on most repos).
 
 ## When this skill is right
 
@@ -34,7 +34,7 @@ If you cannot find it, ask the user for the install path.
 node <CLONE_PATH>/scripts/graph-brief.mjs <TARGET_REPO>
 ```
 
-Output should show five file sizes and end with `wrote to <TARGET_REPO>/.aify-graph/`. Typical size (post-2026-04-21 Phase 1+3): `brief.agent.md` 300-1100 tokens (TOOLING / COVERS / EXPORTS / INTERNAL_HUBS / PATHS sections — PATHS adds 200-400 tokens when EXPORTS resolve to traceable handlers); `brief.plan.md` 300-600 tokens when functionality.json is populated, ~70 tokens when empty. If `brief.agent.md` exceeds ~1200 tokens the repo likely has an unusually large public API surface (many MCP verbs or routes) — inspect EXPORTS + PATHS sections.
+Output should show five file sizes, one unresolved-category summary line, and `wrote to <TARGET_REPO>/.aify-graph/`. Typical size (post-2026-04-21 Phase 1+3): `brief.agent.md` 300-1100 tokens (TOOLING / COVERS / EXPORTS / INTERNAL_HUBS / PATHS sections — PATHS adds 200-400 tokens when EXPORTS resolve to traceable handlers); `brief.plan.md` 300-600 tokens when functionality.json is populated, ~70 tokens when empty. If `brief.agent.md` exceeds ~1200 tokens the repo likely has an unusually large public API surface (many MCP verbs or routes) — inspect EXPORTS + PATHS sections.
 
 ### 3. Sanity-check the result
 

@@ -96,7 +96,7 @@ The skills auto-activate when the `graph_status` / `graph_pull` / `graph_index` 
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart Codex** so the MCP server loads. In any repo, call `graph_status()` — auto-indexes on first call. For the static-brief workflow (cross-tester 2026-04-20 matched-N on shell-accessible tasks: roughly parity aggregate on Codex due to prompt caching; the real Codex win is on overlay-dependent tasks where brief-only goes baseline 2/4 clean → brief 4/4 clean, −18% tokens, −51% duration), run this one-time setup per target repo:
+> Install done. **Restart Codex** so the MCP server loads. In any repo, first make sure `.gitignore` contains `.aify-graph/` and add local scratch/build patterns to `.aifyignore` when needed (`build-linux-techlead`, `generated/**`, `*.tmp.cpp`). Then say "generate project graphs" so the installed `graph-build-all` skill builds the graph, briefs, and functionality overlay. For the manual static-brief fallback, run:
 >
 > ```bash
 > node ~/.codex/plugins/aify-project-graph/scripts/graph-brief.mjs /path/to/your/repo
