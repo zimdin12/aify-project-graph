@@ -40,4 +40,9 @@ describe('ignored dir matching', () => {
       await rm(repoRoot, { recursive: true, force: true });
     }
   });
+
+  it('does not treat a source filename with a build prefix as an ignored directory', () => {
+    expect(pathContainsIgnoredDir('mcp/stdio/query/verbs/target_rollup.js')).toBe(false);
+    expect(pathContainsIgnoredDir('src/build_report.ts')).toBe(false);
+  });
 });

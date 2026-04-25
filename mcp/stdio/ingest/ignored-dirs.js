@@ -179,5 +179,13 @@ export function pathContainsIgnoredDir(path, ignoredDirs = IGNORED_DIRS) {
     return true;
   }
   const segments = normalized.split('/').filter(Boolean);
-  return segments.some((segment) => isIgnoredDirName(segment, ignoredDirs));
+  // Built-in ignored-dir rules are for directory segments only. Applying them
+  // to the final filename wrongly drops real sources like `target_rollup.js`
+  // because the basename starts with an ignored build prefix.
+  const dirSegments = normalized.endsWith('/')
+    ? segments
+    : normalized.includes('/')
+      ? segments.slice(0, -1)
+    : segments;
+  return dirSegments.some((segment) => isIgnoredDirName(segment, ignoredDirs));
 }

@@ -139,6 +139,46 @@ describe('freshness orchestrator', () => {
     }
   });
 
+  it('keeps real source files whose basenames start with target_/build_ prefixes', async () => {
+    await writeFile(join(repoRoot, 'src', 'target_rollup.js'), 'export function expandClassRollupTargets() {\n  return 1;\n}\n');
+    await writeFile(join(repoRoot, 'src', 'build_report.js'), 'export function buildReport() {\n  return 2;\n}\n');
+
+    getHeadCommit.mockResolvedValue('head-prefixed-files');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot, force: true });
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const fileNodes = db.all(`
+        SELECT file_path, type, label
+        FROM nodes
+        WHERE file_path IN ('src/target_rollup.js', 'src/build_report.js')
+        ORDER BY file_path, type
+      `);
+      const functionNodes = db.all(`
+        SELECT label, file_path, type
+        FROM nodes
+        WHERE label IN ('expandClassRollupTargets', 'buildReport')
+        ORDER BY label
+      `);
+
+      expect(fileNodes).toEqual(expect.arrayContaining([
+        expect.objectContaining({ file_path: 'src/target_rollup.js', type: 'File', label: 'target_rollup.js' }),
+        expect.objectContaining({ file_path: 'src/build_report.js', type: 'File', label: 'build_report.js' }),
+      ]));
+      expect(functionNodes).toEqual(expect.arrayContaining([
+        expect.objectContaining({ label: 'expandClassRollupTargets', file_path: 'src/target_rollup.js', type: 'Function' }),
+        expect.objectContaining({ label: 'buildReport', file_path: 'src/build_report.js', type: 'Function' }),
+      ]));
+    } finally {
+      db.close();
+    }
+  });
+
   it('preserves framework Route nodes while reindexing the backing route file', async () => {
     const fixtureRoot = join(process.cwd(), 'tests', 'fixtures', 'ingest', 'tiny-laravel-middleware');
     await mkdir(join(repoRoot, 'app', 'Http', 'Controllers'), { recursive: true });
