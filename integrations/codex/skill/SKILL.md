@@ -13,11 +13,13 @@ If `.aify-graph/brief.agent.md` exists, read it. ~300-1100 tokens of dense orien
 
 ## Use this verb order
 
-1. **`graph_packet(target)`** — one-shot agent prompt packet for a feature or task. Reads overlay+brief JSON directly, no SQL, no freshness rebuild. Returns 500-900 tokens: STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Pass `feature:<id>`, `task:<id>`, or a bare id. **First reach for any task scoped to a feature or task id.**
-2. **`graph_pull(node)`** — cross-layer pull when packet's static data isn't enough. Slower (may trigger ensureFresh).
-3. **`graph_consequences(target)`** — "what breaks if I touch X?" Cross-cutting planning.
-4. **`graph_change_plan(symbol)`** — risk gate before editing high-fan-in symbols.
+1. **`graph_packet(target)`** — one-shot agent prompt packet. Cheap + coarse. Reads overlay+brief JSON directly. Returns 500-900 tokens: STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Pass `feature:<id>`, `task:<id>`, or a bare symbol (auto-resolves via consequences). **Use for ORIENTATION** ("what's the shape of this feature/task?").
+2. **`graph_pull(node)`** — cross-layer pull when packet's static data isn't enough.
+3. **`graph_consequences(target)`** — "what breaks if I touch X?" Function-granular fan-out. **Use for CROSS-CUTTING PLANNING** when packet's coarse view loses precision.
+4. **`graph_change_plan(symbol)`** — risk gate before editing high-fan-in symbols. SIGNALS line + ranked READ ORDER. **Use for RISK ASSESSMENT** when packet says "this looks load-bearing."
 5. **Read source.** Always. Graph tells you *what connects*, source tells you *what the code does*.
+
+**Tradeoff:** packet is cheaper than change_plan/consequences (no SQL, no per-symbol query), but coarser. If packet's MATCHED VIA shows a symbol→feature mapping you want to drill into, escalate to change_plan or consequences. Default-routing everything to packet trades quality for cost — use it for orient, escalate for depth.
 
 Other verbs (`graph_path`, `graph_impact`, `graph_callers`, `graph_find`, `graph_whereis`, `graph_health`, `graph_status`, etc.) remain callable by name via `tools/call`. They're hidden from `tools/list` to reduce manifest token tax. Use them only on explicit precision questions.
 

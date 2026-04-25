@@ -1,0 +1,160 @@
+{
+  "commit": "afe886e",
+  "previous_commit": "ec3c65b",
+  "baseline_commit": "11286be",
+  "runtime": "Claude Code Opus 4.7 (1M)",
+  "date": "2026-04-26",
+  "method": "Final validation re-run of the same 8-task token-cost bench (postfix4 -> post-M4a -> final). Plan now closed: M0.5+M1+M2+M3+M4a+M4b+5 validation-gate fixes (commits b27f570..afe886e). Pre-bench gates: (1) graph_index({force:true}) -> nodes=1641 edges=4533 unresolved=2583. (2) graph_packet(target='ensureFresh', live:true) returned 'MATCHED VIA: symbol \"ensureFresh\" -> feature freshness' + 'LIVE: enriched (100ms)' + LAST TOUCHED block. PASS. (3) Trust agreement: graph_health -> trust='ok'; graph_packet SNAPSHOT line -> trust=weak. STILL DISAGREES (bug carried over from M4a, supposedly fixed in afe886e but not — see new_bugs).",
+  "pre_bench_verification": {
+    "rebuild": { "nodes": 1641, "edges": 4533, "unresolved_edges": 2583 },
+    "packet_symbol_fallback_works": true,
+    "packet_live_enriched_visible": true,
+    "trust_agreement": false,
+    "all_gates_passed": false,
+    "regression_vs_post_m4a": {
+      "nodes_delta": 4,
+      "edges_delta": 18,
+      "unresolved_delta": 12,
+      "note": "Tiny upward drift continues. Trust gate via graph_health still 'ok'."
+    }
+  },
+  "tasks": [
+    {
+      "id": "orient",
+      "prompt": "What is this repo about and what are its main exports?",
+      "graph": { "tokens_est": 920, "wall_ms": 240, "quality": 5, "calls": ["Read .aify-graph/brief.agent.md"], "notes": "Unchanged. Repo-level question — packet still N/A.", "delta_vs_post_m4a": 0 },
+      "no_graph": { "tokens_est": 2400, "wall_ms": 1200, "quality": 4, "calls": ["ls", "Read README.md", "Grep TOOLS"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "graph", "delta_pct": -61.7,
+      "packet_applicability": "no — repo-level"
+    },
+    {
+      "id": "trace",
+      "prompt": "How does graph_consequences work end-to-end? Trace the call flow.",
+      "graph": { "tokens_est": 1400, "wall_ms": 360, "quality": 4, "calls": ["graph_path(graphConsequences)"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "no_graph": { "tokens_est": 2600, "wall_ms": 900, "quality": 5, "calls": ["Grep graphConsequences", "Read consequences.js"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "no_graph", "delta_pct": 85.7
+    },
+    {
+      "id": "callers",
+      "prompt": "Who calls openExistingDb and from which files?",
+      "graph": { "tokens_est": 720, "wall_ms": 280, "quality": 5, "calls": ["graph_callers(openExistingDb, top_k=30)"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 600, "quality": 4, "calls": ["Grep openExistingDb"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "graph", "delta_pct": -20.0
+    },
+    {
+      "id": "impact",
+      "prompt": "What breaks if I refactor expandClassRollupTargets?",
+      "graph": {
+        "tokens_est": 980, "wall_ms": 410, "quality": 4,
+        "calls": ["graph_packet(target='expandClassRollupTargets', live:true)"],
+        "notes": "PARTIAL PACKET WIN. Symbol-target fallback (commit 98fd64e) now works: 'MATCHED VIA: symbol expandClassRollupTargets -> feature query-verbs'. Output is 320 chars (vs 1100-token graph_consequences). Token est drops 1100 -> 980 (-10.9%). However: quality drops 5 -> 4 because packet substitutes the parent feature shape and loses the function-granular fan-out / risk_flags that graph_consequences enumerates per-symbol. LIVE shows 'unavailable (no live data for this target)' for symbol targets — live enrichment hasn't been wired for the symbol-fallback path. delta_vs_post_m4a: -120 tokens, -1 quality.",
+        "delta_vs_post_m4a": -120
+      },
+      "no_graph": { "tokens_est": 1300, "wall_ms": 500, "quality": 5, "calls": ["Grep expandClassRollupTargets -n"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "graph", "delta_pct": -24.6,
+      "packet_applicability": "partial — symbol fallback works as cheap orientation but loses fan-out detail; for strict impact, graph_consequences still better"
+    },
+    {
+      "id": "plan",
+      "prompt": "I want to change ensureFresh — read order + risk?",
+      "graph": {
+        "tokens_est": 760, "wall_ms": 360, "quality": 4,
+        "calls": ["graph_packet(target='ensureFresh', live:true)"],
+        "notes": "PARTIAL PACKET WIN. Symbol fallback resolves to feature:freshness. Output 380 chars incl. LIVE last-touched commits (good). Token est 880 -> 760 (-13.6%). Quality drops 5 -> 4: packet's READ FIRST is glob ('mcp/stdio/freshness/*' — feature anchor) not ranked-by-caller-depth like graph_change_plan's READ ORDER, and there is no SIGNALS line (callers/deps/source-occurrence counts) and no RISK CONFIRM verdict. Acceptable for first-orientation; planner should still call graph_change_plan if depth needed. delta_vs_post_m4a: -120 tokens, -1 quality.",
+        "delta_vs_post_m4a": -120
+      },
+      "no_graph": { "tokens_est": 1500, "wall_ms": 700, "quality": 5, "calls": ["Grep ensureFresh count"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "graph", "delta_pct": -49.3,
+      "packet_applicability": "yes — symbol fallback now lands. Quality -1 vs change_plan; cost -13.6%. Good first-call, not full substitute."
+    },
+    {
+      "id": "cross_layer",
+      "prompt": "What features touch mcp/stdio/freshness/orchestrator.js and what tests cover them?",
+      "graph": {
+        "tokens_est": 1050, "wall_ms": 420, "quality": 4,
+        "calls": ["graph_packet(target='feature:freshness', live:true)"],
+        "notes": "Unchanged from post-M4a. CONTRACTS section now renders explicitly as 'CONTRACTS: none' (M4a/M4b empty-section fix in 98fd64e closed packet-missing-contracts-section bug).",
+        "delta_vs_post_m4a": 0
+      },
+      "no_graph": { "tokens_est": 1400, "wall_ms": 900, "quality": 4, "calls": ["Read functionality.json", "Grep tests"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "graph", "delta_pct": -25.0,
+      "packet_applicability": "yes — feature target"
+    },
+    {
+      "id": "health",
+      "prompt": "Is the graph fresh and trustworthy right now?",
+      "graph": { "tokens_est": 340, "wall_ms": 200, "quality": 5, "calls": ["graph_health()"], "notes": "Unchanged shape. unresolvedEdges=2583 (was 2571). trust=ok still.", "delta_vs_post_m4a": 0 },
+      "no_graph": { "tokens_est": 1100, "wall_ms": 800, "quality": 4, "calls": ["Read manifest.json", "git status"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "graph", "delta_pct": -69.1
+    },
+    {
+      "id": "debug",
+      "prompt": "Why does graph_impact return so many edges in some cases?",
+      "graph": { "tokens_est": 480, "wall_ms": 350, "quality": 1, "calls": ["graph_impact(graphImpact, depth=3)"], "notes": "Self-introspection limitation persists — known limitation, not addressed by M4a/M4b.", "delta_vs_post_m4a": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 500, "quality": 5, "calls": ["Read impact.js"], "notes": "Unchanged.", "delta_vs_post_m4a": 0 },
+      "winner": "no_graph", "delta_pct": 87.5
+    }
+  ],
+  "summary": {
+    "graph_won": 6,
+    "no_graph_won": 2,
+    "post_m4a_graph_won": 6,
+    "post_m4a_no_graph_won": 2,
+    "win_flip": "none — held at 6-2",
+    "graph_avg_token_delta_pct": -23.1,
+    "post_m4a_graph_avg_token_delta_pct": -21.0,
+    "delta_vs_previous": -2.1,
+    "graph_avg_quality": 4.0,
+    "no_graph_avg_quality": 4.5,
+    "graph_avg_quality_delta": -0.5,
+    "post_m4a_graph_avg_quality_delta": -0.25,
+    "quality_delta_change": -0.25,
+    "notes": "Win count holds at 6-2. Token delta improves modestly (-21.0% -> -23.1%, +2.1pp better) from PLAN and IMPACT now substituting graph_packet (cheaper but less detailed than change_plan/consequences). HOWEVER quality delta widens from -0.25 to -0.50 because packet symbol-fallback gives a coarser answer than change_plan/consequences. Trade is favorable only when the agent actually needs orientation, not depth."
+  },
+  "delta_vs_previous": {
+    "win_count": "6-2 -> 6-2 (flat)",
+    "net_token_delta_pct": "-21.0% -> -23.1% (improved by 2.1pp)",
+    "quality_delta": "-0.25 -> -0.50 (worse by 0.25 — packet is cheaper but coarser)",
+    "plan_packet_helped": "yes — symbol-target fallback (98fd64e) made graph_packet usable for raw symbol 'ensureFresh'. Token saving 13.6%, quality cost -1. Net depends on need.",
+    "impact_packet_helped": "yes — symbol fallback resolved 'expandClassRollupTargets' to feature:query-verbs. Token saving 10.9%, quality cost -1. Same caveat.",
+    "new_bugs_count": 3,
+    "bugs_fixed": [
+      "packet-symbol-target-rejection (was: 'target not found as feature or task') — FIXED in 98fd64e",
+      "packet-missing-contracts-section — FIXED in 98fd64e (renders 'CONTRACTS: none')",
+      "packet-live-non-json (feature:query-verbs) — DEGRADES GRACEFULLY now ('LIVE: unavailable (no live data for this target)') instead of returning a non-JSON error"
+    ]
+  },
+  "new_bugs_surfaced": [
+    {
+      "id": "packet-trust-still-disagrees-with-health",
+      "where": "graph_packet SNAPSHOT line vs graph_health trust",
+      "observed": "graph_health -> trust='ok'. graph_packet still prints 'trust=weak' in SNAPSHOT for the same snapshot. M4a flagged this; afe886e claimed to address it but the disagreement persists post-rebuild.",
+      "impact": "Validation gate 3 (trust agreement) FAILS. Agent reading packet underweights graph confidence."
+    },
+    {
+      "id": "packet-symbol-live-enrichment-missing",
+      "where": "graph_packet(target='<symbol>', live:true)",
+      "observed": "Symbol-fallback path returns 'LIVE: unavailable (no live data for this target; ~75ms)' for both ensureFresh (when targeted as raw symbol — works as feature:freshness) and expandClassRollupTargets. The feature-target path enriches; the symbol-fallback path does not, even though the resolved feature would.",
+      "impact": "PLAN/IMPACT lose the LAST TOUCHED commits block when called with a raw symbol. Easy fix: wire LIVE enrichment to use the resolved feature id rather than the raw target string."
+    },
+    {
+      "id": "packet-quality-regression-vs-symbol-verbs",
+      "where": "graph_packet vs graph_change_plan / graph_consequences for raw symbols",
+      "observed": "Packet symbol-fallback gives a parent-feature view (cheap, glob anchors, no SIGNALS line, no ranked READ ORDER). Quality measured -1 on PLAN and IMPACT vs the dedicated verbs.",
+      "impact": "If the skill steers agents toward packet as a default for symbols, average answer quality drops. Skill text should specify packet=orientation, change_plan/consequences=depth."
+    }
+  ],
+  "comparison_table": {
+    "graph_won_count":               { "post_m4a": 6,    "final": 6 },
+    "graph_avg_token_delta_pct":     { "post_m4a": -21.0,"final": -23.1 },
+    "graph_avg_quality_delta":       { "post_m4a": -0.25,"final": -0.50 },
+    "unresolved_edges":              { "post_m4a": 2571, "final": 2583 },
+    "trust_gate_health":             { "post_m4a": "ok", "final": "ok" },
+    "trust_gate_packet":             { "post_m4a": "weak", "final": "weak" },
+    "trust_agreement":               { "post_m4a": false, "final": false },
+    "packet_symbol_targets":         { "post_m4a": "rejected", "final": "fallback to parent feature" },
+    "packet_helped_plan":            { "post_m4a": false, "final": "yes (cost-only)" },
+    "packet_helped_impact":          { "post_m4a": false, "final": "yes (cost-only)" }
+  },
+  "recommendation": "Plan close-out is healthy on cost (-23.1% net tokens, +2.1pp vs M4a) and the major packet usability gaps are closed (symbol fallback, empty CONTRACTS section, LIVE non-JSON tolerance). But two items remain before declaring victory: (1) reconcile packet's SNAPSHOT trust with graph_health (validation gate 3 still fails); (2) wire LIVE enrichment to the resolved feature on symbol-fallback so PLAN/IMPACT get LAST TOUCHED. Skill text should also clarify: packet = first-orientation for symbols, change_plan/consequences = depth — otherwise the cost win comes at quality cost (-0.25 widening to -0.50)."
+}

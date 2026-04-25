@@ -15,6 +15,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { computeTrustLevel } from './health.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 
 // Section caps come first; the final token-estimate clamp is a safety
 // rail. Predictable shape → prompt-cache friendly.
@@ -179,8 +180,12 @@ function snapshotLine(brief, manifest, repoRoot) {
   const indexed = manifest?.commit ?? brief?.graph_commit ?? '?';
   const head = safeGitHead(repoRoot) ?? '?';
   const dirty = safeDirtyCount(repoRoot);
-  const unresolved = manifest?.dirtyEdgeCount ?? manifest?.dirtyEdges?.length ?? null;
-  const trust = trustTier(unresolved);
+  // Use the SAME getUnresolvedCounts() health.js uses, which prefers
+  // trust-relevant count (manifest.trustDirtyEdgeCount) over the raw
+  // total. Without this, packet's SNAPSHOT trust line disagreed with
+  // graph_health on the same snapshot (final-bench bug 1).
+  const { trust: trustCount } = getUnresolvedCounts(manifest ?? {});
+  const trust = manifest ? trustTier(trustCount) : 'missing';
   const stale = indexed !== '?' && head !== '?' && indexed !== head ? ' STALE' : '';
   return `SNAPSHOT: indexed=${shortSha(indexed)} head=${shortSha(head)} dirty=${dirty} trust=${trust}${stale}`;
 }
@@ -480,11 +485,20 @@ export async function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_t
   // Strict 2s budget. Timeout / unavailable both still leave the rest
   // of the packet usable.
   if (live) {
+    // For symbol-fallback path, prefer the ORIGINAL symbol target for
+    // graph_consequences (which expects symbol/file, not feature id).
+    // Without this, LIVE returned "unavailable" on symbol-fallback even
+    // when enrichment would have worked on the symbol directly
+    // (final-bench bug 2).
+    const enrichValue = matchedViaSymbol
+      ?? (resolvedFeature ? resolvedFeature.id : null)
+      ?? (resolvedTask ? resolvedTask.id : null)
+      ?? parsed.value;
     const enrich = await enrichLive({
       repoRoot,
       target,
       kind,
-      value: resolvedFeature?.id ?? resolvedTask?.id ?? parsed.value,
+      value: enrichValue,
       opts,
     });
     if (enrich.status === 'enriched') {
