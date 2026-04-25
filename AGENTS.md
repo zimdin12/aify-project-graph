@@ -82,6 +82,15 @@ Verb notes by profile:
 
 The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` to the target repo's `.gitignore` if not already present — the graph is derived and should never be committed. This is separate from `.aifyignore` / `.aifyinclude`, which control what the graph indexes, not what git tracks.
 
+## Team trust posture
+
+Treat the graph as a map, not as a verdict.
+
+- If `graph_health()` says the graph is stale, run `graph_index(force=true)` before using live graph results for planning or review.
+- If `TRUST` is `weak`, use graph output as a starting point for source reads. Do not approve a patch, delete code, or claim "nothing else uses this" based only on graph output.
+- On C++ / template-heavy / macro-heavy repos, expect false negatives in caller/callee and impact results. Pair graph queries with `rg` / file reads.
+- Good team pattern: ask the graph for likely callers, owners, features, tasks, and affected files; then verify the actual code and diffs before deciding.
+
 ## Static briefs (prefer over MCP for orient-shaped tasks)
 
 `.aify-graph/` also contains five precomputed brief artifacts that often answer orient/plan questions without a single MCP call:
