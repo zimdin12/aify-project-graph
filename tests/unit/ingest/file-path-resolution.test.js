@@ -108,4 +108,28 @@ describe('resolver — file-path suffix matching for IMPORTS', () => {
       for (const e of edges) expect(e.to_id).not.toBe('f1');
     });
   });
+
+  it('resolves deep relative JS import paths after extractor normalization', () => {
+    withTempDb((db) => {
+      insertNode(db, { id: 'target-file', type: 'File', label: 'target_rollup.js', file_path: 'mcp/stdio/query/verbs/target_rollup.js', language: 'javascript' });
+      insertNode(db, { id: 'test-file', type: 'File', label: 'query.test.js', file_path: 'tests/unit/query/query.test.js', language: 'javascript' });
+
+      const { edges, unresolved } = resolveRefs({
+        db,
+        refs: [{
+          from_id: 'test-file',
+          relation: 'IMPORTS',
+          target: 'mcp/stdio/query/verbs/target_rollup.js',
+          source_file: 'tests/unit/query/query.test.js',
+          source_line: 16,
+          confidence: 0.9,
+          extractor: 'javascript',
+        }],
+      });
+
+      expect(unresolved).toHaveLength(0);
+      expect(edges).toHaveLength(1);
+      expect(edges[0].to_id).toBe('target-file');
+    });
+  });
 });

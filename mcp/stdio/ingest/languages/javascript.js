@@ -1,15 +1,25 @@
+import { posix } from 'node:path';
 import TypeScript from 'tree-sitter-typescript';
 import { extractDecoratorReferences } from '../extractors/decorators.js';
 
-function normalizeImportSource(text) {
-  return text.replace(/^\.\/+|^\.\.\/+/u, '').replace(/\//g, '.');
+function normalizeImportSource(text, filePath) {
+  const raw = text.trim();
+  if (!raw) return '';
+  if (raw.startsWith('.')) {
+    const resolved = posix.normalize(posix.join(posix.dirname(filePath), raw));
+    return resolved.replace(/^\.\//u, '');
+  }
+  return raw;
 }
 
-function extractImportTargets({ node, source }) {
+function extractImportTargets({ node, source, filePath }) {
   const importClause = node.namedChildren.find((child) => child.type === 'import_clause');
   const sourceNode = node.namedChildren.find((child) => child.type === 'string');
   const sourceFragment = sourceNode?.namedChildren.find((child) => child.type === 'string_fragment');
-  const importSource = normalizeImportSource(source.slice(sourceFragment?.startIndex ?? 0, sourceFragment?.endIndex ?? 0));
+  const importSource = normalizeImportSource(
+    source.slice(sourceFragment?.startIndex ?? 0, sourceFragment?.endIndex ?? 0),
+    filePath,
+  );
 
   if (!importSource) return [];
   // Always emit the source itself so file-level IMPORTS edges resolve. Named

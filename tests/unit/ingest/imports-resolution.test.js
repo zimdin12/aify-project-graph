@@ -29,18 +29,18 @@ describe('IMPORTS extraction — source is always emitted as a target', () => {
 
     // Source-only targets — must be present so resolver can match to file nodes
     expect(targets).toContain('node:path');
-    expect(targets).toContain('helper.js');
-    expect(targets).toContain('default.js');
+    expect(targets).toContain('fixture/helper.js');
+    expect(targets).toContain('fixture/default.js');
 
     // Member-qualified targets — additional fine-grained matches
     expect(targets).toContain('node:path.join');
-    expect(targets).toContain('helper.js.helper');
+    expect(targets).toContain('fixture/helper.js.helper');
   });
 
   it('JS default-only import still emits the source', async () => {
     const result = await extract('tiny-javascript', 'app.js');
     const defaultImport = result.refs.find(
-      (r) => r.relation === 'IMPORTS' && r.target === 'default.js'
+      (r) => r.relation === 'IMPORTS' && r.target === 'fixture/default.js'
     );
     expect(defaultImport).toBeTruthy();
   });
@@ -54,5 +54,19 @@ describe('IMPORTS extraction — source is always emitted as a target', () => {
     // 3 import statements in app.js, each should emit >= 1 target.
     // Named imports emit source + N members, default emits just source.
     expect(imports.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('resolves deep relative JS imports against the importer path instead of flattening them', async () => {
+    const config = getLanguageConfig('tests/unit/query/query.test.js');
+    const source = "import { expandClassRollupTargets } from '../../../mcp/stdio/query/verbs/target_rollup.js';\n";
+    const result = extractFile({
+      filePath: 'tests/unit/query/query.test.js',
+      source,
+      config,
+    });
+    const imports = result.refs.filter((r) => r.relation === 'IMPORTS').map((r) => r.target);
+
+    expect(imports).toContain('mcp/stdio/query/verbs/target_rollup.js');
+    expect(imports).not.toContain('mcp.stdio.query.verbs.target_rollup.js');
   });
 });

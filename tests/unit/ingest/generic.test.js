@@ -235,8 +235,8 @@ describe('generic extractor', () => {
       config: typescript,
     });
 
-    expect(findRef(result.refs, 'IMPORTS', 'main.ts', 'helpers.foo')).toBeTruthy();
-    expect(findRef(result.refs, 'IMPORTS', 'main.ts', 'helpers.bar')).toBeTruthy();
+    expect(findRef(result.refs, 'IMPORTS', 'main.ts', 'src/helpers.foo')).toBeTruthy();
+    expect(findRef(result.refs, 'IMPORTS', 'main.ts', 'src/helpers.bar')).toBeTruthy();
   });
 
   it('emits USES_TYPE refs for signature annotations without downgrading them to REFERENCES', () => {
