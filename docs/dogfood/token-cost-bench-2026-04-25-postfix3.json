@@ -1,0 +1,120 @@
+{
+  "commit": "d918cbc",
+  "previous_commit": "430b9bb",
+  "baseline_commit": "27f4d86",
+  "runtime": "Claude Code Opus 4.7 (1M)",
+  "date": "2026-04-25",
+  "method": "Re-ran identical 8-task dev-question benchmark from token-cost-bench-2026-04-25-postfix2.json against commit d918cbc (claimed ingest-side relative-path resolver fix). Forced graph_index(force=true) before measurement. delta_vs_postfix2 = postfix3 tokens_est minus postfix2 tokens_est. Index state after rebuild: nodes=1573 edges=4068 unresolved=3218 (down from 9401 in postfix2 — significant resolver improvement). Trust still weak.",
+  "tasks": [
+    {
+      "id": "orient",
+      "prompt": "What is this repo about and what are its main exports?",
+      "graph": { "tokens_est": 920, "wall_ms": 240, "quality": 5, "calls": ["Read .aify-graph/brief.agent.md"], "notes": "Unchanged. Brief still ok (briefStaleVsManifest still flagged).", "delta_vs_postfix2": 0 },
+      "no_graph": { "tokens_est": 2400, "wall_ms": 1200, "quality": 4, "calls": ["ls", "Read README.md", "Grep TOOLS"], "notes": "Unchanged.", "delta_vs_postfix2": 0 },
+      "winner": "graph", "delta_pct": -61.7
+    },
+    {
+      "id": "trace",
+      "prompt": "How does graph_consequences work end-to-end? Trace the call flow.",
+      "graph": { "tokens_est": 1400, "wall_ms": 360, "quality": 4, "calls": ["graph_path(graphConsequences)"], "notes": "Same call tree as postfix2. consequences.js:225 -> getDirtyFiles/hasOverlay/inspectReadFreshness -> ensureFresh. AMBIGUOUS still present on stdout edge.", "delta_vs_postfix2": 0 },
+      "no_graph": { "tokens_est": 2600, "wall_ms": 900, "quality": 5, "calls": ["Grep graphConsequences", "Read consequences.js"], "notes": "Unchanged.", "delta_vs_postfix2": 0 },
+      "winner": "no_graph", "delta_pct": 85.7
+    },
+    {
+      "id": "callers",
+      "prompt": "Who calls openExistingDb and from which files?",
+      "graph": { "tokens_est": 720, "wall_ms": 280, "quality": 5, "calls": ["graph_callers(openExistingDb, top_k=30)"], "notes": "21 CALLS edges, all conf=0.90, file+line per edge. Identical to postfix2.", "delta_vs_postfix2": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 600, "quality": 4, "calls": ["Grep openExistingDb"], "notes": "Unchanged.", "delta_vs_postfix2": 0 },
+      "winner": "graph", "delta_pct": -20.0
+    },
+    {
+      "id": "impact",
+      "prompt": "What breaks if I refactor expandClassRollupTargets?",
+      "graph": {
+        "tokens_est": 1100, "wall_ms": 410, "quality": 3,
+        "calls": ["graph_consequences(expandClassRollupTargets)"],
+        "notes": "BUG B FIX STILL DID NOT LAND. After force-reindex at d918cbc: tests_adjacent: [], risk_flags still contains 'no_test_coverage'. Direct SQLite inspection: still only 3 IMPORTS edges into target_rollup.js (callers/change_plan/impact). tests/unit/query/query.test.js has ZERO IMPORTS edges in the entire store. The 'ingest-side relative-path resolver fix' applies only to fixture files (tests/fixtures/...) — no real test file under tests/unit/** or tests/integration/** emits any IMPORTS edges (counted: 0 of 163 edges from tests/unit/* are IMPORTS). Real bug is one layer earlier than the resolver: the JS extractor does not emit IMPORTS edges from real test files at all — likely the ESM import-detection pass skips them or their language-extractor path bypasses the IMPORTS emit step.",
+        "delta_vs_postfix2": 0
+      },
+      "no_graph": { "tokens_est": 1300, "wall_ms": 500, "quality": 5, "calls": ["Grep expandClassRollupTargets -n"], "notes": "Unchanged — finds 3 test files immediately.", "delta_vs_postfix2": 0 },
+      "winner": "no_graph", "delta_pct": 18.2,
+      "expected_quality_rise": "3 -> 4 or 5",
+      "actual_quality_rise": "3 -> 3 (no change — fix did not land in real test files)"
+    },
+    {
+      "id": "plan",
+      "prompt": "I want to change ensureFresh — read order + risk?",
+      "graph": {
+        "tokens_est": 850, "wall_ms": 360, "quality": 4,
+        "calls": ["graph_change_plan(ensureFresh)"],
+        "notes": "RISK CONFIRM, 4 callers, 0 test files. SIGNALS HONESTY CAVEAT STILL NOT VISIBLE. SIGNALS line still reads 'SIGNALS 4 caller(s), 6 dependency file(s), 0 test file(s)' with no qualifier. Verdict (CONFIRM) still correct, planner action unchanged. Note: TRUST line now shows '3560 unresolved edges' vs 3218 from graph_health() — slight count drift suggests ensureFresh re-counted post-snapshot.",
+        "delta_vs_postfix2": 0
+      },
+      "no_graph": { "tokens_est": 1500, "wall_ms": 700, "quality": 5, "calls": ["Grep ensureFresh count"], "notes": "Unchanged.", "delta_vs_postfix2": 0 },
+      "winner": "graph", "delta_pct": -43.3
+    },
+    {
+      "id": "cross_layer",
+      "prompt": "What features touch mcp/stdio/freshness/orchestrator.js and what tests cover them?",
+      "graph": { "tokens_est": 1200, "wall_ms": 460, "quality": 4, "calls": ["graph_pull(node=mcp/stdio/freshness/orchestrator.js)"], "notes": "Same as postfix2: 11 code symbols, feature=freshness, 5 recent commits, tasks=[]. No tests layer surfaced.", "delta_vs_postfix2": 0 },
+      "no_graph": { "tokens_est": 1400, "wall_ms": 900, "quality": 4, "calls": ["Read functionality.json", "Grep tests"], "notes": "Unchanged.", "delta_vs_postfix2": 0 },
+      "winner": "graph", "delta_pct": -14.3
+    },
+    {
+      "id": "health",
+      "prompt": "Is the graph fresh and trustworthy right now?",
+      "graph": { "tokens_est": 320, "wall_ms": 200, "quality": 5, "calls": ["graph_health()"], "notes": "nodes=1573 edges=4068 trust=weak (3218 unresolved) fresh overlay=clean (8 features) brief-stale. Unresolved-edge count REGRESSED from 9401 (postfix2) back DOWN to 3218 — significant resolver throughput improvement, roughly 2.9x fewer unresolved edges. This is the headline win of d918cbc.", "delta_vs_postfix2": 0 },
+      "no_graph": { "tokens_est": 1100, "wall_ms": 800, "quality": 4, "calls": ["Read manifest.json", "git status"], "notes": "Unchanged.", "delta_vs_postfix2": 0 },
+      "winner": "graph", "delta_pct": -70.9
+    },
+    {
+      "id": "debug",
+      "prompt": "Why does graph_impact return so many edges in some cases?",
+      "graph": { "tokens_est": 480, "wall_ms": 350, "quality": 1, "calls": ["graph_impact(graphImpact, depth=3)"], "notes": "Same as postfix2: 'NO IMPACT — no edges found for graphImpact'. Verb-handler self-introspection limit unchanged.", "delta_vs_postfix2": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 500, "quality": 5, "calls": ["Read impact.js"], "notes": "Unchanged.", "delta_vs_postfix2": 0 },
+      "winner": "no_graph", "delta_pct": 87.5
+    }
+  ],
+  "summary": {
+    "graph_won": 5,
+    "no_graph_won": 3,
+    "postfix2_graph_won": 5,
+    "postfix2_no_graph_won": 3,
+    "win_flip": "none — same 5-3 split as postfix1 and postfix2",
+    "graph_avg_token_delta_pct": -2.4,
+    "postfix2_graph_avg_token_delta_pct": -2.4,
+    "token_delta_change_pp": 0.0,
+    "graph_avg_quality": 3.875,
+    "no_graph_avg_quality": 4.5,
+    "graph_avg_quality_delta": -0.625,
+    "postfix2_graph_avg_quality_delta": -0.625,
+    "quality_delta_change": 0.0,
+    "notes": "Zero observable delta vs postfix2 on the 8-task surface. The cleanest measurement yet (resolver throughput restored) but the IMPACT/PLAN deliverables of recent commits still don't show up in user-visible output."
+  },
+  "fix_verification": {
+    "ingest_side_relative_path_resolver": {
+      "expected": "Real test files (tests/unit/**, tests/integration/**) emit IMPORTS edges to source files they import; graph_consequences(expandClassRollupTargets).tests_adjacent populates with tests/unit/query/query.test.js.",
+      "observed": "PARTIALLY LANDED. Resolver throughput improved across the codebase (unresolved-edge count dropped from 9401 to 3218, ~2.9x). However, real test files still emit ZERO IMPORTS edges. Direct SQLite inspection: of 163 edges originating in tests/unit/*, the breakdown is CALLS=52, CONTAINS=49, DEFINES=35, REFERENCES=27, IMPORTS=0. The only test-file IMPORTS edges in the entire store (19 total) are from tests/fixtures/ingest/tiny-* fixture files. The resolver fix did not reach the real-test-file code path — likely the JS extractor's ESM import-detection step is gated on something fixtures pass and unit tests fail (file-naming pattern? import statement shape with ../../../ depth? mock setup vs real import?).",
+      "status": "resolver_fixed_but_imports_pass_for_real_tests_still_blocked"
+    },
+    "signals_honesty_caveat": {
+      "expected": "graph_change_plan output annotates SIGNALS line with under-report caveat (e.g., 'graph-detected; rg may show more').",
+      "observed": "Still not visible on the ensureFresh case. SIGNALS line text unchanged from postfix1/postfix2: 'SIGNALS 4 caller(s), 6 dependency file(s), 0 test file(s)'. Either the heuristic is gated and didn't fire here, or wiring is incomplete. No code path was inspected this run — flagging as carry-over.",
+      "status": "not_observed"
+    }
+  },
+  "new_findings": [
+    "MAJOR WIN (silent): unresolved-edge count restored from 9401 (postfix2) to 3218 (postfix3) at d918cbc. The resolver throughput regression introduced between 1c32046 and 430b9bb is fixed. Trust still weak by threshold but the absolute number is now BETTER than the postfix1 baseline (4537).",
+    "Real-test-file IMPORTS edges remain at zero. The 'ingest-side relative-path resolver' fix is real and helps general code, but does not bridge the test-file IMPORTS-emit gap. Bug B requires a separate fix in the language extractor's import-detection pass for real test files (not just fixtures).",
+    "Slight count drift: graph_health() reports 3218 unresolved while graph_change_plan TRUST line reports 3560 — same session, no rebuild between calls. Suggests change_plan re-runs ensureFresh-style accounting that includes some transient/dirty-edge layer the health snapshot omits. Worth a follow-up to align the two counters."
+  ],
+  "comparison_table": {
+    "unresolved_edges": { "postfix1": 4537, "postfix2": 9401, "postfix3": 3218 },
+    "graph_won_count": { "postfix1": 5, "postfix2": 5, "postfix3": 5 },
+    "graph_avg_token_delta_pct": { "postfix1": -2.4, "postfix2": -2.4, "postfix3": -2.4 },
+    "graph_avg_quality_delta": { "postfix1": -0.625, "postfix2": -0.625, "postfix3": -0.625 },
+    "impact_quality": { "postfix1": 3, "postfix2": 3, "postfix3": 3 },
+    "plan_signals_caveat_visible": { "postfix1": false, "postfix2": false, "postfix3": false }
+  },
+  "recommendation": "The d918cbc commit clearly improved resolver throughput (unresolved-edge count is the lowest on record at 3218, beating even the original postfix1 baseline). But on the 8-task user-visible surface the bench is identical to postfix1/postfix2: same 5-3 win, same -2.4% token delta, same -0.625 quality delta, same IMPACT quality 3/5. To move IMPACT quality up: fix the language extractor's IMPORTS-emit pass for real (non-fixture) test files. To make the SIGNALS caveat visible: confirm wiring in change_plan.js output formatting and verify the trigger heuristic actually fires on common cases like ensureFresh."
+}
