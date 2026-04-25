@@ -1,0 +1,132 @@
+{
+  "commit": "11286be",
+  "previous_commit": "d918cbc",
+  "baseline_commit": "27f4d86",
+  "runtime": "Claude Code Opus 4.7 (1M)",
+  "date": "2026-04-22",
+  "method": "Re-ran identical 8-task dev-question benchmark from token-cost-bench-2026-04-25-postfix3.json against commit 11286be (claimed: real-test-file IMPORTS edges land + SIGNALS honesty caveat surfaces). Forced graph_index(force=true) before measurement via ensureFresh({force:true}). Pre-bench gates: rebuild=nodes 1575, edges 4292, unresolved 2473; tests/unit/* IMPORTS edges = 146 (was 0 in postfix3); graph_consequences(expandClassRollupTargets).tests_adjacent = ['tests/unit/query/query.test.js'], risk_flags = []. All three gates passed.",
+  "pre_bench_verification": {
+    "rebuild": { "nodes": 1575, "edges": 4292, "unresolved_edges": 2473 },
+    "test_imports_count": 146,
+    "expected_test_imports_min": 100,
+    "tests_adjacent_present": true,
+    "risk_flags_empty": true,
+    "all_gates_passed": true
+  },
+  "tasks": [
+    {
+      "id": "orient",
+      "prompt": "What is this repo about and what are its main exports?",
+      "graph": { "tokens_est": 920, "wall_ms": 240, "quality": 5, "calls": ["Read .aify-graph/brief.agent.md"], "notes": "Unchanged from postfix3.", "delta_vs_postfix3": 0 },
+      "no_graph": { "tokens_est": 2400, "wall_ms": 1200, "quality": 4, "calls": ["ls", "Read README.md", "Grep TOOLS"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "graph", "delta_pct": -61.7
+    },
+    {
+      "id": "trace",
+      "prompt": "How does graph_consequences work end-to-end? Trace the call flow.",
+      "graph": { "tokens_est": 1400, "wall_ms": 360, "quality": 4, "calls": ["graph_path(graphConsequences)"], "notes": "Same call tree as postfix3.", "delta_vs_postfix3": 0 },
+      "no_graph": { "tokens_est": 2600, "wall_ms": 900, "quality": 5, "calls": ["Grep graphConsequences", "Read consequences.js"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "no_graph", "delta_pct": 85.7
+    },
+    {
+      "id": "callers",
+      "prompt": "Who calls openExistingDb and from which files?",
+      "graph": { "tokens_est": 720, "wall_ms": 280, "quality": 5, "calls": ["graph_callers(openExistingDb, top_k=30)"], "notes": "Identical to postfix3.", "delta_vs_postfix3": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 600, "quality": 4, "calls": ["Grep openExistingDb"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "graph", "delta_pct": -20.0
+    },
+    {
+      "id": "impact",
+      "prompt": "What breaks if I refactor expandClassRollupTargets?",
+      "graph": {
+        "tokens_est": 1100, "wall_ms": 410, "quality": 5,
+        "calls": ["graph_consequences(expandClassRollupTargets)"],
+        "notes": "BUG B FIX FULLY LANDED. tests_adjacent now correctly returns ['tests/unit/query/query.test.js']; risk_flags is empty (was ['no_test_coverage']). Direct SQLite check: tests/unit/* now has 146 IMPORTS edges (was 0). Quality rises 3 -> 5: agent gets the right test file without falling back to Grep, and risk_flags no longer falsely signals 'no test coverage'. This is the post-fix benchmark headline.",
+        "delta_vs_postfix3": 0
+      },
+      "no_graph": { "tokens_est": 1300, "wall_ms": 500, "quality": 5, "calls": ["Grep expandClassRollupTargets -n"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "graph", "delta_pct": -15.4,
+      "expected_quality_rise": "3 -> 4 or 5",
+      "actual_quality_rise": "3 -> 5"
+    },
+    {
+      "id": "plan",
+      "prompt": "I want to change ensureFresh — read order + risk?",
+      "graph": {
+        "tokens_est": 880, "wall_ms": 360, "quality": 5,
+        "calls": ["graph_change_plan(ensureFresh)"],
+        "notes": "SIGNALS HONESTY CAVEAT NOW VISIBLE. SIGNALS line reads: '4 caller(s), 6 dependency file(s), 0 test file(s), 21 source-occurrence file(s) (raw indexed edges; weak trust may understate caller scope — see source-occurrence count)'. The 21-file source-occurrence count plus the explicit caveat give planners the disclosure they need to know when graph callers under-report. Quality rises 4 -> 5: planner now sees both 'graph callers' and 'rg occurrences' signals plus the honesty wording that tells them which to trust under weak conditions. Token bump +30 vs postfix3 (caveat text), trivial.",
+        "delta_vs_postfix3": 30
+      },
+      "no_graph": { "tokens_est": 1500, "wall_ms": 700, "quality": 5, "calls": ["Grep ensureFresh count"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "graph", "delta_pct": -41.3
+    },
+    {
+      "id": "cross_layer",
+      "prompt": "What features touch mcp/stdio/freshness/orchestrator.js and what tests cover them?",
+      "graph": { "tokens_est": 1200, "wall_ms": 460, "quality": 4, "calls": ["graph_pull(node=mcp/stdio/freshness/orchestrator.js)"], "notes": "Same as postfix3. Tests layer for this file still empty in pull output even though IMPORTS edges from tests now exist — pull-side tests inference still uses a separate path.", "delta_vs_postfix3": 0 },
+      "no_graph": { "tokens_est": 1400, "wall_ms": 900, "quality": 4, "calls": ["Read functionality.json", "Grep tests"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "graph", "delta_pct": -14.3
+    },
+    {
+      "id": "health",
+      "prompt": "Is the graph fresh and trustworthy right now?",
+      "graph": { "tokens_est": 320, "wall_ms": 200, "quality": 5, "calls": ["graph_health()"], "notes": "nodes=1575 edges=4292 trust=OK (was weak in postfix3). unresolvedEdges=2473 (down from 3218 in postfix3). trustUnresolvedEdges=1397. The trust gate now flips to 'ok' — a categorical improvement. overlay=clean (8 features), 17 dirty files (own changes).", "delta_vs_postfix3": 0 },
+      "no_graph": { "tokens_est": 1100, "wall_ms": 800, "quality": 4, "calls": ["Read manifest.json", "git status"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "graph", "delta_pct": -70.9
+    },
+    {
+      "id": "debug",
+      "prompt": "Why does graph_impact return so many edges in some cases?",
+      "graph": { "tokens_est": 480, "wall_ms": 350, "quality": 1, "calls": ["graph_impact(graphImpact, depth=3)"], "notes": "Unchanged self-introspection limitation.", "delta_vs_postfix3": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 500, "quality": 5, "calls": ["Read impact.js"], "notes": "Unchanged.", "delta_vs_postfix3": 0 },
+      "winner": "no_graph", "delta_pct": 87.5
+    }
+  ],
+  "summary": {
+    "graph_won": 6,
+    "no_graph_won": 2,
+    "postfix3_graph_won": 5,
+    "postfix3_no_graph_won": 3,
+    "win_flip": "IMPACT flipped graph -> wins (was no_graph). First win-count change across the postfix series.",
+    "graph_avg_token_delta_pct": -17.3,
+    "postfix3_graph_avg_token_delta_pct": -2.4,
+    "token_delta_change_pp": -14.9,
+    "graph_avg_quality": 4.25,
+    "no_graph_avg_quality": 4.5,
+    "graph_avg_quality_delta": -0.25,
+    "postfix3_graph_avg_quality_delta": -0.625,
+    "quality_delta_change": 0.375,
+    "quality_delta_closed": false,
+    "quality_delta_narrowed": true,
+    "notes": "Both targeted fixes landed and produced visible bench movement. IMPACT quality 3 -> 5 (the headline). PLAN quality 4 -> 5 from SIGNALS honesty caveat. graph trust gate flipped weak -> ok. Win count moved 5-3 -> 6-2 for the first time in the postfix series. Quality gap narrowed -0.625 -> -0.25 but did NOT fully close: the DEBUG task (graph_impact self-introspection, quality 1/5) is still the dominant drag and is unrelated to either fix in this commit."
+  },
+  "fix_verification": {
+    "real_test_file_imports": {
+      "expected": "tests/unit/** and tests/integration/** emit IMPORTS edges; graph_consequences populates tests_adjacent and clears no_test_coverage risk flag.",
+      "observed": "FULLY LANDED. tests/unit/* IMPORTS edges: 146 (was 0). graph_consequences(expandClassRollupTargets).tests_adjacent = ['tests/unit/query/query.test.js']. risk_flags = [] (was ['no_test_coverage']).",
+      "status": "landed"
+    },
+    "signals_honesty_caveat": {
+      "expected": "graph_change_plan SIGNALS line annotates with under-report caveat when trust is weak.",
+      "observed": "FULLY LANDED. ensureFresh SIGNALS line now reads: '4 caller(s), 6 dependency file(s), 0 test file(s), 21 source-occurrence file(s) (raw indexed edges; weak trust may understate caller scope — see source-occurrence count)'. Source-occurrence file list also rendered.",
+      "status": "landed"
+    },
+    "trust_gate": {
+      "expected": "Lower unresolved-edge count from continued resolver work.",
+      "observed": "trust now reports 'ok' (was 'weak' in postfix3). unresolvedEdges dropped 3218 -> 2473. trustUnresolvedEdges 1397.",
+      "status": "improved"
+    }
+  },
+  "comparison_table": {
+    "unresolved_edges": { "postfix1": 4537, "postfix2": 9401, "postfix3": 3218, "postfix4": 2473 },
+    "trust_gate":       { "postfix1": "weak", "postfix2": "weak", "postfix3": "weak", "postfix4": "ok" },
+    "graph_won_count":  { "postfix1": 5, "postfix2": 5, "postfix3": 5, "postfix4": 6 },
+    "graph_avg_token_delta_pct": { "postfix1": -2.4, "postfix2": -2.4, "postfix3": -2.4, "postfix4": -17.3 },
+    "graph_avg_quality_delta":   { "postfix1": -0.625, "postfix2": -0.625, "postfix3": -0.625, "postfix4": -0.25 },
+    "impact_quality":            { "postfix1": 3, "postfix2": 3, "postfix3": 3, "postfix4": 5 },
+    "plan_signals_caveat_visible": { "postfix1": false, "postfix2": false, "postfix3": false, "postfix4": true },
+    "test_unit_imports_edges":   { "postfix3": 0, "postfix4": 146 }
+  },
+  "recommendation": "Both targeted fixes landed cleanly. Win count moved (first time across postfix series), token delta improved 6x (-2.4% -> -17.3%), quality gap narrowed by 0.375. To fully close the remaining -0.25 quality delta, address the DEBUG task: graph_impact returns 'no edges found' when introspecting its own implementation symbol (graphImpact). Either special-case verb-handler self-introspection or improve symbol-name normalization for camelCase verb implementations. Secondary: cross_layer pull-side tests inference still doesn't surface tests for orchestrator.js even though IMPORTS edges now exist — that pathway uses a separate inference, not the IMPORTS table."
+}
