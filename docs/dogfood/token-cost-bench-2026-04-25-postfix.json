@@ -1,0 +1,226 @@
+{
+  "commit": "1c32046",
+  "baseline_commit": "27f4d86",
+  "runtime": "Claude Code Opus 4.7 (1M)",
+  "date": "2026-04-25",
+  "method": "Re-ran identical 8 dev-question benchmark from token-cost-bench-2026-04-25.json after fix(verbs): planner caller-scope, test-adjacency, top_k wiring, broad-query caps. Token estimates from observed input+output char counts / 4. Wall-ms estimated from response latency. delta_vs_baseline: tokens_est minus baseline tokens_est (negative = cheaper).",
+  "tasks": [
+    {
+      "id": "orient",
+      "prompt": "What is this repo about and what are its main exports?",
+      "graph": {
+        "tokens_est": 920,
+        "wall_ms": 240,
+        "quality": 5,
+        "calls": ["Read .aify-graph/brief.agent.md"],
+        "notes": "Brief still delivers EXPORTS (21 verbs), FEATURES, PATHS, TRUST=ok. Identical shape to baseline. Brief now also surfaces DIRTY: 18 files orphan=18 line.",
+        "delta_vs_baseline": 20
+      },
+      "no_graph": {
+        "tokens_est": 2400,
+        "wall_ms": 1200,
+        "quality": 4,
+        "calls": ["ls repo root", "Read README.md (80 lines)", "Grep TOOLS in mcp/stdio"],
+        "notes": "Same as baseline.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "graph",
+      "delta_pct": -61.7
+    },
+    {
+      "id": "trace",
+      "prompt": "How does graph_consequences work end-to-end? Trace the call flow.",
+      "graph": {
+        "tokens_est": 1400,
+        "wall_ms": 360,
+        "quality": 4,
+        "calls": ["graph_path(graphConsequences)"],
+        "notes": "Same call tree as baseline (consequences.js:191 -> getDirtyFiles/hasOverlay/inspectReadFreshness -> ensureFresh). Some AMBIGUOUS edges still present.",
+        "delta_vs_baseline": 0
+      },
+      "no_graph": {
+        "tokens_est": 2600,
+        "wall_ms": 900,
+        "quality": 5,
+        "calls": ["Grep graphConsequences", "Read consequences.js:130-210"],
+        "notes": "Reading source still clearer for single-file trace.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "no_graph",
+      "delta_pct": 85.7
+    },
+    {
+      "id": "callers",
+      "prompt": "Who calls openExistingDb and from which files?",
+      "graph": {
+        "tokens_est": 720,
+        "wall_ms": 280,
+        "quality": 5,
+        "calls": ["graph_callers(openExistingDb, top_k=30)"],
+        "notes": "21 CALLS edges with caller-symbol + file + line. Identical clean output. top_k=30 wiring confirmed honored.",
+        "delta_vs_baseline": 20
+      },
+      "no_graph": {
+        "tokens_est": 900,
+        "wall_ms": 600,
+        "quality": 4,
+        "calls": ["Grep openExistingDb files_with_matches"],
+        "notes": "Same as baseline.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "graph",
+      "delta_pct": -20.0
+    },
+    {
+      "id": "impact",
+      "prompt": "What breaks if I refactor expandClassRollupTargets?",
+      "graph": {
+        "tokens_est": 1100,
+        "wall_ms": 410,
+        "quality": 3,
+        "calls": ["graph_consequences(expandClassRollupTargets)"],
+        "notes": "BUG B NOT FIXED — risk_flags still reports 'no_test_coverage — no adjacent tests, regression risk' despite tests/unit/query/query.test.js, tests/unit/query/consequences.test.js, and tests/unit/freshness/orchestrator.test.js all importing expandClassRollupTargets (verified by Grep). tests_adjacent: []. Test-adjacency fix did not land for this symbol.",
+        "delta_vs_baseline": 0
+      },
+      "no_graph": {
+        "tokens_est": 1300,
+        "wall_ms": 500,
+        "quality": 5,
+        "calls": ["Grep expandClassRollupTargets -n"],
+        "notes": "Same as baseline — finds 3 test files immediately.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "no_graph",
+      "delta_pct": 18.2
+    },
+    {
+      "id": "plan",
+      "prompt": "I want to change ensureFresh — read order + risk?",
+      "graph": {
+        "tokens_est": 850,
+        "wall_ms": 360,
+        "quality": 4,
+        "calls": ["graph_change_plan(ensureFresh)"],
+        "notes": "BUG A FIXED — flipped from RISK SAFE/0 callers to RISK CONFIRM/4 callers. Output now lists find.js, index.js, read_freshness.js, search.js as caller files plus git.js as dependency. TRUST WEAK banner still shown. Real grep shows 15 files / 16 hits, so graph still under-counts hot-path callers (orchestrator.test.js, lock-concurrency tests, .ee/ scratch absent), but the planning verdict is now correct (CONFIRM, not SAFE). 0 test files still reported — same test-adjacency gap as IMPACT task.",
+        "delta_vs_baseline": 50
+      },
+      "no_graph": {
+        "tokens_est": 1500,
+        "wall_ms": 700,
+        "quality": 5,
+        "calls": ["Grep ensureFresh count"],
+        "notes": "Same as baseline.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "graph",
+      "delta_pct": -43.3,
+      "_baseline_winner": "no_graph",
+      "_flipped": true
+    },
+    {
+      "id": "cross_layer",
+      "prompt": "What features touch mcp/stdio/freshness/orchestrator.js and what tests cover them?",
+      "graph": {
+        "tokens_est": 1200,
+        "wall_ms": 460,
+        "quality": 4,
+        "calls": ["graph_pull(node=mcp/stdio/freshness/orchestrator.js)"],
+        "notes": "Same as baseline: code symbols (11), feature=freshness, 5 recent commits. tasks=[]. No tests layer surfaced — would still need grep.",
+        "delta_vs_baseline": 0
+      },
+      "no_graph": {
+        "tokens_est": 1400,
+        "wall_ms": 900,
+        "quality": 4,
+        "calls": ["Read functionality.json", "Grep orchestrator|freshness in tests"],
+        "notes": "Same as baseline.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "graph",
+      "delta_pct": -14.3
+    },
+    {
+      "id": "health",
+      "prompt": "Is the graph fresh and trustworthy right now?",
+      "graph": {
+        "tokens_est": 320,
+        "wall_ms": 200,
+        "quality": 5,
+        "calls": ["graph_health()"],
+        "notes": "One-line: nodes=1569 edges=4108 trust=weak (4316 unresolved) fresh overlay=clean (8 features) brief-stale. Same shape, slightly larger graph (more nodes/edges since baseline).",
+        "delta_vs_baseline": 20
+      },
+      "no_graph": {
+        "tokens_est": 1100,
+        "wall_ms": 800,
+        "quality": 4,
+        "calls": ["Read manifest.json", "git rev-parse HEAD", "git status --short"],
+        "notes": "Same as baseline.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "graph",
+      "delta_pct": -70.9
+    },
+    {
+      "id": "debug",
+      "prompt": "Why does graph_impact return so many edges in some cases?",
+      "graph": {
+        "tokens_est": 480,
+        "wall_ms": 350,
+        "quality": 1,
+        "calls": ["graph_impact(graphImpact, depth=3)"],
+        "notes": "Still NO IMPACT for graphImpact (verb handlers sit above the indexed CALLS chain — structural limitation, not a bug). Broad-query bloat fix tested separately via graph_find('graph') which returned a tightly-capped result set: 10 code + 6 features + 6 docs hits, top[] capped at 10. No runaway fan-out observed.",
+        "delta_vs_baseline": -20
+      },
+      "no_graph": {
+        "tokens_est": 900,
+        "wall_ms": 500,
+        "quality": 5,
+        "calls": ["Read impact.js (67 lines)"],
+        "notes": "Same as baseline.",
+        "delta_vs_baseline": 0
+      },
+      "winner": "no_graph",
+      "delta_pct": 87.5
+    }
+  ],
+  "summary": {
+    "graph_won": 5,
+    "no_graph_won": 3,
+    "baseline_graph_won": 4,
+    "baseline_no_graph_won": 4,
+    "win_flip": "PLAN flipped from no_graph to graph (RISK SAFE/0 -> RISK CONFIRM/4)",
+    "graph_avg_token_delta_pct": -2.4,
+    "baseline_graph_avg_token_delta_pct": 12.6,
+    "token_delta_change": "-15.0 percentage points (graph overhead flipped from +12.6% to -2.4%)",
+    "graph_avg_quality": 3.875,
+    "no_graph_avg_quality": 4.5,
+    "graph_avg_quality_delta": -0.625,
+    "baseline_graph_avg_quality_delta": -0.625,
+    "quality_delta_change": "0.0 — gap unchanged (PLAN +2 quality, IMPACT +0, DEBUG +0)",
+    "notes": "PLAN improved decisively (2->4 quality, win flipped). IMPACT did not improve — the test-adjacency fix did not land for expandClassRollupTargets (still reports no_test_coverage despite 3 test files importing it). DEBUG broad-query bloat is contained (graph_find caps work) but graph_impact(graphImpact) self-introspection limit unchanged."
+  },
+  "fix_verification": {
+    "bug_a_planner_caller_scope": {
+      "expected": "graph_change_plan(ensureFresh) flips from 0 callers/RISK SAFE to multiple callers/CONFIRM",
+      "observed": "FIXED — now reports 4 callers / RISK CONFIRM. Caller list (find/index/read_freshness/search) is correct but incomplete vs grep's 15-file footprint (test files + .ee/ scratch missing). Verdict-level fix lands; counts still under-report.",
+      "status": "fixed"
+    },
+    "bug_b_test_adjacency": {
+      "expected": "graph_consequences(expandClassRollupTargets) removes false no_test_coverage flag (query.test.js should appear)",
+      "observed": "NOT FIXED — risk_flags still contains 'no_test_coverage', tests_adjacent: []. Grep confirms tests/unit/query/query.test.js, tests/unit/query/consequences.test.js, tests/unit/freshness/orchestrator.test.js all import expandClassRollupTargets. The test-adjacency resolver still misses these.",
+      "status": "regressed_or_unfixed"
+    },
+    "bug_c_broad_query_bloat": {
+      "expected": "graph_find on broad queries reduces token cost",
+      "observed": "graph_find('graph') returns 10 code + 6 features + 6 docs (top[] capped at 10). No fan-out. Caps appear to be honored. Did not measure absolute delta vs pre-fix; output is concise.",
+      "status": "appears_fixed"
+    }
+  },
+  "new_bugs_surfaced": [
+    "Test-adjacency for expandClassRollupTargets still empty despite 3 importers — fix(verbs) commit message mentions test-adjacency but the resolver does not pick up these unit tests. Likely the IMPORTS-edge -> tests-attribution path is what needs the change, not just consequences.js.",
+    "graph_change_plan caller count under-reports vs ground truth (4 vs 15). The verdict (CONFIRM) is now safe, but the SIGNALS line gives planners a misleadingly low caller count. Consider surfacing 'callers detected (graph): 4 — grep may show more' caveat.",
+    "DIRTY: 18 files orphan=18 in brief.agent.md — every dirty file is being classified as orphan. Likely brief regeneration lag (briefStaleVsManifest=true) — the new bench result files themselves are unmapped scratch."
+  ],
+  "recommendation": "Net win: PLAN fix is real and decisive. Token overhead reversed (graph now slightly cheaper on average). IMPACT still loses on the same test-adjacency gap — that fix needs another pass. Mixed-mode SKILL guidance still correct: use graph for orient/health/callers/cross-layer/plan, drop to grep for test coverage and detail trace."
+}

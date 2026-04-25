@@ -21,7 +21,9 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const REPO_ROOT = resolve(dirname(__filename), '..');
 const GRAPH_DIR = join(REPO_ROOT, '.aify-graph');
-const OUT_PATH = join(REPO_ROOT, 'docs/dogfood/verb-correctness-2026-04-25.json');
+const OUT_PATH = process.argv[2]
+  ? resolve(process.argv[2])
+  : join(REPO_ROOT, 'docs/dogfood/verb-correctness-2026-04-25.json');
 
 import { graphStatus } from '../mcp/stdio/query/verbs/status.js';
 import { graphIndex } from '../mcp/stdio/query/verbs/index.js';
