@@ -9,6 +9,107 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-04-25 — dogfood + 7 fixes + clean re-bench
+
+Round driven by hands-on dogfood evaluation of the toolset on apg's
+own graph. Five user-visible findings → seven fixes (one root cause
+revealed two more layers underneath). Final clean bench shows graph
+moving from net token overhead to net savings.
+
+**Fixed**
+
+- **Ignore-path basename bug** (`27f4d86`). `pathContainsIgnoredDir()`
+  was applying build-dir prefix heuristics (`target_`, `build_`) to
+  the FINAL FILENAME segment, dropping legitimate source files like
+  `mcp/stdio/query/verbs/target_rollup.js` from indexing. Single
+  cause behind 4-of-5 phantom verb-layer failures we initially
+  reported as separate bugs. Built-in ignored-dir rules now apply to
+  directory segments only; `.aifyignore` glob still matches full
+  paths.
+
+- **Planner caller-scope** (`1c32046`). `graph_change_plan` produced
+  false `RISK SAFE` on cross-cutting symbols whose cross-file
+  imports hadn't fully resolved into call edges. Reproduced cleanly:
+  `change_plan("ensureFresh")` returned `0 callers / RISK SAFE`
+  despite 31 grep occurrences. Fix: source-occurrence fallback over
+  indexed-or-tracked repo files. Now correctly upgrades to `RISK
+  CONFIRM`.
+
+- **graph_consequences test-adjacency** (`d918cbc`). Symbols with
+  IMPORTS-edge-only test coverage were flagged `no_test_coverage`.
+  Root cause traced through three layers: heuristic gap in
+  consequences (fixed `430b9bb`) → IMPORTS edge resolver gap (didn't
+  help on real repo) → JS/TS extractor flattening relative paths
+  instead of resolving against importer directory. Final fix in
+  ingest now uses `path.posix` resolution against `filePath`. Real
+  repo test files (146 IMPORTS edges from `tests/unit/*`) now emit
+  cross-file IMPORTS edges to their imported symbols.
+
+- **graph_report `top_k` not wired** (`1c32046`). Verb output was
+  constant ~3kb regardless of `top_k`. Now clamps dirs/hubs/entries/
+  docs/community lines: `top_k=5` → 1685 B, default → 5042 B.
+
+- **Broad-query bloat** (`1c32046`). `graph_module_tree(.)` returned
+  7043 B; `graph_find(query="graph")` returned 7776 B. Both now
+  emit truncation guidance instead of dumping full match sets.
+  Module tree dropped to 655 B (-91%); find dropped to 3792 B
+  (-51%).
+
+- **SIGNALS honesty caveat** (`430b9bb`). `graph_change_plan` SIGNALS
+  line under weak trust now annotates: `(raw indexed edges; weak
+  trust may understate caller scope — see source-occurrence count)`
+  whenever caller-count is suspiciously low for source-occurrence
+  spread.
+
+**Added**
+
+- **Eval artifacts** (`91fc54c`, `c71b9fc`). Three subagent layers
+  shipped:
+  - `tests/unit/eval/regression-invariants.test.js` — 12 invariants
+    locking the 5 findings as semantic regression tests.
+  - `scripts/verb-correctness-probe.mjs` — exercises 21 verbs × 3
+    inputs each (63 invariant checks, all pass), writes JSON
+    snapshot for size-regression tracking.
+  - 8-task token-cost benchmark with-graph vs no-graph (graph,
+    no_graph, mixed arms across ORIENT / TRACE / CALLERS / IMPACT /
+    PLAN / CROSS_LAYER / HEALTH / DEBUG categories).
+  - Iterative measurements: `*-postfix.json`, `*-postfix2.json`,
+    `*-postfix3.json`, `*-postfix4.json` (final clean-state).
+
+- **graph_impact self-introspection limitation** documented in
+  `docs/known-limitations.md` (`9878304`). The verb cannot query its
+  own handler symbol because the MCP tool dispatcher reaches it from
+  outside the indexed call graph. Accounts for the residual −0.25
+  quality delta in postfix4. Architectural; not a fix-blocker.
+
+**Measured (postfix4, verified-fresh state)**
+
+8-task token-cost benchmark on apg's own graph, dogfood-only scope.
+Final clean numbers vs pre-fix baseline:
+
+| Metric | Pre-fix | Post-fix |
+|---|---|---|
+| Win count | 4-4 tie | **6-2 graph** |
+| Net token delta vs no-graph | +12.6% (overhead) | **−17.3% (savings)** |
+| Quality delta | −0.625 | **−0.25** |
+| Trust gate (apg dogfood case) | weak | **ok** |
+| Tests | 305 | **327** (326 pass + 1 documented skip) |
+| Unresolved edges | 9401 (peak) / 4537 (pre-fix) | **2473** (~2.9× improvement) |
+| IMPACT task quality | 3/5 | 5/5 |
+| PLAN task quality | 2/5 | 5/5 |
+
+Cross-runtime + scale validation pending separately (Echoes C++
+cross-repo + 30k-node scale probe).
+
+**Process learning**
+
+Stale-snapshot reads fooled the postfix3 bench. The bench script
+opened a DB connection that hadn't picked up the rebuild. Added
+explicit pre-bench verification gates (force rebuild → IMPORTS-count
+sanity check → tests_adjacent assertion BEFORE running tasks) that
+caught the issue cleanly in postfix4. Recommend the same gates on
+any future bench rerun.
+
 ### 2026-04-22 — Leiden + class-qualified lookup + 6 new framework plugins
 
 **Added**
