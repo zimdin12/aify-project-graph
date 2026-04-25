@@ -28,6 +28,31 @@ function normalizeTypeName(raw) {
   return parts.at(-1) ?? '';
 }
 
+function stripTemplateArgs(raw) {
+  let depth = 0;
+  let out = '';
+  for (const ch of String(raw ?? '')) {
+    if (ch === '<') {
+      depth += 1;
+      continue;
+    }
+    if (ch === '>') {
+      depth = Math.max(0, depth - 1);
+      continue;
+    }
+    if (depth === 0) out += ch;
+  }
+  return out;
+}
+
+function normalizeCppScope(raw) {
+  return stripTemplateArgs(raw)
+    .split('::')
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .join('.');
+}
+
 function paramTypes(paramList, source) {
   const out = [];
   if (!paramList) return out;
@@ -68,6 +93,33 @@ function extractQualifiedScopeSegments(node, source) {
   }
   const text = nodeText(node, source).trim();
   return text ? [text] : [];
+}
+
+function normalizeCppCallTarget({ text, owner }) {
+  const raw = String(text ?? '').trim().split(/\s+/u)[0] ?? '';
+  if (!raw) return '';
+
+  const qualified = raw.match(/^(.+)::(~?[A-Za-z_]\w*)$/u);
+  if (qualified) {
+    const scope = normalizeCppScope(qualified[1]);
+    return scope ? `${scope}.${qualified[2]}` : qualified[2];
+  }
+
+  const thisCall = raw.match(/^this(?:->|\.)((?:~)?[A-Za-z_]\w*)$/u);
+  if (thisCall) {
+    const parentClass = owner?.extra?.parent_class ?? '';
+    return parentClass ? `${parentClass}.${thisCall[1]}` : thisCall[1];
+  }
+
+  // Keep object.member() calls bare: without type information the receiver
+  // could be any class, so class-qualifying would overclaim.
+  if (raw.includes('->') || raw.includes('.')) {
+    const parts = raw.split(/->|\./u);
+    return parts.at(-1) ?? raw;
+  }
+
+  const bare = raw.match(/^(~?[A-Za-z_]\w*)$/u);
+  return bare?.[1] ?? raw;
 }
 
 function findCppNamedDeclarator(node) {
@@ -191,6 +243,7 @@ export default {
   language: 'cpp',
   parser: Cpp,
   postExtract: postExtractCpp,
+  normalizeCallTarget: normalizeCppCallTarget,
   extensions: ['.cc', '.cpp', '.cxx', '.hpp', '.hh', '.hxx', '.h'],
   confidence: {
     node: 0.6,

@@ -51,6 +51,13 @@ function normalizeCallTarget(text) {
   return parts[parts.length - 1] ?? raw;
 }
 
+function buildCallTarget({ text, node, source, owner, config }) {
+  if (typeof config.normalizeCallTarget === 'function') {
+    return config.normalizeCallTarget({ text, node, source, owner }) ?? '';
+  }
+  return normalizeCallTarget(text);
+}
+
 function normalizeReferenceTarget(text) {
   const raw = text.trim();
   const parts = raw.split(/::|->|\./u);
@@ -444,7 +451,13 @@ export function extractFile({ filePath, source, config }) {
 
     const callRule = matchRule(node, config.refs?.calls, parentNode);
     if (callRule && nextOwner) {
-      const target = normalizeCallTarget(extractTextFromRule(node, source, callRule));
+      const target = buildCallTarget({
+        text: extractTextFromRule(node, source, callRule),
+        node,
+        source,
+        owner: nextOwner,
+        config,
+      });
       if (target) {
         const baseRef = {
           from_id: nextOwner.id,

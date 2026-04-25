@@ -408,4 +408,38 @@ describe('generic extractor', () => {
       ]),
     );
   });
+
+  it('keeps C++ class context for explicit self and qualified method calls', () => {
+    const source = `
+class ChunkManager {
+public:
+  void tick();
+  void isOpenAir();
+};
+
+void ChunkManager::tick() {
+  isOpenAir();
+  this->isOpenAir();
+  ChunkManager::isOpenAir();
+  World::ChunkManager<int>::isOpenAir();
+  other.isOpenAir();
+}
+`;
+
+    const result = extractFile({
+      filePath: 'engine/voxel/ChunkManager.cpp',
+      source,
+      config: cpp,
+    });
+
+    const targets = result.refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.from_label === 'tick')
+      .map((ref) => ref.target);
+
+    expect(targets).toContain('ChunkManager.isOpenAir');
+    expect(targets.filter((target) => target === 'ChunkManager.isOpenAir')).toHaveLength(2);
+    expect(targets).toContain('World.ChunkManager.isOpenAir');
+    expect(targets.filter((target) => target === 'isOpenAir')).toHaveLength(2);
+    expect(targets).toContain('isOpenAir');
+  });
 });
