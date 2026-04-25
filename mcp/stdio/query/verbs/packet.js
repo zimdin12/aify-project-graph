@@ -204,7 +204,11 @@ function clampList(items, cap) {
 }
 
 function renderListSection(label, capped, formatter) {
-  if (capped.items.length === 0) return null;
+  // Always render the section header — even when empty — so agents can
+  // distinguish "broken packet" from "no data of this kind." Empty
+  // sections render as `LABEL: none`. Validation gate found that silent
+  // omission was confusing agents who treated absence as a packet bug.
+  if (capped.items.length === 0) return `${label}: none`;
   const head = `${label}:`;
   const rows = capped.items.map((x) => `- ${formatter(x)}`);
   if (capped.truncated) rows.push(`- (${capped.total - capped.items.length} more — narrow target)`);
@@ -355,9 +359,20 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 
   let parsed = null;
   try {
-    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (typeof raw === 'object' && raw !== null) parsed = raw;
+    else if (typeof raw === 'string') parsed = JSON.parse(raw);
   } catch {
+    // graph_consequences returns plain markdown for NO MATCH and other
+    // user-friendly messages — not a real error. Treat as "no enrichment
+    // available for this target" rather than a verb failure.
+    if (typeof raw === 'string' && /^NO MATCH|^ERROR|^GRAPH/i.test(raw.trim())) {
+      return { status: 'unavailable', detail: 'no live data for this target', elapsed_ms: Date.now() - t0 };
+    }
     return { status: 'unavailable', detail: 'live verb returned non-JSON', elapsed_ms: Date.now() - t0 };
+  }
+  // Defensive: parsed could be null/undefined or missing expected fields
+  if (!parsed || typeof parsed !== 'object') {
+    return { status: 'unavailable', detail: 'live verb returned no usable data', elapsed_ms: Date.now() - t0 };
   }
 
   // Pull only the enrichment fields packet doesn't already have from
@@ -402,11 +417,45 @@ export async function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_t
     if (resolvedTask) kind = 'task';
   }
 
+  // Bare symbol/file fallback (M3 follow-up — addresses validation-gate
+  // finding that PLAN/IMPACT tasks couldn't use packet because targets
+  // were function names, not feature/task ids).
+  // Strategy: ask graph_consequences to map the symbol to its containing
+  // feature, then build the packet from that feature with a MATCHED VIA
+  // line preserving the original target.
+  let matchedViaSymbol = null;
+  if (!resolvedFeature && !resolvedTask) {
+    const { graphConsequences } = await import('./consequences.js');
+    let mapped;
+    try {
+      const raw = await withTimeout(
+        graphConsequences({ repoRoot, target: parsed.value }),
+        LIVE_BUDGET_MS,
+      );
+      if (raw && !raw.__timeout) {
+        // graphConsequences returns an object directly (not a JSON string),
+        // unlike some other verbs. Handle both shapes defensively.
+        if (typeof raw === 'object') mapped = raw;
+        else if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+          mapped = JSON.parse(raw);
+        }
+      }
+    } catch {/* fall through to error message */}
+
+    const featureHit = mapped?.features_touching?.[0];
+    if (featureHit) {
+      resolvedFeature = findFeature(functionality, featureHit.id);
+      kind = 'feature';
+      matchedViaSymbol = parsed.value;
+    }
+  }
+
   if (!resolvedFeature && !resolvedTask) {
     return [
-      `ERROR: target "${target}" not found as feature or task in overlay/tasks`,
+      `ERROR: target "${target}" not found as feature, task, or symbol mapping to a feature`,
       `HINT: list features in .aify-graph/functionality.json or tasks in .aify-graph/tasks.json`,
       `HINT: try the explicit form 'feature:<id>' or 'task:<id>'`,
+      `HINT: bare function/file targets need to map to a known feature via graph_consequences first`,
       snapshot,
     ].join('\n');
   }
@@ -416,6 +465,11 @@ export async function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_t
     lines = buildFeaturePacket({ feature: resolvedFeature, brief, functionality, opts, snapshot });
   } else {
     lines = buildTaskPacket({ task: resolvedTask, functionality, brief, opts, snapshot });
+  }
+  if (matchedViaSymbol) {
+    // Insert MATCHED VIA right after the FEATURE/TASK header so the agent
+    // knows the packet is symbol-derived, not direct.
+    lines.splice(1, 0, `MATCHED VIA: symbol "${matchedViaSymbol}" → feature ${resolvedFeature.id}`);
   }
 
   // LIVE: enrichment block. M3 landed: when live=true we run a budgeted

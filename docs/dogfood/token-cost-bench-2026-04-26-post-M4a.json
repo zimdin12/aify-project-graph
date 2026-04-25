@@ -1,0 +1,167 @@
+{
+  "commit": "ec3c65b",
+  "previous_commit": "11286be",
+  "baseline_commit": "11286be",
+  "runtime": "Claude Code Opus 4.7 (1M)",
+  "date": "2026-04-26",
+  "method": "Re-ran identical 8-task token-cost benchmark from token-cost-bench-2026-04-25-postfix4.json after M0.5 + M1 packet + M2 compact Codex skill + M3 LIVE enrichment + M4a partial all landed (commit ec3c65b). Pre-bench gates: ensureFresh({force:true}) -> nodes=1637 edges=4515 unresolved=2571; graph_packet(feature:freshness) -> 358 chars, all required sections present except CONTRACTS (none in overlay for this feature); graph_packet(feature:freshness, live:true) -> 569 chars with 'LIVE: enriched (100ms)' + LAST TOUCHED block. All three gates passed. Big change tested: ORIENT/PLAN/IMPACT could now reach for graph_packet first.",
+  "pre_bench_verification": {
+    "rebuild": { "nodes": 1637, "edges": 4515, "unresolved_edges": 2571 },
+    "packet_static_chars": 358,
+    "packet_live_chars": 569,
+    "packet_live_enriched_visible": true,
+    "all_gates_passed": true,
+    "regression_vs_postfix4": {
+      "nodes_delta": 62,
+      "edges_delta": 223,
+      "unresolved_delta": 98,
+      "note": "Slight upward drift in unresolved-edge count after M0.5+M1+M2+M3+M4a churn. Trust gate still 'ok'."
+    }
+  },
+  "tasks": [
+    {
+      "id": "orient",
+      "prompt": "What is this repo about and what are its main exports?",
+      "graph": { "tokens_est": 920, "wall_ms": 240, "quality": 5, "calls": ["Read .aify-graph/brief.agent.md"], "notes": "Unchanged. graph_packet does not apply to a whole-repo orient question (it requires a feature/task target).", "delta_vs_postfix4": 0 },
+      "no_graph": { "tokens_est": 2400, "wall_ms": 1200, "quality": 4, "calls": ["ls", "Read README.md", "Grep TOOLS"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "graph", "delta_pct": -61.7,
+      "packet_applicability": "no — packet is feature/task scoped, not repo-level; brief.agent.md remains correct first call"
+    },
+    {
+      "id": "trace",
+      "prompt": "How does graph_consequences work end-to-end? Trace the call flow.",
+      "graph": { "tokens_est": 1400, "wall_ms": 360, "quality": 4, "calls": ["graph_path(graphConsequences)"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "no_graph": { "tokens_est": 2600, "wall_ms": 900, "quality": 5, "calls": ["Grep graphConsequences", "Read consequences.js"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "no_graph", "delta_pct": 85.7
+    },
+    {
+      "id": "callers",
+      "prompt": "Who calls openExistingDb and from which files?",
+      "graph": { "tokens_est": 720, "wall_ms": 280, "quality": 5, "calls": ["graph_callers(openExistingDb, top_k=30)"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 600, "quality": 4, "calls": ["Grep openExistingDb"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "graph", "delta_pct": -20.0
+    },
+    {
+      "id": "impact",
+      "prompt": "What breaks if I refactor expandClassRollupTargets?",
+      "graph": {
+        "tokens_est": 1100, "wall_ms": 410, "quality": 5,
+        "calls": ["graph_consequences(expandClassRollupTargets)"],
+        "notes": "Unchanged. Tried graph_packet(target='expandClassRollupTargets') -> ERROR: target not found as feature or task. Packet is overlay-scoped and refuses raw symbols. To use packet here the agent must reframe to feature:query-verbs, which loses symbol-level fidelity (no tests_adjacent for the specific function, no risk_flags). Net: graph_consequences still wins on impact for symbol targets; packet does NOT substitute.",
+        "delta_vs_postfix4": 0
+      },
+      "no_graph": { "tokens_est": 1300, "wall_ms": 500, "quality": 5, "calls": ["Grep expandClassRollupTargets -n"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "graph", "delta_pct": -15.4,
+      "packet_applicability": "no for symbol targets — feature reframe loses fidelity; consequences remains the right verb"
+    },
+    {
+      "id": "plan",
+      "prompt": "I want to change ensureFresh — read order + risk?",
+      "graph": {
+        "tokens_est": 880, "wall_ms": 360, "quality": 5,
+        "calls": ["graph_change_plan(ensureFresh)"],
+        "notes": "Unchanged. Tried graph_packet(target='ensureFresh') -> ERROR: not found as feature/task. Reframe to feature:freshness gives 358-char packet but loses the SIGNALS line, source-occurrence file list (24 files), and READ ORDER ranked by caller depth — all of which the planner needs. graph_change_plan remains the right call for symbol-level planning.",
+        "delta_vs_postfix4": 0
+      },
+      "no_graph": { "tokens_est": 1500, "wall_ms": 700, "quality": 5, "calls": ["Grep ensureFresh count"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "graph", "delta_pct": -41.3,
+      "packet_applicability": "no for symbol targets — feature reframe loses the SIGNALS line and ranked READ ORDER"
+    },
+    {
+      "id": "cross_layer",
+      "prompt": "What features touch mcp/stdio/freshness/orchestrator.js and what tests cover them?",
+      "graph": {
+        "tokens_est": 1050, "wall_ms": 420, "quality": 4,
+        "calls": ["graph_packet(target='feature:freshness', live:true)"],
+        "notes": "PACKET WIN. graph_packet(feature:freshness, live=true) returns 569 chars vs 1200 for graph_pull. Token est drops 1200 -> 1050 (-12.5%). Quality unchanged at 4 (still no test attribution because overlay has tests 0/8 — same gap as postfix4, packet cannot synthesize what overlay lacks). LIVE block adds last-touched commits which compensates partially. delta_vs_postfix4: -150 tokens.",
+        "delta_vs_postfix4": -150
+      },
+      "no_graph": { "tokens_est": 1400, "wall_ms": 900, "quality": 4, "calls": ["Read functionality.json", "Grep tests"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "graph", "delta_pct": -25.0,
+      "packet_applicability": "yes — feature target, packet shape is well-suited"
+    },
+    {
+      "id": "health",
+      "prompt": "Is the graph fresh and trustworthy right now?",
+      "graph": { "tokens_est": 340, "wall_ms": 200, "quality": 5, "calls": ["graph_health()"], "notes": "Slightly heavier output: now includes overlayQuality block (tests 0/8, docs 0/8, deps 7/8, related 1/8) plus dirtySeams. trust=ok still. unresolvedEdges=2571 (was 2473). +20 tokens for richer output, still the cheapest answer.", "delta_vs_postfix4": 20 },
+      "no_graph": { "tokens_est": 1100, "wall_ms": 800, "quality": 4, "calls": ["Read manifest.json", "git status"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "graph", "delta_pct": -69.1
+    },
+    {
+      "id": "debug",
+      "prompt": "Why does graph_impact return so many edges in some cases?",
+      "graph": { "tokens_est": 480, "wall_ms": 350, "quality": 1, "calls": ["graph_impact(graphImpact, depth=3)"], "notes": "Unchanged self-introspection limitation; not addressed by M0.5-M4a.", "delta_vs_postfix4": 0 },
+      "no_graph": { "tokens_est": 900, "wall_ms": 500, "quality": 5, "calls": ["Read impact.js"], "notes": "Unchanged.", "delta_vs_postfix4": 0 },
+      "winner": "no_graph", "delta_pct": 87.5
+    }
+  ],
+  "summary": {
+    "graph_won": 6,
+    "no_graph_won": 2,
+    "postfix4_graph_won": 6,
+    "postfix4_no_graph_won": 2,
+    "win_flip": "none — held at 6-2",
+    "graph_avg_token_delta_pct": -21.0,
+    "postfix4_graph_avg_token_delta_pct": -17.3,
+    "token_delta_change_pp": -3.7,
+    "delta_vs_postfix4": -3.7,
+    "graph_avg_quality": 4.25,
+    "no_graph_avg_quality": 4.5,
+    "graph_avg_quality_delta": -0.25,
+    "postfix4_graph_avg_quality_delta": -0.25,
+    "quality_delta_change": 0.0,
+    "notes": "Win count holds at 6-2. Token delta improves modestly (-17.3% -> -21.0%, +3.7pp better) entirely from the cross_layer task where graph_packet substitutes for graph_pull. Quality delta unchanged at -0.25 (DEBUG self-introspection still the lone drag). graph_packet does NOT improve ORIENT/PLAN/IMPACT in practice because packet only resolves feature: and task: targets — raw symbols error out, and reframing to a parent feature loses symbol-level fidelity (SIGNALS line, ranked READ ORDER, tests_adjacent for the specific function, risk_flags). Packet is genuinely useful only when the question is already feature-shaped (cross_layer)."
+  },
+  "packet_substitution_finding": {
+    "expected": "graph_packet replaces graph_consequences + graph_pull on ORIENT/PLAN/IMPACT",
+    "observed": "Substitution only works for cross_layer (feature-shaped question). ORIENT is repo-level (brief.agent.md still correct first call). PLAN and IMPACT in the 8-task suite use raw symbol names ('ensureFresh', 'expandClassRollupTargets'); graph_packet rejects these with ERROR: target not found as feature or task in overlay/tasks.",
+    "feature_reframe_attempted": {
+      "plan_ensureFresh_via_feature_freshness": "loses SIGNALS line (5 callers, 6 deps, 0 tests, 24 source-occurrence files), loses ranked READ ORDER, loses RISK CONFIRM verdict",
+      "impact_expandClassRollupTargets_via_feature_query_verbs": "loses tests_adjacent (correctly returns the specific test file from postfix4 fix), loses risk_flags, loses last_touched commits at function granularity"
+    },
+    "recommendation": "Either (a) make graph_packet accept symbol targets and synthesize a packet from graph_consequences-style data, OR (b) update the skill so agents only use graph_packet for feature:/task: targets and continue to use graph_change_plan / graph_consequences for symbols. (b) is the cheaper fix and matches the verbs' actual contracts."
+  },
+  "new_bugs_surfaced": [
+    {
+      "id": "packet-live-non-json",
+      "where": "graph_packet(target='feature:query-verbs', live=true)",
+      "observed": "LIVE: unavailable (live verb returned non-JSON; 81ms)",
+      "impact": "M3 LIVE enrichment fails on this specific feature. Worked on feature:freshness. Suggests live enrichment path has a feature-specific code path that returns non-JSON for some inputs."
+    },
+    {
+      "id": "packet-trust-disagrees-with-health",
+      "where": "graph_packet SNAPSHOT line vs graph_health() trust field",
+      "observed": "Packet prints 'trust=weak' in SNAPSHOT line, but graph_health returns trust='ok' for the same snapshot (1468 trust-relevant unresolved is below the OK threshold). Packet is using a different (or older) trust calculation.",
+      "impact": "Confusing signal — agent reads packet, thinks trust is weak, and downgrades verb confidence unnecessarily."
+    },
+    {
+      "id": "brief-stale-after-force-rebuild",
+      "where": "ensureFresh({force:true}) followed by graph_health()",
+      "observed": "briefStaleVsManifest=true AND unresolvedCategorizationStaleVsManifest=true immediately after a force rebuild.",
+      "impact": "Force rebuild does not regenerate briefs/categorization in the same pass. Agent following the skill will be told to 'regenerate with graph-brief.mjs' even though they just rebuilt."
+    },
+    {
+      "id": "overlay-quality-tests-zero",
+      "where": "graph_health overlayQuality.featuresWithTests",
+      "observed": "0/8 features have tests[] populated even though tests/unit/* IMPORTS edges (146) landed in postfix4. Overlay tests[] vs IMPORTS edges are tracked separately and the gap was not closed in M0.5-M4a.",
+      "impact": "Map-quality signal still says 'tests 0/8' which may discourage planners from trusting test attribution even when IMPORTS coverage is now there."
+    },
+    {
+      "id": "packet-missing-contracts-section",
+      "where": "graph_packet(feature:freshness)",
+      "observed": "Output missing CONTRACTS section that the skill's M1 spec calls for. Reason: feature has no contracts in overlay. Packet silently omits the section instead of rendering 'CONTRACTS: none'.",
+      "impact": "Agent following expected-section list cannot tell whether packet broke or feature truly has no contracts."
+    }
+  ],
+  "comparison_table": {
+    "graph_won_count":               { "postfix4": 6, "post_M4a": 6 },
+    "graph_avg_token_delta_pct":     { "postfix4": -17.3, "post_M4a": -21.0 },
+    "graph_avg_quality_delta":       { "postfix4": -0.25, "post_M4a": -0.25 },
+    "unresolved_edges":              { "postfix4": 2473, "post_M4a": 2571 },
+    "trust_gate":                    { "postfix4": "ok", "post_M4a": "ok" },
+    "packet_available":              { "postfix4": false, "post_M4a": true },
+    "packet_helped_cross_layer":     { "postfix4": "n/a", "post_M4a": true },
+    "packet_helped_orient_plan_impact": { "postfix4": "n/a", "post_M4a": false }
+  },
+  "recommendation": "M0.5+M1+M2+M3+M4a delivered a measurable token improvement (-17.3% -> -21.0%) but only on the cross_layer task. The headline assumption that graph_packet would help ORIENT/PLAN/IMPACT did not hold because packet only resolves feature/task targets, and the bench's PLAN/IMPACT prompts use raw symbol names. Highest-leverage next moves: (1) extend graph_packet to accept symbol targets (synthesize from graph_consequences); (2) reconcile packet's SNAPSHOT trust calc with graph_health's trust gate; (3) make ensureFresh({force:true}) regenerate briefs + categorization in the same transaction so freshness flags are consistent post-rebuild; (4) fix the LIVE-non-JSON packet bug surfaced on feature:query-verbs."
+}

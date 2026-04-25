@@ -195,6 +195,20 @@ describe('graph_packet — schema invariants', () => {
     expect(out).toMatch(/dropped — over budget/);
   });
 
+  it('renders empty sections as "LABEL: none" instead of omitting (validation gate bug 5)', async () => {
+    // Feature has files but NO contracts and NO tests — both sections should
+    // render explicitly so agent knows it's not a packet bug.
+    await writeOverlay(repo, [
+      { id: 'lonely', anchors: { files: ['src/lonely.js'] } }, // no contracts, no tests
+    ]);
+    await writeTasks(repo, []);
+    await writeBrief(repo);
+    await writeManifest(repo);
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:lonely' });
+    expect(out).toMatch(/^CONTRACTS: none/m);
+    expect(out).toMatch(/^TESTS: none/m);
+  });
+
   it('still useful when LIVE is skipped (overlay-first acceptance)', async () => {
     // No brief features.valid, no enrichment — packet still has FEATURES + READ FIRST + CONTRACTS
     await writeOverlay(repo, [
