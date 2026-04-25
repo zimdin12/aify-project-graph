@@ -102,7 +102,7 @@ Tell the user (paraphrase is fine):
 > node ~/.codex/plugins/aify-project-graph/scripts/graph-brief.mjs /path/to/your/repo
 > ```
 >
-> Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. For plan tasks, hand-author `/path/to/your/repo/.aify-graph/functionality.json` (sample at `~/.codex/plugins/aify-project-graph/docs/examples/functionality.sample.json`) and re-run `graph-brief.mjs`. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
+> Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. On apg's verified-fresh postfix4 self-bench, the mixed brief-first workflow went 6-2 vs no-graph and cut net tokens by 17.3%; exact artifact: `docs/dogfood/token-cost-bench-2026-04-25-postfix4.json`. For plan tasks, hand-author `/path/to/your/repo/.aify-graph/functionality.json` (sample at `~/.codex/plugins/aify-project-graph/docs/examples/functionality.sample.json`) and re-run `graph-brief.mjs`. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
 
 ## Verify (after restart)
 
