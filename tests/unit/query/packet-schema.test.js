@@ -74,8 +74,8 @@ describe('graph_packet — schema invariants', () => {
     }
   });
 
-  it('errors usefully when target is missing', () => {
-    const out = graphPacket({ repoRoot: repo, target: '' });
+  it('errors usefully when target is missing', async () => {
+    const out = await graphPacket({ repoRoot: repo, target: '' });
     expect(out).toMatch(/ERROR/);
   });
 
@@ -84,7 +84,7 @@ describe('graph_packet — schema invariants', () => {
     await writeTasks(repo, []);
     await writeBrief(repo);
     await writeManifest(repo);
-    const out = graphPacket({ repoRoot: repo, target: 'feature:nonexistent' });
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:nonexistent' });
     expect(out).toMatch(/not found/);
     expect(out).toMatch(/HINT/);
     expect(out).toMatch(/SNAPSHOT:/); // still includes snapshot for context
@@ -105,7 +105,7 @@ describe('graph_packet — schema invariants', () => {
     await writeTasks(repo, []);
     await writeBrief(repo);
     await writeManifest(repo);
-    const out = graphPacket({ repoRoot: repo, target: 'feature:auth' });
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:auth' });
     expect(out).toMatch(/^FEATURE: Authentication/m);
     expect(out).toMatch(/^STATUS: overlay-defined/m);
     expect(out).toMatch(/^FEATURES: auth, dep:storage/m);
@@ -136,7 +136,7 @@ describe('graph_packet — schema invariants', () => {
     ]);
     await writeBrief(repo);
     await writeManifest(repo);
-    const out = graphPacket({ repoRoot: repo, target: 'task:CU-1' });
+    const out = await graphPacket({ repoRoot: repo, target: 'task:CU-1' });
     expect(out).toMatch(/^TASK: Wire login/m);
     expect(out).toMatch(/^STATUS: open/m);
     expect(out).toMatch(/^FEATURES: auth, sessions/m);
@@ -151,7 +151,7 @@ describe('graph_packet — schema invariants', () => {
     await writeTasks(repo, []);
     await writeBrief(repo);
     await writeManifest(repo);
-    const out = graphPacket({ repoRoot: repo, target: 'auth' });
+    const out = await graphPacket({ repoRoot: repo, target: 'auth' });
     expect(out).toMatch(/^FEATURE: auth/m);
   });
 
@@ -160,7 +160,7 @@ describe('graph_packet — schema invariants', () => {
     await writeTasks(repo, []);
     await writeBrief(repo, { graph_commit: 'oldcommit' });
     await writeManifest(repo, { commit: 'oldcommit' });
-    const out = graphPacket({ repoRoot: repo, target: 'feature:auth' });
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:auth' });
     expect(out).toMatch(/SNAPSHOT:.*STALE/);
   });
 
@@ -169,7 +169,7 @@ describe('graph_packet — schema invariants', () => {
     await writeTasks(repo, []);
     await writeBrief(repo);
     await writeManifest(repo);
-    const out = graphPacket({ repoRoot: repo, target: 'feature:auth' });
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:auth' });
     expect(out).toMatch(/^LIVE: (enriched|skipped_under_budget|timeout|unavailable)/m);
   });
 
@@ -189,7 +189,7 @@ describe('graph_packet — schema invariants', () => {
     await writeTasks(repo, []);
     await writeBrief(repo);
     await writeManifest(repo);
-    const out = graphPacket({ repoRoot: repo, target: 'feature:big', budget: 200 });
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:big', budget: 200 });
     // Should drop some tail sections to fit budget
     expect(out.length / 4).toBeLessThan(280); // allow some headroom for clamp messages
     expect(out).toMatch(/dropped — over budget/);
@@ -203,7 +203,7 @@ describe('graph_packet — schema invariants', () => {
     await writeTasks(repo, []);
     await writeBrief(repo);
     await writeManifest(repo);
-    const out = graphPacket({ repoRoot: repo, target: 'feature:core' });
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:core' });
     expect(out).toMatch(/READ FIRST:/);
     expect(out).toMatch(/CONTRACTS:/);
     expect(out).toMatch(/LIVE: skipped/);

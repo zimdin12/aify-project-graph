@@ -295,9 +295,85 @@ function clampToBudget(text, budgetTokens) {
   return lines.join('\n');
 }
 
+// ----- LIVE enrichment (M3) -----
+//
+// Called only when the caller passes live=true. Adds a small targeted
+// enrichment block computed from existing read verbs, with a strict
+// time budget. If the budget is exceeded the block aborts and we mark
+// LIVE: timeout in the output. Errors mark LIVE: unavailable. Both keep
+// the rest of the packet usable.
+//
+// Per M0.5 profile (docs/dogfood/latency-profile-2026-04-25.json) the
+// read verbs themselves are <150ms on graphs up to ~9k nodes, so the
+// budget is set well above that to give callers headroom but still
+// catch pathological cases (unfresh state, disk slowness).
+
+const LIVE_BUDGET_MS = 2000;
+
+async function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ __timeout: true }), ms);
+  });
+  try {
+    const result = await Promise.race([promise, timeout]);
+    return result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function enrichLive({ repoRoot, target, kind, value, opts }) {
+  // Lazy import so static-only callers never pay the import cost.
+  const { graphConsequences } = await import('./consequences.js');
+  const t0 = Date.now();
+
+  // graph_consequences accepts symbol OR file path; for feature/task targets
+  // we synthesize a representative file path from anchors when possible.
+  // If we can't, skip enrichment with an explicit reason.
+  let consequenceTarget = target;
+  if (kind === 'feature' || kind === 'task') {
+    // No bare-symbol path available without going through overlay anchors;
+    // use the original target string and let consequences resolve it (works
+    // for tasks because consequences has task lookup; works for features
+    // when bare id matches a feature).
+    consequenceTarget = value;
+  }
+
+  let raw;
+  try {
+    raw = await withTimeout(
+      graphConsequences({ repoRoot, target: consequenceTarget }),
+      LIVE_BUDGET_MS,
+    );
+  } catch (err) {
+    return { status: 'unavailable', detail: err?.message ?? 'live verb threw', elapsed_ms: Date.now() - t0 };
+  }
+  if (raw && raw.__timeout) {
+    return { status: 'timeout', detail: `live enrichment exceeded ${LIVE_BUDGET_MS}ms`, elapsed_ms: Date.now() - t0 };
+  }
+
+  let parsed = null;
+  try {
+    parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return { status: 'unavailable', detail: 'live verb returned non-JSON', elapsed_ms: Date.now() - t0 };
+  }
+
+  // Pull only the enrichment fields packet doesn't already have from
+  // overlay. Keeps the LIVE block small.
+  const enriched = {
+    status: 'enriched',
+    elapsed_ms: Date.now() - t0,
+    last_touched: (parsed.last_touched ?? []).slice(0, 3).map((c) => `${c.sha} ${c.date} ${c.subject ?? ''}`),
+    co_consumer_files: (parsed.co_consumer_files ?? []).slice(0, opts.read_first ?? 3),
+  };
+  return enriched;
+}
+
 // ----- main -----
 
-export function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_tokens, live = false }) {
+export async function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_tokens, live = false }) {
   if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, or bare id)';
   if (!repoRoot) return 'ERROR: repoRoot parameter is required';
 
@@ -342,14 +418,38 @@ export function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_tokens,
     lines = buildTaskPacket({ task: resolvedTask, functionality, brief, opts, snapshot });
   }
 
-  // LIVE: status — overlay-first means "skipped under budget" by default.
-  // Live enrichment is opt-in (live=true). When opted in, it would compose
-  // a snapshot-accepting read of relations; not in v1 scope (deferred to
-  // M3 latency-pass when readOnly:true verb path lands). For now mark
-  // explicitly so the packet stays honest.
-  lines.push(live
-    ? 'LIVE: skipped_under_budget (live enrichment opt-in path lands in M3 alongside readOnly verb mode)'
-    : 'LIVE: skipped_under_budget (overlay-first; pass live=true to enrich)');
+  // LIVE: enrichment block. M3 landed: when live=true we run a budgeted
+  // graph_consequences call and append the cheap-to-compute fields
+  // (last_touched, co_consumer_files) that overlay JSON can't give us.
+  // Strict 2s budget. Timeout / unavailable both still leave the rest
+  // of the packet usable.
+  if (live) {
+    const enrich = await enrichLive({
+      repoRoot,
+      target,
+      kind,
+      value: resolvedFeature?.id ?? resolvedTask?.id ?? parsed.value,
+      opts,
+    });
+    if (enrich.status === 'enriched') {
+      lines.push(`LIVE: enriched (${enrich.elapsed_ms}ms)`);
+      if (enrich.last_touched.length) {
+        lines.push('LAST TOUCHED:');
+        for (const c of enrich.last_touched) lines.push(`- ${c}`);
+      }
+      if (enrich.co_consumer_files.length) {
+        lines.push('CO-CONSUMER FILES:');
+        for (const f of enrich.co_consumer_files) {
+          const path = typeof f === 'string' ? f : (f.file ?? JSON.stringify(f));
+          lines.push(`- ${path}`);
+        }
+      }
+    } else {
+      lines.push(`LIVE: ${enrich.status} (${enrich.detail}; ${enrich.elapsed_ms}ms)`);
+    }
+  } else {
+    lines.push('LIVE: skipped_under_budget (overlay-first; pass live=true to enrich)');
+  }
 
   const text = renderLines(lines);
   return clampToBudget(text, opts.budget_tokens);
