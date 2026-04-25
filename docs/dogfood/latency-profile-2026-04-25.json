@@ -1,0 +1,415 @@
+{
+  "schema_version": 1,
+  "ran_at": "2026-04-25T19:04:25.076Z",
+  "iterations_per_verb": 3,
+  "repos": [
+    {
+      "id": "apg",
+      "label": "aify-project-graph (small, ~2k nodes)",
+      "repoRoot": "C:/Docker/aify-project-graph",
+      "warmup": {
+        "label": "warmup ensureFresh",
+        "elapsed_ms": 1893.949,
+        "error": null,
+        "ok": true
+      },
+      "verbs": [
+        {
+          "name": "graph_pull (file kind, default layers)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_pull (file kind, default layers) run 1",
+              "elapsed_ms": 94.1061,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, default layers) run 2",
+              "elapsed_ms": 92.2911,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, default layers) run 3",
+              "elapsed_ms": 90.29,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 92.22906666666667,
+          "min_ms": 90.29,
+          "max_ms": 94.1061
+        },
+        {
+          "name": "graph_pull (file kind, +relations)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_pull (file kind, +relations) run 1",
+              "elapsed_ms": 92.3107,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, +relations) run 2",
+              "elapsed_ms": 92.618,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, +relations) run 3",
+              "elapsed_ms": 90.7695,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 91.8994,
+          "min_ms": 90.7695,
+          "max_ms": 92.618
+        },
+        {
+          "name": "graph_pull (feature kind)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_pull (feature kind) run 1",
+              "elapsed_ms": 97.2015,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (feature kind) run 2",
+              "elapsed_ms": 96.669,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (feature kind) run 3",
+              "elapsed_ms": 104.3414,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 99.40396666666668,
+          "min_ms": 96.669,
+          "max_ms": 104.3414
+        },
+        {
+          "name": "graph_consequences (file target)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_consequences (file target) run 1",
+              "elapsed_ms": 95.9032,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (file target) run 2",
+              "elapsed_ms": 92.2556,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (file target) run 3",
+              "elapsed_ms": 92.8323,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 93.66369999999999,
+          "min_ms": 92.2556,
+          "max_ms": 95.9032
+        },
+        {
+          "name": "graph_consequences (symbol target)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_consequences (symbol target) run 1",
+              "elapsed_ms": 118.7866,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (symbol target) run 2",
+              "elapsed_ms": 117.5661,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (symbol target) run 3",
+              "elapsed_ms": 109.3764,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 115.24303333333334,
+          "min_ms": 109.3764,
+          "max_ms": 118.7866
+        },
+        {
+          "name": "graph_change_plan (symbol)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_change_plan (symbol) run 1",
+              "elapsed_ms": 98.5675,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_change_plan (symbol) run 2",
+              "elapsed_ms": 87.9908,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_change_plan (symbol) run 3",
+              "elapsed_ms": 89.8367,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 92.13166666666666,
+          "min_ms": 87.9908,
+          "max_ms": 98.5675
+        }
+      ]
+    },
+    {
+      "id": "mem0-fork",
+      "label": "mem0-fork (medium, ~9k nodes)",
+      "repoRoot": "C:/Docker/aify-openmemory/mem0-fork",
+      "warmup": {
+        "label": "warmup ensureFresh",
+        "elapsed_ms": 56764.4145,
+        "error": null,
+        "ok": true
+      },
+      "verbs": [
+        {
+          "name": "graph_pull (file kind, default layers)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_pull (file kind, default layers) run 1",
+              "elapsed_ms": 103.3711,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, default layers) run 2",
+              "elapsed_ms": 93.6994,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, default layers) run 3",
+              "elapsed_ms": 97.9018,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 98.32409999999999,
+          "min_ms": 93.6994,
+          "max_ms": 103.3711
+        },
+        {
+          "name": "graph_pull (file kind, +relations)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_pull (file kind, +relations) run 1",
+              "elapsed_ms": 113.5583,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, +relations) run 2",
+              "elapsed_ms": 120.1943,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (file kind, +relations) run 3",
+              "elapsed_ms": 109.306,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 114.35286666666667,
+          "min_ms": 109.306,
+          "max_ms": 120.1943
+        },
+        {
+          "name": "graph_pull (feature kind)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_pull (feature kind) run 1",
+              "elapsed_ms": 80.4256,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (feature kind) run 2",
+              "elapsed_ms": 79.6536,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_pull (feature kind) run 3",
+              "elapsed_ms": 78.9743,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 79.6845,
+          "min_ms": 78.9743,
+          "max_ms": 80.4256
+        },
+        {
+          "name": "graph_consequences (file target)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_consequences (file target) run 1",
+              "elapsed_ms": 103.7015,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (file target) run 2",
+              "elapsed_ms": 105.0341,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (file target) run 3",
+              "elapsed_ms": 105.2846,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 104.6734,
+          "min_ms": 103.7015,
+          "max_ms": 105.2846
+        },
+        {
+          "name": "graph_consequences (symbol target)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_consequences (symbol target) run 1",
+              "elapsed_ms": 77.7881,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (symbol target) run 2",
+              "elapsed_ms": 73.3339,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_consequences (symbol target) run 3",
+              "elapsed_ms": 76.6386,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 75.92020000000001,
+          "min_ms": 73.3339,
+          "max_ms": 77.7881
+        },
+        {
+          "name": "graph_change_plan (symbol)",
+          "iterations": 3,
+          "successful": 3,
+          "runs": [
+            {
+              "label": "graph_change_plan (symbol) run 1",
+              "elapsed_ms": 78.4583,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_change_plan (symbol) run 2",
+              "elapsed_ms": 81.8279,
+              "error": null,
+              "ok": true
+            },
+            {
+              "label": "graph_change_plan (symbol) run 3",
+              "elapsed_ms": 85.3027,
+              "error": null,
+              "ok": true
+            }
+          ],
+          "mean_ms": 81.86296666666668,
+          "min_ms": 78.4583,
+          "max_ms": 85.3027
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "thresholds_ms": [
+      200,
+      1000,
+      2000,
+      5000
+    ],
+    "exceeded": {
+      "graph_pull (file kind, default layers)": {
+        ">200ms": [],
+        ">1000ms": [],
+        ">2000ms": [],
+        ">5000ms": []
+      },
+      "graph_pull (file kind, +relations)": {
+        ">200ms": [],
+        ">1000ms": [],
+        ">2000ms": [],
+        ">5000ms": []
+      },
+      "graph_pull (feature kind)": {
+        ">200ms": [],
+        ">1000ms": [],
+        ">2000ms": [],
+        ">5000ms": []
+      },
+      "graph_consequences (file target)": {
+        ">200ms": [],
+        ">1000ms": [],
+        ">2000ms": [],
+        ">5000ms": []
+      },
+      "graph_consequences (symbol target)": {
+        ">200ms": [],
+        ">1000ms": [],
+        ">2000ms": [],
+        ">5000ms": []
+      },
+      "graph_change_plan (symbol)": {
+        ">200ms": [],
+        ">1000ms": [],
+        ">2000ms": [],
+        ">5000ms": []
+      }
+    }
+  }
+}
