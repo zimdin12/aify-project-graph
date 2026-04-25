@@ -1,0 +1,822 @@
+{
+  "commit": "27f4d867bcf607f267d3804f4b4d82acdad254c4",
+  "indexedAt": "2026-04-25T02:22:26.802Z",
+  "generatedAt": "2026-04-25T02:22:42.196Z",
+  "verbs": {
+    "graph_status": [
+      {
+        "input": "default (easy)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "nodes",
+          "edges",
+          "indexedAt",
+          "manifestStatus",
+          "commit",
+          "currentHead",
+          "dirtyFiles",
+          "unresolvedEdges",
+          "trustUnresolvedEdges",
+          "dirtyEdgeCount",
+          "unresolvedBy",
+          "overlayQuality",
+          "dirtySeams",
+          "schemaVersion",
+          "extractorVersion"
+        ],
+        "size_bytes": 2322,
+        "invariant_passed": true
+      },
+      {
+        "input": "default (cross-cut)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "nodes",
+          "edges",
+          "indexedAt",
+          "manifestStatus",
+          "commit",
+          "currentHead",
+          "dirtyFiles",
+          "unresolvedEdges",
+          "trustUnresolvedEdges",
+          "dirtyEdgeCount",
+          "unresolvedBy",
+          "overlayQuality",
+          "dirtySeams",
+          "schemaVersion",
+          "extractorVersion"
+        ],
+        "size_bytes": 2322,
+        "invariant_passed": true
+      },
+      {
+        "input": "default (edge)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "nodes",
+          "edges",
+          "indexedAt",
+          "manifestStatus",
+          "commit",
+          "currentHead",
+          "dirtyFiles",
+          "unresolvedEdges",
+          "trustUnresolvedEdges",
+          "dirtyEdgeCount",
+          "unresolvedBy",
+          "overlayQuality",
+          "dirtySeams",
+          "schemaVersion",
+          "extractorVersion"
+        ],
+        "size_bytes": 2322,
+        "invariant_passed": true
+      }
+    ],
+    "graph_index": [
+      {
+        "input": "force=false (easy)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "commit",
+          "indexedAt",
+          "schemaVersion",
+          "extractorVersion",
+          "parserBundleVersion",
+          "dirtyFiles",
+          "dirtyEdgeCount",
+          "trustDirtyEdgeCount",
+          "unresolvedEdges",
+          "nodes",
+          "edges",
+          "processedFiles",
+          "resumedFromPartial",
+          "artifacts",
+          "unresolvedAnchors"
+        ],
+        "size_bytes": 977,
+        "invariant_passed": true
+      },
+      {
+        "input": "force=false (cross)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "commit",
+          "indexedAt",
+          "schemaVersion",
+          "extractorVersion",
+          "parserBundleVersion",
+          "dirtyFiles",
+          "dirtyEdgeCount",
+          "trustDirtyEdgeCount",
+          "unresolvedEdges",
+          "nodes",
+          "edges",
+          "processedFiles",
+          "resumedFromPartial",
+          "artifacts",
+          "unresolvedAnchors"
+        ],
+        "size_bytes": 977,
+        "invariant_passed": true
+      },
+      {
+        "input": "force=false (edge)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "commit",
+          "indexedAt",
+          "schemaVersion",
+          "extractorVersion",
+          "parserBundleVersion",
+          "dirtyFiles",
+          "dirtyEdgeCount",
+          "trustDirtyEdgeCount",
+          "unresolvedEdges",
+          "nodes",
+          "edges",
+          "processedFiles",
+          "resumedFromPartial",
+          "artifacts",
+          "unresolvedAnchors"
+        ],
+        "size_bytes": 977,
+        "invariant_passed": true
+      }
+    ],
+    "graph_health": [
+      {
+        "input": "default (easy)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "trust",
+          "unresolvedEdges",
+          "trustUnresolvedEdges",
+          "nodes",
+          "edges",
+          "dirtyFiles",
+          "dirtySeams",
+          "commit",
+          "currentHead",
+          "stale",
+          "manifestStatus",
+          "briefStaleVsManifest",
+          "unresolvedCategorizationStaleVsManifest",
+          "overlay",
+          "overlayQuality",
+          "summary"
+        ],
+        "size_bytes": 2322,
+        "invariant_passed": true
+      },
+      {
+        "input": "default (cross)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "trust",
+          "unresolvedEdges",
+          "trustUnresolvedEdges",
+          "nodes",
+          "edges",
+          "dirtyFiles",
+          "dirtySeams",
+          "commit",
+          "currentHead",
+          "stale",
+          "manifestStatus",
+          "briefStaleVsManifest",
+          "unresolvedCategorizationStaleVsManifest",
+          "overlay",
+          "overlayQuality",
+          "summary"
+        ],
+        "size_bytes": 2322,
+        "invariant_passed": true
+      },
+      {
+        "input": "default (edge)",
+        "output_kind": "object",
+        "output_shape": [
+          "indexed",
+          "trust",
+          "unresolvedEdges",
+          "trustUnresolvedEdges",
+          "nodes",
+          "edges",
+          "dirtyFiles",
+          "dirtySeams",
+          "commit",
+          "currentHead",
+          "stale",
+          "manifestStatus",
+          "briefStaleVsManifest",
+          "unresolvedCategorizationStaleVsManifest",
+          "overlay",
+          "overlayQuality",
+          "summary"
+        ],
+        "size_bytes": 2322,
+        "invariant_passed": true
+      }
+    ],
+    "graph_consequences": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "object",
+        "output_shape": [
+          "target",
+          "trust",
+          "matched",
+          "contracts_potentially_affected",
+          "spec_docs",
+          "features_touching",
+          "co_consumer_files",
+          "open_tasks_on_those_features",
+          "top_related_tasks",
+          "tests_adjacent",
+          "last_touched",
+          "dirty_overlap",
+          "risk_flags",
+          "_warnings"
+        ],
+        "size_bytes": 1549,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross-cutting)",
+        "output_kind": "object",
+        "output_shape": [
+          "target",
+          "trust",
+          "matched",
+          "contracts_potentially_affected",
+          "spec_docs",
+          "features_touching",
+          "co_consumer_files",
+          "open_tasks_on_those_features",
+          "top_related_tasks",
+          "tests_adjacent",
+          "last_touched",
+          "dirty_overlap",
+          "risk_flags",
+          "_warnings"
+        ],
+        "size_bytes": 1482,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNonExistentSymbolXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 147,
+        "invariant_passed": true
+      }
+    ],
+    "graph_pull": [
+      {
+        "input": "path=scripts/ab-runner.mjs (easy)",
+        "output_kind": "json-string",
+        "output_shape": [
+          "node",
+          "layers",
+          "overlay_quality",
+          "dirty_overlap",
+          "_warnings"
+        ],
+        "size_bytes": 3592,
+        "invariant_passed": true
+      },
+      {
+        "input": "symbol=graphHealth (cross)",
+        "output_kind": "json-string",
+        "output_shape": [
+          "node",
+          "layers",
+          "overlay_quality",
+          "dirty_overlap",
+          "_warnings"
+        ],
+        "size_bytes": 1931,
+        "invariant_passed": true
+      },
+      {
+        "input": "feature=nonexistent (edge)",
+        "output_kind": "json-string",
+        "output_shape": [
+          "node",
+          "error",
+          "hint",
+          "suggestions",
+          "overlay_quality",
+          "dirty_overlap",
+          "_warnings"
+        ],
+        "size_bytes": 852,
+        "invariant_passed": true
+      }
+    ],
+    "graph_change_plan": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1107,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1459,
+        "invariant_passed": true
+      },
+      {
+        "input": "std::vector<int>::iterator (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 215,
+        "invariant_passed": true
+      }
+    ],
+    "graph_path": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 653,
+        "invariant_passed": true
+      },
+      {
+        "input": "graphConsequences (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2280,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNoSymXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 88,
+        "invariant_passed": true
+      }
+    ],
+    "graph_impact": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 132,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2818,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNoSymXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 88,
+        "invariant_passed": true
+      }
+    ],
+    "graph_callers": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 99,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1005,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNoSymXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 88,
+        "invariant_passed": true
+      }
+    ],
+    "graph_callees": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1107,
+        "invariant_passed": true
+      },
+      {
+        "input": "graphConsequences (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1161,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNoSymXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 88,
+        "invariant_passed": true
+      }
+    ],
+    "graph_neighbors": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2812,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2885,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNoSymXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 88,
+        "invariant_passed": true
+      }
+    ],
+    "graph_whereis": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 198,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 193,
+        "invariant_passed": true
+      },
+      {
+        "input": "Foo::Bar::baz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 90,
+        "invariant_passed": true
+      }
+    ],
+    "graph_search": [
+      {
+        "input": "query=graph (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2176,
+        "invariant_passed": true
+      },
+      {
+        "input": "query=health (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 889,
+        "invariant_passed": true
+      },
+      {
+        "input": "query=ZzzNoMatchXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 171,
+        "invariant_passed": true
+      }
+    ],
+    "graph_find": [
+      {
+        "input": "query=health (easy)",
+        "output_kind": "json-string",
+        "output_shape": [
+          "query",
+          "layers_searched",
+          "hits",
+          "top",
+          "totals",
+          "_warnings"
+        ],
+        "size_bytes": 3156,
+        "invariant_passed": true
+      },
+      {
+        "input": "query=graph (cross)",
+        "output_kind": "json-string",
+        "output_shape": [
+          "query",
+          "layers_searched",
+          "hits",
+          "top",
+          "totals",
+          "_warnings"
+        ],
+        "size_bytes": 7776,
+        "invariant_passed": true
+      },
+      {
+        "input": "query=ZzzNoMatchXyz (edge)",
+        "output_kind": "json-string",
+        "output_shape": [
+          "query",
+          "layers_searched",
+          "hits",
+          "top",
+          "totals",
+          "_warnings"
+        ],
+        "size_bytes": 395,
+        "invariant_passed": true
+      }
+    ],
+    "graph_lookup": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 131,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 123,
+        "invariant_passed": true
+      },
+      {
+        "input": "Ns::Qualified::name (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 35,
+        "invariant_passed": true
+      }
+    ],
+    "graph_file": [
+      {
+        "input": "scripts/ab-runner.mjs (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1704,
+        "invariant_passed": true
+      },
+      {
+        "input": "verbs/health.js (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1815,
+        "invariant_passed": true
+      },
+      {
+        "input": "does/not/exist.xyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 86,
+        "invariant_passed": true
+      }
+    ],
+    "graph_module_tree": [
+      {
+        "input": "path=. (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 7043,
+        "invariant_passed": true
+      },
+      {
+        "input": "path=mcp/stdio/query (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 6120,
+        "invariant_passed": true
+      },
+      {
+        "input": "path=does/not/exist (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 16,
+        "invariant_passed": true
+      }
+    ],
+    "graph_preflight": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 321,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 793,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNoSymXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 88,
+        "invariant_passed": true
+      }
+    ],
+    "graph_summary": [
+      {
+        "input": "graphHealth (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 646,
+        "invariant_passed": true
+      },
+      {
+        "input": "openExistingDb (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 842,
+        "invariant_passed": true
+      },
+      {
+        "input": "ZzzNoSymXyz (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 86,
+        "invariant_passed": true
+      }
+    ],
+    "graph_report": [
+      {
+        "input": "default (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2979,
+        "invariant_passed": true
+      },
+      {
+        "input": "top_k=5 (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2979,
+        "invariant_passed": true
+      },
+      {
+        "input": "top_k=50 (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 2979,
+        "invariant_passed": true
+      }
+    ],
+    "graph_onboard": [
+      {
+        "input": "path=. (easy)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1714,
+        "invariant_passed": true
+      },
+      {
+        "input": "path=mcp/stdio (cross)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 1543,
+        "invariant_passed": true
+      },
+      {
+        "input": "path=does/not/exist (edge)",
+        "output_kind": "text",
+        "output_shape": [
+          "<text>"
+        ],
+        "size_bytes": 191,
+        "invariant_passed": true
+      }
+    ]
+  },
+  "summary": {
+    "total_calls": 63,
+    "passed": 63,
+    "failed_invariants": [],
+    "size_highlights": [
+      {
+        "verb": "graph_module_tree",
+        "input": "path=. (easy)",
+        "size_bytes": 7043,
+        "note": "easy-case >5kb"
+      }
+    ]
+  }
+}

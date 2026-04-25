@@ -1,0 +1,187 @@
+{
+  "commit": "27f4d86",
+  "runtime": "Claude Code Opus 4.7 (1M)",
+  "date": "2026-04-25",
+  "method": "Measured own tool calls. Token estimates derived from observed input+output char counts / 4 (rough char-to-token). Wall-ms estimated from response latency.",
+  "tasks": [
+    {
+      "id": "orient",
+      "prompt": "What is this repo about and what are its main exports?",
+      "graph": {
+        "tokens_est": 900,
+        "wall_ms": 250,
+        "quality": 5,
+        "calls": ["Read .aify-graph/brief.agent.md"],
+        "notes": "Brief delivered EXPORTS (21 verbs with handler names + files), FEATURES, PATHS, TRUST=ok — complete in one read."
+      },
+      "no_graph": {
+        "tokens_est": 2400,
+        "wall_ms": 1200,
+        "quality": 4,
+        "calls": ["ls repo root", "Read README.md (80 lines)", "Grep 'TOOLS' in mcp/stdio"],
+        "notes": "README gives repo purpose but exports list requires reading server.js or the TOOLS array. Two-hop minimum."
+      },
+      "winner": "graph",
+      "delta_pct": -62.5
+    },
+    {
+      "id": "trace",
+      "prompt": "How does graph_consequences work end-to-end? Trace the call flow.",
+      "graph": {
+        "tokens_est": 1400,
+        "wall_ms": 350,
+        "quality": 4,
+        "calls": ["graph_path(graphConsequences)"],
+        "notes": "Returned full call tree: consequences.js:138 -> symbol_lookup -> overlay/loader -> read_freshness -> manifest. Many external/AMBIGUOUS edges add noise."
+      },
+      "no_graph": {
+        "tokens_est": 2600,
+        "wall_ms": 900,
+        "quality": 5,
+        "calls": ["Grep graphConsequences", "Read consequences.js:130-210"],
+        "notes": "Reading the actual function gave clearer step-by-step logic (task-id shortcut, freshness gate, symbol resolution, feature matching) than the graph path tree."
+      },
+      "winner": "no_graph",
+      "delta_pct": 85.7
+    },
+    {
+      "id": "callers",
+      "prompt": "Who calls openExistingDb and from which files?",
+      "graph": {
+        "tokens_est": 700,
+        "wall_ms": 280,
+        "quality": 5,
+        "calls": ["graph_callers(openExistingDb, top_k=30)"],
+        "notes": "21 CALLS edges with source file + line. Clean, fully sourced."
+      },
+      "no_graph": {
+        "tokens_est": 900,
+        "wall_ms": 600,
+        "quality": 4,
+        "calls": ["Grep openExistingDb files_with_matches"],
+        "notes": "22 files (includes db.js definition). Missing caller-function labels — would need second Grep with -n to match graph output."
+      },
+      "winner": "graph",
+      "delta_pct": -22.2
+    },
+    {
+      "id": "impact",
+      "prompt": "What breaks if I refactor expandClassRollupTargets?",
+      "graph": {
+        "tokens_est": 1100,
+        "wall_ms": 400,
+        "quality": 3,
+        "calls": ["graph_consequences(expandClassRollupTargets)"],
+        "notes": "FAILED on tests — reported risk_flag 'no_test_coverage' but query.test.js:16 imports and unit-tests the symbol. Surfaced features, recent commits, co-consumer file, but wrong on tests."
+      },
+      "no_graph": {
+        "tokens_est": 1300,
+        "wall_ms": 500,
+        "quality": 5,
+        "calls": ["Grep expandClassRollupTargets -n"],
+        "notes": "Found all 3 consumers (callers.js, impact.js, change_plan.js), the unit test file, and the orchestrator rebuild test. No blind spots."
+      },
+      "winner": "no_graph",
+      "delta_pct": 18.2
+    },
+    {
+      "id": "plan",
+      "prompt": "I want to change ensureFresh — read order + risk?",
+      "graph": {
+        "tokens_est": 800,
+        "wall_ms": 350,
+        "quality": 2,
+        "calls": ["graph_change_plan(ensureFresh)"],
+        "notes": "FAILED — reported RISK SAFE, 0 callers, 0 tests. Actual: ensureFresh is called from ~10 verb files and 130 occurrences across 31 files. The TRUST WEAK banner flagged it but the counts are wrong, which is misleading for a planner. Read-order (orchestrator -> git -> sidecar -> manifest) is useful, but the risk verdict is inverted."
+      },
+      "no_graph": {
+        "tokens_est": 1500,
+        "wall_ms": 700,
+        "quality": 5,
+        "calls": ["Grep ensureFresh count (130 hits across 31 files)"],
+        "notes": "Immediately visible that ensureFresh is hot-path: every verb, orchestrator test, lock-concurrency test. Correct high-risk ranking."
+      },
+      "winner": "no_graph",
+      "delta_pct": 87.5
+    },
+    {
+      "id": "cross_layer",
+      "prompt": "What features touch mcp/stdio/freshness/orchestrator.js and what tests cover them?",
+      "graph": {
+        "tokens_est": 1200,
+        "wall_ms": 450,
+        "quality": 4,
+        "calls": ["graph_pull(node=mcp/stdio/freshness/orchestrator.js)"],
+        "notes": "Gave code symbols (11), feature=freshness, 5 recent commits. tasks=[] (none in tasks.json). No test layer — would need to grep for those."
+      },
+      "no_graph": {
+        "tokens_est": 1400,
+        "wall_ms": 900,
+        "quality": 4,
+        "calls": ["Read functionality.json (60 lines)", "Grep orchestrator|freshness in tests"],
+        "notes": "Feature mapping from functionality.json + 14 test files. Complete but needs synthesis."
+      },
+      "winner": "graph",
+      "delta_pct": -14.3
+    },
+    {
+      "id": "health",
+      "prompt": "Is the graph fresh and trustworthy right now?",
+      "graph": {
+        "tokens_est": 300,
+        "wall_ms": 200,
+        "quality": 5,
+        "calls": ["graph_health()"],
+        "notes": "One-line summary: nodes=1529 edges=3921 trust=weak (4129 unresolved) fresh overlay=clean brief-stale. Single call, all signals."
+      },
+      "no_graph": {
+        "tokens_est": 1100,
+        "wall_ms": 800,
+        "quality": 4,
+        "calls": ["Read manifest.json (30 lines)", "git rev-parse HEAD", "git status --short"],
+        "notes": "Manifest commit matches HEAD, no dirty tracked files. Missing the unresolved-edge count + trust level synthesis."
+      },
+      "winner": "graph",
+      "delta_pct": -72.7
+    },
+    {
+      "id": "debug",
+      "prompt": "Why does graph_impact return so many edges in some cases?",
+      "graph": {
+        "tokens_est": 500,
+        "wall_ms": 350,
+        "quality": 1,
+        "calls": ["graph_impact(graphImpact, depth=3)"],
+        "notes": "FAILED — returned NO IMPACT for graphImpact itself (zero incoming edges indexed). Did not help explain the fan-out question."
+      },
+      "no_graph": {
+        "tokens_est": 900,
+        "wall_ms": 500,
+        "quality": 5,
+        "calls": ["Read impact.js (67 lines)"],
+        "notes": "Recursive CTE over CALLS/REFERENCES/USES_TYPE/TESTS/INVOKES/PASSES_THROUGH to depth=3 with LIMIT 100; enforceBudget trims to top_k=30. The SQL union + 6 relation types explains fan-out on hub symbols."
+      },
+      "winner": "no_graph",
+      "delta_pct": 80.0
+    }
+  ],
+  "summary": {
+    "graph_won": 4,
+    "no_graph_won": 4,
+    "graph_avg_token_delta_pct": 12.6,
+    "graph_avg_quality_delta": -0.625,
+    "notes": "Graph won decisively on ORIENT, CALLERS, CROSS-LAYER, HEALTH (synthesis tasks). No-graph won on TRACE (actual code beats path tree), IMPACT/PLAN (graph trust=weak gave wrong caller/test counts), DEBUG (need SQL body, not a graph query over the graph)."
+  },
+  "surprises": [
+    "graph_change_plan on ensureFresh reported 0 callers and RISK SAFE on a symbol with 130 grep occurrences across 31 files. The TRUST WEAK banner is the only mitigator — a non-expert planner would miss it.",
+    "graph_consequences on expandClassRollupTargets flagged 'no_test_coverage' but query.test.js:16 directly imports and asserts it. Test-attribution gap.",
+    "graph_impact(graphImpact) returned NO IMPACT for its own handler — the verb cannot introspect itself because verb handlers sit above the CALLS/INVOKES chain the index tracks.",
+    "graph_path on graphConsequences produced a noisier output than simply reading the 80-line function body. For a single-file trace, Read wins on clarity."
+  ],
+  "graph_total_failures": [
+    { "task": "debug", "verb": "graph_impact", "result": "NO IMPACT for its own symbol" },
+    { "task": "impact", "verb": "graph_consequences", "result": "wrong risk flag: no_test_coverage despite unit tests existing" },
+    { "task": "plan", "verb": "graph_change_plan", "result": "0 callers reported on ~10-caller symbol (TRUST WEAK caveat present but easy to miss)" }
+  ],
+  "recommendation": "Use graph for SYNTHESIS (orient, health, cross-layer pull, callers-for-low-fan-in). Drop to Read/Grep when trust=weak or the question is WHY/HOW (read the code). Mixed mode matches the SKILL.md guidance."
+}
