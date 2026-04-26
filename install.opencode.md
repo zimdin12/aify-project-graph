@@ -83,7 +83,7 @@ OpenCode does not load Claude-Code skill files. **Skip this step.**
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart OpenCode** so the MCP server loads. In any repo, first make sure `.gitignore` contains `.aify-graph/` and add local scratch/build patterns to `.aifyignore` when needed (`build-linux-techlead`, `generated/**`, `*.tmp.cpp`). Then call `graph_status()` or `graph_index(force=true)` to build the graph. For the static-brief workflow (apg verified-fresh postfix4 self-bench: 6-2 wins, −17.3% net tokens; artifact `docs/dogfood/token-cost-bench-2026-04-25-postfix4.json`), run once per target repo:
+> Install done. **Restart OpenCode** so the MCP server loads. In any repo, first make sure `.gitignore` contains `.aify-graph/` and add local scratch/build patterns to `.aifyignore` when needed (`build-linux-techlead`, `generated/**`, `*.tmp.cpp`). Then call `graph_status()` or `graph_index(force=true)` to build the graph. For the static-brief workflow (briefs + overlay reliably save ~15-20% wall-clock and tool calls vs Grep-only on planning shapes — see README for measurement caveats), run once per target repo:
 >
 > ```bash
 > node "$CLONE_PATH/scripts/graph-brief.mjs" /path/to/your/repo
