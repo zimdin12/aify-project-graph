@@ -330,6 +330,22 @@ const TOOLS = [
   },
 ];
 
+// 2026-04-26: every tool accepts an optional `repo` arg that overrides
+// the MCP server's process.cwd(). Handler at line 536 already routes it
+// to repoRoot; we only need to declare it in JSON Schema so agents can
+// discover and pass it. Critical for sessions launched from a non-repo
+// cwd (home dir, scratch dir) where every live verb otherwise returns
+// trust=missing. Found by 2026-04-26 echoes A/B test contamination.
+const REPO_ARG_SCHEMA = {
+  type: 'string',
+  description: 'Optional absolute path to the target repo. Use when the MCP server was not launched from inside the repo (e.g. from your home dir). Defaults to the server\'s process.cwd().',
+};
+for (const tool of TOOLS) {
+  if (!tool.schema) tool.schema = { type: 'object', properties: {} };
+  if (!tool.schema.properties) tool.schema.properties = {};
+  if (!tool.schema.properties.repo) tool.schema.properties.repo = REPO_ARG_SCHEMA;
+}
+
 // Lean profile (v3, 2026-04-22): redesigned from the old impact/path/plan
 // trio after the combined v1+v2 Codex + Claude bench feedback showed:
 // - `graph_consequences` was the consistently highest-rated live planning verb
@@ -534,6 +550,32 @@ rl.on('line', async (line) => {
     }
     try {
       const repoRoot = args?.repo ?? process.cwd();
+      // Loud, actionable error when the resolved repoRoot has no .aify-graph
+      // AND no explicit repo arg was passed. Surfaced because the
+      // 2026-04-26 echoes A/B test found agents silently retrying live
+      // verbs 15+ times when the parent CC was launched from a non-repo
+      // directory (e.g. home dir). Prevents the trust=missing retry storm.
+      try {
+        const { existsSync } = await import('node:fs');
+        const path = await import('node:path');
+        const graphDir = path.join(repoRoot, '.aify-graph');
+        if (!args?.repo && !existsSync(graphDir)) {
+          send({ jsonrpc: '2.0', id: req.id, result: {
+            content: [{ type: 'text', text: [
+              `ERROR: no .aify-graph in MCP cwd "${repoRoot}".`,
+              ``,
+              `The MCP server was launched from a directory that has no graph.`,
+              `Two ways to fix:`,
+              `  1. Pass repo="<absolute-path-to-target-repo>" in the tool args (works from any cwd).`,
+              `  2. Restart Claude Code / Codex / OpenCode from inside the target repo`,
+              `     so the MCP server's process.cwd() points at it.`,
+              ``,
+              `If the target repo has no graph yet, run /graph-build-all from it first.`,
+            ].join('\n') }],
+          } });
+          return;
+        }
+      } catch { /* defensive: fall through to normal handler */ }
       // Normalize param names: accept both 'symbol' and 'node'/'from' for backwards compat
       const normalized = { ...args, repoRoot };
       if (args?.node && !args?.symbol) normalized.symbol = args.node;
