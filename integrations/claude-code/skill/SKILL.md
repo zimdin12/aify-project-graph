@@ -93,6 +93,8 @@ The current headline result is the **apg verified-fresh postfix4 self-bench** (2
 
 **Tradeoff:** packet is the cheapest (~80-150 ms, no SQL) but coarsest. If packet's MATCHED VIA shows a symbol→feature mapping you want depth on, escalate to `graph_consequences` or `graph_change_plan`. Default-routing everything to packet trades quality for cost — use it for orient, escalate for depth.
 
+**Hard budget on a planning task: at most 1 brief read + 3 live verb calls.** Measured 2026-04-26 echoes A-v2 bench: an agent that made 7 live verb calls (`graph_find` ×4, `graph_file` ×2, `graph_consequences` ×1) ended up +52% tokens / +15% wall-clock vs the same task with no graph at all. Each `graph_find`/`graph_consequences`/`graph_file` returns hundreds-to-thousands of context tokens; over-calling them tips the budget the wrong way. **0 live calls is often correct** after reading the brief. If your first 1-2 live calls return thin/empty results, drop to Grep — don't keep retrying with rephrased queries. `graph_find` already auto-tokenizes compound queries (since 2026-04-21), so thin results are the data, not a query bug.
+
 **Still callable in lean mode** (by name via `tools/call`, just hidden from `tools/list` to reduce manifest tax):
 - `graph_preflight(symbol="X")` — edit safety gate for high-fan-in symbols
 - `graph_path(symbol="X")` — execution / route / middleware flow

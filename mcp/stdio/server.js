@@ -588,8 +588,13 @@ rl.on('line', async (line) => {
       // Staleness warning: if graph is indexed but manifest commit lags HEAD,
       // surface a warning in the response so agents don't silently act on stale
       // data. Skip for graph_status / graph_index (they already show the facts).
+      // Computed for every result type — previously gated on object-returning
+      // verbs only, which let string-returning verbs (graph_change_plan,
+      // graph_path, graph_packet) silently emit stale line numbers. Fix from
+      // 2026-04-26 echoes A-v2 bench: agent nearly cited stale lines because
+      // HEAD moved mid-run and string verbs gave no drift signal.
       let stalenessWarning = null;
-      if (name !== 'graph_status' && name !== 'graph_index' && result && typeof result === 'object') {
+      if (name !== 'graph_status' && name !== 'graph_index') {
         try {
           const { getHeadCommit } = await import('./freshness/git.js');
           const { loadManifest } = await import('./freshness/manifest.js');
@@ -599,7 +604,7 @@ rl.on('line', async (line) => {
             getHeadCommit(repoRoot).catch(() => null),
           ]);
           if (manifest?.commit && head && manifest.commit !== head) {
-            stalenessWarning = `graph stale: indexed at ${manifest.commit.slice(0, 7)}, current HEAD is ${head.slice(0, 7)}. Run graph_index() to refresh.`;
+            stalenessWarning = `graph stale: indexed at ${manifest.commit.slice(0, 7)}, current HEAD is ${head.slice(0, 7)}. Run graph_index() to refresh — line numbers may drift.`;
           }
         } catch {
           // best-effort — never block a verb on staleness detection

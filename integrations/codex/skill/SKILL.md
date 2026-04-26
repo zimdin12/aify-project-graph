@@ -21,7 +21,11 @@ If `.aify-graph/brief.agent.md` exists, read it. ~300-1100 tokens of dense orien
 
 **Tradeoff:** packet is cheaper than change_plan/consequences (no SQL, no per-symbol query), but coarser. If packet's MATCHED VIA shows a symbol→feature mapping you want to drill into, escalate to change_plan or consequences. Default-routing everything to packet trades quality for cost — use it for orient, escalate for depth.
 
-Other verbs (`graph_path`, `graph_impact`, `graph_callers`, `graph_find`, `graph_whereis`, `graph_health`, `graph_status`, etc.) remain callable by name via `tools/call`. They're hidden from `tools/list` to reduce manifest token tax. Use them only on explicit precision questions.
+**Hard budget on a planning task: at most 1 brief read + 3 live verb calls.** Measured 2026-04-26 echoes A-v2 bench: an agent that made 7 live verb calls (`graph_find` ×4, `graph_file` ×2, `graph_consequences` ×1) ended up +52% tokens / +15% wall-clock vs the same task with no graph at all. Each `graph_find`/`graph_consequences`/`graph_file` returns hundreds-to-thousands of context tokens; over-calling them tips the budget the wrong way. **0 live calls is often correct** after reading the brief. If your first 1-2 live calls return thin/empty results, drop to Grep — don't keep retrying with rephrased queries.
+
+**`graph_find` auto-tokenizes compound queries** (since 2026-04-21) — splits on whitespace, runs each token, unions results. Don't rephrase if the first call returns thin results; that's the data, not a query bug.
+
+Other verbs (`graph_path`, `graph_impact`, `graph_callers`, `graph_find`, `graph_whereis`, `graph_status`, etc.) remain callable by name via `tools/call`. They're hidden from `tools/list` to reduce manifest token tax. Use them only on explicit precision questions.
 
 ## Trust gates verb worth
 
