@@ -1184,7 +1184,7 @@ function renderMarkdown(data) {
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
 function renderAgentMarkdown(data) {
   const {
-    snapshot, entries, subs, hubsArr, readFirstArr, tests, recent, health,
+    snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health,
     overlayHealth, tooling, coverage, exports: exportsArr, paths, overlayQuality, dirtySeams,
     manifestCommit, headCommit,
   } = data;
@@ -1278,6 +1278,15 @@ function renderAgentMarkdown(data) {
   if (tests.length) {
     lines.push('TESTS:');
     for (const t of tests.slice(0, 3)) lines.push(`  ${t.file}`);
+  }
+  // RISKS: top high-fan-in / orphan files by inbound-ref count. Already in
+  // brief.json.risks but previously only surfaced in brief.md and brief.plan.md.
+  // Echoes A/B test (2026-04-26) showed agents missed risk-shaped concerns
+  // when working only from brief.agent.md — this closes the gap with one cap-3
+  // pre-baked section.
+  if (risksArr && risksArr.length) {
+    lines.push('RISKS:');
+    for (const r of risksArr.slice(0, 3)) lines.push(`  ${r.file} (${r.why})`);
   }
   if (recent.length) {
     lines.push('RECENT:');
