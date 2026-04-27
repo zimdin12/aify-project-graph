@@ -39,6 +39,15 @@ Filter panel (left side): toggle layers independently, toggle code node types.
 - **Impact analysis preview** — click a feature node; neighboring features + anchored files + related tasks light up
 - **Documentation coverage check** — show only doc + code layers, see which files have MENTIONS edges (inferred doc coverage)
 
+## View modes (top of filter panel, added 2026-04-27)
+
+- **tree** (2D default) — directory-tree grouping. Files cluster under their parent dir; sibling dirs spread by leaf count. Best for "what's the shape of this repo" orientation.
+- **layers** (3D default) — code/features/tasks/docs separated into stacked planes. Use this for cross-layer questions ("which features touch this subsystem").
+- **community** — clusters by detected graph community. Useful when you want graph-derived groupings rather than directory-derived ones.
+- **force** — unconstrained physics simulation. Slow on large graphs (>3000 nodes auto-falls back to grouped positioning).
+
+3D mode is best for layer separation; 2D is best for tree orientation. The mode link in the sidebar header switches between them.
+
 ## Profile note
 
 This verb is in the **full profile**. On lean profile installs (Codex/OpenCode default), the verb is hidden from `tools/list` but **still callable by name via `tools/call`**. If the user reports "tool not found," ensure you're calling it as `graph_dashboard`, not `/graph_dashboard`.

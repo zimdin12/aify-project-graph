@@ -102,7 +102,7 @@ Tell the user (paraphrase is fine):
 > node ~/.codex/plugins/aify-project-graph/scripts/graph-brief.mjs /path/to/your/repo
 > ```
 >
-> Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. On apg's verified-fresh postfix4 self-bench, the mixed brief-first workflow went 6-2 vs no-graph and cut net tokens by 17.3%; exact artifact: `docs/dogfood/token-cost-bench-2026-04-25-postfix4.json`. For plan tasks, hand-author `/path/to/your/repo/.aify-graph/functionality.json` (sample at `~/.codex/plugins/aify-project-graph/docs/examples/functionality.sample.json`) and re-run `graph-brief.mjs`. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
+> Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. Multi-run signal (apg dogfood + 2026-04-26 echoes A/B): briefs + overlay reliably save ~15-20% wall-clock and tool calls on planning shapes; live verbs are conditionally helpful when used surgically (≤3 per task). See [README walkback](README.md#measured-improvement) for caveats. For plan tasks, hand-author `/path/to/your/repo/.aify-graph/functionality.json` (generic sample: `~/.codex/plugins/aify-project-graph/docs/examples/functionality.sample.json`; Laravel sample: `functionality.sample.laravel.json`) and re-run `graph-brief.mjs`. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
 
 ## Verify (after restart)
 
