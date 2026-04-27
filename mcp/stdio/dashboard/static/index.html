@@ -150,14 +150,18 @@
       Route: 14, Entrypoint: 14, Test: 10,
       default: 8,
     };
-    const layerZ = { code: 0, feature: 160, task: 320, doc: 480 };
+    // Layer Z-stack for 3D. Spacing is large enough that even thin layers
+    // (1-20 nodes) read as separate planes when the camera frames everything;
+    // earlier values (160/320/480) flattened visually because the dense code
+    // layer drowned out the others. See the 2026-04-27 dashboard pass.
+    const layerZ = { code: 0, feature: 700, task: 1100, doc: 1500 };
     const activeTypes = new Set();
     const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
     const activeEdgeClasses = new Set(['code', 'cross-layer']);
     const activeProvenance = new Set(['code', 'curated', 'inferred']);
     const is3DMode = window.location.pathname === '/3d';
-    const VIEW_MODES = ['community', 'layers', 'force'];
-    let currentViewMode = is3DMode ? 'layers' : 'community';
+    const VIEW_MODES = ['tree', 'layers', 'community', 'force'];
+    let currentViewMode = is3DMode ? 'layers' : 'tree';
     let sidebarCollapsed = false;
 
     let cy = null;
@@ -297,13 +301,141 @@
       return positions;
     }
 
+    // Wide-and-short variant for layers mode — caps row count so dense
+    // clusters can't bleed into the next lane.
+    function placeClusterItemsWide(items, centerX, centerY, xGap = 22, yGap = 22, maxRows = 6) {
+      const cols = Math.max(2, Math.ceil(items.length / maxRows));
+      const positions = new Map();
+      items.forEach((item, index) => {
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        const rowsUsed = Math.min(maxRows, Math.ceil(items.length / cols));
+        const offsetX = (col - (cols - 1) / 2) * xGap;
+        const offsetY = (row - (rowsUsed - 1) / 2) * yGap;
+        positions.set(item.id, { x: centerX + offsetX, y: centerY + offsetY });
+      });
+      return positions;
+    }
+
+    // Build a directory tree from file_path values. Each path component is a
+    // tree node; leaves are graph nodes. Returns the synthetic root.
+    function buildDirectoryTree(nodes) {
+      const root = { name: '', children: new Map(), items: [], depth: 0 };
+      for (const node of nodes) {
+        const path = node.file_path || '';
+        if (!path) { root.items.push(node); continue; }
+        const parts = path.split(/[/\\]/).filter(Boolean);
+        // Walk all path components — including the filename — so symbols
+        // inside the same file cluster together under their own tree leaf.
+        // For File/Directory nodes (where label === filename), drop the last
+        // part to avoid making the file/dir its own child of itself.
+        const isContainer = node.kind === 'File' || node.kind === 'Directory'
+          || node.type === 'File' || node.type === 'Directory';
+        const walkUntil = isContainer ? parts.length - 1 : parts.length;
+        let cursor = root;
+        for (let i = 0; i < walkUntil; i++) {
+          const part = parts[i];
+          if (!cursor.children.has(part)) {
+            cursor.children.set(part, { name: part, children: new Map(), items: [], depth: cursor.depth + 1 });
+          }
+          cursor = cursor.children.get(part);
+        }
+        cursor.items.push(node);
+      }
+      return root;
+    }
+
+    // Tidy tree layout: depth → y, in-order leaf index → x. Files inside a
+    // directory cluster tightly around the directory's centroid; sibling
+    // directories spread apart proportionally to their leaf count. This is the
+    // "big tree" the user was missing — beats sheets-of-nodes for orientation.
+    function computeTreePositions(nodes) {
+      const positions = new Map();
+      const codeNodes = nodes.filter(n => (n.layer || 'code') === 'code');
+      const otherNodes = nodes.filter(n => (n.layer || 'code') !== 'code');
+      if (!codeNodes.length && !otherNodes.length) return positions;
+
+      const root = buildDirectoryTree(codeNodes);
+      const xGap = 26;
+      const yGap = 110;
+      let leafCursor = 0;
+
+      function layout(node) {
+        const childList = [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name));
+        let firstX = null, lastX = null;
+        for (const child of childList) {
+          layout(child);
+          const cx = child._x;
+          if (firstX === null) firstX = cx;
+          lastX = cx;
+        }
+        // place this directory's own items (files / symbols) as a cluster
+        if (node.items.length) {
+          const itemsPerRow = Math.max(2, Math.ceil(Math.sqrt(node.items.length)));
+          const startX = leafCursor * xGap;
+          node.items.forEach((item, idx) => {
+            const col = idx % itemsPerRow;
+            const row = Math.floor(idx / itemsPerRow);
+            positions.set(item.id, {
+              x: startX + col * xGap,
+              y: node.depth * yGap + row * (xGap * 0.9),
+            });
+          });
+          const itemEndCursor = leafCursor + Math.ceil(node.items.length / itemsPerRow);
+          const itemCenterX = (startX + (itemEndCursor - 1) * xGap) / 2;
+          if (firstX === null) firstX = itemCenterX;
+          lastX = Math.max(lastX ?? itemCenterX, itemCenterX);
+          leafCursor = Math.max(leafCursor, itemEndCursor) + 1;
+        } else if (childList.length === 0) {
+          // empty leaf directory — reserve one slot
+          node._x = leafCursor * xGap;
+          leafCursor += 1;
+          return;
+        }
+        node._x = (firstX + lastX) / 2;
+      }
+      layout(root);
+
+      // Re-center horizontally
+      const allX = [...positions.values()].map(p => p.x);
+      const minX = Math.min(...allX, 0);
+      const maxX = Math.max(...allX, 0);
+      const shiftX = -(minX + maxX) / 2;
+      for (const [id, pos] of positions) positions.set(id, { x: pos.x + shiftX, y: pos.y });
+
+      // Place non-code layers as horizontal bands above the tree
+      if (otherNodes.length) {
+        const treeMaxX = Math.max(...allX, 0) + shiftX;
+        const treeMinX = Math.min(...allX, 0) + shiftX;
+        const width = Math.max(800, treeMaxX - treeMinX);
+        const layerY = { feature: -260, task: -160, doc: -60 };
+        for (const layer of ['feature', 'task', 'doc']) {
+          const laneNodes = otherNodes.filter(n => n.layer === layer);
+          if (!laneNodes.length) continue;
+          const gap = Math.max(40, width / Math.max(laneNodes.length, 1));
+          laneNodes.forEach((node, i) => {
+            positions.set(node.id, {
+              x: treeMinX + (i + 0.5) * gap,
+              y: layerY[layer],
+            });
+          });
+        }
+      }
+      return positions;
+    }
+
     function computePresetPositions(nodes, mode) {
       const positions = new Map();
       if (!nodes.length) return positions;
 
+      if (mode === 'tree') return computeTreePositions(nodes);
+
       if (mode === 'layers') {
         const laneOrder = ['feature', 'task', 'doc', 'code'];
-        const laneOffsets = new Map(laneOrder.map((layer, index) => [layer, (index - (laneOrder.length - 1) / 2) * 260]));
+        // Bumped 260 → 900: dense code clusters routinely span >300px tall in
+        // the old grid placement and bled into adjacent lanes.
+        const laneSpacing = 900;
+        const laneOffsets = new Map(laneOrder.map((layer, index) => [layer, (index - (laneOrder.length - 1) / 2) * laneSpacing]));
         laneOrder.forEach((layer) => {
           const laneNodes = nodes.filter(node => (node.layer || 'code') === layer);
           if (!laneNodes.length) return;
@@ -314,11 +446,14 @@
             clusters.get(key).push(node);
           }
           const clusterList = [...clusters.values()].sort((a, b) => b.length - a.length || String(a[0]?.label || '').localeCompare(String(b[0]?.label || '')));
-          const laneGap = 180;
+          const laneGap = 220;
           clusterList.forEach((cluster, index) => {
             const centerX = (index - (clusterList.length - 1) / 2) * laneGap;
             const centerY = laneOffsets.get(layer) || 0;
-            for (const [id, pos] of placeClusterItems(cluster, centerX, centerY)) positions.set(id, pos);
+            // Bias clusters wide-and-short inside lanes so they stay within
+            // their band instead of growing tall enough to overlap the next
+            // lane. cols = items / 6 roughly capped, rows ≤ 6.
+            for (const [id, pos] of placeClusterItemsWide(cluster, centerX, centerY)) positions.set(id, pos);
           });
         });
         return positions;
@@ -459,7 +594,7 @@
       filterHtml += VIEW_MODES.map(mode => (
         `<button class="toggle-pill ${currentViewMode === mode ? 'active' : ''}" type="button" data-view="${mode}">${mode}</button>`
       )).join('');
-      filterHtml += `</div><div class="subtle">community groups large graphs by detected communities; layers separates code, features, tasks, and docs into lanes.</div>`;
+      filterHtml += `</div><div class="subtle">tree groups by directory hierarchy (best for orientation); layers separates code/features/tasks/docs into lanes; community groups by detected communities; force runs an unconstrained physics simulation (slow on large graphs).</div>`;
 
       if (isMultilayer) {
         const layers = ['code', 'feature', 'task', 'doc'];
@@ -638,12 +773,13 @@
       }));
       const links = elements.filter(isEdgeElement).map(e => ({ ...e.data }));
       const positions = computePresetPositions(nodes, currentViewMode === 'force' ? 'community' : currentViewMode);
+      const isPreset = currentViewMode !== 'force';
       nodes.forEach(node => {
         const pos = positions.get(node.id) || { x: 0, y: 0 };
         node.x = pos.x;
         node.y = pos.y;
         node.z = layerZ[node.layer] ?? 0;
-        if (currentViewMode !== 'force') {
+        if (isPreset) {
           node.fx = pos.x;
           node.fy = pos.y;
           node.fz = node.z;
@@ -651,11 +787,13 @@
           node.fz = node.z;
         }
       });
+      const isLargeGraph = nodes.length > 3000;
       fg3d = ForceGraph3D()(container)
         .backgroundColor('#0d1117')
         .graphData({ nodes, links })
         .nodeLabel(node => `${node.label}\n${node.layer || node.kind || node.type}`)
         .nodeColor(node => node.__color)
+        .nodeRelSize(4)
         .nodeVal(node => {
           if (node.layer === 'feature') return 8;
           if (node.layer === 'task') return 6;
@@ -664,19 +802,36 @@
         })
         .linkColor(link => edgeColor(link))
         .linkWidth(link => (link.edge_class || 'code') === 'cross-layer' ? 1.3 : 0.7)
-        .linkOpacity(link => (link.edge_class || 'code') === 'cross-layer' ? 0.35 : 0.18)
-        .linkCurvature(link => (link.edge_class || 'code') === 'cross-layer' ? 0.18 : 0)
-        .linkDirectionalParticles(link => (link.edge_class || 'code') === 'cross-layer' ? 1 : 0)
-        .linkDirectionalParticleWidth(1.6)
+        .linkOpacity(link => (link.edge_class || 'code') === 'cross-layer' ? 0.35 : 0.12)
+        // Curvature + particles are the two biggest 3D perf drains: curved
+        // links rebuild geometry every frame and particles animate on every
+        // tick. Keep them off by default; particles only appear briefly on
+        // node click via cameraPosition focus (cheap one-shot).
+        .linkCurvature(0)
+        .linkDirectionalParticles(0)
+        // Stop the simulation immediately when nodes are pinned — it would
+        // otherwise burn CPU forever recomputing forces for fixed positions.
+        .cooldownTicks(isPreset ? 0 : 80)
+        .warmupTicks(isPreset ? 0 : 0)
+        .enableNodeDrag(!isLargeGraph)
         .onNodeClick(node => {
           currentFocusNodeId = node.id;
           showNodeDetail(node.id);
           applyNeighborhoodMode(node.id);
-          fg3d.cameraPosition({ x: node.x || 0, y: node.y || 0, z: (layerZ[node.layer] ?? 0) + 220 }, node, 700);
+          fg3d.cameraPosition({ x: node.x || 0, y: node.y || 0, z: (layerZ[node.layer] ?? 0) + 320 }, node, 700);
         });
 
       fg3d.d3Force('charge').strength(currentViewMode === 'force' ? -75 : -8);
-      fg3d.d3Force('link').distance(link => (link.edge_class || 'code') === 'cross-layer' ? 110 : 36);
+      fg3d.d3Force('link').distance(link => (link.edge_class || 'code') === 'cross-layer' ? 220 : 40);
+
+      // Auto-fit camera so all layers are framed on first paint. Without this
+      // the default camera sits at z=300 which is below the top of the layer
+      // stack (now extends to z=1500), and only the code plane is visible.
+      requestAnimationFrame(() => {
+        if (fg3d && typeof fg3d.zoomToFit === 'function') {
+          fg3d.zoomToFit(800, 80);
+        }
+      });
     }
 
     function render2DGraph(elements) {
@@ -697,11 +852,13 @@
         nodeCount,
         canUseForce
           ? ''
-          : currentViewMode === 'layers'
-            ? 'Using lane layout so code, features, tasks, and docs stay visibly separated instead of collapsing into one blob.'
-            : currentViewMode === 'community'
-              ? 'Using community grouping so large repos stay legible without freezing the browser.'
-              : 'Force layout is disabled at this size; using grouped positioning instead.'
+          : currentViewMode === 'tree'
+            ? 'Using directory-tree layout — files cluster under their parent directory, sibling dirs spread by leaf count.'
+            : currentViewMode === 'layers'
+              ? 'Using lane layout so code, features, tasks, and docs stay visibly separated instead of collapsing into one blob.'
+              : currentViewMode === 'community'
+                ? 'Using community grouping so large repos stay legible without freezing the browser.'
+                : 'Force layout is disabled at this size; using grouped positioning instead.'
       );
       cy = cytoscape({
         container: document.getElementById('cy'),
