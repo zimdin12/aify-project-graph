@@ -121,6 +121,10 @@ When ranking impact or path output, treat `INFERRED` and especially `AMBIGUOUS` 
 - **per-line granularity questions** — `graph_callers` is function-granular; if you need "which LINE called X," Grep wins by schema (measured on echoes: graph collapses many in-function sites to one edge)
 - **symbols appearing in >10 files** — `graph_whereis` tends to lose to Grep here; the candidate set is too wide for graph's exact-match advantage to kick in
 
+**"Skip graph" ≠ "do less."** Audit-shaped tasks ("find every X") need **N targeted Grep + Read passes**, not one. Echoes 2026-04-27 AUDIT bench: a graph-allowed agent did 1 grep, missed 80% of hits. Single-grep audits are wrong by schema.
+
+**On weak-trust C++ / cross-file dispatch, `graph_impact` and `graph_callers` undercount silently.** Echoes 2026-04-27 IMPACT bench: `graph_impact("ChunkManager::setVoxel")` returned 2 callers when grep found ~65, leading to a wrong "GO" recommendation. Both verbs now print a CONFIDENCE footer when result count looks suspiciously thin relative to indexed-node count or trust=weak — read it. **Before any deletion, rename, or signature change on a weak-trust graph, cross-check with Grep.** The graph result is a lower bound, not the answer.
+
 ## When NOT to use graph verbs (anti-patterns)
 
 - Do NOT use `graph_impact` / `graph_whereis` as a substitute for reading code. They tell you *what connects*, not *what the code does*.

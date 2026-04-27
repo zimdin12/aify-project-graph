@@ -5,6 +5,9 @@ import { rankCallers } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { collapseCallerEdges, expandClassRollupTargets } from './target_rollup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { loadManifest } from '../../freshness/manifest.js';
+import { computeTrustLevel } from './health.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -74,7 +77,36 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
-    return prefixReadWarnings(rolledUp ? `${header}\n${body}` : body, freshness.warnings);
+
+    // CONFIDENCE footer — same pattern as graph_impact (added 2026-04-27).
+    // Echoes IMPACT bench showed graph_impact silently undercounting C++
+    // method callers at trust=weak; graph_callers shares the same risk.
+    let confidenceFooter = '';
+    try {
+      const { manifest } = await loadManifest(join(repoRoot, '.aify-graph'));
+      const { trust: trustCount } = getUnresolvedCounts(manifest ?? {});
+      const trust = computeTrustLevel(trustCount);
+      const occRow = db.get(
+        `SELECT COUNT(*) AS c FROM nodes WHERE label = $label`,
+        { label: symbol },
+      );
+      const occurrences = occRow?.c ?? 0;
+      const resultCount = mapped.length;
+      // Same trigger as graph_impact: only fire when result actually
+      // looks suspicious. Trust=strong with healthy count stays quiet.
+      const suspicious = (trust === 'weak' && resultCount < 10)
+        || (occurrences >= 3 && resultCount < occurrences);
+      if (suspicious) {
+        confidenceFooter = `\nCONFIDENCE: ${resultCount} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges may hide additional sites.`
+          + `\n  ⚠ Likely undercount on weak-trust C++ / cross-file dispatch.`
+          + `\n  Verify with: rg -n "${symbol}\\b" before any deletion, rename, or signature change.`;
+      }
+    } catch { /* defensive */ }
+
+    return prefixReadWarnings(
+      (rolledUp ? `${header}\n${body}` : body) + confidenceFooter,
+      freshness.warnings,
+    );
   } finally {
     db.close();
   }

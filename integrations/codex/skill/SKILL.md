@@ -58,6 +58,10 @@ When verbs print `prov=...` on edges:
 - Symbol appears in >10 files → Grep beats `graph_whereis`
 - You're about to read code anyway → just read it
 
+**"Skip graph" ≠ "do less."** On audit-shaped tasks ("find every X"), skipping the graph means doing **N targeted Grep + Read passes**, not one. Echoes 2026-04-27 AUDIT bench: a graph-allowed agent did 1 grep, missed 80% of hits. Single-grep audits are wrong by schema.
+
+**On weak-trust C++ / cross-file dispatch, `graph_impact` and `graph_callers` undercount silently.** Echoes 2026-04-27 IMPACT bench: `graph_impact("ChunkManager::setVoxel")` returned 2 callers when grep found ~65, leading to a wrong "GO" recommendation. Both verbs now print a CONFIDENCE footer when result count looks suspiciously thin relative to indexed-node count or trust=weak — read it. **Before any deletion, rename, or signature change on a weak-trust graph, cross-check with Grep.** The graph result is a lower bound, not the answer.
+
 ## Reference
 
 Full skill (workflows, anti-patterns, pre-action consultation table, examples): `integrations/codex/skill/references/SKILL-full.md`. Don't load it every session; consult only on a specific question.

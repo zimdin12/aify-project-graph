@@ -4,6 +4,9 @@ import { renderCompact } from '../renderer.js';
 import { enforceBudget } from '../budget.js';
 import { expandClassRollupTargets } from './target_rollup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { loadManifest } from '../../freshness/manifest.js';
+import { computeTrustLevel } from './health.js';
+import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 
 const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -59,7 +62,50 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
-    return prefixReadWarnings(rolledUp ? `${header}\n${body}` : body, freshness.warnings);
+
+    // CONFIDENCE footer (added 2026-04-27 after the echoes IMPACT bench
+    // showed graph_impact returning 2 callers when grep found ~65 — silent
+    // undercount caused by unresolved cross-file CALLS edges at trust=weak).
+    // Compares result count to label-occurrence count in the indexed graph
+    // and to the total unresolved-edge backlog. If the result looks
+    // suspiciously thin, append an explicit verify-with-Grep nudge so the
+    // agent doesn't take the count at face value when planning a deletion
+    // or rename.
+    let confidenceFooter = '';
+    try {
+      const { manifest } = await loadManifest(join(repoRoot, '.aify-graph'));
+      const { trust: trustCount } = getUnresolvedCounts(manifest ?? {});
+      const trust = computeTrustLevel(trustCount);
+      const occRow = db.get(
+        `SELECT COUNT(*) AS c FROM nodes WHERE label = $label`,
+        { label: symbol },
+      );
+      const occurrences = occRow?.c ?? 0;
+      const resultCount = mapped.length;
+      // Fire only when the result actually looks suspicious:
+      // (a) trust=weak AND result is small/empty (the IMPACT bench's
+      //     silent-undercount failure mode), or
+      // (b) more indexed nodes labeled <symbol> than edges returned —
+      //     the graph likely missed cross-file resolution.
+      // Trust=strong with healthy result count stays quiet.
+      const suspicious = (trust === 'weak' && resultCount < 10)
+        || (occurrences >= 3 && resultCount < occurrences);
+      if (suspicious) {
+        const parts = [
+          `[${resultCount} edges found`,
+          `trust=${trust}`,
+          `${occurrences} indexed nodes labeled "${symbol}"`,
+          `${trustCount} unresolved CALLS edges may hide additional sites`,
+        ];
+        confidenceFooter = `\nCONFIDENCE: ${parts.join(' · ')}.\n  ⚠ Likely undercount on weak-trust C++ / cross-file dispatch.`
+          + `\n  Verify with: rg -n "${symbol}\\b" before any deletion, rename, or signature change.`;
+      }
+    } catch { /* defensive — never block result on confidence-check failure */ }
+
+    return prefixReadWarnings(
+      (rolledUp ? `${header}\n${body}` : body) + confidenceFooter,
+      freshness.warnings,
+    );
   } finally {
     db.close();
   }
