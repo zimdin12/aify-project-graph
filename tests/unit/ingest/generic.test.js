@@ -442,4 +442,41 @@ void ChunkManager::tick() {
     expect(targets.filter((target) => target === 'isOpenAir')).toHaveLength(2);
     expect(targets).toContain('isOpenAir');
   });
+
+  it('extracts Eloquent relationships and dispatch calls (PHP postExtract)', () => {
+    const source = [
+      '<?php',
+      'namespace App\\Models;',
+      '',
+      'use Illuminate\\Database\\Eloquent\\Model;',
+      'use App\\Jobs\\SendWelcomeEmail;',
+      '',
+      'class User extends Model {',
+      '  public function tokens() {',
+      '    return $this->hasMany(Token::class);',
+      '  }',
+      '  public function profile() {',
+      '    return $this->hasOne(Profile::class);',
+      '  }',
+      '  public function welcome() {',
+      '    Bus::dispatch(SendWelcomeEmail::class);',
+      '  }',
+      '}',
+      '',
+    ].join('\n');
+
+    const result = extractFile({
+      filePath: 'app/Models/User.php',
+      source,
+      config: php,
+    });
+
+    const usesType = result.refs.filter((r) => r.relation === 'USES_TYPE' && r.from_label === 'User');
+    const targets = usesType.map((r) => r.target);
+    expect(targets).toContain('Token');
+    expect(targets).toContain('Profile');
+
+    const dispatch = result.refs.find((r) => r.relation === 'REFERENCES' && r.target === 'SendWelcomeEmail');
+    expect(dispatch).toBeTruthy();
+  });
 });

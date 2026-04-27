@@ -324,9 +324,13 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
 
     if (req.url?.startsWith('/api/search?')) {
       const url = new URL(req.url, `http://localhost`);
-      const q = url.searchParams.get('q') || '';
+      const rawQ = (url.searchParams.get('q') || '').slice(0, 100);
+      // Escape SQL LIKE wildcards (% _) so a query like "%a%a%a%" can't
+      // trigger O(n²) pattern matching on the full nodes table. Server is
+      // bound to 127.0.0.1 only but defense-in-depth is cheap here.
+      const q = rawQ.replace(/[\\%_]/g, (ch) => `\\${ch}`);
       const results = db.all(
-        'SELECT * FROM nodes WHERE label LIKE $q LIMIT 20',
+        "SELECT * FROM nodes WHERE label LIKE $q ESCAPE '\\' LIMIT 20",
         { q: `%${q}%` }
       );
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });

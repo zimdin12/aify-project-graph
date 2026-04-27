@@ -176,12 +176,19 @@ function buildResolvers(db) {
       AND n.type IN ('Method', 'Function')
   `);
 
+  // Includes IMPLEMENTS so PHP trait method calls resolve. The PHP plugin
+  // emits `use SomeTrait;` inside a class body as an IMPLEMENTS edge
+  // (intentional approximation — see comment at php.js:268). For Java/C#
+  // IMPLEMENTS points at interfaces whose methods have no body, so
+  // findContainedMember returns nothing and the walk continues — no harm.
+  // For PHP traits with method bodies, this is the path that finally lets
+  // `$this->log()` from a HasLogger trait resolve to the trait's method.
   const findExtendedParents = db.raw.prepare(`
     SELECT n.*
     FROM edges e
     JOIN nodes n ON n.id = e.to_id
     WHERE e.from_id = ?
-      AND e.relation = 'EXTENDS'
+      AND e.relation IN ('EXTENDS', 'IMPLEMENTS')
       AND n.type IN ('Class', 'Interface', 'Type')
   `);
 

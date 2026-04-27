@@ -31,6 +31,44 @@ const FACADE_MAP = new Map([
   ['Hash', 'Illuminate\\Hashing\\HashManager'],
   ['Gate', 'Illuminate\\Auth\\Access\\Gate'],
   ['Mail', 'Illuminate\\Mail\\Mailer'],
+  // Added 2026-04-27 after Laravel-install audit — these 14 facades cover
+  // most of the remaining real-world hit rate on a typical 50k LoC app.
+  ['Validator', 'Illuminate\\Validation\\Factory'],
+  ['Crypt', 'Illuminate\\Encryption\\Encrypter'],
+  ['Cookie', 'Illuminate\\Cookie\\CookieJar'],
+  ['File', 'Illuminate\\Filesystem\\Filesystem'],
+  ['URL', 'Illuminate\\Routing\\UrlGenerator'],
+  ['Url', 'Illuminate\\Routing\\UrlGenerator'],
+  ['Notification', 'Illuminate\\Notifications\\ChannelManager'],
+  ['Bus', 'Illuminate\\Bus\\Dispatcher'],
+  ['Broadcast', 'Illuminate\\Broadcasting\\BroadcastManager'],
+  ['Date', 'Illuminate\\Support\\DateFactory'],
+  ['Lang', 'Illuminate\\Translation\\Translator'],
+  ['Password', 'Illuminate\\Auth\\Passwords\\PasswordBrokerManager'],
+  ['Redirect', 'Illuminate\\Routing\\Redirector'],
+  ['Redis', 'Illuminate\\Redis\\RedisManager'],
+  ['Http', 'Illuminate\\Http\\Client\\Factory'],
+  ['Process', 'Illuminate\\Process\\Factory'],
+]);
+
+// Eloquent relationship methods. When a model method calls `$this->hasMany(Foo::class)`
+// the related class is a real cross-model dependency that the resolver was
+// missing entirely (showed up as 0% resolved on Laravel audit). Emitting
+// USES_TYPE from the owning model class to the related model recovers the
+// model-relationship layer of the graph.
+const ELOQUENT_RELATIONSHIP_METHODS = new Set([
+  'hasOne', 'hasMany', 'belongsTo', 'belongsToMany',
+  'hasOneThrough', 'hasManyThrough',
+  'morphOne', 'morphMany', 'morphTo', 'morphedByMany', 'morphToMany',
+]);
+
+// Eloquent dispatch methods that take a class-string (job/event/notification).
+// `Bus::dispatch(SendEmail::class)`, `Event::dispatch(UserCreated::class)`,
+// `Notification::send($user, new WelcomeNotification(...))` — all create real
+// REFERENCES the graph was missing.
+const DISPATCH_METHODS = new Set([
+  'dispatch', 'dispatchSync', 'dispatchNow', 'dispatchAfterResponse',
+  'fire', 'send', 'broadcast', 'notify',
 ]);
 
 // Post-extract: adds refs for three Laravel/PHP dynamic-dispatch patterns
@@ -98,6 +136,51 @@ function postExtractPhp({ tree, source, filePath, fileNode, nodes, symbolsById }
                   extractor: 'php',
                 });
               }
+            }
+          }
+        }
+      }
+    }
+
+    // (a2) Eloquent relationships and dispatch sugar.
+    //   $this->hasMany(Token::class)     → USES_TYPE owner → Token
+    //   $this->belongsTo(User::class)    → USES_TYPE owner → User
+    //   $this->dispatch(SendEmail::class)→ REFERENCES file → SendEmail
+    // First class-string argument is what we care about; bare-string targets
+    // ('App\Foo') are ignored to avoid false positives on string keys.
+    if (node.type === 'member_call_expression' || node.type === 'scoped_call_expression') {
+      const nameNode = node.childForFieldName('name');
+      const methodName = nodeText(nameNode, source).trim();
+      const isRelation = ELOQUENT_RELATIONSHIP_METHODS.has(methodName);
+      const isDispatch = DISPATCH_METHODS.has(methodName);
+      if (isRelation || isDispatch) {
+        const args = node.childForFieldName('arguments');
+        if (args && args.namedChildren.length > 0) {
+          for (const arg of args.namedChildren) {
+            const inner = arg.namedChildren[0] ?? arg;
+            if (inner?.type === 'class_constant_access_expression') {
+              const target = extractClassNameFromConstAccess(inner);
+              if (!target) continue;
+              const line = node.startPosition.row + 1;
+              if (isRelation) {
+                const owner = classAtLine(line);
+                if (owner) {
+                  refs.push({
+                    from_id: owner.id, from_label: owner.label,
+                    relation: 'USES_TYPE', target,
+                    source_file: filePath, source_line: line,
+                    confidence: 0.85, extractor: 'php',
+                  });
+                }
+              } else {
+                refs.push({
+                  from_id: fileNode.id, from_label: fileNode.label,
+                  relation: 'REFERENCES', target,
+                  source_file: filePath, source_line: line,
+                  confidence: 0.7, extractor: 'php',
+                });
+              }
+              break; // first class arg only
             }
           }
         }

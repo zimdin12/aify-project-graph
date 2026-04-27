@@ -60,7 +60,7 @@ When verbs print `prov=...` on edges:
 
 **"Skip graph" ≠ "do less."** On audit-shaped tasks ("find every X"), skipping the graph means doing **N targeted Grep + Read passes**, not one. Echoes 2026-04-27 AUDIT bench: a graph-allowed agent did 1 grep, missed 80% of hits. Single-grep audits are wrong by schema.
 
-**On weak-trust C++ / cross-file dispatch, `graph_impact` and `graph_callers` undercount silently.** Echoes 2026-04-27 IMPACT bench: `graph_impact("ChunkManager::setVoxel")` returned 2 callers when grep found ~65, leading to a wrong "GO" recommendation. Both verbs now print a CONFIDENCE footer when result count looks suspiciously thin relative to indexed-node count or trust=weak — read it. **Before any deletion, rename, or signature change on a weak-trust graph, cross-check with Grep.** The graph result is a lower bound, not the answer.
+**On weak-trust graphs (C++ cross-file dispatch, PHP traits/Eloquent, dynamic dispatch), `graph_impact` and `graph_callers` undercount silently.** Echoes 2026-04-27 IMPACT bench: `graph_impact("ChunkManager::setVoxel")` returned 2 callers when grep found ~65, leading to a wrong "GO" recommendation. Same shape on Laravel: trait-method calls (`$this->log()` from a trait) and Eloquent `Builder` chains often miss. Both verbs now print a CONFIDENCE footer when result count looks suspiciously thin relative to indexed-node count or trust=weak — read it. **Before any deletion, rename, or signature change on a weak-trust graph, cross-check with Grep.** The graph result is a lower bound, not the answer.
 
 ## Reference
 

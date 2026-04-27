@@ -1,0 +1,61 @@
+{
+  "_comment": "Example .aify-graph/functionality.json for a typical Laravel app. Copy to .aify-graph/functionality.json in your Laravel repo and edit. Anchors validate against the code graph at brief-generation time — stale anchors surface on the brief's TRUST line.",
+  "version": "0.1",
+  "features": [
+    {
+      "id": "auth",
+      "label": "Authentication & session",
+      "description": "Login, logout, password reset, session lifecycle. Spans web routes, AuthController, FormRequests, and the User model.",
+      "anchors": {
+        "symbols": ["AuthController", "User", "LoginRequest", "PasswordResetController"],
+        "files": ["app/Http/Controllers/Auth/*", "app/Http/Requests/Auth/*", "app/Models/User.php", "routes/auth.php"],
+        "routes": ["POST /login", "POST /logout", "POST /password/email"],
+        "docs": ["docs/auth.md"]
+      },
+      "tests": ["tests/Feature/Auth/LoginTest.php", "tests/Feature/Auth/PasswordResetTest.php"],
+      "source": "user",
+      "tags": ["auth", "http"]
+    },
+    {
+      "id": "billing",
+      "label": "Billing & subscriptions",
+      "description": "Stripe integration via Cashier. Subscription plans, webhooks, invoices.",
+      "anchors": {
+        "symbols": ["BillingController", "WebhookController", "Subscription", "Plan"],
+        "files": ["app/Http/Controllers/Billing/*", "app/Models/Subscription.php", "app/Services/Billing/*"],
+        "routes": ["POST /billing/subscribe", "POST /webhooks/stripe"]
+      },
+      "tests": ["tests/Feature/Billing/*"],
+      "depends_on": ["auth"],
+      "source": "user",
+      "tags": ["billing", "stripe", "webhook"]
+    },
+    {
+      "id": "queue-jobs",
+      "label": "Background jobs",
+      "description": "Queued jobs for email delivery, report generation, third-party sync. Dispatched via Bus::dispatch.",
+      "anchors": {
+        "symbols": ["SendWelcomeEmail", "GenerateMonthlyReport", "SyncCrmContacts"],
+        "files": ["app/Jobs/*", "app/Listeners/*"],
+        "docs": ["docs/jobs.md"]
+      },
+      "tests": ["tests/Unit/Jobs/*"],
+      "source": "user",
+      "tags": ["queue", "async"]
+    },
+    {
+      "id": "api-v1",
+      "label": "Public REST API v1",
+      "description": "Versioned external-facing API. Sanctum-authenticated. Uses API resources for serialization.",
+      "anchors": {
+        "symbols": ["Api\\V1\\UserController", "UserResource", "ApiAuthenticate"],
+        "files": ["app/Http/Controllers/Api/V1/*", "app/Http/Resources/*", "routes/api.php"],
+        "routes": ["GET /api/v1/users", "GET /api/v1/users/{id}"]
+      },
+      "tests": ["tests/Feature/Api/V1/*"],
+      "depends_on": ["auth"],
+      "source": "user",
+      "tags": ["api", "rest"]
+    }
+  ]
+}

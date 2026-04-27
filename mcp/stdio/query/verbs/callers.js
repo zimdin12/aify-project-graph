@@ -98,7 +98,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         || (occurrences >= 3 && resultCount < occurrences);
       if (suspicious) {
         confidenceFooter = `\nCONFIDENCE: ${resultCount} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges may hide additional sites.`
-          + `\n  ⚠ Likely undercount on weak-trust C++ / cross-file dispatch.`
+          + `\n  ⚠ Likely undercount on weak-trust graphs (C++ cross-file dispatch, PHP traits/Eloquent, dynamic dispatch).`
           + `\n  Verify with: rg -n "${symbol}\\b" before any deletion, rename, or signature change.`;
       }
     } catch { /* defensive */ }

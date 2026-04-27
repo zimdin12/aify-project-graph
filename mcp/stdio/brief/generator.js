@@ -395,8 +395,9 @@ function isPathNoise(node) {
 }
 
 function extractPaths(db, exportsArr, limit = 5) {
-  if (!exportsArr || exportsArr.length === 0) return [];
+  if (!exportsArr || exportsArr.length === 0) return { paths: [], hiddenCount: 0 };
   const out = [];
+  let hiddenCount = 0;
   // Deepest-chain flattener: pick the longest descendant branch at each level.
   function deepestChain(tree) {
     if (!tree) return [];
@@ -406,7 +407,10 @@ function extractPaths(db, exportsArr, limit = 5) {
     let bestChild = null;
     let bestDepth = -1;
     for (const c of tree.children) {
-      if (isPathNoise({ symbol: c.symbol, file: c.file, line: c.line })) continue;
+      if (isPathNoise({ symbol: c.symbol, file: c.file, line: c.line })) {
+        hiddenCount += 1;
+        continue;
+      }
       const d = subtreeDepth(c);
       if (d > bestDepth) {
         bestDepth = d;
@@ -450,7 +454,7 @@ function extractPaths(db, exportsArr, limit = 5) {
     } catch {}
   }
 
-  return out;
+  return { paths: out, hiddenCount };
 }
 
 // One-line "what does this brief actually cover" hint. Agent can use this to
@@ -1185,8 +1189,8 @@ function renderMarkdown(data) {
 function renderAgentMarkdown(data) {
   const {
     snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health,
-    overlayHealth, tooling, coverage, exports: exportsArr, paths, overlayQuality, dirtySeams,
-    manifestCommit, headCommit,
+    overlayHealth, tooling, coverage, exports: exportsArr, paths, pathsHiddenCount = 0,
+    overlayQuality, dirtySeams, manifestCommit, headCommit,
   } = data;
   const lines = [];
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
@@ -1269,6 +1273,14 @@ function renderAgentMarkdown(data) {
     for (const p of paths.slice(0, 5)) {
       const chainStr = p.chain.map(n => `${n.name} ${n.file}:${n.line}`).join(' → ');
       lines.push(`  ${p.entry}: ${chainStr}`);
+    }
+    // Surface the noise filter count so a missing legitimate symbol is at
+    // least visible. Vendor / type-name patterns can hide real call sites
+    // on languages where the filter heuristic over-matches (e.g. a domain
+    // class actually named `Vec4`). Without this line the omission was
+    // silent — agents had no way to know the trace was filtered.
+    if (pathsHiddenCount > 0) {
+      lines.push(`  (PATHS HIDDEN: ${pathsHiddenCount} vendor/type-name nodes filtered — set GRAPH_PATHS_NOISE_DEBUG=1 to inspect)`);
     }
   }
   if (readFirstArr.length) {
@@ -1627,7 +1639,7 @@ export function generateBrief({ repoRoot }) {
     const unresolvedBy = summarizeUnresolvedFromManifest(repoRoot);
     const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy);
     const coverage = briefCoverage(subs, overlayHealth);
-    const paths = extractPaths(db, exports, 5);
+    const { paths, hiddenCount: pathsHiddenCount } = extractPaths(db, exports, 5);
     // Pull indexedAt + commit from the manifest so brief.json carries them
     // without forcing cache churn on unchanged regens.
     let manifestIndexedAt = null;
@@ -1671,6 +1683,7 @@ export function generateBrief({ repoRoot }) {
       coverage,
       exports,
       paths,
+      pathsHiddenCount,
       manifestIndexedAt,
       manifestCommit,
       headCommit,

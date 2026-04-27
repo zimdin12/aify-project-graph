@@ -479,6 +479,28 @@ export async function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_t
     lines.splice(1, 0, `MATCHED VIA: symbol "${matchedViaSymbol}" → feature ${resolvedFeature.id}`);
   }
 
+  // LIVE auto-enable: opt-in stays the default, but we flip it on when the
+  // overlay alone won't satisfy the agent. Triggers (any one):
+  //   - symbol-fallback target: agent gave us a function name, not a feature
+  //     id; they want the live data, not just the curated overlay.
+  //   - stale snapshot: indexed != HEAD; live read is the only way to get
+  //     edges for code that changed since the last index.
+  //   - trust=weak: overlay confidence is low; live enrichment surfaces the
+  //     last-touched + co-consumer files that help verify in source.
+  // The cost is one budgeted (2s) graph_consequences call. Skip the auto
+  // if the user explicitly passed live=false (we only escalate the default).
+  let autoLiveReason = '';
+  const snapshotIsStale = snapshot.includes('STALE');
+  const snapshotTrustWeak = / trust=weak\b/.test(snapshot);
+  if (!live && (matchedViaSymbol || snapshotIsStale || snapshotTrustWeak)) {
+    live = true;
+    autoLiveReason = matchedViaSymbol
+      ? 'auto-enabled (symbol fallback)'
+      : snapshotIsStale
+        ? 'auto-enabled (stale snapshot)'
+        : 'auto-enabled (trust=weak)';
+  }
+
   // LIVE: enrichment block. M3 landed: when live=true we run a budgeted
   // graph_consequences call and append the cheap-to-compute fields
   // (last_touched, co_consumer_files) that overlay JSON can't give us.
@@ -502,7 +524,8 @@ export async function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_t
       opts,
     });
     if (enrich.status === 'enriched') {
-      lines.push(`LIVE: enriched (${enrich.elapsed_ms}ms)`);
+      const reasonSuffix = autoLiveReason ? `; ${autoLiveReason}` : '';
+      lines.push(`LIVE: enriched (${enrich.elapsed_ms}ms${reasonSuffix})`);
       if (enrich.last_touched.length) {
         lines.push('LAST TOUCHED:');
         for (const c of enrich.last_touched) lines.push(`- ${c}`);

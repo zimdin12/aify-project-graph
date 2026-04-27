@@ -298,6 +298,34 @@ Project-level escape hatches at repo root:
 - `.aifyignore` — additional dirs or path/glob patterns to exclude on top of defaults
 - `.aifyinclude` — un-exclude from defaults (e.g. `build` or `vendor` when they hold real code)
 
+**Framework-specific ignore recipes** (defaults already exclude `node_modules`, `vendor`, `.venv`, `build`, `dist`, etc.):
+
+```sh
+# Laravel — paste into .aifyignore at repo root
+bootstrap/cache
+storage/framework
+storage/logs
+storage/debugbar
+public/build
+public/hot
+public/storage
+_ide_helper.php
+_ide_helper_models.php
+.phpunit.result.cache
+
+# Django / Python web — paste into .aifyignore
+staticfiles
+media
+.mypy_cache
+.ruff_cache
+
+# Next.js — paste into .aifyignore (.next is already default-ignored)
+.vercel
+out
+```
+
+Sample feature overlay for Laravel: `docs/examples/functionality.sample.laravel.json`.
+
 ## Performance
 
 Cold rebuild numbers from the 2026-04-18 dogfood run:

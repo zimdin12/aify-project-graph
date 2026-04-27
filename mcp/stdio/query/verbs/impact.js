@@ -97,7 +97,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
           `${occurrences} indexed nodes labeled "${symbol}"`,
           `${trustCount} unresolved CALLS edges may hide additional sites`,
         ];
-        confidenceFooter = `\nCONFIDENCE: ${parts.join(' · ')}.\n  ⚠ Likely undercount on weak-trust C++ / cross-file dispatch.`
+        confidenceFooter = `\nCONFIDENCE: ${parts.join(' · ')}.\n  ⚠ Likely undercount on weak-trust graphs (C++ cross-file dispatch, PHP traits/Eloquent, dynamic dispatch).`
           + `\n  Verify with: rg -n "${symbol}\\b" before any deletion, rename, or signature change.`;
       }
     } catch { /* defensive — never block result on confidence-check failure */ }

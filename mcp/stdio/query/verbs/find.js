@@ -239,6 +239,17 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
       };
     }
 
+    // Audit-shape nudge. The 2026-04-27 AUDIT bench showed agents calling
+    // graph_find once on enumeration-shape queries ("find every X", "all
+    // usages of Y") and stopping when the result was thin — missing 80% of
+    // hits that grep would have caught. Detect that shape and steer to grep.
+    const totalHits = codeHits.length + featureHits.length + taskHits.length + docHits.length;
+    const isAuditShape = /\b(every|all|each|any|usage|usages|references|callers|references-to|find-all)\b/i.test(query)
+      || query.split(/\s+/).filter(Boolean).length >= 3;
+    if (isAuditShape && totalHits < 5) {
+      results.advice = `Audit-shaped query with ${totalHits} hits — likely undercount. graph_find returns at most one node per matching label; for "find every X" patterns prefer N targeted Grep passes (rg -n "X\\b" by file glob). The graph result is a starting point, not the answer.`;
+    }
+
     return JSON.stringify(attachReadWarnings(results, freshnessWarnings), null, 2);
   } finally {
     db.close();
