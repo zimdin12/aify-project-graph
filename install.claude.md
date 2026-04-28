@@ -101,7 +101,7 @@ done
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-build-all` skill first checks `.gitignore` / `.aifyignore`, then builds everything in one pass (30-90 seconds). Multi-run signal across apg dogfood + 2026-04-26 echoes A/B: briefs + overlay reliably save ~15-20% wall-clock and tool calls vs Grep-only on planning shapes; live verbs are conditionally helpful when used surgically (≤3 per planning task). Single-bench headlines carry small-n caveats — see [README walkback](README.md#measured-improvement). For narrower jobs: `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-feature-edit`, `/graph-task-edit`, `/graph-anchor-drift`, `/graph-pull-context`, `/graph-walk-bugs`, `/graph-dashboard`.
+> Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-build-all` skill first checks `.gitignore` / `.aifyignore`, then builds everything in one pass (30-90 seconds). Multi-run signal across apg dogfood + 2026-04-26 echoes A/B: briefs + overlay reliably save ~15-20% wall-clock and tool calls vs Grep-only on planning shapes; live verbs are conditionally helpful when used surgically (≤3 per planning task). Single-bench headlines carry small-n caveats — see the [README](README.md). For narrower jobs: `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-feature-edit`, `/graph-task-edit`, `/graph-anchor-drift`, `/graph-pull-context`, `/graph-walk-bugs`, `/graph-dashboard`.
 
 ## Verify (after restart — agent cannot do this before)
 
