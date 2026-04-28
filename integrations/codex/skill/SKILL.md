@@ -49,7 +49,7 @@ When verbs print `prov=...` on edges:
 - Don't prefetch verbs "just in case"
 - Don't call verbs in parallel
 - `graph_callers` is function-granular not line-granular — use Grep when you need a specific line
-- Compound `graph_find("A B C")` queries return empty — tokenize to one strong keyword
+- `graph_find("A B C")` auto-tokenizes, but broad compound searches still bloat context — prefer one strong keyword when possible
 
 ## When the graph is wrong for the question
 

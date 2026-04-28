@@ -128,7 +128,7 @@ When ranking impact or path output, treat `INFERRED` and especially `AMBIGUOUS` 
 ## When NOT to use graph verbs (anti-patterns)
 
 - Do NOT use `graph_impact` / `graph_whereis` as a substitute for reading code. They tell you *what connects*, not *what the code does*.
-- Do NOT use compound multi-word queries in `graph_find("A B C")` — measured on echoes: compound queries return empty where single-token (`graph_find("A")`) returns full results. Tokenize to one strong keyword.
+- Avoid broad compound `graph_find("A B C")` queries. The verb now auto-tokenizes, but broad searches still bloat context; prefer one strong keyword when possible and drop to Grep if results are thin.
 - Do NOT reload graph tool schemas (ToolSearch) speculatively. If you're not going to use graph verbs, don't pay the schema-load cost.
 
 ## Hard rules

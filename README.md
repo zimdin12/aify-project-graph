@@ -66,9 +66,9 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 | **Hallucinated connections** | Every edge is a real syntactic relationship. Framework-inferred edges carry lower confidence. |
 | **Information loss via compression** | We store pointers (file:line), not summaries. No content is compressed. |
 | **Broken source traceability** | Every node and edge carries `file_path`, `start_line`, `confidence`. |
-| **Cascading update complexity** | Auto-derived from source on every query. Git-diff-aware incremental reindex. |
+| **Cascading update complexity** | Auto-derived from source. Explicit `graph_index` rebuilds and git-diff-aware incremental reindex keep snapshots cheap to refresh. |
 | **Scaling chaos** | Deterministic node IDs. Rigid typed schema. No freeform links. |
-| **Stale data** | Freshness check on every query — graph always reflects current source. |
+| **Stale data** | Snapshot lines and `graph_health` surface drift (`indexed` vs `HEAD`) so agents can choose rebuild vs source verification explicitly. |
 
 ## How it compares to graphify
 
@@ -88,14 +88,14 @@ The [LLM Wiki critique](https://medium.com/data-science-in-your-pocket/andrej-ka
 ## How it works
 
 ```
-1. Agent checks `.gitignore` / `.aifyignore`, then calls graph_index() (or any query verb — auto-indexes on first call)
+1. Agent checks `.gitignore` / `.aifyignore`, then calls `graph_index()` or reads the last completed snapshot
 2. Tree-sitter parses every source file in the repo
 3. Generic extractor emits nodes (Function, Class, File, Route, etc.) + edges (CALLS, IMPORTS, EXTENDS, etc.)
 4. Cross-file resolver links references across files
 5. Leiden community detection clusters related symbols
 6. Everything persists to .aify-graph/graph.sqlite
 7. Agent queries via MCP verbs — compact NODE/EDGE responses with file:line citations
-8. On next query, git diff is checked — only changed files reindexed
+8. On explicit refresh, git diff is checked — only changed files reindexed
 ```
 
 The `.aify-graph/graph.sqlite` file IS the product. Like `.git/` is the product of `git init`.
