@@ -85,13 +85,13 @@ The failure mode to avoid: calling graph_find once, getting empty, giving up. Us
 ## Use live verbs for
 
 **Lean profile** (default for Codex/OpenCode install, 5 verbs listed in `tools/list`):
-- `graph_packet(target="X")` — **one-shot agent prompt packet (orientation, cheap+coarse)**. Reads overlay+brief JSON directly, no SQL, no freshness rebuild. Returns ~500-900 tokens: STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Pass `feature:<id>`, `task:<id>`, or a bare symbol (auto-resolves via consequences with `MATCHED VIA: ...` line). Reach for this first when the task is scoped to a feature or task.
+- `graph_packet(target="X", mode="orient|plan|debug|review|audit")` — **one-shot agent prompt packet (cheap+coarse)**. Reads overlay+brief JSON directly, no SQL, no freshness rebuild. Returns ~500-900 tokens: MODE / STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Pass `feature:<id>`, `task:<id>`, or a bare symbol (auto-resolves via consequences with `MATCHED VIA: ...` line). Reach for this first when the task is scoped to a feature or task; pick `mode` by workflow.
 - `graph_consequences(target="X")` — function-granular cross-cutting planning. Use when packet's coarse view loses precision.
 - `graph_pull(node="X")` — cross-layer pull (code + features + tasks + activity). For overlay targets, prefer explicit forms like `feature:terrain-generation`, `feature/terrain-generation`, `task:CU-123`, or `task/CU-123`.
 - `graph_change_plan(symbol="X")` — risk gate before editing high-fan-in symbols. SIGNALS line + ranked READ ORDER.
 - `graph_health()` — single-call trust + freshness + overlay summary.
 
-**Tradeoff:** packet is the cheapest (~80-150 ms, no SQL) but coarsest. If packet's MATCHED VIA shows a symbol→feature mapping you want depth on, escalate to `graph_consequences` or `graph_change_plan`. Default-routing everything to packet trades quality for cost — use it for orient, escalate for depth.
+**Tradeoff:** packet is the cheapest (~80-150 ms, no SQL) but coarsest. If packet's MATCHED VIA shows a symbol→feature mapping you want depth on, escalate to `graph_consequences` or `graph_change_plan`. Default-routing everything to packet trades quality for cost — use it for initial context, escalate for depth.
 
 **Hard budget on a planning task: at most 1 brief read + 3 live verb calls.** Measured 2026-04-26 echoes A-v2 bench: an agent that made 7 live verb calls (`graph_find` ×4, `graph_file` ×2, `graph_consequences` ×1) ended up +52% tokens / +15% wall-clock vs the same task with no graph at all. Each `graph_find`/`graph_consequences`/`graph_file` returns hundreds-to-thousands of context tokens; over-calling them tips the budget the wrong way. **0 live calls is often correct** after reading the brief. If your first 1-2 live calls return thin/empty results, drop to Grep — don't keep retrying with rephrased queries. `graph_find` already auto-tokenizes compound queries (since 2026-04-21), so thin results are the data, not a query bug.
 
@@ -101,12 +101,13 @@ The failure mode to avoid: calling graph_find once, getting empty, giving up. Us
 - `graph_impact(symbol="X")` — blast radius
 - `graph_find(query="X")` — cross-layer disambiguator (NOT an rg replacement)
 
-**Full callable surface** (Claude Code default; a few legacy aliases may stay hidden from `tools/list`): `graph_lookup`, `graph_whereis`, `graph_search`, `graph_callers`, `graph_callees`, `graph_neighbors`, `graph_report`, `graph_onboard`, `graph_file`, `graph_module_tree`, `graph_dashboard`, `graph_summary`, `graph_status`, `graph_index`, `graph_consequences`, `graph_health`.
+**Full callable surface** (Claude Code default; a few legacy aliases may stay hidden from `tools/list`): `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`, `graph_lookup`, `graph_whereis`, `graph_search`, `graph_find`, `graph_callers`, `graph_callees`, `graph_neighbors`, `graph_report`, `graph_onboard`, `graph_file`, `graph_module_tree`, `graph_dashboard`, `graph_summary`, `graph_status`, `graph_index`, `graph_preflight`, `graph_path`, `graph_impact`.
 
 ## Edge provenance
 
 Some verbs surface `prov=...` on edges:
 - `EXTRACTED` — direct AST/source edge. Highest trust.
+- `CODE_INTEL` — optional compiler/LSP-derived fact imported through `scripts/import-code-intel.mjs`. Treat as higher precision than tree-sitter guesses, but still source-verify before editing.
 - `INFERRED` — deterministic framework/heuristic synthesis. Lower trust; verify in source.
 - `AMBIGUOUS` — fallback resolution where multiple plausible targets remained. Lowest trust.
 

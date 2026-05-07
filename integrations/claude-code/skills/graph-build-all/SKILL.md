@@ -92,7 +92,23 @@ node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
 
 Now `brief.plan.md` has a FEATURES section with `open:` / `tests:` / `load:` per feature. This is what makes plan briefs worth using.
 
-### 6. Auto-offer `/graph-build-tasks` when a tracker MCP is present
+### 6. Optional C++ code-intel import
+
+If the target repo is C++ heavy and has `compile_commands.json` (or
+`build/compile_commands.json`), offer the optional precision import. Skip this
+by default on small/Pi hosts or repos without a compile database.
+
+```bash
+node <AIFY_GRAPH_CLONE>/tools/code-intel/cpp-clangd/extract.mjs <TARGET_REPO>
+node <AIFY_GRAPH_CLONE>/scripts/import-code-intel.mjs <TARGET_REPO> <TARGET_REPO>/.aify-graph/code-intel/cpp-clangd.jsonl
+node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
+```
+
+This imports compiler/LSP-shaped facts as normal graph nodes/edges with
+`CODE_INTEL` provenance. It improves C++ routing precision, but it is not
+required for the base graph to work.
+
+### 7. Auto-offer `/graph-build-tasks` when a tracker MCP is present
 
 Running `/graph-build-tasks` is the unlock that turns the graph from a static map into a daily-use tool: it activates per-feature open-task lines in `brief.plan.md`, makes `/graph-walk-bugs` usable, cross-validates feature↔task bindings, and populates the dashboard's task layer.
 
@@ -108,11 +124,12 @@ Check for a tracker MCP in the active session (names matching `clickup`, `asana`
 
 Proceed on confirmation. Skip silently if no tracker MCP is detected — this stays optional.
 
-### 7. Done — tell the user how to use it
+### 8. Done — tell the user how to use it
 
 Short summary:
 - "Paste `.aify-graph/brief.agent.md` into session prompts for orient-shaped work."
 - "Paste `.aify-graph/brief.plan.md` before change-planning."
+- "Use `graph_packet(target='feature:<id>', mode='plan|debug|review|audit')` for a compact workflow-specific context packet."
 - "Use `graph_pull(node='...')` for cross-layer context on a specific file, feature, symbol, or task."
 - "If `brief.plan.md` still says the overlay is thin, enrich `tests[]`, `anchors.docs`, `depends_on`, `related_to`, and task-link evidence before expecting the map to dominate."
 - "Run `/graph-build-all` again whenever the repo changes significantly or you want to refresh the overlay."

@@ -28,6 +28,7 @@ These are examples, not mandatory sequences. Adapt to the repo and trust level.
   - `DIRTY` / `DIRTY SEAMS`
 
 3. Pick one live verb by question shape.
+- one-shot context: `graph_packet(target="...", mode="orient|plan|debug|review|audit")`
 - narrow cross-layer context: `graph_pull(node="...")`
 - change plan: `graph_change_plan(symbol="...")`
 - broad blast radius: `graph_consequences(target="...")`
@@ -100,16 +101,24 @@ Use when you just opened a repo:
 ### Planning a change
 
 1. read `brief.plan.md`
-2. if target is feature/task/file scoped, start with `graph_pull`
-3. if you need a code-edit sequence, call `graph_change_plan`
-4. read the 1-3 files it points to
+2. if target is feature/task scoped, start with `graph_packet(..., mode="plan")`
+3. if target is file/symbol scoped, start with `graph_pull`
+4. if you need a code-edit sequence, call `graph_change_plan`
+5. read the 1-3 files it points to
 
 ### Debugging a dirty seam
 
 1. read `brief.agent.md` or `brief.plan.md`
 2. check `DIRTY SEAMS`
 3. if the target overlaps a dirty seam, trust current source + diff over cached structure
-4. use `graph_pull` for nearby features/tasks/docs, not as proof
+4. use `graph_packet(..., mode="debug")` or `graph_pull` for nearby features/tasks/docs, not as proof
+
+### Reviewing or auditing
+
+1. read the relevant brief
+2. use `graph_packet(..., mode="review")` for PR/change review context or `mode="audit"` for contract/test/task-link checks
+3. verify every cited file and line in source
+4. for audit-shaped tasks, do targeted Grep + Read passes; the graph narrows context but does not enumerate every line-level hit
 
 ### Rebuild / refresh
 
@@ -126,6 +135,18 @@ If the graph feels thin, improve the overlay before blaming the engine:
 - add `depends_on`
 - add `related_to`
 - tighten broad task links with better `evidence` and `link_strength`
+
+### Optional C++ code-intel import
+
+Use this only when a C++ repo has `compile_commands.json` and tree-sitter edges are too weak:
+
+```bash
+node <AIFY_GRAPH_CLONE>/tools/code-intel/cpp-clangd/extract.mjs <TARGET_REPO>
+node <AIFY_GRAPH_CLONE>/scripts/import-code-intel.mjs <TARGET_REPO> <TARGET_REPO>/.aify-graph/code-intel/cpp-clangd.jsonl
+node <AIFY_GRAPH_CLONE>/scripts/graph-brief.mjs <TARGET_REPO>
+```
+
+Imported edges show `prov=CODE_INTEL`. They improve routing precision but still need source verification before edits.
 
 ## Do not
 

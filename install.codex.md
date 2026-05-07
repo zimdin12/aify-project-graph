@@ -32,6 +32,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
+npm run validate:marketplace
 npm test         # expect: full suite green; exact count changes as coverage grows
 ```
 
@@ -45,7 +46,7 @@ If `npm install` fails to compile the native module, install `build-essential` (
 
 ## Step 2 — register the MCP server
 
-Use the `codex mcp` CLI. Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`) — measured to reduce tool-surface tax on Codex while keeping the highest-value live planning surfaces plus the one-shot orientation primitive. Hidden verbs remain callable by name via `tools/call`.
+Use the `codex mcp` CLI. Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`) — measured to reduce tool-surface tax on Codex while keeping the highest-value live planning surfaces plus the one-shot workflow packet (`mode=orient|plan|debug|review|audit`). Hidden verbs remain callable by name via `tools/call`.
 
 ```bash
 codex mcp remove aify-project-graph >/dev/null 2>&1 || true
@@ -103,6 +104,7 @@ Tell the user (paraphrase is fine):
 > ```
 >
 > Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. Multi-run signal (apg dogfood + 2026-04-26 echoes A/B): briefs + overlay reliably save ~15-20% wall-clock and tool calls on planning shapes; live verbs are conditionally helpful when used surgically (≤3 per task). See the [README](README.md) for caveats. For plan tasks, hand-author `/path/to/your/repo/.aify-graph/functionality.json` (generic sample: `~/.codex/plugins/aify-project-graph/docs/examples/functionality.sample.json`; Laravel sample: `functionality.sample.laravel.json`) and re-run `graph-brief.mjs`. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
+> Optional for C++ repos with `compile_commands.json`: run the code-intel import described in the README to add `CODE_INTEL` provenance facts before regenerating briefs.
 
 ## Verify (after restart)
 

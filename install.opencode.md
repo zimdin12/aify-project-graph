@@ -29,6 +29,7 @@ fi
 
 cd "$CLONE_PATH"
 npm install
+npm run validate:marketplace
 npm test         # expect: full suite green; exact count changes as coverage grows
 ```
 
@@ -69,7 +70,7 @@ node -e '
 ' "$CONFIG_FILE" "$CLONE_PATH/mcp/stdio/server.js"
 ```
 
-Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`). Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 21-verb surface.
+Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`). Use `graph_packet(..., mode="orient|plan|debug|review|audit")` for cheap workflow-specific context. Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 21-verb surface.
 
 ### Multi-repo caveat — MCP is cwd-bound
 
@@ -90,6 +91,7 @@ Tell the user (paraphrase is fine):
 > ```
 >
 > Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. For plan tasks, hand-author `.aify-graph/functionality.json` (sample at `$CLONE_PATH/docs/examples/functionality.sample.json`) and re-run graph-brief.mjs. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
+> Optional for C++ repos with `compile_commands.json`: run the code-intel import described in the README to add `CODE_INTEL` provenance facts before regenerating briefs.
 
 (Expand `$CLONE_PATH` to the absolute path for the user's copy.)
 

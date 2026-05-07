@@ -13,13 +13,13 @@ If `.aify-graph/brief.agent.md` exists, read it. ~300-1100 tokens of dense orien
 
 ## Use this verb order
 
-1. **`graph_packet(target)`** — one-shot agent prompt packet. Cheap + coarse. Reads overlay+brief JSON directly. Returns 500-900 tokens: STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Pass `feature:<id>`, `task:<id>`, or a bare symbol (auto-resolves via consequences). **Use for ORIENTATION** ("what's the shape of this feature/task?").
+1. **`graph_packet(target, mode)`** — one-shot agent prompt packet. Cheap + coarse. Reads overlay+brief JSON directly. Returns 500-900 tokens: MODE / STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Pass `feature:<id>`, `task:<id>`, or a bare symbol (auto-resolves via consequences). Use `mode="orient"|"plan"|"debug"|"review"|"audit"` for the current workflow.
 2. **`graph_pull(node)`** — cross-layer pull when packet's static data isn't enough.
 3. **`graph_consequences(target)`** — "what breaks if I touch X?" Function-granular fan-out. **Use for CROSS-CUTTING PLANNING** when packet's coarse view loses precision.
 4. **`graph_change_plan(symbol)`** — risk gate before editing high-fan-in symbols. SIGNALS line + ranked READ ORDER. **Use for RISK ASSESSMENT** when packet says "this looks load-bearing."
 5. **Read source.** Always. Graph tells you *what connects*, source tells you *what the code does*.
 
-**Tradeoff:** packet is cheaper than change_plan/consequences (no SQL, no per-symbol query), but coarser. If packet's MATCHED VIA shows a symbol→feature mapping you want to drill into, escalate to change_plan or consequences. Default-routing everything to packet trades quality for cost — use it for orient, escalate for depth.
+**Tradeoff:** packet is cheaper than change_plan/consequences (no SQL, no per-symbol query), but coarser. If packet's MATCHED VIA shows a symbol→feature mapping you want to drill into, escalate to change_plan or consequences. Default-routing everything to packet trades quality for cost — use it for initial context, escalate for depth.
 
 **Hard budget on a planning task: at most 1 brief read + 3 live verb calls.** Measured 2026-04-26 echoes A-v2 bench: an agent that made 7 live verb calls (`graph_find` ×4, `graph_file` ×2, `graph_consequences` ×1) ended up +52% tokens / +15% wall-clock vs the same task with no graph at all. Each `graph_find`/`graph_consequences`/`graph_file` returns hundreds-to-thousands of context tokens; over-calling them tips the budget the wrong way. **0 live calls is often correct** after reading the brief. If your first 1-2 live calls return thin/empty results, drop to Grep — don't keep retrying with rephrased queries.
 
@@ -40,6 +40,7 @@ The packet's `SNAPSHOT:` line includes `STALE` if indexed commit ≠ HEAD. `LIVE
 
 When verbs print `prov=...` on edges:
 - `EXTRACTED` — direct AST edge, highest trust
+- `CODE_INTEL` — optional compiler/LSP-derived fact, higher precision than tree-sitter guesses but still source-verify
 - `INFERRED` — heuristic/framework synthesis, verify in source
 - `AMBIGUOUS` — fallback resolution, lowest trust
 
