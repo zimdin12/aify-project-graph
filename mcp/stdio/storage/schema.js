@@ -1,5 +1,12 @@
 export const SCHEMA_VERSION = 4;
 
+export const EDGE_PROVENANCE_TYPES = [
+  'EXTRACTED',
+  'INFERRED',
+  'AMBIGUOUS',
+  'CODE_INTEL',
+];
+
 const NODE_TYPES = [
   'Repository', 'File', 'Module', 'Function', 'Method', 'Class',
   'Interface', 'Type', 'Variable', 'Symbol', 'Test',

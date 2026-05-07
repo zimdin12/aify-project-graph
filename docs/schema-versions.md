@@ -13,7 +13,7 @@ Those overlays are file-backed and normalized permissively at load time. New opt
 
 ## Current version
 
-- **Current schemaVersion:** `3`
+- **Current schemaVersion:** `4`
 
 ## History
 
@@ -52,6 +52,15 @@ Representative commit:
 
 Later additive extension on top of v3:
 - `c6c865a` — added `External` to the node-type set for unresolved-call materialization
+
+### v4
+
+Current storage shape used by the 2026 graph-packet / overlay work.
+
+What it introduced:
+- stable support for provenance-aware edges (`EXTRACTED`, `INFERRED`, `AMBIGUOUS`)
+- code-intel-compatible provenance extension (`CODE_INTEL`) for compiler/LSP-derived facts
+- no new table is required for code-intel imports; they write normal nodes/edges with explicit provenance and extractor names
 
 ## Migration behavior
 
@@ -98,6 +107,7 @@ JSON Schema (draft-07) definitions live at:
 
 - `docs/schemas/functionality.schema.json` — functionality overlay
 - `docs/schemas/tasks.schema.json` — tasks overlay
+- `docs/schemas/code-intel-record.schema.json` — neutral JSONL contract for optional compiler/LSP importers
 
 These are published for external consumers — CI validators, schema-aware editors, cross-tool integrations. The loader itself does NOT run these schemas (it normalizes permissively instead; see above). Use them as a reference contract, not a hard gate.
 
@@ -106,6 +116,12 @@ Quick check with `ajv-cli`:
 ```
 npx ajv-cli validate -s docs/schemas/functionality.schema.json -d .aify-graph/functionality.json
 npx ajv-cli validate -s docs/schemas/tasks.schema.json -d .aify-graph/tasks.json
+```
+
+Code-intel records are newline-delimited JSON. Validate/import them through the runtime parser:
+
+```
+node scripts/import-code-intel.mjs <repoRoot> <records.jsonl>
 ```
 
 ## Operator guidance

@@ -3,8 +3,21 @@ const INSERT_SQL = `
   VALUES ($from_id, $to_id, $relation, $source_file, $source_line, $confidence, $provenance, $extractor)
 `;
 
+const CODE_INTEL_OVERRIDE_SQL = `
+  UPDATE edges
+  SET source_file = $source_file,
+      source_line = $source_line,
+      confidence = $confidence,
+      provenance = $provenance,
+      extractor = $extractor
+  WHERE from_id = $from_id
+    AND to_id = $to_id
+    AND relation = $relation
+    AND provenance != 'CODE_INTEL'
+`;
+
 export function upsertEdge(db, edge) {
-  db.run(INSERT_SQL, {
+  const params = {
     from_id: edge.from_id,
     to_id: edge.to_id,
     relation: edge.relation,
@@ -13,7 +26,11 @@ export function upsertEdge(db, edge) {
     confidence: edge.confidence ?? 1.0,
     provenance: edge.provenance ?? 'EXTRACTED',
     extractor: edge.extractor ?? 'generic',
-  });
+  };
+  const info = db.run(INSERT_SQL, params);
+  if (info.changes === 0 && params.provenance === 'CODE_INTEL') {
+    db.run(CODE_INTEL_OVERRIDE_SQL, params);
+  }
 }
 
 export function listEdges(db, filter = {}) {

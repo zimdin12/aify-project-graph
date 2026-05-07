@@ -1,0 +1,15 @@
+{
+  "schema_version": "0.1",
+  "name": "aify-project-graph",
+  "display_name": "Aify Project Graph",
+  "description": "Lean MCP project graph surface for Codex: graph_packet, pull, consequences, change_plan, and health.",
+  "version": "0.0.1",
+  "runtime": "codex",
+  "entrypoint": {
+    "command": "node",
+    "args": ["--max-old-space-size=8192", "mcp/stdio/server.js", "--toolset=lean"]
+  },
+  "skills": ["integrations/codex/skill"],
+  "install_doc": "install.codex.md",
+  "capabilities": ["mcp", "skills", "lean-profile", "local-index", "optional-code-intel"]
+}

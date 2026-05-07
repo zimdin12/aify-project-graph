@@ -30,7 +30,13 @@ Read install.codex.md from https://github.com/zimdin12/aify-project-graph and in
 Read install.opencode.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart OpenCode when you're done.
 ```
 
-That's the entire install. The agent clones the repo to a pinned path (`~/.claude/plugins/aify-project-graph`, `~/.codex/plugins/aify-project-graph`, or `~/.config/opencode/plugins/aify-project-graph` depending on runtime), registers the MCP server via the runtime's CLI, copies skills (Claude Code and Codex both get skills; OpenCode skips), and tells you when to restart. Takes 2-3 minutes.
+**Copy this into a Pi / low-resource Linux agent host:**
+
+```
+Read install.pi.md from https://github.com/zimdin12/aify-project-graph and install it for my Pi/Linux environment. I will restart the host agent when you're done.
+```
+
+That's the entire install. The agent clones the repo to a pinned path (`~/.claude/plugins/aify-project-graph`, `~/.codex/plugins/aify-project-graph`, `~/.config/opencode/plugins/aify-project-graph`, or `~/.local/share/aify/plugins/aify-project-graph` depending on runtime), registers the MCP server via the runtime's CLI/config, copies skills where supported, and tells you when to restart. Takes 2-3 minutes.
 
 **WSL + native Windows:** if you run Claude Code on Windows and Codex/OpenCode in WSL, install the tool **separately in each environment** — `better-sqlite3` is a native module and the compiled binary must match the runtime (Windows `.node` ≠ Linux `.so`). The install docs pin each runtime to its own filesystem path, so the two clones don't collide.
 
@@ -224,6 +230,20 @@ Under the hood each install doc does the same thing:
 **Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms — but the MCP server has a **native-module preflight** that detects this on startup and auto-runs `npm rebuild better-sqlite3` once before accepting tool calls. You'll see one line on stderr when it triggers. Manual intervention only if auto-rebuild itself fails (e.g. missing compiler). `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 
 For the full step-by-step per runtime see [`install.claude.md`](install.claude.md), [`install.codex.md`](install.codex.md), [`install.opencode.md`](install.opencode.md). They are agent-executable — paste the "Install in one paste" prompt above and the agent follows them.
+
+Marketplace metadata lives in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.agents/plugins/marketplace.json`. Validate packaging with `npm run validate:marketplace`.
+
+## Optional code-intel precision layer
+
+APG remains the graph/orchestration engine. Language-server or compiler-derived facts can now feed APG through neutral JSONL records:
+
+```bash
+node tools/code-intel/cpp-clangd/extract.mjs /path/to/cpp/repo
+node scripts/import-code-intel.mjs /path/to/cpp/repo /path/to/cpp/repo/.aify-graph/code-intel/cpp-clangd.jsonl
+node scripts/graph-brief.mjs /path/to/cpp/repo
+```
+
+Imported edges use `CODE_INTEL` provenance and override weaker duplicate `EXTRACTED` / `INFERRED` / `AMBIGUOUS` edges. The v1 C++ backend reads `compile_commands.json` and emits schema-compatible symbols/includes from source files; clangd/LSP reference expansion is intentionally optional and can grow behind the same JSONL contract. Schema: [`docs/schemas/code-intel-record.schema.json`](docs/schemas/code-intel-record.schema.json).
 
 ## Query verbs
 

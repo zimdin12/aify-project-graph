@@ -1,0 +1,28 @@
+{
+  "schema_version": "0.1",
+  "plugins": [
+    {
+      "name": "aify-project-graph",
+      "version": "0.0.1",
+      "description": "Local APG code graph, briefs, packets, dashboard, and optional code-intel import for agentic coding.",
+      "repository": "https://github.com/zimdin12/aify-project-graph",
+      "license": "MIT",
+      "runtimes": {
+        "claude-code": { "install_doc": "install.claude.md", "toolset": "full" },
+        "codex": { "install_doc": "install.codex.md", "toolset": "lean" },
+        "opencode": { "install_doc": "install.opencode.md", "toolset": "lean" },
+        "pi-linux": {
+          "install_doc": "install.pi.md",
+          "toolset": "lean",
+          "notes": "Base APG works on low-resource Linux/ARM. Optional C++ code-intel requires compile_commands.json and clangd."
+        }
+      },
+      "entrypoint": "mcp/stdio/server.js",
+      "capabilities": ["mcp", "project-graph", "static-briefs", "task-feature-overlays", "graph-packet", "dashboard", "optional-code-intel"],
+      "uninstall": {
+        "derived_paths": [".aify-graph"],
+        "runtime_configs": ["~/.claude.json", "~/.codex/mcp.json", "${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json"]
+      }
+    }
+  ]
+}

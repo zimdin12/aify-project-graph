@@ -23,6 +23,7 @@ The install is driven by one of three runtime-specific agent-executable docs. Re
 - **Claude Code (native Windows / macOS / Linux)** → [`install.claude.md`](install.claude.md)
 - **Codex (WSL or native Linux)** → [`install.codex.md`](install.codex.md)
 - **OpenCode** → [`install.opencode.md`](install.opencode.md)
+- **Pi / low-resource Linux agent host** → [`install.pi.md`](install.pi.md)
 
 Each doc pins the clone to a runtime-specific path so two runtimes on the same machine (e.g. Claude Code on Windows + Codex in WSL) don't collide on one `better-sqlite3` native binary:
 
@@ -31,6 +32,7 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 | Claude Code | `~/.claude/plugins/aify-project-graph` | `claude mcp add --scope user` (writes `~/.claude.json`) |
 | Codex | `~/.codex/plugins/aify-project-graph` | `codex mcp add` |
 | OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |
+| Pi / Linux agent host | `${XDG_DATA_HOME:-~/.local/share}/aify/plugins/aify-project-graph` | Host-runtime MCP config, usually lean profile |
 
 **Profile:** Claude Code uses the full callable surface, with a few legacy orient aliases hidden from `tools/list`; Codex and OpenCode use `--toolset=lean` (5 visible: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`; the other verbs remain callable by name via `tools/call`).
 
@@ -39,6 +41,8 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 **Skills** — the install doc copies the whole `integrations/<runtime>/skill{,s}/` tree with a directory loop, so new skills are picked up without updating these docs. **Both Claude Code and Codex support skills natively**: Claude Code loads from `~/.claude/skills/`, Codex from `~/.codex/skills/` (see `install.codex.md` Step 3). OpenCode doesn't load skill files today; MCP tool descriptions are self-documenting there.
 
 **Verify** — on first session after restart: `graph_status()` should return `indexed: false` then any query verb triggers an auto-build. If the tool is not found, the MCP didn't register (rerun the relevant install-doc step).
+
+**Marketplace/package validation** — this repo ships `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.agents/plugins/marketplace.json`. Before publishing an integration update, run `npm run validate:marketplace`.
 
 ## Day-1 setup: build the functionality overlay
 
@@ -89,6 +93,18 @@ Verb notes by profile:
 - **Codex / OpenCode lean toolset**: `graph_packet(target="feature:auth")` (one-shot orientation, cheap+coarse), `graph_consequences(target="get_db")`, `graph_pull(node="get_db")`, `graph_change_plan(symbol="get_db")`, `graph_health()` are the listed surfaces. Reach for packet first for orientation; escalate to consequences/change_plan when packet's coarse view loses precision. Low-level search/caller verbs are intentionally omitted from lean mode; remove `--toolset=lean` if you want the broader full surface.
 
 The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` to the target repo's `.gitignore` if not already present — the graph is derived and should never be committed. This is separate from `.aifyignore` / `.aifyinclude`, which control what the graph indexes, not what git tracks. `.aifyignore` accepts bare directory names plus path/glob patterns such as `generated/**` and `*.tmp.cpp`.
+
+## Optional code-intel import for C++ / LSP-backed repos
+
+APG is still the source of briefs, packets, overlays, tasks, and dashboard data. Compiler/LSP facts are an optional precision layer that imports into the same SQLite graph with `CODE_INTEL` provenance:
+
+```bash
+node <plugin-path>/tools/code-intel/cpp-clangd/extract.mjs <target-repo>
+node <plugin-path>/scripts/import-code-intel.mjs <target-repo> <target-repo>/.aify-graph/code-intel/cpp-clangd.jsonl
+node <plugin-path>/scripts/graph-brief.mjs <target-repo>
+```
+
+Use this on C++ repos with `compile_commands.json` when tree-sitter edges are too weak. Imported `CODE_INTEL` duplicate edges replace weaker extracted/inferred edges; agents should still verify source when `graph_health()` reports weak trust.
 
 ## Team trust posture
 

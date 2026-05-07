@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aify.dev/schemas/code-intel-record.schema.json",
+  "title": "Aify code-intel JSONL record",
+  "type": "object",
+  "required": ["kind"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["symbol", "reference", "call", "include", "diagnostic"]
+    },
+    "schema_version": { "type": "string", "default": "0.1" },
+    "qname": { "type": "string" },
+    "name": { "type": "string" },
+    "symbol_kind": { "type": "string" },
+    "node_type": { "type": "string" },
+    "file": { "type": "string" },
+    "file_path": { "type": "string" },
+    "start_line": { "type": "integer", "minimum": 1 },
+    "end_line": { "type": "integer", "minimum": 1 },
+    "language": { "type": "string" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "relation": { "type": "string" },
+    "source": { "$ref": "#/$defs/endpoint" },
+    "from": { "$ref": "#/$defs/endpoint" },
+    "target": { "$ref": "#/$defs/endpoint" },
+    "to": { "$ref": "#/$defs/endpoint" },
+    "source_file": { "type": "string" },
+    "target_file": { "type": "string" },
+    "severity": { "type": "string" },
+    "code": { "type": "string" },
+    "message": { "type": "string" },
+    "raw": { "type": "object" }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "properties": {
+        "qname": { "type": "string" },
+        "name": { "type": "string" },
+        "file": { "type": "string" },
+        "file_path": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "start_line": { "type": "integer", "minimum": 1 },
+        "external": { "type": "boolean" }
+      }
+    }
+  }
+}
