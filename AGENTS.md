@@ -90,7 +90,7 @@ graph_file(path="src/auth/token.ts")         # whole-file digest
 Verb notes by profile:
 
 - **Claude Code / full toolset**: `graph_search(query="dispatch")`, `graph_whereis(symbol="get_db", expand=true)`, `graph_callers(symbol="get_db")`
-- **Codex / OpenCode lean toolset**: `graph_packet(target="feature:auth")` (one-shot orientation, cheap+coarse), `graph_consequences(target="get_db")`, `graph_pull(node="get_db")`, `graph_change_plan(symbol="get_db")`, `graph_health()` are the listed surfaces. Reach for packet first for orientation; escalate to consequences/change_plan when packet's coarse view loses precision. Low-level search/caller verbs are intentionally omitted from lean mode; remove `--toolset=lean` if you want the broader full surface.
+- **Codex / OpenCode lean toolset**: `graph_packet(target="feature:auth", mode="plan")` (one-shot context, cheap+coarse), `graph_consequences(target="get_db")`, `graph_pull(node="get_db")`, `graph_change_plan(symbol="get_db")`, `graph_health()` are the listed surfaces. Reach for packet first with `mode=orient|plan|debug|review|audit`; escalate to consequences/change_plan when packet's coarse view loses precision. Low-level search/caller verbs are intentionally omitted from lean mode; remove `--toolset=lean` if you want the broader full surface.
 
 The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` to the target repo's `.gitignore` if not already present — the graph is derived and should never be committed. This is separate from `.aifyignore` / `.aifyinclude`, which control what the graph indexes, not what git tracks. `.aifyignore` accepts bare directory names plus path/glob patterns such as `generated/**` and `*.tmp.cpp`.
 

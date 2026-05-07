@@ -56,11 +56,12 @@ const TOOLS = [
   {
     name: 'graph_packet',
     handler: graphPacket,
-    description: 'Compact one-shot agent prompt packet for a feature or task. Reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Returns fixed-schema markdown: TASK/FEATURE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass target as "feature:<id>", "task:<id>", or a bare id. Pass live=true to opt into the (slower) live-enrichment path.',
+    description: 'Compact one-shot agent prompt packet for a feature or task. Reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
     schema: {
       type: 'object',
       properties: {
         target: { type: 'string', description: 'feature:<id> | task:<id> | bare id' },
+        mode: { type: 'string', enum: ['orient', 'plan', 'debug', 'review', 'audit'], default: 'orient', description: 'Workflow mode. Shapes section caps and risk hints without changing the underlying graph truth.' },
         budget: { type: 'integer', default: 800, description: 'Token budget for the rendered packet (section caps + final clamp).' },
         live: { type: 'boolean', default: false, description: 'Opt into live enrichment block (slower; lands fully in M3 with readOnly verb mode).' },
       },

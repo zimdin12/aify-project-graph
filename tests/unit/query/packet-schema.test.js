@@ -107,6 +107,7 @@ describe('graph_packet — schema invariants', () => {
     await writeManifest(repo);
     const out = await graphPacket({ repoRoot: repo, target: 'feature:auth' });
     expect(out).toMatch(/^FEATURE: Authentication/m);
+    expect(out).toMatch(/^MODE: orient/m);
     expect(out).toMatch(/^STATUS: overlay-defined/m);
     expect(out).toMatch(/^FEATURES: auth, dep:storage/m);
     expect(out).toMatch(/^SNAPSHOT: indexed=/m);
@@ -176,6 +177,16 @@ describe('graph_packet — schema invariants', () => {
     await writeManifest(repo);
     const out = await graphPacket({ repoRoot: repo, target: 'feature:auth' });
     expect(out).toMatch(/^LIVE: (enriched|skipped_under_budget|timeout|unavailable)/m);
+  });
+
+  it('supports workflow modes with mode-specific risk hints', async () => {
+    await writeOverlay(repo, [{ id: 'auth', anchors: { files: ['src/*'] }, tests: ['tests/auth.test.js'] }]);
+    await writeTasks(repo, []);
+    await writeBrief(repo);
+    await writeManifest(repo);
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:auth', mode: 'review' });
+    expect(out).toMatch(/^MODE: review/m);
+    expect(out).toMatch(/review mode/);
   });
 
   it('clamps output to budget by dropping tail sections', async () => {

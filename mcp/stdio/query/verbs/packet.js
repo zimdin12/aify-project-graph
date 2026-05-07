@@ -29,8 +29,31 @@ const DEFAULTS = {
 };
 
 const CHAR_PER_TOKEN_EST = 4; // rough; matches our existing brief-budget heuristic
+const PACKET_MODES = new Set(['orient', 'plan', 'debug', 'review', 'audit']);
+
+const MODE_OVERRIDES = {
+  orient: {},
+  plan: { read_first: 10, contracts: 8, tests: 8, risks: 8 },
+  debug: { read_first: 10, tests: 10, risks: 8 },
+  review: { read_first: 8, contracts: 8, tests: 10, risks: 10 },
+  audit: { read_first: 10, contracts: 10, tests: 10, risks: 12 },
+};
 
 function esTokens(s) { return Math.ceil((s || '').length / CHAR_PER_TOKEN_EST); }
+
+function normalizeMode(mode) {
+  const value = typeof mode === 'string' ? mode.trim().toLowerCase() : 'orient';
+  return PACKET_MODES.has(value) ? value : 'orient';
+}
+
+function optionsForMode(mode, budgetTokens) {
+  return {
+    ...DEFAULTS,
+    ...(MODE_OVERRIDES[mode] ?? {}),
+    budget_tokens: budgetTokens,
+    mode,
+  };
+}
 
 function loadJsonSafe(path) {
   try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
@@ -176,6 +199,14 @@ function risksForTask(task, brief) {
   return risks;
 }
 
+function modeRisks(mode) {
+  if (mode === 'debug') return ['debug mode — verify dirty source, repro path, and adjacent tests first'];
+  if (mode === 'review') return ['review mode — do not approve from graph alone; verify diff, callers, and tests'];
+  if (mode === 'audit') return ['audit mode — check contracts, test anchors, task linkage, and stale snapshot risk'];
+  if (mode === 'plan') return ['plan mode — read contracts before editing and keep live graph calls surgical'];
+  return [];
+}
+
 function snapshotLine(brief, manifest, repoRoot) {
   const indexed = manifest?.commit ?? brief?.graph_commit ?? '?';
   const head = safeGitHead(repoRoot) ?? '?';
@@ -229,10 +260,11 @@ function buildFeaturePacket({ feature, brief, functionality, opts, snapshot }) {
   const readFirst = clampList(readFirstFromFeature(feature, brief?.features), opts.read_first);
   const contracts = clampList(contractsFromFeature(feature), opts.contracts);
   const tests = clampList(testsFromFeature(feature), opts.tests);
-  const risks = clampList(risksForFeature(feature, brief), opts.risks);
+  const risks = clampList([...modeRisks(opts.mode), ...risksForFeature(feature, brief)], opts.risks);
 
   const lines = [
     `FEATURE: ${feature.label || feature.id}`,
+    `MODE: ${opts.mode}`,
     `STATUS: overlay-defined (${feature.source || 'user'} source)`,
     `FEATURES: ${featureLabels.join(', ')}`,
     snapshot,
@@ -268,10 +300,11 @@ function buildTaskPacket({ task, functionality, brief, opts, snapshot }) {
     for (const t of testsFromFeature(f)) testsSet.add(t);
   }
   const tests = clampList([...testsSet], opts.tests);
-  const risks = clampList(risksForTask(task, brief), opts.risks);
+  const risks = clampList([...modeRisks(opts.mode), ...risksForTask(task, brief)], opts.risks);
 
   const lines = [
     `TASK: ${task.title || task.id}`,
+    `MODE: ${opts.mode}`,
     `STATUS: ${status}${linkStrength ? ` (${linkStrength})` : ''}`,
     `FEATURES: ${featureIds.length ? featureIds.join(', ') : '(unlinked)'}`,
     snapshot,
@@ -395,11 +428,11 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 
 // ----- main -----
 
-export async function graphPacket({ repoRoot, target, budget = DEFAULTS.budget_tokens, live = false }) {
+export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false }) {
   if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, or bare id)';
   if (!repoRoot) return 'ERROR: repoRoot parameter is required';
 
-  const opts = { ...DEFAULTS, budget_tokens: budget };
+  const opts = optionsForMode(normalizeMode(mode), budget);
 
   // Per architectural rule: read overlay + brief + manifest JSON directly.
   // No ensureFresh() call. No SQLite open. No verb dispatch. Static-first.
