@@ -102,14 +102,22 @@ describe('server toolset selection', () => {
   });
 
   it('keeps non-listed verbs callable in lean mode', async () => {
-    const lines = await runRpcSequence([
+    const summaryLines = await runRpcSequence([
       { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
       { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_summary', arguments: { symbol: 'User', repo } } },
     ], ['--toolset=lean']);
-    const callResponse = lines.find(line => line.id === 2);
-    const text = callResponse?.result?.content?.[0]?.text ?? '';
-    expect(text).toContain('NODE');
-    expect(text).toContain('User');
+    const summaryResponse = summaryLines.find(line => line.id === 2);
+    const summaryText = summaryResponse?.result?.content?.[0]?.text ?? '';
+    expect(summaryText).toContain('NODE');
+    expect(summaryText).toContain('User');
+
+    const lookupLines = await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_lookup', arguments: { symbol: 'authenticate', repo } } },
+    ], ['--toolset=lean']);
+    const lookupResponse = lookupLines.find(line => line.id === 2);
+    const lookupText = lookupResponse?.result?.content?.[0]?.text ?? '';
+    expect(lookupText).toContain('src/auth.py:');
   });
 
   it('defaults lean mode to compact output unless explicitly overridden', async () => {

@@ -41,6 +41,7 @@ fi
 
 cd "$PLUGIN_ROOT"
 npm install
+npm run validate:marketplace
 npm test
 ```
 
@@ -88,4 +89,4 @@ The base graph still works without this. Imported facts are tagged `CODE_INTEL` 
 
 ## Verify
 
-After restart or MCP registration, `graph_health()` should return a trust line. If no graph exists yet, the first live query may bootstrap the snapshot. For planning work, prefer `graph_packet(target="feature:<id>")` or `.aify-graph/brief.plan.md` first, then source reads.
+After restart or MCP registration, `graph_health()` should return a trust line. If no graph exists yet, call `graph_index(force=true)` before relying on live graph results. For planning work, prefer `graph_packet(target="feature:<id>")` or `.aify-graph/brief.plan.md` first, then source reads.

@@ -9,7 +9,7 @@
     "command": "node",
     "args": ["--max-old-space-size=8192", "mcp/stdio/server.js"]
   },
-  "skills": ["integrations/claude-code/skill"],
+  "skills": ["integrations/claude-code/skill", "integrations/claude-code/skills"],
   "install_doc": "install.claude.md",
   "capabilities": ["mcp", "skills", "local-index", "optional-code-intel"]
 }

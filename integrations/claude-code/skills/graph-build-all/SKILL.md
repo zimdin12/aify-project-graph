@@ -20,7 +20,7 @@ Build (or rebuild) the complete graph + brief + overlay set for a repo in one go
 
 ### 1. Fix repo hygiene before indexing
 
-Do this before the first `graph_status()` / `graph_index()` call. If you skip
+Do this before the first `graph_health()` / `graph_index()` call. If you skip
 it, local build output can pollute the first graph and force a slow rebuild.
 
 - ensure `<TARGET_REPO>/.gitignore` contains:

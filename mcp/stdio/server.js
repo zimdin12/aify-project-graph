@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { graphStatus } from './query/verbs/status.js';
 import { graphIndex } from './query/verbs/index.js';
+import { graphLookup } from './query/verbs/lookup.js';
 import { graphWhereis } from './query/verbs/whereis.js';
 import { graphCallers } from './query/verbs/callers.js';
 import { graphCallees } from './query/verbs/callees.js';
@@ -56,11 +57,11 @@ const TOOLS = [
   {
     name: 'graph_packet',
     handler: graphPacket,
-    description: 'Compact one-shot agent prompt packet for a feature or task. Reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
+    description: 'Compact one-shot agent prompt packet for a feature or task. For feature/task targets, reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Bare symbol targets may use one budgeted consequences lookup to map symbol→feature. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
     schema: {
       type: 'object',
       properties: {
-        target: { type: 'string', description: 'feature:<id> | task:<id> | bare id' },
+        target: { type: 'string', description: 'feature:<id> | task:<id> | bare id | bare symbol (maps to feature when possible)' },
         mode: { type: 'string', enum: ['orient', 'plan', 'debug', 'review', 'audit'], default: 'orient', description: 'Workflow mode. Shapes section caps and risk hints without changing the underlying graph truth.' },
         budget: { type: 'integer', default: 800, description: 'Token budget for the rendered packet (section caps + final clamp).' },
         live: { type: 'boolean', default: false, description: 'Opt into live enrichment block (slower; lands fully in M3 with readOnly verb mode).' },
@@ -93,6 +94,19 @@ const TOOLS = [
   },
 
   // ── Discovery ────────────────────────────────────────────────
+  {
+    name: 'graph_lookup',
+    handler: graphLookup,
+    description: 'Legacy exact symbol lookup. Returns file:line citations. Prefer graph_whereis for richer exact-name results.',
+    schema: {
+      type: 'object',
+      properties: {
+        symbol: { type: 'string', description: 'Exact symbol name.' },
+        limit: { type: 'integer', default: 5, description: 'Max matches.' },
+      },
+      required: ['symbol'],
+    },
+  },
   {
     name: 'graph_report',
     handler: graphReport,
@@ -356,7 +370,8 @@ for (const tool of TOOLS) {
 // v1+v2 lean-half post-mortem notes. Hidden verbs remain callable via tools/call.
 // Note: lean grew 3→5 across two refinements to the 2026-04-25 v2
 // upgrade plan. graph_packet is the new flagship one-shot primitive
-// (overlay+brief read directly, no ensureFresh, no SQL); change_plan
+// (feature/task targets read overlay+brief directly, no ensureFresh/no SQL;
+// bare-symbol fallback may do one budgeted mapping lookup); change_plan
 // stays visible until packet is measured as a full substitute;
 // graph_health was added (M4a alignment) because the skill heavily
 // recommends it as the fastest health check and it was previously
@@ -374,10 +389,10 @@ const LEAN_TOOL_NAMES = new Set([
 // hides the low-value legacy orient aliases that briefs replaced. This trims
 // passive manifest tax without breaking scripts that call them by name.
 const HIDDEN_FULL_TOOL_NAMES = new Set([
+  'graph_lookup',
   'graph_summary',
   'graph_report',
   'graph_onboard',
-  'graph_lookup',
 ]);
 
 // Tier B — kept visible in `tools/list` but with a one-line description in

@@ -114,11 +114,8 @@ describe('graph_packet — schema invariants', () => {
     expect(out).toMatch(/^READ FIRST:/m);
     expect(out).toMatch(/^CONTRACTS:/m);
     expect(out).toMatch(/^TESTS:/m);
-    // LIVE will be auto-enabled when STALE / weak-trust / symbol-fallback
-    // (added 2026-04-27 audit pass). Test fixture's manifest commit differs
-    // from the real HEAD of the parent checkout, so snapshot is STALE and
-    // packet should escalate. Either skipped (clean) or enriched/unavailable
-    // (auto-enabled) is acceptable as long as the LIVE line is present.
+    // LIVE is explicit-only. Stale/weak snapshots should still produce a
+    // useful packet without forcing the slower enrichment path.
     expect(out).toMatch(/^LIVE: /m);
   });
 
@@ -236,9 +233,6 @@ describe('graph_packet — schema invariants', () => {
     const out = await graphPacket({ repoRoot: repo, target: 'feature:core' });
     expect(out).toMatch(/READ FIRST:/);
     expect(out).toMatch(/CONTRACTS:/);
-    // LIVE auto-enables when STALE/weak/fallback. Test fixture commits
-    // diverge from real HEAD so packet escalates; either status is fine
-    // for "still useful" — only that LIVE was attempted/skipped explicitly.
-    expect(out).toMatch(/^LIVE: /m);
+    expect(out).toMatch(/^LIVE: skipped_under_budget/m);
   });
 });

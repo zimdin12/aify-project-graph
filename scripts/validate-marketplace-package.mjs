@@ -17,6 +17,10 @@ const requiredFiles = [
   '.agents/plugins/marketplace.json',
   'integrations/claude-code/skill/SKILL.md',
   'integrations/codex/skill/SKILL.md',
+  'integrations/claude-code/skills/graph-build-all/SKILL.md',
+  'integrations/claude-code/skills/graph-guide/SKILL.md',
+  'integrations/codex/skills/graph-build-all/SKILL.md',
+  'integrations/codex/skills/graph-guide/SKILL.md',
   'mcp/stdio/server.js'
 ];
 
@@ -46,6 +50,16 @@ for (const rel of ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.
   try {
     const manifest = await readJson(rel);
     if (!manifest.name && !manifest.plugins) errors.push(`${rel} must declare name or plugins`);
+    if (rel === '.claude-plugin/plugin.json') {
+      const skills = manifest.skills ?? [];
+      if (!skills.includes('integrations/claude-code/skill')) errors.push(`${rel} must include core Claude skill`);
+      if (!skills.includes('integrations/claude-code/skills')) errors.push(`${rel} must include Claude workflow skills`);
+    }
+    if (rel === '.codex-plugin/plugin.json') {
+      const skills = manifest.skills ?? [];
+      if (!skills.includes('integrations/codex/skill')) errors.push(`${rel} must include core Codex skill`);
+      if (!skills.includes('integrations/codex/skills')) errors.push(`${rel} must include Codex workflow skills`);
+    }
   } catch (err) {
     errors.push(`${rel} is not valid JSON: ${err.message}`);
   }

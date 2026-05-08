@@ -429,7 +429,7 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 // ----- main -----
 
 export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false }) {
-  if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, or bare id)';
+  if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, bare id, or bare symbol)';
   if (!repoRoot) return 'ERROR: repoRoot parameter is required';
 
   const opts = optionsForMode(normalizeMode(mode), budget);
@@ -464,7 +464,7 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   // feature, then build the packet from that feature with a MATCHED VIA
   // line preserving the original target.
   let matchedViaSymbol = null;
-  if (!resolvedFeature && !resolvedTask) {
+  if (!parsed.kind && !resolvedFeature && !resolvedTask) {
     const { graphConsequences } = await import('./consequences.js');
     let mapped;
     try {
@@ -512,29 +512,14 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
     lines.splice(1, 0, `MATCHED VIA: symbol "${matchedViaSymbol}" → feature ${resolvedFeature.id}`);
   }
 
-  // LIVE auto-enable: opt-in stays the default, but we flip it on when the
-  // overlay alone won't satisfy the agent. Triggers (any one):
-  //   - symbol-fallback target: agent gave us a function name, not a feature
-  //     id; they want the live data, not just the curated overlay.
-  //   - stale snapshot: indexed != HEAD; live read is the only way to get
-  //     edges for code that changed since the last index.
-  //   - trust=weak: overlay confidence is low; live enrichment surfaces the
-  //     last-touched + co-consumer files that help verify in source.
-  // The cost is one budgeted (2s) graph_consequences call. Skip the auto
-  // if the user explicitly passed live=false (we only escalate the default).
-  let autoLiveReason = '';
-  const snapshotIsStale = snapshot.includes('STALE');
-  const snapshotTrustWeak = / trust=weak\b/.test(snapshot);
-  if (!live && (matchedViaSymbol || snapshotIsStale || snapshotTrustWeak)) {
-    live = true;
-    autoLiveReason = matchedViaSymbol
-      ? 'auto-enabled (symbol fallback)'
-      : snapshotIsStale
-        ? 'auto-enabled (stale snapshot)'
-        : 'auto-enabled (trust=weak)';
-  }
-
-  // LIVE: enrichment block. M3 landed: when live=true we run a budgeted
+  // LIVE: enrichment block. Enrichment is explicit-only. The packet exists
+  // to be a stable, cheap overlay-first context primitive; auto-enabling
+  // live calls on weak/stale snapshots reintroduced the exact ensureFresh
+  // latency risk M0.5 identified. Bare-symbol fallback may use one
+  // budgeted graph_consequences call to map symbol→feature, but enrichment
+  // still requires live=true.
+  //
+  // When live=true we run a budgeted
   // graph_consequences call and append the cheap-to-compute fields
   // (last_touched, co_consumer_files) that overlay JSON can't give us.
   // Strict 2s budget. Timeout / unavailable both still leave the rest
@@ -557,8 +542,7 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       opts,
     });
     if (enrich.status === 'enriched') {
-      const reasonSuffix = autoLiveReason ? `; ${autoLiveReason}` : '';
-      lines.push(`LIVE: enriched (${enrich.elapsed_ms}ms${reasonSuffix})`);
+      lines.push(`LIVE: enriched (${enrich.elapsed_ms}ms)`);
       if (enrich.last_touched.length) {
         lines.push('LAST TOUCHED:');
         for (const c of enrich.last_touched) lines.push(`- ${c}`);
@@ -574,7 +558,8 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       lines.push(`LIVE: ${enrich.status} (${enrich.detail}; ${enrich.elapsed_ms}ms)`);
     }
   } else {
-    lines.push('LIVE: skipped_under_budget (overlay-first; pass live=true to enrich)');
+    const symbolNote = matchedViaSymbol ? '; symbol mapped via budgeted lookup' : '';
+    lines.push(`LIVE: skipped_under_budget (overlay-first${symbolNote}; pass live=true to enrich)`);
   }
 
   const text = renderLines(lines);

@@ -56,7 +56,7 @@ If the user is on lean and wants dashboard access surfaced, they can remove `--t
 
 ## Prerequisites
 
-- `.aify-graph/graph.sqlite` must exist (auto-built on first `graph_status()` call)
+- `.aify-graph/graph.sqlite` must exist (built by `graph_index()` or the `graph-build-all` skill)
 - `.aify-graph/functionality.json` optional — without it, feature/task layers simply don't appear
 - `.aify-graph/tasks.json` optional — same, shows up when present
 

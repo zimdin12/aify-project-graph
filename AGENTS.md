@@ -40,7 +40,7 @@ Each doc pins the clone to a runtime-specific path so two runtimes on the same m
 
 **Skills** — the install doc copies the whole `integrations/<runtime>/skill{,s}/` tree with a directory loop, so new skills are picked up without updating these docs. **Both Claude Code and Codex support skills natively**: Claude Code loads from `~/.claude/skills/`, Codex from `~/.codex/skills/` (see `install.codex.md` Step 3). OpenCode doesn't load skill files today; MCP tool descriptions are self-documenting there.
 
-**Verify** — on first session after restart: `graph_status()` should return `indexed: false` then any query verb triggers an auto-build. If the tool is not found, the MCP didn't register (rerun the relevant install-doc step).
+**Verify** — on first session after restart: `graph_health()` should return a trust/indexing summary. If no graph exists yet, call `graph_index(force=true)` or run the `graph-build-all` skill. If the tool is not found, the MCP didn't register (rerun the relevant install-doc step).
 
 **Marketplace/package validation** — this repo ships `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.agents/plugins/marketplace.json`. Before publishing an integration update, run `npm run validate:marketplace`.
 

@@ -9,7 +9,7 @@
     "command": "node",
     "args": ["--max-old-space-size=8192", "mcp/stdio/server.js", "--toolset=lean"]
   },
-  "skills": ["integrations/codex/skill"],
+  "skills": ["integrations/codex/skill", "integrations/codex/skills"],
   "install_doc": "install.codex.md",
   "capabilities": ["mcp", "skills", "lean-profile", "local-index", "optional-code-intel"]
 }

@@ -108,10 +108,10 @@ Tell the user (paraphrase is fine):
 ## Verify (after restart — agent cannot do this before)
 
 ```
-graph_status()
+graph_health()
 ```
 
-Returns `indexed: false` initially; `graph_index()` or any query verb triggers the first build.
+Returns a trust/indexing summary. If no graph exists yet, call `graph_index(force=true)` or run `/graph-build-all` for full setup.
 
 ## Troubleshooting
 

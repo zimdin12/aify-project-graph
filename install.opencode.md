@@ -70,7 +70,7 @@ node -e '
 ' "$CONFIG_FILE" "$CLONE_PATH/mcp/stdio/server.js"
 ```
 
-Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`). Use `graph_packet(..., mode="orient|plan|debug|review|audit")` for cheap workflow-specific context. Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 21-verb surface.
+Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`). Use `graph_packet(..., mode="orient|plan|debug|review|audit")` for cheap workflow-specific context. Hidden verbs remain callable by name. Drop `--toolset=lean` from the `command` array for the full 23-verb surface.
 
 ### Multi-repo caveat — MCP is cwd-bound
 
@@ -84,7 +84,7 @@ OpenCode does not load Claude-Code skill files. **Skip this step.**
 
 Tell the user (paraphrase is fine):
 
-> Install done. **Restart OpenCode** so the MCP server loads. In any repo, first make sure `.gitignore` contains `.aify-graph/` and add local scratch/build patterns to `.aifyignore` when needed (`build-linux-techlead`, `generated/**`, `*.tmp.cpp`). Then call `graph_status()` or `graph_index(force=true)` to build the graph. For the static-brief workflow (briefs + overlay reliably save ~15-20% wall-clock and tool calls vs Grep-only on planning shapes — see README for measurement caveats), run once per target repo:
+> Install done. **Restart OpenCode** so the MCP server loads. In any repo, first make sure `.gitignore` contains `.aify-graph/` and add local scratch/build patterns to `.aifyignore` when needed (`build-linux-techlead`, `generated/**`, `*.tmp.cpp`). Then call `graph_health()` to verify registration and `graph_index(force=true)` to build the graph. For the static-brief workflow (briefs + overlay reliably save ~15-20% wall-clock and tool calls vs Grep-only on planning shapes — see README for measurement caveats), run once per target repo:
 >
 > ```bash
 > node "$CLONE_PATH/scripts/graph-brief.mjs" /path/to/your/repo
@@ -98,10 +98,10 @@ Tell the user (paraphrase is fine):
 ## Verify (after restart)
 
 ```
-graph_status()
+graph_health()
 ```
 
-Returns `indexed: false` initially; any query verb triggers the first build.
+Returns a trust/indexing summary. If no graph exists yet, call `graph_index(force=true)` before relying on live graph results.
 
 ## Troubleshooting
 

@@ -55,7 +55,7 @@ codex mcp add aify-project-graph \
   -- node --max-old-space-size=8192 "$CLONE_PATH/mcp/stdio/server.js" --toolset=lean
 ```
 
-Drop `--toolset=lean` if the user wants the full 21-verb surface (not recommended on Codex).
+Drop `--toolset=lean` if the user wants the full 23-verb surface (not recommended on Codex).
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
 
@@ -91,7 +91,7 @@ for dir in "$CLONE_PATH/integrations/codex/skills"/*/; do
 done
 ```
 
-The skills auto-activate when the `graph_status` / `graph_pull` / `graph_index` MCP tools are available (i.e. after the MCP server is registered in Step 2). They cover the same workflows as the Claude Code set: `/graph-build-all`, `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-feature-edit`, `/graph-task-edit`, `/graph-anchor-drift`, `/graph-pull-context`, `/graph-walk-bugs`, `/graph-dashboard`. Codex doesn't expose them as slash commands the same way Claude Code does, but the agent reads them when relevant tasks come up.
+The skills are available after the MCP server is registered in Step 2. They cover the same workflows as the Claude Code set: `graph-build-all`, `graph-build-briefs`, `graph-build-functionality`, `graph-build-tasks`, `graph-feature-edit`, `graph-task-edit`, `graph-anchor-drift`, `graph-pull-context`, `graph-walk-bugs`, `graph-dashboard`, and `graph-guide`. Codex doesn't expose them as slash commands the same way Claude Code does, but the agent reads them when relevant tasks come up.
 
 ## Step 4 — tell the user to restart
 
@@ -109,10 +109,10 @@ Tell the user (paraphrase is fine):
 ## Verify (after restart)
 
 ```
-graph_status()
+graph_health()
 ```
 
-Returns `indexed: false` initially; any query verb triggers the first build.
+Returns a trust/indexing summary. If no graph exists yet, call `graph_index(force=true)` or ask the agent to "generate project graphs" so the installed `graph-build-all` skill handles the full setup.
 
 ## Troubleshooting
 
