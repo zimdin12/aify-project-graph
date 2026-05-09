@@ -62,6 +62,7 @@ export function createSchema(db) {
   }
 
   ensureCodeIntelRecordsTable(db);
+  ensureCodeIntelCollectionsTable(db);
 }
 
 const CODE_INTEL_RECORDS_TABLE_SQL = `
@@ -88,4 +89,29 @@ const CODE_INTEL_RECORDS_TABLE_SQL = `
 export function ensureCodeIntelRecordsTable(db) {
   // Accepts both raw better-sqlite3 Database and the wrapped db from db.js (both expose .exec).
   db.exec(CODE_INTEL_RECORDS_TABLE_SQL);
+}
+
+const CODE_INTEL_COLLECTIONS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS code_intel_collections (
+    collection_id TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    provider_version TEXT NOT NULL,
+    project_root TEXT NOT NULL,
+    language TEXT NOT NULL,
+    status TEXT NOT NULL,
+    freshness_basis TEXT,
+    freshness_value TEXT,
+    compile_db_hash TEXT,
+    indexed_commit TEXT,
+    operations_json TEXT,
+    collected_at TEXT NOT NULL,
+    errors_json TEXT,
+    imported_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS code_intel_collections_provider_idx ON code_intel_collections(provider);
+  CREATE INDEX IF NOT EXISTS code_intel_collections_collected_idx ON code_intel_collections(collected_at);
+`;
+
+export function ensureCodeIntelCollectionsTable(db) {
+  db.exec(CODE_INTEL_COLLECTIONS_TABLE_SQL);
 }
