@@ -1,0 +1,4 @@
+[
+  { "directory": "/repo/root", "command": "clang++ -std=c++17 -c src/foo.cpp -o foo.o", "file": "src/foo.cpp" },
+  { "directory": "/repo/root", "command": "clang++ -std=c++17 -c src/bar.cpp -o bar.o", "file": "src/bar.cpp" }
+]
