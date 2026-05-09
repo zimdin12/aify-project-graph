@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aify.dev/schemas/code-intel-collection.v0.2.schema.json",
+  "title": "Aify code-intel collection v0.2 (provider response envelope)",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "collectionId",
+    "provider",
+    "providerVersion",
+    "projectRoot",
+    "session",
+    "operations",
+    "status",
+    "records"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "collectionId": { "type": "string", "minLength": 1 },
+    "provider": { "type": "string", "minLength": 1 },
+    "providerVersion": { "type": "string", "minLength": 1 },
+    "projectRoot": { "type": "string", "minLength": 1 },
+    "session": {
+      "type": "object",
+      "required": ["collectedAt", "freshnessBasis"],
+      "properties": {
+        "collectedAt": { "type": "string", "format": "date-time" },
+        "freshnessBasis": {
+          "type": "string",
+          "enum": ["git_commit", "file_mtime", "compile_db_hash", "unknown"]
+        },
+        "freshnessValue": { "type": "string" },
+        "compileDbHash": { "type": "string" },
+        "warmedFiles": { "type": "integer", "minimum": 0 },
+        "warmupMs": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "operations": {
+      "type": "object",
+      "patternProperties": {
+        "^(definitions|references|hover|diagnostics|symbols)$": {
+          "type": "object",
+          "required": ["status"],
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": ["ok", "partial", "not_collected", "unsupported"]
+            },
+            "count": { "type": "integer", "minimum": 0 },
+            "reason": { "type": "string" },
+            "notCollectedFiles": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "partial", "error"]
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "provider_missing",
+              "compile_db_missing",
+              "language_unsupported",
+              "wrapper_failed",
+              "language_server_missing",
+              "language_server_timeout",
+              "internal_error"
+            ]
+          },
+          "message": { "type": "string" },
+          "hint": { "type": "string" }
+        }
+      }
+    },
+    "records": {
+      "type": "array",
+      "items": { "$ref": "https://aify.dev/schemas/code-intel-record.v0.2.schema.json" }
+    }
+  }
+}
