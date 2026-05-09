@@ -1,0 +1,39 @@
+{
+  "schema_version": "0.2",
+  "collectionId": "ci-2026-05-09T13-00-00Z-def456",
+  "provider": "cpp-clangd",
+  "providerVersion": "0.1.0",
+  "projectRoot": "/repo/root",
+  "session": {
+    "collectedAt": "2026-05-09T13:00:00Z",
+    "freshnessBasis": "compile_db_hash",
+    "compileDbHash": "def456"
+  },
+  "operations": {
+    "definitions": { "status": "ok", "count": 1 },
+    "references": {
+      "status": "partial",
+      "count": 3,
+      "notCollectedFiles": ["src/baz.cpp", "src/qux.cpp"]
+    },
+    "diagnostics": { "status": "not_collected", "reason": "not_requested" },
+    "hover": { "status": "unsupported" }
+  },
+  "status": "partial",
+  "records": [
+    {
+      "schema_version": "0.2",
+      "collectionId": "ci-2026-05-09T13-00-00Z-def456",
+      "kind": "definition",
+      "language": "cpp",
+      "symbolId": "c:@N@ns@F@bar#",
+      "qname": "ns::bar()",
+      "container": "ns",
+      "file": "src/bar.cpp",
+      "range": { "start": { "line": 3, "col": 5 }, "end": { "line": 3, "col": 8 } },
+      "confidence": "high",
+      "provenance": "cpp-clangd@0.1.0",
+      "result_state": "found"
+    }
+  ]
+}

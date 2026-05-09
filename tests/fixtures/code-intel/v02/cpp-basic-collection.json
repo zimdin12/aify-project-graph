@@ -1,0 +1,54 @@
+{
+  "schema_version": "0.2",
+  "collectionId": "ci-2026-05-09T12-34-56Z-abc123",
+  "provider": "cpp-clangd",
+  "providerVersion": "0.1.0",
+  "projectRoot": "/repo/root",
+  "session": {
+    "collectedAt": "2026-05-09T12:34:56Z",
+    "freshnessBasis": "compile_db_hash",
+    "freshnessValue": "abc123",
+    "compileDbHash": "abc123",
+    "warmedFiles": 18,
+    "warmupMs": 1400
+  },
+  "operations": {
+    "definitions": { "status": "ok", "count": 1 },
+    "references":  { "status": "ok", "count": 1 },
+    "diagnostics": { "status": "ok", "count": 0 }
+  },
+  "status": "ok",
+  "records": [
+    {
+      "schema_version": "0.2",
+      "collectionId": "ci-2026-05-09T12-34-56Z-abc123",
+      "kind": "definition",
+      "language": "cpp",
+      "symbolId": "c:@N@ns@F@foo#I#",
+      "qname": "ns::foo(int)",
+      "signature": "void(int)",
+      "container": "ns",
+      "file": "src/foo.cpp",
+      "range": { "start": { "line": 12, "col": 5 }, "end": { "line": 12, "col": 8 } },
+      "confidence": "high",
+      "provenance": "cpp-clangd@0.1.0",
+      "freshness": "compile_db_hash:abc123",
+      "result_state": "found"
+    },
+    {
+      "schema_version": "0.2",
+      "collectionId": "ci-2026-05-09T12-34-56Z-abc123",
+      "kind": "reference",
+      "language": "cpp",
+      "symbolId": "c:@N@ns@F@foo#I#",
+      "qname": "ns::foo(int)",
+      "container": "ns",
+      "file": "src/bar.cpp",
+      "range": { "start": { "line": 7, "col": 3 }, "end": { "line": 7, "col": 6 } },
+      "context": "call_expr",
+      "confidence": "high",
+      "provenance": "cpp-clangd@0.1.0",
+      "result_state": "found"
+    }
+  ]
+}
