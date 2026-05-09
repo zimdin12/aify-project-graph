@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { isV02Collection, validateCollection as validateV02Collection, validateRecord as validateV02Record } from './v02.js';
 
 export const CODE_INTEL_SCHEMA_VERSION = '0.1';
 
@@ -203,4 +204,21 @@ export async function readCodeIntelJsonl(path) {
     throw err;
   }
   return records;
+}
+
+export function detectSchemaVersion(value) {
+  if (!value || typeof value !== 'object') return 'unknown';
+  if (isV02Collection(value)) return '0.2';
+  if (value.schema_version === '0.2') return '0.2';
+  return '0.1';
+}
+
+export function validateAny(value) {
+  const version = detectSchemaVersion(value);
+  if (version === '0.2') {
+    return Array.isArray(value.records)
+      ? validateV02Collection(value)
+      : validateV02Record(value);
+  }
+  return { valid: true, errors: [], version };
 }

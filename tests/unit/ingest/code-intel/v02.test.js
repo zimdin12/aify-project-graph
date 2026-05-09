@@ -81,3 +81,25 @@ describe('code-intel v0.2 validation', () => {
     expect(isV02Collection(v01)).toBe(false);
   });
 });
+
+import { detectSchemaVersion, validateAny } from '../../../../mcp/stdio/ingest/code-intel/schema.js';
+
+describe('schema dispatcher', () => {
+  it('detects v0.2 collection', () => {
+    expect(detectSchemaVersion({ schema_version: '0.2', collectionId: 'x', records: [] })).toBe('0.2');
+  });
+
+  it('detects v0.1 record (legacy)', () => {
+    expect(detectSchemaVersion({ kind: 'symbol', qname: 'foo' })).toBe('0.1');
+  });
+
+  it('validateAny enforces v0.2 envelopes', () => {
+    const result = validateAny({ schema_version: '0.2', collectionId: 'x', records: [] });
+    expect(result.valid).toBe(false);
+  });
+
+  it('validateAny is permissive for v0.1', () => {
+    const result = validateAny({ kind: 'symbol', qname: 'foo' });
+    expect(result.valid).toBe(true);
+  });
+});
