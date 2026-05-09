@@ -18,6 +18,7 @@ import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
 import { getDirtyFiles } from '../../freshness/git.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
+import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
 
 // Layer inventory:
 //   code          — file/symbol neighborhood (files, symbols, callers)
@@ -34,8 +35,13 @@ import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 //                   Separated from relations per dev review: truncation-prone,
 //                   trust-sensitive, different tuning.
 // Every capped list carries { items, total, truncated, limit } metadata.
-const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive'];
+// `code_intel` is opt-in only — keeps token budget controlled. Plan #3.
+const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive', 'code_intel'];
 const DEFAULT_LAYERS = ['code', 'functionality', 'tasks', 'activity'];
+
+function emptyCodeIntelEvidence() {
+  return { found: false, definitions: [], references: [], hovers: [], summary: { definitions: 0, references: 0, hovers: 0 } };
+}
 
 function normalizeOverlayLookup(value) {
   return String(value || '')
@@ -715,6 +721,18 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
       ? layers.filter(l => ALL_LAYERS.includes(l))
       : DEFAULT_LAYERS
   );
+  // Top-level code-intel evidence (opt-in via 'code_intel' layer). Lives at
+  // the top level (not under .layers) so consumers can grep result.code_intel
+  // without knowing the rest of the shape. Plan #3.
+  let codeIntelEvidence = null;
+  if (layerSet.has('code_intel')) {
+    try {
+      codeIntelEvidence = getCodeIntelEvidenceForSymbol(db, { qname: String(node) });
+    } catch {
+      codeIntelEvidence = emptyCodeIntelEvidence();
+    }
+  }
+  const withCodeIntel = (obj) => (codeIntelEvidence ? { ...obj, code_intel: codeIntelEvidence } : obj);
 
   try {
     const overlay = loadFunctionality(repoRoot);
@@ -739,7 +757,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
         }),
       },
       freshness.warnings);
-      return JSON.stringify(result, null, 2);
+      return JSON.stringify(withCodeIntel(result), null, 2);
     }
     const taskMatch = resolveTaskNode(node, allTasks);
     if (taskMatch) {
@@ -753,13 +771,13 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
           dirtyFiles,
         }),
       }, freshness.warnings);
-      return JSON.stringify(result, null, 2);
+      return JSON.stringify(withCodeIntel(result), null, 2);
     }
     if (prefixed.kind === 'feature' || prefixed.kind === 'task') {
       const suggestions = prefixed.kind === 'feature'
         ? features.slice(0, 5).map((f) => `feature:${f.id}`)
         : allTasks.slice(0, 5).map((t) => `task:${t.id}`);
-      return JSON.stringify(attachReadWarnings({
+      return JSON.stringify(withCodeIntel(attachReadWarnings({
         node: { kind: prefixed.kind, value: prefixed.value },
         error: `${prefixed.kind} not found`,
         hint: prefixed.kind === 'feature'
@@ -768,7 +786,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
         suggestions,
         overlay_quality: overlayQuality,
         dirty_overlap: { direct_files: [], affected_features: [] },
-      }, freshness.warnings), null, 2);
+      }, freshness.warnings)), null, 2);
     }
     // File or symbol?
     const detected = detectNodeKind(db, node);
@@ -783,7 +801,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
           dirtyFiles,
         }),
       }, freshness.warnings);
-      return JSON.stringify(result, null, 2);
+      return JSON.stringify(withCodeIntel(result), null, 2);
     }
     if (detected.kind === 'symbol') {
       const result = attachReadWarnings({
@@ -796,15 +814,15 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
           dirtyFiles,
         }),
       }, freshness.warnings);
-      return JSON.stringify(result, null, 2);
+      return JSON.stringify(withCodeIntel(result), null, 2);
     }
-    return JSON.stringify(attachReadWarnings({
+    return JSON.stringify(withCodeIntel(attachReadWarnings({
       node: { kind: 'unresolved', value: node },
       error: 'could not resolve as feature id, task id, file path, or symbol',
       hint: 'try feature:<id>, feature/<id>, task:<id>, task/<id>, graph_whereis(symbol=...), or graph_search(query=...) to find the right node identifier',
       overlay_quality: overlayQuality,
       dirty_overlap: { direct_files: [], affected_features: [] },
-    }, freshness.warnings), null, 2);
+    }, freshness.warnings)), null, 2);
   } finally {
     db.close();
   }
