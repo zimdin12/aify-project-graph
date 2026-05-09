@@ -18,6 +18,7 @@ import { getHeadCommit } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
+import { getLatestCollection } from '../../code-intel/query.js';
 
 // Single source of truth for trust-level thresholds. graph_health and the
 // brief's trust() both consume this so they can't drift. Echoes bench
@@ -91,6 +92,32 @@ export async function graphHealth({ repoRoot }) {
       overlay = { present: true, checked: 0, broken: 0, error: 'validator threw' };
     }
   }
+
+  // Code-intel availability + freshness, surfaced separately from graph
+  // freshness so agents can see "graph fresh, code-intel stale" or vice
+  // versa. Plan #3.
+  let codeIntel = { available: false, reason: 'no_collection' };
+  try {
+    const db = openExistingDb(dbPath);
+    try {
+      const latest = getLatestCollection(db);
+      if (latest) {
+        codeIntel = {
+          available: true,
+          provider: latest.provider,
+          providerVersion: latest.providerVersion,
+          status: latest.status,
+          language: latest.language,
+          freshnessBasis: latest.freshnessBasis,
+          freshnessValue: latest.freshnessValue,
+          compileDbHash: latest.compileDbHash,
+          indexedCommit: latest.indexedCommit,
+          collectedAt: latest.collectedAt,
+          operations: latest.operations,
+        };
+      }
+    } finally { db.close(); }
+  } catch { /* leave codeIntel as not-available */ }
 
   const trust = computeTrustLevel(trustUnresolvedEdges);
 
@@ -195,6 +222,7 @@ export async function graphHealth({ repoRoot }) {
     unresolvedCategorizationStaleVsManifest,
     overlay,
     overlayQuality,
+    codeIntel,
     summary: verdicts.join(' · '),
   };
 }
