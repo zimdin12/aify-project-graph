@@ -29,7 +29,7 @@ const DEFAULTS = {
 };
 
 const CHAR_PER_TOKEN_EST = 4; // rough; matches our existing brief-budget heuristic
-const PACKET_MODES = new Set(['orient', 'plan', 'debug', 'review', 'audit']);
+const PACKET_MODES = new Set(['orient', 'plan', 'debug', 'review', 'audit', 'verify']);
 
 const MODE_OVERRIDES = {
   orient: {},
@@ -37,6 +37,7 @@ const MODE_OVERRIDES = {
   debug: { read_first: 10, tests: 10, risks: 8 },
   review: { read_first: 8, contracts: 8, tests: 10, risks: 10 },
   audit: { read_first: 10, contracts: 10, tests: 10, risks: 12 },
+  verify: { read_first: 8, contracts: 4, tests: 8, risks: 8 },
 };
 
 function esTokens(s) { return Math.ceil((s || '').length / CHAR_PER_TOKEN_EST); }
@@ -428,9 +429,19 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 
 // ----- main -----
 
-export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false }) {
-  if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, bare id, or bare symbol)';
+export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false, since = null, files = [], audited = false }) {
   if (!repoRoot) return 'ERROR: repoRoot parameter is required';
+
+  // Verify mode short-circuit: post-edit decision packet, no target required.
+  // Routes to buildVerifyPacket which handles the W1.4 fixtures: clean+fresh,
+  // edit+stale, edit+unavailable, edit+audited, edit+partial, plus untracked files.
+  const earlyMode = normalizeMode(mode);
+  if (earlyMode === 'verify') {
+    const { buildVerifyPacket } = await import('./packet-verify.js');
+    return buildVerifyPacket({ repoRoot, since, files, audited }).rendered;
+  }
+
+  if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, bare id, or bare symbol)';
 
   const opts = optionsForMode(normalizeMode(mode), budget);
 

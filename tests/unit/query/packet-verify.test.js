@@ -80,3 +80,22 @@ describe('verify mode (W1.4 fixtures)', () => {
     expect(packet.rendered).toMatch(/src\/new_untracked.cpp/);
   });
 });
+
+describe('graphPacket(mode:verify)', () => {
+  it('routes verify mode through buildVerifyPacket', async () => {
+    const { graphPacket } = await import('../../../mcp/stdio/query/verbs/packet.js');
+    const dir = setupRepo({ fixture: 'cpp-bar-diagnostic-collection.json' });
+    const out = await graphPacket({ repoRoot: dir, mode: 'verify', files: ['src/bar.cpp'] });
+    expect(typeof out).toBe('string');
+    expect(out).toMatch(/MODE: verify/);
+    expect(out).toMatch(/DIAGNOSTICS/);
+  });
+
+  it('verify mode without files still returns a packet', async () => {
+    const { graphPacket } = await import('../../../mcp/stdio/query/verbs/packet.js');
+    const dir = setupRepo();
+    const out = await graphPacket({ repoRoot: dir, mode: 'verify' });
+    expect(typeof out).toBe('string');
+    expect(out).toMatch(/MODE: verify/);
+  });
+});
