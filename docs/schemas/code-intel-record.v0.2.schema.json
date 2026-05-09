@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aify.dev/schemas/code-intel-record.v0.2.schema.json",
+  "title": "Aify code-intel record v0.2",
+  "type": "object",
+  "required": ["kind", "schema_version", "collectionId", "language"],
+  "properties": {
+    "schema_version": { "const": "0.2" },
+    "collectionId": { "type": "string", "minLength": 1 },
+    "kind": {
+      "type": "string",
+      "enum": ["definition", "reference", "call", "include", "diagnostic", "hover", "symbol"]
+    },
+    "language": { "type": "string", "minLength": 1 },
+    "symbolId": { "type": "string" },
+    "qname": { "type": "string" },
+    "name": { "type": "string" },
+    "signature": { "type": "string" },
+    "container": { "type": "string" },
+    "symbol_kind": { "type": "string" },
+    "file": { "type": "string", "pattern": "^[^/].*$|^$" },
+    "range": { "$ref": "#/$defs/range" },
+    "start_line": { "type": "integer", "minimum": 1 },
+    "end_line": { "type": "integer", "minimum": 1 },
+    "context": {
+      "type": "string",
+      "enum": ["call_expr", "virtual_call", "template_inst", "macro_expansion", "include", "other"]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"]
+    },
+    "provenance": { "type": "string", "minLength": 1 },
+    "freshness": { "type": "string" },
+    "result_state": {
+      "type": "string",
+      "enum": ["found", "not_found_after_retry", "not_collected"]
+    },
+    "from": { "$ref": "#/$defs/endpoint" },
+    "to": { "$ref": "#/$defs/endpoint" },
+    "severity": { "type": "string", "enum": ["error", "warning", "info", "hint"] },
+    "code": { "type": "string" },
+    "message": { "type": "string" },
+    "raw": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "diagnostic" } } },
+      "then": { "required": ["file", "severity", "message"] }
+    },
+    {
+      "if": { "properties": { "kind": { "enum": ["definition", "reference", "call"] } } },
+      "then": { "required": ["symbolId", "qname"] }
+    }
+  ],
+  "$defs": {
+    "range": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": { "$ref": "#/$defs/position" },
+        "end": { "$ref": "#/$defs/position" }
+      }
+    },
+    "position": {
+      "type": "object",
+      "required": ["line"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "col": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "properties": {
+        "symbolId": { "type": "string" },
+        "qname": { "type": "string" },
+        "name": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}
