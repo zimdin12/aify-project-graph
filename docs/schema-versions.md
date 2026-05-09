@@ -107,7 +107,9 @@ JSON Schema (draft-07) definitions live at:
 
 - `docs/schemas/functionality.schema.json` — functionality overlay
 - `docs/schemas/tasks.schema.json` — tasks overlay
-- `docs/schemas/code-intel-record.schema.json` — neutral JSONL contract for optional compiler/LSP importers
+- `docs/schemas/code-intel-record.schema.json` — v0.1 neutral JSONL contract for optional compiler/LSP importers (legacy default)
+- `docs/schemas/code-intel-record.v0.2.schema.json` — v0.2 single record (2026-05-09): adds `collectionId`, `symbolId`/`qname`/`signature`/`container`, categorical `confidence`, `result_state`, repo-relative path enforcement
+- `docs/schemas/code-intel-collection.v0.2.schema.json` — v0.2 collection envelope (2026-05-09): provider response shape with per-operation status (`ok | partial | not_collected | unsupported`), session/freshness metadata, closed error-code set
 
 These are published for external consumers — CI validators, schema-aware editors, cross-tool integrations. The loader itself does NOT run these schemas (it normalizes permissively instead; see above). Use them as a reference contract, not a hard gate.
 
