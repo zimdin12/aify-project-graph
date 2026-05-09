@@ -63,3 +63,14 @@ These requirements are validated in Plan #2 (C++ clangd provider).
 ## Backwards compatibility
 
 The v0.1 schema (`docs/schemas/code-intel-record.schema.json`) and the existing `d7bf17a` import path remain functional. The importer dispatches by detecting the v0.2 envelope shape (`schema_version: "0.2"` + `collectionId` + `records[]`). v0.1 callers are not affected by Plan #1.
+
+## Wrapper CLI usage
+
+```text
+apg code-intel doctor [<language>]
+apg code-intel collect <language> [--scope changed|files|all] [--files ...] [--project-root <dir>] [--since <ref>] [--operations definitions,references,diagnostics] [--json]
+```
+
+`aify-code-intel` is a thin PATH shim that forwards to `apg code-intel` for hosts that need a top-level executable (e.g. Claude `.lsp.json`, Pi `.pi-lsp.json`).
+
+`doctor` checks the per-language language-server binary and reports installed/missing with a fix hint. `collect` runs a provider and prints either a structured human-readable status (default) or the v0.2 collection JSON (`--json`).
