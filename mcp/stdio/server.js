@@ -28,6 +28,7 @@ import { graphOnboard } from './query/verbs/onboard.js';
 import { graphPull } from './query/verbs/pull.js';
 import { graphFind } from './query/verbs/find.js';
 import { graphPacket } from './query/verbs/packet.js';
+import { graphCollectCodeIntel } from './query/verbs/collect_code_intel.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -57,16 +58,34 @@ const TOOLS = [
   {
     name: 'graph_packet',
     handler: graphPacket,
-    description: 'Compact one-shot agent prompt packet for a feature or task. For feature/task targets, reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Bare symbol targets may use one budgeted consequences lookup to map symbol→feature. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
+    description: 'Compact one-shot agent prompt packet for a feature or task. For feature/task targets, reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Bare symbol targets may use one budgeted consequences lookup to map symbol→feature. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. mode=verify is a post-edit decision packet and does not require target — pass files[]/since instead. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit|verify to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
     schema: {
       type: 'object',
       properties: {
-        target: { type: 'string', description: 'feature:<id> | task:<id> | bare id | bare symbol (maps to feature when possible)' },
-        mode: { type: 'string', enum: ['orient', 'plan', 'debug', 'review', 'audit'], default: 'orient', description: 'Workflow mode. Shapes section caps and risk hints without changing the underlying graph truth.' },
+        target: { type: 'string', description: 'feature:<id> | task:<id> | bare id | bare symbol (not required for mode=verify)' },
+        mode: { type: 'string', enum: ['orient', 'plan', 'debug', 'review', 'audit', 'verify'], default: 'orient', description: 'Workflow mode. Shapes section caps and risk hints without changing the underlying graph truth. verify = post-edit decision packet (changed files, diagnostics, freshness, SOURCE_REQUIRED).' },
         budget: { type: 'integer', default: 800, description: 'Token budget for the rendered packet (section caps + final clamp).' },
         live: { type: 'boolean', default: false, description: 'Opt into live enrichment block (slower; lands fully in M3 with readOnly verb mode).' },
+        since: { type: 'string', description: 'verify mode: git ref to diff against for changed files.' },
+        files: { type: 'array', items: { type: 'string' }, description: 'verify mode: explicit changed files (repo-relative).' },
+        audited: { type: 'boolean', default: false, description: 'verify mode: change touches audited code; surface SOURCE_REQUIRED warning.' },
       },
-      required: ['target'],
+    },
+  },
+  {
+    name: 'graph_collect_code_intel',
+    handler: graphCollectCodeIntel,
+    description: 'Run a code-intel provider (e.g. cpp-clangd) and import the resulting v0.2 collection into the local graph. Public action verb — agents and bridge UI both call this. Never auto-runs; explicit only. Returns the v0.2 collection envelope (status, errors, records). On success the collection is imported and immediately visible to graph_health.codeIntel, graph_pull(layers:["code_intel"]), graph_change_plan ranking, and packet EVIDENCE blocks. Use after touching code that needs compiler-backed precision (C++ templates, virtual dispatch, macros).',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', description: 'Language to collect for (e.g. "cpp"). Provider is selected per language.' },
+        scope: { type: 'string', enum: ['changed', 'files', 'all'], default: 'changed', description: 'Collection scope. "changed" derives files from `since`; "files" uses explicit files[]; "all" enumerates from compile_commands.json.' },
+        files: { type: 'array', items: { type: 'string' }, description: 'Explicit files to collect (repo-relative). Required when scope="files".' },
+        since: { type: 'string', description: 'Git ref for "changed" scope; collects files modified since this ref.' },
+        operations: { type: 'array', items: { type: 'string', enum: ['definitions', 'references', 'hover', 'diagnostics', 'symbols'] }, description: 'Operations to run. Defaults to [definitions, references, diagnostics].' },
+      },
+      required: ['language'],
     },
   },
   {
