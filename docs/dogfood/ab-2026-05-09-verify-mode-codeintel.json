@@ -1,0 +1,68 @@
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+{
+  "summary": "A/B comparison: verify mode without vs with code-intel",
+  "baseline": {
+    "health": {
+      "codeIntelAvailable": false,
+      "reason": "no_collection"
+    },
+    "verify": {
+      "tokens_est": 47,
+      "chars": 188,
+      "explicit_unavailable": true,
+      "diagnostics_block": false,
+      "source_required": false,
+      "evidence_provider": "none"
+    }
+  },
+  "code_intel": {
+    "health": {
+      "codeIntelAvailable": true,
+      "provider": "cpp-clangd",
+      "status": "ok",
+      "freshnessBasis": "compile_db_hash"
+    },
+    "verify": {
+      "tokens_est": 54,
+      "chars": 214,
+      "explicit_unavailable": false,
+      "diagnostics_block": true,
+      "source_required": false,
+      "evidence_provider": "cpp-clangd"
+    },
+    "verify_audited": {
+      "source_required": true
+    }
+  },
+  "findings": [
+    {
+      "test": "baseline reports explicit unavailable (W3.4 Pi-graceful contract)",
+      "pass": true,
+      "detail": "baseline packet must say \"code_intel unavailable\" rather than silently omit"
+    },
+    {
+      "test": "code-intel run shows provider name (W1.1 inline provenance)",
+      "pass": true,
+      "detail": "health surfaces the active provider for trust assessment"
+    },
+    {
+      "test": "diagnostics surface in verify mode when present (W2.4)",
+      "pass": true,
+      "detail": "post-edit diagnostics on touched files appear without separate build invocation"
+    },
+    {
+      "test": "audited flag promotes SOURCE_REQUIRED warning (W1.4 case d)",
+      "pass": true,
+      "detail": "agent must verify source even with code_intel evidence on audited code"
+    },
+    {
+      "test": "baseline does NOT silently emit diagnostics block (no false signal)",
+      "pass": true,
+      "detail": "absence of code-intel does not fabricate evidence"
+    }
+  ],
+  "allPass": true
+}

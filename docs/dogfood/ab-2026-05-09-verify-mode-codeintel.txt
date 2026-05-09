@@ -1,0 +1,38 @@
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+
+=== A/B DEMO: verify mode (baseline vs +code-intel) ===
+
+--- BASELINE (no code-intel) ---
+MODE: verify
+FILES: src/bar.cpp
+EVIDENCE: tree-sitter+overlay only; code_intel unavailable (no_collection: install clangd or set --no-code-intel to silence)
+TRUST: tree-sitter+overlay only
+
+--- WITH CODE-INTEL ---
+MODE: verify
+FILES: src/bar.cpp
+EVIDENCE: provider=cpp-clangd@0.1.0; status=ok; definitions=ok(0) diagnostics=ok(1)
+  diagnostics: error=1
+DIAGNOSTICS (1):
+  error src/bar.cpp:7: use of undeclared identifier 'oops'
+
+--- WITH CODE-INTEL + AUDITED ---
+MODE: verify
+FILES: src/bar.cpp
+EVIDENCE: provider=cpp-clangd@0.1.0; status=ok; definitions=ok(0) diagnostics=ok(1)
+  diagnostics: error=1
+DIAGNOSTICS (1):
+  error src/bar.cpp:7: use of undeclared identifier 'oops'
+SOURCE_REQUIRED: this change touches audited code; confirm against source even with code_intel evidence
+
+--- FINDINGS ---
+  [PASS] baseline reports explicit unavailable (W3.4 Pi-graceful contract)
+  [PASS] code-intel run shows provider name (W1.1 inline provenance)
+  [PASS] diagnostics surface in verify mode when present (W2.4)
+  [PASS] audited flag promotes SOURCE_REQUIRED warning (W1.4 case d)
+  [PASS] baseline does NOT silently emit diagnostics block (no false signal)
+
+Result: ALL PASS
