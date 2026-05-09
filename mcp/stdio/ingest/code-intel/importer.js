@@ -5,7 +5,7 @@ import { upsertNode } from '../../storage/nodes.js';
 import { upsertEdge } from '../../storage/edges.js';
 import { validateCodeIntelRecord } from './schema.js';
 import { detectSchemaVersion, validateAny } from './schema.js';
-import { ensureCodeIntelRecordsTable } from '../../storage/schema.js';
+import { ensureCodeIntelRecordsTable, ensureCodeIntelCollectionsTable } from '../../storage/schema.js';
 
 function hash(parts) {
   return createHash('sha1').update(parts.join('::')).digest('hex');
@@ -259,6 +259,32 @@ function importV02Collection(envelope, db) {
     operations: envelope.operations,
     recordsImported: 0,
   };
+  ensureCodeIntelCollectionsTable(db);
+  const firstRecord = envelope.records?.[0];
+  db.run(
+    `INSERT OR REPLACE INTO code_intel_collections
+       (collection_id, provider, provider_version, project_root, language, status,
+        freshness_basis, freshness_value, compile_db_hash, indexed_commit,
+        operations_json, collected_at, errors_json)
+     VALUES (@collection_id, @provider, @provider_version, @project_root, @language, @status,
+             @freshness_basis, @freshness_value, @compile_db_hash, @indexed_commit,
+             @operations_json, @collected_at, @errors_json)`,
+    {
+      collection_id: envelope.collectionId,
+      provider: envelope.provider,
+      provider_version: envelope.providerVersion,
+      project_root: envelope.projectRoot,
+      language: firstRecord?.language || 'unknown',
+      status: envelope.status,
+      freshness_basis: envelope.session?.freshnessBasis ?? null,
+      freshness_value: envelope.session?.freshnessValue ?? envelope.session?.compileDbHash ?? null,
+      compile_db_hash: envelope.session?.compileDbHash ?? null,
+      indexed_commit: envelope.session?.indexedCommit ?? null,
+      operations_json: JSON.stringify(envelope.operations || {}),
+      collected_at: envelope.session?.collectedAt ?? new Date().toISOString(),
+      errors_json: envelope.errors ? JSON.stringify(envelope.errors) : null,
+    },
+  );
   const insert = makeRecordInserter(db);
   for (const record of envelope.records) {
     insert(record);
