@@ -11,6 +11,7 @@ import { computeDecision } from './preflight.js';
 import { expandClassRollupTargets } from './target_rollup.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
 
 const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Test', 'Route', 'Entrypoint'];
 const INCOMING_RELATIONS = ['CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH'];
@@ -310,6 +311,95 @@ export function buildChangePlanWithContext(db, {
   affectedFiles.forEach((file) => lines.push(`- ${file}`));
 
   return lines.join('\n');
+}
+
+// Structured change-plan output (Plan #3). Returns an object with:
+//   { affected: { items: [{ file, provenance, confidence }] },
+//     code_intel_used: boolean }
+// Code-intel-backed items appear first (provenance='CODE_INTEL'), then any
+// tree-sitter / graph-edge derived files (provenance='EXTRACTED'). Tree-sitter
+// occurrences are kept as fallback INFERRED-or-EXTRACTED provenance.
+//
+// Companion to graphChangePlan() (text formatter); both share the same
+// underlying signals — this one is for programmatic consumers (Plan #4
+// packet v2 + verify mode).
+export async function changePlan({ repoRoot, symbol, top_k = 6 }) {
+  if (!symbol) return { error: 'symbol parameter is required', code_intel_used: false, affected: { items: [] } };
+  const graphDir = join(repoRoot, '.aify-graph');
+  const dbPath = join(graphDir, 'graph.sqlite');
+
+  let codeIntelUsed = false;
+  const codeIntelItems = [];
+  const seen = new Set();
+
+  // Try code-intel first (compiler-backed). Cheap when present.
+  try {
+    const db = openExistingDb(dbPath);
+    try {
+      const evidence = getCodeIntelEvidenceForSymbol(db, { qname: String(symbol) });
+      if (evidence.found) {
+        codeIntelUsed = true;
+        for (const r of evidence.references) {
+          if (r.file && !seen.has(r.file)) {
+            seen.add(r.file);
+            codeIntelItems.push({
+              file: r.file,
+              provenance: 'CODE_INTEL',
+              confidence: r.confidence || 'high',
+            });
+          }
+        }
+        for (const d of evidence.definitions) {
+          if (d.file && !seen.has(d.file)) {
+            seen.add(d.file);
+            codeIntelItems.push({
+              file: d.file,
+              provenance: 'CODE_INTEL',
+              confidence: d.confidence || 'high',
+              role: 'definition',
+            });
+          }
+        }
+      }
+    } finally { db.close(); }
+  } catch { /* fall back, leave codeIntelItems empty */ }
+
+  // Tree-sitter / graph-edge derived files (existing change_plan ranking
+  // signal). We attach them as EXTRACTED provenance after the CODE_INTEL
+  // items. Skipped if the graph DB isn't openable.
+  const extractedItems = [];
+  try {
+    const db = openExistingDb(dbPath);
+    try {
+      const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
+      const candidates = resolveSymbol(db, symbol, typesClause);
+      if (candidates.length > 0) {
+        const root = selectBestRoot(candidates);
+        const rollup = expandClassRollupTargets(db, symbol);
+        const targetIds = rollup.targetIds.length > 0 ? rollup.targetIds : [root.id];
+        const { sql, params } = placeholders(targetIds, 'target');
+        const incoming = db.all(
+          `SELECT DISTINCT n.file_path AS from_file
+           FROM edges e JOIN nodes n ON n.id = e.from_id
+           WHERE e.to_id IN (${sql}) AND e.relation IN (${INCOMING_RELATIONS.map((t) => `'${t}'`).join(',')})`,
+          params,
+        );
+        for (const row of incoming) {
+          if (row.from_file && !seen.has(row.from_file)) {
+            seen.add(row.from_file);
+            extractedItems.push({ file: row.from_file, provenance: 'EXTRACTED', confidence: 'medium' });
+          }
+        }
+      }
+    } finally { db.close(); }
+  } catch { /* ignore */ }
+
+  const items = [...codeIntelItems, ...extractedItems].slice(0, Math.max(top_k, 6));
+  return {
+    symbol,
+    code_intel_used: codeIntelUsed,
+    affected: { items },
+  };
 }
 
 export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
