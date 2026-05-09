@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "3d-force-graph": "^1.80.0",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
     "better-sqlite3": "^11.0.0",
     "cytoscape": "^3.30.4",
     "ngraph.graph": "^20.1.2",
