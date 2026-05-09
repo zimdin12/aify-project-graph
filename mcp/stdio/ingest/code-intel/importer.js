@@ -1,8 +1,11 @@
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
 import { upsertNode } from '../../storage/nodes.js';
 import { upsertEdge } from '../../storage/edges.js';
 import { validateCodeIntelRecord } from './schema.js';
+import { detectSchemaVersion, validateAny } from './schema.js';
+import { ensureCodeIntelRecordsTable } from '../../storage/schema.js';
 
 function hash(parts) {
   return createHash('sha1').update(parts.join('::')).digest('hex');
@@ -219,4 +222,98 @@ export function importCodeIntelRecords(db, inputRecords) {
   });
   insert();
   return counts;
+}
+
+function makeRecordInserter(db) {
+  ensureCodeIntelRecordsTable(db);
+  const sql = `
+    INSERT INTO code_intel_records
+      (collection_id, kind, language, symbol_id, qname, file, range_start_line, range_end_line, confidence, provenance, result_state, raw)
+    VALUES
+      (@collection_id, @kind, @language, @symbol_id, @qname, @file, @range_start_line, @range_end_line, @confidence, @provenance, @result_state, @raw)
+  `;
+  return (record) => {
+    const range = record.range || {};
+    db.run(sql, {
+      collection_id: record.collectionId,
+      kind: record.kind,
+      language: record.language,
+      symbol_id: record.symbolId ?? null,
+      qname: record.qname ?? null,
+      file: record.file ?? null,
+      range_start_line: range.start?.line ?? record.start_line ?? null,
+      range_end_line: range.end?.line ?? record.end_line ?? null,
+      confidence: record.confidence ?? null,
+      provenance: record.provenance ?? null,
+      result_state: record.result_state ?? null,
+      raw: JSON.stringify(record),
+    });
+  };
+}
+
+function importV02Collection(envelope, db) {
+  const stats = {
+    schemaVersion: '0.2',
+    collectionId: envelope.collectionId,
+    collectionStatus: envelope.status,
+    operations: envelope.operations,
+    recordsImported: 0,
+  };
+  const insert = makeRecordInserter(db);
+  for (const record of envelope.records) {
+    insert(record);
+    stats.recordsImported += 1;
+  }
+  return stats;
+}
+
+function importV01Jsonl(raw, db) {
+  const records = [];
+  const errors = [];
+  const lines = raw.split(/\r?\n/u);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith('#')) continue;
+    try {
+      records.push(JSON.parse(line));
+    } catch (err) {
+      errors.push({ line: i + 1, message: err.message });
+    }
+  }
+  if (errors.length) {
+    const preview = errors.slice(0, 3).map((e) => `${e.line}: ${e.message}`).join('; ');
+    const err = new Error(`invalid code-intel JSONL: ${preview}`);
+    err.errors = errors;
+    throw err;
+  }
+  const counts = importCodeIntelRecords(db, records);
+  return {
+    schemaVersion: '0.1',
+    recordsImported: counts.records,
+    counts,
+  };
+}
+
+export function importCodeIntel(filepath, db, _options = {}) {
+  const raw = readFileSync(filepath, 'utf8').trim();
+  if (raw.length === 0) {
+    return { schemaVersion: 'unknown', recordsImported: 0 };
+  }
+
+  let parsedHead = null;
+  try {
+    parsedHead = JSON.parse(raw);
+  } catch {
+    parsedHead = null;
+  }
+
+  if (parsedHead && detectSchemaVersion(parsedHead) === '0.2') {
+    const validation = validateAny(parsedHead);
+    if (!validation.valid) {
+      throw new Error(`code-intel v0.2 validation failed: ${validation.errors.join('; ')}`);
+    }
+    return importV02Collection(parsedHead, db);
+  }
+
+  return importV01Jsonl(raw, db);
 }

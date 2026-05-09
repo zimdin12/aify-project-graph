@@ -60,4 +60,32 @@ export function createSchema(db) {
   if (!edgeCols.includes('provenance')) {
     db.exec(`ALTER TABLE edges ADD COLUMN provenance TEXT NOT NULL DEFAULT 'EXTRACTED';`);
   }
+
+  ensureCodeIntelRecordsTable(db);
+}
+
+const CODE_INTEL_RECORDS_TABLE_SQL = `
+  CREATE TABLE IF NOT EXISTS code_intel_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    collection_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    language TEXT NOT NULL,
+    symbol_id TEXT,
+    qname TEXT,
+    file TEXT,
+    range_start_line INTEGER,
+    range_end_line INTEGER,
+    confidence TEXT,
+    provenance TEXT,
+    result_state TEXT,
+    raw TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS code_intel_records_collection_idx ON code_intel_records(collection_id);
+  CREATE INDEX IF NOT EXISTS code_intel_records_symbol_idx ON code_intel_records(symbol_id);
+`;
+
+export function ensureCodeIntelRecordsTable(db) {
+  // Accepts both raw better-sqlite3 Database and the wrapped db from db.js (both expose .exec).
+  db.exec(CODE_INTEL_RECORDS_TABLE_SQL);
 }
