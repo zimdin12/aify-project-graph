@@ -1,0 +1,30 @@
+{
+  "schema_version": "0.2",
+  "collectionId": "ci-2026-05-09T14-00-00Z-bar01",
+  "provider": "cpp-clangd",
+  "providerVersion": "0.1.0",
+  "projectRoot": "/repo/root",
+  "session": {
+    "collectedAt": "2026-05-09T14:00:00Z",
+    "freshnessBasis": "compile_db_hash",
+    "compileDbHash": "bar01"
+  },
+  "operations": {
+    "definitions": { "status": "ok", "count": 0 },
+    "diagnostics": { "status": "ok", "count": 1 }
+  },
+  "status": "ok",
+  "records": [
+    {
+      "schema_version": "0.2",
+      "collectionId": "ci-2026-05-09T14-00-00Z-bar01",
+      "kind": "diagnostic",
+      "language": "cpp",
+      "file": "src/bar.cpp",
+      "severity": "error",
+      "message": "use of undeclared identifier 'oops'",
+      "range": { "start": { "line": 7, "col": 5 }, "end": { "line": 7, "col": 9 } },
+      "provenance": "cpp-clangd@0.1.0"
+    }
+  ]
+}
