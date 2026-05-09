@@ -9,3 +9,4 @@ vendor/
 .codex
 .codex/
 bench-a1-live-*.json
+reference/
