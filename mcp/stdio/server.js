@@ -526,9 +526,23 @@ function defaultOutputMode(toolset, env = process.env) {
   return toolset === 'lean' ? 'compact' : '';
 }
 
+const CODE_INTEL_TOOL_NAMES = new Set([
+  'code_intel_diagnostics',
+  'code_intel_references',
+  'code_intel_definitions',
+  'code_intel_hover',
+  'code_intel_symbols',
+  'graph_collect_code_intel',
+  'graph_packet',
+  'graph_health'
+]);
+
 function selectListedTools(toolset) {
   if (toolset === 'lean') {
     return TOOLS.filter(tool => LEAN_TOOL_NAMES.has(tool.name));
+  }
+  if (toolset === 'code-intel') {
+    return TOOLS.filter(tool => CODE_INTEL_TOOL_NAMES.has(tool.name));
   }
   return TOOLS
     .filter(tool => !HIDDEN_FULL_TOOL_NAMES.has(tool.name))
