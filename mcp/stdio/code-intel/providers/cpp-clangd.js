@@ -24,6 +24,36 @@ function findCompileCommands(projectRoot) {
   return null;
 }
 
+const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
+
+// Read compile_commands.json and return a deduped list of repo-relative,
+// forward-slash, in-repo files. Out-of-repo entries (system headers, generated
+// absolute paths via `..`) are filtered out rather than thrown — paths.js
+// throws to enforce the boundary at ingest, but during enumeration we want to
+// skip the noise.
+function enumerateFromCompileDb(compileDbPath, projectRoot) {
+  try {
+    const data = JSON.parse(fs.readFileSync(compileDbPath, 'utf8'));
+    const seen = new Set();
+    const out = [];
+    for (const row of (Array.isArray(data) ? data : [])) {
+      if (!row?.file) continue;
+      const directory = row.directory || path.dirname(compileDbPath);
+      const abs = path.isAbsolute(row.file) ? row.file : path.join(directory, row.file);
+      const rel = path.relative(projectRoot, abs).split(path.sep).join('/');
+      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+      const ext = path.extname(rel).toLowerCase();
+      if (CPP_EXTENSIONS.size > 0 && ext && !CPP_EXTENSIONS.has(ext)) continue;
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      out.push(rel);
+    }
+    return out.sort();
+  } catch {
+    return [];
+  }
+}
+
 function compileDbHash(filepath) {
   const data = fs.readFileSync(filepath);
   return crypto.createHash('sha256').update(data).digest('hex').slice(0, 16);
@@ -98,9 +128,19 @@ export function createCppClangdProvider({ spawn } = {}) {
       }
 
       const dbHash = compileDbHash(compileCmds);
-      const files = (req.files && req.files.length > 0)
-        ? req.files
-        : ['src/foo.cpp', 'src/bar.cpp'];
+      // File-list resolution: explicit files[] wins; otherwise enumerate from
+      // compile_commands.json for scope=all (was hardcoded toy fallback before
+      // 2026-05-12 real-repo dogfood found scope=all silently empty). Filters
+      // out-of-repo paths (system headers, generated absolute paths) instead
+      // of throwing per paths.js. Limits to language-compatible extensions.
+      let files;
+      if (req.files && req.files.length > 0) {
+        files = req.files;
+      } else if (req.scope === 'all' || req.scope === 'changed') {
+        files = enumerateFromCompileDb(compileCmds, projectRoot);
+      } else {
+        files = ['src/foo.cpp', 'src/bar.cpp'];
+      }
 
       const spawnConfig = (spawn && spawn(req)) || { command: 'clangd', args: ['--background-index=false'] };
       const client = new LspClient({ ...spawnConfig, rootUri: pathToFileURL(projectRoot).toString() });
