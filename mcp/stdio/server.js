@@ -29,6 +29,13 @@ import { graphPull } from './query/verbs/pull.js';
 import { graphFind } from './query/verbs/find.js';
 import { graphPacket } from './query/verbs/packet.js';
 import { graphCollectCodeIntel } from './query/verbs/collect_code_intel.js';
+import {
+  codeIntelDiagnostics,
+  codeIntelReferences,
+  codeIntelDefinitions,
+  codeIntelHover,
+  codeIntelSymbols
+} from './query/verbs/code_intel_live.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -70,6 +77,82 @@ const TOOLS = [
         files: { type: 'array', items: { type: 'string' }, description: 'verify mode: explicit changed files (repo-relative).' },
         audited: { type: 'boolean', default: false, description: 'verify mode: change touches audited code; surface SOURCE_REQUIRED warning.' },
       },
+    },
+  },
+  // ── Bounded live code-intel verbs (Plan #6) ─────────────────
+  // Drive clangd live for atomic C++ questions during inner-loop editing.
+  // No collect/import round-trip. Fast, bounded JSON responses. Use these
+  // instead of `graph_collect_code_intel` when the agent just needs the
+  // answer to one symbol or one file question.
+  {
+    name: 'code_intel_diagnostics',
+    handler: codeIntelDiagnostics,
+    description: 'Live per-file diagnostics. Drives clangd directly (no collect/import round-trip). Batch-warms requested files. Returns {status, files, diagnostics:[{file,severity,message,range}]}. Use after editing C++ to check for errors without running a build.',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', default: 'cpp' },
+        files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to check.' }
+      },
+      required: ['files']
+    },
+  },
+  {
+    name: 'code_intel_references',
+    handler: codeIntelReferences,
+    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, result_state, references:[{file,range,provenance,confidence}]}. result_state distinguishes found / not_found_after_retry. Use to answer "who calls this?" without grep.',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', default: 'cpp' },
+        file: { type: 'string', description: 'Repo-relative file containing the symbol.' },
+        line: { type: 'integer', minimum: 1, description: '1-based line number.' },
+        col: { type: 'integer', minimum: 1, default: 1, description: '1-based column number.' }
+      },
+      required: ['file', 'line']
+    },
+  },
+  {
+    name: 'code_intel_definitions',
+    handler: codeIntelDefinitions,
+    description: 'Live definitions across TUs for a symbol at a position. Returns {status, definitions:[{file,range,provenance,confidence}]}. Use to jump to definition without opening files.',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', default: 'cpp' },
+        file: { type: 'string' },
+        line: { type: 'integer', minimum: 1 },
+        col: { type: 'integer', minimum: 1, default: 1 }
+      },
+      required: ['file', 'line']
+    },
+  },
+  {
+    name: 'code_intel_hover',
+    handler: codeIntelHover,
+    description: 'Live hover content (type signature + docstring) at a position. Returns {status, hover:{content,range,provenance,confidence}}. Use at edit sites to learn types without reading headers.',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', default: 'cpp' },
+        file: { type: 'string' },
+        line: { type: 'integer', minimum: 1 },
+        col: { type: 'integer', minimum: 1, default: 1 }
+      },
+      required: ['file', 'line']
+    },
+  },
+  {
+    name: 'code_intel_symbols',
+    handler: codeIntelSymbols,
+    description: 'Live document symbol outline for one file. Returns {status, file, symbols:[{name,kind,range,selectionRange}]}. Use to scan a file structure without reading it.',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', default: 'cpp' },
+        file: { type: 'string' }
+      },
+      required: ['file']
     },
   },
   {
