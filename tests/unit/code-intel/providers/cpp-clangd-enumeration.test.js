@@ -118,4 +118,60 @@ describe('cpp-clangd provider: scope=all enumeration', () => {
     });
     expect(result.session.warmedFiles).toBe(1);
   });
+
+  it('scope=all filters build/_deps/vendor/third_party prefixes', async () => {
+    const dir = setupRepoWithCompileDb([
+      { file: 'src/keep.cpp' },
+      { file: 'build/_deps/glm-src/glm.cpp' },
+      { file: 'third_party/zlib/zlib.c' },
+      { file: 'vendor/imgui/imgui.cpp' },
+      { file: '_deps/spdlog/sink.cpp' },
+      { file: 'extern/abseil/strings.cpp' }
+    ]);
+    const p = createCppClangdProvider({ spawn: () => fakeSpawn });
+    const result = await p.collect({
+      language: 'cpp',
+      projectRoot: dir,
+      scope: 'all',
+      operations: ['symbols']
+    });
+    expect(result.session.warmedFiles).toBe(1);
+    expect(result.session.enumeration.filtered_build_dep).toBe(5);
+    expect(result.session.enumeration.total).toBe(6);
+  });
+
+  it('scope=all caps at maxFiles and surfaces partial status', async () => {
+    const entries = Array.from({ length: 30 }, (_, i) => ({ file: `src/file${i}.cpp` }));
+    const dir = setupRepoWithCompileDb(entries);
+    const p = createCppClangdProvider({ spawn: () => fakeSpawn });
+    const result = await p.collect({
+      language: 'cpp',
+      projectRoot: dir,
+      scope: 'all',
+      maxFiles: 5,
+      operations: ['symbols']
+    });
+    expect(result.session.warmedFiles).toBe(5);
+    expect(result.session.enumeration.truncated).toBe(true);
+    expect(result.session.enumeration.max_files).toBe(5);
+    expect(result.session.enumeration.after_filter).toBe(30);
+    expect(result.status).toBe('partial');
+    expect(result.operations.symbols.status).toBe('partial');
+    expect(result.operations.symbols.reason).toMatch(/enumeration_capped_at_5_of_30/);
+  });
+
+  it('scope=all under cap stays status=ok with truncated=false', async () => {
+    const entries = Array.from({ length: 3 }, (_, i) => ({ file: `src/file${i}.cpp` }));
+    const dir = setupRepoWithCompileDb(entries);
+    const p = createCppClangdProvider({ spawn: () => fakeSpawn });
+    const result = await p.collect({
+      language: 'cpp',
+      projectRoot: dir,
+      scope: 'all',
+      maxFiles: 200,
+      operations: ['symbols']
+    });
+    expect(result.session.enumeration.truncated).toBe(false);
+    expect(result.status).toBe('ok');
+  });
 });

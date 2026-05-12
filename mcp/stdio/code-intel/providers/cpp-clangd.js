@@ -26,31 +26,49 @@ function findCompileCommands(projectRoot) {
 
 const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
 
+// Repo-relative path prefixes that almost always represent
+// build/dep/vendor/third-party noise from CMake-style generators. Filtered by
+// default to keep scope=all from drowning in unity-build dupes and external
+// dep sources. Override by passing explicit files[].
+const BUILD_DEP_PREFIXES = [
+  'build/', 'build_', 'cmake-build-', '_build/', 'out/',
+  '_deps/', 'deps/', 'third_party/', 'third-party/', 'vendor/',
+  'node_modules/', '.deps/', '.cache/', 'extern/', 'external/'
+];
+
 // Read compile_commands.json and return a deduped list of repo-relative,
 // forward-slash, in-repo files. Out-of-repo entries (system headers, generated
-// absolute paths via `..`) are filtered out rather than thrown — paths.js
-// throws to enforce the boundary at ingest, but during enumeration we want to
-// skip the noise.
-function enumerateFromCompileDb(compileDbPath, projectRoot) {
+// absolute paths via `..`) are filtered out rather than thrown. Build/deps/
+// vendor prefixes are excluded by default.
+function enumerateFromCompileDb(compileDbPath, projectRoot, { maxFiles = 200 } = {}) {
   try {
     const data = JSON.parse(fs.readFileSync(compileDbPath, 'utf8'));
     const seen = new Set();
     const out = [];
+    let total = 0;
+    let filteredBuild = 0;
     for (const row of (Array.isArray(data) ? data : [])) {
       if (!row?.file) continue;
+      total += 1;
       const directory = row.directory || path.dirname(compileDbPath);
       const abs = path.isAbsolute(row.file) ? row.file : path.join(directory, row.file);
       const rel = path.relative(projectRoot, abs).split(path.sep).join('/');
       if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
       const ext = path.extname(rel).toLowerCase();
       if (CPP_EXTENSIONS.size > 0 && ext && !CPP_EXTENSIONS.has(ext)) continue;
+      if (BUILD_DEP_PREFIXES.some(p => rel.startsWith(p))) { filteredBuild += 1; continue; }
       if (seen.has(rel)) continue;
       seen.add(rel);
       out.push(rel);
     }
-    return out.sort();
+    out.sort();
+    const truncated = out.length > maxFiles;
+    return {
+      files: truncated ? out.slice(0, maxFiles) : out,
+      stats: { total, after_filter: out.length, filtered_build_dep: filteredBuild, truncated, max_files: maxFiles }
+    };
   } catch {
-    return [];
+    return { files: [], stats: { total: 0, after_filter: 0, filtered_build_dep: 0, truncated: false, max_files: maxFiles } };
   }
 }
 
@@ -129,15 +147,21 @@ export function createCppClangdProvider({ spawn } = {}) {
 
       const dbHash = compileDbHash(compileCmds);
       // File-list resolution: explicit files[] wins; otherwise enumerate from
-      // compile_commands.json for scope=all (was hardcoded toy fallback before
-      // 2026-05-12 real-repo dogfood found scope=all silently empty). Filters
-      // out-of-repo paths (system headers, generated absolute paths) instead
-      // of throwing per paths.js. Limits to language-compatible extensions.
+      // compile_commands.json for scope=all (Plan #10a). Plan #10c added
+      // build/dep prefix filtering and a maxFiles cap (default 200) after
+      // unbounded scope=all hung 8 minutes silently on Sand Castle.
       let files;
+      let enumStats = null;
+      const maxFiles = Number.isFinite(req.maxFiles) ? req.maxFiles : 200;
       if (req.files && req.files.length > 0) {
         files = req.files;
       } else if (req.scope === 'all' || req.scope === 'changed') {
-        files = enumerateFromCompileDb(compileCmds, projectRoot);
+        const enum_ = enumerateFromCompileDb(compileCmds, projectRoot, { maxFiles });
+        files = enum_.files;
+        enumStats = enum_.stats;
+        if (process.env.APG_VERBOSE_CODE_INTEL) {
+          process.stderr.write(`[apg code-intel] enumerated ${enumStats.total} compile_db entries → ${enumStats.after_filter} after filter (${enumStats.filtered_build_dep} build/dep filtered)${enumStats.truncated ? `; truncated to ${maxFiles}` : ''}\n`);
+        }
       } else {
         files = ['src/foo.cpp', 'src/bar.cpp'];
       }
@@ -175,7 +199,12 @@ export function createCppClangdProvider({ spawn } = {}) {
         if (requestedOps.has('diagnostics')) operations.diagnostics = { status: 'ok', count: 0 };
         else operations.diagnostics = { status: 'not_collected', reason: 'not_requested' };
 
-        for (const rel of files) {
+        const PROGRESS_EVERY = 25;
+        for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+          const rel = files[fileIdx];
+          if (process.env.APG_VERBOSE_CODE_INTEL && fileIdx > 0 && fileIdx % PROGRESS_EVERY === 0) {
+            process.stderr.write(`[apg code-intel] processed ${fileIdx}/${files.length} files...\n`);
+          }
           const abs = path.join(projectRoot, rel);
           const uri = pathToFileURL(abs).toString();
 
@@ -327,7 +356,18 @@ export function createCppClangdProvider({ spawn } = {}) {
 
         const anyPartial = Object.values(operations).some(o => o.status === 'partial');
         const anyOk = Object.values(operations).some(o => o.status === 'ok');
-        const status = anyPartial ? 'partial' : (anyOk ? 'ok' : 'partial');
+        // Truncation from maxFiles cap promotes the collection to partial
+        // status with notCollectedFiles populated on every requested op.
+        const truncated = !!(enumStats && enumStats.truncated);
+        const status = (anyPartial || truncated) ? 'partial' : (anyOk ? 'ok' : 'partial');
+        if (truncated) {
+          for (const op of Object.keys(operations)) {
+            if (operations[op].status === 'ok') {
+              operations[op].status = 'partial';
+              operations[op].reason = `enumeration_capped_at_${enumStats.max_files}_of_${enumStats.after_filter}`;
+            }
+          }
+        }
 
         return {
           schema_version: '0.2',
@@ -341,7 +381,8 @@ export function createCppClangdProvider({ spawn } = {}) {
             freshnessValue: dbHash,
             compileDbHash: dbHash,
             warmedFiles: files.length,
-            warmupMs
+            warmupMs,
+            ...(enumStats ? { enumeration: enumStats } : {})
           },
           operations,
           status,

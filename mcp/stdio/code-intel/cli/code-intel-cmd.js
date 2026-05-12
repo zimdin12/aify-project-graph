@@ -13,7 +13,7 @@ function ensureBuiltinProviders() {
 }
 
 function parseFlags(args) {
-  const out = { _: [], scope: 'changed', files: [], projectRoot: process.cwd(), operations: undefined, json: false, since: undefined };
+  const out = { _: [], scope: 'changed', files: [], projectRoot: process.cwd(), operations: undefined, json: false, since: undefined, maxFiles: undefined };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--scope') out.scope = args[++i];
@@ -25,7 +25,9 @@ function parseFlags(args) {
       out.operations = args[++i].split(',').map(s => s.trim()).filter(Boolean);
     }
     else if (a === '--since') out.since = args[++i];
+    else if (a === '--max-files') out.maxFiles = parseInt(args[++i], 10) || undefined;
     else if (a === '--json') out.json = true;
+    else if (a === '--verbose') process.env.APG_VERBOSE_CODE_INTEL = '1';
     else out._.push(a);
   }
   return out;
@@ -45,6 +47,7 @@ async function cmdCollect(args) {
     scope: flags.scope,
     files: flags.files.length > 0 ? flags.files : undefined,
     since: flags.since,
+    maxFiles: flags.maxFiles,
     operations: flags.operations || ['definitions', 'references', 'diagnostics']
   };
   const result = await runCollection(req);
