@@ -225,7 +225,9 @@ Under the hood each install doc does the same thing:
 4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
 5. User restarts the runtime
 
-**Lean profile** (`--toolset=lean`) exposes 5 visible verbs on `tools/list` (`graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`). The other verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile by default, but low-value legacy orient aliases stay hidden from `tools/list` there too and remain callable by name. `graph_packet` is the one-shot context primitive: feature/task targets read overlay+brief JSON directly with no freshness rebuild; bare symbol targets may use one budgeted lookup to map symbol→feature. Pass `mode=orient|plan|debug|review|audit` to shape the packet for the workflow, then escalate to `graph_consequences`/`graph_change_plan` when packet's coarse view loses the depth you need.
+**Lean profile** (`--toolset=lean`) exposes 5 visible verbs on `tools/list` (`graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`). The other verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile by default, but low-value legacy orient aliases stay hidden from `tools/list` there too and remain callable by name. `graph_packet` is the one-shot context primitive: feature/task targets read overlay+brief JSON directly with no freshness rebuild; bare symbol targets may use one budgeted lookup to map symbol→feature. Pass `mode=orient|plan|debug|review|audit|verify` to shape the packet for the workflow, then escalate to `graph_consequences`/`graph_change_plan` when packet's coarse view loses the depth you need.
+
+**`verify` mode (2026-05-09):** post-edit decision packet. Inputs: `files[]` and/or `since:<git-ref>`, optional `audited`. Output includes changed files, post-edit diagnostics from any imported code-intel collection, freshness verdict, partial-state distinction (`CODE_INTEL partial: ...`), and a `SOURCE_REQUIRED` warning when `audited:true` is passed. When no code-intel is imported the packet says so explicitly (`code_intel unavailable (no_collection)`) — silence never reads as zero. Walk-through: `node scripts/demo-verify-ab.mjs`. See [superplan completion summary](docs/superpowers/specs/2026-05-09-superplan-completion-summary.md).
 
 **Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms — but the MCP server has a **native-module preflight** that detects this on startup and auto-runs `npm rebuild better-sqlite3` once before accepting tool calls. You'll see one line on stderr when it triggers. Manual intervention only if auto-rebuild itself fails (e.g. missing compiler). `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 
@@ -233,17 +235,33 @@ For the full step-by-step per runtime see [`install.claude.md`](install.claude.m
 
 Marketplace metadata lives in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.agents/plugins/marketplace.json`. Validate packaging with `npm run validate:marketplace`.
 
-## Optional code-intel precision layer
+## Code-intel precision subsystem (v0.2)
 
-APG remains the graph/orchestration engine. Language-server or compiler-derived facts can now feed APG through neutral JSONL records:
+APG remains the graph/packet brain. The 2026-05-09 superplan promotes code-intel from "optional bolt-on" to a first-class precision-evidence subsystem behind a stable provider boundary, with C++ as the headline language. The packet itself is the unified LSP for agents — code-intel facts ride inside `graph_packet` output with provenance, freshness, and three-state result rendering.
+
+**Wrapper CLI** (added `bin/apg.js`, `bin/aify-code-intel.js` shim):
 
 ```bash
-node tools/code-intel/cpp-clangd/extract.mjs /path/to/cpp/repo
-node scripts/import-code-intel.mjs /path/to/cpp/repo /path/to/cpp/repo/.aify-graph/code-intel/cpp-clangd.jsonl
-node scripts/graph-brief.mjs /path/to/cpp/repo
+# Run a real clangd-backed collection against a C++ repo with compile_commands.json
+node ./bin/apg.js code-intel collect cpp --project-root /path/to/cpp/repo --json > collection.json
+
+# Or use the doctor subcommand to see prerequisite status with fix hints
+node ./bin/apg.js code-intel doctor cpp
 ```
 
-Imported edges use `CODE_INTEL` provenance and override weaker duplicate `EXTRACTED` / `INFERRED` / `AMBIGUOUS` edges. The v1 C++ backend reads `compile_commands.json` and emits schema-compatible symbols/includes from source files; clangd/LSP reference expansion is intentionally optional and can grow behind the same JSONL contract. Schema: [`docs/schemas/code-intel-record.schema.json`](docs/schemas/code-intel-record.schema.json).
+**MCP verb** (agents and bridge UI both call this; never auto-runs):
+
+```jsonc
+{ "tool": "graph_collect_code_intel", "args": { "language": "cpp", "scope": "all" } }
+```
+
+On success the v0.2 collection is imported into the local graph and immediately visible to:
+- `graph_health.codeIntel` — provider, status, freshness basis
+- `graph_pull(layers:["code_intel"])` — defs/refs/hovers for a symbol
+- `graph_change_plan` — affected files ranked with `provenance: 'CODE_INTEL' | 'EXTRACTED'`
+- `graph_packet({mode:'verify', ...})` — EVIDENCE block + diagnostics + SOURCE_REQUIRED
+
+Schemas: [record v0.2](docs/schemas/code-intel-record.v0.2.schema.json), [collection envelope v0.2](docs/schemas/code-intel-collection.v0.2.schema.json), [provider contract](docs/integrations/code-intel-provider-contract.md). The legacy v0.1 path (`tools/code-intel/cpp-clangd/extract.mjs` + `scripts/import-code-intel.mjs`) still works unchanged for source-scan-only ingestion.
 
 ## Query verbs
 

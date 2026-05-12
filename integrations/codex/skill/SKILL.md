@@ -13,7 +13,8 @@ If `.aify-graph/brief.agent.md` exists, read it. ~300-1100 tokens of dense orien
 
 ## Use this verb order
 
-1. **`graph_packet(target, mode)`** — one-shot agent prompt packet. Cheap + coarse. For `feature:<id>` / `task:<id>` targets, reads overlay+brief JSON directly. Bare symbols may use one budgeted lookup to map symbol→feature. Returns 500-900 tokens: MODE / STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Use `mode="orient"|"plan"|"debug"|"review"|"audit"` for the current workflow.
+1. **`graph_packet(target, mode)`** — one-shot agent prompt packet. Cheap + coarse. For `feature:<id>` / `task:<id>` targets, reads overlay+brief JSON directly. Bare symbols may use one budgeted lookup to map symbol→feature. Returns 500-900 tokens: MODE / STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Use `mode="orient"|"plan"|"debug"|"review"|"audit"|"verify"` for the current workflow. **`mode="verify"`** is a post-edit decision packet — pass `files:[...]` and optional `audited:true` for diagnostics-on-changed-files + freshness + `SOURCE_REQUIRED`; no target required.
+1b. **`graph_collect_code_intel(language, scope, files)`** — public action verb that runs a real code-intel provider (e.g. clangd) and imports the v0.2 collection so the next `graph_packet({mode:"verify"})` shows compiler-backed evidence. Explicit only; never auto-runs.
 2. **`graph_pull(node)`** — cross-layer pull when packet's static data isn't enough.
 3. **`graph_consequences(target)`** — "what breaks if I touch X?" Function-granular fan-out. **Use for CROSS-CUTTING PLANNING** when packet's coarse view loses precision.
 4. **`graph_change_plan(symbol)`** — risk gate before editing high-fan-in symbols. SIGNALS line + ranked READ ORDER. **Use for RISK ASSESSMENT** when packet says "this looks load-bearing."
