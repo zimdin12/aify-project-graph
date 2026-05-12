@@ -20,10 +20,13 @@ For C++ inner-loop editing, prefer **bounded live verbs** over `graph_packet` or
 2. **Need callers of a symbol** before changing its signature?
 
    ```
-   code_intel_references({ file: "src/foo.cpp", line: 12, col: 6 })
+   code_intel_references({ file: "src/foo.cpp", line: 12, col: 6,
+                           warmupFiles: ["src/bar.cpp", "src/foo.h"] })
    ```
 
    Symbol-aware via clangd, NOT text search. Returns `result_state: "found" | "not_found_after_retry"`. **Replaces grep** — text search hits unrelated same-name methods on other classes.
+
+   **Cross-TU note:** clangd starts with `--background-index=false` for determinism, so callers in *other* translation units must be opened explicitly via `warmupFiles[]`. Pass the known related files (callers, headers, includers). Same applies to `code_intel_definitions` and `code_intel_hover` when the target symbol is declared elsewhere.
 
 3. **Need the type signature or docstring** at a call site without opening the header?
 
@@ -52,6 +55,17 @@ For C++ inner-loop editing, prefer **bounded live verbs** over `graph_packet` or
    ```
 
    Returns post-edit diagnostics + freshness verdict + provider status. Pass `audited: true` for safety-critical code; the packet surfaces `SOURCE_REQUIRED` even when code-intel is fresh.
+
+## Subagent needs evidence without spawning clangd
+
+If you're a subagent (or any context where you cannot or should not start your own clangd), use **`code_intel_replay`** instead of the live verbs. Pattern (from reference repo `a3f0fde` parent-session evidence):
+
+1. Parent session runs `graph_collect_code_intel({language:"cpp", scope:"all"})` once. v0.2 collection imports into the local DB.
+2. Subagent later calls `code_intel_replay({collectionId:"latest", symbol:"Foo::bar", kind:"references"})` — reads the imported rows. No clangd, no LSP client started.
+
+Replay returns the same `result_state` / `records[]` / `summary` shape as the live verbs, but every record carries `provenance: "CODE_INTEL_REPLAY"` (vs `clangd@live` for live verbs). That distinction matters: replayed evidence is only as fresh as the last collection. Run `graph_health` first to see `codeIntel.collectedAt`; if stale, ask the parent to re-collect.
+
+Replay also accepts `file:`, `kind: 'references|definitions|hover|diagnostics|symbols|all'`, and `limit:` for bounded queries.
 
 ## When NOT to use this skill
 

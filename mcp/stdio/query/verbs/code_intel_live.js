@@ -74,58 +74,74 @@ export async function codeIntelDiagnostics({ repoRoot, language = 'cpp', files =
   return { status: 'ok', files, diagnostics: out };
 }
 
-/** References for a symbol at a position. Symbol-aware via clangd. */
-export async function codeIntelReferences({ repoRoot, language = 'cpp', file, line, col, spawn }) {
+/** References for a symbol at a position. Symbol-aware via clangd.
+ *  Cross-file refs require clangd to have indexed candidate callers. Pass
+ *  `warmupFiles[]` (e.g. ['src/foo.cpp', 'src/bar.cpp', 'src/foo.h']) when
+ *  background-index is disabled and you need clangd to consider those files. */
+export async function codeIntelReferences({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], spawn }) {
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
 
+  // Always include the queried file in the warmup batch. Open warmup files
+  // first so clangd has them in working memory before the references query.
+  const batch = [file, ...(Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [])];
+  for (const f of batch) await openIfNeeded(session, f);
+  await new Promise(r => setTimeout(r, 80));
+
   const uri = await openIfNeeded(session, file);
-  await new Promise(r => setTimeout(r, 50)); // warmup
   const pos = { line: line - 1, character: (col || 1) - 1 };
   let refs = (await session.client.references(uri, pos)) || [];
   let resultState = refs.length > 0 ? 'found' : 'not_found_after_retry';
   if (refs.length === 0) {
-    await new Promise(r => setTimeout(r, 40));
+    await new Promise(r => setTimeout(r, 60));
     refs = (await session.client.references(uri, pos)) || [];
     resultState = refs.length > 0 ? 'found' : 'not_found_after_retry';
   }
   return {
     status: 'ok',
     result_state: resultState,
+    warmedFiles: batch.length,
     references: refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' }))
   };
 }
 
-/** Definitions for a symbol at a position. */
-export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, line, col, spawn }) {
+/** Definitions for a symbol at a position. Pass warmupFiles[] for cross-TU resolution. */
+export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], spawn }) {
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
+  const batch = [file, ...(Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [])];
+  for (const f of batch) await openIfNeeded(session, f);
+  await new Promise(r => setTimeout(r, 80));
   const uri = await openIfNeeded(session, file);
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const defs = await session.client.definition(uri, pos);
   const list = Array.isArray(defs) ? defs : (defs ? [defs] : []);
   return {
     status: 'ok',
+    warmedFiles: batch.length,
     definitions: list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: 'clangd@live', confidence: 'high' }))
   };
 }
 
-/** Hover (type + docstring) at a position. */
-export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, col, spawn }) {
+/** Hover (type + docstring) at a position. Pass warmupFiles[] when the symbol is declared in another TU. */
+export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], spawn }) {
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
+  const batch = [file, ...(Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [])];
+  for (const f of batch) await openIfNeeded(session, f);
+  await new Promise(r => setTimeout(r, 60));
   const uri = await openIfNeeded(session, file);
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const hov = await session.client.hover(uri, pos);
-  if (!hov) return { status: 'ok', hover: null };
+  if (!hov) return { status: 'ok', warmedFiles: batch.length, hover: null };
   const content = typeof hov.contents === 'string' ? hov.contents : (hov.contents?.value ?? '');
-  return { status: 'ok', hover: { content, range: rangeFromLsp(hov.range), provenance: 'clangd@live', confidence: 'high' } };
+  return { status: 'ok', warmedFiles: batch.length, hover: { content, range: rangeFromLsp(hov.range), provenance: 'clangd@live', confidence: 'high' } };
 }
 
 /** Symbol outline for one file. */

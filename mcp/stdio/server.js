@@ -101,14 +101,15 @@ const TOOLS = [
   {
     name: 'code_intel_references',
     handler: codeIntelReferences,
-    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, result_state, references:[{file,range,provenance,confidence}]}. result_state distinguishes found / not_found_after_retry. Use to answer "who calls this?" without grep.',
+    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, result_state, warmedFiles, references:[{file,range,provenance,confidence}]}. result_state distinguishes found / not_found_after_retry. Pass warmupFiles[] (known related files: callers, headers) when background-index is disabled and cross-TU resolution is needed. Use to answer "who calls this?" without grep.',
     schema: {
       type: 'object',
       properties: {
         language: { type: 'string', default: 'cpp' },
         file: { type: 'string', description: 'Repo-relative file containing the symbol.' },
         line: { type: 'integer', minimum: 1, description: '1-based line number.' },
-        col: { type: 'integer', minimum: 1, default: 1, description: '1-based column number.' }
+        col: { type: 'integer', minimum: 1, default: 1, description: '1-based column number.' },
+        warmupFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to open before the references query so clangd considers them as candidate callers.' }
       },
       required: ['file', 'line']
     },
@@ -116,14 +117,15 @@ const TOOLS = [
   {
     name: 'code_intel_definitions',
     handler: codeIntelDefinitions,
-    description: 'Live definitions across TUs for a symbol at a position. Returns {status, definitions:[{file,range,provenance,confidence}]}. Use to jump to definition without opening files.',
+    description: 'Live definitions across TUs for a symbol at a position. Pass warmupFiles[] when the definition lives in a TU clangd has not seen yet (background-index disabled). Returns {status, warmedFiles, definitions:[{file,range,provenance,confidence}]}.',
     schema: {
       type: 'object',
       properties: {
         language: { type: 'string', default: 'cpp' },
         file: { type: 'string' },
         line: { type: 'integer', minimum: 1 },
-        col: { type: 'integer', minimum: 1, default: 1 }
+        col: { type: 'integer', minimum: 1, default: 1 },
+        warmupFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to open before the definitions query for cross-TU resolution.' }
       },
       required: ['file', 'line']
     },
@@ -131,14 +133,15 @@ const TOOLS = [
   {
     name: 'code_intel_hover',
     handler: codeIntelHover,
-    description: 'Live hover content (type signature + docstring) at a position. Returns {status, hover:{content,range,provenance,confidence}}. Use at edit sites to learn types without reading headers.',
+    description: 'Live hover content (type signature + docstring) at a position. Pass warmupFiles[] when the declaration lives in a TU clangd has not seen yet. Returns {status, warmedFiles, hover:{content,range,provenance,confidence}}.',
     schema: {
       type: 'object',
       properties: {
         language: { type: 'string', default: 'cpp' },
         file: { type: 'string' },
         line: { type: 'integer', minimum: 1 },
-        col: { type: 'integer', minimum: 1, default: 1 }
+        col: { type: 'integer', minimum: 1, default: 1 },
+        warmupFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to open before the hover query for cross-TU declaration resolution.' }
       },
       required: ['file', 'line']
     },

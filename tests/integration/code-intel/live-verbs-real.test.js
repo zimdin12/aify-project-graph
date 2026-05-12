@@ -43,7 +43,16 @@ describe.skipIf(!clangdAvailable)('bounded live verbs (real clangd)', () => {
 
   it('references at foo definition surfaces bar.cpp call site', async () => {
     const repo = tmpRepo();
-    const r = await codeIntelReferences({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 5 });
+    // Plan #9b: clangd is started with --background-index=false, so callers
+    // in other TUs must be opened via warmupFiles before clangd will return
+    // them. Pass the known related files explicitly.
+    const r = await codeIntelReferences({
+      repoRoot: repo,
+      file: 'src/foo.cpp',
+      line: 1,
+      col: 5,
+      warmupFiles: ['src/bar.cpp', 'src/foo.h']
+    });
     expect(r.status).toBe('ok');
     // Plan #8 / item I: the fixture has exactly one call site (src/bar.cpp:2)
     // and one declaration (src/foo.h:2). includeDeclaration defaults to false

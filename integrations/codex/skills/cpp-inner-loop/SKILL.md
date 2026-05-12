@@ -10,11 +10,15 @@ For C++ inner-loop editing, prefer **bounded live verbs** over `graph_packet` or
 ## The loop
 
 1. `code_intel_symbols({file})` — document outline before editing
-2. `code_intel_references({file, line, col})` — symbol-aware refs (NOT text search) before changing a signature
-3. `code_intel_hover({file, line, col})` — type sig + docstring at a call site
-4. `code_intel_definitions({file, line, col})` — jump to definition across TUs
-5. `code_intel_diagnostics({files: [...]})` — per-file errors after editing (no build needed)
+2. `code_intel_references({file, line, col, warmupFiles:[...]})` — symbol-aware refs (NOT text search) before changing a signature. Pass `warmupFiles` (callers/headers) when refs may live in other TUs; clangd uses `--background-index=false` so it won't auto-discover them.
+3. `code_intel_hover({file, line, col, warmupFiles:[...]})` — type sig + docstring at a call site
+4. `code_intel_definitions({file, line, col, warmupFiles:[...]})` — jump to definition across TUs
+5. `code_intel_diagnostics({files: [...]})` — per-file errors after editing (no build needed); batch-warms internally
 6. `graph_packet({mode: "verify", files: [...], audited: bool})` — post-edit decision packet with freshness + SOURCE_REQUIRED
+
+## Subagent without clangd: code_intel_replay
+
+If you can't spawn your own clangd (subagent context, host with no clangd, parent already collected), use `code_intel_replay({collectionId:"latest", symbol:"X", kind:"references"})`. Reads parent-imported v0.2 collection rows from the local DB. Same `result_state`/`records[]`/`summary` shape but `provenance: "CODE_INTEL_REPLAY"`. Per reference `a3f0fde` parent-session pattern. Check `graph_health.codeIntel.collectedAt` to see how stale the replay is.
 
 ## When NOT to use this skill
 
