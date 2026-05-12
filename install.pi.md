@@ -74,18 +74,41 @@ node "$PLUGIN_ROOT/scripts/graph-brief.mjs" "$PWD"
 
 If the runtime supports MCP tool calls, call `graph_index(force=true)` once from inside the repo before regenerating briefs.
 
-## Optional - C++ code-intel import
+## Optional - C++ code-intel (modern bounded verbs + batch collection)
 
-Only run this when the repo has a valid compile database:
+Two surfaces, both optional, both require `clangd` on PATH:
+
+**Atomic C++ inner-loop questions (fast, no DB round-trip).** When an agent just edited a file and wants ONE bounded answer — diagnostics, refs of a symbol, hover at a position — the bounded `code_intel_*` MCP verbs drive clangd live, no collection cycle needed. Listed in tools/list when the full surface is exposed; on lean Pi profile they're still callable by name:
+
+- `code_intel_diagnostics({files:[...]})` — per-file errors
+- `code_intel_references({file,line,col})` — symbol-aware refs
+- `code_intel_definitions({file,line,col})` — defs across TUs
+- `code_intel_hover({file,line,col})` — type sig + docstring
+- `code_intel_symbols({file})` — document outline
+
+**Batch collection for whole-repo snapshots** (only when the repo has `compile_commands.json`):
 
 ```bash
 test -f compile_commands.json || test -f build/compile_commands.json
+# Modern v0.2 (validated, imports automatically):
+node "$PLUGIN_ROOT/bin/apg.js" code-intel collect cpp --project-root "$PWD" --json > /tmp/cl.json
+node "$PLUGIN_ROOT/scripts/import-code-intel.mjs" "$PWD" /tmp/cl.json
+# Or legacy v0.1 source-scan:
 node "$PLUGIN_ROOT/tools/code-intel/cpp-clangd/extract.mjs" "$PWD"
 node "$PLUGIN_ROOT/scripts/import-code-intel.mjs" "$PWD" "$PWD/.aify-graph/code-intel/cpp-clangd.jsonl"
 node "$PLUGIN_ROOT/scripts/graph-brief.mjs" "$PWD"
 ```
 
-The base graph still works without this. Imported facts are tagged `CODE_INTEL` so agents can distinguish compiler/LSP-derived edges from tree-sitter guesses.
+**Pi native LSP routing (optional).** If Pi's native LSP extension should drive clangd through the APG wrapper (uniform error exits, fix hints, project-local→bundled→global resolution), drop `.pi-lsp.json` in the target repo's root. Template at `$PLUGIN_ROOT/docs/integrations/pi-lsp.json.example`:
+
+```json
+{
+  "autoStart": ["cpp"],
+  "servers": { "cpp": { "command": "aify-code-intel", "args": ["serve-lsp", "cpp"] } }
+}
+```
+
+The base graph still works without any of this. Imported facts are tagged `CODE_INTEL` so agents can distinguish compiler/LSP-derived edges from tree-sitter guesses.
 
 ## Verify
 

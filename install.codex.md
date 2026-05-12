@@ -105,6 +105,8 @@ Tell the user (paraphrase is fine):
 >
 > Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. Multi-run signal (apg dogfood + 2026-04-26 echoes A/B): briefs + overlay reliably save ~15-20% wall-clock and tool calls on planning shapes; live verbs are conditionally helpful when used surgically (≤3 per task). See the [README](README.md) for caveats. For plan tasks, hand-author `/path/to/your/repo/.aify-graph/functionality.json` (generic sample: `~/.codex/plugins/aify-project-graph/docs/examples/functionality.sample.json`; Laravel sample: `functionality.sample.laravel.json`) and re-run `graph-brief.mjs`. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
 > Optional for C++ repos with `compile_commands.json`: run the code-intel import described in the README to add `CODE_INTEL` provenance facts before regenerating briefs.
+>
+> For C++ inner-loop editing, the bounded live verbs (`code_intel_diagnostics`, `code_intel_references`, `code_intel_definitions`, `code_intel_hover`, `code_intel_symbols`) drive clangd live with no collect/import round-trip — ~5-12× less response data than `graph_collect_code_intel` + `graph_pull` for atomic questions. Pair with `graph_packet({mode:"verify", files:[...]})` after edits.
 
 ## Verify (after restart)
 
