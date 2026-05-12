@@ -94,17 +94,40 @@ Verb notes by profile:
 
 The graph lives in `<target-repo>/.aify-graph/graph.sqlite`. Add `.aify-graph/` to the target repo's `.gitignore` if not already present — the graph is derived and should never be committed. This is separate from `.aifyignore` / `.aifyinclude`, which control what the graph indexes, not what git tracks. `.aifyignore` accepts bare directory names plus path/glob patterns such as `generated/**` and `*.tmp.cpp`.
 
-## Optional code-intel import for C++ / LSP-backed repos
+## Code-intel for C++ / LSP-backed repos
 
-APG is still the source of briefs, packets, overlays, tasks, and dashboard data. Compiler/LSP facts are an optional precision layer that imports into the same SQLite graph with `CODE_INTEL` provenance:
+APG is the source of briefs, packets, overlays, tasks, and dashboard data. As of 2026-05-12 it also exposes a first-class code-intel subsystem with two surfaces — choose by question shape:
+
+**Bounded live verbs (atomic C++ inner-loop questions).** Drive clangd live, no collect/import round-trip, return small bounded JSON:
+
+- `code_intel_diagnostics(files=[...])` — per-file errors (no build needed)
+- `code_intel_references(file,line,col)` — symbol-aware refs (replaces grep)
+- `code_intel_definitions(file,line,col)` — defs across translation units
+- `code_intel_hover(file,line,col)` — type sig + docstring
+- `code_intel_symbols(file)` — document outline
+
+A/B vs collect-cycle: ~0.65× time, ~0.12× bytes for atomic questions. See `docs/dogfood/ab-2026-05-12-bounded-vs-collect.{txt,json}`.
+
+**Batch collection + graph integration (whole-repo snapshots).** Used when ranking/blast-radius needs ranked compiler-backed facts in the graph:
 
 ```bash
+# Modern path (v0.2 schema, validated, imports automatically):
+node <plugin-path>/bin/apg.js code-intel collect cpp --project-root <target-repo> --json > /tmp/cl.json
+node <plugin-path>/scripts/import-code-intel.mjs <target-repo> /tmp/cl.json
+
+# Legacy v0.1 path (still works for source-scan-only fallback):
 node <plugin-path>/tools/code-intel/cpp-clangd/extract.mjs <target-repo>
 node <plugin-path>/scripts/import-code-intel.mjs <target-repo> <target-repo>/.aify-graph/code-intel/cpp-clangd.jsonl
 node <plugin-path>/scripts/graph-brief.mjs <target-repo>
 ```
 
-Use this on C++ repos with `compile_commands.json` when tree-sitter edges are too weak. Imported `CODE_INTEL` duplicate edges replace weaker extracted/inferred edges; agents should still verify source when `graph_health()` reports weak trust.
+Or via MCP: `graph_collect_code_intel({language:"cpp", scope:"all"})`. After import, evidence flows into `graph_health.codeIntel`, `graph_pull(layers:["code_intel"])`, `graph_change_plan` ranking (`provenance: 'CODE_INTEL' | 'EXTRACTED'`), and `graph_packet` EVIDENCE blocks in every mode.
+
+**Post-edit verification:** `graph_packet({mode:"verify", files:[...]})` or `graph_packet({mode:"verify", since:"HEAD~1"})` returns a decision packet with diagnostics on touched files, freshness verdict, and `SOURCE_REQUIRED` (pass `audited:true`) for audited code paths.
+
+**Wrapper CLI:** `apg code-intel doctor [<lang>]` for prereq status with fix hints. `apg code-intel serve-lsp cpp` is a thin LSP relay for hosts (Claude `.lsp.json`, Pi `.pi-lsp.json`). Downstream-project templates: `docs/integrations/{lsp,mcp,pi-lsp}.json.example`.
+
+Agents should still verify source when `graph_health()` reports weak trust or when handling audited code, regardless of code-intel evidence.
 
 ## Team trust posture
 
