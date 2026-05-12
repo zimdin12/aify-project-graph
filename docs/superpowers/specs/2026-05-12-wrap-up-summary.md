@@ -1,7 +1,7 @@
 # aify-project-graph next-gen code-intel — project wrap-up summary
 
 > **Date:** 2026-05-12. **Branch:** `plan/next-gen-code-intel-bridge`.
-> **Latest tag:** `plan-9b-warmupfiles-and-replay-skill-complete` (HEAD `c420542`).
+> **Latest tag:** `project-wrap-up-2026-05-12` (HEAD `0128af9`). Latest implementation tag: `plan-9b-warmupfiles-and-replay-skill-complete` (`c420542`).
 > **Companion to:** `2026-05-09-next-gen-code-intel-bridge-superplan.md` (the locked thesis) and `2026-05-09-superplan-completion-summary.md` (the earlier Plan-#1-through-#6 summary).
 >
 > This document rolls forward everything that shipped after the 2026-05-09 summary: Plans #5a, #5b, #6, #6b, #6c, #7, #8, #9, #9b, and H. Validated end-to-end by graph-tech-lead (Windows) + graph-senior-dev (Ubuntu/clangd 18.1.3) via the dashboard-driven loop pattern Steven taught us on 2026-05-12.
@@ -12,7 +12,7 @@ The aify-project-graph code-intel subsystem now ships **as a real C++ inner-loop
 
 | Capability | Surface | Win vs prior |
 |------------|---------|--------------|
-| Atomic C++ questions (diagnostics, refs, hover, defs, symbols) | 5 bounded `code_intel_*` MCP verbs | **0.65× time, 0.12× bytes** vs the old collect/import/pull cycle (synthetic A/B; real-clangd wall-clock ~225ms total for all 5) |
+| Atomic C++ questions (diagnostics, refs, hover, defs, symbols) | 5 bounded `code_intel_*` MCP verbs | **0.65× time, 0.12× bytes** vs the old collect/import/pull cycle (synthetic A/B; real-clangd wall-clock 232ms for all 5 verbs; 225ms for the 3-verb bounded-vs-collect comparison) |
 | Subagent reads parent-collected evidence | `code_intel_replay({collectionId:'latest', symbol, kind})` | No clangd spawn from subagent context |
 | Post-edit decision | `graph_packet({mode:'verify', files, audited})` | Diagnostics + freshness + SOURCE_REQUIRED in one packet |
 | EVIDENCE-in-other-modes | All non-verify packet modes emit budget-aware `EVIDENCE:` block | Replaces silent absence with explicit `code_intel unavailable (reason)` |
@@ -71,9 +71,9 @@ Senior-dev's measurements (linux post-rebuild) for `scripts/demo-bounded-vs-coll
 | Bounded live verbs (fake-LSP fixture) | 3 | 170ms | 561B |
 | Collect+import+pull cycle (synthetic) | 2 | 262ms | 4579B |
 | **Ratio (bounded vs collect)** | — | **0.65×** | **0.12×** |
-| **Bytes saved** | — | **97ms** | **4018B (88%)** |
+| **Saved** | — | **97ms** | **4018B (88%)** |
 
-Real-clangd bounded path on linux (separate run): **225ms total wall-clock** for diagnostics + refs + defs + hover + symbols against a temp C++ repo. Symbol-aware refs returned **2 hits** for `foo(int)` (both in `src/bar.cpp`) where `rg foo` returned **9 hits including unrelated `Noise::foo`**. Quality win confirmed.
+Real-clangd bounded path on linux (separate run): **225ms wall-clock** for the 3-verb bounded-vs-collect comparison (diagnostics + refs + hover) and **232ms** for all 5 bounded verbs (adds defs + symbols) against a temp C++ repo. Symbol-aware refs returned **2 hits** for `foo(int)` (both in `src/bar.cpp`) where `rg foo` returned **9 hits including unrelated `Noise::foo`**. Quality win confirmed.
 
 Artifacts:
 - `docs/dogfood/ab-2026-05-12-bounded-vs-collect.{txt,json}` — main A/B
@@ -85,13 +85,13 @@ Artifacts:
 | Suite | Count | Notes |
 |-------|-------|-------|
 | Unit | 432 pass | 1 pre-existing skip; 0 regressions |
-| Integration (gated on clangd PATH) | 5 pass on linux / 5 skip on Windows | Real-clangd refs/diagnostics/hover/symbols |
+| Integration (gated on clangd PATH) | 4 pass on linux / 4 skip on Windows | Real-clangd refs/diagnostics/hover/symbols |
 | A/B demos | 9/9 findings | bounded-vs-collect + verify-mode |
 | Install lab | 8/8 | Cross-platform: Windows + Ubuntu, both after `npm rebuild better-sqlite3` |
 
 ## Known recurring issue: `better-sqlite3` native-module flip
 
-Reproduced **at least 4 times in one day** across Windows and Ubuntu. Trigger: any sequence that loads the prebuilt for the wrong platform (WSL filesystem mount, vscode worker, vitest worker, occasionally back-to-back same-host runs). Symptom on Windows: `not a valid Win32 application`. Symptom on Linux: `invalid ELF header`.
+Reproduced **at least 4 times in one day** across Windows and Ubuntu. Observed around mixed Windows/WSL/native-script usage; exact trigger still uncertain. Symptom on Windows: `not a valid Win32 application`. Symptom on Linux: `invalid ELF header`.
 
 **Recovery:** `npm rebuild better-sqlite3` (single command, ~3s). The MCP server's `preflight-native.js` self-heals at startup, but standalone scripts (vitest, A/B demos, install lab) don't go through preflight and hit the raw error.
 
@@ -147,7 +147,7 @@ All seven non-negotiable superplan invariants hold:
 
 1. ✅ **Packet is the agent UX** for planning/orientation/review/audit; bounded live verbs are the C++ inner-loop unlock without violating the invariant (they're agent-facing too, just bounded).
 2. ✅ Compiler facts override syntax (graph_change_plan provenance ranking).
-3. ✅ Pi/baseline keeps working without a provider (explicit `code_intel unavailable` evidence line).
+3. ✅ Pi/baseline contract is implemented: packets render explicit `code_intel unavailable` evidence without requiring a provider, and the install lab's profile checks gate on this behavior. Real Pi-host validation remains a future install-lab/host pass (not run this session).
 4. ✅ Three-state result distinction (`found` / `not_found_after_retry` / `not_collected`).
 5. ✅ Fact-budget caps with locked ranking (clampToBudget tail-drops EVIDENCE first when over budget).
 6. ✅ APG owns artifacts; `graph_collect_code_intel` is the public action verb.
