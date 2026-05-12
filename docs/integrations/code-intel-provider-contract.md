@@ -71,6 +71,12 @@ apg code-intel doctor [<language>]
 apg code-intel collect <language> [--scope changed|files|all] [--files ...] [--project-root <dir>] [--since <ref>] [--operations definitions,references,diagnostics] [--json]
 ```
 
+```text
+apg code-intel serve-lsp <language>
+```
+
 `aify-code-intel` is a thin PATH shim that forwards to `apg code-intel` for hosts that need a top-level executable (e.g. Claude `.lsp.json`, Pi `.pi-lsp.json`).
 
 `doctor` checks the per-language language-server binary and reports installed/missing with a fix hint. `collect` runs a provider and prints either a structured human-readable status (default) or the v0.2 collection JSON (`--json`).
+
+`serve-lsp <language>` is a thin LSP relay — spawns the underlying language server (e.g. clangd for `cpp`) and pipes stdio between the host and the language server. APG owns the resolution chain (project-local → bundled → global) and emits explicit error exits (`language_unsupported` = 2, `language_server_missing` = 3) instead of silent downgrades. Mirrors `agent-code-intel serve-lsp <lang>` so hosts can target one stable command name regardless of which wrapper is installed. Example Pi config: `docs/integrations/pi-lsp.json.example`.

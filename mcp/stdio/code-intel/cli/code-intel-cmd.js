@@ -63,10 +63,15 @@ export async function runCodeIntelCmd(args) {
     process.stdout.write('Subcommands:\n');
     process.stdout.write('  collect <language> [--scope changed|files|all] [--files ...] [--project-root <dir>] [--since <ref>] [--operations a,b,c] [--json]\n');
     process.stdout.write('  doctor [<language>]\n');
+    process.stdout.write('  serve-lsp <language>   thin LSP relay — spawns the language server (e.g. clangd) and pipes stdio. For host integrations (Claude .lsp.json, Pi .pi-lsp.json).\n');
     return 0;
   }
   if (sub === 'collect') return cmdCollect(args.slice(1));
   if (sub === 'doctor') return runDoctor(args.slice(1));
+  if (sub === 'serve-lsp') {
+    const { runServeLsp } = await import('./serve-lsp.js');
+    return runServeLsp(args.slice(1));
+  }
   process.stderr.write(`apg code-intel: unknown subcommand '${sub}'\n`);
   return 2;
 }

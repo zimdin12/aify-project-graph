@@ -1,0 +1,9 @@
+{
+  "autoStart": ["cpp"],
+  "servers": {
+    "cpp": {
+      "command": "aify-code-intel",
+      "args": ["serve-lsp", "cpp"]
+    }
+  }
+}
