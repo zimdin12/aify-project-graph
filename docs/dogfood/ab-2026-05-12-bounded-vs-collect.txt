@@ -1,0 +1,17 @@
+fatal: not a git repository (or any of the parent directories): .git
+
+=== A/B DEMO: bounded live verbs vs collect→import→pull ===
+
+PATH A (bounded): 3 calls, 202ms, 561B
+PATH B (collect+import+pull): 2 calls, 302ms, 4617B
+
+DELTA: 100ms saved, 4056B saved
+RATIOS: 0.67× time, 0.12× bytes (bounded vs collect)
+
+FINDINGS:
+  [PASS] bounded path is faster than collect+pull for atomic question — bounded=202ms vs collect=302ms
+  [PASS] bounded path emits fewer response bytes — bounded=561B vs collect=4617B
+  [PASS] bounded path returns symbol-aware references with result_state — result_state=found
+  [PASS] bounded path returns hover with provenance — provenance=clangd@live
+
+Result: ALL PASS

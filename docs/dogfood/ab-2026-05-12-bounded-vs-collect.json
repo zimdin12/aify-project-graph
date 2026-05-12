@@ -1,0 +1,45 @@
+fatal: not a git repository (or any of the parent directories): .git
+{
+  "summary": "Bounded live verbs vs collect→import→pull A/B for atomic C++ question",
+  "path_a": {
+    "name": "bounded (Plan #6)",
+    "calls": 3,
+    "ms": 190,
+    "bytes": 561
+  },
+  "path_b": {
+    "name": "collect+import+pull (Plan #1-#3 cycle)",
+    "calls": 2,
+    "ms": 304,
+    "bytes": 4617
+  },
+  "delta": {
+    "ms_saved": 114,
+    "ms_ratio": "0.63",
+    "bytes_saved": 4056,
+    "bytes_ratio": "0.12"
+  },
+  "findings": [
+    {
+      "test": "bounded path is faster than collect+pull for atomic question",
+      "pass": true,
+      "detail": "bounded=190ms vs collect=304ms"
+    },
+    {
+      "test": "bounded path emits fewer response bytes",
+      "pass": true,
+      "detail": "bounded=561B vs collect=4617B"
+    },
+    {
+      "test": "bounded path returns symbol-aware references with result_state",
+      "pass": true,
+      "detail": "result_state=found"
+    },
+    {
+      "test": "bounded path returns hover with provenance",
+      "pass": true,
+      "detail": "provenance=clangd@live"
+    }
+  ],
+  "allPass": true
+}

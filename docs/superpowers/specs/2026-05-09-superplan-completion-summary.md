@@ -14,6 +14,9 @@ Four implementation plans executed end-to-end with TDD discipline, plus a fifth 
 | #3 | Graph merge + freshness (M3+M3.5) | `plan-3-graph-merge-complete` | `code_intel_collections` table, render helpers, query helpers, `graph_health.codeIntel`, `graph_pull` opt-in `code_intel` layer, `graph_change_plan` provenance ranking |
 | #4 | Packet v2 + verify mode + fact budget (M4) | `plan-4-packet-verify-complete` | `verify` mode in `graph_packet`, EVIDENCE block, fact-budget ranker, all five W1.4 fixtures |
 | #5 (APG-side) | MCP exposure + A/B demo | — | `graph_collect_code_intel` public verb, `verify` params on `graph_packet` schema, A/B demo script |
+| #5a | verify since-derivation + host templates | — | `since:<git-ref>` → changed files via git-diff; `.lsp.json` / `.mcp.json` / `.pi-lsp.json` downstream-project templates |
+| #5b | EVIDENCE injection into non-verify modes | `plan-5b-evidence-injection-complete` | All five non-verify modes (orient/plan/debug/review/audit) emit the EVIDENCE block via the existing renderer; tail-clamp respects token budget |
+| **#6** | **Bounded live code-intel verbs (the C++ inner-loop win)** | **`plan-6-bounded-live-verbs-complete`** | **`code_intel_diagnostics/references/definitions/hover/symbols` drive clangd live — no collect/import round-trip. A/B vs collect-cycle: 0.65× time, 0.12× bytes (88% byte reduction).** Singleton LspClient per (language, projectRoot). |
 
 (Plans #5 bridge UI and #6 cross-runtime install lab live in the separate `aify-agents-bridge` repo and `tests/integration/` lab respectively. The APG-side surface and contract are complete; bridge integration is straightforward consumption of the public verbs.)
 
