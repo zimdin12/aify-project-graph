@@ -1,0 +1,5 @@
+{
+  "_comment": "Drop this in the root of a downstream C++ project as `.lsp.json` so Claude Code native LSP starts clangd through the apg wrapper. `aify-code-intel` is APG's PATH shim — install APG and the binary resolves automatically.",
+  "command": "aify-code-intel",
+  "args": ["serve-lsp", "cpp"]
+}

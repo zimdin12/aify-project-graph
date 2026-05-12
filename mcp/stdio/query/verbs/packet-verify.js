@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { buildEvidenceBlock, renderEvidenceBlock } from './packet-evidence.js';
 
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -6,6 +7,19 @@ function computeStale(block) {
   if (!block?.collectedAt) return false;
   const age = Date.now() - new Date(block.collectedAt).getTime();
   return age > STALE_THRESHOLD_MS;
+}
+
+// Synchronous git-diff so verify mode stays sync. Used when caller passes
+// `since:<ref>` without explicit `files[]`. Returns [] on any git failure
+// (no git, no commits, invalid ref, not a repo) — verify still produces a
+// useful packet with explicit empty files list.
+function deriveFilesFromSinceSync(repoRoot, since) {
+  try {
+    const out = execFileSync('git', ['diff', '--name-only', `${since}..HEAD`], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return String(out || '').split(/\r?\n/u).map(s => s.trim()).filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function renderVerify(packet) {
@@ -45,19 +59,23 @@ function renderVerify(packet) {
 }
 
 export function buildVerifyPacket({ repoRoot, since = null, files = [], audited = false } = {}) {
-  const evidence = buildEvidenceBlock({ repoRoot, files });
+  const resolvedFiles = (Array.isArray(files) && files.length > 0)
+    ? files
+    : (since ? deriveFilesFromSinceSync(repoRoot, since) : []);
+  const evidence = buildEvidenceBlock({ repoRoot, files: resolvedFiles });
   const partial = evidence.available && evidence.status === 'partial';
   const stale = evidence.available && computeStale(evidence);
-  const diagnostics = (evidence.diagnostics || []).filter(d => files.includes(d.file));
+  const diagnostics = (evidence.diagnostics || []).filter(d => resolvedFiles.includes(d.file));
   const packet = {
     mode: 'verify',
-    files: [...files],
+    files: [...resolvedFiles],
     since,
     evidence,
     diagnostics,
     partial,
     stale,
-    sourceRequired: !!audited
+    sourceRequired: !!audited,
+    filesDerivedFromSince: resolvedFiles !== files && since ? true : false
   };
   packet.rendered = renderVerify(packet);
   return packet;

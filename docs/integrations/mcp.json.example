@@ -1,0 +1,9 @@
+{
+  "_comment": "Drop this in the root of a downstream project as `.mcp.json` to expose APG's MCP server to Claude (and other MCP hosts) without going through the global plugin install. Useful for per-repo overrides or when the global install isn't available. Tools include graph_packet (with mode=verify), graph_collect_code_intel, graph_health, graph_pull, graph_change_plan, and the full callable surface.",
+  "mcpServers": {
+    "aify-project-graph": {
+      "command": "node",
+      "args": ["./node_modules/aify-project-graph/mcp/stdio/server.js"]
+    }
+  }
+}

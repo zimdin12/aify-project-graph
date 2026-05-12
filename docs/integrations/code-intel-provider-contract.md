@@ -79,4 +79,10 @@ apg code-intel serve-lsp <language>
 
 `doctor` checks the per-language language-server binary and reports installed/missing with a fix hint. `collect` runs a provider and prints either a structured human-readable status (default) or the v0.2 collection JSON (`--json`).
 
-`serve-lsp <language>` is a thin LSP relay — spawns the underlying language server (e.g. clangd for `cpp`) and pipes stdio between the host and the language server. APG owns the resolution chain (project-local → bundled → global) and emits explicit error exits (`language_unsupported` = 2, `language_server_missing` = 3) instead of silent downgrades. Mirrors `agent-code-intel serve-lsp <lang>` so hosts can target one stable command name regardless of which wrapper is installed. Example Pi config: `docs/integrations/pi-lsp.json.example`.
+`serve-lsp <language>` is a thin LSP relay — spawns the underlying language server (e.g. clangd for `cpp`) and pipes stdio between the host and the language server. APG owns the resolution chain (project-local → bundled → global) and emits explicit error exits (`language_unsupported` = 2, `language_server_missing` = 3) instead of silent downgrades. Mirrors `agent-code-intel serve-lsp <lang>` so hosts can target one stable command name regardless of which wrapper is installed.
+
+**Downstream project templates** (drop in the root of a C++ project that uses APG):
+
+- `docs/integrations/lsp.json.example` → copy as `.lsp.json` for Claude Code native LSP routing through `aify-code-intel serve-lsp cpp`.
+- `docs/integrations/mcp.json.example` → copy as `.mcp.json` to expose APG's MCP server (graph_packet, graph_collect_code_intel, …) to Claude per-repo.
+- `docs/integrations/pi-lsp.json.example` → copy as `.pi-lsp.json` for Pi native LSP routing through the same wrapper.
