@@ -36,6 +36,7 @@ import {
   codeIntelHover,
   codeIntelSymbols
 } from './query/verbs/code_intel_live.js';
+import { codeIntelReplay } from './query/verbs/code_intel_replay.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -140,6 +141,21 @@ const TOOLS = [
         col: { type: 'integer', minimum: 1, default: 1 }
       },
       required: ['file', 'line']
+    },
+  },
+  {
+    name: 'code_intel_replay',
+    handler: codeIntelReplay,
+    description: 'Query parent-session-collected v0.2 facts WITHOUT spawning clangd. For subagents (or any context) that should read evidence the parent imported via graph_collect_code_intel rather than re-running the language server. Reads only. Filters by collectionId/symbol/file/kind/limit. Provenance tagged CODE_INTEL_REPLAY so callers know the answer is replayed, not live. Returns {status, collectionId, result_state, records, summary, provenance}. Per reference a3f0fde parent-session pattern.',
+    schema: {
+      type: 'object',
+      properties: {
+        collectionId: { type: 'string', default: 'latest', description: 'Collection to query. "latest" picks the most recent import.' },
+        symbol: { type: 'string', description: 'Filter by qname or symbolId (e.g. "ns::foo(int)").' },
+        file: { type: 'string', description: 'Filter by repo-relative file.' },
+        kind: { type: 'string', enum: ['references', 'definitions', 'hover', 'diagnostics', 'symbols', 'all'], default: 'all' },
+        limit: { type: 'integer', minimum: 1, maximum: 500, default: 20 }
+      },
     },
   },
   {
@@ -532,6 +548,7 @@ const CODE_INTEL_TOOL_NAMES = new Set([
   'code_intel_definitions',
   'code_intel_hover',
   'code_intel_symbols',
+  'code_intel_replay',
   'graph_collect_code_intel',
   'graph_packet',
   'graph_health'
