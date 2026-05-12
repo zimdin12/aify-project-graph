@@ -573,6 +573,21 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
     lines.push(`LIVE: skipped_under_budget (overlay-first${symbolNote}; pass live=true to enrich)`);
   }
 
+  // EVIDENCE block injection (Plan #5b): when a code-intel collection has been
+  // imported, append a compact provenance-tagged summary so non-verify modes
+  // also expose compiler-backed facts. Budget-gated: `clampToBudget` drops the
+  // tail when over budget, so EVIDENCE is the first thing trimmed if needed.
+  // Surface is read-only — does not change the canonical packet schema for
+  // existing callers (the EVIDENCE: line is a strict append).
+  try {
+    const { buildEvidenceBlock, renderEvidenceBlock } = await import('./packet-evidence.js');
+    const symbolForEvidence = (kind === 'feature' || kind === 'task') ? null : (parsed?.value || target);
+    const block = buildEvidenceBlock({ repoRoot, symbol: symbolForEvidence, files: [] });
+    if (block && (block.available || block.reason === 'no_collection')) {
+      lines.push(renderEvidenceBlock(block));
+    }
+  } catch { /* never block the packet on evidence lookup */ }
+
   const text = renderLines(lines);
   return clampToBudget(text, opts.budget_tokens);
 }
