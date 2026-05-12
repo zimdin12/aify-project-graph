@@ -184,11 +184,46 @@ export function createCppClangdProvider({ spawn } = {}) {
             try { symbols = (await client.documentSymbol(uri)) || []; } catch { symbols = []; }
           }
 
+          // Cache source text once per file so SymbolInformation entries
+          // can derive the actual identifier column. SymbolInformation only
+          // has `location.range` (full body), not selectionRange.
+          let sourceLines = null;
+          const loadSourceLines = () => {
+            if (sourceLines !== null) return sourceLines;
+            try { sourceLines = fs.readFileSync(path.join(projectRoot, rel), 'utf8').split(/\r?\n/u); }
+            catch { sourceLines = []; }
+            return sourceLines;
+          };
+
           for (const sym of symbols) {
-            const range = sym.selectionRange || sym.range || { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
-            const pos = range.start;
+            // Normalize DocumentSymbol vs SymbolInformation. clangd 18.x emits
+            // flat SymbolInformation[] by default (no selectionRange/range,
+            // has location.range covering the whole body). DocumentSymbol[]
+            // has selectionRange pointing at the identifier directly.
+            let bodyRange, pos;
+            if (sym.location && sym.location.range) {
+              // SymbolInformation. Body range covers the whole declaration;
+              // the identifier column is not directly known. Find the leaf
+              // name (after final '::') on the declaration line and use its
+              // column. If not findable, fall back to column 0 — better
+              // than (0,0) since the line is still correct.
+              bodyRange = sym.location.range;
+              const leafName = String(sym.name || '').split('::').pop();
+              const lines = loadSourceLines();
+              const declLine = lines[bodyRange.start.line] || '';
+              let col = 0;
+              if (leafName) {
+                const idx = declLine.indexOf(leafName);
+                if (idx >= 0) col = idx;
+              }
+              pos = { line: bodyRange.start.line, character: col };
+            } else {
+              bodyRange = sym.selectionRange || sym.range || { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
+              pos = bodyRange.start;
+            }
             const symbolId = symbolIdFor(rel, pos.line + 1, pos.character + 1);
             const qname = sym.name || '<anon>';
+            const range = bodyRange;
 
             if (requestedOps.has('symbols')) {
               records.push({
