@@ -15,6 +15,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { execFileSync as _execFileSync } from 'node:child_process';
 import {
   codeIntelDiagnostics,
   codeIntelReferences,
@@ -36,6 +37,15 @@ function setupRepoFs() {
   writeFileSync(path.join(dir, 'src', 'foo.cpp'), 'void foo(int){}\n');
   writeFileSync(path.join(dir, 'src', 'bar.cpp'), 'void bar(){foo(1);}\n');
   writeFileSync(path.join(dir, 'src', 'bad.cpp'), 'int x = ;\n');
+  // Initialize a minimal git repo so the freshness probes elsewhere in the
+  // stack don't print `fatal: not a git repository` to stderr during the
+  // demo run (Plan #7 reviewer feedback from senior-dev).
+  try {
+    _execFileSync('git', ['init', '--quiet'], { cwd: dir, stdio: 'ignore' });
+    _execFileSync('git', ['config', 'user.email', 't@t'], { cwd: dir, stdio: 'ignore' });
+    _execFileSync('git', ['config', 'user.name', 't'], { cwd: dir, stdio: 'ignore' });
+    _execFileSync('git', ['commit', '--allow-empty', '-q', '-m', 'init'], { cwd: dir, stdio: 'ignore' });
+  } catch { /* git absent — non-fatal; the noise just stays */ }
   const dbPath = path.join(dir, '.aify-graph', 'graph.sqlite');
   const db = openDb(dbPath); db.close();
   return dir;

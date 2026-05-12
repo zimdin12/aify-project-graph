@@ -1,0 +1,58 @@
+{
+  "checks": {
+    "native-module-preflight": {
+      "ok": true,
+      "note": "better-sqlite3 loads cleanly"
+    },
+    "bin-entries-on-disk": {
+      "ok": true,
+      "note": "all bin entries present"
+    },
+    "package-json-bin-mapping": {
+      "ok": true,
+      "note": "apg → ./bin/apg.js, aify-code-intel → ./bin/aify-code-intel.js"
+    },
+    "toolset-exposure (lean / code-intel / full)": {
+      "ok": true,
+      "profiles": {
+        "lean": {
+          "ok": true,
+          "count": 5,
+          "expected_present": true
+        },
+        "code-intel": {
+          "ok": true,
+          "count": 8,
+          "expected_present": true,
+          "expected_absent": true
+        },
+        "full": {
+          "ok": true,
+          "count": 25,
+          "expected_present": true
+        }
+      }
+    },
+    "apg code-intel doctor cpp": {
+      "ok": true,
+      "output": "cpp: MISSING — clangd (spawnSync clangd ENOENT); hint: install clangd via your package manager (apt install clangd / brew install llvm) and ensure it is on PATH",
+      "exit": 0
+    },
+    "apg code-intel serve-lsp <unsupported>": {
+      "ok": true,
+      "exit": 2,
+      "stderr": "apg code-intel serve-lsp: language 'noplang' has no registered language server\n  hint: supported: cpp"
+    },
+    "demo-bounded-vs-collect-ab.mjs": {
+      "ok": true,
+      "allPass": true,
+      "deltaMs": 103,
+      "deltaBytes": 4056
+    },
+    "demo-verify-ab.mjs": {
+      "ok": true,
+      "allPass": true
+    }
+  },
+  "allPass": true
+}

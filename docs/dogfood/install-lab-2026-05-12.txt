@@ -1,0 +1,16 @@
+
+=== M7.5 Install Lab ===
+
+[PASS] native-module-preflight
+  better-sqlite3 loads cleanly
+[PASS] bin-entries-on-disk
+  all bin entries present
+[PASS] package-json-bin-mapping
+  apg → ./bin/apg.js, aify-code-intel → ./bin/aify-code-intel.js
+[PASS] toolset-exposure (lean / code-intel / full)
+[PASS] apg code-intel doctor cpp
+[PASS] apg code-intel serve-lsp <unsupported>
+[PASS] demo-bounded-vs-collect-ab.mjs
+[PASS] demo-verify-ab.mjs
+
+Result: ALL PASS
