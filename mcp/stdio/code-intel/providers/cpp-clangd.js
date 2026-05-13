@@ -40,7 +40,7 @@ const BUILD_DEP_PREFIXES = [
 // forward-slash, in-repo files. Out-of-repo entries (system headers, generated
 // absolute paths via `..`) are filtered out rather than thrown. Build/deps/
 // vendor prefixes are excluded by default.
-function enumerateFromCompileDb(compileDbPath, projectRoot, { maxFiles = 200 } = {}) {
+function enumerateFromCompileDb(compileDbPath, projectRoot, { maxFiles = 200, skipBuildDepFilter = false } = {}) {
   try {
     const data = JSON.parse(fs.readFileSync(compileDbPath, 'utf8'));
     const seen = new Set();
@@ -56,7 +56,7 @@ function enumerateFromCompileDb(compileDbPath, projectRoot, { maxFiles = 200 } =
       if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
       const ext = path.extname(rel).toLowerCase();
       if (CPP_EXTENSIONS.size > 0 && ext && !CPP_EXTENSIONS.has(ext)) continue;
-      if (BUILD_DEP_PREFIXES.some(p => rel.startsWith(p))) { filteredBuild += 1; continue; }
+      if (!skipBuildDepFilter && BUILD_DEP_PREFIXES.some(p => rel.startsWith(p))) { filteredBuild += 1; continue; }
       if (seen.has(rel)) continue;
       seen.add(rel);
       out.push(rel);
@@ -65,10 +65,10 @@ function enumerateFromCompileDb(compileDbPath, projectRoot, { maxFiles = 200 } =
     const truncated = out.length > maxFiles;
     return {
       files: truncated ? out.slice(0, maxFiles) : out,
-      stats: { total, after_filter: out.length, filtered_build_dep: filteredBuild, truncated, max_files: maxFiles }
+      stats: { total, after_filter: out.length, filtered_build_dep: filteredBuild, truncated, max_files: maxFiles, skipped_build_dep_filter: !!skipBuildDepFilter }
     };
   } catch {
-    return { files: [], stats: { total: 0, after_filter: 0, filtered_build_dep: 0, truncated: false, max_files: maxFiles } };
+    return { files: [], stats: { total: 0, after_filter: 0, filtered_build_dep: 0, truncated: false, max_files: maxFiles, skipped_build_dep_filter: !!skipBuildDepFilter } };
   }
 }
 
@@ -156,11 +156,33 @@ export function createCppClangdProvider({ spawn } = {}) {
       if (req.files && req.files.length > 0) {
         files = req.files;
       } else if (req.scope === 'all' || req.scope === 'changed') {
-        const enum_ = enumerateFromCompileDb(compileCmds, projectRoot, { maxFiles });
+        const enum_ = enumerateFromCompileDb(compileCmds, projectRoot, { maxFiles, skipBuildDepFilter: !!req.skipBuildDepFilter });
         files = enum_.files;
         enumStats = enum_.stats;
         if (process.env.APG_VERBOSE_CODE_INTEL) {
-          process.stderr.write(`[apg code-intel] enumerated ${enumStats.total} compile_db entries → ${enumStats.after_filter} after filter (${enumStats.filtered_build_dep} build/dep filtered)${enumStats.truncated ? `; truncated to ${maxFiles}` : ''}\n`);
+          process.stderr.write(`[apg code-intel] enumerated ${enumStats.total} compile_db entries → ${enumStats.after_filter} after filter (${enumStats.filtered_build_dep} build/dep filtered)${enumStats.truncated ? `; truncated to ${maxFiles}` : ''}${enumStats.skipped_build_dep_filter ? ' [filter disabled]' : ''}\n`);
+        }
+        // Plan #10d: when the filter eliminates every entry (CMake unity-build
+        // or anything where all sources live under filtered prefixes), emit a
+        // structured error instead of returning status=ok with 0 records. The
+        // user can recover with --no-build-filter or explicit --files.
+        if (enumStats.total > 0 && enumStats.after_filter === 0 && !enumStats.skipped_build_dep_filter) {
+          return {
+            schema_version: '0.2',
+            collectionId,
+            provider: PROVIDER_NAME,
+            providerVersion: PROVIDER_VERSION,
+            projectRoot,
+            session: { collectedAt, freshnessBasis: 'compile_db_hash', freshnessValue: dbHash, compileDbHash: dbHash, enumeration: enumStats },
+            operations: {},
+            status: 'error',
+            errors: [{
+              code: 'compile_db_all_filtered',
+              message: `every compile_commands.json entry (${enumStats.total}) was filtered by the build/dep prefix rules (${enumStats.filtered_build_dep} excluded). This commonly happens on CMake unity builds where all TUs live under build/.`,
+              hint: 'pass --no-build-filter to disable the prefix filter, or pass --files <specific.cpp,...> to collect explicit sources outside the compile DB'
+            }],
+            records: []
+          };
         }
       } else {
         files = ['src/foo.cpp', 'src/bar.cpp'];

@@ -72,6 +72,7 @@
             "enum": [
               "provider_missing",
               "compile_db_missing",
+              "compile_db_all_filtered",
               "language_unsupported",
               "wrapper_failed",
               "language_server_missing",
