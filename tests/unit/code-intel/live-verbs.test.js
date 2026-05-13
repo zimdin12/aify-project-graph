@@ -34,6 +34,9 @@ describe('code_intel_diagnostics (live)', () => {
     const r = await codeIntelDiagnostics({ repoRoot: repo, files: ['src/bad.cpp'], spawn: fakeSpawn });
     expect(r.status).toBe('ok');
     expect(r.files[0]).toMatchObject({ file: 'src/bad.cpp', freshness: 'fresh' });
+    expect(r.noValueAdded).toBeUndefined();
+    expect(r.telemetry).toMatchObject({ operation: 'diagnostics', files: 1, diagnostics: 1 });
+    expect(r.telemetry.latencyMs).toBeGreaterThanOrEqual(0);
     expect(r.diagnostics.length).toBe(1);
     expect(r.diagnostics[0].message).toMatch(/undeclared/);
   });
@@ -43,6 +46,8 @@ describe('code_intel_diagnostics (live)', () => {
     const r = await codeIntelDiagnostics({ repoRoot: repo, files: ['src/foo.cpp'], spawn: fakeSpawn });
     expect(r.status).toBe('ok');
     expect(r.files[0]).toMatchObject({ file: 'src/foo.cpp', freshness: expect.stringMatching(/^(fresh|stale|timeout)$/) });
+    expect(r.noValueAdded).toBe(true);
+    expect(r.telemetry.freshness.timeout).toBe(1);
     expect(r.diagnostics.length).toBe(0);
   });
 
@@ -60,6 +65,7 @@ describe('code_intel_references (live)', () => {
     const r = await codeIntelReferences({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, waitForReadyMs: 500, spawn: fakeProgressSpawn });
     expect(r.status).toBe('ok');
     expect(r.freshness).toBe('fresh');
+    expect(r.telemetry).toMatchObject({ operation: 'references', references: 1, warmedFiles: 1 });
     expect(r.result_state).toBe('found');
     expect(r.references[0].file).toMatch(/bar\.cpp/);
     expect(r.references[0].provenance).toBe('clangd@live');

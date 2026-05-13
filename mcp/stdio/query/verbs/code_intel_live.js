@@ -22,6 +22,34 @@ function errorResponse(code, message) {
   return { status: 'error', errors: [{ code, message, hint: HINTS[code] || '' }] };
 }
 
+function emptyFreshnessCounts() {
+  return { fresh: 0, stale: 0, timeout: 0, unknown: 0 };
+}
+
+function latencyMs(startedAt) {
+  return Math.max(0, Date.now() - startedAt);
+}
+
+function freshnessCounts(values) {
+  const counts = emptyFreshnessCounts();
+  for (const value of values) {
+    if (Object.hasOwn(counts, value)) counts[value] += 1;
+    else counts.unknown += 1;
+  }
+  return counts;
+}
+
+function markNoValueAdded(result) {
+  if (result.status !== 'ok') return result;
+  const staleOrUnknown = result.freshness && result.freshness !== 'fresh';
+  const emptySemanticResult =
+    (Array.isArray(result.references) && result.references.length === 0)
+    || (Array.isArray(result.definitions) && result.definitions.length === 0)
+    || result.hover === null;
+  if (staleOrUnknown && emptySemanticResult) return { ...result, noValueAdded: true };
+  return result;
+}
+
 function rangeFromLsp(r) {
   if (!r) return null;
   return { start: { line: r.start.line + 1, col: r.start.character + 1 }, end: { line: r.end.line + 1, col: r.end.character + 1 } };
@@ -56,6 +84,7 @@ function uriToRel(uri, projectRoot) {
 
 /** Diagnostics for a bounded set of files. */
 export async function codeIntelDiagnostics({ repoRoot, language = 'cpp', files = [], spawn }) {
+  const startedAt = Date.now();
   if (!repoRoot) return errorResponse('internal_error', 'repoRoot required');
   if (!Array.isArray(files) || files.length === 0) return { status: 'ok', files: [], diagnostics: [] };
   let session;
@@ -88,7 +117,22 @@ export async function codeIntelDiagnostics({ repoRoot, language = 'cpp', files =
       });
     }
   }
-  return { status: 'ok', files: fileResults, diagnostics: out };
+  const result = {
+    status: 'ok',
+    files: fileResults,
+    diagnostics: out,
+    telemetry: {
+      operation: 'diagnostics',
+      files: fileResults.length,
+      diagnostics: out.length,
+      latencyMs: latencyMs(startedAt),
+      freshness: freshnessCounts(fileResults.map(f => f.freshness))
+    }
+  };
+  const allFilesAddedNoValue = fileResults.length > 0
+    && out.length === 0
+    && fileResults.every(f => f.freshness !== 'fresh');
+  return allFilesAddedNoValue ? { ...result, noValueAdded: true } : result;
 }
 
 /** References for a symbol at a position. Symbol-aware via clangd.
@@ -96,6 +140,7 @@ export async function codeIntelDiagnostics({ repoRoot, language = 'cpp', files =
  *  `warmupFiles[]` (e.g. ['src/foo.cpp', 'src/bar.cpp', 'src/foo.h']) when
  *  background-index is disabled and you need clangd to consider those files. */
 export async function codeIntelReferences({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], waitForReadyMs = 0, spawn }) {
+  const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
@@ -117,17 +162,19 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
     refs = (await session.client.references(uri, pos)) || [];
     resultState = refs.length > 0 ? 'found' : 'not_found_after_retry';
   }
-  return {
+  return markNoValueAdded({
     status: 'ok',
     freshness,
     result_state: resultState,
     warmedFiles: batch.length,
-    references: refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' }))
-  };
+    references: refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' })),
+    telemetry: { operation: 'references', references: refs.length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
+  });
 }
 
 /** Definitions for a symbol at a position. Pass warmupFiles[] for cross-TU resolution. */
 export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], waitForReadyMs = 0, spawn }) {
+  const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
@@ -140,16 +187,18 @@ export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, l
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const defs = await session.client.definition(uri, pos);
   const list = Array.isArray(defs) ? defs : (defs ? [defs] : []);
-  return {
+  return markNoValueAdded({
     status: 'ok',
     freshness,
     warmedFiles: batch.length,
-    definitions: list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: 'clangd@live', confidence: 'high' }))
-  };
+    definitions: list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: 'clangd@live', confidence: 'high' })),
+    telemetry: { operation: 'definitions', definitions: list.filter(d => d?.uri).length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
+  });
 }
 
 /** Hover (type + docstring) at a position. Pass warmupFiles[] when the symbol is declared in another TU. */
 export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], waitForReadyMs = 0, spawn }) {
+  const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
@@ -161,9 +210,9 @@ export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, c
   const uri = await openIfNeeded(session, file);
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const hov = await session.client.hover(uri, pos);
-  if (!hov) return { status: 'ok', freshness, warmedFiles: batch.length, hover: null };
+  if (!hov) return markNoValueAdded({ status: 'ok', freshness, warmedFiles: batch.length, hover: null, telemetry: { operation: 'hover', hover: 0, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness } });
   const content = typeof hov.contents === 'string' ? hov.contents : (hov.contents?.value ?? '');
-  return { status: 'ok', freshness, warmedFiles: batch.length, hover: { content, range: rangeFromLsp(hov.range), provenance: 'clangd@live', confidence: 'high' } };
+  return { status: 'ok', freshness, warmedFiles: batch.length, hover: { content, range: rangeFromLsp(hov.range), provenance: 'clangd@live', confidence: 'high' }, telemetry: { operation: 'hover', hover: 1, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness } };
 }
 
 /** Symbol outline for one file. */

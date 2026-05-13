@@ -88,7 +88,7 @@ const TOOLS = [
   {
     name: 'code_intel_diagnostics',
     handler: codeIntelDiagnostics,
-    description: 'Live per-file diagnostics. Drives clangd directly (no collect/import round-trip). Batch-warms requested files. Returns {status, files:[{file,freshness,diagnostics}], diagnostics:[{file,severity,message,range}]}. Use after editing C++ to check for errors without running a build.',
+    description: 'Live per-file diagnostics. Drives clangd directly (no collect/import round-trip). Batch-warms requested files. Returns {status, files:[{file,freshness,diagnostics}], diagnostics:[{file,severity,message,range}], telemetry, noValueAdded?}. Use after editing C++ to check for errors without running a build.',
     schema: {
       type: 'object',
       properties: {
@@ -101,7 +101,7 @@ const TOOLS = [
   {
     name: 'code_intel_references',
     handler: codeIntelReferences,
-    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, freshness, result_state, warmedFiles, references:[{file,range,provenance,confidence}]}. result_state distinguishes found / not_found_after_retry. Pass warmupFiles[] (known related files: callers, headers) when background-index is disabled and cross-TU resolution is needed. Use to answer "who calls this?" without grep.',
+    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, freshness, result_state, warmedFiles, references:[{file,range,provenance,confidence}], telemetry, noValueAdded?}. result_state distinguishes found / not_found_after_retry. Pass warmupFiles[] (known related files: callers, headers) when background-index is disabled and cross-TU resolution is needed. Use to answer "who calls this?" without grep.',
     schema: {
       type: 'object',
       properties: {
@@ -118,7 +118,7 @@ const TOOLS = [
   {
     name: 'code_intel_definitions',
     handler: codeIntelDefinitions,
-    description: 'Live definitions across TUs for a symbol at a position. Pass warmupFiles[] when the definition lives in a TU clangd has not seen yet (background-index disabled). Returns {status, freshness, warmedFiles, definitions:[{file,range,provenance,confidence}]}.',
+    description: 'Live definitions across TUs for a symbol at a position. Pass warmupFiles[] when the definition lives in a TU clangd has not seen yet (background-index disabled). Returns {status, freshness, warmedFiles, definitions:[{file,range,provenance,confidence}], telemetry, noValueAdded?}.',
     schema: {
       type: 'object',
       properties: {
@@ -135,7 +135,7 @@ const TOOLS = [
   {
     name: 'code_intel_hover',
     handler: codeIntelHover,
-    description: 'Live hover content (type signature + docstring) at a position. Pass warmupFiles[] when the declaration lives in a TU clangd has not seen yet. Returns {status, freshness, warmedFiles, hover:{content,range,provenance,confidence}}.',
+    description: 'Live hover content (type signature + docstring) at a position. Pass warmupFiles[] when the declaration lives in a TU clangd has not seen yet. Returns {status, freshness, warmedFiles, hover:{content,range,provenance,confidence}, telemetry, noValueAdded?}.',
     schema: {
       type: 'object',
       properties: {
