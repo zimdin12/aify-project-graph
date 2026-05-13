@@ -49,6 +49,32 @@ describe('cpp-clangd provider: scope=all enumeration', () => {
     expect(result.session.warmedFiles).toBe(3);
   });
 
+  it('discovers compile_commands.json in build-linux directories', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-cppenum-buildlinux-'));
+    fs.mkdirSync(path.join(dir, 'build-linux'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'echoes.cpp'), 'void echoes(){}\n');
+    fs.writeFileSync(
+      path.join(dir, 'build-linux', 'compile_commands.json'),
+      JSON.stringify([{
+        directory: dir,
+        command: 'clang++ -std=c++17 -c src/echoes.cpp',
+        file: 'src/echoes.cpp'
+      }])
+    );
+
+    const p = createCppClangdProvider({ spawn: () => fakeSpawn });
+    const result = await p.collect({
+      language: 'cpp',
+      projectRoot: dir,
+      scope: 'all',
+      operations: ['symbols']
+    });
+
+    expect(result.status).toBe('ok');
+    expect(result.session.warmedFiles).toBe(1);
+  });
+
   it('scope=all filters out out-of-repo entries instead of throwing', async () => {
     const dir = setupRepoWithCompileDb([
       { file: 'src/in_repo.cpp' }

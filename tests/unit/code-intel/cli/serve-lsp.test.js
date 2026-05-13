@@ -33,14 +33,11 @@ describe('apg code-intel serve-lsp', () => {
   });
 
   it('returns language_server_missing exit (3) when binary is absent', async () => {
-    // clangd is not installed on this host; this asserts the missing-binary path.
+    const originalBinary = LANGUAGE_SERVERS.cpp.binary;
+    LANGUAGE_SERVERS.cpp.binary = 'definitely-missing-clangd-for-apg-test';
     const { code, output } = await captureStderr(() => runServeLsp(['cpp']));
-    // On this host clangd is missing → exit 3. If clangd is installed elsewhere,
-    // the relay would spawn and inherit our (closed) stdin; treat exit 0/3 both as OK
-    // for that case, but require the hint surface either way.
-    expect([3, 0]).toContain(code);
-    if (code === 3) {
-      expect(output).toMatch(/clangd|install/);
-    }
+    LANGUAGE_SERVERS.cpp.binary = originalBinary;
+    expect(code).toBe(3);
+    expect(output).toMatch(/definitely-missing-clangd-for-apg-test|install/);
   });
 });

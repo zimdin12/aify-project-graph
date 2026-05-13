@@ -28,6 +28,48 @@ describe('LspClient (against fake server)', () => {
     await client.shutdown();
   });
 
+  it('returns freshness when waiting for publish diagnostics', async () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    await client.start();
+    const uri = 'file:///r/src/bad.cpp';
+    const before = client.diagnosticPublishCount(uri);
+    await client.didOpen(uri, 'cpp', 'int x = ;');
+    const result = await client.diagnostics(uri, 250, { sincePublishCount: before });
+    expect(result.freshness).toBe('fresh');
+    expect(result.diagnostics.length).toBe(1);
+    expect(result.diagnostics[0].message).toMatch(/undeclared/);
+    await client.shutdown();
+  });
+
+  it('uses pull diagnostics when the server advertises diagnosticProvider', async () => {
+    const client = new LspClient({
+      command: process.execPath,
+      args: [fakeServer],
+      env: { ...process.env, FAKE_LSP_PULL_DIAGNOSTICS: '1' },
+      rootUri: 'file:///r'
+    });
+    await client.start();
+    const result = await client.diagnostics('file:///r/src/pull-bad.cpp', 0);
+    expect(result.freshness).toBe('fresh');
+    expect(result.diagnostics.length).toBe(1);
+    expect(result.diagnostics[0].message).toMatch(/pull diagnostic/);
+    await client.shutdown();
+  });
+
+  it('tracks navigation readiness from LSP progress events', async () => {
+    const client = new LspClient({
+      command: process.execPath,
+      args: [fakeServer],
+      env: { ...process.env, FAKE_LSP_PROGRESS: '1' },
+      rootUri: 'file:///r'
+    });
+    await client.start();
+    const freshness = await client.waitForReady(500);
+    expect(freshness).toBe('fresh');
+    expect(client.navigationFreshness()).toBe('fresh');
+    await client.shutdown();
+  });
+
   it('returns hover content', async () => {
     const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
     await client.start();

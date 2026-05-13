@@ -17,6 +17,7 @@ function findCompileCommands(projectRoot) {
   for (const c of [
     path.join(projectRoot, 'compile_commands.json'),
     path.join(projectRoot, 'build', 'compile_commands.json'),
+    path.join(projectRoot, 'build-linux', 'compile_commands.json'),
     path.join(projectRoot, 'cmake-build-debug', 'compile_commands.json')
   ]) {
     if (fs.existsSync(c)) return c;

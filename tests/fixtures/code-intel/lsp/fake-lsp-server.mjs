@@ -33,11 +33,16 @@ function handle(msg) {
           definitionProvider: true,
           referencesProvider: true,
           hoverProvider: true,
-          documentSymbolProvider: true
+          documentSymbolProvider: true,
+          ...(process.env.FAKE_LSP_PULL_DIAGNOSTICS === '1' ? { diagnosticProvider: { interFileDependencies: false, workspaceDiagnostics: false } } : {})
         },
         serverInfo: { name: 'fake-lsp', version: '0.0.1' }
       });
     case 'initialized':
+      if (process.env.FAKE_LSP_PROGRESS === '1') {
+        notify('$/progress', { token: 'index', value: { kind: 'begin', title: 'indexing' } });
+        setTimeout(() => notify('$/progress', { token: 'index', value: { kind: 'end', message: 'ready' } }), 20);
+      }
       return;
     case 'shutdown':
       return reply(msg.id, null);
@@ -55,6 +60,16 @@ function handle(msg) {
         });
       }
       return;
+    case 'textDocument/diagnostic':
+      return reply(msg.id, {
+        kind: 'full',
+        items: [{
+          range: { start: { line: 1, character: 0 }, end: { line: 1, character: 4 } },
+          severity: 2,
+          source: 'fake-pull',
+          message: 'pull diagnostic warning'
+        }]
+      });
     case 'textDocument/references': {
       const uri = msg.params.textDocument.uri;
       // Return one ref in another file
