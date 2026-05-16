@@ -36,7 +36,10 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   }
 
   const client = new LspClient({ ...spawnCfg, rootUri: pathToFileURL(projectRoot).toString() });
-  const session = { language, projectRoot, client, openedUris: new Set() };
+  // `warmedOnce` flips after the first diagnostics batch so cold sessions
+  // get one longer warm-up (reference parity: cold servers return empty
+  // first-call diagnostics) and warm sessions stay low-latency.
+  const session = { language, projectRoot, client, openedUris: new Set(), warmedOnce: false };
   try {
     await client.start();
   } catch (err) {

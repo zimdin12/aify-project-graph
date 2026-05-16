@@ -88,12 +88,14 @@ const TOOLS = [
   {
     name: 'code_intel_diagnostics',
     handler: codeIntelDiagnostics,
-    description: 'Live per-file diagnostics. Drives clangd directly (no collect/import round-trip). Batch-warms requested files. Returns {status, files:[{file,freshness,diagnostics}], diagnostics:[{file,severity,message,range}], telemetry, noValueAdded?}. Use after editing C++ to check for errors without running a build.',
+    description: 'Live per-file diagnostics. Drives clangd directly (no collect/import round-trip). Batch-warms requested files (one longer warm-up on a cold session). Per-file wait defaults to 3000ms so cold clangd does not return empty first-call diagnostics. Returns {status, files:[{file,freshness,diagnostics}], diagnostics:[{file,severity,message,range}], telemetry:{diagnosticsWaitMs,...}, noValueAdded?}. noValueAdded is only set when every file is explicitly stale/timeout, never on unknown. Use after editing C++ to check for errors without running a build.',
     schema: {
       type: 'object',
       properties: {
         language: { type: 'string', default: 'cpp' },
-        files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to check.' }
+        files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to check.' },
+        diagnosticsWaitMs: { type: 'integer', minimum: 0, maximum: 30000, default: 3000, description: 'Per-file wait for a fresh diagnostics publish. Raise for very cold/large projects; 0 = best-effort no-wait.' },
+        warmupMs: { type: 'integer', minimum: 0, maximum: 30000, description: 'Override the post-open settle. Omit to auto-pick (longer when the session is cold, short when warm).' }
       },
       required: ['files']
     },
@@ -110,6 +112,7 @@ const TOOLS = [
         line: { type: 'integer', minimum: 1, description: '1-based line number.' },
         col: { type: 'integer', minimum: 1, default: 1, description: '1-based column number.' },
         warmupFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to open before the references query so clangd considers them as candidate callers.' },
+        warmupMs: { type: 'integer', minimum: 0, maximum: 30000, description: 'Override the post-open settle. Omit to auto-pick (longer when the session is cold, short when warm).' },
         waitForReadyMs: { type: 'integer', minimum: 0, maximum: 30000, default: 0, description: 'Optional inline wait for LSP indexing readiness before the semantic request; returns freshness fresh/stale/unknown.' }
       },
       required: ['file', 'line']
@@ -127,6 +130,7 @@ const TOOLS = [
         line: { type: 'integer', minimum: 1 },
         col: { type: 'integer', minimum: 1, default: 1 },
         warmupFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to open before the definitions query for cross-TU resolution.' },
+        warmupMs: { type: 'integer', minimum: 0, maximum: 30000, description: 'Override the post-open settle. Omit to auto-pick (longer when the session is cold, short when warm).' },
         waitForReadyMs: { type: 'integer', minimum: 0, maximum: 30000, default: 0, description: 'Optional inline wait for LSP indexing readiness before the semantic request; returns freshness fresh/stale/unknown.' }
       },
       required: ['file', 'line']
@@ -144,6 +148,7 @@ const TOOLS = [
         line: { type: 'integer', minimum: 1 },
         col: { type: 'integer', minimum: 1, default: 1 },
         warmupFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to open before the hover query for cross-TU declaration resolution.' },
+        warmupMs: { type: 'integer', minimum: 0, maximum: 30000, description: 'Override the post-open settle. Omit to auto-pick (longer when the session is cold, short when warm).' },
         waitForReadyMs: { type: 'integer', minimum: 0, maximum: 30000, default: 0, description: 'Optional inline wait for LSP indexing readiness before the semantic request; returns freshness fresh/stale/unknown.' }
       },
       required: ['file', 'line']
