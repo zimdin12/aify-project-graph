@@ -56,6 +56,25 @@ function renderVerify(packet) {
     if (packet.analysis.status === 'error') {
       const err = packet.analysis.errors?.[0];
       lines.push(`ANALYZER: error ${err?.code || 'unknown'} — ${err?.hint || err?.message || 'see tool output'}`);
+    } else if (packet.analysis.status === 'partial') {
+      const mode = packet.analysis.mode || 'unknown';
+      const files = Array.isArray(packet.analysis.files) ? packet.analysis.files : [];
+      const notCollected = packet.analysis.summary?.notCollected ?? files.filter(f => f.status !== 'ok').length;
+      const reasons = files
+        .filter(f => f.status !== 'ok')
+        .map(f => f.reason || f.status || 'not_collected');
+      const primaryReason = reasons[0] || 'not_collected';
+      lines.push(`ANALYZER (${mode}): partial — ${notCollected} files not_collected (${primaryReason})`);
+      for (const item of summarizeNotCollected(files)) {
+        if (item.more) {
+          lines.push(`  (+${item.more} more ${item.reason})`);
+        } else {
+          lines.push(`  not_collected ${item.file} [${item.reason}]`);
+        }
+      }
+      for (const d of (packet.analysis.diagnostics || []).slice(0, 10)) {
+        lines.push(`  ${d.severity || 'info'} ${d.file}:${d.line ?? '?'}:${d.col ?? '?'} [${d.provenance || 'ANALYZER'}] ${d.message || ''}`);
+      }
     } else {
       lines.push(`ANALYZER (${packet.analysis.mode || 'unknown'}): ${packet.analysis.summary?.diagnostics ?? 0} diagnostics, ${packet.analysis.summary?.errors ?? 0} errors, ${packet.analysis.summary?.warnings ?? 0} warnings`);
       for (const d of (packet.analysis.diagnostics || []).slice(0, 10)) {
@@ -68,6 +87,27 @@ function renderVerify(packet) {
     lines.push('SOURCE_REQUIRED: this change touches audited code; confirm against source even with code_intel evidence');
   }
   return lines.join('\n');
+}
+
+function summarizeNotCollected(files, cap = 5) {
+  const groups = new Map();
+  for (const f of files) {
+    if (f.status === 'ok') continue;
+    const reason = f.reason || f.status || 'not_collected';
+    if (!groups.has(reason)) groups.set(reason, []);
+    groups.get(reason).push(f.file || '<unknown>');
+  }
+
+  const out = [];
+  for (const [reason, groupFiles] of groups) {
+    for (const file of groupFiles.slice(0, cap)) {
+      out.push({ reason, file });
+    }
+    if (groupFiles.length > cap) {
+      out.push({ reason, more: groupFiles.length - cap });
+    }
+  }
+  return out;
 }
 
 export function buildVerifyPacket({ repoRoot, since = null, files = [], audited = false, analysis = null } = {}) {

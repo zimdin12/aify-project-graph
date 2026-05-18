@@ -104,6 +104,47 @@ describe('verify mode (W1.4 fixtures)', () => {
     expect(packet.rendered).toMatch(/ANALYZER \(compile\): 1 diagnostics, 1 errors, 0 warnings/);
     expect(packet.rendered).toMatch(/src\/bar\.cpp:3:12 \[BUILD\] bad thing/);
   });
+
+  it('renders partial analyzer evidence as not_collected instead of a clean result', () => {
+    const dir = setupRepo({ fixture: 'cpp-bar-diagnostic-collection.json' });
+    const packet = buildVerifyPacket({
+      repoRoot: dir,
+      files: ['src/bar.cpp'],
+      analysis: {
+        status: 'partial',
+        mode: 'compile',
+        summary: { files: 1, diagnostics: 0, errors: 0, warnings: 0, notCollected: 1 },
+        files: [{ file: 'src/bar.cpp', status: 'not_collected', reason: 'compile_entry_missing', diagnostics: 0 }],
+        diagnostics: []
+      }
+    });
+    expect(packet.rendered).toMatch(/ANALYZER \(compile\): partial — 1 files not_collected/);
+    expect(packet.rendered).toMatch(/not_collected src\/bar\.cpp \[compile_entry_missing\]/);
+    expect(packet.rendered).not.toMatch(/ANALYZER \(compile\): 0 diagnostics, 0 errors, 0 warnings/);
+  });
+
+  it('caps partial analyzer file details by reason', () => {
+    const dir = setupRepo({ fixture: 'cpp-bar-diagnostic-collection.json' });
+    const files = Array.from({ length: 7 }, (_, i) => ({
+      file: `src/file${i}.cpp`,
+      status: 'not_collected',
+      reason: 'compile_entry_missing',
+      diagnostics: 0
+    }));
+    const packet = buildVerifyPacket({
+      repoRoot: dir,
+      files: files.map(f => f.file),
+      analysis: {
+        status: 'partial',
+        mode: 'compile',
+        summary: { files: 7, diagnostics: 0, errors: 0, warnings: 0, notCollected: 7 },
+        files,
+        diagnostics: []
+      }
+    });
+    expect(packet.rendered.match(/not_collected src\/file/g)).toHaveLength(5);
+    expect(packet.rendered).toMatch(/\(\+2 more compile_entry_missing\)/);
+  });
 });
 
 describe('graphPacket(mode:verify)', () => {
