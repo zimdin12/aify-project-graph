@@ -1,5 +1,5 @@
-import { execFileSync } from 'node:child_process';
 import { buildEvidenceBlock, renderEvidenceBlock } from './packet-evidence.js';
+import { getChangedFilesSync } from '../../freshness/git.js';
 
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -10,16 +10,12 @@ function computeStale(block) {
 }
 
 // Synchronous git-diff so verify mode stays sync. Used when caller passes
-// `since:<ref>` without explicit `files[]`. Returns [] on any git failure
-// (no git, no commits, invalid ref, not a repo) — verify still produces a
-// useful packet with explicit empty files list.
+// `since:<ref>` without explicit `files[]`. Shares freshness/git.js's
+// helper so verify and freshness derive changed files identically
+// (including backslash→slash normalization on Windows). Returns [] on any
+// git failure — verify still produces a useful packet with empty files.
 function deriveFilesFromSinceSync(repoRoot, since) {
-  try {
-    const out = execFileSync('git', ['diff', '--name-only', `${since}..HEAD`], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-    return String(out || '').split(/\r?\n/u).map(s => s.trim()).filter(Boolean);
-  } catch {
-    return [];
-  }
+  return getChangedFilesSync(repoRoot, since, 'HEAD');
 }
 
 function renderVerify(packet) {

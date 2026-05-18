@@ -51,8 +51,21 @@ export function getDirtyFilesSync(repoRoot) {
 }
 
 export async function getChangedFiles(repoRoot, fromRef, toRef = 'HEAD') {
-  const stdout = execGit(repoRoot, ['diff', '--name-only', `${fromRef}..${toRef}`]);
-  return normalizeLines(stdout);
+  return getChangedFilesSync(repoRoot, fromRef, toRef);
+}
+
+// Shared sync git-diff name-only helper. Used by verify mode (which stays
+// sync) and the async getChangedFiles wrapper so both get identical line
+// normalization (trim, drop blanks, backslash→slash). Returns [] on any git
+// failure (no git, no commits, invalid ref, not a repo) so callers can
+// degrade gracefully instead of throwing.
+export function getChangedFilesSync(repoRoot, fromRef, toRef = 'HEAD') {
+  try {
+    const stdout = execGit(repoRoot, ['diff', '--name-only', `${fromRef}..${toRef}`]);
+    return normalizeLines(stdout);
+  } catch {
+    return [];
+  }
 }
 
 function execGit(repoRoot, args) {
