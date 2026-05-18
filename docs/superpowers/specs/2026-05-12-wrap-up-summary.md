@@ -99,9 +99,10 @@ Reproduced **at least 4 times in one day** across Windows and Ubuntu. Observed a
 
 ## What stayed on the parked list
 
-- **G — codegen visibility probe.** Senior-dev pinned this open: needs a concrete Echoes/Sand Castle generated-code target (shader bindings? factory macros? reflection?) before it stops being speculative. When a real target shows up, scope a probe.
-- **Bridge UI in `aify-agents-bridge`.** Separate repo. APG-side public verbs (`graph_collect_code_intel`, `code_intel_replay`, all 5 live verbs) are ready to consume.
-- **`since:<git-ref>` derivation polish.** Currently shells out via `execFileSync('git', ['diff', '--name-only', ...])`. Could share with `freshness/git.js`'s async `getChangedFiles`. Cosmetic.
+- **G — codegen visibility probe.** **CLOSED 2026-05-18 — not applicable.** Senior-dev did a Sand Castle source/codegen sweep (`engine`, `game`, `sim`, `tests`, `shaders`, `CMakeLists.txt`): no first-party generated source, codegen output, autogen bindings, or `DO NOT EDIT` artifacts exist to probe. G was speculative without a concrete target; formally closed until a real generated-code target appears. Reopen only when one does.
+- **Bridge UI in `aify-agents-bridge`.** Separate repo, out of scope. APG-side public verbs (`graph_collect_code_intel`, `code_intel_replay`, all 5 live verbs) are ready to consume.
+- **`since:<git-ref>` derivation polish.** **DONE 2026-05-18 (`ce8807b`).** Extracted `getChangedFilesSync` into `freshness/git.js`; verify and the async `getChangedFiles` wrapper now share it (identical trim/blank/backslash→slash normalization). Also fixed a real Windows backslash path gap the ad-hoc verify copy had.
+- **Real Pi-host validation.** Dispatched to graph-tester-pi 2026-05-18: install-lab + tool surface + `doctor cpp` on the Pi/Windows host. clangd is expected absent from Pi PATH, so the expected pass is a clean missing-prereq `doctor` report (contract-correct), not live clangd code-intel.
 
 ## How to dogfood
 
