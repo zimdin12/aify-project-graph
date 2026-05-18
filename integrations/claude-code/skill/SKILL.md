@@ -96,6 +96,8 @@ The failure mode to avoid: calling graph_find once, getting empty, giving up. Us
 - `code_intel_symbols(file)` — document symbol outline. **Replaces "scan whole file."**
 - `code_intel_analyze(files=[...], mode="clang-tidy"|"compile")` — bounded analyzer/build evidence for explicit files. Use when clangd diagnostics are not enough and you need `CLANG_TIDY` / `BUILD` provenance.
 
+Analyzer `partial` / `not_collected` means evidence was unavailable for some requested files; it is not the same as "analyzer ran clean."
+
 **When to use which:** atomic C++ question (one symbol, one file) → bounded `code_intel_*`. Whole-task planning / feature review / orientation → `graph_packet`. Repo snapshot for ranked graph facts → `graph_collect_code_intel` then graph verbs. Audit / safety claims → always verify against source even with code-intel evidence.
 - `graph_consequences(target="X")` — function-granular cross-cutting planning. Use when packet's coarse view loses precision.
 - `graph_pull(node="X")` — cross-layer pull (code + features + tasks + activity). For overlay targets, prefer explicit forms like `feature:terrain-generation`, `feature/terrain-generation`, `task:CU-123`, or `task/CU-123`.

@@ -24,7 +24,7 @@ If `.aify-graph/brief.agent.md` exists, read it. ~300-1100 tokens of dense orien
 - `code_intel_symbols(file)` — document outline
 - `code_intel_analyze(files=[...], mode="clang-tidy"|"compile")` — bounded analyzer/build evidence for explicit files, with `CLANG_TIDY` / `BUILD` provenance
 
-Use packet for planning/orientation/review; use bounded verbs for atomic mid-edit questions. Both surfaces respect the same provenance and three-state result rendering.
+Use packet for planning/orientation/review; use bounded verbs for atomic mid-edit questions. Both surfaces respect the same provenance and three-state result rendering. Analyzer `partial` / `not_collected` means evidence was unavailable for some requested files; it is not the same as "analyzer ran clean."
 2. **`graph_pull(node)`** — cross-layer pull when packet's static data isn't enough.
 3. **`graph_consequences(target)`** — "what breaks if I touch X?" Function-granular fan-out. **Use for CROSS-CUTTING PLANNING** when packet's coarse view loses precision.
 4. **`graph_change_plan(symbol)`** — risk gate before editing high-fan-in symbols. SIGNALS line + ranked READ ORDER. **Use for RISK ASSESSMENT** when packet says "this looks load-bearing."

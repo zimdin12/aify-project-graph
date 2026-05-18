@@ -124,7 +124,7 @@ node <plugin-path>/scripts/graph-brief.mjs <target-repo>
 
 Or via MCP: `graph_collect_code_intel({language:"cpp", scope:"all"})`. After import, evidence flows into `graph_health.codeIntel`, `graph_pull(layers:["code_intel"])`, `graph_change_plan` ranking (`provenance: 'CODE_INTEL' | 'EXTRACTED'`), and `graph_packet` EVIDENCE blocks in every mode.
 
-**Post-edit verification:** `graph_packet({mode:"verify", files:[...]})` or `graph_packet({mode:"verify", since:"HEAD~1"})` returns a decision packet with diagnostics on touched files, freshness verdict, and `SOURCE_REQUIRED` (pass `audited:true`) for audited code paths. Pass `analyze:true, analyzeMode:'clang-tidy'|'compile'` when the decision needs analyzer/build evidence in the same packet.
+**Post-edit verification:** `graph_packet({mode:"verify", files:[...]})` or `graph_packet({mode:"verify", since:"HEAD~1"})` returns a decision packet with diagnostics on touched files, freshness verdict, and `SOURCE_REQUIRED` (pass `audited:true`) for audited code paths. Pass `analyze:true, analyzeMode:'clang-tidy'|'compile'` when the decision needs analyzer/build evidence in the same packet. If the analyzer block says `partial` / `not_collected` (for example `compile_entry_missing`), treat that as missing analyzer/build evidence for the file — not as a clean zero-diagnostic result.
 
 **Wrapper CLI:** `apg code-intel doctor [<lang>]` for prereq status with fix hints. `apg code-intel serve-lsp cpp` is a thin LSP relay for hosts (Claude `.lsp.json`, Pi `.pi-lsp.json`). Downstream-project templates: `docs/integrations/{lsp,mcp,pi-lsp}.json.example`.
 

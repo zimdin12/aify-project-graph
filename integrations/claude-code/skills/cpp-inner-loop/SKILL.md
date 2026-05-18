@@ -55,7 +55,7 @@ For C++ inner-loop editing, prefer **bounded live verbs** over `graph_packet` or
    code_intel_analyze({ files: ["src/foo.cpp"], mode: "compile" })
    ```
 
-   `clang-tidy` returns static/style checks with `provenance: "CLANG_TIDY"`. `compile` runs the file's `compile_commands.json` command as a syntax check with `provenance: "BUILD"`. Explicit files only; do not broad-scan by default.
+   `clang-tidy` returns static/style checks with `provenance: "CLANG_TIDY"`. `compile` runs the file's `compile_commands.json` command as a syntax check with `provenance: "BUILD"`. Explicit files only; do not broad-scan by default. `partial` / `not_collected` means analyzer evidence was unavailable for that file, not that it ran clean.
 
 7. **Decision packet** after a non-trivial edit:
 

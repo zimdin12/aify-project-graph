@@ -14,7 +14,7 @@ For C++ inner-loop editing, prefer **bounded live verbs** over `graph_packet` or
 3. `code_intel_hover({file, line, col, warmupFiles:[...]})` — type sig + docstring at a call site
 4. `code_intel_definitions({file, line, col, warmupFiles:[...]})` — jump to definition across TUs
 5. `code_intel_diagnostics({files: [...]})` — per-file LSP diagnostics after editing; batch-warms internally
-6. `code_intel_analyze({files: [...], mode: "clang-tidy"|"compile"})` — bounded analyzer/build evidence when LSP diagnostics are not enough. Use `clang-tidy` for style/static checks and `compile` for compile-command syntax checks. Explicit files only; never broad-scan by default.
+6. `code_intel_analyze({files: [...], mode: "clang-tidy"|"compile"})` — bounded analyzer/build evidence when LSP diagnostics are not enough. Use `clang-tidy` for style/static checks and `compile` for compile-command syntax checks. Explicit files only; never broad-scan by default. `partial` / `not_collected` means analyzer evidence was unavailable for that file, not that it ran clean.
 7. `graph_packet({mode: "verify", files: [...], audited: bool})` — post-edit decision packet with freshness + SOURCE_REQUIRED
 
 ## Subagent without clangd: code_intel_replay
