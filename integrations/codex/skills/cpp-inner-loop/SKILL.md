@@ -13,8 +13,9 @@ For C++ inner-loop editing, prefer **bounded live verbs** over `graph_packet` or
 2. `code_intel_references({file, line, col, warmupFiles:[...]})` — symbol-aware refs (NOT text search) before changing a signature. Pass `warmupFiles` (callers/headers) when refs may live in other TUs; clangd uses `--background-index=false` so it won't auto-discover them.
 3. `code_intel_hover({file, line, col, warmupFiles:[...]})` — type sig + docstring at a call site
 4. `code_intel_definitions({file, line, col, warmupFiles:[...]})` — jump to definition across TUs
-5. `code_intel_diagnostics({files: [...]})` — per-file errors after editing (no build needed); batch-warms internally
-6. `graph_packet({mode: "verify", files: [...], audited: bool})` — post-edit decision packet with freshness + SOURCE_REQUIRED
+5. `code_intel_diagnostics({files: [...]})` — per-file LSP diagnostics after editing; batch-warms internally
+6. `code_intel_analyze({files: [...], mode: "clang-tidy"|"compile"})` — bounded analyzer/build evidence when LSP diagnostics are not enough. Use `clang-tidy` for style/static checks and `compile` for compile-command syntax checks. Explicit files only; never broad-scan by default.
+7. `graph_packet({mode: "verify", files: [...], audited: bool})` — post-edit decision packet with freshness + SOURCE_REQUIRED
 
 ## Subagent without clangd: code_intel_replay
 

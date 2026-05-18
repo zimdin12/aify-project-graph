@@ -16,6 +16,7 @@ describe('apg code-intel CLI', () => {
     const { code, output } = await captureStdout(() => runCodeIntelCmd([]));
     expect(code).toBe(0);
     expect(output).toMatch(/collect/);
+    expect(output).toMatch(/analyze/);
     expect(output).toMatch(/doctor/);
   });
 
@@ -43,5 +44,15 @@ describe('apg code-intel CLI', () => {
       runCodeIntelCmd(['collect', 'unknown-language', '--project-root', '/r', '--json'])
     );
     expect(code).toBe(2);
+  });
+
+  it('analyze: writes bounded analyzer JSON to stdout', async () => {
+    const { code, output } = await captureStdout(() =>
+      runCodeIntelCmd(['analyze', 'cpp', '--project-root', '/r', '--files', 'src/a.cpp', '--json'])
+    );
+    expect(code).toBe(2);
+    const parsed = JSON.parse(output);
+    expect(parsed.status).toBe('error');
+    expect(parsed.errors[0].code).toBe('compile_db_missing');
   });
 });

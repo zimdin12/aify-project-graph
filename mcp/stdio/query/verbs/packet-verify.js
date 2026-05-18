@@ -52,13 +52,25 @@ function renderVerify(packet) {
     }
   }
 
+  if (packet.analysis) {
+    if (packet.analysis.status === 'error') {
+      const err = packet.analysis.errors?.[0];
+      lines.push(`ANALYZER: error ${err?.code || 'unknown'} — ${err?.hint || err?.message || 'see tool output'}`);
+    } else {
+      lines.push(`ANALYZER (${packet.analysis.mode || 'unknown'}): ${packet.analysis.summary?.diagnostics ?? 0} diagnostics, ${packet.analysis.summary?.errors ?? 0} errors, ${packet.analysis.summary?.warnings ?? 0} warnings`);
+      for (const d of (packet.analysis.diagnostics || []).slice(0, 10)) {
+        lines.push(`  ${d.severity || 'info'} ${d.file}:${d.line ?? '?'}:${d.col ?? '?'} [${d.provenance || 'ANALYZER'}] ${d.message || ''}`);
+      }
+    }
+  }
+
   if (packet.sourceRequired) {
     lines.push('SOURCE_REQUIRED: this change touches audited code; confirm against source even with code_intel evidence');
   }
   return lines.join('\n');
 }
 
-export function buildVerifyPacket({ repoRoot, since = null, files = [], audited = false } = {}) {
+export function buildVerifyPacket({ repoRoot, since = null, files = [], audited = false, analysis = null } = {}) {
   const resolvedFiles = (Array.isArray(files) && files.length > 0)
     ? files
     : (since ? deriveFilesFromSinceSync(repoRoot, since) : []);
@@ -72,6 +84,7 @@ export function buildVerifyPacket({ repoRoot, since = null, files = [], audited 
     since,
     evidence,
     diagnostics,
+    analysis,
     partial,
     stale,
     sourceRequired: !!audited,

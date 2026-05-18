@@ -27,6 +27,7 @@ describe('--toolset=code-intel', () => {
     expect(names).toContain('code_intel_definitions');
     expect(names).toContain('code_intel_hover');
     expect(names).toContain('code_intel_symbols');
+    expect(names).toContain('code_intel_analyze');
   });
 
   it('also exposes graph_packet, graph_health, graph_collect_code_intel', () => {

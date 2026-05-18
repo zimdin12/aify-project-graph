@@ -37,6 +37,7 @@ import {
   codeIntelSymbols
 } from './query/verbs/code_intel_live.js';
 import { codeIntelReplay } from './query/verbs/code_intel_replay.js';
+import { codeIntelAnalyze } from './query/verbs/code_intel_analyze.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -77,6 +78,9 @@ const TOOLS = [
         since: { type: 'string', description: 'verify mode: git ref to diff against for changed files.' },
         files: { type: 'array', items: { type: 'string' }, description: 'verify mode: explicit changed files (repo-relative).' },
         audited: { type: 'boolean', default: false, description: 'verify mode: change touches audited code; surface SOURCE_REQUIRED warning.' },
+        analyze: { type: 'boolean', default: false, description: 'verify mode: also run bounded C++ analyzer/build evidence for files[] via code_intel_analyze.' },
+        analyzeMode: { type: 'string', enum: ['clang-tidy', 'compile'], default: 'clang-tidy', description: 'verify mode analyzer flavor when analyze=true.' },
+        analyzeTimeoutMs: { type: 'integer', minimum: 1, maximum: 600000, default: 120000, description: 'verify mode analyzer timeout when analyze=true.' },
       },
     },
   },
@@ -167,6 +171,21 @@ const TOOLS = [
         kind: { type: 'string', enum: ['references', 'definitions', 'hover', 'diagnostics', 'symbols', 'all'], default: 'all' },
         limit: { type: 'integer', minimum: 1, maximum: 500, default: 20 }
       },
+    },
+  },
+  {
+    name: 'code_intel_analyze',
+    handler: codeIntelAnalyze,
+    description: 'Bounded C++ analyzer/build evidence for explicit files. Runs clang-tidy or a compile_commands.json syntax check; never scans the whole repo by default. Returns {status, mode, files, diagnostics:[{file,line,col,severity,message,provenance}], summary, telemetry}. Use after clangd when you need analyzer/build facts beyond plain LSP.',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', default: 'cpp' },
+        mode: { type: 'string', enum: ['clang-tidy', 'compile'], default: 'clang-tidy' },
+        files: { type: 'array', items: { type: 'string' }, description: 'Explicit repo-relative C/C++ files to analyze. Required; broad scans are intentionally unsupported.' },
+        timeoutMs: { type: 'integer', minimum: 1, maximum: 600000, default: 120000 }
+      },
+      required: ['files']
     },
   },
   {
@@ -560,6 +579,7 @@ const CODE_INTEL_TOOL_NAMES = new Set([
   'code_intel_hover',
   'code_intel_symbols',
   'code_intel_replay',
+  'code_intel_analyze',
   'graph_collect_code_intel',
   'graph_packet',
   'graph_health'

@@ -429,7 +429,7 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 
 // ----- main -----
 
-export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false, since = null, files = [], audited = false }) {
+export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false, since = null, files = [], audited = false, analyze = false, analyzeMode = 'clang-tidy', analyzeTimeoutMs }) {
   if (!repoRoot) return 'ERROR: repoRoot parameter is required';
 
   // Verify mode short-circuit: post-edit decision packet, no target required.
@@ -438,7 +438,12 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   const earlyMode = normalizeMode(mode);
   if (earlyMode === 'verify') {
     const { buildVerifyPacket } = await import('./packet-verify.js');
-    return buildVerifyPacket({ repoRoot, since, files, audited }).rendered;
+    let analysis = null;
+    if (analyze) {
+      const { codeIntelAnalyze } = await import('./code_intel_analyze.js');
+      analysis = await codeIntelAnalyze({ repoRoot, files, mode: analyzeMode, timeoutMs: analyzeTimeoutMs });
+    }
+    return buildVerifyPacket({ repoRoot, since, files, audited, analysis }).rendered;
   }
 
   if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, bare id, or bare symbol)';

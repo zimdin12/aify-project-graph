@@ -85,6 +85,7 @@ Two surfaces, both optional, both require `clangd` on PATH:
 - `code_intel_definitions({file,line,col})` — defs across TUs
 - `code_intel_hover({file,line,col})` — type sig + docstring
 - `code_intel_symbols({file})` — document outline
+- `code_intel_analyze({files:[...], mode:"clang-tidy"|"compile"})` — bounded analyzer/build facts for explicit files only
 
 **Batch collection for whole-repo snapshots** (only when the repo has `compile_commands.json`):
 

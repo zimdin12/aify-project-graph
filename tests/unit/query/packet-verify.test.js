@@ -16,11 +16,13 @@ function setupRepo({ fixture, stale = false } = {}) {
   if (fixture) {
     const tmp = path.join(os.tmpdir(), `apg-vfy-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
     let content = fs.readFileSync(`tests/fixtures/code-intel/v02/${fixture}`, 'utf8');
+    const obj = JSON.parse(content);
     if (stale) {
-      const obj = JSON.parse(content);
       obj.session.collectedAt = '2025-01-01T00:00:00Z';
-      content = JSON.stringify(obj);
+    } else {
+      obj.session.collectedAt = new Date().toISOString();
     }
+    content = JSON.stringify(obj);
     fs.writeFileSync(tmp, content);
     const db2 = openExistingDb(dbPath, { readonly: false });
     importCodeIntel(tmp, db2);
@@ -78,6 +80,29 @@ describe('verify mode (W1.4 fixtures)', () => {
     expect(packet.diagnostics.length).toBe(0);
     expect(packet.evidence.available).toBe(true);
     expect(packet.rendered).toMatch(/src\/new_untracked.cpp/);
+  });
+
+  it('renders bounded analyzer evidence when supplied', () => {
+    const dir = setupRepo({ fixture: 'cpp-bar-diagnostic-collection.json' });
+    const packet = buildVerifyPacket({
+      repoRoot: dir,
+      files: ['src/bar.cpp'],
+      analysis: {
+        status: 'ok',
+        mode: 'compile',
+        summary: { diagnostics: 1, errors: 1, warnings: 0 },
+        diagnostics: [{
+          file: 'src/bar.cpp',
+          line: 3,
+          col: 12,
+          severity: 'error',
+          message: 'bad thing',
+          provenance: 'BUILD'
+        }]
+      }
+    });
+    expect(packet.rendered).toMatch(/ANALYZER \(compile\): 1 diagnostics, 1 errors, 0 warnings/);
+    expect(packet.rendered).toMatch(/src\/bar\.cpp:3:12 \[BUILD\] bad thing/);
   });
 });
 

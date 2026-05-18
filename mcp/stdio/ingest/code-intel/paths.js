@@ -17,6 +17,17 @@ export function toRepoRelative(projectRoot, filePath) {
     throw new Error('toRepoRelative: filePath must be string');
   }
 
+  const windowsAbs = /^[A-Za-z]:[\\/]/;
+  if (windowsAbs.test(projectRoot) || windowsAbs.test(filePath)) {
+    const root = path.win32.resolve(projectRoot);
+    const candidate = path.win32.resolve(filePath);
+    const rel = path.win32.relative(root, candidate);
+    if (rel.startsWith('..') || path.win32.isAbsolute(rel)) {
+      throw new Error(`toRepoRelative: path '${filePath}' is outside projectRoot '${projectRoot}'`);
+    }
+    return rel.replace(/\\/g, '/');
+  }
+
   const normalizedRoot = path.resolve(projectRoot);
 
   if (isRepoRelative(filePath)) {

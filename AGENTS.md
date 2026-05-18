@@ -105,6 +105,7 @@ APG is the source of briefs, packets, overlays, tasks, and dashboard data. As of
 - `code_intel_definitions(file,line,col)` — defs across translation units
 - `code_intel_hover(file,line,col)` — type sig + docstring
 - `code_intel_symbols(file)` — document outline
+- `code_intel_analyze(files=[...], mode='clang-tidy'|'compile')` — bounded analyzer/build evidence for explicit files; uses `clang-tidy` or compile-command syntax checks and reports provenance `CLANG_TIDY` / `BUILD`
 
 A/B vs collect-cycle: ~0.65× time, ~0.12× bytes for atomic questions. See `docs/dogfood/ab-2026-05-12-bounded-vs-collect.{txt,json}`.
 
@@ -123,7 +124,7 @@ node <plugin-path>/scripts/graph-brief.mjs <target-repo>
 
 Or via MCP: `graph_collect_code_intel({language:"cpp", scope:"all"})`. After import, evidence flows into `graph_health.codeIntel`, `graph_pull(layers:["code_intel"])`, `graph_change_plan` ranking (`provenance: 'CODE_INTEL' | 'EXTRACTED'`), and `graph_packet` EVIDENCE blocks in every mode.
 
-**Post-edit verification:** `graph_packet({mode:"verify", files:[...]})` or `graph_packet({mode:"verify", since:"HEAD~1"})` returns a decision packet with diagnostics on touched files, freshness verdict, and `SOURCE_REQUIRED` (pass `audited:true`) for audited code paths.
+**Post-edit verification:** `graph_packet({mode:"verify", files:[...]})` or `graph_packet({mode:"verify", since:"HEAD~1"})` returns a decision packet with diagnostics on touched files, freshness verdict, and `SOURCE_REQUIRED` (pass `audited:true`) for audited code paths. Pass `analyze:true, analyzeMode:'clang-tidy'|'compile'` when the decision needs analyzer/build evidence in the same packet.
 
 **Wrapper CLI:** `apg code-intel doctor [<lang>]` for prereq status with fix hints. `apg code-intel serve-lsp cpp` is a thin LSP relay for hosts (Claude `.lsp.json`, Pi `.pi-lsp.json`). Downstream-project templates: `docs/integrations/{lsp,mcp,pi-lsp}.json.example`.
 

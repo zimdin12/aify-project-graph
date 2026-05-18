@@ -48,13 +48,23 @@ For C++ inner-loop editing, prefer **bounded live verbs** over `graph_packet` or
 
    Returns per-file errors with severity, message, range. Batch-warms requested files internally so transient unresolved-symbol noise is closed.
 
-6. **Decision packet** after a non-trivial edit:
+6. **Need analyzer/build evidence beyond plain LSP?**
+
+   ```
+   code_intel_analyze({ files: ["src/foo.cpp"], mode: "clang-tidy" })
+   code_intel_analyze({ files: ["src/foo.cpp"], mode: "compile" })
+   ```
+
+   `clang-tidy` returns static/style checks with `provenance: "CLANG_TIDY"`. `compile` runs the file's `compile_commands.json` command as a syntax check with `provenance: "BUILD"`. Explicit files only; do not broad-scan by default.
+
+7. **Decision packet** after a non-trivial edit:
 
    ```
    graph_packet({ mode: "verify", files: ["src/foo.cpp", "src/bar.cpp"], audited: false })
    ```
 
    Returns post-edit diagnostics + freshness verdict + provider status. Pass `audited: true` for safety-critical code; the packet surfaces `SOURCE_REQUIRED` even when code-intel is fresh.
+   Pass `analyze: true, analyzeMode: "clang-tidy"|"compile"` when you want bounded analyzer/build evidence folded into the packet.
 
 ## Subagent needs evidence without spawning clangd
 
