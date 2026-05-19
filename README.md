@@ -32,10 +32,16 @@ Read install.codex.md from https://github.com/zimdin12/aify-project-graph and in
 Read install.opencode.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart OpenCode when you're done.
 ```
 
-**Copy this into a Pi / low-resource Linux agent host:**
+**Copy this into oh-my-pi / a Pi / low-resource Linux agent host:**
 
 ```
 Read install.pi.md from https://github.com/zimdin12/aify-project-graph and install it for my Pi/Linux environment. I will restart the host agent when you're done.
+```
+
+**Copy this into the Hermes agent:**
+
+```
+Read install.hermes.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart Hermes when you're done.
 ```
 
 That's the entire install. The agent clones the repo to a pinned path (`~/.claude/plugins/aify-project-graph`, `~/.codex/plugins/aify-project-graph`, `~/.config/opencode/plugins/aify-project-graph`, or `~/.local/share/aify/plugins/aify-project-graph` depending on runtime), registers the MCP server via the runtime's CLI/config, copies skills where supported, and tells you when to restart. Takes 2-3 minutes.
@@ -219,12 +225,16 @@ Under the hood each install doc does the same thing:
    - Claude Code: `~/.claude/plugins/aify-project-graph`
    - Codex: `~/.codex/plugins/aify-project-graph`
    - OpenCode: `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph`
+   - oh-my-pi / Pi-Linux: `~/.local/share/aify/plugins/aify-project-graph`
+   - Hermes: `${XDG_CONFIG_HOME:-~/.config}/hermes/plugins/aify-project-graph`
 2. Runs `npm install && npm test` (the full suite should pass; the exact count changes as coverage grows)
 3. Registers the MCP server via the runtime's native CLI or config
    - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude.json` — the CLI-managed location, not `~/.claude/settings.json`)
    - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`
    - OpenCode: JSON-patch `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json` → `mcp.aify-project-graph`
-4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
+   - oh-my-pi / Pi-Linux: native CLI or OpenCode-style JSON patch (see `install.pi.md`)
+   - Hermes: `hermes mcp add` CLI form, or JSON-patch `${XDG_CONFIG_HOME:-~/.config}/hermes/hermes.json` → `mcpServers.aify-project-graph` (server stanza is runtime-agnostic)
+4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`; Hermes: `integrations/hermes/skill{,s}/` → `~/.config/hermes/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
 5. User restarts the runtime
 
 **Lean profile** (`--toolset=lean`) exposes 5 visible verbs on `tools/list` (`graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`). The other verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the full profile by default, but low-value legacy orient aliases stay hidden from `tools/list` there too and remain callable by name. `graph_packet` is the one-shot context primitive: feature/task targets read overlay+brief JSON directly with no freshness rebuild; bare symbol targets may use one budgeted lookup to map symbol→feature. Pass `mode=orient|plan|debug|review|audit|verify` to shape the packet for the workflow, then escalate to `graph_consequences`/`graph_change_plan` when packet's coarse view loses the depth you need.
@@ -233,7 +243,7 @@ Under the hood each install doc does the same thing:
 
 **Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms — but the MCP server has a **native-module preflight** that detects this on startup and auto-runs `npm rebuild better-sqlite3` once before accepting tool calls. You'll see one line on stderr when it triggers. Manual intervention only if auto-rebuild itself fails (e.g. missing compiler). `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 
-For the full step-by-step per runtime see [`install.claude.md`](install.claude.md), [`install.codex.md`](install.codex.md), [`install.opencode.md`](install.opencode.md). They are agent-executable — paste the "Install in one paste" prompt above and the agent follows them.
+For the full step-by-step per runtime see [`install.claude.md`](install.claude.md), [`install.codex.md`](install.codex.md), [`install.opencode.md`](install.opencode.md), [`install.pi.md`](install.pi.md) (oh-my-pi), [`install.hermes.md`](install.hermes.md). They are agent-executable — paste the "Install in one paste" prompt above and the agent follows them.
 
 Marketplace metadata lives in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.agents/plugins/marketplace.json`. Validate packaging with `npm run validate:marketplace`.
 
