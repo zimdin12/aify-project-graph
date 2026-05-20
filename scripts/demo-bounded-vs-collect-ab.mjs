@@ -80,9 +80,16 @@ function fixtureCollectionProvider() {
 async function runPathA(repoRoot) {
   _resetSessions();
   const t0 = Date.now();
-  const diags = await codeIntelDiagnostics({ repoRoot, files: ['src/bad.cpp', 'src/foo.cpp'], spawn: fakeSpawn });
-  const refs = await codeIntelReferences({ repoRoot, file: 'src/foo.cpp', line: 1, col: 6, spawn: fakeSpawn });
-  const hover = await codeIntelHover({ repoRoot, file: 'src/foo.cpp', line: 1, col: 6, spawn: fakeSpawn });
+  // Synthetic-fixture demo: override the production cold-server safety
+  // waits introduced by Plan #11 (diagnosticsWaitMs:3000 + 1500ms cold
+  // warmupMs). The fake LSP responds instantly; those waits are pure
+  // overhead here. We're measuring tool-surface latency vs collect/pull,
+  // not cold-clangd safety. Real C++ inner-loop calls keep the production
+  // defaults — only this synthetic A/B opts out.
+  const liveOpts = { spawn: fakeSpawn, diagnosticsWaitMs: 250, warmupMs: 0 };
+  const diags = await codeIntelDiagnostics({ repoRoot, files: ['src/bad.cpp', 'src/foo.cpp'], ...liveOpts });
+  const refs = await codeIntelReferences({ repoRoot, file: 'src/foo.cpp', line: 1, col: 6, ...liveOpts });
+  const hover = await codeIntelHover({ repoRoot, file: 'src/foo.cpp', line: 1, col: 6, ...liveOpts });
   const ms = Date.now() - t0;
   await shutdownAllSessions();
   _resetSessions();

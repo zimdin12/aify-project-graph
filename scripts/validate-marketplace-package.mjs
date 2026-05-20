@@ -79,6 +79,6 @@ if (errors.length) {
 console.log(JSON.stringify({
   ok: true,
   package: pkg?.name ?? 'aify-project-graph',
-  runtimes: ['claude-code', 'codex', 'opencode', 'pi-linux'],
+  runtimes: ['claude-code', 'codex', 'opencode', 'pi-linux', 'hermes'],
   manifests: ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', '.agents/plugins/marketplace.json']
 }, null, 2));
