@@ -39,7 +39,12 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   // `warmedOnce` flips after the first diagnostics batch so cold sessions
   // get one longer warm-up (reference parity: cold servers return empty
   // first-call diagnostics) and warm sessions stay low-latency.
-  const session = { language, projectRoot, client, openedUris: new Set(), warmedOnce: false };
+  // Plan #14 Step D: sticky degraded-references state per session.
+  // Once references comes back degraded (cold_index, timeout, etc.) we
+  // remember the cause until a later ready+exhaustive result clears it.
+  // Subsequent technically-clean results in the degraded window carry a
+  // warning so an agent doesn't bump confidence prematurely.
+  const session = { language, projectRoot, client, openedUris: new Set(), warmedOnce: false, referencesStickyDegraded: null };
   try {
     await client.start();
   } catch (err) {

@@ -334,6 +334,32 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
     freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState
   });
 
+  // Plan #14 Step D: sticky degraded state. Once a references call in
+  // this session comes back degraded, subsequent results carry a
+  // `previouslyDegraded` marker until a later ready+exhaustive result
+  // clears the sticky state. The FIRST clean recovery still carries
+  // the marker so an agent can see "we just recovered" — prevents
+  // silently bumping confidence on a quietly-recovered cold index.
+  const priorSticky = session.referencesStickyDegraded;
+  if (evidence.degraded && evidence.cause) {
+    session.referencesStickyDegraded = { cause: evidence.cause, since: Date.now() };
+  } else if (evidence.ready && evidence.exhaustive) {
+    if (priorSticky) {
+      evidence.previouslyDegraded = priorSticky.cause;
+      evidence.warnings = [
+        ...evidence.warnings,
+        `session recovered from prior ${priorSticky.cause}; earlier absence claims in this session may have been unsafe`
+      ];
+    }
+    session.referencesStickyDegraded = null;
+  } else if (priorSticky) {
+    evidence.previouslyDegraded = priorSticky.cause;
+    evidence.warnings = [
+      ...evidence.warnings,
+      `session previously saw ${priorSticky.cause} — verify before absence claims (sticky until ready+exhaustive)`
+    ];
+  }
+
   return markNoValueAdded({
     status: 'ok',
     freshness,

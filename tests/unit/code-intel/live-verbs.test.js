@@ -309,6 +309,30 @@ describe('Plan #14 Step B — cold freshness + cpp prewarm', () => {
   });
 });
 
+// Plan #14 Step D: sticky degraded references state per session.
+describe('Plan #14 Step D — sticky degraded references state', () => {
+  it('clean references results carry a warning while session is in degraded-sticky state', async () => {
+    // Direct test by manipulating session state — full LSP integration
+    // can't easily simulate "degraded then clean" with the fake fixture.
+    const { getLiveSession, _resetSessions } = await import('../../../mcp/stdio/code-intel/live.js');
+    _resetSessions();
+    const repo = tmpRepo();
+    const session = await getLiveSession({ language: 'cpp', projectRoot: repo, spawn: fakeProgressSpawn });
+    expect(session.referencesStickyDegraded).toBeNull();
+
+    // Simulate a prior degraded result staying sticky on the session
+    session.referencesStickyDegraded = { cause: 'cold_index', since: Date.now() };
+
+    // Now run a normal references call — it'll look clean (fresh+callsites
+    // via the fake LSP) but the sticky state should add a warning.
+    const r = await codeIntelReferences({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, waitForReadyMs: 500, spawn: fakeProgressSpawn });
+    expect(r.evidence.previouslyDegraded).toBe('cold_index');
+    expect(r.evidence.warnings.some(w => w.includes('cold_index'))).toBe(true);
+    // After this ready+exhaustive result, sticky state should be cleared
+    expect(session.referencesStickyDegraded).toBeNull();
+  });
+});
+
 describe('code_intel_symbols (live)', () => {
   it('returns document symbol outline', async () => {
     const repo = tmpRepo();
