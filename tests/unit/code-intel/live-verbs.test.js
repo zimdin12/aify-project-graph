@@ -68,7 +68,13 @@ describe('code_intel_references (live)', () => {
     const r = await codeIntelReferences({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, waitForReadyMs: 500, spawn: fakeProgressSpawn });
     expect(r.status).toBe('ok');
     expect(r.freshness).toBe('fresh');
-    expect(r.telemetry).toMatchObject({ operation: 'references', references: 1, warmedFiles: 1 });
+    // Plan #14 Step B: auto-prewarm fires on cold cpp sessions when caller
+    // didn't pass warmupFiles[]. tmpRepo has 3 .cpp siblings in src/, so
+    // warmedFiles = queried + 2 prewarmed = 3.
+    expect(r.telemetry).toMatchObject({ operation: 'references', references: 1, warmedFiles: 3 });
+    expect(r.telemetry.prewarmFiles.length).toBeGreaterThanOrEqual(2);
+    expect(r.telemetry.prewarmCap).toBe(15);
+    expect(r.telemetry.prewarmSource).toMatch(/^(compile_db|fs_siblings|mixed)$/);
     expect(r.result_state).toBe('found');
     expect(r.references[0].file).toMatch(/bar\.cpp/);
     expect(r.references[0].provenance).toBe('clangd@live');
@@ -228,6 +234,78 @@ describe('Plan #14 evidence contract — splitDefinitionFromReferences', () => {
     const { callsiteLocations, definitionLocations } = splitDefinitionFromReferences(refs, []);
     expect(callsiteLocations.length).toBe(1);
     expect(definitionLocations.length).toBe(0);
+  });
+});
+
+// Plan #14 Step B: cold freshness state + bounded cpp prewarm.
+describe('Plan #14 Step B — cold freshness + cpp prewarm', () => {
+  it('selectCppPrewarmFiles returns same-dir siblings, capped, excluding queried file', async () => {
+    // Direct unit test of the picker — independent of LSP fixtures.
+    const { selectCppPrewarmFiles, DEFAULT_PREWARM_CAP } = await import('../../../mcp/stdio/code-intel/prewarm/cpp.js');
+    const repo = tmpRepo();
+    const result = selectCppPrewarmFiles({ projectRoot: repo, queriedFile: 'src/foo.cpp' });
+    expect(result.files).not.toContain('src/foo.cpp'); // queried file excluded
+    expect(result.files.length).toBeGreaterThanOrEqual(2); // bar.cpp + bad.cpp at least
+    expect(result.files.every(f => f.startsWith('src/'))).toBe(true);
+    expect(result.stats.cap).toBe(DEFAULT_PREWARM_CAP);
+    expect(result.stats.source).toMatch(/fs_siblings|compile_db|mixed/);
+  });
+
+  it('APG_DISABLE_PREWARM=1 returns empty + source:none', async () => {
+    const { selectCppPrewarmFiles } = await import('../../../mcp/stdio/code-intel/prewarm/cpp.js');
+    const repo = tmpRepo();
+    const result = selectCppPrewarmFiles({ projectRoot: repo, queriedFile: 'src/foo.cpp', env: { APG_DISABLE_PREWARM: '1' } });
+    expect(result.files).toEqual([]);
+    expect(result.stats.source).toBe('none');
+  });
+
+  it('cap clipping reports skipped:true', async () => {
+    const { selectCppPrewarmFiles } = await import('../../../mcp/stdio/code-intel/prewarm/cpp.js');
+    const repo = tmpRepo();
+    // Create a bunch of siblings to exceed a tiny cap
+    fs.writeFileSync(path.join(repo, 'src', 'a.cpp'), '');
+    fs.writeFileSync(path.join(repo, 'src', 'b.cpp'), '');
+    fs.writeFileSync(path.join(repo, 'src', 'c.cpp'), '');
+    const result = selectCppPrewarmFiles({ projectRoot: repo, queriedFile: 'src/foo.cpp', cap: 2 });
+    expect(result.files.length).toBe(2);
+    expect(result.stats.skipped).toBe(true);
+  });
+
+  it('compile_commands.json same-dir siblings are picked', async () => {
+    const { selectCppPrewarmFiles } = await import('../../../mcp/stdio/code-intel/prewarm/cpp.js');
+    const repo = tmpRepo();
+    fs.writeFileSync(path.join(repo, 'compile_commands.json'), JSON.stringify([
+      { directory: repo, file: 'src/foo.cpp', command: 'clang++ -c src/foo.cpp' },
+      { directory: repo, file: 'src/bar.cpp', command: 'clang++ -c src/bar.cpp' }
+    ]));
+    const result = selectCppPrewarmFiles({ projectRoot: repo, queriedFile: 'src/foo.cpp' });
+    expect(result.files).toContain('src/bar.cpp');
+    expect(result.stats.source).toMatch(/compile_db|mixed/);
+  });
+
+  it('navigationFreshness returns cold when no workspace files opened', async () => {
+    const { LspClient } = await import('../../../mcp/stdio/code-intel/lsp-client.js');
+    const c = new LspClient({ command: process.execPath, args: ['-e', ''] });
+    // Direct state assertion — no didOpen called → workspaceWarmCount=0
+    expect(c.workspaceWarmCount).toBe(0);
+    expect(c.navigationFreshness()).toBe('cold');
+  });
+
+  it('navigationFreshness returns fresh only after didOpen + ready signal', async () => {
+    const { LspClient } = await import('../../../mcp/stdio/code-intel/lsp-client.js');
+    const c = new LspClient({ command: process.execPath, args: ['-e', ''] });
+    c.workspaceWarmCount = 1;
+    c.indexingState = 'ready';
+    expect(c.navigationFreshness()).toBe('fresh');
+    c.workspaceWarmCount = 0;
+    expect(c.navigationFreshness()).toBe('cold');
+  });
+
+  it('caller warmupFiles[] disables auto-prewarm (caller_provided source)', async () => {
+    const repo = tmpRepo();
+    const r = await codeIntelReferences({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, warmupFiles: ['src/bar.cpp'], waitForReadyMs: 500, spawn: fakeProgressSpawn });
+    expect(r.telemetry.prewarmSource).toBe('caller_provided');
+    expect(r.telemetry.prewarmFiles).toEqual([]);
   });
 });
 

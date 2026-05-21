@@ -11,6 +11,7 @@ import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
+import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 
 const HINTS = {
   language_unsupported: 'no live LSP session registered for this language; supported: cpp',
@@ -178,6 +179,30 @@ async function openIfNeeded(session, file) {
   return uri;
 }
 
+// Plan #14 Step B: bounded auto-prewarm for cold navigation sessions.
+// Only fires when the session is cold (no workspace files opened yet)
+// AND the caller didn't pass an explicit warmupFiles[] list. Honors
+// APG_DISABLE_PREWARM=1. Returns { addedFiles[], stats } for telemetry.
+function planAutoPrewarm(session, queriedFile, callerWarmupFiles, prewarmCap) {
+  // Caller knew best — skip auto-prewarm.
+  if (Array.isArray(callerWarmupFiles) && callerWarmupFiles.length > 0) {
+    return { addedFiles: [], stats: { cap: prewarmCap ?? null, skipped: false, source: 'caller_provided' } };
+  }
+  // Already warm — no need to prewarm.
+  if (session.client.workspaceWarmCount > 0) {
+    return { addedFiles: [], stats: { cap: prewarmCap ?? null, skipped: false, source: 'already_warm' } };
+  }
+  if (session.language !== 'cpp') {
+    return { addedFiles: [], stats: { cap: prewarmCap ?? null, skipped: false, source: 'unsupported_language' } };
+  }
+  const result = selectCppPrewarmFiles({
+    projectRoot: session.projectRoot,
+    queriedFile,
+    cap: prewarmCap
+  });
+  return { addedFiles: result.files, stats: result.stats };
+}
+
 async function batchWarmup(session, files, warmupMs) {
   // Open every requested file before collection — closes the transient
   // unresolved-symbol noise window on newly added cross-file symbols.
@@ -262,16 +287,20 @@ export async function codeIntelDiagnostics({ repoRoot, language = 'cpp', files =
  *  Cross-file refs require clangd to have indexed candidate callers. Pass
  *  `warmupFiles[]` (e.g. ['src/foo.cpp', 'src/bar.cpp', 'src/foo.h']) when
  *  background-index is disabled and you need clangd to consider those files. */
-export async function codeIntelReferences({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, waitForReadyMs = 0, spawn }) {
+export async function codeIntelReferences({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
 
-  // Always include the queried file in the warmup batch. Open warmup files
-  // first so clangd has them in working memory before the references query.
-  const batch = [file, ...(Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [])];
+  // Plan #14 Step B: auto-prewarm bounded set when session is cold and
+  // caller didn't pass warmupFiles[]. Bounded to ≤ prewarmCap (default 15)
+  // per senior-dev review — same-dir + compile_commands siblings only,
+  // no whole-component sweep.
+  const prewarm = planAutoPrewarm(session, file, warmupFiles, prewarmCap);
+  const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
+  const batch = [file, ...callerProvided, ...prewarm.addedFiles.filter(f => f !== file && !callerProvided.includes(f))];
   await batchWarmup(session, batch, warmupMs);
   const freshness = await waitForReady(session, waitForReadyMs);
 
@@ -314,18 +343,25 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
     referenceLocations: callsiteLocations, // non-declaration callsites
     definitionLocations,                   // declaration entries pulled out of refs
     evidence,                              // Plan #14 contract — read this for absence claims
-    telemetry: { operation: 'references', references: allRefs.length, callsites: callsiteLocations.length, definitions: definitionLocations.length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
+    telemetry: {
+      operation: 'references', references: allRefs.length, callsites: callsiteLocations.length,
+      definitions: definitionLocations.length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness,
+      prewarmFiles: prewarm.addedFiles, prewarmCap: prewarm.stats.cap,
+      prewarmSkipped: prewarm.stats.skipped, prewarmSource: prewarm.stats.source
+    }
   });
 }
 
 /** Definitions for a symbol at a position. Pass warmupFiles[] for cross-TU resolution. */
-export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, waitForReadyMs = 0, spawn }) {
+export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
-  const batch = [file, ...(Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [])];
+  const prewarm = planAutoPrewarm(session, file, warmupFiles, prewarmCap);
+  const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
+  const batch = [file, ...callerProvided, ...prewarm.addedFiles.filter(f => f !== file && !callerProvided.includes(f))];
   await batchWarmup(session, batch, warmupMs);
   const freshness = await waitForReady(session, waitForReadyMs);
   const uri = await openIfNeeded(session, file);
@@ -340,18 +376,25 @@ export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, l
     warmedFiles: batch.length,
     definitions,
     evidence,  // Plan #14 contract — exhaustive:true means trustworthy "this is THE definition"
-    telemetry: { operation: 'definitions', definitions: definitions.length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
+    telemetry: {
+      operation: 'definitions', definitions: definitions.length, warmedFiles: batch.length,
+      latencyMs: latencyMs(startedAt), freshness,
+      prewarmFiles: prewarm.addedFiles, prewarmCap: prewarm.stats.cap,
+      prewarmSkipped: prewarm.stats.skipped, prewarmSource: prewarm.stats.source
+    }
   });
 }
 
 /** Hover (type + docstring) at a position. Pass warmupFiles[] when the symbol is declared in another TU. */
-export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, waitForReadyMs = 0, spawn }) {
+export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
   let session;
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
-  const batch = [file, ...(Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [])];
+  const prewarm = planAutoPrewarm(session, file, warmupFiles, prewarmCap);
+  const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
+  const batch = [file, ...callerProvided, ...prewarm.addedFiles.filter(f => f !== file && !callerProvided.includes(f))];
   await batchWarmup(session, batch, warmupMs);
   const freshness = await waitForReady(session, waitForReadyMs);
   const uri = await openIfNeeded(session, file);

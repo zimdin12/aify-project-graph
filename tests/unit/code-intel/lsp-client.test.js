@@ -64,6 +64,11 @@ describe('LspClient (against fake server)', () => {
       rootUri: 'file:///r'
     });
     await client.start();
+    // Plan #14 Step B: 'fresh' requires both ready signal AND workspace
+    // warm. Before any didOpen, the client is 'cold' even when the LSP
+    // has emitted progress=ready — there's no workspace to be ready ON.
+    expect(client.navigationFreshness()).toBe('cold');
+    await client.didOpen('file:///r/src/foo.cpp', 'cpp', 'void foo(int) {}');
     const freshness = await client.waitForReady(500);
     expect(freshness).toBe('fresh');
     expect(client.navigationFreshness()).toBe('fresh');

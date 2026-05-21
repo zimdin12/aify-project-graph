@@ -21,6 +21,11 @@ export class LspClient extends EventEmitter {
     this.readyWaiters = new Set();
     this.progressTokens = new Set();
     this.indexingState = 'unknown';
+    // Plan #14 Step B: workspace-warm evidence counter. Distinguishes
+    // 'cold' (zero files opened in this session — no readiness possible)
+    // from 'unknown' (older adapter can't classify) and from 'fresh'
+    // (warmed + ready signal). Increments per successful didOpen.
+    this.workspaceWarmCount = 0;
     this.started = false;
   }
 
@@ -68,6 +73,7 @@ export class LspClient extends EventEmitter {
   }
 
   async didOpen(uri, languageId, text, version = 1) {
+    this.workspaceWarmCount += 1;
     return this._notify('textDocument/didOpen', {
       textDocument: { uri, languageId, version, text }
     });
@@ -175,8 +181,13 @@ export class LspClient extends EventEmitter {
   }
 
   navigationFreshness() {
-    if (this.indexingState === 'ready') return 'fresh';
+    // Plan #14 Step B: 4-state model. `cold` is explicit "no workspace
+    // file has been opened in this session yet" — distinct from `unknown`
+    // (server hasn't emitted a readiness signal we could classify).
+    // `fresh` requires BOTH ready-signal AND actual workspace warm.
     if (this.indexingState === 'indexing') return 'stale';
+    if (this.workspaceWarmCount === 0) return 'cold';
+    if (this.indexingState === 'ready') return 'fresh';
     return 'unknown';
   }
 
