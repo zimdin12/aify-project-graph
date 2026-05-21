@@ -58,6 +58,99 @@ function isLowConfidenceFreshness(freshness) {
   return freshness === 'stale' || freshness === 'timeout';
 }
 
+// Plan #14 Step A: references evidence contract. Mirrors agent-code-intel
+// 0.1.21's load-bearing primitive — only `evidence.exhaustive === true`
+// is a safe signal that empty/short results justify an absence claim
+// ("no callers", "dead code"). Structured causes let agents recover
+// (their `fallback` field) instead of guessing.
+//
+// noValueAdded is kept as a one-release compat shim so existing callers
+// don't break in lockstep; new code MUST read `evidence.exhaustive`.
+//
+// Cause enum (semantics tight per senior-dev review):
+//   cold_index       — no workspace-warm evidence yet (or freshness=cold/unknown w/ empty)
+//   timeout          — server didn't respond within bound
+//   unsupported      — no LSP / language unsupported / capability missing
+//   definition_only  — refs returned only contain the symbol's declaration, no callsites
+//   stale_index      — index reported stale during request
+//   unknown          — adapter could not classify (old freshness signal)
+function locationKey(file, range) {
+  if (!file || !range) return '';
+  return `${file}:${range.start?.line}:${range.start?.col}-${range.end?.line}:${range.end?.col}`;
+}
+
+export function splitDefinitionFromReferences(refs, defs) {
+  // Build a set of (file, range) keys for the symbol's definitions so we
+  // can subtract them from the references list. clangd/LSP often include
+  // the declaration in references results.
+  const defKeys = new Set();
+  for (const d of (defs || [])) {
+    if (d?.file && d?.range) defKeys.add(locationKey(d.file, d.range));
+  }
+  const callsiteLocations = [];
+  const definitionLocations = [];
+  for (const r of refs) {
+    if (defKeys.has(locationKey(r.file, r.range))) definitionLocations.push(r);
+    else callsiteLocations.push(r);
+  }
+  return { callsiteLocations, definitionLocations };
+}
+
+export function buildReferencesEvidence({ freshness, callsiteCount, defCount, resultState }) {
+  const warnings = [];
+  // Exhaustive requires: ready (fresh), at least one callsite OR an
+  // honest empty in a freshly-warmed context, and no degraded cause.
+  if (freshness === 'fresh' && callsiteCount > 0) {
+    return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings };
+  }
+  if (freshness === 'fresh' && callsiteCount === 0 && defCount > 0) {
+    warnings.push('definition-only references are not safe evidence of no callers');
+    return {
+      ready: true, degraded: true, cause: 'definition_only', confidence: 'low',
+      exhaustive: false, fallback: 'pass warmupFiles[] of likely callers and retry; fall back to grep for low-confidence sweep', warnings
+    };
+  }
+  if (freshness === 'stale') {
+    return {
+      ready: false, degraded: true, cause: 'stale_index', confidence: 'low',
+      exhaustive: false, fallback: 'wait_for_ready (raise waitForReadyMs), retry; treat absence as unsafe', warnings
+    };
+  }
+  if (freshness === 'timeout') {
+    return {
+      ready: false, degraded: true, cause: 'timeout', confidence: 'low',
+      exhaustive: false, fallback: 'raise waitForReadyMs / retry; absence not safe', warnings
+    };
+  }
+  if (freshness === 'cold' || (freshness === 'unknown' && callsiteCount === 0)) {
+    return {
+      ready: false, degraded: true, cause: 'cold_index', confidence: 'low',
+      exhaustive: false, fallback: 'pass warmupFiles[] (callers + headers), or wait_for_ready, then retry; absence not safe until evidence.ready=true', warnings
+    };
+  }
+  // freshness='unknown' with callsites — server gave us data, just no readiness signal
+  return {
+    ready: false, degraded: false, cause: 'unknown', confidence: 'medium',
+    exhaustive: false, fallback: 'absence claims unsafe without readiness signal; result is otherwise usable', warnings
+  };
+}
+
+export function buildDefinitionsEvidence({ freshness, defCount }) {
+  if (freshness === 'fresh' && defCount > 0) {
+    return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings: [] };
+  }
+  if (freshness === 'stale') return { ready: false, degraded: true, cause: 'stale_index', confidence: 'low', exhaustive: false, fallback: 'wait_for_ready then retry', warnings: [] };
+  if (freshness === 'timeout') return { ready: false, degraded: true, cause: 'timeout', confidence: 'low', exhaustive: false, fallback: 'raise waitForReadyMs / retry', warnings: [] };
+  if (freshness === 'cold' || (freshness === 'unknown' && defCount === 0)) {
+    return { ready: false, degraded: true, cause: 'cold_index', confidence: 'low', exhaustive: false, fallback: 'pass warmupFiles[] (declaring TU + headers), or wait_for_ready, then retry', warnings: [] };
+  }
+  return { ready: false, degraded: false, cause: 'unknown', confidence: 'medium', exhaustive: false, fallback: 'usable result; readiness signal missing', warnings: [] };
+}
+
+// Compat shim: noValueAdded was the Plan #11 single-bit signal. Keep
+// emitting it for one release so existing callers don't break in
+// lockstep; new code MUST read `evidence.exhaustive`. Removed in a
+// follow-up after consumers migrate.
 function markNoValueAdded(result) {
   if (result.status !== 'ok') return result;
   if (!isLowConfidenceFreshness(result.freshness)) return result;
@@ -191,13 +284,37 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
     refs = (await session.client.references(uri, pos)) || [];
     resultState = refs.length > 0 ? 'found' : 'not_found_after_retry';
   }
+
+  // Plan #14 Step A: paired definition lookup so we can split callsites
+  // from declaration entries (defensive — clangd under includeDeclaration:
+  // false should already exclude the decl, but some servers don't honor
+  // that flag). Result lets agents distinguish "no callers at all" from
+  // "only the definition came back" — the latter is degraded.
+  let defLocations = [];
+  try {
+    const defs = await session.client.definition(uri, pos);
+    const defList = Array.isArray(defs) ? defs : (defs ? [defs] : []);
+    defLocations = defList
+      .filter(d => d?.uri)
+      .map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range) }));
+  } catch { /* definition lookup is best-effort; absence shouldn't fail refs */ }
+
+  const allRefs = refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' }));
+  const { callsiteLocations, definitionLocations } = splitDefinitionFromReferences(allRefs, defLocations);
+  const evidence = buildReferencesEvidence({
+    freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState
+  });
+
   return markNoValueAdded({
     status: 'ok',
     freshness,
     result_state: resultState,
     warmedFiles: batch.length,
-    references: refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' })),
-    telemetry: { operation: 'references', references: refs.length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
+    references: allRefs,                  // compat: full LSP-shape array
+    referenceLocations: callsiteLocations, // non-declaration callsites
+    definitionLocations,                   // declaration entries pulled out of refs
+    evidence,                              // Plan #14 contract — read this for absence claims
+    telemetry: { operation: 'references', references: allRefs.length, callsites: callsiteLocations.length, definitions: definitionLocations.length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
   });
 }
 
@@ -215,12 +332,15 @@ export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, l
   const pos = { line: line - 1, character: (col || 1) - 1 };
   const defs = await session.client.definition(uri, pos);
   const list = Array.isArray(defs) ? defs : (defs ? [defs] : []);
+  const definitions = list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: 'clangd@live', confidence: 'high' }));
+  const evidence = buildDefinitionsEvidence({ freshness, defCount: definitions.length });
   return markNoValueAdded({
     status: 'ok',
     freshness,
     warmedFiles: batch.length,
-    definitions: list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: 'clangd@live', confidence: 'high' })),
-    telemetry: { operation: 'definitions', definitions: list.filter(d => d?.uri).length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
+    definitions,
+    evidence,  // Plan #14 contract — exhaustive:true means trustworthy "this is THE definition"
+    telemetry: { operation: 'definitions', definitions: definitions.length, warmedFiles: batch.length, latencyMs: latencyMs(startedAt), freshness }
   });
 }
 

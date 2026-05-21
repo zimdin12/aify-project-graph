@@ -107,7 +107,7 @@ const TOOLS = [
   {
     name: 'code_intel_references',
     handler: codeIntelReferences,
-    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, freshness, result_state, warmedFiles, references:[{file,range,provenance,confidence}], telemetry, noValueAdded?}. result_state distinguishes found / not_found_after_retry. Pass warmupFiles[] (known related files: callers, headers) when background-index is disabled and cross-TU resolution is needed. Use to answer "who calls this?" without grep.',
+    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, freshness, result_state, warmedFiles, references[] (compat, full LSP shape), referenceLocations[] (non-declaration callsites only), definitionLocations[] (declaration entries split out), evidence:{ready,degraded,cause,confidence,fallback,exhaustive,warnings}, telemetry, noValueAdded? (deprecated compat shim)}. CONTRACT: trust absence claims ("no callers", "dead code") ONLY when evidence.exhaustive===true. Degraded causes: cold_index|timeout|unsupported|definition_only|stale_index|unknown — read evidence.fallback for the recovery action. Pass warmupFiles[] (known callers, headers) when background-index is disabled and cross-TU resolution is needed.',
     schema: {
       type: 'object',
       properties: {
@@ -125,7 +125,7 @@ const TOOLS = [
   {
     name: 'code_intel_definitions',
     handler: codeIntelDefinitions,
-    description: 'Live definitions across TUs for a symbol at a position. Pass warmupFiles[] when the definition lives in a TU clangd has not seen yet (background-index disabled). Returns {status, freshness, warmedFiles, definitions:[{file,range,provenance,confidence}], telemetry, noValueAdded?}.',
+    description: 'Live definitions across TUs for a symbol at a position. Pass warmupFiles[] when the definition lives in a TU clangd has not seen yet (background-index disabled). Returns {status, freshness, warmedFiles, definitions[], evidence:{ready,degraded,cause,confidence,fallback,exhaustive,warnings}, telemetry, noValueAdded? (deprecated compat shim)}. CONTRACT: evidence.exhaustive===true means this is THE definition (no degraded cause masking a missing one). Degraded causes: cold_index|timeout|stale_index|unknown.',
     schema: {
       type: 'object',
       properties: {
