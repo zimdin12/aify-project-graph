@@ -20,13 +20,18 @@
           "install_doc": "install.hermes.md",
           "toolset": "lean",
           "notes": "MCP-capable Hermes agent runtime. Install doc gives both an mcp-CLI form and a JSON-config fallback; the MCP server stanza is runtime-agnostic."
+        },
+        "cursor": {
+          "install_doc": "install.cursor.md",
+          "toolset": "lean",
+          "notes": "Cursor IDE MCP integration. Install writes ~/.cursor/mcp.json + optional .cursor/rules/aify-graph.mdc. Plan #17 E mirror of codegraph's cursor support."
         }
       },
       "entrypoint": "mcp/stdio/server.js",
       "capabilities": ["mcp", "project-graph", "static-briefs", "task-feature-overlays", "graph-packet", "dashboard", "optional-code-intel"],
       "uninstall": {
         "derived_paths": [".aify-graph"],
-        "runtime_configs": ["~/.claude.json", "~/.codex/mcp.json", "${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json", "${XDG_CONFIG_HOME:-~/.config}/hermes/hermes.json"]
+        "runtime_configs": ["~/.claude.json", "~/.codex/mcp.json", "${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json", "${XDG_CONFIG_HOME:-~/.config}/hermes/hermes.json", "~/.cursor/mcp.json"]
       }
     }
   ]

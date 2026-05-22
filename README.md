@@ -50,6 +50,12 @@ Read install.pi.md from https://github.com/zimdin12/aify-project-graph and insta
 Read install.hermes.md from https://github.com/zimdin12/aify-project-graph and install it for my environment. I will restart Hermes when you're done.
 ```
 
+**Copy this into Cursor:**
+
+```
+Read install.cursor.md from https://github.com/zimdin12/aify-project-graph and install it for my Cursor environment. I will restart Cursor when you're done.
+```
+
 That's the entire install. The agent clones the repo to a pinned path (`~/.claude/plugins/aify-project-graph`, `~/.codex/plugins/aify-project-graph`, `~/.config/opencode/plugins/aify-project-graph`, or `~/.local/share/aify/plugins/aify-project-graph` depending on runtime), registers the MCP server via the runtime's CLI/config, copies skills where supported, and tells you when to restart. Takes 2-3 minutes.
 
 **WSL + native Windows:** if you run Claude Code on Windows and Codex/OpenCode in WSL, install the tool **separately in each environment** — `better-sqlite3` is a native module and the compiled binary must match the runtime (Windows `.node` ≠ Linux `.so`). The install docs pin each runtime to its own filesystem path, so the two clones don't collide.
@@ -233,6 +239,7 @@ Under the hood each install doc does the same thing:
    - OpenCode: `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph`
    - oh-my-pi / Pi-Linux: `~/.local/share/aify/plugins/aify-project-graph`
    - Hermes: `${XDG_CONFIG_HOME:-~/.config}/hermes/plugins/aify-project-graph`
+   - Cursor: `~/.cursor/plugins/aify-project-graph`
 2. Runs `npm install && npm test` (the full suite should pass; the exact count changes as coverage grows)
 3. Registers the MCP server via the runtime's native CLI or config
    - Claude Code: `claude mcp add aify-project-graph --scope user -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js` (writes to `~/.claude.json` — the CLI-managed location, not `~/.claude/settings.json`)
@@ -240,6 +247,7 @@ Under the hood each install doc does the same thing:
    - OpenCode: JSON-patch `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json` → `mcp.aify-project-graph`
    - oh-my-pi / Pi-Linux: native CLI or OpenCode-style JSON patch (see `install.pi.md`)
    - Hermes: `hermes mcp add` CLI form, or JSON-patch `${XDG_CONFIG_HOME:-~/.config}/hermes/hermes.json` → `mcpServers.aify-project-graph` (server stanza is runtime-agnostic)
+   - Cursor: JSON-patch `~/.cursor/mcp.json` → `mcpServers.aify-project-graph` + optional `.cursor/rules/aify-graph.mdc`
 4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`; Hermes: `integrations/hermes/skill{,s}/` → `~/.config/hermes/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
 5. User restarts the runtime
 
@@ -249,7 +257,7 @@ Under the hood each install doc does the same thing:
 
 **Platform note.** `better-sqlite3` is a native module. If the same clone is shared across Windows and WSL, the binary flips platforms — but the MCP server has a **native-module preflight** that detects this on startup and auto-runs `npm rebuild better-sqlite3` once before accepting tool calls. You'll see one line on stderr when it triggers. Manual intervention only if auto-rebuild itself fails (e.g. missing compiler). `8192` MB Node heap suits 16 GB+ machines; `4096` is fine on 8 GB.
 
-For the full step-by-step per runtime see [`install.claude.md`](install.claude.md), [`install.codex.md`](install.codex.md), [`install.opencode.md`](install.opencode.md), [`install.pi.md`](install.pi.md) (oh-my-pi), [`install.hermes.md`](install.hermes.md). They are agent-executable — paste the "Install in one paste" prompt above and the agent follows them.
+For the full step-by-step per runtime see [`install.claude.md`](install.claude.md), [`install.codex.md`](install.codex.md), [`install.opencode.md`](install.opencode.md), [`install.pi.md`](install.pi.md) (oh-my-pi), [`install.hermes.md`](install.hermes.md), [`install.cursor.md`](install.cursor.md). They are agent-executable — paste the "Install in one paste" prompt above and the agent follows them.
 
 Marketplace metadata lives in `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.agents/plugins/marketplace.json`. Validate packaging with `npm run validate:marketplace`.
 
