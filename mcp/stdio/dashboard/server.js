@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
+import { searchNodesFts } from '../storage/nodes.js';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const DASHBOARD_NODE_LIMIT = 25000;
@@ -344,14 +345,12 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     if (req.url?.startsWith('/api/search?')) {
       const url = new URL(req.url, `http://localhost`);
       const rawQ = (url.searchParams.get('q') || '').slice(0, 100);
-      // Escape SQL LIKE wildcards (% _) so a query like "%a%a%a%" can't
-      // trigger O(n²) pattern matching on the full nodes table. Server is
-      // bound to 127.0.0.1 only but defense-in-depth is cheap here.
-      const q = rawQ.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-      const results = db.all(
-        "SELECT * FROM nodes WHERE label LIKE $q ESCAPE '\\' LIMIT 20",
-        { q: `%${q}%` }
-      );
+      // Plan #17 A: FTS5-backed search. searchNodesFts() escapes special
+      // chars, prefix-matches each token, and falls back to SQL LIKE if
+      // FTS5 is unavailable. Server is bound to 127.0.0.1 only; the cap
+      // at 100 chars + 8 token slice in the helper protects against
+      // pathological inputs.
+      const results = searchNodesFts(db, rawQ, 20);
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
       res.end(JSON.stringify(results));
       return;

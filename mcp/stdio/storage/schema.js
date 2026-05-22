@@ -63,6 +63,47 @@ export function createSchema(db) {
 
   ensureCodeIntelRecordsTable(db);
   ensureCodeIntelCollectionsTable(db);
+  ensureNodesFtsTable(db);
+}
+
+// Plan #17 A: FTS5 full-text index over node labels. Mirrors codegraph's
+// db/queries.ts FTS5 prefix-match approach. Kept in sync with `nodes` via
+// triggers so every UPSERT/DELETE on nodes updates the FTS index too.
+//
+// Contentless table (`content=''` is omitted intentionally — we use a
+// regular FTS5 table because content-rowid linkage to a non-INTEGER
+// PRIMARY KEY would need extra plumbing). The `id` column is unindexed
+// and round-trips the node primary key for join-back to `nodes`.
+const NODES_FTS_SQL = `
+  CREATE VIRTUAL TABLE IF NOT EXISTS nodes_fts USING fts5(
+    id UNINDEXED,
+    label,
+    tokenize = 'unicode61 remove_diacritics 2'
+  );
+
+  CREATE TRIGGER IF NOT EXISTS nodes_fts_after_insert AFTER INSERT ON nodes BEGIN
+    INSERT INTO nodes_fts (id, label) VALUES (new.id, new.label);
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS nodes_fts_after_delete AFTER DELETE ON nodes BEGIN
+    DELETE FROM nodes_fts WHERE id = old.id;
+  END;
+
+  CREATE TRIGGER IF NOT EXISTS nodes_fts_after_update AFTER UPDATE OF label ON nodes BEGIN
+    DELETE FROM nodes_fts WHERE id = old.id;
+    INSERT INTO nodes_fts (id, label) VALUES (new.id, new.label);
+  END;
+`;
+
+export function ensureNodesFtsTable(db) {
+  db.exec(NODES_FTS_SQL);
+  // Backfill on first creation for existing rows. Cheap idempotent op:
+  // INSERT … SELECT only writes rows whose id isn't already in nodes_fts.
+  db.exec(`
+    INSERT INTO nodes_fts (id, label)
+    SELECT id, label FROM nodes
+    WHERE id NOT IN (SELECT id FROM nodes_fts);
+  `);
 }
 
 const CODE_INTEL_RECORDS_TABLE_SQL = `

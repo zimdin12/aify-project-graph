@@ -51,6 +51,43 @@ export function findNodesByLabel(db, label, limit = 10) {
   return db.all('SELECT * FROM nodes WHERE label = $label LIMIT $limit', { label, limit });
 }
 
+// Plan #17 A: FTS5 full-text search over node labels. Replaces SQL LIKE
+// for `/api/search` + brief discovery. Approach mirrors codegraph's
+// db/queries.ts: escape FTS5 special chars, add trailing wildcard for
+// prefix matching, fall back to LIKE on any failure.
+//
+// Returns nodes ranked by FTS5 bm25 (smaller fts_rank = more relevant).
+export function searchNodesFts(db, query, limit = 20) {
+  const trimmed = String(query || '').trim();
+  if (!trimmed) return [];
+
+  // Escape FTS5 metacharacters by quoting each token, then add prefix
+  // wildcard so partial matches work ("auth" matches "authenticate").
+  // Whitespace-separated tokens behave as AND (FTS5 default).
+  const tokens = trimmed.split(/\s+/u).filter(Boolean).slice(0, 8);
+  if (tokens.length === 0) return [];
+  const ftsQuery = tokens.map((t) => `"${t.replace(/"/g, '""')}"*`).join(' ');
+
+  try {
+    return db.all(`
+      SELECT n.*, fts.rank AS fts_rank
+      FROM nodes_fts AS fts
+      JOIN nodes AS n ON n.id = fts.id
+      WHERE nodes_fts MATCH $q
+      ORDER BY fts.rank
+      LIMIT $limit
+    `, { q: ftsQuery, limit });
+  } catch {
+    // FTS5 unavailable / query parse failed — fall back to LIKE so the
+    // caller never sees a hard error on older SQLite builds.
+    const like = `%${trimmed.replace(/[\\%_]/g, (ch) => `\\${ch}`)}%`;
+    return db.all(
+      "SELECT * FROM nodes WHERE label LIKE $q ESCAPE '\\' LIMIT $limit",
+      { q: like, limit }
+    );
+  }
+}
+
 export function countNodes(db) {
   return db.get('SELECT count(*) AS count FROM nodes').count;
 }
