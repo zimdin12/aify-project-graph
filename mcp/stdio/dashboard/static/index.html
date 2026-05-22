@@ -55,6 +55,7 @@
     #node-detail .edge-item { padding: 6px 8px; border: 1px solid #21262d; border-radius: 6px; background: #0d1117; cursor: pointer; }
     #node-detail .edge-item:hover { color: #58a6ff; border-color: #58a6ff; }
     #node-detail .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    #node-detail .tag-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #1f2937; border: 1px solid #30363d; color: #c9d1d9; font-size: 11px; }
     #node-detail .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid #30363d; border-radius: 999px; font-size: 11px; background: #0d1117; }
     #node-detail .code-block { margin-top: 6px; padding: 8px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; color: #8b949e; white-space: pre-wrap; word-break: break-word; }
     #node-detail .trust-meter { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
@@ -479,6 +480,50 @@
       return positions;
     }
 
+    function searchSemanticOverlay(query) {
+      // Plan #16 Step D: substring search across semantic summaries +
+      // tags. Returns the first matching file entry or null. Pure
+      // substring (case-insensitive); embedding-based ranking is a
+      // future-work item.
+      if (!intelligenceData?.semanticFiles?.files) return null;
+      const q = query.toLowerCase();
+      for (const f of intelligenceData.semanticFiles.files) {
+        if (f.summary && f.summary.toLowerCase().includes(q)) return f;
+        if (Array.isArray(f.tags) && f.tags.some(t => t.toLowerCase().includes(q))) return f;
+      }
+      return null;
+    }
+
+    function renderSemanticDetailBlock(filePath) {
+      // Plan #16 Step C: semantic enrichment from intelligence overlays.
+      // Renders an empty string when no semantic entry or no architecture
+      // assignment exists for this file — silent fallback to the existing
+      // node-detail panel.
+      if (!filePath) return '';
+      const sem = intelligenceFileByPath.get(filePath);
+      const arch = intelligenceLayerLabelFor(filePath);
+      if (!sem && !arch) return '';
+      const tagsHtml = sem?.tags?.length
+        ? sem.tags.map(t => `<span class="tag-pill">${t}</span>`).join(' ')
+        : '';
+      const archHtml = arch
+        ? `<div class="field"><span class="field-label">Layer:</span> ${arch.name} <span style="color:#6e7681;font-size:11px">(${arch.confidence}${arch.reason ? ' — ' + arch.reason : ''})</span></div>`
+        : '';
+      const semHtml = sem ? `
+        <div class="field"><span class="field-label">Purpose:</span> ${sem.summary}</div>
+        <div class="field"><span class="field-label">Kind:</span> ${sem.nodeType}${sem.entryPoint ? ' · entry-point' : ''}</div>
+        <div class="field"><span class="field-label">Complexity:</span> ${sem.complexity}</div>
+        ${tagsHtml ? `<div class="field"><span class="field-label">Tags:</span> ${tagsHtml}</div>` : ''}
+      ` : '';
+      return `
+        <div class="section-title">Intelligence</div>
+        <div class="detail-card">
+          ${semHtml}
+          ${archHtml}
+        </div>
+      `;
+    }
+
     function renderRolePanel(node, codeDetail = null) {
       const detail = document.getElementById('node-detail');
       const trust = trustSummary(node);
@@ -548,6 +593,9 @@
       }
 
       const n = codeDetail?.node || node;
+      // Plan #16 Step C: semantic detail block from intelligence overlays.
+      // Renders empty string when no overlay match for this file.
+      const semanticBlock = renderSemanticDetailBlock(n.file_path);
       detail.innerHTML = `
         <h3>${n.label}</h3>
         <div class="detail-card">
@@ -560,6 +608,7 @@
           </div>
           <div class="tag-list">${trust.badges.join('')}</div>
         </div>
+        ${semanticBlock}
         ${codeDetail ? `
           <div class="section-title">Incoming (${codeDetail.incoming.length})</div>
           <div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} from ${e.from_label} [${e.from_type}] (${renderLocation(e.from_file, e.from_line)})</div>`)}</div>
@@ -767,9 +816,13 @@
       container.innerHTML = '';
       const nodes = elements.filter(isNodeElement).map(e => ({
         ...e.data,
-        __color: e.data.layer && e.data.layer !== 'code'
-          ? LAYER_COLORS[e.data.layer]
-          : TYPE_COLORS[e.data.kind || e.data.type] || '#6e7681',
+        // Plan #16 Step B: architecture layer color wins for code-layer
+        // nodes when an intelligence overlay assigns them; fall through
+        // to overlay-layer color, then type color.
+        __color: intelligenceColorFor(e.data)
+          || (e.data.layer && e.data.layer !== 'code'
+            ? LAYER_COLORS[e.data.layer]
+            : TYPE_COLORS[e.data.kind || e.data.type] || '#6e7681'),
       }));
       const links = elements.filter(isEdgeElement).map(e => ({ ...e.data }));
       const positions = computePresetPositions(nodes, currentViewMode === 'force' ? 'community' : currentViewMode);
@@ -874,6 +927,10 @@
               'text-outline-color': '#0d1117',
               'text-outline-width': 1.5,
               'background-color': (ele) => {
+                // Plan #16 Step B: architecture layer color wins for
+                // code-layer nodes when intelligence overlay assigns them.
+                const archColor = intelligenceColorFor(ele.data());
+                if (archColor) return archColor;
                 const layer = ele.data('layer');
                 if (layer && layer !== 'code') return LAYER_COLORS[layer];
                 return TYPE_COLORS[ele.data('kind') || ele.data('type')] || '#6e7681';
@@ -960,11 +1017,59 @@
       }
     };
 
+    // Plan #16 Step A: intelligence overlays cache (semantic.files.json +
+    // architecture.json). Populated at init; silent null when overlays
+    // absent or invalid (server-side validators reject; client treats as
+    // no-op fallback). Consumed by Step B (layer colors), Step C (semantic
+    // detail panel), and Step D (extended search).
+    let intelligenceData = null;
+    const intelligenceLayerColorById = new Map();
+    const intelligenceLayerNameById = new Map();
+    const intelligenceFileByPath = new Map();
+
+    function applyIntelligence(intel) {
+      intelligenceData = intel;
+      intelligenceLayerColorById.clear();
+      intelligenceLayerNameById.clear();
+      intelligenceFileByPath.clear();
+      if (intel?.architecture?.layers) {
+        for (const layer of intel.architecture.layers) {
+          intelligenceLayerColorById.set(layer.id, layer.color);
+          intelligenceLayerNameById.set(layer.id, layer.name);
+        }
+      }
+      if (intel?.semanticFiles?.files) {
+        for (const f of intel.semanticFiles.files) intelligenceFileByPath.set(f.path, f);
+      }
+    }
+
+    function intelligenceColorFor(nodeData) {
+      // Only color code-layer nodes by architecture; leave overlay layers
+      // (feature/task/doc) and edge nodes to existing palette.
+      if (!intelligenceData?.architecture) return null;
+      if (nodeData?.layer && nodeData.layer !== 'code') return null;
+      const fp = nodeData?.file_path;
+      if (!fp) return null;
+      const asg = intelligenceData.architecture.assignments?.[fp];
+      if (!asg) return null;
+      return intelligenceLayerColorById.get(asg.layerId) || null;
+    }
+
+    function intelligenceLayerLabelFor(filePath) {
+      if (!intelligenceData?.architecture) return null;
+      const asg = intelligenceData.architecture.assignments?.[filePath];
+      if (!asg) return null;
+      const name = intelligenceLayerNameById.get(asg.layerId) || asg.layerId;
+      return { name, layerId: asg.layerId, confidence: asg.confidence, reason: asg.reason };
+    }
+
     async function init() {
-      const [graphData, stats] = await Promise.all([
+      const [graphData, stats, intel] = await Promise.all([
         fetch('/api/graph-multilayer').then(r => r.json()).catch(() => fetch('/api/graph').then(r => r.json())),
         fetch('/api/stats').then(r => r.json()),
+        fetch('/api/intelligence').then(r => r.json()).catch(() => ({ semanticFiles: null, architecture: null, layerSummary: [], warnings: [] })),
       ]);
+      applyIntelligence(intel);
       allData = graphData;
       document.getElementById('mode-label').textContent = is3DMode ? '3D mode' : '2D mode';
       document.getElementById('mode-link').href = is3DMode ? '/' : '/3d';
@@ -979,10 +1084,25 @@
       document.getElementById('search').addEventListener('input', async (e) => {
         const q = e.target.value.trim();
         if (q.length < 2) return;
-        const results = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
-        if (results.length > 0) {
-          const targetId = results[0].layer ? results[0].id : `code:${results[0].id}`;
+        // Plan #16 Step D: search across node labels AND semantic
+        // summaries/tags from the intelligence overlay. Label hits land
+        // first (most specific); semantic hits are appended as fallback
+        // when no node-label match exists. Pure substring matching;
+        // embedding-based semantic search is a future-work item.
+        const labelHits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
+        if (labelHits.length > 0) {
+          const targetId = labelHits[0].layer ? labelHits[0].id : `code:${labelHits[0].id}`;
           focusNode(targetId);
+          return;
+        }
+        const semHit = searchSemanticOverlay(q);
+        if (semHit) {
+          // Resolve semantic-hit file path → an actual graph node by
+          // file_path match. Prefer the file-kind node when present;
+          // otherwise pick any node whose file_path matches.
+          const candidate = allData.nodes.find(n => n.file_path === semHit.path && (n.kind === 'File' || n.type === 'File'))
+            || allData.nodes.find(n => n.file_path === semHit.path);
+          if (candidate) focusNode(candidate.id);
         }
       });
 

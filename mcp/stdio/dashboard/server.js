@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const DASHBOARD_NODE_LIMIT = 25000;
@@ -309,6 +310,24 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       const functionality = loadOverlayJson(repoRoot, 'functionality.json');
       const tasks = loadOverlayJson(repoRoot, 'tasks.json');
       writeJson({ functionality, tasks });
+      return;
+    }
+
+    // Plan #16 Step A: intelligence overlays (semantic.files.json +
+    // architecture.json). Both validated via Plan #15 A2 validators;
+    // returns null fields + warnings when overlays absent or invalid.
+    // Client uses this for layer color-grouping, semantic detail panel,
+    // and extended search.
+    if (req.url === '/api/intelligence') {
+      const functionalityOverlay = loadOverlayJson(repoRoot, 'functionality.json');
+      const intel = loadIntelligenceOverlays({ repoRoot, functionalityJson: functionalityOverlay });
+      writeJson({
+        semanticFiles: intel.semanticFiles,
+        architecture: intel.architecture,
+        layerSummary: summarizeArchitectureLayers(intel.architecture),
+        warnings: intel.warnings,
+        loadedFrom: intel.loadedFrom,
+      });
       return;
     }
 
