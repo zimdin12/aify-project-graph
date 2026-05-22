@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { graphStatus } from './query/verbs/status.js';
 import { graphIndex } from './query/verbs/index.js';
+import { graphWatch } from './query/verbs/watch.js';
 import { graphLookup } from './query/verbs/lookup.js';
 import { graphWhereis } from './query/verbs/whereis.js';
 import { graphCallers } from './query/verbs/callers.js';
@@ -56,6 +57,19 @@ const TOOLS = [
       properties: {
         force: { type: 'boolean', default: false, description: 'Full rebuild from scratch.' },
       },
+    },
+  },
+  {
+    name: 'graph_watch',
+    handler: graphWatch,
+    description: 'Native file watcher (FSEvents/inotify/ReadDirectoryChangesW) with debounced auto-reindex. enable=true starts; enable=false stops; omit to read current state. Edits coalesce into one trailing graph_index() call per debounce window (default 1500ms). WSL /mnt/* disabled by default. Returns {status, reason, running, debounceMs, lastRunAt, lastError, eventsQueued}. Explicit verb only — no auto-enable.',
+    schema: {
+      type: 'object',
+      properties: {
+        enable: { type: 'boolean', description: 'true to start, false to stop, omit to read current state.' },
+        debounceMs: { type: 'integer', minimum: 0, maximum: 30000, description: 'Override the default 1500ms debounce window for coalescing burst events into a single reindex.' },
+      },
+      additionalProperties: false,
     },
   },
   {
