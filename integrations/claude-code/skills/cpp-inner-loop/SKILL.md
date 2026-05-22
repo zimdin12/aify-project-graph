@@ -39,6 +39,8 @@ These claims are dangerous because text search has no exhaustiveness guarantee �
 
 If `evidence.exhaustive` is false, **do not** state "no callers" or "safe to delete." Read `evidence.cause` and `evidence.fallback` for the recovery action (pass `warmupFiles[]`, raise `waitForReadyMs`, fall back to grep, etc.). `previouslyDegraded` means the session was degraded earlier and may have under-reported in an earlier call — re-verify before acting.
 
+**Honest note (2026-05-22, real-clangd validation):** clangd running with `--background-index=false` (APG's default) does not emit readiness signals in many configurations, so `evidence.exhaustive === true` may NOT fire even when the answer is genuinely correct. The contract is most reliably enforceable in the **negative direction** (refuse confident absence claims when degraded). That refusal still prevents the most dangerous class of bug (confidently-wrong "dead code" report) — but expect to land on `evidence.degraded:true, cause:cold_index, exhaustive:false` more often than `exhaustive:true` on real repos today. Future work will surface real readiness via workspace-symbol round-trips or optional background-index for repos that can afford it.
+
 ## The loop
 
 1. **Orient** when you don't know the symbol shape of a file:
