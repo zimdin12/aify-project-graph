@@ -1,0 +1,115 @@
+{
+  "_comment": "Plan #14 Step C task spec for scripts/code-intel-microbench.mjs. Ground truth locked with graph-senior-dev against Sand Castle WSL clangd 18.1.3 (2026-05-22 to 2026-05-23). Edit projectRoot to your Sand Castle absolute path before running.",
+  "schema_version": "0.1",
+  "projectRoot": "/mnt/c/Users/Administrator/sand_castle",
+  "lockedAt": "2026-05-23",
+  "lockedAgainst": "Sand Castle @ WSL clangd 18.1.3",
+  "tasks": [
+    {
+      "id": "T1",
+      "shape": "absence-refusal",
+      "verb": "code_intel_references",
+      "purpose": "Tool MUST refuse the dead-code claim when index is not exhaustive. The contract-correctness test.",
+      "input": {
+        "file": "sim/fields/Gravity.cpp",
+        "line": 584,
+        "col": 34,
+        "symbol": "GravityFieldService::body_count"
+      },
+      "expect": {
+        "evidence.exhaustive": false,
+        "evidence.cause": ["cold_index", "unknown"],
+        "refusalRequired": true
+      }
+    },
+    {
+      "id": "T2",
+      "shape": "references-accuracy",
+      "verb": "code_intel_references",
+      "purpose": "References hit-list accuracy on a known 2-caller method.",
+      "input": {
+        "file": "sim/fields/Gravity.cpp",
+        "line": 719,
+        "col": 45,
+        "symbol": "GravityFieldService::step"
+      },
+      "expect": {
+        "referenceLocations": [
+          { "file": "sim/fields/Gravity.cpp", "startLine": 771, "startCol": 19 },
+          { "file": "sim/fields/Gravity.cpp", "startLine": 781, "startCol": 19 }
+        ],
+        "minCallsiteCount": 2
+      }
+    },
+    {
+      "id": "T3",
+      "shape": "multi-level-absence",
+      "verb": "code_intel_references",
+      "purpose": "Locked by senior-dev 2026-05-23. 4-caller method; mid-density example for the multi-level absence walk pattern.",
+      "input": {
+        "file": "sim/fields/Fluid.cpp",
+        "line": 479,
+        "col": 20,
+        "symbol": "SampledFluidField::sample_pressure_adjusted_density_limit_cell"
+      },
+      "expect": {
+        "referenceLocations": [
+          { "file": "sim/fields/Fluid.cpp", "startLine": 523, "startCol": 17 },
+          { "file": "sim/fields/Fluid.cpp", "startLine": 597, "startCol": 17 },
+          { "file": "sim/fields/Fluid.cpp", "startLine": 671, "startCol": 17 },
+          { "file": "sim/fields/Fluid.cpp", "startLine": 772, "startCol": 17 }
+        ],
+        "minCallsiteCount": 4
+      }
+    },
+    {
+      "id": "T4",
+      "shape": "hover-signature",
+      "verb": "code_intel_hover",
+      "purpose": "Type/signature retrieval at a method definition site.",
+      "input": {
+        "file": "sim/fields/Gravity.cpp",
+        "line": 719,
+        "col": 45,
+        "symbol": "GravityFieldService::step"
+      },
+      "expect": {
+        "hover.content.contains": ["step"],
+        "hover.notNull": true
+      }
+    },
+    {
+      "id": "T5",
+      "shape": "definition-jump",
+      "verb": "code_intel_definitions",
+      "purpose": "Definition lookup for a struct used across files.",
+      "input": {
+        "file": "sim/fields/Gravity.h",
+        "line": 277,
+        "col": 1,
+        "symbol": "GravityFieldState"
+      },
+      "expect": {
+        "definitions": [
+          { "file": "sim/fields/Gravity.h", "startLine": 277 }
+        ],
+        "minCount": 1
+      }
+    },
+    {
+      "id": "T6",
+      "shape": "diagnostics-temp-patch",
+      "verb": "code_intel_diagnostics",
+      "purpose": "Diagnostics on a file with a deliberately-introduced syntax error. Uses temp-copy patch/revert harness — does NOT touch tracked tree.",
+      "input": {
+        "_strategy": "copy-and-patch",
+        "_note": "Runner copies sim/fields/Gravity.cpp to a tmp path, injects a syntax error, points the verb at the temp file, asserts at least one diagnostic, restores nothing (tmp tree discarded).",
+        "templateFile": "sim/fields/Gravity.cpp",
+        "patchKind": "introduce-syntax-error"
+      },
+      "expect": {
+        "minDiagnostics": 1
+      }
+    }
+  ]
+}
