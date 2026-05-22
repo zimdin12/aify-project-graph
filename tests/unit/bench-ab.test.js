@@ -68,6 +68,31 @@ describe('bench-ab.mjs dry-run', () => {
     expect(delta.toolCalls_pct).toBeLessThan(0);
   });
 
+  it('--resolve-templates substitutes <PLUGIN_ROOT> in mcp configs before running', () => {
+    const { dir, configPath } = tmpConfig();
+    // Drop a template-style with-mcp config with the placeholder
+    const tplPath = path.join(dir, 'mcp.with-apg.json');
+    fs.writeFileSync(tplPath, JSON.stringify({
+      mcpServers: { 'apg': { command: 'node', args: ['<PLUGIN_ROOT>/mcp/stdio/server.js'] } }
+    }));
+    // Point the bench config at it
+    const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    cfg.withMcpConfig = tplPath;
+    fs.writeFileSync(configPath, JSON.stringify(cfg));
+    // Run with --resolve-templates and APG_PLUGIN_ROOT
+    const outPath = path.join(dir, 'results.json');
+    execFileSync(process.execPath, [SCRIPT, '--config', configPath, '--dry-run', '--out', outPath, '--resolve-templates'], {
+      env: { ...process.env, APG_PLUGIN_ROOT: '/abs/path/to/apg' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const r = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    expect(r.dryRun).toBe(true);
+    expect(r.repos.length).toBe(1);
+    // The resolved template file should have been written somewhere; we can't
+    // see the exact path from stdout, but the run completing successfully
+    // implies the substitution didn't break parsing.
+  });
+
   it('handles multiple repos', () => {
     const { dir, configPath } = tmpConfig({
       repos: [

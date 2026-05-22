@@ -34,25 +34,31 @@
 // plus a summary table to stdout.
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+
+const SELF_DIR = path.dirname(fileURLToPath(import.meta.url));
+const DEFAULT_REPO_ROOT = path.resolve(SELF_DIR, '..');
 
 const DEFAULT_RUNS = 4;
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 
 function usage() {
-  console.error('Usage: bench-ab.mjs --config <path> [--dry-run] [--runs N] [--out <path>]');
+  console.error('Usage: bench-ab.mjs --config <path> [--dry-run] [--runs N] [--out <path>] [--resolve-templates]');
   process.exit(2);
 }
 
 function parseArgs(argv) {
-  const opts = { dryRun: false, runs: null, configPath: null, outPath: null };
+  const opts = { dryRun: false, runs: null, configPath: null, outPath: null, resolveTemplates: false };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--config') opts.configPath = argv[++i];
     else if (a === '--runs') opts.runs = Number(argv[++i]);
     else if (a === '--out') opts.outPath = argv[++i];
+    else if (a === '--resolve-templates') opts.resolveTemplates = true;
     else if (a === '-h' || a === '--help') usage();
     else { console.error(`unknown arg: ${a}`); usage(); }
   }
@@ -67,6 +73,35 @@ function loadConfig(configPath) {
     throw new Error('config.repos must be a non-empty array');
   }
   return cfg;
+}
+
+// Plan #18 B: when --resolve-templates is passed, the bench harness reads
+// withMcpConfig and withoutMcpConfig, substitutes the `<PLUGIN_ROOT>`
+// placeholder (using APG_PLUGIN_ROOT env if set, otherwise resolved from
+// this script's own location), and writes resolved files into a temp
+// directory. Returns the new paths (or the originals when nothing
+// substituted). Lets the templates stay portable in git while real runs
+// get absolute paths claude can actually execute.
+function resolveTemplateConfigs(cfg, { repoRootForBench }) {
+  const pluginRoot = process.env.APG_PLUGIN_ROOT || repoRootForBench;
+  if (!pluginRoot) return cfg;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-bench-tpl-'));
+  const out = { ...cfg };
+  for (const key of ['withMcpConfig', 'withoutMcpConfig']) {
+    if (!cfg[key]) continue;
+    const inPath = path.resolve(cfg[key]);
+    if (!fs.existsSync(inPath)) continue;
+    const raw = fs.readFileSync(inPath, 'utf8');
+    if (!raw.includes('<PLUGIN_ROOT>')) {
+      out[key] = inPath;  // pass through (already absolute), but normalize
+      continue;
+    }
+    const resolved = raw.split('<PLUGIN_ROOT>').join(pluginRoot.replace(/\\/g, '/'));
+    const outPath = path.join(tmpDir, path.basename(inPath));
+    fs.writeFileSync(outPath, resolved);
+    out[key] = outPath;
+  }
+  return out;
 }
 
 function median(values) {
@@ -178,7 +213,10 @@ function fmtPct(v) {
 
 async function main() {
   const opts = parseArgs(process.argv);
-  const cfg = loadConfig(opts.configPath);
+  let cfg = loadConfig(opts.configPath);
+  if (opts.resolveTemplates) {
+    cfg = resolveTemplateConfigs(cfg, { repoRootForBench: DEFAULT_REPO_ROOT });
+  }
   const runs = opts.runs ?? cfg.runs ?? DEFAULT_RUNS;
   const timeoutMs = cfg.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const claudeBin = cfg.claudeBin ?? 'claude';

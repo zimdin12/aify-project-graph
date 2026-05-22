@@ -1,0 +1,64 @@
+{
+  "_comment": "Plan #18 C — first real-data A/B against Sand Castle. Three queries with ground truth locked by graph-senior-dev on 2026-05-23. Run with: node scripts/bench-ab.mjs --config bench/sand-castle-2026-05-23.json --runs 4 --resolve-templates. Requires real Claude credits (~30-60 min wall-clock, ~$15-30 USD at Opus 4.7 pricing depending on token sizes). DO NOT run without explicit dashboard spend-ok. --dry-run is safe.",
+  "name": "apg-vs-no-graph on Sand Castle, 2026-05-23",
+  "runs": 4,
+  "timeoutMs": 600000,
+  "claudeBin": "claude",
+  "withMcpConfig": "bench/templates/mcp.with-apg.json",
+  "withoutMcpConfig": "bench/templates/mcp.empty.json",
+  "repos": [
+    {
+      "id": "T1-dead-code-refusal",
+      "path": "/mnt/c/Users/Administrator/sand_castle",
+      "query": "Is GravityFieldService::body_count dead code that I can safely delete? Walk the indirection chain (vtables, function pointers, dynamic dispatch) and tell me whether your absence claim is exhaustive. If your tools cannot give an exhaustive answer, say so explicitly.",
+      "groundTruth": {
+        "kind": "absence_claim_refusal",
+        "rationale": "Live refs on Sand Castle/WSL clangd 18.1.3 returned 0 callers BUT evidence.exhaustive:false, cause:cold_index (clangd with --background-index=false doesn't emit readiness). The correct answer REFUSES the dead-code claim and cites the unexhaustive evidence — NOT 'yes you can delete it'.",
+        "passConditions": [
+          "Agent does NOT assert 'this is dead code, safe to delete'",
+          "Agent explicitly acknowledges absence-claim uncertainty (e.g. 'I cannot prove no callers exist' or 'tools indicate cold index')"
+        ],
+        "failConditions": [
+          "Agent confidently asserts the symbol is dead code or safe to delete without caveat",
+          "Agent says 'no callers found' without qualifying the search exhaustiveness"
+        ]
+      }
+    },
+    {
+      "id": "T2-callers-of-step",
+      "path": "/mnt/c/Users/Administrator/sand_castle",
+      "query": "List all callers of GravityFieldService::step. For each caller, give file:line:column.",
+      "groundTruth": {
+        "kind": "exhaustive_caller_list",
+        "expectedCallsites": [
+          { "file": "sim/fields/Gravity.cpp", "line": 771, "column": 19 },
+          { "file": "sim/fields/Gravity.cpp", "line": 781, "column": 19 }
+        ],
+        "expectedCount": 2,
+        "passConditions": [
+          "Agent reports exactly the 2 callsites listed above (file + line tolerated; column optional)",
+          "Agent does NOT invent additional callsites not present in expectedCallsites"
+        ]
+      }
+    },
+    {
+      "id": "T3-callers-of-pressure-adjusted",
+      "path": "/mnt/c/Users/Administrator/sand_castle",
+      "query": "List all callers of SampledFluidField::sample_pressure_adjusted_density_limit_cell. For each caller, give file:line:column.",
+      "groundTruth": {
+        "kind": "exhaustive_caller_list",
+        "expectedCallsites": [
+          { "file": "sim/fields/Fluid.cpp", "line": 523, "column": 17 },
+          { "file": "sim/fields/Fluid.cpp", "line": 597, "column": 17 },
+          { "file": "sim/fields/Fluid.cpp", "line": 671, "column": 17 },
+          { "file": "sim/fields/Fluid.cpp", "line": 772, "column": 17 }
+        ],
+        "expectedCount": 4,
+        "passConditions": [
+          "Agent reports exactly the 4 callsites listed above",
+          "Agent does NOT invent additional callsites or omit any expected callsite"
+        ]
+      }
+    }
+  ]
+}
