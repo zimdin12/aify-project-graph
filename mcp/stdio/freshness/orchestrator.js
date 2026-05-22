@@ -23,6 +23,7 @@ import {
 import { applyFrameworkPlugins } from '../ingest/extractors/base.js';
 import { laravelRoutesPlugin } from '../ingest/frameworks/laravel.js';
 import { pythonWebPlugin } from '../ingest/frameworks/python_web.js';
+import { djangoPlugin } from '../ingest/frameworks/django.js';
 import { nodeWebPlugin } from '../ingest/frameworks/node_web.js';
 import { nestjsPlugin } from '../ingest/frameworks/nestjs.js';
 import { railsPlugin } from '../ingest/frameworks/rails.js';
@@ -226,6 +227,7 @@ export async function ensureFresh({
         plugins: [
           laravelRoutesPlugin,
           pythonWebPlugin,
+          djangoPlugin,
           nodeWebPlugin,
           nestjsPlugin,
           railsPlugin,
