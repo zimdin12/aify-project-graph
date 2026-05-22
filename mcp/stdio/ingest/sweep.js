@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from './fingerprint.js';
 
 import { IGNORED_DIRS, isIgnoredDirName, pathContainsIgnoredDir } from './ignored-dirs.js';
+import { getGitCandidateFiles, isGitCandidate } from './git-candidates.js';
 const DOCUMENT_EXTENSIONS = new Set(['.md', '.rst', '.txt']);
 const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml']);
 const ENTRYPOINT_BASENAMES = new Set(['artisan', 'manage.py']);
@@ -178,7 +179,16 @@ function extractConfigKeys(content, relPath) {
     .sort();
 }
 
-export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS }) {
+export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gitCandidates: providedCandidates }) {
+  // Plan #17 F: when this is a git checkout, prefer git's gitignore-aware
+  // candidate set. Falls back to the full filesystem walk when not a git
+  // repo OR when git isn't available — preserves legacy behavior on those
+  // hosts. Caller may pre-resolve and pass `gitCandidates` directly (e.g.
+  // for tests or when caching). `.aifyignore`/`.aifyinclude` still apply
+  // on top via ignoredDirs.
+  const gitCandidates = providedCandidates !== undefined
+    ? providedCandidates
+    : getGitCandidateFiles(repoRoot);
   const nodes = [];
   const edges = [];
   const directories = new Map();
@@ -233,6 +243,13 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS }) 
       if (entry.isDirectory()) {
         await ensureDirectory(entryRelPath);
         await visit(entryAbsPath, entryRelPath);
+        continue;
+      }
+
+      // Plan #17 F: skip files git considers ignored (per .gitignore +
+      // global excludes). The git candidate set is null for non-git
+      // repos, in which case every file remains a candidate.
+      if (!isGitCandidate(entryRelPath, gitCandidates)) {
         continue;
       }
 
