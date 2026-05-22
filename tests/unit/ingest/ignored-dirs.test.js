@@ -46,3 +46,86 @@ describe('ignored dir matching', () => {
     expect(pathContainsIgnoredDir('src/build_report.ts')).toBe(false);
   });
 });
+
+// Plan #17 F: .gitignore-driven zero-config indexing.
+describe('.gitignore as default ignore source', () => {
+  it('reads .gitignore patterns by default (bare names go to dir set, paths to pathPatterns)', async () => {
+    const repoRoot = await mkdtemp(join(tmpdir(), 'apg-gi-'));
+    try {
+      await writeFile(join(repoRoot, '.gitignore'), [
+        '# default build artifacts',
+        'dist-custom',
+        'logs/',
+        '/anchored-root',
+        'tmp/*.log',
+        '',
+      ].join('\n'));
+
+      const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
+      expect(isIgnoredDirName('dist-custom', ignoredDirs)).toBe(true);
+      expect(isIgnoredDirName('logs', ignoredDirs)).toBe(true);
+      expect(isIgnoredDirName('anchored-root', ignoredDirs)).toBe(true);
+      expect(pathContainsIgnoredDir('tmp/build.log', ignoredDirs)).toBe(true);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('APG_IGNORE_GITIGNORE=1 disables gitignore reading (opt-out)', async () => {
+    const repoRoot = await mkdtemp(join(tmpdir(), 'apg-gi-'));
+    try {
+      await writeFile(join(repoRoot, '.gitignore'), 'gitignored-only\n');
+      const enabled = loadEffectiveIgnoredDirs(repoRoot);
+      const disabled = loadEffectiveIgnoredDirs(repoRoot, { env: { APG_IGNORE_GITIGNORE: '1' } });
+      expect(isIgnoredDirName('gitignored-only', enabled)).toBe(true);
+      expect(isIgnoredDirName('gitignored-only', disabled)).toBe(false);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('skips gitignore negation lines and unsupported glob constructs (safe by default)', async () => {
+    const repoRoot = await mkdtemp(join(tmpdir(), 'apg-gi-'));
+    try {
+      await writeFile(join(repoRoot, '.gitignore'), [
+        '!keep-this',          // re-include — skipped
+        'unsupported{foo,bar}', // brace alternation — skipped
+        'unsupported\\file',    // backslash escape — skipped
+        'safe-ignore',
+        '',
+      ].join('\n'));
+
+      const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
+      expect(isIgnoredDirName('keep-this', ignoredDirs)).toBe(false);
+      expect(isIgnoredDirName('unsupported', ignoredDirs)).toBe(false);
+      expect(isIgnoredDirName('safe-ignore', ignoredDirs)).toBe(true);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('.aifyignore overrides .gitignore (later layer wins on adds)', async () => {
+    const repoRoot = await mkdtemp(join(tmpdir(), 'apg-gi-'));
+    try {
+      await writeFile(join(repoRoot, '.gitignore'), 'from-gitignore\n');
+      await writeFile(join(repoRoot, '.aifyignore'), 'from-aifyignore\n');
+      const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
+      expect(isIgnoredDirName('from-gitignore', ignoredDirs)).toBe(true);
+      expect(isIgnoredDirName('from-aifyignore', ignoredDirs)).toBe(true);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('.aifyinclude can opt-back-in a name that gitignore added', async () => {
+    const repoRoot = await mkdtemp(join(tmpdir(), 'apg-gi-'));
+    try {
+      await writeFile(join(repoRoot, '.gitignore'), 'special-build\n');
+      await writeFile(join(repoRoot, '.aifyinclude'), 'special-build\n');
+      const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
+      expect(isIgnoredDirName('special-build', ignoredDirs)).toBe(false);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
+});

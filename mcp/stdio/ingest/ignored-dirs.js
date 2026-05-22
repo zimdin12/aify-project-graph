@@ -101,19 +101,49 @@ function safeRead(path) {
   }
 }
 
+// Plan #17 F: parse a `.gitignore` for the same dir/path patterns we use
+// for `.aifyignore`. Skips negation lines (`!pattern`) — we don't yet
+// support gitignore's full re-include semantics, and dropping them is
+// safer than misinterpreting. Skips lines that contain characters our
+// glob translator does not support (`{`, `\\`).
+function parseGitignoreFile(contents) {
+  const lines = parseDirList(contents);
+  const safe = [];
+  for (const raw of lines) {
+    if (raw.startsWith('!')) continue;        // gitignore re-include; not supported
+    if (/[{\\]/.test(raw)) continue;          // glob alternations / escapes; not supported
+    if (raw.startsWith('/')) safe.push(raw.replace(/^\/+/, '')); // anchored to repo root
+    else safe.push(raw);
+  }
+  return safe;
+}
+
 // Returns the effective Set<dirName> for this repoRoot, applying optional
-// .aifyignore (add) and .aifyinclude (remove) overrides. Called once per
-// ensureFresh; not cached — file-system reads are cheap vs. a full rebuild.
+// .gitignore (Plan #17 F default), .aifyignore (add) and .aifyinclude
+// (remove) overrides. Called once per ensureFresh; not cached — file-system
+// reads are cheap vs. a full rebuild.
 //
-// Bare names match directory segments. Path/glob patterns such as
-// `generated/**` or `*.tmp.cpp` match repo-relative paths. A few high-churn
-// build roots also have built-in prefix rules (`build-*`, `build_*`,
-// `cmake-build-*`, and the same for dist/out/target) so transient build
-// trees do not pollute the graph by default. Exact opt-ins still work via
-// `.aifyinclude`.
-export function loadEffectiveIgnoredDirs(repoRoot) {
+// Order of precedence: built-in IGNORED_DIRS < .gitignore < .aifyignore <
+// .aifyinclude. Later layers override earlier ones. .gitignore is read by
+// default; set `APG_IGNORE_GITIGNORE=1` to disable (zero-config-with-opt-out
+// per codegraph's pattern). Negation lines and unsupported glob constructs
+// in .gitignore are skipped, not failed.
+export function loadEffectiveIgnoredDirs(repoRoot, { env = process.env } = {}) {
   const effective = new Set(IGNORED_DIRS);
   const pathPatterns = [];
+
+  if (env.APG_IGNORE_GITIGNORE !== '1') {
+    const gitignoreFile = safeRead(join(repoRoot, '.gitignore'));
+    if (gitignoreFile) {
+      for (const name of parseGitignoreFile(gitignoreFile)) {
+        if (isPathPattern(name)) {
+          pathPatterns.push(normalizePattern(name));
+        } else {
+          effective.add(name);
+        }
+      }
+    }
+  }
 
   const ignoreFile = safeRead(join(repoRoot, '.aifyignore'));
   if (ignoreFile) {
