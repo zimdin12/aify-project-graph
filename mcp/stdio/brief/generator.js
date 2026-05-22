@@ -19,6 +19,7 @@ import { computeTrustLevel } from '../query/verbs/health.js';
 import { getDirtyFilesSync } from '../freshness/git.js';
 import { getUnresolvedCounts } from '../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
+import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs, taskLinkStrength, taskLinkStrengthCounts } from '../overlay/quality.js';
 import { buildPaths } from '../query/verbs/path.js';
 
@@ -1117,7 +1118,7 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
 // ---------- renderers ----------
 
 function renderMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth, architectureLayers = [] } = data;
   const lines = [];
   lines.push('# Project Brief');
   lines.push('');
@@ -1145,6 +1146,19 @@ function renderMarkdown(data) {
     for (const { feature } of overlayHealth.valid) {
       const anchors = [...feature.anchors.symbols, ...feature.anchors.files].slice(0, 3).join(', ');
       lines.push(`- **${feature.label || feature.id}** (\`${feature.id}\`) — ${feature.description}${anchors ? ` · anchors: ${anchors}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  // Plan #15 Step A5: Architecture layers (from .aify-graph/architecture.json
+  // when present). Silent skip when no intelligence overlay is loaded.
+  if (architectureLayers.length) {
+    lines.push('## Architecture layers');
+    for (const layer of architectureLayers) {
+      const lowConfHint = layer.lowConfidenceCount > 0
+        ? ` (${layer.lowConfidenceCount} low-confidence)`
+        : '';
+      lines.push(`- **${layer.name}** (\`${layer.id}\`) — ${layer.fileCount} files${lowConfHint}: ${layer.description}`);
     }
     lines.push('');
   }
@@ -1660,6 +1674,13 @@ export function generateBrief({ repoRoot }) {
       headCommit = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'],
         { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
     } catch { /* ignore */ }
+
+    // Plan #15 Step A5: load intelligence overlays if present. Silent
+    // fallback — briefs render fine without them. Validators in the
+    // loader refuse hallucinated / orphan / conflicting overlays.
+    const intelligence = loadIntelligenceOverlays({ repoRoot, functionalityJson: overlay });
+    const architectureLayers = summarizeArchitectureLayers(intelligence.architecture);
+
     const data = {
       snapshot,
       entries,
@@ -1687,6 +1708,8 @@ export function generateBrief({ repoRoot }) {
       manifestIndexedAt,
       manifestCommit,
       headCommit,
+      intelligence,
+      architectureLayers,
     };
 
     const md = renderMarkdown(data);
