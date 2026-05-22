@@ -1,0 +1,13 @@
+{
+  "_comment": "Plan #18 B template — APG MCP server enabled for the WITH arm of bench-ab.mjs. Edit <PLUGIN_ROOT> to the absolute path of your aify-project-graph checkout, OR pass the env var APG_PLUGIN_ROOT and bench-ab.mjs --resolve-templates will substitute it. Keep --toolset=lean to match real-world install defaults; remove it to test the full 23-verb surface.",
+  "mcpServers": {
+    "aify-project-graph": {
+      "command": "node",
+      "args": [
+        "--max-old-space-size=8192",
+        "<PLUGIN_ROOT>/mcp/stdio/server.js",
+        "--toolset=lean"
+      ]
+    }
+  }
+}

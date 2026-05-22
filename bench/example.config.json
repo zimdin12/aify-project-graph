@@ -1,0 +1,16 @@
+{
+  "_comment": "Plan #17 D / #18 B example config for scripts/bench-ab.mjs. Copy + edit paths. Pass to bench-ab.mjs via --config bench/your.config.json.",
+  "name": "APG-vs-no-graph example",
+  "runs": 4,
+  "timeoutMs": 600000,
+  "claudeBin": "claude",
+  "withMcpConfig": "bench/templates/mcp.with-apg.json",
+  "withoutMcpConfig": "bench/templates/mcp.empty.json",
+  "repos": [
+    {
+      "id": "sand_castle",
+      "path": "/mnt/c/Users/Administrator/sand_castle",
+      "query": "How does GravityFieldService::step compute one tick — what are its inputs, what does it write, and what calls it?"
+    }
+  ]
+}

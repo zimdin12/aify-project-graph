@@ -1,0 +1,4 @@
+{
+  "_comment": "Plan #18 B template — empty MCP config for the WITHOUT arm of bench-ab.mjs. claude -p --strict-mcp-config + this file = baseline run with only built-in Read/Grep/Bash available. Do NOT add any servers here; the whole point of the WITHOUT arm is to measure agent productivity without APG (or any other MCP tool) in the loop.",
+  "mcpServers": {}
+}
