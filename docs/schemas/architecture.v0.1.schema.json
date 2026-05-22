@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aify.dev/schemas/architecture.v0.1.schema.json",
+  "title": "APG architecture overlay v0.1 (logical layer assignment per file)",
+  "description": "Plan #15 Step B output. Identifies 3-10 logical layers across the project and assigns every file to exactly one with a confidence + reason. Layers are project-natural (a cpp engine might be 'Sim/Fields/Engine/Tools/Build'; a React app might be 'API/Service/UI/State'). Consumed by the visual dashboard for color-grouping and by briefs for a high-level orientation section.",
+  "type": "object",
+  "required": ["schema_version", "generatorVersion", "generatedAt", "graphHead", "inputSha", "layers", "assignments"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "generatorVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Version of the architecture-layer-assigner that produced this output."
+    },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "graphHead": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Git rev the inputs were drawn from."
+    },
+    "inputSha": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "sha256 of the combined (structural extract + semantic.files.json) input that fed the LLM."
+    },
+    "staleAfter": { "type": "string", "format": "date-time" },
+    "layers": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "description", "color"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+            "description": "Stable kebab/snake id (lowercase). Referenced by assignments."
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Human-readable layer name."
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "description": "1-2 sentence description of what this layer is responsible for."
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$",
+            "description": "Hex color used by the dashboard for node grouping. LLM picks from a palette; validator may normalize."
+          },
+          "estimatedFileCount": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "LLM estimate of files in this layer at generation time. Validator confirms against actual assignment count."
+          }
+        }
+      }
+    },
+    "assignments": {
+      "type": "object",
+      "description": "Object map: file path → assignment record. EVERY path appearing here must exist in the paired semantic-files.json. EVERY layerId must reference a layers[].id. Validators enforce both.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["layerId", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "layerId": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,31}$",
+            "description": "References layers[].id."
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Assignment confidence. Dashboard color-fades low-confidence; briefs flag them."
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Short justification (e.g. 'imports from data layer, exported via api router' or 'path prefix src/ui/ + JSX exports')."
+          }
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "totalFiles": { "type": "integer", "minimum": 0 },
+        "filesAssigned": { "type": "integer", "minimum": 0 },
+        "filesUnassigned": { "type": "integer", "minimum": 0, "description": "Should be 0 if validator passes — every file must have an assignment." },
+        "lowConfidenceCount": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

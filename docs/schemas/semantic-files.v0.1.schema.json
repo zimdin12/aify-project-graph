@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aify.dev/schemas/semantic-files.v0.1.schema.json",
+  "title": "APG semantic files overlay v0.1 (LLM-derived per-file enrichment)",
+  "description": "Plan #15 Step A output. Per-file semantic summary, tags, complexity, and nodeType — supplemental to the structural tree-sitter graph and the hand-authored functionality.json overlay. Consumed by briefs and the visual dashboard. functionality.json taxonomy WINS on any conflict; semantic tags are supplemental only.",
+  "type": "object",
+  "required": ["schema_version", "generatorVersion", "generatedAt", "graphHead", "inputSha", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "0.1" },
+    "generatorVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Version of the file-summarizer that produced this output. Bump on any prompt/output-shape change."
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 UTC timestamp."
+    },
+    "graphHead": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Git rev (commit SHA or symbolic HEAD) the inputs were drawn from. Used for stale detection."
+    },
+    "inputSha": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "sha256 of the deterministic structural extract that was fed to the LLM. Lets consumers detect when inputs changed without re-running the LLM."
+    },
+    "staleAfter": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Optional advisory expiry — consumers should treat data as stale after this point even if graphHead still matches."
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "summary", "tags", "complexity", "nodeType", "entryPoint"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repo-relative forward-slash path."
+          },
+          "summary": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400,
+            "description": "1-2 sentence plain-language purpose."
+          },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+            "description": "3-5 free-form bounded tags (typical: 'api-handler', 'data-model', 'test', 'ingest-pipeline', 'freshness-tracking'). Supplemental — must not contradict functionality.json feature membership."
+          },
+          "complexity": {
+            "type": "string",
+            "enum": ["low", "medium", "high"],
+            "description": "Heuristic complexity rating. NOT a metric."
+          },
+          "nodeType": {
+            "type": "string",
+            "enum": ["utility", "api-handler", "data-model", "test", "config", "build", "doc", "infra", "script", "ui-component", "service", "fixture"],
+            "description": "One-of category. entry-point is NOT here — see entryPoint:boolean, a file can be both a category and an entry point."
+          },
+          "entryPoint": {
+            "type": "boolean",
+            "description": "True if this file is an entry point (main, CLI, server bootstrap, etc.). Orthogonal to nodeType."
+          },
+          "languageNotes": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Optional brief note about language-specific patterns or framework conventions present."
+          }
+        }
+      }
+    },
+    "stats": {
+      "type": "object",
+      "description": "Generator stats for observability — not load-bearing.",
+      "additionalProperties": false,
+      "properties": {
+        "filesAttempted": { "type": "integer", "minimum": 0 },
+        "filesSucceeded": { "type": "integer", "minimum": 0 },
+        "filesSkipped": { "type": "integer", "minimum": 0 },
+        "batchCount": { "type": "integer", "minimum": 0 },
+        "totalLlmCalls": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
