@@ -93,6 +93,43 @@ describe('getGitCandidateFiles', () => {
   });
 });
 
+describe('sweep + gitignore negation regression (dev P1#1)', () => {
+  // Before the fix: sweep.js called pathContainsIgnoredDir(ignoredDirs)
+  // FIRST and ignoredDirs included the manually-parsed .gitignore
+  // patterns. The manual parser drops `!pattern` re-includes (it can't
+  // express full gitignore semantics), so `keep.log` would be pruned
+  // by the `*.log` parser pattern BEFORE isGitCandidate() could rescue
+  // it. The fix: when gitCandidates is non-null, sweep re-resolves the
+  // ignored set with skipGitignore:true so git's authoritative answer
+  // alone decides gitignore membership.
+  it('sweep walks a file git ls-files re-includes (.gitignore: *.md + !keep.md inside docs/)', async () => {
+    const { sweepFilesystem } = await import('../../../mcp/stdio/ingest/sweep.js');
+    const dir = tmpDir();
+    gitInit(dir);
+    // Files must live under docs/ for sweep's isDocument() to emit
+    // Document nodes (random .md in root doesn't qualify). The
+    // gitignore-negation semantic still applies — `!keep.md` re-includes
+    // a file the parser would drop.
+    fs.mkdirSync(path.join(dir, 'docs'));
+    fs.writeFileSync(path.join(dir, 'docs', '.gitignore'), '*.md\n!keep.md\n');
+    fs.writeFileSync(path.join(dir, 'docs', 'drop.md'), '# drop');
+    fs.writeFileSync(path.join(dir, 'docs', 'keep.md'), '# keep');
+    execFileSync('git', ['-C', dir, 'add', '-A'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', dir, 'commit', '-q', '-m', 'add'], { stdio: 'ignore' });
+
+    const result = await sweepFilesystem({ repoRoot: dir });
+    const filePaths = result.nodes
+      .filter(n => n.type === 'Document')
+      .map(n => n.file_path);
+    // Pre-fix: keep.md was pruned by the manually-parsed `*.md` line
+    // before isGitCandidate() could rescue it. Post-fix: gitignore
+    // parsing is skipped when gitCandidates is non-null and git's
+    // `!keep.md` re-include wins.
+    expect(filePaths).toContain('docs/keep.md');
+    expect(filePaths).not.toContain('docs/drop.md');
+  });
+});
+
 describe('isGitCandidate', () => {
   it('returns true when candidates is null (no filter)', () => {
     expect(isGitCandidate('any/path.js', null)).toBe(true);

@@ -128,11 +128,20 @@ function parseGitignoreFile(contents) {
 // default; set `APG_IGNORE_GITIGNORE=1` to disable (zero-config-with-opt-out
 // per codegraph's pattern). Negation lines and unsupported glob constructs
 // in .gitignore are skipped, not failed.
-export function loadEffectiveIgnoredDirs(repoRoot, { env = process.env } = {}) {
+export function loadEffectiveIgnoredDirs(repoRoot, { env = process.env, skipGitignore = false } = {}) {
   const effective = new Set(IGNORED_DIRS);
   const pathPatterns = [];
 
-  if (env.APG_IGNORE_GITIGNORE !== '1') {
+  // Review-fix (dev P1#1): when the caller already has `git ls-files
+  // --exclude-standard` as the authoritative source (sweep.js with non-
+  // null gitCandidates), skipping the manual .gitignore parser is
+  // mandatory. The manual parser drops `!pattern` re-includes (it can't
+  // express gitignore's full semantics) — so when it's mixed in as a
+  // pre-filter, files git would explicitly include get pruned by the
+  // parser before git's answer can rescue them. `skipGitignore: true`
+  // turns the parser path off entirely. .aifyignore/.aifyinclude still
+  // layer on top in both cases.
+  if (env.APG_IGNORE_GITIGNORE !== '1' && !skipGitignore) {
     const gitignoreFile = safeRead(join(repoRoot, '.gitignore'));
     if (gitignoreFile) {
       for (const name of parseGitignoreFile(gitignoreFile)) {

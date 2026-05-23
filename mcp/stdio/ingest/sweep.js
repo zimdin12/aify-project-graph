@@ -3,7 +3,7 @@ import { basename, dirname, extname, relative } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from './fingerprint.js';
 
-import { IGNORED_DIRS, isIgnoredDirName, pathContainsIgnoredDir } from './ignored-dirs.js';
+import { IGNORED_DIRS, isIgnoredDirName, pathContainsIgnoredDir, loadEffectiveIgnoredDirs } from './ignored-dirs.js';
 import { getGitCandidateFiles, isGitCandidate } from './git-candidates.js';
 const DOCUMENT_EXTENSIONS = new Set(['.md', '.rst', '.txt']);
 const CONFIG_EXTENSIONS = new Set(['.json', '.yaml', '.yml', '.toml']);
@@ -189,6 +189,17 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
   const gitCandidates = providedCandidates !== undefined
     ? providedCandidates
     : getGitCandidateFiles(repoRoot);
+
+  // Review-fix (dev P1#1): when gitCandidates is the authoritative source
+  // of truth, we must NOT also apply the manually-parsed .gitignore
+  // pre-filter (in `ignoredDirs`) — the manual parser drops `!pattern`
+  // re-includes, so a file git would explicitly include via `!keep.log`
+  // gets pruned by `*.log` in the parser's set before isGitCandidate()
+  // can rescue it. Re-resolve the ignored set WITHOUT gitignore parsing
+  // when we have git's answer. .aifyignore/.aifyinclude still apply.
+  if (gitCandidates && repoRoot) {
+    ignoredDirs = loadEffectiveIgnoredDirs(repoRoot, { skipGitignore: true });
+  }
   const nodes = [];
   const edges = [];
   const directories = new Map();
