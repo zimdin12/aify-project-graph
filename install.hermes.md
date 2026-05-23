@@ -87,6 +87,10 @@ node -e '
 
 The registered MCP server has ONE `repoRoot` — whatever directory Hermes was launched from. Live verbs query that graph only; calls from a different cwd return `NO MATCH`. Cross-repo works via the static briefs (`.aify-graph/brief.*.md`) agents read directly. Launch Hermes from each target repo if you need live verbs there.
 
+### Plan #20 — managed-session install: USER-LEVEL ONLY (today)
+
+No project-local MCP config path is documented for Hermes today. User-level (Form A CLI / Form B JSON-config) is the only path. As with Codex, **managed/spawned Hermes sessions** (started via aify-comms or any other orchestrator) may not inherit user-level MCP and therefore may report no APG verbs in `tools/list`. If your Hermes build proves to support a project-local MCP file path, file an issue with the path and we'll add it to `scripts/init-project-mcp.mjs` alongside claude-code and cursor.
+
 ## Step 3 — install the skills
 
 If Hermes loads SKILL.md-style skills (same markdown as Claude Code / Codex, with a `trigger:` frontmatter field that auto-activates when the aify-graph MCP tools are present), copy the tree. If your Hermes build has no skill loader, skip this step — the MCP verb descriptions carry the core guidance regardless.

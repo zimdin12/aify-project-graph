@@ -57,6 +57,10 @@ Visible lean verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_c
 
 If the host is OpenCode, patch `${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.json` the same way `install.opencode.md` does, but point the command at `$PLUGIN_ROOT`.
 
+### Plan #20 — managed-session install: USER-LEVEL ONLY (today)
+
+Pi runtimes use whatever underlying agent host you registered above (OpenCode, Hermes, or another MCP-capable wrapper). Project-local MCP support depends on that host — see the host's install doc for the per-project init step if any. For OpenCode/Hermes/Codex hosts there is no project-local MCP path today; managed sessions may not see APG verbs.
+
 ## Step 3 - build a repo graph
 
 From the target repo, prepare ignore hygiene before first index:

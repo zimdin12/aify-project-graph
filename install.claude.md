@@ -63,6 +63,20 @@ Do **not** pass `--toolset=lean` for Claude Code — Claude Code uses the full t
 
 The `--max-old-space-size=8192` gives Node an 8 GB heap, needed for repos with >100k extractable symbols. On 8 GB RAM machines, use `4096` instead.
 
+### Plan #20: project-local MCP for managed/spawned sessions
+
+The user-level `claude mcp add` above is sufficient for INTERACTIVE sessions. It is NOT sufficient for **managed/spawned Claude Code sessions** (e.g., agents launched via aify-comms or other orchestrators) — those start with a sealed MCP surface that doesn't merge user-level config, so they will report `tools/list` without `mcp__aify-project-graph__*` even though the user-level install succeeded.
+
+Run once per project you want managed agents to use APG in:
+
+```bash
+node "$CLONE_PATH/scripts/init-project-mcp.mjs" --runtime claude-code --project-root "$(pwd)"
+```
+
+This writes `<project>/.mcp.json` with the APG MCP server stanza, using env-expansion (`${APG_PLUGIN_ROOT:-<resolved-absolute-path>}`) so a developer can override the plugin path per shell. Claude Code may prompt for trust approval the first time it loads a project-scoped MCP server — approve once per project. Existing `.mcp.json` entries for other MCP servers are preserved (idempotent JSON-merge).
+
+`--check` prints the would-write envelope without touching disk; useful in CI.
+
 ### Multi-repo caveat — MCP is cwd-bound
 
 The registered MCP server has ONE `repoRoot` — whatever directory Claude Code was launched from. Live verbs (`graph_change_plan`, `graph_impact`, `graph_path`, etc.) query that graph only. If you call them while working in a different repo, they return `NO MATCH`.

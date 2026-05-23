@@ -76,6 +76,16 @@ Recommended profile is `--toolset=lean` (5 visible verbs). Drop the flag for the
 
 The registered MCP server has ONE `repoRoot` — whatever directory Cursor was launched from. Live verbs query that graph only. Cross-repo works via static briefs (`.aify-graph/brief.*.md`).
 
+### Plan #20: project-local MCP for predictable per-project install
+
+The user-level `~/.cursor/mcp.json` above works for most cases. For projects where you want the APG MCP server pinned at the **project** scope (so the registration travels with the repo + survives Cursor profile resets), run once per project:
+
+```bash
+node "$CLONE_PATH/scripts/init-project-mcp.mjs" --runtime cursor --project-root "$(pwd)"
+```
+
+This writes `<project>/.cursor/mcp.json` with the APG MCP server stanza, env-expanded (`${APG_PLUGIN_ROOT:-<resolved-absolute-path>}`). Idempotent JSON-merge — existing entries for other MCP servers are preserved. `--check` prints the would-write envelope without touching disk.
+
 ## Step 3 — install the Rules file (optional but recommended)
 
 ```bash

@@ -71,6 +71,15 @@ Options for multi-repo teams:
 - **Per-repo launch.** Launch Codex from each repo you work in; the same MCP registration applies but verbs operate on that cwd.
 - **Rely on static briefs.** On Codex the brief-first workflow is already the safe path (see Codex-exec caveat below) — briefs cover most real usage without any live verb calls.
 
+### Plan #20 — managed-session install: USER-LEVEL ONLY
+
+Codex does NOT expose a project-local MCP config file (verified 2026-05-23: `codex mcp --help` shows only user/CLI-driven registration). User-level `codex mcp add` is the only path. Two consequences:
+
+1. **Managed/spawned Codex sessions may not see APG.** Codex sessions started via aify-comms (or any orchestrator wrapping `codex` non-interactively) start from a sealed MCP surface that doesn't merge user-level config. Dev confirmed this 2026-05-23: in his managed Codex env, `codex mcp list` showed only `aify-comms`, not `aify-project-graph`. There is no scripts/init-project-mcp.mjs path for Codex today — when Codex ships project-local MCP support, this section gets the same treatment as install.claude.md / install.cursor.md.
+2. **All multi-repo Codex use is per-repo launch** with the user-level registration; cross-repo cwd-bound limitations apply.
+
+If you need APG MCP verbs inside a managed Codex session today, the dogfood-tested workaround is direct module imports (see `scripts/sand-castle-readonly-dogfood.mjs` for the pattern).
+
 ## Step 3 — install the skills
 
 Codex loads skills from `${CODEX_HOME:-$HOME/.codex}/skills/`. We ship Codex-format skills (same SKILL.md markdown as Claude Code, but with an additional `trigger:` frontmatter field that auto-activates the skill when the aify-graph MCP tools are present). Copy the whole tree dynamically so future skills are picked up without editing this doc.

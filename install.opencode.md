@@ -76,6 +76,10 @@ Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph
 
 The registered MCP server has ONE `repoRoot` — whatever directory OpenCode was launched from. Live verbs query that graph only; calls from a different cwd return `NO MATCH`. Cross-repo works via the static briefs (`.aify-graph/brief.*.md`) that agents can read directly. Launch OpenCode from each target repo if you need live verbs there.
 
+### Plan #20 — managed-session install: USER-LEVEL ONLY (today)
+
+OpenCode's documented MCP path is the user-level JSON-config above. No project-local MCP file path is currently documented, so managed/spawned OpenCode sessions may not inherit user-level MCP. If your OpenCode build proves to support a project-local MCP file, file an issue and we'll add it to `scripts/init-project-mcp.mjs` alongside claude-code and cursor.
+
 ## Step 3 — skills
 
 OpenCode does not load Claude-Code skill files. **Skip this step.**
