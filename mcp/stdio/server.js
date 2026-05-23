@@ -30,6 +30,8 @@ import { graphPull } from './query/verbs/pull.js';
 import { graphFind } from './query/verbs/find.js';
 import { graphPacket } from './query/verbs/packet.js';
 import { graphCollectCodeIntel } from './query/verbs/collect_code_intel.js';
+import { checkRequestSize, MAX_MCP_LINE_BYTES } from './security/request-size.js';
+import { findSensitivePathArg } from './security/sensitive-paths.js';
 import {
   codeIntelDiagnostics,
   codeIntelReferences,
@@ -628,6 +630,12 @@ const rl = readline.createInterface({ input: process.stdin });
 function send(msg) { process.stdout.write(JSON.stringify(msg) + '\n'); }
 
 rl.on('line', async (line) => {
+  // Plan #21 — input-size cap. Refuse oversize lines BEFORE JSON.parse
+  // forces a giant string allocation. Returns a JSON-RPC structured
+  // error rather than process.exit per senior-dev's lock.
+  const oversize = checkRequestSize(line);
+  if (oversize) { send(oversize); return; }
+
   let req;
   try {
     req = JSON.parse(line);
@@ -747,6 +755,23 @@ rl.on('line', async (line) => {
       send({ jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `unknown tool: ${name}` } });
       return;
     }
+
+    // Plan #21 — sensitive-path gate. Refuse tool calls whose path-
+    // shaped args (repo/repoRoot/projectRoot/file/files[]/etc.) resolve
+    // under denylisted system or credential directories. Paths are
+    // canonicalized via realpath before checking so symlinks can't
+    // bypass. Returns a structured error envelope; caller sees the
+    // exact arg name + reason so they can adjust the request.
+    const sensitive = findSensitivePathArg(args);
+    if (sensitive) {
+      send({ jsonrpc: '2.0', id: req.id, error: {
+        code: -32602,
+        message: `Invalid params: argument '${sensitive.arg}' targets a sensitive path`,
+        data: { arg: sensitive.arg, blockedPrefix: sensitive.matched, reason: sensitive.reason },
+      }});
+      return;
+    }
+
     try {
       const repoRoot = args?.repo ?? process.cwd();
       // Loud, actionable error when the resolved repoRoot has no .aify-graph
