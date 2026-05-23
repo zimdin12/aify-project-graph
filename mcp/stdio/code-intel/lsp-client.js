@@ -31,12 +31,39 @@ export class LspClient extends EventEmitter {
 
   async start() {
     this.proc = spawn(this.command, this.args, { cwd: this.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'] });
+
+    // Review-fix #1: Node's child_process emits ENOENT on the spawn 'error'
+    // event ASYNCHRONOUSLY after spawn() returns. Without an early listener
+    // racing the initialize request, the error fires past getLiveSession's
+    // try/catch — propagating to uncaughtException and crashing scripts that
+    // treat verb returns as terminal. Listen for the early error and reject
+    // the start() promise with a structured error (code/path preserved so
+    // the calling layer can wrap it into language_server_missing without
+    // dropping the source information).
+    let spawnRejected = false;
+    const earlySpawnError = new Promise((_, reject) => {
+      const onErr = (err) => {
+        spawnRejected = true;
+        this.proc.off('error', onErr);
+        reject(err);
+      };
+      this.proc.once('error', onErr);
+    });
+    // After start() succeeds, switch to the original re-emit-only handler so
+    // post-init errors still bubble through the EventEmitter interface that
+    // existing consumers expect.
+    earlySpawnError.catch(() => { /* swallow uncaught rejection — caller will rethrow */ });
+
     this.proc.stdout.on('data', chunk => this._onData(chunk));
     this.proc.stderr.on('data', chunk => this.emit('stderr', chunk.toString('utf8')));
     this.proc.on('exit', code => this.emit('exit', code));
-    this.proc.on('error', err => this.emit('error', err));
+    // NOTE: the post-init re-emit of 'error' on this LspClient is deferred
+    // until after start() resolves (below). Attaching it here would race
+    // the early listener — both would fire on ENOENT, and the
+    // this.emit('error', ...) call would bubble to uncaughtException since
+    // nothing subscribes to LspClient's 'error' event.
 
-    const initResult = await this._request('initialize', {
+    const initPromise = this._request('initialize', {
       processId: process.pid,
       rootUri: this.rootUri,
       capabilities: {
@@ -54,6 +81,27 @@ export class LspClient extends EventEmitter {
         }
       }
     });
+
+    let initResult;
+    try {
+      initResult = await Promise.race([initPromise, earlySpawnError]);
+    } catch (err) {
+      // ENOENT (or any other spawn-level error) wins the race. Preserve
+      // err.code and err.path so the wrap site (getLiveSession in live.js)
+      // can propagate language_server_missing with the binary name attached.
+      throw err;
+    }
+    if (spawnRejected) {
+      // Defensive — should be unreachable since Promise.race already threw.
+      throw new Error('LspClient.start: spawn rejected after race resolved');
+    }
+    // Post-init: now safe to install the re-emit handler. Attach a no-op
+    // listener on LspClient's 'error' event so EventEmitter doesn't throw
+    // if a post-init spawn error fires without any external consumer (the
+    // pending request promise will already reject via _onData/timeout
+    // semantics; the proc-level error is just a notification).
+    this.on('error', () => { /* noop sink so post-init errors don't crash */ });
+    this.proc.on('error', err => this.emit('error', err));
     this._notify('initialized', {});
     this.serverCapabilities = initResult?.capabilities || {};
     this.started = true;

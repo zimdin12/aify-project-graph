@@ -137,10 +137,21 @@ export function validate(obj, ctx = {}) {
         errors.push(`assignment references path not in semantic.files.json (possible hallucination): ${filePath}`);
       }
     }
-    // 2. Every semantic.files.json path must have an assignment (no orphans)
-    for (const p of semanticPaths) {
-      if (!(p in obj.assignments)) {
-        errors.push(`semantic.files.json path ${p} has no architecture assignment (orphan)`);
+    // 2. Every semantic.files.json path must have an assignment (no orphans).
+    // Review-fix #5: when assignments is empty (LLM returned no layer-
+    // file mapping at all), collapse the N orphan errors into one summary
+    // so the failure mode is legible — likely truncated or empty LLM
+    // output, not per-file noise.
+    const assignmentCount = Object.keys(obj.assignments).length;
+    if (assignmentCount === 0 && semanticPaths.size > 0) {
+      errors.push(
+        `architecture has no assignments at all but semantic.files.json has ${semanticPaths.size} files; LLM output likely truncated or empty (re-run the architecture-layer-assigner with a smaller batch).`
+      );
+    } else {
+      for (const p of semanticPaths) {
+        if (!(p in obj.assignments)) {
+          errors.push(`semantic.files.json path ${p} has no architecture assignment (orphan)`);
+        }
       }
     }
   } else {

@@ -16,6 +16,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { featuresForFile } from '../../overlay/loader.js';
 
 const SCHEMA_VERSION = '0.1';
 const ALLOWED_NODE_TYPES = new Set([
@@ -124,24 +125,35 @@ function checkPathsExistOnDisk(repoRoot, files, errs) {
 }
 
 function checkTagFunctionalityConflict(files, functionalityJson, warns) {
-  // Soft check: warn (not error) on semantic-tag/feature conflict so
-  // generators can iterate. functionality.json taxonomy is truth but a
-  // warn is enough — strict reject would prevent any generated tags on
-  // repos with rich functionality overlays.
+  // Review-fix #3: soft-check that semantic tags don't contradict
+  // functionality.json's feature taxonomy. The rule (per senior-dev's
+  // lock + the skill's hard contract): a tag may MATCH a feature id
+  // the file already belongs to, but a tag may NOT claim membership
+  // in a DIFFERENT feature than the one functionality.json assigns.
+  //
+  // Warning (not error) because functionality.json doesn't anchor every
+  // file — many files have NO feature membership, in which case any
+  // feature-shaped tag is fine. We only flag the conflict case.
   if (!functionalityJson?.features) return;
-  // Currently a placeholder hook: build a map of features→file globs, then
-  // for each file check that semantic tags don't claim a contradictory
-  // feature membership. Real conflict semantics get baked when concrete
-  // examples surface.
   const features = functionalityJson.features;
   const featureIds = new Set(features.map(f => f.id));
   for (const f of files) {
-    if (!Array.isArray(f.tags)) continue;
+    if (!Array.isArray(f.tags) || !f.path) continue;
+    // Resolve the authoritative feature memberships for this file path.
+    let authoritative;
+    try {
+      authoritative = featuresForFile(features, f.path);
+    } catch { continue; /* glob failure shouldn't block validation */ }
+    if (!Array.isArray(authoritative) || authoritative.length === 0) continue;
+    const authoritativeSet = new Set(authoritative);
     for (const tag of f.tags) {
-      // A tag matching a feature id is acceptable (supplemental). Future:
-      // detect contradictions where a file's semantic feature tag points at
-      // feature X but functionality.json puts it in feature Y.
-      if (featureIds.has(tag)) continue;
+      // Tag-as-feature-claim conflict: tag matches a known feature id,
+      // but functionality.json doesn't put this file in that feature.
+      if (featureIds.has(tag) && !authoritativeSet.has(tag)) {
+        warns.push(
+          `${f.path}: semantic tag '${tag}' claims feature membership not in functionality.json (authoritative: ${authoritative.join(',') || 'none'}). functionality.json wins; generator should drop or correct this tag.`
+        );
+      }
     }
   }
 }

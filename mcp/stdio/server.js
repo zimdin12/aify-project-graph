@@ -545,6 +545,11 @@ const LEAN_TOOL_NAMES = new Set([
   'graph_pull',
   'graph_change_plan',
   'graph_health',
+  // Review-fix #7: graph_watch is the agent-facing primitive for enabling
+  // the file-watcher → auto-reindex hook (Plan #18 A). Hiding it from the
+  // lean profile's tools/list would make every lean-runtime agent unable
+  // to discover the verb even though it's the documented opt-in path.
+  'graph_watch',
 ]);
 
 // Full profile still keeps all 21 verbs callable, but the tools/list surface

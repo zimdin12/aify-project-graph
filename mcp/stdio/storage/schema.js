@@ -97,13 +97,27 @@ const NODES_FTS_SQL = `
 
 export function ensureNodesFtsTable(db) {
   db.exec(NODES_FTS_SQL);
-  // Backfill on first creation for existing rows. Cheap idempotent op:
-  // INSERT … SELECT only writes rows whose id isn't already in nodes_fts.
-  db.exec(`
-    INSERT INTO nodes_fts (id, label)
-    SELECT id, label FROM nodes
-    WHERE id NOT IN (SELECT id FROM nodes_fts);
-  `);
+  // Review-fix #4: only run the backfill when nodes_fts is empty (first
+  // creation OR full rebuild). The previous unconditional INSERT … SELECT
+  // WHERE id NOT IN (...) ran on every db open and scaled O(N*M) on the
+  // (nodes, nodes_fts) join, even though after first creation the triggers
+  // keep nodes_fts in sync. The first-creation guard makes db open O(1)
+  // for the common case.
+  //
+  // ensureNodesFtsTable is called both from createSchema() (raw better-
+  // sqlite3 db, before wrapDb attaches shortcuts) and from tests that
+  // pass the wrapped db (which exposes .get(sql) but not .prepare()).
+  // Pick the right call shape for whichever surface we got.
+  const COUNT_SQL = 'SELECT count(*) AS c FROM nodes_fts';
+  const ftsCount = typeof db.prepare === 'function'
+    ? db.prepare(COUNT_SQL).get().c
+    : db.get(COUNT_SQL).c;
+  if (ftsCount === 0) {
+    db.exec(`
+      INSERT INTO nodes_fts (id, label)
+      SELECT id, label FROM nodes;
+    `);
+  }
 }
 
 const CODE_INTEL_RECORDS_TABLE_SQL = `

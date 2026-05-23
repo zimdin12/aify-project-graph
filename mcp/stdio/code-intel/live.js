@@ -48,8 +48,17 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   try {
     await client.start();
   } catch (err) {
-    const wrapped = new Error(`language_server_missing: ${err.message}`);
+    // Review-fix #2: preserve the binary name + original errno so the
+    // error response upstream can render an actionable hint ("clangd not
+    // on PATH; install via …") instead of a generic "language_server_
+    // missing." The original ENOENT carries err.path = the binary name
+    // and err.code = 'ENOENT' / 'EACCES' / etc.
+    const binary = err?.path ?? spawnCfg?.command ?? language;
+    const wrapped = new Error(`language_server_missing: ${binary} (${err?.code ?? 'spawn failed'}) — ${err?.message ?? ''}`.trim());
     wrapped.code = 'language_server_missing';
+    wrapped.binary = binary;
+    wrapped.originalCode = err?.code ?? null;
+    wrapped.cause = err;
     throw wrapped;
   }
   SESSIONS.set(key, session);

@@ -140,22 +140,14 @@ async function main() {
     process.exit(2);
   }
 
-  // Guard against latent LspClient defect: when `clangd` (or any language
-  // server) isn't on PATH, the child_process spawn emits an async 'error'
-  // event AFTER getLiveSession's try/catch returns, so the verb appears to
-  // "succeed" then crashes the script later. We trap it here so the
-  // dogfood report writes an honest "blocked" envelope instead of dying.
-  // Note for future cleanup: fix LspClient.start() to listen for the early
-  // 'error' event and reject the start() promise; that's the right home.
-  let trappedSpawnError = null;
-  const trapHandler = (err) => {
-    if (err?.code === 'ENOENT' && /clangd|pyright|tsserver|intelephense/.test(String(err?.path ?? ''))) {
-      trappedSpawnError = err;
-    } else {
-      throw err;
-    }
-  };
-  process.on('uncaughtException', trapHandler);
+  // Note: pre-review-fix-#1 we trapped uncaughtException to catch a
+  // latent LspClient defect where missing-binary spawn errors fired
+  // async past getLiveSession's try/catch. That's fixed in
+  // lsp-client.js:start() now — the early 'error' listener races
+  // initialize and rejects start() cleanly, so each runQN's verb
+  // returns a structured language_server_missing envelope and the
+  // isMissingLspError() check sets the blocker. No process-level
+  // trap needed any more.
 
   _resetSessions();
   const startedAt = new Date().toISOString();
@@ -168,18 +160,6 @@ async function main() {
     try { await shutdownAllSessions(); } catch { /* swallow */ }
   }
 
-  process.off('uncaughtException', trapHandler);
-  // Backfill blockers if the spawn crashed before any verb completed
-  if (trappedSpawnError && results.length === 0) {
-    for (const q of ['Q1 step refs', 'Q2 sample_pressure hover', 'Q3 body_count absence']) {
-      results.push({
-        question: q,
-        blocker: `language_server_missing: ${trappedSpawnError.path} not on PATH`,
-        status: 'error',
-      });
-    }
-  }
-
   const allBlocked = results.every(r => r.blocker != null);
   const envelope = {
     runtime: opts.runtime,
@@ -190,12 +170,6 @@ async function main() {
     startedAt,
     finishedAt: new Date().toISOString(),
     overallStatus: allBlocked ? 'blocked' : 'ok',
-    trappedSpawnError: trappedSpawnError ? {
-      code: trappedSpawnError.code,
-      path: trappedSpawnError.path,
-      syscall: trappedSpawnError.syscall,
-      note: 'LspClient defect — spawn-error fires async past getLiveSession try/catch; trapped here so the dogfood reports cleanly.',
-    } : null,
     results,
   };
 

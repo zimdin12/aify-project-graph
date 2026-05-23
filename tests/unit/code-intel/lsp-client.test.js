@@ -16,6 +16,26 @@ describe('LspClient (against fake server)', () => {
     await client.shutdown();
   });
 
+  it('start() rejects cleanly when the binary is missing (no uncaughtException)', async () => {
+    // Review-fix #1: pre-fix, ENOENT fired async past start()'s try/catch
+    // and bubbled to uncaughtException. The fix added an early 'error'
+    // listener that races initialize and rejects start() with the original
+    // error so callers can wrap it cleanly.
+    const client = new LspClient({
+      command: 'apg-definitely-not-a-real-binary',
+      args: [],
+      rootUri: 'file:///r',
+    });
+    let caught = null;
+    try { await client.start(); } catch (err) { caught = err; }
+    expect(caught).not.toBeNull();
+    expect(caught.code).toBe('ENOENT');
+    expect(caught.path).toBe('apg-definitely-not-a-real-binary');
+    // Sanity: no lingering listeners that would crash later. Give the
+    // event loop a tick to fire any deferred error events.
+    await new Promise(r => setTimeout(r, 50));
+  });
+
   it('collects diagnostics published during didOpen', async () => {
     const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
     await client.start();
