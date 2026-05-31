@@ -15,3 +15,5 @@ reference/
 docs/dogfood/
 bench/dogfood-*.json
 bench/microbench-*.json
+_dash.mjs
+_rebuild.mjs

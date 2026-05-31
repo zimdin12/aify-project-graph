@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>aify-project-graph — How it works</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c2230; --ink:#e6edf3; --muted:#8b949e;
+    --line:#30363d; --accent:#58a6ff; --green:#3fb950; --amber:#d29922; --purple:#bc8cff;
+    --red:#f85149; --teal:#39c5cf; --pink:#f778ba;
+    --lsp:#3fb950; --inf:#d29922; --ext:#8b949e;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  code,.mono{font-family:"SF Mono",ui-monospace,"Cascadia Code",Consolas,monospace;font-size:.86em}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1060px;margin:0 auto;padding:0 24px}
+  header.hero{background:radial-gradient(1200px 400px at 20% -10%,#1f6feb33,transparent),
+     linear-gradient(160deg,#161b22,#0d1117);border-bottom:1px solid var(--line);padding:64px 0 40px}
+  .hero h1{font-size:42px;margin:0 0 8px;letter-spacing:-.5px}
+  .hero .tag{color:var(--accent);font-weight:600;letter-spacing:.5px;text-transform:uppercase;font-size:13px}
+  .hero p.lead{font-size:19px;color:var(--ink);max-width:760px;margin:14px 0 0}
+  .hero .sub{color:var(--muted);max-width:760px;margin:10px 0 0}
+  .pills{margin-top:22px;display:flex;gap:8px;flex-wrap:wrap}
+  .pill{background:#21262d;border:1px solid var(--line);border-radius:999px;padding:5px 13px;font-size:13px;color:var(--muted)}
+  .pill b{color:var(--ink)}
+  section{padding:46px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:27px;margin:0 0 6px;letter-spacing:-.3px}
+  h2 .n{color:var(--accent);font-weight:700;margin-right:10px}
+  .section-sub{color:var(--muted);margin:0 0 26px;max-width:780px}
+  h3{font-size:18px;margin:26px 0 10px}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:820px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .card h4{margin:0 0 8px;font-size:16px;display:flex;align-items:center;gap:9px}
+  .card p{margin:0;color:var(--muted);font-size:14.5px}
+  .tagdot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+  /* layered architecture diagram */
+  .stack{display:flex;flex-direction:column;gap:10px;margin:8px 0 4px}
+  .layer{border:1px solid var(--line);border-radius:11px;padding:15px 18px;background:linear-gradient(180deg,var(--panel2),var(--panel));position:relative;overflow:hidden}
+  .layer .lh{display:flex;align-items:center;gap:10px;font-weight:600}
+  .layer .lh .ic{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;font-size:14px;flex:none}
+  .layer .ld{color:var(--muted);font-size:14px;margin-top:6px}
+  .layer .chips{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-size:12px;background:#0d1117;border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--muted)}
+  .chip.mono{color:var(--ink)}
+  .arrow{height:18px;display:grid;place-items:center;color:var(--muted)}
+  /* provenance ladder */
+  .ladder{display:flex;flex-direction:column;gap:8px}
+  .rung{display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+  .rung .bar{width:6px;align-self:stretch;border-radius:4px;flex:none}
+  .rung .t{font-weight:600}
+  .rung .d{color:var(--muted);font-size:14px}
+  .rung .badge{margin-left:auto;font-size:12px;border-radius:6px;padding:3px 9px;border:1px solid var(--line);white-space:nowrap}
+  /* reference cards */
+  .ref{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:20px 22px}
+  .ref .top{display:flex;align-items:center;gap:13px;margin-bottom:6px}
+  .ref .logo{width:42px;height:42px;border-radius:10px;display:grid;place-items:center;font-weight:800;font-size:17px;flex:none;color:#0d1117}
+  .ref h4{margin:0;font-size:18px}
+  .ref .lic{font-size:12px;color:var(--muted)}
+  .ref ul{margin:12px 0 0;padding-left:18px}
+  .ref li{margin:6px 0;font-size:14.5px;color:var(--ink)}
+  .ref li span{color:var(--muted)}
+  .ref .verdict{margin-top:13px;font-size:13px;color:var(--muted);border-top:1px dashed var(--line);padding-top:11px}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px}
+  td code{background:#0d1117;border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .flow{counter-reset:step;display:flex;flex-direction:column;gap:10px}
+  .step{display:flex;gap:14px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .step .num{counter-increment:step;width:28px;height:28px;border-radius:50%;background:#1f6feb22;border:1px solid var(--accent);color:var(--accent);display:grid;place-items:center;font-weight:700;flex:none}
+  .step .num::before{content:counter(step)}
+  .step .b{font-size:14.5px}
+  .step .b b{color:var(--ink)}
+  .step .b span{color:var(--muted)}
+  .callout{background:linear-gradient(180deg,#1f6feb14,transparent);border:1px solid #1f6feb44;border-left:3px solid var(--accent);border-radius:10px;padding:16px 18px;margin-top:8px}
+  .callout b{color:var(--ink)}
+  footer{padding:40px 0 70px;color:var(--muted);font-size:13.5px}
+  .kbd{background:#21262d;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 7px;font-size:13px}
+  .muted{color:var(--muted)}
+  .toc{display:flex;gap:8px;flex-wrap:wrap;margin-top:20px}
+  .toc a{background:#21262d;border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:13.5px;color:var(--ink)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="tag">aify-project-graph · v0.1.0</div>
+    <h1>A code map your AI agent can <em>trust</em>.</h1>
+    <p class="lead">It reads your codebase into a graph, then layers in a C++ compiler's ground truth on top — and exposes both to coding agents (Claude Code, Hermes, Codex) as a small set of MCP tools plus a live dashboard.</p>
+    <p class="sub">Built C++-first for game engines (Sand Castle, Echoes of the Fallen / Tesseract), it merges proven ideas from four similar open-source projects into one coherent system. The whole point: an agent should never be told "no callers / safe to delete" unless that's actually <em>proven</em>.</p>
+    <div class="pills">
+      <span class="pill"><b>~40</b> MCP verbs</span>
+      <span class="pill"><b>961</b> tests passing</span>
+      <span class="pill"><b>tree-sitter</b> + <b>clangd</b></span>
+      <span class="pill">runs on <b>Claude Code</b> + <b>Hermes</b></span>
+    </div>
+    <div class="toc">
+      <a href="#what">What it is</a>
+      <a href="#how">How it works</a>
+      <a href="#trust">The trust model</a>
+      <a href="#refs">What's borrowed</a>
+      <a href="#use">How an agent uses it</a>
+      <a href="#dash">The dashboard</a>
+    </div>
+  </div>
+</header>
+
+<section id="what">
+  <div class="wrap">
+    <h2><span class="n">1</span>What is it, in one minute</h2>
+    <p class="section-sub">Coding agents are great at writing code but bad at <em>knowing</em> a large codebase — they grep, read the wrong file, and worst of all they <em>hallucinate</em> ("just delete <code>foo()</code>, nothing calls it" — when something does). This project gives the agent a reliable map and, crucially, tells it <em>how much to trust each answer</em>.</p>
+    <div class="grid g3">
+      <div class="card"><h4>🗺️ A graph of your code</h4><p>Every file, function, class, call, import, and inheritance edge — extracted with <b>tree-sitter</b> across many languages. Always available, instant, no toolchain needed.</p></div>
+      <div class="card"><h4>🎯 Compiler ground truth</h4><p>For C++, it drives <b>clangd</b> (the real compiler's language server) to resolve who <em>actually</em> calls a function across files — and marks those edges <code>[lsp✓]</code> as verified.</p></div>
+      <div class="card"><h4>🛡️ An honesty contract</h4><p>Every answer says where it came from. A "no callers" result is only trustworthy when it's <em>proven exhaustive</em>; otherwise the tool says so out loud.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <h2><span class="n">2</span>How it works — the layered architecture</h2>
+    <p class="section-sub">Think of it as an <b>escalation ladder</b>. The bottom is always-on and cheap; each layer up adds precision where it matters. Everything writes into <em>one</em> graph, so a static query and a compiler-verified query live side by side.</p>
+
+    <div class="stack">
+      <div class="layer">
+        <div class="lh"><span class="ic" style="background:#1f6feb33">🧩</span> Static graph &nbsp;<span class="muted" style="font-weight:400;font-size:13px">— always on</span></div>
+        <div class="ld">Tree-sitter parses every source file into nodes (File, Function, Method, Class…) and edges (CALLS, IMPORTS, EXTENDS…). Honors <code>.gitignore</code>; handles unity builds, monorepos, non-ASCII paths. This is the map.</div>
+        <div class="chips"><span class="chip mono">nodes + edges</span><span class="chip">SQLite</span><span class="chip">multi-language</span></div>
+      </div>
+      <div class="arrow">▼ escalate for precision</div>
+      <div class="layer">
+        <div class="lh"><span class="ic" style="background:#3fb95033">🎯</span> clangd trust spine &nbsp;<span class="muted" style="font-weight:400;font-size:13px">— C++ ground truth</span></div>
+        <div class="ld">A normalized <code>compile_commands.json</code> feeds clangd with background indexing. Its resolved references/definitions/call-hierarchy become graph edges tagged <code>LSP_VERIFIED</code>. Only claims a result is <em>exhaustive</em> after the index is confirmably ready.</div>
+        <div class="chips"><span class="chip mono">LSP_VERIFIED edges</span><span class="chip">call + type hierarchy</span><span class="chip">evidence contract</span></div>
+      </div>
+      <div class="arrow">▼ plus domain bridges</div>
+      <div class="layer">
+        <div class="lh"><span class="ic" style="background:#bc8cff33">🌉</span> Bridge &amp; inferred layers</div>
+        <div class="ld">Things a generic indexer never sees: <b>C++↔GLSL shader bindings</b> (which CPU code populates which shader buffer slot), and <b>virtual-override</b> edges (so a call through a base pointer reaches its overrides). Clearly tagged <em>inferred/heuristic</em> — never faked as compiler truth.</div>
+        <div class="chips"><span class="chip mono">DECLARES_BINDING</span><span class="chip mono">LOADS_SHADER</span><span class="chip mono">OVERRIDDEN_BY</span></div>
+      </div>
+      <div class="arrow">▼ understand the whole</div>
+      <div class="layer">
+        <div class="lh"><span class="ic" style="background:#39c5cf33">📊</span> Analysis</div>
+        <div class="ld">Communities (Leiden), hot-spots (god-nodes by degree), dependency cycles, provenance mix. One shared module powers both the agent verbs and the dashboard, so they can never disagree.</div>
+        <div class="chips"><span class="chip">communities</span><span class="chip">hotspots</span><span class="chip">cycles</span></div>
+      </div>
+      <div class="arrow">▼ exposed to agents &amp; humans</div>
+      <div class="layer">
+        <div class="lh"><span class="ic" style="background:#f778ba33">🔌</span> Surfaces</div>
+        <div class="ld"><b>MCP verbs</b> for agents (orient, trace, verify, analyze) — each carrying a trust banner — plus a live <b>dashboard</b> for humans. An <code>initialize</code> playbook is injected into the agent's prompt so it knows which verb to reach for.</div>
+        <div class="chips"><span class="chip">MCP (Claude Code · Hermes)</span><span class="chip">HTTP dashboard</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="trust">
+  <div class="wrap">
+    <h2><span class="n">3</span>The trust model — the heart of it</h2>
+    <p class="section-sub">Every edge carries a <b>provenance</b> tag, and every answer carries a <b>trust banner</b>. This is what separates this tool from "a graph with features": the agent always knows whether it can act on an answer or must verify first.</p>
+
+    <div class="ladder">
+      <div class="rung"><span class="bar" style="background:var(--lsp)"></span><div><div class="t">LSP_VERIFIED &nbsp;<code>[lsp✓]</code></div><div class="d">clangd resolved it. Cross-file ground truth. "Don't re-grep this."</div></div><span class="badge" style="color:var(--lsp);border-color:var(--lsp)">trust it</span></div>
+      <div class="rung"><span class="bar" style="background:var(--ext)"></span><div><div class="t">EXTRACTED</div><div class="d">Tree-sitter saw it directly in the source. Exact, but single-file scope.</div></div><span class="badge">solid</span></div>
+      <div class="rung"><span class="bar" style="background:var(--inf)"></span><div><div class="t">INFERRED</div><div class="d">A heuristic guess — e.g. a synthesized virtual-override edge. Useful lead, confirm before acting.</div></div><span class="badge" style="color:var(--inf);border-color:var(--inf)">verify</span></div>
+      <div class="rung"><span class="bar" style="background:var(--amber)"></span><div><div class="t">AMBIGUOUS</div><div class="d">Name matched several candidates. Surfaced for review, not silently dropped.</div></div><span class="badge" style="color:var(--amber);border-color:var(--amber)">review</span></div>
+    </div>
+
+    <div class="callout">
+      <b>The one rule that defines the product:</b> a tool may only claim "no callers / safe to delete" when it has <em>proven exhaustive</em> evidence (a ready clangd index that actually resolved that symbol). Otherwise it must say <span class="mono">"absence is from the heuristic graph and is NOT exhaustive — verify with code_intel_references / rg."</span> &nbsp;Live testing on the real games caught two places where this slipped; both are fixed and regression-tested. A stale index or an unbuilt overlay also announces itself loudly, so "not found" never gets misread as "doesn't exist."
+    </div>
+  </div>
+</section>
+
+<section id="refs">
+  <div class="wrap">
+    <h2><span class="n">4</span>What's borrowed from what — and how it's used</h2>
+    <p class="section-sub">This isn't built from scratch, and it isn't a copy-paste of any one tool. Four mature projects each solved part of the problem well; this merges their <em>ideas</em> into one coherent system. Three are MIT (reused with attribution; reimplemented in our JS+SQLite shapes). One is unlicensed — <b>patterns only, no code copied</b>.</p>
+
+    <div class="grid g2">
+
+      <div class="ref">
+        <div class="top"><div class="logo" style="background:linear-gradient(135deg,#58a6ff,#39c5cf)">CG</div>
+          <div><h4>codegraph</h4><div class="lic">MIT · TypeScript · the static-graph &amp; agent-UX donor</div></div></div>
+        <ul>
+          <li><b>C++ resolution heuristics</b> <span>— receiver-type inference (<code>obj-&gt;method()</code> → the declared type's method), out-of-line <code>Foo::bar</code> matching, include-dir discovery.</span></li>
+          <li><b>Adaptive output</b> <span>— size the answer to the question, skeletonize redundant siblings instead of truncating.</span></li>
+          <li><b>Generated-file down-ranking</b> <span>— protobuf/moc/<code>*_generated.h</code> rank last so a hand-written symbol wins.</span></li>
+          <li><b><code>graph_trace</code> / <code>graph_explore</code></b> <span>— from→to call paths with inlined bodies; multi-symbol source bundles. "Treat this as already Read."</span></li>
+          <li><b>The "low-salience wall" doctrine</b> <span>— agents under-pick from big tool lists; enrich the verbs they already call rather than adding names. Shaped our whole tool-surface design.</span></li>
+          <li><b>MCP <code>initialize</code> server-instructions</b> <span>— the one channel that reaches every host's prompt.</span></li>
+        </ul>
+        <div class="verdict">Reimplemented in JS (their TS type-shapes differ). The trace/explore verbs and the gating philosophy are the biggest lifts.</div>
+      </div>
+
+      <div class="ref">
+        <div class="top"><div class="logo" style="background:linear-gradient(135deg,#3fb950,#39c5cf)">GF</div>
+          <div><h4>graphify</h4><div class="lic">MIT · Python · the analysis &amp; "self-describing" donor</div></div></div>
+        <ul>
+          <li><b>Token-budgeted digest</b> <span>— our <code>graph_digest</code>: the whole project's analytic value (layers, hotspots, cycles, provenance) in ~1–2k tokens. Ends the "dashboard is an island" problem.</span></li>
+          <li><b>God-nodes / communities / cycles</b> <span>— the analytics behind <code>graph_hotspots</code>, <code>graph_overview</code>, <code>graph_cycles</code>.</span></li>
+          <li><b>Analysis-as-a-verb pattern</b> <span>— the same shared module backs both the agent verbs and the dashboard, so they never drift.</span></li>
+          <li><b>Safety hardening</b> <span>— <code>sanitize_label</code> against prompt-injection through indexed source; pre-parse file-size caps; SSRF guards.</span></li>
+          <li><b>IDF search ranking</b> <span>— rare identifiers outrank common ones.</span></li>
+        </ul>
+        <div class="verdict">Pure graph algorithms — ported cleanly. The "give the agent the dashboard's value as text" idea is graphify's signature contribution here.</div>
+      </div>
+
+      <div class="ref">
+        <div class="top"><div class="logo" style="background:linear-gradient(135deg,#bc8cff,#f778ba)">UA</div>
+          <div><h4>understand-anything</h4><div class="lic">MIT · JS/TS · the import-resolution &amp; dashboard donor</div></div></div>
+        <ul>
+          <li><b>Import-map resolution</b> <span>— tsconfig path-aliases (<code>@/foo</code>) + extension probing, including the load-bearing leading-<code>./</code> normalization.</span></li>
+          <li><b>Dashboard overview→drill-in</b> <span>— show ~8–30 cluster boxes, not 13k nodes; expand one cluster on demand. The legibility idea behind our new overview view.</span></li>
+          <li><b>Change-explain</b> <span>— our <code>graph_explain_diff</code>: keyed on a git diff → changed → affected → risk (the reverse of "what breaks if I touch X").</span></li>
+          <li><b>Non-ASCII enumeration &amp; structural fingerprints</b> <span>— <code>git ls-files -z</code>; body-vs-signature change classification.</span></li>
+        </ul>
+        <div class="verdict">Its actual web dashboard (React-Flow + ELK) is the visual north star; we adopted its aggregation ideas onto our existing viz.</div>
+      </div>
+
+      <div class="ref">
+        <div class="top"><div class="logo" style="background:linear-gradient(135deg,#d29922,#f85149)">ACI</div>
+          <div><h4>agent-code-intel</h4><div class="lic">UNLICENSED · patterns only — <b>no code copied</b></div></div></div>
+        <ul>
+          <li><b>The evidence / exhaustiveness contract</b> <span>— the crown jewel: a references result reports <code>{ready, degraded, cause, exhaustive, confidence}</code> + warnings. "Definition-only ≠ no callers." This is the source of our whole honesty model.</span></li>
+          <li><b>LSP runtime &amp; freshness</b> <span>— prewarm cold indexes, gate every answer on freshness, the <code>resolveServer</code> precedence chain.</span></li>
+          <li><b>Multi-runtime shim</b> <span>— one core behind MCP / CLI shims, so it runs on Claude Code and Hermes identically.</span></li>
+        </ul>
+        <div class="verdict">Internal/unlicensed, so every pattern was <b>re-expressed from scratch</b> ("reference parity," not copied code). Conceptually the most important donor: the trust contract is the product.</div>
+      </div>
+
+    </div>
+
+    <h3>Where each idea actually lives</h3>
+    <table>
+      <tr><th>Borrowed idea</th><th>From</th><th>Realized as</th></tr>
+      <tr><td>Evidence/exhaustiveness contract</td><td>agent-code-intel</td><td><code>lsp-evidence.js</code> · the <code>[lsp✓]</code>/TRUST banners on every verb</td></tr>
+      <tr><td>clangd refs → graph edges</td><td>agent-code-intel + codegraph</td><td><code>ingest/code-intel/importer.js</code> (<code>LSP_VERIFIED</code>)</td></tr>
+      <tr><td>Token-budgeted digest</td><td>graphify</td><td><code>graph_digest</code> · <code>intelligence/analytics.js</code></td></tr>
+      <tr><td>Call/type hierarchy</td><td>agent-code-intel</td><td><code>code_intel_hierarchy</code></td></tr>
+      <tr><td>Trace / explore</td><td>codegraph</td><td><code>graph_trace</code> · <code>graph_explore</code> · <code>source-bundle.js</code></td></tr>
+      <tr><td>Change-explain</td><td>understand-anything</td><td><code>graph_explain_diff</code></td></tr>
+      <tr><td>tsconfig aliases + ext-probe</td><td>understand-anything</td><td>JS import resolution <span class="muted">(backlog)</span></td></tr>
+      <tr><td>Generated-file down-ranking</td><td>codegraph</td><td><code>query/generated.js</code></td></tr>
+      <tr><td>Overview→drill-in viz</td><td>understand-anything</td><td>dashboard <code>/api/overview</code> + cluster view</td></tr>
+      <tr><td>Injection guards / size caps</td><td>graphify</td><td>sanitization + hardening <span class="muted">(partly backlog)</span></td></tr>
+      <tr><td>Single taxonomy registry</td><td>own cohesion fix</td><td><code>storage/taxonomy.js</code></td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="use">
+  <div class="wrap">
+    <h2><span class="n">5</span>How an agent actually uses it</h2>
+    <p class="section-sub">A typical "I'm about to change this C++ function" flow. Notice it escalates from cheap-and-static to verified-and-precise, and stops the moment it has a trustworthy answer.</p>
+    <div class="flow">
+      <div class="step"><div class="num"></div><div class="b"><b>Orient</b> — <code>graph_digest</code> for the lay of the land (subsystems, hot-spots, cycles), or <code>graph_packet</code> for one feature/symbol. <span>~1–2k tokens, no compiler needed.</span></div></div>
+      <div class="step"><div class="num"></div><div class="b"><b>Locate</b> — <code>graph_search</code> / <code>graph_whereis</code> to find the symbol. <span>If the index is stale it says so, so "not found" is never mistaken for "doesn't exist."</span></div></div>
+      <div class="step"><div class="num"></div><div class="b"><b>Get ground truth</b> — <code>graph_collect_code_intel</code> warms clangd on the relevant files, turning callers into <code>LSP_VERIFIED</code> edges. <span>First run is slow then cached; returns a compact summary, not a data dump.</span></div></div>
+      <div class="step"><div class="num"></div><div class="b"><b>Verify</b> — <code>graph_callers</code> now shows <code>[lsp✓]</code> callers with a TRUST banner; <code>code_intel_hierarchy</code> walks the transitive call/override tree. <span>An empty result is honestly labeled, never a false "safe to delete."</span></div></div>
+      <div class="step"><div class="num"></div><div class="b"><b>Understand the change</b> — <code>graph_trace from→to</code> inlines the call path; <code>graph_explore</code> bundles several symbols' source; <code>graph_explain_diff</code> scores the blast radius of a diff. <span>Source comes back "already-Read," so the agent stops opening files.</span></div></div>
+    </div>
+  </div>
+</section>
+
+<section id="dash">
+  <div class="wrap">
+    <h2><span class="n">6</span>The dashboard</h2>
+    <p class="section-sub">A live HTTP view of the same graph the agents query — for humans who want to <em>see</em> the codebase. Launch it with the <code>graph_dashboard</code> verb (or it may already be running at <span class="mono">http://127.0.0.1:7700</span>).</p>
+    <div class="grid g3">
+      <div class="card"><h4><span class="tagdot" style="background:var(--accent)"></span>Overview → drill-in</h4><p>Starts as a handful of cluster boxes (communities / architecture layers), not thousands of nodes. Click a cluster to expand only it.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--green)"></span>Provenance ribbon</h4><p>Compiler-verified call edges render solid-green; heuristic ones dashed. A top-line "% LSP-verified" tells you how much of the call graph is ground truth.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--purple)"></span>Shader-binding map</h4><p>For game engines: the CPU↔GPU seam — which C++ descriptor-write populates which GLSL buffer slot. No generic tool shows this.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--red)"></span>Blast-radius</h4><p>Select a symbol → everything it reaches lights up (changed = red, affected = amber), the rest fades.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--teal)"></span>Pathfinder + hotspots</h4><p>Shortest path between two symbols; an idle panel of the highest-degree "god nodes" (the risky core).</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--pink)"></span>2D / 3D / layers</h4><p>Cytoscape 2D, a stacked-layer 3D view, and the code+feature+task multilayer overlay.</p></div>
+    </div>
+    <p class="muted" style="margin-top:18px">Note: the dashboard is an upgraded version of the project's existing graph viz (Cytoscape + 3d-force-graph). The <em>analysis</em> behind it — clusters, hotspots, provenance, shader map — is the same shared module the agents use, so the picture and the agent answers always agree.</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p><b>aify-project-graph v0.1.0</b> — branch <code>plan/next-gen-code-intel-bridge</code>. Validated live on Sand Castle + Echoes of the Fallen, on Claude Code and Hermes. 961 tests passing.</p>
+    <p>Deeper reading in the repo: <code>docs/code-intel-v2-status.md</code> (current state), <code>docs/code-intel-v2-next-plan.md</code> (backlog), <code>docs/code-intel-v2/</code> (the master plan, reference-borrow synthesis, holistic review, and A/B test records).</p>
+    <p>Licensing: codegraph · graphify · understand-anything are MIT (reused with attribution). agent-code-intel is internal/unlicensed — patterns reimplemented from scratch, no code copied.</p>
+  </div>
+</footer>
+
+</body>
+</html>
