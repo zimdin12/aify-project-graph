@@ -5,6 +5,7 @@ import { enforceBudget } from '../budget.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { buildTrustLine } from '../lsp-evidence.js';
 
 const ALL_RELATIONS = [
   'CONTAINS', 'DEFINES', 'DECLARES', 'IMPORTS', 'EXPORTS',
@@ -48,8 +49,18 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
       depth: 1, from_type: 'Function', fan_in: 1,
     }));
     const { kept, dropped } = enforceBudget(mapped, top_k);
+    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}` });
+
+    // TRUST banner (Code-Intel v2 / L2b). One line, shared helper — marks an
+    // lsp-verified neighborhood as clangd ground truth, or keeps the
+    // heuristic undercount caveat otherwise.
+    let trustLine = '';
+    try {
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+    } catch { /* defensive — never block result on trust-line failure */ }
+
     return prefixReadWarnings(
-      renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}` }),
+      body + trustLine,
       freshness.warnings,
     );
   } finally {

@@ -102,6 +102,10 @@ function rewriteCommandString(cmd) {
 
 function normalizeEntry(entry) {
   const out = { ...entry };
+  // Stash the original `file` (pre-normalization) so unity expansion can swap
+  // the unity path token in both its host and original-WSL forms. Stripped
+  // before the DB is serialized.
+  if (typeof out.file === 'string' && isUnityFile(out.file)) out.__rawFile = out.file;
   if (typeof out.file === 'string') out.file = wslToHost(out.file);
   if (typeof out.directory === 'string') out.directory = wslToHost(out.directory);
   if (Array.isArray(out.arguments)) out.arguments = rewriteArguments(out.arguments);
@@ -153,6 +157,145 @@ function isDepRel(rel) {
 
 function isUnityFile(file) {
   return typeof file === 'string' && UNITY_RE.test(file.replace(/\\/g, '/'));
+}
+
+// Quoted-include matcher for CMake unity aggregate files. A unity `.cxx` is a
+// list of `#include "<member source>"` lines (one per first-party TU it
+// absorbs). We deliberately ignore angle-bracket includes (`#include <...>`) —
+// those are system/library headers, never member sources.
+const UNITY_INCLUDE_RE = /^[ \t]*#[ \t]*include[ \t]*"([^"]+)"/gm;
+
+/**
+ * Parse the member-source include paths out of a CMake unity `.cxx` body.
+ * Returns the raw quoted strings (NOT yet host-normalized or resolved).
+ *
+ * Pure helper — unit-tested directly.
+ * @param {string} text the unity .cxx file contents
+ * @returns {string[]} quoted include targets, in file order
+ */
+export function parseUnityIncludes(text) {
+  if (typeof text !== 'string' || text.length === 0) return [];
+  const out = [];
+  UNITY_INCLUDE_RE.lastIndex = 0;
+  let m;
+  while ((m = UNITY_INCLUDE_RE.exec(text)) !== null) {
+    if (m[1]) out.push(m[1]);
+  }
+  return out;
+}
+
+// C++ source extensions a unity member may carry (members are TUs, not headers).
+const UNITY_MEMBER_EXTS = new Set(['.cpp', '.cc', '.cxx', '.c', '.c++', '.cp']);
+
+/**
+ * Resolve one raw unity include target to an absolute host path on disk.
+ * Handles WSL→host translation for absolute targets and dir-relative targets.
+ * Returns null when the target isn't a C++ source or doesn't exist on disk.
+ *
+ * Pure-ish helper (touches fs via the injected `exists` probe) — unit-tested.
+ * @param {string} raw the quoted include string from the unity file
+ * @param {string} unityDirHost host-normalized dir of the unity .cxx file
+ * @param {(p:string)=>boolean} [exists] fs existence probe (injectable for tests)
+ * @returns {string|null} absolute host path, forward-slashed, or null
+ */
+export function resolveUnityMember(raw, unityDirHost, exists = fs.existsSync) {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+  const ext = raw.includes('.') ? raw.slice(raw.lastIndexOf('.')).toLowerCase() : '';
+  if (!UNITY_MEMBER_EXTS.has(ext)) return null;
+  // Candidate 1: treat as absolute (WSL or already-host).
+  const host = wslToHost(raw).replace(/\\/g, '/');
+  const candidates = [];
+  if (path.isAbsolute(host) || /^[A-Za-z]:/.test(host)) {
+    candidates.push(host);
+  } else {
+    // Candidate 2: relative to the unity file's directory.
+    candidates.push(path.join(unityDirHost, host).replace(/\\/g, '/'));
+  }
+  for (const c of candidates) {
+    if (exists(c)) return c;
+  }
+  return null;
+}
+
+// Replace the unity `.cxx` path token inside a command string / argument array
+// with the member source path, so the synthesized entry compiles the real TU
+// with the unity entry's exact flags. Matches the unity path in either its
+// host or original WSL form.
+function replacePathInCommand(cmd, unityFileHost, unityFileRaw, memberHost) {
+  if (typeof cmd !== 'string') return cmd;
+  let out = cmd;
+  for (const needle of [unityFileHost, unityFileRaw]) {
+    if (needle && out.includes(needle)) out = out.split(needle).join(memberHost);
+  }
+  return out;
+}
+
+function replacePathInArguments(args, unityFileHost, unityFileRaw, memberHost) {
+  if (!Array.isArray(args)) return args;
+  return args.map(tok => {
+    if (tok === unityFileHost || tok === unityFileRaw) return memberHost;
+    return tok;
+  });
+}
+
+/**
+ * Expand CMake unity-build aggregate entries into per-member-source entries.
+ * For each unity TU, reads its `.cxx`, parses the member `#include "..."`
+ * sources, resolves them to host paths, and synthesizes a compile entry per
+ * first-party member reusing the unity entry's flags (with the unity path token
+ * swapped for the member source path; `output` dropped).
+ *
+ * Pure-ish (fs read/exists injectable) — unit-tested.
+ * @param {object[]} normalized normalized DB entries (host-pathed)
+ * @param {string} projectRoot
+ * @param {object} [io] injectable fs probes for tests
+ * @param {(p:string)=>boolean} [io.exists]
+ * @param {(p:string)=>string} [io.read]
+ * @returns {{ expanded: object[], unityTuCount: number, expandedSources: number }}
+ */
+export function expandUnityEntries(normalized, projectRoot, io = {}) {
+  const exists = io.exists || fs.existsSync;
+  const read = io.read || ((p) => fs.readFileSync(p, 'utf8'));
+  const expanded = [];
+  const seen = new Set();
+  let unityTuCount = 0;
+  let expandedSources = 0;
+  for (const entry of normalized) {
+    if (!entry || typeof entry.file !== 'string' || !isUnityFile(entry.file)) continue;
+    unityTuCount += 1;
+    const unityFileHost = entry.file.replace(/\\/g, '/');
+    // The original (pre-normalization) WSL form, reconstructed for token swap.
+    const unityFileRaw = entry.__rawFile || unityFileHost;
+    const unityDirHost = path.dirname(unityFileHost);
+    if (!exists(unityFileHost)) continue;
+    let body;
+    try { body = read(unityFileHost); } catch { continue; }
+    const includes = parseUnityIncludes(body);
+    for (const raw of includes) {
+      const memberHost = resolveUnityMember(raw, unityDirHost, exists);
+      if (!memberHost) continue;
+      // First-party gate: member must live in-repo and not under a dep/build dir.
+      const rel = repoRel(projectRoot, { file: memberHost, directory: entry.directory });
+      if (!rel || isDepRel(rel)) continue;
+      const dedupKey = process.platform === 'win32' ? memberHost.toLowerCase() : memberHost;
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+      const synth = {
+        file: memberHost,
+        directory: entry.directory,
+        __unityExpanded: true
+      };
+      if (typeof entry.command === 'string') {
+        synth.command = replacePathInCommand(entry.command, unityFileHost, unityFileRaw, memberHost);
+      }
+      if (Array.isArray(entry.arguments)) {
+        synth.arguments = replacePathInArguments(entry.arguments, unityFileHost, unityFileRaw, memberHost);
+      }
+      expanded.push(synth);
+      expandedSources += 1;
+    }
+  }
+  return { expanded, unityTuCount, expandedSources };
 }
 
 // Count in-repo, non-dep, non-unity first-party entries for a parsed DB.
@@ -215,21 +358,71 @@ export function prepareCompileDb({ projectRoot }) {
     };
   }
 
-  // 2. Build diagnostics.
+  // 2. Unity expansion. For unity DBs, expand each `Unity/unity_*.cxx` aggregate
+  //    into per-member-source entries so clangd analyzes real first-party TUs.
   const diagnostics = [];
+  let unityExpanded = false;
+  let expandedFrom = 0;
+  let expandedSources = 0;
+  let outEntries = best.normalized;
+  let firstPartyCount = best.firstParty;
+
   if (best.unity) {
-    diagnostics.push({
-      code: 'unity_build',
-      message: 'compile DB is a CMake UNITY build — entries point at Unity/unity_*.cxx aggregates, not first-party TUs. clangd will fall back to inferred per-file flags; precision (cross-TU refs, diagnostics) is degraded.',
-      fix: 'reconfigure with unity OFF (-DCMAKE_UNITY_BUILD=OFF) or pass explicit files[] to the collect call'
-    });
+    const { expanded, unityTuCount, expandedSources: synthCount } =
+      expandUnityEntries(best.normalized, projectRoot);
+    expandedFrom = unityTuCount;
+    expandedSources = synthCount;
+
+    if (synthCount > 0) {
+      unityExpanded = true;
+      // Rebuild the DB: keep every non-unity entry (first-party + deps clangd
+      // may need for headers), drop the unity aggregates, add expanded members.
+      // De-dupe by file so a member already present as a standalone entry isn't
+      // duplicated.
+      const result = [];
+      const seen = new Set();
+      const keyOf = (f) => (process.platform === 'win32' ? String(f).toLowerCase() : String(f));
+      for (const e of best.normalized) {
+        if (!e || typeof e.file !== 'string') continue;
+        if (isUnityFile(e.file)) continue; // drop raw aggregates
+        const k = keyOf(e.file);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        result.push(e);
+      }
+      for (const e of expanded) {
+        const k = keyOf(e.file);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        result.push(e);
+      }
+      outEntries = result;
+      // Recount first-party against the expanded set (real member sources now
+      // present; unity aggregates gone).
+      firstPartyCount = countFirstParty(result, projectRoot).firstParty;
+
+      diagnostics.push({
+        code: 'unity_expanded',
+        message: `expanded ${unityTuCount} unity TUs into ${synthCount} per-source entries — clangd now analyzes real first-party sources (cross-TU precision restored for expanded members).`,
+        fix: 'none required; for a fully native DB reconfigure with unity OFF (-DCMAKE_UNITY_BUILD=OFF)'
+      });
+    } else {
+      // Expansion found 0 members (unity .cxx files unreadable — e.g. the build
+      // tree isn't present on this host). Keep the not-usable diagnostic.
+      diagnostics.push({
+        code: 'unity_build',
+        message: 'compile DB is a CMake UNITY build — entries point at Unity/unity_*.cxx aggregates, not first-party TUs, and expansion found no readable member sources (build tree absent on this host?). clangd will fall back to inferred per-file flags; precision (cross-TU refs, diagnostics) is degraded.',
+        fix: 'reconfigure with unity OFF (-DCMAKE_UNITY_BUILD=OFF) or pass explicit files[] to the collect call'
+      });
+    }
   }
 
-  // 3. Write the normalized DB.
+  // 3. Strip internal bookkeeping and write the normalized DB.
+  const cleaned = outEntries.map(stripInternal);
   const normalizedDir = path.join(projectRoot, '.aify-graph', 'code-intel');
   const normalizedPath = path.join(normalizedDir, 'compile_commands.json');
   fs.mkdirSync(normalizedDir, { recursive: true });
-  const serialized = JSON.stringify(best.normalized, null, 2);
+  const serialized = JSON.stringify(cleaned, null, 2);
   fs.writeFileSync(normalizedPath, serialized);
   const dbHash = crypto.createHash('sha256').update(serialized).digest('hex').slice(0, 16);
 
@@ -239,11 +432,25 @@ export function prepareCompileDb({ projectRoot }) {
     normalizedDir,
     normalizedPath,
     entryCount: best.entryCount,
-    firstPartyCount: best.firstParty,
+    firstPartyCount,
     unity: best.unity,
+    unityExpanded,
+    expandedFrom,
+    expandedSources,
     diagnostics,
     dbHash
   };
+}
+
+// Drop internal bookkeeping keys (prefixed `__`) before serialization.
+function stripInternal(entry) {
+  if (!entry || typeof entry !== 'object') return entry;
+  const out = {};
+  for (const k of Object.keys(entry)) {
+    if (k.startsWith('__')) continue;
+    out[k] = entry[k];
+  }
+  return out;
 }
 
 const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);

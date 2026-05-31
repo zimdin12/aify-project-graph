@@ -6,6 +6,7 @@ import { enforceBudget } from '../budget.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { buildTrustLine } from '../lsp-evidence.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -74,8 +75,19 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (mapped.length === 0) return file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
+    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
+
+    // TRUST banner (Code-Intel v2 / L2b). callees.js previously had NO trust
+    // caveat at all — added here so a heuristic-only callee list carries the
+    // same undercount warning as callers/impact, and an lsp-verified one is
+    // marked as clangd ground truth. One line, shared helper.
+    let trustLine = '';
+    try {
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+    } catch { /* defensive — never block result on trust-line failure */ }
+
     return prefixReadWarnings(
-      renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` }),
+      body + trustLine,
       freshness.warnings,
     );
   } finally {

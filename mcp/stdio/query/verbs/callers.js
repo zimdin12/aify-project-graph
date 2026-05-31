@@ -8,6 +8,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
+import { buildTrustLine } from '../lsp-evidence.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -103,8 +104,17 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       }
     } catch { /* defensive */ }
 
+    // TRUST banner (Code-Intel v2 / L2b). One line, always present: either
+    // `lsp-verified (...)` when the result carries clangd ground-truth edges
+    // (with a STALE caveat when the collection is out of date) or the
+    // heuristic-only undercount caveat. Shared helper so all four verbs agree.
+    let trustLine = '';
+    try {
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+    } catch { /* defensive — never block result on trust-line failure */ }
+
     return prefixReadWarnings(
-      (rolledUp ? `${header}\n${body}` : body) + confidenceFooter,
+      (rolledUp ? `${header}\n${body}` : body) + trustLine + confidenceFooter,
       freshness.warnings,
     );
   } finally {

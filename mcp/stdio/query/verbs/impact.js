@@ -7,6 +7,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
+import { buildTrustLine } from '../lsp-evidence.js';
 
 const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -102,8 +103,15 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       }
     } catch { /* defensive — never block result on confidence-check failure */ }
 
+    // TRUST banner (Code-Intel v2 / L2b). See callers.js for the rationale —
+    // shared helper keeps the line identical across all four read verbs.
+    let trustLine = '';
+    try {
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+    } catch { /* defensive — never block result on trust-line failure */ }
+
     return prefixReadWarnings(
-      (rolledUp ? `${header}\n${body}` : body) + confidenceFooter,
+      (rolledUp ? `${header}\n${body}` : body) + trustLine + confidenceFooter,
       freshness.warnings,
     );
   } finally {

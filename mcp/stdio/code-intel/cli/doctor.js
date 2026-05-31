@@ -52,13 +52,19 @@ function reportCpp(projectRoot, write) {
 
   let dbReady = false;
   let unityWarn = false;
+  let unityExpanded = false;
   if (db.found) {
     dbReady = db.firstPartyCount > 0;
     unityWarn = !!db.unity;
+    unityExpanded = !!db.unityExpanded;
     write(`  compile_db: FOUND — ${db.sourcePath}\n`);
     write(`    normalized: ${db.normalizedPath}\n`);
     write(`    entries: ${db.entryCount} (first-party: ${db.firstPartyCount})\n`);
-    if (unityWarn) {
+    if (unityExpanded) {
+      const d = (db.diagnostics || []).find(x => x.code === 'unity_expanded');
+      write(`    unity-expanded: ${db.expandedFrom} unity TUs → ${db.expandedSources} per-source entries\n`);
+      if (d?.message) write(`      ${d.message}\n`);
+    } else if (unityWarn) {
       const d = (db.diagnostics || []).find(x => x.code === 'unity_build');
       write(`    WARNING unity_build: ${d ? d.message : 'unity aggregates detected'}\n`);
       if (d?.fix) write(`      fix: ${d.fix}\n`);
@@ -75,11 +81,16 @@ function reportCpp(projectRoot, write) {
   // 3. Verdict + single most important fix-it.
   const ready = clangdReady && dbReady;
   if (ready) {
-    write(`  => READY${unityWarn ? ' (degraded: unity build — precision reduced)' : ''}\n`);
+    let suffix = '';
+    if (unityExpanded) suffix = ' (unity-expanded)';
+    else if (unityWarn) suffix = ' (degraded: unity build — precision reduced)';
+    write(`  => READY${suffix}\n`);
   } else {
     let fixit;
     if (!clangdReady) fixit = LANGUAGES.cpp.install;
     else if (!db.found) fixit = (db.diagnostics?.[0]?.fix) || 'generate compile_commands.json (cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON)';
+    else if (unityWarn) fixit = (db.diagnostics?.find(d => d.code === 'unity_build')?.fix)
+      || 'unity build with no expandable members (build tree absent?) — reconfigure with -DCMAKE_UNITY_BUILD=OFF or run the build so unity .cxx files exist on disk';
     else fixit = 'no first-party sources in compile DB — pass explicit files[] or reconfigure the build';
     write('  => NOT READY\n');
     write(`     fix: ${fixit}\n`);

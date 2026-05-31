@@ -5,6 +5,7 @@ export const EDGE_PROVENANCE_TYPES = [
   'INFERRED',
   'AMBIGUOUS',
   'CODE_INTEL',
+  'LSP_VERIFIED',
 ];
 
 const NODE_TYPES = [

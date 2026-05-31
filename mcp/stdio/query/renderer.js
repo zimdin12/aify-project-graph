@@ -30,8 +30,15 @@ export function renderNodeLine(n) {
 // INFERRED / AMBIGUOUS are the signals worth surfacing — they tell agents
 // "this edge came from heuristic resolution or framework synthesis, treat
 // it with less trust." EXTRACTED stays silent to keep output terse.
+//
+// LSP_VERIFIED (Code-Intel v2 / L2b) is clangd ground truth and must NEVER
+// render as equal to a heuristic edge. It gets a distinct, always-on inline
+// marker `[lsp✓]` so an agent can tell verified edges from heuristic ones at
+// a glance — even in compact mode, where EXTRACTED is silenced for terseness.
+const LSP_VERIFIED_MARKER = '[lsp✓]';
 function renderProvenanceTag(p) {
   if (!p || p === 'EXTRACTED') return '';
+  if (p === 'LSP_VERIFIED') return ` ${LSP_VERIFIED_MARKER}`;
   return ` prov=${p}`;
 }
 
