@@ -3,6 +3,12 @@ import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { isGeneratedPath } from '../generated.js';
+
+// P1-5 — generated codegen stubs sort LAST among otherwise-equal candidates.
+// Subtracted AFTER the type/match scoring so a hand-written node always wins a
+// shared label, but the generated node stays reachable (never hidden).
+const GENERATED_PENALTY = 2000;
 
 // Code-first ranking: agents want code symbols, not docs/dirs
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
@@ -28,7 +34,27 @@ function scoreNode(node, query) {
   // Fan-in as tiebreaker (from confidence as proxy)
   score += (node.confidence ?? 0) * 10;
 
+  // P1-5 — down-rank generated codegen stubs. The penalty exceeds any
+  // type/match bonus so a hand-written node with the same label outranks the
+  // generated one, but the generated node still appears (down-rank, not hide).
+  if (isGeneratedPath(node.file_path)) score -= GENERATED_PENALTY;
+
   return score;
+}
+
+// Append a `generated:true` hint to rendered lines for generated nodes so the
+// agent knows the stub is codegen output. Render order is preserved.
+function annotateGenerated(text, nodes) {
+  const lines = text.split('\n');
+  return lines
+    .map((line, i) => {
+      const n = nodes[i];
+      if (n && isGeneratedPath(n.file_path) && line.startsWith('NODE ')) {
+        return `${line} generated:true`;
+      }
+      return line;
+    })
+    .join('\n');
 }
 
 function buildSearchFilters({ type, file, kind }) {
@@ -79,7 +105,15 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
         { ...baseParams, label: normalizedQuery, limit: cappedLimit }
       );
       if (exactHits.length > 0) {
-        return prefixReadWarnings(renderCompact({ nodes: exactHits, edges: [] }), freshnessWarnings);
+        // P1-5 — even on the exact-label fast path, generated stubs sort LAST
+        // so a hand-written symbol of the same name wins. Stable sort keeps the
+        // original DB order among same-class hits.
+        const orderedExact = exactHits
+          .map((n, i) => ({ n, i, gen: isGeneratedPath(n.file_path) }))
+          .sort((a, b) => (a.gen === b.gen ? a.i - b.i : (a.gen ? 1 : -1)))
+          .map(x => x.n);
+        const rendered = annotateGenerated(renderCompact({ nodes: orderedExact, edges: [] }), orderedExact);
+        return prefixReadWarnings(rendered, freshnessWarnings);
       }
     }
     const clauses = ['label LIKE $q', ...baseClauses];
@@ -97,7 +131,8 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
       .sort((a, b) => b._score - a._score)
       .slice(0, limit);
 
-    return prefixReadWarnings(renderCompact({ nodes: scored, edges: [] }), freshnessWarnings);
+    const rendered = annotateGenerated(renderCompact({ nodes: scored, edges: [] }), scored);
+    return prefixReadWarnings(rendered, freshnessWarnings);
   } finally {
     db.close();
   }

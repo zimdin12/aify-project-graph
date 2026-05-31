@@ -16,6 +16,12 @@ import { openExistingDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality } from '../../overlay/loader.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
+import { isGeneratedPath } from '../generated.js';
+
+// P1-5 — generated codegen stubs sort LAST among otherwise-equal hits. Penalty
+// exceeds the per-layer/match bonuses so a hand-written symbol with the same
+// label outranks the generated one; the generated hit still appears.
+const GENERATED_PENALTY = 2000;
 
 const ALL_LAYERS = ['code', 'features', 'tasks', 'docs'];
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
@@ -57,7 +63,9 @@ function searchCode(db, query, limit) {
     const key = `${row.label}|${row.file_path}|${row.start_line}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const score = scoreTextMatch(row.label, query) + (CODE_TYPES.has(row.type) ? 100 : 20);
+    const generated = isGeneratedPath(row.file_path);
+    let score = scoreTextMatch(row.label, query) + (CODE_TYPES.has(row.type) ? 100 : 20);
+    if (generated) score -= GENERATED_PENALTY;
     hits.push({
       layer: 'code',
       kind: (row.type || 'unknown').toLowerCase(),
@@ -65,6 +73,7 @@ function searchCode(db, query, limit) {
       file: row.file_path,
       line: row.start_line,
       score,
+      ...(generated ? { generated: true } : {}),
     });
   }
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);

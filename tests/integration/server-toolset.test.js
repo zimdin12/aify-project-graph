@@ -122,6 +122,25 @@ describe('server toolset selection', () => {
     expect(lookupText).toContain('src/auth.py:');
   });
 
+  it('returns a non-empty server-instructions playbook on initialize (P1-1)', async () => {
+    const lines = await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+    ]);
+    const init = lines.find(line => line.id === 1);
+    const instructions = init?.result?.instructions;
+    expect(typeof instructions).toBe('string');
+    expect(instructions.length).toBeGreaterThan(0);
+    // Trust-spine guidance must be present — the whole point of the channel.
+    expect(instructions).toContain('LSP_VERIFIED');
+    expect(instructions).toMatch(/TRUST/);
+    expect(instructions).toMatch(/lsp/i);
+    // Intent routing + orient mentioned.
+    expect(instructions).toContain('graph_packet');
+    expect(instructions).toContain('graph_consequences');
+    // serverInfo still intact alongside the new field.
+    expect(init.result.serverInfo.name).toBe('aify-project-graph');
+  });
+
   it('defaults lean mode to compact output unless explicitly overridden', async () => {
     const compactLines = await runRpcSequence([
       { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },

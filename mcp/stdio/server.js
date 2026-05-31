@@ -33,6 +33,7 @@ import { graphPacket } from './query/verbs/packet.js';
 import { graphCollectCodeIntel } from './query/verbs/collect_code_intel.js';
 import { checkRequestSize, MAX_MCP_LINE_BYTES } from './security/request-size.js';
 import { findSensitivePathArg } from './security/sensitive-paths.js';
+import { SERVER_INSTRUCTIONS } from './server-instructions.js';
 import {
   codeIntelDiagnostics,
   codeIntelReferences,
@@ -695,6 +696,10 @@ rl.on('line', async (line) => {
         protocolVersion: '2024-11-05',
         capabilities: { tools: {}, resources: {} },
         serverInfo: { name: 'aify-project-graph', version: '0.1.0' },
+        // P1-1 — intent-routed playbook. MCP hosts inject this into the agent
+        // system prompt once/session; single source of truth in
+        // server-instructions.js.
+        instructions: SERVER_INSTRUCTIONS,
       },
     });
     return;
