@@ -13,6 +13,18 @@ function fakeProvider() {
   });
 }
 
+// Provider whose fake LSP emits $/progress begin/end so the INDEXED-mode
+// readiness wait (FIX A) can reach ready deterministically in tests.
+function fakeProgressProvider() {
+  return createCppClangdProvider({
+    spawn: () => ({
+      command: process.execPath,
+      args: [fakeServer],
+      env: { ...process.env, FAKE_LSP_PROGRESS: '1' }
+    })
+  });
+}
+
 describe('cpp-clangd provider (fake LSP)', () => {
   it('reports capabilities including expected operations', () => {
     const p = fakeProvider();
@@ -64,6 +76,46 @@ describe('cpp-clangd provider (fake LSP)', () => {
       operations: ['references']
     });
     expect(result.session.warmedFiles).toBeGreaterThanOrEqual(2);
+  });
+
+  it('FIX A: INDEXED mode records indexReady + indexWaitMs + ref tallies in session', async () => {
+    const prev = process.env.APG_CLANGD_MODE;
+    delete process.env.APG_CLANGD_MODE; // default = indexed
+    try {
+      const p = fakeProgressProvider();
+      const result = await p.collect({
+        language: 'cpp', projectRoot: fixtureRepo, scope: 'files',
+        files: ['src/foo.cpp', 'src/bar.cpp'], operations: ['references']
+      });
+      expect(result.session.mode).toBe('indexed');
+      expect(result.session.indexReady).toBe(true);
+      expect(typeof result.session.indexWaitMs).toBe('number');
+      // The fixture refs resolve, so found tally > 0 and not_found stays 0.
+      expect(result.session.refsFoundSymbols).toBeGreaterThan(0);
+      expect(result.session.refsNotFoundSymbols).toBe(0);
+    } finally {
+      if (prev === undefined) delete process.env.APG_CLANGD_MODE;
+      else process.env.APG_CLANGD_MODE = prev;
+    }
+  });
+
+  it('FIX A: BOUNDED mode never waits and reports indexReady=false', async () => {
+    const prev = process.env.APG_CLANGD_MODE;
+    process.env.APG_CLANGD_MODE = 'bounded';
+    try {
+      const p = fakeProgressProvider();
+      const result = await p.collect({
+        language: 'cpp', projectRoot: fixtureRepo, scope: 'files',
+        files: ['src/foo.cpp'], operations: ['references']
+      });
+      expect(result.session.mode).toBe('bounded');
+      expect(result.session.indexReady).toBe(false);
+      expect(result.session.indexWaitMs).toBe(0);
+      expect(result.session.indexWaitReason).toBe('skipped_bounded_mode');
+    } finally {
+      if (prev === undefined) delete process.env.APG_CLANGD_MODE;
+      else process.env.APG_CLANGD_MODE = prev;
+    }
   });
 
   it('symbol-aware reference behavior: capable-target empty result triggers warm-and-retry', async () => {

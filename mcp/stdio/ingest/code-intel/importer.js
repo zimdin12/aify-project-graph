@@ -303,17 +303,28 @@ function resolveDefinedSymbolNode(db, record, stats) {
     const placeholders = [...ENCLOSING_TYPES].map((_, i) => `$t${i}`).join(', ');
     const typeParams = {};
     [...ENCLOSING_TYPES].forEach((t, i) => { typeParams[`t${i}`] = t; });
-    // Innermost / closest: largest start_line that still encloses defLine.
+    // FIX C — method-level callee precision. When a clangd symbol/definition
+    // (e.g. a constructor or member fn) sits inside BOTH a Method/Function node
+    // and its enclosing Class/Struct, prefer the innermost callable so
+    // caller→callee edges land on the method, not the class. We rank:
+    //   (1) callable types (Function/Method) before container types
+    //       (Class/Struct/Interface) — a function enclosed by a class is the
+    //       more precise target;
+    //   (2) then innermost: largest start_line, smallest span.
+    // The CASE keeps the existing innermost fallback for non-callable matches.
     const match = db.get(
-      `SELECT id, start_line, end_line FROM nodes
+      `SELECT id, type, start_line, end_line FROM nodes
         WHERE file_path = $file
           AND start_line <= $line AND end_line >= $line
           AND type IN (${placeholders})
-        ORDER BY start_line DESC, end_line ASC
+        ORDER BY
+          CASE WHEN type IN ('Function', 'Method') THEN 0 ELSE 1 END ASC,
+          start_line DESC,
+          end_line ASC
         LIMIT 1`,
       { file, line: defLine, ...typeParams },
     );
-    if (match) return { nodeId: match.id, startLine: match.start_line, endLine: match.end_line };
+    if (match) return { nodeId: match.id, nodeType: match.type, startLine: match.start_line, endLine: match.end_line };
   }
 
   // No tree-sitter node — synthesize a code-intel Symbol node keyed by symbolId.
@@ -338,7 +349,7 @@ function resolveDefinedSymbolNode(db, record, stats) {
     },
   });
   stats.nodesCreated += 1;
-  return { nodeId: id, startLine: defLine ?? 0, endLine: record.range?.end?.line ?? defLine ?? 0 };
+  return { nodeId: id, nodeType: 'Symbol', startLine: defLine ?? 0, endLine: record.range?.end?.line ?? defLine ?? 0 };
 }
 
 // Build a per-file index of candidate enclosing symbols (id,start,end) so the
@@ -404,17 +415,43 @@ function synthesizeLspEdges(envelope, db, stats) {
   );
 
   const nodeStats = { nodesCreated: 0 };
-  // 3. defined-symbol node map: symbolId -> { nodeId, startLine, endLine, file }.
+  // 3. defined-symbol node map: symbolId -> { nodeId, nodeType, startLine, endLine, file }.
+  //
+  // A clangd symbol typically yields TWO records for the same symbolId: a
+  // `symbol` record at the .cpp definition body (which encloses the
+  // tree-sitter Method/Function node) and a `definition` record at the .h
+  // declaration (which only encloses the Class). FIX C: prefer the resolution
+  // that lands on a callable (Method/Function) so caller→callee edges target
+  // the method, not the enclosing class. Ranking of candidate resolutions:
+  //   (1) callable node (Method/Function) beats container/Symbol;
+  //   (2) otherwise a real tree-sitter node beats a synthesized ci:lsp Symbol;
+  //   (3) otherwise first-seen wins (stable).
+  const CALLABLE_TYPES = new Set(['Function', 'Method']);
+  const resolutionRank = (nodeType, nodeId) => {
+    if (CALLABLE_TYPES.has(nodeType)) return 2;            // best — a method/function
+    if (typeof nodeId === 'string' && nodeId.startsWith('ci:lsp:')) return 0; // synthesized fallback
+    return 1;                                              // a real container node (Class/Struct/etc.)
+  };
   const symbolNodes = new Map();
   for (const record of records) {
     if (record.kind !== 'symbol' && record.kind !== 'definition') continue;
     if (!record.symbolId) continue;
-    // Prefer a record that carries a real definition range; don't overwrite a
-    // file/range-bearing resolution with a weaker one.
-    if (symbolNodes.has(record.symbolId) && !(record.file && record.range)) continue;
+    if (!(record.file && record.range)) {
+      // No range to resolve against — only useful if we have nothing yet.
+      if (symbolNodes.has(record.symbolId)) continue;
+    }
     const resolved = resolveDefinedSymbolNode(db, record, nodeStats);
+    const existing = symbolNodes.get(record.symbolId);
+    if (existing) {
+      // Keep the better-ranked resolution; never let a header-declaration
+      // Class resolution clobber a .cpp-body Method resolution.
+      const existingRank = resolutionRank(existing.nodeType, existing.nodeId);
+      const newRank = resolutionRank(resolved.nodeType, resolved.nodeId);
+      if (newRank <= existingRank) continue;
+    }
     symbolNodes.set(record.symbolId, {
       nodeId: resolved.nodeId,
+      nodeType: resolved.nodeType,
       startLine: resolved.startLine,
       endLine: resolved.endLine,
       file: record.file,
@@ -532,14 +569,34 @@ function importV02Collection(envelope, db) {
   const firstRecord = envelope.records?.[0];
 
   const run = db.transaction(() => {
+  // FIX A/B: readiness + reference-outcome signals. `index_ready` is the basis
+  // for honest exhaustiveness — references are only trustworthy-as-exhaustive
+  // when the background index was idle before they were queried. NULL (older
+  // collections) reads as "unknown" downstream. Fold the same signals into
+  // operations_json so they survive even on graphs that lack the new columns.
+  const sess = envelope.session || {};
+  const indexReady = sess.indexReady;
+  const operationsJson = JSON.stringify({
+    ...(envelope.operations || {}),
+    _session: {
+      mode: sess.mode ?? null,
+      indexReady: indexReady ?? null,
+      indexWaitMs: sess.indexWaitMs ?? null,
+      indexWaitReason: sess.indexWaitReason ?? null,
+      refsFoundSymbols: sess.refsFoundSymbols ?? null,
+      refsNotFoundSymbols: sess.refsNotFoundSymbols ?? null,
+    },
+  });
   db.run(
     `INSERT OR REPLACE INTO code_intel_collections
        (collection_id, provider, provider_version, project_root, language, status,
         freshness_basis, freshness_value, compile_db_hash, indexed_commit,
-        operations_json, collected_at, errors_json)
+        operations_json, collected_at, errors_json,
+        mode, index_ready, index_wait_ms, refs_found, refs_not_found)
      VALUES (@collection_id, @provider, @provider_version, @project_root, @language, @status,
              @freshness_basis, @freshness_value, @compile_db_hash, @indexed_commit,
-             @operations_json, @collected_at, @errors_json)`,
+             @operations_json, @collected_at, @errors_json,
+             @mode, @index_ready, @index_wait_ms, @refs_found, @refs_not_found)`,
     {
       collection_id: envelope.collectionId,
       provider: envelope.provider,
@@ -547,13 +604,18 @@ function importV02Collection(envelope, db) {
       project_root: envelope.projectRoot,
       language: firstRecord?.language || 'unknown',
       status: envelope.status,
-      freshness_basis: envelope.session?.freshnessBasis ?? null,
-      freshness_value: envelope.session?.freshnessValue ?? envelope.session?.compileDbHash ?? null,
-      compile_db_hash: envelope.session?.compileDbHash ?? null,
-      indexed_commit: envelope.session?.indexedCommit ?? null,
-      operations_json: JSON.stringify(envelope.operations || {}),
-      collected_at: envelope.session?.collectedAt ?? new Date().toISOString(),
+      freshness_basis: sess.freshnessBasis ?? null,
+      freshness_value: sess.freshnessValue ?? sess.compileDbHash ?? null,
+      compile_db_hash: sess.compileDbHash ?? null,
+      indexed_commit: sess.indexedCommit ?? null,
+      operations_json: operationsJson,
+      collected_at: sess.collectedAt ?? new Date().toISOString(),
       errors_json: envelope.errors ? JSON.stringify(envelope.errors) : null,
+      mode: sess.mode ?? null,
+      index_ready: indexReady == null ? null : (indexReady ? 1 : 0),
+      index_wait_ms: sess.indexWaitMs ?? null,
+      refs_found: sess.refsFoundSymbols ?? null,
+      refs_not_found: sess.refsNotFoundSymbols ?? null,
     },
   );
     for (const record of (envelope.records || [])) {

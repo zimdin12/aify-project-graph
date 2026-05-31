@@ -11,6 +11,25 @@ import { buildClangdSpawn } from '../resolve-clangd.js';
 // can take well over the default 10s before the first query resolves.
 const COLD_COLLECT_TIMEOUT_MS = 60000;
 
+// Code-Intel v2 FIX A: how long to wait for clangd's background index to go
+// idle before issuing `references`. The master-plan mode matrix:
+//   INDEXED (default) — background-index ON; WAIT for readiness so cross-TU
+//     callers are visible. Only then are references trustworthy-as-exhaustive.
+//   BOUNDED (APG_CLANGD_MODE=bounded) — never wait; fast inner-loop; never
+//     claims exhaustive.
+// Bounded wait — never hangs forever. Override via APG_CLANGD_INDEX_WAIT_MS.
+const DEFAULT_INDEX_WAIT_MS = 90000;
+
+function resolveClangdMode() {
+  const raw = String(process.env.APG_CLANGD_MODE || 'indexed').trim().toLowerCase();
+  return raw === 'bounded' ? 'bounded' : 'indexed';
+}
+
+function resolveIndexWaitMs() {
+  const raw = Number(process.env.APG_CLANGD_INDEX_WAIT_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_INDEX_WAIT_MS;
+}
+
 const PROVIDER_NAME = 'cpp-clangd';
 const PROVIDER_VERSION = '0.1.0';
 
@@ -193,6 +212,35 @@ export function createCppClangdProvider({ spawn } = {}) {
         const warmupMs = Date.now() - warmupStart;
         await new Promise(r => setTimeout(r, 100));
 
+        // Code-Intel v2 FIX A: in INDEXED mode, wait for clangd's background
+        // index to go idle BEFORE issuing references — otherwise cross-TU
+        // callers race the index and come back not_found_after_retry, and the
+        // lsp-verified upgrade is non-deterministic. BOUNDED mode skips the
+        // wait (fast inner-loop; never claims exhaustive).
+        const mode = resolveClangdMode();
+        let indexReady = false;
+        let indexWaitMs = 0;
+        let indexWaitReason = 'skipped_bounded_mode';
+        if (mode === 'indexed') {
+          const indexWaitBudget = resolveIndexWaitMs();
+          try {
+            const r = await client.waitForIndexReady({ timeoutMs: indexWaitBudget });
+            indexReady = !!r.ready;
+            indexWaitMs = r.waitMs;
+            indexWaitReason = r.reason;
+          } catch {
+            indexReady = false;
+            indexWaitReason = 'index_wait_error';
+          }
+          if (process.env.APG_VERBOSE_CODE_INTEL) {
+            process.stderr.write(`[apg code-intel] index readiness: ready=${indexReady} waitMs=${indexWaitMs} reason=${indexWaitReason}\n`);
+          }
+        }
+        // Per-symbol reference outcome tallies (FIX B). found = symbols whose
+        // `references` resolved ≥1 location; notFound = not_found_after_retry.
+        let refsFoundSymbols = 0;
+        let refsNotFoundSymbols = 0;
+
         // For each file: try documentSymbol → definitions / references / hover at top symbol position.
         for (const op of ['definitions', 'references', 'hover', 'symbols']) {
           if (!requestedOps.has(op)) {
@@ -299,6 +347,7 @@ export function createCppClangdProvider({ spawn } = {}) {
                   resultState = refs.length > 0 ? 'found' : 'not_found_after_retry';
                 }
                 if (resultState === 'not_found_after_retry') {
+                  refsNotFoundSymbols += 1;
                   records.push({
                     schema_version: '0.2', collectionId, kind: 'reference',
                     language: 'cpp', symbolId, qname,
@@ -306,6 +355,7 @@ export function createCppClangdProvider({ spawn } = {}) {
                     result_state: 'not_found_after_retry'
                   });
                 } else {
+                  refsFoundSymbols += 1;
                   for (const ref of refs) {
                     records.push({
                       schema_version: '0.2', collectionId, kind: 'reference',
@@ -387,6 +437,17 @@ export function createCppClangdProvider({ spawn } = {}) {
             compileDbHash: dbHash,
             warmedFiles: files.length,
             warmupMs,
+            // FIX A — honest per-collection readiness signal. references are
+            // only trustworthy-as-exhaustive when indexReady===true.
+            mode,
+            indexReady,
+            indexWaitMs,
+            indexWaitReason,
+            // FIX B — per-collection reference outcome tallies so downstream
+            // can say "index ready, N callers" vs "index NOT ready — may
+            // undercount" instead of silently reverting to the generic line.
+            refsFoundSymbols,
+            refsNotFoundSymbols,
             ...(enumStats ? { enumeration: enumStats } : {})
           },
           operations,

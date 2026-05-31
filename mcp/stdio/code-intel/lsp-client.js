@@ -257,6 +257,59 @@ export class LspClient extends EventEmitter {
     });
   }
 
+  // Code-Intel v2 FIX A: wait for clangd's background index to go idle before
+  // issuing reference queries, so cross-TU callers are visible (otherwise
+  // `references` races the index and returns not_found_after_retry).
+  //
+  // Resolves with { ready:boolean, waitMs:number, reason }. Bounded — never
+  // hangs forever. Handles three real clangd timings:
+  //   (1) index already on disk → no `$/progress` ever fires. We give it a
+  //       short grace window (settleMs) for a `begin` to appear; if none does
+  //       and at least one file is warmed, we treat the server as ready.
+  //   (2) indexing in flight → resolves on the `$/progress end` that drains
+  //       the last token (navigationFreshness() flips to 'fresh').
+  //   (3) indexing never finishes within timeoutMs → resolves ready:false so
+  //       the caller records indexReady:false and the banner says "not ready".
+  async waitForIndexReady({ timeoutMs = 90000, settleMs = 1500 } = {}) {
+    const startedAt = Date.now();
+    const elapsed = () => Date.now() - startedAt;
+
+    // Already fully ready (warmed + idle): done immediately.
+    if (this.navigationFreshness() === 'fresh') {
+      return { ready: true, waitMs: elapsed(), reason: 'already_ready' };
+    }
+
+    // Grace window: clangd may emit the `$/progress begin` a beat after
+    // `initialized`/`didOpen`. Poll briefly for indexing to START. If it never
+    // starts (index already on disk) and we've warmed files, call it ready.
+    while (elapsed() < settleMs) {
+      if (this.indexingState === 'indexing') break;
+      if (this.navigationFreshness() === 'fresh') {
+        return { ready: true, waitMs: elapsed(), reason: 'ready_no_index_needed' };
+      }
+      await new Promise(r => setTimeout(r, 50));
+    }
+
+    // If indexing never began and nothing is pending, the server is as ready
+    // as it will get (no background work to wait on).
+    if (this.indexingState !== 'indexing' && this.progressTokens.size === 0) {
+      if (this.workspaceWarmCount > 0) {
+        return { ready: true, waitMs: elapsed(), reason: 'no_progress_signalled' };
+      }
+      return { ready: false, waitMs: elapsed(), reason: 'cold_no_warm' };
+    }
+
+    // Indexing is in flight — wait for it to drain (or time out).
+    const remaining = Math.max(0, timeoutMs - elapsed());
+    const freshness = await this.waitForReady(remaining);
+    const ready = freshness === 'fresh';
+    return {
+      ready,
+      waitMs: elapsed(),
+      reason: ready ? 'index_drained' : 'index_wait_timeout'
+    };
+  }
+
   _markIndexingStarted() {
     this.indexingState = 'indexing';
   }

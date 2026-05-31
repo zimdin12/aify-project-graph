@@ -95,6 +95,47 @@ describe('LspClient (against fake server)', () => {
     await client.shutdown();
   });
 
+  it('waitForIndexReady resolves ready after background indexing drains (FIX A)', async () => {
+    const client = new LspClient({
+      command: process.execPath,
+      args: [fakeServer],
+      env: { ...process.env, FAKE_LSP_PROGRESS: '1' },
+      rootUri: 'file:///r'
+    });
+    await client.start();
+    await client.didOpen('file:///r/src/foo.cpp', 'cpp', 'void foo(int) {}');
+    // The fake server emits progress begin immediately and end after ~20ms.
+    const r = await client.waitForIndexReady({ timeoutMs: 2000, settleMs: 500 });
+    expect(r.ready).toBe(true);
+    expect(typeof r.waitMs).toBe('number');
+    // Depending on timing the index may already have drained before/within the
+    // grace window — any of these are legitimately "ready", and crucially NOT
+    // a timeout.
+    expect(['index_drained', 'already_ready', 'ready_no_index_needed']).toContain(r.reason);
+    expect(r.reason).not.toBe('index_wait_timeout');
+    await client.shutdown();
+  });
+
+  it('waitForIndexReady resolves ready when no progress is ever signalled (index on disk)', async () => {
+    // No FAKE_LSP_PROGRESS → server never emits $/progress. With a warmed
+    // file and no pending index work, readiness is reached via the grace
+    // window rather than blocking the full timeout.
+    const client = new LspClient({
+      command: process.execPath,
+      args: [fakeServer],
+      rootUri: 'file:///r'
+    });
+    await client.start();
+    await client.didOpen('file:///r/src/foo.cpp', 'cpp', 'void foo(int) {}');
+    const t0 = Date.now();
+    const r = await client.waitForIndexReady({ timeoutMs: 5000, settleMs: 200 });
+    expect(r.ready).toBe(true);
+    expect(r.reason).toBe('no_progress_signalled');
+    // Must not have blocked anywhere near the 5s timeout.
+    expect(Date.now() - t0).toBeLessThan(2000);
+    await client.shutdown();
+  });
+
   it('returns hover content', async () => {
     const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
     await client.start();

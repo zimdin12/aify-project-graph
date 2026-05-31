@@ -128,6 +128,38 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     expect(out).not.toContain('lsp-verified');
   });
 
+  it('(d) FIX A/B: indexReady=true → "index-ready, N callers" attestation', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      // Stamp the existing collection as index-ready with the new columns.
+      db.run(`UPDATE code_intel_collections SET index_ready = 1, mode = 'indexed', refs_found = 5, refs_not_found = 0 WHERE collection_id = 'ci-1'`);
+    } finally {
+      db.close();
+    }
+    const out = await graphCallers({ repoRoot, symbol: 'execute' });
+    expect(out).toContain('[lsp✓]');
+    expect(out).toMatch(/TRUST: lsp-verified \(clangd, index-ready, \d+ caller/);
+    expect(out).not.toContain('lsp-partial');
+  });
+
+  it('(e) FIX A/B: indexReady=false → lsp-partial "index NOT ready" banner', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      db.run(`UPDATE code_intel_collections SET index_ready = 0, mode = 'indexed', refs_found = 1, refs_not_found = 3 WHERE collection_id = 'ci-1'`);
+    } finally {
+      db.close();
+    }
+    const out = await graphCallers({ repoRoot, symbol: 'execute' });
+    // Still surfaces the verified edge, but the banner is HONEST that the
+    // index was not ready and the set may undercount.
+    expect(out).toContain('[lsp✓]');
+    expect(out).toContain('TRUST: lsp-partial');
+    expect(out).toContain('index NOT ready');
+    expect(out).toContain('re-collect');
+    expect(out).toMatch(/3 symbol\(s\) unresolved/);
+    expect(out).not.toMatch(/TRUST: lsp-verified/);
+  });
+
   it('(c) lsp-verified edges rank above heuristic edges', () => {
     // Heuristic edge has HIGHER confidence (0.99) than the verified edge (0.5);
     // verified must still sort first because it is ground truth.

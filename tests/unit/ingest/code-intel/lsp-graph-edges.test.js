@@ -164,4 +164,51 @@ describe('L2a: clangd v0.2 → LSP_VERIFIED graph edges', () => {
     }));
     expect(stats.edgesCreated).toBe(0);
   });
+
+  it('FIX C: a callee definition enclosed by BOTH a class and a method resolves to the method', () => {
+    // A constructor / member body sits at line 52 inside a Class (50-80) AND
+    // an inner Method (51-60). Pre-fix the resolver could land the CALLS edge
+    // on the enclosing Class; FIX C prefers the innermost callable so the edge
+    // targets the Method node.
+    const CLASS_FILE = 'src/engine.cpp';
+    upsertNode(db, {
+      id: 'ts:EngineClass', type: 'Class', label: 'Engine',
+      file_path: CLASS_FILE, start_line: 50, end_line: 80, language: 'cpp',
+    });
+    upsertNode(db, {
+      id: 'ts:Engine_ctor', type: 'Method', label: 'Engine',
+      file_path: CLASS_FILE, start_line: 51, end_line: 60, language: 'cpp',
+    });
+    // A caller in another file referencing the method.
+    upsertNode(db, {
+      id: 'ts:other_caller', type: 'Function', label: 'other_caller',
+      file_path: FILE, start_line: 100, end_line: 110, language: 'cpp',
+    });
+
+    const calleeId = 'c:cpp:src/engine.cpp:52:3';
+    const stats = importEnvelope(envelope({
+      records: [
+        {
+          schema_version: '0.2', collectionId: 'ci-1', kind: 'symbol',
+          language: 'cpp', symbolId: calleeId, qname: 'Engine::Engine', name: 'Engine',
+          file: CLASS_FILE, range: { start: { line: 52, col: 3 }, end: { line: 60, col: 1 } },
+          confidence: 'high', provenance: 'cpp-clangd@0.1.0', result_state: 'found',
+        },
+        {
+          schema_version: '0.2', collectionId: 'ci-1', kind: 'reference',
+          language: 'cpp', symbolId: calleeId, qname: 'Engine::Engine',
+          file: FILE, range: { start: { line: 105, col: 5 }, end: { line: 105, col: 11 } },
+          context: 'call_expr', confidence: 'high', provenance: 'cpp-clangd@0.1.0',
+          result_state: 'found',
+        },
+      ],
+    }));
+
+    expect(stats.edgesCreated).toBe(1);
+    const edge = db.get(`SELECT from_id, to_id FROM edges WHERE provenance='LSP_VERIFIED'`);
+    // Edge lands on the Method node, NOT the enclosing Class.
+    expect(edge.to_id).toBe('ts:Engine_ctor');
+    expect(edge.to_id).not.toBe('ts:EngineClass');
+    expect(edge.from_id).toBe('ts:other_caller');
+  });
 });

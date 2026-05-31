@@ -168,6 +168,23 @@ const CODE_INTEL_COLLECTIONS_TABLE_SQL = `
   CREATE INDEX IF NOT EXISTS code_intel_collections_collected_idx ON code_intel_collections(collected_at);
 `;
 
+// Code-Intel v2 FIX A/B — per-collection readiness + reference-outcome
+// columns. Added via idempotent ALTER so existing graph.sqlite files migrate
+// in place (older rows get NULL → treated as "unknown readiness" downstream).
+const CODE_INTEL_COLLECTIONS_EXTRA_COLS = [
+  { name: 'mode', ddl: "ALTER TABLE code_intel_collections ADD COLUMN mode TEXT" },
+  { name: 'index_ready', ddl: "ALTER TABLE code_intel_collections ADD COLUMN index_ready INTEGER" },
+  { name: 'index_wait_ms', ddl: "ALTER TABLE code_intel_collections ADD COLUMN index_wait_ms INTEGER" },
+  { name: 'refs_found', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_found INTEGER" },
+  { name: 'refs_not_found', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_not_found INTEGER" },
+];
+
 export function ensureCodeIntelCollectionsTable(db) {
   db.exec(CODE_INTEL_COLLECTIONS_TABLE_SQL);
+  const cols = db.prepare
+    ? db.prepare('PRAGMA table_info(code_intel_collections)').all().map((r) => r.name)
+    : db.all('PRAGMA table_info(code_intel_collections)').map((r) => r.name);
+  for (const { name, ddl } of CODE_INTEL_COLLECTIONS_EXTRA_COLS) {
+    if (!cols.includes(name)) db.exec(ddl);
+  }
 }

@@ -33,6 +33,12 @@ export function hasLspVerifiedEdge(edges = []) {
   return edges.some((e) => e?.provenance === LSP_PROVENANCE);
 }
 
+// Count of clangd ground-truth edges in the result (the "N callers" the
+// banner can honestly attribute to clangd).
+export function lspVerifiedEdgeCount(edges = []) {
+  return edges.reduce((n, e) => (e?.provenance === LSP_PROVENANCE ? n + 1 : n), 0);
+}
+
 // Short hash for display. The clangd extractor tags edges `cpp-clangd#<dbhash8>`
 // and the collection row carries the full compile_db_hash; we show 8 chars.
 function hash8(value) {
@@ -79,7 +85,32 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
 
   const dbHash = hash8(collection?.compileDbHash);
   const when = relativeTime(collection?.collectedAt);
-  let line = `TRUST: lsp-verified (clangd, compile-db ${dbHash}, collected ${when})`;
+  const verifiedCount = lspVerifiedEdgeCount(edges);
+
+  // FIX A/B — readiness-gated honesty. references are only trustworthy-as-
+  // exhaustive when clangd's background index was idle before they ran. When a
+  // collection explicitly recorded indexReady===false, the verified set is a
+  // FLOOR, not a ceiling — say lsp-partial and tell the agent to re-collect,
+  // rather than implying the N callers are complete. indexReady===true earns
+  // the "index-ready, N callers" attestation; null/unknown (older collections,
+  // or BOUNDED mode which never claims exhaustive) keeps the prior
+  // compile-db/collected wording (still honest — names provenance + freshness,
+  // makes no completeness claim).
+  if (collection && collection.indexReady === false) {
+    const notFound = Number(collection.refsNotFound) || 0;
+    const undercount = notFound > 0
+      ? ` — ${notFound} symbol(s) unresolved`
+      : '';
+    return `TRUST: lsp-partial (clangd index NOT ready${undercount} — may undercount; re-collect) `
+      + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}]`;
+  }
+
+  let line;
+  if (collection && collection.indexReady === true) {
+    line = `TRUST: lsp-verified (clangd, index-ready, ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}, collected ${when})`;
+  } else {
+    line = `TRUST: lsp-verified (clangd, compile-db ${dbHash}, collected ${when})`;
+  }
 
   // Stale check: HEAD moved past the indexed commit, OR the compile-db hash
   // recorded on the collection no longer matches its freshness anchor. Either

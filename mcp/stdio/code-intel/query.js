@@ -30,6 +30,14 @@ export function getLatestCollection(db, opts = {}) {
   if (!row) return null;
   let operations = {};
   try { operations = JSON.parse(row.operations_json || '{}'); } catch { /* ignore */ }
+  // FIX A/B — readiness + reference-outcome signals. Prefer the dedicated
+  // columns; fall back to operations._session (graphs that predate the
+  // columns but were written by the new importer). NULL/undefined → unknown.
+  const sess = operations._session || {};
+  const colReady = row.index_ready;
+  const indexReady = colReady == null
+    ? (sess.indexReady == null ? null : !!sess.indexReady)
+    : colReady === 1;
   return {
     collectionId: row.collection_id,
     provider: row.provider,
@@ -44,6 +52,11 @@ export function getLatestCollection(db, opts = {}) {
     operations,
     collectedAt: row.collected_at,
     importedAt: row.imported_at,
+    mode: row.mode ?? sess.mode ?? null,
+    indexReady,
+    indexWaitMs: row.index_wait_ms ?? sess.indexWaitMs ?? null,
+    refsFound: row.refs_found ?? sess.refsFoundSymbols ?? null,
+    refsNotFound: row.refs_not_found ?? sess.refsNotFoundSymbols ?? null,
   };
 }
 
