@@ -50,7 +50,26 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       { ...params, depth }
     );
 
-    if (edges.length === 0) return `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_status().`;
+    // P0-5: forward virtual-override expansion. OVERRIDDEN_BY is a base→derived
+    // edge (FROM a base virtual TO its overrides). Impact ("what's affected if I
+    // change this") should surface the override implementations when the target
+    // IS a base virtual: a contract change to the base ripples to every
+    // overrider. The reverse CALLS walk above won't pick these up (it walks
+    // INTO the target), so query them forward explicitly. Marked INFERRED in
+    // the output — the verified version is code_intel_hierarchy kind=subtypes.
+    const overrideEdges = db.all(
+      `SELECT e.*, n.label AS from_label, n.type AS from_type,
+              n.file_path AS from_file, n.start_line AS from_line,
+              t.label AS to_label, t.file_path AS to_file, t.start_line AS to_line
+       FROM edges e
+       JOIN nodes n ON n.id = e.from_id
+       LEFT JOIN nodes t ON t.id = e.to_id
+       WHERE e.from_id IN (${placeholders}) AND e.relation = 'OVERRIDDEN_BY'
+       LIMIT 100`,
+      params,
+    );
+
+    if (edges.length === 0 && overrideEdges.length === 0) return `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_status().`;
 
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
@@ -61,8 +80,34 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       from_type: e.from_type, from_label: e.from_label,
       to_label: e.to_label, fan_in: 1,
     }));
+
+    // Append override edges with the DERIVED override as the navigable target.
+    // Location points at the override implementation so an agent can jump to
+    // the code that must be updated to honor the changed base contract.
+    let overrideCount = 0;
+    for (const e of overrideEdges) {
+      mapped.push({
+        from_id: e.from_id, to_id: e.to_id, relation: e.relation,
+        source_file: e.to_file, source_line: e.to_line,
+        confidence: e.confidence ?? 0.7,
+        provenance: e.provenance ?? 'INFERRED',
+        depth: 1,
+        from_type: e.from_type, from_label: e.from_label,
+        to_label: e.to_label, fan_in: 1,
+      });
+      overrideCount += 1;
+    }
     const { kept, dropped } = enforceBudget(mapped, top_k);
-    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
+    let body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `depth=${depth + 1}` });
+
+    // P0-5 cross-reference: when INFERRED virtual-override edges actually
+    // survived the budget, point the agent at the clangd-verified hierarchy
+    // verb so it knows these are static best-effort overrides, not ground truth.
+    overrideCount = kept.filter((e) => e.relation === 'OVERRIDDEN_BY').length;
+    if (overrideCount > 0) {
+      body += `\nNOTE: ${overrideCount} OVERRIDDEN_BY edge${overrideCount === 1 ? ' is an' : 's are'} INFERRED static virtual-override link${overrideCount === 1 ? '' : 's'} (base virtual → derived overrides).`
+        + ` Verified subtype set: code_intel_hierarchy(symbol="${symbol}", kind="subtypes").`;
+    }
 
     // CONFIDENCE footer (added 2026-04-27 after the echoes IMPACT bench
     // showed graph_impact returning 2 callers when grep found ~65 — silent

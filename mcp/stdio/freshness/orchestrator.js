@@ -31,6 +31,7 @@ import { springPlugin } from '../ingest/frameworks/spring.js';
 import { cppFrameworksPlugin } from '../ingest/frameworks/cpp_frameworks.js';
 import { shaderBindingsPlugin } from '../ingest/frameworks/shader_bindings.js';
 import { resolveRefs } from '../ingest/resolver.js';
+import { synthesizeVirtualOverrides } from '../ingest/frameworks/virtual_overrides.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
 
@@ -339,6 +340,17 @@ export async function ensureFresh({
       } catch (err) {
         // Resolution failed on large graph — proceed with partial edges
         resolved = { nodes: [], edges: [], unresolved: refs };
+      }
+
+      // P0-5: synthesize C++ virtual-override edges (OVERRIDDEN_BY, INFERRED)
+      // from the now-resolved graph (Method nodes + EXTENDS/IMPLEMENTS edges).
+      // Runs every index, fully rebuilds its own edge set (idempotent), and
+      // tags edges source_file='' so per-file reindex deletes don't reap them.
+      // Non-fatal: a synthesis failure must never block the index.
+      try {
+        synthesizeVirtualOverrides(db, { upsertEdge });
+      } catch (err) {
+        // Virtual-override synthesis failed — non-fatal, skip silently.
       }
 
       // Post-indexing analysis (skip on very large graphs to avoid OOM)

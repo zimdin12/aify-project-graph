@@ -203,6 +203,39 @@ function postExtractCpp({ tree, source, filePath, nodes }) {
   return { refs };
 }
 
+// Extract a Method symbol from an in-class method *declaration* (no body) —
+// `field_declaration` whose declarator is a `function_declarator`. This covers
+// pure-virtual interface methods (`virtual T m() const = 0;`), other virtual
+// declarations, and ordinary declared-but-defined-elsewhere member functions.
+//
+// WHY (P0-5): tree-sitter only emits Method nodes for `function_definition`
+// (methods with a `{ ... }` body). Game-engine interfaces (echoes `ISimDomain`
+// and its 15 pure-virtuals) declare their virtuals with `= 0` and NO body, so
+// the base virtuals were invisible to the graph. Without a base Method node,
+// the virtual-override synthesizer has nothing to link FROM. Capturing these
+// declarations makes base virtuals first-class nodes — which also helps
+// hierarchy/search verbs, not just override synthesis.
+//
+// Returns null for member-variable `field_declaration`s (declarator is a plain
+// `field_identifier`, not a `function_declarator`) so we don't turn fields into
+// methods. Returns null for declarations that also have a body — those are
+// already captured by the function_definition rule (avoids a duplicate node).
+function extractCppMethodDeclSymbol({ node, source }) {
+  const declarator = node.childForFieldName('declarator');
+  if (!declarator || declarator.type !== 'function_declarator') return null;
+  // A function_declarator inside a field_declaration is a declaration-only
+  // method (interface/virtual/prototype). The name is the field_identifier (or
+  // a destructor_name / operator) inside the function_declarator.
+  let nameNode = declarator.childForFieldName('declarator');
+  if (!nameNode) {
+    nameNode = declarator.namedChildren.find((c) =>
+      ['field_identifier', 'identifier', 'destructor_name', 'operator_name', 'qualified_identifier'].includes(c.type));
+  }
+  const name = nameNode ? nodeText(nameNode, source).trim() : '';
+  if (!name) return null;
+  return { name, type: 'Method' };
+}
+
 function extractCppFunctionSymbol({ node, source }) {
   const declarator = node.childForFieldName('declarator');
   const namedDeclarator = findCppNamedDeclarator(declarator);
@@ -260,6 +293,19 @@ export default {
       confidence: 0.6,
     },
     { type: 'Method', nodeTypes: ['function_definition'], parentTypes: ['class_specifier', 'struct_specifier', 'field_declaration_list'], descendantTypes: ['identifier'], confidence: 0.6 },
+    // P0-5: in-class method *declarations* (pure-virtual + prototypes). Only
+    // fires for field_declarations whose declarator is a function_declarator
+    // (extractCppMethodDeclSymbol returns null otherwise), so member variables
+    // stay out. Lower confidence (0.55) than a defined method — it's a
+    // declaration, the definition may live elsewhere.
+    {
+      type: 'Method',
+      nodeTypes: ['field_declaration'],
+      parentTypes: ['field_declaration_list'],
+      extractSymbolInfo: extractCppMethodDeclSymbol,
+      signatureFields: ['declarator'],
+      confidence: 0.55,
+    },
     { type: 'Type', nodeTypes: ['enum_specifier', 'type_alias_declaration'], field: 'name', confidence: 0.7 },
     { type: 'Module', nodeTypes: ['namespace_definition'], field: 'name', confidence: 0.7 },
   ],

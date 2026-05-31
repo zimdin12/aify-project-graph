@@ -60,7 +60,20 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       );
     }
 
-    if (edges.length === 0) return `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
+    // P0-5: a base virtual's dynamic-dispatch callees are its derived
+    // override implementations. clangd resolves `base*->virt()` to the declared
+    // base method only; OVERRIDDEN_BY (base→derived, INFERRED) lets callees
+    // continue through vtable dispatch. Query forward from the root and merge.
+    // Marked INFERRED in output; verified set is code_intel_hierarchy subtypes.
+    const overrideEdges = db.all(
+      `SELECT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line
+       FROM edges e JOIN nodes n ON n.id = e.to_id
+       WHERE e.from_id = $sid AND e.relation = 'OVERRIDDEN_BY'
+       LIMIT 100`,
+      { sid: root.id },
+    );
+
+    if (edges.length === 0 && overrideEdges.length === 0) return `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
 
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
@@ -71,11 +84,33 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       from_type: 'Function', fan_in: 1,
       to_label: e.to_label,
     }));
+    // Merge virtual-override callees (INFERRED). Kept separate from the ranked
+    // execution edges so the override links aren't down-ranked out of view —
+    // they're the whole point of following dynamic dispatch here.
+    let overrideCount = 0;
+    const overrideMapped = overrideEdges.map(e => ({
+      from_id: e.from_id, to_id: e.to_id, relation: e.relation,
+      source_file: e.to_file, source_line: e.to_line,
+      confidence: e.confidence ?? 0.7,
+      provenance: e.provenance ?? 'INFERRED',
+      depth: 1, from_type: 'Method', fan_in: 1,
+      from_label: root.label,
+      to_label: e.to_label,
+    })).filter(e => !file || (e.source_file && e.source_file.startsWith(file)));
+    overrideCount = overrideMapped.length;
+
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0) return file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
+    if (mapped.length === 0 && overrideCount === 0) return file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
-    const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
+    let body = renderCompact({ nodes: [], edges: [...kept, ...overrideMapped], truncated: dropped, suggestion: `top_k=${top_k + 10}` });
+
+    // P0-5 cross-reference: flag the INFERRED override callees and point at the
+    // clangd-verified hierarchy verb.
+    if (overrideCount > 0) {
+      body += `\nNOTE: ${overrideCount} OVERRIDDEN_BY callee${overrideCount === 1 ? ' is an' : 's are'} INFERRED virtual-override link${overrideCount === 1 ? '' : 's'} (dynamic dispatch through a base virtual).`
+        + ` Verified overrides: code_intel_hierarchy(symbol="${symbol}", kind="subtypes").`;
+    }
 
     // TRUST banner (Code-Intel v2 / L2b). callees.js previously had NO trust
     // caveat at all — added here so a heuristic-only callee list carries the
