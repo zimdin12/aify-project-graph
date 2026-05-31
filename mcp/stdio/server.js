@@ -41,6 +41,7 @@ import {
 } from './query/verbs/code_intel_live.js';
 import { codeIntelReplay } from './query/verbs/code_intel_replay.js';
 import { codeIntelAnalyze } from './query/verbs/code_intel_analyze.js';
+import { codeIntelHierarchy } from './query/verbs/code_intel_hierarchy.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -215,6 +216,27 @@ const TOOLS = [
         file: { type: 'string' }
       },
       required: ['file']
+    },
+  },
+  {
+    name: 'code_intel_hierarchy',
+    handler: codeIntelHierarchy,
+    description: 'Live clangd CALL HIERARCHY + TYPE HIERARCHY — the "who calls this (transitively) / who overrides this virtual / what subtypes exist" answer that flat references cannot give. kind=callers|callees walks prepareCallHierarchy → incoming/outgoing to depth (default 2) as an indented TREE with file:line per hop; kind=subtypes|supertypes walks type hierarchy (virtual-override / inheritance sets). Resolves the symbol via explicit file+line(+col) OR a bare symbol name through the graph. In INDEXED mode (default) it WAITS for clangd index-ready so the tree is exhaustive; in BOUNDED mode (APG_CLANGD_MODE=bounded) it skips the wait. Returns {status, kind, anchor, mode, indexReady, tree, treeText (indented, each hop marked [lsp✓]), trust (TRUST: lsp-verified (index-ready) vs lsp-partial (NOT ready — may undercount)), evidence:{ready,degraded,cause,confidence,exhaustive,fallback,warnings}, telemetry}. CONTRACT: trust "no overriders"/"no transitive callers" ONLY when evidence.exhaustive===true. Output is depth/breadth-capped with a "TRUNCATED — N more" tail. Use for C++ virtual dispatch + fn-pointer hubs where the static graph undercounts.',
+    schema: {
+      type: 'object',
+      properties: {
+        language: { type: 'string', default: 'cpp' },
+        kind: { type: 'string', enum: ['callers', 'callees', 'subtypes', 'supertypes'], description: 'callers/callees → call hierarchy; subtypes/supertypes → type/override hierarchy.' },
+        file: { type: 'string', description: 'Repo-relative file containing the symbol (with line; alternative to symbol).' },
+        line: { type: 'integer', minimum: 1, description: '1-based line of the symbol.' },
+        col: { type: 'integer', minimum: 1, default: 1, description: '1-based column of the symbol token.' },
+        symbol: { type: 'string', description: 'Bare symbol name; resolved to file:line via the graph when file+line are omitted.' },
+        depth: { type: 'integer', minimum: 1, maximum: 5, default: 2, description: 'How many hops to walk (transitive depth). Capped at 5.' },
+        breadthCap: { type: 'integer', minimum: 1, maximum: 100, default: 25, description: 'Max children rendered per node.' },
+        totalCap: { type: 'integer', minimum: 1, maximum: 1000, default: 200, description: 'Hard ceiling on total tree nodes.' },
+        waitForReadyMs: { type: 'integer', minimum: 0, maximum: 600000, description: 'INDEXED-mode index-readiness wait budget; omit to use APG_CLANGD_INDEX_WAIT_MS (default 90000).' }
+      },
+      required: ['kind']
     },
   },
   {
@@ -599,6 +621,7 @@ const CODE_INTEL_TOOL_NAMES = new Set([
   'code_intel_definitions',
   'code_intel_hover',
   'code_intel_symbols',
+  'code_intel_hierarchy',
   'code_intel_replay',
   'code_intel_analyze',
   'graph_collect_code_intel',

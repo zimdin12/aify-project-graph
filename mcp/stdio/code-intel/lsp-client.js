@@ -73,6 +73,12 @@ export class LspClient extends EventEmitter {
           references: { dynamicRegistration: false },
           hover: { dynamicRegistration: false, contentFormat: ['markdown', 'plaintext'] },
           documentSymbol: { dynamicRegistration: false },
+          // L4: declare call/type hierarchy so clangd advertises
+          // callHierarchyProvider / typeHierarchyProvider in its
+          // serverCapabilities and answers prepare/incoming/outgoing +
+          // prepare/subtypes/supertypes requests.
+          callHierarchy: { dynamicRegistration: false },
+          typeHierarchy: { dynamicRegistration: false },
           publishDiagnostics: {},
           diagnostic: {}
         },
@@ -147,6 +153,50 @@ export class LspClient extends EventEmitter {
 
   async documentSymbol(uri) {
     return this._request('textDocument/documentSymbol', { textDocument: { uri } });
+  }
+
+  // L4 — Call hierarchy (LSP 3.16). prepareCallHierarchy resolves the symbol at
+  // a position to one or more CallHierarchyItem{name,kind,uri,range,selectionRange,...}.
+  // Those items are then fed to incomingCalls/outgoingCalls to walk the tree.
+  async prepareCallHierarchy(uri, position) {
+    return this._request('textDocument/prepareCallHierarchy', { textDocument: { uri }, position });
+  }
+
+  // incomingCalls → who calls `item` (callers). Returns
+  // [{ from: CallHierarchyItem, fromRanges: Range[] }].
+  async incomingCalls(item) {
+    return this._request('callHierarchy/incomingCalls', { item });
+  }
+
+  // outgoingCalls → what `item` calls (callees). Returns
+  // [{ to: CallHierarchyItem, fromRanges: Range[] }].
+  async outgoingCalls(item) {
+    return this._request('callHierarchy/outgoingCalls', { item });
+  }
+
+  // L4 — Type hierarchy (LSP 3.17). prepareTypeHierarchy resolves the type at a
+  // position to one or more TypeHierarchyItem; subtypes/supertypes walk the
+  // virtual-override / inheritance set.
+  async prepareTypeHierarchy(uri, position) {
+    return this._request('textDocument/prepareTypeHierarchy', { textDocument: { uri }, position });
+  }
+
+  // typeHierarchySubtypes → derived types / overriding implementations of `item`.
+  async typeHierarchySubtypes(item) {
+    return this._request('typeHierarchy/subtypes', { item });
+  }
+
+  // typeHierarchySupertypes → base types of `item`.
+  async typeHierarchySupertypes(item) {
+    return this._request('typeHierarchy/supertypes', { item });
+  }
+
+  supportsCallHierarchy() {
+    return Boolean(this.serverCapabilities?.callHierarchyProvider);
+  }
+
+  supportsTypeHierarchy() {
+    return Boolean(this.serverCapabilities?.typeHierarchyProvider);
   }
 
   diagnosticsFor(uri) {
