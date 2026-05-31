@@ -16,6 +16,40 @@ import { createCppClangdProvider } from '../../code-intel/providers/cpp-clangd.j
 import { openDb, openExistingDb } from '../../storage/db.js';
 import { importCodeIntel } from '../../ingest/code-intel/importer.js';
 
+// FIX 2 (test-round-2026-05-31): `language` used to be required-with-no-default,
+// inconsistent with every other code_intel_* verb (which default to 'cpp').
+// We now default to 'cpp' (the games are C++) and, when files[] are given,
+// infer from their extensions so a TS/JS file list selects the right provider
+// without the caller restating it. Explicit `language` always wins.
+const EXT_LANGUAGE = new Map([
+  ['.cpp', 'cpp'], ['.cc', 'cpp'], ['.cxx', 'cpp'], ['.c', 'cpp'],
+  ['.h', 'cpp'], ['.hpp', 'cpp'], ['.hh', 'cpp'], ['.hxx', 'cpp'], ['.inl', 'cpp'],
+  ['.ts', 'typescript'], ['.tsx', 'typescript'],
+  ['.js', 'typescript'], ['.jsx', 'typescript'], ['.mjs', 'typescript'], ['.cjs', 'typescript']
+]);
+
+// Infer a language from a files[] list by majority extension vote. Returns null
+// when files[] is empty or no extension is recognized (caller falls back to the
+// default). Exported for unit coverage.
+export function inferLanguageFromFiles(files) {
+  if (!Array.isArray(files) || files.length === 0) return null;
+  const tally = new Map();
+  for (const f of files) {
+    if (typeof f !== 'string') continue;
+    const dot = f.lastIndexOf('.');
+    if (dot < 0) continue;
+    const lang = EXT_LANGUAGE.get(f.slice(dot).toLowerCase());
+    if (!lang) continue;
+    tally.set(lang, (tally.get(lang) || 0) + 1);
+  }
+  let best = null;
+  let bestN = 0;
+  for (const [lang, n] of tally) {
+    if (n > bestN) { best = lang; bestN = n; }
+  }
+  return best;
+}
+
 let providersRegistered = false;
 function ensureBuiltinProviders() {
   if (providersRegistered) return;
@@ -27,7 +61,13 @@ function ensureBuiltinProviders() {
 
 export async function graphCollectCodeIntel({ repoRoot, language, scope = 'changed', files, since, operations, budgetMs }) {
   if (!repoRoot) return { schema_version: '0.2', status: 'error', errors: [{ code: 'internal_error', message: 'repoRoot required' }], records: [] };
-  if (!language) return { schema_version: '0.2', status: 'error', errors: [{ code: 'language_unsupported', message: 'language required' }], records: [] };
+
+  // FIX 2: language defaults instead of hard-failing. Explicit wins; otherwise
+  // infer from files[] extensions; otherwise default to 'cpp' (the games are
+  // C++) — matching the other code_intel_* verbs' default.
+  if (!language) {
+    language = inferLanguageFromFiles(files) || 'cpp';
+  }
 
   ensureBuiltinProviders();
 

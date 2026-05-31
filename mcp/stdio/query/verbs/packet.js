@@ -427,6 +427,64 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
   return enriched;
 }
 
+// FIX 3: build a compact pointer packet for a bare symbol that the graph knows
+// but which maps to no feature/task. Returns a markdown string, or null when
+// the symbol is genuinely unknown to the graph (caller then emits the hard
+// "not found" error — the honest outcome for a typo).
+//
+// `consequences` is whatever graph_consequences returned for the symbol: a rich
+// object (has matched.symbols / features_touching), or a human-readable string
+// (AMBIGUOUS MATCH / NO MATCH). We extract file/candidate locations from either
+// shape and steer the agent to the verbs that DO give symbol context.
+function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
+  const lines = [];
+  const readNext = [
+    `NEXT: graph_pull(node="${symbol}") — cross-layer context for this symbol`,
+    `NEXT: graph_consequences(target="${symbol}") — "what breaks if I touch it"`,
+    `NEXT: graph_explore(symbols=["${symbol}"]) — verbatim source`,
+    `NEXT: code_intel_hierarchy(symbol="${symbol}", kind="callers") — clangd call/override tree`,
+  ];
+
+  if (consequences && typeof consequences === 'object') {
+    const symHits = consequences.matched?.symbols ?? [];
+    const fileHits = consequences.matched?.files ?? [];
+    if (symHits.length === 0 && fileHits.length === 0) return null;
+    lines.push(`SYMBOL: ${symbol}`);
+    lines.push('STATUS: known to graph; not mapped to a feature (symbol-context packet)');
+    lines.push(snapshot);
+    const locItems = symHits.slice(0, 6).map((s) => ({
+      file: s.file, why: `${s.type || 'symbol'}${s.line ? ` @ line ${s.line}` : ''}`,
+    }));
+    lines.push(renderListSection('DEFINED IN', clampList(locItems, 6), (x) => `${x.file} — ${x.why}`));
+    if (fileHits.length) {
+      lines.push(renderListSection('ALSO IN', clampList(fileHits.map((f) => ({ file: f })), 6), (x) => x.file));
+    }
+    lines.push(...readNext);
+    return renderLines(lines);
+  }
+
+  if (typeof consequences === 'string') {
+    const trimmed = consequences.trim();
+    // NO MATCH → the symbol is truly unknown; let the caller hard-error.
+    if (/^NO MATCH/i.test(trimmed)) return null;
+    // AMBIGUOUS MATCH (or any other informative string) → surface it verbatim
+    // (it already lists the concrete candidate locations) plus the read-next.
+    lines.push(`SYMBOL: ${symbol}`);
+    lines.push('STATUS: known to graph; ambiguous / no feature mapping (symbol-context packet)');
+    lines.push(snapshot);
+    // Keep the candidate lines from the consequences string (cap to stay budgeted).
+    const candidateLines = trimmed.split('\n').filter((l) => l.startsWith('- ')).slice(0, 6);
+    if (candidateLines.length) {
+      lines.push('CANDIDATES:');
+      lines.push(...candidateLines);
+    }
+    lines.push(...readNext);
+    return renderLines(lines);
+  }
+
+  return null;
+}
+
 // ----- main -----
 
 export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false, since = null, files = [], audited = false, analyze = false, analyzeMode = 'clang-tidy', analyzeTimeoutMs }) {
@@ -480,6 +538,7 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   // feature, then build the packet from that feature with a MATCHED VIA
   // line preserving the original target.
   let matchedViaSymbol = null;
+  let symbolConsequences = null; // retained for the graceful degrade path below
   if (!parsed.kind && !resolvedFeature && !resolvedTask) {
     const { graphConsequences } = await import('./consequences.js');
     let mapped;
@@ -494,9 +553,14 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
         if (typeof raw === 'object') mapped = raw;
         else if (typeof raw === 'string' && raw.trim().startsWith('{')) {
           mapped = JSON.parse(raw);
+        } else if (typeof raw === 'string') {
+          // AMBIGUOUS MATCH / NO MATCH come back as human-readable strings;
+          // keep them for the symbol-pointer degrade path.
+          symbolConsequences = raw;
         }
       }
-    } catch {/* fall through to error message */}
+      if (mapped) symbolConsequences = mapped;
+    } catch {/* fall through to degrade path */}
 
     const featureHit = mapped?.features_touching?.[0];
     if (featureHit) {
@@ -504,6 +568,21 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       kind = 'feature';
       matchedViaSymbol = parsed.value;
     }
+  }
+
+  // FIX 3 (test-round-2026-05-31): graceful symbol degrade. The initialize
+  // playbook advertises packet for "a feature/symbol", but a bare symbol that
+  // resolves in the graph yet maps to NO feature (or is ambiguous) used to hard
+  // reject — contradicting the playbook. Instead, when the symbol IS known to
+  // the graph, emit a compact SYMBOL packet that points the agent at its
+  // file(s)/feature and the right verbs for symbol context, rather than erroring.
+  if (!resolvedFeature && !resolvedTask && !parsed.kind) {
+    const symbolPacket = buildSymbolPointerPacket({
+      symbol: parsed.value,
+      consequences: symbolConsequences,
+      snapshot,
+    });
+    if (symbolPacket) return symbolPacket;
   }
 
   if (!resolvedFeature && !resolvedTask) {

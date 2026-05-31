@@ -10,8 +10,10 @@ import {
   codeIntelHierarchy,
   buildHierarchyEvidence,
   buildHierarchyTrustLine,
-  resolveSymbolPosition
+  resolveSymbolPosition,
+  columnOfSymbolOnLine
 } from '../../../mcp/stdio/query/verbs/code_intel_hierarchy.js';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { _resetSessions, shutdownAllSessions } from '../../../mcp/stdio/code-intel/live.js';
 
 const fakeServer = path.resolve('tests/fixtures/code-intel/lsp/fake-lsp-server.mjs');
@@ -242,5 +244,89 @@ describe('code_intel_hierarchy — symbol resolution via graph', () => {
     const r = await codeIntelHierarchy({ repoRoot: repo, symbol: 'NoSuchSymbol', kind: 'callers', spawn: fakeProgressSpawn });
     expect(r.status).toBe('error');
     expect(r.errors[0].code).toBe('symbol_not_found');
+  });
+});
+
+// FIX 1 (test-round-2026-05-31): column resolution from a source line. The old
+// resolveSymbolPosition defaulted col=1, so clangd's prepareCallHierarchy was
+// queried at the start of the declaration line — landing on the return type /
+// indentation and MISSING the method. These cover the leaf-column derivation
+// and the qualified-symbol (Foo::bar) graph lookup.
+describe('columnOfSymbolOnLine (FIX 1)', () => {
+  it('finds the leaf-name column in an out-of-line definition', () => {
+    // "bool SimCoordinator::registerDomain(...)" — leaf at col 22, NOT col 1.
+    const line = 'bool SimCoordinator::registerDomain(ISimDomain& domain) {';
+    expect(columnOfSymbolOnLine(line, 'registerDomain', 'SimCoordinator::registerDomain')).toBe(22);
+  });
+
+  it('finds the leaf-name column in an in-class declaration (indented)', () => {
+    const line = '    bool setVoxel(int worldX, int worldY, int worldZ);';
+    expect(columnOfSymbolOnLine(line, 'setVoxel', 'setVoxel')).toBe(10);
+  });
+
+  it('respects word boundaries (does not match a longer identifier prefix)', () => {
+    const line = '    void setVoxelRange(); void setVoxel();';
+    // Must skip "setVoxelRange" and land on the standalone "setVoxel".
+    const col = columnOfSymbolOnLine(line, 'setVoxel', 'setVoxel');
+    expect(line.slice(col - 1)).toMatch(/^setVoxel\(/);
+  });
+
+  it('falls back to col 1 when the name is not on the line', () => {
+    expect(columnOfSymbolOnLine('    int unrelated;', 'setVoxel', 'setVoxel')).toBe(1);
+    expect(columnOfSymbolOnLine('', 'setVoxel', 'setVoxel')).toBe(1);
+  });
+});
+
+describe('resolveSymbolPosition — leaf column + qualified lookup (FIX 1)', () => {
+  function repoWithGraph() {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-resolve-'));
+    fs.mkdirSync(path.join(dir, '.aify-graph'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    // Out-of-line definition: leaf "doThing" is at column 17 (1-based).
+    fs.writeFileSync(
+      path.join(dir, 'src', 'Widget.cpp'),
+      'bool Widget::doThing(int n) {\n  return n > 0;\n}\n'
+    );
+    // In-class declaration in a header (a second candidate for the same leaf).
+    fs.writeFileSync(
+      path.join(dir, 'src', 'Widget.h'),
+      'class Widget {\n  bool doThing(int n);\n};\n'
+    );
+    const db = openDb(path.join(dir, '.aify-graph', 'graph.sqlite'));
+    // Graph stores the LEAF label, not the qualified name (matches real extract).
+    db.run(
+      `INSERT INTO nodes (id, type, label, file_path, start_line) VALUES
+        ('n1','Method','doThing','src/Widget.h',2),
+        ('n2','Method','doThing','src/Widget.cpp',1)`
+    );
+    db.close();
+    return dir;
+  }
+
+  it('resolves a leaf symbol to the identifier column (not col 1)', () => {
+    const repo = repoWithGraph();
+    const pos = resolveSymbolPosition({ repoRoot: repo, symbol: 'doThing' });
+    expect(pos).not.toBeNull();
+    // Header decl "  bool doThing(int n);" → leaf at col 8.
+    const src = fs.readFileSync(path.join(repo, pos.file), 'utf8').split(/\r?\n/);
+    expect(src[pos.line - 1].slice(pos.col - 1)).toMatch(/^doThing\b/);
+    expect(pos.col).toBeGreaterThan(1);
+  });
+
+  it('resolves a QUALIFIED symbol (Class::method) via leaf lookup and prefers the definition line', () => {
+    const repo = repoWithGraph();
+    const pos = resolveSymbolPosition({ repoRoot: repo, symbol: 'Widget::doThing' });
+    expect(pos).not.toBeNull();
+    // The qualified spelling "Widget::doThing" only appears in the .cpp def,
+    // so resolution must prefer that file and anchor on the leaf column.
+    expect(pos.file).toBe('src/Widget.cpp');
+    const src = fs.readFileSync(path.join(repo, pos.file), 'utf8').split(/\r?\n/);
+    expect(src[pos.line - 1].slice(pos.col - 1)).toMatch(/^doThing\b/);
+    expect(pos.col).toBe(14); // "bool Widget::doThing" → leaf at col 14
+  });
+
+  it('returns null for an unknown symbol', () => {
+    const repo = repoWithGraph();
+    expect(resolveSymbolPosition({ repoRoot: repo, symbol: 'nope' })).toBeNull();
   });
 });

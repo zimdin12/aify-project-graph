@@ -16,7 +16,7 @@ A cohesive C++-first code-intelligence trust spine for game-dev agents, installe
 | L2b+unity `4ea081b` | `[lsp✓]` marker + TRUST banner (shared helper); unity-build expansion | sand_castle 90 first-party, doctor READY (unity-expanded) |
 | L3 `ff51bc9` | await background-index readiness → reliable cross-TU refs; honest lsp-verified vs lsp-partial; method-level callee | ChunkManager::setVoxel 0→3 verified cross-TU callers |
 | L4 `2f3c669` | `code_intel_hierarchy` — call + type hierarchy (who-calls-transitively, virtual overrides) | echoes caller tree + ISimDomain→WorldBufferDomain |
-| L5 `<this>` | C++↔GLSL shader-binding bridge (`graph_shader`) — the seam no tool crosses | echoes 212 bindings/86 loads; sand_castle 28/40 |
+| L5 `<this>` | C++↔GLSL shader-binding bridge (`graph_shader`) — the seam no tool crosses | echoes hundreds of GLSL bindings + dozens of C++ load sites; sand_castle dozens of each (run `graph_digest` for live counts) |
 
 Full suite **915 pass / 8 skipped, 0 failures** (2026-05-31). Installed: Claude Code project `.mcp.json` (both games) + Hermes global `config.yaml` (APG_CLANGD set). Both runtimes confirmed reaching the tools by live testers.
 

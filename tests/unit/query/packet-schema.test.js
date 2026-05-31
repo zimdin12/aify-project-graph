@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { graphPacket } from '../../../mcp/stdio/query/verbs/packet.js';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
 
 function git(repo, ...args) {
   execFileSync('git', ['-C', repo, ...args], { stdio: 'ignore' });
@@ -156,6 +157,41 @@ describe('graph_packet — schema invariants', () => {
     await writeManifest(repo);
     const out = await graphPacket({ repoRoot: repo, target: 'auth' });
     expect(out).toMatch(/^FEATURE: auth/m);
+  });
+
+  // FIX 3 (test-round-2026-05-31): a bare symbol that the graph KNOWS but which
+  // maps to no feature must degrade to a SYMBOL pointer packet, not hard-reject.
+  it('bare symbol known to graph but unmapped → SYMBOL pointer packet (not an error)', async () => {
+    // Feature anchors a NARROW glob so the seeded symbol's file is NOT covered.
+    await writeOverlay(repo, [{ id: 'auth', anchors: { files: ['src/auth/*'] } }]);
+    await writeTasks(repo, []);
+    await writeBrief(repo);
+    await writeManifest(repo);
+    // Seed a graph node for a symbol that is NOT anchored to any feature
+    // (lives under engine/, outside the src/auth/* anchor).
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    db.run(
+      `INSERT INTO nodes (id, type, label, file_path, start_line) VALUES
+        ('s1','Class','WorldBufferDomain','engine/world/WorldBufferDomain.h',15)`
+    );
+    db.close();
+    const out = await graphPacket({ repoRoot: repo, target: 'WorldBufferDomain' });
+    expect(out).toMatch(/^SYMBOL: WorldBufferDomain/m);
+    expect(out).not.toMatch(/^ERROR:/m);
+    // Steers the agent to the symbol-context verbs.
+    expect(out).toMatch(/graph_pull\(node="WorldBufferDomain"\)/);
+    expect(out).toMatch(/code_intel_hierarchy\(symbol="WorldBufferDomain"/);
+  });
+
+  it('bare symbol genuinely unknown → hard error (honest typo path)', async () => {
+    await writeOverlay(repo, [{ id: 'auth', anchors: { files: ['src/*'] } }]);
+    await writeTasks(repo, []);
+    await writeBrief(repo);
+    await writeManifest(repo);
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    db.close(); // empty graph
+    const out = await graphPacket({ repoRoot: repo, target: 'NoSuchSymbolXYZ' });
+    expect(out).toMatch(/^ERROR: target "NoSuchSymbolXYZ" not found/m);
   });
 
   it('SNAPSHOT line includes STALE marker when indexed != HEAD', async () => {

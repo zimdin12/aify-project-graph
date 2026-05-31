@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
-import { graphCollectCodeIntel } from '../../../mcp/stdio/query/verbs/collect_code_intel.js';
+import { graphCollectCodeIntel, inferLanguageFromFiles } from '../../../mcp/stdio/query/verbs/collect_code_intel.js';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 import { registerProvider, clearProviders, getProvider } from '../../../mcp/stdio/code-intel/providers/index.js';
 import { createCppClangdProvider } from '../../../mcp/stdio/code-intel/providers/cpp-clangd.js';
@@ -96,8 +96,45 @@ describe('graph_collect_code_intel', () => {
     expect(result.status).toBe('error');
   });
 
-  it('rejects missing language', async () => {
-    const result = await graphCollectCodeIntel({ repoRoot: '/r' });
-    expect(result.status).toBe('error');
+  // FIX 2 (test-round-2026-05-31): language is no longer required — it defaults
+  // to 'cpp' (the games are C++) or is inferred from files[] extensions. This
+  // replaces the old "rejects missing language" expectation.
+  it('defaults language to cpp when omitted', async () => {
+    const dir = setupRepo();
+    const result = await graphCollectCodeIntel({ repoRoot: dir, scope: 'all', operations: ['definitions', 'references'] });
+    expect(result.status).toBe('ok');
+    expect(result.provider).toBe('cpp-clangd');
+  });
+
+  it('infers cpp from a .cpp/.h files[] list when language omitted', async () => {
+    const dir = setupRepo();
+    const result = await graphCollectCodeIntel({ repoRoot: dir, scope: 'files', files: ['src/a.cpp', 'src/a.h'], operations: ['definitions'] });
+    expect(result.status).toBe('ok');
+    expect(result.provider).toBe('cpp-clangd');
+  });
+
+  it('explicit language still wins', async () => {
+    const dir = setupRepo();
+    const result = await graphCollectCodeIntel({ repoRoot: dir, language: 'cpp', scope: 'all', operations: ['definitions'] });
+    expect(result.status).toBe('ok');
+  });
+});
+
+describe('inferLanguageFromFiles (FIX 2)', () => {
+  it('returns cpp for C/C++ extensions', () => {
+    expect(inferLanguageFromFiles(['a.cpp'])).toBe('cpp');
+    expect(inferLanguageFromFiles(['a.h', 'b.hpp', 'c.cc'])).toBe('cpp');
+  });
+  it('returns typescript for .ts/.js extensions', () => {
+    expect(inferLanguageFromFiles(['a.ts', 'b.tsx'])).toBe('typescript');
+    expect(inferLanguageFromFiles(['a.js', 'b.mjs'])).toBe('typescript');
+  });
+  it('majority vote when mixed', () => {
+    expect(inferLanguageFromFiles(['a.cpp', 'b.cpp', 'c.ts'])).toBe('cpp');
+  });
+  it('returns null for empty / unrecognized', () => {
+    expect(inferLanguageFromFiles([])).toBeNull();
+    expect(inferLanguageFromFiles(null)).toBeNull();
+    expect(inferLanguageFromFiles(['README', 'a.txt'])).toBeNull();
   });
 });

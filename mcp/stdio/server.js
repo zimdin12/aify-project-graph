@@ -95,7 +95,7 @@ const TOOLS = [
   {
     name: 'graph_packet',
     handler: graphPacket,
-    description: 'PRIMARY for task/feature/symbol context — prefer over stringing graph_pull + graph_consequences. Compact one-shot agent prompt packet for a feature or task. For feature/task targets, reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Bare symbol targets may use one budgeted consequences lookup to map symbol→feature. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. mode=verify is a post-edit decision packet and does not require target — pass files[]/since instead. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit|verify to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
+    description: 'PRIMARY for task/feature/symbol context — prefer over stringing graph_pull + graph_consequences. Compact one-shot agent prompt packet for a feature or task. For feature/task targets, reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Bare symbol targets use one budgeted consequences lookup to map symbol→feature; a symbol that is known to the graph but maps to no feature (or is ambiguous) degrades to a compact SYMBOL packet (DEFINED IN / CANDIDATES + read-next pointers) instead of erroring. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. mode=verify is a post-edit decision packet and does not require target — pass files[]/since instead. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit|verify to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
     schema: {
       type: 'object',
       properties: {
@@ -253,18 +253,17 @@ const TOOLS = [
   {
     name: 'graph_collect_code_intel',
     handler: graphCollectCodeIntel,
-    description: 'Run a code-intel provider (e.g. cpp-clangd) and import the resulting v0.2 collection into the local graph. Public action verb — agents and bridge UI both call this. Never auto-runs; explicit only. Returns the v0.2 collection envelope (status, errors, records). On success the collection is imported and immediately visible to graph_health.codeIntel, graph_pull(layers:["code_intel"]), and graph_packet EVIDENCE blocks. Use after touching code that needs compiler-backed precision (C++ templates, virtual dispatch, macros). COLD-START: the first collect on a fresh clangd index is time-budgeted (default ~40s) and may return status:"partial" with session.budgetExhausted=true and a resume note — the index now persists, so just call graph_collect_code_intel AGAIN to continue/complete (the warm run is fast).',
+    description: 'Run a code-intel provider (e.g. cpp-clangd) and import the resulting v0.2 collection into the local graph. Public action verb — agents and bridge UI both call this. Never auto-runs; explicit only. Returns the v0.2 collection envelope (status, errors, records). On success the collection is imported and immediately visible to graph_health.codeIntel, graph_pull(layers:["code_intel"]), and graph_packet EVIDENCE blocks. Use after touching code that needs compiler-backed precision (C++ templates, virtual dispatch, macros). COLD-START: the first collect on a fresh clangd index is time-budgeted (default ~40s) and may return status:"partial" with session.budgetExhausted=true and a resume note — the index now persists, so just call graph_collect_code_intel AGAIN to continue/complete (the warm run is fast). language is optional: defaults to "cpp", or is inferred from files[] extensions (.cpp/.h → cpp, .ts/.js → typescript).',
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', description: 'Language to collect for (e.g. "cpp"). Provider is selected per language.' },
+        language: { type: 'string', description: 'Language to collect for (e.g. "cpp"). Provider is selected per language. Optional — defaults to "cpp" or is inferred from files[] extensions when omitted.' },
         scope: { type: 'string', enum: ['changed', 'files', 'all'], default: 'changed', description: 'Collection scope. "changed" derives files from `since`; "files" uses explicit files[]; "all" enumerates from compile_commands.json.' },
         files: { type: 'array', items: { type: 'string' }, description: 'Explicit files to collect (repo-relative). Required when scope="files".' },
         since: { type: 'string', description: 'Git ref for "changed" scope; collects files modified since this ref.' },
         operations: { type: 'array', items: { type: 'string', enum: ['definitions', 'references', 'hover', 'diagnostics', 'symbols'] }, description: 'Operations to run. Defaults to [definitions, references, diagnostics].' },
         budgetMs: { type: 'integer', minimum: 1, maximum: 600000, description: 'Total wall-clock budget for this collect (default 40000, or APG_COLLECT_BUDGET_MS). On a COLD clangd index the call returns status:"partial" with session.budgetExhausted=true + a resume note instead of blocking past the MCP host timeout; the index now persists, so a second collect runs warm/fast. Set higher to wait longer for the cold index.' },
       },
-      required: ['language'],
     },
   },
   {

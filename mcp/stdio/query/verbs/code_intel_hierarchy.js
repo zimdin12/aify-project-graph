@@ -90,34 +90,106 @@ async function openIfNeeded(session, file) {
   return uri;
 }
 
+// Derive the 1-based COLUMN of a symbol's identifier on its declaration line.
+// clangd's prepareCallHierarchy/prepareTypeHierarchy must be queried AT the
+// identifier token; querying col 1 of the declaration line lands on the return
+// type or indentation and misses the method (empty/wrong tree). Mirrors the
+// cpp-clangd provider's SymbolInformation handling (cpp-clangd.js): take the
+// leaf name (last `::`-segment) and find its column on the source line.
+//
+// `leafName` is the unqualified identifier (e.g. for "Foo::bar" pass "bar").
+// `fullName` is the original symbol (may be qualified) — tried first so that a
+// `A::B` written verbatim on the line resolves to the leaf inside it rather
+// than an unrelated earlier occurrence of the leaf token. Returns a 1-based
+// column, or 1 when the name isn't found on the line (honest fallback).
+export function columnOfSymbolOnLine(srcLine, leafName, fullName) {
+  if (!srcLine) return 1;
+  // Prefer the qualified form when it appears verbatim (e.g. a definition
+  // "bool Foo::bar(...)" — anchor on bar within the qualified spelling).
+  if (fullName && fullName !== leafName) {
+    const qi = srcLine.indexOf(fullName);
+    if (qi >= 0) {
+      const leafInQ = fullName.lastIndexOf(leafName);
+      // Column of the leaf inside the qualified occurrence.
+      if (leafInQ >= 0) return qi + leafInQ + 1;
+      return qi + 1;
+    }
+  }
+  if (!leafName) return 1;
+  // Word-boundary match so we don't land inside a longer identifier
+  // (e.g. "setVoxelRange" when looking for "setVoxel"). Fall back to a plain
+  // indexOf if the boundary search misses (operators, templates, etc.).
+  const re = new RegExp(`\\b${leafName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+  const m = re.exec(srcLine);
+  if (m) return m.index + 1;
+  const idx = srcLine.indexOf(leafName);
+  return idx >= 0 ? idx + 1 : 1;
+}
+
 // Resolve a bare symbol name → { file, line, col } via the graph (same source
 // the other graph verbs use). The graph stores file_path + start_line but no
-// column, so we best-effort locate the symbol token on the declaring line and
-// use its column; falls back to col=1. Returns null if no node matches.
+// column, so we READ the declaring line and locate the symbol's leaf-name token
+// to derive the precise column clangd needs (defaulting col=1 silently missed
+// methods — they rarely start at col 1). Accepts qualified inputs like
+// "SimCoordinator::registerDomain": the graph stores the LEAF label
+// ("registerDomain"), so we look up by leaf and prefer the candidate whose
+// declaration line actually contains the qualifier when one is given. Returns
+// null if no node matches.
 export function resolveSymbolPosition({ repoRoot, symbol }) {
   let db;
   try { db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite')); }
   catch { return null; }
   try {
+    const leaf = String(symbol).split('::').pop();
+    const qualified = symbol !== leaf;
     const placeholders = RESOLVE_TYPES.map((t) => `'${t}'`).join(',');
-    const hit = db.get(
-      `SELECT label, file_path, start_line FROM nodes
+    // Try the verbatim label first (some extractors may store qualified), then
+    // the leaf. Pull several candidates so a qualified query can disambiguate
+    // by matching the qualifier on the declaration line.
+    let rows = db.all(
+      `SELECT label, type, file_path, start_line FROM nodes
         WHERE label = $label AND type IN (${placeholders})
-        ORDER BY CASE WHEN type IN ('Method','Function') THEN 0 ELSE 1 END, start_line
-        LIMIT 1`,
+        ORDER BY CASE WHEN type IN ('Method','Function') THEN 0 ELSE 1 END, start_line`,
       { label: symbol }
     );
-    if (!hit || !hit.file_path || !hit.start_line) return null;
-    const line = hit.start_line;
-    let col = 1;
-    try {
-      const abs = path.isAbsolute(hit.file_path) ? hit.file_path : path.join(repoRoot, hit.file_path);
-      const src = fs.readFileSync(abs, 'utf8').split(/\r?\n/);
-      const srcLine = src[line - 1] || '';
-      const idx = srcLine.indexOf(symbol);
-      if (idx >= 0) col = idx + 1;
-    } catch { /* best-effort; col stays 1 */ }
-    return { file: hit.file_path, line, col };
+    if ((!rows || rows.length === 0) && qualified) {
+      rows = db.all(
+        `SELECT label, type, file_path, start_line FROM nodes
+          WHERE label = $label AND type IN (${placeholders})
+          ORDER BY CASE WHEN type IN ('Method','Function') THEN 0 ELSE 1 END, start_line`,
+        { label: leaf }
+      );
+    }
+    if (!rows || rows.length === 0) return null;
+
+    const readLine = (filePath, line) => {
+      try {
+        const abs = path.isAbsolute(filePath) ? filePath : path.join(repoRoot, filePath);
+        const src = fs.readFileSync(abs, 'utf8').split(/\r?\n/);
+        return src[line - 1] || '';
+      } catch { return ''; }
+    };
+
+    // When the input was qualified (Foo::bar), prefer the candidate whose
+    // declaration line actually contains the qualified spelling (the out-of-line
+    // definition "Foo::bar(...)") so callers/overriders resolve on the real body
+    // rather than a header forward-decl. Fall back to the first candidate.
+    let chosen = null;
+    if (qualified) {
+      for (const r of rows) {
+        if (!r.file_path || !r.start_line) continue;
+        const srcLine = readLine(r.file_path, r.start_line);
+        if (srcLine.includes(symbol)) { chosen = { ...r, srcLine }; break; }
+      }
+    }
+    if (!chosen) {
+      const r = rows.find((x) => x.file_path && x.start_line);
+      if (!r) return null;
+      chosen = { ...r, srcLine: readLine(r.file_path, r.start_line) };
+    }
+
+    const col = columnOfSymbolOnLine(chosen.srcLine, leaf, symbol);
+    return { file: chosen.file_path, line: chosen.start_line, col };
   } catch {
     return null;
   } finally {
