@@ -45,7 +45,7 @@ If `npm install` cannot compile the native module, install `build-essential` (Li
 
 ## Step 2 — register the MCP server
 
-Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`) — keeps the highest-value live surfaces plus the one-shot workflow packet (`mode=orient|plan|debug|review|audit`). Hidden verbs stay callable by name via `tools/call`. Drop `--toolset=lean` for the full 23-verb surface (not recommended on lean runtimes).
+Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`) — keeps the highest-value live surfaces plus the one-shot workflow packet (`mode=orient|plan|debug|review|audit`). Hidden verbs stay callable by name via `tools/call`. Drop `--toolset=lean` for the full surface (30 verbs listed in `tools/list`; not recommended on lean runtimes).
 
 **Form A — Hermes MCP CLI (preferred if available):**
 
@@ -82,6 +82,26 @@ node -e '
 ```
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
+
+### Optional — clangd setup for the C++ code-intel trust spine
+
+clangd is **optional** but powers the `code_intel_*` verbs + `LSP_VERIFIED` caller edges. Resolution order: `APG_CLANGD` env var → `C:/Program Files/LLVM/bin/clangd.exe` (Windows) → `clangd` on PATH. On Hermes, set `APG_CLANGD` in the MCP server's `env` (config.yaml `mcp_servers` / `mcpServers` stanza) when clangd isn't on PATH — for a WSL Hermes that means the WSL clangd path (e.g. `/usr/bin/clangd`), which also gives full diagnostics against a WSL-built `compile_commands.json`:
+
+```yaml
+# config.yaml — mcp_servers stanza env (illustrative)
+mcp_servers:
+  aify-project-graph:
+    command: node
+    args: ["--max-old-space-size=8192", "<CLONE_PATH>/mcp/stdio/server.js", "--toolset=lean"]
+    env:
+      APG_CLANGD: /usr/bin/clangd
+```
+
+Verify with `node "$CLONE_PATH/bin/apg.js" code-intel doctor cpp`. The repo needs a `compile_commands.json`; references/hierarchy stay trustworthy cross-platform, full diagnostics/hover want clangd matching the DB's toolchain (run under WSL for a WSL/Linux DB — status-doc known-issue P0-3).
+
+### Code-intel verbs (after install)
+
+For C++ work the bounded live verbs are `code_intel_diagnostics / references / definitions / hover / symbols / hierarchy / analyze` (clangd live, no collect round-trip). For repo-wide ranked callers, run `graph_collect_code_intel({language:"cpp", scope:"all"})` once → `graph_callers` then renders `[lsp✓]` + `LSP_VERIFIED` on real caller edges. `graph_shader` bridges C++↔GLSL bindings. **Trust rule: `[lsp✓]` / `LSP_VERIFIED` = clangd ground truth — don't re-grep it; absence claims gate on `evidence.exhaustive === true`.**
 
 ### Multi-repo caveat — MCP is cwd-bound
 

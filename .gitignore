@@ -10,3 +10,8 @@ vendor/
 .codex/
 bench-a1-live-*.json
 reference/
+
+# transient dogfood / bench test outputs
+docs/dogfood/
+bench/dogfood-*.json
+bench/microbench-*.json

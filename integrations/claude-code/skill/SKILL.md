@@ -95,6 +95,7 @@ The failure mode to avoid: calling graph_find once, getting empty, giving up. Us
 - `code_intel_hover(file, line, col)` — type signature + docstring at a position. **Replaces "read declaration."**
 - `code_intel_symbols(file)` — document symbol outline. **Replaces "scan whole file."**
 - `code_intel_analyze(files=[...], mode="clang-tidy"|"compile")` — bounded analyzer/build evidence for explicit files. Use when clangd diagnostics are not enough and you need `CLANG_TIDY` / `BUILD` provenance.
+- `code_intel_hierarchy(symbol, kind="callers"|"callees"|"supertypes"|"subtypes")` — call + type hierarchy via clangd. The trustworthy **transitive** path (who-calls-transitively, virtual overrides). Per-node `[lsp✓]` only when the index is ready; otherwise `lsp-partial`. For a `base*->virt()` callsite use call hierarchy on the virtual (or hierarchy on the owning class) plus static `OVERRIDDEN_BY` edges to see runtime overrides.
 
 Analyzer `partial` / `not_collected` means evidence was unavailable for some requested files; it is not the same as "analyzer ran clean."
 
@@ -114,7 +115,12 @@ Analyzer `partial` / `not_collected` means evidence was unavailable for some req
 - `graph_impact(symbol="X")` — blast radius
 - `graph_find(query="X")` — cross-layer disambiguator (NOT an rg replacement)
 
-**Full callable surface** (Claude Code default; a few legacy aliases may stay hidden from `tools/list`): `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`, `graph_lookup`, `graph_whereis`, `graph_search`, `graph_find`, `graph_callers`, `graph_callees`, `graph_neighbors`, `graph_report`, `graph_onboard`, `graph_file`, `graph_module_tree`, `graph_dashboard`, `graph_summary`, `graph_status`, `graph_index`, `graph_preflight`, `graph_path`, `graph_impact`.
+**Full callable surface** (Claude Code default — 30 verbs listed in `tools/list`; legacy aliases + analytics/code-intel long-tail stay callable-by-name but hidden from the manifest):
+- **Core graph:** `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`, `graph_whereis`, `graph_search`, `graph_find`, `graph_callers`, `graph_callees`, `graph_neighbors`, `graph_file`, `graph_status`, `graph_index`, `graph_preflight`, `graph_path`, `graph_impact`, `graph_dashboard`.
+- **Tracing / source bundling (Code-Intel v2):** `graph_trace(from,to)` — whole call path, hop bodies inlined; `graph_explore(symbols[])` — multi-symbol verbatim-source bundler ("treat as already Read"); `graph_explain_diff(range)` — git-diff/PR impact (reverse of consequences).
+- **Analytics:** `graph_digest()` — the ONE analytics front door (~1–2k-token project digest), composes `graph_overview` / `graph_hotspots` / `graph_cycles` (callable, hidden from list).
+- **C++ code-intel trust spine:** `code_intel_references/definitions/hover/symbols/diagnostics`, `code_intel_hierarchy` (call + type hierarchy, virtual overrides — the trustworthy transitive path), `graph_collect_code_intel` (clangd collection → `[lsp✓]` / `LSP_VERIFIED` caller edges on `graph_callers`), `graph_shader` (C++↔GLSL binding bridge). **Trust rule: `[lsp✓]` / `LSP_VERIFIED` = clangd ground truth — don't re-grep it; absence claims gate on exhaustive evidence.**
+- **Hidden legacy aliases** (callable by name): `graph_lookup`, `graph_summary`, `graph_report`, `graph_onboard`, `graph_module_tree`, `code_intel_replay`, `code_intel_analyze`.
 
 ## Edge provenance
 

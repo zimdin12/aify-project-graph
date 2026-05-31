@@ -119,7 +119,19 @@ Tell the user (paraphrase is fine):
 > Install done. **Restart Claude Code** so the MCP server and skills load. Then in any repo you want to index, just say "generate project graphs" — the `/graph-build-all` skill first checks `.gitignore` / `.aifyignore`, then builds everything in one pass (30-90 seconds). Multi-run signal across apg dogfood + 2026-04-26 echoes A/B: briefs + overlay reliably save ~15-20% wall-clock and tool calls vs Grep-only on planning shapes; live verbs are conditionally helpful when used surgically (≤3 per planning task). Single-bench headlines carry small-n caveats — see the [README](README.md). For narrower jobs: `/graph-build-briefs`, `/graph-build-functionality`, `/graph-build-tasks`, `/graph-feature-edit`, `/graph-task-edit`, `/graph-anchor-drift`, `/graph-pull-context`, `/graph-walk-bugs`, `/graph-dashboard`.
 > Optional for C++ repos with `compile_commands.json`: run the code-intel import described in the README to add `CODE_INTEL` provenance facts before regenerating briefs.
 >
-> For C++ inner-loop editing, the modern path is the bounded live verbs — `code_intel_diagnostics`, `code_intel_references`, `code_intel_definitions`, `code_intel_hover`, `code_intel_symbols`, and `code_intel_analyze`. They drive clangd live or bounded `clang-tidy` / compile-command checks, no collect/import round-trip, ~5-12× less response data than `graph_collect_code_intel` + `graph_pull` for atomic LSP questions. Pair with `graph_packet({mode:"verify", files:[...]})` after edits. Templates for downstream-project `.lsp.json` / `.mcp.json`: see `docs/integrations/lsp.json.example` and `mcp.json.example`.
+> For C++ inner-loop editing, the modern path is the bounded live verbs — `code_intel_diagnostics`, `code_intel_references`, `code_intel_definitions`, `code_intel_hover`, `code_intel_symbols`, `code_intel_hierarchy` (call + type hierarchy / virtual dispatch), and `code_intel_analyze`. They drive clangd live or bounded `clang-tidy` / compile-command checks, no collect/import round-trip, ~5-12× less response data than `graph_collect_code_intel` + `graph_pull` for atomic LSP questions. For repo-wide ranked callers, run `graph_collect_code_intel({language:"cpp", scope:"all"})` once, then `graph_callers` renders `[lsp✓]` + `LSP_VERIFIED` on real caller edges (don't re-grep those). `graph_shader` bridges C++↔GLSL bindings. Pair with `graph_packet({mode:"verify", files:[...]})` after edits. **Trust rule: `[lsp✓]` / `LSP_VERIFIED` = clangd ground truth; absence claims ("no callers") gate on `evidence.exhaustive === true`.** Templates for downstream-project `.lsp.json` / `.mcp.json`: see `docs/integrations/lsp.json.example` and `mcp.json.example`.
+
+### Optional — clangd setup (enables the C++ code-intel trust spine)
+
+clangd is **optional**; the graph works without it. When present it powers the `code_intel_*` verbs and `LSP_VERIFIED` caller edges. Resolution order: `APG_CLANGD` env var (explicit path) → `C:/Program Files/LLVM/bin/clangd.exe` on Windows → `clangd` on PATH.
+
+```bash
+# If clangd is not on PATH, point APG at it explicitly (Windows LLVM install):
+#   set APG_CLANGD=C:/Program Files/LLVM/bin/clangd.exe   (or export on POSIX)
+node "$CLONE_PATH/bin/apg.js" code-intel doctor cpp   # prerequisite report with fix hints
+```
+
+The C++ repo needs a `compile_commands.json` (project root or `build/`) for cross-TU references. **Windows note:** a `compile_commands.json` built under WSL/Linux carries Linux include/sysroot paths; references and hierarchy stay trustworthy, but full-quality **diagnostics/hover need clangd run under WSL** against the Linux DB (see `docs/code-intel-v2-status.md` known-issue P0-3).
 
 ## Verify (after restart — agent cannot do this before)
 

@@ -185,7 +185,7 @@ That keeps coverage high without pretending every planning task is hard implemen
 
 ### Claude Code skills
 
-Eleven workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/) plus one core skill at [`integrations/claude-code/skill/`](integrations/claude-code/skill/):
+Thirteen workflow skills ship at [`integrations/claude-code/skills/`](integrations/claude-code/skills/) plus one core skill at [`integrations/claude-code/skill/`](integrations/claude-code/skill/), including `/cpp-inner-loop` (C++ trust-spine workflow) and `/graph-build-intelligence` (opt-in semantic layer):
 
 **Build / refresh:**
 - **`/graph-build-all`** — first-time setup / full refresh (graph + briefs + functionality proposal). 30-90s first run, incremental thereafter.
@@ -289,21 +289,44 @@ On success the v0.2 collection is imported into the local graph and immediately 
 
 Schemas: [record v0.2](docs/schemas/code-intel-record.v0.2.schema.json), [collection envelope v0.2](docs/schemas/code-intel-collection.v0.2.schema.json), [provider contract](docs/integrations/code-intel-provider-contract.md). The legacy v0.1 path (`tools/code-intel/cpp-clangd/extract.mjs` + `scripts/import-code-intel.mjs`) still works unchanged for source-scan-only ingestion.
 
+## C++ code-intel trust spine (clangd — optional, but load-bearing)
+
+Code-Intel v2 (delivered 2026-05; status doc `docs/code-intel-v2-status.md`, historical records under `docs/code-intel-v2/`) adds a cohesive C++-first **trust spine** on top of clangd. The point: separate clangd ground-truth from tree-sitter heuristics so an agent knows exactly when it can make a confident absence claim ("no callers", "dead code", "safe to delete") and when it must verify.
+
+**The trust model — read this before quoting graph results on C++:**
+- **`[lsp✓]` marker + `LSP_VERIFIED` provenance = clangd ground truth.** When `graph_callers` / `graph_pull` render `[lsp✓]` on an edge (or an edge carries `LSP_VERIFIED`), that caller was resolved by clangd, not guessed. **Don't re-grep it.** A TRUST banner summarizes evidence + exhaustiveness for the response.
+- **Absence claims are gated on exhaustive evidence.** `code_intel_references` returns an `evidence` object (`{ready, degraded, cause, confidence, fallback, exhaustive, warnings[]}`). Only an empty refs list with `evidence.exhaustive === true` justifies "no callers". Otherwise the verb refuses the claim and names the fallback. The empty-result paths of `graph_callers` / `graph_callees` / `graph_neighbors` / `graph_impact` now route through the same trust line, so "NO CALLERS" never prints without the not-exhaustive caveat.
+- **References and hierarchy are the trustworthy core.** `code_intel_references` and `code_intel_hierarchy` (call + type hierarchy, virtual overrides) don't depend hard on the toolchain sysroot, so they stay reliable where fresh/exhaustive. **Diagnostics and hover are weaker on Windows** when the `compile_commands.json` was built under WSL/Linux (its include/sysroot paths don't exist on the Windows host). `--query-driver=*` recovers many cases; for full-quality diagnostics run clangd under WSL against the Linux DB. See the status doc's "Known issues" for the live P0-3 follow-up.
+
+**What's in the spine:** clangd compile-db normalization (WSL→host) + unity-build expansion (engine *and* test TUs) + Windows foreign-toolchain handling; clangd refs promoted to `LSP_VERIFIED` graph edges with readiness-gated cross-TU resolution; static virtual-override edges (`OVERRIDDEN_BY`, `provenance:'INFERRED'`) for vtable-heavy engine code; the C++↔GLSL shader bridge (`graph_shader`); and an MCP `initialize` server-instructions playbook (`mcp/stdio/server-instructions.js`) that injects the intent-routed trust guidance into the host system prompt once per session, reaching Hermes + Claude Code identically. One `storage/taxonomy.js` registry and a unified trust vocabulary (lsp-verified / partial / heuristic) keep it reading as one system.
+
+**clangd setup (optional):** the spine resolves clangd in this order — `APG_CLANGD` env var (explicit path), then `C:/Program Files/LLVM/bin/clangd.exe` on Windows, then `clangd` on PATH. Set `APG_CLANGD` if your install is elsewhere or you want a specific build. Run `node ./bin/apg.js code-intel doctor cpp` for a prerequisite report with fix hints. Skill walkthrough: `/cpp-inner-loop`. Lean profile for C++ hosts: `--toolset=code-intel`.
+
 ## Query verbs
 
-MCP tools organized by purpose:
+MCP tools organized by purpose. The full Claude Code profile lists **30 verbs** on `tools/list`; lower-value legacy aliases and analytics/code-intel long-tail verbs stay callable-by-name but hidden from the manifest so the listed set reads as one coherent product. Lean (Codex/OpenCode) lists 5.
 
-### Discovery — orient in a new project
+### Orientation & analytics — understand the whole repo
 
-Read the static briefs first. `graph_onboard` and `graph_report` are kept as compatibility verbs for live orientation, but they are no longer the primary routing surface.
+`graph_digest` is the one analytics front door — it returns the dashboard's whole analytic value (layers/communities, god-node hotspots, shader-binding + provenance %, tightest import cycles, community bridges) in ~1–2k tokens. Read the static briefs first; `graph_digest` is the live complement.
 
 | Verb | What it does | Example |
 |---|---|---|
-| `graph_onboard(path=".")` | Legacy compatibility onboarding brief: scope stats, key files, hub symbols, test anchors, reading order | Live fallback when the static briefs are missing or stale |
-| `graph_report()` | Legacy compatibility project orientation: files, languages, entry points, hub symbols, community clusters | Live fallback when you still need orientation after reading the briefs |
+| `graph_digest()` | **PRIMARY orientation.** Token-budgeted project digest — composes overview + hotspots + cycles | Orient on an unfamiliar repo in one call |
+| `graph_overview()` | Cluster map (community→layer→top-dir aggregation) — *callable, hidden from list* | Legible front door at 10k+ files |
+| `graph_hotspots()` | God-node / high-fan-in ranking — *callable, hidden from list* | Find the symbols everything depends on |
+| `graph_cycles()` | Tightest import/include cycles — *callable, hidden from list* | C++ header-tangle detection |
 | `graph_search(query="UserCont")` | Fuzzy symbol search with type/file filters | Find symbols by partial name |
 | `graph_whereis(symbol="get_db")` | Exact definition lookup: file:line | When you know the exact name |
-| `graph_module_tree(path="src/auth")` | Directory + file + symbol hierarchy | Explore a specific area |
+| `graph_onboard(path=".")` / `graph_report()` | Legacy compatibility orientation — *callable, hidden from list* | Live fallback when briefs are missing/stale |
+
+### Tracing & source bundling
+
+| Verb | What it does | Example |
+|---|---|---|
+| `graph_trace(from="A", to="B")` | Whole call path in one call, hop bodies inlined (`cat -n`); smart failure path inlines both endpoints + callers/callees instead of 404 | Trace A→B end-to-end, dynamic-dispatch bridges annotated |
+| `graph_explore(symbols=["X","Y"])` | Multi-symbol verbatim-source bundler in one budget-capped call, grouped by file — "treat as already Read" | Kill the Read-spiral on a known symbol set |
+| `graph_explain_diff(range="HEAD~3..HEAD")` | Reverse of `consequences` — keyed on a git diff/PR: changed components → affected layers → risk score | Reviewer / PR-impact gap |
 
 ### Analysis — understand code before changing it
 | Verb | What it does | Example |
@@ -314,15 +337,27 @@ Read the static briefs first. `graph_onboard` and `graph_report` are kept as com
 | `graph_callers(symbol="get_db")` | Who calls this? Ranked by depth, confidence, test proximity | Before understanding usage |
 | `graph_callees(symbol="handle")` | What does this call? | Before understanding dependencies |
 | `graph_neighbors(symbol="User")` | All connections: calls, refs, imports, extends, tests | Full picture of a symbol |
-| `graph_impact(symbol="User")` | Deep blast radius analysis via transitive edge walk | When you need full dependency tree |
+| `graph_impact(symbol="User")` | Deep blast radius analysis via transitive edge walk. For transitive + LSP-exhaustive results use `code_intel_hierarchy` | When you need full dependency tree |
 | `graph_path(symbol="handleRequest")` | Trace execution path as a readable story | Understand flow end-to-end |
+
+### C++ code-intel (clangd-backed — the trust spine)
+
+See ["C++ code-intel trust spine"](#c-code-intel-trust-spine-clangd-optional-but-load-bearing) below for the full story. clangd is **optional**; references/hierarchy are the trustworthy core.
+
+| Verb | What it does | Example |
+|---|---|---|
+| `code_intel_references(file,line,col)` | Symbol-aware refs via clangd, NOT text search. Carries the `evidence` exhaustiveness contract | Trustworthy "no callers" / deletion-safety |
+| `code_intel_definitions/hover/symbols/diagnostics` | Jump-to-def across TUs / type at position / file outline / per-file build errors without a build | Atomic mid-edit C++ questions |
+| `code_intel_hierarchy(symbol,kind)` | Call + type hierarchy — who-calls-transitively, virtual overrides. The trustworthy transitive path | Virtual-dispatch + transitive callers |
+| `graph_collect_code_intel(language="cpp")` | Run a clangd collection, import it; `graph_callers` / `graph_pull(layers:["code_intel"])` then render `[lsp✓]` + LSP_VERIFIED caller edges | Repo-wide compiler-backed evidence |
+| `graph_shader()` | C++↔GLSL shader-binding bridge (`DECLARES_BINDING` / `LOADS_SHADER`) — the binding seam no other tool crosses | Find CPU declarers/loaders of a shader binding |
 
 ### Administrative
 | Verb | What it does |
 |---|---|
 | `graph_status()` | Is graph indexed? Node/edge counts, trust signals |
 | `graph_index(force=true)` | Rebuild from scratch |
-| `graph_dashboard()` | Open interactive visual browser |
+| `graph_dashboard()` | Open interactive visual browser (overview drill-in, blast-radius, shader sub-view, provenance ribbon) |
 
 ## Response format
 

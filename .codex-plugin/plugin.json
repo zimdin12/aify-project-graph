@@ -3,7 +3,7 @@
   "name": "aify-project-graph",
   "display_name": "Aify Project Graph",
   "description": "Lean MCP project graph surface for Codex: graph_packet, pull, consequences, change_plan, and health.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "runtime": "codex",
   "entrypoint": {
     "command": "node",

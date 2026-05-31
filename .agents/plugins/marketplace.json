@@ -3,7 +3,7 @@
   "plugins": [
     {
       "name": "aify-project-graph",
-      "version": "0.0.1",
+      "version": "0.1.0",
       "description": "Local APG code graph, briefs, packets, dashboard, and optional code-intel import for agentic coding.",
       "repository": "https://github.com/zimdin12/aify-project-graph",
       "license": "MIT",

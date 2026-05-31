@@ -1,6 +1,9 @@
 # Code-Intel v2 — delivery status, A/B findings, known issues, roadmap
 
-_2026-05-08. Autonomous build round. Branch `plan/next-gen-code-intel-bridge`._
+_Living current-state doc. Branch `plan/next-gen-code-intel-bridge`._
+_2026-05-08 build round (L0–L5) + 2026-05-31 holistic-review fixes (R1/R2) — both landed. Historical records (master-plan, ab-rubric, ab-results, holistic-review, reference-borrow-synthesis) now live under `docs/code-intel-v2/`._
+
+**Version:** v0.1.0 (major capability milestone — the C++ trust spine, analytics verbs, and shader bridge are all shipped). Listed MCP tool surface is **30** (full profile); long-tail/specialist verbs stay callable-by-name but hidden from `tools/list`.
 
 ## Delivered & verified (commits L0–L5)
 A cohesive C++-first code-intelligence trust spine for game-dev agents, installed on Hermes + Claude Code, A/B-validated on real sand_castle + echoes.
@@ -15,19 +18,36 @@ A cohesive C++-first code-intelligence trust spine for game-dev agents, installe
 | L4 `2f3c669` | `code_intel_hierarchy` — call + type hierarchy (who-calls-transitively, virtual overrides) | echoes caller tree + ISimDomain→WorldBufferDomain |
 | L5 `<this>` | C++↔GLSL shader-binding bridge (`graph_shader`) — the seam no tool crosses | echoes 212 bindings/86 loads; sand_castle 28/40 |
 
-Full suite **761 pass, 0 failures**. Installed: Claude Code project `.mcp.json` (both games) + Hermes global `config.yaml` (APG_CLANGD set). Both runtimes confirmed reaching the tools by live testers.
+Full suite **915 pass / 8 skipped, 0 failures** (2026-05-31). Installed: Claude Code project `.mcp.json` (both games) + Hermes global `config.yaml` (APG_CLANGD set). Both runtimes confirmed reaching the tools by live testers.
+
+## Delivered — round 2 (holistic-review fixes R1/R2 + capability layer) — DONE
+The holistic-review (`docs/code-intel-v2/holistic-review.md`) flagged one thesis-critical data-loss bug, ungated absence claims, and cohesion debt. All landed:
+
+- **R1 — correctness / trust (all fixed).** C1 edge data-loss on re-collect (LSP edges no longer mutate the heuristic edge in place; invalidation scoped to synthesizer-created rows); I2 partial/budget-exhausted collects no longer run blanket invalidation; I1 absence claims (`callers`/`callees`/`neighbors`/`impact`) now route empty results through `buildTrustLine` so "NO CALLERS" carries the not-exhaustive caveat + verify hint; I3 per-node `[lsp✓]` gated on `indexReady===true`.
+- **R2 — cohesion (made it read as ONE system).** Single `storage/taxonomy.js` registry (NODE_TYPES, RELATIONS + CALL/IMPORT/INHERITANCE/BRIDGE families, EDGE_PROVENANCE_TYPES) — verbs no longer re-declare their own relation slices; `graph_neighbors` now wires OVERRIDDEN_BY/LOADS_SHADER/DECLARES_BINDING/HAS_DIAGNOSTIC; phantom `Struct` filter dropped; unified trust vocabulary on the lsp axis (`lsp-verified/partial/heuristic` headline, edge-count secondary); analytics hybrid output routed through the staleness wrapper; verb surface trimmed to a 30-tool listed front door (planning + analytics + code-intel long-tail hidden-but-callable).
+
+## New capability verbs (shipped this round)
+- **`code_intel_hierarchy`** — call + type hierarchy (who-calls-transitively, virtual overrides). The trustworthy transitive path for C++; cross-linked from `graph_callers`/`graph_callees`/`graph_impact`/`graph_path`.
+- **`graph_trace(from→to)`** — whole call path in one call, hop bodies inlined; smart failure path inlines both endpoints + callers/callees instead of 404.
+- **`graph_explore(symbols[])`** — multi-symbol verbatim-source bundler in one budget-capped call ("treat as already Read").
+- **`graph_explain_diff(range)`** — reverse of `consequences`: keyed on a git diff/PR → changed components → affected layers → risk.
+- **`graph_shader`** — C++↔GLSL shader-binding bridge (`DECLARES_BINDING`/`LOADS_SHADER`).
+- **`graph_digest`** — the ONE analytics front door (token-budgeted project digest), composing the now-callable `graph_overview`/`graph_hotspots`/`graph_cycles`.
+- **`graph_collect_code_intel`** → imports a clangd collection → `graph_callers`/`graph_pull(layers:["code_intel"])` then render `[lsp✓]` + LSP_VERIFIED on real caller edges.
+- **MCP `initialize` server-instructions playbook** (`mcp/stdio/server-instructions.js`) — intent-routed trust-spine guidance injected into the host system prompt once/session; reaches Hermes + Claude identically.
+- **Static virtual-override edges** (`OVERRIDDEN_BY`, `provenance:'INFERRED'`) for vtable-heavy engine code.
 
 ## A/B findings (real games, both runtimes)
 - **Safety spine works (headline).** Refuses unsafe "no callers / safe to delete" claims via the evidence contract (definition_only/degraded/not-exhaustive). Catches fabricated symbols (NOT FOUND, no hallucination). Type-aware disambiguation beats grep's noise on common method names. clangd `references` returned `exhaustive=true` on a real symbol via **Hermes**; managed **Claude Code** reached the tools via MCP.
 - **Net-useful for safety + disambiguation**; NOT a strict raw-caller-completeness win over `rg` for uniquely-named symbols in these repos.
 
-## Known issues (from live A/B — fix order)
-1. **Cold `graph_collect_code_intel` drops the MCP stdio connection** (`-32000 Connection closed`). Root cause: the ~53s cold background-index exceeds the host's tool-call timeout. **Fix:** time-budget the collect (~40–45s) and return `partial` + a resume token instead of blocking for the full readiness wait; optionally a separate fast "warm-index" call. **Workaround today:** the live verbs (`code_intel_references`, `code_intel_hierarchy`) are the primary path and are unaffected; or warm the index once out-of-band (CLI) — clangd persists it (`.aify-graph/code-intel/.cache`), so subsequent collects are ~1.4s.
-2. **Test unity TUs not expanded** → test→engine callers missing from `graph_callers` (engine unity TUs expand; test ones don't). **Fix:** include test-target unity TUs in `compile-db.js` expansion (gate first-party to include `tests/`).
-3. **Windows clangd sysroot/includes** — `compile_commands.json` is WSL/Linux-built, so its sysroot/include paths (`cstddef` …) don't exist on Windows clangd → bogus diagnostics/hover; files absent from the DB give `compile_entry_missing`. References/hierarchy (which don't need the toolchain sysroot as hard) stay trustworthy where fresh/exhaustive. **Fix:** run clangd under WSL against the Linux DB, OR `--query-driver` + host include discovery, OR strip/translate the Linux sysroot in the normalizer.
-4. **`graph_callers` surface parity** — confirm `[lsp✓]`+TRUST renders whenever LSP caller edges exist (verified on `GPU::is_valid`; tester's case simply had none post-collect because of #2).
+## Known issues — status (from live A/B)
+1. **Cold `graph_collect_code_intel` MCP stdio drop** (`-32000`) — **ADDRESSED.** Collect is now time-budgeted and returns `partial` + resume rather than blocking the full readiness wait. The live verbs (`code_intel_references`, `code_intel_hierarchy`) remain the unaffected primary path; clangd persists its index (`.aify-graph/code-intel/.cache`) so warm collects are ~1.4s.
+2. **Test unity TUs not expanded** — **FIXED.** `compile-db.js` expansion now includes test-target unity TUs (first-party gate includes `tests/`), so test→engine callers surface in `graph_callers`.
+3. **Windows clangd sysroot/includes** — **PARTIALLY ADDRESSED, WSL follow-up remains.** `--query-driver=*` now lets clangd interrogate the driver a foreign (Linux/WSL) compile DB names for system includes, which recovers many cases. References/hierarchy stay trustworthy where fresh/exhaustive. **Full diagnostics/hover on a WSL-built `compile_commands.json` still need clangd run under WSL against the Linux DB** (or a sysroot translation pass in the normalizer). This is the live P0-3 follow-up.
+4. **`graph_callers` `[lsp✓]`+TRUST surface parity** — **VERIFIED + locked** (regression-tested; renders whenever LSP caller edges exist).
 
-## Roadmap (not yet built)
-**→ The full consolidated backlog is `docs/code-intel-v2-next-plan.md`** — every not-done item (the 4 known issues above, the skipped L6 dashboard, the deferred JS-resolution waves, and all NEW findings from the second reference review: dashboard teardown, "what we missed" sweep, agent-UX deep-dive) in one prioritized list (P0 correctness → P6 research), so nothing is lost. Highlights: P0 collect-connection-drop + virtual-override edges + Hermes-toolset-gotcha; P1 server-instructions + trace/explore + change-explain verbs; P2 dashboard overview/blast-radius/shader-map + expose-analytics-as-verbs (ends the "island"); P3 JS resolution.
+## Roadmap (live backlog)
+**→ The remaining work lives in `docs/code-intel-v2-next-plan.md`.** The P0 correctness fixes, the P1 capability verbs (server-instructions, trace/explore, change-explain), the P2 dashboard analytics-verbs + shader map + overview, and the R1/R2 cohesion fixes are all DONE (marked there). The genuinely-remaining live backlog: **P1-6** (structural-vs-cosmetic change fingerprint), **P3** (JS/TS resolution waves), the **P0-3 WSL-clangd diagnostics follow-up**, and the remaining **P4/P5/P6** ergonomics/hardening/research items.
 
 Licensing: codegraph+graphify MIT (reused w/ attribution); agent-code-intel UNLICENSED (patterns only).

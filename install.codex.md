@@ -55,7 +55,7 @@ codex mcp add aify-project-graph \
   -- node --max-old-space-size=8192 "$CLONE_PATH/mcp/stdio/server.js" --toolset=lean
 ```
 
-Drop `--toolset=lean` if the user wants the full 23-verb surface (not recommended on Codex).
+Drop `--toolset=lean` if the user wants the full surface (30 verbs listed in `tools/list`; not recommended on Codex).
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
 
@@ -115,7 +115,9 @@ Tell the user (paraphrase is fine):
 > Then paste `/path/to/your/repo/.aify-graph/brief.agent.md` into your session prompt. Multi-run signal (apg dogfood + 2026-04-26 echoes A/B): briefs + overlay reliably save ~15-20% wall-clock and tool calls on planning shapes; live verbs are conditionally helpful when used surgically (≤3 per task). See the [README](README.md) for caveats. For plan tasks, hand-author `/path/to/your/repo/.aify-graph/functionality.json` (generic sample: `~/.codex/plugins/aify-project-graph/docs/examples/functionality.sample.json`; Laravel sample: `functionality.sample.laravel.json`) and re-run `graph-brief.mjs`. If the repo uses one shared test entrypoint instead of per-feature test files, add explicit `tests` arrays per feature in `functionality.json`.
 > Optional for C++ repos with `compile_commands.json`: run the code-intel import described in the README to add `CODE_INTEL` provenance facts before regenerating briefs.
 >
-> For C++ inner-loop editing, the bounded live verbs (`code_intel_diagnostics`, `code_intel_references`, `code_intel_definitions`, `code_intel_hover`, `code_intel_symbols`, `code_intel_analyze`) drive clangd live or bounded `clang-tidy` / compile-command checks with no collect/import round-trip — ~5-12× less response data than `graph_collect_code_intel` + `graph_pull` for atomic LSP questions. Pair with `graph_packet({mode:"verify", files:[...]})` after edits.
+> For C++ inner-loop editing, the bounded live verbs (`code_intel_diagnostics`, `code_intel_references`, `code_intel_definitions`, `code_intel_hover`, `code_intel_symbols`, `code_intel_hierarchy`, `code_intel_analyze`) drive clangd live or bounded `clang-tidy` / compile-command checks with no collect/import round-trip — ~5-12× less response data than `graph_collect_code_intel` + `graph_pull` for atomic LSP questions. For repo-wide ranked callers, `graph_collect_code_intel({language:"cpp"})` once → `graph_callers` then renders `[lsp✓]` + `LSP_VERIFIED` caller edges (don't re-grep those); `graph_shader` bridges C++↔GLSL bindings. Pair with `graph_packet({mode:"verify", files:[...]})` after edits. **Trust rule: `[lsp✓]` / `LSP_VERIFIED` = clangd ground truth; absence claims gate on `evidence.exhaustive === true`.**
+>
+> clangd is optional. Resolution order: `APG_CLANGD` env var → `clangd` on PATH (Codex/WSL). Set `APG_CLANGD` if clangd isn't on PATH; `node ~/.codex/plugins/aify-project-graph/bin/apg.js code-intel doctor cpp` reports prerequisites with fix hints. WSL clangd against a WSL-built `compile_commands.json` gives full diagnostics; references/hierarchy stay trustworthy cross-platform.
 
 ## Verify (after restart)
 

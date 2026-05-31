@@ -1,6 +1,6 @@
 # APG Code-Intel v2 — Master Plan (the C++ trust spine)
 
-_2026-05-08. Autonomous build mandate: holistic, cohesive C++-first code-intelligence for game-dev agents (sand_castle + echoes_of_the_fallen), running on Hermes + Claude Code. Investigation evidence: `docs/reference-borrow-synthesis.md` + 5 deep-recon agents (see memory `reference-borrow-plan`)._
+_2026-05-08. Autonomous build mandate: holistic, cohesive C++-first code-intelligence for game-dev agents (sand_castle + echoes_of_the_fallen), running on Hermes + Claude Code. Investigation evidence: `docs/code-intel-v2/reference-borrow-synthesis.md` + 5 deep-recon agents (see memory `reference-borrow-plan`)._
 
 ## North star
 One coherent product: **trustworthy C++ answers, evidence-gated, surfaced through a unified query layer, backed by clangd-when-it-matters + static-always, visible in a provenance-aware dashboard.** Not a patchwork of borrowed tricks — one spine everything hangs off.
