@@ -5,6 +5,12 @@ import { join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
 import { searchNodesFts } from '../storage/nodes.js';
+import {
+  computeOverview,
+  computeHotspots,
+  computeProvenanceMix,
+  computeDigest,
+} from '../intelligence/analytics.js';
 
 const __dirname = join(fileURLToPath(import.meta.url), '..');
 const DASHBOARD_NODE_LIMIT = 25000;
@@ -140,6 +146,125 @@ function computeCrossLayerEdges(db, repoRoot) {
   return { edges };
 }
 
+// Relations that propagate "impact" (what's affected if I change X). Mirrors
+// query/verbs/impact.js IMPACT_RELATIONS so the dashboard blast-radius and the
+// MCP verb agree on what counts as a dependency edge.
+const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS', 'INVOKES', 'PASSES_THROUGH'];
+
+// Strip the dashboard's `code:` id prefix so callers can pass either the raw
+// graph node id or the dashboard-normalized id.
+function rawNodeId(id) {
+  if (id == null) return id;
+  const s = String(id);
+  return s.startsWith('code:') ? s.slice('code:'.length) : s;
+}
+
+// Blast-radius: starting from `nodeId`, walk dependency edges BACKWARD (callers
+// of callers) up to `depth` hops. Returns the changed node + every reachable
+// affected node id (raw graph ids). Bounded by a hard node cap so a hub can't
+// explode the payload. Mirrors the recursive-impact traversal in impact.js but
+// returns ids only (the dashboard already has node detail).
+function computeImpact(db, nodeId, { depth = 3, cap = 2000 } = {}) {
+  const start = rawNodeId(nodeId);
+  const exists = db.get('SELECT id FROM nodes WHERE id = $id', { id: start });
+  if (!exists) return { changed: [], affected: [] };
+
+  const relSet = new Set(IMPACT_RELATIONS);
+  const affected = new Set();
+  let frontier = [start];
+  let hops = 0;
+  while (frontier.length && hops < depth && affected.size < cap) {
+    const placeholders = frontier.map((_, i) => `$f${i}`).join(',');
+    const params = Object.fromEntries(frontier.map((id, i) => [`f${i}`, id]));
+    const rows = db.all(
+      `SELECT DISTINCT from_id, relation FROM edges WHERE to_id IN (${placeholders})`,
+      params,
+    );
+    const next = [];
+    for (const r of rows) {
+      if (!relSet.has(r.relation)) continue;
+      if (r.from_id === start || affected.has(r.from_id)) continue;
+      affected.add(r.from_id);
+      next.push(r.from_id);
+      if (affected.size >= cap) break;
+    }
+    frontier = next;
+    hops += 1;
+  }
+  return { changed: [start], affected: [...affected] };
+}
+
+// Bidirectional BFS shortest path over the edge table (relation-agnostic,
+// treated as undirected for reachability — agents want "are these connected and
+// how", not strictly directed). Returns an ordered chain of raw node ids, or
+// [] when no path exists. Bounded by a visited-node cap.
+function computePath(db, fromId, toId, { cap = 20000 } = {}) {
+  const from = rawNodeId(fromId);
+  const to = rawNodeId(toId);
+  if (!from || !to) return [];
+  if (from === to) return [from];
+  if (!db.get('SELECT id FROM nodes WHERE id = $id', { id: from })) return [];
+  if (!db.get('SELECT id FROM nodes WHERE id = $id', { id: to })) return [];
+
+  // neighbors(id) → both directions, so the path can traverse an edge either way.
+  const neighbors = (id) => {
+    const rows = db.all(
+      `SELECT to_id AS other FROM edges WHERE from_id = $id
+       UNION
+       SELECT from_id AS other FROM edges WHERE to_id = $id`,
+      { id },
+    );
+    return rows.map((r) => r.other);
+  };
+
+  const parentF = new Map([[from, null]]); // forward search: node → predecessor
+  const parentB = new Map([[to, null]]);   // backward search: node → successor
+  let frontF = [from];
+  let frontB = [to];
+  let meet = null;
+
+  const reconstruct = (mid) => {
+    const left = [];
+    for (let n = mid; n != null; n = parentF.get(n)) left.push(n);
+    left.reverse();
+    const right = [];
+    for (let n = parentB.get(mid); n != null; n = parentB.get(n)) right.push(n);
+    return [...left, ...right];
+  };
+
+  while (frontF.length && frontB.length && !meet) {
+    // Expand the smaller frontier (classic bidirectional optimization).
+    if (frontF.length <= frontB.length) {
+      const nextF = [];
+      for (const node of frontF) {
+        for (const nb of neighbors(node)) {
+          if (parentF.has(nb)) continue;
+          parentF.set(nb, node);
+          if (parentB.has(nb)) { meet = nb; break; }
+          nextF.push(nb);
+        }
+        if (meet) break;
+      }
+      frontF = nextF;
+    } else {
+      const nextB = [];
+      for (const node of frontB) {
+        for (const nb of neighbors(node)) {
+          if (parentB.has(nb)) continue;
+          parentB.set(nb, node);
+          if (parentF.has(nb)) { meet = nb; break; }
+          nextB.push(nb);
+        }
+        if (meet) break;
+      }
+      frontB = nextB;
+    }
+    if (parentF.size + parentB.size > cap) break; // bound the search
+  }
+
+  return meet ? reconstruct(meet) : [];
+}
+
 // Synthesize overlay nodes (feature+task) so the frontend can render them
 // as first-class graph nodes alongside code nodes.
 function buildOverlayNodes(repoRoot) {
@@ -210,7 +335,11 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     target: `code:${e.to_id}`,
     relation: e.relation,
     edge_class: 'code',
-    provenance: 'code',
+    provenance: 'code', // edge-class provenance (code|curated|inferred) — drives the filter pills
+    // P2-4 provenance ribbon: the REAL graph provenance of this code edge
+    // (LSP_VERIFIED | EXTRACTED | INFERRED). Kept separate from the edge-class
+    // `provenance` above so the cross-layer filter contract is unchanged.
+    code_provenance: e.provenance || 'EXTRACTED',
     confidence: e.confidence,
   });
 
@@ -251,7 +380,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
          ORDER BY ${hasCommunityId ? 'COALESCE(community_id, 2147483647),' : ''} type, id
          LIMIT ${DASHBOARD_NODE_LIMIT}`).map(normalizeCodeNode);
       const codeEdges = db.all(
-        `SELECT from_id, to_id, relation, confidence FROM edges
+        `SELECT from_id, to_id, relation, confidence, provenance FROM edges
          ORDER BY relation, from_id, to_id
          LIMIT ${DASHBOARD_EDGE_LIMIT}`
       ).map(normalizeCodeEdge);
@@ -329,6 +458,122 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
         warnings: intel.warnings,
         loadedFrom: intel.loadedFrom,
       });
+      return;
+    }
+
+    // ── P2b analytics endpoints — all delegate to the shared analytics.js so
+    // the dashboard and the MCP verbs never drift. Architecture overlay (if
+    // present) sharpens overview clustering + digest layering.
+    const loadArchitecture = () => {
+      const functionalityOverlay = loadOverlayJson(repoRoot, 'functionality.json');
+      const intel = loadIntelligenceOverlays({ repoRoot, functionalityJson: functionalityOverlay });
+      return intel.architecture || null;
+    };
+
+    // P2-1: cluster/community map + aggregated inter-cluster edges. The legible
+    // front door — bounded to ~8-30 boxes, never the raw 25k nodes. When a repo
+    // has a long tail of tiny communities (this self-graph has ~580), we keep
+    // the top `cap` by node_count and fold the rest into a single "(other …)"
+    // aggregate box so the front door stays readable. The full unbounded map is
+    // still available via the graph_overview MCP verb.
+    if (req.url?.startsWith('/api/overview')) {
+      const url = new URL(req.url, 'http://localhost');
+      const cap = Math.max(4, Math.min(60, parseInt(url.searchParams.get('cap') || '24', 10) || 24));
+      const architecture = loadArchitecture();
+      const all = computeOverview(db, { topSymbols: 5, architecture });
+      let clusters = all;
+      if (all.length > cap) {
+        const head = all.slice(0, cap);
+        const tail = all.slice(cap);
+        const headKeys = new Set(head.map((c) => c.cluster));
+        const otherKey = `other:${tail.length}`;
+        const otherCount = tail.reduce((s, c) => s + c.node_count, 0);
+        // Aggregate every edge from a tail cluster into/out of the "(other)"
+        // box, and rewrite head-cluster edges that pointed at a tail cluster.
+        const otherEdges = new Map(); // targetKey → count
+        for (const c of tail) {
+          for (const e of c.edges_to) {
+            const tgt = headKeys.has(e.cluster) ? e.cluster : otherKey;
+            if (tgt === otherKey) continue; // collapse tail↔tail
+            otherEdges.set(tgt, (otherEdges.get(tgt) || 0) + e.count);
+          }
+        }
+        for (const c of head) {
+          const folded = new Map();
+          for (const e of c.edges_to) {
+            const tgt = headKeys.has(e.cluster) ? e.cluster : otherKey;
+            folded.set(tgt, (folded.get(tgt) || 0) + e.count);
+          }
+          c.edges_to = [...folded].map(([cluster, count]) => ({ cluster, count }))
+            .sort((a, b) => b.count - a.count);
+        }
+        const otherBox = {
+          cluster: otherKey,
+          label: `(other ${tail.length} clusters)`,
+          node_count: otherCount,
+          top_symbols: [],
+          edges_to: [...otherEdges].map(([cluster, count]) => ({ cluster, count }))
+            .sort((a, b) => b.count - a.count),
+        };
+        clusters = [...head, otherBox];
+      }
+      writeJson({
+        clusters,
+        meta: {
+          cluster_count: clusters.length,
+          total_clusters: all.length,
+          capped: all.length > cap,
+          total_nodes: db.get('SELECT count(*) AS c FROM nodes').c,
+        },
+      });
+      return;
+    }
+
+    // P2-6: top-N god nodes by in+out degree (clickable hotspot list).
+    if (req.url?.startsWith('/api/hotspots')) {
+      const url = new URL(req.url, 'http://localhost');
+      const limit = Math.max(1, Math.min(100, parseInt(url.searchParams.get('limit') || '10', 10) || 10));
+      const hotspots = computeHotspots(db, { limit });
+      writeJson({ hotspots });
+      return;
+    }
+
+    // P2-2: blast-radius — node + everything reachable backward over dependency
+    // edges. Returns raw graph ids; the frontend maps to its `code:` nodes.
+    if (req.url?.startsWith('/api/impact/')) {
+      const url = new URL(req.url, 'http://localhost');
+      const id = decodeURIComponent(url.pathname.slice('/api/impact/'.length));
+      const depth = Math.max(1, Math.min(10, parseInt(url.searchParams.get('depth') || '3', 10) || 3));
+      const result = computeImpact(db, id, { depth });
+      writeJson(result);
+      return;
+    }
+
+    // P2-5: pathfinder — bidirectional BFS shortest path A→B (ordered id chain).
+    if (req.url?.startsWith('/api/path')) {
+      const url = new URL(req.url, 'http://localhost');
+      const from = url.searchParams.get('from') || '';
+      const to = url.searchParams.get('to') || '';
+      const path = computePath(db, from, to);
+      writeJson({ from: rawNodeId(from), to: rawNodeId(to), path, found: path.length > 0 });
+      return;
+    }
+
+    // P2-4: provenance mix — call-edge LSP-verified split + shader-binding counts.
+    if (req.url === '/api/provenance') {
+      writeJson(computeProvenanceMix(db));
+      return;
+    }
+
+    // P2-9: token-budgeted text digest (the dashboard's whole analytic value in
+    // ~1-2k tokens) so the browser can show the agent-digest too.
+    if (req.url?.startsWith('/api/digest')) {
+      const url = new URL(req.url, 'http://localhost');
+      const budget = Math.max(800, Math.min(40000, parseInt(url.searchParams.get('budget') || '6000', 10) || 6000));
+      const architecture = loadArchitecture();
+      const text = computeDigest(db, { budget, architecture });
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': 'null' });
+      res.end(text);
       return;
     }
 

@@ -104,10 +104,14 @@
       <div class="item"><div class="swatch" style="background:#58a6ff;border-radius:6px"></div> Features</div>
       <div class="item"><div class="swatch" style="background:#d29922;transform:rotate(45deg)"></div> Tasks</div>
       <div class="item"><div class="swatch" style="background:#3fb950;clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%)"></div> Docs</div>
+      <div class="item"><div class="swatch" style="background:#bc8cff;clip-path:polygon(50% 0%,0% 100%,100% 100%)"></div> ShaderBinding</div>
       <div class="item"><div class="line" style="border-color:#58a6ff;border-top-style:dashed"></div> Curated cross-layer</div>
       <div class="item"><div class="line" style="border-color:#7ee787;border-top-style:dotted"></div> Inferred cross-layer</div>
-      <div class="item"><div class="line" style="border-color:#58a6ff"></div> CALLS / INVOKES</div>
+      <div class="item"><div class="line" style="border-color:#3fb950"></div> Call edge — LSP-verified (solid)</div>
+      <div class="item"><div class="line" style="border-color:#8b949e;border-top-style:dashed"></div> Call edge — heuristic (dashed)</div>
       <div class="item"><div class="line" style="border-color:#f2cc60"></div> PASSES_THROUGH</div>
+      <div class="item"><div class="swatch dot" style="background:#da3633"></div> Blast: changed</div>
+      <div class="item"><div class="swatch dot" style="background:#d29922"></div> Blast: affected</div>
     </div>
   </div>
   <script>
@@ -132,6 +136,12 @@
       Directory: '#8b949e', Config: '#8b949e', Document: '#3fb950',
       Schema: '#8b949e', Variable: '#6e7681', Symbol: '#6e7681',
       Repository: '#da3633',
+      ShaderBinding: '#bc8cff',
+    };
+    // P2-3: ShaderBinding gets a distinct triangle shape so the shader map
+    // reads at a glance (CPU declarers/loaders stay ellipse/file shapes).
+    const KIND_SHAPES = {
+      ShaderBinding: 'triangle',
     };
     const RELATION_COLORS = {
       PASSES_THROUGH: '#f2cc60',
@@ -161,14 +171,26 @@
     const activeEdgeClasses = new Set(['code', 'cross-layer']);
     const activeProvenance = new Set(['code', 'curated', 'inferred']);
     const is3DMode = window.location.pathname === '/3d';
-    const VIEW_MODES = ['tree', 'layers', 'community', 'force'];
-    let currentViewMode = is3DMode ? 'layers' : 'tree';
+    // P2-1: 'overview' is the new default front door in 2D — it renders the
+    // /api/overview cluster map (~8-30 boxes), not the raw 25k nodes. 'shader'
+    // (P2-3) is a quick-filter preset over the loaded graph. 3D keeps 'layers'.
+    const VIEW_MODES = ['overview', 'tree', 'layers', 'community', 'force', 'shader'];
+    let currentViewMode = is3DMode ? 'layers' : 'overview';
     let sidebarCollapsed = false;
 
     let cy = null;
     let fg3d = null;
     let allData = null;
     let currentFocusNodeId = null;
+    // P2-2 blast-radius mode: when on, clicking a node calls /api/impact and
+    // colors changed=red / affected=amber / fades the rest.
+    let blastMode = false;
+    let blastResult = null; // { changed:Set, affected:Set } of dashboard ids
+    // P2-1 overview cache + which cluster (if any) the detail graph is showing.
+    let overviewData = null;
+    let drilledCluster = null;
+    // P2-5 pathfinder result: ordered array of dashboard node ids.
+    let pathChain = null;
 
     function renderLocation(filePath, line) {
       return filePath ? `${filePath}${line ? `:${line}` : ''}` : 'external';
@@ -210,9 +232,17 @@
       };
     }
 
+    const CALL_FAMILY = new Set(['CALLS', 'REFERENCES', 'INVOKES', 'USES_TYPE']);
+    function isCallFamily(relation) { return CALL_FAMILY.has(relation); }
+
     function edgeColor(edge) {
       if ((edge.edge_class || 'code') === 'cross-layer') {
         return edge.provenance === 'curated' ? '#58a6ff' : '#7ee787';
+      }
+      // P2-4: LSP-verified call edges get a trust-green tint so the legible
+      // signal is colour AND line-style (solid green vs dashed grey).
+      if (isCallFamily(edge.relation) && edge.code_provenance === 'LSP_VERIFIED') {
+        return '#3fb950';
       }
       return RELATION_COLORS[edge.relation] || RELATION_COLORS.default;
     }
@@ -618,6 +648,58 @@
       `;
     }
 
+    // ── P2-6 Idle Project-Overview panel ──────────────────────────────────
+    // Replaces the "click a node" placeholder with project stats, top-10
+    // hotspots (clickable → focus node), and a node-type distribution.
+    async function renderIdleOverview(stats) {
+      const detail = document.getElementById('node-detail');
+      const [hotspotsResp, provResp] = await Promise.all([
+        fetch('/api/hotspots?limit=10').then(r => r.json()).catch(() => ({ hotspots: [] })),
+        fetch('/api/provenance').then(r => r.json()).catch(() => null),
+      ]);
+      const hotspots = hotspotsResp.hotspots || [];
+      const types = (stats?.types || []).slice(0, 8);
+      const maxType = Math.max(1, ...types.map(t => t.c));
+      const provLine = provResp && provResp.total_call_edges
+        ? `<div class="field"><span class="field-label">Call edges:</span> ${provResp.total_call_edges} · <span style="color:#3fb950">${provResp.lsp_verified_pct}% LSP-verified</span></div>`
+        : '';
+      const shaderLine = provResp?.shader?.bindings
+        ? `<div class="field"><span class="field-label">Shader bindings:</span> ${provResp.shader.bindings} (${provResp.shader.declares_binding} DECLARES, ${provResp.shader.loads_shader} LOADS)</div>`
+        : '';
+      detail.innerHTML = `
+        <h3>Project overview</h3>
+        <div class="detail-card">
+          <div class="field"><span class="field-label">Nodes:</span> ${stats?.nodeCount ?? '—'} · <span class="field-label">Edges:</span> ${stats?.edgeCount ?? '—'}</div>
+          ${provLine}
+          ${shaderLine}
+        </div>
+        <div class="section-title">Top hotspots (god nodes)</div>
+        <div class="list">${
+          hotspots.length
+            ? hotspots.map(h => `<div class="edge-item" data-hotspot="${encodeURIComponent(h.label)}" data-file="${encodeURIComponent(h.file_path || '')}">${h.label} <span style="color:#6e7681">[${(h.type || '').toLowerCase()}] deg ${h.degree}</span></div>`).join('')
+            : '<div class="list-item">none</div>'
+        }</div>
+        <div class="section-title">Node-type distribution</div>
+        <div class="list">${
+          types.map(t => `
+            <div class="field">
+              <div style="display:flex;justify-content:space-between;font-size:11px"><span>${t.type}</span><span>${t.c}</span></div>
+              <div style="height:6px;border-radius:3px;background:#21262d;overflow:hidden"><div style="height:100%;width:${Math.round((t.c / maxType) * 100)}%;background:#58a6ff"></div></div>
+            </div>`).join('')
+        }</div>
+      `;
+      detail.querySelectorAll('[data-hotspot]').forEach(el => {
+        el.addEventListener('click', () => {
+          const label = decodeURIComponent(el.dataset.hotspot);
+          const filePath = decodeURIComponent(el.dataset.file || '');
+          // Resolve label → a loaded node (prefer file-path match) then focus.
+          const cand = allData.nodes.find(n => n.label === label && (!filePath || n.file_path === filePath))
+            || allData.nodes.find(n => n.label === label);
+          if (cand) focusNode(cand.id);
+        });
+      });
+    }
+
     async function showNodeDetail(nodeId) {
       const node = allData.nodes.find(n => n.id === nodeId);
       if (!node) return;
@@ -674,7 +756,20 @@
         <div id="focus-controls">
           <button class="mini-button" id="focus-neighborhood" type="button">Neighborhood mode</button>
           <button class="mini-button" id="clear-focus" type="button">Clear focus</button>
-        </div>`;
+        </div>
+        <div class="section-title">Blast radius (P2-2)</div>
+        <div class="pill-row">
+          <button class="toggle-pill ${blastMode ? 'active' : ''}" id="blast-toggle" type="button">blast-radius mode${blastMode ? ' ✓' : ''}</button>
+          <button class="mini-button" id="blast-clear" type="button">clear</button>
+        </div>
+        <div class="subtle">Toggle on, then click a node — changed=red, affected=amber, rest faded.</div>
+        <div class="section-title">Pathfinder (P2-5)</div>
+        <div class="pill-row" style="gap:4px">
+          <input id="path-from" placeholder="from symbol/id" style="flex:1;min-width:90px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:11px" />
+          <input id="path-to" placeholder="to symbol/id" style="flex:1;min-width:90px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:11px" />
+          <button class="mini-button" id="path-go" type="button">find</button>
+        </div>
+        <div class="subtle" id="path-status"></div>`;
       filtersEl.innerHTML = filterHtml;
 
       filtersEl.querySelectorAll('[data-view]').forEach(btn => {
@@ -715,7 +810,19 @@
       document.getElementById('focus-neighborhood').addEventListener('click', () => {
         if (currentFocusNodeId) applyNeighborhoodMode(currentFocusNodeId);
       });
-      document.getElementById('clear-focus').addEventListener('click', clearNeighborhoodMode);
+      document.getElementById('clear-focus').addEventListener('click', () => {
+        clearNeighborhoodMode();
+        renderIdleOverview(window.__lastStats);
+      });
+      document.getElementById('blast-toggle').addEventListener('click', (e) => {
+        blastMode = !blastMode;
+        e.target.classList.toggle('active', blastMode);
+        e.target.textContent = `blast-radius mode${blastMode ? ' ✓' : ''}`;
+      });
+      document.getElementById('blast-clear').addEventListener('click', clearBlast);
+      document.getElementById('path-go').addEventListener('click', () => {
+        runPathfinder(document.getElementById('path-from').value.trim(), document.getElementById('path-to').value.trim());
+      });
     }
 
     function renderStats(graphData, stats) {
@@ -723,9 +830,14 @@
       const topRelations = stats.relations.slice(0, 5);
       const multilayerCounts = graphData.counts || {};
       const meta = graphData.meta || {};
+      const prov = window.__provenance;
+      const provStat = prov && prov.total_call_edges
+        ? `<div class="stat"><span>Call edges LSP-verified</span><span class="stat-value" style="color:#3fb950">${prov.lsp_verified_pct}%</span></div>`
+        : '';
       statsEl.innerHTML = `
         <div class="stat"><span>Nodes</span><span class="stat-value">${stats.nodeCount}</span></div>
         <div class="stat"><span>Edges</span><span class="stat-value">${stats.edgeCount}</span></div>
+        ${provStat}
         ${(meta.truncated_nodes || meta.truncated_edges) ? `
           <div class="section-title">Payload</div>
           <div class="field">Showing ${graphData.nodes.length.toLocaleString()} / ${(meta.total_code_nodes || meta.total_nodes || graphData.nodes.length).toLocaleString()} nodes and ${graphData.edges.length.toLocaleString()} / ${(meta.total_code_edges || meta.total_edges || graphData.edges.length).toLocaleString()} edges.</div>
@@ -741,11 +853,33 @@
       `;
     }
 
+    // P2-3: ids reachable in the shader sub-view — ShaderBinding nodes + any
+    // node joined to them by DECLARES_BINDING / LOADS_SHADER / OVERRIDDEN_BY.
+    function shaderViewIds() {
+      const ids = new Set();
+      for (const n of allData.nodes) {
+        if ((n.kind || n.type) === 'ShaderBinding') ids.add(n.id);
+      }
+      const rel = new Set(['DECLARES_BINDING', 'LOADS_SHADER', 'OVERRIDDEN_BY']);
+      for (const e of allData.edges) {
+        if (!rel.has(e.relation)) continue;
+        const src = e.source ?? `code:${e.from_id}`;
+        const tgt = e.target ?? `code:${e.to_id}`;
+        if (ids.has(src) || ids.has(tgt)) { ids.add(src); ids.add(tgt); }
+      }
+      return ids;
+    }
+
     function buildElements() {
       const isMultilayer = allData.nodes.length > 0 && 'layer' in allData.nodes[0];
-      const nodes = isMultilayer
+      // P2-3 shader preset + P2-1 drill-in narrow the node set before the
+      // existing layer/type filters run.
+      const shaderIds = currentViewMode === 'shader' ? shaderViewIds() : null;
+      let nodes = isMultilayer
         ? allData.nodes.filter(n => activeLayers.has(n.layer) && (n.layer !== 'code' || activeTypes.has(n.kind || n.type)))
         : allData.nodes.filter(n => activeTypes.has(n.type));
+      if (shaderIds) nodes = nodes.filter(n => shaderIds.has(n.id));
+      if (drilledCluster) nodes = nodes.filter(n => nodeInCluster(n, drilledCluster));
       const nodeIds = new Set(nodes.map(n => n.id));
       const edges = isMultilayer
         ? allData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target) && activeEdgeClasses.has(e.edge_class || 'code') && activeProvenance.has(e.provenance || 'code'))
@@ -786,6 +920,7 @@
             relation: e.relation,
             edge_class: e.edge_class,
             provenance: e.provenance,
+            code_provenance: e.code_provenance,
             confidence: e.confidence,
           },
         })),
@@ -935,7 +1070,7 @@
                 if (layer && layer !== 'code') return LAYER_COLORS[layer];
                 return TYPE_COLORS[ele.data('kind') || ele.data('type')] || '#6e7681';
               },
-              'shape': (ele) => LAYER_SHAPES[ele.data('layer')] || 'ellipse',
+              'shape': (ele) => KIND_SHAPES[ele.data('kind') || ele.data('type')] || LAYER_SHAPES[ele.data('layer')] || 'ellipse',
               width: (ele) => {
                 const layer = ele.data('layer');
                 if (layer === 'feature') return 22;
@@ -961,6 +1096,11 @@
                 if ((ele.data('edge_class') || 'code') === 'cross-layer') {
                   return ele.data('provenance') === 'curated' ? 'dashed' : 'dotted';
                 }
+                // P2-4 provenance ribbon: call-family code edges render solid
+                // when LSP_VERIFIED, dashed when heuristic (EXTRACTED/INFERRED).
+                if (isCallFamily(ele.data('relation'))) {
+                  return ele.data('code_provenance') === 'LSP_VERIFIED' ? 'solid' : 'dashed';
+                }
                 return 'solid';
               },
               'target-arrow-color': (ele) => edgeColor(ele.data()),
@@ -978,22 +1118,223 @@
           { selector: 'edge:selected', style: { 'line-color': '#f0883e', 'target-arrow-color': '#f0883e', width: 2, opacity: 1 } },
           { selector: '.dimmed', style: { opacity: 0.15 } },
           { selector: '.highlighted', style: { 'border-width': 3, 'border-color': '#58a6ff', 'z-index': 10 } },
+          // P2-2 blast-radius classes.
+          { selector: '.blast-changed', style: { 'background-color': '#da3633', 'border-width': 3, 'border-color': '#ff7b72', 'z-index': 20 } },
+          { selector: '.blast-affected', style: { 'background-color': '#d29922', 'z-index': 15 } },
+          { selector: '.blast-faded', style: { opacity: 0.08 } },
+          // P2-5 pathfinder chain.
+          { selector: '.path-node', style: { 'background-color': '#a371f7', 'border-width': 3, 'border-color': '#d2a8ff', 'z-index': 25 } },
+          { selector: '.path-edge', style: { 'line-color': '#a371f7', 'target-arrow-color': '#a371f7', width: 3, opacity: 1, 'z-index': 25 } },
         ],
         layout: layoutConfig,
       });
 
       cy.on('tap', 'node', (e) => {
         currentFocusNodeId = e.target.id();
+        if (blastMode) { runBlastRadius(currentFocusNodeId); return; }
         showNodeDetail(currentFocusNodeId);
         applyNeighborhoodMode(currentFocusNodeId);
       });
+
+      // Re-apply blast / path overlays after a (re)render.
+      if (blastResult) paintBlast();
+      if (pathChain) paintPath();
+    }
+
+    // ── P2-1 Overview→drill-in ────────────────────────────────────────────
+    // Does a dashboard node belong to overview cluster `clusterKey`? Mirrors
+    // analytics.js clusterOf(): c:<community_id> | l:<layerId> | d:<top-dir>.
+    function nodeInCluster(node, clusterKey) {
+      if ((node.layer || 'code') !== 'code') return false;
+      if (clusterKey.startsWith('c:')) {
+        const cid = clusterKey.slice(2);
+        return node.community_id != null && String(node.community_id) === cid;
+      }
+      if (clusterKey.startsWith('l:')) {
+        const lid = clusterKey.slice(2);
+        const asg = intelligenceData?.architecture?.assignments?.[node.file_path];
+        return asg?.layerId === lid;
+      }
+      if (clusterKey.startsWith('d:')) {
+        const dir = clusterKey.slice(2);
+        const norm = (node.file_path || '').replace(/\\/g, '/');
+        const slash = norm.indexOf('/');
+        const topDir = slash === -1 ? '(root)' : norm.slice(0, slash);
+        return topDir === dir;
+      }
+      return false;
+    }
+
+    // Render the cluster map as ~8-30 boxes sized by node_count with aggregated
+    // inter-cluster edges (width ~ log(count)). Clicking a box drills into that
+    // cluster's nodes. This is the legibility win — never ships 25k nodes.
+    function renderOverviewGraph() {
+      document.getElementById('fg3d').style.display = 'none';
+      document.getElementById('cy').style.display = 'block';
+      if (cy) cy.destroy();
+      const clusters = (overviewData?.clusters || []);
+      showLargeGraphBanner(false, 0);
+      if (!clusters.length) {
+        showLargeGraphBanner(true, 0, 'No clusters — overview needs a community_id or directory structure. Switch to "tree" for the raw graph.');
+      }
+      const maxCount = Math.max(1, ...clusters.map(c => c.node_count));
+      const labelByKey = new Map(clusters.map(c => [c.cluster, c.label]));
+      const cols = Math.max(2, Math.ceil(Math.sqrt(clusters.length || 1)));
+      const xGap = 220, yGap = 180;
+      const nodeEls = clusters.map((c, i) => {
+        const sz = 30 + 90 * Math.sqrt(c.node_count / maxCount);
+        const col = i % cols, row = Math.floor(i / cols);
+        return {
+          group: 'nodes',
+          data: {
+            id: `cluster:${c.cluster}`,
+            clusterKey: c.cluster,
+            label: `${c.label}\n(${c.node_count})`,
+            isCluster: true,
+            size: sz,
+          },
+          position: { x: (col - (cols - 1) / 2) * xGap, y: (row - (Math.ceil((clusters.length || 1) / cols) - 1) / 2) * yGap },
+        };
+      });
+      const edgeEls = [];
+      const seen = new Set();
+      for (const c of clusters) {
+        for (const e of (c.edges_to || [])) {
+          const id = `co:${c.cluster}=>${e.cluster}`;
+          if (seen.has(id) || !labelByKey.has(e.cluster)) continue;
+          seen.add(id);
+          edgeEls.push({
+            group: 'edges',
+            data: { id, source: `cluster:${c.cluster}`, target: `cluster:${e.cluster}`, count: e.count, width: 1 + Math.log(1 + e.count) },
+          });
+        }
+      }
+      cy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: [...nodeEls, ...edgeEls],
+        style: [
+          { selector: 'node', style: {
+            label: 'data(label)', 'text-wrap': 'wrap', 'text-valign': 'center', 'text-halign': 'center',
+            'font-size': 11, color: '#c9d1d9', 'text-outline-color': '#0d1117', 'text-outline-width': 2,
+            shape: 'round-rectangle', 'background-color': '#1f6feb', 'background-opacity': 0.55,
+            'border-width': 1, 'border-color': '#58a6ff',
+            width: 'data(size)', height: (ele) => Math.max(28, ele.data('size') * 0.7),
+          } },
+          { selector: 'edge', style: {
+            width: 'data(width)', 'line-color': '#6e7681', 'target-arrow-color': '#6e7681',
+            'target-arrow-shape': 'triangle', 'curve-style': 'bezier', opacity: 0.5,
+          } },
+          { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#f0883e' } },
+        ],
+        layout: { name: 'preset' },
+      });
+      cy.on('tap', 'node', (e) => {
+        const key = e.target.data('clusterKey');
+        // The "(other N clusters)" aggregate box is a visual rollup, not a
+        // single drillable cluster — clicking it expands the cap instead.
+        if (key && key.startsWith('other:')) { expandOverview(); return; }
+        if (key) drillIntoCluster(key);
+      });
+    }
+
+    // Re-fetch the overview with a larger cap so the long tail splits out.
+    async function expandOverview() {
+      const nextCap = (overviewData?.clusters?.length || 24) + 24;
+      overviewData = await fetch(`/api/overview?cap=${nextCap}`).then(r => r.json()).catch(() => overviewData);
+      renderOverviewGraph();
+    }
+
+    // Load ONE cluster's nodes into the existing detail graph (tree layout).
+    function drillIntoCluster(clusterKey) {
+      drilledCluster = clusterKey;
+      currentViewMode = 'tree';
+      syncViewPills();
+      renderGraph(true);
+    }
+
+    function syncViewPills() {
+      document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === currentViewMode));
+      const dc = document.getElementById('drill-banner');
+      if (dc) dc.remove();
     }
 
     function renderGraph(resetFocus = false) {
       if (resetFocus) currentFocusNodeId = null;
+      if (!is3DMode && currentViewMode === 'overview') {
+        drilledCluster = null;
+        renderOverviewGraph();
+        return;
+      }
       const elements = buildElements();
       if (is3DMode) render3DGraph(elements);
       else render2DGraph(elements);
+    }
+
+    // ── P2-2 Blast-radius ─────────────────────────────────────────────────
+    async function runBlastRadius(dashboardId) {
+      const rawId = dashboardId.startsWith('code:') ? dashboardId.slice('code:'.length) : dashboardId;
+      const res = await fetch(`/api/impact/${encodeURIComponent(rawId)}?depth=4`).then(r => r.json()).catch(() => null);
+      if (!res) return;
+      const toDash = (id) => `code:${id}`;
+      blastResult = {
+        changed: new Set((res.changed || []).map(toDash)),
+        affected: new Set((res.affected || []).map(toDash)),
+      };
+      showNodeDetail(dashboardId);
+      paintBlast();
+    }
+
+    function paintBlast() {
+      if (!cy || !blastResult) return;
+      cy.batch(() => {
+        cy.nodes().forEach(n => {
+          n.removeClass('blast-changed blast-affected blast-faded');
+          const id = n.id();
+          if (blastResult.changed.has(id)) n.addClass('blast-changed');
+          else if (blastResult.affected.has(id)) n.addClass('blast-affected');
+          else n.addClass('blast-faded');
+        });
+      });
+    }
+
+    function clearBlast() {
+      blastResult = null;
+      if (cy) cy.nodes().removeClass('blast-changed blast-affected blast-faded');
+    }
+
+    // ── P2-5 Pathfinder ───────────────────────────────────────────────────
+    async function runPathfinder(fromQuery, toQuery) {
+      const resolveId = async (q) => {
+        if (!q) return null;
+        const hits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []);
+        if (hits && hits.length) return hits[0].layer ? hits[0].id : hits[0].id; // raw graph id
+        return q; // fall back to raw id literal
+      };
+      const fromId = await resolveId(fromQuery);
+      const toId = await resolveId(toQuery);
+      const status = document.getElementById('path-status');
+      if (!fromId || !toId) { if (status) status.textContent = 'Enter both endpoints.'; return; }
+      const res = await fetch(`/api/path?from=${encodeURIComponent(fromId)}&to=${encodeURIComponent(toId)}`).then(r => r.json()).catch(() => null);
+      if (!res || !res.found) { pathChain = null; if (cy) cy.elements().removeClass('path-node path-edge'); if (status) status.textContent = 'No path found.'; return; }
+      pathChain = res.path.map(id => `code:${id}`);
+      if (status) status.textContent = `Path (${pathChain.length} hops): ${res.path.join(' → ')}`;
+      paintPath();
+    }
+
+    function paintPath() {
+      if (!cy || !pathChain) return;
+      const set = new Set(pathChain);
+      cy.batch(() => {
+        cy.elements().removeClass('path-node path-edge');
+        cy.nodes().forEach(n => { if (set.has(n.id())) n.addClass('path-node'); });
+        for (let i = 0; i < pathChain.length - 1; i++) {
+          const a = pathChain[i], b = pathChain[i + 1];
+          cy.edges().forEach(e => {
+            const s = e.data('source'), t = e.data('target');
+            if ((s === a && t === b) || (s === b && t === a)) e.addClass('path-edge');
+          });
+        }
+      });
     }
 
     window.focusNode = (id) => {
@@ -1064,19 +1405,25 @@
     }
 
     async function init() {
-      const [graphData, stats, intel] = await Promise.all([
+      const [graphData, stats, intel, overview, provenance] = await Promise.all([
         fetch('/api/graph-multilayer').then(r => r.json()).catch(() => fetch('/api/graph').then(r => r.json())),
         fetch('/api/stats').then(r => r.json()),
         fetch('/api/intelligence').then(r => r.json()).catch(() => ({ semanticFiles: null, architecture: null, layerSummary: [], warnings: [] })),
+        fetch('/api/overview').then(r => r.json()).catch(() => ({ clusters: [] })),
+        fetch('/api/provenance').then(r => r.json()).catch(() => null),
       ]);
       applyIntelligence(intel);
       allData = graphData;
+      overviewData = overview;
+      window.__lastStats = stats;
+      window.__provenance = provenance;
       document.getElementById('mode-label').textContent = is3DMode ? '3D mode' : '2D mode';
       document.getElementById('mode-link').href = is3DMode ? '/' : '/3d';
       document.getElementById('mode-link').textContent = is3DMode ? 'open 2D' : 'open 3D';
 
       renderStats(graphData, stats);
       buildFilters(graphData);
+      renderIdleOverview(stats);
 
       document.getElementById('sidebar-toggle').addEventListener('click', () => setSidebarCollapsed(true));
       document.getElementById('sidebar-reopen').addEventListener('click', () => setSidebarCollapsed(false));
