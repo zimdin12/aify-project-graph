@@ -73,6 +73,9 @@ describe('server toolset selection', () => {
     expect(names).toContain('graph_dashboard');
     // P1-4 — graph_explain_diff is registered in the full profile.
     expect(names).toContain('graph_explain_diff');
+    // P1-2 / P1-3 — graph_trace + graph_explore registered in the full profile.
+    expect(names).toContain('graph_trace');
+    expect(names).toContain('graph_explore');
     expect(names).not.toContain('graph_summary');
     expect(names).not.toContain('graph_report');
     expect(names).not.toContain('graph_onboard');

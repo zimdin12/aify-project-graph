@@ -31,6 +31,8 @@ import { graphOnboard } from './query/verbs/onboard.js';
 import { graphPull } from './query/verbs/pull.js';
 import { graphFind } from './query/verbs/find.js';
 import { graphPacket } from './query/verbs/packet.js';
+import { graphTrace } from './query/verbs/trace.js';
+import { graphExplore } from './query/verbs/explore.js';
 import { graphCollectCodeIntel } from './query/verbs/collect_code_intel.js';
 import { checkRequestSize, MAX_MCP_LINE_BYTES } from './security/request-size.js';
 import { findSensitivePathArg } from './security/sensitive-paths.js';
@@ -506,6 +508,33 @@ const TOOLS = [
         mode: { type: 'string', enum: ['execution', 'dependency'], default: 'execution', description: 'execution or dependency mode.' },
       },
       required: ['symbol'],
+    },
+  },
+  {
+    name: 'graph_trace',
+    handler: graphTrace,
+    description: 'PRIMARY for "show me the whole call path from A to B" — the entire trace in ONE call, each hop\'s BODY inlined verbatim (cat -n, treat as already Read; do NOT re-Read shown files). BFS the call graph (CALLS/INVOKES/PASSES_THROUGH) + follows OVERRIDDEN_BY to bridge C++ virtual dispatch; dynamic-dispatch hops annotated [virtual/override — INFERRED], clangd-verified hops marked [lsp✓]. Capped at max_hops (a confident-but-wrong long trace is worse than none). On FAILURE (no static path — the chain usually broke at dynamic dispatch) it does NOT 404: it inlines BOTH endpoint bodies + their callers/callees + the destination file\'s other top-level functions (where the missing hop usually lives). Ambiguous names paired by path-proximity. Use INSTEAD of repeated graph_callees/graph_path + Read calls to follow a flow.',
+    schema: {
+      type: 'object',
+      properties: {
+        from: { type: 'string', description: 'Source symbol (Class::method / Namespace::Class::method / bare name).' },
+        to: { type: 'string', description: 'Destination symbol to reach.' },
+        max_hops: { type: 'integer', default: 7, description: 'Max BFS hops (1-15). Longer traces are rejected rather than guessed.' },
+      },
+      required: ['from', 'to'],
+    },
+  },
+  {
+    name: 'graph_explore',
+    handler: graphExplore,
+    description: 'PRIMARY for "show me the source of these N symbols" — returns Read-equivalent verbatim source for a BAG of symbol/file names in ONE budget-capped call, grouped by file, cat -n line numbers, "treat as already Read" framing. Do NOT re-Read the files it shows. Input is a list of names (NOT a question). Repo-size-scaled budget; caps files/symbols and emits a "TRUNCATED — N more (narrow your list)" tail when over budget; large repos also get a compact RELATIONSHIPS section among the requested symbols. Use INSTEAD of N separate Read calls when you just need to see several symbols\' bodies. For the full call PATH between two symbols use graph_trace.',
+    schema: {
+      type: 'object',
+      properties: {
+        symbols: { type: 'array', items: { type: 'string' }, description: 'Bag of symbol and/or file names to bundle verbatim.' },
+        max_files: { type: 'integer', description: 'Optional cap on the number of file groups returned (clamped to the repo-size tier cap).' },
+      },
+      required: ['symbols'],
     },
   },
   {

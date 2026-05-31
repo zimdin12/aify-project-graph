@@ -593,6 +593,14 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
     }
   } catch { /* never block the packet on evidence lookup */ }
 
+  // Cross-link footer (low-salience-wall tie-in, Code-Intel v2 / P1-2+P1-3).
+  // graph_packet is a verb agents ALREADY reach for, so a one-line pointer here
+  // raises the salience of the two new source-reading verbs they under-pick on
+  // their own: graph_trace for a full call path, graph_explore for several
+  // symbols' verbatim source. Light cross-link, not a rewrite — appended before
+  // the budget clamp so it's trimmed first if the packet is over budget.
+  lines.push('NEXT: for the full call path between two symbols use graph_trace(from,to); for several symbols\' source in one read use graph_explore(symbols).');
+
   const text = renderLines(lines);
   return clampToBudget(text, opts.budget_tokens);
 }
