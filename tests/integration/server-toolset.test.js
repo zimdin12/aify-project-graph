@@ -71,6 +71,8 @@ describe('server toolset selection', () => {
     const names = tools.map(tool => tool.name);
     expect(names).toContain('graph_callers');
     expect(names).toContain('graph_dashboard');
+    // P1-4 — graph_explain_diff is registered in the full profile.
+    expect(names).toContain('graph_explain_diff');
     expect(names).not.toContain('graph_summary');
     expect(names).not.toContain('graph_report');
     expect(names).not.toContain('graph_onboard');

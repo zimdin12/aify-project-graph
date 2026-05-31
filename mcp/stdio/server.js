@@ -18,6 +18,7 @@ import { graphImpact } from './query/verbs/impact.js';
 import { graphSummary } from './query/verbs/summary.js';
 import { graphHealth } from './query/verbs/health.js';
 import { graphConsequences } from './query/verbs/consequences.js';
+import { graphExplainDiff } from './query/verbs/explain_diff.js';
 import { graphReport } from './query/verbs/report.js';
 import { graphPath } from './query/verbs/path.js';
 import { graphDashboard } from './query/verbs/dashboard.js';
@@ -268,6 +269,21 @@ const TOOLS = [
         target: { type: 'string', description: 'Symbol name or repo-relative file path.' },
       },
       required: ['target'],
+    },
+  },
+  {
+    name: 'graph_explain_diff',
+    handler: graphExplainDiff,
+    description: 'Explain an EXISTING change/diff (reverse of graph_consequences). Keyed on a git range — NOT a symbol. Input: range (e.g. "main...HEAD", "HEAD~3", "<sha>~1..<sha>") OR staged=true OR files[]; defaults to uncommitted working-tree changes. Output: CHANGED (files → symbols the diff touched), AFFECTED 1-hop (callers/dependents grouped by file, [lsp✓] where clangd-verified), LAYERS (architecture layers the change spans — cross-layer = higher risk), RISK (labeled heuristic score: cross-layer × fan-out × contract/test signals), TESTS (adjacent coverage). Carries the LSP-vs-heuristic trust banner. Use when reviewing/triaging a PR or an already-made change to see its blast radius. Pass overlay=true to also emit .aify-graph/diff-overlay.json for the dashboard blast-radius highlight.',
+    schema: {
+      type: 'object',
+      properties: {
+        range: { type: 'string', description: 'Git rev range understood by `git diff` — "main...HEAD", "HEAD~3", "<sha>~1..<sha>", a bare sha, etc. Omit for working-tree (uncommitted) changes.' },
+        staged: { type: 'boolean', default: false, description: 'Explain the staged (index) diff instead of working tree. Ignored when range or files[] is given.' },
+        files: { type: 'array', items: { type: 'string' }, description: 'Explicit repo-relative changed-file list. Overrides range/staged/working-tree resolution.' },
+        overlay: { type: 'boolean', default: false, description: 'Also write .aify-graph/diff-overlay.json ({changedNodeIds, affectedNodeIds}) for the dashboard blast-radius highlight (P2-2).' },
+        top_k: { type: 'integer', default: 30, description: 'Max affected-file groups returned.' },
+      },
     },
   },
   {
