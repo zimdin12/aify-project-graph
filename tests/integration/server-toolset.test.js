@@ -65,9 +65,80 @@ function extractTools(lines) {
   return toolsResponse?.result?.tools ?? [];
 }
 
+// The 15 intent verbs the DEFAULT (no --toolset) profile lists (P4-1).
+const DEFAULT_LISTED = [
+  'code_intel_hierarchy',
+  'code_intel_references',
+  'graph_callers',
+  'graph_collect_code_intel',
+  'graph_consequences',
+  'graph_digest',
+  'graph_explain_diff',
+  'graph_explore',
+  'graph_health',
+  'graph_impact',
+  'graph_packet',
+  'graph_pull',
+  'graph_search',
+  'graph_trace',
+  'graph_whereis',
+].sort();
+
 describe('server toolset selection', () => {
-  it('exposes the trimmed coherent full toolset by default (R2 cohesion)', async () => {
+  it('lists the focused ~15-verb default set when no toolset is given (P4-1)', async () => {
     const tools = extractTools(await runToolRpc());
+    const names = tools.map(tool => tool.name).sort();
+    // The default surface is EXACTLY the focused intent set — not the full API.
+    expect(names).toEqual(DEFAULT_LISTED);
+    expect(names.length).toBe(15);
+
+    // Verbs that are full-listed but NOT in the focused default must be absent
+    // from the default listing (still callable — proven in a later test).
+    expect(names).not.toContain('graph_callees');
+    expect(names).not.toContain('graph_onboard');
+    expect(names).not.toContain('graph_dashboard');
+    expect(names).not.toContain('graph_overview');
+    expect(names).not.toContain('graph_shader');
+    expect(names).not.toContain('graph_file');
+  });
+
+  it('keeps a hidden-by-default verb callable when no toolset is given (P4-1)', async () => {
+    // graph_overview is NOT in the default listing but must still resolve via
+    // tools/call — gating is listing-only, never a capability removal.
+    const lines = await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_index', arguments: { repo } } },
+      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'graph_overview', arguments: { repo, top_k: 3 } } },
+    ]);
+    const resp = lines.find(line => line.id === 3);
+    const text = resp?.result?.content?.[0]?.text ?? '';
+    expect(resp?.error).toBeUndefined();
+    expect(text).toContain('OVERVIEW');
+  });
+
+  it('APG_MCP_TOOLS restricts the default listing to exactly the allowlist (P4-1)', async () => {
+    const lines = await runToolRpc([], { APG_MCP_TOOLS: 'graph_packet,graph_pull,graph_consequences' });
+    const names = extractTools(lines).map(tool => tool.name).sort();
+    expect(names).toEqual(['graph_consequences', 'graph_packet', 'graph_pull']);
+  });
+
+  it('APG_MCP_TOOLS gates listing only — omitted verbs stay callable', async () => {
+    // Allowlist excludes graph_whereis from the listing, but tools/call must
+    // still resolve it.
+    const lines = await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'graph_whereis', arguments: { symbol: 'User', repo } } },
+    ], [], { APG_MCP_TOOLS: 'graph_packet' });
+    const listNames = extractTools(lines).map(tool => tool.name);
+    expect(listNames).toEqual(['graph_packet']);
+    const callResp = lines.find(line => line.id === 3);
+    expect(callResp?.error).toBeUndefined();
+    expect(callResp?.result?.content?.[0]?.text ?? '').toContain('User');
+  });
+
+  it('exposes the trimmed coherent full toolset under --toolset=full (R2 cohesion)', async () => {
+    const tools = extractTools(await runToolRpc(['--toolset=full']));
     const names = tools.map(tool => tool.name);
     // ── Visible primary set (the coherent navigable product) ──
     expect(names).toContain('graph_callers');
@@ -79,7 +150,7 @@ describe('server toolset selection', () => {
     expect(names).toContain('graph_explore');
     // graph_digest is the ONE analytics front door (composes overview/hotspots/cycles).
     expect(names).toContain('graph_digest');
-    // graph_onboard is now a VISIBLE orientation primary (was hidden pre-R2).
+    // graph_onboard is a VISIBLE orientation primary in full (hidden in default).
     expect(names).toContain('graph_onboard');
     // Live code-intel primaries stay visible.
     expect(names).toContain('code_intel_references');

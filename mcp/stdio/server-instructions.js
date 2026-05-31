@@ -11,10 +11,15 @@
 // single source of truth — imported by the initialize handler.
 export const SERVER_INSTRUCTIONS = `aify-project-graph — symbol-aware code intelligence for this repo.
 
+TOOL SURFACE: tools/list shows a FOCUSED default (~15 intent verbs). Long-tail
+verbs named below (graph_onboard, graph_shader, graph_callees, graph_overview,
+…) are still CALLABLE by name even when not listed — invoke them directly. Run
+with --toolset=full to list the whole API.
+
 ORIENT FIRST (cheap, often saves 2-5 shell calls):
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
 - graph_packet {target, mode} — one packet of everything about a feature/symbol.
-- graph_onboard — guided tour for a repo you have not seen.
+- graph_onboard — guided tour for a repo you have not seen (callable; not in the default list).
 
 TOOL SELECTION BY INTENT:
 - who calls X / is it safe to delete → code_intel_references or graph_callers (read the evidence banner).

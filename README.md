@@ -304,7 +304,16 @@ Code-Intel v2 (delivered 2026-05; status doc `docs/code-intel-v2-status.md`, his
 
 ## Query verbs
 
-MCP tools organized by purpose. The full Claude Code profile lists **30 verbs** on `tools/list`; lower-value legacy aliases and analytics/code-intel long-tail verbs stay callable-by-name but hidden from the manifest so the listed set reads as one coherent product. Lean (Codex/OpenCode) lists 5.
+MCP tools organized by purpose. **Profiles gate the `tools/list` surface, never the callable set** — every verb stays invokable via `tools/call` regardless of profile; profiles only shape which verbs are *listed* (agents under-pick from big lists, so the default is deliberately focused).
+
+- **`default`** (no `--toolset`/`AIFY_GRAPH_PROFILE`) — the focused **~15 intent verbs** an agent actually reaches for: `graph_packet`, `graph_pull`, `graph_consequences`, `graph_callers`, `graph_impact`, `graph_trace`, `graph_explore`, `graph_explain_diff`, `graph_digest`, `graph_search`, `graph_whereis`, `graph_health`, `graph_collect_code_intel`, `code_intel_references`, `code_intel_hierarchy`. Everything else stays callable but unlisted.
+- **`full`** (`--toolset=full`) — the whole API; lists **30 verbs** (legacy aliases + analytics/code-intel long-tail stay callable-by-name but hidden so the listed set reads as one coherent product).
+- **`code-intel`** (`--toolset=code-intel`) — the clangd-backed bounded verbs (lean profile for C++ hosts).
+- **`lean`** (`--toolset=lean`) — the 6-verb planning core (Codex/OpenCode).
+
+Precedence: explicit `--toolset=<name>` > `AIFY_GRAPH_PROFILE` env > `default`.
+
+**`APG_MCP_TOOLS`** (comma-separated env allowlist, for A/B ablation) — when set, restricts the *listed* tools to exactly that set, intersected with the resolved profile. Omitted verbs are truly absent from `tools/list` but stay callable. Example: `APG_MCP_TOOLS=graph_packet,graph_pull,graph_consequences`.
 
 ### Orientation & analytics — understand the whole repo
 

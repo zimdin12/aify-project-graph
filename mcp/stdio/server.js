@@ -687,6 +687,41 @@ const LEAN_TOOL_NAMES = new Set([
   'graph_watch',
 ]);
 
+// DEFAULT profile (P4-1, 2026-05-31): the ACTUAL default `tools/list` surface
+// when no `--toolset`/AIFY_GRAPH_PROFILE is set. The Hermes tech-lead's
+// finish-line point: ~40 verbs is fine as an EXPERT/full API but too many as
+// the agent's DEFAULT affordance — agents under-pick from big lists. So we GATE
+// the listing (not delete the verbs): the default surface is the ~15 intent
+// verbs an agent actually reaches for. `full` becomes an explicit opt-in that
+// lists everything (minus HIDDEN_FULL). Every verb here AND every verb not here
+// stays CALLABLE via tools/call regardless of profile — gating = listing only.
+//
+// The set is Hermes-TL's list, refined: the primary cross-layer planning verbs
+// (packet/pull/consequences), the traversal verbs (callers/impact/trace/
+// explore), diff explanation, the ONE analytics front door (digest), locators
+// (search/whereis), the health check, and the code-intel front (collect +
+// references + hierarchy). Everything else (callees/neighbors/path/shader/file/
+// onboard/status/index/watch/dashboard/overview/hotspots/cycles/change_plan/
+// preflight/module_tree/report/summary/lookup + the code_intel long-tail) stays
+// callable but unlisted by default.
+const DEFAULT_TOOL_NAMES = new Set([
+  'graph_packet',
+  'graph_pull',
+  'graph_consequences',
+  'graph_callers',
+  'graph_impact',
+  'graph_trace',
+  'graph_explore',
+  'graph_explain_diff',
+  'graph_digest',
+  'graph_search',
+  'graph_whereis',
+  'graph_health',
+  'graph_collect_code_intel',
+  'code_intel_references',
+  'code_intel_hierarchy',
+]);
+
 // Full profile still keeps EVERY verb callable by name, but the tools/list
 // surface hides the redundant + long-tail verbs so the listed set reads as ONE
 // coherent product instead of a 37-verb salience wall (R2 cohesion fix). Hidden
@@ -733,10 +768,32 @@ function projectToShortDescription(tool) {
 }
 
 function resolveToolset(argv = process.argv.slice(2), env = process.env) {
+  // Precedence: explicit --toolset wins, then AIFY_GRAPH_PROFILE env, then the
+  // focused `default` profile (P4-1). `full` is now an explicit opt-in — the
+  // bare default surface is the ~15-verb intent set, not the whole API. The
+  // games' .mcp.json (which passes no --toolset) gets the focused default;
+  // that is intentional.
   const arg = argv.find(token => token.startsWith('--toolset='));
   if (arg) return arg.slice('--toolset='.length);
   const envProfile = (env.AIFY_GRAPH_PROFILE || '').trim();
-  return envProfile || 'full';
+  return envProfile || 'default';
+}
+
+// APG_MCP_TOOLS — comma-separated env allowlist (codegraph's pattern). When
+// set, it restricts the LISTED tools to EXACTLY that set, intersected with
+// whatever the resolved profile would have shown — for A/B ablation studies.
+// Tools omitted by the allowlist are truly absent from tools/list but stay
+// CALLABLE via tools/call (gating = listing only). Unknown names are ignored.
+// Empty/whitespace-only → no restriction. Example:
+//   APG_MCP_TOOLS=graph_packet,graph_pull,graph_consequences
+function parseToolsAllowlist(env = process.env) {
+  const raw = (env.APG_MCP_TOOLS || '').trim();
+  if (!raw) return null;
+  const names = raw
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  return names.length ? new Set(names) : null;
 }
 
 function defaultOutputMode(toolset, env = process.env) {
@@ -765,14 +822,30 @@ function selectListedTools(toolset) {
   if (toolset === 'code-intel') {
     return TOOLS.filter(tool => CODE_INTEL_TOOL_NAMES.has(tool.name));
   }
+  if (toolset === 'full') {
+    return TOOLS
+      .filter(tool => !HIDDEN_FULL_TOOL_NAMES.has(tool.name))
+      .map(projectToShortDescription);
+  }
+  // `default` (and any unrecognized profile name) → the focused intent set.
+  // Short descriptions still apply so the listed set stays tight.
   return TOOLS
-    .filter(tool => !HIDDEN_FULL_TOOL_NAMES.has(tool.name))
+    .filter(tool => DEFAULT_TOOL_NAMES.has(tool.name))
     .map(projectToShortDescription);
+}
+
+// Apply the APG_MCP_TOOLS allowlist (if set) as a final listing filter on top
+// of the profile selection. Restricts what tools/list shows; never changes
+// what tools/call can invoke.
+function applyAllowlist(listed, allowlist) {
+  if (!allowlist) return listed;
+  return listed.filter(tool => allowlist.has(tool.name));
 }
 
 const ACTIVE_TOOLSET = resolveToolset();
 const ACTIVE_TOOLS = TOOLS;
-const LISTED_TOOLS = selectListedTools(ACTIVE_TOOLSET);
+const TOOLS_ALLOWLIST = parseToolsAllowlist();
+const LISTED_TOOLS = applyAllowlist(selectListedTools(ACTIVE_TOOLSET), TOOLS_ALLOWLIST);
 const DEFAULT_OUTPUT_MODE = defaultOutputMode(ACTIVE_TOOLSET);
 if (DEFAULT_OUTPUT_MODE) {
   process.env.AIFY_GRAPH_OUTPUT = DEFAULT_OUTPUT_MODE;
