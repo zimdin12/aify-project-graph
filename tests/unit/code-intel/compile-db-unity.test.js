@@ -138,6 +138,72 @@ describe('prepareCompileDb — unity expansion', () => {
     expect(Object.keys(consoleEntry).some(k => k.startsWith('__'))).toBe(false);
   });
 
+  it('P0-2: expands a TEST unity TU — test sources are first-party (test→engine callers)', () => {
+    // Real first-party member sources: one engine, two tests.
+    writeFile('engine/sim/Sim.cpp', 'void sim(){}\n');
+    writeFile('tests/sim/test_sim.cpp', 'void t1(){}\n');
+    writeFile('tests/gpu/test_gpu.cpp', 'void t2(){}\n');
+
+    // Engine unity TU.
+    const engUnityRel = 'build/engine/CMakeFiles/engine.dir/Unity/unity_0_cxx.cxx';
+    writeFile(engUnityRel, `#include "${wslish(repo, 'engine/sim/Sim.cpp')}"\n`);
+    // TEST unity TU (lives under build/tests/, members under tests/).
+    const testUnityRel = 'build/tests/CMakeFiles/sand_castle_tests.dir/Unity/unity_0_cxx.cxx';
+    const testUnityBody = [
+      `#include "${wslish(repo, 'tests/sim/test_sim.cpp')}"`,
+      `#include "${wslish(repo, 'tests/gpu/test_gpu.cpp')}"`
+    ].join('\n');
+    writeFile(testUnityRel, testUnityBody);
+
+    const buildDirWsl = wslish(repo, 'build');
+    const engUnityWsl = wslish(repo, engUnityRel);
+    const testUnityWsl = wslish(repo, testUnityRel);
+    writeDb('build/compile_commands.json', [
+      { directory: buildDirWsl, file: engUnityWsl, command: `c++ -c ${engUnityWsl}`, output: 'e.o' },
+      { directory: buildDirWsl, file: testUnityWsl, command: `c++ -c ${testUnityWsl}`, output: 't.o' }
+    ]);
+
+    const r = prepareCompileDb({ projectRoot: repo });
+    expect(r.found).toBe(true);
+    expect(r.unityExpanded).toBe(true);
+    expect(r.expandedFrom).toBe(2);            // BOTH unity TUs expanded
+    expect(r.expandedSources).toBe(3);         // 1 engine + 2 test members
+    expect(r.firstPartyCount).toBe(3);
+
+    const norm = JSON.parse(fs.readFileSync(r.normalizedPath, 'utf8'));
+    const files = norm.map(e => e.file.replace(/\\/g, '/').toLowerCase());
+    expect(files).toContain(hostAbs(repo, 'tests/sim/test_sim.cpp').toLowerCase());
+    expect(files).toContain(hostAbs(repo, 'tests/gpu/test_gpu.cpp').toLowerCase());
+    expect(files).toContain(hostAbs(repo, 'engine/sim/Sim.cpp').toLowerCase());
+    // No unity aggregates remain.
+    expect(files.some(f => /unity_\d+_cxx\.cxx/.test(f))).toBe(false);
+  });
+
+  it('P0-2: expands a C unity variant (unity_N_c.c) and never leaks it as a TU', () => {
+    // The C-variant unity aggregate must be recognized (UNITY_RE includes .c)
+    // so its first-party C member expands and the aggregate itself is dropped.
+    writeFile('engine/c/legacy.c', 'void legacy(void){}\n');
+    const cUnityRel = 'build/engine/CMakeFiles/engine.dir/Unity/unity_0_c.c';
+    writeFile(cUnityRel, `#include "${wslish(repo, 'engine/c/legacy.c')}"\n`);
+    const buildDirWsl = wslish(repo, 'build');
+    const cUnityWsl = wslish(repo, cUnityRel);
+    writeDb('build/compile_commands.json', [
+      { directory: buildDirWsl, file: cUnityWsl, command: `cc -c ${cUnityWsl}`, output: 'c.o' }
+    ]);
+
+    const r = prepareCompileDb({ projectRoot: repo });
+    expect(r.unity).toBe(true);
+    expect(r.unityExpanded).toBe(true);
+    expect(r.expandedFrom).toBe(1);
+    expect(r.expandedSources).toBe(1);
+
+    const norm = JSON.parse(fs.readFileSync(r.normalizedPath, 'utf8'));
+    const files = norm.map(e => e.file.replace(/\\/g, '/').toLowerCase());
+    expect(files).toContain(hostAbs(repo, 'engine/c/legacy.c').toLowerCase());
+    // The unity_0_c.c aggregate must NOT survive in the normalized DB.
+    expect(files.some(f => /unity_\d+_c\.c$/.test(f))).toBe(false);
+  });
+
   it('does NOT expand when the unity .cxx file is missing on disk', () => {
     // DB references a unity .cxx that was never written to disk.
     const buildDirWsl = wslish(repo, 'build');

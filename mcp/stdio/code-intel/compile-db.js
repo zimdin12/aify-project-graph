@@ -35,7 +35,13 @@ const PROBE_DIRS = [
   'out'
 ];
 
-const UNITY_RE = /Unity[\\/]unity_\d+_.*\.(cxx|cpp)$/i;
+// CMake emits unity aggregates per language: C++ TUs land in `unity_<n>_cxx.cxx`
+// but a target that also compiles C sources gets a parallel `unity_<n>_c.c`
+// (and rarely `.cc`). The original pattern only matched the C++ variant, so the
+// C aggregate (a) never had its first-party `.c` members expanded and (b) leaked
+// into the normalized DB as a bogus unity TU clangd would treat as a real
+// source. Match every unity-source extension so both get expanded+dropped.
+const UNITY_RE = /Unity[\\/]unity_\d+_.*\.(cxx|cpp|cc|c|c\+\+|cp)$/i;
 
 /**
  * Translate a WSL `/mnt/<drive>/...` path to a host path on win32
@@ -100,6 +106,133 @@ function rewriteCommandString(cmd) {
     (full, lead, flag, p) => `${lead}${flag || ''}${wslToHost(p)}`);
 }
 
+// ── P0-3: foreign (Linux/WSL) toolchain detection + normalization ──────────
+//
+// The game compile DBs are built under WSL/Linux: the compiler is a POSIX path
+// (`/usr/bin/c++`), `directory` is a `/mnt/c/...` WSL path, and the flags carry
+// Linux-only toolchain anchors (`-isysroot /…`, `--sysroot=/…`,
+// `--gcc-toolchain=/…`, absolute `-isystem /usr/…` system-include dirs). On
+// Windows none of those resolve, so clangd can't find the C++ stdlib and emits
+// a cascade of bogus "'cstddef' file not found" diagnostics; hover then recovers
+// garbage types. References/hierarchy still mostly work (they don't need the
+// stdlib resolved), so the pragmatic Windows fix is: keep the project's real
+// `-I/-D/-std` flags (already WSL→host-normalized) but STRIP the Linux-only
+// toolchain anchors that can only mislead clangd, and let clangd infer the host
+// compiler's includes via the `--query-driver=*` launch flag.
+//
+// This pass is win32-ONLY. On Linux the "foreign" Linux paths ARE the host
+// paths, so detection returns false and nothing is stripped (pure no-op).
+
+// A glued or separated arg whose VALUE is a Linux-only system path we must drop.
+// `-isystem /usr/...` and absolute `/usr`/`/mnt` system dirs can't resolve on
+// Windows; the project's own `-I.../engine` dirs are host-translated and kept.
+function isForeignSystemIncludeValue(val) {
+  if (typeof val !== 'string') return false;
+  // After normalization `/mnt/...` becomes `C:/...`; a *remaining* POSIX-absolute
+  // value (`/usr/...`, `/lib/...`, bare `/`) is a Linux system path with no host
+  // equivalent. We only strip system-include style values, never `-I` project
+  // dirs (handled separately — those are kept).
+  return /^\/(usr|lib|lib64|opt|gnu|include)\b/.test(val) || val === '/';
+}
+
+/**
+ * Detect whether a (raw, pre-normalization) compile DB was built on a foreign
+ * (Linux/WSL) toolchain that won't resolve on the current Windows host.
+ *
+ * Signals (any one is sufficient):
+ *  - compiler (first token / `arguments[0]`) is a POSIX-absolute path
+ *    (`/usr/bin/c++`).
+ *  - `directory` is a WSL/POSIX-absolute path (`/mnt/c/...` or `/...`).
+ *  - flags contain `-isysroot /…`, `--sysroot=/…`, `--gcc-toolchain=/…`, or an
+ *    absolute `-isystem /usr…` system-include flag.
+ *
+ * Pure helper — unit-tested directly. Returns false on non-win32 (the Linux
+ * paths ARE host paths there), so callers don't need to platform-gate.
+ *
+ * @param {object[]} rawEntries parsed compile_commands.json entries (raw)
+ * @returns {{ foreign: boolean, reasons: string[] }}
+ */
+export function detectForeignToolchain(rawEntries) {
+  if (process.platform !== 'win32') return { foreign: false, reasons: [] };
+  if (!Array.isArray(rawEntries)) return { foreign: false, reasons: [] };
+  const reasons = new Set();
+  const isPosixAbs = (s) => typeof s === 'string' && /^\/(?!\/)/.test(s); // leading single '/'
+  for (const e of rawEntries) {
+    if (!e || typeof e !== 'object') continue;
+    if (isPosixAbs(e.directory)) reasons.add('posix_directory');
+    let toks = [];
+    if (Array.isArray(e.arguments)) toks = e.arguments;
+    else if (typeof e.command === 'string') toks = e.command.split(/\s+/).filter(Boolean);
+    if (toks.length && isPosixAbs(toks[0])) reasons.add('posix_compiler');
+    for (let i = 0; i < toks.length; i++) {
+      const t = toks[i];
+      if (typeof t !== 'string') continue;
+      if (t.startsWith('--sysroot=') && isPosixAbs(t.slice('--sysroot='.length))) reasons.add('sysroot');
+      else if (t.startsWith('--gcc-toolchain=') && isPosixAbs(t.slice('--gcc-toolchain='.length))) reasons.add('gcc_toolchain');
+      else if (t === '--sysroot' && isPosixAbs(toks[i + 1])) reasons.add('sysroot');
+      else if (t === '-isysroot' && isPosixAbs(toks[i + 1])) reasons.add('isysroot');
+      else if (t === '-isystem' && isForeignSystemIncludeValue(toks[i + 1])) reasons.add('isystem_system');
+      else if (t.startsWith('-isysroot') && t.length > '-isysroot'.length && isPosixAbs(t.slice('-isysroot'.length))) reasons.add('isysroot');
+      else if (t.startsWith('-isystem') && t.length > '-isystem'.length && isForeignSystemIncludeValue(t.slice('-isystem'.length))) reasons.add('isystem_system');
+    }
+    if (reasons.size >= 3) break; // enough signal; stop scanning huge DBs
+  }
+  return { foreign: reasons.size > 0, reasons: [...reasons] };
+}
+
+// Linux-only toolchain anchor flags to strip from a NORMALIZED entry on win32.
+// Each is either a separated `<flag> <value>` pair or a glued `<flag><value>` /
+// `<flag>=<value>` form. We strip only when the value is a Linux-only path that
+// can't resolve on Windows; project `-I`/`-D`/`-std`/`-isystem <project _deps>`
+// flags are deliberately preserved.
+function stripForeignFlagsFromArgs(args) {
+  if (!Array.isArray(args)) return { args, stripped: 0 };
+  const out = [];
+  let stripped = 0;
+  const posixAbs = (s) => typeof s === 'string' && /^\/(?!\/)/.test(s);
+  for (let i = 0; i < args.length; i++) {
+    const t = args[i];
+    // Separated forms: drop the flag AND its value token.
+    if ((t === '-isysroot' || t === '--sysroot') && posixAbs(args[i + 1])) { stripped++; i++; continue; }
+    if (t === '-isystem' && isForeignSystemIncludeValue(args[i + 1])) { stripped++; i++; continue; }
+    // Glued / `=` forms.
+    if (typeof t === 'string') {
+      if (t.startsWith('--sysroot=') && posixAbs(t.slice(10))) { stripped++; continue; }
+      if (t.startsWith('--gcc-toolchain=') && posixAbs(t.slice(16))) { stripped++; continue; }
+      if (t.startsWith('-isysroot') && t.length > 9 && posixAbs(t.slice(9))) { stripped++; continue; }
+      if (t.startsWith('-isystem') && t.length > 8 && isForeignSystemIncludeValue(t.slice(8))) { stripped++; continue; }
+    }
+    out.push(t);
+  }
+  return { args: out, stripped };
+}
+
+// Same strip over a command STRING. Token-walk so a separated `-isysroot /x`
+// pair drops both tokens. Returns the rewritten string + strip count.
+function stripForeignFlagsFromCommand(cmd) {
+  if (typeof cmd !== 'string') return { command: cmd, stripped: 0 };
+  const toks = cmd.split(/\s+/);
+  const { args, stripped } = stripForeignFlagsFromArgs(toks);
+  return { command: args.join(' '), stripped };
+}
+
+// Apply the foreign-toolchain strip to one (already host-normalized) entry,
+// in place on a copy. Returns the count of flags stripped.
+function stripForeignEntry(entry) {
+  let stripped = 0;
+  if (Array.isArray(entry.arguments)) {
+    const r = stripForeignFlagsFromArgs(entry.arguments);
+    entry.arguments = r.args;
+    stripped += r.stripped;
+  }
+  if (typeof entry.command === 'string') {
+    const r = stripForeignFlagsFromCommand(entry.command);
+    entry.command = r.command;
+    stripped += r.stripped;
+  }
+  return stripped;
+}
+
 function normalizeEntry(entry) {
   const out = { ...entry };
   // Stash the original `file` (pre-normalization) so unity expansion can swap
@@ -157,6 +290,20 @@ function isDepRel(rel) {
 
 function isUnityFile(file) {
   return typeof file === 'string' && UNITY_RE.test(file.replace(/\\/g, '/'));
+}
+
+// First-party gate for unity MEMBER sources (repo-relative). A member is
+// first-party when it is in-repo and not a dep/build/vendor source. Test
+// sources (`tests/**`, `test/**`) ARE first-party — they're the callers whose
+// edges into the engine we specifically want — so they must pass even though
+// they aren't engine/game/sim code. (`isDepRel` already lets `tests/` through,
+// but state the contract explicitly so a future dep-rule can never silently
+// strip the test→engine caller edges P0-2 is about.)
+function isFirstPartyMemberRel(rel) {
+  if (!rel) return false;
+  const first = (rel.split('/')[0] || '').toLowerCase();
+  if (first === 'tests' || first === 'test') return true;
+  return !isDepRel(rel);
 }
 
 // Quoted-include matcher for CMake unity aggregate files. A unity `.cxx` is a
@@ -274,9 +421,11 @@ export function expandUnityEntries(normalized, projectRoot, io = {}) {
     for (const raw of includes) {
       const memberHost = resolveUnityMember(raw, unityDirHost, exists);
       if (!memberHost) continue;
-      // First-party gate: member must live in-repo and not under a dep/build dir.
+      // First-party gate: member must live in-repo and not under a dep/build
+      // dir. Test sources (`tests/**`) are first-party and pass — they carry the
+      // test→engine caller edges P0-2 restores.
       const rel = repoRel(projectRoot, { file: memberHost, directory: entry.directory });
-      if (!rel || isDepRel(rel)) continue;
+      if (!isFirstPartyMemberRel(rel)) continue;
       const dedupKey = process.platform === 'win32' ? memberHost.toLowerCase() : memberHost;
       if (seen.has(dedupKey)) continue;
       seen.add(dedupKey);
@@ -417,6 +566,23 @@ export function prepareCompileDb({ projectRoot }) {
     }
   }
 
+  // 2b. P0-3 foreign-toolchain pass (win32-only). The DB was built on Linux/WSL
+  //     so the compiler + sysroot + system-include flags point at Linux paths
+  //     that don't resolve on Windows → clangd's bogus stdlib-not-found cascade.
+  //     Detect on the RAW entries (pre-normalization, while `/mnt/` + the POSIX
+  //     compiler are still visible) and strip the Linux-only toolchain anchors
+  //     from the normalized output. References/hierarchy stay usable; full
+  //     diagnostics/hover need clangd run under WSL against the Linux DB.
+  let foreignToolchain = false;
+  let foreignReasons = [];
+  let strippedFlags = 0;
+  const detected = detectForeignToolchain(best.raw);
+  if (detected.foreign) {
+    foreignToolchain = true;
+    foreignReasons = detected.reasons;
+    for (const e of outEntries) strippedFlags += stripForeignEntry(e);
+  }
+
   // 3. Strip internal bookkeeping and write the normalized DB.
   const cleaned = outEntries.map(stripInternal);
   const normalizedDir = path.join(projectRoot, '.aify-graph', 'code-intel');
@@ -425,6 +591,14 @@ export function prepareCompileDb({ projectRoot }) {
   const serialized = JSON.stringify(cleaned, null, 2);
   fs.writeFileSync(normalizedPath, serialized);
   const dbHash = crypto.createHash('sha256').update(serialized).digest('hex').slice(0, 16);
+
+  if (foreignToolchain) {
+    diagnostics.push({
+      code: 'foreign_toolchain',
+      message: `compile DB built on Linux/WSL (signals: ${foreignReasons.join(', ')}); stripped ${strippedFlags} Linux-only toolchain flag(s) from the normalized DB. References and call/type hierarchy stay usable, but the C++ stdlib won't resolve against the host clangd, so diagnostics and hover are DEGRADED (bogus 'file not found' cascade likely). For full stdlib diagnostics/hover, run clangd under WSL against the Linux DB.`,
+      fix: 'run clangd under WSL against the build-linux/ compile_commands.json (APG_CLANGD=/usr/bin/clangd inside WSL), or build a native Windows compile_commands.json'
+    });
+  }
 
   return {
     found: true,
@@ -437,6 +611,9 @@ export function prepareCompileDb({ projectRoot }) {
     unityExpanded,
     expandedFrom,
     expandedSources,
+    foreignToolchain,
+    foreignReasons,
+    strippedFlags,
     diagnostics,
     dbHash
   };

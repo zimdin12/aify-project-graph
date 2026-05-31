@@ -65,7 +65,13 @@ export function buildClangdSpawn({ compileDb } = {}) {
     '--background-index-priority=normal',
     '--pch-storage=memory',
     '-j=4',
-    '--limit-results=2000'
+    '--limit-results=2000',
+    // P0-3: foreign (Linux/WSL) compile DBs name a POSIX compiler driver
+    // (`/usr/bin/c++`). `--query-driver=*` lets clangd interrogate whatever
+    // driver an entry names (and a host compiler if present) to discover its
+    // system include paths, instead of hard-failing the stdlib lookup. Harmless
+    // on native DBs (clangd only queries drivers actually referenced).
+    '--query-driver=*'
   ];
   if (compileDb && compileDb.found && compileDb.normalizedDir) {
     args.push(`--compile-commands-dir=${compileDb.normalizedDir}`);

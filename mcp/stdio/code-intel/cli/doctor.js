@@ -53,13 +53,22 @@ function reportCpp(projectRoot, write) {
   let dbReady = false;
   let unityWarn = false;
   let unityExpanded = false;
+  let foreignToolchain = false;
   if (db.found) {
     dbReady = db.firstPartyCount > 0;
     unityWarn = !!db.unity;
     unityExpanded = !!db.unityExpanded;
+    foreignToolchain = !!db.foreignToolchain;
     write(`  compile_db: FOUND — ${db.sourcePath}\n`);
     write(`    normalized: ${db.normalizedPath}\n`);
     write(`    entries: ${db.entryCount} (first-party: ${db.firstPartyCount})\n`);
+    if (foreignToolchain) {
+      const d = (db.diagnostics || []).find(x => x.code === 'foreign_toolchain');
+      write(`    WARNING foreign_toolchain: Linux/WSL-built DB (${(db.foreignReasons || []).join(', ')}); stripped ${db.strippedFlags || 0} Linux-only toolchain flag(s)\n`);
+      write('      references + call/type hierarchy: USABLE\n');
+      write('      diagnostics + hover: DEGRADED (host clangd can\'t resolve the Linux stdlib — bogus "file not found" cascade likely)\n');
+      if (d?.fix) write(`      recommended: ${d.fix}\n`);
+    }
     if (unityExpanded) {
       const d = (db.diagnostics || []).find(x => x.code === 'unity_expanded');
       write(`    unity-expanded: ${db.expandedFrom} unity TUs → ${db.expandedSources} per-source entries\n`);
@@ -84,7 +93,13 @@ function reportCpp(projectRoot, write) {
     let suffix = '';
     if (unityExpanded) suffix = ' (unity-expanded)';
     else if (unityWarn) suffix = ' (degraded: unity build — precision reduced)';
-    write(`  => READY${suffix}\n`);
+    if (foreignToolchain) {
+      // Honest split verdict: refs/hierarchy work, diagnostics/hover don't.
+      write(`  => READY for references + call/type hierarchy${suffix}\n`);
+      write('     NOTE: diagnostics + hover are DEGRADED (Linux/WSL-built DB); run clangd under WSL against the Linux DB for full stdlib diagnostics/hover\n');
+    } else {
+      write(`  => READY${suffix}\n`);
+    }
   } else {
     let fixit;
     if (!clangdReady) fixit = LANGUAGES.cpp.install;

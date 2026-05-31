@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { wslToHost, prepareCompileDb, enumerateFirstParty } from '../../../mcp/stdio/code-intel/compile-db.js';
+import { wslToHost, prepareCompileDb, enumerateFirstParty, detectForeignToolchain } from '../../../mcp/stdio/code-intel/compile-db.js';
 
 const isWin = process.platform === 'win32';
 
@@ -136,5 +136,136 @@ describe('prepareCompileDb', () => {
     expect(e.files.sort()).toEqual(['src/bar.cpp', 'src/foo.cpp']);
     expect(e.stats.unity).toBe(1);
     expect(e.stats.filtered_build_dep).toBe(1);
+  });
+});
+
+// ── P0-3: foreign (Linux/WSL) toolchain detection + flag stripping ──────────
+// These are win32-gated pure-function tests. detectForeignToolchain is a no-op
+// off win32 (the Linux paths ARE the host paths there) so the detection asserts
+// only run on win32; the strip assertions run via prepareCompileDb on both.
+describe('detectForeignToolchain (pure)', () => {
+  it('flags a POSIX compiler driver as foreign on win32', () => {
+    if (!isWin) return;
+    const r = detectForeignToolchain([
+      { directory: '/mnt/c/r/build', file: '/mnt/c/r/a.cpp', command: '/usr/bin/c++ -c /mnt/c/r/a.cpp' }
+    ]);
+    expect(r.foreign).toBe(true);
+    expect(r.reasons).toContain('posix_compiler');
+    expect(r.reasons).toContain('posix_directory');
+  });
+
+  it('flags -isysroot / --sysroot / --gcc-toolchain / -isystem /usr', () => {
+    if (!isWin) return;
+    const r = detectForeignToolchain([
+      { directory: 'C:/r/build', file: 'C:/r/a.cpp',
+        arguments: ['clang++', '-isysroot', '/Library/sdk', '--gcc-toolchain=/usr', '-isystem', '/usr/include', '-c', 'C:/r/a.cpp'] }
+    ]);
+    expect(r.foreign).toBe(true);
+    expect(r.reasons).toEqual(expect.arrayContaining(['isysroot', 'gcc_toolchain', 'isystem_system']));
+  });
+
+  it('does NOT flag a pure native Windows DB on win32', () => {
+    if (!isWin) return;
+    const r = detectForeignToolchain([
+      { directory: 'C:/r/build', file: 'C:/r/a.cpp',
+        arguments: ['clang++', '-IC:/r/src', '-DFOO', '-std=c++20', '-c', 'C:/r/a.cpp'] }
+    ]);
+    expect(r.foreign).toBe(false);
+    expect(r.reasons).toEqual([]);
+  });
+
+  it('is a no-op off win32 (Linux paths are host paths there)', () => {
+    if (isWin) return;
+    const r = detectForeignToolchain([
+      { directory: '/home/u/build', file: '/home/u/a.cpp', command: '/usr/bin/c++ -isystem /usr/include -c /home/u/a.cpp' }
+    ]);
+    expect(r.foreign).toBe(false);
+  });
+
+  it('returns false for non-array / empty input', () => {
+    expect(detectForeignToolchain(null).foreign).toBe(false);
+    expect(detectForeignToolchain([]).foreign).toBe(false);
+  });
+});
+
+describe('prepareCompileDb — foreign-toolchain strip (win32)', () => {
+  let repo;
+  beforeEach(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-foreign-'));
+    fs.mkdirSync(path.join(repo, 'engine'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'engine', 'a.cpp'), 'void a(){}\n');
+  });
+  afterEach(() => { try { fs.rmSync(repo, { recursive: true, force: true }); } catch {} });
+
+  function writeDb(rel, entries) {
+    const p = path.join(repo, rel);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, JSON.stringify(entries, null, 2));
+  }
+
+  it('strips Linux-only toolchain flags but keeps project -I/-D/-std (win32)', () => {
+    if (!isWin) return;
+    const dirWsl = wslish(repo, 'build');
+    const fileWsl = wslish(repo, 'engine/a.cpp');
+    // Command form with a POSIX compiler + Linux system include + sysroot.
+    const cmd = `/usr/bin/c++ -DFOO -I${wslish(repo, 'engine')} -isysroot /opt/sdk ` +
+      `-isystem /usr/include -isystem ${wslish(repo, 'engine')} -std=gnu++20 -c ${fileWsl}`;
+    writeDb('build/compile_commands.json', [
+      { directory: dirWsl, file: fileWsl, command: cmd, output: 'a.o' }
+    ]);
+
+    const r = prepareCompileDb({ projectRoot: repo });
+    expect(r.found).toBe(true);
+    expect(r.foreignToolchain).toBe(true);
+    expect(r.strippedFlags).toBeGreaterThanOrEqual(2); // -isysroot value + -isystem /usr/include
+    expect(r.diagnostics.some(d => d.code === 'foreign_toolchain')).toBe(true);
+
+    const norm = JSON.parse(fs.readFileSync(r.normalizedPath, 'utf8'));
+    const c = norm[0].command;
+    // Linux-only anchors gone.
+    expect(c).not.toMatch(/-isysroot/);
+    expect(c).not.toMatch(/-isystem\s+\/usr\/include/);
+    // Project flags preserved (host-normalized).
+    expect(c).toMatch(/-DFOO/);
+    expect(c).toMatch(/-std=gnu\+\+20/);
+    expect(c).toMatch(/-I[A-Za-z]:\/.*engine/);
+    expect(c).toMatch(/-isystem [A-Za-z]:\/.*engine/); // project -isystem kept
+  });
+
+  it('strips Linux-only flags in arguments[] form (win32)', () => {
+    if (!isWin) return;
+    const dirWsl = wslish(repo, 'build');
+    const fileWsl = wslish(repo, 'engine/a.cpp');
+    writeDb('build/compile_commands.json', [
+      { directory: dirWsl, file: fileWsl,
+        arguments: ['/usr/bin/c++', '-DBAR', '--sysroot=/opt/sysroot', '--gcc-toolchain=/usr',
+          '-isystem', '/usr/lib/gcc', '-I' + wslish(repo, 'engine'), '-c', fileWsl] }
+    ]);
+    const r = prepareCompileDb({ projectRoot: repo });
+    expect(r.foreignToolchain).toBe(true);
+    expect(r.strippedFlags).toBeGreaterThanOrEqual(3);
+    const norm = JSON.parse(fs.readFileSync(r.normalizedPath, 'utf8'));
+    const args = norm[0].arguments;
+    expect(args.some(a => /--sysroot=/.test(a))).toBe(false);
+    expect(args.some(a => /--gcc-toolchain=/.test(a))).toBe(false);
+    expect(args.includes('/usr/lib/gcc')).toBe(false);
+    expect(args.includes('-DBAR')).toBe(true);
+    expect(args.some(a => /^-I[A-Za-z]:\//.test(a))).toBe(true); // project -I kept
+  });
+
+  it('does NOT set foreignToolchain for a native Windows DB', () => {
+    // Synthesize a fully native DB (no POSIX paths). On win32 wslish returns the
+    // already-host path; off win32 the same DB is trivially "native" too.
+    const dirHost = path.join(repo, 'build').replace(/\\/g, '/');
+    const fileHost = path.join(repo, 'engine', 'a.cpp').replace(/\\/g, '/');
+    writeDb('build/compile_commands.json', [
+      { directory: dirHost, file: fileHost,
+        arguments: ['clang++', '-DFOO', '-I' + path.join(repo, 'engine').replace(/\\/g, '/'), '-std=c++20', '-c', fileHost] }
+    ]);
+    const r = prepareCompileDb({ projectRoot: repo });
+    expect(r.found).toBe(true);
+    expect(!!r.foreignToolchain).toBe(false);
+    expect((r.strippedFlags || 0)).toBe(0);
+    expect(r.diagnostics.some(d => d.code === 'foreign_toolchain')).toBe(false);
   });
 });
