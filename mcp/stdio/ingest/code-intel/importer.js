@@ -224,6 +224,270 @@ export function importCodeIntelRecords(db, inputRecords) {
   return counts;
 }
 
+// ---------------------------------------------------------------------------
+// L2a — clangd v0.2 collection → real graph edges (provenance LSP_VERIFIED)
+//
+// The v0.2 collection envelope's references/definitions become CALLS edges on
+// the same nodes/edges tables the static (tree-sitter) graph uses, so
+// graph_callers / graph_impact / graph_neighbors can see clangd ground truth.
+// LSP_VERIFIED is free-form TEXT (the edges.provenance column has no CHECK);
+// it is deliberately NEVER equal to EXTRACTED / INFERRED so render layers can
+// rank clangd above heuristics.
+// ---------------------------------------------------------------------------
+
+const LSP_PROVENANCE = 'LSP_VERIFIED';
+
+// Node types that can act as a defined symbol or an enclosing caller scope.
+const ENCLOSING_TYPES = new Set([
+  'Function', 'Method', 'Class', 'Struct', 'Symbol', 'Interface', 'Type', 'Variable',
+]);
+
+function lspSymbolNodeId(symbolId) {
+  return `ci:lsp:${hash([symbolId])}`;
+}
+
+function confidenceToScore(confidence) {
+  if (confidence === 'high') return 0.95;
+  if (confidence === 'medium') return 0.8;
+  return 0.6;
+}
+
+// LSP edges are ground truth: insert, and on a (from,to,relation) collision
+// with a weaker edge (tree-sitter EXTRACTED / heuristic INFERRED) promote it to
+// LSP_VERIFIED. Never downgrades CODE_INTEL (v0.1 path) edges.
+const LSP_EDGE_OVERRIDE_SQL = `
+  UPDATE edges
+  SET source_file = $source_file,
+      source_line = $source_line,
+      confidence = $confidence,
+      provenance = $provenance,
+      extractor = $extractor
+  WHERE from_id = $from_id
+    AND to_id = $to_id
+    AND relation = $relation
+    AND provenance != 'CODE_INTEL'
+`;
+
+function upsertLspEdge(db, edge) {
+  const params = {
+    from_id: edge.from_id,
+    to_id: edge.to_id,
+    relation: edge.relation,
+    source_file: edge.source_file ?? '',
+    source_line: edge.source_line ?? 0,
+    confidence: edge.confidence ?? 1.0,
+    provenance: LSP_PROVENANCE,
+    extractor: edge.extractor ?? 'cpp-clangd',
+  };
+  upsertEdge(db, params);
+  // upsertEdge uses INSERT OR IGNORE and only self-overrides for CODE_INTEL,
+  // so a pre-existing tree-sitter/heuristic edge would shadow the LSP one.
+  // Re-read; if the landed edge isn't ours, promote it.
+  const landed = db.get(
+    `SELECT provenance FROM edges WHERE from_id = $from_id AND to_id = $to_id AND relation = $relation`,
+    { from_id: params.from_id, to_id: params.to_id, relation: params.relation },
+  );
+  if (landed && landed.provenance !== LSP_PROVENANCE) {
+    db.run(LSP_EDGE_OVERRIDE_SQL, params);
+  }
+}
+
+// Resolve (or create) the graph node for a defined symbol from a v0.2
+// symbol/definition record. Prefers an existing tree-sitter node enclosing the
+// definition line (innermost wins); falls back to a CODE_INTEL-style Symbol
+// node keyed by symbolId so reference edges always have a target.
+function resolveDefinedSymbolNode(db, record, stats) {
+  const file = record.file;
+  const defLine = record.range?.start?.line ?? null;
+  if (file && defLine != null) {
+    const placeholders = [...ENCLOSING_TYPES].map((_, i) => `$t${i}`).join(', ');
+    const typeParams = {};
+    [...ENCLOSING_TYPES].forEach((t, i) => { typeParams[`t${i}`] = t; });
+    // Innermost / closest: largest start_line that still encloses defLine.
+    const match = db.get(
+      `SELECT id, start_line, end_line FROM nodes
+        WHERE file_path = $file
+          AND start_line <= $line AND end_line >= $line
+          AND type IN (${placeholders})
+        ORDER BY start_line DESC, end_line ASC
+        LIMIT 1`,
+      { file, line: defLine, ...typeParams },
+    );
+    if (match) return { nodeId: match.id, startLine: match.start_line, endLine: match.end_line };
+  }
+
+  // No tree-sitter node — synthesize a code-intel Symbol node keyed by symbolId.
+  const id = lspSymbolNodeId(record.symbolId);
+  upsertFileNode(db, file || '', { language: record.language });
+  upsertNode(db, {
+    id,
+    type: 'Symbol',
+    label: (record.qname || record.symbolId || '').split(/::|\.|#/u).filter(Boolean).at(-1) ?? record.symbolId,
+    file_path: file || '',
+    start_line: defLine ?? 0,
+    end_line: record.range?.end?.line ?? defLine ?? 0,
+    language: record.language ?? '',
+    confidence: confidenceToScore(record.confidence),
+    structural_fp: '',
+    dependency_fp: '',
+    extra: {
+      qname: record.qname,
+      code_intel: true,
+      provenance: 'CODE_INTEL',
+      symbol_id: record.symbolId,
+    },
+  });
+  stats.nodesCreated += 1;
+  return { nodeId: id, startLine: defLine ?? 0, endLine: record.range?.end?.line ?? defLine ?? 0 };
+}
+
+// Build a per-file index of candidate enclosing symbols (id,start,end) so the
+// caller for each reference can be found without an N+1 query per reference.
+function buildEnclosingIndex(db, files) {
+  const index = new Map();
+  if (files.size === 0) return index;
+  const placeholders = [...ENCLOSING_TYPES].map((_, i) => `$t${i}`).join(', ');
+  const typeParams = {};
+  [...ENCLOSING_TYPES].forEach((t, i) => { typeParams[`t${i}`] = t; });
+  for (const file of files) {
+    const rows = db.all(
+      `SELECT id, start_line, end_line FROM nodes
+        WHERE file_path = $file
+          AND type IN (${placeholders})
+          AND end_line >= start_line
+        ORDER BY start_line ASC`,
+      { file, ...typeParams },
+    );
+    index.set(file, rows);
+  }
+  return index;
+}
+
+// Innermost enclosing symbol at refLine: max start_line wins; tie → min end_line.
+function findEnclosingCaller(rows, refLine) {
+  let best = null;
+  for (const row of rows || []) {
+    if (row.start_line <= refLine && row.end_line >= refLine) {
+      if (
+        !best
+        || row.start_line > best.start_line
+        || (row.start_line === best.start_line && row.end_line < best.end_line)
+      ) {
+        best = row;
+      }
+    }
+  }
+  return best;
+}
+
+// Synthesize CALLS edges from a v0.2 collection's references onto the graph.
+// Runs inside the importV02Collection transaction (alongside the side-table
+// writes). Returns { edgesCreated, nodesCreated, edgesInvalidated }.
+function synthesizeLspEdges(envelope, db, stats) {
+  const out = { edgesCreated: 0, nodesCreated: 0, edgesInvalidated: 0 };
+  const records = Array.isArray(envelope.records) ? envelope.records : [];
+
+  // 1+2. Invalidation: a fresh collection supersedes prior clangd edges so
+  // stale ones can't linger (per-repo db).
+  const invalidated = db.get(
+    `SELECT count(*) AS c FROM edges WHERE provenance = $p`,
+    { p: LSP_PROVENANCE },
+  );
+  out.edgesInvalidated = invalidated?.c ?? 0;
+  db.run(`DELETE FROM edges WHERE provenance = $p`, { p: LSP_PROVENANCE });
+  // Cheap orphan-node cleanup: drop prior LSP-synthesized symbol nodes that no
+  // longer have any edge (real tree-sitter / file nodes are untouched).
+  db.run(
+    `DELETE FROM nodes
+      WHERE id LIKE 'ci:lsp:%'
+        AND id NOT IN (SELECT from_id FROM edges UNION SELECT to_id FROM edges)`,
+  );
+
+  const nodeStats = { nodesCreated: 0 };
+  // 3. defined-symbol node map: symbolId -> { nodeId, startLine, endLine, file }.
+  const symbolNodes = new Map();
+  for (const record of records) {
+    if (record.kind !== 'symbol' && record.kind !== 'definition') continue;
+    if (!record.symbolId) continue;
+    // Prefer a record that carries a real definition range; don't overwrite a
+    // file/range-bearing resolution with a weaker one.
+    if (symbolNodes.has(record.symbolId) && !(record.file && record.range)) continue;
+    const resolved = resolveDefinedSymbolNode(db, record, nodeStats);
+    symbolNodes.set(record.symbolId, {
+      nodeId: resolved.nodeId,
+      startLine: resolved.startLine,
+      endLine: resolved.endLine,
+      file: record.file,
+    });
+  }
+  out.nodesCreated = nodeStats.nodesCreated;
+
+  // 4. per-file enclosing index for the reference sites.
+  const refFiles = new Set();
+  for (const record of records) {
+    if (record.kind === 'reference' && record.result_state === 'found' && record.file) {
+      refFiles.add(record.file);
+    }
+  }
+  const enclosingIndex = buildEnclosingIndex(db, refFiles);
+
+  const dbHash8 = String(envelope.session?.compileDbHash ?? '').slice(0, 8);
+  const extractor = `cpp-clangd#${dbHash8}`;
+  const seen = new Set();
+
+  // 5. references → CALLS edges.
+  for (const record of records) {
+    if (record.kind !== 'reference') continue;
+    if (record.result_state !== 'found') continue;
+    if (!record.file || record.range?.start?.line == null) continue;
+
+    const callee = symbolNodes.get(record.symbolId);
+    if (!callee) continue; // unknown defined symbol — skip (no bogus edge)
+
+    const refLine = record.range.start.line;
+
+    // caller = innermost enclosing symbol at the ref site; else the File node.
+    let callerId;
+    const enclosing = findEnclosingCaller(enclosingIndex.get(record.file), refLine);
+    if (enclosing) {
+      callerId = enclosing.id;
+    } else {
+      callerId = upsertFileNode(db, record.file, { language: record.language });
+    }
+
+    // Skip self-edges.
+    if (callerId === callee.nodeId) continue;
+    // Skip when the ref site is inside the callee's own definition range in the
+    // same file (that's the declaration, not a call).
+    if (
+      callee.file === record.file
+      && callee.startLine != null && callee.endLine != null
+      && refLine >= callee.startLine && refLine <= callee.endLine
+    ) {
+      continue;
+    }
+
+    // Dedup identical (from,to,relation,source_line).
+    const dedupKey = `${callerId} ${callee.nodeId} CALLS ${refLine}`;
+    if (seen.has(dedupKey)) continue;
+    seen.add(dedupKey);
+
+    upsertLspEdge(db, {
+      from_id: callerId,
+      to_id: callee.nodeId,
+      relation: 'CALLS',
+      source_file: record.file,
+      source_line: refLine,
+      confidence: confidenceToScore(record.confidence),
+      extractor,
+    });
+    out.edgesCreated += 1;
+  }
+
+  Object.assign(stats, out);
+  return out;
+}
+
 function makeRecordInserter(db) {
   ensureCodeIntelRecordsTable(db);
   const sql = `
@@ -258,9 +522,16 @@ function importV02Collection(envelope, db) {
     collectionStatus: envelope.status,
     operations: envelope.operations,
     recordsImported: 0,
+    edgesCreated: 0,
+    nodesCreated: 0,
+    edgesInvalidated: 0,
   };
   ensureCodeIntelCollectionsTable(db);
+  ensureCodeIntelRecordsTable(db);
+  const insertRecord = makeRecordInserter(db);
   const firstRecord = envelope.records?.[0];
+
+  const run = db.transaction(() => {
   db.run(
     `INSERT OR REPLACE INTO code_intel_collections
        (collection_id, provider, provider_version, project_root, language, status,
@@ -285,11 +556,17 @@ function importV02Collection(envelope, db) {
       errors_json: envelope.errors ? JSON.stringify(envelope.errors) : null,
     },
   );
-  const insert = makeRecordInserter(db);
-  for (const record of envelope.records) {
-    insert(record);
-    stats.recordsImported += 1;
-  }
+    for (const record of (envelope.records || [])) {
+      insertRecord(record);
+      stats.recordsImported += 1;
+    }
+
+    // L2a: synthesize real graph edges (provenance LSP_VERIFIED) from the
+    // clangd references/definitions in the SAME transaction as the side-table
+    // writes.
+    synthesizeLspEdges(envelope, db, stats);
+  });
+  run();
   return stats;
 }
 

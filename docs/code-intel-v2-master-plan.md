@@ -23,6 +23,16 @@ ANALYSIS/DASH:  god-nodes · communities · cycles · blast-radius · shader-bin
 INCREMENTAL:    two-hash (structural ast_hash + verified lsp_hash) · windowsHide · git ls-files -z
 ```
 
+## Revisions from Hermes tech-lead adversarial review (2026-05-08)
+- **Reframed success**: the win is *"refuses absence claims unless proven exhaustive."* Degraded/cold evidence is a **first-class successful refusal**, not a failed feature. Do NOT target "always exhaustive:true."
+- **clangd mode matrix** (explicit product decision, not just a toggle):
+  - `INDEXED` (default for collect + games): `--background-index` ON; can claim `exhaustive:true` ONLY after a readiness proof (background-index done via `$/progress`) + definition cross-check. Cost: slower cold start, on-disk index, cache churn.
+  - `BOUNDED` (fast inner-loop / opt-in via `APG_CLANGD_MODE=bounded`): background-index off; **never** claims exhaustive; good for "does X exist / quick refs in open files."
+- **Provenance is load-bearing**: edges carry `provenance ∈ {EXTRACTED (tree-sitter exact), INFERRED (heuristic), LSP_VERIFIED (clangd)}`. `LSP_VERIFIED` is **never rendered equal** to heuristic. LSP edges tagged with `compile_db_hash` (index generation); on hash change, prior `LSP_VERIFIED` edges for the repo are **invalidated** so stale clangd edges can't linger.
+- **Sequencing**: P0 trust spine = L1(done)+L2+L3 proven on echoes w/ regression fixtures → P1 hierarchy (L4) → P2 shader bridge (L5) + dashboard/cohesion (L6). Depth verbs and GLSL bridge must NOT precede a stable evidence contract.
+- **Unity honesty**: echoes = proving ground (doctor READY, 121 first-party). sand_castle = unity → doctor returns NOT READY + reconfigure fix-it; ship fixtures for BOTH the READY and unity-blocked states; do not claim sand_castle exhaustive support before a non-unity DB exists.
+- **A/B rubrics** (L7): adversarial tasks w/ pass-fail — dead-code deletion refusal, virtual-dispatch caller list, shader-binding mismatch, wrong-symbol review. "No unsafe absence claim" outranks speed.
+
 ## Build sequence (coherent layers, each shippable + tested)
 
 ### L0 — Foundation hygiene (certain, zero-risk) ✅ do first
