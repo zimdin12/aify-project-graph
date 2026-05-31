@@ -29,13 +29,14 @@ import { nestjsPlugin } from '../ingest/frameworks/nestjs.js';
 import { railsPlugin } from '../ingest/frameworks/rails.js';
 import { springPlugin } from '../ingest/frameworks/spring.js';
 import { cppFrameworksPlugin } from '../ingest/frameworks/cpp_frameworks.js';
+import { shaderBindingsPlugin } from '../ingest/frameworks/shader_bindings.js';
 import { resolveRefs } from '../ingest/resolver.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
 
 const EXTRACTOR_VERSION = '0.1.0';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
-const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema'];
+const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema', 'ShaderBinding'];
 const EXTRACTION_CHUNK_SIZE = 500;
 
 // TTL cache: skip git checks if the graph was confirmed fresh within the last 5 seconds
@@ -233,6 +234,7 @@ export async function ensureFresh({
           railsPlugin,
           springPlugin,
           cppFrameworksPlugin,
+          shaderBindingsPlugin,
         ],
       });
 

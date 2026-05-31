@@ -23,6 +23,7 @@ import { graphPath } from './query/verbs/path.js';
 import { graphDashboard } from './query/verbs/dashboard.js';
 import { graphSearch } from './query/verbs/search.js';
 import { graphFile } from './query/verbs/file.js';
+import { graphShader } from './query/verbs/shader.js';
 import { graphPreflight } from './query/verbs/preflight.js';
 import { graphChangePlan } from './query/verbs/change_plan.js';
 import { graphOnboard } from './query/verbs/onboard.js';
@@ -360,6 +361,19 @@ const TOOLS = [
         top_k: { type: 'integer', default: 20, description: 'Max items per section.' },
       },
       required: ['path'],
+    },
+  },
+  {
+    name: 'graph_shader',
+    handler: graphShader,
+    description: 'C++<->GLSL shader-binding bridge: descriptor binding table, C++ loaders, GLSL includes, heuristic binding contract. Static (no clangd).',
+    schema: {
+      type: 'object',
+      properties: {
+        shader: { type: 'string', description: 'Shader file path or basename (e.g. "cas.comp.glsl"). Omit to list shaders that have bindings.' },
+        binding: { type: 'string', description: "Optional 'set.binding' (e.g. '0.1') or bare binding number to focus on one binding." },
+        top_k: { type: 'integer', default: 40, description: 'Max items per section.' },
+      },
     },
   },
   {

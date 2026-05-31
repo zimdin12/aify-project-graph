@@ -328,6 +328,21 @@ function pickProvenance(matches, fallback = 'EXTRACTED') {
 }
 
 function resolveTarget(ref, resolvers) {
+  // L5 shader bridge: LOADS_SHADER refs target a shader filename (usually a
+  // bare basename like "cas.comp.glsl" loaded via ShaderCompiler::loadFile).
+  // Resolve against the shader File node by file-path suffix FIRST — before
+  // the generic qname/label passes, which would otherwise mis-resolve the
+  // basename to the shader's Module node (whose qname ends `.cas.comp`).
+  if (ref.relation === 'LOADS_SHADER') {
+    const target = normalizeExternalTarget(ref.target);
+    const filePathMatches = resolvers.findByFilePathSuffix(target);
+    const filePathMatch = filePathMatches.length === 1
+      ? filePathMatches[0]
+      : (preferProximate(filePathMatches, ref.source_file) ?? filePathMatches[0] ?? null);
+    if (filePathMatch) return { node: filePathMatch, provenance: pickProvenance(filePathMatches, 'INFERRED') };
+    return null;
+  }
+
   const memberTarget = splitMemberTarget(ref.target);
   const targetCandidates = lookupCandidates(ref.target, {
     dropExtension: !(memberTarget && INHERITED_MEMBER_RELATIONS.has(ref.relation)),
