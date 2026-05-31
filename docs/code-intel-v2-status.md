@@ -27,9 +27,7 @@ Full suite **761 pass, 0 failures**. Installed: Claude Code project `.mcp.json` 
 3. **Windows clangd sysroot/includes** — `compile_commands.json` is WSL/Linux-built, so its sysroot/include paths (`cstddef` …) don't exist on Windows clangd → bogus diagnostics/hover; files absent from the DB give `compile_entry_missing`. References/hierarchy (which don't need the toolchain sysroot as hard) stay trustworthy where fresh/exhaustive. **Fix:** run clangd under WSL against the Linux DB, OR `--query-driver` + host include discovery, OR strip/translate the Linux sysroot in the normalizer.
 4. **`graph_callers` surface parity** — confirm `[lsp✓]`+TRUST renders whenever LSP caller edges exist (verified on `GPU::is_valid`; tester's case simply had none post-collect because of #2).
 
-## Roadmap (not yet built — P2/polish)
-- **L6 dashboard cohesion**: provenance ribbon (lsp-verified vs heuristic), blast-radius overlay, shader-binding map (the L5 edges already feed the cross-layer model), expose hotspots/communities/architecture as verbs; collapse the overlapping context verbs into a clear primary + thin specializations (the dashboard audit's #1 cohesion ask).
-- Overlay repair: sand_castle `functionality.json` anchors are broken (0/9) → `graph_packet` degraded there; re-anchor.
-- The 4 known issues above.
+## Roadmap (not yet built)
+**→ The full consolidated backlog is `docs/code-intel-v2-next-plan.md`** — every not-done item (the 4 known issues above, the skipped L6 dashboard, the deferred JS-resolution waves, and all NEW findings from the second reference review: dashboard teardown, "what we missed" sweep, agent-UX deep-dive) in one prioritized list (P0 correctness → P6 research), so nothing is lost. Highlights: P0 collect-connection-drop + virtual-override edges + Hermes-toolset-gotcha; P1 server-instructions + trace/explore + change-explain verbs; P2 dashboard overview/blast-radius/shader-map + expose-analytics-as-verbs (ends the "island"); P3 JS resolution.
 
 Licensing: codegraph+graphify MIT (reused w/ attribution); agent-code-intel UNLICENSED (patterns only).
