@@ -71,13 +71,17 @@ export async function graphPreflight({ repoRoot, symbol }) {
     const callerFiles = new Set(topCallers.map(c => c.file_path).filter(Boolean));
     const crossModule = callerFiles.size > 1 && !([...callerFiles].every(f => f.startsWith(node.file_path.split('/').slice(0, -1).join('/') + '/')));
 
-    // 8. Compute decision
+    // 8. Compute decision. The caller set is "lsp-verified" only when at least
+    // one incoming caller edge is clangd ground truth (LSP_VERIFIED) — that is
+    // the only basis on which a low/empty caller set may read as SAFE-to-proceed.
+    const callersHaveLspEvidence = incomingProvenance.some((row) => row.provenance === 'LSP_VERIFIED');
     const decision = computeDecision({
       callerCount,
       testCount: tests.length,
       dirtyCount,
       crossModule,
       confidence: node.confidence ?? 1.0,
+      callersHaveLspEvidence,
     });
 
     // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis (cohesion
@@ -139,7 +143,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
   }
 }
 
-export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence }) {
+export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false }) {
   // CONFIRM: many callers + cross-module OR weak trust
   if (callerCount > 5 && crossModule) {
     return { tier: 'CONFIRM', reason: `${callerCount} callers across module boundaries — confirm change scope with user before editing.` };
@@ -159,9 +163,22 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
     return { tier: 'REVIEW', reason: `${callerCount} callers — read affected files before editing.` };
   }
 
-  // SAFE: 0-1 callers with tests
-  if (testCount > 0) {
-    return { tier: 'SAFE', reason: `${callerCount} caller(s) with ${testCount} test(s) covering it — proceed.` };
+  // R2-2026-05-31 (BUG 2) — honest absence gate. A low/empty caller set is only
+  // SAFE-to-proceed when it is backed by live per-symbol clangd evidence
+  // (LSP_VERIFIED incoming edges). The heuristic graph's caller set is NOT
+  // exhaustive (cross-TU dispatch is undercounted), so an empty/heuristic-only
+  // caller set must NEVER read as "SAFE — proceed / safe to delete". Downgrade
+  // to REVIEW and point at code_intel_references for a trustworthy check.
+  if (!callersHaveLspEvidence) {
+    return {
+      tier: 'REVIEW',
+      reason: `${callerCount} caller(s) — caller set is heuristic, not exhaustive; verify with code_intel_references before deleting/changing signature.`,
+    };
   }
-  return { tier: 'SAFE', reason: `${callerCount} caller(s) — low risk, proceed.` };
+
+  // SAFE: 0-1 callers with tests, backed by live clangd per-symbol evidence
+  if (testCount > 0) {
+    return { tier: 'SAFE', reason: `${callerCount} caller(s) with ${testCount} test(s) covering it (lsp-verified) — proceed.` };
+  }
+  return { tier: 'SAFE', reason: `${callerCount} caller(s) (lsp-verified) — low risk, proceed.` };
 }

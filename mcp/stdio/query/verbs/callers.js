@@ -60,10 +60,12 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       );
     }
 
-    // I1 — an absence claim ("NO CALLERS") is the most dangerous output; gate it
-    // on exhaustive evidence. Route through buildAbsenceTrustLine so it carries
-    // either a heuristic non-exhaustive caveat or an lsp-verified-exhaustive
-    // attestation, never a bare "NO CALLERS".
+    // I1 / R2-2026-05-31 — an absence claim ("NO CALLERS") is the most dangerous
+    // output. Graph-edge traversal can never honestly attest an EXHAUSTIVE
+    // absence (it reads edges, not live per-symbol clangd evidence), so route
+    // through buildAbsenceTrustLine — which ALWAYS emits the heuristic
+    // non-exhaustive caveat pointing at code_intel_references — never a bare
+    // "NO CALLERS" and never a "trustworthy/exhaustive absence".
     const absence = async (msg) => {
       let line = '';
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot }); }

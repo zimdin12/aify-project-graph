@@ -45,6 +45,38 @@ describe('ignored dir matching', () => {
     expect(pathContainsIgnoredDir('mcp/stdio/query/verbs/target_rollup.js')).toBe(false);
     expect(pathContainsIgnoredDir('src/build_report.ts')).toBe(false);
   });
+
+  // R2-2026-05-31 (BUG 3) — agent worktree copies under .claude/worktrees/ are
+  // stale duplicate first-party sources that pollute hotspots/shader-loaders/
+  // digest. They must be excluded from extraction.
+  it('excludes .claude/worktrees agent copies (both segments are ignored dirs)', () => {
+    expect(pathContainsIgnoredDir('.claude/worktrees/agent-1/src/Engine_chunks.cpp')).toBe(true);
+    expect(pathContainsIgnoredDir('.claude/worktrees/agent-7/shaders/pcas_powder.comp.glsl')).toBe(true);
+    expect(isIgnoredDirName('.claude')).toBe(true);
+    expect(isIgnoredDirName('worktrees')).toBe(true);
+    // _deps (CMake FetchContent) is also excluded.
+    expect(isIgnoredDirName('_deps')).toBe(true);
+    expect(pathContainsIgnoredDir('build/_deps/glfw-src/src/window.c')).toBe(true);
+    // Real source under a similarly-named path is NOT over-excluded.
+    expect(pathContainsIgnoredDir('src/claude_helpers.cpp')).toBe(false);
+    expect(pathContainsIgnoredDir('engine/world/worktree_planner.cpp')).toBe(false);
+  });
+
+  // Belt-and-suspenders: even if `.claude` is opted back in via .aifyinclude,
+  // the built-in `.claude/worktrees` path pattern still excludes worktree copies.
+  it('keeps excluding .claude/worktrees even when .claude is re-included', async () => {
+    const repoRoot = await mkdtemp(join(tmpdir(), 'apg-claude-wt-'));
+    try {
+      await writeFile(join(repoRoot, '.aifyinclude'), '.claude\n');
+      const ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
+      // .claude itself is now allowed (re-included)…
+      expect(isIgnoredDirName('.claude', ignoredDirs)).toBe(false);
+      // …but the worktrees subtree is still pruned by the built-in path pattern.
+      expect(pathContainsIgnoredDir('.claude/worktrees/agent-1/src/x.cpp', ignoredDirs)).toBe(true);
+    } finally {
+      await rm(repoRoot, { recursive: true, force: true });
+    }
+  });
 });
 
 // Plan #17 F: .gitignore-driven zero-config indexing.

@@ -22,11 +22,21 @@ export const IGNORED_DIRS = new Set([
   '.vs', '.vscode', '.idea',
   'node_modules', 'vendor',
   '__pycache__', '.pytest_cache', '.tox', '.venv', 'venv', 'env',
-  'build', 'dist', 'out', 'target',
+  'build', 'dist', 'out', 'target', '_deps',
   '.next', '.nuxt', '.svelte-kit',
   '.tmp', 'tmp', '.codex_tmp', 'worktrees',
   'coverage', '.nyc_output',
 ]);
+
+// Built-in path-segment patterns (not bare dir names). These are always applied
+// on top of IGNORED_DIRS so a path is excluded even when one of its segments
+// (e.g. `.claude`) is re-included via `.aifyinclude`. `.claude/worktrees/`
+// holds agent worktree copies of the repo — stale duplicate first-party
+// sources that pollute hotspots / shader loaders / digest (R2-2026-05-31 BUG 3).
+// Kept narrow on purpose so real sources are never dropped.
+export const BUILTIN_PATH_PATTERNS = [
+  '.claude/worktrees',
+];
 
 const PREFIX_IGNORED_DIR_RULES = [
   { base: 'build', prefixes: ['build-', 'build_', 'cmake-build-'] },
@@ -130,7 +140,7 @@ function parseGitignoreFile(contents) {
 // in .gitignore are skipped, not failed.
 export function loadEffectiveIgnoredDirs(repoRoot, { env = process.env, skipGitignore = false } = {}) {
   const effective = new Set(IGNORED_DIRS);
-  const pathPatterns = [];
+  const pathPatterns = [...BUILTIN_PATH_PATTERNS.map((p) => normalizePattern(p))];
 
   // Review-fix (dev P1#1): when the caller already has `git ls-files
   // --exclude-standard` as the authoritative source (sweep.js with non-

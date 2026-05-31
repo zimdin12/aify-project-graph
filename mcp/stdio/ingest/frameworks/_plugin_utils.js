@@ -6,7 +6,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
-import { isIgnoredDirName } from '../ignored-dirs.js';
+import { isIgnoredDirName, IGNORED_DIRS } from '../ignored-dirs.js';
 
 export function stableId(parts) {
   return createHash('sha1').update(parts.join('::')).digest('hex');
@@ -38,12 +38,12 @@ export function routeNode({ filePath, label, language, startLine = 1, confidence
 }
 
 // Recursively collect files under `root` whose extension is in `exts`.
-// Skips ignored directories (node_modules, .git, vendor, dist, build,
-// __pycache__), including common build-* prefixed scratch trees.
-const DEFAULT_IGNORED = new Set([
-  'node_modules', '.git', 'vendor', 'dist', 'build', '__pycache__',
-  '.next', '.nuxt', '.cache', 'target', '.venv', 'venv', '.aify-graph',
-]);
+// Skips ignored directories — reuse the canonical IGNORED_DIRS set so framework
+// passes (e.g. the shader-binding bridge) prune the SAME dirs as the structural
+// sweep. R2-2026-05-31 BUG 3: the previous local list omitted `.claude` /
+// `worktrees`, so `.claude/worktrees/` agent shader copies were indexed as
+// first-party ShaderBinding nodes, polluting hotspots / shader-loaders / digest.
+const DEFAULT_IGNORED = IGNORED_DIRS;
 
 export async function walkFiles(root, exts, {
   ignored = DEFAULT_IGNORED,

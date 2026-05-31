@@ -167,37 +167,66 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     expect(out).not.toMatch(/TRUST: lsp-verified/);
   });
 
-  // I1 — absence claims are the most dangerous output (an agent may delete on
-  // them). On a heuristic-only symbol with NO edges, callers/callees/neighbors/
-  // impact must NOT return a bare "NO …" line: it must carry the heuristic
-  // non-exhaustive caveat + a verify hint (rg / graph_collect_code_intel).
+  // I1 / R2-2026-05-31 — absence claims are the most dangerous output (an agent
+  // may delete on them). On a heuristic-only symbol with NO edges, callers/
+  // callees/neighbors/impact must NOT return a bare "NO …" line: it must carry
+  // the heuristic non-exhaustive caveat + a verify hint (code_intel_references /
+  // rg). CRITICALLY: graph-edge traversal NEVER claims an exhaustive/trustworthy
+  // absence even when an index-ready collection exists — that was the HIGH-
+  // severity R2 trust bug (a repo-level index-ready signal is not evidence THIS
+  // symbol's callers were exhaustively resolved by clangd).
   describe('(I1) ungated absence claims', () => {
     it('graph_callers absence carries the non-exhaustive verify caveat', async () => {
       const out = await graphCallers({ repoRoot, symbol: 'isolatedFn' });
       expect(out).toContain('NO CALLERS');
       expect(out).toMatch(/NOT exhaustive/);
-      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+      expect(out).toMatch(/code_intel_references|verify with rg/);
+      expect(out).not.toMatch(/TRUSTWORTHY|exhaustive absence|lsp-verified-exhaustive/);
     });
 
     it('graph_callees absence carries the non-exhaustive verify caveat', async () => {
       const out = await graphCallees({ repoRoot, symbol: 'isolatedFn' });
       expect(out).toContain('NO CALLEES');
       expect(out).toMatch(/NOT exhaustive/);
-      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+      expect(out).toMatch(/code_intel_references|verify with rg/);
+      expect(out).not.toMatch(/TRUSTWORTHY|exhaustive absence|lsp-verified-exhaustive/);
     });
 
     it('graph_neighbors absence carries the non-exhaustive verify caveat', async () => {
       const out = await graphNeighbors({ repoRoot, symbol: 'isolatedFn' });
       expect(out).toContain('NO NEIGHBORS');
       expect(out).toMatch(/NOT exhaustive/);
-      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+      expect(out).toMatch(/code_intel_references|verify with rg/);
+      expect(out).not.toMatch(/TRUSTWORTHY|exhaustive absence|lsp-verified-exhaustive/);
     });
 
     it('graph_impact absence carries the non-exhaustive verify caveat', async () => {
       const out = await graphImpact({ repoRoot, symbol: 'isolatedFn' });
       expect(out).toContain('NO IMPACT');
       expect(out).toMatch(/NOT exhaustive/);
-      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+      expect(out).toMatch(/code_intel_references|verify with rg/);
+      expect(out).not.toMatch(/TRUSTWORTHY|exhaustive absence|lsp-verified-exhaustive/);
+    });
+
+    // R2-2026-05-31 HIGH bug repro: an INDEX-READY collection must NOT flip the
+    // graph-traversal absence to a "trustworthy/exhaustive" claim. This is the
+    // assertion that was testing the bug (it used to expect TRUSTWORTHY); it now
+    // asserts the honest heuristic caveat regardless of index readiness.
+    it('graph_callers absence stays heuristic even with an index-ready collection', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      try {
+        db.run(`UPDATE code_intel_collections SET index_ready = 1, mode = 'indexed', refs_found = 5, refs_not_found = 0 WHERE collection_id = 'ci-1'`);
+      } finally {
+        db.close();
+      }
+      const out = await graphCallers({ repoRoot, symbol: 'isolatedFn' });
+      expect(out).toContain('NO CALLERS');
+      expect(out).toMatch(/NOT exhaustive/);
+      expect(out).toContain('code_intel_references');
+      // The disqualifying false claim must never appear from a graph verb.
+      expect(out).not.toMatch(/TRUSTWORTHY/);
+      expect(out).not.toMatch(/exhaustive absence/);
+      expect(out).not.toMatch(/lsp-verified-exhaustive/);
     });
   });
 

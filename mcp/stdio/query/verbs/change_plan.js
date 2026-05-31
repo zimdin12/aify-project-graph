@@ -236,6 +236,10 @@ export async function buildChangePlanWithContext(db, {
     .slice(0, top_k);
   const testFiles = groupByFile(testRows, 'test_file', 'test_label', 'confidence').slice(0, top_k);
   const crossModule = new Set(callerFiles.map((entry) => fileDir(entry.file))).size > 1;
+  // R2-2026-05-31 (BUG 2) — the caller set is "lsp-verified" only when at least
+  // one incoming caller edge is clangd ground truth. A heuristic-only caller set
+  // must not earn a SAFE-to-proceed verdict (cross-TU dispatch is undercounted).
+  const callersHaveLspEvidence = incomingRows.some((row) => row.provenance === 'LSP_VERIFIED');
   const decision = upgradeDecisionForWeakTrustOccurrenceGap({
     decision: computeDecision({
       callerCount,
@@ -243,6 +247,7 @@ export async function buildChangePlanWithContext(db, {
       dirtyCount,
       crossModule,
       confidence: root.confidence ?? 1.0,
+      callersHaveLspEvidence,
     }),
     callerCount,
     dirtyCount,

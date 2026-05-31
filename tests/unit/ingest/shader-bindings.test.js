@@ -173,4 +173,23 @@ describe('shaderBindingsPlugin', () => {
     const out = await shaderBindingsPlugin.enrich({ repoRoot: repo, result: { nodes: [], edges: [], refs: [] } });
     expect(out.refs.some((r) => r.relation === 'LOADS_SHADER' && r.target === 'ghost.comp.glsl')).toBe(false);
   });
+
+  // R2-2026-05-31 (BUG 3) — agent worktree copies under .claude/worktrees/ must
+  // NOT be indexed as first-party shaders. walkFiles now reuses the canonical
+  // IGNORED_DIRS set, so .claude (and worktrees) are pruned by the framework
+  // passes the same way the structural sweep prunes them.
+  it('does not emit ShaderBinding nodes for shaders under .claude/worktrees', async () => {
+    await mkdir(join(repo, 'shaders'), { recursive: true });
+    await mkdir(join(repo, '.claude', 'worktrees', 'agent-x', 'shaders'), { recursive: true });
+    // Real first-party shader.
+    await writeFile(join(repo, 'shaders', 'apply_deltas.comp.glsl'), APPLY_DELTAS);
+    // Stale worktree COPY of the same shader — must be ignored.
+    await writeFile(join(repo, '.claude', 'worktrees', 'agent-x', 'shaders', 'apply_deltas.comp.glsl'), APPLY_DELTAS);
+
+    const out = await shaderBindingsPlugin.enrich({ repoRoot: repo, result: { nodes: [], edges: [], refs: [] } });
+    const bindings = out.nodes.filter((n) => n.type === 'ShaderBinding');
+    // Only the 3 real bindings — no worktree duplicates.
+    expect(bindings).toHaveLength(3);
+    expect(bindings.every((n) => !String(n.file_path).includes('.claude/worktrees'))).toBe(true);
+  });
 });
