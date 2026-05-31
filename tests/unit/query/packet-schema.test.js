@@ -80,14 +80,31 @@ describe('graph_packet — schema invariants', () => {
     expect(out).toMatch(/ERROR/);
   });
 
-  it('returns NOT FOUND with hints when target does not match', async () => {
-    await writeOverlay(repo, []);
+  it('returns NOT FOUND with hints when target does not match on a BUILT overlay', async () => {
+    // A populated overlay (one feature that declares an anchor) → the overlay
+    // IS built, so a miss on an unknown feature still gives the generic
+    // not-found + hints (FIX B's OVERLAY NOT BUILT hint must NOT fire here).
+    await writeOverlay(repo, [
+      { id: 'auth', label: 'Auth', anchors: { files: ['src/auth/*'], symbols: ['authenticate'] } },
+    ]);
     await writeTasks(repo, []);
     await writeBrief(repo);
     await writeManifest(repo);
     const out = await graphPacket({ repoRoot: repo, target: 'feature:nonexistent' });
     expect(out).toMatch(/not found/);
     expect(out).toMatch(/HINT/);
+    expect(out).not.toMatch(/OVERLAY NOT BUILT/);
+    expect(out).toMatch(/SNAPSHOT:/); // still includes snapshot for context
+  });
+
+  it('returns the OVERLAY NOT BUILT hint when the overlay is empty (FIX B)', async () => {
+    await writeOverlay(repo, []);
+    await writeTasks(repo, []);
+    await writeBrief(repo);
+    await writeManifest(repo);
+    const out = await graphPacket({ repoRoot: repo, target: 'feature:nonexistent' });
+    expect(out).toMatch(/OVERLAY NOT BUILT/);
+    expect(out).toMatch(/graph-build-functionality/);
     expect(out).toMatch(/SNAPSHOT:/); // still includes snapshot for context
   });
 

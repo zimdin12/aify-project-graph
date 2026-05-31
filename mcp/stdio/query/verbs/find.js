@@ -15,7 +15,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality } from '../../overlay/loader.js';
-import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
+import { attachReadWarnings, inspectReadFreshness, staleNotFoundCaveat } from './read_freshness.js';
 import { isGeneratedPath } from '../generated.js';
 
 // P1-5 — generated codegen stubs sort LAST among otherwise-equal hits. Penalty
@@ -165,6 +165,7 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
   const perLayer = Math.max(1, Math.min(limit, 20));
   const q = raw; // canonical reported query
   let freshnessWarnings = [];
+  let freshnessState = null;
 
   // By default, skip ensureFresh — "fast search" is the contract here.
   // Staleness on identifier-text search is acceptable; callers who need
@@ -175,6 +176,7 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
     const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_find' });
     if (freshness.blocker) return freshness.blocker;
     freshnessWarnings = freshness.warnings;
+    freshnessState = freshness;
   }
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   const layerSet = new Set(
@@ -257,6 +259,14 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
       || query.split(/\s+/).filter(Boolean).length >= 3;
     if (isAuditShape && totalHits < 5) {
       results.advice = `Audit-shaped query with ${totalHits} hits — likely undercount. graph_find returns at most one node per matching label; for "find every X" patterns prefer N targeted Grep passes (rg -n "X\\b" by file glob). The graph result is a starting point, not the answer.`;
+    }
+
+    // FIX A: a zero-hit result on a STALE index must not read as "doesn't
+    // exist." Attach the loud staleness caveat so the agent knows a just-landed
+    // symbol may simply not be indexed yet. Silent on a fresh index (no noise).
+    if (totalHits === 0) {
+      const caveat = staleNotFoundCaveat(freshnessState);
+      if (caveat) results.stale_caveat = caveat;
     }
 
     return JSON.stringify(attachReadWarnings(results, freshnessWarnings), null, 2);

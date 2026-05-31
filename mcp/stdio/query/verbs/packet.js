@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
+import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
 
 // Section caps come first; the final token-estimate clamp is a safety
 // rail. Predictable shape → prompt-cache friendly.
@@ -586,6 +587,24 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   }
 
   if (!resolvedFeature && !resolvedTask) {
+    // FIX B — overlay-empty hint. When the target is feature/task-shaped (an
+    // explicit feature:/task: prefix, OR a bare id that would resolve via the
+    // overlay) and the overlay is missing / has no features / all anchors are
+    // broken, the silent "not found" reads as "tool broken." Emit a clear
+    // OVERLAY NOT BUILT hint instead. Static-first path (no DB) — uses the
+    // declared-anchor fallback in assessOverlayBuild. Bare *symbol* targets
+    // that genuinely resolve in the graph never reach here (handled above), so
+    // this only fires for the overlay-routed shapes.
+    const overlayRouted = parsed.kind === 'feature' || parsed.kind === 'task' || !parsed.kind;
+    if (overlayRouted) {
+      const build = assessOverlayBuild(repoRoot, {
+        features: functionality?.features ?? [],
+        tasks: tasksArtifact?.tasks ?? [],
+      });
+      if (!build.built) {
+        return [overlayNotBuiltHint(build.reason), snapshot].join('\n');
+      }
+    }
     return [
       `ERROR: target "${target}" not found as feature, task, or symbol mapping to a feature`,
       `HINT: list features in .aify-graph/functionality.json or tasks in .aify-graph/tasks.json`,

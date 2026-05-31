@@ -1,10 +1,48 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { getDirtyFiles, getHeadCommit } from '../../freshness/git.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { openExistingDb } from '../../storage/db.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
+
+// Count commits between the indexed snapshot and current HEAD using the same
+// indexed-commit → HEAD basis graph_health uses for its `stale` verdict. We
+// shell `git rev-list --count <indexed>..HEAD` (windowsHide, stderr ignored)
+// rather than re-deriving from the manifest. Returns null when the count can't
+// be computed (no git, unknown commit, shallow clone) — callers then fall back
+// to a count-free "behind HEAD" caveat rather than a wrong number.
+export function commitsBehindHead(repoRoot, indexedCommit, head) {
+  if (!indexedCommit || !head || indexedCommit === head) return null;
+  try {
+    const out = execFileSync(
+      'git',
+      ['-C', repoRoot, 'rev-list', '--count', `${indexedCommit}..${head}`],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true },
+    ).trim();
+    const n = Number.parseInt(out, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+// Build the loud staleness caveat appended to a NOT-FOUND result when the index
+// is behind HEAD. Ties the absence to staleness so agents don't read a stale
+// "not found" as proof a symbol doesn't exist. Kept to two lines. Returns ''
+// when the index is fresh (no caveat → no noise on the happy path).
+export function staleNotFoundCaveat(freshness) {
+  if (!freshness || !freshness.stale) return '';
+  const n = freshness.commitsBehind;
+  const behind = n != null
+    ? `${n} commit${n === 1 ? '' : 's'} behind HEAD`
+    : 'behind HEAD';
+  return [
+    `NOTE: index is ${behind} — this symbol may be newly added but not yet indexed.`,
+    'Run graph_index() and retry; a "not found" here is NOT proof the symbol does not exist.',
+  ].join('\n');
+}
 
 function buildIncompleteMessage({ verbName, alreadyIndexedFiles = null, pendingFiles = null }) {
   const scope = pendingFiles == null
@@ -91,7 +129,11 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   const warnings = [];
   const head = await getHeadCommit(repoRoot).catch(() => null);
   const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
-  if (manifest.commit && head && manifest.commit !== head) {
+  const stale = Boolean(manifest.commit && head && manifest.commit !== head);
+  // Reuse graph_health's indexed-commit → HEAD basis so the loud not-found
+  // staleness caveat reports the SAME "N commits behind" agents see from health.
+  const commitsBehind = stale ? commitsBehindHead(repoRoot, manifest.commit, head) : null;
+  if (stale) {
     warnings.push(`graph snapshot is stale: indexed ${manifest.commit.slice(0, 7)}, HEAD ${head.slice(0, 7)}`);
   }
   if (dirtyFiles.length > 0) {
@@ -103,6 +145,8 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
     warnings,
     head,
     dirtyFiles,
+    stale,
+    commitsBehind,
     graphDir,
     dbPath,
     manifest,

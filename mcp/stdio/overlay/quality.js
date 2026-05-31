@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { featuresForFile } from './loader.js';
+import { featuresForFile, hasOverlay, validateAnchors } from './loader.js';
 
 const TASK_LINK_STRENGTHS = new Set(['strong', 'mixed', 'broad']);
 const STRONG_TASK_EVIDENCE = /\b(tag|custom[_ -]?field|component|commit|branch|path|file|files?_hint|symbol|anchor|code|diff):/i;
@@ -110,6 +110,75 @@ export function summarizeOverlayQuality(features = [], tasks = [], db = null) {
     broadTaskLinks: taskLinkCounts.broad,
     unlinkedTasks: Math.max(0, tasksTotal - linkedTasks),
   };
+}
+
+// FIX B — overlay build-state assessment. Detects the "overlay not built /
+// all-broken" condition the team hit on sand_castle, where every feature
+// anchor failed to resolve (resolved:0) so packet/pull BY FEATURE returned
+// silent-nothing and read as "tool broken." Reuses the SAME signals
+// graph_health uses: hasOverlay() + validateAnchors() featureCount/broken.
+//
+// Two modes:
+//   - With a DB: runs validateAnchors() (authoritative — same as health's
+//     overlayQuality). `usable` = at least one feature with >0 resolved anchors.
+//   - Without a DB (packet's static-first path): can't resolve anchors against
+//     the graph, so falls back to a declared-anchor check — a feature is
+//     "usable" if it declares at least one anchor. This still catches the
+//     missing/empty-overlay cases; the all-broken case is confirmed by pull
+//     (which has the DB) and is conservatively treated as usable here only when
+//     anchors are declared.
+//
+// Returns { built, reason, featureCount, featuresWithAnchors, tasksTotal }.
+//   built=false → caller should emit the OVERLAY NOT BUILT hint.
+export function assessOverlayBuild(repoRoot, { features, tasks, db = null } = {}) {
+  const present = hasOverlay(repoRoot);
+  const featureList = features ?? [];
+  const taskList = tasks ?? [];
+  const featureCount = featureList.length;
+  const tasksTotal = taskList.length;
+
+  if (!present) {
+    return { built: false, reason: 'functionality.json missing', featureCount: 0, featuresWithAnchors: 0, tasksTotal };
+  }
+  if (featureCount === 0) {
+    return { built: false, reason: 'overlay has no features', featureCount: 0, featuresWithAnchors: 0, tasksTotal };
+  }
+
+  let featuresWithAnchors;
+  if (db) {
+    // Authoritative: count features whose anchors actually resolve in the graph.
+    const { valid } = validateAnchors(featureList, db);
+    featuresWithAnchors = valid.length;
+  } else {
+    // Static fallback: count features that DECLARE at least one anchor.
+    featuresWithAnchors = featureList.filter((f) => {
+      const a = f.anchors || {};
+      return (a.symbols?.length || 0) + (a.files?.length || 0)
+        + (a.routes?.length || 0) + (a.docs?.length || 0) > 0;
+    }).length;
+  }
+
+  if (featuresWithAnchors === 0) {
+    return {
+      built: false,
+      reason: db ? 'all features have 0 resolved anchors' : 'no feature declares an anchor',
+      featureCount,
+      featuresWithAnchors: 0,
+      tasksTotal,
+    };
+  }
+
+  return { built: true, reason: null, featureCount, featuresWithAnchors, tasksTotal };
+}
+
+// The shared OVERLAY NOT BUILT hint text. One reason line + the two recovery
+// pointers from the FIX B spec. Used by graph_packet and graph_pull so the
+// message never drifts between them.
+export function overlayNotBuiltHint(reason) {
+  return [
+    `OVERLAY NOT BUILT: no usable feature/task anchors in .aify-graph${reason ? ` (${reason})` : ''} — run /graph-build-functionality (and /graph-build-tasks) to populate it.`,
+    'Raw-symbol queries (graph_search, code_intel_references) work without the overlay.',
+  ].join('\n');
 }
 
 // Files that look like scratch / build / cache output rather than real

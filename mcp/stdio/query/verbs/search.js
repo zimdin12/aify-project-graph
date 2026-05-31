@@ -2,7 +2,7 @@ import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
-import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { isGeneratedPath } from '../generated.js';
 
 // P1-5 — generated codegen stubs sort LAST among otherwise-equal candidates.
@@ -84,12 +84,14 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
 
   const normalizedQuery = query.trim();
   let freshnessWarnings = [];
+  let freshnessState = null;
   if (fresh) {
     await ensureFresh({ repoRoot });
   } else {
     const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_search' });
     if (freshness.blocker) return freshness.blocker;
     freshnessWarnings = freshness.warnings;
+    freshnessState = freshness;
   }
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
@@ -122,7 +124,9 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
     const hits = db.all(`SELECT * FROM nodes WHERE ${where} LIMIT 200`, params);
 
     if (hits.length === 0) {
-      return `NO RESULTS for "${normalizedQuery}". Try graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or check graph_status() to verify the graph covers your files.`;
+      const base = `NO RESULTS for "${normalizedQuery}". Try graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or check graph_status() to verify the graph covers your files.`;
+      const caveat = staleNotFoundCaveat(freshnessState);
+      return caveat ? `${base}\n${caveat}` : base;
     }
 
     // Re-rank by agent-intent scoring

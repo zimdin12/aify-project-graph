@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
 import { getDirtyFiles } from '../../freshness/git.js';
-import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
+import { assessOverlayBuild, loadTasksArtifact, overlayNotBuiltHint, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
 import { CALL_FAMILY } from '../../storage/taxonomy.js';
@@ -783,6 +783,22 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
       return JSON.stringify(withCodeIntel(result), null, 2);
     }
     if (prefixed.kind === 'feature' || prefixed.kind === 'task') {
+      // FIX B — overlay-empty hint. Before reporting "feature/task not found"
+      // (which reads as "tool broken" when the overlay was never built), check
+      // whether the overlay is actually built. Uses the DB so validateAnchors()
+      // gives the authoritative "all anchors broken" (resolved:0) signal —
+      // the exact sand_castle condition. When unbuilt, surface the recovery
+      // hint instead of an empty not-found.
+      const build = assessOverlayBuild(repoRoot, { features, tasks: allTasks, db });
+      if (!build.built) {
+        return JSON.stringify(withCodeIntel(attachReadWarnings({
+          node: { kind: prefixed.kind, value: prefixed.value },
+          error: 'overlay not built',
+          hint: overlayNotBuiltHint(build.reason),
+          overlay_quality: overlayQuality,
+          dirty_overlap: { direct_files: [], affected_features: [] },
+        }, freshness.warnings)), null, 2);
+      }
       const suggestions = prefixed.kind === 'feature'
         ? features.slice(0, 5).map((f) => `feature:${f.id}`)
         : allTasks.slice(0, 5).map((t) => `task:${t.id}`);

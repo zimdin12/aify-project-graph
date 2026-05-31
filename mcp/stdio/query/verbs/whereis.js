@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
-import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 
 export const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
 
@@ -14,7 +14,11 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
       `SELECT * FROM nodes WHERE label = $label AND type IN (${SEARCH_TYPES.map(t => `'${t}'`).join(',')}) LIMIT $limit`,
       { label: symbol, limit }
     );
-    if (hits.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") for partial matches.`;
+    if (hits.length === 0) {
+      const base = `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") for partial matches.`;
+      const caveat = staleNotFoundCaveat(freshness);
+      return caveat ? `${base}\n${caveat}` : base;
+    }
 
     if (!expand) {
       return prefixReadWarnings(renderCompact({ nodes: hits, edges: [] }), freshness.warnings);
