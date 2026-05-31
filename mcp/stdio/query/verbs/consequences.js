@@ -166,6 +166,7 @@ function findMentioningTestFiles(db, repoRoot, symbols = []) {
           encoding: 'utf8',
           stdio: ['ignore', 'pipe', 'ignore'],
           maxBuffer: 16 * 1024 * 1024,
+          windowsHide: true,
         },
       );
       out.split('\n').map((line) => line.trim()).filter(Boolean).forEach((file) => hits.add(file));
@@ -485,7 +486,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
         const fileArgs = [...matchedFiles].slice(0, 5);
         const raw = execFileSync('git',
           ['-C', repoRoot, 'log', '--pretty=format:%h|%an|%ad|%s', '--date=short', '-n', '3', '--', ...fileArgs],
-          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+          { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
         lastTouched = raw.split('\n').filter(Boolean).map((line) => {
           const [sha, author, date, subject] = line.split('|');
           return { sha, author, date, days_ago: daysAgo(date), subject };

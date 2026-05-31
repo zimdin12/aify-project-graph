@@ -161,7 +161,7 @@ function runProcess(command, args, { cwd, timeoutMs, spawn }) {
     let stdout = '';
     let stderr = '';
     let settled = false;
-    const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
 
     const finish = (result) => {
       if (settled) return;

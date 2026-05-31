@@ -10,7 +10,7 @@ const LANGUAGES = {
 
 function checkBinary(name, args) {
   try {
-    const out = spawnSync(name, args, { encoding: 'utf8' });
+    const out = spawnSync(name, args, { encoding: 'utf8', windowsHide: true });
     if (out.error || out.status !== 0) {
       return { available: false, version: '', error: out.error?.message || `exit ${out.status}` };
     }

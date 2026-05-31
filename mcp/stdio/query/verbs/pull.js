@@ -127,7 +127,7 @@ function recentCommitsForFile(repoRoot, filePath, limit = 5) {
   try {
     const out = execFileSync('git',
       ['-C', repoRoot, 'log', '--pretty=format:%h|%ad|%s', '--date=short', '-n', String(limit), '--', filePath],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
     return out.trim().split('\n').filter(Boolean).map(l => {
       const [sha, date, subject] = l.split('|');
       return { sha, date, subject };
@@ -497,7 +497,7 @@ function pullFeature({ db, featureId, features, allTasks, repoRoot, layers, opts
       const globs = feature.anchors.files.filter(g => !g.includes('**')); // skip ** for subprocess arg safety
       if (globs.length > 0) {
         const args = ['-C', repoRoot, 'log', '--pretty=format:%h|%ad|%s', '--date=short', '-n', '8', '--', ...globs];
-        const raw = execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+        const raw = execFileSync('git', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
         out.layers.activity = raw.trim().split('\n').filter(Boolean).map(l => {
           const [sha, date, subject] = l.split('|');
           return { sha, date, subject };
@@ -636,7 +636,7 @@ function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
     try {
       const raw = execFileSync('git',
         ['-C', repoRoot, 'log', `--grep=${task.id}`, '--pretty=format:%h|%ad|%s', '--date=short', '-n', '8'],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
       const items = raw.trim().split('\n').filter(Boolean).map(l => {
         const [sha, date, subject] = l.split('|');
         return { sha, date, subject };

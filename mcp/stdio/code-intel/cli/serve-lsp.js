@@ -26,7 +26,7 @@ function resolveBinary(language) {
   const cfg = LANGUAGE_SERVERS[language];
   if (!cfg) return { ok: false, reason: 'language_unsupported', message: `language '${language}' has no registered language server`, hint: 'supported: ' + Object.keys(LANGUAGE_SERVERS).join(', ') };
   // Resolution chain: project-local → bundled → global. v1 only checks global PATH.
-  const probe = spawnSync(cfg.binary, cfg.versionArgs, { encoding: 'utf8' });
+  const probe = spawnSync(cfg.binary, cfg.versionArgs, { encoding: 'utf8', windowsHide: true });
   if (probe.error || probe.status !== 0) {
     return { ok: false, reason: 'language_server_missing', message: `${cfg.binary} not on PATH (${probe.error?.message || `exit ${probe.status}`})`, hint: cfg.hint };
   }
@@ -49,7 +49,7 @@ export function runServeLsp(args) {
   }
 
   return new Promise((resolve) => {
-    const child = spawn(resolved.binary, resolved.args, { stdio: ['pipe', 'pipe', 'inherit'] });
+    const child = spawn(resolved.binary, resolved.args, { stdio: ['pipe', 'pipe', 'inherit'], windowsHide: true });
 
     process.stdin.pipe(child.stdin);
     child.stdout.pipe(process.stdout);

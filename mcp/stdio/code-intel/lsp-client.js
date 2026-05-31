@@ -30,7 +30,7 @@ export class LspClient extends EventEmitter {
   }
 
   async start() {
-    this.proc = spawn(this.command, this.args, { cwd: this.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'] });
+    this.proc = spawn(this.command, this.args, { cwd: this.cwd, env: this.env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
 
     // Review-fix #1: Node's child_process emits ENOENT on the spawn 'error'
     // event ASYNCHRONOUSLY after spawn() returns. Without an early listener

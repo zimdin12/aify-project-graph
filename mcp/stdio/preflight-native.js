@@ -56,6 +56,7 @@ function rebuild() {
     stdio: 'pipe',
     shell: true, // Windows needs shell:true for npm.cmd resolution
     encoding: 'utf8',
+    windowsHide: true,
   });
   return result;
 }

@@ -96,7 +96,7 @@ function findSourceOccurrenceFiles(db, repoRoot, symbol, excludeFiles = []) {
       candidateFiles = execFileSync(
         'git',
         ['-C', repoRoot, 'ls-files'],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024 },
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 16 * 1024 * 1024, windowsHide: true },
       )
         .split('\n')
         .map((line) => line.trim())
@@ -116,6 +116,7 @@ function findSourceOccurrenceFiles(db, repoRoot, symbol, excludeFiles = []) {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
         maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
       },
     );
     return out.split('\n').map((line) => line.trim()).filter(Boolean);

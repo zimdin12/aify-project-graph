@@ -83,14 +83,14 @@ function readManifest(repoRoot) {
 function safeGitHead(repoRoot) {
   try {
     return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
   } catch { return null; }
 }
 
 function safeDirtyCount(repoRoot) {
   try {
     const out = execFileSync('git', ['-C', repoRoot, 'status', '--porcelain'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
     return out.split('\n').filter((l) => l.trim()).length;
   } catch { return 0; }
 }

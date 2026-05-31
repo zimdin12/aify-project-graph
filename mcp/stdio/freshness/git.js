@@ -72,6 +72,7 @@ function execGit(repoRoot, args) {
   return execFileSync('git', args, {
     cwd: repoRoot,
     encoding: 'utf8',
+    windowsHide: true,
   });
 }
 

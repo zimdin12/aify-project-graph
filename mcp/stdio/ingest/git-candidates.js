@@ -39,22 +39,29 @@ export function getGitCandidateFiles(repoRoot) {
 
   let stdout;
   try {
+    // -z (NUL-separated) is load-bearing: without it git C-escapes + quotes
+    // non-ASCII paths ("\360\237..."), which then fail to round-trip to real
+    // files, silently dropping anything under emoji/CJK/accented dirs from
+    // the candidate set. With -z, raw UTF-8 bytes survive between NULs.
+    // windowsHide keeps a console window from flashing when the MCP server
+    // runs under a GUI host (Claude Code / Hermes) on win32.
     stdout = execFileSync(
       'git',
-      ['-C', repoRoot, 'ls-files', '--cached', '--others', '--exclude-standard'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 50 * 1024 * 1024 }
+      ['-C', repoRoot, 'ls-files', '-z', '--cached', '--others', '--exclude-standard'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 256 * 1024 * 1024, windowsHide: true }
     );
   } catch {
     return null;
   }
 
   const out = new Set();
-  for (const raw of stdout.split(/\r?\n/u)) {
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
+  for (const raw of stdout.split('\0')) {
+    if (!raw) continue;
     // Normalize to forward slash for cross-platform consistency. git on
     // Windows already emits forward slashes for tree paths but be defensive.
-    const normalized = trimmed.replace(/\\/g, '/');
+    // No .trim() here — a leading/trailing space can be a real path char,
+    // and -z already delimits cleanly so there is no stray whitespace.
+    const normalized = raw.replace(/\\/g, '/');
     out.add(normalized);
   }
   return out;

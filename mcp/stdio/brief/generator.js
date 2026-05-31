@@ -947,7 +947,7 @@ function recentActivity(repoRoot, limit = 5) {
   try {
     const out = execFileSync('git',
       ['-C', repoRoot, 'log', '--pretty=format:%h|%an|%ad|%s', '--date=short', '-n', String(limit)],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
     return out.trim().split('\n').filter(Boolean).map(line => {
       const [sha, author, date, subject] = line.split('|');
       return { sha, author, date, subject };
@@ -1020,7 +1020,7 @@ function recentActivityWithFiles(repoRoot, features, limit = 10) {
   try {
     const raw = execFileSync('git',
       ['-C', repoRoot, 'log', '--name-only', '--pretty=format:===%h|%an|%ad|%s', '--date=short', '-n', String(limit)],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
     const commits = [];
     let current = null;
     for (const line of raw.split('\n')) {
@@ -1672,7 +1672,7 @@ export function generateBrief({ repoRoot }) {
     let headCommit = null;
     try {
       headCommit = execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'],
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
     } catch { /* ignore */ }
 
     // Plan #15 Step A5: load intelligence overlays if present. Silent
