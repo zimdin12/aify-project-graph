@@ -76,6 +76,11 @@ describe('server toolset selection', () => {
     // P1-2 / P1-3 — graph_trace + graph_explore registered in the full profile.
     expect(names).toContain('graph_trace');
     expect(names).toContain('graph_explore');
+    // P2a / P2-9 — analytics verbs registered in the full profile.
+    expect(names).toContain('graph_digest');
+    expect(names).toContain('graph_overview');
+    expect(names).toContain('graph_hotspots');
+    expect(names).toContain('graph_cycles');
     expect(names).not.toContain('graph_summary');
     expect(names).not.toContain('graph_report');
     expect(names).not.toContain('graph_onboard');
@@ -161,5 +166,50 @@ describe('server toolset selection', () => {
     ], ['--toolset=lean'], { AIFY_GRAPH_OUTPUT: 'verbose' });
     const verboseText = verboseLines.find(line => line.id === 2)?.result?.content?.[0]?.text ?? '';
     expect(verboseText).toContain('EDGE ');
+  });
+});
+
+// P2a / P2-9 — analytics verbs end-to-end against an indexed fixture repo.
+describe('analytics verbs (P2a)', () => {
+  beforeAll(async () => {
+    // Index the fixture so the analytics verbs have a real graph to read.
+    await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_index', arguments: { repo } } },
+    ]);
+  });
+
+  async function callVerb(name, args = {}) {
+    const lines = await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name, arguments: { repo, ...args } } },
+    ]);
+    return lines.find(line => line.id === 2)?.result?.content?.[0]?.text ?? '';
+  }
+
+  it('graph_digest returns a budgeted text summary with the key sections', async () => {
+    const text = await callVerb('graph_digest', { budget: 6000 });
+    expect(text).toContain('DIGEST');
+    expect(text).toContain('HOTSPOTS');
+    expect(text).toMatch(/PROVENANCE|CYCLES/);
+  });
+
+  it('graph_overview returns a cluster map', async () => {
+    const text = await callVerb('graph_overview', { top_k: 5 });
+    expect(text).toContain('OVERVIEW');
+    expect(text).toContain('CLUSTER');
+    expect(text).toContain('"clusters"'); // structured data attached
+  });
+
+  it('graph_hotspots ranks god nodes', async () => {
+    const text = await callVerb('graph_hotspots', { limit: 5 });
+    expect(text).toContain('HOTSPOTS');
+    expect(text).toContain('"hotspots"');
+  });
+
+  it('graph_cycles reports cycles or honestly says none', async () => {
+    const text = await callVerb('graph_cycles', { max_len: 5, top_k: 10 });
+    expect(text).toContain('CYCLES');
+    expect(text).toContain('"cycles"');
   });
 });

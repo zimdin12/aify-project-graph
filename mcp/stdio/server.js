@@ -34,6 +34,12 @@ import { graphPacket } from './query/verbs/packet.js';
 import { graphTrace } from './query/verbs/trace.js';
 import { graphExplore } from './query/verbs/explore.js';
 import { graphCollectCodeIntel } from './query/verbs/collect_code_intel.js';
+import {
+  graphOverview,
+  graphHotspots,
+  graphCycles,
+  graphDigest,
+} from './query/verbs/analytics_verbs.js';
 import { checkRequestSize, MAX_MCP_LINE_BYTES } from './security/request-size.js';
 import { findSensitivePathArg } from './security/sensitive-paths.js';
 import { SERVER_INSTRUCTIONS } from './server-instructions.js';
@@ -322,6 +328,51 @@ const TOOLS = [
       type: 'object',
       properties: {
         top_k: { type: 'integer', default: 20, description: 'Max items per section.' },
+      },
+    },
+  },
+  {
+    name: 'graph_digest',
+    handler: graphDigest,
+    description: 'Token-budgeted PROJECT DIGEST — the dashboard\'s whole analytic value in ~1-2k tokens: layers/communities, god-node hotspots, shader-binding + provenance %, tightest import cycles, community bridges. Call FIRST to orient on an unfamiliar repo.',
+    schema: {
+      type: 'object',
+      properties: {
+        budget: { type: 'integer', default: 6000, description: 'Approx character budget (~budget/4 tokens). Trailing sections drop first under budget.' },
+      },
+    },
+  },
+  {
+    name: 'graph_overview',
+    handler: graphOverview,
+    description: 'Cluster map: communities (Leiden) → architecture-layer → top-dir, with node counts, top symbols by degree, and aggregated inter-cluster edges. The legible front door at repo scale.',
+    schema: {
+      type: 'object',
+      properties: {
+        top_k: { type: 'integer', default: 12, description: 'Max clusters to show (largest first).' },
+      },
+    },
+  },
+  {
+    name: 'graph_hotspots',
+    handler: graphHotspots,
+    description: 'God nodes: top-N symbols by in+out degree (with file + type + noise denylist). The high-blast-radius symbols to approach carefully.',
+    schema: {
+      type: 'object',
+      properties: {
+        limit: { type: 'integer', default: 15, description: 'Max hotspots.' },
+      },
+    },
+  },
+  {
+    name: 'graph_cycles',
+    handler: graphCycles,
+    description: 'File-level import/include CYCLES (tightest first), via Tarjan SCC + bounded simple-cycle enumeration with rotation-dedup. Honestly reports "none found" when the import graph is acyclic.',
+    schema: {
+      type: 'object',
+      properties: {
+        max_len: { type: 'integer', default: 5, description: 'Max cycle length to enumerate (bounded to cap search).' },
+        top_k: { type: 'integer', default: 20, description: 'Max cycles to return.' },
       },
     },
   },
