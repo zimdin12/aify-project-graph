@@ -8,8 +8,14 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
 
-const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS', 'INVOKES', 'PASSES_THROUGH'];
+// IMPACT_FAMILY includes OVERRIDDEN_BY (it belongs to the blast-radius family),
+// but impact.js queries override edges with a dedicated FORWARD walk below
+// (base virtual → its overrides) rather than the reverse CALLS walk. The
+// recursive reverse traversal therefore uses the family minus OVERRIDDEN_BY —
+// behavior-preserving vs the prior IMPACT_RELATIONS list.
+const IMPACT_RELATIONS = IMPACT_FAMILY.filter((r) => r !== 'OVERRIDDEN_BY');
 
 export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';

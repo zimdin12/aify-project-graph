@@ -3,6 +3,7 @@ import { openExistingDb } from '../../storage/db.js';
 import { renderPath } from '../renderer.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { PATH_MODE_FAMILIES } from '../../storage/taxonomy.js';
 
 const ROOT_TYPE_PRIORITY = new Map([
   ['Entrypoint', 0],
@@ -32,10 +33,7 @@ const EDGE_PRIORITY = new Map([
   ['REFERENCES', 4],
 ]);
 
-const MODE_RELATIONS = {
-  execution: ['PASSES_THROUGH', 'INVOKES', 'CALLS'],
-  dependency: ['PASSES_THROUGH', 'INVOKES', 'CALLS', 'TESTS', 'REFERENCES'],
-};
+const MODE_RELATIONS = PATH_MODE_FAMILIES;
 
 export async function graphPath({ repoRoot, symbol, direction = 'out', depth = 5, top_k = 3, mode = 'execution' }) {
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_path' });

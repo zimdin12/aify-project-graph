@@ -6,12 +6,13 @@ import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { NEIGHBOR_FAMILY } from '../../storage/taxonomy.js';
 
-const ALL_RELATIONS = [
-  'CONTAINS', 'DEFINES', 'DECLARES', 'IMPORTS', 'EXPORTS',
-  'CALLS', 'REFERENCES', 'EXTENDS', 'IMPLEMENTS', 'USES_TYPE',
-  'TESTS', 'DEPENDS_ON', 'MENTIONS', 'INVOKES', 'PASSES_THROUGH', 'CONFIGURES',
-];
+// graph_neighbors exposes EVERY relation in the registry — including the new
+// edge types OVERRIDDEN_BY / LOADS_SHADER / DECLARES_BINDING / HAS_DIAGNOSTIC,
+// which the old local allowlist omitted (review R2). The SQL already handles
+// arbitrary relations; the allowlist was the only thing blocking them.
+const ALL_RELATIONS = NEIGHBOR_FAMILY;
 
 export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth = 1, top_k = 20 }) {
   if (!symbol) return 'ERROR: symbol parameter is required';

@@ -9,8 +9,9 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
 
-const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
+const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
 export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';

@@ -1,21 +1,9 @@
 export const SCHEMA_VERSION = 4;
 
-export const EDGE_PROVENANCE_TYPES = [
-  'EXTRACTED',
-  'INFERRED',
-  'AMBIGUOUS',
-  'CODE_INTEL',
-  'LSP_VERIFIED',
-];
-
-const NODE_TYPES = [
-  'Repository', 'File', 'Module', 'Function', 'Method', 'Class',
-  'Interface', 'Type', 'Variable', 'Symbol', 'Test',
-  'Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema',
-  'External',
-];
-
-export { NODE_TYPES };
+// EDGE_PROVENANCE_TYPES and NODE_TYPES now live in the single taxonomy registry
+// (storage/taxonomy.js). Re-exported here for backward compatibility — the
+// taxonomy file is the authority (cohesion review R2).
+export { EDGE_PROVENANCE_TYPES, NODE_TYPES } from './taxonomy.js';
 
 export function createSchema(db) {
   db.exec(`

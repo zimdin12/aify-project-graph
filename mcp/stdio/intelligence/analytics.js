@@ -35,12 +35,17 @@ export const HOTSPOT_NOISE = new Set([
   'len', '__init__', '__str__', '__repr__', 'toString',
 ]);
 
-// Relations that mean "A depends on / imports / includes B" at file level.
-// IMPORTS covers JS/TS/Python; INCLUDES covers the C/C++ #include file-edge.
-const IMPORT_RELATIONS = ['IMPORTS', 'INCLUDES'];
+import { IMPORT_FAMILY, PROVENANCE_CALL_FAMILY } from '../storage/taxonomy.js';
+
+// Relations that mean "A depends on / imports / includes B" at file level, for
+// cycle detection. From the registry IMPORT_FAMILY minus LOADS_SHADER — cycle
+// detection is a pure file-import/include graph and a shader load is not part
+// of a file-level import cycle. (IMPORTS covers JS/TS/Python; INCLUDES the
+// C/C++ #include file-edge.)
+const IMPORT_RELATIONS = IMPORT_FAMILY.filter((r) => r !== 'LOADS_SHADER');
 
 // Call-family relations whose provenance split is the trust signal.
-const CALL_FAMILY_RELATIONS = ['CALLS', 'REFERENCES', 'INVOKES', 'USES_TYPE'];
+const CALL_FAMILY_RELATIONS = PROVENANCE_CALL_FAMILY;
 
 function communityIdExpr() {
   return `json_extract(n.extra, '$.community_id')`;
@@ -406,7 +411,11 @@ export function computeProvenanceMix(db) {
   for (const [k, v] of Object.entries(byProvenance)) percentages[k] = pct(v);
 
   // Shader bridge counts — present only on C++ repos with the L5 bridge.
-  const shaderBindings = countNodeType(db, 'ShaderBinding');
+  // Count scope: ONLY language='glsl' ShaderBinding nodes are real descriptor-
+  // set bindings. The cpp descriptor-write stash node (shader_bindings.js pass 2)
+  // also carries type='ShaderBinding' but language='cpp' and would otherwise
+  // inflate the GLSL binding total (review R2). Scope the count to glsl.
+  const shaderBindings = countGlslShaderBindings(db);
   const loadsShader = countRelation(db, 'LOADS_SHADER');
   const declaresBinding = countRelation(db, 'DECLARES_BINDING');
   const overriddenBy = countRelation(db, 'OVERRIDDEN_BY');
@@ -429,6 +438,15 @@ export function computeProvenanceMix(db) {
 function countNodeType(db, type) {
   try { return db.get('SELECT COUNT(*) AS c FROM nodes WHERE type = $t', { t: type }).c; }
   catch { return 0; }
+}
+// GLSL descriptor-set bindings only — excludes the language='cpp' descriptor-
+// write stash node that also reuses type='ShaderBinding'.
+function countGlslShaderBindings(db) {
+  try {
+    return db.get(
+      "SELECT COUNT(*) AS c FROM nodes WHERE type = 'ShaderBinding' AND language = 'glsl'",
+    ).c;
+  } catch { return 0; }
 }
 function countRelation(db, relation) {
   try { return db.get('SELECT COUNT(*) AS c FROM edges WHERE relation = $r', { r: relation }).c; }

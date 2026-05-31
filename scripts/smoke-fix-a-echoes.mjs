@@ -63,7 +63,7 @@ async function runOnce(mode) {
     const calleeRow = db.get(
       `SELECT id, type, label, start_line, end_line FROM nodes
         WHERE file_path = $f AND label = $l
-          AND type IN ('Method','Function','Class','Struct')
+          AND type IN ('Method','Function','Class')
         ORDER BY CASE WHEN type IN ('Method','Function') THEN 0 ELSE 1 END, start_line
         LIMIT 1`,
       { f: TARGET_FILE, l: TARGET_QNAME_LEAF },

@@ -48,7 +48,9 @@ const KIND_TYPE = new Set(['subtypes', 'supertypes']);
 
 // Symbol kinds we resolve from the graph for a bare `symbol` input. Mirrors
 // whereis.SEARCH_TYPES but tuned for call/type-hierarchy roots.
-const RESOLVE_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Struct', 'Type'];
+// No 'Struct' — cpp.js maps struct_specifier → Class, so no extractor emits a
+// Struct node (review R2 phantom-Struct drop).
+const RESOLVE_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type'];
 
 function errorResponse(code, message) {
   return { status: 'error', errors: [{ code, message, hint: HINTS[code] || '' }] };

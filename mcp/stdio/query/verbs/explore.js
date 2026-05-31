@@ -25,8 +25,11 @@ import {
   getSourceBundleBudget,
   renderSourceBundle,
 } from '../source-bundle.js';
+import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
 
-const CALL_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
+// The execution edge family (registry EXECUTION_FAMILY) — same set the other
+// traversal verbs walk; imported rather than re-declared (cohesion review R2).
+const CALL_RELATIONS = EXECUTION_FAMILY;
 
 // Resolve one requested name to its best node. Accepts a symbol OR a file path.
 // For a file, returns a File-typed node so the whole-file group is anchored.

@@ -287,8 +287,10 @@ function decodeStash(extractor) {
 }
 
 // Node types that can act as a defined symbol or an enclosing caller scope.
+// No 'Struct' — cpp.js maps struct_specifier → Class, so no extractor ever
+// emits a Struct node (review R2 phantom-Struct drop).
 const ENCLOSING_TYPES = new Set([
-  'Function', 'Method', 'Class', 'Struct', 'Symbol', 'Interface', 'Type', 'Variable',
+  'Function', 'Method', 'Class', 'Symbol', 'Interface', 'Type', 'Variable',
 ]);
 
 function lspSymbolNodeId(symbolId) {

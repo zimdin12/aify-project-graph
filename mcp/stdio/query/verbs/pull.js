@@ -19,6 +19,15 @@ import { getDirtyFiles } from '../../freshness/git.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
+import { CALL_FAMILY } from '../../storage/taxonomy.js';
+
+// "Who touches this symbol" set for pull's relation rollups: the call family
+// plus type-use. Composed from the registry rather than re-declared (review R2).
+// USES_TYPE is appended (a type reference is still a touch worth surfacing in a
+// cross-layer pull) but this stays narrower than IMPACT_FAMILY (no TESTS /
+// OVERRIDDEN_BY) — pull.relations is a compact DIRECT-neighbor view.
+const PULL_TOUCH_RELATIONS = [...CALL_FAMILY, 'USES_TYPE'];
+const PULL_TOUCH_SQL_LIST = PULL_TOUCH_RELATIONS.map((r) => `'${r}'`).join(', ');
 
 // Layer inventory:
 //   code          — file/symbol neighborhood (files, symbols, callers)
@@ -147,14 +156,14 @@ function relationsForSymbol(db, sym, limit = 10) {
      FROM edges e
      JOIN nodes fn ON fn.id = e.from_id
      WHERE e.to_id = $id
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
+       AND e.relation IN (${PULL_TOUCH_SQL_LIST})
      LIMIT 100`, { id: sym.id });
   const calleesRaw = db.all(
     `SELECT DISTINCT tn.label, tn.type, tn.file_path, tn.start_line, e.relation, e.provenance
      FROM edges e
      JOIN nodes tn ON tn.id = e.to_id
      WHERE e.from_id = $id
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
+       AND e.relation IN (${PULL_TOUCH_SQL_LIST})
      LIMIT 100`, { id: sym.id });
   const withProv = (r) => ({ ...r, provenance: r.provenance ?? 'EXTRACTED' });
   return {
@@ -221,7 +230,7 @@ function relationsForFeature(db, feature, features, limit = 10) {
      JOIN nodes fn ON fn.id = e.from_id
      JOIN nodes tn ON tn.id = e.to_id
      WHERE tn.label IN (${placeholders})
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
+       AND e.relation IN (${PULL_TOUCH_SQL_LIST})
        AND fn.file_path IS NOT NULL`,
     symParams);
   // Callees (edges FROM this feature's symbols)
@@ -232,7 +241,7 @@ function relationsForFeature(db, feature, features, limit = 10) {
      JOIN nodes fn ON fn.id = e.from_id
      JOIN nodes tn ON tn.id = e.to_id
      WHERE fn.label IN (${placeholders})
-       AND e.relation IN ('CALLS', 'REFERENCES', 'USES_TYPE', 'INVOKES', 'PASSES_THROUGH')
+       AND e.relation IN (${PULL_TOUCH_SQL_LIST})
        AND tn.file_path IS NOT NULL
        AND tn.file_path != ''`,
     symParams);
@@ -552,7 +561,7 @@ function pullSymbol({ db, sym, features, allTasks, repoRoot, layers }) {
       `SELECT DISTINCT fn.label, fn.file_path, fn.start_line
        FROM edges e JOIN nodes fn ON fn.id = e.from_id
        WHERE e.to_id = $id
-         AND e.relation IN ('CALLS','REFERENCES','USES_TYPE','INVOKES','PASSES_THROUGH')
+         AND e.relation IN (${PULL_TOUCH_SQL_LIST})
        LIMIT 100`, { id: sym.id });
     out.layers.code = { callers: capped(callersRaw, 8), file: sym.file_path };
   }

@@ -28,13 +28,14 @@ import {
   renderSourceBlock,
   SOURCE_BUNDLE_HEADER,
 } from '../source-bundle.js';
+import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
 
 // Call-graph edge families followed during the trace. CALLS/INVOKES/
-// PASSES_THROUGH are the execution edges (same set the other verbs use);
-// OVERRIDDEN_BY bridges a base virtual to its derived overrides so a trace can
-// continue through C++ vtable dispatch that clangd/tree-sitter resolve only to
-// the declared base method.
-const CALL_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
+// PASSES_THROUGH are the execution edges (the registry EXECUTION_FAMILY — the
+// same set the other verbs use); OVERRIDDEN_BY bridges a base virtual to its
+// derived overrides so a trace can continue through C++ vtable dispatch that
+// clangd/tree-sitter resolve only to the declared base method.
+const CALL_RELATIONS = EXECUTION_FAMILY;
 const BRIDGE_RELATION = 'OVERRIDDEN_BY';
 
 // Non-canonical root penalties for path-proximity pairing. Vendored / generated
