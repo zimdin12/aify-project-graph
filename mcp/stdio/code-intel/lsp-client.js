@@ -1,15 +1,91 @@
 import { spawn } from 'node:child_process';
 import { Buffer } from 'node:buffer';
 import { EventEmitter } from 'node:events';
+import { hostToWsl, wslToHost } from './compile-db.js';
+
+// ── WSL-clangd URI translation (opt-in APG_CLANGD_WSL) ─────────────────────
+//
+// When clangd runs UNDER WSL, it speaks Linux file URIs (`file:///mnt/c/...`).
+// The rest of APG works in Windows paths and builds Windows URIs
+// (`file:///C:/...`). So at the stdio boundary we translate:
+//   - OUTGOING (host → WSL): every `file:///C:/...` URI we send becomes
+//     `file:///mnt/c/...` so clangd matches the Linux DB entries.
+//   - INCOMING (WSL → host): every `file:///mnt/c/...` URI clangd returns
+//     becomes `file:///C:/...` so locations resolve to Windows paths before
+//     they reach the provider/agent/importer.
+// rootUri is translated once at construction; the rest is done generically by
+// walking every JSON message (URIs appear in definition/references/hover/
+// hierarchy/diagnostics under different shapes — a generic walk covers them all
+// without per-method plumbing). On the default (Windows) transport pathMode is
+// undefined and these are exact no-ops.
+
+const FILE_URI_PREFIX = 'file://';
+
+// Translate a single `file://` URI. `dir` is 'out' (host→WSL) or 'in'
+// (WSL→host). Pure + exported for direct unit testing.
+export function translateUri(uri, dir) {
+  if (typeof uri !== 'string' || !uri.startsWith(FILE_URI_PREFIX)) return uri;
+  // Strip scheme; clangd emits `file:///mnt/c/...` (host has the leading `/`).
+  let body = uri.slice(FILE_URI_PREFIX.length);
+  // Decode percent-encoding so the path matcher sees real chars (spaces etc.),
+  // then re-encode minimally on the way out is unnecessary — clangd and Node's
+  // fileURLToPath both tolerate the decoded path for our drive-letter case.
+  const hadLeadingSlash = body.startsWith('/');
+  const path = hadLeadingSlash ? body.slice(1) : body;
+  let decoded = path;
+  try { decoded = decodeURIComponent(path); } catch { /* leave as-is */ }
+  if (dir === 'out') {
+    // host → WSL. A Windows URI body is `/C:/Users/...` (leading slash + drive).
+    const mapped = hostToWsl(decoded);
+    // WSL absolute path: `file://` + the absolute posix path (single scheme
+    // slashes, then the path's own leading `/`).
+    return FILE_URI_PREFIX + mapped;
+  }
+  // dir === 'in'. WSL → host. body is `/mnt/c/...` (posix abs w/ leading slash).
+  const posix = hadLeadingSlash ? '/' + decoded : decoded;
+  const host = wslToHost(posix); // `/mnt/c/x` → `C:/x` on win32
+  if (host !== posix) {
+    // Re-emit as a Windows file URI: `file:///C:/x`.
+    return `${FILE_URI_PREFIX}/${host}`;
+  }
+  return uri;
+}
+
+// Recursively rewrite every `uri` (and `rootUri`/`targetUri`) string field in a
+// JSON-RPC message. Mutates a structural copy; returns it. dir as above.
+function rewriteUris(node, dir) {
+  if (node == null) return node;
+  if (Array.isArray(node)) {
+    for (let i = 0; i < node.length; i++) node[i] = rewriteUris(node[i], dir);
+    return node;
+  }
+  if (typeof node === 'object') {
+    for (const k of Object.keys(node)) {
+      const v = node[k];
+      if (typeof v === 'string' && v.startsWith(FILE_URI_PREFIX)
+          && (k === 'uri' || k === 'rootUri' || k === 'targetUri')) {
+        node[k] = translateUri(v, dir);
+      } else if (v && typeof v === 'object') {
+        rewriteUris(v, dir);
+      }
+    }
+    return node;
+  }
+  return node;
+}
 
 export class LspClient extends EventEmitter {
-  constructor({ command, args = [], cwd, env, rootUri, timeoutMs = 10000 }) {
+  constructor({ command, args = [], cwd, env, rootUri, timeoutMs = 10000, pathMode } = {}) {
     super();
     this.command = command;
     this.args = args;
     this.cwd = cwd;
     this.env = env;
-    this.rootUri = rootUri || `file:///`;
+    // pathMode === 'wsl' activates host↔WSL URI translation at the boundary.
+    this.pathMode = pathMode;
+    // rootUri is host-shaped on the way in; translate it once for the WSL
+    // transport so clangd's workspace root is a Linux path too.
+    this.rootUri = (pathMode === 'wsl' && rootUri) ? translateUri(rootUri, 'out') : (rootUri || `file:///`);
     this.timeoutMs = timeoutMs;
     this.proc = null;
     this.buffer = Buffer.alloc(0);
@@ -467,7 +543,13 @@ export class LspClient extends EventEmitter {
   }
 
   _send(message) {
-    const json = JSON.stringify(message);
+    // WSL transport: translate host file URIs → WSL before they reach clangd.
+    // Work on a structural copy so callers' objects aren't mutated.
+    let outgoing = message;
+    if (this.pathMode === 'wsl') {
+      outgoing = rewriteUris(JSON.parse(JSON.stringify(message)), 'out');
+    }
+    const json = JSON.stringify(outgoing);
     const header = `Content-Length: ${Buffer.byteLength(json, 'utf8')}\r\n\r\n`;
     this.proc.stdin.write(header + json);
   }
@@ -484,7 +566,14 @@ export class LspClient extends EventEmitter {
       if (this.buffer.length < headerEnd + 4 + len) return;
       const body = this.buffer.slice(headerEnd + 4, headerEnd + 4 + len).toString('utf8');
       this.buffer = this.buffer.slice(headerEnd + 4 + len);
-      try { this._handle(JSON.parse(body)); } catch { /* swallow */ }
+      try {
+        let parsed = JSON.parse(body);
+        // WSL transport: translate WSL file URIs → host on EVERY inbound message
+        // (request replies, publishDiagnostics notifications) so locations reach
+        // the provider/agent as Windows paths.
+        if (this.pathMode === 'wsl') parsed = rewriteUris(parsed, 'in');
+        this._handle(parsed);
+      } catch { /* swallow */ }
     }
   }
 

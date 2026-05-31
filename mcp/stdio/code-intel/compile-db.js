@@ -65,6 +65,34 @@ export function wslToHost(p) {
   return p;
 }
 
+/**
+ * Inverse of {@link wslToHost}: translate a Windows host path
+ * (`C:/Users/x` or `C:\\Users\\x`) to its WSL `/mnt/<drive>/...` form. This is
+ * the direction needed for the opt-in WSL-clangd transport (APG_CLANGD_WSL):
+ * file URIs we send to a clangd running UNDER WSL must name `/mnt/c/...` Linux
+ * paths, even though the rest of APG works in Windows paths.
+ *
+ * Backslashes are normalized to `/`. Already-WSL paths (`/mnt/...`) and bare
+ * POSIX paths (`/usr/...`) are returned unchanged. Non-win32 hosts: Windows
+ * drive paths shouldn't occur, but if one does it's still translated (the
+ * mapping is purely lexical and platform-independent), so this stays a pure,
+ * directly unit-testable helper on every platform.
+ *
+ * @param {string} p
+ * @returns {string}
+ */
+export function hostToWsl(p) {
+  if (typeof p !== 'string' || p.length === 0) return p;
+  const norm = p.replace(/\\/g, '/');
+  const m = /^([a-zA-Z]):(\/.*)?$/.exec(norm);
+  if (m) {
+    const drive = m[1].toLowerCase();
+    const rest = m[2] || '/';
+    return `/mnt/${drive}${rest}`;
+  }
+  return norm;
+}
+
 // Rewrite an `-I<path>` / `-isystem <path>` / `-isysroot <path>` style flag's
 // path component. Handles both glued (`-I/mnt/c/x`) and separated forms — for
 // separated forms the path is a standalone token handled by the caller, so
@@ -595,14 +623,20 @@ export function prepareCompileDb({ projectRoot }) {
   if (foreignToolchain) {
     diagnostics.push({
       code: 'foreign_toolchain',
-      message: `compile DB built on Linux/WSL (signals: ${foreignReasons.join(', ')}); stripped ${strippedFlags} Linux-only toolchain flag(s) from the normalized DB. References and call/type hierarchy stay usable, but the C++ stdlib won't resolve against the host clangd, so diagnostics and hover are DEGRADED (bogus 'file not found' cascade likely). For full stdlib diagnostics/hover, run clangd under WSL against the Linux DB.`,
-      fix: 'run clangd under WSL against the build-linux/ compile_commands.json (APG_CLANGD=/usr/bin/clangd inside WSL), or build a native Windows compile_commands.json'
+      message: `compile DB built on Linux/WSL (signals: ${foreignReasons.join(', ')}); stripped ${strippedFlags} Linux-only toolchain flag(s) from the normalized DB. References and call/type hierarchy stay usable, but the C++ stdlib won't resolve against the host clangd, so diagnostics and hover are DEGRADED (bogus 'file not found' cascade likely). For full stdlib diagnostics/hover, set APG_CLANGD_WSL=1 to run clangd under WSL against the original Linux DB (locations round-trip back to Windows paths).`,
+      fix: 'set APG_CLANGD_WSL=1 to run clangd under WSL against the original Linux compile_commands.json (requires clangd installed in WSL), or build a native Windows compile_commands.json'
     });
   }
 
   return {
     found: true,
     sourcePath: best.sourcePath,
+    // Directory of the ORIGINAL (un-normalized) compile DB. The opt-in
+    // WSL-clangd transport points `--compile-commands-dir` here (e.g.
+    // `…/build-linux`) so clangd-under-WSL consumes the raw Linux DB with its
+    // `/mnt/c/...` paths + Linux toolchain intact, instead of the Windows-
+    // normalized copy under .aify-graph.
+    sourceDir: path.dirname(best.sourcePath),
     normalizedDir,
     normalizedPath,
     entryCount: best.entryCount,

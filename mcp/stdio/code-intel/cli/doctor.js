@@ -8,7 +8,7 @@
 // Signature preserved: runDoctor(args) where args may name languages and/or
 // carry `--project-root <dir>`. Returns 0 (informational).
 
-import { resolveClangd, clangdVersion } from '../resolve-clangd.js';
+import { resolveClangd, clangdVersion, detectWslClangd, wslModeRequested } from '../resolve-clangd.js';
 import { prepareCompileDb } from '../compile-db.js';
 
 const LANGUAGES = {
@@ -50,15 +50,22 @@ function reportCpp(projectRoot, write) {
   try { db = prepareCompileDb({ projectRoot }); }
   catch (err) { db = { found: false, diagnostics: [{ code: 'compile_db_error', message: err.message, fix: 'check --project-root' }] }; }
 
+  // Opt-in WSL-clangd transport availability (win32-only; cheap probe).
+  const wslRequested = wslModeRequested();
+  const wsl = detectWslClangd();
+
   let dbReady = false;
   let unityWarn = false;
   let unityExpanded = false;
   let foreignToolchain = false;
+  // wslActive = WSL mode is requested AND actually usable for THIS db.
+  let wslActive = false;
   if (db.found) {
     dbReady = db.firstPartyCount > 0;
     unityWarn = !!db.unity;
     unityExpanded = !!db.unityExpanded;
     foreignToolchain = !!db.foreignToolchain;
+    wslActive = wslRequested && wsl.available;
     write(`  compile_db: FOUND — ${db.sourcePath}\n`);
     write(`    normalized: ${db.normalizedPath}\n`);
     write(`    entries: ${db.entryCount} (first-party: ${db.firstPartyCount})\n`);
@@ -66,8 +73,19 @@ function reportCpp(projectRoot, write) {
       const d = (db.diagnostics || []).find(x => x.code === 'foreign_toolchain');
       write(`    WARNING foreign_toolchain: Linux/WSL-built DB (${(db.foreignReasons || []).join(', ')}); stripped ${db.strippedFlags || 0} Linux-only toolchain flag(s)\n`);
       write('      references + call/type hierarchy: USABLE\n');
-      write('      diagnostics + hover: DEGRADED (host clangd can\'t resolve the Linux stdlib — bogus "file not found" cascade likely)\n');
-      if (d?.fix) write(`      recommended: ${d.fix}\n`);
+      if (wslActive) {
+        // WSL transport ON + available → full diagnostics/hover via clangd-under-WSL.
+        write(`      WSL-clangd: ACTIVE (APG_CLANGD_WSL=1) — ${wsl.version || 'clangd in WSL'}\n`);
+        write(`      diagnostics + hover: READY (clangd runs under WSL against ${db.sourceDir} — Linux stdlib resolves; locations translated back to Windows paths)\n`);
+      } else if (wsl.available) {
+        // Foreign DB, WSL available but not opted in → tell them the exact opt-in.
+        write('      diagnostics + hover: DEGRADED (host clangd can\'t resolve the Linux stdlib — bogus "file not found" cascade likely)\n');
+        write(`      WSL-clangd: AVAILABLE (${wsl.version || 'clangd in WSL'}) — set APG_CLANGD_WSL=1 to run clangd under WSL for full stdlib diagnostics/hover (references/hierarchy still translate to Windows paths)\n`);
+      } else {
+        write('      diagnostics + hover: DEGRADED (host clangd can\'t resolve the Linux stdlib — bogus "file not found" cascade likely)\n');
+        write(`      WSL-clangd: UNAVAILABLE (${wsl.reason || 'no clangd in WSL'}) — install clangd in WSL (apt install clangd) then set APG_CLANGD_WSL=1 for full diagnostics/hover, or build a native Windows compile_commands.json\n`);
+        if (d?.fix) write(`      recommended: ${d.fix}\n`);
+      }
     }
     if (unityExpanded) {
       const d = (db.diagnostics || []).find(x => x.code === 'unity_expanded');
@@ -93,10 +111,18 @@ function reportCpp(projectRoot, write) {
     let suffix = '';
     if (unityExpanded) suffix = ' (unity-expanded)';
     else if (unityWarn) suffix = ' (degraded: unity build — precision reduced)';
-    if (foreignToolchain) {
+    if (foreignToolchain && wslActive) {
+      // WSL transport ON + available → full readiness, incl. diagnostics/hover.
+      write(`  => READY (WSL-clangd mode${suffix}) — references + hierarchy + diagnostics + hover\n`);
+      write('     NOTE: clangd runs under WSL against the Linux DB; file URIs round-trip host↔WSL so locations come back as Windows paths.\n');
+    } else if (foreignToolchain) {
       // Honest split verdict: refs/hierarchy work, diagnostics/hover don't.
       write(`  => READY for references + call/type hierarchy${suffix}\n`);
-      write('     NOTE: diagnostics + hover are DEGRADED (Linux/WSL-built DB); run clangd under WSL against the Linux DB for full stdlib diagnostics/hover\n');
+      if (wsl.available) {
+        write('     NOTE: diagnostics + hover are DEGRADED (Linux/WSL-built DB). WSL clangd IS available — set APG_CLANGD_WSL=1 for full stdlib diagnostics/hover.\n');
+      } else {
+        write('     NOTE: diagnostics + hover are DEGRADED (Linux/WSL-built DB); install clangd in WSL + set APG_CLANGD_WSL=1, or build a native Windows compile DB, for full diagnostics/hover.\n');
+      }
     } else {
       write(`  => READY${suffix}\n`);
     }
