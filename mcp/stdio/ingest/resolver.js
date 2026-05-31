@@ -60,8 +60,30 @@ const HARD_GATED_RELATIONS = new Set([
   'CALLS', 'INVOKES', 'PASSES_THROUGH', 'EXTENDS', 'IMPLEMENTS', 'USES_TYPE', 'TESTS', 'REFERENCES',
 ]);
 
+// P5-2: Cross-language-family phantom-edge drop.
+//
+// An INFERRED/AMBIGUOUS CALLS or REFERENCES whose two endpoints sit in
+// DIFFERENT language families (e.g. a C++ method "calling" a Python function
+// that merely shares a name) is almost always a coincidental name collision,
+// not a real edge. HARD_GATED_RELATIONS lists the relations that must stay
+// in-family: when same-family candidates exist they win; when none exist the
+// cross-family candidates are DROPPED (the ref goes unresolved / materializes
+// as an External terminal) rather than crossing the family boundary.
+//
+// The single allowed cross-family BRIDGE is the L5 shader binding
+// (C++ ↔ GLSL via LOADS_SHADER). LOADS_SHADER is resolved by file-path suffix
+// at the top of resolveTarget and never flows through this gate, so it is
+// exempt by construction. BRIDGE_RELATIONS documents that contract and keeps
+// the gate honest if a future relation is added that should also cross.
+// EXTRACTED edges (those that arrive with ref.to_id already set) skip
+// resolution entirely and are likewise unaffected — only INFERRED/AMBIGUOUS
+// name-based resolution is gated.
+const BRIDGE_RELATIONS = new Set(['LOADS_SHADER']);
+
 function filterByLanguageFamily(matches, ref) {
   if (!matches || matches.length === 0) return matches;
+  // Known cross-family bridges are exempt — don't gate them.
+  if (BRIDGE_RELATIONS.has(ref.relation)) return matches;
   const refFamily = languageFamily(ref.extractor);
   if (refFamily === 'unknown') return matches;
   const sameFamily = matches.filter((m) => languageFamily(m.language) === refFamily);

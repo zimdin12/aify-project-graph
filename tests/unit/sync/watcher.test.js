@@ -142,4 +142,29 @@ describe('startWatcher native (non-WSL) operation', () => {
     expect(allFiles.some(f => f.startsWith('node_modules'))).toBe(false);
     expect(allFiles.some(f => f === 'real.txt')).toBe(true);
   });
+
+  // P5-4: nested ignored dirs (not just top-level) must be excluded before any
+  // rebuild work. Previously only the first path segment was checked, so
+  // `pkg/node_modules/...` and `sub/build-x/...` still triggered onChange.
+  it('skips events whose NESTED dir is in the ignored set', async () => {
+    const dir = tmpRepo();
+    fs.mkdirSync(path.join(dir, 'pkg', 'node_modules'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'sub', 'build-x'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    const calls = [];
+    const w = start({
+      repoRoot: dir,
+      onChange: (events) => calls.push(events),
+      debounceMs: 100
+    });
+    if (w.status !== 'running') return;
+    fs.writeFileSync(path.join(dir, 'pkg', 'node_modules', 'dep.txt'), 'x');
+    fs.writeFileSync(path.join(dir, 'sub', 'build-x', 'out.txt'), 'y');
+    fs.writeFileSync(path.join(dir, 'src', 'real.ts'), 'z');
+    await sleep(300);
+    const allFiles = calls.flat().map(e => e.filename);
+    expect(allFiles.some(f => f.includes('node_modules'))).toBe(false);
+    expect(allFiles.some(f => f.includes('build-x'))).toBe(false);
+    expect(allFiles.some(f => f.endsWith('real.ts'))).toBe(true);
+  });
 });

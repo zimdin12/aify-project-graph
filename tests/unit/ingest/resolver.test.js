@@ -618,6 +618,99 @@ describe('cross-file resolver', () => {
     ]);
   });
 
+  it('P5-2: drops a C++ CALLS that would cross into a same-named Python function', () => {
+    // `helper` (python) already exists from beforeEach. A C++ CALLS to a bare
+    // `helper` must NOT resolve to the Python node (different language family);
+    // it materializes as an External terminal instead.
+    const refs = [
+      {
+        from_id: 'cpp:caller',
+        from_label: 'Renderer',
+        relation: 'CALLS',
+        target: 'helper',
+        source_file: 'src/Renderer.cpp',
+        source_line: 12,
+        confidence: 0.8,
+        extractor: 'cpp',
+      },
+    ];
+    const result = resolveRefs({ db, refs });
+    // No edge to the python helper.
+    expect(result.edges.some((e) => e.to_id === 'fn:helper')).toBe(false);
+    // Materialized as External (CALLS always materializes).
+    expect(result.nodes).toEqual([
+      expect.objectContaining({ type: 'External', label: 'helper' }),
+    ]);
+    expect(result.edges).toEqual([
+      expect.objectContaining({ from_id: 'cpp:caller', relation: 'CALLS', to_id: result.nodes[0].id }),
+    ]);
+  });
+
+  it('P5-2: drops a Python REFERENCES that would cross into a same-named C++ symbol', () => {
+    upsertNode(db, {
+      id: 'cpp:Widget',
+      type: 'Class',
+      label: 'Widget',
+      file_path: 'src/Widget.cpp',
+      start_line: 1,
+      end_line: 5,
+      language: 'cpp',
+      confidence: 1.0,
+      structural_fp: 'sw',
+      dependency_fp: 'dw',
+      extra: { qname: 'src.Widget.Widget' },
+    });
+    const refs = [
+      {
+        from_id: 'py:caller',
+        from_label: 'view',
+        relation: 'REFERENCES',
+        target: 'Widget', // qualified-ish (uppercase) so it would materialize
+        source_file: 'app/views.py',
+        source_line: 3,
+        confidence: 0.6,
+        extractor: 'python',
+      },
+    ];
+    const result = resolveRefs({ db, refs });
+    // No edge into the C++ Widget class.
+    expect(result.edges.some((e) => e.to_id === 'cpp:Widget')).toBe(false);
+  });
+
+  it('P5-2: allows the C++ ↔ GLSL shader bridge (LOADS_SHADER not gated)', () => {
+    // The shader File node lives in a different language family (glsl) than the
+    // C++ caller, but LOADS_SHADER is the sanctioned bridge and must resolve.
+    upsertNode(db, {
+      id: 'shader:cas',
+      type: 'File',
+      label: 'cas.comp.glsl',
+      file_path: 'shaders/cas.comp.glsl',
+      start_line: 0,
+      end_line: 0,
+      language: 'glsl',
+      confidence: 1.0,
+      structural_fp: 'ssh',
+      dependency_fp: 'dsh',
+      extra: { qname: 'shaders.cas.comp' },
+    });
+    const refs = [
+      {
+        from_id: 'cpp:compiler',
+        from_label: 'ShaderCompiler',
+        relation: 'LOADS_SHADER',
+        target: 'cas.comp.glsl',
+        source_file: 'src/ShaderCompiler.cpp',
+        source_line: 88,
+        confidence: 0.9,
+        extractor: 'cpp',
+      },
+    ];
+    const result = resolveRefs({ db, refs });
+    expect(result.edges).toEqual([
+      expect.objectContaining({ from_id: 'cpp:compiler', to_id: 'shader:cas', relation: 'LOADS_SHADER' }),
+    ]);
+  });
+
   it('resolves against a large node table without any full-table node load', () => {
     for (let i = 0; i < 10000; i += 1) {
       upsertNode(db, {

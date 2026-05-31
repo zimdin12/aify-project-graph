@@ -1002,7 +1002,27 @@ rl.on('line', async (line) => {
     }
 
     try {
-      const repoRoot = args?.repo ?? process.cwd();
+      let repoRoot = args?.repo ?? process.cwd();
+      // P5-5: worktree redirect. If the server runs inside an ephemeral linked
+      // git worktree that has no `.aify-graph` of its own, redirect graph
+      // resolution to the MAIN working tree's root (where the durable graph
+      // lives) so we neither serve a vanishing graph nor clobber the parent
+      // checkout's. Only redirects when an explicit `repo` arg was NOT given
+      // (an explicit path is authoritative). A one-line notice is prepended to
+      // the verb output. Opt-out: APG_NO_WORKTREE_REDIRECT=1.
+      let worktreeNotice = null;
+      if (!args?.repo) {
+        try {
+          const { resolveGraphRoot } = await import('./freshness/git.js');
+          const wt = resolveGraphRoot(repoRoot);
+          if (wt.redirected) {
+            worktreeNotice = `running in a git worktree (${repoRoot}); graph resolved from the main checkout at ${wt.root}.`;
+            repoRoot = wt.root;
+          } else if (wt.isWorktree) {
+            worktreeNotice = `running in a git worktree (${repoRoot}); using this worktree's own .aify-graph (the main checkout's graph was not redirected).`;
+          }
+        } catch { /* best-effort — never block a verb on worktree detection */ }
+      }
       // Loud, actionable error when the resolved repoRoot has no .aify-graph
       // AND no explicit repo arg was passed. Surfaced because the
       // 2026-04-26 echoes A/B test found agents silently retrying live
@@ -1063,11 +1083,17 @@ rl.on('line', async (line) => {
           // best-effort — never block a verb on staleness detection
         }
       }
+      // P5-5: fold the worktree notice into the same warning channel as the
+      // staleness warning so read verbs surface it without a new field shape.
+      const notices = [];
+      if (worktreeNotice) notices.push(worktreeNotice);
+      if (stalenessWarning) notices.push(stalenessWarning);
       let text;
       if (typeof result === 'string') {
-        text = stalenessWarning ? `WARNING: ${stalenessWarning}\n\n${result}` : result;
+        const prefix = notices.map((n) => `WARNING: ${n}`).join('\n');
+        text = prefix ? `${prefix}\n\n${result}` : result;
       } else {
-        const wrapped = stalenessWarning ? { _warnings: [stalenessWarning], ...result } : result;
+        const wrapped = notices.length ? { _warnings: notices, ...result } : result;
         text = JSON.stringify(wrapped, null, 2);
       }
       send({ jsonrpc: '2.0', id: req.id, result: { content: [{ type: 'text', text }] } });

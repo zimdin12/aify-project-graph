@@ -27,6 +27,59 @@ export class LspClient extends EventEmitter {
     // (warmed + ready signal). Increments per successful didOpen.
     this.workspaceWarmCount = 0;
     this.started = false;
+    // P5-3: parent-liveness poll. A long-lived clangd child spawned below can
+    // outlive a HARD-killed parent (kill -9 leaves no chance to run shutdown),
+    // leaking the process plus its file watches / on-disk index WAL. We record
+    // the parent pid at start and poll it; if the parent dies we shut the child
+    // down ourselves. Cheap (one process.kill(pid,0) per interval), cleared on
+    // normal shutdown, and opt-outable via APG_PPID_POLL_MS=0.
+    this._ppidPollTimer = null;
+    this._initialPpid = null;
+  }
+
+  // Start a lightweight poll that shuts this client's child process down if
+  // the parent process dies. Default interval 5s; APG_PPID_POLL_MS overrides,
+  // and APG_PPID_POLL_MS=0 disables. `env`/`onOrphaned` are injectable so the
+  // behaviour is unit-testable without spawning a real parent.
+  _startPpidPoll({ env = process.env, onOrphaned } = {}) {
+    const raw = env?.APG_PPID_POLL_MS;
+    const intervalMs = raw === undefined ? 5000 : Number(raw);
+    if (!Number.isFinite(intervalMs) || intervalMs <= 0) return; // disabled / invalid → opt-out
+    this._initialPpid = typeof process.ppid === 'number' ? process.ppid : null;
+    const isParentAlive = () => {
+      // On POSIX a reaped parent reparents us to init (ppid → 1) and the
+      // original ppid is gone. On any platform, kill(pid, 0) throwing ESRCH
+      // means the process no longer exists. Treat ppid flipping to 1 (when it
+      // didn't start there) as orphaned too, so we don't wait for the pid to
+      // be recycled.
+      const currentPpid = typeof process.ppid === 'number' ? process.ppid : null;
+      if (this._initialPpid && this._initialPpid !== 1 && currentPpid === 1) return false;
+      if (this._initialPpid == null) return true; // can't tell — assume alive
+      try {
+        process.kill(this._initialPpid, 0);
+        return true;
+      } catch (err) {
+        // EPERM means the process exists but we can't signal it → still alive.
+        return err?.code === 'EPERM';
+      }
+    };
+    const tick = () => {
+      if (this._ppidPollTimer == null) return;
+      if (isParentAlive()) return;
+      this._stopPpidPoll();
+      if (typeof onOrphaned === 'function') { try { onOrphaned(); } catch { /* swallow */ } }
+      // Best-effort self-shutdown; don't await (timer context).
+      try { this.shutdown(); } catch { /* swallow */ }
+    };
+    this._ppidPollTimer = setInterval(tick, intervalMs);
+    if (typeof this._ppidPollTimer.unref === 'function') this._ppidPollTimer.unref();
+  }
+
+  _stopPpidPoll() {
+    if (this._ppidPollTimer != null) {
+      clearInterval(this._ppidPollTimer);
+      this._ppidPollTimer = null;
+    }
   }
 
   async start() {
@@ -111,10 +164,15 @@ export class LspClient extends EventEmitter {
     this._notify('initialized', {});
     this.serverCapabilities = initResult?.capabilities || {};
     this.started = true;
+    // P5-3: begin the parent-liveness poll now that the child is live.
+    this._startPpidPoll();
     return initResult;
   }
 
   async shutdown() {
+    // Always clear the orphan poll first — even on a no-op shutdown — so the
+    // interval can't keep the process alive or fire after teardown.
+    this._stopPpidPoll();
     if (!this.started) return;
     try {
       await this._request('shutdown', null);

@@ -1,7 +1,8 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { readDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
 import { loadManifest } from './manifest.js';
+import { readJsonCappedSafe } from '../util/json.js';
 
 const CLASSIFIERS = [
   {
@@ -168,11 +169,8 @@ export function renderUnresolvedCategorizationReport(output) {
 }
 
 export function readArtifactIndexedAt(filePath) {
-  if (!existsSync(filePath)) return null;
-  try {
-    const raw = JSON.parse(readFileSync(filePath, 'utf8'));
-    return raw.graph_indexed_at ?? null;
-  } catch {
-    return null;
-  }
+  // P5-1: size-capped read. readJsonCappedSafe returns null on missing,
+  // over-cap, or parse failure — preserving the existing lenient contract.
+  const raw = readJsonCappedSafe(filePath);
+  return raw?.graph_indexed_at ?? null;
 }

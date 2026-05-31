@@ -1,6 +1,7 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_JSON_MAX_BYTES } from '../util/json.js';
 
 const MANIFEST_FILE = 'manifest.json';
 
@@ -24,6 +25,16 @@ export async function loadManifest(graphDir) {
   const manifestPath = join(graphDir, MANIFEST_FILE);
 
   try {
+    // P5-1: size-cap the manifest before reading it into memory. A corrupt
+    // or maliciously huge manifest.json must not OOM the server; treat
+    // over-cap the same as a corrupt file (degrade to defaults).
+    const cap = Number(process.env.APG_JSON_MAX_BYTES) > 0
+      ? Number(process.env.APG_JSON_MAX_BYTES)
+      : DEFAULT_JSON_MAX_BYTES;
+    const { size } = await stat(manifestPath);
+    if (size > cap) {
+      return { status: 'corrupt', manifest: defaultManifest() };
+    }
     const raw = await readFile(manifestPath, 'utf8');
     return {
       status: 'ok',

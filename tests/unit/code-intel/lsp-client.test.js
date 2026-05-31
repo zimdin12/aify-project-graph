@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import path from 'node:path';
 import { LspClient } from '../../../mcp/stdio/code-intel/lsp-client.js';
 
@@ -143,5 +143,64 @@ describe('LspClient (against fake server)', () => {
     const hover = await client.hover('file:///r/src/foo.cpp', { line: 0, character: 5 });
     expect(hover.contents.value).toMatch(/void foo/);
     await client.shutdown();
+  });
+});
+
+describe('P5-3: clangd orphan self-exit (PPID poll)', () => {
+  it('shuts the child down when the parent process is detected dead', async () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    await client.start();
+    const shutdownSpy = vi.spyOn(client, 'shutdown');
+    let orphaned = false;
+    // Drive the poll directly with a fast interval and a parent-liveness probe
+    // that always reports "dead". _startPpidPoll re-reads APG_PPID_POLL_MS, so
+    // restart it with a tiny interval and a forced-dead process.kill.
+    client._stopPpidPoll();
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation((pid, sig) => {
+      if (sig === 0) { const e = new Error('no such process'); e.code = 'ESRCH'; throw e; }
+      return true;
+    });
+    client._startPpidPoll({ env: { APG_PPID_POLL_MS: '10' }, onOrphaned: () => { orphaned = true; } });
+    await new Promise(r => setTimeout(r, 60));
+    killSpy.mockRestore();
+    expect(orphaned).toBe(true);
+    expect(shutdownSpy).toHaveBeenCalled();
+    // Timer should be cleared after firing.
+    expect(client._ppidPollTimer).toBeNull();
+    await client.shutdown();
+  });
+
+  it('does NOT shut down while the parent is alive', async () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    await client.start();
+    let orphaned = false;
+    client._stopPpidPoll();
+    // process.kill(pid,0) succeeds → parent alive. Force ppid stable too.
+    const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
+    client._startPpidPoll({ env: { APG_PPID_POLL_MS: '10' }, onOrphaned: () => { orphaned = true; } });
+    await new Promise(r => setTimeout(r, 60));
+    killSpy.mockRestore();
+    expect(orphaned).toBe(false);
+    expect(client._ppidPollTimer).not.toBeNull();
+    await client.shutdown();
+  });
+
+  it('is opt-outable via APG_PPID_POLL_MS=0 (no timer started)', async () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    await client.start();
+    client._stopPpidPoll();
+    client._startPpidPoll({ env: { APG_PPID_POLL_MS: '0' } });
+    expect(client._ppidPollTimer).toBeNull();
+    await client.shutdown();
+  });
+
+  it('shutdown() clears the poll timer', async () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    await client.start();
+    client._stopPpidPoll();
+    client._startPpidPoll({ env: { APG_PPID_POLL_MS: '10000' } });
+    expect(client._ppidPollTimer).not.toBeNull();
+    await client.shutdown();
+    expect(client._ppidPollTimer).toBeNull();
   });
 });

@@ -22,7 +22,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { isIgnoredDirName, IGNORED_DIRS } from '../ingest/ignored-dirs.js';
+import {
+  isIgnoredDirName,
+  pathContainsIgnoredDir,
+  IGNORED_DIRS,
+} from '../ingest/ignored-dirs.js';
 
 const DEFAULT_DEBOUNCE_MS = 750;
 
@@ -94,10 +98,29 @@ export function startWatcher({
   function queueEvent(event, filename) {
     if (stopped) return;
     if (!filename) return; // platforms occasionally fire with null filename
-    // Per-event ignored-dir gate. fs.watch returns paths relative to the
-    // watched root; ignored-dir paths shouldn't trigger an index rebuild.
-    const head = String(filename).replace(/\\/g, '/').split('/')[0];
-    if (isIgnoredDirName(head, ignoredDirs)) return;
+    // P5-4: inotify-budget hygiene. Node's recursive fs.watch registers ONE
+    // descriptor at the root (FSEvents / ReadDirectoryChangesW / inotify
+    // recursive) — we deliberately do NOT register a watch per directory, so
+    // there is nothing to "exclude before registering": the single recursive
+    // watch is already the cheapest possible registration and never blows the
+    // OS watch-descriptor budget on large repos.
+    //
+    // What we DO gate is which events reach the debounce/rebuild path. Earlier
+    // this only checked the TOP-LEVEL segment, so a nested ignored dir
+    // (`src/node_modules/...`, `pkg/build-x/...`, `.claude/worktrees/...`)
+    // still triggered a rebuild. Check the FULL relative path against the
+    // ignored-dir rules (handles nested segments, build-prefix rules, and
+    // path-patterns) and drop the event before it queues any work.
+    const rel = String(filename).replace(/\\/g, '/');
+    // Check EVERY segment, not just leading or dir-only ones. fs.watch on
+    // Windows frequently reports a directory change (e.g. `pkg/node_modules`)
+    // where the ignored name is the trailing segment — pathContainsIgnoredDir
+    // (which treats the last segment as a filename) would let it through. The
+    // path-pattern rules (e.g. `.claude/worktrees`) still need the full-path
+    // check, so apply both.
+    const segments = rel.split('/').filter(Boolean);
+    if (segments.some((seg) => isIgnoredDirName(seg, ignoredDirs))) return;
+    if (pathContainsIgnoredDir(rel, ignoredDirs)) return;
     if (!pending) pending = [];
     pending.push({ event, filename: String(filename).replace(/\\/g, '/'), at: Date.now() });
     if (pendingTimer) clearTimeout(pendingTimer);

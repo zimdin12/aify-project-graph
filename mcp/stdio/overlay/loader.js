@@ -6,8 +6,9 @@
 // evolve without locking us into schema decisions, and keeps hand-edits
 // transparent/diffable.
 
-import { readFileSync, existsSync, statSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { readJsonCapped } from '../util/json.js';
 
 // v0.1 schema:
 //   {
@@ -42,7 +43,10 @@ export function loadFunctionality(repoRoot) {
   if (!existsSync(path)) return { version: null, features: [], mtime: 0, path };
   try {
     const mtime = statSync(path).mtimeMs;
-    const raw = JSON.parse(readFileSync(path, 'utf8'));
+    // P5-1: size-capped read guards against a corrupt/huge functionality.json
+    // OOMing the server. mustExist:true so the existsSync guard above stays
+    // the single source of truth for the "no overlay" return shape.
+    const raw = readJsonCapped(path, { mustExist: true });
     const features = Array.isArray(raw.features) ? raw.features.map(normalizeFeature) : [];
     return { version: raw.version || '0.1', features, mtime, path };
   } catch (err) {
