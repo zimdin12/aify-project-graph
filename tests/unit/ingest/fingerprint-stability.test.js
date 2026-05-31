@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { extractFile } from '../../../mcp/stdio/ingest/extractors/generic.js';
+import { fileStructuralFingerprint } from '../../../mcp/stdio/ingest/fingerprint.js';
 import python from '../../../mcp/stdio/ingest/languages/python.js';
 import php from '../../../mcp/stdio/ingest/languages/php.js';
 import typescript from '../../../mcp/stdio/ingest/languages/typescript.js';
@@ -66,5 +67,36 @@ describe('extractor fingerprint stability', () => {
     expect(beforeNode.id).toBe(afterNode.id);
     expect(beforeNode.structural_fp).toBe(afterNode.structural_fp);
     expect(beforeNode.dependency_fp).not.toBe(afterNode.dependency_fp);
+  });
+});
+
+describe('P1-6 file-level structural fingerprint', () => {
+  const fp = (source) => fileStructuralFingerprint(
+    extractFile({ filePath: 'src/worker.py', source, config: python }),
+  );
+
+  it('is stable across a body-only edit (literal / comment change)', () => {
+    expect(fp('def run():\n    return 1\n'))
+      .toBe(fp('def run():\n    # comment\n    return 2\n'));
+  });
+
+  it('changes when a function signature changes', () => {
+    expect(fp('def run():\n    return 1\n'))
+      .not.toBe(fp('def run(verbose):\n    return 1\n'));
+  });
+
+  it('changes when a call is ADDED in the body (call-set guard)', () => {
+    expect(fp('def run():\n    helper()\n'))
+      .not.toBe(fp('def run():\n    helper()\n    other()\n'));
+  });
+
+  it('changes when a call is REMOVED in the body', () => {
+    expect(fp('def run():\n    helper()\n    other()\n'))
+      .not.toBe(fp('def run():\n    helper()\n'));
+  });
+
+  it('changes when a new symbol/member is added', () => {
+    expect(fp('def run():\n    return 1\n'))
+      .not.toBe(fp('def run():\n    return 1\n\ndef helper():\n    return 2\n'));
   });
 });

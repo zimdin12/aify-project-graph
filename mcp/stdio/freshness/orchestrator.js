@@ -8,6 +8,8 @@ import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
 import { getHeadCommit, getDirtyFileEntries, getChangedFiles } from './git.js';
 import { loadManifest, writeManifest } from './manifest.js';
 import { readDirtyEdgesSidecar, writeDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
+import { readStructuralFpSidecar, writeStructuralFpSidecar } from './structural-fp-sidecar.js';
+import { fileStructuralFingerprint } from '../ingest/fingerprint.js';
 import { countTrustRelevantDirtyEdges } from './unresolved-metrics.js';
 import { withWriteLock } from './lock.js';
 import { getLanguageConfig } from '../ingest/languages/index.js';
@@ -76,11 +78,19 @@ export async function ensureFresh({
   allowLargePartialResume = true,
   partialResumeLimit = 250,
 }) {
-  // Fast path: if we confirmed freshness recently and no force, return cached result
+  // Fast path: if we confirmed freshness recently and no force, return the
+  // cached result — but only if HEAD hasn't moved since. P1-6 makes cosmetic
+  // (body-only) edits resolve to a cached noop; without the commit guard, a
+  // real structural change committed within the TTL window would be masked by
+  // a stale cache entry. getHeadCommit is one cheap git call, far cheaper than
+  // the dirty-scan + extraction it short-circuits.
   if (!force) {
     const cached = freshCache.get(repoRoot);
     if (cached && Date.now() - cached.ts < FRESH_TTL_MS) {
-      return cached.result;
+      const headNow = await getHeadCommit(repoRoot).catch(() => undefined);
+      if (headNow === undefined || cached.commit === undefined || headNow === cached.commit) {
+        return cached.result;
+      }
     }
   }
 
@@ -103,7 +113,7 @@ export async function ensureFresh({
       try {
         if (countNodes(db) > 0) {
           const deferredResult = buildDeferredPartialResumeResult({ db, manifest, commit });
-          freshCache.set(repoRoot, { ts: Date.now(), result: deferredResult });
+          freshCache.set(repoRoot, { ts: Date.now(), commit: commit ?? undefined, result: deferredResult });
           return deferredResult;
         }
       } finally {
@@ -113,17 +123,20 @@ export async function ensureFresh({
   }
 
   return withWriteLock(repoRoot, async () => {
-    // Double-check cache inside lock (another call may have populated it)
+    const manifestState = await loadManifest(graphDir);
+    const manifest = manifestState.manifest;
+    const commit = await getHeadCommit(repoRoot);
+
+    // Double-check cache inside lock (another call may have populated it) —
+    // but only trust it if it was recorded at the current HEAD.
     if (!force) {
       const cached = freshCache.get(repoRoot);
-      if (cached && Date.now() - cached.ts < FRESH_TTL_MS) {
+      if (cached && Date.now() - cached.ts < FRESH_TTL_MS
+        && (cached.commit === undefined || cached.commit === commit)) {
         return cached.result;
       }
     }
 
-    const manifestState = await loadManifest(graphDir);
-    const manifest = manifestState.manifest;
-    const commit = await getHeadCommit(repoRoot);
     const dirtyEntries = await getDirtyFileEntries(repoRoot);
     const dirtyFiles = [...new Set([
       ...dirtyEntries.map((entry) => entry.path),
@@ -164,6 +177,14 @@ export async function ensureFresh({
       const effectiveIgnoredDirs = loadEffectiveIgnoredDirs(repoRoot);
       let filesToProcess;
       let resumedFromPartial = false;
+      // P1-6: files whose content changed but whose STRUCTURAL shape did not
+      // (body/comment/whitespace/literal edits). These keep their existing
+      // nodes/edges and are skipped from re-extraction + re-resolution.
+      let cosmeticSkippedFiles = [];
+      // Carry-forward fp map: stored structural fingerprints for files we did
+      // NOT re-extract this run (cosmetic skips + untouched files), so the
+      // sidecar stays complete after an incremental run.
+      let preservedFingerprints = null;
       if (fullRebuild) {
         filesToProcess = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
       } else if (canResumeFromPartial) {
@@ -173,7 +194,7 @@ export async function ensureFresh({
         if (!allowLargePartialResume) {
           const deferredResult = buildDeferredPartialResumeResult({ db, manifest, commit });
           deferredResult.alreadyProcessedFiles = alreadyProcessed.size;
-          freshCache.set(repoRoot, { ts: Date.now(), result: deferredResult });
+          freshCache.set(repoRoot, { ts: Date.now(), commit: commit ?? undefined, result: deferredResult });
           return deferredResult;
         }
         const allFiles = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
@@ -183,17 +204,60 @@ export async function ensureFresh({
         // refs for pre-crash files may be incomplete until next force rebuild.
         console.warn(`[aify-project-graph] Resuming crashed rebuild: ${alreadyProcessed.size} files already indexed, ${filesToProcess.length} pending. Run graph_index(force=true) for a clean rebuild if cross-file edges look incomplete.`);
       } else {
-        filesToProcess = await expandAffectedFiles(db, repoRoot, initialChanged);
+        // P1-6 tiered rebuild: classify each DIRECTLY-changed file as
+        // cosmetic (structural fingerprint unchanged → keep nodes/edges, skip
+        // re-resolution) or structural (re-extract + re-resolve as today). The
+        // content/mtime "did it change at all" decision already happened
+        // upstream (git dirty/changed); this is the SECOND tier between
+        // "unchanged" and "structurally changed".
+        //
+        // CONSERVATIVE by construction: we only mark a file cosmetic when we
+        // have a STORED fingerprint to compare against AND the freshly-computed
+        // one matches exactly. New files (no stored fp), deleted/missing files,
+        // unparseable files, or any error → treated as structural (full handle).
+        const storedFps = await readStructuralFpSidecar(graphDir);
         const dirtyEntryMap = new Map(dirtyEntries.map((entry) => [entry.path, entry]));
+        const structuralChanged = [];
+        const cosmetic = [];
+        for (const relPath of initialChanged) {
+          if (pathContainsIgnoredDir(relPath, effectiveIgnoredDirs)) continue;
+          if (shouldDeferUntrackedFreshness(db, relPath, dirtyEntryMap.get(relPath))) continue;
+          const classification = await classifyChangedFile({
+            db, repoRoot, relPath, storedFp: storedFps.get(relPath),
+          });
+          if (classification === 'cosmetic') {
+            cosmetic.push(relPath);
+          } else {
+            structuralChanged.push(relPath);
+          }
+        }
+        cosmeticSkippedFiles = cosmetic;
+
+        // Only structural changes pull in their callers for re-resolution — a
+        // cosmetic edit can't have altered any edge, so dependents are safe.
+        filesToProcess = await expandAffectedFiles(db, repoRoot, structuralChanged);
+        // A cosmetic file may have been re-added as a caller of a structural
+        // file; if so it must be re-resolved (its calls into the structural
+        // file matter), so drop it from the cosmetic set in that case.
+        const toProcessSet = new Set(filesToProcess);
+        cosmeticSkippedFiles = cosmetic.filter((p) => !toProcessSet.has(p));
         filesToProcess = filesToProcess
           .filter((filePath) => !pathContainsIgnoredDir(filePath, effectiveIgnoredDirs))
           .filter((filePath) => {
             const entry = dirtyEntryMap.get(filePath);
             return !shouldDeferUntrackedFreshness(db, filePath, entry);
           });
+
+        // Preserve stored fingerprints for the cosmetic-skipped files so the
+        // rewritten sidecar stays complete (they keep their old, still-correct
+        // structural fp).
+        preservedFingerprints = storedFps;
       }
 
-      // Noop path: if no files to process and not a full rebuild, return early
+      // Noop path: if no files to process and not a full rebuild, return early.
+      // This now also covers the all-cosmetic case: every changed file was a
+      // body-only edit, so there is nothing to re-extract or re-resolve — we
+      // just report how many we skipped.
       if (!fullRebuild && filesToProcess.length === 0) {
         const trustDirtyEdgeCount = manifest.trustDirtyEdgeCount
           ?? (manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length);
@@ -210,8 +274,15 @@ export async function ensureFresh({
           unresolvedEdges: manifest.dirtyEdgeCount ?? (manifest.dirtyEdges ?? []).length,
           nodes: manifest.nodes ?? 0, edges: manifest.edges ?? 0,
           processedFiles: [],
+          cosmeticSkipped: cosmeticSkippedFiles.length,
         };
-        freshCache.set(repoRoot, { ts: Date.now(), result: noopResult });
+        // Commit may advance on a pure body-edit (HEAD moved). Refresh the
+        // manifest commit so we don't re-diff the same range next call, but
+        // leave node/edge state and fingerprints untouched.
+        if (commit && manifest.commit !== commit) {
+          await writeManifest(graphDir, { ...manifest, commit, status: 'ok' });
+        }
+        freshCache.set(repoRoot, { ts: Date.now(), commit: commit ?? undefined, result: noopResult });
         return noopResult;
       }
 
@@ -262,6 +333,10 @@ export async function ensureFresh({
         ));
       const refs = [...specialPlugins.refs, ...carryForward];
       const existingFiles = [];
+      // P1-6: structural fingerprints computed for files we (re-)extract this
+      // run. Merged with preserved fingerprints (cosmetic + untouched files)
+      // before the sidecar is written.
+      const computedFingerprints = new Map();
 
       // Extract in bounded chunks so a mid-run failure only loses the current chunk.
       let chunkSize = 0;
@@ -310,6 +385,7 @@ export async function ensureFresh({
           for (const node of extracted.nodes) upsertNode(db, node);
           for (const edge of extracted.edges) upsertEdge(db, edge);
           refs.push(...extracted.refs);
+          computedFingerprints.set(relPath, fileStructuralFingerprint(extracted));
           chunkSize += 1;
           if (chunkSize >= EXTRACTION_CHUNK_SIZE) {
             db.raw.exec('COMMIT');
@@ -417,7 +493,36 @@ export async function ensureFresh({
       await writeManifest(graphDir, nextManifest);
       await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
 
-      return {
+      // P1-6: persist the per-file structural fingerprints. On a full rebuild
+      // the freshly-computed set is authoritative. On an incremental run we
+      // start from the preserved (stored) map — keeping fingerprints for
+      // cosmetic-skipped and untouched files — and overlay the files we just
+      // re-extracted, pruning any that were deleted this run.
+      try {
+        const nextFingerprints = preservedFingerprints
+          ? new Map(preservedFingerprints)
+          : new Map();
+        for (const [filePath, fp] of computedFingerprints) {
+          nextFingerprints.set(filePath, fp);
+        }
+        if (!fullRebuild) {
+          // Drop fingerprints for files that no longer have a File node (the
+          // loop deletes nodes for missing/ignored files as it goes).
+          const liveFiles = new Set(
+            db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File' AND file_path != ''`)
+              .map((row) => row.file_path),
+          );
+          for (const filePath of [...nextFingerprints.keys()]) {
+            if (!liveFiles.has(filePath)) nextFingerprints.delete(filePath);
+          }
+        }
+        await writeStructuralFpSidecar(graphDir, nextFingerprints);
+      } catch {
+        // Sidecar write is best-effort: a failure just disables the cosmetic
+        // fast-path next run (everything treated structural) — never fatal.
+      }
+
+      const result = {
         indexed: true,
         commit,
         indexedAt: nextManifest.indexedAt,
@@ -432,7 +537,9 @@ export async function ensureFresh({
         edges: edgeCount,
         processedFiles: existingFiles,
         resumedFromPartial,
+        cosmeticSkipped: cosmeticSkippedFiles.length,
       };
+      return result;
     } finally {
       db.close();
     }
@@ -479,6 +586,52 @@ function maybeGetLanguageConfig(filePath) {
   } catch {
     return null;
   }
+}
+
+// P1-6: classify a directly-changed file as 'cosmetic' or 'structural'.
+// Returns 'cosmetic' ONLY when we have a stored fingerprint AND the file still
+// parses to the identical structural shape (signatures + members + imports +
+// the full outgoing call/ref target set). Everything else — no stored fp (new
+// file), missing/oversize/unparseable file, or any mismatch — is 'structural',
+// the safe default. The file must also already exist in the graph for a skip
+// to be meaningful (otherwise there are no existing nodes/edges to keep).
+async function classifyChangedFile({ db, repoRoot, relPath, storedFp }) {
+  if (!storedFp) return 'structural';
+
+  const absPath = join(repoRoot, relPath);
+  if (!existsSync(absPath)) return 'structural'; // deleted → full handle
+
+  const config = maybeGetLanguageConfig(relPath);
+  if (!config) return 'structural';
+
+  // The file must already be in the graph for a cosmetic skip to preserve
+  // anything; if it isn't (somehow), re-extract it.
+  if (getNodesByFile(db, relPath).length === 0) return 'structural';
+
+  let fileStat;
+  try {
+    fileStat = await stat(absPath);
+  } catch {
+    return 'structural';
+  }
+  if (fileStat.size > 1_000_000) return 'structural';
+
+  let source;
+  try {
+    source = await readFile(absPath, 'utf8');
+  } catch {
+    return 'structural';
+  }
+
+  let extracted;
+  try {
+    extracted = extractFile({ filePath: relPath, source, config });
+  } catch {
+    return 'structural';
+  }
+
+  const freshFp = fileStructuralFingerprint(extracted);
+  return freshFp === storedFp ? 'cosmetic' : 'structural';
 }
 
 async function expandAffectedFiles(db, repoRoot, changedFiles) {
