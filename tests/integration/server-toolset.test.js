@@ -86,6 +86,7 @@ describe('server toolset selection', () => {
       'graph_health',
       'graph_packet',
       'graph_pull',
+      'graph_watch',
     ]);
   });
 
@@ -98,6 +99,7 @@ describe('server toolset selection', () => {
       'graph_health',
       'graph_packet',
       'graph_pull',
+      'graph_watch',
     ]);
   });
 
