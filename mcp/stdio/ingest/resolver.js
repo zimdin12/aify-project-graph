@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { resolveImportSpecifier, probeWithExtensions } from './import-resolution.js';
 
 function parseExtra(node) {
   if (!node?.extra) return {};
@@ -349,7 +350,75 @@ function pickProvenance(matches, fallback = 'EXTRACTED') {
   return 'AMBIGUOUS';
 }
 
-function resolveTarget(ref, resolvers) {
+// P3-2: import-evidence resolution for short-name CALLS/REFERENCES.
+//
+// graphify Tier-A: resolve a short-name call ONLY when the callee matches one
+// of the importing file's import aliases AND that resolves to exactly ONE node.
+// Guardrails (both codegraph #314 and graphify insist):
+//   - unique candidate only (>1 → leave to the generic passes / INFERRED);
+//   - never let a Document node satisfy a code CALLS/REFERENCES;
+//   - respect COMMON_NAMES denylist and the language-family gate;
+//   - only applies to bare short names (no `.`/`/`) — qualified targets already
+//     have a resolution path.
+function resolveViaImportEvidence(ref, resolvers, importContext) {
+  if (ref.relation !== 'CALLS' && ref.relation !== 'REFERENCES') return null;
+  const target = ref.target;
+  if (!target || /[.\\/]/u.test(target)) return null;
+  if (COMMON_NAMES.has(target)) return null;
+
+  // The per-file import map is attached at extract time (js-import-evidence.js)
+  // as ref.importMap = { localName: { source, exportedName } }. Without it we
+  // have no evidence — bail (no guess).
+  const importMap = ref.importMap;
+  if (!importMap || typeof importMap !== 'object') return null;
+  const entry = importMap[target];
+  if (!entry) return null;
+
+  // Resolve the import source to a real repo-relative file (extension-probe +
+  // tsconfig alias). If the source isn't an intra-repo file (bare npm), there
+  // is no local node to point at — leave unresolved.
+  const resolvedFile = importContext
+    ? resolveImportSpecifier({ specifier: entry.source, importerFile: ref.source_file, ctx: importContext })
+    : null;
+
+  // Candidate symbols for this short name. Prefer the exported name when the
+  // alias was `import { exportedName as target }`.
+  const exportedName = entry.exportedName && entry.exportedName !== 'default' && entry.exportedName !== '*'
+    ? entry.exportedName
+    : target;
+  const rawCandidates = [
+    ...resolvers.findByLabel(target),
+    ...(exportedName !== target ? resolvers.findByLabel(exportedName) : []),
+  ];
+  // Never let a doc/non-code node satisfy a code call.
+  const codeCandidates = rawCandidates.filter((n) => n.type !== 'Document' && n.type !== 'Directory' && n.type !== 'External');
+  const familyFiltered = filterByLanguageFamily(codeCandidates, ref);
+  if (familyFiltered.length === 0) return null;
+
+  // If we resolved the import to a concrete file, narrow candidates to that
+  // file — this is the strongest evidence and disambiguates duplicate simple
+  // names across the repo (codegraph #314 alias-narrowing).
+  if (resolvedFile) {
+    const inFile = familyFiltered.filter((n) => n.file_path === resolvedFile);
+    if (inFile.length === 1) return { node: inFile[0], provenance: 'INFERRED' };
+    if (inFile.length > 1) return null; // ambiguous within the imported file
+    // Import source resolved to a file but no symbol there matched the name:
+    // the symbol is likely re-exported / not extracted. Do NOT fall through to
+    // a repo-wide label match (that's the wrong-edge risk). Bail.
+    return null;
+  }
+
+  // No concrete file (e.g. tsconfig unavailable). Accept ONLY a globally unique
+  // candidate — the unique-match guarantee is what keeps this from inflating
+  // wrong edges.
+  const seen = new Map();
+  for (const n of familyFiltered) seen.set(n.id, n);
+  const unique = [...seen.values()];
+  if (unique.length === 1) return { node: unique[0], provenance: 'INFERRED' };
+  return null;
+}
+
+function resolveTarget(ref, resolvers, importContext = null) {
   // L5 shader bridge: LOADS_SHADER refs target a shader filename (usually a
   // bare basename like "cas.comp.glsl" loaded via ShaderCompiler::loadFile).
   // Resolve against the shader File node by file-path suffix FIRST — before
@@ -399,6 +468,36 @@ function resolveTarget(ref, resolvers) {
     if (filePathMatch) return { node: filePathMatch, provenance: pickProvenance(filePathMatches, 'INFERRED') };
   }
 
+  // P3-1: JS/TS IMPORTS extension-probe + tsconfig path-alias resolution.
+  // The extractor emits relative imports as extensionless `dir/foo` and leaves
+  // alias specifiers (`@/foo`, `~/foo`) raw. Neither matches a File node whose
+  // path is `dir/foo.js`. Probe the candidate fileset (TS/JS/index ladder) and
+  // tsconfig aliases to recover the real file, then attach to its File node.
+  // Additive: only fires for currently-unresolved IMPORTS and only ever yields
+  // a path that EXISTS in the candidate set, so it cannot create a wrong edge.
+  if (ref.relation === 'IMPORTS' && importContext
+    && (ref.extractor === 'javascript' || ref.extractor === 'typescript')) {
+    // Two shapes reach here: a normalized relative path (`dir/foo`, no leading
+    // dot) and a raw alias/bare specifier (`@/foo`). probeWithExtensions covers
+    // the former directly; resolveImportSpecifier covers aliases (and re-probes
+    // the former harmlessly).
+    let repoRelFile = probeWithExtensions(ref.target, importContext.fileSet);
+    if (!repoRelFile) {
+      repoRelFile = resolveImportSpecifier({
+        specifier: ref.target,
+        importerFile: ref.source_file,
+        ctx: importContext,
+      });
+    }
+    if (repoRelFile) {
+      const fileMatches = resolvers.findByFilePathSuffix(repoRelFile);
+      const exact = fileMatches.find((m) => m.file_path === repoRelFile);
+      if (exact) return { node: exact, provenance: 'INFERRED' };
+      const fileMatch = preferProximate(fileMatches, ref.source_file);
+      if (fileMatch) return { node: fileMatch, provenance: pickProvenance(fileMatches, 'INFERRED') };
+    }
+  }
+
   const labelRaw = resolvers.findByLabel(ref.target);
   const labelMatches = filterByLanguageFamily(labelRaw, ref);
   if (COMMON_NAMES.has(ref.target)) {
@@ -409,6 +508,13 @@ function resolveTarget(ref, resolvers) {
 
   const labelMatch = preferProximate(labelMatches, ref.source_file);
   if (labelMatch) return { node: labelMatch, provenance: pickProvenance(labelMatches, 'EXTRACTED') };
+
+  // P3-2: import-evidence resolution. The generic label/proximity passes above
+  // couldn't disambiguate this short name; consult the file's imports. Gated to
+  // unique-match (or unique-within-imported-file) so it drops fixable counts
+  // without inflating wrong edges.
+  const viaImport = resolveViaImportEvidence(ref, resolvers, importContext);
+  if (viaImport) return viaImport;
 
   return resolveViaInheritance(ref, resolvers);
 }
@@ -472,7 +578,7 @@ function createExternalNode(ref, rawTarget = ref.target) {
   };
 }
 
-export function resolveRefs({ db, refs }) {
+export function resolveRefs({ db, refs, importContext = null }) {
   const resolvers = buildResolvers(db);
   const nodes = [];
   const seenNodeIds = new Set();
@@ -486,7 +592,7 @@ export function resolveRefs({ db, refs }) {
       source_file: ref.source_file,
       relation: ref.relation,
       extractor: ref.extractor,
-    }, resolvers);
+    }, resolvers, importContext);
   }
 
   function registerNode(node) {
@@ -533,7 +639,7 @@ export function resolveRefs({ db, refs }) {
       continue;
     }
 
-    const targetNode = resolveTarget(ref, resolvers);
+    const targetNode = resolveTarget(ref, resolvers, importContext);
     if (!targetNode) {
       if (symbolicChain || shouldMaterializeExternal(ref)) {
         const externalNode = createExternalNode(ref);

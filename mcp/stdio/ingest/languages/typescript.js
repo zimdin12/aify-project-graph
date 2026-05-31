@@ -1,6 +1,7 @@
 import { posix } from 'node:path';
 import TypeScript from 'tree-sitter-typescript';
 import { extractDecoratorReferences } from '../extractors/decorators.js';
+import { augmentJsImports } from '../js-import-evidence.js';
 
 function normalizeImportSource(text, filePath) {
   const raw = text.trim();
@@ -37,8 +38,8 @@ function extractImportTargets({ node, source, filePath }) {
   return targets;
 }
 
-function postExtractTypeScript({ tree, source, filePath, nodes }) {
-  return extractDecoratorReferences({
+function postExtractTypeScript({ tree, source, filePath, nodes, refs, fileNode }) {
+  const decorators = extractDecoratorReferences({
     tree,
     source,
     filePath,
@@ -46,6 +47,8 @@ function postExtractTypeScript({ tree, source, filePath, nodes }) {
     language: 'typescript',
     ownerTypes: ['class_declaration', 'method_definition', 'public_field_definition'],
   });
+  const extraImportRefs = augmentJsImports({ source, filePath, refs, extractor: 'typescript', fileNode });
+  return { refs: [...(decorators?.refs ?? []), ...extraImportRefs] };
 }
 
 export default {

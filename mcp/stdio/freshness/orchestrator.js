@@ -31,6 +31,8 @@ import { springPlugin } from '../ingest/frameworks/spring.js';
 import { cppFrameworksPlugin } from '../ingest/frameworks/cpp_frameworks.js';
 import { shaderBindingsPlugin } from '../ingest/frameworks/shader_bindings.js';
 import { resolveRefs } from '../ingest/resolver.js';
+import { getGitCandidateFiles } from '../ingest/git-candidates.js';
+import { buildImportContext } from '../ingest/import-resolution.js';
 import { synthesizeVirtualOverrides } from '../ingest/frameworks/virtual_overrides.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
@@ -328,9 +330,28 @@ export async function ensureFresh({
         throw err;
       }
 
+      // P3-1/P3-2: build the JS/TS import-resolution context (candidate fileset
+      // + tsconfig path-aliases). Prefer git's gitignore-aware candidate set;
+      // fall back to the File nodes already in the graph so extension-probe and
+      // alias resolution still work in non-git checkouts. Best-effort — a
+      // failure here just means the import-evidence passes are skipped.
+      let importContext = null;
+      try {
+        let fileSet = getGitCandidateFiles(repoRoot);
+        if (!fileSet) {
+          fileSet = new Set(
+            db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File' AND file_path != ''`)
+              .map((row) => String(row.file_path).replace(/\\/g, '/')),
+          );
+        }
+        importContext = buildImportContext({ repoRoot, fileSet });
+      } catch {
+        importContext = null;
+      }
+
       let resolved = { edges: [], unresolved: [] };
       try {
-        resolved = resolveRefs({ db, refs });
+        resolved = resolveRefs({ db, refs, importContext });
         const batchResolvedGraph = db.transaction(() => {
           for (const node of resolved.nodes ?? []) upsertNode(db, node);
           for (const edge of resolved.edges) upsertEdge(db, edge);

@@ -1,6 +1,7 @@
 import { posix } from 'node:path';
 import TypeScript from 'tree-sitter-typescript';
 import { extractDecoratorReferences } from '../extractors/decorators.js';
+import { augmentJsImports } from '../js-import-evidence.js';
 
 function normalizeImportSource(text, filePath) {
   const raw = text.trim();
@@ -42,8 +43,8 @@ function extractImportTargets({ node, source, filePath }) {
   return targets;
 }
 
-function postExtractJavaScript({ tree, source, filePath, nodes }) {
-  return extractDecoratorReferences({
+function postExtractJavaScript({ tree, source, filePath, nodes, refs, fileNode }) {
+  const decorators = extractDecoratorReferences({
     tree,
     source,
     filePath,
@@ -51,6 +52,11 @@ function postExtractJavaScript({ tree, source, filePath, nodes }) {
     language: 'javascript',
     ownerTypes: ['class_declaration', 'method_definition', 'public_field_definition'],
   });
+  // P3-1 (require() CJS coverage) + P3-2 (import-evidence map). Mutates the
+  // existing CALLS/REFERENCES refs in place to attach the per-file import map,
+  // and returns extra IMPORTS refs for require() specifiers tree-sitter misses.
+  const extraImportRefs = augmentJsImports({ source, filePath, refs, extractor: 'javascript', fileNode });
+  return { refs: [...(decorators?.refs ?? []), ...extraImportRefs] };
 }
 
 export default {

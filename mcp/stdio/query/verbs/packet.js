@@ -318,26 +318,111 @@ function buildTaskPacket({ task, functionality, brief, opts, snapshot }) {
   return lines;
 }
 
-function clampToBudget(text, budgetTokens) {
-  // Final safety rail: if assembled output exceeds budget, drop optional
-  // tail sections in priority order until under budget.
-  const lines = text.split('\n');
-  const sectionStarts = ['RISKS:', 'TESTS:', 'CONTRACTS:'];
-  while (esTokens(lines.join('\n')) > budgetTokens) {
-    let dropped = false;
-    for (const head of sectionStarts) {
-      const idx = lines.findIndex((l) => l.startsWith(head));
-      if (idx === -1) continue;
-      // Drop section: from head until next blank/non-list line
-      let end = idx + 1;
-      while (end < lines.length && (lines[end].startsWith('-') || lines[end] === '')) end += 1;
-      lines.splice(idx, end - idx);
-      lines.push(`(${head.slice(0, -1)} dropped — over budget)`);
-      dropped = true;
-      break;
-    }
-    if (!dropped) break; // can't shrink further
+// Find the [start, end) line range of a section whose header is `head`
+// (e.g. "TESTS:"). The body is the run of `- ` list items (and blank lines)
+// following the header. Returns null when the section isn't present.
+function findSectionRange(lines, head) {
+  const idx = lines.findIndex((l) => l.startsWith(head));
+  if (idx === -1) return null;
+  let end = idx + 1;
+  while (end < lines.length && (lines[end].startsWith('- ') || lines[end] === '')) end += 1;
+  return { idx, end };
+}
+
+// Tier-1 skeletonize: collapse list items in a section that share a leading
+// directory prefix into one summary line, e.g.
+//   - src/auth/login.js — anchor
+//   - src/auth/logout.js — anchor
+//   - src/auth/session.js — anchor
+// becomes:
+//   - 3 items under src/auth/* (+ first shown) ...
+// We keep the first item verbatim (so the agent still has a concrete read) and
+// summarize the rest sharing that directory. Returns true when it collapsed
+// anything.
+function skeletonizeSection(lines, range) {
+  const body = lines.slice(range.idx + 1, range.end).filter((l) => l.startsWith('- '));
+  if (body.length <= 2) return false;
+  // Extract a path-ish token (first whitespace/em-dash-delimited field) per row.
+  const dirOf = (line) => {
+    const text = line.slice(2).trim();
+    const pathTok = text.split(/\s+—\s+|\s+/)[0] ?? '';
+    const slash = pathTok.lastIndexOf('/');
+    return slash > 0 ? pathTok.slice(0, slash) : null;
+  };
+  const groups = new Map();
+  for (const line of body) {
+    const dir = dirOf(line);
+    const key = dir ?? `__nodir__:${line}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(line);
   }
+  // Only worth collapsing if at least one dir-group has >= 2 members.
+  const collapsible = [...groups.entries()].some(([k, v]) => !k.startsWith('__nodir__:') && v.length >= 2);
+  if (!collapsible) return false;
+
+  const newBody = [];
+  for (const [key, members] of groups) {
+    if (key.startsWith('__nodir__:') || members.length < 2) {
+      newBody.push(...members);
+      continue;
+    }
+    // Keep the first member concrete; summarize the rest.
+    newBody.push(members[0]);
+    newBody.push(`- ${members.length - 1} more under ${key}/* (collapsed — over budget)`);
+  }
+  lines.splice(range.idx + 1, range.end - (range.idx + 1), ...newBody);
+  return true;
+}
+
+// Tier-2 collapse: replace a section's body with a single header+count line
+// instead of deleting the section, preserving the signal that data exists.
+function collapseSectionToCount(lines, head) {
+  const range = findSectionRange(lines, head);
+  if (!range) return false;
+  const count = lines.slice(range.idx + 1, range.end).filter((l) => l.startsWith('- ')).length;
+  if (count === 0) return false;
+  lines.splice(range.idx, range.end - range.idx, `${head} ${count} omitted (over budget)`);
+  return true;
+}
+
+export function clampToBudget(text, budgetTokens, targetSection = null) {
+  // Skeletonize-before-drop (codegraph #564/#569): size to the answer, not the
+  // cap. Three tiers, applied in escalating order, NEVER touching the section
+  // that contains the packet target:
+  //   Tier-1 — collapse list items sharing a directory prefix into a summary.
+  //   Tier-2 — keep header + omitted-count instead of deleting the body.
+  //   Tier-3 — drop the section entirely (last rail only).
+  const lines = text.split('\n');
+  // Priority order: trim the least-load-bearing sections first.
+  const sectionHeads = ['RISKS:', 'TESTS:', 'CONTRACTS:', 'READ FIRST:'];
+  const isTarget = (head) => targetSection && head.startsWith(targetSection);
+
+  if (esTokens(lines.join('\n')) <= budgetTokens) return lines.join('\n');
+
+  // Tier-1: skeletonize every non-target section once.
+  for (const head of sectionHeads) {
+    if (isTarget(head)) continue;
+    const range = findSectionRange(lines, head);
+    if (range) skeletonizeSection(lines, range);
+    if (esTokens(lines.join('\n')) <= budgetTokens) return lines.join('\n');
+  }
+
+  // Tier-2: collapse non-target sections to header+count.
+  for (const head of sectionHeads) {
+    if (isTarget(head)) continue;
+    collapseSectionToCount(lines, head);
+    if (esTokens(lines.join('\n')) <= budgetTokens) return lines.join('\n');
+  }
+
+  // Tier-3 (last rail): drop non-target sections entirely.
+  for (const head of sectionHeads) {
+    if (isTarget(head)) continue;
+    const range = findSectionRange(lines, head);
+    if (!range) continue;
+    lines.splice(range.idx, range.end - range.idx, `(${head.slice(0, -1)} dropped — over budget)`);
+    if (esTokens(lines.join('\n')) <= budgetTokens) return lines.join('\n');
+  }
+
   return lines.join('\n');
 }
 
@@ -700,5 +785,8 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   lines.push('NEXT: for the full call path between two symbols use graph_trace(from,to); for several symbols\' source in one read use graph_explore(symbols).');
 
   const text = renderLines(lines);
-  return clampToBudget(text, opts.budget_tokens);
+  // READ FIRST holds the packet target's primary anchor files — it is the
+  // section "containing the target" and must never be dropped by the budget
+  // clamp (codegraph #564/#569).
+  return clampToBudget(text, opts.budget_tokens, 'READ FIRST:');
 }
