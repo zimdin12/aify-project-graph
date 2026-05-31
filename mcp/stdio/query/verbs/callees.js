@@ -6,7 +6,7 @@ import { enforceBudget } from '../budget.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -73,7 +73,15 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       { sid: root.id },
     );
 
-    if (edges.length === 0 && overrideEdges.length === 0) return `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
+    // I1 — gate the absence claim on exhaustive evidence (see callers.js).
+    const absence = async (msg) => {
+      let line = '';
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callees', db, repoRoot }); }
+      catch { /* defensive */ }
+      return prefixReadWarnings(msg + line, freshness.warnings);
+    };
+
+    if (edges.length === 0 && overrideEdges.length === 0) return absence(`NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
 
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
@@ -100,7 +108,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     overrideCount = overrideMapped.length;
 
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0 && overrideCount === 0) return file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
+    if (mapped.length === 0 && overrideCount === 0) return absence(file ? `NO CALLEES in "${file}"` : `NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
     const ranked = rankCallees(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     let body = renderCompact({ nodes: [], edges: [...kept, ...overrideMapped], truncated: dropped, suggestion: `top_k=${top_k + 10}` });

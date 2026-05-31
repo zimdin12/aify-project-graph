@@ -7,7 +7,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 
 const IMPACT_RELATIONS = ['CALLS', 'REFERENCES', 'USES_TYPE', 'TESTS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -69,7 +69,18 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       params,
     );
 
-    if (edges.length === 0 && overrideEdges.length === 0) return `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_status().`;
+    // I1 — gate the absence claim on exhaustive evidence (see callers.js). A
+    // "NO IMPACT" line can green-light a deletion; it must carry the heuristic
+    // non-exhaustive caveat unless fresh index-ready clangd evidence backs it.
+    if (edges.length === 0 && overrideEdges.length === 0) {
+      let line = '';
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'impact', db, repoRoot }); }
+      catch { /* defensive */ }
+      return prefixReadWarnings(
+        `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_status().` + line,
+        freshness.warnings,
+      );
+    }
 
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openDb } from '../../../../mcp/stdio/storage/db.js';
 import { upsertNode } from '../../../../mcp/stdio/storage/nodes.js';
+import { upsertEdge } from '../../../../mcp/stdio/storage/edges.js';
 import { importCodeIntel } from '../../../../mcp/stdio/ingest/code-intel/importer.js';
 
 // L2a: clangd v0.2 collection records must become real LSP_VERIFIED graph edges
@@ -163,6 +164,102 @@ describe('L2a: clangd v0.2 → LSP_VERIFIED graph edges', () => {
       records: [calleeSymbolRecord('ci-1'), referenceRecord('ci-1', { line: 32 })],
     }));
     expect(stats.edgesCreated).toBe(0);
+  });
+
+  // C1 (CRITICAL) — promote-then-drop edge data-loss regression.
+  //
+  // Seed a real tree-sitter EXTRACTED caller_fn→callee_fn CALLS edge (the kind
+  // graph_index creates). A first collection confirms it (promote → LSP_VERIFIED).
+  // A SECOND complete collection (different compileDbHash) does NOT re-report it
+  // (clangd index cold / ref dropped). The edge MUST still exist afterward —
+  // restored to its heuristic provenance — so graph_callers still sees a caller.
+  it('C1: promote-then-drop preserves the original heuristic edge (does NOT lose it)', () => {
+    // 1. Seed the tree-sitter heuristic edge (only ever created at graph_index).
+    upsertEdge(db, {
+      from_id: 'ts:caller_fn', to_id: 'ts:callee_fn', relation: 'CALLS',
+      source_file: FILE, source_line: 15, confidence: 0.5,
+      provenance: 'EXTRACTED', extractor: 'tree-sitter',
+    });
+
+    // 2. collect-1: clangd confirms caller_fn→callee_fn → promotes to LSP_VERIFIED.
+    importEnvelope(envelope({
+      collectionId: 'ci-1', compileDbHash: 'hashAAAA1111',
+      records: [calleeSymbolRecord('ci-1'), referenceRecord('ci-1', { line: 15 })],
+    }));
+    const afterCollect1 = db.get(
+      `SELECT provenance FROM edges WHERE from_id='ts:caller_fn' AND to_id='ts:callee_fn' AND relation='CALLS'`,
+    );
+    expect(afterCollect1.provenance).toBe('LSP_VERIFIED'); // promoted
+
+    // 3. collect-2: complete (status ok) but clangd does NOT report the ref
+    //    (only the symbol record, no reference). Pre-fix the blanket DELETE
+    //    wiped the promoted row → edge GONE. Post-fix it is restored to EXTRACTED.
+    importEnvelope(envelope({
+      collectionId: 'ci-2', compileDbHash: 'hashBBBB2222',
+      records: [calleeSymbolRecord('ci-2')], // NO referenceRecord → ref dropped
+    }));
+
+    const surviving = db.get(
+      `SELECT provenance, extractor, confidence FROM edges
+        WHERE from_id='ts:caller_fn' AND to_id='ts:callee_fn' AND relation='CALLS'`,
+    );
+    // The edge STILL EXISTS — graph_callers would still see a caller.
+    expect(surviving).toBeTruthy();
+    // It was restored to its heuristic identity, not left as orphan LSP.
+    expect(surviving.provenance).toBe('EXTRACTED');
+    expect(surviving.extractor).toBe('tree-sitter');
+    expect(surviving.confidence).toBeCloseTo(0.5);
+  });
+
+  it('C1: re-confirming a promoted edge keeps a single LSP row (no duplication / stash leak)', () => {
+    upsertEdge(db, {
+      from_id: 'ts:caller_fn', to_id: 'ts:callee_fn', relation: 'CALLS',
+      source_file: FILE, source_line: 15, confidence: 0.5,
+      provenance: 'EXTRACTED', extractor: 'tree-sitter',
+    });
+    importEnvelope(envelope({
+      collectionId: 'ci-1', compileDbHash: 'hashAAAA1111',
+      records: [calleeSymbolRecord('ci-1'), referenceRecord('ci-1', { line: 15 })],
+    }));
+    importEnvelope(envelope({
+      collectionId: 'ci-2', compileDbHash: 'hashBBBB2222',
+      records: [calleeSymbolRecord('ci-2'), referenceRecord('ci-2', { line: 15 })],
+    }));
+    const rows = db.all(
+      `SELECT provenance, extractor FROM edges
+        WHERE from_id='ts:caller_fn' AND to_id='ts:callee_fn' AND relation='CALLS'`,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].provenance).toBe('LSP_VERIFIED');
+    // The promoted edge still stashes its heuristic origin (so a later drop can
+    // restore it) — and the stash carries the ORIGINAL tree-sitter origin, not
+    // an intermediate LSP layer.
+    expect(rows[0].extractor).toContain('cpp-clangd#hashBBBB');
+    expect(rows[0].extractor).toContain('|was:EXTRACTED::tree-sitter::0.5');
+  });
+
+  it('I2: a partial collection does NOT wipe the prior complete verified set', () => {
+    // collect-1: complete collection creates an LSP edge from scratch.
+    importEnvelope(envelope({
+      collectionId: 'ci-1', compileDbHash: 'hashAAAA1111',
+      records: [calleeSymbolRecord('ci-1'), referenceRecord('ci-1', { line: 15 })],
+    }));
+    expect(db.all(`SELECT * FROM edges WHERE provenance='LSP_VERIFIED'`)).toHaveLength(1);
+
+    // collect-2: PARTIAL (budget-exhausted) collection that re-collected a
+    // different slice and did not re-report caller_fn→callee_fn. It must NOT
+    // run the blanket invalidation, so the prior complete verified edge stays.
+    const partialEnv = envelope({
+      collectionId: 'ci-2', compileDbHash: 'hashBBBB2222',
+      records: [calleeSymbolRecord('ci-2')],
+    });
+    partialEnv.status = 'partial';
+    const stats = importEnvelope(partialEnv);
+    expect(stats.edgesInvalidated).toBe(0); // partial never invalidates
+
+    const surviving = db.all(`SELECT extractor FROM edges WHERE provenance='LSP_VERIFIED'`);
+    expect(surviving).toHaveLength(1);
+    expect(surviving[0].extractor).toBe('cpp-clangd#hashAAAA'); // prior set intact
   });
 
   it('FIX C: a callee definition enclosed by BOTH a class and a method resolves to the method', () => {

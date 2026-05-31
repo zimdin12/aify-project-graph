@@ -258,19 +258,26 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
   return { root, nodeCount: budget.nodes };
 }
 
-// Render the tree as compact indented text. Each hop carries file:line + the
-// [lsp✓] verification mark. Budget-stable.
-function renderTree(node, { indent = '', isLast = true, isRoot = true } = {}) {
+// Render the tree as compact indented text. Each hop carries file:line + a
+// verification mark. Budget-stable.
+//
+// I3 — the per-node mark must agree with the banner. `[lsp✓]` means "ground
+// truth, do NOT re-grep" (server-instructions), which is only honest when the
+// tree is index-ready exhaustive (INDEXED mode + indexReady===true). In bounded
+// mode or a cold/not-ready index the banner says `lsp-partial … may undercount;
+// re-collect`, so we use the distinct `[lsp~]` (partial) marker instead — never
+// a bare `[lsp✓]` that would contradict its own banner.
+function renderTree(node, { indent = '', isLast = true, isRoot = true, mark = '[lsp✓]' } = {}) {
   const lines = [];
   const branch = isRoot ? '' : (isLast ? '└─ ' : '├─ ');
   const cycleMark = node.cycle ? ' (cycle)' : '';
   const detail = node.detail ? node.detail : '';
-  lines.push(`${indent}${branch}${node.name}${detail}  ${node.file}:${node.line} [lsp✓]${cycleMark}`);
+  lines.push(`${indent}${branch}${node.name}${detail}  ${node.file}:${node.line} ${mark}${cycleMark}`);
   const childIndent = isRoot ? '' : indent + (isLast ? '   ' : '│  ');
   const kids = node.children || [];
   kids.forEach((child, i) => {
     const last = i === kids.length - 1 && (!node.truncated || node.truncated === 0);
-    lines.push(...renderTree(child, { indent: childIndent, isLast: last, isRoot: false }));
+    lines.push(...renderTree(child, { indent: childIndent, isLast: last, isRoot: false, mark }));
   });
   if (node.truncated && node.truncated > 0) {
     lines.push(`${childIndent}└─ … TRUNCATED — ${node.truncated} more`);
@@ -400,9 +407,13 @@ export async function codeIntelHierarchy(args = {}) {
   const nodeCount = walked.nodeCount;
   const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount });
   const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount });
+  // I3 — only stamp the ground-truth `[lsp✓]` when the tree is index-ready
+  // exhaustive (INDEXED mode + indexReady===true). Otherwise the banner is
+  // lsp-partial, so use the distinct partial marker `[lsp~]`.
+  const nodeMark = (mode === 'indexed' && indexReady === true) ? '[lsp✓]' : '[lsp~]';
   const treeText = [
     `${kind.toUpperCase()} of ${rootItem.name || symbol || file} (depth ${depth})`,
-    ...renderTree(walked.root, { isRoot: true }),
+    ...renderTree(walked.root, { isRoot: true, mark: nodeMark }),
     trust
   ].join('\n');
 

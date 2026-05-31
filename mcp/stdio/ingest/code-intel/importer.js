@@ -237,6 +237,55 @@ export function importCodeIntelRecords(db, inputRecords) {
 
 const LSP_PROVENANCE = 'LSP_VERIFIED';
 
+// C1 fix — promote-then-drop data-loss guard.
+//
+// Before: promoting a pre-existing tree-sitter EXTRACTED / heuristic INFERRED
+// CALLS edge to LSP_VERIFIED mutated the row IN PLACE, then the next collect ran
+// a blanket `DELETE FROM edges WHERE provenance='LSP_VERIFIED'` that wiped that
+// row — destroying the original heuristic edge forever (tree-sitter edges are
+// only created at graph_index, never at collect). graph_callers then said
+// "NO CALLERS" for a symbol that genuinely has callers.
+//
+// Strategy (b) — stash-and-restore (no schema migration; minimal blast radius):
+//   - When promoting a PRE-EXISTING heuristic edge, stash its original
+//     provenance / extractor / confidence in the extractor column as a
+//     `|was:<provenance>:<extractor>:<confidence>` suffix. Edges the synthesizer
+//     created from scratch carry a clean `cpp-clangd#<hash>` extractor (no
+//     suffix).
+//   - On invalidation, RESTORE any promoted edge to its stashed original
+//     instead of deleting it, and only DELETE edges the synthesizer itself
+//     created this/prior runs (clean `cpp-clangd#%` extractor, no `|was:`).
+//   A promoted-from-tree-sitter edge is never deleted — its heuristic identity
+//   survives every re-collect.
+const STASH_SEP = '|was:';
+
+function encodeStash(lspExtractor, original) {
+  // original: { provenance, extractor, confidence }. Encode origin so the
+  // blanket invalidation can restore the heuristic edge instead of dropping it.
+  const prov = String(original.provenance ?? 'EXTRACTED');
+  const ext = String(original.extractor ?? 'generic');
+  const conf = original.confidence ?? 1.0;
+  // Strip any stray separator from the components so decode is unambiguous.
+  const safe = (s) => String(s).split(STASH_SEP).join('|was_');
+  return `${lspExtractor}${STASH_SEP}${safe(prov)}::${safe(ext)}::${conf}`;
+}
+
+function decodeStash(extractor) {
+  if (typeof extractor !== 'string') return null;
+  const idx = extractor.indexOf(STASH_SEP);
+  if (idx === -1) return null;
+  const payload = extractor.slice(idx + STASH_SEP.length);
+  const parts = payload.split('::');
+  if (parts.length < 3) return null;
+  const confidence = Number(parts[parts.length - 1]);
+  const extractorOrig = parts.slice(1, parts.length - 1).join('::');
+  return {
+    provenance: parts[0],
+    extractor: extractorOrig,
+    confidence: Number.isFinite(confidence) ? confidence : 1.0,
+  };
+}
+
 // Node types that can act as a defined symbol or an enclosing caller scope.
 const ENCLOSING_TYPES = new Set([
   'Function', 'Method', 'Class', 'Struct', 'Symbol', 'Interface', 'Type', 'Variable',
@@ -254,7 +303,10 @@ function confidenceToScore(confidence) {
 
 // LSP edges are ground truth: insert, and on a (from,to,relation) collision
 // with a weaker edge (tree-sitter EXTRACTED / heuristic INFERRED) promote it to
-// LSP_VERIFIED. Never downgrades CODE_INTEL (v0.1 path) edges.
+// LSP_VERIFIED. Never downgrades CODE_INTEL (v0.1 path) edges. The promotion
+// stashes the original provenance/extractor/confidence in `extractor`
+// (`...|was:...`) so invalidation can RESTORE the heuristic edge (C1) rather
+// than deleting a row that only ever existed as a tree-sitter edge.
 const LSP_EDGE_OVERRIDE_SQL = `
   UPDATE edges
   SET source_file = $source_file,
@@ -282,13 +334,29 @@ function upsertLspEdge(db, edge) {
   upsertEdge(db, params);
   // upsertEdge uses INSERT OR IGNORE and only self-overrides for CODE_INTEL,
   // so a pre-existing tree-sitter/heuristic edge would shadow the LSP one.
-  // Re-read; if the landed edge isn't ours, promote it.
+  // Re-read; if the landed edge isn't ours, promote it — but FIRST stash the
+  // heuristic origin so invalidation can restore it (C1 data-loss fix).
   const landed = db.get(
-    `SELECT provenance FROM edges WHERE from_id = $from_id AND to_id = $to_id AND relation = $relation`,
+    `SELECT provenance, extractor, confidence FROM edges WHERE from_id = $from_id AND to_id = $to_id AND relation = $relation`,
     { from_id: params.from_id, to_id: params.to_id, relation: params.relation },
   );
   if (landed && landed.provenance !== LSP_PROVENANCE) {
-    db.run(LSP_EDGE_OVERRIDE_SQL, params);
+    // CODE_INTEL is excluded by the WHERE clause (never downgraded). For a
+    // tree-sitter/heuristic edge, carry the origin in the extractor so a later
+    // blanket invalidation restores it instead of dropping the row.
+    const existingStash = decodeStash(landed.extractor);
+    // If the row is ALREADY a stash from a prior promotion (shouldn't happen —
+    // that means provenance was LSP_VERIFIED — but be defensive), keep the
+    // earliest heuristic origin rather than stashing an LSP layer.
+    const origin = existingStash || {
+      provenance: landed.provenance,
+      extractor: landed.extractor,
+      confidence: landed.confidence,
+    };
+    db.run(LSP_EDGE_OVERRIDE_SQL, {
+      ...params,
+      extractor: encodeStash(params.extractor, origin),
+    });
   }
 }
 
@@ -398,21 +466,64 @@ function synthesizeLspEdges(envelope, db, stats) {
   const out = { edgesCreated: 0, nodesCreated: 0, edgesInvalidated: 0 };
   const records = Array.isArray(envelope.records) ? envelope.records : [];
 
-  // 1+2. Invalidation: a fresh collection supersedes prior clangd edges so
-  // stale ones can't linger (per-repo db).
-  const invalidated = db.get(
-    `SELECT count(*) AS c FROM edges WHERE provenance = $p`,
-    { p: LSP_PROVENANCE },
-  );
-  out.edgesInvalidated = invalidated?.c ?? 0;
-  db.run(`DELETE FROM edges WHERE provenance = $p`, { p: LSP_PROVENANCE });
-  // Cheap orphan-node cleanup: drop prior LSP-synthesized symbol nodes that no
-  // longer have any edge (real tree-sitter / file nodes are untouched).
-  db.run(
-    `DELETE FROM nodes
-      WHERE id LIKE 'ci:lsp:%'
-        AND id NOT IN (SELECT from_id FROM edges UNION SELECT to_id FROM edges)`,
-  );
+  // 1+2. Invalidation: a COMPLETE fresh collection supersedes prior clangd
+  // edges so stale ones can't linger (per-repo db).
+  //
+  // I2 — only a complete collection (`status==='ok'`) is allowed to wipe the
+  // prior verified set. A `partial` / budget-exhausted / error collection
+  // re-collected only a slice of the repo; running the blanket invalidation
+  // would destroy verified edges for every file it did NOT re-collect this run
+  // (a cold 3/200-file run would erase the entire prior verified graph). A
+  // partial collect therefore ADDS/REFRESHES its own edges (upsertLspEdge is
+  // idempotent per (from,to,relation)) without invalidating the rest.
+  //
+  // C1 — invalidation must NEVER destroy a heuristic edge we merely promoted.
+  //   (a) RESTORE every promoted edge (extractor carries a `|was:` stash) back
+  //       to its original tree-sitter/heuristic provenance/extractor/confidence.
+  //   (b) DELETE only edges THIS synthesizer created from scratch — a clean
+  //       `cpp-clangd#%` extractor with no stash. Promoted rows are restored,
+  //       not dropped, so the heuristic graph survives a clangd drop-out.
+  const completeCollection = envelope.status === 'ok';
+  if (completeCollection) {
+    // (a) restore promoted (stashed) edges to their heuristic origin.
+    const promoted = db.all(
+      `SELECT from_id, to_id, relation, extractor FROM edges
+        WHERE provenance = $p AND extractor LIKE $stash`,
+      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%` },
+    );
+    for (const row of promoted) {
+      const origin = decodeStash(row.extractor);
+      if (!origin) continue;
+      db.run(
+        `UPDATE edges
+            SET provenance = $provenance, extractor = $extractor, confidence = $confidence
+          WHERE from_id = $from_id AND to_id = $to_id AND relation = $relation`,
+        {
+          from_id: row.from_id, to_id: row.to_id, relation: row.relation,
+          provenance: origin.provenance, extractor: origin.extractor, confidence: origin.confidence,
+        },
+      );
+    }
+    // (b) delete only synthesizer-created edges (clean cpp-clangd#% extractor).
+    const invalidated = db.get(
+      `SELECT count(*) AS c FROM edges
+        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash`,
+      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%` },
+    );
+    out.edgesInvalidated = invalidated?.c ?? 0;
+    db.run(
+      `DELETE FROM edges
+        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash`,
+      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%` },
+    );
+    // Cheap orphan-node cleanup: drop prior LSP-synthesized symbol nodes that no
+    // longer have any edge (real tree-sitter / file nodes are untouched).
+    db.run(
+      `DELETE FROM nodes
+        WHERE id LIKE 'ci:lsp:%'
+          AND id NOT IN (SELECT from_id FROM edges UNION SELECT to_id FROM edges)`,
+    );
+  }
 
   const nodeStats = { nodesCreated: 0 };
   // 3. defined-symbol node map: symbolId -> { nodeId, nodeType, startLine, endLine, file }.

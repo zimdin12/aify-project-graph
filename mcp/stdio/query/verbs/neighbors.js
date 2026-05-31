@@ -5,7 +5,7 @@ import { enforceBudget } from '../budget.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 
 const ALL_RELATIONS = [
   'CONTAINS', 'DEFINES', 'DECLARES', 'IMPORTS', 'EXPORTS',
@@ -39,7 +39,16 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
       { id: nodeId }
     );
 
-    if (edges.length === 0) return `NO NEIGHBORS for "${symbol}". The symbol may be isolated. Try graph_whereis(symbol="${symbol}") to confirm it exists, or graph_search(query="${symbol}") for similar names.`;
+    // I1 — gate the absence claim on exhaustive evidence (see callers.js).
+    if (edges.length === 0) {
+      let line = '';
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'neighbors', db, repoRoot }); }
+      catch { /* defensive */ }
+      return prefixReadWarnings(
+        `NO NEIGHBORS for "${symbol}". The symbol may be isolated. Try graph_whereis(symbol="${symbol}") to confirm it exists, or graph_search(query="${symbol}") for similar names.` + line,
+        freshness.warnings,
+      );
+    }
 
     const mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,

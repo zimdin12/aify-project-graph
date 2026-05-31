@@ -22,6 +22,9 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
 import { upsertEdge } from '../../../mcp/stdio/storage/edges.js';
 import { graphCallers } from '../../../mcp/stdio/query/verbs/callers.js';
+import { graphCallees } from '../../../mcp/stdio/query/verbs/callees.js';
+import { graphNeighbors } from '../../../mcp/stdio/query/verbs/neighbors.js';
+import { graphImpact } from '../../../mcp/stdio/query/verbs/impact.js';
 import { rankCallers } from '../../../mcp/stdio/query/rank.js';
 import { enforceBudget } from '../../../mcp/stdio/query/budget.js';
 
@@ -79,6 +82,10 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
         source_file: 'src/boot.cpp', source_line: 3, confidence: 0.8,
         provenance: 'INFERRED', extractor: 'cpp',
       });
+
+      // Heuristic-only ISOLATED symbol: a node with NO edges at all, so the
+      // traversal verbs hit their empty-result/absence path (I1).
+      upsertNode(db, node('fn:islandTarget', 'isolatedFn', 'src/island.cpp'));
 
       // A fresh clangd collection row vouching for the LSP_VERIFIED edge.
       db.run(
@@ -158,6 +165,40 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     expect(out).toContain('re-collect');
     expect(out).toMatch(/3 symbol\(s\) unresolved/);
     expect(out).not.toMatch(/TRUST: lsp-verified/);
+  });
+
+  // I1 — absence claims are the most dangerous output (an agent may delete on
+  // them). On a heuristic-only symbol with NO edges, callers/callees/neighbors/
+  // impact must NOT return a bare "NO …" line: it must carry the heuristic
+  // non-exhaustive caveat + a verify hint (rg / graph_collect_code_intel).
+  describe('(I1) ungated absence claims', () => {
+    it('graph_callers absence carries the non-exhaustive verify caveat', async () => {
+      const out = await graphCallers({ repoRoot, symbol: 'isolatedFn' });
+      expect(out).toContain('NO CALLERS');
+      expect(out).toMatch(/NOT exhaustive/);
+      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+    });
+
+    it('graph_callees absence carries the non-exhaustive verify caveat', async () => {
+      const out = await graphCallees({ repoRoot, symbol: 'isolatedFn' });
+      expect(out).toContain('NO CALLEES');
+      expect(out).toMatch(/NOT exhaustive/);
+      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+    });
+
+    it('graph_neighbors absence carries the non-exhaustive verify caveat', async () => {
+      const out = await graphNeighbors({ repoRoot, symbol: 'isolatedFn' });
+      expect(out).toContain('NO NEIGHBORS');
+      expect(out).toMatch(/NOT exhaustive/);
+      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+    });
+
+    it('graph_impact absence carries the non-exhaustive verify caveat', async () => {
+      const out = await graphImpact({ repoRoot, symbol: 'isolatedFn' });
+      expect(out).toContain('NO IMPACT');
+      expect(out).toMatch(/NOT exhaustive/);
+      expect(out).toMatch(/verify with rg|graph_collect_code_intel/);
+    });
   });
 
   it('(c) lsp-verified edges rank above heuristic edges', () => {

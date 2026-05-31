@@ -68,6 +68,52 @@ export const HEURISTIC_TRUST_LINE =
   'TRUST: heuristic only (tree-sitter) — may undercount C++ virtual/cross-TU '
   + 'dispatch; run graph_collect_code_intel for exhaustive clangd evidence, or verify with rg';
 
+// I1 — absence-claim trust gating. The MOST dangerous output a graph verb can
+// emit is an absence claim ("NO CALLERS for X"): an agent may delete/rename a
+// symbol on the strength of it. An absence is only SAFE when backed by FRESH,
+// index-ready LSP evidence for that symbol — otherwise it is a heuristic
+// (tree-sitter) absence that undercounts C++ virtual / cross-TU dispatch and
+// MUST carry an explicit "not exhaustive — verify" caveat.
+//
+// Because an empty result has NO edges to inspect, we cannot read provenance
+// off the result; instead we ask whether the latest collection for this repo is
+// index-ready (the same signal buildTrustLine uses). When it is, the absence
+// can honestly state it is lsp-verified-exhaustive. Otherwise we append the
+// heuristic non-exhaustive caveat.
+//
+//   noun — 'callers' | 'callees' | 'neighbors' | 'impact' (for the message).
+// Returns a string (no leading newline) the verb appends on its own line after
+// the bare "NO CALLERS for X" line.
+export async function buildAbsenceTrustLine({ noun = 'edges', db, repoRoot } = {}) {
+  let collection = null;
+  try { collection = getLatestCollection(db, { language: 'cpp' }) ?? getLatestCollection(db); }
+  catch { /* defensive */ }
+
+  if (collection && collection.indexReady === true) {
+    // Fresh, index-ready clangd evidence backs this repo — but only honestly
+    // "exhaustive" if the evidence isn't stale vs HEAD / compile-db drift.
+    let stale = false;
+    try {
+      const head = await getHeadCommit(repoRoot).catch(() => null);
+      if (head && collection.indexedCommit && head !== collection.indexedCommit) stale = true;
+    } catch { /* defensive */ }
+    if (
+      collection.freshnessBasis === 'compile_db_hash'
+      && collection.compileDbHash && collection.freshnessValue
+      && collection.compileDbHash !== collection.freshnessValue
+    ) stale = true;
+    const dbHash = hash8(collection.compileDbHash);
+    if (!stale) {
+      return `TRUST: lsp-verified-exhaustive (clangd, index-ready, compile-db ${dbHash}) — no ${noun} found is a TRUSTWORTHY absence`;
+    }
+    return `TRUST: lsp evidence is STALE (compile-db ${dbHash}) — re-collect with graph_collect_code_intel before trusting this "no ${noun}" claim`;
+  }
+
+  // No fresh index-ready evidence — the absence is heuristic and NOT exhaustive.
+  return `TRUST: absence is from the heuristic graph (tree-sitter) and is NOT exhaustive — `
+    + `verify with rg, or run graph_collect_code_intel for clangd-verified ${noun}`;
+}
+
 // Build the single trust line for a result.
 //   edges    — the mapped result edges (carry .provenance).
 //   db       — open graph db (for getLatestCollection).

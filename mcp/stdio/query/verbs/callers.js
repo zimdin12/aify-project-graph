@@ -8,7 +8,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 
 const EXECUTION_RELATIONS = ['CALLS', 'INVOKES', 'PASSES_THROUGH'];
 
@@ -59,7 +59,18 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       );
     }
 
-    if (edges.length === 0) return `NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
+    // I1 — an absence claim ("NO CALLERS") is the most dangerous output; gate it
+    // on exhaustive evidence. Route through buildAbsenceTrustLine so it carries
+    // either a heuristic non-exhaustive caveat or an lsp-verified-exhaustive
+    // attestation, never a bare "NO CALLERS".
+    const absence = async (msg) => {
+      let line = '';
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot }); }
+      catch { /* defensive */ }
+      return prefixReadWarnings(msg + line, freshness.warnings);
+    };
+
+    if (edges.length === 0) return absence(`NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
 
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
@@ -74,7 +85,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (rolledUp) mapped = collapseCallerEdges(mapped, symbol);
     // File scope filter: only show callers from a specific directory
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0) return file ? `NO CALLERS from "${file}"` : `NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`;
+    if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"` : `NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
