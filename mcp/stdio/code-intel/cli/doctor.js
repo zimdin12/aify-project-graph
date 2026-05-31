@@ -1,39 +1,101 @@
-import { spawnSync } from 'node:child_process';
+// `apg code-intel doctor` — agent-readable readiness report (Code-Intel v2 L1).
+//
+// Answers the three questions an agent needs before trusting C++ answers:
+//   1. Is clangd resolvable, and which binary / version?
+//   2. Is there a usable compile_commands.json, normalized to host paths?
+//   3. READY or NOT READY — and if not, the single most important fix-it line.
+//
+// Signature preserved: runDoctor(args) where args may name languages and/or
+// carry `--project-root <dir>`. Returns 0 (informational).
+
+import { resolveClangd, clangdVersion } from '../resolve-clangd.js';
+import { prepareCompileDb } from '../compile-db.js';
 
 const LANGUAGES = {
   cpp: {
     serverBinary: 'clangd',
-    versionArgs: ['--version'],
-    hint: 'install clangd via your package manager (apt install clangd / brew install llvm) and ensure it is on PATH'
+    install: 'install LLVM (winget install LLVM.LLVM / brew install llvm / apt install clangd) or set APG_CLANGD=<path to clangd>'
   }
 };
 
-function checkBinary(name, args) {
-  try {
-    const out = spawnSync(name, args, { encoding: 'utf8', windowsHide: true });
-    if (out.error || out.status !== 0) {
-      return { available: false, version: '', error: out.error?.message || `exit ${out.status}` };
+function parseArgs(args) {
+  const langs = [];
+  let projectRoot = process.cwd();
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--project-root') { projectRoot = args[++i] || projectRoot; continue; }
+    if (a.startsWith('--')) continue;
+    langs.push(a);
+  }
+  return { langs, projectRoot };
+}
+
+function reportCpp(projectRoot, write) {
+  // 1. clangd resolution + version.
+  const { command, source } = resolveClangd();
+  const version = clangdVersion(command);
+  const clangdReady = version !== null;
+
+  write('cpp:\n');
+  if (clangdReady) {
+    write(`  clangd: OK — ${command} (source: ${source})\n`);
+    write(`    version: ${version}\n`);
+  } else {
+    write(`  clangd: NOT FOUND — tried '${command}' (source: ${source})\n`);
+    write(`    fix: ${LANGUAGES.cpp.install}\n`);
+  }
+
+  // 2. compile DB discovery + normalization.
+  let db;
+  try { db = prepareCompileDb({ projectRoot }); }
+  catch (err) { db = { found: false, diagnostics: [{ code: 'compile_db_error', message: err.message, fix: 'check --project-root' }] }; }
+
+  let dbReady = false;
+  let unityWarn = false;
+  if (db.found) {
+    dbReady = db.firstPartyCount > 0;
+    unityWarn = !!db.unity;
+    write(`  compile_db: FOUND — ${db.sourcePath}\n`);
+    write(`    normalized: ${db.normalizedPath}\n`);
+    write(`    entries: ${db.entryCount} (first-party: ${db.firstPartyCount})\n`);
+    if (unityWarn) {
+      const d = (db.diagnostics || []).find(x => x.code === 'unity_build');
+      write(`    WARNING unity_build: ${d ? d.message : 'unity aggregates detected'}\n`);
+      if (d?.fix) write(`      fix: ${d.fix}\n`);
     }
-    return { available: true, version: String(out.stdout || out.stderr).split(/\r?\n/u)[0].trim() };
-  } catch (err) {
-    return { available: false, version: '', error: err.message };
+    if (!dbReady) {
+      write('    WARNING: 0 first-party entries after dep filtering — clangd will see only vendored/build sources\n');
+    }
+  } else {
+    const d = (db.diagnostics || [])[0];
+    write(`  compile_db: MISSING — ${d ? d.message : 'no compile_commands.json found'}\n`);
+    if (d?.fix) write(`    fix: ${d.fix}\n`);
+  }
+
+  // 3. Verdict + single most important fix-it.
+  const ready = clangdReady && dbReady;
+  if (ready) {
+    write(`  => READY${unityWarn ? ' (degraded: unity build — precision reduced)' : ''}\n`);
+  } else {
+    let fixit;
+    if (!clangdReady) fixit = LANGUAGES.cpp.install;
+    else if (!db.found) fixit = (db.diagnostics?.[0]?.fix) || 'generate compile_commands.json (cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON)';
+    else fixit = 'no first-party sources in compile DB — pass explicit files[] or reconfigure the build';
+    write('  => NOT READY\n');
+    write(`     fix: ${fixit}\n`);
   }
 }
 
 export function runDoctor(args) {
-  const targets = args.length > 0 ? args : Object.keys(LANGUAGES);
+  const { langs, projectRoot } = parseArgs(Array.isArray(args) ? args : []);
+  const targets = langs.length > 0 ? langs : Object.keys(LANGUAGES);
+  const write = (s) => process.stdout.write(s);
   for (const lang of targets) {
-    const cfg = LANGUAGES[lang];
-    if (!cfg) {
-      process.stdout.write(`${lang}: unsupported (no provider registered)\n`);
+    if (!LANGUAGES[lang]) {
+      write(`${lang}: unsupported (no provider registered)\n`);
       continue;
     }
-    const status = checkBinary(cfg.serverBinary, cfg.versionArgs);
-    if (status.available) {
-      process.stdout.write(`${lang}: OK — ${cfg.serverBinary} ${status.version}\n`);
-    } else {
-      process.stdout.write(`${lang}: MISSING — ${cfg.serverBinary} (${status.error || 'not found'}); hint: ${cfg.hint}\n`);
-    }
+    if (lang === 'cpp') reportCpp(projectRoot, write);
   }
   return 0;
 }

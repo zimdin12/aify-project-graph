@@ -8,14 +8,25 @@
 
 import { pathToFileURL } from 'node:url';
 import { LspClient } from './lsp-client.js';
+import { buildClangdSpawn } from './resolve-clangd.js';
+import { prepareCompileDb } from './compile-db.js';
 
 const SESSIONS = new Map();
 
 function keyFor(language, projectRoot) { return `${language}:::${projectRoot}`; }
 
-const LANGUAGE_SPAWN = {
-  cpp: { command: 'clangd', args: ['--background-index=false'] }
-};
+// Cold-start request timeout for live cpp sessions: clangd's first cross-TU
+// query can take tens of seconds while the background index warms.
+const CPP_COLD_TIMEOUT_MS = 45000;
+
+// Build the tuned clangd spawn for a project root: discover+normalize the
+// compile DB so `--compile-commands-dir` points at host-native paths, then
+// emit the L1 spawn args. Failures degrade to args without the dir flag.
+function cppSpawnFor(projectRoot) {
+  let compileDb = null;
+  try { compileDb = prepareCompileDb({ projectRoot }); } catch { compileDb = null; }
+  return buildClangdSpawn({ projectRoot, compileDb });
+}
 
 /**
  * Acquire (or start) a live LSP session for a language + project.
@@ -28,14 +39,25 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   const existing = SESSIONS.get(key);
   if (existing) return existing;
 
-  const spawnCfg = spawn || LANGUAGE_SPAWN[language];
+  let spawnCfg = spawn;
+  let timeoutMs;
+  if (!spawnCfg) {
+    if (language === 'cpp') {
+      spawnCfg = cppSpawnFor(projectRoot);
+      timeoutMs = CPP_COLD_TIMEOUT_MS;
+    }
+  }
   if (!spawnCfg) {
     const err = new Error(`no language server registered for '${language}'`);
     err.code = 'language_unsupported';
     throw err;
   }
 
-  const client = new LspClient({ ...spawnCfg, rootUri: pathToFileURL(projectRoot).toString() });
+  const client = new LspClient({
+    ...spawnCfg,
+    rootUri: pathToFileURL(projectRoot).toString(),
+    ...(timeoutMs ? { timeoutMs } : {})
+  });
   // `warmedOnce` flips after the first diagnostics batch so cold sessions
   // get one longer warm-up (reference parity: cold servers return empty
   // first-call diagnostics) and warm sessions stay low-latency.

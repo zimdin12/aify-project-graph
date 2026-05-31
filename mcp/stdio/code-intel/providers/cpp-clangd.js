@@ -4,6 +4,12 @@ import crypto from 'node:crypto';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
+import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
+import { buildClangdSpawn } from '../resolve-clangd.js';
+
+// Cold-collect request timeout: a fresh background-index pass over a game repo
+// can take well over the default 10s before the first query resolves.
+const COLD_COLLECT_TIMEOUT_MS = 60000;
 
 const PROVIDER_NAME = 'cpp-clangd';
 const PROVIDER_VERSION = '0.1.0';
@@ -13,70 +19,15 @@ function newCollectionId() {
   return `ci-${ts}-${crypto.randomBytes(4).toString('hex')}`;
 }
 
-function findCompileCommands(projectRoot) {
-  for (const c of [
-    path.join(projectRoot, 'compile_commands.json'),
-    path.join(projectRoot, 'build', 'compile_commands.json'),
-    path.join(projectRoot, 'build-linux', 'compile_commands.json'),
-    path.join(projectRoot, 'cmake-build-debug', 'compile_commands.json')
-  ]) {
-    if (fs.existsSync(c)) return c;
-  }
-  return null;
-}
-
-const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
-
 // Repo-relative path prefixes that almost always represent
 // build/dep/vendor/third-party noise from CMake-style generators. Filtered by
 // default to keep scope=all from drowning in unity-build dupes and external
 // dep sources. Override by passing explicit files[].
-const BUILD_DEP_PREFIXES = [
+export const BUILD_DEP_PREFIXES = [
   'build/', 'build_', 'cmake-build-', '_build/', 'out/',
   '_deps/', 'deps/', 'third_party/', 'third-party/', 'vendor/',
   'node_modules/', '.deps/', '.cache/', 'extern/', 'external/'
 ];
-
-// Read compile_commands.json and return a deduped list of repo-relative,
-// forward-slash, in-repo files. Out-of-repo entries (system headers, generated
-// absolute paths via `..`) are filtered out rather than thrown. Build/deps/
-// vendor prefixes are excluded by default.
-function enumerateFromCompileDb(compileDbPath, projectRoot, { maxFiles = 200, skipBuildDepFilter = false } = {}) {
-  try {
-    const data = JSON.parse(fs.readFileSync(compileDbPath, 'utf8'));
-    const seen = new Set();
-    const out = [];
-    let total = 0;
-    let filteredBuild = 0;
-    for (const row of (Array.isArray(data) ? data : [])) {
-      if (!row?.file) continue;
-      total += 1;
-      const directory = row.directory || path.dirname(compileDbPath);
-      const abs = path.isAbsolute(row.file) ? row.file : path.join(directory, row.file);
-      const rel = path.relative(projectRoot, abs).split(path.sep).join('/');
-      if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
-      const ext = path.extname(rel).toLowerCase();
-      if (CPP_EXTENSIONS.size > 0 && ext && !CPP_EXTENSIONS.has(ext)) continue;
-      if (!skipBuildDepFilter && BUILD_DEP_PREFIXES.some(p => rel.startsWith(p))) { filteredBuild += 1; continue; }
-      if (seen.has(rel)) continue;
-      seen.add(rel);
-      out.push(rel);
-    }
-    out.sort();
-    const truncated = out.length > maxFiles;
-    return {
-      files: truncated ? out.slice(0, maxFiles) : out,
-      stats: { total, after_filter: out.length, filtered_build_dep: filteredBuild, truncated, max_files: maxFiles, skipped_build_dep_filter: !!skipBuildDepFilter }
-    };
-  } catch {
-    return { files: [], stats: { total: 0, after_filter: 0, filtered_build_dep: 0, truncated: false, max_files: maxFiles, skipped_build_dep_filter: !!skipBuildDepFilter } };
-  }
-}
-
-function compileDbHash(filepath) {
-  const data = fs.readFileSync(filepath);
-  return crypto.createHash('sha256').update(data).digest('hex').slice(0, 16);
-}
 
 function rangeFromLsp(range) {
   return {
@@ -126,8 +77,10 @@ export function createCppClangdProvider({ spawn } = {}) {
       const collectedAt = new Date().toISOString();
       const projectRoot = req.projectRoot;
 
-      const compileCmds = findCompileCommands(projectRoot);
-      if (!compileCmds) {
+      // L1: discover + normalize the richest compile DB (WSL→host paths,
+      // unity detection, dep filtering) and write it under .aify-graph.
+      const compileDb = prepareCompileDb({ projectRoot });
+      if (!compileDb.found) {
         return {
           schema_version: '0.2',
           collectionId,
@@ -137,16 +90,18 @@ export function createCppClangdProvider({ spawn } = {}) {
           session: { collectedAt, freshnessBasis: 'unknown' },
           operations: {},
           status: 'error',
-          errors: [{
-            code: 'compile_db_missing',
-            message: `compile_commands.json not found in ${projectRoot} or known build dirs`,
-            hint: 'run cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON or set --no-code-intel to silence'
-          }],
+          errors: (compileDb.diagnostics || []).map(d => ({
+            code: d.code,
+            message: d.message,
+            hint: d.fix
+          })),
+          diagnostics: compileDb.diagnostics || [],
           records: []
         };
       }
 
-      const dbHash = compileDbHash(compileCmds);
+      const compileCmds = compileDb.normalizedPath;
+      const dbHash = compileDb.dbHash;
       // File-list resolution: explicit files[] wins; otherwise enumerate from
       // compile_commands.json for scope=all (Plan #10a). Plan #10c added
       // build/dep prefix filtering and a maxFiles cap (default 200) after
@@ -157,11 +112,11 @@ export function createCppClangdProvider({ spawn } = {}) {
       if (req.files && req.files.length > 0) {
         files = req.files;
       } else if (req.scope === 'all' || req.scope === 'changed') {
-        const enum_ = enumerateFromCompileDb(compileCmds, projectRoot, { maxFiles, skipBuildDepFilter: !!req.skipBuildDepFilter });
+        const enum_ = enumerateFirstParty(compileCmds, projectRoot, { maxFiles, skipBuildDepFilter: !!req.skipBuildDepFilter });
         files = enum_.files;
         enumStats = enum_.stats;
         if (process.env.APG_VERBOSE_CODE_INTEL) {
-          process.stderr.write(`[apg code-intel] enumerated ${enumStats.total} compile_db entries → ${enumStats.after_filter} after filter (${enumStats.filtered_build_dep} build/dep filtered)${enumStats.truncated ? `; truncated to ${maxFiles}` : ''}${enumStats.skipped_build_dep_filter ? ' [filter disabled]' : ''}\n`);
+          process.stderr.write(`[apg code-intel] enumerated ${enumStats.total} compile_db entries → ${enumStats.after_filter} after filter (${enumStats.filtered_build_dep} build/dep filtered, ${enumStats.unity} unity)${enumStats.truncated ? `; truncated to ${maxFiles}` : ''}${enumStats.skipped_build_dep_filter ? ' [filter disabled]' : ''}\n`);
         }
         // Plan #10d: when the filter eliminates every entry (CMake unity-build
         // or anything where all sources live under filtered prefixes), emit a
@@ -179,18 +134,45 @@ export function createCppClangdProvider({ spawn } = {}) {
             status: 'error',
             errors: [{
               code: 'compile_db_all_filtered',
-              message: `every compile_commands.json entry (${enumStats.total}) was filtered by the build/dep prefix rules (${enumStats.filtered_build_dep} excluded). This commonly happens on CMake unity builds where all TUs live under build/.`,
+              message: `every compile_commands.json entry (${enumStats.total}) was filtered by the build/dep prefix rules (${enumStats.filtered_build_dep} excluded, ${enumStats.unity} unity). This commonly happens on CMake unity builds where all TUs live under Unity/ or build/.`,
               hint: 'pass --no-build-filter to disable the prefix filter, or pass --files <specific.cpp,...> to collect explicit sources outside the compile DB'
             }],
+            diagnostics: compileDb.diagnostics || [],
             records: []
           };
         }
       } else {
-        files = ['src/foo.cpp', 'src/bar.cpp'];
+        // No explicit files[] and scope is neither all/changed: nothing to
+        // collect. Return a structured no_files note rather than the old dead
+        // hardcoded fallback (['src/foo.cpp','src/bar.cpp']).
+        files = [];
+        return {
+          schema_version: '0.2',
+          collectionId,
+          provider: PROVIDER_NAME,
+          providerVersion: PROVIDER_VERSION,
+          projectRoot,
+          session: { collectedAt, freshnessBasis: 'compile_db_hash', freshnessValue: dbHash, compileDbHash: dbHash },
+          operations: {},
+          status: 'ok',
+          notes: [{
+            code: 'no_files',
+            message: `no files to collect: pass files[] or scope=all/changed (scope was ${req.scope || 'unset'})`
+          }],
+          diagnostics: compileDb.diagnostics || [],
+          records: []
+        };
       }
 
-      const spawnConfig = (spawn && spawn(req)) || { command: 'clangd', args: ['--background-index=false'] };
-      const client = new LspClient({ ...spawnConfig, rootUri: pathToFileURL(projectRoot).toString() });
+      // L1 spawn upgrade: background-index ON, in-memory PCH, bounded -j,
+      // large result cap, and --compile-commands-dir pointed at the normalized
+      // DB. Tests override via injected `spawn`.
+      const spawnConfig = (spawn && spawn(req)) || buildClangdSpawn({ projectRoot, compileDb });
+      const client = new LspClient({
+        ...spawnConfig,
+        rootUri: pathToFileURL(projectRoot).toString(),
+        timeoutMs: COLD_COLLECT_TIMEOUT_MS
+      });
 
       const records = [];
       const operations = {};
@@ -409,7 +391,8 @@ export function createCppClangdProvider({ spawn } = {}) {
           },
           operations,
           status,
-          records
+          records,
+          ...(compileDb.diagnostics && compileDb.diagnostics.length ? { diagnostics: compileDb.diagnostics } : {})
         };
       } finally {
         try { await client.shutdown(); } catch { /* swallow */ }

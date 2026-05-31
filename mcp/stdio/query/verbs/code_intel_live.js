@@ -40,11 +40,11 @@ function freshnessCounts(values) {
   return counts;
 }
 
-// Plan #11 Fix 3: clangd runs with --background-index=false, so the first
-// call against a cold session can return empty diagnostics while the index
-// catches up. Reference parity (agent-code-intel bumped its TS wait
-// 1000→3000 and uses one longer cold warm-up): generous bounded waits, not
-// a hardcoded 250ms.
+// L1: clangd now runs with --background-index ON (see live.js cppSpawnFor),
+// so a cold session warms the index in the background; the first call can
+// still return empty diagnostics while indexing catches up. Reference parity
+// (agent-code-intel bumped its TS wait 1000→3000 and uses one longer cold
+// warm-up): generous bounded waits, not a hardcoded 250ms.
 const DEFAULT_DIAGNOSTICS_WAIT_MS = 3000;
 const DEFAULT_WARMUP_MS = 80;
 const COLD_WARMUP_MS = 1500;
