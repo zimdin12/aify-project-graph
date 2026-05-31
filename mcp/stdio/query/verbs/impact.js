@@ -62,7 +62,9 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     // IS a base virtual: a contract change to the base ripples to every
     // overrider. The reverse CALLS walk above won't pick these up (it walks
     // INTO the target), so query them forward explicitly. Marked INFERRED in
-    // the output — the verified version is code_intel_hierarchy kind=subtypes.
+    // the output — the verified set is code_intel_hierarchy kind=subtypes on the
+    // OWNING CLASS (kind=subtypes on a METHOD resolves to its return type, not
+    // its overrides — validated against real clangd on echoes ISimDomain).
     const overrideEdges = db.all(
       `SELECT e.*, n.label AS from_label, n.type AS from_type,
               n.file_path AS from_file, n.start_line AS from_line,
@@ -122,8 +124,15 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     // verb so it knows these are static best-effort overrides, not ground truth.
     overrideCount = kept.filter((e) => e.relation === 'OVERRIDDEN_BY').length;
     if (overrideCount > 0) {
+      // Validated on real clangd: kind=subtypes on a METHOD resolves to its
+      // return type, not its overrides — run subtypes on the OWNING CLASS (or
+      // callers on the virtual method) for the verified override set.
+      const owningClass = symbol.includes('::') ? symbol.slice(0, symbol.lastIndexOf('::')) : null;
+      const verifyHint = owningClass
+        ? `code_intel_hierarchy(symbol="${owningClass}", kind="subtypes") for the derived classes`
+        : `code_intel_hierarchy(kind="subtypes") on the OWNING CLASS for derived overriders, or code_intel_hierarchy(symbol="${symbol}", kind="callers") on the virtual method`;
       body += `\nNOTE: ${overrideCount} OVERRIDDEN_BY edge${overrideCount === 1 ? ' is an' : 's are'} INFERRED static virtual-override link${overrideCount === 1 ? '' : 's'} (base virtual → derived overrides).`
-        + ` Verified subtype set: code_intel_hierarchy(symbol="${symbol}", kind="subtypes").`;
+        + ` Verified override set: ${verifyHint}.`;
     }
 
     // CONFIDENCE footer (added 2026-04-27 after the echoes IMPACT bench

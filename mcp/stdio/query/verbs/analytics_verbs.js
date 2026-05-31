@@ -60,8 +60,11 @@ export async function graphOverview({ repoRoot, top_k = 12 }) {
         lines.push(`  → ${edgeStr}`);
       }
     }
-    const text = lines.join('\n');
-    return prefixReadWarnings(text, freshness.warnings) + '\n\n' + JSON.stringify({ clusters: shown }, null, 2);
+    // M1 — wrap the WHOLE hybrid body (text + appended JSON) through the
+    // staleness wrapper in ONE call so the snapshot warnings cannot be escaped
+    // by the appended JSON block, matching every other verb's output contract.
+    const text = lines.join('\n') + '\n\n' + JSON.stringify({ clusters: shown }, null, 2);
+    return prefixReadWarnings(text, freshness.warnings);
   } finally {
     db.close();
   }
@@ -79,8 +82,9 @@ export async function graphHotspots({ repoRoot, limit = 15 }) {
       lines.push(`- ${h.label} ${(h.type || '').toLowerCase()} ${h.file_path} (deg ${h.degree}; ${h.fan_in} in / ${h.fan_out} out)`);
     }
     if (hotspots.length === 0) lines.push('(no ranked symbols — graph may be container-only)');
-    const text = lines.join('\n');
-    return prefixReadWarnings(text, freshness.warnings) + '\n\n' + JSON.stringify({ hotspots }, null, 2);
+    // M1 — wrap text + appended JSON in ONE staleness-wrapper call (see graph_overview).
+    const text = lines.join('\n') + '\n\n' + JSON.stringify({ hotspots }, null, 2);
+    return prefixReadWarnings(text, freshness.warnings);
   } finally {
     db.close();
   }
@@ -102,8 +106,9 @@ export async function graphCycles({ repoRoot, max_len = 5, top_k = 20 }) {
         lines.push(`- (${c.length}) ${c.join(' → ')} → ${c[0]}`);
       }
     }
-    const text = lines.join('\n');
-    return prefixReadWarnings(text, freshness.warnings) + '\n\n' + JSON.stringify({ cycles, capped, scanned }, null, 2);
+    // M1 — wrap text + appended JSON in ONE staleness-wrapper call (see graph_overview).
+    const text = lines.join('\n') + '\n\n' + JSON.stringify({ cycles, capped, scanned }, null, 2);
+    return prefixReadWarnings(text, freshness.warnings);
   } finally {
     db.close();
   }

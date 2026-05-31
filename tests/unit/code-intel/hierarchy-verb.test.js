@@ -125,6 +125,8 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     expect(r.evidence.ready).toBe(true);
     expect(r.evidence.degraded).toBe(false);
     expect(r.treeText).toContain('lsp-verified');
+    // I3 — index-ready exhaustive tree: per-node ground-truth mark is allowed.
+    expect(r.treeText).toContain('[lsp✓]');
   });
 
   it('BOUNDED mode → lsp-partial banner + evidence.cause=bounded_mode (never exhaustive)', async () => {
@@ -136,6 +138,34 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     expect(r.trust).toMatch(/lsp-partial.*bounded mode/);
     expect(r.evidence.exhaustive).toBe(false);
     expect(r.evidence.cause).toBe('bounded_mode');
+    // I3 — bounded mode's banner says lsp-partial, so per-node marks must NOT
+    // claim ground truth with a bare [lsp✓] (that would contradict the banner
+    // and the "do NOT re-grep" doctrine). Use the distinct partial marker.
+    expect(r.treeText).not.toContain('[lsp✓]');
+    expect(r.treeText).toContain('[lsp~]');
+  });
+
+  it('I3: per-node mark is gated on indexReady===true (cold/not-ready → no bare [lsp✓])', async () => {
+    // FAKE_LSP_PROGRESS unset → no $/progress events. When the fake server does
+    // not reach index-ready, indexReady is false in INDEXED mode and the banner
+    // is lsp-partial — the per-node marks must then be [lsp~], never a bare
+    // [lsp✓]. (If the fixture happens to report ready, the [lsp✓] path is
+    // already covered by the index-ready test above; we only assert the gate
+    // when the not-ready condition actually held.)
+    const repo = tmpRepo();
+    const coldSpawn = { command: process.execPath, args: [fakeServer], env: { ...process.env } };
+    const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 200, spawn: coldSpawn });
+    expect(r.mode).toBe('indexed');
+    if (r.indexReady === true) {
+      // Fixture reached ready — ground-truth mark is legitimate here.
+      if (r.tree) expect(r.treeText).toContain('[lsp✓]');
+    } else {
+      expect(r.trust).toMatch(/lsp-partial|index NOT ready/);
+      if (r.tree) {
+        expect(r.treeText).not.toContain('[lsp✓]');
+        expect(r.treeText).toContain('[lsp~]');
+      }
+    }
   });
 });
 

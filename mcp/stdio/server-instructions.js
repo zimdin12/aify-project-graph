@@ -28,11 +28,14 @@ TRUST RULES (this server's differentiator):
 - Edges marked [lsp✓] (provenance LSP_VERIFIED) are clangd ground truth. Do NOT re-grep them.
 - A "TRUST: lsp-verified (index-ready, N callers)" banner means the caller set is EXHAUSTIVE — safe basis for "no callers / dead code / safe to delete".
 - "lsp-partial" / "heuristic only" means the set may be incomplete — verify before any "no callers / safe to delete" claim.
-- OVERRIDDEN_BY and INFERRED edges are static guesses, not ground truth — confirm with code_intel_hierarchy kind=subtypes.
+- OVERRIDDEN_BY and INFERRED edges are static guesses, not ground truth — confirm with code_intel_hierarchy kind=subtypes on the OWNING CLASS (returns derived overriders), or kind=callers on the virtual method (kind=subtypes on a METHOD resolves to its return type, not its overrides).
 - Results tagged generated:true are codegen stubs (.pb.*, moc_*, *_generated.h); prefer the hand-written symbol of the same name.
 
 ANTI-PATTERNS (avoid):
 - Do NOT grep to re-verify an lsp-verified result — the banner already certifies it.
 - Do NOT chain graph_search + a node verb when one graph_pull / graph_packet answers it.
 - A verb that returns inlined source is Read-equivalent — do NOT re-Read those lines.
-- The first cold graph_collect_code_intel returns partial (index warming) — call it again to complete.`;
+- The first cold graph_collect_code_intel returns partial (index warming) — call it again to complete.
+
+OUTPUT CONTRACTS:
+- Structured verbs (graph_consequences, graph_pull, graph_find, graph_explain_diff, code_intel_*) return JSON; narrative verbs (graph_callers/callees/trace/explore/digest, graph_packet, …) return markdown. Parse JSON shapes by field; read markdown shapes as text — do not assume one shape for all verbs.`;

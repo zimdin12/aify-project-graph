@@ -66,25 +66,58 @@ function extractTools(lines) {
 }
 
 describe('server toolset selection', () => {
-  it('exposes the full toolset by default', async () => {
+  it('exposes the trimmed coherent full toolset by default (R2 cohesion)', async () => {
     const tools = extractTools(await runToolRpc());
     const names = tools.map(tool => tool.name);
+    // ── Visible primary set (the coherent navigable product) ──
     expect(names).toContain('graph_callers');
     expect(names).toContain('graph_dashboard');
-    // P1-4 — graph_explain_diff is registered in the full profile.
+    // P1-4 — graph_explain_diff is registered + listed in the full profile.
     expect(names).toContain('graph_explain_diff');
-    // P1-2 / P1-3 — graph_trace + graph_explore registered in the full profile.
+    // P1-2 / P1-3 — graph_trace + graph_explore listed in the full profile.
     expect(names).toContain('graph_trace');
     expect(names).toContain('graph_explore');
-    // P2a / P2-9 — analytics verbs registered in the full profile.
+    // graph_digest is the ONE analytics front door (composes overview/hotspots/cycles).
     expect(names).toContain('graph_digest');
-    expect(names).toContain('graph_overview');
-    expect(names).toContain('graph_hotspots');
-    expect(names).toContain('graph_cycles');
+    // graph_onboard is now a VISIBLE orientation primary (was hidden pre-R2).
+    expect(names).toContain('graph_onboard');
+    // Live code-intel primaries stay visible.
+    expect(names).toContain('code_intel_references');
+    expect(names).toContain('code_intel_hierarchy');
+
+    // ── Hidden (still callable by name, just not in tools/list) ──
+    // Legacy locator aliases briefs replaced.
     expect(names).not.toContain('graph_summary');
     expect(names).not.toContain('graph_report');
-    expect(names).not.toContain('graph_onboard');
     expect(names).not.toContain('graph_lookup');
+    // Planning verbs redundant with graph_packet (share computeDecision).
+    expect(names).not.toContain('graph_change_plan');
+    expect(names).not.toContain('graph_preflight');
+    // Analytics long-tail folded behind graph_digest.
+    expect(names).not.toContain('graph_overview');
+    expect(names).not.toContain('graph_hotspots');
+    expect(names).not.toContain('graph_cycles');
+    expect(names).not.toContain('graph_module_tree');
+    // Code-intel long-tail.
+    expect(names).not.toContain('code_intel_replay');
+    expect(names).not.toContain('code_intel_analyze');
+
+    // The trimmed listed set is exactly 30 verbs (41 registered − 11 hidden).
+    expect(names.length).toBe(30);
+  });
+
+  it('keeps R2-hidden verbs callable by name in the full profile', async () => {
+    // graph_overview is hidden from tools/list but must still resolve via
+    // tools/call — trimming is manifest-only, never a capability removal.
+    const lines = await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_index', arguments: { repo } } },
+      { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'graph_overview', arguments: { repo, top_k: 3 } } },
+    ]);
+    const resp = lines.find(line => line.id === 3);
+    const text = resp?.result?.content?.[0]?.text ?? '';
+    expect(resp?.error).toBeUndefined();
+    expect(text).toContain('OVERVIEW');
   });
 
   it('exposes the lean-5 verbs in lean mode (v5: adds graph_health for skill alignment)', async () => {

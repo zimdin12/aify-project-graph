@@ -45,12 +45,17 @@ describe('composite verbs', () => {
     await rm(dir, { recursive: true, force: true });
   });
 
-  it('buildChangePlan produces a rolled-up read order for classes', () => {
-    const out = buildChangePlan(db, { symbol: 'AuthService', top_k: 5, dirtyCount: 0 });
+  it('buildChangePlan produces a rolled-up read order for classes', async () => {
+    const out = await buildChangePlan(db, { symbol: 'AuthService', top_k: 5, dirtyCount: 0 });
 
     expect(out).toContain('CHANGE_PLAN AuthService class src/auth.py:1');
     expect(out).toContain('ROLLUP Class "AuthService" across 1 method');
-    expect(out).toContain('TRUST STRONG');
+    // HEADLINE trust now speaks the lsp axis (cohesion fix R2/C2); no LSP edges
+    // in this fixture so it reads heuristic. Edge-count axis is demoted to a
+    // GRAPH COMPLETENESS qualifier.
+    expect(out).toContain('TRUST: heuristic only (tree-sitter)');
+    expect(out).toContain('GRAPH COMPLETENESS STRONG');
+    expect(out).not.toContain('TRUST STRONG');
     expect(out).toContain('READ ORDER');
     expect(out).toContain('1. src/auth.py — target definition');
     expect(out).toContain('src/main.py — top caller file');
@@ -58,8 +63,8 @@ describe('composite verbs', () => {
     expect(out).toContain('AFFECTED FILES');
   });
 
-  it('buildChangePlanWithContext surfaces map quality and dirty seam hints', () => {
-    const out = buildChangePlanWithContext(db, {
+  it('buildChangePlanWithContext surfaces map quality and dirty seam hints', async () => {
+    const out = await buildChangePlanWithContext(db, {
       symbol: 'AuthService',
       top_k: 5,
       dirtyCount: 0,

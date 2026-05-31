@@ -79,11 +79,11 @@ async function withDashboard(dir, db, fn) {
 // hit every new endpoint through the live HTTP server.
 
 function addNode(db, id, opts = {}) {
-  const { type = 'Function', label = id, file_path = '', community_id = null } = opts;
+  const { type = 'Function', label = id, file_path = '', community_id = null, language = '' } = opts;
   const extra = community_id != null ? JSON.stringify({ community_id }) : '{}';
   db.run(
-    `INSERT INTO nodes (id, type, label, file_path, extra) VALUES ($id,$type,$label,$fp,$extra)`,
-    { id, type, label, fp: file_path, extra },
+    `INSERT INTO nodes (id, type, label, file_path, language, extra) VALUES ($id,$type,$label,$fp,$lang,$extra)`,
+    { id, type, label, fp: file_path, lang: language, extra },
   );
 }
 function addEdge(db, from_id, to_id, opts = {}) {
@@ -106,7 +106,7 @@ function tmpRepoWithSeededGraph() {
   addNode(db, 'b1', { community_id: 2, file_path: 'lib/b1.js', label: 'b1' });
   addNode(db, 'b2', { community_id: 2, file_path: 'lib/b2.js', label: 'b2' });
   // A shader binding bridge.
-  addNode(db, 'shb', { type: 'ShaderBinding', file_path: 'shaders/x.glsl', label: 'binding0' });
+  addNode(db, 'shb', { type: 'ShaderBinding', file_path: 'shaders/x.glsl', label: 'binding0', language: 'glsl' });
   // Degree: god gets fan-in/out; chain god→s1→s2 for pathfinding.
   addEdge(db, 's1', 'god', { provenance: 'LSP_VERIFIED' });
   addEdge(db, 's2', 'god', { provenance: 'LSP_VERIFIED' });

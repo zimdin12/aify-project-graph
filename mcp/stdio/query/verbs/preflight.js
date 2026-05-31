@@ -4,6 +4,7 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { buildTrustLine } from '../lsp-evidence.js';
 
 /**
  * One-shot edit safety check. Combines whereis + callers + impact + tests + trust
@@ -30,10 +31,18 @@ export async function graphPreflight({ repoRoot, symbol }) {
 
     // 3. Top 5 callers with labels
     const topCallers = db.all(
-      `SELECT n.label, n.file_path, e.source_line, e.relation, e.confidence
+      `SELECT n.label, n.file_path, e.source_line, e.relation, e.confidence, e.provenance
        FROM edges e JOIN nodes n ON n.id = e.from_id
        WHERE e.to_id = $id AND e.relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')
        ORDER BY e.confidence DESC LIMIT 5`,
+      { id: node.id }
+    );
+
+    // HEADLINE trust evidence — all incoming caller edges' provenance, so the
+    // lsp axis below reflects the full caller set, not just the top 5 shown.
+    const incomingProvenance = db.all(
+      `SELECT e.provenance FROM edges e
+       WHERE e.to_id = $id AND e.relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')`,
       { id: node.id }
     );
 
@@ -71,9 +80,19 @@ export async function graphPreflight({ repoRoot, symbol }) {
       confidence: node.confidence ?? 1.0,
     });
 
+    // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis (cohesion
+    // fix R2/C2), the SAME vocabulary as graph_callers / server-instructions /
+    // the lean default. Derived from the provenance of the incoming caller edges.
+    let headlineTrust = '';
+    try {
+      const trustEdges = incomingProvenance.map((row) => ({ provenance: row.provenance ?? 'EXTRACTED' }));
+      headlineTrust = await buildTrustLine({ edges: trustEdges, db, repoRoot });
+    } catch { /* defensive — never block the preflight on trust-line failure */ }
+
     // Build output
     const lines = [];
     lines.push(`PREFLIGHT ${node.label} ${(node.type ?? 'unknown').toLowerCase()} ${node.file_path}:${node.start_line}`);
+    if (headlineTrust) lines.push(headlineTrust);
     lines.push('');
 
     // Callers
@@ -98,13 +117,15 @@ export async function graphPreflight({ repoRoot, symbol }) {
     }
     lines.push('');
 
-    // Trust
+    // Graph completeness — SECONDARY qualifier on the edge-count axis. The
+    // HEADLINE trust line (lsp axis) is emitted up top; this stays as a
+    // graph-completeness signal so the agent still sees unresolved-edge load.
     if (dirtyCount > 100) {
-      lines.push(`TRUST WEAK — ${dirtyCount} unresolved edges (graph may be incomplete)`);
+      lines.push(`GRAPH COMPLETENESS WEAK — ${dirtyCount} unresolved edges (graph may be incomplete)`);
     } else if (dirtyCount > 0) {
-      lines.push(`TRUST OK — ${dirtyCount} unresolved edges`);
+      lines.push(`GRAPH COMPLETENESS OK — ${dirtyCount} unresolved edges`);
     } else {
-      lines.push('TRUST STRONG — 0 unresolved edges');
+      lines.push('GRAPH COMPLETENESS STRONG — 0 unresolved edges');
     }
     lines.push('');
 

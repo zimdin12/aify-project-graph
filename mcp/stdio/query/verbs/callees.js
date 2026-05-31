@@ -65,7 +65,11 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // override implementations. clangd resolves `base*->virt()` to the declared
     // base method only; OVERRIDDEN_BY (base→derived, INFERRED) lets callees
     // continue through vtable dispatch. Query forward from the root and merge.
-    // Marked INFERRED in output; verified set is code_intel_hierarchy subtypes.
+    // Marked INFERRED in output. The verified override set is
+    // code_intel_hierarchy kind=subtypes on the OWNING CLASS (clangd returns the
+    // derived classes; their same-named methods are the overrides). NOTE: passing
+    // the METHOD to kind=subtypes resolves to the method's return type, not its
+    // overrides — validated against real clangd on echoes ISimDomain.
     const overrideEdges = db.all(
       `SELECT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line
        FROM edges e JOIN nodes n ON n.id = e.to_id
@@ -115,10 +119,17 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     let body = renderCompact({ nodes: [], edges: [...kept, ...overrideMapped], truncated: dropped, suggestion: `top_k=${top_k + 10}` });
 
     // P0-5 cross-reference: flag the INFERRED override callees and point at the
-    // clangd-verified hierarchy verb.
+    // clangd-verified hierarchy verb. IMPORTANT (validated on real clangd):
+    // kind=subtypes on a METHOD resolves to the method's return type, not its
+    // overrides — the verified override set comes from kind=subtypes on the
+    // OWNING CLASS, or kind=callers on the virtual method itself.
     if (overrideCount > 0) {
+      const owningClass = symbol.includes('::') ? symbol.slice(0, symbol.lastIndexOf('::')) : null;
+      const verifyHint = owningClass
+        ? `code_intel_hierarchy(symbol="${owningClass}", kind="subtypes") for the derived classes, then their same-named override`
+        : `code_intel_hierarchy(kind="subtypes") on the OWNING CLASS for derived overriders, or code_intel_hierarchy(symbol="${symbol}", kind="callers") on the virtual method`;
       body += `\nNOTE: ${overrideCount} OVERRIDDEN_BY callee${overrideCount === 1 ? ' is an' : 's are'} INFERRED virtual-override link${overrideCount === 1 ? '' : 's'} (dynamic dispatch through a base virtual).`
-        + ` Verified overrides: code_intel_hierarchy(symbol="${symbol}", kind="subtypes").`;
+        + ` Verified overrides: ${verifyHint}.`;
     }
 
     // TRUST banner (Code-Intel v2 / L2b). callees.js previously had NO trust

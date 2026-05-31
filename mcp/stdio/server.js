@@ -95,7 +95,7 @@ const TOOLS = [
   {
     name: 'graph_packet',
     handler: graphPacket,
-    description: 'Compact one-shot agent prompt packet for a feature or task. For feature/task targets, reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Bare symbol targets may use one budgeted consequences lookup to map symbol→feature. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. mode=verify is a post-edit decision packet and does not require target — pass files[]/since instead. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit|verify to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
+    description: 'PRIMARY for task/feature/symbol context — prefer over stringing graph_pull + graph_consequences. Compact one-shot agent prompt packet for a feature or task. For feature/task targets, reads overlay (functionality.json + tasks.json) + brief.json directly — no ensureFresh, no SQL, sub-millisecond static path. Bare symbol targets may use one budgeted consequences lookup to map symbol→feature. Returns fixed-schema markdown: TASK/FEATURE → MODE → STATUS → FEATURES → SNAPSHOT → READ FIRST → CONTRACTS → TESTS → RISKS → LIVE. mode=verify is a post-edit decision packet and does not require target — pass files[]/since instead. Target: <500-900 tokens. Use INSTEAD of stringing graph_pull + graph_consequences + tasks/functionality.json reads when you just need the action-bearing context to start work. Pass mode=orient|plan|debug|review|audit|verify to shape section caps and risk hints. Pass live=true to opt into the slower live-enrichment path.',
     schema: {
       type: 'object',
       properties: {
@@ -253,7 +253,7 @@ const TOOLS = [
   {
     name: 'graph_collect_code_intel',
     handler: graphCollectCodeIntel,
-    description: 'Run a code-intel provider (e.g. cpp-clangd) and import the resulting v0.2 collection into the local graph. Public action verb — agents and bridge UI both call this. Never auto-runs; explicit only. Returns the v0.2 collection envelope (status, errors, records). On success the collection is imported and immediately visible to graph_health.codeIntel, graph_pull(layers:["code_intel"]), graph_change_plan ranking, and packet EVIDENCE blocks. Use after touching code that needs compiler-backed precision (C++ templates, virtual dispatch, macros). COLD-START: the first collect on a fresh clangd index is time-budgeted (default ~40s) and may return status:"partial" with session.budgetExhausted=true and a resume note — the index now persists, so just call graph_collect_code_intel AGAIN to continue/complete (the warm run is fast).',
+    description: 'Run a code-intel provider (e.g. cpp-clangd) and import the resulting v0.2 collection into the local graph. Public action verb — agents and bridge UI both call this. Never auto-runs; explicit only. Returns the v0.2 collection envelope (status, errors, records). On success the collection is imported and immediately visible to graph_health.codeIntel, graph_pull(layers:["code_intel"]), and graph_packet EVIDENCE blocks. Use after touching code that needs compiler-backed precision (C++ templates, virtual dispatch, macros). COLD-START: the first collect on a fresh clangd index is time-budgeted (default ~40s) and may return status:"partial" with session.budgetExhausted=true and a resume note — the index now persists, so just call graph_collect_code_intel AGAIN to continue/complete (the warm run is fast).',
     schema: {
       type: 'object',
       properties: {
@@ -334,7 +334,7 @@ const TOOLS = [
   {
     name: 'graph_digest',
     handler: graphDigest,
-    description: 'Token-budgeted PROJECT DIGEST — the dashboard\'s whole analytic value in ~1-2k tokens: layers/communities, god-node hotspots, shader-binding + provenance %, tightest import cycles, community bridges. Call FIRST to orient on an unfamiliar repo.',
+    description: 'PRIMARY repo orientation. Token-budgeted PROJECT DIGEST — the dashboard\'s whole analytic value in ~1-2k tokens: layers/communities, god-node hotspots, shader-binding + provenance %, tightest import cycles, community bridges. The ONE analytics front door — composes graph_overview/graph_hotspots/graph_cycles. Call FIRST to orient on an unfamiliar repo.',
     schema: {
       type: 'object',
       properties: {
@@ -489,7 +489,7 @@ const TOOLS = [
   {
     name: 'graph_callers',
     handler: graphCallers,
-    description: 'Incoming execution edges for a symbol. Includes CALLS, INVOKES, PASSES_THROUGH.',
+    description: 'Incoming execution edges for a symbol. Includes CALLS, INVOKES, PASSES_THROUGH. For transitive + LSP-exhaustive results use code_intel_hierarchy.',
     schema: {
       type: 'object',
       properties: {
@@ -534,7 +534,7 @@ const TOOLS = [
   {
     name: 'graph_impact',
     handler: graphImpact,
-    description: 'Transitive blast radius for a symbol across calls, refs, and tests.',
+    description: 'Transitive blast radius for a symbol across calls, refs, and tests. For transitive + LSP-exhaustive results use code_intel_hierarchy.',
     schema: {
       type: 'object',
       properties: {
@@ -548,7 +548,7 @@ const TOOLS = [
   {
     name: 'graph_path',
     handler: graphPath,
-    description: 'Readable path trace from a symbol. execution=CALLS/INVOKES/PASSES_THROUGH; dependency=broader.',
+    description: 'Readable path trace from a symbol. execution=CALLS/INVOKES/PASSES_THROUGH; dependency=broader. For transitive + LSP-exhaustive results use code_intel_hierarchy.',
     schema: {
       type: 'object',
       properties: {
@@ -688,14 +688,33 @@ const LEAN_TOOL_NAMES = new Set([
   'graph_watch',
 ]);
 
-// Full profile still keeps all 21 verbs callable, but the tools/list surface
-// hides the low-value legacy orient aliases that briefs replaced. This trims
-// passive manifest tax without breaking scripts that call them by name.
+// Full profile still keeps EVERY verb callable by name, but the tools/list
+// surface hides the redundant + long-tail verbs so the listed set reads as ONE
+// coherent product instead of a 37-verb salience wall (R2 cohesion fix). Hidden
+// verbs are still invokable via tools/call — this trims the passive manifest
+// tax only. Three buckets:
+//   1. Legacy locator aliases briefs replaced (lookup, summary, report).
+//   2. Planning verbs redundant with graph_packet modes — change_plan +
+//      preflight share computeDecision with packet's verify/plan paths.
+//   3. Analytics long-tail — graph_digest is the ONE analytics front door and
+//      composes overview/hotspots/cycles; the rest stay callable but unlisted.
+//      module_tree (directory roll-up) folds in here as long-tail orientation.
+//   4. Replay/analyze code-intel long-tail — the live code_intel_* primaries
+//      (references/definitions/hover/symbols/diagnostics/hierarchy) are the
+//      coherent front; replay (parent-session reads) + analyze (clang-tidy/
+//      build) are specialist follow-ups.
 const HIDDEN_FULL_TOOL_NAMES = new Set([
   'graph_lookup',
   'graph_summary',
   'graph_report',
-  'graph_onboard',
+  'graph_change_plan',
+  'graph_preflight',
+  'graph_module_tree',
+  'graph_overview',
+  'graph_hotspots',
+  'graph_cycles',
+  'code_intel_replay',
+  'code_intel_analyze',
 ]);
 
 // Tier B — kept visible in `tools/list` but with a one-line description in
@@ -707,7 +726,6 @@ const SHORT_DESCRIPTIONS = new Map([
   ['graph_search',      'Fuzzy symbol search. Use when the exact name is unknown.'],
   ['graph_health',      'Graph trust + dirty-edge breakdown. Run to assess indexing quality.'],
   ['graph_file',        'Whole-file digest (symbols + exports). Use when briefs do not cover the file.'],
-  ['graph_module_tree', 'Directory → feature roll-up. Use to see repo layout in graph form.'],
 ]);
 
 function projectToShortDescription(tool) {

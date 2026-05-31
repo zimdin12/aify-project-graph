@@ -12,6 +12,7 @@ import { expandClassRollupTargets } from './target_rollup.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
+import { buildTrustLine } from '../lsp-evidence.js';
 
 const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Test', 'Route', 'Entrypoint'];
 const INCOMING_RELATIONS = ['CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH'];
@@ -29,10 +30,14 @@ function fileDir(filePath) {
   return filePath.slice(0, filePath.lastIndexOf('/'));
 }
 
-function trustLine(dirtyCount) {
-  if (dirtyCount > 100) return `TRUST WEAK — ${dirtyCount} unresolved edges in graph`;
-  if (dirtyCount > 0) return `TRUST OK — ${dirtyCount} unresolved edges in graph`;
-  return 'TRUST STRONG — 0 unresolved edges';
+// SECONDARY qualifier (cohesion fix R2/C2). The HEADLINE trust line now comes
+// from buildTrustLine (lsp-verified/lsp-partial/heuristic axis) so change_plan
+// speaks the SAME trust vocabulary as the rest of the product. The edge-count
+// axis below is kept as a graph-completeness qualifier on its own line.
+function edgeCompletenessQualifier(dirtyCount) {
+  if (dirtyCount > 100) return `GRAPH COMPLETENESS WEAK — ${dirtyCount} unresolved edges in graph`;
+  if (dirtyCount > 0) return `GRAPH COMPLETENESS OK — ${dirtyCount} unresolved edges in graph`;
+  return 'GRAPH COMPLETENESS STRONG — 0 unresolved edges';
 }
 
 function groupByFile(rows, fileKey, labelKey, relationKey) {
@@ -157,7 +162,7 @@ export function buildChangePlan(db, { symbol, top_k = 6, dirtyCount = 0 }) {
   return buildChangePlanWithContext(db, { symbol, top_k, dirtyCount });
 }
 
-export function buildChangePlanWithContext(db, {
+export async function buildChangePlanWithContext(db, {
   symbol,
   top_k = 6,
   dirtyCount = 0,
@@ -165,6 +170,7 @@ export function buildChangePlanWithContext(db, {
   dirtyFiles = [],
   overlayQuality = null,
   sourceOccurrenceFiles = [],
+  repoRoot = null,
 }) {
   const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
   const candidates = resolveSymbol(db, symbol, typesClause);
@@ -180,7 +186,7 @@ export function buildChangePlanWithContext(db, {
   const { sql, params } = placeholders(targetIds, 'target');
 
   const incomingRows = db.all(
-    `SELECT e.from_id, e.relation, e.confidence, n.label AS from_label, n.file_path AS from_file, n.start_line AS line
+    `SELECT e.from_id, e.relation, e.confidence, e.provenance, n.label AS from_label, n.file_path AS from_file, n.start_line AS line
      FROM edges e
      JOIN nodes n ON n.id = e.from_id
      WHERE e.to_id IN (${sql}) AND e.relation IN (${INCOMING_RELATIONS.map((type) => `'${type}'`).join(',')})
@@ -262,10 +268,22 @@ export function buildChangePlanWithContext(db, {
   const dirtyFeatureMatches = dirtySeams.features.filter((feature) => affectedFeatureIds.has(feature.id));
   const directDirtyFiles = targetFiles.filter((file) => dirtyFiles.includes(file));
 
+  // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis, the SAME
+  // vocabulary the product doctrine + server-instructions + lean default train
+  // the agent on. Derived from the provenance of the incoming (caller) edges so
+  // an LSP_VERIFIED caller set reads as ground truth. Edge-count completeness is
+  // demoted to a SECONDARY qualifier below.
+  const incomingTrustEdges = incomingRows.map((row) => ({ provenance: row.provenance ?? 'EXTRACTED' }));
+  let headlineTrust = '';
+  try {
+    headlineTrust = await buildTrustLine({ edges: incomingTrustEdges, db, repoRoot });
+  } catch { /* defensive — never block the plan on trust-line failure */ }
+
   const lines = [];
   lines.push(`CHANGE_PLAN ${root.label} ${(root.type ?? 'unknown').toLowerCase()} ${root.file_path}:${root.start_line}`);
   if (rollup.rolledUp) lines.push(rollup.header);
-  lines.push(trustLine(dirtyCount));
+  if (headlineTrust) lines.push(headlineTrust);
+  lines.push(edgeCompletenessQualifier(dirtyCount));
   if (overlayQuality?.featureCount) {
     const taskLinkSummary = [
       `${overlayQuality.strongTaskLinks ?? 0} strong`,
@@ -419,7 +437,7 @@ export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
   try {
     const sourceOccurrenceFiles = findSourceOccurrenceFiles(db, repoRoot, symbol, []);
     return prefixReadWarnings(
-      buildChangePlanWithContext(db, {
+      await buildChangePlanWithContext(db, {
         symbol,
         top_k,
         dirtyCount,
@@ -427,6 +445,7 @@ export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
         dirtyFiles,
         overlayQuality,
         sourceOccurrenceFiles,
+        repoRoot,
       }),
       freshness.warnings,
     );

@@ -12,9 +12,12 @@
 // COMPLETE override set per class (every matched base method, capped only to
 // avoid pathological blowups, and the cap is reported), and we tag every edge
 // `provenance:'INFERRED'` so it NEVER masquerades as ground truth. The
-// clangd `code_intel_hierarchy kind=subtypes` verb remains the verified path;
-// these edges are the static best-effort backstop that exists even without a
-// clangd collection.
+// The clangd-verified path is `code_intel_hierarchy kind=subtypes` on the
+// OWNING CLASS (returns derived classes; their same-named methods are the
+// overrides) — NOT on the method: validated on real clangd, kind=subtypes on a
+// method resolves to its return type, not its overrides. kind=callers on the
+// virtual method is the other verified angle. These INFERRED edges are the
+// static best-effort backstop that exists even without a clangd collection.
 //
 // INTEGRATION: unlike the filesystem-scanning shader bridge, this needs the
 // resolved graph (Method nodes + EXTENDS/IMPLEMENTS edges). So it runs as a
