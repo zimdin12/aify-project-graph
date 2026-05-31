@@ -54,6 +54,36 @@ describe('graph_collect_code_intel', () => {
     expect(health.codeIntel.status).toBe('ok');
   });
 
+  it('P0-1: partial budget-exhausted envelope is imported and surfaces a resume error', async () => {
+    clearProviders();
+    registerProvider('cpp-clangd', () => ({
+      capabilities: () => ({ provider: 'cpp-clangd', version: '0.0.1', languages: ['cpp'], operations: ['references'], freshnessBasis: 'compile_db_hash', warmupRequired: false, limits: {} }),
+      collect: async (req) => ({
+        schema_version: '0.2',
+        collectionId: 'ci-test-budget-1',
+        provider: 'cpp-clangd',
+        providerVersion: '0.0.1',
+        projectRoot: req.projectRoot,
+        session: {
+          collectedAt: new Date().toISOString(), freshnessBasis: 'compile_db_hash', compileDbHash: 'b1',
+          budgetMs: 5000, budgetExhausted: true, indexReady: false, filesProcessed: 0, filesTotal: 3
+        },
+        operations: { references: { status: 'partial', reason: 'budget_exhausted_index_warming', count: 0 } },
+        status: 'partial',
+        notes: [{ code: 'budget_exhausted', message: 'partial: index still warming within 5000ms budget — clangd index is now persisting; run graph_collect_code_intel again to continue/complete (warm runs are ~fast).' }],
+        records: []
+      })
+    }));
+    const dir = setupRepo();
+    const result = await graphCollectCodeIntel({ repoRoot: dir, language: 'cpp', scope: 'all', operations: ['references'], budgetMs: 5000 });
+    expect(result.status).toBe('partial');
+    expect(result.session.budgetExhausted).toBe(true);
+    // resume note mirrored into errors[] for hosts that only render errors
+    const err = (result.errors || []).find(e => e.code === 'budget_exhausted');
+    expect(err).toBeTruthy();
+    expect(err.message).toMatch(/run graph_collect_code_intel again/);
+  });
+
   it('returns error envelope for unsupported languages', async () => {
     const dir = setupRepo();
     const result = await graphCollectCodeIntel({ repoRoot: dir, language: 'rust' });

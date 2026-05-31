@@ -118,6 +118,82 @@ describe('cpp-clangd provider (fake LSP)', () => {
     }
   });
 
+  it('P0-1: tiny total budget → status partial + budgetExhausted + resume note', async () => {
+    const prev = process.env.APG_CLANGD_MODE;
+    delete process.env.APG_CLANGD_MODE; // default = indexed
+    try {
+      const p = fakeProgressProvider();
+      // budgetMs=1 is far below the 3s tail reserve, so the budget is already
+      // exhausted before the first file is processed — mirrors the cold-index
+      // case where the readiness wait eats the whole budget.
+      const result = await p.collect({
+        language: 'cpp', projectRoot: fixtureRepo, scope: 'files',
+        files: ['src/foo.cpp', 'src/bar.cpp'], operations: ['references'],
+        budgetMs: 1
+      });
+      expect(result.status).toBe('partial');
+      expect(result.session.budgetExhausted).toBe(true);
+      expect(result.session.budgetMs).toBe(1);
+      expect(result.session.filesProcessed).toBe(0);
+      expect(result.session.filesTotal).toBe(2);
+      const note = (result.notes || []).find(n => n.code === 'budget_exhausted');
+      expect(note).toBeTruthy();
+      expect(note.message).toMatch(/run graph_collect_code_intel again/);
+      // requested ops are demoted to partial for consistency
+      expect(result.operations.references.status).toBe('partial');
+      expect(validateCollection(result).valid).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.APG_CLANGD_MODE;
+      else process.env.APG_CLANGD_MODE = prev;
+    }
+  });
+
+  it('P0-1: ample budget + index ready → full ok status, no budget exhaustion', async () => {
+    const prev = process.env.APG_CLANGD_MODE;
+    delete process.env.APG_CLANGD_MODE; // default = indexed
+    try {
+      const p = fakeProgressProvider();
+      const result = await p.collect({
+        language: 'cpp', projectRoot: fixtureRepo, scope: 'files',
+        files: ['src/foo.cpp', 'src/bar.cpp'], operations: ['references'],
+        budgetMs: 60000
+      });
+      expect(result.status).toBe('ok');
+      expect(result.session.budgetExhausted).toBe(false);
+      expect(result.session.indexReady).toBe(true);
+      expect(result.session.filesProcessed).toBe(2);
+      expect(result.session.filesTotal).toBe(2);
+      expect(result.notes === undefined || !result.notes.some(n => n.code === 'budget_exhausted')).toBe(true);
+      expect(result.operations.references.status).toBe('ok');
+      expect(validateCollection(result).valid).toBe(true);
+    } finally {
+      if (prev === undefined) delete process.env.APG_CLANGD_MODE;
+      else process.env.APG_CLANGD_MODE = prev;
+    }
+  });
+
+  it('P0-1: APG_COLLECT_BUDGET_MS env drives the budget when no arg given', async () => {
+    const prevMode = process.env.APG_CLANGD_MODE;
+    const prevBudget = process.env.APG_COLLECT_BUDGET_MS;
+    delete process.env.APG_CLANGD_MODE;
+    process.env.APG_COLLECT_BUDGET_MS = '1';
+    try {
+      const p = fakeProgressProvider();
+      const result = await p.collect({
+        language: 'cpp', projectRoot: fixtureRepo, scope: 'files',
+        files: ['src/foo.cpp'], operations: ['references']
+      });
+      expect(result.status).toBe('partial');
+      expect(result.session.budgetExhausted).toBe(true);
+      expect(result.session.budgetMs).toBe(1);
+    } finally {
+      if (prevMode === undefined) delete process.env.APG_CLANGD_MODE;
+      else process.env.APG_CLANGD_MODE = prevMode;
+      if (prevBudget === undefined) delete process.env.APG_COLLECT_BUDGET_MS;
+      else process.env.APG_COLLECT_BUDGET_MS = prevBudget;
+    }
+  });
+
   it('symbol-aware reference behavior: capable-target empty result triggers warm-and-retry', async () => {
     // The fake LSP returns a non-empty refs result; this test asserts the gate is implemented
     // by checking the provider records carry result_state and never silently emit an empty refs set

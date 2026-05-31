@@ -20,6 +20,18 @@ const COLD_COLLECT_TIMEOUT_MS = 60000;
 // Bounded wait — never hangs forever. Override via APG_CLANGD_INDEX_WAIT_MS.
 const DEFAULT_INDEX_WAIT_MS = 90000;
 
+// P0-1: TOTAL wall-clock budget for one collect() call. A cold clangd
+// background-index pass can take ~50s+ before queries resolve, which exceeds
+// the MCP host's tool-call timeout and drops the stdio connection (the whole
+// tool set de-registers). We cap the entire collect at this budget and return
+// a `partial` envelope with a resume signal well before the host times out, so
+// the warm second call completes. Override via APG_COLLECT_BUDGET_MS or the
+// `budgetMs` collect arg.
+const DEFAULT_COLLECT_BUDGET_MS = 40000;
+// Reserve at the tail of the budget so shutdown + envelope assembly + (in the
+// verb) the local import all complete inside the budget rather than racing it.
+const BUDGET_TAIL_RESERVE_MS = 3000;
+
 function resolveClangdMode() {
   const raw = String(process.env.APG_CLANGD_MODE || 'indexed').trim().toLowerCase();
   return raw === 'bounded' ? 'bounded' : 'indexed';
@@ -28,6 +40,18 @@ function resolveClangdMode() {
 function resolveIndexWaitMs() {
   const raw = Number(process.env.APG_CLANGD_INDEX_WAIT_MS);
   return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_INDEX_WAIT_MS;
+}
+
+// P0-1: resolve the total collect budget. Explicit `req.budgetMs` wins, then
+// APG_COLLECT_BUDGET_MS, then the default. A value <= 0 disables the budget
+// (treated as effectively unbounded) so existing unbounded callers/tests can
+// opt out.
+function resolveCollectBudgetMs(req) {
+  const argRaw = Number(req && req.budgetMs);
+  if (Number.isFinite(argRaw)) return argRaw > 0 ? argRaw : Infinity;
+  const envRaw = Number(process.env.APG_COLLECT_BUDGET_MS);
+  if (Number.isFinite(envRaw)) return envRaw > 0 ? envRaw : Infinity;
+  return DEFAULT_COLLECT_BUDGET_MS;
 }
 
 const PROVIDER_NAME = 'cpp-clangd';
@@ -95,6 +119,16 @@ export function createCppClangdProvider({ spawn } = {}) {
       const collectionId = newCollectionId();
       const collectedAt = new Date().toISOString();
       const projectRoot = req.projectRoot;
+
+      // P0-1: start the total budget clock. `remainingBudget()` is consulted to
+      // cap the index-readiness wait and to stop the per-file loop early so the
+      // call ALWAYS returns inside the budget (never hanging past the MCP host
+      // timeout). budgetMs===Infinity means "no budget" (legacy unbounded).
+      const budgetMs = resolveCollectBudgetMs(req);
+      const budgetStart = Date.now();
+      const budgetEnabled = Number.isFinite(budgetMs);
+      const budgetElapsed = () => Date.now() - budgetStart;
+      const remainingBudget = () => (budgetEnabled ? Math.max(0, budgetMs - budgetElapsed()) : Infinity);
 
       // L1: discover + normalize the richest compile DB (WSL→host paths,
       // unity detection, dep filtering) and write it under .aify-graph.
@@ -222,7 +256,15 @@ export function createCppClangdProvider({ spawn } = {}) {
         let indexWaitMs = 0;
         let indexWaitReason = 'skipped_bounded_mode';
         if (mode === 'indexed') {
-          const indexWaitBudget = resolveIndexWaitMs();
+          // P0-1: cap the readiness wait at min(its own budget, remaining total
+          // budget − tail reserve) so a cold index never consumes the whole
+          // call. When the cap is hit before the index drains, waitForIndexReady
+          // resolves ready:false and we fall through to a budget-aware partial.
+          const ownWaitBudget = resolveIndexWaitMs();
+          const budgetCap = budgetEnabled
+            ? Math.max(0, remainingBudget() - BUDGET_TAIL_RESERVE_MS)
+            : ownWaitBudget;
+          const indexWaitBudget = Math.min(ownWaitBudget, budgetCap);
           try {
             const r = await client.waitForIndexReady({ timeoutMs: indexWaitBudget });
             indexReady = !!r.ready;
@@ -252,8 +294,27 @@ export function createCppClangdProvider({ spawn } = {}) {
         if (requestedOps.has('diagnostics')) operations.diagnostics = { status: 'ok', count: 0 };
         else operations.diagnostics = { status: 'not_collected', reason: 'not_requested' };
 
+        // P0-1: per-file budget bookkeeping. `filesProcessed` counts files we
+        // fully ran the requested ops over; `budgetExhausted` flips when we stop
+        // the loop early (or the index wait was cut short) so the envelope can
+        // carry a resume signal.
+        let filesProcessed = 0;
+        let budgetExhausted = false;
+        // The index wait may already have been cut short by the budget; if so we
+        // are out of budget before processing any file.
+        if (budgetEnabled && remainingBudget() <= BUDGET_TAIL_RESERVE_MS) {
+          budgetExhausted = true;
+        }
+
         const PROGRESS_EVERY = 25;
         for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
+          // P0-1: stop early if the remaining budget can't safely cover another
+          // file's per-symbol queries. Return what we have so far rather than
+          // blocking past the MCP host timeout.
+          if (budgetEnabled && remainingBudget() <= BUDGET_TAIL_RESERVE_MS) {
+            budgetExhausted = true;
+            break;
+          }
           const rel = files[fileIdx];
           if (process.env.APG_VERBOSE_CODE_INTEL && fileIdx > 0 && fileIdx % PROGRESS_EVERY === 0) {
             process.stderr.write(`[apg code-intel] processed ${fileIdx}/${files.length} files...\n`);
@@ -407,6 +468,20 @@ export function createCppClangdProvider({ spawn } = {}) {
               operations.diagnostics.count += 1;
             }
           }
+
+          filesProcessed += 1;
+        }
+
+        // P0-1: budget can also be exhausted because the index never went ready
+        // within the cap (cold first run) even if every file slot was visited.
+        // Treat "indexed mode, asked to wait, but not ready" under an active
+        // budget as exhausted so the resume signal fires on the classic cold
+        // case (index still warming).
+        const filesTotal = files.length;
+        if (budgetEnabled && filesProcessed < filesTotal) budgetExhausted = true;
+        if (budgetEnabled && mode === 'indexed' && !indexReady &&
+            (indexWaitReason === 'index_wait_timeout' || indexWaitReason === 'index_wait_error')) {
+          budgetExhausted = true;
         }
 
         const anyPartial = Object.values(operations).some(o => o.status === 'partial');
@@ -414,7 +489,10 @@ export function createCppClangdProvider({ spawn } = {}) {
         // Truncation from maxFiles cap promotes the collection to partial
         // status with notCollectedFiles populated on every requested op.
         const truncated = !!(enumStats && enumStats.truncated);
-        const status = (anyPartial || truncated) ? 'partial' : (anyOk ? 'ok' : 'partial');
+        // P0-1: a budget-exhausted collect is partial regardless of op tallies.
+        const status = (anyPartial || truncated || budgetExhausted)
+          ? 'partial'
+          : (anyOk ? 'ok' : 'partial');
         if (truncated) {
           for (const op of Object.keys(operations)) {
             if (operations[op].status === 'ok') {
@@ -422,6 +500,30 @@ export function createCppClangdProvider({ spawn } = {}) {
               operations[op].reason = `enumeration_capped_at_${enumStats.max_files}_of_${enumStats.after_filter}`;
             }
           }
+        }
+        // P0-1: when the budget cut the run short, mark requested ops partial so
+        // operations[op].status='partial' stays consistent with the envelope.
+        if (budgetExhausted) {
+          for (const op of Object.keys(operations)) {
+            if (operations[op].status === 'ok') {
+              operations[op].status = 'partial';
+              operations[op].reason = filesProcessed < filesTotal
+                ? `budget_exhausted_${filesProcessed}_of_${filesTotal}_files`
+                : 'budget_exhausted_index_warming';
+            }
+          }
+        }
+
+        // P0-1: human/agent-readable resume note for the partial envelope.
+        const notes = [];
+        if (budgetExhausted) {
+          const progressClause = filesProcessed < filesTotal
+            ? `${filesProcessed}/${filesTotal} files done`
+            : 'index still warming';
+          notes.push({
+            code: 'budget_exhausted',
+            message: `partial: ${progressClause} within ${budgetMs}ms budget — clangd index is now persisting; run graph_collect_code_intel again to continue/complete (warm runs are ~fast).`
+          });
         }
 
         return {
@@ -448,11 +550,22 @@ export function createCppClangdProvider({ spawn } = {}) {
             // undercount" instead of silently reverting to the generic line.
             refsFoundSymbols,
             refsNotFoundSymbols,
+            // P0-1 — total-budget + resume signal. budgetExhausted=true means
+            // the call returned partial because the budget was hit before the
+            // index was ready and/or all files were processed; a warm re-run
+            // (clangd index now persisted under .aify-graph/code-intel/.cache)
+            // completes/continues fast.
+            budgetMs: budgetEnabled ? budgetMs : null,
+            budgetElapsedMs: budgetElapsed(),
+            budgetExhausted,
+            filesProcessed,
+            filesTotal,
             ...(enumStats ? { enumeration: enumStats } : {})
           },
           operations,
           status,
           records,
+          ...(notes.length ? { notes } : {}),
           ...(compileDb.diagnostics && compileDb.diagnostics.length ? { diagnostics: compileDb.diagnostics } : {})
         };
       } finally {

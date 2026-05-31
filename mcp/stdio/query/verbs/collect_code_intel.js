@@ -25,19 +25,23 @@ function ensureBuiltinProviders() {
   providersRegistered = true;
 }
 
-export async function graphCollectCodeIntel({ repoRoot, language, scope = 'changed', files, since, operations }) {
+export async function graphCollectCodeIntel({ repoRoot, language, scope = 'changed', files, since, operations, budgetMs }) {
   if (!repoRoot) return { schema_version: '0.2', status: 'error', errors: [{ code: 'internal_error', message: 'repoRoot required' }], records: [] };
   if (!language) return { schema_version: '0.2', status: 'error', errors: [{ code: 'language_unsupported', message: 'language required' }], records: [] };
 
   ensureBuiltinProviders();
 
+  // P0-1: thread the optional total time budget down to the provider so the
+  // collect ALWAYS returns inside it (default ~40s via APG_COLLECT_BUDGET_MS),
+  // never blocking past the MCP host's tool-call timeout on a cold index.
   const result = await runCollection({
     language,
     projectRoot: repoRoot,
     scope,
     files: Array.isArray(files) && files.length > 0 ? files : undefined,
     since,
-    operations: operations || ['definitions', 'references', 'diagnostics']
+    operations: operations || ['definitions', 'references', 'diagnostics'],
+    ...(Number.isFinite(Number(budgetMs)) ? { budgetMs: Number(budgetMs) } : {})
   });
 
   // Import into local graph if useful records were produced.
@@ -57,6 +61,26 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
     } catch (err) {
       result.errors = result.errors || [];
       result.errors.push({ code: 'internal_error', message: `import failed: ${err.message}`, hint: 'collection succeeded but local import failed; re-run or import manually' });
+    }
+  }
+
+  // P0-1: when the provider hit the time budget, surface the resume note in the
+  // envelope errors[] too (alongside notes[]), so MCP hosts/agents that only
+  // render errors still get the "run again to complete" signal. Keep it a
+  // non-error, structured note item — status stays 'partial', not 'error'.
+  if (result.session && result.session.budgetExhausted) {
+    const note = Array.isArray(result.notes)
+      ? result.notes.find(n => n.code === 'budget_exhausted')
+      : null;
+    if (note) {
+      result.errors = result.errors || [];
+      if (!result.errors.some(e => e.code === 'budget_exhausted')) {
+        result.errors.push({
+          code: 'budget_exhausted',
+          message: note.message,
+          hint: 'partial result is already imported; re-run graph_collect_code_intel (warm) to continue/complete'
+        });
+      }
     }
   }
 
