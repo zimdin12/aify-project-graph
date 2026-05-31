@@ -123,6 +123,11 @@ function handle(msg) {
     case 'textDocument/prepareCallHierarchy': {
       if (process.env.FAKE_LSP_HIERARCHY_EMPTY === '1') return reply(msg.id, null);
       const uri = msg.params.textDocument.uri;
+      // HIGH-1 repro: a root that RESOLVES (index-ready) but whose incoming/
+      // outgoing calls come back EMPTY ('lonely' is unknown to the call handlers
+      // below, which reply []). This is the false-exhaustive trap — index-ready
+      // + 0 callers must NOT report exhaustive=true.
+      if (process.env.FAKE_LSP_HIERARCHY_ROOT_ONLY === '1') return reply(msg.id, [chItem('lonely', uri, 0)]);
       return reply(msg.id, [chItem('foo', uri, 0)]);
     }
     case 'callHierarchy/incomingCalls': {

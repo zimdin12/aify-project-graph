@@ -213,17 +213,52 @@ function itemLabel(item, projectRoot) {
 // Build the evidence contract for a hierarchy result. Mirrors the
 // references/definitions contract vocabulary (ready/degraded/cause/exhaustive)
 // so an agent reads the SAME field to decide if an absence is trustworthy.
-//   indexReady === true  → exhaustive:true  (the tree is complete to `depth`)
-//   indexReady === false → degraded, cause:cold_index, exhaustive:false
-//   bounded mode         → degraded, cause:bounded_mode, exhaustive:false
-//                          (never claims completeness — fast inner loop)
-export function buildHierarchyEvidence({ mode, indexReady, nodeCount }) {
+//
+// HIGH-1 (gtest-claude 2026-05-31) — the SAME false-exhaustive bug we fixed in
+// graph_callers, in the live hierarchy verb's transitive path. The old contract
+// claimed exhaustive whenever `indexReady===true`, REGARDLESS of whether any
+// caller/callee actually resolved. So `kind=callers` on a symbol that HAS a real
+// cross-TU caller but whose caller TU was not confirmably indexed returned
+// "0 callers, exhaustive=true, lsp-verified" — a dangerous false absence.
+//
+// Mirror code_intel_references' gating (buildReferencesEvidence): an EMPTY result
+// is only ever exhaustive when there is POSITIVE evidence (a non-empty tree). A
+// `prepareCallHierarchy` root that returns 0 incoming/outgoing on a background
+// index that has not confirmably resolved the caller/callee TUs is NOT safe
+// evidence of "no callers" — it is `degraded`, `exhaustive:false`, cause
+// `no_incoming_unconfirmed`, exactly like references' `definition_only`.
+//
+//   incoming === 0 (root-only, nodeCount<=1)  → never exhaustive, even if ready
+//   indexReady === true  AND non-empty        → exhaustive:true (tree complete to depth)
+//   indexReady === false                      → degraded, cause:cold_index, exhaustive:false
+//   bounded mode                              → degraded, cause:bounded_mode, exhaustive:false
+//                                               (never claims completeness — fast inner loop)
+//
+// `nodeCount` is the total nodes in the walked tree (root + resolved
+// callers/callees/subtypes). nodeCount<=1 means the root resolved but NOTHING
+// linked to it — the "0 callers" case the thesis bug mis-reported.
+export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind }) {
+  const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
+  const empty = !(Number(nodeCount) > 1); // root-only / unresolved root → empty
   if (mode === 'bounded') {
     return {
       ready: false, degraded: true, cause: 'bounded_mode', confidence: 'medium',
       exhaustive: false,
       fallback: 'bounded mode never waits for the index — re-run in INDEXED mode (unset APG_CLANGD_MODE) for an exhaustive tree',
       warnings: ['bounded mode: tree may undercount cross-TU callers/overrides']
+    };
+  }
+  if (indexReady === true && empty) {
+    // HIGH-1 — index-ready but 0 incoming/outgoing. This is the false-exhaustive
+    // trap: a background index can report idle while a relevant caller TU has not
+    // been confirmably resolved (LSP cross-TU resolution under the WSL/Linux-DB
+    // sysroot limit). An EMPTY hierarchy is therefore NOT safe evidence of
+    // absence — mirror references' definition_only: degraded, not exhaustive.
+    return {
+      ready: false, degraded: true, cause: 'no_incoming_unconfirmed', confidence: 'low',
+      exhaustive: false,
+      fallback: `verify with code_intel_references (live clangd, per-symbol evidence) or rg before any "no ${noun}" / dead-code claim`,
+      warnings: [`0 ${noun} is NOT safe evidence of no ${noun} — cross-TU resolution unconfirmed; verify with code_intel_references / rg`]
     };
   }
   if (indexReady === true) {
@@ -242,8 +277,16 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount }) {
 // but derived from the LIVE session's index-ready state (not a collection row).
 export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount }) {
   const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'type' : 'call';
+  const edgeNoun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
+  const empty = !(Number(nodeCount) > 1);
   if (mode === 'bounded') {
     return `TRUST: lsp-partial (clangd, bounded mode — no index wait; may undercount ${noun} hierarchy; re-run INDEXED) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+  }
+  if (indexReady === true && empty) {
+    // HIGH-1 — index-ready but 0 resolved edges. Never claim "lsp-verified
+    // exhaustive" on an empty tree; the absence is unconfirmed (cross-TU
+    // resolution not confirmed). Say lsp-partial and point at references/rg.
+    return `TRUST: lsp-partial (clangd, index-ready but 0 ${edgeNoun} — NOT safe evidence of no ${edgeNoun}; cross-TU resolution unconfirmed; verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
   if (indexReady === true) {
     return `TRUST: lsp-verified (clangd, index-ready, ${noun} hierarchy, ${nodeCount} node${nodeCount === 1 ? '' : 's'})`;
@@ -447,7 +490,7 @@ export async function codeIntelHierarchy(args = {}) {
   }
   items = Array.isArray(items) ? items : (items ? [items] : []);
 
-  const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0 });
+  const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0, kind });
 
   if (items.length === 0) {
     return {
@@ -479,12 +522,14 @@ export async function codeIntelHierarchy(args = {}) {
   }
 
   const nodeCount = walked.nodeCount;
-  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount });
+  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind });
   const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount });
-  // I3 — only stamp the ground-truth `[lsp✓]` when the tree is index-ready
-  // exhaustive (INDEXED mode + indexReady===true). Otherwise the banner is
-  // lsp-partial, so use the distinct partial marker `[lsp~]`.
-  const nodeMark = (mode === 'indexed' && indexReady === true) ? '[lsp✓]' : '[lsp~]';
+  // I3 + HIGH-1 — only stamp the ground-truth `[lsp✓]` when the FINAL evidence is
+  // exhaustive (INDEXED mode + indexReady===true AND a non-empty resolved tree).
+  // An index-ready-but-empty tree is now lsp-partial (no_incoming_unconfirmed),
+  // so its node marker must be the distinct partial `[lsp~]`, never a bare
+  // `[lsp✓]` that would contradict its own banner.
+  const nodeMark = finalEvidence.exhaustive ? '[lsp✓]' : '[lsp~]';
   const treeText = [
     `${kind.toUpperCase()} of ${rootItem.name || symbol || file} (depth ${depth})`,
     ...renderTree(walked.root, { isRoot: true, mark: nodeMark }),

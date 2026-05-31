@@ -171,6 +171,68 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
   });
 });
 
+// HIGH-1 (gtest-claude 2026-05-31): the false-exhaustive trap. An index-ready
+// root that returns 0 incoming/outgoing calls must NOT claim exhaustive=true /
+// "lsp-verified exhaustive" — cross-TU resolution is unconfirmed, so an empty
+// hierarchy is NOT safe evidence of absence (mirrors code_intel_references'
+// definition_only gating). Only a NON-EMPTY index-ready tree is exhaustive.
+describe('code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive', () => {
+  const rootOnlySpawn = {
+    command: process.execPath,
+    args: [fakeServer],
+    env: { ...process.env, FAKE_LSP_PROGRESS: '1', FAKE_LSP_HIERARCHY_ROOT_ONLY: '1' }
+  };
+
+  it('index-ready + 0 callers → degraded, cause=no_incoming_unconfirmed, exhaustive=FALSE', async () => {
+    const repo = tmpRepo();
+    const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 2000, spawn: rootOnlySpawn });
+    expect(r.status).toBe('ok');
+    expect(r.indexReady).toBe(true);
+    // The root resolved but nothing linked to it → root-only tree.
+    expect(r.tree).not.toBeNull();
+    expect(r.tree.children).toEqual([]);
+    expect(r.telemetry.nodes).toBe(1);
+    // The thesis bug: it USED to report exhaustive=true here. Now it must NOT.
+    expect(r.evidence.exhaustive).toBe(false);
+    expect(r.evidence.degraded).toBe(true);
+    expect(r.evidence.cause).toBe('no_incoming_unconfirmed');
+    expect(r.evidence.warnings.join(' ')).toMatch(/NOT safe evidence of no callers/);
+    // Banner must NOT claim lsp-verified exhaustive; must point at references/rg.
+    expect(r.trust).not.toMatch(/lsp-verified \(clangd, index-ready, call hierarchy/);
+    expect(r.trust).toMatch(/lsp-partial/);
+    expect(r.trust).toMatch(/code_intel_references/);
+    // I3/HIGH-1 — partial banner ⇒ no bare ground-truth [lsp✓] node mark.
+    expect(r.treeText).not.toContain('[lsp✓]');
+    expect(r.treeText).toContain('[lsp~]');
+  });
+
+  it('index-ready + NON-EMPTY tree still reports exhaustive=true (positive path intact)', async () => {
+    const repo = tmpRepo();
+    const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 2000, spawn: fakeProgressSpawn });
+    expect(r.status).toBe('ok');
+    expect(r.indexReady).toBe(true);
+    expect(r.telemetry.nodes).toBeGreaterThan(1);
+    expect(r.evidence.exhaustive).toBe(true);
+    expect(r.evidence.degraded).toBe(false);
+    expect(r.trust).toMatch(/lsp-verified \(clangd, index-ready/);
+    expect(r.treeText).toContain('[lsp✓]');
+  });
+
+  it('buildHierarchyEvidence: indexed+ready but nodeCount<=1 → no_incoming_unconfirmed (unit)', () => {
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 1, kind: 'callers' });
+    expect(e.exhaustive).toBe(false);
+    expect(e.degraded).toBe(true);
+    expect(e.cause).toBe('no_incoming_unconfirmed');
+  });
+
+  it('buildHierarchyTrustLine: indexed+ready but empty → lsp-partial, not lsp-verified', () => {
+    const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'callers', nodeCount: 1 });
+    expect(line).toMatch(/lsp-partial/);
+    expect(line).not.toMatch(/lsp-verified/);
+    expect(line).toMatch(/code_intel_references/);
+  });
+});
+
 describe('code_intel_hierarchy — error envelopes', () => {
   it('language_unsupported when no live session registered', async () => {
     const repo = tmpRepo();
