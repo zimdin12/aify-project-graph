@@ -19,6 +19,8 @@
 // dedup rotations by normalizing to the lexicographically-smallest member,
 // tightest-first, early-stop to avoid blowup.
 
+import { classifyArchetype } from './archetypes.js';
+
 // Symbol-ish node types — the things that carry real degree / are worth ranking
 // as hotspots or clustering. Containers (File/Dir/Module/etc.) are excluded
 // from hotspot ranking + cluster top-symbols, matching report.js/onboard.js.
@@ -113,7 +115,7 @@ export function computeOverview(db, { topSymbols = 5, architecture = null } = {}
     const c = clusters.get(key);
     c.node_count += 1;
     if (!CONTAINER_TYPES.has(n.type)) {
-      c._symbols.push({ id: n.id, label: n.label, type: n.type });
+      c._symbols.push({ id: n.id, label: n.label, type: n.type, file_path: n.file_path });
     }
   }
 
@@ -146,12 +148,22 @@ export function computeOverview(db, { topSymbols = 5, architecture = null } = {}
       .map(({ label, type, degree }) => ({ label, type, degree }));
     const edgesTo = (edgesByCluster.get(key) || [])
       .sort((a, b) => b.count - a.count);
+    // Archetype naming (heuristic, always-on). A curated architecture-overlay
+    // layer cluster (key `l:`) keeps its curated name — overlay is truth; we
+    // only UPGRADE a generic community cluster (key `c:`) label to the
+    // archetype name. The archetype field is attached everywhere (additive).
+    const archetype = classifyArchetype(c._symbols.slice(0, 16));
+    let label = c.label;
+    if (key.startsWith('c:') && archetype.confidence !== 'low') {
+      label = archetype.name;
+    }
     out.push({
       cluster: key,
-      label: c.label,
+      label,
       node_count: c.node_count,
       top_symbols: top,
       edges_to: edgesTo,
+      archetype,
     });
   }
   // Largest clusters first — the legible front door.
