@@ -4,7 +4,9 @@ _2026-05-08. The single source of truth for remaining work, so nothing from the 
 
 DONE so far (for context): L0 win32 hygiene · L1 clangd foundation · L2a clangd→LSP_VERIFIED edges · L2b trust banner + unity expansion · L3 readiness-gated reliable refs · L4 call/type hierarchy · L5 C++↔GLSL shader bridge · installed both runtimes · A/B validated. See `code-intel-v2-status.md`.
 
-> **UPDATE 2026-05-31 — most of this backlog has shipped.** Completed and verified: **P0-1, P0-2, P0-5, P0-6** (P0-3 partially — `--query-driver` landed; the WSL-clangd diagnostics path is the live follow-up); **P1-1, P1-2, P1-3, P1-4, P1-5**; the **P2 dashboard analytics layer** (overview/hotspots/cycles verbs + `graph_digest` front door + shader sub-view + provenance ribbon — "ends the island"); and the holistic-review cohesion fixes **R1 (C1/I1/I2/I3) + R2a/R2b** (single `storage/taxonomy.js`, neighbors-wiring, unified trust vocabulary, surface trim to 30 listed tools). Items below are annotated **✅ DONE** where landed. The **genuinely-remaining live backlog**: **P1-6** (change fingerprint), **P3** (JS/TS resolution), **P0-3 WSL-clangd follow-up**, and remaining **P4 / P5 / P6**.
+> **UPDATE 2026-05-31 — most of this backlog has shipped.** Completed and verified: **P0-1, P0-2, P0-5, P0-6** (P0-3 partially — `--query-driver` landed; the WSL-clangd diagnostics path is the live follow-up); **P1-1, P1-2, P1-3, P1-4, P1-5**; the **P2 dashboard analytics layer** (overview/hotspots/cycles verbs + `graph_digest` front door + shader sub-view + provenance ribbon — "ends the island"); and the holistic-review cohesion fixes **R1 (C1/I1/I2/I3) + R2a/R2b** (single `storage/taxonomy.js`, neighbors-wiring, unified trust vocabulary, surface trim to 30 listed tools). Items below are annotated **✅ DONE** where landed.
+
+> **UPDATE 2026-06-01/02 — another large wave shipped (see the "Shipped 2026-06-01/02" section below for the narrative + commits).** Now also DONE: **P0-3** (opt-in `APG_CLANGD_WSL` — real Windows diagnostics, no longer just `--query-driver`); **P1-6** (structural-vs-cosmetic change fingerprint → SKIP/PARTIAL/FULL); **P3-1/P3-2/P3-4** (JS/TS import resolution + import-evidence CALLS + packet skeletonize); **P4-1** (default 15-verb profile + `APG_MCP_TOOLS` ablation allowlist) and **P4-2** (staleness banner primitive); the **P5 hardening bundle** (P5-1…P5-5); plus net-new work not previously in the table — the **dashboard rebuild** (navigable group-box Map), the **agent front door** (adaptive packet token budget + `graph_packet`-first routing + KNOWN LIMITS), **freshness self-heal** (`graph_index` in default surface + commits-behind warning + opt-in `APG_AUTO_REINDEX` + post-commit hook), and the **semantic layer** (archetype auto-naming, `graph_tour`, `graph_search mode:semantic` with pluggable embeddings). The **genuinely-remaining live backlog**: **P3-3** (TS/JS LSP provider), remaining **P2 dashboard polish**, remaining **P4 / P5-none-left / P6**, and a short list of new deferred items (bundled embedding model, agent-eval A/B harness, dashboard `graph_tour` rendering, holistic-review advisories) captured in **"Remaining / deferred 2026-06-01/02"** below.
 
 Source tags: **[KI]** known-issue/bug · **[MP]** master-plan layer · **[SYN]** original reference-borrow waves · **[DASH]** dashboard research · **[MISS]** "what we missed" sweep · **[UX]** agent-UX deep-dive. License: codegraph/graphify/understand-anything MIT (reimplement w/ attribution); agent-code-intel UNLICENSED (patterns only).
 
@@ -16,7 +18,7 @@ Source tags: **[KI]** known-issue/bug · **[MP]** master-plan layer · **[SYN]**
 |---|---|---|---|---|
 | P0-1 ✅ DONE | **Cold `graph_collect_code_intel` drops the MCP stdio connection** (`-32000`) — ~53s cold index exceeds host tool-call timeout. Time-budget the collect (~40–45s), return `partial` + resume token; optionally a separate fast "warm-index" call. | [KI] | M | Live verbs are the unaffected primary path. The marquee collect flow is unusable via MCP until fixed. |
 | P0-2 ✅ DONE | **Expand TEST unity TUs** in `compile-db.js` (engine unity expands, test ones don't) → test→engine callers currently missing from `graph_callers`. | [KI] | S | Gate first-party to include `tests/`. |
-| P0-3 ⏳ PARTIAL | **Windows clangd sysroot/includes** — WSL/Linux-built `compile_commands.json` has Linux include/sysroot paths absent on Windows → bogus diagnostics/hover; files absent from DB give `compile_entry_missing`. Run clangd under WSL against the Linux DB, OR `--query-driver` + host include discovery, OR strip/translate the Linux sysroot in the normalizer. | [KI] | M | refs/hierarchy stay trustworthy where fresh/exhaustive; this gates diagnostics/hover quality. |
+| P0-3 ✅ DONE | **Windows clangd sysroot/includes** — WSL/Linux-built `compile_commands.json` has Linux include/sysroot paths absent on Windows → bogus diagnostics/hover. **Shipped opt-in `APG_CLANGD_WSL`** (`b7c15c7`): runs clangd UNDER WSL against the ORIGINAL Linux DB, file URIs round-trip host↔WSL at the LSP boundary (`hostToWsl`/`wslToHost`). Verified on echoes `Engine.cpp` (90 bogus → 15 real diagnostics; stdlib resolves). `auto` mode engages only on a foreign DB. | [KI] | M | refs/hierarchy stay trustworthy where fresh/exhaustive; this now also unlocks diagnostics/hover quality. Caveat: full-DB cold-index latency under WSL is the same caveat the Windows path carries. |
 | P0-4 ✅ DONE | **`graph_callers` `[lsp✓]` surface parity** — confirm the marker+TRUST line render whenever LSP caller edges exist (verified on `GPU::is_valid`; tester's case had none post-collect due to P0-2). Add a regression test. | [KI] | S | Likely already correct; verify + lock. |
 | P0-5 ✅ DONE | **C++ virtual-override synthesized `CALLS` edges** (`A::method → B::method` for `class B : A`, capped per class, `provenance:'INFERRED'`). Fills the gap clangd leaves: clangd resolves a `base*->virt()` callsite to the *declared* type's method, not runtime overrides. Game engines are vtable-heavy (ISystem/IRenderer/ISimDomain). | [MISS]#1 | M | codegraph `callback-synthesizer.ts`. **Heed: partial dynamic-dispatch coverage is WORSE than none** — close flows end-to-end. Tag INFERRED, never LSP_VERIFIED. |
 | P0-6 ✅ DONE | **Hermes installer toolset gotcha** — Hermes CLI profiles filter MCP tools by `platform_toolsets.cli`; a server in `mcp_servers` alone connects but its tools are INVISIBLE in CLI sessions. Add `aify-project-graph` to the toolset list, not just `mcp_servers`. Verify our current Hermes install actually exposes the tools in a CLI profile. | [UX]C7 | S | codegraph `installer/targets/hermes.ts`. Our tester reached tools, but confirm under CLI profiles. |
@@ -32,7 +34,7 @@ Source tags: **[KI]** known-issue/bug · **[MP]** master-plan layer · **[SYN]**
 | P1-3 ✅ DONE | **`graph_explore(symbols[])`** — multi-symbol verbatim-source bundler in ONE budget-capped call, grouped by file, `cat -n` line numbers, repo-size-scaled budget, "treat as already Read" framing. Kills the Read-spiral. | [UX]C3 | M | codegraph `handleExplore` + `getExploreOutputBudget`. |
 | P1-4 ✅ DONE | **`graph_explain_diff(range)` / change-explain verb** — keyed on a git diff/PR (not a symbol): changed components → 1-hop affected → affected layers → risk score; emit `diff-overlay.json` for the dashboard. Reverse of `consequences` (which is forward-from-symbol). Fills the reviewer/PR-impact gap. | [MISS]#5 / [UX]A1 | M | understand-anything `understand-diff` + agent-code-intel `changed_file_diagnostics`. Reuses our impact/layer/edge machinery. |
 | P1-5 ✅ DONE | **Generated-file down-ranking** — path-suffix classifier (`.pb.cc/.pb.h`, `moc_*`, `ui_*`, `*_generated.h`, `qrc_*`, `*.gen.h`); generated nodes stay reachable but rank LAST when a hand-written symbol shares the name. Add `generated:true` hint. | [MISS]#2 | S | codegraph `generated-detection.ts`. High hit-rate in game projects (protobuf/Qt/FlatBuffers/reflection codegen). |
-| P1-6 ⬜ TODO | **Structural-vs-cosmetic change fingerprint → tiered rebuild** (SKIP/PARTIAL/FULL). Per-file fp = sigs+members+imports (NOT bodies). Body-only C++ edit → COSMETIC → zero re-resolution. Pairs with the incremental watcher. | [MISS]#3 | M | understand-anything `fingerprint.ts`+`change-classifier.ts`. Turns 30s incrementals into 200ms on big game repos. |
+| P1-6 ✅ DONE | **Structural-vs-cosmetic change fingerprint → tiered rebuild** (SKIP/PARTIAL/FULL). Shipped `a665e99`: `fileStructuralFingerprint()` hashes the body-INSENSITIVE shape (symbol sigs/members/decorators + the complete outgoing ref-target set). Body-only edit → COSMETIC → zero re-resolution. Pairs with the incremental watcher. | [MISS]#3 | M | understand-anything `fingerprint.ts`+`change-classifier.ts`. Turns 30s incrementals into 200ms on big game repos. |
 
 ---
 
@@ -46,7 +48,7 @@ The dashboard was a browser-only island that shipped up to 25k nodes raw and who
 
 | # | Item | Source | Effort | Value |
 |---|---|---|---|---|
-| P2-1 | **Overview→drill-in with community/layer aggregation** — `/api/overview` returns ~8–30 cluster nodes (by community_id→layer→top-dir) + aggregated inter-cluster edges (width=log count); default 2D view to overview, click to load one cluster. Stop shipping 25k nodes. | [DASH]A1 | M | **Highest** — the only legible front door at 13k files. understand-anything `aggregateLayerEdges`/`deriveContainers`/Louvain. |
+| P2-1 ✅ DONE | **Overview→drill-in with community/layer aggregation** — shipped via the **dashboard rebuild** (`3eb55f8` + semantic-layer follow-ups): navigable group-box **Map** with drill-in, **by-archetype / community / directory** grouping, and Tree/Flow/Force/Shader views in 2D + 3D. Stops shipping 25k raw nodes; `/api/overview` returns aggregated clusters. | [DASH]A1 | M | **Highest** — the only legible front door at 13k files. understand-anything `aggregateLayerEdges`/`deriveContainers`/Louvain. |
 | P2-2 | **Blast-radius highlight mode** — `/api/impact/:id?depth=N` (reuse impact/consequences) → `{changed, affected}`; frontend toggle colors changed=red/affected=amber/fade rest. | [DASH]A2 | M | Highest *action* value. understand-anything `DiffToggle`. Pairs with P1-4 overlay JSON. |
 | P2-3 ✅ DONE | **Shader-binding sub-view** — edge-relation filter group for `DECLARES_BINDING`/`LOADS_SHADER`; "Shader map" preset showing ShaderBinding nodes + CPU declarers/loaders; distinct color + legend + node shape. | [DASH]A3 | S | Bespoke game value; edges already exist. |
 | P2-4 ✅ DONE | **Provenance ribbon upgrade** — code edges solid (LSP_VERIFIED) vs dashed (heuristic); `lsp-verified` pill; top-line "X% of call edges LSP-verified." | [DASH]A4 | S | Trust signal unique to C++ noisy call graphs. |
@@ -65,10 +67,10 @@ Still real: the JS graph has **~1476 fixable + 87 IMPORTS** unresolved edges (`u
 
 | # | Item | Source | Effort | Notes |
 |---|---|---|---|---|
-| P3-1 | **IMPORTS: extension-probe + tsconfig path-aliases + `require()` pass** in `normalizeImportSource`/resolver. Fixes the 87 IMPORTS. Additive (can't regress). | [SYN]W3 | S→M | understand-anything `extract-import-map.mjs` (posix.normalize leading-`./` strip is load-bearing). |
-| P3-2 | **CALLS/REFERENCES import-evidence resolution** — per-file import map into `resolveTarget`; unique-match-only (INFERRED), receiver-type inference. Fixes bulk of the 1476. Measure against `fixable:*` scoreboard. | [SYN]W4 | M | codegraph `name-matcher` + graphify Tier-A. False-positive risk → guard. |
-| P3-3 | **TS/JS LSP provider** (`ts-tsserver.js` mirroring cpp-clangd) — semantic backstop for JS CALLS name-matching can't disambiguate. The clangd spine generalizes to it. | [SYN]W5 | M | typescript-language-server `--stdio`; reuse importer + resolveServer chain. |
-| P3-4 | **`packet.js` skeletonize-before-drop** — compress dir-prefix-shared list items + keep header+count before dropping tail sections; never drop the `target` section. | [SYN]W7 | S→M | codegraph adaptive sizing. |
+| P3-1 ✅ DONE | **IMPORTS: extension-probe + tsconfig path-aliases + `require()` pass** — shipped `fee3309` (`ingest/import-resolution.js`): extension-probe against the git fileset, tsconfig/jsconfig path aliases (nearest-enclosing, JSONC-tolerant, load-bearing leading-`./` strip), require() CJS pass. Additive (zero regression). | [SYN]W3 | S→M | understand-anything `extract-import-map.mjs`. |
+| P3-2 ✅ DONE | **CALLS/REFERENCES import-evidence resolution** — shipped `fee3309` (`ingest/js-import-evidence.js`): per-file localName→source map; unique-match-only (INFERRED) guarded by COMMON_NAMES + language-family + no-doc-node + bail-on-ambiguity. **Honest:** this repo can't move the `fixable:*` headline (explicit extensions, method-call-heavy); proven on a synthetic create-next-app fixture (alias + extensionless + require() resolve, dup-call narrowed). Helps the many JS/TS projects that DO use aliases. | [SYN]W4 | M | codegraph `name-matcher` + graphify Tier-A. |
+| P3-3 ⬜ TODO | **TS/JS LSP provider** (`ts-tsserver.js` mirroring cpp-clangd) — semantic backstop for JS CALLS name-matching can't disambiguate. The clangd spine generalizes to it. **STILL REMAINING.** | [SYN]W5 | M | typescript-language-server `--stdio`; reuse importer + resolveServer chain. |
+| P3-4 ✅ DONE | **`packet.js` skeletonize-before-drop** — shipped `fee3309`: collapse dir-prefix-shared list items + keep header+count before dropping tail; never drops the `target` READ-FIRST section. | [SYN]W7 | S→M | codegraph adaptive sizing. |
 
 ---
 
@@ -76,8 +78,8 @@ Still real: the JS graph has **~1476 fixable + 87 IMPORTS** unresolved edges (`u
 
 | # | Item | Source | Effort |
 |---|---|---|---|
-| P4-1 | **Repo-size / profile-adaptive tool gating** — hide low-value verbs on small/lean repos (5-tool empirical floor); `APG_MCP_TOOLS` env allowlist for A/B ablation (truly absent from ListTools). | [UX]C5 | S |
-| P4-2 | **Soft per-file staleness banner** (vs our current hard blocker) — flag only the stale files referenced in *this* response ("Read these directly; rest is fresh"); cost = one boolean when nothing pending. | [UX]C6 | S |
+| P4-1 ✅ DONE | **Repo-size / profile-adaptive tool gating** — shipped `0ffb838`: `default` profile (15 intent verbs) is now the actual default; `full` (30) is explicit opt-in; all other verbs stay callable-by-name but unlisted. `APG_MCP_TOOLS` env allowlist for A/B ablation (truly absent from ListTools). | [UX]C5 | S |
+| P4-2 ✅ DONE | **Soft per-file staleness banner** (vs our current hard blocker) — shipped `f3f982f` (`query/staleness-banner.js`): one consistent `⚠ stale: … Read these directly` line, flagging the stale files referenced in *this* response. | [UX]C6 | S |
 | P4-3 | **Intent-steering tool descriptions** — designate ONE primary verb ("call FIRST"); each description names the better alternative for adjacent intents; "returned source is Read-equivalent — don't re-open." | [UX]C8 / [MISS]#7 | S |
 | P4-4 | **`noValueAdded` flag + per-response telemetry block** — `{noValueAdded:true}` when freshness≠fresh AND empty (distinguishes "verified-none" from "not-ready"); `telemetry{latencyMs, freshness, callCounts}`. | [MISS]#6 | S |
 | P4-5 | **Onboarding upgrades** — ordered guided **tour** (entry-point-first numbered path) + **complexity-hotspots** "approach carefully" section in briefs/`graph_onboard`. | [UX]A3 | S/M |
@@ -90,11 +92,11 @@ Still real: the JS graph has **~1476 fixable + 87 IMPORTS** unresolved edges (`u
 
 | # | Item | Source | Effort |
 |---|---|---|---|
-| P5-1 | **Pre-parse JSON size cap** on `.aify-graph/*.json` before `JSON.parse` (memory-bomb guard) + recursive bounded metadata sanitizer; SSRF kit (scheme allowlist, private/metadata-IP block, DNS-rebinding + redirect re-validation) for any future fetch path. | [MISS]#8 | S |
-| P5-2 | **Cross-language-family phantom-edge drop** — drop inferred CALLS/REFERENCES whose endpoints are different language families, except through known bridges (our shader binding). Precision guard. | [MISS]#10 | S |
-| P5-3 | **Hub-as-transit BFS skip** in path/trace — don't expand *through* high-degree hubs (`max(50,p99)`); they can be endpoints, not waypoints (avoids `A→Logger→B` noise). | [MISS]#11 | S |
-| P5-4 | **clangd child process hygiene** — PPID-poll self-exit when parent dies (orphaned clangd keeps watches/WAL alive); watcher excludes ignored dirs BEFORE registering (inotify budget ceiling on big repos). | [MISS] meta | S |
-| P5-5 | **Worktree redirect** (stronger than a notice) — if run inside an ephemeral worktree, redirect `.aify-graph` output to the main repo root (`--git-dir` vs `--git-common-dir`) so the graph isn't destroyed on session end. | [UX]A6 / [SYN]secondary | S |
+| P5-1 ✅ DONE | **Pre-parse JSON size cap** on `.aify-graph/*.json` before `JSON.parse` — shipped `18b5bff` (`util/json.js` `readJsonCapped`, 64MiB default / `APG_JSON_MAX_BYTES`, stat-checks before parse; routed overlay/manifest/categorization reads). _SSRF kit deferred — no fetch path lives yet._ | [MISS]#8 | S |
+| P5-2 ✅ DONE | **Cross-language-family phantom-edge drop** — shipped `18b5bff`: `filterByLanguageFamily` + `HARD_GATED_RELATIONS`; C++↔GLSL `LOADS_SHADER` bridge is an explicit documented exemption. Real graph: 5615 typed edges, 0 cross-family. | [MISS]#10 | S |
+| P5-3 ⬜ TODO | **Hub-as-transit BFS skip** in path/trace — don't expand *through* high-degree hubs (`max(50,p99)`); they can be endpoints, not waypoints (avoids `A→Logger→B` noise). **STILL REMAINING** (P5-3 was NOT in the shipped P5 bundle). | [MISS]#11 | S |
+| P5-4 ✅ DONE | **clangd child process hygiene** — shipped `18b5bff`: `lsp-client` polls parent liveness (`process.kill(ppid,0)`), shuts the clangd child if parent dies (`APG_PPID_POLL_MS=0` opts out); watcher now filters ANY ignored path segment (nested node_modules/build/.claude/worktrees) before registering. | [MISS] meta | S |
+| P5-5 ✅ DONE | **Worktree redirect** (stronger than a notice) — shipped `18b5bff`: `detectWorktree` + `resolveGraphRoot` redirect `.aify-graph` to the main checkout when run in a linked worktree lacking its own graph (`APG_NO_WORKTREE_REDIRECT=1` opts out). Real-verified. | [UX]A6 / [SYN]secondary | S |
 
 ---
 
@@ -107,8 +109,41 @@ Still real: the JS graph has **~1476 fixable + 87 IMPORTS** unresolved edges (`u
 | P6-3 | **Two-hash manifest** (AST vs semantic) — re-run LLM intelligence only on content-changed files. (Partly addressed by L3 readiness, NOT the manifest split.) | [SYN]secondary | S→M | Cost/perf. |
 | P6-4 | **Semantic-batching neighborMap feeding** for the intelligence layer (import-neighbors + their exported symbols into each summary call); port the neighborMap even without Louvain. Info-vs-Warning discipline. | [UX]A2 | S (neighborMap) / L (Louvain) | Quality win for summaries. |
 | P6-5 | **`#include`→header file-edges + typed-member-pointer caller resolution** — verify our clangd path yields these; the `m_alg->Process()` typed-member case is the subtle C++ one. | [MISS]#13 | S to verify | |
-| P6-6 | **Embedding / NL semantic search** (cosine over per-node embeddings, type filter). | [MISS]#12 / [UX] | L | Defer (needs embedding source). |
+| P6-6 ⏳ PARTIAL | **Embedding / NL semantic search** (cosine over per-node embeddings, type filter) — **shipped pluggable** (`b76ff8a`/`2ba60fa`): `graph_search(mode:"semantic")` over a precomputed embeddings sidecar; OpenAI-compatible endpoint via `APG_EMBED_ENDPOINT`/`APG_EMBED_MODEL`/`APG_EMBED_API_KEY` (local Ollama or cloud); build opt-in `scripts/build-embeddings.mjs`; degrades to lexical + hint. **Remaining: a true BUNDLED local embedding model** (currently external/pluggable on purpose — see deferred list). | [MISS]#12 / [UX] | L | |
 | P6-7 | **Self-bundling bootstrap** (atomic staged dep install) for "just works" plugin install both runtimes. | [SYN]secondary | M/L | |
+
+---
+
+## Shipped 2026-06-01/02 (this session)
+
+Four workstreams landed on top of the items already marked ✅ above (commit refs in `git log`):
+
+1. **Dashboard rebuild** (`3eb55f8` + semantic follow-ups `039fbda`/`59790da`). Navigable **group-box Map** with drill-in; grouping by **archetype / community / directory**; **Tree / Flow / Force / Shader** views; **2D + 3D**. Replaces the 25k-raw-node island (closes **P2-1**). Also fixed a latent bug: `community_id` lives in `extra` JSON, not a column.
+2. **Agent front door** (`d7c437f`/`c5b46c1`/`776fd3b`/`f3f982f`). **Adaptive packet token budget** (repo-size monotonic tiers keyed on `manifest.nodes`; precedence arg > `APG_PACKET_BUDGET` > tier — kills god-file truncation); **`graph_packet`-first routing** + an honest **KNOWN LIMITS** block in `server-instructions.js` (dynamic dispatch / script callbacks / cross-lang not synthesized); **staleness banner primitive** (`query/staleness-banner.js`). (Closes **P4-2**; reinforces **P4-1**.) Spec/plan: `docs/superpowers/{specs,plans}/2026-06-01-agent-front-door*`.
+3. **Freshness self-heal** (`82d9961`/`b49855f`/`0c860f3`/`2ecbf01`). `graph_index` now in the **default tool surface**; central staleness warning reports **commits-behind** + a self-heal hint; opt-in **`APG_AUTO_REINDEX=1`** refreshes a behind-HEAD graph before the read handler runs; optional **post-commit reindex hook** installer (`scripts/install-graph-hook.mjs` + `scripts/reindex.mjs`). Addresses the 2026-06-01 sc-manager A/B where a stale graph was worse than none for managed workers. _Overlay-build gap is a per-repo data action — run `/graph-build-functionality` on the target repo, not tool code._ Spec/plan: `docs/superpowers/{specs,plans}/2026-06-01-graph-freshness-self-heal*`.
+4. **Semantic layer** (`a0cfde7`/`039fbda`/`e07b3f9`/`2ba60fa`/`b76ff8a`). **Archetype auto-naming** (`intelligence/archetypes.js`; game-dev keyword→archetype; wired into `computeOverview` → `graph_overview`/`graph_digest` + the dashboard "by archetype" Map); **`graph_tour`** verb (ordered N-step orientation: entrypoints → archetype regions → hotspots → cross-subsystem flows; `focus` narrows; full-listed not default); **semantic search** `graph_search(mode:"semantic")` over a precomputed sidecar, **pluggable embeddings** (no bundled model — closes the runtime half of **P6-6**). Spec/plan: `docs/superpowers/{specs,plans}/2026-06-01-semantic-layer*`.
+
+Plus the May-31-tail items now reflected in the tables above: **P0-3** (WSL-clangd, `b7c15c7`), **P1-6** (`a665e99`), **P3-1/2/4** (`fee3309`), **P4-1** (`0ffb838`), **P5-1/2/4/5** (`18b5bff`). Two adversarial bug-hunt rounds (`9834b46`, `95a4029`) hardened the new work; full suite **1089 pass / 8 skipped / 0 failures** (2026-06-02).
+
+---
+
+## Remaining / deferred 2026-06-01/02 (carry forward — do not lose)
+
+Still-open items from the tables above, plus net-new deferrals from this session:
+
+- **Bundled local embedding model.** `graph_search mode:semantic` is shipped but external/pluggable **on purpose** (`APG_EMBED_ENDPOINT`/Ollama/cloud). A truly BUNDLED local model (zero-config NL search) is the remaining half of **P6-6**.
+- **Render `graph_tour` visually in the dashboard.** The tour is verb-first today; surfacing the ordered walk as a guided dashboard overlay is deferred.
+- **Agent-eval A/B harness.** A repeatable harness that measures agent value **with vs without** the tool (Read+Grep call counts + wall-clock, n≥2). Explicitly deferred from the front-door work; the `/agent-eval` skill exists but a committed harness/fixtures do not. (`tests/ab/tasks.mjs` is an untracked WIP toward this.)
+- **Holistic-review advisories (decide, then act):**
+  - **`graph_tour` tier** — promote to the default 15-verb surface vs keep unlisted-but-callable (like `graph_onboard`). Currently full-listed.
+  - **Doc-vs-code precedence** — reconcile any remaining notes where docs and code disagree on precedence/behavior.
+  - **`/api/overview` cap vs `/api/archetypes` uncapped** — cosmetic mismatch: overview caps cluster count, archetypes does not. Decide one rule and align.
+- **Still-TODO from the structured tables (unchanged, not yet done):**
+  - **P2** dashboard polish: **P2-2** blast-radius highlight, **P2-5** pathfinder, **P2-6** idle overview panel, **P2-7** async/self-repairing layout, **P2-8** export, **P2-10** sand_castle overlay re-anchor.
+  - **P3-3** TS/JS LSP provider (semantic backstop).
+  - **P4-3** intent-steering descriptions, **P4-4** `noValueAdded`+telemetry, **P4-5** onboarding tour/hotspots in briefs, **P4-6** neighborhood-walk + near-name suggestions, **P4-7** per-phase progress.
+  - **P5-3** hub-as-transit BFS skip. (SSRF kit under P5-1 deferred until a fetch path exists.)
+  - **P6-1** circular-dep verb, **P6-2** peripheral→hub anomaly, **P6-3** two-hash manifest, **P6-4** semantic-batching neighborMap, **P6-5** `#include`→header edges verify, **P6-7** self-bundling bootstrap.
 
 ---
 
@@ -118,8 +153,9 @@ Still real: the JS graph has **~1476 fixable + 87 IMPORTS** unresolved edges (`u
 ---
 
 ## Suggested next-round sequence
-1. **P0** (correctness) — P0-1 collect-connection + P0-2 test-unity + P0-5 virtual-override edges + P0-6 Hermes toolset (these directly fix what the A/B exposed).
-2. **P1-1 server-instructions** (S, the cheapest high-leverage steer) + **P1-5 generated down-ranking** (S) + **P1-4 change-explain verb** (M).
-3. **P2 dashboard** as a coherent unit (P2-1/2/9 first — overview, blast-radius, analytics-verbs+digest — the not-an-island fixes), shader map + provenance ribbon, then polish.
-4. **P1-2 trace / P1-3 explore** (heed low-salience-wall — pair with enriching packet).
-5. **P3 JS resolution** (if JS repos matter) · **P4/P5/P6** opportunistic.
+_All of P0, all of P1, the P2 not-an-island core (P2-1/3/4/9), P3 import-resolution (P3-1/2/4), P4-1/2, and the P5 hardening bundle (P5-1/2/4/5) are now DONE — see the tables + the two 2026-06-01/02 sections above. What's left, in priority order:_
+1. **Prove value, then decide surface.** Ship the **agent-eval A/B harness** (deferred from front-door work) — it gates every "did this help?" decision below, including the **`graph_tour` tier** call.
+2. **P2 dashboard polish as a unit** — **P2-2** blast-radius highlight (highest action value; pairs with the `graph_explain_diff` overlay JSON) + **P2-6** idle overview panel + **P2-5** pathfinder + **P2-7** async/self-repairing layout + **P2-8** export. Plus render **`graph_tour`** visually here. **P2-10** sand_castle overlay re-anchor is a quick per-repo data fix.
+3. **Front-door polish** — **P4-3** intent-steering descriptions + **P4-4** `noValueAdded`/telemetry + **P4-5** onboarding tour/hotspots in briefs + **P4-6** near-name suggestions. Cheap, compounding; heed the low-salience wall.
+4. **P3-3 TS/JS LSP provider** (if JS repos matter — the semantic backstop the import waves can't disambiguate).
+5. **P5-3** hub-as-transit skip · **P6** insight verbs (cycles/anomaly) + the **bundled local embedding model** · holistic-review advisories (doc-vs-code precedence, `/api/overview` vs `/api/archetypes` cap) — opportunistic.

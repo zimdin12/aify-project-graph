@@ -97,8 +97,8 @@
     <p class="lead">It reads your codebase into a graph, then layers in a C++ compiler's ground truth on top — and exposes both to coding agents (Claude Code, Hermes, Codex) as a small set of MCP tools plus a live dashboard.</p>
     <p class="sub">Built C++-first for game engines (Sand Castle, Echoes of the Fallen / Tesseract), it merges proven ideas from four similar open-source projects into one coherent system. The whole point: an agent should never be told "no callers / safe to delete" unless that's actually <em>proven</em>.</p>
     <div class="pills">
-      <span class="pill"><b>~40</b> MCP verbs</span>
-      <span class="pill"><b>961</b> tests passing</span>
+      <span class="pill"><b>~30</b> MCP verbs</span>
+      <span class="pill"><b>1089</b> tests passing</span>
       <span class="pill"><b>tree-sitter</b> + <b>clangd</b></span>
       <span class="pill">runs on <b>Claude Code</b> + <b>Hermes</b></span>
     </div>
@@ -106,6 +106,9 @@
       <a href="#what">What it is</a>
       <a href="#how">How it works</a>
       <a href="#trust">The trust model</a>
+      <a href="#semantic">The semantic layer</a>
+      <a href="#frontdoor">Agent front door</a>
+      <a href="#fresh">Freshness self-heal</a>
       <a href="#refs">What's borrowed</a>
       <a href="#use">How an agent uses it</a>
       <a href="#dash">The dashboard</a>
@@ -182,9 +185,46 @@
   </div>
 </section>
 
+<section id="semantic">
+  <div class="wrap">
+    <h2><span class="n">4</span>The semantic layer — meaning, not just structure</h2>
+    <p class="section-sub">The graph knows the <em>shape</em> of the code (who calls whom). This newer layer adds a sense of <em>purpose</em>: what each cluster is <b>for</b>, a guided way to learn an unfamiliar repo, and search by meaning rather than by exact name. All of it is always-on at the structural level and gets richer if you build the optional intelligence overlay.</p>
+    <div class="grid g3">
+      <div class="card"><h4><span class="tagdot" style="background:var(--purple)"></span>Archetypes</h4><p>A game-dev-tuned classifier auto-names each code cluster by purpose — <b>Physics</b>, <b>Rendering</b>, <b>Shaders</b>, <b>Tests</b>, <b>Audio</b>, <b>ECS</b>, <b>Math</b> and more — from the symbols and file paths inside it. So a subsystem reads as "Physics" instead of "cluster 7". Pure heuristic, no LLM needed; an intelligence overlay's curated layer name wins when present.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--accent)"></span>Guided tour <code>graph_tour</code></h4><p>An ordered "explore this codebase in N steps" walk: entry points first (where execution starts) → the major archetype regions (the big subsystems by purpose) → the hot-spots inside them → the notable cross-subsystem flows. Each step names key symbols and suggests the next verb to drill with. <code>focus</code> narrows it to one subsystem.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--teal)"></span>Semantic search</h4><p><code>graph_search mode:semantic</code> finds code by <em>meaning</em> — "where's the fluid pressure solve" matches even when the symbol isn't named that. Opt-in and <b>pluggable</b>: it embeds via any OpenAI-compatible endpoint you point it at (local Ollama or cloud) through <code>APG_EMBED_*</code> env. No model is bundled; with nothing configured it cleanly degrades to lexical search plus a one-line hint.</p></div>
+    </div>
+    <p class="muted" style="margin-top:18px">Archetypes flow into <code>graph_overview</code>, <code>graph_digest</code>, and the dashboard's "by archetype" Map mode from one shared classifier, so the agent's words and the picture stay in sync. The tour and semantic search are long-tail verbs — callable by name even though they're hidden from the focused default tool list.</p>
+  </div>
+</section>
+
+<section id="frontdoor">
+  <div class="wrap">
+    <h2><span class="n">5</span>The agent front door + adaptive sizing</h2>
+    <p class="section-sub">The single biggest lever on real usefulness isn't a new feature — it's whether the agent reaches for one verb, trusts the result, and gets an answer sized so it doesn't fall back to <code>Read</code>/<code>grep</code>. Two changes target exactly that.</p>
+    <div class="grid g2">
+      <div class="card"><h4>🚪 One-call front door</h4><p><code>graph_packet {target, mode}</code> is the explicit <b>first move</b> — most "understand X / how does Y work" questions resolve in this one call (modes: orient / plan / debug / review / audit / verify) instead of chaining a search plus a node verb. The server-instructions playbook now names it first, and adds an honest <b>KNOWN LIMITS</b> block (dynamic dispatch via function-pointers / <code>std::function</code> / Lua callbacks, and cross-language beyond the shader bridge, are <em>not</em> synthesized — verify those by reading) so the agent doesn't burn calls on dead ends.</p></div>
+      <div class="card"><h4>📏 Adaptive token budget</h4><p>A fixed response budget starves big repos: a god-file gets truncated, the agent re-<code>Read</code>s it — the exact fallback we want to kill. <code>graph_packet</code>'s budget and list caps now scale with repo size across <b>monotonic tiers</b> (tiny → huge, keyed on graph node count), so every cap only ever grows as the project grows. <code>graph_explore</code> / <code>graph_trace</code> were already adaptive on line budgets. Precedence: an explicit <code>budget</code> arg &gt; <code>APG_PACKET_BUDGET</code> env &gt; the adaptive tier.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="fresh">
+  <div class="wrap">
+    <h2><span class="n">6</span>Freshness self-heal — a stale map is worse than none</h2>
+    <p class="section-sub">A real field test surfaced the #1 problem: as you commit, the graph drifts behind <code>HEAD</code>, and a stale "not found" for a just-landed symbol is actively misleading — worse than having no graph at all, especially for managed workers who got the read verbs but couldn't refresh. The fix makes freshness <em>discoverable, loud, and optionally automatic</em>.</p>
+    <div class="ladder">
+      <div class="rung"><span class="bar" style="background:var(--accent)"></span><div><div class="t">Every read warns when stale</div><div class="d">The central gate prepends <span class="mono">graph stale: indexed X, HEAD Y (N commits behind). Run graph_index() to refresh…</span> — now with the commit count and the self-heal hint. A stale "not found" is explicitly <em>not</em> proof a symbol is gone.</div></div><span class="badge" style="color:var(--accent);border-color:var(--accent)">always</span></div>
+      <div class="rung"><span class="bar" style="background:var(--green)"></span><div><div class="t">A discoverable refresh verb</div><div class="d"><code>graph_index</code> is now in the focused default tool list, so a worker reading the warning has a surfaced action to take. The reindex is incremental (diffs changed files; cosmetic-vs-structural tiers).</div></div><span class="badge" style="color:var(--green);border-color:var(--green)">on demand</span></div>
+      <div class="rung"><span class="bar" style="background:var(--purple)"></span><div><div class="t">Opt-in auto-refresh</div><div class="d">Set <code>APG_AUTO_REINDEX=1</code> and the dispatch refreshes a behind-<code>HEAD</code> graph <em>before</em> the read handler runs — so the answer is fresh. Off by default; no behavior change unless set.</div></div><span class="badge" style="color:var(--purple);border-color:var(--purple)">opt-in</span></div>
+      <div class="rung"><span class="bar" style="background:var(--teal)"></span><div><div class="t">Optional git hook</div><div class="d"><code>scripts/install-graph-hook.mjs</code> installs a non-blocking <code>post-commit</code> reindex hook for teams that want the graph always fresh without per-read latency. Idempotent — replaces only its own block, never clobbers an existing hook.</div></div><span class="badge" style="color:var(--teal);border-color:var(--teal)">teams</span></div>
+    </div>
+  </div>
+</section>
+
 <section id="refs">
   <div class="wrap">
-    <h2><span class="n">4</span>What's borrowed from what — and how it's used</h2>
+    <h2><span class="n">7</span>What's borrowed from what — and how it's used</h2>
     <p class="section-sub">This isn't built from scratch, and it isn't a copy-paste of any one tool. Four mature projects each solved part of the problem well; this merges their <em>ideas</em> into one coherent system. Three are MIT (reused with attribution; reimplemented in our JS+SQLite shapes). One is unlicensed — <b>patterns only, no code copied</b>.</p>
 
     <div class="grid g2">
@@ -195,6 +235,8 @@
         <ul>
           <li><b>C++ resolution heuristics</b> <span>— receiver-type inference (<code>obj-&gt;method()</code> → the declared type's method), out-of-line <code>Foo::bar</code> matching, include-dir discovery.</span></li>
           <li><b>Adaptive output</b> <span>— size the answer to the question, skeletonize redundant siblings instead of truncating.</span></li>
+          <li><b>Adaptive response sizing</b> <span>— codegraph's measured biggest win: <code>graph_packet</code>'s budget + caps now scale with repo size on monotonic tiers (caps never shrink as the repo grows), so big projects stop getting truncated answers.</span></li>
+          <li><b>The agent-eval mindset</b> <span>— judge the tool by how an agent <em>behaves</em> with vs without it (route to the right verb, trust the answer, not re-Read). It shaped the front-door + adaptive-sizing pass.</span></li>
           <li><b>Generated-file down-ranking</b> <span>— protobuf/moc/<code>*_generated.h</code> rank last so a hand-written symbol wins.</span></li>
           <li><b><code>graph_trace</code> / <code>graph_explore</code></b> <span>— from→to call paths with inlined bodies; multi-symbol source bundles. "Treat this as already Read."</span></li>
           <li><b>The "low-salience wall" doctrine</b> <span>— agents under-pick from big tool lists; enrich the verbs they already call rather than adding names. Shaped our whole tool-surface design.</span></li>
@@ -209,6 +251,7 @@
         <ul>
           <li><b>Token-budgeted digest</b> <span>— our <code>graph_digest</code>: the whole project's analytic value (layers, hotspots, cycles, provenance) in ~1–2k tokens. Ends the "dashboard is an island" problem.</span></li>
           <li><b>God-nodes / communities / cycles</b> <span>— the analytics behind <code>graph_hotspots</code>, <code>graph_overview</code>, <code>graph_cycles</code>.</span></li>
+          <li><b>Archetype auto-naming</b> <span>— from graphify's <code>SECTION_ARCHETYPES</code>: name a cluster by purpose ("Physics", "Rendering", "Shaders") from its symbols + paths, so subsystems read by meaning. Powers the dashboard's "by archetype" Map mode.</span></li>
           <li><b>Analysis-as-a-verb pattern</b> <span>— the same shared module backs both the agent verbs and the dashboard, so they never drift.</span></li>
           <li><b>Safety hardening</b> <span>— <code>sanitize_label</code> against prompt-injection through indexed source; pre-parse file-size caps; SSRF guards.</span></li>
           <li><b>IDF search ranking</b> <span>— rare identifiers outrank common ones.</span></li>
@@ -224,6 +267,8 @@
           <li><b>Dashboard overview→drill-in</b> <span>— show ~8–30 cluster boxes, not 13k nodes; expand one cluster on demand. The legibility idea behind our new overview view.</span></li>
           <li><b>Change-explain</b> <span>— our <code>graph_explain_diff</code>: keyed on a git diff → changed → affected → risk (the reverse of "what breaks if I touch X").</span></li>
           <li><b>Non-ASCII enumeration &amp; structural fingerprints</b> <span>— <code>git ls-files -z</code>; body-vs-signature change classification.</span></li>
+          <li><b>Guided tour</b> <span>— from its tour-generator: our <code>graph_tour</code>, an ordered N-step "explore this codebase" walk (entry points → archetype regions → hot-spots → cross-subsystem flows).</span></li>
+          <li><b>Embedding semantic search</b> <span>— find code by meaning via embeddings: our opt-in, pluggable <code>graph_search mode:semantic</code> (any OpenAI-compatible endpoint; degrades to lexical).</span></li>
         </ul>
         <div class="verdict">Its actual web dashboard (React-Flow + ELK) is the visual north star; we adopted its aggregation ideas onto our existing viz.</div>
       </div>
@@ -250,10 +295,15 @@
       <tr><td>Call/type hierarchy</td><td>agent-code-intel</td><td><code>code_intel_hierarchy</code></td></tr>
       <tr><td>Trace / explore</td><td>codegraph</td><td><code>graph_trace</code> · <code>graph_explore</code> · <code>source-bundle.js</code></td></tr>
       <tr><td>Change-explain</td><td>understand-anything</td><td><code>graph_explain_diff</code></td></tr>
-      <tr><td>tsconfig aliases + ext-probe</td><td>understand-anything</td><td>JS import resolution <span class="muted">(backlog)</span></td></tr>
+      <tr><td>tsconfig aliases + ext-probe</td><td>understand-anything</td><td>JS/TS import resolution (shipped, P3)</td></tr>
+      <tr><td>Archetype auto-naming</td><td>graphify (<code>SECTION_ARCHETYPES</code>)</td><td><code>intelligence/archetypes.js</code> · "by archetype" Map mode</td></tr>
+      <tr><td>Guided tour</td><td>understand-anything (tour-generator)</td><td><code>graph_tour</code> · <code>query/verbs/tour.js</code></td></tr>
+      <tr><td>Embedding semantic search</td><td>understand-anything</td><td><code>graph_search mode:semantic</code> · <code>intelligence/embeddings.js</code> (<code>APG_EMBED_*</code>)</td></tr>
+      <tr><td>Adaptive response sizing</td><td>codegraph</td><td><code>query/response-budget.js</code> (monotonic packet tiers)</td></tr>
+      <tr><td>Agent-eval mindset</td><td>codegraph</td><td>the front-door + adaptive-sizing design pass</td></tr>
       <tr><td>Generated-file down-ranking</td><td>codegraph</td><td><code>query/generated.js</code></td></tr>
-      <tr><td>Overview→drill-in viz</td><td>understand-anything</td><td>dashboard <code>/api/overview</code> + cluster view</td></tr>
-      <tr><td>Injection guards / size caps</td><td>graphify</td><td>sanitization + hardening <span class="muted">(partly backlog)</span></td></tr>
+      <tr><td>Overview→drill-in viz</td><td>understand-anything</td><td>dashboard <code>/api/overview</code> + group-box Map</td></tr>
+      <tr><td>Injection guards / size caps</td><td>graphify</td><td>sanitization + hardening</td></tr>
       <tr><td>Single taxonomy registry</td><td>own cohesion fix</td><td><code>storage/taxonomy.js</code></td></tr>
     </table>
   </div>
@@ -261,7 +311,7 @@
 
 <section id="use">
   <div class="wrap">
-    <h2><span class="n">5</span>How an agent actually uses it</h2>
+    <h2><span class="n">8</span>How an agent actually uses it</h2>
     <p class="section-sub">A typical "I'm about to change this C++ function" flow. Notice it escalates from cheap-and-static to verified-and-precise, and stops the moment it has a trustworthy answer.</p>
     <div class="flow">
       <div class="step"><div class="num"></div><div class="b"><b>Orient</b> — <code>graph_digest</code> for the lay of the land (subsystems, hot-spots, cycles), or <code>graph_packet</code> for one feature/symbol. <span>~1–2k tokens, no compiler needed.</span></div></div>
@@ -275,23 +325,33 @@
 
 <section id="dash">
   <div class="wrap">
-    <h2><span class="n">6</span>The dashboard</h2>
-    <p class="section-sub">A live HTTP view of the same graph the agents query — for humans who want to <em>see</em> the codebase. Launch it with the <code>graph_dashboard</code> verb (or it may already be running at <span class="mono">http://127.0.0.1:7700</span>).</p>
+    <h2><span class="n">9</span>The rebuilt dashboard</h2>
+    <p class="section-sub">A live HTTP view of the same graph the agents query — for humans who want to <em>see</em> the codebase. The old viz dumped every node at once; the rebuilt dashboard leads with a navigable <b>group-box Map</b>: labeled boxes you drill into instead of a hairball. It launches on a local port (bound to <span class="mono">127.0.0.1</span>) via the <code>graph_dashboard</code> verb.</p>
+
+    <h3>The Map — labeled boxes you drill into</h3>
+    <p class="muted" style="margin-top:0">Start at a handful of <b>group boxes</b>, not thousands of nodes. Double-click a box (or its ⊕) to expand only it; double-click a node to focus its group. Three grouping modes change what a box <em>means</em>:</p>
     <div class="grid g3">
-      <div class="card"><h4><span class="tagdot" style="background:var(--accent)"></span>Overview → drill-in</h4><p>Starts as a handful of cluster boxes (communities / architecture layers), not thousands of nodes. Click a cluster to expand only it.</p></div>
-      <div class="card"><h4><span class="tagdot" style="background:var(--green)"></span>Provenance ribbon</h4><p>Compiler-verified call edges render solid-green; heuristic ones dashed. A top-line "% LSP-verified" tells you how much of the call graph is ground truth.</p></div>
-      <div class="card"><h4><span class="tagdot" style="background:var(--purple)"></span>Shader-binding map</h4><p>For game engines: the CPU↔GPU seam — which C++ descriptor-write populates which GLSL buffer slot. No generic tool shows this.</p></div>
-      <div class="card"><h4><span class="tagdot" style="background:var(--red)"></span>Blast-radius</h4><p>Select a symbol → everything it reaches lights up (changed = red, affected = amber), the rest fades.</p></div>
-      <div class="card"><h4><span class="tagdot" style="background:var(--teal)"></span>Pathfinder + hotspots</h4><p>Shortest path between two symbols; an idle panel of the highest-degree "god nodes" (the risky core).</p></div>
-      <div class="card"><h4><span class="tagdot" style="background:var(--pink)"></span>2D / 3D / layers</h4><p>Cytoscape 2D, a stacked-layer 3D view, and the code+feature+task multilayer overlay.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--ext)"></span>by directory</h4><p>Boxes = folders (depth-adjustable). The structural layout — a whole folder collapses into one box you can drill into.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--teal)"></span>by community</h4><p>Boxes = the graph's detected clusters (Leiden communities), each labeled with its archetype name or dominant directory.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--purple)"></span>by archetype</h4><p>Merges every community of the <em>same purpose</em> into one of ~15 named boxes — <b>Physics</b>, <b>Rendering</b>, <b>Shaders</b>, <b>Tests</b>, <b>Audio</b>, <b>ECS</b>… The "what is this for" view.</p></div>
     </div>
-    <p class="muted" style="margin-top:18px">Note: the dashboard is an upgraded version of the project's existing graph viz (Cytoscape + 3d-force-graph). The <em>analysis</em> behind it — clusters, hotspots, provenance, shader map — is the same shared module the agents use, so the picture and the agent answers always agree.</p>
+
+    <h3>Views, dimensions, and tools</h3>
+    <div class="grid g3">
+      <div class="card"><h4><span class="tagdot" style="background:var(--accent)"></span>Five view modes</h4><p><b>Map</b> (grouped boxes), <b>Tree</b> and <b>Flow</b> (dagre hierarchies), <b>Force</b> (ungrouped physics layout), and <b>Shader</b> (the C++↔GLSL bridge subgraph on its own).</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--pink)"></span>2D + 3D</h4><p>Cytoscape in 2D; a 3D force-graph with a custom <b>clustering force</b> that pulls each node toward its group centroid, so the boxes hold together in space. (3D adds a Layers view.)</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--green)"></span>Search → focus</h4><p>Type-ahead over symbols, files, and features; pick a result to focus that node and its neighborhood.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--red)"></span>Blast-radius</h4><p>Toggle blast mode, pick a symbol → everything it reaches lights up, the rest fades. The visual twin of <code>graph_impact</code>.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--teal)"></span>Pathfinder</h4><p>Shortest path between two symbols — how does A end up reaching B.</p></div>
+      <div class="card"><h4><span class="tagdot" style="background:var(--amber)"></span>Provenance + shader map</h4><p>Compiler-verified edges read differently from heuristic ones; node detail shows trust and shader bindings — the CPU↔GPU seam no generic tool shows.</p></div>
+    </div>
+    <p class="muted" style="margin-top:18px">The <em>analysis</em> behind the picture — clusters, archetypes, hotspots, provenance, shader map — is the same shared module the agents query, so the dashboard and the agent answers can never disagree.</p>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <p><b>aify-project-graph v0.1.0</b> — branch <code>plan/next-gen-code-intel-bridge</code>. Validated live on Sand Castle + Echoes of the Fallen, on Claude Code and Hermes. 961 tests passing.</p>
+    <p><b>aify-project-graph v0.1.0</b> — branch <code>plan/next-gen-code-intel-bridge</code>. Validated live on Sand Castle + Echoes of the Fallen, on Claude Code and Hermes. 1089 tests passing.</p>
     <p>Deeper reading in the repo: <code>docs/code-intel-v2-status.md</code> (current state), <code>docs/code-intel-v2-next-plan.md</code> (backlog), <code>docs/code-intel-v2/</code> (the master plan, reference-borrow synthesis, holistic review, and A/B test records).</p>
     <p>Licensing: codegraph · graphify · understand-anything are MIT (reused with attribution). agent-code-intel is internal/unlicensed — patterns reimplemented from scratch, no code copied.</p>
   </div>

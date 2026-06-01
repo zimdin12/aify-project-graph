@@ -19,6 +19,7 @@ These are examples, not mandatory sequences. Adapt to the repo and trust level.
 1. Read the right brief first.
 - orient: `.aify-graph/brief.agent.md`
 - planning: `.aify-graph/brief.plan.md`
+- new repo you don't know yet: `graph_tour({steps, focus})` — an ordered walk (entrypoints → named subsystems like Physics/Rendering → hotspots → cross-subsystem flows). Read top-to-bottom, then drill with `graph_packet`. `focus` narrows to one subsystem. Callable by name; not in the default `tools/list`.
 
 2. Check map quality quickly.
 - use `graph_health()`
@@ -29,6 +30,8 @@ These are examples, not mandatory sequences. Adapt to the repo and trust level.
 
 3. Pick one live verb by question shape.
 - one-shot context: `graph_packet(target="...", mode="orient|plan|debug|review|audit")`
+- locate a symbol by name: `graph_search(query="...")` (default `mode="lexical"`)
+- locate code by MEANING when you don't know the name: `graph_search(query="...", mode="semantic")` — opt-in embeddings; degrades to lexical + a hint if no sidecar
 - narrow cross-layer context: `graph_pull(node="...")`
 - change plan: `graph_change_plan(symbol="...")`
 - broad blast radius: `graph_consequences(target="...")`
@@ -126,6 +129,8 @@ Use when you just opened a repo:
 2. regenerate briefs
 3. if local build/scratch dirs or generated files polluted the graph, add them to `.aifyignore`
 4. only then compare graph-vs-source quality
+
+Freshness self-heal: `graph_index` is in the default tool surface now, so a worker can refresh its own graph. A read verb's **"graph stale"** warning means run `graph_index()` (or set `APG_AUTO_REINDEX=1` to auto-refresh on stale reads); line numbers may have drifted until you do. A stale **"not found"** is not proof a symbol is gone — re-index before concluding it was deleted.
 
 ### Map enrichment
 

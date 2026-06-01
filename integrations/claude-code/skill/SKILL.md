@@ -61,6 +61,18 @@ If `.aify-graph/` is missing, tell the user to run `/graph-build-all` — it bui
 
 If the user wants to **see** the graph visually (not just query it), run `/graph-dashboard` — launches an interactive 2D multi-layer view in the browser with code + features + tasks + docs + cross-layer edges.
 
+## Orientation walk: `graph_tour({steps, focus})`
+
+Ordered N-step orientation walk for a repo you don't know yet: entrypoints → named subsystems (archetype regions like Physics/Rendering) → hotspots → cross-subsystem flows. Read top-to-bottom, then drill into anything with `graph_packet`. `focus` narrows to one subsystem (e.g. `focus:"physics"`). **Callable by name** — not in the default 16-verb `tools/list`, so invoke it directly via `tools/call`.
+
+## Find by meaning: `graph_search(mode:"semantic")`
+
+`graph_search` defaults to `mode:"lexical"` (partial-name match). Pass `mode:"semantic"` to find code by **meaning** instead of name — opt-in embeddings (needs an embeddings sidecar). When no sidecar is present it **degrades to lexical + a hint**, so the call is always safe. Use semantic when you know what the code *does* but not what it's *called*; prefer `graph_whereis` for exact names.
+
+## Freshness self-heal
+
+`graph_index` is now in the default tool surface so a worker can refresh its own stale graph. If a read verb prints a **"graph stale"** warning (indexed commit behind HEAD), run `graph_index()` to refresh — or set `APG_AUTO_REINDEX=1` to auto-refresh on stale reads. Line numbers may have drifted until you do. A stale **"not found"** is NOT proof a symbol is gone — re-index before concluding a symbol was deleted.
+
 ## Default pattern: MIXED mode (graph for orientation, Read/Grep for details)
 
 Measured on the 2026-04-22 echoes bench (9 agents × 3 variants × 3 task classes): **mixed mode beats pure graph-only by 8-19% tokens and matches no-graph on time, while producing the best DEBUG quality (32% fewer tokens, 33% less time than no-graph).** The winning shape is:

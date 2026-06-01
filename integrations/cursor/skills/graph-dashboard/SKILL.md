@@ -9,15 +9,28 @@ Open the interactive visual dashboard for the current repo's graph.
 
 ## What it is
 
-An interactive 2D graph viewer in the user's default browser. Shows:
-- **Code layer** — gray circles, sized by node kind (Class/Function/File/etc.)
-- **Feature layer** — blue rounded-rectangles (from `functionality.json`)
-- **Task layer** — amber diamonds (from `tasks.json`)
-- **Doc layer** — green hexagons (Document nodes)
-- **Cross-layer edges** — dashed blue (curated, e.g. feature→file anchors) or dotted green (inferred, e.g. doc→code MENTIONS)
-- **Code edges** — solid relation-colored (CALLS, REFERENCES, IMPORTS, etc.)
+A rebuilt interactive graph viewer in the user's default browser, available in **2D and 3D**. The default front door is the **Map** view: a navigable set of labeled "group-box" clusters you **drill into** (double-click a box, or `⊕`, to expand it; double-click a node to focus its group). It shows the same multi-layer graph (code + features + tasks + docs + cross-layer edges) but legibly grouped instead of as a hairball.
 
-Filter panel (left side): toggle layers independently, toggle code node types.
+Layers shown:
+- **Code layer** — sized by node kind (Class/Function/File/etc.)
+- **Feature layer** — from `functionality.json`
+- **Task layer** — from `tasks.json`
+- **Doc layer** — Document nodes
+- **Cross-layer edges** — dashed (curated, e.g. feature→file anchors) or dotted (inferred, e.g. doc→code MENTIONS)
+- **Code edges** — relation-colored (CALLS, REFERENCES, IMPORTS, etc.)
+
+### Map grouping modes (toggle pills at the top of the panel)
+
+- **by directory** — boxes are directories; `groupDepth` controls how deep the folder roll-up goes. Best for "what's the shape of this repo."
+- **by archetype** — merges communities of the *same purpose* into named boxes (Physics, Rendering, Tests, …) — roughly ~15 legible boxes instead of hundreds of raw communities.
+- **by community** — raw detected graph communities (the precomputed Leiden ids). Use when you want graph-derived clusters rather than directory- or purpose-derived ones.
+
+### Tools in the panel
+
+- **Search-to-focus** — type a symbol/file/feature; pick a result to jump the view to that node and its group.
+- **Blast radius** — toggle blast mode and click a node: changed node + affected neighbors highlight, everything else fades.
+- **Pathfinder** — enter a `from` and `to` node to draw the path between them.
+- Layer/node-type filters to toggle layers independently.
 
 ## Steps
 
@@ -25,19 +38,33 @@ Filter panel (left side): toggle layers independently, toggle code node types.
    ```
    graph_dashboard()
    ```
-   Returns `{url, port}` like `http://127.0.0.1:54321`.
+   Returns `{url, port}` like `http://127.0.0.1:54321`. (For local dev you can instead run `node launch-dash.mjs`, which serves the same dashboard on a local port.)
 
 2. **Tell the user the URL** and optionally what they'll see first:
-   > Dashboard running at http://127.0.0.1:54321 — open it in your browser. You'll see all four layers (code/features/tasks/docs) with cross-layer edges. Toggle layers in the left panel.
+   > Dashboard running at http://127.0.0.1:54321 — open it in your browser. The Map view shows labeled group boxes (by directory / archetype / community); double-click a box to drill in. Search-to-focus, blast radius, and pathfinder are in the left panel.
 
 3. **Let the dashboard run.** The server stays up until the user closes the session or kills the process. No further action from the agent.
 
 ## When to use which view
 
-- **Understanding a new repo** — leave all layers on, zoom in on the highest-fan-in hub (biggest node)
+- **Understanding a new repo** — start in **Map / by archetype**, then drill into a named box (Physics, Rendering, …)
 - **Feature ownership mapping** — turn off code layer, show only features + tasks + their cross-layer edges
-- **Impact analysis preview** — click a feature node; neighboring features + anchored files + related tasks light up
+- **Impact analysis preview** — use **blast radius**: toggle blast mode, click a node; changed + affected light up, the rest fade
+- **"How does A reach B"** — use **pathfinder**: enter the two endpoints to draw the path
 - **Documentation coverage check** — show only doc + code layers, see which files have MENTIONS edges (inferred doc coverage)
+
+## View modes
+
+Pills at the top of the panel switch the layout. Available modes depend on 2D vs 3D:
+
+- **Map** (default, both 2D and 3D) — labeled group boxes you drill into; grouping is one of by directory / by archetype / by community (see above).
+- **Tree** (2D) — directory-tree dagre layout. Files cluster under their parent dir. Best for "what's the shape of this repo" orientation.
+- **Flow** (2D) — directed dagre flow layout for following call/edge direction.
+- **Layers** (3D) — code/features/tasks/docs separated into stacked planes. Use for cross-layer questions ("which features touch this subsystem").
+- **Force** (both) — unconstrained physics simulation. Slow on large graphs (>3000 nodes auto-falls back to grouped positioning).
+- **Shader** — the C++↔GLSL shader-binding bridge subgraph.
+
+3D mode is best for layer separation; 2D is best for tree/flow orientation. The **open 3D / open 2D** link in the sidebar header switches between them.
 
 ## Profile note
 
