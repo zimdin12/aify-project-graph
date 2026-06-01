@@ -26,6 +26,12 @@ The holistic-review (`docs/code-intel-v2/holistic-review.md`) flagged one thesis
 - **R1 — correctness / trust (all fixed).** C1 edge data-loss on re-collect (LSP edges no longer mutate the heuristic edge in place; invalidation scoped to synthesizer-created rows); I2 partial/budget-exhausted collects no longer run blanket invalidation; I1 absence claims (`callers`/`callees`/`neighbors`/`impact`) now route empty results through `buildTrustLine` so "NO CALLERS" carries the not-exhaustive caveat + verify hint; I3 per-node `[lsp✓]` gated on `indexReady===true`.
 - **R2 — cohesion (made it read as ONE system).** Single `storage/taxonomy.js` registry (NODE_TYPES, RELATIONS + CALL/IMPORT/INHERITANCE/BRIDGE families, EDGE_PROVENANCE_TYPES) — verbs no longer re-declare their own relation slices; `graph_neighbors` now wires OVERRIDDEN_BY/LOADS_SHADER/DECLARES_BINDING/HAS_DIAGNOSTIC; phantom `Struct` filter dropped; unified trust vocabulary on the lsp axis (`lsp-verified/partial/heuristic` headline, edge-count secondary); analytics hybrid output routed through the staleness wrapper; verb surface trimmed to a 30-tool listed front door (planning + analytics + code-intel long-tail hidden-but-callable).
 
+## Agent front door (2026-06-01)
+- **Adaptive packet sizing.** `graph_packet` budget + read-first cap are now repo-size-aware (`mcp/stdio/query/response-budget.js` → monotonic tiers keyed on `manifest.nodes`; precedence arg > `APG_PACKET_BUDGET` > tier). Kills god-file truncation on big repos. `graph_explore`/`graph_trace` were already adaptive (`source-bundle.js` line tiers).
+- **Front-door tightening.** `server-instructions.js` now names `graph_packet` the explicit FIRST move + an honest KNOWN LIMITS block (dynamic dispatch / script callbacks / cross-lang not synthesized).
+- **Staleness banner primitive.** `mcp/stdio/query/staleness-banner.js` — one consistent `⚠ stale: … Read these directly` line for agents to learn once.
+- Spec/plan: `docs/superpowers/specs/2026-06-01-agent-front-door-design.md`, `docs/superpowers/plans/2026-06-01-agent-front-door.md`. Suite 1058 pass.
+
 ## New capability verbs (shipped this round)
 - **`code_intel_hierarchy`** — call + type hierarchy (who-calls-transitively, virtual overrides). The trustworthy transitive path for C++; cross-linked from `graph_callers`/`graph_callees`/`graph_impact`/`graph_path`.
 - **`graph_trace(from→to)`** — whole call path in one call, hop bodies inlined; smart failure path inlines both endpoints + callers/callees instead of 404.
