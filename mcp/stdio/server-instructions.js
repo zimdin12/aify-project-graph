@@ -55,6 +55,8 @@ KNOWN LIMITS (don't burn calls on these — read the code instead):
 - An absence claim ("no callers / dead code") is only trustworthy when the evidence banner says
   exhaustive (see TRUST RULES). Otherwise verify before deleting.
 
+ORIENTATION (3 shapes, they compose): graph_packet mode:orient = one symbol/feature deep; graph_onboard = flat brief (entrypoints/key files/read order); graph_tour = ordered N-step walk of the whole repo. GROUPING terms: community = algorithmic cluster (leiden); archetype = its named purpose (Physics/Rendering — heuristic, orientation-only, never a trust basis); layer = curated overlay (truth when present).
+
 FRESHNESS:
 - If a response says "graph stale", run graph_index first (or set APG_AUTO_REINDEX=1 for auto-refresh).
 - A stale "not found" is NOT proof a symbol is gone — re-run after indexing. The graph self-heals on
