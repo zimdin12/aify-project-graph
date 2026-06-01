@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
+import { getPacketTokenBudget } from '../response-budget.js';
 
 // Section caps come first; the final token-estimate clamp is a safety
 // rail. Predictable shape → prompt-cache friendly.
@@ -42,6 +43,19 @@ const MODE_OVERRIDES = {
 };
 
 function esTokens(s) { return Math.ceil((s || '').length / CHAR_PER_TOKEN_EST); }
+
+// Budget precedence: explicit arg > APG_PACKET_BUDGET env > repo-size tier.
+// Returns { budgetTokens, caps } where caps scales the list/section limits with
+// repo size (monotonic — never shrinks as the repo grows). A fixed budget
+// starves big repos: a god-file gets truncated and the agent re-Reads it.
+export function resolvePacketBudget({ explicit, env, nodeCount }) {
+  const tier = getPacketTokenBudget(nodeCount);
+  const envNum = env != null && env !== '' && Number.isFinite(Number(env)) ? Number(env) : null;
+  const budgetTokens = (explicit != null && Number.isFinite(Number(explicit)))
+    ? Number(explicit)
+    : (envNum ?? tier.budgetTokens);
+  return { budgetTokens, caps: tier.caps };
+}
 
 function normalizeMode(mode) {
   const value = typeof mode === 'string' ? mode.trim().toLowerCase() : 'orient';
@@ -573,7 +587,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
 
 // ----- main -----
 
-export async function graphPacket({ repoRoot, target, mode = 'orient', budget = DEFAULTS.budget_tokens, live = false, since = null, files = [], audited = false, analyze = false, analyzeMode = 'clang-tidy', analyzeTimeoutMs }) {
+export async function graphPacket({ repoRoot, target, mode = 'orient', budget = null, live = false, since = null, files = [], audited = false, analyze = false, analyzeMode = 'clang-tidy', analyzeTimeoutMs }) {
   if (!repoRoot) return 'ERROR: repoRoot parameter is required';
 
   // Verify mode short-circuit: post-edit decision packet, no target required.
@@ -592,8 +606,6 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
 
   if (!target) return 'ERROR: target parameter is required (task:<id>, feature:<id>, bare id, or bare symbol)';
 
-  const opts = optionsForMode(normalizeMode(mode), budget);
-
   // Per architectural rule: read overlay + brief + manifest JSON directly.
   // No ensureFresh() call. No SQLite open. No verb dispatch. Static-first.
   const functionality = readFunctionality(repoRoot);
@@ -601,6 +613,18 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   const brief = readBrief(repoRoot);
   const manifest = readManifest(repoRoot);
   const snapshot = snapshotLine(brief, manifest, repoRoot);
+
+  // Repo-size-aware budget (manifest.nodes is free here — already read above).
+  // Precedence: explicit arg > APG_PACKET_BUDGET env > tier default.
+  const { budgetTokens, caps } = resolvePacketBudget({
+    explicit: budget,
+    env: process.env.APG_PACKET_BUDGET,
+    nodeCount: manifest?.nodes ?? 0,
+  });
+  const opts = optionsForMode(normalizeMode(mode), budgetTokens);
+  // Let the read-first list grow with the repo (monotonic — only ever larger),
+  // so god-repos surface enough entry points without re-grepping.
+  opts.read_first = Math.max(opts.read_first, caps.read_first);
 
   const parsed = parseTarget(target);
 
