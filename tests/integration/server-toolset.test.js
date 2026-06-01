@@ -65,7 +65,8 @@ function extractTools(lines) {
   return toolsResponse?.result?.tools ?? [];
 }
 
-// The 15 intent verbs the DEFAULT (no --toolset) profile lists (P4-1).
+// The intent verbs the DEFAULT (no --toolset) profile lists (P4-1). graph_index
+// added 2026-06-01 so managed workers can self-refresh a stale graph.
 const DEFAULT_LISTED = [
   'code_intel_hierarchy',
   'code_intel_references',
@@ -77,6 +78,7 @@ const DEFAULT_LISTED = [
   'graph_explore',
   'graph_health',
   'graph_impact',
+  'graph_index',
   'graph_packet',
   'graph_pull',
   'graph_search',
@@ -90,7 +92,10 @@ describe('server toolset selection', () => {
     const names = tools.map(tool => tool.name).sort();
     // The default surface is EXACTLY the focused intent set — not the full API.
     expect(names).toEqual(DEFAULT_LISTED);
-    expect(names.length).toBe(15);
+    expect(names.length).toBe(16);
+    // graph_index must be listed so managed workers can self-refresh a stale
+    // graph (2026-06-01 Sand Castle A/B field-report fix).
+    expect(names).toContain('graph_index');
 
     // Verbs that are full-listed but NOT in the focused default must be absent
     // from the default listing (still callable — proven in a later test).

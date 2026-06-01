@@ -720,6 +720,11 @@ const DEFAULT_TOOL_NAMES = new Set([
   'graph_collect_code_intel',
   'code_intel_references',
   'code_intel_hierarchy',
+  // Listed so managed workers can SELF-REFRESH a stale graph. The 2026-06-01
+  // Sand Castle A/B found a stale graph is worse than none for workers who get
+  // the read verbs but not graph_index — they couldn't act on the "run
+  // graph_index" staleness warning because it wasn't in their surface.
+  'graph_index',
 ]);
 
 // Full profile still keeps EVERY verb callable by name, but the tools/list
@@ -1057,6 +1062,28 @@ rl.on('line', async (line) => {
       if (normalized.depth != null) normalized.depth = Math.min(Math.max(Number(normalized.depth) || 1, 1), 10);
       if (normalized.top_k != null) normalized.top_k = Math.min(Math.max(Number(normalized.top_k) || 10, 1), 200);
       if (normalized.limit != null) normalized.limit = Math.min(Math.max(Number(normalized.limit) || 20, 1), 100);
+      // Opt-in self-heal: when APG_AUTO_REINDEX is set, refresh a stale graph
+      // BEFORE the handler reads it, so managed workers (who can't call
+      // graph_index) stop getting false-empty results. OFF by default — no
+      // surprise latency; warn-by-default behavior below is unchanged when off.
+      if (name !== 'graph_index' && name !== 'graph_status') {
+        try {
+          const { autoReindexEnabled } = await import('./freshness/auto-reindex.js');
+          if (autoReindexEnabled(process.env.APG_AUTO_REINDEX)) {
+            const { getHeadCommit } = await import('./freshness/git.js');
+            const { loadManifest } = await import('./freshness/manifest.js');
+            const graphDir = path.join(repoRoot, '.aify-graph');
+            const [{ manifest }, head] = await Promise.all([
+              loadManifest(graphDir),
+              getHeadCommit(repoRoot).catch(() => null),
+            ]);
+            if (manifest?.commit && head && manifest.commit !== head) {
+              const { ensureFresh } = await import('./freshness/orchestrator.js');
+              await ensureFresh({ repoRoot });
+            }
+          }
+        } catch { /* best-effort: fall through, the post-handler warning still fires */ }
+      }
       const result = await tool.handler(normalized);
       // Staleness warning: if graph is indexed but manifest commit lags HEAD,
       // surface a warning in the response so agents don't silently act on stale
@@ -1077,7 +1104,10 @@ rl.on('line', async (line) => {
             getHeadCommit(repoRoot).catch(() => null),
           ]);
           if (manifest?.commit && head && manifest.commit !== head) {
-            stalenessWarning = `graph stale: indexed at ${manifest.commit.slice(0, 7)}, current HEAD is ${head.slice(0, 7)}. Run graph_index() to refresh — line numbers may drift.`;
+            const { commitsBehindHead } = await import('./query/verbs/read_freshness.js');
+            const n = commitsBehindHead(repoRoot, manifest.commit, head);
+            const behind = n != null ? ` (${n} commit${n === 1 ? '' : 's'} behind)` : '';
+            stalenessWarning = `graph stale: indexed at ${manifest.commit.slice(0, 7)}, current HEAD is ${head.slice(0, 7)}${behind}. Run graph_index() to refresh, or set APG_AUTO_REINDEX=1 for auto-refresh — line numbers may drift.`;
           }
         } catch {
           // best-effort — never block a verb on staleness detection
