@@ -627,14 +627,25 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       return;
     }
 
-    // Vendored JS libs — serve cytoscape + 3d-force-graph from node_modules.
-    // Drops the unpkg dependency that was freezing Edge on cold loads when
-    // the CDN hung or the browser blocked third-party scripts.
-    if (req.url === '/vendor/cytoscape.min.js' || req.url === '/vendor/3d-force-graph.min.js') {
-      const pkgMap = {
-        '/vendor/cytoscape.min.js': '../../../node_modules/cytoscape/dist/cytoscape.min.js',
-        '/vendor/3d-force-graph.min.js': '../../../node_modules/3d-force-graph/dist/3d-force-graph.min.js',
-      };
+    // Vendored JS libs — serve cytoscape + 3d-force-graph + the layout/grouping
+    // extensions from node_modules. Drops the unpkg dependency that was freezing
+    // Edge on cold loads when the CDN hung or the browser blocked third-party
+    // scripts. The fcose stack (layout-base → cose-base → cytoscape-fcose) gives
+    // compound-aware spacing; cytoscape-dagre gives layered tree/flow layouts;
+    // cytoscape-expand-collapse powers drill-in on the grouped Map view. All are
+    // single-file UMD builds — no bundler/build step (keeps the dashboard
+    // launchable instantly via the graph_dashboard verb in any repo).
+    const VENDOR_MAP = {
+      '/vendor/cytoscape.min.js': '../../../node_modules/cytoscape/dist/cytoscape.min.js',
+      '/vendor/3d-force-graph.min.js': '../../../node_modules/3d-force-graph/dist/3d-force-graph.min.js',
+      '/vendor/layout-base.js': '../../../node_modules/layout-base/layout-base.js',
+      '/vendor/cose-base.js': '../../../node_modules/cose-base/cose-base.js',
+      '/vendor/cytoscape-fcose.js': '../../../node_modules/cytoscape-fcose/cytoscape-fcose.js',
+      '/vendor/cytoscape-dagre.js': '../../../node_modules/cytoscape-dagre/cytoscape-dagre.js',
+      '/vendor/cytoscape-expand-collapse.js': '../../../node_modules/cytoscape-expand-collapse/cytoscape-expand-collapse.js',
+    };
+    if (VENDOR_MAP[req.url]) {
+      const pkgMap = VENDOR_MAP;
       try {
         const path = resolve(join(__dirname, pkgMap[req.url]));
         const content = await readFile(path);

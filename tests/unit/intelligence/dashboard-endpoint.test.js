@@ -261,28 +261,38 @@ describe('P2b frontend wiring (structural)', () => {
     'utf8',
   );
 
-  it('references every new endpoint from the SPA', () => {
-    expect(html).toContain('/api/overview');
+  it('references every backing endpoint from the SPA', () => {
+    // The rebuilt SPA computes the grouped Map overview client-side from the
+    // already-loaded /api/graph-multilayer payload (so /api/overview is no
+    // longer called by the browser — it stays a server/MCP-verb endpoint), but
+    // it still wires the analysis + detail endpoints directly.
+    expect(html).toContain('/api/graph-multilayer');
     expect(html).toContain('/api/hotspots');
     expect(html).toContain('/api/impact/');
     expect(html).toContain('/api/path?');
     expect(html).toContain('/api/provenance');
+    expect(html).toContain('/api/search?');
+    expect(html).toContain('/api/node/');
   });
 
-  it('wires the six P2 frontend features', () => {
-    expect(html).toContain('renderOverviewGraph');   // P2-1
-    expect(html).toContain('drillIntoCluster');       // P2-1
-    expect(html).toContain('code_provenance');        // P2-4 ribbon
-    expect(html).toContain('shaderViewIds');          // P2-3
-    expect(html).toContain('renderIdleOverview');     // P2-6
-    expect(html).toContain('runBlastRadius');         // P2-2
-    expect(html).toContain('runPathfinder');          // P2-5
+  it('wires the core interactive features', () => {
+    expect(html).toContain('buildGroupBoxElements'); // grouped Map overview (boxes)
+    expect(html).toContain('drillInto');             // drill-in to a group's members
+    expect(html).toContain('groupKeyFor');           // directory/community grouping
+    expect(html).toContain('code_provenance');       // provenance ribbon
+    expect(html).toContain('shaderViewIds');         // shader bridge view
+    expect(html).toContain('renderIdleOverview');    // idle project overview panel
+    expect(html).toContain('runBlastRadius');        // blast radius
+    expect(html).toContain('runPathfinder');         // pathfinder
   });
 
-  it('adds overview + shader view modes and ShaderBinding styling', () => {
-    expect(html).toMatch(/VIEW_MODES\s*=\s*\[[^\]]*'overview'[^\]]*'shader'/);
+  it('exposes map + shader view modes and ShaderBinding styling', () => {
+    // VIEW_MODES is now [key, icon, label] triples; assert the map + shader keys.
+    expect(html).toMatch(/VIEW_MODES\s*=/);
+    expect(html).toMatch(/\['map'/);
+    expect(html).toMatch(/\['shader'/);
     expect(html).toContain('ShaderBinding');
-    expect(html).toContain('LSP-verified'); // provenance ribbon legend + stat
+    expect(html).toContain('LSP-verified'); // trust language in legend + stat
   });
 
   it('app script is syntactically valid JS', () => {

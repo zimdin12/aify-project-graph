@@ -5,654 +5,335 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>aify-project-graph</title>
   <!-- Vendored locally (served by dashboard server from node_modules). No CDN
-       dependency — avoids Edge-freeze on cold loads when unpkg hangs. -->
+       dependency — avoids Edge-freeze on cold loads when unpkg hangs.
+       Load order matters: layout-base → cose-base → cytoscape → fcose/dagre. -->
+  <script src="/vendor/layout-base.js"></script>
+  <script src="/vendor/cose-base.js"></script>
   <script src="/vendor/cytoscape.min.js"></script>
+  <script src="/vendor/cytoscape-fcose.js"></script>
+  <script src="/vendor/cytoscape-dagre.js"></script>
+  <script src="/vendor/cytoscape-expand-collapse.js"></script>
   <script src="/vendor/3d-force-graph.min.js"></script>
   <style>
+    :root {
+      --bg: #0d1117; --panel: #161b22; --panel2: #11161d; --border: #283039;
+      --border-hi: #3d444d; --text: #c9d1d9; --muted: #8b949e; --faint: #6e7681;
+      --accent: #58a6ff; --accent-bg: #12233b; --good: #3fb950; --warn: #d29922; --bad: #da3633;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; display: flex; height: 100vh; overflow: hidden; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); display: flex; height: 100vh; overflow: hidden; }
 
-    #sidebar { width: 360px; background: #161b22; border-right: 1px solid #30363d; display: flex; flex-direction: column; overflow: hidden; transition: width 160ms ease, border-color 160ms ease; }
+    #sidebar { width: 340px; background: var(--panel); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; transition: width 160ms ease, border-color 160ms ease; flex: 0 0 auto; }
     body.sidebar-collapsed #sidebar { width: 0; border-right-color: transparent; }
-    #sidebar h1 { font-size: 14px; padding: 12px 16px; border-bottom: 1px solid #30363d; color: #58a6ff; }
-    #sidebar .mode-line { padding: 8px 16px; border-bottom: 1px solid #30363d; font-size: 11px; color: #8b949e; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    #sidebar .mode-line a { color: #58a6ff; text-decoration: none; }
+    #sidebar h1 { font-size: 13px; padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--accent); display:flex; align-items:center; gap:8px; }
+    #sidebar h1 .logo { width:10px;height:10px;border-radius:3px;background:linear-gradient(135deg,#58a6ff,#a371f7); }
+    #sidebar .mode-line { padding: 7px 16px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    #sidebar .mode-line a { color: var(--accent); text-decoration: none; }
     #sidebar .mode-line a:hover { text-decoration: underline; }
     #sidebar-body { flex: 1; overflow-y: auto; min-height: 0; }
+    #sidebar-body::-webkit-scrollbar { width: 9px; }
+    #sidebar-body::-webkit-scrollbar-thumb { background: #283039; border-radius: 6px; }
     .header-actions { display: flex; align-items: center; gap: 8px; }
-    #sidebar-toggle, #sidebar-reopen { padding: 4px 8px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; cursor: pointer; font-size: 11px; }
-    #sidebar-toggle:hover, #sidebar-reopen:hover { border-color: #58a6ff; }
+    #sidebar-toggle, #sidebar-reopen { padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-size: 11px; }
+    #sidebar-toggle:hover, #sidebar-reopen:hover { border-color: var(--accent); }
     #sidebar-reopen { position: absolute; top: 12px; left: 12px; z-index: 12; display: none; }
     body.sidebar-collapsed #sidebar-reopen { display: inline-flex; }
 
-    #search-box { padding: 8px 16px; border-bottom: 1px solid #30363d; }
-    #search-box input { width: 100%; padding: 6px 10px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; }
-    #search-box input:focus { outline: none; border-color: #58a6ff; }
+    #search-box { padding: 10px 16px; border-bottom: 1px solid var(--border); position: relative; }
+    #search-box input { width: 100%; padding: 7px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-size: 13px; }
+    #search-box input:focus { outline: none; border-color: var(--accent); }
+    #search-results { position:absolute; left:16px; right:16px; top:46px; background:#1b222b; border:1px solid var(--border-hi); border-radius:8px; z-index:30; max-height:260px; overflow-y:auto; display:none; box-shadow:0 8px 24px #0008; }
+    #search-results .sr { padding:7px 10px; cursor:pointer; font-size:12px; border-bottom:1px solid #21262d; }
+    #search-results .sr:last-child { border-bottom:none; }
+    #search-results .sr:hover, #search-results .sr.sel { background: var(--accent-bg); }
+    #search-results .sr .sr-sub { color: var(--faint); font-size:11px; }
 
-    #stats { padding: 12px 16px; border-bottom: 1px solid #30363d; font-size: 12px; color: #8b949e; }
-    #stats .section-title,
-    #filters .section-title,
-    #node-detail .section-title { margin-top: 10px; margin-bottom: 6px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: #6e7681; }
+    .section-title { margin: 12px 0 7px; font-size: 10px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--faint); }
+    #stats { padding: 12px 16px 4px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--muted); }
     #stats .stat { display: flex; justify-content: space-between; padding: 2px 0; gap: 8px; }
-    #stats .stat-value { color: #c9d1d9; font-weight: 600; text-align: right; }
+    #stats .stat-value { color: var(--text); font-weight: 600; text-align: right; }
 
-    #filters { padding: 12px 16px; border-bottom: 1px solid #30363d; font-size: 12px; }
-    #filters .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
-    #filters .subtle { margin-top: 6px; color: #8b949e; font-size: 11px; line-height: 1.4; }
-    .toggle-pill { padding: 4px 8px; border-radius: 999px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; cursor: pointer; font-size: 11px; }
-    .toggle-pill.active { border-color: #58a6ff; background: #12233b; }
-    .toggle-pill:hover { border-color: #58a6ff; }
-    #focus-controls { display: flex; gap: 6px; margin-top: 8px; }
-    .mini-button { padding: 5px 8px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: #c9d1d9; cursor: pointer; font-size: 11px; }
-    .mini-button:hover { border-color: #58a6ff; }
+    #controls { padding: 4px 16px 12px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .subtle { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .toggle-pill { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-size: 11px; user-select:none; }
+    .toggle-pill.active { border-color: var(--accent); background: var(--accent-bg); color: #cfe5ff; }
+    .toggle-pill:hover { border-color: var(--accent); }
+    .view-pill { display:flex; align-items:center; gap:5px; padding: 6px 11px; font-size:12px; }
+    .view-pill .ic { font-size:13px; line-height:1; }
+    .mini-button { padding: 5px 9px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-size: 11px; }
+    .mini-button:hover { border-color: var(--accent); }
+    .btn-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    .ctl-group { margin-top: 4px; }
+    details.fold { margin-top: 10px; border:1px solid var(--border); border-radius:8px; background: var(--panel2); }
+    details.fold > summary { cursor:pointer; padding:8px 10px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); list-style:none; user-select:none; }
+    details.fold > summary::-webkit-details-marker { display:none; }
+    details.fold > summary::before { content:'▸ '; color:var(--faint); }
+    details.fold[open] > summary::before { content:'▾ '; }
+    details.fold > .fold-body { padding: 4px 10px 10px; }
+    input.mini-input { padding:5px 7px; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); font-size:11px; }
+    .slider-row { display:flex; align-items:center; gap:8px; margin-top:6px; font-size:11px; color:var(--muted); }
+    .slider-row input[type=range] { flex:1; accent-color: var(--accent); }
 
     #node-detail { padding: 12px 16px; font-size: 12px; overflow-wrap: anywhere; }
-    #node-detail h3 { color: #58a6ff; margin-bottom: 8px; font-size: 14px; }
+    #node-detail h3 { color: var(--accent); margin-bottom: 8px; font-size: 14px; }
     #node-detail .field { padding: 3px 0; line-height: 1.5; }
-    #node-detail .field-label { color: #8b949e; }
+    #node-detail .field-label { color: var(--muted); }
     #node-detail .list { display: flex; flex-direction: column; gap: 4px; }
-    #node-detail .list-item { padding: 6px 8px; border: 1px solid #21262d; border-radius: 6px; background: #0d1117; }
-    #node-detail .edge-item { padding: 6px 8px; border: 1px solid #21262d; border-radius: 6px; background: #0d1117; cursor: pointer; }
-    #node-detail .edge-item:hover { color: #58a6ff; border-color: #58a6ff; }
+    #node-detail .list-item { padding: 6px 8px; border: 1px solid #21262d; border-radius: 6px; background: var(--bg); }
+    #node-detail .edge-item { padding: 6px 8px; border: 1px solid #21262d; border-radius: 6px; background: var(--bg); cursor: pointer; }
+    #node-detail .edge-item:hover { color: var(--accent); border-color: var(--accent); }
     #node-detail .tag-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
-    #node-detail .tag-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #1f2937; border: 1px solid #30363d; color: #c9d1d9; font-size: 11px; }
-    #node-detail .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid #30363d; border-radius: 999px; font-size: 11px; background: #0d1117; }
-    #node-detail .code-block { margin-top: 6px; padding: 8px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px; color: #8b949e; white-space: pre-wrap; word-break: break-word; }
+    #node-detail .tag-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #1f2937; border: 1px solid var(--border); color: var(--text); font-size: 11px; }
+    #node-detail .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid var(--border); border-radius: 999px; font-size: 11px; background: var(--bg); }
+    #node-detail .code-block { margin-top: 6px; padding: 8px; background: var(--bg); border: 1px solid #21262d; border-radius: 6px; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
     #node-detail .trust-meter { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
     #node-detail .trust-bar { flex: 1; height: 8px; border-radius: 999px; background: #21262d; overflow: hidden; }
     #node-detail .trust-bar-fill { height: 100%; background: linear-gradient(90deg, #da3633, #d29922, #3fb950); }
-    #node-detail .detail-card { padding: 10px; border: 1px solid #21262d; border-radius: 8px; background: #0d1117; margin-bottom: 10px; }
+    #node-detail .detail-card { padding: 10px; border: 1px solid #21262d; border-radius: 8px; background: var(--bg); margin-bottom: 10px; }
 
-    #graph-container { flex: 1; position: relative; }
+    #graph-container { flex: 1; position: relative; min-width: 0; }
     #cy, #fg3d { width: 100%; height: 100%; }
     #fg3d { display: none; }
 
-    #legend { position: absolute; bottom: 12px; right: 12px; background: #161b22dd; border: 1px solid #30363d; border-radius: 8px; padding: 8px 12px; font-size: 11px; max-width: 240px; }
+    /* top-center breadcrumb / context bar */
+    #ctxbar { position:absolute; top:12px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:8px; background:#161b22e6; border:1px solid var(--border-hi); border-radius:999px; padding:5px 8px 5px 14px; font-size:12px; z-index:11; max-width:70%; backdrop-filter: blur(4px); }
+    #ctxbar .crumb { color: var(--muted); }
+    #ctxbar .crumb b { color: var(--text); }
+    #ctxbar .crumb-btn { cursor:pointer; color: var(--accent); }
+    #ctxbar .x { cursor:pointer; border:1px solid var(--border); border-radius:999px; padding:1px 8px; color:var(--muted); }
+    #ctxbar .x:hover { border-color: var(--accent); color: var(--text); }
+
+    /* floating canvas toolbar (zoom / fit / expand) */
+    #canvas-tools { position:absolute; bottom:14px; left:14px; display:flex; flex-direction:column; gap:6px; z-index:11; }
+    #canvas-tools button { width:34px; height:34px; border-radius:8px; border:1px solid var(--border-hi); background:#161b22e6; color:var(--text); cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; backdrop-filter: blur(4px); }
+    #canvas-tools button:hover { border-color: var(--accent); color:#fff; }
+
+    #loading { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:14px; color:var(--muted); font-size:13px; background:var(--bg); z-index:40; }
+    #loading .spin { width:34px;height:34px;border:3px solid #283039;border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite; }
+    @keyframes sp { to { transform: rotate(360deg); } }
+
+    #legend { position: absolute; bottom: 12px; right: 12px; background: #161b22ee; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 11px; max-width: 248px; max-height: 56vh; overflow-y:auto; }
+    #legend .lg-title { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); margin:4px 0 3px; }
     #legend .item { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-    #legend .swatch { width: 12px; height: 12px; border: 1px solid #30363d; flex: 0 0 auto; }
+    #legend .swatch { width: 12px; height: 12px; border: 1px solid var(--border); flex: 0 0 auto; }
     #legend .dot { border-radius: 50%; }
     #legend .line { width: 18px; height: 0; border-top: 2px solid; flex: 0 0 auto; }
+    #legend.collapsed .lg-body { display:none; }
+    #legend .lg-head { cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+
+    .banner { position:absolute; top:54px; left:50%; transform:translateX(-50%); background:#3a2d0e; border:1px solid #cba94a; color:#f0d58c; padding:8px 14px; border-radius:6px; font-size:12px; max-width:720px; z-index:10; line-height:1.4; text-align:center; }
   </style>
 </head>
 <body>
   <div id="sidebar">
-    <h1>aify-project-graph</h1>
+    <h1><span class="logo"></span> aify-project-graph</h1>
     <div class="mode-line">
-      <span id="mode-label">2D mode</span>
+      <span id="mode-label">2D map</span>
       <div class="header-actions">
         <a id="mode-link" href="/3d">open 3D</a>
-        <button id="sidebar-toggle" type="button">hide panel</button>
+        <button id="sidebar-toggle" type="button">hide</button>
       </div>
     </div>
     <div id="sidebar-body">
       <div id="search-box">
-        <input type="text" id="search" placeholder="Search symbols..." />
+        <input type="text" id="search" placeholder="Search symbols, files, features…" autocomplete="off" />
+        <div id="search-results"></div>
       </div>
-      <div id="stats">Loading...</div>
-      <div id="filters"></div>
-      <div id="node-detail">
-        <p style="color: #8b949e;">Click a node to inspect it.</p>
-      </div>
+      <div id="stats">Loading…</div>
+      <div id="controls"></div>
+      <div id="node-detail"><p style="color: var(--muted);">Click a node to inspect it.</p></div>
     </div>
   </div>
   <div id="graph-container">
     <button id="sidebar-reopen" type="button">show panel</button>
     <div id="cy"></div>
     <div id="fg3d"></div>
-    <div id="legend">
-      <div class="item"><div class="swatch dot" style="background:#8b949e"></div> Code nodes</div>
-      <div class="item"><div class="swatch" style="background:#58a6ff;border-radius:6px"></div> Features</div>
-      <div class="item"><div class="swatch" style="background:#d29922;transform:rotate(45deg)"></div> Tasks</div>
-      <div class="item"><div class="swatch" style="background:#3fb950;clip-path:polygon(25% 0%,75% 0%,100% 50%,75% 100%,25% 100%,0% 50%)"></div> Docs</div>
-      <div class="item"><div class="swatch" style="background:#bc8cff;clip-path:polygon(50% 0%,0% 100%,100% 100%)"></div> ShaderBinding</div>
-      <div class="item"><div class="line" style="border-color:#58a6ff;border-top-style:dashed"></div> Curated cross-layer</div>
-      <div class="item"><div class="line" style="border-color:#7ee787;border-top-style:dotted"></div> Inferred cross-layer</div>
-      <div class="item"><div class="line" style="border-color:#3fb950"></div> Call edge — LSP-verified (solid)</div>
-      <div class="item"><div class="line" style="border-color:#8b949e;border-top-style:dashed"></div> Call edge — heuristic (dashed)</div>
-      <div class="item"><div class="line" style="border-color:#f2cc60"></div> PASSES_THROUGH</div>
-      <div class="item"><div class="swatch dot" style="background:#da3633"></div> Blast: changed</div>
-      <div class="item"><div class="swatch dot" style="background:#d29922"></div> Blast: affected</div>
+    <div id="ctxbar" style="display:none"></div>
+    <div id="canvas-tools">
+      <button id="t-fit" title="Fit to screen (F)">⊡</button>
+      <button id="t-zin" title="Zoom in">＋</button>
+      <button id="t-zout" title="Zoom out">－</button>
+      <button id="t-expand" title="Expand all groups">⊕</button>
+      <button id="t-collapse" title="Collapse all groups">⊖</button>
     </div>
+    <div id="loading"><div class="spin"></div><div id="loading-text">Building graph…</div></div>
+    <div id="legend"></div>
   </div>
   <script>
-    const LAYER_COLORS = {
-      code: '#8b949e',
-      feature: '#58a6ff',
-      task: '#d29922',
-      doc: '#3fb950',
-    };
-    const LAYER_SHAPES = {
-      code: 'ellipse',
-      feature: 'round-rectangle',
-      task: 'diamond',
-      doc: 'hexagon',
-    };
+    // ───────────────────────── palette / shape config ─────────────────────────
+    const LAYER_COLORS = { code: '#8b949e', feature: '#58a6ff', task: '#d29922', doc: '#3fb950' };
+    const LAYER_SHAPES = { code: 'ellipse', feature: 'round-rectangle', task: 'diamond', doc: 'hexagon' };
     const TYPE_COLORS = {
-      Function: '#58a6ff', Method: '#58a6ff', Test: '#58a6ff',
-      Class: '#f0883e', Interface: '#f0883e', Type: '#f0883e',
-      File: '#3fb950', Module: '#3fb950',
+      Function: '#58a6ff', Method: '#388bfd', Test: '#7ee787',
+      Class: '#f0883e', Interface: '#f0883e', Type: '#ffa657', Struct: '#f0883e',
+      File: '#3fb950', Module: '#56d364', Directory: '#8b949e',
       Route: '#bc8cff', Entrypoint: '#bc8cff',
-      External: '#d29922',
-      Directory: '#8b949e', Config: '#8b949e', Document: '#3fb950',
+      External: '#d29922', Config: '#a5a5a5', Document: '#3fb950',
       Schema: '#8b949e', Variable: '#6e7681', Symbol: '#6e7681',
-      Repository: '#da3633',
-      ShaderBinding: '#bc8cff',
+      Repository: '#da3633', ShaderBinding: '#bc8cff',
     };
-    // P2-3: ShaderBinding gets a distinct triangle shape so the shader map
-    // reads at a glance (CPU declarers/loaders stay ellipse/file shapes).
-    const KIND_SHAPES = {
-      ShaderBinding: 'triangle',
-    };
+    const KIND_SHAPES = { ShaderBinding: 'triangle', Entrypoint: 'star', Class: 'round-rectangle', Interface: 'round-rectangle', File: 'round-rectangle', Directory: 'round-rectangle' };
     const RELATION_COLORS = {
-      PASSES_THROUGH: '#f2cc60',
-      INVOKES: '#58a6ff',
-      CALLS: '#4493f8',
-      REFERENCES: '#8b949e',
-      USES_TYPE: '#7ee787',
-      IMPORTS: '#79c0ff',
-      EXTENDS: '#ffa657',
-      IMPLEMENTS: '#f778ba',
-      TESTS: '#3fb950',
-      default: '#30363d',
+      PASSES_THROUGH: '#f2cc60', INVOKES: '#58a6ff', CALLS: '#4493f8', REFERENCES: '#6e7681',
+      USES_TYPE: '#7ee787', IMPORTS: '#79c0ff', EXTENDS: '#ffa657', IMPLEMENTS: '#f778ba',
+      TESTS: '#3fb950', DECLARES_BINDING: '#bc8cff', LOADS_SHADER: '#bc8cff', OVERRIDDEN_BY: '#f778ba',
+      CONTAINS: '#30363d', DEFINES: '#30363d', default: '#30363d',
     };
     const TYPE_SIZES = {
-      Repository: 30, Directory: 20, File: 15, Module: 15,
-      Class: 18, Interface: 18, Function: 12, Method: 10,
-      Route: 14, Entrypoint: 14, Test: 10,
-      default: 8,
+      Repository: 34, Directory: 20, File: 18, Module: 16, Class: 22, Interface: 20,
+      Function: 13, Method: 11, Route: 15, Entrypoint: 17, Test: 11, default: 9,
     };
-    // Layer Z-stack for 3D. Spacing is large enough that even thin layers
-    // (1-20 nodes) read as separate planes when the camera frames everything;
-    // earlier values (160/320/480) flattened visually because the dense code
-    // layer drowned out the others. See the 2026-04-27 dashboard pass.
-    const layerZ = { code: 0, feature: 700, task: 1100, doc: 1500 };
+    // group-box accent palette (cycled per group, stable by index)
+    const GROUP_PALETTE = ['#1f6feb','#238636','#9e6a03','#8957e5','#bd561d','#1f8c8c','#a371f7','#3fb950','#db6d28','#6e7bff','#cf222e','#2da44e'];
+
+    // ───────────────────────── view / state ─────────────────────────
+    const is3DMode = window.location.pathname === '/3d';
+    // Map = grouped compound boxes (the legible front door). Tree/Flow = dagre.
+    // Force = ungrouped fcose. Shader = C++↔GLSL bridge subgraph.
+    const VIEW_MODES = is3DMode
+      ? [ ['map','◉','Map'], ['layers','▤','Layers'], ['force','✺','Force'], ['shader','▲','Shader'] ]
+      : [ ['map','◉','Map'], ['tree','⊞','Tree'], ['flow','⇄','Flow'], ['force','✺','Force'], ['shader','▲','Shader'] ];
+    let currentViewMode = 'map';
+    let groupMode = 'dir';        // 'dir' | 'community'
+    let groupDepth = 2;           // directory depth for dir grouping
+    let sidebarCollapsed = false;
+
     const activeTypes = new Set();
     const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
     const activeEdgeClasses = new Set(['code', 'cross-layer']);
     const activeProvenance = new Set(['code', 'curated', 'inferred']);
-    const is3DMode = window.location.pathname === '/3d';
-    // P2-1: 'overview' is the new default front door in 2D — it renders the
-    // /api/overview cluster map (~8-30 boxes), not the raw 25k nodes. 'shader'
-    // (P2-3) is a quick-filter preset over the loaded graph. 3D keeps 'layers'.
-    const VIEW_MODES = ['overview', 'tree', 'layers', 'community', 'force', 'shader'];
-    let currentViewMode = is3DMode ? 'layers' : 'overview';
-    let sidebarCollapsed = false;
 
-    let cy = null;
-    let fg3d = null;
+    let cy = null, fg3d = null, ecApi = null;
     let allData = null;
     let currentFocusNodeId = null;
-    // P2-2 blast-radius mode: when on, clicking a node calls /api/impact and
-    // colors changed=red / affected=amber / fades the rest.
-    let blastMode = false;
-    let blastResult = null; // { changed:Set, affected:Set } of dashboard ids
-    // P2-1 overview cache + which cluster (if any) the detail graph is showing.
-    let overviewData = null;
-    let drilledCluster = null;
-    // P2-5 pathfinder result: ordered array of dashboard node ids.
+    let blastMode = false, blastResult = null;
     let pathChain = null;
+    let drilledGroup = null;      // group key the Map is currently focused into
+    const layerZ = { code: 0, feature: 700, task: 1100, doc: 1500 };
 
-    function renderLocation(filePath, line) {
-      return filePath ? `${filePath}${line ? `:${line}` : ''}` : 'external';
-    }
-
+    // ───────────────────────── small helpers ─────────────────────────
+    const $ = (id) => document.getElementById(id);
+    function renderLocation(filePath, line) { return filePath ? `${filePath}${line ? `:${line}` : ''}` : 'external'; }
     function renderBadge(label, value, tone = 'default') {
       const colors = { default: '#8b949e', good: '#3fb950', warn: '#d29922', info: '#58a6ff' };
       return `<span class="tag"><span style="color:${colors[tone]};">●</span>${label}: ${value}</span>`;
     }
-
-    function trustSummary(node) {
-      if (node.layer === 'feature') {
-        const origin = node.origin || 'unknown';
-        const confidence = origin === 'user' ? 0.95 : origin === 'skill' ? 0.7 : 0.55;
-        return {
-          score: confidence,
-          badges: [
-            renderBadge('origin', origin, origin === 'user' ? 'good' : 'warn'),
-            renderBadge('layer', 'feature', 'info'),
-          ],
-        };
-      }
-      if (node.layer === 'task') {
-        return {
-          score: 0.82,
-          badges: [
-            renderBadge('origin', node.origin || 'tracker', 'info'),
-            renderBadge('status', node.status || 'unknown', node.status === 'open' ? 'warn' : 'default'),
-          ],
-        };
-      }
-      const confidence = node.confidence == null ? 0.75 : Number(node.confidence);
-      return {
-        score: confidence,
-        badges: [
-          renderBadge('layer', node.layer || 'code', 'info'),
-          renderBadge('confidence', confidence.toFixed(2), confidence > 0.8 ? 'good' : confidence > 0.55 ? 'warn' : 'default'),
-        ],
-      };
-    }
-
-    const CALL_FAMILY = new Set(['CALLS', 'REFERENCES', 'INVOKES', 'USES_TYPE']);
-    function isCallFamily(relation) { return CALL_FAMILY.has(relation); }
-
-    function edgeColor(edge) {
-      if ((edge.edge_class || 'code') === 'cross-layer') {
-        return edge.provenance === 'curated' ? '#58a6ff' : '#7ee787';
-      }
-      // P2-4: LSP-verified call edges get a trust-green tint so the legible
-      // signal is colour AND line-style (solid green vs dashed grey).
-      if (isCallFamily(edge.relation) && edge.code_provenance === 'LSP_VERIFIED') {
-        return '#3fb950';
-      }
-      return RELATION_COLORS[edge.relation] || RELATION_COLORS.default;
-    }
-
-    function toggleSet(set, key) {
-      if (set.has(key)) set.delete(key);
-      else set.add(key);
-    }
-
-    function clearNeighborhoodMode() {
-      currentFocusNodeId = null;
-      if (cy) {
-        cy.elements().removeClass('dimmed highlighted');
-      }
-      if (fg3d) {
-        fg3d.nodeColor(node => node.__color);
-        fg3d.linkColor(link => edgeColor(link));
-      }
-    }
-
-    function neighborIdsFor(nodeId) {
-      const ids = new Set([nodeId]);
-      for (const edge of allData.edges) {
-        if (edge.source === nodeId) ids.add(edge.target);
-        if (edge.target === nodeId) ids.add(edge.source);
-      }
-      return ids;
-    }
-
-    function applyNeighborhoodMode(nodeId) {
-      currentFocusNodeId = nodeId;
-      const ids = neighborIdsFor(nodeId);
-      if (cy) {
-        cy.elements().addClass('dimmed').removeClass('highlighted');
-        const node = cy.getElementById(nodeId);
-        node.removeClass('dimmed').addClass('highlighted');
-        node.closedNeighborhood().removeClass('dimmed');
-      }
-      if (fg3d) {
-        fg3d.nodeColor(node => ids.has(node.id) ? node.__color : 'rgba(100,100,100,0.12)');
-        fg3d.linkColor(link => {
-          const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
-          const targetId = typeof link.target === 'string' ? link.target : link.target.id;
-          return ids.has(sourceId) && ids.has(targetId) ? edgeColor(link) : 'rgba(100,100,100,0.08)';
-        });
-      }
-    }
-
     function renderList(items, formatter, empty = 'none') {
       if (!items || !items.length) return `<div class="list-item">${empty}</div>`;
       return items.map(formatter).join('');
     }
-
-    function setSidebarCollapsed(nextValue) {
-      sidebarCollapsed = Boolean(nextValue);
-      document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+    function toggleSet(set, key) { if (set.has(key)) set.delete(key); else set.add(key); }
+    function setSidebarCollapsed(v) { sidebarCollapsed = Boolean(v); document.body.classList.toggle('sidebar-collapsed', sidebarCollapsed); setTimeout(() => cy && cy.resize(), 180); }
+    function colorFor(node) {
+      const arch = intelligenceColorFor(node);
+      if (arch) return arch;
+      if (node.layer && node.layer !== 'code') return LAYER_COLORS[node.layer];
+      return TYPE_COLORS[node.kind || node.type] || '#6e7681';
     }
-
-    function isNodeElement(element) {
-      return element.group === 'nodes' || (!element.group && element.data && !('source' in element.data && 'target' in element.data));
+    const CALL_FAMILY = new Set(['CALLS', 'REFERENCES', 'INVOKES', 'USES_TYPE']);
+    function isCallFamily(r) { return CALL_FAMILY.has(r); }
+    function edgeColor(edge) {
+      if ((edge.edge_class || 'code') === 'cross-layer') return edge.provenance === 'curated' ? '#58a6ff' : '#7ee787';
+      if (isCallFamily(edge.relation) && edge.code_provenance === 'LSP_VERIFIED') return '#3fb950';
+      return RELATION_COLORS[edge.relation] || RELATION_COLORS.default;
     }
+    function loading(on, text) { const l = $('loading'); if (text) $('loading-text').textContent = text; l.style.display = on ? 'flex' : 'none'; }
 
-    function isEdgeElement(element) {
-      return element.group === 'edges' || (!element.group && element.data && 'source' in element.data && 'target' in element.data);
-    }
-
-    function buildClusterKey(node, mode) {
+    // ───────────────────────── grouping (the core of the rebuild) ─────────────
+    // Derive a navigable group key + human title for a node. Directory grouping
+    // gives titles a developer actually navigates by (engine/render, sim/fields,
+    // mcp/stdio/query). Community grouping uses the precomputed leiden id.
+    function normPath(p) { return (p || '').replace(/\\/g, '/'); }
+    function dirGroupKey(node, depth) {
       const layer = node.layer || 'code';
-      const kind = node.kind || node.type || 'Node';
-      const community = node.community_id == null ? null : node.community_id;
-      if (mode === 'layers') return `${layer}:${community ?? kind}`;
-      if (mode === 'force') return `${layer}:${kind}`;
-      if (layer === 'feature' || layer === 'task' || layer === 'doc') return `${layer}:${kind}`;
-      return `${layer}:${community ?? kind}`;
+      if (layer !== 'code') return `__${layer}`;
+      // path-less symbols (library builtins, externals) cluster on their own
+      if ((node.kind || node.type) === 'External') return '(external)';
+      const p = normPath(node.file_path);
+      if (!p) return '(external)';
+      const parts = p.split('/').filter(s => s && s !== '.' && s !== '..');
+      // group by DIRECTORY — drop the filename so a whole folder collapses into
+      // one box (scripts/*.mjs → "scripts") instead of one box per file.
+      if (parts.length > 1) parts.pop();
+      const segs = parts.slice(0, Math.max(1, depth));
+      return segs.join('/') || '(root)';
     }
-
-    function placeClusterItems(items, centerX, centerY, xGap = 22, yGap = 18) {
-      const maxCols = Math.max(2, Math.ceil(Math.sqrt(items.length)));
-      const positions = new Map();
-      items.forEach((item, index) => {
-        const col = index % maxCols;
-        const row = Math.floor(index / maxCols);
-        const offsetX = (col - (maxCols - 1) / 2) * xGap;
-        const offsetY = (row - (Math.ceil(items.length / maxCols) - 1) / 2) * yGap;
-        positions.set(item.id, { x: centerX + offsetX, y: centerY + offsetY });
-      });
-      return positions;
+    function communityGroupKey(node) {
+      const layer = node.layer || 'code';
+      if (layer !== 'code') return `__${layer}`;
+      return node.community_id == null ? '(uncommunitied)' : `c${node.community_id}`;
     }
-
-    // Wide-and-short variant for layers mode — caps row count so dense
-    // clusters can't bleed into the next lane.
-    function placeClusterItemsWide(items, centerX, centerY, xGap = 22, yGap = 22, maxRows = 6) {
-      const cols = Math.max(2, Math.ceil(items.length / maxRows));
-      const positions = new Map();
-      items.forEach((item, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        const rowsUsed = Math.min(maxRows, Math.ceil(items.length / cols));
-        const offsetX = (col - (cols - 1) / 2) * xGap;
-        const offsetY = (row - (rowsUsed - 1) / 2) * yGap;
-        positions.set(item.id, { x: centerX + offsetX, y: centerY + offsetY });
-      });
-      return positions;
+    function groupKeyFor(node) {
+      return groupMode === 'community' ? communityGroupKey(node) : dirGroupKey(node, groupDepth);
     }
-
-    // Build a directory tree from file_path values. Each path component is a
-    // tree node; leaves are graph nodes. Returns the synthetic root.
-    function buildDirectoryTree(nodes) {
-      const root = { name: '', children: new Map(), items: [], depth: 0 };
-      for (const node of nodes) {
-        const path = node.file_path || '';
-        if (!path) { root.items.push(node); continue; }
-        const parts = path.split(/[/\\]/).filter(Boolean);
-        // Walk all path components — including the filename — so symbols
-        // inside the same file cluster together under their own tree leaf.
-        // For File/Directory nodes (where label === filename), drop the last
-        // part to avoid making the file/dir its own child of itself.
-        const isContainer = node.kind === 'File' || node.kind === 'Directory'
-          || node.type === 'File' || node.type === 'Directory';
-        const walkUntil = isContainer ? parts.length - 1 : parts.length;
-        let cursor = root;
-        for (let i = 0; i < walkUntil; i++) {
-          const part = parts[i];
-          if (!cursor.children.has(part)) {
-            cursor.children.set(part, { name: part, children: new Map(), items: [], depth: cursor.depth + 1 });
-          }
-          cursor = cursor.children.get(part);
-        }
-        cursor.items.push(node);
+    function groupTitle(key, members) {
+      if (key === '__feature') return 'Features';
+      if (key === '__task') return 'Tasks';
+      if (key === '__doc') return 'Docs';
+      if (key === '(external)') return 'External libs';
+      if (key === '(root)') return '(root)';
+      if (groupMode === 'community') {
+        // derive a meaningful title from the dominant directory of members
+        const dirs = {};
+        for (const m of members) { const d = dirGroupKey(m, 2); dirs[d] = (dirs[d] || 0) + 1; }
+        const top = Object.entries(dirs).sort((a, b) => b[1] - a[1])[0];
+        return top && top[0] !== '(root)' ? `${top[0]} ·${key}` : `cluster ${key}`;
       }
-      return root;
+      return key;
     }
 
-    // Tidy tree layout: depth → y, in-order leaf index → x. Files inside a
-    // directory cluster tightly around the directory's centroid; sibling
-    // directories spread apart proportionally to their leaf count. This is the
-    // "big tree" the user was missing — beats sheets-of-nodes for orientation.
-    function computeTreePositions(nodes) {
-      const positions = new Map();
-      const codeNodes = nodes.filter(n => (n.layer || 'code') === 'code');
-      const otherNodes = nodes.filter(n => (n.layer || 'code') !== 'code');
-      if (!codeNodes.length && !otherNodes.length) return positions;
-
-      const root = buildDirectoryTree(codeNodes);
-      const xGap = 26;
-      const yGap = 110;
-      let leafCursor = 0;
-
-      function layout(node) {
-        const childList = [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name));
-        let firstX = null, lastX = null;
-        for (const child of childList) {
-          layout(child);
-          const cx = child._x;
-          if (firstX === null) firstX = cx;
-          lastX = cx;
-        }
-        // place this directory's own items (files / symbols) as a cluster
-        if (node.items.length) {
-          const itemsPerRow = Math.max(2, Math.ceil(Math.sqrt(node.items.length)));
-          const startX = leafCursor * xGap;
-          node.items.forEach((item, idx) => {
-            const col = idx % itemsPerRow;
-            const row = Math.floor(idx / itemsPerRow);
-            positions.set(item.id, {
-              x: startX + col * xGap,
-              y: node.depth * yGap + row * (xGap * 0.9),
-            });
-          });
-          const itemEndCursor = leafCursor + Math.ceil(node.items.length / itemsPerRow);
-          const itemCenterX = (startX + (itemEndCursor - 1) * xGap) / 2;
-          if (firstX === null) firstX = itemCenterX;
-          lastX = Math.max(lastX ?? itemCenterX, itemCenterX);
-          leafCursor = Math.max(leafCursor, itemEndCursor) + 1;
-        } else if (childList.length === 0) {
-          // empty leaf directory — reserve one slot
-          node._x = leafCursor * xGap;
-          leafCursor += 1;
-          return;
-        }
-        node._x = (firstX + lastX) / 2;
+    // ───────────────────────── detail panel (preserved) ─────────────────────────
+    function trustSummary(node) {
+      if (node.layer === 'feature') {
+        const origin = node.origin || 'unknown';
+        const confidence = origin === 'user' ? 0.95 : origin === 'skill' ? 0.7 : 0.55;
+        return { score: confidence, badges: [renderBadge('origin', origin, origin === 'user' ? 'good' : 'warn'), renderBadge('layer', 'feature', 'info')] };
       }
-      layout(root);
-
-      // Re-center horizontally
-      const allX = [...positions.values()].map(p => p.x);
-      const minX = Math.min(...allX, 0);
-      const maxX = Math.max(...allX, 0);
-      const shiftX = -(minX + maxX) / 2;
-      for (const [id, pos] of positions) positions.set(id, { x: pos.x + shiftX, y: pos.y });
-
-      // Place non-code layers as horizontal bands above the tree
-      if (otherNodes.length) {
-        const treeMaxX = Math.max(...allX, 0) + shiftX;
-        const treeMinX = Math.min(...allX, 0) + shiftX;
-        const width = Math.max(800, treeMaxX - treeMinX);
-        const layerY = { feature: -260, task: -160, doc: -60 };
-        for (const layer of ['feature', 'task', 'doc']) {
-          const laneNodes = otherNodes.filter(n => n.layer === layer);
-          if (!laneNodes.length) continue;
-          const gap = Math.max(40, width / Math.max(laneNodes.length, 1));
-          laneNodes.forEach((node, i) => {
-            positions.set(node.id, {
-              x: treeMinX + (i + 0.5) * gap,
-              y: layerY[layer],
-            });
-          });
-        }
+      if (node.layer === 'task') {
+        return { score: 0.82, badges: [renderBadge('origin', node.origin || 'tracker', 'info'), renderBadge('status', node.status || 'unknown', node.status === 'open' ? 'warn' : 'default')] };
       }
-      return positions;
+      const confidence = node.confidence == null ? 0.75 : Number(node.confidence);
+      return { score: confidence, badges: [renderBadge('layer', node.layer || 'code', 'info'), renderBadge('confidence', confidence.toFixed(2), confidence > 0.8 ? 'good' : confidence > 0.55 ? 'warn' : 'default')] };
     }
-
-    function computePresetPositions(nodes, mode) {
-      const positions = new Map();
-      if (!nodes.length) return positions;
-
-      if (mode === 'tree') return computeTreePositions(nodes);
-
-      if (mode === 'layers') {
-        const laneOrder = ['feature', 'task', 'doc', 'code'];
-        // Bumped 260 → 900: dense code clusters routinely span >300px tall in
-        // the old grid placement and bled into adjacent lanes.
-        const laneSpacing = 900;
-        const laneOffsets = new Map(laneOrder.map((layer, index) => [layer, (index - (laneOrder.length - 1) / 2) * laneSpacing]));
-        laneOrder.forEach((layer) => {
-          const laneNodes = nodes.filter(node => (node.layer || 'code') === layer);
-          if (!laneNodes.length) return;
-          const clusters = new Map();
-          for (const node of laneNodes) {
-            const key = buildClusterKey(node, mode);
-            if (!clusters.has(key)) clusters.set(key, []);
-            clusters.get(key).push(node);
-          }
-          const clusterList = [...clusters.values()].sort((a, b) => b.length - a.length || String(a[0]?.label || '').localeCompare(String(b[0]?.label || '')));
-          const laneGap = 220;
-          clusterList.forEach((cluster, index) => {
-            const centerX = (index - (clusterList.length - 1) / 2) * laneGap;
-            const centerY = laneOffsets.get(layer) || 0;
-            // Bias clusters wide-and-short inside lanes so they stay within
-            // their band instead of growing tall enough to overlap the next
-            // lane. cols = items / 6 roughly capped, rows ≤ 6.
-            for (const [id, pos] of placeClusterItemsWide(cluster, centerX, centerY)) positions.set(id, pos);
-          });
-        });
-        return positions;
-      }
-
-      const clusters = new Map();
-      for (const node of nodes) {
-        const key = buildClusterKey(node, mode);
-        if (!clusters.has(key)) clusters.set(key, []);
-        clusters.get(key).push(node);
-      }
-      const clusterList = [...clusters.values()].sort((a, b) => b.length - a.length || String(a[0]?.label || '').localeCompare(String(b[0]?.label || '')));
-      const cols = Math.max(2, Math.ceil(Math.sqrt(clusterList.length)));
-      const xGap = 260;
-      const yGap = 210;
-      clusterList.forEach((cluster, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
-        const centerX = (col - (cols - 1) / 2) * xGap;
-        const centerY = (row - (Math.ceil(clusterList.length / cols) - 1) / 2) * yGap;
-        for (const [id, pos] of placeClusterItems(cluster, centerX, centerY)) positions.set(id, pos);
-      });
-      return positions;
-    }
-
-    function searchSemanticOverlay(query) {
-      // Plan #16 Step D: substring search across semantic summaries +
-      // tags. Returns the first matching file entry or null. Pure
-      // substring (case-insensitive); embedding-based ranking is a
-      // future-work item.
-      if (!intelligenceData?.semanticFiles?.files) return null;
-      const q = query.toLowerCase();
-      for (const f of intelligenceData.semanticFiles.files) {
-        if (f.summary && f.summary.toLowerCase().includes(q)) return f;
-        if (Array.isArray(f.tags) && f.tags.some(t => t.toLowerCase().includes(q))) return f;
-      }
-      return null;
-    }
-
     function renderSemanticDetailBlock(filePath) {
-      // Plan #16 Step C: semantic enrichment from intelligence overlays.
-      // Renders an empty string when no semantic entry or no architecture
-      // assignment exists for this file — silent fallback to the existing
-      // node-detail panel.
       if (!filePath) return '';
       const sem = intelligenceFileByPath.get(filePath);
       const arch = intelligenceLayerLabelFor(filePath);
       if (!sem && !arch) return '';
-      const tagsHtml = sem?.tags?.length
-        ? sem.tags.map(t => `<span class="tag-pill">${t}</span>`).join(' ')
-        : '';
-      const archHtml = arch
-        ? `<div class="field"><span class="field-label">Layer:</span> ${arch.name} <span style="color:#6e7681;font-size:11px">(${arch.confidence}${arch.reason ? ' — ' + arch.reason : ''})</span></div>`
-        : '';
+      const tagsHtml = sem?.tags?.length ? sem.tags.map(t => `<span class="tag-pill">${t}</span>`).join(' ') : '';
+      const archHtml = arch ? `<div class="field"><span class="field-label">Layer:</span> ${arch.name} <span style="color:var(--faint);font-size:11px">(${arch.confidence}${arch.reason ? ' — ' + arch.reason : ''})</span></div>` : '';
       const semHtml = sem ? `
         <div class="field"><span class="field-label">Purpose:</span> ${sem.summary}</div>
         <div class="field"><span class="field-label">Kind:</span> ${sem.nodeType}${sem.entryPoint ? ' · entry-point' : ''}</div>
         <div class="field"><span class="field-label">Complexity:</span> ${sem.complexity}</div>
-        ${tagsHtml ? `<div class="field"><span class="field-label">Tags:</span> ${tagsHtml}</div>` : ''}
-      ` : '';
-      return `
-        <div class="section-title">Intelligence</div>
-        <div class="detail-card">
-          ${semHtml}
-          ${archHtml}
-        </div>
-      `;
+        ${tagsHtml ? `<div class="field"><span class="field-label">Tags:</span> ${tagsHtml}</div>` : ''}` : '';
+      return `<div class="section-title">Intelligence</div><div class="detail-card">${semHtml}${archHtml}</div>`;
     }
-
     function renderRolePanel(node, codeDetail = null) {
-      const detail = document.getElementById('node-detail');
+      const detail = $('node-detail');
       const trust = trustSummary(node);
-
+      const trustMeter = `<div class="trust-meter"><span class="field-label">Trust</span><div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div></div><div class="tag-list">${trust.badges.join('')}</div>`;
       if (node.layer === 'feature') {
-        detail.innerHTML = `
-          <h3>${node.label}</h3>
-          <div class="detail-card">
-            <div class="field"><span class="field-label">Kind:</span> Feature</div>
-            <div class="field"><span class="field-label">Description:</span> ${node.description || '—'}</div>
-            <div class="trust-meter">
-              <span class="field-label">Trust</span>
-              <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
-            </div>
-            <div class="tag-list">${trust.badges.join('')}</div>
-          </div>
-          <div class="section-title">Depends on</div>
-          <div class="list">${renderList(node.depends_on, item => `<div class="list-item">${item}</div>`)}</div>
-          <div class="section-title">Related to</div>
-          <div class="list">${renderList(node.related_to, item => `<div class="list-item">${item}</div>`)}</div>
-          <div class="section-title">Anchors</div>
-          <div class="code-block">${JSON.stringify(node.anchors || {}, null, 2)}</div>
-        `;
+        detail.innerHTML = `<h3>${node.label}</h3><div class="detail-card"><div class="field"><span class="field-label">Kind:</span> Feature</div><div class="field"><span class="field-label">Description:</span> ${node.description || '—'}</div>${trustMeter}</div>
+          <div class="section-title">Depends on</div><div class="list">${renderList(node.depends_on, i => `<div class="list-item">${i}</div>`)}</div>
+          <div class="section-title">Related to</div><div class="list">${renderList(node.related_to, i => `<div class="list-item">${i}</div>`)}</div>
+          <div class="section-title">Anchors</div><div class="code-block">${JSON.stringify(node.anchors || {}, null, 2)}</div>`;
         return;
       }
-
       if (node.layer === 'task') {
-        detail.innerHTML = `
-          <h3>${node.label}</h3>
-          <div class="detail-card">
-            <div class="field"><span class="field-label">Kind:</span> Task</div>
-            <div class="field"><span class="field-label">Status:</span> ${node.status || '—'}</div>
-            <div class="field"><span class="field-label">Assignee:</span> ${node.assignee || '—'}</div>
-            <div class="field"><span class="field-label">URL:</span> ${node.url ? `<a href="${node.url}" target="_blank" rel="noreferrer" style="color:#58a6ff">${node.url}</a>` : '—'}</div>
-            <div class="trust-meter">
-              <span class="field-label">Trust</span>
-              <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
-            </div>
-            <div class="tag-list">${trust.badges.join('')}</div>
-          </div>
-          <div class="section-title">Features</div>
-          <div class="list">${renderList(node.features, item => `<div class="list-item">${item}</div>`)}</div>
-        `;
+        detail.innerHTML = `<h3>${node.label}</h3><div class="detail-card"><div class="field"><span class="field-label">Kind:</span> Task</div><div class="field"><span class="field-label">Status:</span> ${node.status || '—'}</div><div class="field"><span class="field-label">Assignee:</span> ${node.assignee || '—'}</div><div class="field"><span class="field-label">URL:</span> ${node.url ? `<a href="${node.url}" target="_blank" rel="noreferrer" style="color:var(--accent)">${node.url}</a>` : '—'}</div>${trustMeter}</div>
+          <div class="section-title">Features</div><div class="list">${renderList(node.features, i => `<div class="list-item">${i}</div>`)}</div>`;
         return;
       }
-
-      if (node.layer === 'doc') {
-        detail.innerHTML = `
-          <h3>${node.label}</h3>
-          <div class="detail-card">
-            <div class="field"><span class="field-label">Kind:</span> ${node.kind || 'Document'}</div>
-            <div class="field"><span class="field-label">Path:</span> ${renderLocation(node.file_path, node.start_line)}</div>
-            <div class="trust-meter">
-              <span class="field-label">Trust</span>
-              <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
-            </div>
-            <div class="tag-list">${trust.badges.join('')}</div>
-          </div>
-          ${codeDetail ? `
-            <div class="section-title">Incoming</div>
-            <div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} from ${e.from_label}</div>`)}</div>
-            <div class="section-title">Outgoing</div>
-            <div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${e.relation} to ${e.to_label}</div>`)}</div>
-          ` : ''}
-        `;
-        return;
-      }
-
       const n = codeDetail?.node || node;
-      // Plan #16 Step C: semantic detail block from intelligence overlays.
-      // Renders empty string when no overlay match for this file.
       const semanticBlock = renderSemanticDetailBlock(n.file_path);
-      detail.innerHTML = `
-        <h3>${n.label}</h3>
-        <div class="detail-card">
-          <div class="field"><span class="field-label">Kind:</span> ${n.type || n.kind}</div>
-          <div class="field"><span class="field-label">Path:</span> ${renderLocation(n.file_path, n.start_line)}</div>
-          <div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>
-          <div class="trust-meter">
-            <span class="field-label">Trust</span>
-            <div class="trust-bar"><div class="trust-bar-fill" style="width:${Math.round(trust.score * 100)}%"></div></div>
-          </div>
-          <div class="tag-list">${trust.badges.join('')}</div>
-        </div>
-        ${semanticBlock}
-        ${codeDetail ? `
-          <div class="section-title">Incoming (${codeDetail.incoming.length})</div>
-          <div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} from ${e.from_label} [${e.from_type}] (${renderLocation(e.from_file, e.from_line)})</div>`)}</div>
-          <div class="section-title">Outgoing (${codeDetail.outgoing.length})</div>
-          <div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${e.relation} to ${e.to_label} [${e.to_type}] (${renderLocation(e.to_file, e.to_line)})</div>`)}</div>
-        ` : ''}
-      `;
+      const inc = codeDetail ? `<div class="section-title">Incoming (${codeDetail.incoming.length})</div><div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} ← ${e.from_label} <span style="color:var(--faint)">[${e.from_type}]</span></div>`)}</div>
+          <div class="section-title">Outgoing (${codeDetail.outgoing.length})</div><div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${e.relation} → ${e.to_label} <span style="color:var(--faint)">[${e.to_type}]</span></div>`)}</div>` : '';
+      detail.innerHTML = `<h3>${n.label}</h3><div class="detail-card"><div class="field"><span class="field-label">Kind:</span> ${n.type || n.kind}</div><div class="field"><span class="field-label">Path:</span> ${renderLocation(n.file_path, n.start_line)}</div><div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>${trustMeter}</div>${semanticBlock}${inc}`;
     }
-
-    // ── P2-6 Idle Project-Overview panel ──────────────────────────────────
-    // Replaces the "click a node" placeholder with project stats, top-10
-    // hotspots (clickable → focus node), and a node-type distribution.
     async function renderIdleOverview(stats) {
-      const detail = document.getElementById('node-detail');
+      const detail = $('node-detail');
       const [hotspotsResp, provResp] = await Promise.all([
         fetch('/api/hotspots?limit=10').then(r => r.json()).catch(() => ({ hotspots: [] })),
         fetch('/api/provenance').then(r => r.json()).catch(() => null),
@@ -660,802 +341,565 @@
       const hotspots = hotspotsResp.hotspots || [];
       const types = (stats?.types || []).slice(0, 8);
       const maxType = Math.max(1, ...types.map(t => t.c));
-      const provLine = provResp && provResp.total_call_edges
-        ? `<div class="field"><span class="field-label">Call edges:</span> ${provResp.total_call_edges} · <span style="color:#3fb950">${provResp.lsp_verified_pct}% LSP-verified</span></div>`
-        : '';
-      const shaderLine = provResp?.shader?.bindings
-        ? `<div class="field"><span class="field-label">Shader bindings:</span> ${provResp.shader.bindings} (${provResp.shader.declares_binding} DECLARES, ${provResp.shader.loads_shader} LOADS)</div>`
-        : '';
-      detail.innerHTML = `
-        <h3>Project overview</h3>
-        <div class="detail-card">
-          <div class="field"><span class="field-label">Nodes:</span> ${stats?.nodeCount ?? '—'} · <span class="field-label">Edges:</span> ${stats?.edgeCount ?? '—'}</div>
-          ${provLine}
-          ${shaderLine}
-        </div>
-        <div class="section-title">Top hotspots (god nodes)</div>
-        <div class="list">${
-          hotspots.length
-            ? hotspots.map(h => `<div class="edge-item" data-hotspot="${encodeURIComponent(h.label)}" data-file="${encodeURIComponent(h.file_path || '')}">${h.label} <span style="color:#6e7681">[${(h.type || '').toLowerCase()}] deg ${h.degree}</span></div>`).join('')
-            : '<div class="list-item">none</div>'
-        }</div>
-        <div class="section-title">Node-type distribution</div>
-        <div class="list">${
-          types.map(t => `
-            <div class="field">
-              <div style="display:flex;justify-content:space-between;font-size:11px"><span>${t.type}</span><span>${t.c}</span></div>
-              <div style="height:6px;border-radius:3px;background:#21262d;overflow:hidden"><div style="height:100%;width:${Math.round((t.c / maxType) * 100)}%;background:#58a6ff"></div></div>
-            </div>`).join('')
-        }</div>
-      `;
-      detail.querySelectorAll('[data-hotspot]').forEach(el => {
-        el.addEventListener('click', () => {
-          const label = decodeURIComponent(el.dataset.hotspot);
-          const filePath = decodeURIComponent(el.dataset.file || '');
-          // Resolve label → a loaded node (prefer file-path match) then focus.
-          const cand = allData.nodes.find(n => n.label === label && (!filePath || n.file_path === filePath))
-            || allData.nodes.find(n => n.label === label);
-          if (cand) focusNode(cand.id);
-        });
-      });
+      const provLine = provResp && provResp.total_call_edges ? `<div class="field"><span class="field-label">Call edges:</span> ${provResp.total_call_edges} · <span style="color:var(--good)">${provResp.lsp_verified_pct}% LSP-verified</span></div>` : '';
+      const shaderLine = provResp?.shader?.bindings ? `<div class="field"><span class="field-label">Shader bindings:</span> ${provResp.shader.bindings}</div>` : '';
+      detail.innerHTML = `<h3>Project overview</h3><div class="detail-card"><div class="field"><span class="field-label">Nodes:</span> ${stats?.nodeCount ?? '—'} · <span class="field-label">Edges:</span> ${stats?.edgeCount ?? '—'}</div>${provLine}${shaderLine}</div>
+        <div class="section-title">Top hotspots (god nodes)</div><div class="list">${hotspots.length ? hotspots.map(h => `<div class="edge-item" data-hotspot="${encodeURIComponent(h.label)}" data-file="${encodeURIComponent(h.file_path || '')}">${h.label} <span style="color:var(--faint)">[${(h.type || '').toLowerCase()}] deg ${h.degree}</span></div>`).join('') : '<div class="list-item">none</div>'}</div>
+        <div class="section-title">Node-type distribution</div><div class="list">${types.map(t => `<div class="field"><div style="display:flex;justify-content:space-between;font-size:11px"><span>${t.type}</span><span>${t.c}</span></div><div style="height:6px;border-radius:3px;background:#21262d;overflow:hidden"><div style="height:100%;width:${Math.round((t.c / maxType) * 100)}%;background:var(--accent)"></div></div></div>`).join('')}</div>`;
+      detail.querySelectorAll('[data-hotspot]').forEach(el => el.addEventListener('click', () => {
+        const label = decodeURIComponent(el.dataset.hotspot);
+        const filePath = decodeURIComponent(el.dataset.file || '');
+        const cand = allData.nodes.find(n => n.label === label && (!filePath || n.file_path === filePath)) || allData.nodes.find(n => n.label === label);
+        if (cand) focusNode(cand.id);
+      }));
     }
-
     async function showNodeDetail(nodeId) {
       const node = allData.nodes.find(n => n.id === nodeId);
       if (!node) return;
-      if (node.layer && node.layer !== 'code' && node.kind !== 'Document') {
-        renderRolePanel(node);
-        return;
-      }
+      if (node.layer && node.layer !== 'code' && node.kind !== 'Document') { renderRolePanel(node); return; }
       const codeId = nodeId.startsWith('code:') ? nodeId.slice('code:'.length) : nodeId;
       const data = await fetch(`/api/node/${encodeURIComponent(codeId)}`).then(r => r.json()).catch(() => null);
-      if (!data?.node) {
-        renderRolePanel(node);
-        return;
-      }
+      if (!data?.node) { renderRolePanel(node); return; }
       renderRolePanel(node, data);
     }
 
-    function buildFilters(graphData) {
-      const filtersEl = document.getElementById('filters');
-      const isMultilayer = graphData.nodes.length > 0 && 'layer' in graphData.nodes[0];
-      let filterHtml = '';
-
-      filterHtml += `<div class="section-title" style="margin-top:0">View</div><div class="pill-row">`;
-      filterHtml += VIEW_MODES.map(mode => (
-        `<button class="toggle-pill ${currentViewMode === mode ? 'active' : ''}" type="button" data-view="${mode}">${mode}</button>`
-      )).join('');
-      filterHtml += `</div><div class="subtle">tree groups by directory hierarchy (best for orientation); layers separates code/features/tasks/docs into lanes; community groups by detected communities; force runs an unconstrained physics simulation (slow on large graphs).</div>`;
-
-      if (isMultilayer) {
-        const layers = ['code', 'feature', 'task', 'doc'];
-        const layerCounts = Object.fromEntries(layers.map(l => [l, graphData.nodes.filter(n => n.layer === l).length]));
-        filterHtml += `<div class="section-title">Layers</div><div class="pill-row">`;
-        filterHtml += layers.filter(l => layerCounts[l] > 0).map(l => (
-          `<button class="toggle-pill active" type="button" data-layer="${l}"><span style="color:${LAYER_COLORS[l]};">●</span> ${l} (${layerCounts[l]})</button>`
-        )).join('');
-        filterHtml += `</div>
-          <div class="section-title">Edge classes</div><div class="pill-row">
-            <button class="toggle-pill active" type="button" data-edge-class="code">code edges</button>
-            <button class="toggle-pill active" type="button" data-edge-class="cross-layer">cross-layer</button>
-          </div>
-          <div class="section-title">Trust / provenance</div><div class="pill-row">
-            <button class="toggle-pill active" type="button" data-provenance="code">code-native</button>
-            <button class="toggle-pill active" type="button" data-provenance="curated">curated</button>
-            <button class="toggle-pill active" type="button" data-provenance="inferred">inferred</button>
-          </div>`;
-      }
-
-      const types = [...new Set(graphData.nodes.map(n => n.kind || n.type))].filter(Boolean).sort();
-      types.forEach(t => activeTypes.add(t));
-      filterHtml += `<div class="section-title">Node types</div><div class="pill-row">`;
-      filterHtml += types.map(t => (
-        `<button class="toggle-pill active" type="button" data-type="${t}">${t} (${graphData.nodes.filter(n => (n.kind || n.type) === t).length})</button>`
-      )).join('');
-      filterHtml += `</div>
-        <div id="focus-controls">
-          <button class="mini-button" id="focus-neighborhood" type="button">Neighborhood mode</button>
-          <button class="mini-button" id="clear-focus" type="button">Clear focus</button>
-        </div>
-        <div class="section-title">Blast radius (P2-2)</div>
-        <div class="pill-row">
-          <button class="toggle-pill ${blastMode ? 'active' : ''}" id="blast-toggle" type="button">blast-radius mode${blastMode ? ' ✓' : ''}</button>
-          <button class="mini-button" id="blast-clear" type="button">clear</button>
-        </div>
-        <div class="subtle">Toggle on, then click a node — changed=red, affected=amber, rest faded.</div>
-        <div class="section-title">Pathfinder (P2-5)</div>
-        <div class="pill-row" style="gap:4px">
-          <input id="path-from" placeholder="from symbol/id" style="flex:1;min-width:90px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:11px" />
-          <input id="path-to" placeholder="to symbol/id" style="flex:1;min-width:90px;padding:4px 6px;background:#0d1117;border:1px solid #30363d;border-radius:6px;color:#c9d1d9;font-size:11px" />
-          <button class="mini-button" id="path-go" type="button">find</button>
-        </div>
-        <div class="subtle" id="path-status"></div>`;
-      filtersEl.innerHTML = filterHtml;
-
-      filtersEl.querySelectorAll('[data-view]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          currentViewMode = btn.dataset.view;
-          filtersEl.querySelectorAll('[data-view]').forEach(other => other.classList.toggle('active', other.dataset.view === currentViewMode));
-          renderGraph(false);
-        });
-      });
-      filtersEl.querySelectorAll('[data-layer]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          toggleSet(activeLayers, btn.dataset.layer);
-          btn.classList.toggle('active', activeLayers.has(btn.dataset.layer));
-          renderGraph(false);
-        });
-      });
-      filtersEl.querySelectorAll('[data-edge-class]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          toggleSet(activeEdgeClasses, btn.dataset.edgeClass);
-          btn.classList.toggle('active', activeEdgeClasses.has(btn.dataset.edgeClass));
-          renderGraph(false);
-        });
-      });
-      filtersEl.querySelectorAll('[data-provenance]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          toggleSet(activeProvenance, btn.dataset.provenance);
-          btn.classList.toggle('active', activeProvenance.has(btn.dataset.provenance));
-          renderGraph(false);
-        });
-      });
-      filtersEl.querySelectorAll('[data-type]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          toggleSet(activeTypes, btn.dataset.type);
-          btn.classList.toggle('active', activeTypes.has(btn.dataset.type));
-          renderGraph(false);
-        });
-      });
-      document.getElementById('focus-neighborhood').addEventListener('click', () => {
-        if (currentFocusNodeId) applyNeighborhoodMode(currentFocusNodeId);
-      });
-      document.getElementById('clear-focus').addEventListener('click', () => {
-        clearNeighborhoodMode();
-        renderIdleOverview(window.__lastStats);
-      });
-      document.getElementById('blast-toggle').addEventListener('click', (e) => {
-        blastMode = !blastMode;
-        e.target.classList.toggle('active', blastMode);
-        e.target.textContent = `blast-radius mode${blastMode ? ' ✓' : ''}`;
-      });
-      document.getElementById('blast-clear').addEventListener('click', clearBlast);
-      document.getElementById('path-go').addEventListener('click', () => {
-        runPathfinder(document.getElementById('path-from').value.trim(), document.getElementById('path-to').value.trim());
-      });
-    }
-
+    // ───────────────────────── stats + controls ─────────────────────────
     function renderStats(graphData, stats) {
-      const statsEl = document.getElementById('stats');
-      const topRelations = stats.relations.slice(0, 5);
-      const multilayerCounts = graphData.counts || {};
-      const meta = graphData.meta || {};
       const prov = window.__provenance;
-      const provStat = prov && prov.total_call_edges
-        ? `<div class="stat"><span>Call edges LSP-verified</span><span class="stat-value" style="color:#3fb950">${prov.lsp_verified_pct}%</span></div>`
-        : '';
-      statsEl.innerHTML = `
+      const provStat = prov && prov.total_call_edges ? `<div class="stat"><span>Call edges LSP-verified</span><span class="stat-value" style="color:var(--good)">${prov.lsp_verified_pct}%</span></div>` : '';
+      const meta = graphData.meta || {};
+      const trunc = (meta.truncated_nodes || meta.truncated_edges) ? `<div class="subtle">Showing ${graphData.nodes.length.toLocaleString()} / ${(meta.total_code_nodes || meta.total_nodes || graphData.nodes.length).toLocaleString()} nodes.</div>` : '';
+      $('stats').innerHTML = `
         <div class="stat"><span>Nodes</span><span class="stat-value">${stats.nodeCount}</span></div>
         <div class="stat"><span>Edges</span><span class="stat-value">${stats.edgeCount}</span></div>
-        ${provStat}
-        ${(meta.truncated_nodes || meta.truncated_edges) ? `
-          <div class="section-title">Payload</div>
-          <div class="field">Showing ${graphData.nodes.length.toLocaleString()} / ${(meta.total_code_nodes || meta.total_nodes || graphData.nodes.length).toLocaleString()} nodes and ${graphData.edges.length.toLocaleString()} / ${(meta.total_code_edges || meta.total_edges || graphData.edges.length).toLocaleString()} edges.</div>
-        ` : ''}
-        ${Object.keys(multilayerCounts).length ? `
-          <div class="section-title">Multilayer</div>
-          ${Object.entries(multilayerCounts).map(([k, v]) => `<div class="stat"><span>${k.replaceAll('_', ' ')}</span><span class="stat-value">${v}</span></div>`).join('')}
-        ` : ''}
-        <div class="section-title">Top node types</div>
-        ${stats.types.map(t => `<div class="stat"><span>${t.type}</span><span class="stat-value">${t.c}</span></div>`).join('')}
-        <div class="section-title">Top relations</div>
-        ${topRelations.map(r => `<div class="stat"><span>${r.relation}</span><span class="stat-value">${r.c}</span></div>`).join('')}
-      `;
+        ${provStat}${trunc}`;
     }
 
-    // P2-3: ids reachable in the shader sub-view — ShaderBinding nodes + any
-    // node joined to them by DECLARES_BINDING / LOADS_SHADER / OVERRIDDEN_BY.
+    function buildControls(graphData) {
+      const el = $('controls');
+      const isMultilayer = graphData.nodes.length > 0 && 'layer' in graphData.nodes[0];
+      const types = [...new Set(graphData.nodes.map(n => n.kind || n.type))].filter(Boolean).sort();
+      types.forEach(t => activeTypes.add(t));
+      const layers = ['code', 'feature', 'task', 'doc'];
+      const layerCounts = Object.fromEntries(layers.map(l => [l, graphData.nodes.filter(n => n.layer === l).length]));
+
+      let html = `<div class="section-title" style="margin-top:8px">View</div><div class="pill-row">`;
+      html += VIEW_MODES.map(([mode, ic, label]) => `<button class="toggle-pill view-pill ${currentViewMode === mode ? 'active' : ''}" type="button" data-view="${mode}"><span class="ic">${ic}</span>${label}</button>`).join('');
+      html += `</div>`;
+
+      // grouping controls (only meaningful for Map)
+      html += `<div class="ctl-group" id="group-ctls"><div class="section-title">Grouping</div><div class="pill-row">
+          <button class="toggle-pill ${groupMode === 'dir' ? 'active' : ''}" data-group="dir" type="button">by directory</button>
+          <button class="toggle-pill ${groupMode === 'community' ? 'active' : ''}" data-group="community" type="button">by community</button>
+        </div>
+        <div class="slider-row" id="depth-row"><span>depth</span><input type="range" id="group-depth" min="1" max="4" step="1" value="${groupDepth}"><span id="depth-val">${groupDepth}</span></div>
+        <div class="subtle">Map shows labeled <b>group boxes</b>. Double-click a box (or ⊕) to expand it; double-click a node to focus its group.</div></div>`;
+
+      // legend-ish filters
+      html += `<details class="fold"><summary>Filters</summary><div class="fold-body">`;
+      if (isMultilayer) {
+        html += `<div class="section-title" style="margin-top:2px">Layers</div><div class="pill-row">` +
+          layers.filter(l => layerCounts[l] > 0).map(l => `<button class="toggle-pill active" data-layer="${l}" type="button"><span style="color:${LAYER_COLORS[l]}">●</span> ${l} (${layerCounts[l]})</button>`).join('') + `</div>`;
+        html += `<div class="section-title">Edge classes</div><div class="pill-row">
+            <button class="toggle-pill active" data-edge-class="code" type="button">code</button>
+            <button class="toggle-pill active" data-edge-class="cross-layer" type="button">cross-layer</button></div>`;
+      }
+      html += `<div class="section-title">Node types</div><div class="pill-row">` +
+        types.map(t => `<button class="toggle-pill active" data-type="${t}" type="button">${t} (${graphData.nodes.filter(n => (n.kind || n.type) === t).length})</button>`).join('') + `</div></div></details>`;
+
+      // analysis tools
+      html += `<details class="fold"><summary>Analysis tools</summary><div class="fold-body">
+        <div class="section-title" style="margin-top:2px">Focus</div>
+        <div class="btn-row"><button class="mini-button" id="focus-neighborhood" type="button">Neighborhood</button><button class="mini-button" id="clear-focus" type="button">Clear</button></div>
+        <div class="section-title">Blast radius</div>
+        <div class="pill-row"><button class="toggle-pill ${blastMode ? 'active' : ''}" id="blast-toggle" type="button">blast mode${blastMode ? ' ✓' : ''}</button><button class="mini-button" id="blast-clear" type="button">clear</button></div>
+        <div class="subtle">Toggle on, click a node — changed=red, affected=amber.</div>
+        <div class="section-title">Pathfinder</div>
+        <div class="pill-row" style="gap:4px"><input id="path-from" class="mini-input" placeholder="from" style="flex:1;min-width:80px"><input id="path-to" class="mini-input" placeholder="to" style="flex:1;min-width:80px"><button class="mini-button" id="path-go" type="button">find</button></div>
+        <div class="subtle" id="path-status"></div></div></details>`;
+
+      el.innerHTML = html;
+
+      el.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { setView(b.dataset.view); }));
+      el.querySelectorAll('[data-group]').forEach(b => b.addEventListener('click', () => {
+        groupMode = b.dataset.group;
+        el.querySelectorAll('[data-group]').forEach(o => o.classList.toggle('active', o.dataset.group === groupMode));
+        $('depth-row').style.display = groupMode === 'dir' ? 'flex' : 'none';
+        if (currentViewMode === 'map' || currentViewMode === 'force') renderGraph(false);
+      }));
+      const depthEl = $('group-depth');
+      if (depthEl) depthEl.addEventListener('input', (e) => { groupDepth = +e.target.value; $('depth-val').textContent = groupDepth; });
+      if (depthEl) depthEl.addEventListener('change', () => { if (currentViewMode === 'map') renderGraph(false); });
+      el.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('click', () => { toggleSet(activeLayers, b.dataset.layer); b.classList.toggle('active', activeLayers.has(b.dataset.layer)); renderGraph(false); }));
+      el.querySelectorAll('[data-edge-class]').forEach(b => b.addEventListener('click', () => { toggleSet(activeEdgeClasses, b.dataset.edgeClass); b.classList.toggle('active', activeEdgeClasses.has(b.dataset.edgeClass)); renderGraph(false); }));
+      el.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => { toggleSet(activeTypes, b.dataset.type); b.classList.toggle('active', activeTypes.has(b.dataset.type)); renderGraph(false); }));
+      $('focus-neighborhood').addEventListener('click', () => { if (currentFocusNodeId) applyNeighborhoodMode(currentFocusNodeId); });
+      $('clear-focus').addEventListener('click', () => { clearNeighborhoodMode(); renderIdleOverview(window.__lastStats); });
+      $('blast-toggle').addEventListener('click', (e) => { blastMode = !blastMode; e.target.classList.toggle('active', blastMode); e.target.textContent = `blast mode${blastMode ? ' ✓' : ''}`; });
+      $('blast-clear').addEventListener('click', clearBlast);
+      $('path-go').addEventListener('click', () => runPathfinder($('path-from').value.trim(), $('path-to').value.trim()));
+      syncGroupCtlVisibility();
+    }
+    function syncGroupCtlVisibility() {
+      const g = $('group-ctls'); if (!g) return;
+      g.style.display = (currentViewMode === 'map' || currentViewMode === 'force') ? 'block' : 'none';
+      const dr = $('depth-row'); if (dr) dr.style.display = groupMode === 'dir' ? 'flex' : 'none';
+    }
+    function setView(mode) {
+      currentViewMode = mode;
+      drilledGroup = null;
+      document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === mode));
+      syncGroupCtlVisibility();
+      renderGraph(true);
+    }
+
+    // ───────────────────────── element building ─────────────────────────
     function shaderViewIds() {
       const ids = new Set();
-      for (const n of allData.nodes) {
-        if ((n.kind || n.type) === 'ShaderBinding') ids.add(n.id);
-      }
+      for (const n of allData.nodes) if ((n.kind || n.type) === 'ShaderBinding') ids.add(n.id);
       const rel = new Set(['DECLARES_BINDING', 'LOADS_SHADER', 'OVERRIDDEN_BY']);
       for (const e of allData.edges) {
         if (!rel.has(e.relation)) continue;
-        const src = e.source ?? `code:${e.from_id}`;
-        const tgt = e.target ?? `code:${e.to_id}`;
+        const src = e.source ?? `code:${e.from_id}`, tgt = e.target ?? `code:${e.to_id}`;
         if (ids.has(src) || ids.has(tgt)) { ids.add(src); ids.add(tgt); }
       }
       return ids;
     }
-
-    function buildElements() {
+    // Filter the loaded graph down to the currently-visible node + edge set.
+    function visibleGraph() {
       const isMultilayer = allData.nodes.length > 0 && 'layer' in allData.nodes[0];
-      // P2-3 shader preset + P2-1 drill-in narrow the node set before the
-      // existing layer/type filters run.
-      const shaderIds = currentViewMode === 'shader' ? shaderViewIds() : null;
       let nodes = isMultilayer
         ? allData.nodes.filter(n => activeLayers.has(n.layer) && (n.layer !== 'code' || activeTypes.has(n.kind || n.type)))
         : allData.nodes.filter(n => activeTypes.has(n.type));
-      if (shaderIds) nodes = nodes.filter(n => shaderIds.has(n.id));
-      if (drilledCluster) nodes = nodes.filter(n => nodeInCluster(n, drilledCluster));
+      if (currentViewMode === 'shader') { const s = shaderViewIds(); nodes = nodes.filter(n => s.has(n.id)); }
+      if (drilledGroup) nodes = nodes.filter(n => groupKeyFor(n) === drilledGroup);
       const nodeIds = new Set(nodes.map(n => n.id));
       const edges = isMultilayer
         ? allData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target) && activeEdgeClasses.has(e.edge_class || 'code') && activeProvenance.has(e.provenance || 'code'))
         : allData.edges.filter(e => nodeIds.has(e.from_id) && nodeIds.has(e.to_id));
+      return { nodes, edges, isMultilayer };
+    }
+    function nodeDataEl(n) {
+      return { group: 'nodes', data: {
+        id: n.id, label: n.label, layer: n.layer, kind: n.kind || n.type, type: n.kind || n.type,
+        file_path: n.file_path, start_line: n.start_line, description: n.description, status: n.status,
+        origin: n.origin, depends_on: n.depends_on, related_to: n.related_to, features: n.features,
+        tags: n.tags, anchors: n.anchors, assignee: n.assignee, url: n.url, confidence: n.confidence,
+        language: n.language, community_id: n.community_id, color: colorFor(n),
+      } };
+    }
+    function edgeDataEl(e, isMultilayer, i) {
+      return isMultilayer
+        ? { group: 'edges', data: { id: e.id || `e${i}`, source: e.source, target: e.target, relation: e.relation, edge_class: e.edge_class, provenance: e.provenance, code_provenance: e.code_provenance, confidence: e.confidence } }
+        : { group: 'edges', data: { id: `e${i}`, source: e.from_id, target: e.to_id, relation: e.relation, confidence: e.confidence } };
+    }
+    // Build the Map OVERVIEW: standalone labeled group-box nodes (~dozens) +
+    // aggregated inter-group edges. Computed entirely client-side from the
+    // already-loaded graph — never ships the 3k raw nodes, so it stays instant.
+    // Double-clicking a box drills into that one group's members.
+    function buildGroupBoxElements() {
+      const { nodes, edges } = visibleGraph();
+      const groups = new Map();           // key -> { members(sample), count }
+      const nodeGroup = new Map();        // node id -> group key
+      for (const n of nodes) {
+        const k = groupKeyFor(n);
+        nodeGroup.set(n.id, k);
+        if (!groups.has(k)) groups.set(k, { members: [], count: 0 });
+        const g = groups.get(k); g.count++; if (g.members.length < 8) g.members.push(n);
+      }
+      const keys = [...groups.keys()].sort();
+      const pal = new Map(keys.map((k, i) => [k, GROUP_PALETTE[i % GROUP_PALETTE.length]]));
+      const maxC = Math.max(1, ...keys.map(k => groups.get(k).count));
+      // aggregate cross-group edges → one weighted edge per ordered group pair
+      const agg = new Map();
+      for (const e of edges) {
+        const s = e.source ?? `code:${e.from_id}`, t = e.target ?? `code:${e.to_id}`;
+        const gs = nodeGroup.get(s), gt = nodeGroup.get(t);
+        if (gs == null || gt == null || gs === gt) continue;
+        const key = gs + '' + gt;
+        agg.set(key, (agg.get(key) || 0) + 1);
+      }
+      const els = keys.map(k => {
+        const g = groups.get(k);
+        const sz = 46 + 130 * Math.sqrt(g.count / maxC);
+        return { group: 'nodes', data: { id: `grp:${k}`, label: `${groupTitle(k, g.members)}\n${g.count}`, isGroup: true, groupKey: k, accent: pal.get(k), size: sz } };
+      });
+      for (const [key, count] of agg) {
+        const [a, b] = key.split('');
+        els.push({ group: 'edges', data: { id: `agg:${a}>${b}`, source: `grp:${a}`, target: `grp:${b}`, aggCount: count, width: Math.min(10, 1 + Math.log(1 + count) * 1.5) } });
+      }
+      return { els, groupCount: keys.length, nodeCount: nodes.length };
+    }
+    function buildFlatElements() {
+      const { nodes, edges, isMultilayer } = visibleGraph();
+      const els = nodes.map(nodeDataEl);
+      edges.forEach((e, i) => els.push(edgeDataEl(e, isMultilayer, i)));
+      return { els, nodeCount: nodes.length };
+    }
 
-      return isMultilayer ? [
-        ...nodes.map(n => ({
-          group: 'nodes',
-          data: {
-            id: n.id,
-            label: n.label,
-            layer: n.layer,
-            kind: n.kind,
-            type: n.kind,
-            file_path: n.file_path,
-            start_line: n.start_line,
-            description: n.description,
-            status: n.status,
-            origin: n.origin,
-            depends_on: n.depends_on,
-            related_to: n.related_to,
-            features: n.features,
-            tags: n.tags,
-            anchors: n.anchors,
-            assignee: n.assignee,
-            url: n.url,
-            confidence: n.confidence,
-            language: n.language,
-            community_id: n.community_id,
-          },
-        })),
-        ...edges.map(e => ({
-          group: 'edges',
-          data: {
-            id: e.id,
-            source: e.source,
-            target: e.target,
-            relation: e.relation,
-            edge_class: e.edge_class,
-            provenance: e.provenance,
-            code_provenance: e.code_provenance,
-            confidence: e.confidence,
-          },
-        })),
-      ] : [
-        ...nodes.map(n => ({ group: 'nodes', data: { id: n.id, label: n.label, type: n.type, file_path: n.file_path, start_line: n.start_line } })),
-        ...edges.map((e, i) => ({ group: 'edges', data: { id: `e${i}`, source: e.from_id, target: e.to_id, relation: e.relation, confidence: e.confidence } })),
+    // ───────────────────────── cytoscape style ─────────────────────────
+    function baseStylesheet(nodeCount) {
+      const labelFont = nodeCount > 1400 ? 0 : 9;
+      return [
+        { selector: 'node[!isGroup]', style: {
+          label: 'data(label)', 'font-size': labelFont, 'min-zoomed-font-size': 9, color: '#c9d1d9',
+          'text-outline-color': '#0d1117', 'text-outline-width': 1.6, 'text-valign': 'bottom', 'text-margin-y': 2,
+          'background-color': 'data(color)',
+          'shape': (ele) => KIND_SHAPES[ele.data('kind')] || LAYER_SHAPES[ele.data('layer')] || 'ellipse',
+          width: (ele) => { const l = ele.data('layer'); if (l === 'feature') return 24; if (l === 'task') return 18; if (l === 'doc') return 15; return TYPE_SIZES[ele.data('kind')] || TYPE_SIZES.default; },
+          height: (ele) => { const l = ele.data('layer'); if (l === 'feature') return 18; if (l === 'task') return 18; if (l === 'doc') return 15; return TYPE_SIZES[ele.data('kind')] || TYPE_SIZES.default; },
+          'border-width': 0,
+        } },
+        { selector: 'node[?isGroup]', style: {
+          label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': '150px', 'font-size': 13, 'font-weight': 'bold', color: '#e6edf3',
+          'text-valign': 'center', 'text-halign': 'center', 'min-zoomed-font-size': 5,
+          'background-color': 'data(accent)', 'background-opacity': 0.42,
+          'border-width': 1.6, 'border-color': 'data(accent)', 'border-opacity': 0.95,
+          shape: 'round-rectangle', width: 'data(size)', height: (ele) => Math.max(40, ele.data('size') * 0.6),
+          'text-outline-color': '#0d1117', 'text-outline-width': 2.5,
+        } },
+        { selector: 'node[?isGroup]:active, node[?isGroup].hovergrp', style: { 'background-opacity': 0.62, 'border-width': 2.4 } },
+        { selector: 'edge', style: {
+          width: (ele) => ele.data('relation') === 'PASSES_THROUGH' ? 2 : 1.1,
+          'line-color': (ele) => edgeColor(ele.data()),
+          'line-style': (ele) => { if ((ele.data('edge_class') || 'code') === 'cross-layer') return ele.data('provenance') === 'curated' ? 'dashed' : 'dotted'; if (isCallFamily(ele.data('relation'))) return ele.data('code_provenance') === 'LSP_VERIFIED' ? 'solid' : 'dashed'; return 'solid'; },
+          'target-arrow-color': (ele) => edgeColor(ele.data()), 'target-arrow-shape': 'triangle', 'arrow-scale': 0.7,
+          'curve-style': 'bezier',
+          opacity: (ele) => { const c = ele.data('confidence'); const base = (ele.data('edge_class') || 'code') === 'cross-layer' ? 0.5 : 0.42; if (c == null) return base; return Math.max(0.16, Math.min(1, base * (0.45 + c))); },
+        } },
+        { selector: 'edge[aggCount]', style: { 'line-color': '#586069', 'target-arrow-color': '#586069', width: 'data(width)', opacity: 0.45, 'line-style': 'solid', 'curve-style': 'bezier', 'arrow-scale': 0.8 } },
+        { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#f0883e' } },
+        { selector: 'edge:selected', style: { 'line-color': '#f0883e', 'target-arrow-color': '#f0883e', width: 2, opacity: 1 } },
+        { selector: '.dimmed', style: { opacity: 0.12 } },
+        { selector: '.highlighted', style: { 'border-width': 3, 'border-color': '#58a6ff', 'z-index': 30 } },
+        { selector: '.blast-changed', style: { 'background-color': '#da3633', 'border-width': 3, 'border-color': '#ff7b72', 'z-index': 20 } },
+        { selector: '.blast-affected', style: { 'background-color': '#d29922', 'z-index': 15 } },
+        { selector: '.blast-faded', style: { opacity: 0.07 } },
+        { selector: '.path-node', style: { 'background-color': '#a371f7', 'border-width': 3, 'border-color': '#d2a8ff', 'z-index': 25 } },
+        { selector: '.path-edge', style: { 'line-color': '#a371f7', 'target-arrow-color': '#a371f7', width: 3, opacity: 1, 'z-index': 25 } },
       ];
     }
 
-    // Large-graph banner: warn the user when we degraded the layout so they
-    // know what they're looking at. Injected once and reused.
-    function showLargeGraphBanner(active, nodeCount, message = '') {
-      let banner = document.getElementById('large-graph-banner');
-      if (!active) { if (banner) banner.remove(); return; }
-      if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'large-graph-banner';
-        banner.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#3a2d0e;border:1px solid #cba94a;color:#f0d58c;padding:8px 14px;border-radius:6px;font-size:12px;max-width:720px;z-index:10;line-height:1.4;';
-        document.getElementById('graph-container').appendChild(banner);
+    // ───────────────────────── layout configs ─────────────────────────
+    function fcoseConfig(grouped, nodeCount) {
+      return {
+        name: 'fcose', quality: nodeCount > 1200 ? 'default' : 'proof', animate: false, randomize: true,
+        nodeDimensionsIncludeLabels: true, packComponents: true, tile: true,
+        nodeRepulsion: grouped ? 7000 : 5000,
+        idealEdgeLength: (edge) => (edge.data('edge_class') === 'cross-layer' ? 160 : 55),
+        edgeElasticity: 0.45, nestingFactor: 0.12, gravity: 0.28, gravityRangeCompound: 1.4,
+        gravityCompound: 1.0, gravityRange: 3.8, numIter: nodeCount > 1200 ? 1500 : 2500,
+        nodeSeparation: grouped ? 90 : 60, padding: 30,
+      };
+    }
+    function dagreConfig(rankDir) {
+      return { name: 'dagre', rankDir: rankDir || 'TB', nodeSep: 28, edgeSep: 12, rankSep: 70, animate: false, fit: true, padding: 30 };
+    }
+
+    // ───────────────────────── 2D render ─────────────────────────
+    function destroyCy() { if (ecApi) { try { ecApi = null; } catch (e) {} } if (cy) { cy.destroy(); cy = null; } }
+    function showBanner(text) { let b = $('cy-banner'); if (!text) { if (b) b.remove(); return; } if (!b) { b = document.createElement('div'); b.id = 'cy-banner'; b.className = 'banner'; $('graph-container').appendChild(b); } b.textContent = text; }
+
+    function render2D() {
+      $('fg3d').style.display = 'none';
+      $('cy').style.display = 'block';
+      destroyCy();
+      showBanner('');
+      // "Boxes vs members" depends on DRILL state, not the view. Map/Tree/Flow
+      // all show the labeled directory BOXES at the top level (instant — a few
+      // dozen nodes) and the group's raw member nodes once drilled in. Force and
+      // Shader always work on raw nodes. This keeps every view fast: we never
+      // hand dagre/fcose the full 3k-node graph at the top level.
+      const rawView = currentViewMode === 'force' || currentViewMode === 'shader';
+      const useBoxes = !drilledGroup && !rawView;
+      const built = useBoxes ? buildGroupBoxElements() : buildFlatElements();
+      const nodeCount = built.nodeCount;
+      const boxCount = built.groupCount || 0;
+
+      let layout;
+      if (currentViewMode === 'tree') layout = dagreConfig('TB');
+      else if (currentViewMode === 'flow') layout = dagreConfig('LR');
+      else if (useBoxes) {
+        // Map overview: fcose on a few dozen boxes — strong repulsion → clean spread
+        layout = { name: 'fcose', quality: 'proof', animate: false, randomize: true,
+          nodeDimensionsIncludeLabels: true, packComponents: true, tile: true,
+          nodeRepulsion: 26000, idealEdgeLength: 210, edgeElasticity: 0.25,
+          gravity: 0.12, gravityRange: 4.5, numIter: 2500, nodeSeparation: 230, padding: 50 };
+      } else {
+        // Force / drilled-Map: fcose on the member set (drop quality on big sets)
+        layout = fcoseConfig(false, nodeCount);
       }
-      banner.innerHTML = `⚠ Large graph (${nodeCount.toLocaleString()} nodes). ${message || 'Using grouped positioning so the browser stays responsive while still showing all visible layers.'}`;
-    }
 
-    function render3DGraph(elements) {
-      document.getElementById('cy').style.display = 'none';
-      const container = document.getElementById('fg3d');
-      container.style.display = 'block';
-      container.innerHTML = '';
-      const nodes = elements.filter(isNodeElement).map(e => ({
-        ...e.data,
-        // Plan #16 Step B: architecture layer color wins for code-layer
-        // nodes when an intelligence overlay assigns them; fall through
-        // to overlay-layer color, then type color.
-        __color: intelligenceColorFor(e.data)
-          || (e.data.layer && e.data.layer !== 'code'
-            ? LAYER_COLORS[e.data.layer]
-            : TYPE_COLORS[e.data.kind || e.data.type] || '#6e7681'),
-      }));
-      const links = elements.filter(isEdgeElement).map(e => ({ ...e.data }));
-      const positions = computePresetPositions(nodes, currentViewMode === 'force' ? 'community' : currentViewMode);
-      const isPreset = currentViewMode !== 'force';
-      nodes.forEach(node => {
-        const pos = positions.get(node.id) || { x: 0, y: 0 };
-        node.x = pos.x;
-        node.y = pos.y;
-        node.z = layerZ[node.layer] ?? 0;
-        if (isPreset) {
-          node.fx = pos.x;
-          node.fy = pos.y;
-          node.fz = node.z;
-        } else {
-          node.fz = node.z;
-        }
-      });
-      const isLargeGraph = nodes.length > 3000;
-      fg3d = ForceGraph3D()(container)
-        .backgroundColor('#0d1117')
-        .graphData({ nodes, links })
-        .nodeLabel(node => `${node.label}\n${node.layer || node.kind || node.type}`)
-        .nodeColor(node => node.__color)
-        .nodeRelSize(4)
-        .nodeVal(node => {
-          if (node.layer === 'feature') return 8;
-          if (node.layer === 'task') return 6;
-          if (node.layer === 'doc') return 5;
-          return 2.4;
-        })
-        .linkColor(link => edgeColor(link))
-        .linkWidth(link => (link.edge_class || 'code') === 'cross-layer' ? 1.3 : 0.7)
-        .linkOpacity(link => (link.edge_class || 'code') === 'cross-layer' ? 0.35 : 0.12)
-        // Curvature + particles are the two biggest 3D perf drains: curved
-        // links rebuild geometry every frame and particles animate on every
-        // tick. Keep them off by default; particles only appear briefly on
-        // node click via cameraPosition focus (cheap one-shot).
-        .linkCurvature(0)
-        .linkDirectionalParticles(0)
-        // Stop the simulation immediately when nodes are pinned — it would
-        // otherwise burn CPU forever recomputing forces for fixed positions.
-        .cooldownTicks(isPreset ? 0 : 80)
-        .warmupTicks(isPreset ? 0 : 0)
-        .enableNodeDrag(!isLargeGraph)
-        .onNodeClick(node => {
-          currentFocusNodeId = node.id;
-          showNodeDetail(node.id);
-          applyNeighborhoodMode(node.id);
-          fg3d.cameraPosition({ x: node.x || 0, y: node.y || 0, z: (layerZ[node.layer] ?? 0) + 320 }, node, 700);
-        });
+      if (rawView && nodeCount > 2400 && !drilledGroup) {
+        showBanner(`Force layout on ${nodeCount.toLocaleString()} nodes — this can take a few seconds. Tip: drill into a Map box first for a snappier view.`);
+      }
 
-      fg3d.d3Force('charge').strength(currentViewMode === 'force' ? -75 : -8);
-      fg3d.d3Force('link').distance(link => (link.edge_class || 'code') === 'cross-layer' ? 220 : 40);
-
-      // Auto-fit camera so all layers are framed on first paint. Without this
-      // the default camera sits at z=300 which is below the top of the layer
-      // stack (now extends to z=1500), and only the code plane is visible.
-      requestAnimationFrame(() => {
-        if (fg3d && typeof fg3d.zoomToFit === 'function') {
-          fg3d.zoomToFit(800, 80);
-        }
-      });
-    }
-
-    function render2DGraph(elements) {
-      document.getElementById('fg3d').style.display = 'none';
-      document.getElementById('cy').style.display = 'block';
-      if (cy) cy.destroy();
-      const nodes = elements.filter(isNodeElement).map(e => e.data);
-      const nodeCount = nodes.length;
-      const LARGE_GRAPH_THRESHOLD = 3000;
-      const isLargeGraph = nodeCount > LARGE_GRAPH_THRESHOLD;
-      const positions = computePresetPositions(nodes, currentViewMode === 'force' ? 'community' : currentViewMode);
-      const canUseForce = currentViewMode === 'force' && !isLargeGraph;
-      const layoutConfig = canUseForce
-        ? { name: 'cose', animate: false, nodeRepulsion: 8000, idealEdgeLength: 80, nodeOverlap: 20 }
-        : { name: 'preset', positions: (node) => positions.get(node.id()) || { x: 0, y: 0 } };
-      showLargeGraphBanner(
-        isLargeGraph,
-        nodeCount,
-        canUseForce
-          ? ''
-          : currentViewMode === 'tree'
-            ? 'Using directory-tree layout — files cluster under their parent directory, sibling dirs spread by leaf count.'
-            : currentViewMode === 'layers'
-              ? 'Using lane layout so code, features, tasks, and docs stay visibly separated instead of collapsing into one blob.'
-              : currentViewMode === 'community'
-                ? 'Using community grouping so large repos stay legible without freezing the browser.'
-                : 'Force layout is disabled at this size; using grouped positioning instead.'
-      );
       cy = cytoscape({
-        container: document.getElementById('cy'),
-        elements,
-        style: [
-          {
-            selector: 'node',
-            style: {
-              label: 'data(label)',
-              'font-size': nodeCount > LARGE_GRAPH_THRESHOLD ? 0 : 8,
-              'min-zoomed-font-size': 8,
-              color: '#c9d1d9',
-              'text-outline-color': '#0d1117',
-              'text-outline-width': 1.5,
-              'background-color': (ele) => {
-                // Plan #16 Step B: architecture layer color wins for
-                // code-layer nodes when intelligence overlay assigns them.
-                const archColor = intelligenceColorFor(ele.data());
-                if (archColor) return archColor;
-                const layer = ele.data('layer');
-                if (layer && layer !== 'code') return LAYER_COLORS[layer];
-                return TYPE_COLORS[ele.data('kind') || ele.data('type')] || '#6e7681';
-              },
-              'shape': (ele) => KIND_SHAPES[ele.data('kind') || ele.data('type')] || LAYER_SHAPES[ele.data('layer')] || 'ellipse',
-              width: (ele) => {
-                const layer = ele.data('layer');
-                if (layer === 'feature') return 22;
-                if (layer === 'task') return 16;
-                if (layer === 'doc') return 14;
-                return TYPE_SIZES[ele.data('kind') || ele.data('type')] || TYPE_SIZES.default;
-              },
-              height: (ele) => {
-                const layer = ele.data('layer');
-                if (layer === 'feature') return 16;
-                if (layer === 'task') return 16;
-                if (layer === 'doc') return 14;
-                return TYPE_SIZES[ele.data('kind') || ele.data('type')] || TYPE_SIZES.default;
-              },
-            },
-          },
-          {
-            selector: 'edge',
-            style: {
-              width: (ele) => ele.data('relation') === 'PASSES_THROUGH' ? 2 : 1.25,
-              'line-color': (ele) => edgeColor(ele.data()),
-              'line-style': (ele) => {
-                if ((ele.data('edge_class') || 'code') === 'cross-layer') {
-                  return ele.data('provenance') === 'curated' ? 'dashed' : 'dotted';
-                }
-                // P2-4 provenance ribbon: call-family code edges render solid
-                // when LSP_VERIFIED, dashed when heuristic (EXTRACTED/INFERRED).
-                if (isCallFamily(ele.data('relation'))) {
-                  return ele.data('code_provenance') === 'LSP_VERIFIED' ? 'solid' : 'dashed';
-                }
-                return 'solid';
-              },
-              'target-arrow-color': (ele) => edgeColor(ele.data()),
-              'target-arrow-shape': 'triangle',
-              'curve-style': 'bezier',
-              opacity: (ele) => {
-                const conf = ele.data('confidence');
-                const base = (ele.data('edge_class') || 'code') === 'cross-layer' ? 0.45 : 0.7;
-                if (conf == null) return base;
-                return Math.max(0.18, Math.min(1, base * (0.35 + conf)));
-              },
-            },
-          },
-          { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#f0883e' } },
-          { selector: 'edge:selected', style: { 'line-color': '#f0883e', 'target-arrow-color': '#f0883e', width: 2, opacity: 1 } },
-          { selector: '.dimmed', style: { opacity: 0.15 } },
-          { selector: '.highlighted', style: { 'border-width': 3, 'border-color': '#58a6ff', 'z-index': 10 } },
-          // P2-2 blast-radius classes.
-          { selector: '.blast-changed', style: { 'background-color': '#da3633', 'border-width': 3, 'border-color': '#ff7b72', 'z-index': 20 } },
-          { selector: '.blast-affected', style: { 'background-color': '#d29922', 'z-index': 15 } },
-          { selector: '.blast-faded', style: { opacity: 0.08 } },
-          // P2-5 pathfinder chain.
-          { selector: '.path-node', style: { 'background-color': '#a371f7', 'border-width': 3, 'border-color': '#d2a8ff', 'z-index': 25 } },
-          { selector: '.path-edge', style: { 'line-color': '#a371f7', 'target-arrow-color': '#a371f7', width: 3, opacity: 1, 'z-index': 25 } },
-        ],
-        layout: layoutConfig,
+        container: $('cy'), elements: built.els, style: baseStylesheet(useBoxes ? boxCount : nodeCount),
+        layout, pixelRatio: 1, textureOnViewport: nodeCount > 1500, motionBlur: false, hideEdgesOnViewport: nodeCount > 1800,
       });
+      requestAnimationFrame(() => cy.fit(undefined, useBoxes ? 55 : 40));
 
       cy.on('tap', 'node', (e) => {
-        currentFocusNodeId = e.target.id();
+        const n = e.target;
+        if (n.data('isGroup')) { drillInto(n.data('groupKey')); return; }
+        currentFocusNodeId = n.id();
         if (blastMode) { runBlastRadius(currentFocusNodeId); return; }
         showNodeDetail(currentFocusNodeId);
         applyNeighborhoodMode(currentFocusNodeId);
       });
+      cy.on('mouseover', 'node[?isGroup]', (e) => e.target.addClass('hovergrp'));
+      cy.on('mouseout', 'node[?isGroup]', (e) => e.target.removeClass('hovergrp'));
 
-      // Re-apply blast / path overlays after a (re)render.
       if (blastResult) paintBlast();
       if (pathChain) paintPath();
+      updateCtxBar();
     }
 
-    // ── P2-1 Overview→drill-in ────────────────────────────────────────────
-    // Does a dashboard node belong to overview cluster `clusterKey`? Mirrors
-    // analytics.js clusterOf(): c:<community_id> | l:<layerId> | d:<top-dir>.
-    function nodeInCluster(node, clusterKey) {
-      if ((node.layer || 'code') !== 'code') return false;
-      if (clusterKey.startsWith('c:')) {
-        const cid = clusterKey.slice(2);
-        return node.community_id != null && String(node.community_id) === cid;
-      }
-      if (clusterKey.startsWith('l:')) {
-        const lid = clusterKey.slice(2);
-        const asg = intelligenceData?.architecture?.assignments?.[node.file_path];
-        return asg?.layerId === lid;
-      }
-      if (clusterKey.startsWith('d:')) {
-        const dir = clusterKey.slice(2);
-        const norm = (node.file_path || '').replace(/\\/g, '/');
-        const slash = norm.indexOf('/');
-        const topDir = slash === -1 ? '(root)' : norm.slice(0, slash);
-        return topDir === dir;
-      }
-      return false;
+    function drillInto(groupKey) { drilledGroup = groupKey; currentViewMode = 'map'; document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === 'map')); syncGroupCtlVisibility(); renderGraph(true); }
+    function updateCtxBar() {
+      const bar = $('ctxbar');
+      if (!drilledGroup) { bar.style.display = 'none'; return; }
+      bar.style.display = 'flex';
+      bar.innerHTML = `<span class="crumb"><span class="crumb-btn" id="crumb-home">Map</span> ▸ <b>${drilledGroup}</b></span><span class="x" id="crumb-x">✕ back to map</span>`;
+      $('crumb-home').addEventListener('click', () => { drilledGroup = null; setView('map'); });
+      $('crumb-x').addEventListener('click', () => { drilledGroup = null; setView('map'); });
     }
 
-    // Render the cluster map as ~8-30 boxes sized by node_count with aggregated
-    // inter-cluster edges (width ~ log(count)). Clicking a box drills into that
-    // cluster's nodes. This is the legibility win — never ships 25k nodes.
-    function renderOverviewGraph() {
-      document.getElementById('fg3d').style.display = 'none';
-      document.getElementById('cy').style.display = 'block';
-      if (cy) cy.destroy();
-      const clusters = (overviewData?.clusters || []);
-      showLargeGraphBanner(false, 0);
-      if (!clusters.length) {
-        showLargeGraphBanner(true, 0, 'No clusters — overview needs a community_id or directory structure. Switch to "tree" for the raw graph.');
-      }
-      const maxCount = Math.max(1, ...clusters.map(c => c.node_count));
-      const labelByKey = new Map(clusters.map(c => [c.cluster, c.label]));
-      const cols = Math.max(2, Math.ceil(Math.sqrt(clusters.length || 1)));
-      const xGap = 220, yGap = 180;
-      const nodeEls = clusters.map((c, i) => {
-        const sz = 30 + 90 * Math.sqrt(c.node_count / maxCount);
-        const col = i % cols, row = Math.floor(i / cols);
-        return {
-          group: 'nodes',
-          data: {
-            id: `cluster:${c.cluster}`,
-            clusterKey: c.cluster,
-            label: `${c.label}\n(${c.node_count})`,
-            isCluster: true,
-            size: sz,
-          },
-          position: { x: (col - (cols - 1) / 2) * xGap, y: (row - (Math.ceil((clusters.length || 1) / cols) - 1) / 2) * yGap },
-        };
+    // ───────────────────────── 3D render (grouped clustering force) ─────────────
+    function render3D() {
+      $('cy').style.display = 'none';
+      const container = $('fg3d');
+      container.style.display = 'block';
+      container.innerHTML = '';
+      const { nodes, edges, isMultilayer } = visibleGraph();
+      const groupKeys = [...new Set(nodes.map(groupKeyFor))].sort();
+      const palIdx = new Map(groupKeys.map((k, i) => [k, GROUP_PALETTE[i % GROUP_PALETTE.length]]));
+      // group centroids on a circle (spread groups apart spatially)
+      const R = Math.max(500, groupKeys.length * 90);
+      const centroids = new Map(groupKeys.map((k, i) => {
+        const a = (i / Math.max(1, groupKeys.length)) * Math.PI * 2;
+        return [k, { x: Math.cos(a) * R, y: Math.sin(a) * R * 0.7, z: layerZ[k.startsWith('__') ? k.slice(2) : 'code'] ?? 0 }];
+      }));
+      const useCluster = currentViewMode === 'map' || currentViewMode === 'force';
+      const nodeObjs = nodes.map(n => {
+        const gk = groupKeyFor(n);
+        const c = centroids.get(gk);
+        return { ...nodeDataEl(n).data, __group: gk, __gc: c, __color: groupMode === 'community' && useCluster ? palIdx.get(gk) : colorFor(n),
+          x: c ? c.x + (Math.random() - 0.5) * 120 : 0, y: c ? c.y + (Math.random() - 0.5) * 120 : 0, z: (c ? c.z : 0) + (Math.random() - 0.5) * 80 };
       });
-      const edgeEls = [];
-      const seen = new Set();
-      for (const c of clusters) {
-        for (const e of (c.edges_to || [])) {
-          const id = `co:${c.cluster}=>${e.cluster}`;
-          if (seen.has(id) || !labelByKey.has(e.cluster)) continue;
-          seen.add(id);
-          edgeEls.push({
-            group: 'edges',
-            data: { id, source: `cluster:${c.cluster}`, target: `cluster:${e.cluster}`, count: e.count, width: 1 + Math.log(1 + e.count) },
-          });
-        }
+      const links = edges.map((e, i) => isMultilayer ? { source: e.source, target: e.target, relation: e.relation, edge_class: e.edge_class, provenance: e.provenance, code_provenance: e.code_provenance } : { source: e.from_id, target: e.to_id, relation: e.relation });
+
+      fg3d = ForceGraph3D()(container)
+        .backgroundColor('#0d1117')
+        .graphData({ nodes: nodeObjs, links })
+        .nodeLabel(n => `${n.label}\n${n.__group}`)
+        .nodeColor(n => n.__color)
+        .nodeRelSize(4)
+        .nodeVal(n => n.layer === 'feature' ? 9 : n.layer === 'task' ? 6 : n.layer === 'doc' ? 5 : 2.6)
+        .linkColor(l => edgeColor(l))
+        .linkWidth(l => (l.edge_class || 'code') === 'cross-layer' ? 1.3 : 0.6)
+        .linkOpacity(0.18)
+        .linkCurvature(0).linkDirectionalParticles(0)
+        .cooldownTicks(currentViewMode === 'layers' ? 0 : 120)
+        .enableNodeDrag(nodes.length < 2500)
+        .onNodeClick(n => { currentFocusNodeId = n.id; showNodeDetail(n.id); applyNeighborhoodMode(n.id); fg3d.cameraPosition({ x: n.x, y: n.y, z: (n.z || 0) + 200 }, n, 700); });
+
+      fg3d.d3Force('charge').strength(currentViewMode === 'force' ? -60 : -22);
+      fg3d.d3Force('link').distance(l => (l.edge_class || 'code') === 'cross-layer' ? 180 : 34);
+      // custom clustering force: pull each node toward its group centroid so
+      // groups separate into legible spatial clusters (UA-style spacing in 3D).
+      if (useCluster) {
+        const STR = 0.06;
+        fg3d.d3Force('cluster', (alpha) => {
+          for (const n of nodeObjs) { if (!n.__gc) continue; const k = STR * alpha; n.vx += (n.__gc.x - n.x) * k; n.vy += (n.__gc.y - n.y) * k; n.vz += ((n.__gc.z) - n.z) * k; }
+        });
       }
-      cy = cytoscape({
-        container: document.getElementById('cy'),
-        elements: [...nodeEls, ...edgeEls],
-        style: [
-          { selector: 'node', style: {
-            label: 'data(label)', 'text-wrap': 'wrap', 'text-valign': 'center', 'text-halign': 'center',
-            'font-size': 11, color: '#c9d1d9', 'text-outline-color': '#0d1117', 'text-outline-width': 2,
-            shape: 'round-rectangle', 'background-color': '#1f6feb', 'background-opacity': 0.55,
-            'border-width': 1, 'border-color': '#58a6ff',
-            width: 'data(size)', height: (ele) => Math.max(28, ele.data('size') * 0.7),
-          } },
-          { selector: 'edge', style: {
-            width: 'data(width)', 'line-color': '#6e7681', 'target-arrow-color': '#6e7681',
-            'target-arrow-shape': 'triangle', 'curve-style': 'bezier', opacity: 0.5,
-          } },
-          { selector: 'node:selected', style: { 'border-width': 3, 'border-color': '#f0883e' } },
-        ],
-        layout: { name: 'preset' },
-      });
-      cy.on('tap', 'node', (e) => {
-        const key = e.target.data('clusterKey');
-        // The "(other N clusters)" aggregate box is a visual rollup, not a
-        // single drillable cluster — clicking it expands the cap instead.
-        if (key && key.startsWith('other:')) { expandOverview(); return; }
-        if (key) drillIntoCluster(key);
-      });
-    }
-
-    // Re-fetch the overview with a larger cap so the long tail splits out.
-    async function expandOverview() {
-      const nextCap = (overviewData?.clusters?.length || 24) + 24;
-      overviewData = await fetch(`/api/overview?cap=${nextCap}`).then(r => r.json()).catch(() => overviewData);
-      renderOverviewGraph();
-    }
-
-    // Load ONE cluster's nodes into the existing detail graph (tree layout).
-    function drillIntoCluster(clusterKey) {
-      drilledCluster = clusterKey;
-      currentViewMode = 'tree';
-      syncViewPills();
-      renderGraph(true);
-    }
-
-    function syncViewPills() {
-      document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === currentViewMode));
-      const dc = document.getElementById('drill-banner');
-      if (dc) dc.remove();
-    }
-
-    function renderGraph(resetFocus = false) {
-      if (resetFocus) currentFocusNodeId = null;
-      if (!is3DMode && currentViewMode === 'overview') {
-        drilledCluster = null;
-        renderOverviewGraph();
-        return;
+      if (currentViewMode === 'layers') {
+        // pin Z by layer plane → distinct stacked planes
+        nodeObjs.forEach(n => { n.fz = layerZ[n.layer] ?? 0; });
       }
-      const elements = buildElements();
-      if (is3DMode) render3DGraph(elements);
-      else render2DGraph(elements);
+      requestAnimationFrame(() => { if (fg3d?.zoomToFit) fg3d.zoomToFit(900, 90); });
     }
 
-    // ── P2-2 Blast-radius ─────────────────────────────────────────────────
+    // ───────────────────────── focus / neighborhood ─────────────────────────
+    function neighborIdsFor(nodeId) { const ids = new Set([nodeId]); for (const e of allData.edges) { const s = e.source ?? `code:${e.from_id}`, t = e.target ?? `code:${e.to_id}`; if (s === nodeId) ids.add(t); if (t === nodeId) ids.add(s); } return ids; }
+    function applyNeighborhoodMode(nodeId) {
+      currentFocusNodeId = nodeId;
+      const ids = neighborIdsFor(nodeId);
+      if (cy) { cy.elements().addClass('dimmed').removeClass('highlighted'); const node = cy.getElementById(nodeId); if (node.length) { node.removeClass('dimmed').addClass('highlighted'); node.closedNeighborhood().removeClass('dimmed'); } }
+      if (fg3d) { fg3d.nodeColor(n => ids.has(n.id) ? n.__color : 'rgba(110,110,110,0.1)'); fg3d.linkColor(l => { const s = typeof l.source === 'string' ? l.source : l.source.id, t = typeof l.target === 'string' ? l.target : l.target.id; return ids.has(s) && ids.has(t) ? edgeColor(l) : 'rgba(110,110,110,0.06)'; }); }
+    }
+    function clearNeighborhoodMode() { currentFocusNodeId = null; if (cy) cy.elements().removeClass('dimmed highlighted'); if (fg3d) { fg3d.nodeColor(n => n.__color); fg3d.linkColor(l => edgeColor(l)); } }
+
+    // ───────────────────────── blast radius ─────────────────────────
     async function runBlastRadius(dashboardId) {
       const rawId = dashboardId.startsWith('code:') ? dashboardId.slice('code:'.length) : dashboardId;
       const res = await fetch(`/api/impact/${encodeURIComponent(rawId)}?depth=4`).then(r => r.json()).catch(() => null);
       if (!res) return;
       const toDash = (id) => `code:${id}`;
-      blastResult = {
-        changed: new Set((res.changed || []).map(toDash)),
-        affected: new Set((res.affected || []).map(toDash)),
-      };
-      showNodeDetail(dashboardId);
-      paintBlast();
+      blastResult = { changed: new Set((res.changed || []).map(toDash)), affected: new Set((res.affected || []).map(toDash)) };
+      showNodeDetail(dashboardId); paintBlast();
     }
+    function paintBlast() { if (!cy || !blastResult) return; cy.batch(() => cy.nodes('[!isGroup]').forEach(n => { n.removeClass('blast-changed blast-affected blast-faded'); const id = n.id(); if (blastResult.changed.has(id)) n.addClass('blast-changed'); else if (blastResult.affected.has(id)) n.addClass('blast-affected'); else n.addClass('blast-faded'); })); }
+    function clearBlast() { blastResult = null; if (cy) cy.nodes().removeClass('blast-changed blast-affected blast-faded'); }
 
-    function paintBlast() {
-      if (!cy || !blastResult) return;
-      cy.batch(() => {
-        cy.nodes().forEach(n => {
-          n.removeClass('blast-changed blast-affected blast-faded');
-          const id = n.id();
-          if (blastResult.changed.has(id)) n.addClass('blast-changed');
-          else if (blastResult.affected.has(id)) n.addClass('blast-affected');
-          else n.addClass('blast-faded');
-        });
-      });
-    }
-
-    function clearBlast() {
-      blastResult = null;
-      if (cy) cy.nodes().removeClass('blast-changed blast-affected blast-faded');
-    }
-
-    // ── P2-5 Pathfinder ───────────────────────────────────────────────────
+    // ───────────────────────── pathfinder ─────────────────────────
     async function runPathfinder(fromQuery, toQuery) {
-      const resolveId = async (q) => {
-        if (!q) return null;
-        const hits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []);
-        if (hits && hits.length) return hits[0].layer ? hits[0].id : hits[0].id; // raw graph id
-        return q; // fall back to raw id literal
-      };
-      const fromId = await resolveId(fromQuery);
-      const toId = await resolveId(toQuery);
-      const status = document.getElementById('path-status');
+      const resolveId = async (q) => { if (!q) return null; const hits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []); return (hits && hits.length) ? hits[0].id : q; };
+      const fromId = await resolveId(fromQuery), toId = await resolveId(toQuery);
+      const status = $('path-status');
       if (!fromId || !toId) { if (status) status.textContent = 'Enter both endpoints.'; return; }
       const res = await fetch(`/api/path?from=${encodeURIComponent(fromId)}&to=${encodeURIComponent(toId)}`).then(r => r.json()).catch(() => null);
       if (!res || !res.found) { pathChain = null; if (cy) cy.elements().removeClass('path-node path-edge'); if (status) status.textContent = 'No path found.'; return; }
       pathChain = res.path.map(id => `code:${id}`);
-      if (status) status.textContent = `Path (${pathChain.length} hops): ${res.path.join(' → ')}`;
+      if (status) status.textContent = `Path (${pathChain.length} hops).`;
       paintPath();
     }
-
-    function paintPath() {
-      if (!cy || !pathChain) return;
-      const set = new Set(pathChain);
-      cy.batch(() => {
-        cy.elements().removeClass('path-node path-edge');
-        cy.nodes().forEach(n => { if (set.has(n.id())) n.addClass('path-node'); });
-        for (let i = 0; i < pathChain.length - 1; i++) {
-          const a = pathChain[i], b = pathChain[i + 1];
-          cy.edges().forEach(e => {
-            const s = e.data('source'), t = e.data('target');
-            if ((s === a && t === b) || (s === b && t === a)) e.addClass('path-edge');
-          });
-        }
-      });
-    }
+    function paintPath() { if (!cy || !pathChain) return; const set = new Set(pathChain); cy.batch(() => { cy.elements().removeClass('path-node path-edge'); cy.nodes().forEach(n => { if (set.has(n.id())) n.addClass('path-node'); }); for (let i = 0; i < pathChain.length - 1; i++) { const a = pathChain[i], b = pathChain[i + 1]; cy.edges().forEach(e => { const s = e.data('source'), t = e.data('target'); if ((s === a && t === b) || (s === b && t === a)) e.addClass('path-edge'); }); } }); }
 
     window.focusNode = (id) => {
       currentFocusNodeId = id;
-      if (fg3d) {
-        const node = fg3d.graphData().nodes.find(n => n.id === id);
-        if (node) {
-          showNodeDetail(id);
-          applyNeighborhoodMode(id);
-          fg3d.cameraPosition({ x: node.x || 0, y: node.y || 0, z: (layerZ[node.layer] ?? 0) + 220 }, node, 700);
-        }
-        return;
-      }
+      if (fg3d) { const n = fg3d.graphData().nodes.find(x => x.id === id); if (n) { showNodeDetail(id); applyNeighborhoodMode(id); fg3d.cameraPosition({ x: n.x || 0, y: n.y || 0, z: (n.z || 0) + 200 }, n, 700); } return; }
       if (!cy) return;
-      const node = cy.getElementById(id);
-      if (node.length) {
-        cy.animate({ center: { eles: node }, zoom: 2 }, { duration: 300 });
-        node.select();
-        showNodeDetail(id);
-        applyNeighborhoodMode(id);
+      let node = cy.getElementById(id);
+      // In Map overview the individual node isn't on screen — drill into its
+      // group first, then center on it.
+      if ((!node || !node.length)) {
+        const raw = allData.nodes.find(x => x.id === id);
+        if (raw && currentViewMode === 'map') {
+          drillInto(groupKeyFor(raw));
+          setTimeout(() => focusNode(id), 240);
+          return;
+        }
       }
+      if (node && node.length) { cy.animate({ center: { eles: node }, zoom: 1.6 }, { duration: 350 }); node.select(); showNodeDetail(id); applyNeighborhoodMode(id); }
     };
 
-    // Plan #16 Step A: intelligence overlays cache (semantic.files.json +
-    // architecture.json). Populated at init; silent null when overlays
-    // absent or invalid (server-side validators reject; client treats as
-    // no-op fallback). Consumed by Step B (layer colors), Step C (semantic
-    // detail panel), and Step D (extended search).
+    // ───────────────────────── intelligence overlays (preserved) ─────────────────────────
     let intelligenceData = null;
-    const intelligenceLayerColorById = new Map();
-    const intelligenceLayerNameById = new Map();
-    const intelligenceFileByPath = new Map();
-
+    const intelligenceLayerColorById = new Map(), intelligenceLayerNameById = new Map(), intelligenceFileByPath = new Map();
     function applyIntelligence(intel) {
-      intelligenceData = intel;
-      intelligenceLayerColorById.clear();
-      intelligenceLayerNameById.clear();
-      intelligenceFileByPath.clear();
-      if (intel?.architecture?.layers) {
-        for (const layer of intel.architecture.layers) {
-          intelligenceLayerColorById.set(layer.id, layer.color);
-          intelligenceLayerNameById.set(layer.id, layer.name);
-        }
-      }
-      if (intel?.semanticFiles?.files) {
-        for (const f of intel.semanticFiles.files) intelligenceFileByPath.set(f.path, f);
-      }
+      intelligenceData = intel; intelligenceLayerColorById.clear(); intelligenceLayerNameById.clear(); intelligenceFileByPath.clear();
+      if (intel?.architecture?.layers) for (const l of intel.architecture.layers) { intelligenceLayerColorById.set(l.id, l.color); intelligenceLayerNameById.set(l.id, l.name); }
+      if (intel?.semanticFiles?.files) for (const f of intel.semanticFiles.files) intelligenceFileByPath.set(f.path, f);
+    }
+    function intelligenceColorFor(nodeData) { if (!intelligenceData?.architecture) return null; if (nodeData?.layer && nodeData.layer !== 'code') return null; const fp = nodeData?.file_path; if (!fp) return null; const asg = intelligenceData.architecture.assignments?.[fp]; if (!asg) return null; return intelligenceLayerColorById.get(asg.layerId) || null; }
+    function intelligenceLayerLabelFor(filePath) { if (!intelligenceData?.architecture) return null; const asg = intelligenceData.architecture.assignments?.[filePath]; if (!asg) return null; const name = intelligenceLayerNameById.get(asg.layerId) || asg.layerId; return { name, layerId: asg.layerId, confidence: asg.confidence, reason: asg.reason }; }
+
+    // ───────────────────────── legend ─────────────────────────
+    function buildLegend() {
+      const el = $('legend');
+      el.innerHTML = `<div class="lg-head" id="lg-head"><span>Legend</span><span id="lg-tog">▾</span></div><div class="lg-body">
+        <div class="lg-title">Node types</div>
+        <div class="item"><div class="swatch dot" style="background:#58a6ff"></div> Function / Method</div>
+        <div class="item"><div class="swatch dot" style="background:#f0883e"></div> Class / Type</div>
+        <div class="item"><div class="swatch dot" style="background:#3fb950"></div> File / Module / Doc</div>
+        <div class="item"><div class="swatch dot" style="background:#d29922"></div> External</div>
+        <div class="item"><div class="swatch dot" style="background:#bc8cff;clip-path:polygon(50% 0,0 100%,100% 100%)"></div> ShaderBinding</div>
+        <div class="item"><div class="swatch" style="background:#58a6ff;border-radius:4px"></div> Feature &nbsp;<div class="swatch" style="background:#d29922;transform:rotate(45deg);margin-left:4px"></div> Task</div>
+        <div class="lg-title">Edges</div>
+        <div class="item"><div class="line" style="border-color:#3fb950"></div> Call — LSP-verified (solid)</div>
+        <div class="item"><div class="line" style="border-color:#8b949e;border-top-style:dashed"></div> Call — heuristic (dashed)</div>
+        <div class="item"><div class="line" style="border-color:#58a6ff;border-top-style:dashed"></div> Curated cross-layer</div>
+        <div class="item"><div class="line" style="border-color:#7ee787;border-top-style:dotted"></div> Inferred cross-layer</div>
+        <div class="lg-title">Map</div>
+        <div class="item"><div class="swatch" style="background:#1f6feb;border-radius:4px;opacity:.6"></div> Group box — dbl-click to expand</div>
+        <div class="item"><div class="swatch dot" style="background:#da3633"></div> Blast: changed &nbsp;<div class="swatch dot" style="background:#d29922;margin-left:4px"></div> affected</div>
+      </div>`;
+      $('lg-head').addEventListener('click', () => { el.classList.toggle('collapsed'); $('lg-tog').textContent = el.classList.contains('collapsed') ? '▸' : '▾'; });
     }
 
-    function intelligenceColorFor(nodeData) {
-      // Only color code-layer nodes by architecture; leave overlay layers
-      // (feature/task/doc) and edge nodes to existing palette.
-      if (!intelligenceData?.architecture) return null;
-      if (nodeData?.layer && nodeData.layer !== 'code') return null;
-      const fp = nodeData?.file_path;
-      if (!fp) return null;
-      const asg = intelligenceData.architecture.assignments?.[fp];
-      if (!asg) return null;
-      return intelligenceLayerColorById.get(asg.layerId) || null;
+    // ───────────────────────── search dropdown ─────────────────────────
+    let searchTimer = null, searchSel = -1, searchHits = [];
+    function renderSearchResults() {
+      const box = $('search-results');
+      if (!searchHits.length) { box.style.display = 'none'; return; }
+      box.innerHTML = searchHits.map((h, i) => `<div class="sr ${i === searchSel ? 'sel' : ''}" data-i="${i}">${h.label} <div class="sr-sub">${(h.type || h.kind || '').toLowerCase()} ${h.file_path ? '· ' + h.file_path : ''}</div></div>`).join('');
+      box.style.display = 'block';
+      box.querySelectorAll('.sr').forEach(el => el.addEventListener('click', () => pickSearch(+el.dataset.i)));
+    }
+    function pickSearch(i) {
+      const h = searchHits[i]; if (!h) return;
+      $('search-results').style.display = 'none';
+      $('search').value = h.label;
+      const id = (h.layer && String(h.id).includes(':')) ? h.id : `code:${h.id}`;
+      focusNode(id);
     }
 
-    function intelligenceLayerLabelFor(filePath) {
-      if (!intelligenceData?.architecture) return null;
-      const asg = intelligenceData.architecture.assignments?.[filePath];
-      if (!asg) return null;
-      const name = intelligenceLayerNameById.get(asg.layerId) || asg.layerId;
-      return { name, layerId: asg.layerId, confidence: asg.confidence, reason: asg.reason };
+    // ───────────────────────── canvas tools ─────────────────────────
+    function wireCanvasTools() {
+      $('t-fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 40); else if (fg3d?.zoomToFit) fg3d.zoomToFit(700, 80); });
+      $('t-zin').addEventListener('click', () => { if (cy) cy.zoom({ level: cy.zoom() * 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }); });
+      $('t-zout').addEventListener('click', () => { if (cy) cy.zoom({ level: cy.zoom() / 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }); });
+      $('t-collapse').title = 'Back to Map overview';
+      $('t-collapse').textContent = '⊖';
+      $('t-collapse').addEventListener('click', () => { drilledGroup = null; setView('map'); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'f' && document.activeElement.tagName !== 'INPUT') { if (cy) cy.fit(undefined, 40); } });
     }
 
+    // ───────────────────────── render orchestrator ─────────────────────────
+    function renderGraph(resetFocus = false) {
+      if (resetFocus) currentFocusNodeId = null;
+      loading(true, 'Laying out…');
+      // defer so the spinner paints before the (sync) layout work
+      setTimeout(() => {
+        try { if (is3DMode) render3D(); else render2D(); }
+        finally { loading(false); }
+        // expand/collapse buttons only meaningful inside a drilled Map group
+        const showEC = !is3DMode && currentViewMode === 'map' && drilledGroup;
+        $('t-expand').style.display = 'none';
+        $('t-collapse').style.display = showEC ? 'flex' : 'none';
+      }, 16);
+    }
+
+    // ───────────────────────── init ─────────────────────────
     async function init() {
-      const [graphData, stats, intel, overview, provenance] = await Promise.all([
+      loading(true, 'Fetching graph…');
+      const [graphData, stats, intel, provenance] = await Promise.all([
         fetch('/api/graph-multilayer').then(r => r.json()).catch(() => fetch('/api/graph').then(r => r.json())),
         fetch('/api/stats').then(r => r.json()),
         fetch('/api/intelligence').then(r => r.json()).catch(() => ({ semanticFiles: null, architecture: null, layerSummary: [], warnings: [] })),
-        fetch('/api/overview').then(r => r.json()).catch(() => ({ clusters: [] })),
         fetch('/api/provenance').then(r => r.json()).catch(() => null),
       ]);
       applyIntelligence(intel);
       allData = graphData;
-      overviewData = overview;
-      window.__lastStats = stats;
-      window.__provenance = provenance;
-      document.getElementById('mode-label').textContent = is3DMode ? '3D mode' : '2D mode';
-      document.getElementById('mode-link').href = is3DMode ? '/' : '/3d';
-      document.getElementById('mode-link').textContent = is3DMode ? 'open 2D' : 'open 3D';
+      window.__lastStats = stats; window.__provenance = provenance;
+      if (is3DMode) currentViewMode = 'map';
+      $('mode-label').textContent = is3DMode ? '3D map' : '2D map';
+      $('mode-link').href = is3DMode ? '/' : '/3d';
+      $('mode-link').textContent = is3DMode ? 'open 2D' : 'open 3D';
 
       renderStats(graphData, stats);
-      buildFilters(graphData);
+      buildControls(graphData);
+      buildLegend();
+      wireCanvasTools();
       renderIdleOverview(stats);
 
-      document.getElementById('sidebar-toggle').addEventListener('click', () => setSidebarCollapsed(true));
-      document.getElementById('sidebar-reopen').addEventListener('click', () => setSidebarCollapsed(false));
+      $('sidebar-toggle').addEventListener('click', () => setSidebarCollapsed(true));
+      $('sidebar-reopen').addEventListener('click', () => setSidebarCollapsed(false));
 
-      document.getElementById('search').addEventListener('input', async (e) => {
+      const searchEl = $('search');
+      searchEl.addEventListener('input', (e) => {
         const q = e.target.value.trim();
-        if (q.length < 2) return;
-        // Plan #16 Step D: search across node labels AND semantic
-        // summaries/tags from the intelligence overlay. Label hits land
-        // first (most specific); semantic hits are appended as fallback
-        // when no node-label match exists. Pure substring matching;
-        // embedding-based semantic search is a future-work item.
-        const labelHits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json());
-        if (labelHits.length > 0) {
-          const targetId = labelHits[0].layer ? labelHits[0].id : `code:${labelHits[0].id}`;
-          focusNode(targetId);
-          return;
-        }
-        const semHit = searchSemanticOverlay(q);
-        if (semHit) {
-          // Resolve semantic-hit file path → an actual graph node by
-          // file_path match. Prefer the file-kind node when present;
-          // otherwise pick any node whose file_path matches.
-          const candidate = allData.nodes.find(n => n.file_path === semHit.path && (n.kind === 'File' || n.type === 'File'))
-            || allData.nodes.find(n => n.file_path === semHit.path);
-          if (candidate) focusNode(candidate.id);
-        }
+        clearTimeout(searchTimer);
+        if (q.length < 2) { $('search-results').style.display = 'none'; searchHits = []; return; }
+        searchTimer = setTimeout(async () => {
+          searchHits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []);
+          searchSel = -1; renderSearchResults();
+        }, 160);
       });
+      searchEl.addEventListener('keydown', (e) => {
+        if (!searchHits.length) return;
+        if (e.key === 'ArrowDown') { searchSel = Math.min(searchHits.length - 1, searchSel + 1); renderSearchResults(); e.preventDefault(); }
+        else if (e.key === 'ArrowUp') { searchSel = Math.max(0, searchSel - 1); renderSearchResults(); e.preventDefault(); }
+        else if (e.key === 'Enter') { pickSearch(searchSel >= 0 ? searchSel : 0); e.preventDefault(); }
+        else if (e.key === 'Escape') { $('search-results').style.display = 'none'; }
+      });
+      document.addEventListener('click', (e) => { if (!$('search-box').contains(e.target)) $('search-results').style.display = 'none'; });
 
       renderGraph(true);
     }
-
     init();
   </script>
 </body>
