@@ -26,36 +26,38 @@ This is a **sharpening pass over existing machinery** plus the one genuine gap: 
 
 ### Component 1 — Adaptive response sizing (the net-new win)
 
-**Problem.** `graph_packet` (and the source-bundling verbs) clamp to a fixed token budget regardless of repo size. On a small repo that wastes nothing; on a big repo a god-file gets truncated and the agent re-`Read`s it — the exact fallback we want to kill. codegraph's single largest measured win was size-aware budgets with one load-bearing invariant: **the per-item cap must never decrease as the repo grows.**
+**Problem.** A fixed budget regardless of repo size starves big repos: a god-file gets truncated and the agent re-`Read`s it — the exact fallback we want to kill. codegraph's single largest measured win was size-aware budgets with one load-bearing invariant: **the per-item cap must never decrease as the repo grows.**
 
-**Design.** A new shared helper:
+**What already exists (discovered during planning).** `mcp/stdio/query/source-bundle.js` ALREADY implements adaptive, monotonic, repo-size tiers (`getSourceBundleBudget(nodeCount)` → `{perBlockLines, totalLines, maxBlocks}`, `assertMonotonicTiers()`), and `graph_explore` + `graph_trace` already use it. **So those verbs are done.** The isolated gap is **`graph_packet`**, which clamps to a STATIC `budget_tokens: 800` (in `graphPacket(...)` default + `clampToBudget`) and uses STATIC list caps (`packet-budget.js` `DEFAULT_CAPS`) regardless of repo size.
+
+**Design.** A new sibling helper for TOKEN budgets (the source-bundle tiers are LINE budgets — different unit, different verb):
 
 ```
 // mcp/stdio/query/response-budget.js
-export function responseBudget(repoNodeCount) {
-  // returns { totalTokens, perItemTokens, tier }
+export function getPacketTokenBudget(nodeCount) {
+  // returns { name, budgetTokens, caps: { evidence_records, affected_files, read_first, diagnostics, refs_per_symbol } }
 }
+export function assertMonotonicPacketTiers(tiers?) // throws on regression; called at load
 ```
 
-Monotonic tiers (per-item cap never decreases):
+Monotonic token tiers + scaled list caps (every axis non-decreasing as repos grow):
 
-| tier | repo size (graph nodes) | totalTokens | perItemTokens |
-|---|---|---|---|
-| xs | < 800 | 1500 | 500 |
-| s | 800–4,000 | 2800 | 700 |
-| m | 4,000–15,000 | 4500 | 1000 |
-| l | 15,000–40,000 | 7000 | 1400 |
-| xl | > 40,000 | 10000 | 1800 |
+| tier | repo size (graph nodes) | budgetTokens | evidence_records | affected_files | read_first | diagnostics | refs_per_symbol |
+|---|---|---|---|---|---|---|---|
+| tiny | < 800 | 1500 | 12 | 12 | 10 | 10 | 8 |
+| small | 800–4,000 | 2800 | 16 | 16 | 12 | 12 | 8 |
+| medium | 4,000–15,000 | 4500 | 20 | 20 | 14 | 14 | 10 |
+| large | 15,000–40,000 | 7000 | 26 | 26 | 18 | 16 | 12 |
+| huge | > 40,000 | 10000 | 32 | 32 | 22 | 18 | 14 |
 
-- `repoNodeCount` comes from the existing graph stats (`SELECT count(*) FROM nodes`), already cheap and cached per request path.
-- **Override precedence:** explicit `budget` arg > `APG_PACKET_BUDGET` / `APG_EXPLORE_BUDGET` / `APG_PULL_BUDGET` env > adaptive tier. The adaptive value becomes the **default** where a static constant is today.
-- Wire-in points:
-  - `graph_packet`: replace the static `budget_tokens: 800` default with `responseBudget(n).totalTokens`; pass `perItemTokens` into the per-section/per-file caps so a single god-file can use up to `perItemTokens`.
-  - `graph_explore`: the multi-symbol source bundler uses `totalTokens` for the bundle and `perItemTokens` as the per-symbol/per-file cap.
-  - `graph_pull`: same `totalTokens` default for its rendered budget.
-- The numbers are a **starting point, explicitly tunable** (constants at the top of the helper). Tuned generous because the games will get large and agent context windows are big.
+- `nodeCount` comes from `manifest.json` `nodes` (already read by `packet.js` as `manifest` — **zero extra cost, no db open**).
+- **Override precedence:** explicit `budget` arg > `APG_PACKET_BUDGET` env > adaptive tier. The adaptive value becomes the **default** where the static `800` is today (change the param default from `800` to `null` so an explicit value is distinguishable).
+- Wire-in: `graph_packet` only. The scaled `caps` replace `DEFAULT_CAPS` usage where packet ranks/caps its lists; `budgetTokens` feeds `clampToBudget`.
+- The numbers are a **starting point, explicitly tunable** (constants atop the helper). Tuned generous for large games + large agent context windows.
 
-**Invariant tests** (Component-1 acceptance): `perItemTokens` is non-decreasing across tiers; `totalTokens >= perItemTokens` in every tier; tier boundaries resolve to the expected tier (799→xs, 800→s, 40001→xl).
+**Already-adaptive (no work):** `graph_explore`, `graph_trace` (source-bundle tiers). **Deferred:** `graph_pull` controls token cost via layer selection + per-layer caps rather than one token clamp; adapting it is lower-value and out of scope for this pass.
+
+**Invariant tests** (Component-1 acceptance): every cap axis (incl. `budgetTokens`) is non-decreasing across tiers; tier boundaries resolve to the expected tier (799→tiny, 800→small, 40001→huge); `assertMonotonicPacketTiers()` throws on a deliberately-regressed tier table.
 
 ### Component 2 — Front-door tightening (`server-instructions.js`)
 
