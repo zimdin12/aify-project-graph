@@ -18,7 +18,8 @@ with --toolset=full to list the whole API.
 
 ORIENT FIRST (cheap, often saves 2-5 shell calls):
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
-- graph_packet {target, mode} — one packet of everything about a feature/symbol.
+- graph_packet {target, mode} — the FIRST move. Most "what is X / how does Y work / understand
+  area Z" questions resolve in ONE graph_packet call; prefer it over chaining graph_search + a node verb.
 - graph_onboard — guided tour for a repo you have not seen (callable; not in the default list).
 
 TOOL SELECTION BY INTENT:
@@ -43,4 +44,12 @@ ANTI-PATTERNS (avoid):
 - The first cold graph_collect_code_intel returns partial (index warming) — call it again to complete.
 
 OUTPUT CONTRACTS:
-- Structured verbs (graph_consequences, graph_pull, graph_find, graph_explain_diff, code_intel_*) return JSON; narrative verbs (graph_callers/callees/trace/explore/digest, graph_packet, …) return markdown. Parse JSON shapes by field; read markdown shapes as text — do not assume one shape for all verbs.`;
+- Structured verbs (graph_consequences, graph_pull, graph_find, graph_explain_diff, code_intel_*) return JSON; narrative verbs (graph_callers/callees/trace/explore/digest, graph_packet, …) return markdown. Parse JSON shapes by field; read markdown shapes as text — do not assume one shape for all verbs.
+
+KNOWN LIMITS (don't burn calls on these — read the code instead):
+- C++-first; JS/TS resolution is best-effort, other languages structural-only.
+- The static graph does NOT synthesize dynamic dispatch: function-pointer / std::function / script
+  (Lua) callbacks, and registry/DI indirection. Verify those by reading.
+- Cross-language links beyond the C++↔GLSL shader bridge (graph_shader) are not resolved.
+- An absence claim ("no callers / dead code") is only trustworthy when the evidence banner says
+  exhaustive (see TRUST RULES). Otherwise verify before deleting.`;
