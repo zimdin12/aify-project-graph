@@ -50,10 +50,16 @@ function esTokens(s) { return Math.ceil((s || '').length / CHAR_PER_TOKEN_EST); 
 // starves big repos: a god-file gets truncated and the agent re-Reads it.
 export function resolvePacketBudget({ explicit, env, nodeCount }) {
   const tier = getPacketTokenBudget(nodeCount);
-  const envNum = env != null && env !== '' && Number.isFinite(Number(env)) ? Number(env) : null;
-  const budgetTokens = (explicit != null && Number.isFinite(Number(explicit)))
-    ? Number(explicit)
-    : (envNum ?? tier.budgetTokens);
+  // Accept only positive finite numbers; trim env so a stray ' ' (which
+  // Number() coerces to 0) doesn't silently gut every packet.
+  const asPositive = (v) => {
+    if (v == null) return null;
+    const s = String(v).trim();
+    if (s === '') return null;
+    const n = Number(s);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const budgetTokens = asPositive(explicit) ?? asPositive(env) ?? tier.budgetTokens;
   return { budgetTokens, caps: tier.caps };
 }
 

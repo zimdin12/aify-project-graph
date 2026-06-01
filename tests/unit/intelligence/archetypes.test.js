@@ -28,6 +28,19 @@ describe('classifyArchetype', () => {
     const r = classifyArchetype([]);
     expect(r.confidence).toBe('low');
   });
+  it('does not over-match generic substrings (bug-hunt round 1 regressions)', () => {
+    // 'log' must NOT match 'dialog'/'catalog'; 'time' must NOT match 'runtime';
+    // 'test' must NOT match 'latest'; 'core' must NOT match 'scoreboard'; 'main'
+    // must NOT match 'domain' — these wrongly classified as Core/Engine or Tests.
+    expect(classifyArchetype([{ label: 'mapDialog', file_path: 'src/dialog/dialog_mapper.cpp' }]).id).not.toBe('core');
+    expect(classifyArchetype([{ label: 'getLatestState', file_path: 'src/contest/latest.cpp' }]).id).not.toBe('tests');
+    expect(classifyArchetype([{ label: 'tickRuntime', file_path: 'src/runtime/scoreboard.cpp' }]).id).not.toBe('core');
+    expect(classifyArchetype([{ label: 'resolveDomain', file_path: 'src/domain/remaining.cpp' }]).id).not.toBe('core');
+  });
+  it('still matches real word-boundary signals (render→rendering)', () => {
+    expect(classifyArchetype([{ label: 'rendering', file_path: 'engine/renderer/pipeline.cpp' }]).id).toBe('rendering');
+  });
+
   it('exposes a non-empty archetype table', () => {
     expect(ARCHETYPES.length).toBeGreaterThan(10);
     for (const a of ARCHETYPES) { expect(a.id).toBeTruthy(); expect(a.name).toBeTruthy(); expect(Array.isArray(a.keywords)).toBe(true); }

@@ -447,13 +447,14 @@
       el.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { setView(b.dataset.view); }));
       el.querySelectorAll('[data-group]').forEach(b => b.addEventListener('click', () => {
         groupMode = b.dataset.group;
+        drilledGroup = null; // key space changed — a drilled key from the old mode won't match (would empty the graph)
         el.querySelectorAll('[data-group]').forEach(o => o.classList.toggle('active', o.dataset.group === groupMode));
         $('depth-row').style.display = groupMode === 'dir' ? 'flex' : 'none';
         if (currentViewMode === 'map' || currentViewMode === 'force') renderGraph(false);
       }));
       const depthEl = $('group-depth');
       if (depthEl) depthEl.addEventListener('input', (e) => { groupDepth = +e.target.value; $('depth-val').textContent = groupDepth; });
-      if (depthEl) depthEl.addEventListener('change', () => { if (currentViewMode === 'map') renderGraph(false); });
+      if (depthEl) depthEl.addEventListener('change', () => { if (groupMode === 'dir' && currentViewMode === 'map') { drilledGroup = null; renderGraph(false); } });
       el.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('click', () => { toggleSet(activeLayers, b.dataset.layer); b.classList.toggle('active', activeLayers.has(b.dataset.layer)); renderGraph(false); }));
       el.querySelectorAll('[data-edge-class]').forEach(b => b.addEventListener('click', () => { toggleSet(activeEdgeClasses, b.dataset.edgeClass); b.classList.toggle('active', activeEdgeClasses.has(b.dataset.edgeClass)); renderGraph(false); }));
       el.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => { toggleSet(activeTypes, b.dataset.type); b.classList.toggle('active', activeTypes.has(b.dataset.type)); renderGraph(false); }));
@@ -534,7 +535,12 @@
       const keys = [...groups.keys()].sort();
       const pal = new Map(keys.map((k, i) => [k, GROUP_PALETTE[i % GROUP_PALETTE.length]]));
       const maxC = Math.max(1, ...keys.map(k => groups.get(k).count));
-      // aggregate cross-group edges → one weighted edge per ordered group pair
+      // aggregate cross-group edges → one weighted edge per ordered group pair.
+      // NOTE: the map key joins the two group keys with a U+0001 (SOH) control
+      // char — a separator that can never appear in a dir/community/archetype key
+      // (those contain '/', ':', '.', spaces). split() on the same char recovers
+      // the endpoints. It renders invisibly in editors — it is NOT an empty-string
+      // join; the byte is intentional.
       const agg = new Map();
       for (const e of edges) {
         const s = e.source ?? `code:${e.from_id}`, t = e.target ?? `code:${e.to_id}`;
@@ -709,7 +715,7 @@
       const nodeObjs = nodes.map(n => {
         const gk = groupKeyFor(n);
         const c = centroids.get(gk);
-        return { ...nodeDataEl(n).data, __group: gk, __gc: c, __color: groupMode === 'community' && useCluster ? palIdx.get(gk) : colorFor(n),
+        return { ...nodeDataEl(n).data, __group: gk, __gc: c, __color: (groupMode === 'community' || groupMode === 'archetype') && useCluster ? palIdx.get(gk) : colorFor(n),
           x: c ? c.x + (Math.random() - 0.5) * 120 : 0, y: c ? c.y + (Math.random() - 0.5) * 120 : 0, z: (c ? c.z : 0) + (Math.random() - 0.5) * 80 };
       });
       const links = edges.map((e, i) => isMultilayer ? { source: e.source, target: e.target, relation: e.relation, edge_class: e.edge_class, provenance: e.provenance, code_provenance: e.code_provenance } : { source: e.from_id, target: e.to_id, relation: e.relation });
@@ -782,7 +788,7 @@
     }
     function paintPath() { if (!cy || !pathChain) return; const set = new Set(pathChain); cy.batch(() => { cy.elements().removeClass('path-node path-edge'); cy.nodes().forEach(n => { if (set.has(n.id())) n.addClass('path-node'); }); for (let i = 0; i < pathChain.length - 1; i++) { const a = pathChain[i], b = pathChain[i + 1]; cy.edges().forEach(e => { const s = e.data('source'), t = e.data('target'); if ((s === a && t === b) || (s === b && t === a)) e.addClass('path-edge'); }); } }); }
 
-    window.focusNode = (id) => {
+    window.focusNode = (id, _retried = false) => {
       currentFocusNodeId = id;
       if (fg3d) { const n = fg3d.graphData().nodes.find(x => x.id === id); if (n) { showNodeDetail(id); applyNeighborhoodMode(id); fg3d.cameraPosition({ x: n.x || 0, y: n.y || 0, z: (n.z || 0) + 200 }, n, 700); } return; }
       if (!cy) return;
@@ -791,9 +797,11 @@
       // group first, then center on it.
       if ((!node || !node.length)) {
         const raw = allData.nodes.find(x => x.id === id);
-        if (raw && currentViewMode === 'map') {
+        // one-shot retry only — if the node is still absent after drilling (e.g.
+        // filtered out by a type/layer toggle), stop instead of looping forever.
+        if (raw && currentViewMode === 'map' && !_retried) {
           drillInto(groupKeyFor(raw));
-          setTimeout(() => focusNode(id), 240);
+          setTimeout(() => focusNode(id, true), 240);
           return;
         }
       }
@@ -882,7 +890,7 @@
       loading(true, 'Fetching graph…');
       const [graphData, stats, intel, provenance, archetypes] = await Promise.all([
         fetch('/api/graph-multilayer').then(r => r.json()).catch(() => fetch('/api/graph').then(r => r.json())),
-        fetch('/api/stats').then(r => r.json()),
+        fetch('/api/stats').then(r => r.json()).catch(() => ({ nodeCount: 0, edgeCount: 0, types: [], relations: [] })),
         fetch('/api/intelligence').then(r => r.json()).catch(() => ({ semanticFiles: null, architecture: null, layerSummary: [], warnings: [] })),
         fetch('/api/provenance').then(r => r.json()).catch(() => null),
         fetch('/api/archetypes').then(r => r.json()).catch(() => ({ archetypes: {} })),

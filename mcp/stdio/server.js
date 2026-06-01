@@ -102,7 +102,7 @@ const TOOLS = [
       properties: {
         target: { type: 'string', description: 'feature:<id> | task:<id> | bare id | bare symbol (not required for mode=verify)' },
         mode: { type: 'string', enum: ['orient', 'plan', 'debug', 'review', 'audit', 'verify'], default: 'orient', description: 'Workflow mode. Shapes section caps and risk hints without changing the underlying graph truth. verify = post-edit decision packet (changed files, diagnostics, freshness, SOURCE_REQUIRED).' },
-        budget: { type: 'integer', default: 800, description: 'Token budget for the rendered packet (section caps + final clamp).' },
+        budget: { type: 'integer', description: 'Token budget for the rendered packet. Omit for a repo-size-adaptive default (bigger repos → bigger budget); set to override.' },
         live: { type: 'boolean', default: false, description: 'Opt into live enrichment block (slower; lands fully in M3 with readOnly verb mode).' },
         since: { type: 'string', description: 'verify mode: git ref to diff against for changed files.' },
         files: { type: 'array', items: { type: 'string' }, description: 'verify mode: explicit changed files (repo-relative).' },

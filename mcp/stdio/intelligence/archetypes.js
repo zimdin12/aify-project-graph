@@ -32,8 +32,24 @@ export const ARCHETYPES = [
   { id: 'tests',         name: 'Tests',            keywords: ['test', 'spec', 'fixture', 'mock', 'assert', 'bench', 'rapidcheck', 'catch2', 'gtest'] },
 ];
 
-function pathSegments(filePath) {
-  return String(filePath || '').toLowerCase().split(/[/\\]/).filter(Boolean);
+// Tokenize on non-alphanumeric boundaries. "sim/fields/Gravity.cpp" →
+// ['sim','fields','gravity','cpp']; "apply_gravity" → ['apply','gravity'].
+function tokenize(s) {
+  return String(s || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+// A keyword matches a token at a WORD BOUNDARY, not as a loose substring — this
+// is what stops 'log' matching 'dialog', 'time' matching 'runtime', 'test'
+// matching 'latest', 'core' matching 'scoreboard' (the over-matching the first
+// bug-hunt round found). Short keywords (<4 chars: ai, ui, ecs, gc, vm…) require
+// an EXACT token to avoid 'ai'⊂'air'; longer ones allow a prefix so 'render'
+// still matches 'rendering'/'renderer'.
+function tokenMatches(token, kw) {
+  return token === kw || (kw.length >= 4 && token.startsWith(kw));
+}
+function anyMatch(tokens, kw) {
+  for (const t of tokens) if (tokenMatches(t, kw)) return true;
+  return false;
 }
 
 // samples: [{ label, file_path }] — a cluster's representative members. Returns
@@ -42,14 +58,13 @@ function pathSegments(filePath) {
 export function classifyArchetype(samples = []) {
   const scores = new Map(ARCHETYPES.map((a) => [a.id, 0]));
   for (const s of samples) {
-    const label = String(s?.label || '').toLowerCase();
-    const segs = pathSegments(s?.file_path);
-    const segBlob = segs.join(' ');
+    const labelTokens = tokenize(s?.label);
+    const pathTokens = tokenize(s?.file_path);
     for (const a of ARCHETYPES) {
       let hit = 0;
       for (const kw of a.keywords) {
-        if (segBlob.includes(kw)) hit += 2;       // path hit weighs more
-        else if (label.includes(kw)) hit += 1;    // label hit
+        if (anyMatch(pathTokens, kw)) hit += 2;        // path hit weighs more
+        else if (anyMatch(labelTokens, kw)) hit += 1;  // label hit
       }
       if (hit) scores.set(a.id, scores.get(a.id) + hit);
     }

@@ -12,16 +12,18 @@ export function cosineSimilarity(a, b) {
   let dot = 0; let na = 0; let nb = 0;
   for (let i = 0; i < a.length; i += 1) { dot += a[i] * b[i]; na += a[i] * a[i]; nb += b[i] * b[i]; }
   if (na === 0 || nb === 0) return 0;
-  return dot / (Math.sqrt(na) * Math.sqrt(nb));
+  const sim = dot / (Math.sqrt(na) * Math.sqrt(nb));
+  return Number.isFinite(sim) ? sim : 0; // guard NaN/Inf from non-finite vector entries
 }
 
 // items: [{ id, vec, ... }] → top-k sorted by similarity to queryVec, each with
 // a `similarity` field attached (original fields preserved).
 export function rankBySimilarity(queryVec, items, k = 20) {
+  if (!(k > 0)) return []; // k<=0 (or NaN) → no results, matching lexical limit semantics
   return items
     .map((it) => ({ ...it, similarity: cosineSimilarity(queryVec, it.vec) }))
     .sort((a, b) => b.similarity - a.similarity)
-    .slice(0, Math.max(1, k));
+    .slice(0, k);
 }
 
 // The text we embed for a symbol: identity + location + (overlay enrichment if
@@ -52,8 +54,10 @@ export function embedderFromEnv(env = process.env) {
       });
       if (!res.ok) throw new Error(`embedding endpoint ${res.status}`);
       const json = await res.json();
-      // OpenAI-compatible: { data: [{ embedding: [...] }, ...] }
-      return (json.data || []).map((d) => d.embedding);
+      // OpenAI-compatible: { data: [{ index, embedding: [...] }, ...] }. The API
+      // does NOT guarantee response order — sort by `index` so each vector pairs
+      // with its input text (some providers/proxies reorder).
+      return (json.data || []).slice().sort((x, y) => (x.index ?? 0) - (y.index ?? 0)).map((d) => d.embedding);
     },
   };
 }

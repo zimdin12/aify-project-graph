@@ -28,7 +28,9 @@ function stripAifyBlock(body) {
   const end = `# <<< ${AIFY_HOOK_MARKER} <<<`;
   const out = [];
   let skipping = false;
-  for (const line of body.split('\n')) {
+  // Normalize CRLF→LF so an existing CRLF hook doesn't leave stray \r on lines
+  // (and so the rewritten /bin/sh hook stays pure-LF, which sh requires).
+  for (const line of body.replace(/\r\n/g, '\n').split('\n')) {
     if (line.includes(begin)) { skipping = true; continue; }
     if (line.includes(end)) { skipping = false; continue; }
     if (!skipping) out.push(line);

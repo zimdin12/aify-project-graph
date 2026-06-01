@@ -123,11 +123,11 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
           }
         }
       }
-      // degrade → fall through to lexical, but flag it so we prepend a hint.
-      freshnessWarnings = [
-        'semantic search needs embeddings — run /graph-build-embeddings with APG_EMBED_* configured; showing lexical results',
-        ...freshnessWarnings,
-      ];
+      // degrade → fall through to lexical with an accurate hint about WHY.
+      const hint = (!emb?.vectors?.length || !useEmbedder)
+        ? 'semantic search needs embeddings — run /graph-build-embeddings with APG_EMBED_* configured; showing lexical results'
+        : 'no strong semantic matches; showing lexical results';
+      freshnessWarnings = [hint, ...freshnessWarnings];
     }
 
     // Fast path: exact symbol-style queries should not pay the broad substring scan

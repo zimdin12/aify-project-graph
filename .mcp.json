@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aify-project-graph": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "--max-old-space-size=8192",
+        "${APG_PLUGIN_ROOT:-C:/Docker/aify-project-graph}/mcp/stdio/server.js"
+      ]
+    }
+  }
+}
