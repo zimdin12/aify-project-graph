@@ -40,6 +40,10 @@ describe('classifyArchetype', () => {
   it('still matches real word-boundary signals (render→rendering)', () => {
     expect(classifyArchetype([{ label: 'rendering', file_path: 'engine/renderer/pipeline.cpp' }]).id).toBe('rendering');
   });
+  it('multi-word (underscore) keywords still match after tokenization (round-2 regression)', () => {
+    // 'state_machine' tokenizes to ['state','machine']; both parts present → AI.
+    expect(classifyArchetype([{ label: 'StateMachine', file_path: 'src/ai/state_machine.cpp' }]).id).toBe('ai');
+  });
 
   it('exposes a non-empty archetype table', () => {
     expect(ARCHETYPES.length).toBeGreaterThan(10);

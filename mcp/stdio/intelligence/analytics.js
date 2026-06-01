@@ -143,19 +143,33 @@ export function computeOverview(db, { topSymbols = 5, architecture = null } = {}
   for (const [key, c] of clusters) {
     const top = c._symbols
       .map((s) => ({ ...s, degree: degree.get(s.id) || 0 }))
-      .sort((a, b) => b.degree - a.degree || a.label.localeCompare(b.label))
+      .sort((a, b) => b.degree - a.degree || (a.label || '').localeCompare(b.label || ''))
       .slice(0, topSymbols)
       .map(({ label, type, degree }) => ({ label, type, degree }));
     const edgesTo = (edgesByCluster.get(key) || [])
       .sort((a, b) => b.count - a.count);
-    // Archetype naming (heuristic, always-on). A curated architecture-overlay
-    // layer cluster (key `l:`) keeps its curated name — overlay is truth; we
-    // only UPGRADE a generic community cluster (key `c:`) label to the
-    // archetype name. The archetype field is attached everywhere (additive).
+    // Cluster naming. The archetype field is attached everywhere (additive). For
+    // the LABEL of a generic community cluster (key `c:`): OVERLAY = TRUTH — if a
+    // curated architecture overlay assigns this cluster's members to a dominant
+    // layer, that curated name wins; otherwise fall back to the heuristic
+    // archetype name (when confident). Native layer clusters (`l:`) and directory
+    // clusters (`d:`) keep their own labels untouched.
     const archetype = classifyArchetype(c._symbols.slice(0, 16));
     let label = c.label;
-    if (key.startsWith('c:') && archetype.confidence !== 'low') {
-      label = archetype.name;
+    if (key.startsWith('c:')) {
+      let overlayLayer = null;
+      if (layerByPath.size) {
+        const counts = new Map();
+        for (const s of c._symbols) {
+          const lid = layerByPath.get(String(s.file_path || '').replace(/\\/g, '/'));
+          if (lid) counts.set(lid, (counts.get(lid) || 0) + 1);
+        }
+        let best = null; let bestN = 0;
+        for (const [lid, n] of counts) if (n > bestN) { best = lid; bestN = n; }
+        if (best) overlayLayer = layerName.get(best) || best;
+      }
+      if (overlayLayer) label = overlayLayer;
+      else if (archetype.confidence !== 'low') label = archetype.name;
     }
     out.push({
       cluster: key,

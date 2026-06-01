@@ -358,6 +358,12 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       res.end(JSON.stringify(body));
     };
 
+    // Crash-guard: the dashboard http server runs IN-PROCESS with the MCP stdio
+    // server, and queries on its long-lived db handle can throw (e.g. SQLITE_BUSY
+    // when a concurrent ensureFresh/post-commit reindex commits). An uncaught
+    // async throw here would become an unhandled rejection and could terminate
+    // the whole MCP server — so every route runs inside this try.
+    try {
     // API routes
     if (req.url === '/api/graph') {
       const totalNodes = db.get('SELECT count(*) AS c FROM nodes').c;
@@ -711,6 +717,13 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
         res.writeHead(404);
         res.end('Not found');
       }
+    }
+    } catch (err) {
+      // Never let a route throw take down the process. Respond 500 if we still can.
+      try {
+        if (!res.headersSent) res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.end(`dashboard error: ${err?.message ?? err}`);
+      } catch { /* response already torn down */ }
     }
   });
 

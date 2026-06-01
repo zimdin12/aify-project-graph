@@ -51,6 +51,21 @@ function anyMatch(tokens, kw) {
   for (const t of tokens) if (tokenMatches(t, kw)) return true;
   return false;
 }
+// Score one keyword against a sample's tokens. Multi-word keywords ('state_machine',
+// 'compute_shader') don't survive tokenize() as one token, so require ALL their
+// parts to be present (path hit=2, label hit=1). Without this, every
+// underscore-keyword would be silently dead (regression caught in bug-hunt round 2).
+function keywordScore(kw, pathTokens, labelTokens) {
+  if (kw.includes('_')) {
+    const parts = kw.split('_').filter(Boolean);
+    if (parts.every((p) => anyMatch(pathTokens, p))) return 2;
+    if (parts.every((p) => anyMatch(labelTokens, p))) return 1;
+    return 0;
+  }
+  if (anyMatch(pathTokens, kw)) return 2;
+  if (anyMatch(labelTokens, kw)) return 1;
+  return 0;
+}
 
 // samples: [{ label, file_path }] — a cluster's representative members. Returns
 // { id, name, score, confidence }. confidence: high (strong + clear winner),
@@ -62,10 +77,7 @@ export function classifyArchetype(samples = []) {
     const pathTokens = tokenize(s?.file_path);
     for (const a of ARCHETYPES) {
       let hit = 0;
-      for (const kw of a.keywords) {
-        if (anyMatch(pathTokens, kw)) hit += 2;        // path hit weighs more
-        else if (anyMatch(labelTokens, kw)) hit += 1;  // label hit
-      }
+      for (const kw of a.keywords) hit += keywordScore(kw, pathTokens, labelTokens);
       if (hit) scores.set(a.id, scores.get(a.id) + hit);
     }
   }

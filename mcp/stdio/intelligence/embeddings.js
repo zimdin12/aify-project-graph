@@ -4,7 +4,7 @@
 // cloud provider); when unconfigured, callers degrade gracefully to lexical
 // search. The embedder is INJECTABLE so tests use a deterministic fake — no
 // network in CI.
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export function cosineSimilarity(a, b) {
@@ -68,10 +68,21 @@ export function embeddingsPath(repoRoot) {
   return join(repoRoot, '.aify-graph', EMBEDDINGS_FILE);
 }
 
+// Memoize the parsed sidecar by (path, mtime) so repeated semantic queries don't
+// re-read + re-parse a multi-MB vector file every call. Invalidates automatically
+// when the file is rebuilt (mtime changes).
+const _embCache = new Map(); // path → { mtimeMs, data }
 export function loadEmbeddings(repoRoot) {
   const p = embeddingsPath(repoRoot);
   if (!existsSync(p)) return null;
-  try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return null; }
+  try {
+    const mtimeMs = statSync(p).mtimeMs;
+    const hit = _embCache.get(p);
+    if (hit && hit.mtimeMs === mtimeMs) return hit.data;
+    const data = JSON.parse(readFileSync(p, 'utf8'));
+    _embCache.set(p, { mtimeMs, data });
+    return data;
+  } catch { return null; }
 }
 
 // Build embeddings for first-party symbols and write the sidecar. `embedder`
