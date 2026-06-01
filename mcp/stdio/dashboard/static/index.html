@@ -206,6 +206,7 @@
 
     let cy = null, fg3d = null, ecApi = null;
     let allData = null;
+    let archetypeMap = {}; // community_id → { name, id, confidence } (archetype naming)
     let currentFocusNodeId = null;
     let blastMode = false, blastResult = null;
     let pathChain = null;
@@ -264,8 +265,20 @@
       if (layer !== 'code') return `__${layer}`;
       return node.community_id == null ? '(uncommunitied)' : `c${node.community_id}`;
     }
+    // Archetype grouping MERGES all communities of the same purpose into one box
+    // ("Physics", "Rendering", "Tests"…) — ~15 legible boxes instead of hundreds
+    // of raw communities. The semantic front door.
+    function archetypeGroupKey(node) {
+      const layer = node.layer || 'code';
+      if (layer !== 'code') return `__${layer}`;
+      const a = node.community_id != null ? archetypeMap[node.community_id] : null;
+      if (a && a.confidence !== 'low' && a.name && a.name !== 'Mixed') return `a:${a.name}`;
+      return 'a:Mixed / other';
+    }
     function groupKeyFor(node) {
-      return groupMode === 'community' ? communityGroupKey(node) : dirGroupKey(node, groupDepth);
+      if (groupMode === 'community') return communityGroupKey(node);
+      if (groupMode === 'archetype') return archetypeGroupKey(node);
+      return dirGroupKey(node, groupDepth);
     }
     function groupTitle(key, members) {
       if (key === '__feature') return 'Features';
@@ -273,12 +286,22 @@
       if (key === '__doc') return 'Docs';
       if (key === '(external)') return 'External libs';
       if (key === '(root)') return '(root)';
+      if (groupMode === 'archetype') {
+        return key.startsWith('a:') ? key.slice(2) : key;
+      }
       if (groupMode === 'community') {
-        // derive a meaningful title from the dominant directory of members
+        // Prefer the archetype name ("Physics", "Rendering") from the shared
+        // classifier; fall back to the dominant directory of members.
+        const cid = key.startsWith('c') ? key.slice(1) : key;
+        const arch = archetypeMap[cid];
         const dirs = {};
         for (const m of members) { const d = dirGroupKey(m, 2); dirs[d] = (dirs[d] || 0) + 1; }
         const top = Object.entries(dirs).sort((a, b) => b[1] - a[1])[0];
-        return top && top[0] !== '(root)' ? `${top[0]} ·${key}` : `cluster ${key}`;
+        const dirLabel = top && top[0] !== '(root)' ? top[0] : null;
+        if (arch && arch.confidence !== 'low' && arch.name && arch.name !== 'Mixed') {
+          return dirLabel ? `${arch.name} · ${dirLabel}` : arch.name;
+        }
+        return dirLabel ? `${dirLabel} ·${key}` : `cluster ${key}`;
       }
       return key;
     }
@@ -390,6 +413,7 @@
       // grouping controls (only meaningful for Map)
       html += `<div class="ctl-group" id="group-ctls"><div class="section-title">Grouping</div><div class="pill-row">
           <button class="toggle-pill ${groupMode === 'dir' ? 'active' : ''}" data-group="dir" type="button">by directory</button>
+          <button class="toggle-pill ${groupMode === 'archetype' ? 'active' : ''}" data-group="archetype" type="button">by archetype</button>
           <button class="toggle-pill ${groupMode === 'community' ? 'active' : ''}" data-group="community" type="button">by community</button>
         </div>
         <div class="slider-row" id="depth-row"><span>depth</span><input type="range" id="group-depth" min="1" max="4" step="1" value="${groupDepth}"><span id="depth-val">${groupDepth}</span></div>
@@ -856,12 +880,14 @@
     // ───────────────────────── init ─────────────────────────
     async function init() {
       loading(true, 'Fetching graph…');
-      const [graphData, stats, intel, provenance] = await Promise.all([
+      const [graphData, stats, intel, provenance, archetypes] = await Promise.all([
         fetch('/api/graph-multilayer').then(r => r.json()).catch(() => fetch('/api/graph').then(r => r.json())),
         fetch('/api/stats').then(r => r.json()),
         fetch('/api/intelligence').then(r => r.json()).catch(() => ({ semanticFiles: null, architecture: null, layerSummary: [], warnings: [] })),
         fetch('/api/provenance').then(r => r.json()).catch(() => null),
+        fetch('/api/archetypes').then(r => r.json()).catch(() => ({ archetypes: {} })),
       ]);
+      archetypeMap = archetypes?.archetypes || {};
       applyIntelligence(intel);
       allData = graphData;
       window.__lastStats = stats; window.__provenance = provenance;

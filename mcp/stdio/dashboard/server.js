@@ -316,6 +316,15 @@ const MIME = {
 export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
   const nodeColumns = new Set(db.all('PRAGMA table_info(nodes)').map((row) => row.name));
   const hasCommunityId = nodeColumns.has('community_id');
+  // community_id lives in the `extra` JSON (analysis/communities.js), not a
+  // column — read it from there so the "by community" grouping + archetype
+  // names actually work (previously every node fell into one "(uncommunitied)"
+  // box because we read a nonexistent column).
+  const communityIdOf = (n) => {
+    if (n.community_id != null) return n.community_id;
+    if (n.extra) { try { const v = JSON.parse(n.extra)?.community_id; if (v != null) return v; } catch {} }
+    return null;
+  };
   // Normalize a code-graph node to the unified dashboard shape.
   const normalizeCodeNode = (n) => ({
     id: `code:${n.id}`,
@@ -326,7 +335,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
     start_line: n.start_line,
     language: n.language,
     confidence: n.confidence,
-    community_id: n.community_id,
+    community_id: communityIdOf(n),
   });
   // Normalize a code edge to the unified edge shape.
   const normalizeCodeEdge = (e) => ({
@@ -375,7 +384,7 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       const totalNodes = db.get('SELECT count(*) AS c FROM nodes').c;
       const totalEdges = db.get('SELECT count(*) AS c FROM edges').c;
       const codeNodes = db.all(
-        `SELECT id, type, label, file_path, start_line, language, confidence${hasCommunityId ? ', community_id' : ''}
+        `SELECT id, type, label, file_path, start_line, language, confidence, extra${hasCommunityId ? ', community_id' : ''}
          FROM nodes
          ORDER BY ${hasCommunityId ? 'COALESCE(community_id, 2147483647),' : ''} type, id
          LIMIT ${DASHBOARD_NODE_LIMIT}`).map(normalizeCodeNode);
@@ -526,6 +535,23 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
           total_nodes: db.get('SELECT count(*) AS c FROM nodes').c,
         },
       });
+      return;
+    }
+
+    // Archetype map: community_id → { name, id, confidence } from the heuristic
+    // archetype classifier (shared analytics). Lets the dashboard's "by
+    // community" Map label groups by PURPOSE ("Physics", "Rendering") instead of
+    // "cluster N". Uncapped (unlike /api/overview) so every community resolves.
+    if (req.url === '/api/archetypes') {
+      const architecture = loadArchitecture();
+      const clusters = computeOverview(db, { topSymbols: 6, architecture });
+      const map = {};
+      for (const c of clusters) {
+        if (!c.cluster.startsWith('c:')) continue;
+        const cid = c.cluster.slice(2);
+        map[cid] = { name: c.archetype?.name || c.label, id: c.archetype?.id || null, confidence: c.archetype?.confidence || 'low' };
+      }
+      writeJson({ archetypes: map });
       return;
     }
 
