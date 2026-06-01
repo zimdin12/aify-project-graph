@@ -52,4 +52,9 @@ KNOWN LIMITS (don't burn calls on these — read the code instead):
   (Lua) callbacks, and registry/DI indirection. Verify those by reading.
 - Cross-language links beyond the C++↔GLSL shader bridge (graph_shader) are not resolved.
 - An absence claim ("no callers / dead code") is only trustworthy when the evidence banner says
-  exhaustive (see TRUST RULES). Otherwise verify before deleting.`;
+  exhaustive (see TRUST RULES). Otherwise verify before deleting.
+
+FRESHNESS:
+- If a response says "graph stale", run graph_index first (or set APG_AUTO_REINDEX=1 for auto-refresh).
+- A stale "not found" is NOT proof a symbol is gone — re-run after indexing. The graph self-heals on
+  read when APG_AUTO_REINDEX is set; otherwise refresh manually with graph_index.`;
