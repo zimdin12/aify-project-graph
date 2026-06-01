@@ -178,8 +178,10 @@ describe('server toolset selection', () => {
     expect(names).not.toContain('code_intel_replay');
     expect(names).not.toContain('code_intel_analyze');
 
-    // The trimmed listed set is exactly 30 verbs (41 registered − 11 hidden).
-    expect(names.length).toBe(30);
+    // The trimmed listed set is 31 verbs (42 registered − 11 hidden);
+    // graph_tour (2026-06-01) is full-listed like graph_onboard.
+    expect(names.length).toBe(31);
+    expect(names).toContain('graph_tour');
   });
 
   it('keeps R2-hidden verbs callable by name in the full profile', async () => {

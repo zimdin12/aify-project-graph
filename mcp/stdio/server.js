@@ -28,6 +28,7 @@ import { graphShader } from './query/verbs/shader.js';
 import { graphPreflight } from './query/verbs/preflight.js';
 import { graphChangePlan } from './query/verbs/change_plan.js';
 import { graphOnboard } from './query/verbs/onboard.js';
+import { graphTour } from './query/verbs/tour.js';
 import { graphPull } from './query/verbs/pull.js';
 import { graphFind } from './query/verbs/find.js';
 import { graphPacket } from './query/verbs/packet.js';
@@ -468,6 +469,18 @@ const TOOLS = [
       properties: {
         path: { type: 'string', default: '.', description: 'Repo-relative path.' },
         top_k: { type: 'integer', default: 6, description: 'Max items per section.' },
+      },
+    },
+  },
+  {
+    name: 'graph_tour',
+    handler: graphTour,
+    description: 'Ordered "explore this codebase in N steps" tour: entrypoints → archetype regions (Physics/Rendering/…) → hotspots → cross-subsystem flows. Read top-to-bottom, then drill with graph_packet. focus narrows to one subsystem.',
+    schema: {
+      type: 'object',
+      properties: {
+        steps: { type: 'integer', default: 8, description: 'Max number of tour steps.' },
+        focus: { type: 'string', description: 'Narrow the tour to one archetype/subsystem (e.g. "physics", "rendering").' },
       },
     },
   },

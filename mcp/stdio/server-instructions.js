@@ -20,7 +20,8 @@ ORIENT FIRST (cheap, often saves 2-5 shell calls):
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
 - graph_packet {target, mode} — the FIRST move. Most "what is X / how does Y work / understand
   area Z" questions resolve in ONE graph_packet call; prefer it over chaining graph_search + a node verb.
-- graph_onboard — guided tour for a repo you have not seen (callable; not in the default list).
+- graph_onboard — orientation brief for a repo you have not seen (callable; not in the default list).
+- graph_tour {steps, focus} — an ORDERED "explore in N steps" walk (entrypoints → named subsystems → hotspots). Best first read on an unfamiliar repo; callable, not listed.
 
 TOOL SELECTION BY INTENT:
 - who calls X / is it safe to delete → code_intel_references or graph_callers (read the evidence banner).
