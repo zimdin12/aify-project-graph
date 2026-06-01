@@ -4,6 +4,7 @@ import { renderCompact } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { isGeneratedPath } from '../generated.js';
+import { loadEmbeddings, embedderFromEnv, rankBySimilarity } from '../../intelligence/embeddings.js';
 
 // P1-5 — generated codegen stubs sort LAST among otherwise-equal candidates.
 // Subtracted AFTER the type/match scoring so a hand-written node always wins a
@@ -77,7 +78,7 @@ function buildSearchFilters({ type, file, kind }) {
   return { clauses, params };
 }
 
-export async function graphSearch({ repoRoot, query, type, file, kind = 'code', limit = 20, fresh = false }) {
+export async function graphSearch({ repoRoot, query, type, file, kind = 'code', limit = 20, fresh = false, mode = 'lexical', embedder = undefined }) {
   if (!query || query.trim().length === 0) {
     return 'QUERY_TOO_SHORT — provide at least 1 character';
   }
@@ -97,6 +98,37 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
   try {
     const cappedLimit = Math.min(limit, 100);
     const { clauses: baseClauses, params: baseParams } = buildSearchFilters({ type, file, kind });
+
+    // ── Semantic mode (opt-in, pluggable embeddings) ──────────────────────────
+    // Find code by MEANING via a precomputed embeddings sidecar + a query
+    // embedding. Graceful degrade: no sidecar OR no embedder → lexical + a hint.
+    if (mode === 'semantic') {
+      const emb = loadEmbeddings(repoRoot);
+      const useEmbedder = embedder ?? embedderFromEnv();
+      if (emb?.vectors?.length && useEmbedder) {
+        let qvec = null;
+        try { [qvec] = await useEmbedder.embedTexts([normalizedQuery]); } catch { qvec = null; }
+        if (Array.isArray(qvec)) {
+          const ranked = rankBySimilarity(qvec, emb.vectors, cappedLimit).filter((r) => r.similarity > 0);
+          if (ranked.length) {
+            const ids = ranked.map((r) => r.id);
+            const rows = db.all(
+              `SELECT * FROM nodes WHERE id IN (${ids.map((_, i) => `$i${i}`).join(',')})`,
+              Object.fromEntries(ids.map((id, i) => [`i${i}`, id])),
+            );
+            const byId = new Map(rows.map((r) => [r.id, r]));
+            const ordered = ranked.map((r) => byId.get(r.id)).filter(Boolean);
+            const rendered = annotateGenerated(renderCompact({ nodes: ordered, edges: [] }), ordered);
+            return prefixReadWarnings(`SEMANTIC SEARCH for "${normalizedQuery}" (${ordered.length} hits by meaning)\n${rendered}`, freshnessWarnings);
+          }
+        }
+      }
+      // degrade → fall through to lexical, but flag it so we prepend a hint.
+      freshnessWarnings = [
+        'semantic search needs embeddings — run /graph-build-embeddings with APG_EMBED_* configured; showing lexical results',
+        ...freshnessWarnings,
+      ];
+    }
 
     // Fast path: exact symbol-style queries should not pay the broad substring scan
     // when we already have a direct hit.

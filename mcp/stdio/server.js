@@ -379,11 +379,12 @@ const TOOLS = [
   {
     name: 'graph_search',
     handler: graphSearch,
-    description: 'Partial-name symbol search with optional type and file filters. Prefer graph_whereis for exact names.',
+    description: 'Symbol search. mode="lexical" (default) = partial-name match; mode="semantic" = find code by MEANING (needs an embeddings sidecar — opt-in; degrades to lexical + a hint when absent). Prefer graph_whereis for exact names.',
     schema: {
       type: 'object',
       properties: {
-        query: { type: 'string', description: 'Partial symbol name.' },
+        query: { type: 'string', description: 'Partial symbol name, or a natural-language description in semantic mode.' },
+        mode: { type: 'string', enum: ['lexical', 'semantic'], default: 'lexical', description: 'lexical = name match; semantic = embedding similarity (find by meaning).' },
         kind: { type: 'string', enum: ['code', 'all'], default: 'code', description: 'code or all node kinds.' },
         type: { type: 'string', description: 'Optional node type filter.' },
         file: { type: 'string', description: 'Optional file path prefix.' },
