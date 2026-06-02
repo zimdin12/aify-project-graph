@@ -94,12 +94,12 @@
   <div class="wrap">
     <div class="tag">aify-project-graph · v0.1.0</div>
     <h1>A code map your AI agent can <em>trust</em>.</h1>
-    <p class="lead">It reads your codebase into a graph, then layers in a C++ compiler's ground truth on top — and exposes both to coding agents (Claude Code, Hermes, Codex) as a small set of MCP tools plus a live dashboard.</p>
-    <p class="sub">Built C++-first for game engines (Sand Castle, Echoes of the Fallen / Tesseract), it merges proven ideas from four similar open-source projects into one coherent system. The whole point: an agent should never be told "no callers / safe to delete" unless that's actually <em>proven</em>.</p>
+    <p class="lead">It reads your codebase into a graph, then layers a real language server's ground truth on top — clangd for C++, typescript-language-server for TS/JS, pyright for Python — and exposes both to coding agents (Claude Code, Hermes, Codex) as a small set of MCP tools plus a live dashboard.</p>
+    <p class="sub">Built C++-first for game engines (Sand Castle, Echoes of the Fallen / Tesseract) and since extended to TypeScript/JavaScript and Python behind the same evidence contract, it merges proven ideas from four similar open-source projects into one coherent system. The whole point: an agent should never be told "no callers / safe to delete" unless that's actually <em>proven</em>.</p>
     <div class="pills">
       <span class="pill"><b>~30</b> MCP verbs</span>
-      <span class="pill"><b>1089</b> tests passing</span>
-      <span class="pill"><b>tree-sitter</b> + <b>clangd</b></span>
+      <span class="pill"><b>1130+</b> tests passing</span>
+      <span class="pill"><b>tree-sitter</b> + <b>clangd / tsserver / pyright</b></span>
       <span class="pill">runs on <b>Claude Code</b> + <b>Hermes</b></span>
     </div>
     <div class="toc">
@@ -122,7 +122,7 @@
     <p class="section-sub">Coding agents are great at writing code but bad at <em>knowing</em> a large codebase — they grep, read the wrong file, and worst of all they <em>hallucinate</em> ("just delete <code>foo()</code>, nothing calls it" — when something does). This project gives the agent a reliable map and, crucially, tells it <em>how much to trust each answer</em>.</p>
     <div class="grid g3">
       <div class="card"><h4>🗺️ A graph of your code</h4><p>Every file, function, class, call, import, and inheritance edge — extracted with <b>tree-sitter</b> across many languages. Always available, instant, no toolchain needed.</p></div>
-      <div class="card"><h4>🎯 Compiler ground truth</h4><p>For C++, it drives <b>clangd</b> (the real compiler's language server) to resolve who <em>actually</em> calls a function across files — and marks those edges <code>[lsp✓]</code> as verified.</p></div>
+      <div class="card"><h4>🎯 Compiler ground truth</h4><p>It drives a real language server — <b>clangd</b> (C++), <b>typescript-language-server</b> (TS/JS), or <b>pyright</b> (Python), picked by file extension — to resolve who <em>actually</em> calls a function across files, and marks those edges <code>[lsp✓]</code> as verified. Servers ship bundled; the host needs no LSP setup.</p></div>
       <div class="card"><h4>🛡️ An honesty contract</h4><p>Every answer says where it came from. A "no callers" result is only trustworthy when it's <em>proven exhaustive</em>; otherwise the tool says so out loud.</p></div>
     </div>
   </div>
@@ -141,8 +141,8 @@
       </div>
       <div class="arrow">▼ escalate for precision</div>
       <div class="layer">
-        <div class="lh"><span class="ic" style="background:#3fb95033">🎯</span> clangd trust spine &nbsp;<span class="muted" style="font-weight:400;font-size:13px">— C++ ground truth</span></div>
-        <div class="ld">A normalized <code>compile_commands.json</code> feeds clangd with background indexing. Its resolved references/definitions/call-hierarchy become graph edges tagged <code>LSP_VERIFIED</code>. Only claims a result is <em>exhaustive</em> after the index is confirmably ready.</div>
+        <div class="lh"><span class="ic" style="background:#3fb95033">🎯</span> language-server trust spine &nbsp;<span class="muted" style="font-weight:400;font-size:13px">— clangd / tsserver / pyright ground truth</span></div>
+        <div class="ld">A real language server (clangd over a normalized <code>compile_commands.json</code>, or typescript-language-server / pyright over the project) resolves references / definitions / call-hierarchy into graph edges tagged <code>LSP_VERIFIED</code>. It only claims a result is <em>exhaustive</em> when the language can prove it: C++ when the compile DB covers the TUs, TS when a <code>tsconfig.json</code> scopes the project, and <b>Python never</b> (duck typing / dynamic dispatch make a caller set a verified floor, not a ceiling).</div>
         <div class="chips"><span class="chip mono">LSP_VERIFIED edges</span><span class="chip">call + type hierarchy</span><span class="chip">evidence contract</span></div>
       </div>
       <div class="arrow">▼ plus domain bridges</div>
@@ -173,14 +173,14 @@
     <p class="section-sub">Every edge carries a <b>provenance</b> tag, and every answer carries a <b>trust banner</b>. This is what separates this tool from "a graph with features": the agent always knows whether it can act on an answer or must verify first.</p>
 
     <div class="ladder">
-      <div class="rung"><span class="bar" style="background:var(--lsp)"></span><div><div class="t">LSP_VERIFIED &nbsp;<code>[lsp✓]</code></div><div class="d">clangd resolved it. Cross-file ground truth. "Don't re-grep this."</div></div><span class="badge" style="color:var(--lsp);border-color:var(--lsp)">trust it</span></div>
+      <div class="rung"><span class="bar" style="background:var(--lsp)"></span><div><div class="t">LSP_VERIFIED &nbsp;<code>[lsp✓]</code></div><div class="d">the language server (clangd / tsserver / pyright) resolved it. Cross-file ground truth. "Don't re-grep this."</div></div><span class="badge" style="color:var(--lsp);border-color:var(--lsp)">trust it</span></div>
       <div class="rung"><span class="bar" style="background:var(--ext)"></span><div><div class="t">EXTRACTED</div><div class="d">Tree-sitter saw it directly in the source. Exact, but single-file scope.</div></div><span class="badge">solid</span></div>
       <div class="rung"><span class="bar" style="background:var(--inf)"></span><div><div class="t">INFERRED</div><div class="d">A heuristic guess — e.g. a synthesized virtual-override edge. Useful lead, confirm before acting.</div></div><span class="badge" style="color:var(--inf);border-color:var(--inf)">verify</span></div>
       <div class="rung"><span class="bar" style="background:var(--amber)"></span><div><div class="t">AMBIGUOUS</div><div class="d">Name matched several candidates. Surfaced for review, not silently dropped.</div></div><span class="badge" style="color:var(--amber);border-color:var(--amber)">review</span></div>
     </div>
 
     <div class="callout">
-      <b>The one rule that defines the product:</b> a tool may only claim "no callers / safe to delete" when it has <em>proven exhaustive</em> evidence (a ready clangd index that actually resolved that symbol). Otherwise it must say <span class="mono">"absence is from the heuristic graph and is NOT exhaustive — verify with code_intel_references / rg."</span> &nbsp;Live testing on the real games caught two places where this slipped; both are fixed and regression-tested. A stale index or an unbuilt overlay also announces itself loudly, so "not found" never gets misread as "doesn't exist."
+      <b>The one rule that defines the product:</b> a tool may only claim "no callers / safe to delete" when it has <em>proven exhaustive</em> evidence (a ready language-server index that actually resolved that symbol — and that the language <em>can</em> prove it: never for Python). Otherwise it must say <span class="mono">"absence is from the heuristic graph and is NOT exhaustive — verify with code_intel_references / rg."</span> &nbsp;Live testing on the real games caught several places where this slipped (a foreign/unity compile DB and a cold index both silently under-reported); all are fixed and regression-tested. A stale index or an unbuilt overlay also announces itself loudly, so "not found" never gets misread as "doesn't exist."
     </div>
   </div>
 </section>
@@ -312,11 +312,11 @@
 <section id="use">
   <div class="wrap">
     <h2><span class="n">8</span>How an agent actually uses it</h2>
-    <p class="section-sub">A typical "I'm about to change this C++ function" flow. Notice it escalates from cheap-and-static to verified-and-precise, and stops the moment it has a trustworthy answer.</p>
+    <p class="section-sub">A typical "I'm about to change this function" flow (C++, TypeScript, or Python — the verbs pick the language server by file extension). Notice it escalates from cheap-and-static to verified-and-precise, and stops the moment it has a trustworthy answer.</p>
     <div class="flow">
       <div class="step"><div class="num"></div><div class="b"><b>Orient</b> — <code>graph_digest</code> for the lay of the land (subsystems, hot-spots, cycles), or <code>graph_packet</code> for one feature/symbol. <span>~1–2k tokens, no compiler needed.</span></div></div>
       <div class="step"><div class="num"></div><div class="b"><b>Locate</b> — <code>graph_search</code> / <code>graph_whereis</code> to find the symbol. <span>If the index is stale it says so, so "not found" is never mistaken for "doesn't exist."</span></div></div>
-      <div class="step"><div class="num"></div><div class="b"><b>Get ground truth</b> — <code>graph_collect_code_intel</code> warms clangd on the relevant files, turning callers into <code>LSP_VERIFIED</code> edges. <span>First run is slow then cached; returns a compact summary, not a data dump.</span></div></div>
+      <div class="step"><div class="num"></div><div class="b"><b>Get ground truth</b> — <code>graph_collect_code_intel</code> warms the language server (clangd / tsserver / pyright) on the relevant files, turning callers into <code>LSP_VERIFIED</code> edges. <span>First run is slow then cached; returns a compact summary, not a data dump.</span></div></div>
       <div class="step"><div class="num"></div><div class="b"><b>Verify</b> — <code>graph_callers</code> now shows <code>[lsp✓]</code> callers with a TRUST banner; <code>code_intel_hierarchy</code> walks the transitive call/override tree. <span>An empty result is honestly labeled, never a false "safe to delete."</span></div></div>
       <div class="step"><div class="num"></div><div class="b"><b>Understand the change</b> — <code>graph_trace from→to</code> inlines the call path; <code>graph_explore</code> bundles several symbols' source; <code>graph_explain_diff</code> scores the blast radius of a diff. <span>Source comes back "already-Read," so the agent stops opening files.</span></div></div>
     </div>
