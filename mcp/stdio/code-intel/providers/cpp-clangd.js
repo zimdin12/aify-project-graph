@@ -6,6 +6,7 @@ import { LspClient } from '../lsp-client.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
 import { buildClangdSpawn } from '../resolve-clangd.js';
+import { getHeadCommit } from '../../freshness/git.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
 // can take well over the default 10s before the first query resolves.
@@ -119,6 +120,10 @@ export function createCppClangdProvider({ spawn } = {}) {
       const collectionId = newCollectionId();
       const collectedAt = new Date().toISOString();
       const projectRoot = req.projectRoot;
+      // Record HEAD at collect time so graph_health can detect commit-drift
+      // staleness (lsp-evidence's STALE check keys on indexedCommit; previously
+      // always null → staleness was undetectable). Best-effort.
+      const indexedCommit = await getHeadCommit(projectRoot).catch(() => null);
 
       // P0-1: start the total budget clock. `remainingBudget()` is consulted to
       // cap the index-readiness wait and to stop the per-file loop early so the
@@ -534,6 +539,7 @@ export function createCppClangdProvider({ spawn } = {}) {
           projectRoot,
           session: {
             collectedAt,
+            indexedCommit,
             freshnessBasis: 'compile_db_hash',
             freshnessValue: dbHash,
             compileDbHash: dbHash,

@@ -13,6 +13,7 @@ import crypto from 'node:crypto';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
+import { getHeadCommit } from '../../freshness/git.js';
 
 function realpath(p) {
   try { return fs.realpathSync.native(p); } catch { return p; }
@@ -96,8 +97,10 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   // Canonical root so server-returned URIs (which may use Windows 8.3 short
   // names or different casing) relativize cleanly.
   const realRoot = realpath(projectRoot);
+  // HEAD at collect time so graph_health can detect commit-drift staleness.
+  const indexedCommit = await getHeadCommit(projectRoot).catch(() => null);
   const envelopeBase = { schema_version: '0.2', collectionId, provider: providerName, providerVersion, projectRoot };
-  const session0 = { collectedAt, freshnessBasis, freshnessValue };
+  const session0 = { collectedAt, indexedCommit, freshnessBasis, freshnessValue };
 
   // File resolution: explicit files[] wins; else enumerate for scope=all/changed.
   const maxFiles = Number.isFinite(req.maxFiles) ? req.maxFiles : DEFAULT_MAX_FILES;

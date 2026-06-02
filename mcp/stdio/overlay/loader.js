@@ -48,7 +48,7 @@ export function loadFunctionality(repoRoot) {
     // the single source of truth for the "no overlay" return shape.
     const raw = readJsonCapped(path, { mustExist: true });
     const features = Array.isArray(raw.features) ? raw.features.map(normalizeFeature) : [];
-    return { version: raw.version || '0.1', features, mtime, path };
+    return { version: raw.version || '0.1', features, mtime, path, lint: lintFeatures(raw.features) };
   } catch (err) {
     return {
       version: null, features: [], mtime: 0, path,
@@ -57,6 +57,34 @@ export function loadFunctionality(repoRoot) {
       error: `${err.message} (schema: docs/schemas/functionality.schema.json)`,
     };
   }
+}
+
+const KEBAB_RE = /^[a-z0-9][a-z0-9-]*$/u;
+
+// Lint RAW feature objects (pre-normalization) so legacy/invalid overlay shapes
+// surface a loud, actionable migration hint instead of silently producing 0/0
+// anchor health that reads like the graph broke. Returns a string[] of warnings.
+//   - top-level `paths` (v0.1 bootstrap) is IGNORED by the anchor resolver → warn
+//   - a feature with no resolvable anchors can't be validated → warn
+//   - an id violating the kebab pattern (e.g. `build_system`) → warn
+export function lintFeatures(rawFeatures) {
+  const warnings = [];
+  for (const f of (Array.isArray(rawFeatures) ? rawFeatures : [])) {
+    const id = String(f?.id || '').trim() || '(unnamed)';
+    const hasLegacyPaths = Array.isArray(f?.paths) && f.paths.length > 0;
+    const anchorKeys = ['symbols', 'files', 'routes', 'docs'];
+    const hasAnchors = f?.anchors && typeof f.anchors === 'object'
+      && anchorKeys.some((k) => Array.isArray(f.anchors[k]) && f.anchors[k].length > 0);
+    if (hasLegacyPaths) {
+      warnings.push(`feature '${id}': legacy top-level \`paths\` is ignored by the anchor resolver — migrate to \`anchors.files\` (schema: docs/schemas/functionality.schema.json)`);
+    } else if (!hasAnchors) {
+      warnings.push(`feature '${id}': no anchors declared — it cannot be validated; add \`anchors.files\` / \`anchors.symbols\``);
+    }
+    if (f?.id && !KEBAB_RE.test(String(f.id))) {
+      warnings.push(`feature id '${f.id}': violates kebab pattern ^[a-z0-9][a-z0-9-]*$ — use e.g. 'build-system', not 'build_system'`);
+    }
+  }
+  return warnings;
 }
 
 function normalizeFeature(f) {
@@ -110,7 +138,7 @@ export function validateFeatureEdges(features) {
 // Check which anchors actually resolve in the current graph. Surfaces rot
 // early so the brief's Trust line can steer agents away from stale
 // feature maps.
-export function validateAnchors(features, db) {
+export function validateAnchors(features, db, { repoRoot = null } = {}) {
   if (!features.length) return { valid: [], broken: [] };
   const valid = [];
   const broken = [];
@@ -119,6 +147,11 @@ export function validateAnchors(features, db) {
     const resolved = {
       symbols: [], missing_symbols: [],
       files: [], missing_files: [],
+      // Files that DON'T resolve to a graph node but DO exist on disk — i.e.
+      // build/config/non-source files the tree-sitter graph never indexes
+      // (CMakeLists.txt, *.toml, *.cfg…). Distinct from genuinely-missing files
+      // so an author isn't told "missing" when the real issue is "out of scope".
+      non_source_files: [],
       routes: [], missing_routes: [],
       docs: [], missing_docs: [],
     };
@@ -142,7 +175,11 @@ export function validateAnchors(features, db) {
          WHERE type IN ('File','Directory') AND file_path GLOB $pattern
          LIMIT 1`, { pattern });
       if (hit) resolved.files.push(file);
-      else resolved.missing_files.push(file);
+      else if (repoRoot && !/[*?[\]]/u.test(file) && existsSync(join(repoRoot, file))) {
+        // Literal path that exists on disk but isn't a graph node → out-of-scope
+        // build/config/non-source file, not rot.
+        resolved.non_source_files.push(file);
+      } else resolved.missing_files.push(file);
     }
 
     for (const route of feature.anchors.routes) {

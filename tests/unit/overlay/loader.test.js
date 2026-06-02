@@ -7,6 +7,7 @@ import {
   loadFunctionality,
   validateAnchors,
   featuresForFile,
+  lintFeatures,
   hasOverlay,
   overlayPath,
 } from '../../../mcp/stdio/overlay/loader.js';
@@ -204,6 +205,49 @@ describe('overlay/loader', () => {
         { id: 'b', anchors: { symbols: [], files: ['src/shared/*'], routes: [], docs: [] } },
       ];
       expect(featuresForFile(overlapping, 'src/shared/util.js').sort()).toEqual(['a', 'b']);
+    });
+  });
+
+  describe('lintFeatures — legacy/invalid overlay shape warnings (sc-manager issue [1])', () => {
+    it('warns on a legacy top-level `paths` field (migrate to anchors.files)', () => {
+      const w = lintFeatures([{ id: 'terrain', paths: ['sim/terrain.cpp'] }]);
+      expect(w.join(' ')).toMatch(/legacy top-level `paths`/);
+      expect(w.join(' ')).toMatch(/anchors\.files/);
+    });
+    it('warns on a non-kebab id (build_system → build-system)', () => {
+      const w = lintFeatures([{ id: 'build_system', anchors: { files: ['x'] } }]);
+      expect(w.join(' ')).toMatch(/build_system.*kebab/);
+    });
+    it('warns on a feature with no anchors at all', () => {
+      const w = lintFeatures([{ id: 'orphan' }]);
+      expect(w.join(' ')).toMatch(/no anchors declared/);
+    });
+    it('a clean kebab feature with anchors yields no warnings', () => {
+      expect(lintFeatures([{ id: 'terrain-sim', anchors: { files: ['sim/terrain.cpp'] } }])).toEqual([]);
+    });
+    it('loadFunctionality surfaces lint[] for a legacy overlay', async () => {
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        version: '0.1', features: [{ id: 'build_system', paths: ['CMakeLists.txt'] }],
+      }));
+      const out = loadFunctionality(repoRoot);
+      expect(out.lint.length).toBeGreaterThanOrEqual(2); // legacy paths + non-kebab id
+    });
+  });
+
+  describe('validateAnchors — non-source file distinction (sc-manager issue [2])', () => {
+    it('a literal file that exists on disk but is not a graph node → non_source_files, not missing_files', async () => {
+      await writeFile(join(repoRoot, 'CMakeLists.txt'), 'project(x)\n');
+      const features = [{ id: 'build-system', anchors: { symbols: [], files: ['CMakeLists.txt'], routes: [], docs: [] } }];
+      const { broken } = validateAnchors(features, db, { repoRoot });
+      const entry = broken.find((b) => b.feature.id === 'build-system');
+      expect(entry.resolved.non_source_files).toContain('CMakeLists.txt');
+      expect(entry.resolved.missing_files).not.toContain('CMakeLists.txt');
+    });
+    it('a literal file that does NOT exist → missing_files (genuine rot)', async () => {
+      const features = [{ id: 'f', anchors: { symbols: [], files: ['nope/gone.cpp'], routes: [], docs: [] } }];
+      const { broken } = validateAnchors(features, db, { repoRoot });
+      expect(broken[0].resolved.missing_files).toContain('nope/gone.cpp');
+      expect(broken[0].resolved.non_source_files).toEqual([]);
     });
   });
 });

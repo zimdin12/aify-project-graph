@@ -78,12 +78,16 @@ export async function graphHealth({ repoRoot }) {
       const db = openExistingDb(dbPath);
       try {
         const { features } = functionality;
-        const { valid, broken } = validateAnchors(features ?? [], db);
+        const { valid, broken } = validateAnchors(features ?? [], db, { repoRoot });
+        const lint = Array.isArray(functionality.lint) ? functionality.lint : [];
         overlay = {
           present: true,
           checked: valid.length + broken.length,
           broken: broken.length,
           sample: broken.slice(0, 3).map((b) => ({ id: b.feature.id, resolved: b.totalResolved, declared: b.totalDeclared })),
+          // Legacy/invalid overlay-shape warnings (legacy `paths`, missing
+          // anchors, non-kebab ids) — so a silent 0/0 reads as "migrate this".
+          ...(lint.length ? { lint, lintCount: lint.length } : {}),
         };
       } finally {
         db.close();
@@ -184,6 +188,7 @@ export async function graphHealth({ repoRoot }) {
         : `overlay=broken ${overlay.broken}/${overlay.checked} (${qualityBits.join(', ')})`,
     );
     }
+    if (overlay.lintCount) verdicts.push(`overlay-lint=${overlay.lintCount} (legacy/invalid feature shape — see overlay.lint; e.g. ${overlay.lint[0]})`);
   } else {
     verdicts.push('overlay=none');
   }
