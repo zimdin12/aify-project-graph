@@ -121,11 +121,11 @@ const TOOLS = [
   {
     name: 'code_intel_diagnostics',
     handler: codeIntelDiagnostics,
-    description: 'Live per-file diagnostics. Drives clangd directly (no collect/import round-trip). Batch-warms requested files (one longer warm-up on a cold session). Per-file wait defaults to 3000ms so cold clangd does not return empty first-call diagnostics. Returns {status, files:[{file,freshness,diagnostics}], diagnostics:[{file,severity,message,range}], telemetry:{diagnosticsWaitMs,...}, noValueAdded?}. noValueAdded is only set when every file is explicitly stale/timeout, never on unknown. Use after editing C++ to check for errors without running a build.',
+    description: 'Live per-file diagnostics. Drives the language server (clangd / typescript-language-server / pyright, by file extension) directly — no collect/import round-trip. Batch-warms requested files (one longer warm-up on a cold session). Per-file wait defaults to 3000ms so cold clangd does not return empty first-call diagnostics. Returns {status, files:[{file,freshness,diagnostics}], diagnostics:[{file,severity,message,range}], telemetry:{diagnosticsWaitMs,...}, noValueAdded?}. noValueAdded is only set when every file is explicitly stale/timeout, never on unknown. Use after editing C++ to check for errors without running a build.',
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', default: 'cpp' },
+        language: { type: 'string', description: 'Optional — auto-inferred from the file extension (.cpp/.h→cpp, .ts/.tsx/.js→typescript, .py→python); explicit value wins. Servers (clangd/typescript-language-server/pyright) are bundled; the host needs no LSP config.' },
         files: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to check.' },
         diagnosticsWaitMs: { type: 'integer', minimum: 0, maximum: 30000, default: 3000, description: 'Per-file wait for a fresh diagnostics publish. Raise for very cold/large projects; 0 = best-effort no-wait.' },
         warmupMs: { type: 'integer', minimum: 0, maximum: 30000, description: 'Override the post-open settle. Omit to auto-pick (longer when the session is cold, short when warm).' }
@@ -136,11 +136,11 @@ const TOOLS = [
   {
     name: 'code_intel_references',
     handler: codeIntelReferences,
-    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via clangd (NOT text search). Returns {status, freshness, result_state, warmedFiles, references[] (compat, full LSP shape), referenceLocations[] (non-declaration callsites only), definitionLocations[] (declaration entries split out), evidence:{ready,degraded,cause,confidence,fallback,exhaustive,warnings}, telemetry, noValueAdded? (deprecated compat shim)}. CONTRACT: trust absence claims ("no callers", "dead code") ONLY when evidence.exhaustive===true. Degraded causes: cold_index|timeout|unsupported|definition_only|stale_index|unknown — read evidence.fallback for the recovery action. Pass warmupFiles[] (known callers, headers) when background-index is disabled and cross-TU resolution is needed.',
+    description: 'Live symbol-aware references at a file:line:col position. Symbol-aware via the language server — clangd (C/C++), typescript-language-server (TS/JS), or pyright (Python), auto-selected by file extension; NOT text search. Returns {status, freshness, result_state, warmedFiles, references[] (compat, full LSP shape), referenceLocations[] (non-declaration callsites only), definitionLocations[] (declaration entries split out), evidence:{ready,degraded,cause,confidence,fallback,exhaustive,warnings}, telemetry, noValueAdded? (deprecated compat shim)}. CONTRACT: trust absence claims ("no callers", "dead code") ONLY when evidence.exhaustive===true. Degraded causes: cold_index|timeout|unsupported|definition_only|stale_index|unknown — read evidence.fallback for the recovery action. Pass warmupFiles[] (known callers, headers) when background-index is disabled and cross-TU resolution is needed.',
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', default: 'cpp' },
+        language: { type: 'string', description: 'Optional — auto-inferred from the file extension (.cpp/.h→cpp, .ts/.tsx/.js→typescript, .py→python); explicit value wins. Servers (clangd/typescript-language-server/pyright) are bundled; the host needs no LSP config.' },
         file: { type: 'string', description: 'Repo-relative file containing the symbol.' },
         line: { type: 'integer', minimum: 1, description: '1-based line number.' },
         col: { type: 'integer', minimum: 1, default: 1, description: '1-based column number.' },
@@ -158,7 +158,7 @@ const TOOLS = [
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', default: 'cpp' },
+        language: { type: 'string', description: 'Optional — auto-inferred from the file extension (.cpp/.h→cpp, .ts/.tsx/.js→typescript, .py→python); explicit value wins. Servers (clangd/typescript-language-server/pyright) are bundled; the host needs no LSP config.' },
         file: { type: 'string' },
         line: { type: 'integer', minimum: 1 },
         col: { type: 'integer', minimum: 1, default: 1 },
@@ -176,7 +176,7 @@ const TOOLS = [
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', default: 'cpp' },
+        language: { type: 'string', description: 'Optional — auto-inferred from the file extension (.cpp/.h→cpp, .ts/.tsx/.js→typescript, .py→python); explicit value wins. Servers (clangd/typescript-language-server/pyright) are bundled; the host needs no LSP config.' },
         file: { type: 'string' },
         line: { type: 'integer', minimum: 1 },
         col: { type: 'integer', minimum: 1, default: 1 },
@@ -209,7 +209,7 @@ const TOOLS = [
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', default: 'cpp' },
+        language: { type: 'string', description: 'Optional — auto-inferred from the file extension (.cpp/.h→cpp, .ts/.tsx/.js→typescript, .py→python); explicit value wins. Servers (clangd/typescript-language-server/pyright) are bundled; the host needs no LSP config.' },
         mode: { type: 'string', enum: ['clang-tidy', 'compile'], default: 'clang-tidy' },
         files: { type: 'array', items: { type: 'string' }, description: 'Explicit repo-relative C/C++ files to analyze. Required; broad scans are intentionally unsupported.' },
         timeoutMs: { type: 'integer', minimum: 1, maximum: 600000, default: 120000 }
@@ -224,7 +224,7 @@ const TOOLS = [
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', default: 'cpp' },
+        language: { type: 'string', description: 'Optional — auto-inferred from the file extension (.cpp/.h→cpp, .ts/.tsx/.js→typescript, .py→python); explicit value wins. Servers (clangd/typescript-language-server/pyright) are bundled; the host needs no LSP config.' },
         file: { type: 'string' }
       },
       required: ['file']
@@ -233,11 +233,11 @@ const TOOLS = [
   {
     name: 'code_intel_hierarchy',
     handler: codeIntelHierarchy,
-    description: 'Live clangd CALL HIERARCHY + TYPE HIERARCHY — the "who calls this (transitively) / who overrides this virtual / what subtypes exist" answer that flat references cannot give. kind=callers|callees walks prepareCallHierarchy → incoming/outgoing to depth (default 2) as an indented TREE with file:line per hop; kind=subtypes|supertypes walks type hierarchy (virtual-override / inheritance sets). Resolves the symbol via explicit file+line(+col) OR a bare symbol name through the graph. In INDEXED mode (default) it WAITS for clangd index-ready so the tree is exhaustive; in BOUNDED mode (APG_CLANGD_MODE=bounded) it skips the wait. Returns {status, kind, anchor, mode, indexReady, tree, treeText (indented, each hop marked [lsp✓]), trust (TRUST: lsp-verified (index-ready) vs lsp-partial (NOT ready — may undercount)), evidence:{ready,degraded,cause,confidence,exhaustive,fallback,warnings}, telemetry}. CONTRACT: trust "no overriders"/"no transitive callers" ONLY when evidence.exhaustive===true. Output is depth/breadth-capped with a "TRUNCATED — N more" tail. Use for C++ virtual dispatch + fn-pointer hubs where the static graph undercounts.',
+    description: 'Live CALL HIERARCHY + TYPE HIERARCHY (clangd / typescript-language-server / pyright, by file extension) — the "who calls this (transitively) / who overrides this virtual / what subtypes exist" answer that flat references cannot give. kind=callers|callees walks prepareCallHierarchy → incoming/outgoing to depth (default 2) as an indented TREE with file:line per hop; kind=subtypes|supertypes walks type hierarchy (virtual-override / inheritance sets). Resolves the symbol via explicit file+line(+col) OR a bare symbol name through the graph. In INDEXED mode (default) it WAITS for clangd index-ready so the tree is exhaustive; in BOUNDED mode (APG_CLANGD_MODE=bounded) it skips the wait. Returns {status, kind, anchor, mode, indexReady, tree, treeText (indented, each hop marked [lsp✓]), trust (TRUST: lsp-verified (index-ready) vs lsp-partial (NOT ready — may undercount)), evidence:{ready,degraded,cause,confidence,exhaustive,fallback,warnings}, telemetry}. CONTRACT: trust "no overriders"/"no transitive callers" ONLY when evidence.exhaustive===true. Output is depth/breadth-capped with a "TRUNCATED — N more" tail. Use for C++ virtual dispatch + fn-pointer hubs where the static graph undercounts.',
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', default: 'cpp' },
+        language: { type: 'string', description: 'Optional — auto-inferred from the file extension (.cpp/.h→cpp, .ts/.tsx/.js→typescript, .py→python); explicit value wins. Servers (clangd/typescript-language-server/pyright) are bundled; the host needs no LSP config.' },
         kind: { type: 'string', enum: ['callers', 'callees', 'subtypes', 'supertypes'], description: 'callers/callees → call hierarchy; subtypes/supertypes → type/override hierarchy.' },
         file: { type: 'string', description: 'Repo-relative file containing the symbol (with line; alternative to symbol).' },
         line: { type: 'integer', minimum: 1, description: '1-based line of the symbol.' },
@@ -254,11 +254,11 @@ const TOOLS = [
   {
     name: 'graph_collect_code_intel',
     handler: graphCollectCodeIntel,
-    description: 'Run a code-intel provider (e.g. cpp-clangd) and import the resulting v0.2 collection into the local graph. Public action verb — agents and bridge UI both call this. Never auto-runs; explicit only. Returns the v0.2 collection envelope (status, errors, records). On success the collection is imported and immediately visible to graph_health.codeIntel, graph_pull(layers:["code_intel"]), and graph_packet EVIDENCE blocks. Use after touching code that needs compiler-backed precision (C++ templates, virtual dispatch, macros). COLD-START: the first collect on a fresh clangd index is time-budgeted (default ~40s) and may return status:"partial" with session.budgetExhausted=true and a resume note — the index now persists, so just call graph_collect_code_intel AGAIN to continue/complete (the warm run is fast). language is optional: defaults to "cpp", or is inferred from files[] extensions (.cpp/.h → cpp, .ts/.js → typescript).',
+    description: 'Run a code-intel provider (e.g. cpp-clangd) and import the resulting v0.2 collection into the local graph. Public action verb — agents and bridge UI both call this. Never auto-runs; explicit only. Returns the v0.2 collection envelope (status, errors, records). On success the collection is imported and immediately visible to graph_health.codeIntel, graph_pull(layers:["code_intel"]), and graph_packet EVIDENCE blocks. Use after touching code that needs compiler-backed precision (C++ templates, virtual dispatch, macros). COLD-START: the first collect on a fresh clangd index is time-budgeted (default ~40s) and may return status:"partial" with session.budgetExhausted=true and a resume note — the index now persists, so just call graph_collect_code_intel AGAIN to continue/complete (the warm run is fast). language is optional: inferred from files[] extensions or repo markers (.cpp/.h → cpp/clangd, .ts/.tsx/.js → typescript/typescript-language-server, .py → python/pyright; tsconfig.json / pyproject.toml / compile_commands.json detected for scope=all), else defaults to "cpp". Python is never provably exhaustive (dynamic dispatch) — its records are a verified floor.',
     schema: {
       type: 'object',
       properties: {
-        language: { type: 'string', description: 'Language to collect for (e.g. "cpp"). Provider is selected per language. Optional — defaults to "cpp" or is inferred from files[] extensions when omitted.' },
+        language: { type: 'string', description: 'Language to collect for: "cpp" | "typescript" | "javascript" | "python". Provider auto-selected (cpp-clangd / ts-langserver / pyright). Optional — inferred from files[] extensions or repo markers (tsconfig/pyproject/compile_commands) when omitted, else "cpp".' },
         scope: { type: 'string', enum: ['changed', 'files', 'all'], default: 'changed', description: 'Collection scope. "changed" derives files from `since`; "files" uses explicit files[]; "all" enumerates from compile_commands.json.' },
         files: { type: 'array', items: { type: 'string' }, description: 'Explicit files to collect (repo-relative). Required when scope="files".' },
         since: { type: 'string', description: 'Git ref for "changed" scope; collects files modified since this ref.' },

@@ -141,9 +141,17 @@ If the graph feels thin, improve the overlay before blaming the engine:
 - add `related_to`
 - tighten broad task links with better `evidence` and `link_strength`
 
-### Optional C++ code-intel import
+### Optional compiler-backed code-intel import
 
-Use this only when a C++ repo has `compile_commands.json` and tree-sitter edges are too weak:
+The graph's tree-sitter edges are heuristic. To upgrade them to compiler-verified
+(`LSP_VERIFIED` / `[lsp✓]`) edges, run `graph_collect_code_intel` — it now drives a
+real language server for **C++ (clangd), TypeScript/JavaScript (typescript-language-server),
+and Python (pyright)**, auto-selected by file extension / repo markers. The servers are
+bundled with the plugin (no host LSP setup). Honesty: C++ gated on compile-DB coverage; TS
+exhaustive with a tsconfig; Python is never provably exhaustive (dynamic dispatch) → a
+verified floor, not "safe to delete".
+
+Legacy C++-only manual path (when a C++ repo has `compile_commands.json` and you want the raw scripts):
 
 ```bash
 node <AIFY_GRAPH_CLONE>/tools/code-intel/cpp-clangd/extract.mjs <TARGET_REPO>
