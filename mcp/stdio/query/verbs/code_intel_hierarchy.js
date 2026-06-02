@@ -26,6 +26,7 @@ import path from 'node:path';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
+import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { openExistingDb } from '../../storage/db.js';
 
@@ -237,7 +238,7 @@ function itemLabel(item, projectRoot) {
 // `nodeCount` is the total nodes in the walked tree (root + resolved
 // callers/callees/subtypes). nodeCount<=1 means the root resolved but NOTHING
 // linked to it — the "0 callers" case the thesis bug mis-reported.
-export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind }) {
+export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage }) {
   const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
   const empty = !(Number(nodeCount) > 1); // root-only / unresolved root → empty
   if (mode === 'bounded') {
@@ -262,6 +263,18 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind }) {
     };
   }
   if (indexReady === true) {
+    // FALSE-EXHAUSTIVE GUARD (2026-06-02): same fix as references — index-ready +
+    // a non-empty tree is NOT exhaustive when the compile DB can't cover all TUs
+    // (foreign Linux/WSL DB on a host clangd, or unexpanded unity). The tree is a
+    // FLOOR; transitive callers in uncovered TUs are invisible. Downgrade.
+    if (coverage && coverage.complete === false) {
+      return {
+        ready: true, degraded: true, cause: 'partial_compile_db_coverage', confidence: 'medium',
+        exhaustive: false,
+        fallback: coverage.reason || `compile DB does not fully cover this repo; verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
+        warnings: [coverage.reason || `tree may undercount — compile-DB coverage incomplete; verify ${noun} with rg before delete/rename`],
+      };
+    }
     return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings: [] };
   }
   // INDEXED mode but the index never reached idle within budget.
@@ -445,6 +458,12 @@ export async function codeIntelHierarchy(args = {}) {
   try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
 
+  // FALSE-EXHAUSTIVE GUARD: compile-DB coverage gates the exhaustive claim (a
+  // foreign/unity DB yields a silently-partial index). Best-effort.
+  let coverage = null;
+  try { coverage = computeCompileDbCoverage({ projectRoot: repoRoot }); }
+  catch { coverage = null; }
+
   // Open the anchor file so clangd has the TU loaded.
   const uri = await openIfNeeded(session, file);
 
@@ -490,7 +509,7 @@ export async function codeIntelHierarchy(args = {}) {
   }
   items = Array.isArray(items) ? items : (items ? [items] : []);
 
-  const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0, kind });
+  const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0, kind, coverage });
 
   if (items.length === 0) {
     return {
@@ -522,7 +541,7 @@ export async function codeIntelHierarchy(args = {}) {
   }
 
   const nodeCount = walked.nodeCount;
-  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind });
+  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage });
   const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount });
   // I3 + HIGH-1 — only stamp the ground-truth `[lsp✓]` when the FINAL evidence is
   // exhaustive (INDEXED mode + indexReady===true AND a non-empty resolved tree).

@@ -666,6 +666,91 @@ function stripInternal(entry) {
 
 const CPP_EXTENSIONS = new Set(['.cpp', '.cc', '.cxx', '.c', '.h', '.hpp', '.hh', '.hxx']);
 
+// ── Compile-DB COVERAGE (false-exhaustive guard) ─────────────────────────────
+// clangd's textDocument/references is best-effort over its index, and that index
+// covers ONLY the translation units in compile_commands.json (+ their headers).
+// A first-party .cpp that is NOT a compile-DB entry — e.g. a CMake unity-built
+// test source that only lives as `#include "test_foo.cpp"` inside a unity .cxx —
+// is never indexed as a standalone TU, so callers living in it are INVISIBLE to
+// references, and clangd never signals the gap. Therefore an "exhaustive /
+// safe-to-delete" claim is UNSOUND whenever the compile DB does not cover every
+// first-party source file. This helper measures that coverage cheaply (a bounded
+// filesystem walk diffed against the prepared/expanded DB's entry set) so the
+// evidence contract can refuse to claim exhaustive when coverage is incomplete.
+// (Confirmed root cause of the 2026-06-02 false-exhaustive bug: sand_castle
+// builds tests as unity, so the test TUs were absent from the DB yet
+// code_intel_references still reported exhaustive=true while missing real callers.)
+const _coverageCache = new Map(); // projectRoot → { dbHash, coverage }
+
+// True when clangd is configured to run UNDER WSL against the native Linux DB
+// (APG_CLANGD_WSL=1|true|auto). In that mode a Linux/WSL compile DB is NOT
+// foreign to the clangd process, so foreign-toolchain incompleteness doesn't
+// apply. Pure env read so the coverage verdict matches the actual transport.
+function wslClangdActive(env = process.env) {
+  const v = String(env.APG_CLANGD_WSL || '').trim().toLowerCase();
+  return v === '1' || v === 'true' || v === 'yes' || v === 'on' || v === 'auto';
+}
+
+/**
+ * Decide whether clangd's index over this repo's compile DB is TRUSTWORTHY FOR
+ * COMPLETENESS — i.e. whether a non-empty references/caller set may be claimed
+ * `exhaustive` ("safe to delete"). This is gated on the RELIABLE compile-DB
+ * signals from prepareCompileDb, NOT a fragile source-vs-DB path diff:
+ *
+ *   - FOREIGN TOOLCHAIN (Linux/WSL DB compiled by a Windows-host clangd, and not
+ *     running in WSL-clangd mode): TUs silently fail to compile under the host
+ *     clangd → the background index is partial → references can miss real callers
+ *     while still reporting indexReady. This was the confirmed 2026-06-02
+ *     false-exhaustive cause on sand_castle. → NOT trustworthy.
+ *   - UNEXPANDED UNITY (CMake unity DB whose aggregates couldn't be expanded into
+ *     per-source TUs on this host): the real .cpp are absent from the index. →
+ *     NOT trustworthy.
+ *   - otherwise (native DB, or WSL-clangd over the native Linux DB, unity
+ *     expanded): coverage is trustworthy → `exhaustive` is allowed.
+ *
+ * Returns { complete, reason, foreignToolchain, unityUnexpanded, unity }. Cached
+ * per projectRoot+dbHash. Defensive: never throws; complete:false on any failure
+ * (the safe under-claim — codegraph's "partial coverage is worse than none").
+ */
+export function computeCompileDbCoverage({ projectRoot, prepared, env = process.env } = {}) {
+  const fail = (reason) => ({ complete: false, reason, foreignToolchain: false, unityUnexpanded: false, unity: false });
+  if (!projectRoot) return fail('no projectRoot');
+  let prep;
+  try { prep = prepared || prepareCompileDb({ projectRoot }); }
+  catch { return fail('compile DB preparation failed'); }
+  if (!prep || !prep.found) return fail('no compile_commands.json — clangd has no index, so a caller set is never exhaustive');
+
+  // Cache only the expensive prep-derived flags; the WSL-mode verdict is env-
+  // dependent and cheap, so derive it fresh each call.
+  let flags = _coverageCache.get(projectRoot);
+  if (!flags || flags.dbHash !== prep.dbHash) {
+    flags = {
+      dbHash: prep.dbHash,
+      foreignToolchain: Boolean(prep.foreignToolchain),
+      unity: Boolean(prep.unity),
+      unityUnexpanded: Boolean(prep.unity && !prep.unityExpanded),
+    };
+    _coverageCache.set(projectRoot, flags);
+  }
+
+  const foreignBlocking = flags.foreignToolchain && !wslClangdActive(env);
+  const unityUnexpanded = flags.unityUnexpanded;
+
+  let reason = null;
+  if (foreignBlocking) {
+    reason = 'compile DB was built by a different (Linux/WSL) toolchain than the host clangd, so some TUs fail to compile and the index is silently PARTIAL — caller sets may miss real callers. Set APG_CLANGD_WSL=1 (run clangd under WSL against the native DB) for a trustworthy index, and verify with rg before any delete/rename';
+  } else if (unityUnexpanded) {
+    reason = 'compile DB is a CMake UNITY build whose per-source TUs are absent (aggregates not expanded on this host), so callers in unity-only sources are invisible to clangd — verify with rg before any delete/rename';
+  }
+  return {
+    complete: !foreignBlocking && !unityUnexpanded,
+    reason,
+    foreignToolchain: flags.foreignToolchain,
+    unityUnexpanded,
+    unity: flags.unity,
+  };
+}
+
 /**
  * Enumerate first-party, in-repo, forward-slash relative source files from a
  * (normalized) compile DB. Out-of-repo, non-C++, dep/build/vendor, and unity

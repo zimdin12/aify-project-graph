@@ -25,6 +25,15 @@ function tmpRepo() {
   fs.writeFileSync(path.join(dir, 'src', 'foo.cpp'), 'void foo(int){}\n');
   fs.writeFileSync(path.join(dir, 'src', 'bar.cpp'), 'void bar(){}\n');
   fs.writeFileSync(path.join(dir, 'src', 'bad.cpp'), 'int x = ;\n');
+  // A NATIVE (non-foreign, non-unity) compile DB covering every source, so the
+  // false-exhaustive coverage guard treats this index as trustworthy and the
+  // exhaustive-contract assertions exercise the happy path (not the degrade).
+  const cc = ['foo.cpp', 'bar.cpp', 'bad.cpp'].map((f) => ({
+    directory: dir,
+    command: `clang++ -std=c++17 -c ${path.join(dir, 'src', f)}`,
+    file: path.join(dir, 'src', f),
+  }));
+  fs.writeFileSync(path.join(dir, 'compile_commands.json'), JSON.stringify(cc));
   return dir;
 }
 
@@ -144,6 +153,30 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
     expect(e.degraded).toBe(false);
     expect(e.confidence).toBe('high');
     expect(e.cause).toBeNull();
+  });
+
+  it('fresh + callsites but INCOMPLETE compile-DB coverage → NOT exhaustive (false-exhaustive guard)', () => {
+    // The 2026-06-02 bug: a fresh index + 3 callsites was claimed exhaustive while
+    // clangd silently missed callers in TUs its (foreign/unity) index didn't cover.
+    const coverage = { complete: false, reason: 'compile DB is foreign (Linux/WSL) to the host clangd — index partial' };
+    const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1, coverage });
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('partial_compile_db_coverage');
+    expect(e.degraded).toBe(true);
+    expect(e.confidence).toBe('medium');
+    expect(e.warnings.length).toBeGreaterThan(0);
+    expect(e.fallback).toMatch(/foreign|verify|rg|compile DB/i);
+  });
+
+  it('fresh + callsites + COMPLETE coverage → exhaustive:true (coverage gate passes)', () => {
+    const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1, coverage: { complete: true } });
+    expect(e.exhaustive).toBe(true);
+    expect(e.cause).toBeNull();
+  });
+
+  it('coverage omitted → unchanged (treated as trustworthy, back-compat)', () => {
+    const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1 });
+    expect(e.exhaustive).toBe(true);
   });
 
   it('fresh + only def in refs → cause:definition_only, degraded, warned', () => {

@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
+import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 
@@ -97,8 +98,24 @@ export function splitDefinitionFromReferences(refs, defs) {
   return { callsiteLocations, definitionLocations };
 }
 
-export function buildReferencesEvidence({ freshness, callsiteCount, defCount, resultState }) {
+export function buildReferencesEvidence({ freshness, callsiteCount, defCount, resultState, coverage }) {
   const warnings = [];
+  // FALSE-EXHAUSTIVE GUARD (2026-06-02): a fresh index + >=1 callsite is NOT
+  // enough to claim exhaustive. clangd's references only sees TUs its index
+  // covers; when the compile DB is foreign (Linux/WSL DB on a host clangd) or a
+  // unity build with absent per-source TUs, the index is silently PARTIAL and
+  // real callers are invisible — so a non-empty set is a FLOOR, not a ceiling.
+  // Downgrade to non-exhaustive with the concrete reason. (coverage may be
+  // undefined for non-cpp / callers that don't pass it -> treated as trustworthy.)
+  if (freshness === 'fresh' && callsiteCount > 0 && coverage && coverage.complete === false) {
+    warnings.push(coverage.reason || 'compile-DB coverage is incomplete — caller set may be a floor, not exhaustive');
+    return {
+      ready: true, degraded: true, cause: 'partial_compile_db_coverage', confidence: 'medium',
+      exhaustive: false,
+      fallback: coverage.reason || 'compile DB does not fully cover this repo; verify callers with rg before any delete/rename',
+      warnings,
+    };
+  }
   // Exhaustive requires: ready (fresh), at least one callsite OR an
   // honest empty in a freshly-warmed context, and no degraded cause.
   if (freshness === 'fresh' && callsiteCount > 0) {
@@ -330,8 +347,15 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
 
   const allRefs = refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' }));
   const { callsiteLocations, definitionLocations } = splitDefinitionFromReferences(allRefs, defLocations);
+  // FALSE-EXHAUSTIVE GUARD: gate the exhaustive claim on whether the compile DB
+  // is trustworthy for completeness (native/WSL-clangd + expanded unity), so a
+  // partial index over a foreign/unity DB can't be reported as a complete
+  // caller set. Best-effort — never let coverage detection fail the query.
+  let coverage = null;
+  try { coverage = computeCompileDbCoverage({ projectRoot: repoRoot }); }
+  catch { coverage = null; }
   const evidence = buildReferencesEvidence({
-    freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState
+    freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage
   });
 
   // Plan #14 Step D: sticky degraded state. Once a references call in

@@ -24,9 +24,16 @@ const fakeProgressSpawn = { command: process.execPath, args: [fakeServer], env: 
 function tmpRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-hier-'));
   fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
-  for (const f of ['foo.cpp', 'bar.cpp', 'baz.cpp', 'qux.cpp']) {
+  const files = ['foo.cpp', 'bar.cpp', 'baz.cpp', 'qux.cpp'];
+  for (const f of files) {
     fs.writeFileSync(path.join(dir, 'src', f), `void ${f.replace('.cpp', '')}(){}\n`);
   }
+  // Native (non-foreign, non-unity) compile DB covering every source, so the
+  // false-exhaustive coverage guard treats the index as trustworthy and the
+  // exhaustive-tree assertions exercise the happy path (not the coverage degrade).
+  fs.writeFileSync(path.join(dir, 'compile_commands.json'), JSON.stringify(files.map((f) => ({
+    directory: dir, command: `clang++ -std=c++17 -c ${path.join(dir, 'src', f)}`, file: path.join(dir, 'src', f),
+  }))));
   return dir;
 }
 
