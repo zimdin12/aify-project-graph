@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { mkdirSync } from 'node:fs';
-import { graphCollectCodeIntel, inferLanguageFromFiles } from '../../../mcp/stdio/query/verbs/collect_code_intel.js';
+import { graphCollectCodeIntel, inferLanguageFromFiles, detectRepoLanguage } from '../../../mcp/stdio/query/verbs/collect_code_intel.js';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 import { registerProvider, clearProviders, getProvider } from '../../../mcp/stdio/code-intel/providers/index.js';
 import { createCppClangdProvider } from '../../../mcp/stdio/code-intel/providers/cpp-clangd.js';
@@ -33,6 +33,36 @@ function fixtureProvider() {
     })
   });
 }
+
+describe('detectRepoLanguage — scope=all without files[] picks the backend from repo markers', () => {
+  const mk = (files) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-detect-'));
+    for (const [rel, body] of Object.entries(files)) {
+      const p = path.join(dir, rel);
+      mkdirSync(path.dirname(p), { recursive: true });
+      fs.writeFileSync(p, body);
+    }
+    return dir;
+  };
+  it('compile_commands.json (root or build/) → cpp', () => {
+    expect(detectRepoLanguage(mk({ 'compile_commands.json': '[]' }))).toBe('cpp');
+    expect(detectRepoLanguage(mk({ 'build/compile_commands.json': '[]' }))).toBe('cpp');
+  });
+  it('tsconfig.json → typescript', () => {
+    expect(detectRepoLanguage(mk({ 'tsconfig.json': '{}' }))).toBe('typescript');
+  });
+  it('pyproject.toml / setup.py → python', () => {
+    expect(detectRepoLanguage(mk({ 'pyproject.toml': '' }))).toBe('python');
+    expect(detectRepoLanguage(mk({ 'setup.py': '' }))).toBe('python');
+  });
+  it('bare package.json (no tsconfig) → typescript; cpp DB wins over package.json', () => {
+    expect(detectRepoLanguage(mk({ 'package.json': '{}' }))).toBe('typescript');
+    expect(detectRepoLanguage(mk({ 'package.json': '{}', 'compile_commands.json': '[]' }))).toBe('cpp');
+  });
+  it('no markers → null (caller falls back to cpp default)', () => {
+    expect(detectRepoLanguage(mk({ 'README.md': '#' }))).toBeNull();
+  });
+});
 
 describe('graph_collect_code_intel', () => {
   beforeEach(() => {

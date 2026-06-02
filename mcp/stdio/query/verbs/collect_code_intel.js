@@ -122,6 +122,20 @@ function ensureBuiltinProviders() {
   providersRegistered = true;
 }
 
+// Detect the dominant code-intel language of a repo from root markers, for the
+// scope=all case where there is no files[] to vote on. compile_commands.json is
+// checked in the common build dirs (mirrors the C++ compile-DB probe).
+export function detectRepoLanguage(repoRoot) {
+  const has = (rel) => { try { return existsSync(join(repoRoot, rel)); } catch { return false; } };
+  for (const d of ['', 'build', 'build-linux', 'build-debug', 'out', 'cmake-build-debug']) {
+    if (has(join(d, 'compile_commands.json'))) return 'cpp';
+  }
+  if (has('tsconfig.json') || has('jsconfig.json')) return 'typescript';
+  if (has('pyproject.toml') || has('setup.py') || has('setup.cfg') || has('requirements.txt') || has('Pipfile') || has('pyrightconfig.json')) return 'python';
+  if (has('package.json')) return 'typescript';
+  return null;
+}
+
 export async function graphCollectCodeIntel({ repoRoot, language, scope = 'changed', files, since, operations, budgetMs }) {
   if (!repoRoot) return { schema_version: '0.2', status: 'error', errors: [{ code: 'internal_error', message: 'repoRoot required' }], records: [] };
 
@@ -129,7 +143,9 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   // infer from files[] extensions; otherwise default to 'cpp' (the games are
   // C++) — matching the other code_intel_* verbs' default.
   if (!language) {
-    language = inferLanguageFromFiles(files) || 'cpp';
+    // Explicit wins; else infer from files[] extensions; else detect from repo
+    // markers (so scope=all works without files[]); else default cpp.
+    language = inferLanguageFromFiles(files) || detectRepoLanguage(repoRoot) || 'cpp';
   }
 
   ensureBuiltinProviders();
