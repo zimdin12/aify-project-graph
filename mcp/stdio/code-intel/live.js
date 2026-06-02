@@ -8,25 +8,11 @@
 
 import { pathToFileURL } from 'node:url';
 import { LspClient } from './lsp-client.js';
-import { buildClangdSpawn } from './resolve-clangd.js';
-import { prepareCompileDb } from './compile-db.js';
+import { getBackend, normalizeLanguage } from './backends.js';
 
 const SESSIONS = new Map();
 
 function keyFor(language, projectRoot) { return `${language}:::${projectRoot}`; }
-
-// Cold-start request timeout for live cpp sessions: clangd's first cross-TU
-// query can take tens of seconds while the background index warms.
-const CPP_COLD_TIMEOUT_MS = 45000;
-
-// Build the tuned clangd spawn for a project root: discover+normalize the
-// compile DB so `--compile-commands-dir` points at host-native paths, then
-// emit the L1 spawn args. Failures degrade to args without the dir flag.
-function cppSpawnFor(projectRoot) {
-  let compileDb = null;
-  try { compileDb = prepareCompileDb({ projectRoot }); } catch { compileDb = null; }
-  return buildClangdSpawn({ projectRoot, compileDb });
-}
 
 /**
  * Acquire (or start) a live LSP session for a language + project.
@@ -35,16 +21,18 @@ function cppSpawnFor(projectRoot) {
  */
 export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   if (!language || !projectRoot) throw new Error('getLiveSession: language and projectRoot required');
-  const key = keyFor(language, projectRoot);
+  const lang = normalizeLanguage(language);
+  const key = keyFor(lang, projectRoot);
   const existing = SESSIONS.get(key);
   if (existing) return existing;
 
   let spawnCfg = spawn;
   let timeoutMs;
   if (!spawnCfg) {
-    if (language === 'cpp') {
-      spawnCfg = cppSpawnFor(projectRoot);
-      timeoutMs = CPP_COLD_TIMEOUT_MS;
+    const backend = getBackend(lang);
+    if (backend) {
+      spawnCfg = backend.spawnFor(projectRoot);
+      timeoutMs = backend.coldTimeoutMs;
     }
   }
   if (!spawnCfg) {
@@ -66,7 +54,7 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   // remember the cause until a later ready+exhaustive result clears it.
   // Subsequent technically-clean results in the degraded window carry a
   // warning so an agent doesn't bump confidence prematurely.
-  const session = { language, projectRoot, client, openedUris: new Set(), warmedOnce: false, referencesStickyDegraded: null };
+  const session = { language: lang, projectRoot, client, openedUris: new Set(), warmedOnce: false, referencesStickyDegraded: null };
   try {
     await client.start();
   } catch (err) {

@@ -25,7 +25,7 @@
 
 import { getLatestCollection } from '../code-intel/query.js';
 import { getHeadCommit } from '../freshness/git.js';
-import { computeCompileDbCoverage } from '../code-intel/compile-db.js';
+import { computeCoverage } from '../code-intel/coverage.js';
 
 const LSP_PROVENANCE = 'LSP_VERIFIED';
 
@@ -126,20 +126,18 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
   // complete:false with reason "no compile DB") must NOT downgrade — these edges
   // were clangd ground truth at collection time, and the STALE check below
   // already handles drift. So gate on the foreign/unity flags, not bare complete.
+  // `partial` is the generic "intrinsically incomplete" flag (foreign/unity C++,
+  // no-tsconfig TS, or any Python collection). It is FALSE for a C++ DB merely
+  // absent at query time, so pre-collected ground-truth edges aren't downgraded.
   let coverageIncomplete = false;
   let coverageReason = '';
   try {
-    const cov = computeCompileDbCoverage({ projectRoot: repoRoot });
-    if (cov && cov.complete === false && (cov.foreignToolchain || cov.unityUnexpanded)) {
-      coverageIncomplete = true; coverageReason = cov.reason || '';
-    }
+    const cov = computeCoverage({ language: collection?.language || 'cpp', projectRoot: repoRoot });
+    if (cov && cov.partial === true) { coverageIncomplete = true; coverageReason = cov.reason || ''; }
   } catch { /* defensive — treat as complete */ }
   if (coverageIncomplete) {
-    const remedy = coverageReason.includes('UNITY') || coverageReason.includes('unity')
-      ? 'expand the unity build'
-      : 'set APG_CLANGD_WSL=1';
-    return `TRUST: lsp-partial (compile-DB coverage incomplete — ${remedy}; caller set is a FLOOR, verify with code_intel_references / rg before any "no callers" / delete) `
-      + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}]`;
+    return `TRUST: lsp-partial (index coverage incomplete — caller set is a FLOOR, verify with code_intel_references / rg before any "no callers" / delete) `
+      + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}; ${coverageReason}]`;
   }
 
   // FIX A/B — readiness-gated honesty. references are only trustworthy-as-

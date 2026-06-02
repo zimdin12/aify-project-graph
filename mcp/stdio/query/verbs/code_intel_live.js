@@ -10,12 +10,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
-import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
+import { computeCoverage } from '../../code-intel/coverage.js';
+import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 
 const HINTS = {
-  language_unsupported: 'no live LSP session registered for this language; supported: cpp',
+  language_unsupported: 'no live LSP session registered for this language; supported: cpp, typescript/javascript, python',
   language_server_missing: 'install the language server (e.g. clangd) and ensure it is on PATH; run `apg code-intel doctor` for details',
   internal_error: 'see message'
 };
@@ -252,14 +253,15 @@ function uriToRel(uri, projectRoot) {
 }
 
 /** Diagnostics for a bounded set of files. */
-export async function codeIntelDiagnostics({ repoRoot, language = 'cpp', files = [], diagnosticsWaitMs, warmupMs, spawn }) {
+export async function codeIntelDiagnostics({ repoRoot, language, files = [], diagnosticsWaitMs, warmupMs, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot) return errorResponse('internal_error', 'repoRoot required');
   if (!Array.isArray(files) || files.length === 0) return { status: 'ok', files: [], diagnostics: [] };
   const waitMs = Number.isFinite(diagnosticsWaitMs) && diagnosticsWaitMs >= 0
     ? diagnosticsWaitMs : DEFAULT_DIAGNOSTICS_WAIT_MS;
+  const lang = language || inferLanguage(files[0]) || 'cpp';
   let session;
-  try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
+  try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
 
   const publishCounts = new Map();
@@ -314,11 +316,14 @@ export async function codeIntelDiagnostics({ repoRoot, language = 'cpp', files =
  *  Cross-file refs require clangd to have indexed candidate callers. Pass
  *  `warmupFiles[]` (e.g. ['src/foo.cpp', 'src/bar.cpp', 'src/foo.h']) when
  *  background-index is disabled and you need clangd to consider those files. */
-export async function codeIntelReferences({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
+export async function codeIntelReferences({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
+  // The file extension is authoritative for which language server to drive, so
+  // agents don't have to pass `language` for TS/Python repos (default is cpp).
+  const lang = language || inferLanguage(file) || 'cpp';
   let session;
-  try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
+  try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
 
   // Plan #14 Step B: auto-prewarm bounded set when session is cold and
@@ -362,7 +367,7 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
   // partial index over a foreign/unity DB can't be reported as a complete
   // caller set. Best-effort — never let coverage detection fail the query.
   let coverage = null;
-  try { coverage = computeCompileDbCoverage({ projectRoot: repoRoot }); }
+  try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot }); }
   catch { coverage = null; }
   const evidence = buildReferencesEvidence({
     freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage
@@ -417,11 +422,12 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
 }
 
 /** Definitions for a symbol at a position. Pass warmupFiles[] for cross-TU resolution. */
-export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
+export async function codeIntelDefinitions({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
+  const lang = language || inferLanguage(file) || 'cpp';
   let session;
-  try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
+  try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
   const prewarm = planAutoPrewarm(session, file, warmupFiles, prewarmCap);
   const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
@@ -450,11 +456,12 @@ export async function codeIntelDefinitions({ repoRoot, language = 'cpp', file, l
 }
 
 /** Hover (type + docstring) at a position. Pass warmupFiles[] when the symbol is declared in another TU. */
-export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
+export async function codeIntelHover({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
+  const lang = language || inferLanguage(file) || 'cpp';
   let session;
-  try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
+  try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
   const prewarm = planAutoPrewarm(session, file, warmupFiles, prewarmCap);
   const callerProvided = Array.isArray(warmupFiles) ? warmupFiles.filter(f => f && f !== file) : [];
@@ -470,10 +477,11 @@ export async function codeIntelHover({ repoRoot, language = 'cpp', file, line, c
 }
 
 /** Symbol outline for one file. */
-export async function codeIntelSymbols({ repoRoot, language = 'cpp', file, spawn }) {
+export async function codeIntelSymbols({ repoRoot, language, file, spawn }) {
   if (!repoRoot || !file) return errorResponse('internal_error', 'repoRoot and file required');
+  const lang = language || inferLanguage(file) || 'cpp';
   let session;
-  try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
+  try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
   const uri = await openIfNeeded(session, file);
   const syms = (await session.client.documentSymbol(uri)) || [];

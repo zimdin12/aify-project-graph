@@ -26,7 +26,8 @@ import path from 'node:path';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
-import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
+import { computeCoverage } from '../../code-intel/coverage.js';
+import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { openExistingDb } from '../../storage/db.js';
 
@@ -445,7 +446,7 @@ function renderTree(node, { indent = '', isLast = true, isRoot = true, mark = '[
 export async function codeIntelHierarchy(args = {}) {
   const startedAt = Date.now();
   const {
-    language = 'cpp',
+    language,
     kind,
     symbol,
     depth: depthArg,
@@ -475,14 +476,17 @@ export async function codeIntelHierarchy(args = {}) {
   const breadthCap = Math.min(Math.max(Number(breadthArg) || DEFAULT_BREADTH_CAP, 1), 100);
   const totalCap = Math.min(Math.max(Number(totalArg) || DEFAULT_TOTAL_NODES, 1), 1000);
 
+  // Explicit language wins; else infer from the file extension; else default cpp.
+  const lang = language || inferLanguage(file) || 'cpp';
   let session;
-  try { session = await getLiveSession({ language, projectRoot: repoRoot, spawn }); }
+  try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
   catch (err) { return errorResponse(err.code || 'internal_error', err.message); }
 
-  // FALSE-EXHAUSTIVE GUARD: compile-DB coverage gates the exhaustive claim (a
-  // foreign/unity DB yields a silently-partial index). Best-effort.
+  // FALSE-EXHAUSTIVE GUARD: per-language coverage gates the exhaustive claim (a
+  // foreign/unity C++ DB, a no-tsconfig TS project, or Python's dynamic dispatch
+  // all yield a silently-partial index). Best-effort.
   let coverage = null;
-  try { coverage = computeCompileDbCoverage({ projectRoot: repoRoot }); }
+  try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot }); }
   catch { coverage = null; }
 
   // Open the anchor file so clangd has the TU loaded.
