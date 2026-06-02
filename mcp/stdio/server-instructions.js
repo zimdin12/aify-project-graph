@@ -48,8 +48,15 @@ ANTI-PATTERNS (avoid):
 OUTPUT CONTRACTS:
 - Structured verbs (graph_consequences, graph_pull, graph_find, graph_explain_diff, code_intel_*) return JSON; narrative verbs (graph_callers/callees/trace/explore/digest, graph_packet, …) return markdown. Parse JSON shapes by field; read markdown shapes as text — do not assume one shape for all verbs.
 
+LANGUAGES (LSP trust spine): code_intel_* + graph_collect_code_intel work on C++ (clangd),
+TypeScript/JavaScript (typescript-language-server), and Python (pyright). Language is inferred
+from the file extension — you do NOT need to pass language. The servers are bundled with the
+plugin; the host needs no LSP config. Honesty per language: C++ gated on compile-DB coverage;
+TS exhaustive WITH a tsconfig (partial without); Python is NEVER provably exhaustive (duck typing
+/ getattr / dynamic dispatch) → references/hierarchy return exhaustive:false — a FLOOR, verify
+with rg before any delete/rename. Other languages remain tree-sitter structural-only.
+
 KNOWN LIMITS (don't burn calls on these — read the code instead):
-- C++-first; JS/TS resolution is best-effort, other languages structural-only.
 - The static graph does NOT synthesize dynamic dispatch: function-pointer / std::function / script
   (Lua) callbacks, and registry/DI indirection. Verify those by reading.
 - Cross-language links beyond the C++↔GLSL shader bridge (graph_shader) are not resolved.

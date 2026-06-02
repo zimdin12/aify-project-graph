@@ -3,13 +3,15 @@ import { runDoctor } from './doctor.js';
 import { codeIntelAnalyze } from '../../query/verbs/code_intel_analyze.js';
 import { registerProvider, getProvider } from '../providers/index.js';
 import { createCppClangdProvider } from '../providers/cpp-clangd.js';
+import { createTsLangServerProvider } from '../providers/ts-langserver.js';
+import { createPyrightProvider } from '../providers/pyright.js';
 
 let providersRegistered = false;
 function ensureBuiltinProviders() {
   if (providersRegistered) return;
-  if (!getProvider('cpp-clangd')) {
-    registerProvider('cpp-clangd', () => createCppClangdProvider());
-  }
+  if (!getProvider('cpp-clangd')) registerProvider('cpp-clangd', () => createCppClangdProvider());
+  if (!getProvider('ts-langserver')) registerProvider('ts-langserver', () => createTsLangServerProvider());
+  if (!getProvider('pyright')) registerProvider('pyright', () => createPyrightProvider());
   providersRegistered = true;
 }
 

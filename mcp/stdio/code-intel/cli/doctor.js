@@ -8,15 +8,46 @@
 // Signature preserved: runDoctor(args) where args may name languages and/or
 // carry `--project-root <dir>`. Returns 0 (informational).
 
+import fs from 'node:fs';
 import { resolveClangd, clangdVersion, detectWslClangd, wslModeRequested } from '../resolve-clangd.js';
 import { prepareCompileDb } from '../compile-db.js';
+import { nodeLspSpawn } from '../node-bin.js';
+import { computeCoverage } from '../coverage.js';
 
 const LANGUAGES = {
   cpp: {
     serverBinary: 'clangd',
     install: 'install LLVM (winget install LLVM.LLVM / brew install llvm / apt install clangd) or set APG_CLANGD=<path to clangd>'
-  }
+  },
+  typescript: { pkg: 'typescript-language-server', bin: 'typescript-language-server', install: 'bundled with the plugin; if missing run `npm install` in the plugin dir' },
+  python: { pkg: 'pyright', bin: 'pyright-langserver', install: 'bundled with the plugin; if missing run `npm install` in the plugin dir' },
 };
+
+// Report an npm-distributed (bundled) LSP backend: is the server script
+// resolvable, and what does its coverage strategy say about exhaustiveness?
+function reportNodeBackend(lang, projectRoot, write) {
+  const cfg = LANGUAGES[lang];
+  write(`${lang}:\n`);
+  const spawn = nodeLspSpawn({ pkgName: cfg.pkg, binName: cfg.bin, args: ['--stdio'], projectRoot });
+  const scriptOk = spawn.command === process.execPath && spawn.args[0] && fs.existsSync(spawn.args[0]);
+  if (scriptOk) {
+    write(`  server: OK — ${cfg.pkg} (bundled) via node ${spawn.args[0]}\n`);
+  } else {
+    write(`  server: NOT FOUND — ${cfg.pkg} (not on disk and not on PATH)\n`);
+    write(`    fix: ${cfg.install}\n`);
+  }
+  let cov = null;
+  try { cov = computeCoverage({ language: lang, projectRoot }); } catch { /* defensive */ }
+  if (lang === 'python') {
+    write('  coverage: PARTIAL by nature — Python call resolution is never provably exhaustive (duck typing / getattr / dynamic dispatch).\n');
+    write('    references/hierarchy return exhaustive:false; verify with rg before any delete/rename.\n');
+  } else if (cov) {
+    if (cov.complete) write('  coverage: tsconfig.json/jsconfig.json found — references are exhaustive.\n');
+    else write('  coverage: NO tsconfig.json/jsconfig.json — loose inferred-project mode; references may undercount (add a tsconfig for exhaustive results).\n');
+  }
+  write(scriptOk ? `  => READY${lang === 'python' ? ' (non-exhaustive by nature)' : ''}\n` : '  => NOT READY\n');
+  write('  NOTE: the MCP server owns this language server — no host (Claude Code / Hermes) LSP config needed.\n');
+}
 
 function parseArgs(args) {
   const langs = [];
@@ -148,6 +179,7 @@ export function runDoctor(args) {
       continue;
     }
     if (lang === 'cpp') reportCpp(projectRoot, write);
+    else reportNodeBackend(lang, projectRoot, write);
   }
   return 0;
 }
