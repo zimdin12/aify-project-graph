@@ -45,6 +45,12 @@ function thItem(name, uri, line) {
 function incoming(item) { return { from: item, fromRanges: [item.selectionRange] }; }
 function outgoing(item) { return { to: item, fromRanges: [item.selectionRange] }; }
 
+// FAKE_LSP_COLD_PREPARE=1 simulates the real-clangd cold-parse race: a freshly
+// didOpen'd file has no AST yet, so prepareCall/TypeHierarchy returns NO ROOT
+// until clangd publishes its first diagnostics for the URI (the parse-complete
+// signal). The verb's cold-retry waits on that publish and re-prepares.
+const _parsedUris = new Set();
+
 function handle(msg) {
   switch (msg.method) {
     case 'initialize':
@@ -73,6 +79,21 @@ function handle(msg) {
     case 'exit':
       return process.exit(0);
     case 'textDocument/didOpen':
+      // Cold-parse simulation: publish an (empty) diagnostics for the opened URI
+      // shortly after open, then mark it parsed so the retried prepare resolves.
+      if (process.env.FAKE_LSP_COLD_PREPARE === '1') {
+        const u = msg.params.textDocument.uri;
+        setTimeout(() => {
+          _parsedUris.add(u);
+          notify('textDocument/publishDiagnostics', { uri: u, diagnostics: [] });
+        }, 30);
+      }
+      // Genuinely-rootless fixture models a REAL parsed file: clangd always
+      // publishes (here empty) diagnostics after parsing, so publishCount>0 and
+      // the verb's cold-prepare retry is correctly skipped (root stays empty).
+      if (process.env.FAKE_LSP_HIERARCHY_EMPTY === '1') {
+        notify('textDocument/publishDiagnostics', { uri: msg.params.textDocument.uri, diagnostics: [] });
+      }
       // Emit a fake diagnostic for files whose URI ends with `bad.cpp`.
       if ((msg.params.textDocument.uri || '').endsWith('bad.cpp')) {
         notify('textDocument/publishDiagnostics', {
@@ -123,6 +144,7 @@ function handle(msg) {
     case 'textDocument/prepareCallHierarchy': {
       if (process.env.FAKE_LSP_HIERARCHY_EMPTY === '1') return reply(msg.id, null);
       const uri = msg.params.textDocument.uri;
+      if (process.env.FAKE_LSP_COLD_PREPARE === '1' && !_parsedUris.has(uri)) return reply(msg.id, null);
       // HIGH-1 repro: a root that RESOLVES (index-ready) but whose incoming/
       // outgoing calls come back EMPTY ('lonely' is unknown to the call handlers
       // below, which reply []). This is the false-exhaustive trap — index-ready
@@ -167,6 +189,7 @@ function handle(msg) {
     case 'textDocument/prepareTypeHierarchy': {
       if (process.env.FAKE_LSP_HIERARCHY_EMPTY === '1') return reply(msg.id, null);
       const uri = msg.params.textDocument.uri;
+      if (process.env.FAKE_LSP_COLD_PREPARE === '1' && !_parsedUris.has(uri)) return reply(msg.id, null);
       return reply(msg.id, [thItem('Base', uri, 0)]);
     }
     case 'typeHierarchy/subtypes': {

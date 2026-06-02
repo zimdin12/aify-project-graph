@@ -271,6 +271,21 @@ describe('code_intel_hierarchy — error envelopes', () => {
     expect(r.tree).toBeNull();
     expect(r.treeText).toMatch(/no call hierarchy root/);
   });
+
+  it('cold clangd → retries the prepare after the parse signal and resolves the root', async () => {
+    // COLD-INDEX FIX: first prepareCallHierarchy returns NO ROOT because the
+    // freshly-opened TU has no AST yet; the verb waits for clangd's first
+    // diagnostics publish, then re-prepares and gets the real root. Bounded mode
+    // skips the index-settle wait so prepare genuinely runs while the TU is cold.
+    const repo = tmpRepo();
+    process.env.APG_CLANGD_MODE = 'bounded';
+    const coldSpawn = { command: process.execPath, args: [fakeServer], env: { ...process.env, FAKE_LSP_COLD_PREPARE: '1' } };
+    const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', depth: 1, spawn: coldSpawn });
+    expect(r.status).toBe('ok');
+    expect(r.tree).not.toBeNull();
+    expect(r.tree.name).toBe('foo'); // resolved on retry, not a false "no root"
+    expect(r.telemetry.coldPrepareRetries).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe('code_intel_hierarchy — evidence/banner unit cases', () => {

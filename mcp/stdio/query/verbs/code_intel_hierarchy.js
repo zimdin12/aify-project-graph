@@ -71,6 +71,14 @@ function resolveIndexWaitMs() {
   return Number.isFinite(raw) && raw >= 0 ? raw : 90000;
 }
 
+// Per-attempt budget for the cold-prepare retry (waiting on clangd's first
+// diagnostics publish for the URI = the parse-complete signal). Kept small so a
+// genuinely-empty root costs little; two attempts by default.
+function resolveColdParseWaitMs() {
+  const raw = Number(process.env.APG_CLANGD_COLD_PARSE_WAIT_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 2000;
+}
+
 function rangeFromLsp(r) {
   if (!r) return null;
   return { start: { line: r.start.line + 1, col: r.start.character + 1 }, end: { line: r.end.line + 1, col: r.end.character + 1 } };
@@ -498,16 +506,44 @@ export async function codeIntelHierarchy(args = {}) {
 
   const pos = { line: line - 1, character: (col || 1) - 1 };
 
-  // Prepare the hierarchy root(s).
-  let items;
-  try {
-    items = needsCall
+  // Prepare the hierarchy root(s). COLD-INDEX FIX (2026-06-02): clangd often
+  // returns NO ROOT on the first call against a freshly-opened file because
+  // didOpen returns immediately and the file's AST has not been built yet (even
+  // when the *background index* reports idle — that's cross-TU, not this TU's
+  // ASTWorker). The eval saw this as a false "no call hierarchy root" on cold
+  // clangd. When the root is empty and the index/AST is not confirmed ready,
+  // wait for clangd's first diagnostics publish on this URI (the parse-complete
+  // signal) and retry the prepare. A confirmed-ready index skips the retry, so a
+  // genuinely-rootless position (not a function/type) stays cheap.
+  const prepareRoots = async () => {
+    const r = needsCall
       ? await session.client.prepareCallHierarchy(uri, pos)
       : await session.client.prepareTypeHierarchy(uri, pos);
+    return Array.isArray(r) ? r : (r ? [r] : []);
+  };
+  let items;
+  let coldPrepareRetries = 0;
+  try {
+    items = await prepareRoots();
+    const canWaitParse = typeof session.client.waitForDiagnostics === 'function'
+      && typeof session.client.diagnosticPublishCount === 'function';
+    // Retry ONLY while clangd has not yet published diagnostics for this URI —
+    // publishCount === 0 means the file's AST is not built yet (the real cold
+    // race). Once any publish lands, an empty root is genuine and we stop, so
+    // this costs at most one parse-wait and never delays a warm file or a truly
+    // rootless position on an already-parsed TU. (A confirmed-ready background
+    // index does NOT imply this file's ASTWorker has finished — hence we gate on
+    // the per-file publish, not indexReady.)
+    while (items.length === 0 && coldPrepareRetries < 2 && canWaitParse
+        && session.client.diagnosticPublishCount(uri) === 0) {
+      const parsed = await session.client.waitForDiagnostics(uri, 0, resolveColdParseWaitMs());
+      if (!parsed) break; // no parse signal within budget — treat as genuinely empty
+      items = await prepareRoots();
+      coldPrepareRetries++;
+    }
   } catch (err) {
     return errorResponse('internal_error', `prepare ${needsCall ? 'call' : 'type'} hierarchy failed: ${err.message}`);
   }
-  items = Array.isArray(items) ? items : (items ? [items] : []);
 
   const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0, kind, coverage });
 
@@ -519,12 +555,19 @@ export async function codeIntelHierarchy(args = {}) {
       mode,
       indexReady,
       tree: null,
-      treeText: `(no ${needsCall ? 'call' : 'type'} hierarchy root at ${file}:${line}:${col || 1})`,
+      // Distinguish a confirmed-empty root from one we could not confirm because
+      // clangd was still cold (no parse signal within the retry budget). The
+      // latter is a "retry"/"warm the index" signal, NOT "this symbol has no
+      // hierarchy" — surfacing it stops an agent reading cold as absence.
+      treeText: (indexReady === true)
+        ? `(no ${needsCall ? 'call' : 'type'} hierarchy root at ${file}:${line}:${col || 1})`
+        : `(no ${needsCall ? 'call' : 'type'} hierarchy root resolved at ${file}:${line}:${col || 1} — clangd index/AST not confirmed ready${coldPrepareRetries ? ` after ${coldPrepareRetries} parse-wait retr${coldPrepareRetries === 1 ? 'y' : 'ies'}` : ''}; re-run in INDEXED mode or after warmup before treating this as "no hierarchy")`,
       trust: buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount: 0 }),
       evidence,
       telemetry: {
         operation: 'hierarchy', kind, nodes: 0, depth, breadthCap, totalCap,
-        latencyMs: latencyMs(startedAt), mode, indexReady, indexWaitMs, indexWaitReason
+        latencyMs: latencyMs(startedAt), mode, indexReady, indexWaitMs, indexWaitReason,
+        coldPrepareRetries
       }
     };
   }
@@ -569,7 +612,7 @@ export async function codeIntelHierarchy(args = {}) {
     telemetry: {
       operation: 'hierarchy', kind, nodes: nodeCount, roots: items.length,
       depth, breadthCap, totalCap, latencyMs: latencyMs(startedAt),
-      mode, indexReady, indexWaitMs, indexWaitReason
+      mode, indexReady, indexWaitMs, indexWaitReason, coldPrepareRetries
     }
   };
 }
