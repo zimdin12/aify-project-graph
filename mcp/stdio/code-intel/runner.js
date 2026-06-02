@@ -11,7 +11,7 @@ const HINTS = {
   internal_error: 'unexpected provider failure; see message and provider logs'
 };
 
-const PROVIDER_BY_LANGUAGE = { cpp: 'cpp-clangd' };
+const PROVIDER_BY_LANGUAGE = { cpp: 'cpp-clangd', typescript: 'ts-langserver', javascript: 'ts-langserver', python: 'pyright' };
 
 function newCollectionId() {
   const ts = new Date().toISOString().replace(/[:.]/g, '-');

@@ -23,6 +23,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { runCollection } from '../../code-intel/runner.js';
 import { registerProvider, getProvider } from '../../code-intel/providers/index.js';
 import { createCppClangdProvider } from '../../code-intel/providers/cpp-clangd.js';
+import { createTsLangServerProvider } from '../../code-intel/providers/ts-langserver.js';
 import { openDb, openExistingDb } from '../../storage/db.js';
 import { importCodeIntel } from '../../ingest/code-intel/importer.js';
 
@@ -34,8 +35,9 @@ import { importCodeIntel } from '../../ingest/code-intel/importer.js';
 const EXT_LANGUAGE = new Map([
   ['.cpp', 'cpp'], ['.cc', 'cpp'], ['.cxx', 'cpp'], ['.c', 'cpp'],
   ['.h', 'cpp'], ['.hpp', 'cpp'], ['.hh', 'cpp'], ['.hxx', 'cpp'], ['.inl', 'cpp'],
-  ['.ts', 'typescript'], ['.tsx', 'typescript'],
-  ['.js', 'typescript'], ['.jsx', 'typescript'], ['.mjs', 'typescript'], ['.cjs', 'typescript']
+  ['.ts', 'typescript'], ['.tsx', 'typescript'], ['.mts', 'typescript'], ['.cts', 'typescript'],
+  ['.js', 'typescript'], ['.jsx', 'typescript'], ['.mjs', 'typescript'], ['.cjs', 'typescript'],
+  ['.py', 'python'], ['.pyi', 'python']
 ]);
 
 // Infer a language from a files[] list by majority extension vote. Returns null
@@ -109,6 +111,9 @@ function ensureBuiltinProviders() {
   if (providersRegistered) return;
   if (!getProvider('cpp-clangd')) {
     registerProvider('cpp-clangd', () => createCppClangdProvider());
+  }
+  if (!getProvider('ts-langserver')) {
+    registerProvider('ts-langserver', () => createTsLangServerProvider());
   }
   providersRegistered = true;
 }

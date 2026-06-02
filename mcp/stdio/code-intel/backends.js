@@ -11,7 +11,7 @@
 
 import { buildClangdSpawn } from './resolve-clangd.js';
 import { prepareCompileDb } from './compile-db.js';
-import { resolveNodeBin } from './node-bin.js';
+import { nodeLspSpawn } from './node-bin.js';
 
 const CPP_COLD_TIMEOUT_MS = 45000;
 const NODE_LSP_COLD_TIMEOUT_MS = 30000;
@@ -23,13 +23,11 @@ function cppSpawnFor(projectRoot) {
 }
 
 function tsSpawnFor(projectRoot) {
-  const command = resolveNodeBin('typescript-language-server', projectRoot);
-  return { command, args: ['--stdio'] };
+  return nodeLspSpawn({ pkgName: 'typescript-language-server', binName: 'typescript-language-server', args: ['--stdio'], projectRoot });
 }
 
 function pythonSpawnFor(projectRoot) {
-  const command = resolveNodeBin('pyright-langserver', projectRoot);
-  return { command, args: ['--stdio'] };
+  return nodeLspSpawn({ pkgName: 'pyright', binName: 'pyright-langserver', args: ['--stdio'], projectRoot });
 }
 
 // language → backend descriptor.

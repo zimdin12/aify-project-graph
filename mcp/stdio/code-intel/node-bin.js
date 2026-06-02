@@ -36,4 +36,35 @@ export function resolveNodeBin(name, projectRoot, { pluginRoot = PLUGIN_ROOT } =
   return name; // fall through to PATH
 }
 
+// Resolve a package's bin SCRIPT (the .js/.mjs entry, not the .cmd shim) so it
+// can be run via `node`. Windows cannot directly spawn a `.cmd` (modern Node
+// rejects it with EINVAL), and running the script with process.execPath is
+// cross-platform and avoids shell quoting. Returns the absolute script path or
+// null. `binName` selects which entry when the package exposes several.
+function readBinScript(root, pkgName, binName) {
+  const pkgDir = path.join(root, 'node_modules', pkgName);
+  let pkg;
+  try { pkg = JSON.parse(fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')); } catch { return null; }
+  let rel = null;
+  if (typeof pkg.bin === 'string') rel = pkg.bin;
+  else if (pkg.bin && typeof pkg.bin === 'object') rel = pkg.bin[binName] || pkg.bin[pkgName] || Object.values(pkg.bin)[0];
+  if (!rel) return null;
+  const abs = path.join(pkgDir, rel);
+  try { return fs.existsSync(abs) ? abs : null; } catch { return null; }
+}
+
+// Build a cross-platform spawn config for an npm-distributed language server.
+// Prefers running the package's JS entry via `node` (project-local → plugin);
+// falls back to the bare bin name on PATH (POSIX, where the shim is executable).
+export function nodeLspSpawn({ pkgName, binName, args = [], projectRoot, pluginRoot = PLUGIN_ROOT }) {
+  const roots = [];
+  if (projectRoot) roots.push(projectRoot);
+  if (pluginRoot && pluginRoot !== projectRoot) roots.push(pluginRoot);
+  for (const root of roots) {
+    const script = readBinScript(root, pkgName, binName);
+    if (script) return { command: process.execPath, args: [script, ...args] };
+  }
+  return { command: resolveNodeBin(binName, projectRoot, { pluginRoot }), args };
+}
+
 export { PLUGIN_ROOT };
