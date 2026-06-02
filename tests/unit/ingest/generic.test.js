@@ -443,6 +443,50 @@ void ChunkManager::tick() {
     expect(targets).toContain('isOpenAir');
   });
 
+  it('resolves templated C++ calls to their base symbol (finding #3 — caller coverage)', () => {
+    // Template args on the leaf/bare name previously left the target verbatim
+    // (`make<int>`, `Pool::acquire<Foo>`, `World::Mgr<int>::tick`) so the CALLS
+    // edge never resolved to the base node. Strip them.
+    const source = `
+template<typename T> T make();
+void spawn() {
+  make<int>();
+  Pool::acquire<Foo>();
+  World::Mgr<int>::tick();
+  registry.emplace<Velocity>();
+  std::vector<int> v;
+}
+`;
+    const result = extractFile({ filePath: 'engine/Spawn.cpp', source, config: cpp });
+    const targets = result.refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.from_label === 'spawn')
+      .map((ref) => ref.target);
+
+    expect(targets).toContain('make');                 // bare templated fn
+    expect(targets).toContain('Pool.acquire');         // qualified + leaf template
+    expect(targets).toContain('World.Mgr.tick');       // scope + leaf templates
+    expect(targets).toContain('emplace');              // obj.method<T>() stays bare leaf
+    // No verbatim `<...>` leaked into any resolved target.
+    expect(targets.some((t) => t.includes('<') || t.includes('>'))).toBe(false);
+  });
+
+  it('template-arg stripping is safe: no bracket leakage on multi-arg / nested templates', () => {
+    const source = `
+void use() {
+  build<Map<int, Foo>>();
+  emit<A, B>();
+}
+`;
+    const result = extractFile({ filePath: 'engine/Op.cpp', source, config: cpp });
+    const targets = result.refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.from_label === 'use')
+      .map((ref) => ref.target);
+    // nested + multi-arg template lists collapse to the base name, no `<`/`>`/`,`
+    expect(targets).toContain('build');
+    expect(targets).toContain('emit');
+    expect(targets.some((t) => /[<>,]/.test(t))).toBe(false);
+  });
+
   it('extracts Eloquent relationships and dispatch calls (PHP postExtract)', () => {
     const source = [
       '<?php',

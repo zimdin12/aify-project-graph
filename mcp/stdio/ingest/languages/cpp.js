@@ -95,8 +95,33 @@ function extractQualifiedScopeSegments(node, source) {
   return text ? [text] : [];
 }
 
+// Strip balanced template-argument lists (`<...>`) from a call target spelling
+// so templated calls resolve to their base symbol. WHY (eval finding #3, weak
+// C++ caller coverage): game code is template-heavy (ECS, containers), and a
+// call like `foo<int>()`, `Type::method<T>()` or `World::Mgr<int>::tick()` left
+// the leaf name with `<...>` attached — which matches NONE of the parse regexes
+// below, so the edge fell through to the verbatim spelling and never resolved to
+// the `foo` / `method` / `tick` node. That silently dropped real caller edges.
+// Guarded: skip when the spelling contains `operator` (operator<, operator<<,
+// operator<=> would be mangled) and bail on unbalanced brackets (never truncate
+// a real name). Scope-level template args were already handled by
+// normalizeCppScope; this also covers the leaf and bare-function cases.
+function stripCppTemplateArgs(s) {
+  if (!s.includes('<')) return s;
+  if (s.includes('operator')) return s;
+  let out = '';
+  let depth = 0;
+  for (const ch of s) {
+    if (ch === '<') { depth += 1; continue; }
+    if (ch === '>') { if (depth > 0) depth -= 1; continue; }
+    if (depth === 0) out += ch;
+  }
+  return depth === 0 ? out : s; // unbalanced → keep original, don't truncate
+}
+
 function normalizeCppCallTarget({ text, owner }) {
-  const raw = String(text ?? '').trim().split(/\s+/u)[0] ?? '';
+  const stripped = stripCppTemplateArgs(String(text ?? '').trim());
+  const raw = stripped.split(/\s+/u)[0] ?? '';
   if (!raw) return '';
 
   const qualified = raw.match(/^(.+)::(~?[A-Za-z_]\w*)$/u);
