@@ -33,7 +33,7 @@ TOOL SELECTION BY INTENT:
 
 TRUST RULES (this server's differentiator):
 - Edges marked [lsp✓] (provenance LSP_VERIFIED) are clangd ground truth. Do NOT re-grep them.
-- A "TRUST: lsp-verified (index-ready, N callers)" banner means the caller set is EXHAUSTIVE — safe basis for "no callers / dead code / safe to delete".
+- A "TRUST: lsp-verified (index-ready, N callers)" banner means the caller set is EXHAUSTIVE — safe basis for "no callers / dead code / safe to delete" — UNLESS the structured evidence.cause is partial_compile_db_coverage (or the banner itself reads lsp-partial). On a foreign/unity compile DB the index is partial; prefer evidence.exhaustive over the banner text when they could disagree.
 - "lsp-partial" / "heuristic only" means the set may be incomplete — verify before any "no callers / safe to delete" claim.
 - cause=partial_compile_db_coverage (degraded, exhaustive:false) means the index is silently PARTIAL even though clangd reported "fresh": the compile DB is either a foreign (Linux/WSL) toolchain run against host clangd, or a CMake unity/jumbo build whose per-source TUs are absent. Some real callers are invisible and will NOT be flagged individually — never treat such a result as "no callers / dead code / safe to delete"; confirm with rg first. Fix the index with APG_CLANGD_WSL=1 (foreign toolchain) or by expanding the unity build.
 - OVERRIDDEN_BY and INFERRED edges are static guesses, not ground truth — confirm with code_intel_hierarchy kind=subtypes on the OWNING CLASS (returns derived overriders), or kind=callers on the virtual method (kind=subtypes on a METHOD resolves to its return type, not its overrides).

@@ -73,10 +73,13 @@ function resolveIndexWaitMs() {
 
 // Per-attempt budget for the cold-prepare retry (waiting on clangd's first
 // diagnostics publish for the URI = the parse-complete signal). Kept small so a
-// genuinely-empty root costs little; two attempts by default.
-function resolveColdParseWaitMs() {
+// genuinely-rootless position costs little. Bounded mode is the low-latency
+// inner loop (its whole contract is "no index wait"), so it gets a much smaller
+// budget than indexed mode. Explicit env override wins for both.
+function resolveColdParseWaitMs(mode) {
   const raw = Number(process.env.APG_CLANGD_COLD_PARSE_WAIT_MS);
-  return Number.isFinite(raw) && raw >= 0 ? raw : 2000;
+  if (Number.isFinite(raw) && raw >= 0) return raw;
+  return mode === 'bounded' ? 600 : 1500;
 }
 
 function rangeFromLsp(r) {
@@ -296,7 +299,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
 
 // Single-line TRUST banner, same vocabulary as lsp-evidence.js buildTrustLine,
 // but derived from the LIVE session's index-ready state (not a collection row).
-export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount }) {
+export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage }) {
   const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'type' : 'call';
   const edgeNoun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
   const empty = !(Number(nodeCount) > 1);
@@ -308,6 +311,16 @@ export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount }) {
     // exhaustive" on an empty tree; the absence is unconfirmed (cross-TU
     // resolution not confirmed). Say lsp-partial and point at references/rg.
     return `TRUST: lsp-partial (clangd, index-ready but 0 ${edgeNoun} — NOT safe evidence of no ${edgeNoun}; cross-TU resolution unconfirmed; verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+  }
+  // FALSE-EXHAUSTIVE GUARD (2026-06-02): index-ready + a non-empty tree is NOT
+  // exhaustive when the compile DB can't cover all TUs (foreign Linux/WSL DB on
+  // host clangd, or unexpanded unity). MUST agree with buildHierarchyEvidence
+  // (which returns partial_compile_db_coverage / exhaustive:false here) and with
+  // the `[lsp~]` node mark — so the banner can't say lsp-verified while the
+  // evidence + nodes say partial. Without this the banner alone falsely licenses
+  // "safe to delete" on a foreign/unity DB.
+  if (indexReady === true && coverage && coverage.complete === false) {
+    return `TRUST: lsp-partial (clangd, index-ready but compile-DB coverage incomplete — ${noun} hierarchy is a FLOOR, may undercount; verify with code_intel_references / rg before any "no ${edgeNoun}" / delete) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
   if (indexReady === true) {
     return `TRUST: lsp-verified (clangd, index-ready, ${noun} hierarchy, ${nodeCount} node${nodeCount === 1 ? '' : 's'})`;
@@ -536,7 +549,7 @@ export async function codeIntelHierarchy(args = {}) {
     // the per-file publish, not indexReady.)
     while (items.length === 0 && coldPrepareRetries < 2 && canWaitParse
         && session.client.diagnosticPublishCount(uri) === 0) {
-      const parsed = await session.client.waitForDiagnostics(uri, 0, resolveColdParseWaitMs());
+      const parsed = await session.client.waitForDiagnostics(uri, 0, resolveColdParseWaitMs(mode));
       if (!parsed) break; // no parse signal within budget — treat as genuinely empty
       items = await prepareRoots();
       coldPrepareRetries++;
@@ -562,7 +575,7 @@ export async function codeIntelHierarchy(args = {}) {
       treeText: (indexReady === true)
         ? `(no ${needsCall ? 'call' : 'type'} hierarchy root at ${file}:${line}:${col || 1})`
         : `(no ${needsCall ? 'call' : 'type'} hierarchy root resolved at ${file}:${line}:${col || 1} — clangd index/AST not confirmed ready${coldPrepareRetries ? ` after ${coldPrepareRetries} parse-wait retr${coldPrepareRetries === 1 ? 'y' : 'ies'}` : ''}; re-run in INDEXED mode or after warmup before treating this as "no hierarchy")`,
-      trust: buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount: 0 }),
+      trust: buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount: 0, coverage }),
       evidence,
       telemetry: {
         operation: 'hierarchy', kind, nodes: 0, depth, breadthCap, totalCap,
@@ -585,7 +598,7 @@ export async function codeIntelHierarchy(args = {}) {
 
   const nodeCount = walked.nodeCount;
   const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage });
-  const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount });
+  const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage });
   // I3 + HIGH-1 — only stamp the ground-truth `[lsp✓]` when the FINAL evidence is
   // exhaustive (INDEXED mode + indexReady===true AND a non-empty resolved tree).
   // An index-ready-but-empty tree is now lsp-partial (no_incoming_unconfirmed),

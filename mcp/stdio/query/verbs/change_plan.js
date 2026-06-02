@@ -8,6 +8,7 @@ import { featuresForFile, loadFunctionality } from '../../overlay/loader.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { selectBestRoot } from './path.js';
 import { computeDecision } from './preflight.js';
+import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { expandClassRollupTargets } from './target_rollup.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
@@ -240,6 +241,16 @@ export async function buildChangePlanWithContext(db, {
   // one incoming caller edge is clangd ground truth. A heuristic-only caller set
   // must not earn a SAFE-to-proceed verdict (cross-TU dispatch is undercounted).
   const callersHaveLspEvidence = incomingRows.some((row) => row.provenance === 'LSP_VERIFIED');
+  let coverageComplete = true;
+  let coverageReason = '';
+  try {
+    // Only a FOREIGN/UNITY DB downgrades a pre-collected lsp-verified caller set
+    // (a DB absent at query time must not flip SAFE→REVIEW).
+    const cov = computeCompileDbCoverage({ projectRoot: repoRoot });
+    if (cov && cov.complete === false && (cov.foreignToolchain || cov.unityUnexpanded)) {
+      coverageComplete = false; coverageReason = cov.reason || '';
+    }
+  } catch { /* defensive — treat as complete */ }
   const decision = upgradeDecisionForWeakTrustOccurrenceGap({
     decision: computeDecision({
       callerCount,
@@ -248,6 +259,8 @@ export async function buildChangePlanWithContext(db, {
       crossModule,
       confidence: root.confidence ?? 1.0,
       callersHaveLspEvidence,
+      coverageComplete,
+      coverageReason,
     }),
     callerCount,
     dirtyCount,

@@ -88,4 +88,49 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
     });
     expect(d.tier).toBe('REVIEW');
   });
+
+  // FALSE-EXHAUSTIVE GUARD (2026-06-02): lsp-verified callers are NOT a safe
+  // basis for SAFE when the compile DB only partially covers the repo.
+  it('lsp evidence present BUT compile-DB coverage incomplete (foreign) → REVIEW, not SAFE', () => {
+    const d = computeDecision({
+      callerCount: 1,
+      testCount: 1,
+      dirtyCount: 0,
+      crossModule: false,
+      confidence: 1.0,
+      callersHaveLspEvidence: true,
+      coverageComplete: false,
+      coverageReason: 'compile DB was built by a different (Linux/WSL) toolchain',
+    });
+    expect(d.tier).toBe('REVIEW');
+    expect(d.reason).toMatch(/PARTIALLY covers|partial/i);
+    expect(d.reason).toMatch(/APG_CLANGD_WSL/);
+  });
+
+  it('lsp evidence present, coverage incomplete (unity) → REVIEW with the unity remedy', () => {
+    const d = computeDecision({
+      callerCount: 0,
+      testCount: 0,
+      dirtyCount: 0,
+      crossModule: false,
+      confidence: 1.0,
+      callersHaveLspEvidence: true,
+      coverageComplete: false,
+      coverageReason: 'compile DB is a CMake UNITY build',
+    });
+    expect(d.tier).toBe('REVIEW');
+    expect(d.reason).toMatch(/expand the unity build/);
+  });
+
+  it('lsp evidence present + coverageComplete:true (default) → SAFE (unchanged)', () => {
+    const d = computeDecision({
+      callerCount: 1,
+      testCount: 1,
+      dirtyCount: 0,
+      crossModule: false,
+      confidence: 1.0,
+      callersHaveLspEvidence: true,
+    });
+    expect(d.tier).toBe('SAFE');
+  });
 });

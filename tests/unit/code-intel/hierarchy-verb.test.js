@@ -314,6 +314,21 @@ describe('code_intel_hierarchy — evidence/banner unit cases', () => {
     const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'subtypes', nodeCount: 4 });
     expect(line).toMatch(/type hierarchy/);
   });
+  it('buildHierarchyEvidence: index-ready + non-empty + incomplete coverage → partial_compile_db_coverage (not exhaustive)', () => {
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3, kind: 'callers', coverage: { complete: false, reason: 'foreign toolchain' } });
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('partial_compile_db_coverage');
+  });
+  it('buildHierarchyTrustLine: index-ready BUT incomplete coverage → lsp-partial banner (agrees with evidence, never lsp-verified)', () => {
+    const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'callers', nodeCount: 3, coverage: { complete: false, reason: 'foreign toolchain' } });
+    expect(line).toMatch(/lsp-partial/);
+    expect(line).not.toMatch(/lsp-verified/);
+    expect(line).toMatch(/coverage incomplete/);
+  });
+  it('buildHierarchyTrustLine: index-ready + complete coverage → lsp-verified (unchanged happy path)', () => {
+    const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'callers', nodeCount: 3, coverage: { complete: true } });
+    expect(line).toMatch(/lsp-verified/);
+  });
 });
 
 describe('code_intel_hierarchy — symbol resolution via graph', () => {

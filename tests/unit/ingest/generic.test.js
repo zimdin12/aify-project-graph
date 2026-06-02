@@ -470,6 +470,55 @@ void spawn() {
     expect(targets.some((t) => t.includes('<') || t.includes('>'))).toBe(false);
   });
 
+  it('strips template args from a name CONTAINING "operator" but preserves real operator overloads', () => {
+    // Regression: the old `s.includes('operator')` guard left `operatorCount<int>`
+    // verbatim, re-dropping the caller edge. A name that merely contains the
+    // substring must still be stripped; a true operator<…> spelling must not.
+    const source = `
+void use() {
+  operatorCount<int>();
+  Registry::operatorPick<Foo>();
+}
+`;
+    const result = extractFile({ filePath: 'engine/Op2.cpp', source, config: cpp });
+    const targets = result.refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.from_label === 'use')
+      .map((ref) => ref.target);
+    expect(targets).toContain('operatorCount');        // substring, not an overload → stripped
+    expect(targets).toContain('Registry.operatorPick');
+    expect(targets.some((t) => /[<>]/.test(t))).toBe(false);
+  });
+
+  it('resolves leading-:: global-scope calls and ->template disambiguator calls', () => {
+    const source = `
+void use() {
+  ::globalFoo();
+  p->template get<T>();
+}
+`;
+    const result = extractFile({ filePath: 'engine/Op3.cpp', source, config: cpp });
+    const targets = result.refs
+      .filter((ref) => ref.relation === 'CALLS' && ref.from_label === 'use')
+      .map((ref) => ref.target);
+    expect(targets).toContain('globalFoo');   // leading :: stripped
+    expect(targets).toContain('get');         // `template` keyword dropped, leaf kept
+    expect(targets.some((t) => t.includes('template') || t.startsWith('::'))).toBe(false);
+  });
+
+  it('attributes C++ file-scope / static-initializer calls to the File node (self-registration idiom)', () => {
+    const source = `
+static bool _reg = Factory::registerType();
+int g_count = computeCount();
+`;
+    const result = extractFile({ filePath: 'engine/Reg.cpp', source, config: cpp });
+    const calls = result.refs.filter((ref) => ref.relation === 'CALLS');
+    const targets = calls.map((ref) => ref.target);
+    expect(targets).toContain('Factory.registerType'); // previously dropped (no owner)
+    expect(targets).toContain('computeCount');
+    // attributed to the File node, not silently dropped
+    expect(calls.every((ref) => ref.from_label === 'Reg.cpp')).toBe(true);
+  });
+
   it('template-arg stripping is safe: no bracket leakage on multi-arg / nested templates', () => {
     const source = `
 void use() {

@@ -45,4 +45,25 @@ describe('computeCompileDbCoverage — trustworthy-for-exhaustive verdict', () =
   it('no projectRoot → NOT complete (safe under-claim)', () => {
     expect(computeCompileDbCoverage({}).complete).toBe(false);
   });
+
+  // The verdict is cached per projectRoot keyed on dbHash. A DB change (new
+  // dbHash) MUST recompute the flags, not serve a stale verdict.
+  it('cache invalidates when dbHash changes for the same projectRoot', () => {
+    const root = '/cache-test-repo';
+    const first = computeCompileDbCoverage({ projectRoot: root, prepared: { found: true, foreignToolchain: true, unity: false, unityExpanded: false, dbHash: 'hash-A' }, env: {} });
+    expect(first.complete).toBe(false);
+    expect(first.foreignToolchain).toBe(true);
+    // Same projectRoot, NEW dbHash, now native — verdict must flip, not stick.
+    const second = computeCompileDbCoverage({ projectRoot: root, prepared: { found: true, foreignToolchain: false, unity: false, unityExpanded: false, dbHash: 'hash-B' }, env: {} });
+    expect(second.complete).toBe(true);
+    expect(second.foreignToolchain).toBe(false);
+  });
+
+  it('WSL-mode verdict is derived fresh per call even on a cache hit (same dbHash)', () => {
+    const root = '/cache-test-repo-wsl';
+    const prepared = { found: true, foreignToolchain: true, unity: false, unityExpanded: false, dbHash: 'hash-WSL' };
+    expect(computeCompileDbCoverage({ projectRoot: root, prepared, env: {} }).complete).toBe(false);
+    // Same cached flags (same dbHash), but APG_CLANGD_WSL flips the env verdict.
+    expect(computeCompileDbCoverage({ projectRoot: root, prepared, env: { APG_CLANGD_WSL: '1' } }).complete).toBe(true);
+  });
 });

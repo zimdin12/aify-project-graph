@@ -506,8 +506,33 @@ function parseDb(filepath) {
  * @param {string} opts.projectRoot
  * @returns {object} summary — see inline shape.
  */
+// Memo: prepareCompileDb re-parses every candidate DB, may unity-expand member
+// .cxx files, and unconditionally rewrites the normalized DB to disk. It runs on
+// the interactive hot path (every code_intel_references / code_intel_hierarchy
+// call routes through computeCompileDbCoverage → prepareCompileDb). Cache the
+// full result per projectRoot, keyed by a cheap fingerprint of every candidate
+// compile_commands.json (mtime+size). Any DB change busts the cache and re-runs
+// the full prepare (including the write); a cache hit skips parse+expand+write.
+const _prepareCache = new Map();
+
+function compileDbProbeFingerprint(projectRoot) {
+  const parts = [];
+  for (const dir of PROBE_DIRS) {
+    const candidate = path.join(projectRoot, dir, 'compile_commands.json');
+    try {
+      const st = fs.statSync(candidate);
+      parts.push(`${candidate}:${st.mtimeMs}:${st.size}`);
+    } catch { /* candidate absent — contributes nothing, like before */ }
+  }
+  return parts.join('|');
+}
+
 export function prepareCompileDb({ projectRoot }) {
   if (!projectRoot) throw new Error('prepareCompileDb: projectRoot required');
+
+  const fingerprint = compileDbProbeFingerprint(projectRoot);
+  const cached = _prepareCache.get(projectRoot);
+  if (cached && cached.fingerprint === fingerprint) return cached.result;
 
   // 1. Probe every candidate, parse, and pick the one with the most in-repo
   //    first-party entries (after WSL-normalization for accurate matching).
@@ -525,7 +550,7 @@ export function prepareCompileDb({ projectRoot }) {
   }
 
   if (!best) {
-    return {
+    const result = {
       found: false,
       diagnostics: [{
         code: 'compile_db_missing',
@@ -533,6 +558,8 @@ export function prepareCompileDb({ projectRoot }) {
         fix: 'configure with cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON, or set APG_CLANGD and point a build at this repo'
       }]
     };
+    _prepareCache.set(projectRoot, { fingerprint, result });
+    return result;
   }
 
   // 2. Unity expansion. For unity DBs, expand each `Unity/unity_*.cxx` aggregate
@@ -617,7 +644,11 @@ export function prepareCompileDb({ projectRoot }) {
   const normalizedPath = path.join(normalizedDir, 'compile_commands.json');
   fs.mkdirSync(normalizedDir, { recursive: true });
   const serialized = JSON.stringify(cleaned, null, 2);
-  fs.writeFileSync(normalizedPath, serialized);
+  // Only rewrite the normalized DB when its content actually changed — avoids
+  // thrashing the file's mtime (anything watching it) on repeat prepares.
+  let existing = null;
+  try { existing = fs.readFileSync(normalizedPath, 'utf8'); } catch { /* absent */ }
+  if (existing !== serialized) fs.writeFileSync(normalizedPath, serialized);
   const dbHash = crypto.createHash('sha256').update(serialized).digest('hex').slice(0, 16);
 
   if (foreignToolchain) {
@@ -628,7 +659,7 @@ export function prepareCompileDb({ projectRoot }) {
     });
   }
 
-  return {
+  const result = {
     found: true,
     sourcePath: best.sourcePath,
     // Directory of the ORIGINAL (un-normalized) compile DB. The opt-in
@@ -651,6 +682,8 @@ export function prepareCompileDb({ projectRoot }) {
     diagnostics,
     dbHash
   };
+  _prepareCache.set(projectRoot, { fingerprint, result });
+  return result;
 }
 
 // Drop internal bookkeeping keys (prefixed `__`) before serialization.

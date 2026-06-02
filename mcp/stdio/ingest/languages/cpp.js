@@ -28,19 +28,46 @@ function normalizeTypeName(raw) {
   return parts.at(-1) ?? '';
 }
 
+// Strip balanced template-argument lists (`<...>`) from a C++ name spelling so
+// templated calls/scopes resolve to their base symbol (`foo<int>` → `foo`,
+// `Mgr<int>::tick` → `Mgr::tick`). Operator-aware: an `operator<`, `operator<<`,
+// `operator<=>`, `operator>>`, … spelling has `<`/`>` as part of the operator
+// NAME, not template args, so those are preserved verbatim. A plain identifier
+// that merely CONTAINS the substring "operator" (e.g. `operatorCount<int>`) is
+// NOT an operator overload, so its template args ARE stripped — this is the fix
+// for the substring-guard under-strip that re-dropped such caller edges.
+const OPERATOR_SYMBOL_RE = /^(<=>|<<=?|>>=?|<=|>=|==|!=|&&|\|\||->\*?|\+\+|--|\(\)|\[\]|[-+*/%^&|~!=<>]=?|new\b|delete\b)/u;
 function stripTemplateArgs(raw) {
-  let depth = 0;
+  const s = String(raw ?? '');
+  if (!s.includes('<')) return s;
   let out = '';
-  for (const ch of String(raw ?? '')) {
-    if (ch === '<') {
-      depth += 1;
-      continue;
+  let depth = 0;
+  let i = 0;
+  while (i < s.length) {
+    // Preserve an `operator<…>`-style overload spelling verbatim at top level.
+    if (depth === 0 && s.startsWith('operator', i) && (i === 0 || !/[A-Za-z0-9_]/u.test(s[i - 1]))) {
+      let j = i + 'operator'.length;
+      while (j < s.length && s[j] === ' ') j += 1;
+      const opMatch = OPERATOR_SYMBOL_RE.exec(s.slice(j));
+      if (opMatch) {
+        out += s.slice(i, j) + opMatch[0];
+        i = j + opMatch[0].length;
+        continue;
+      }
+      // 'operator' is just a substring of an identifier — fall through so its
+      // template args get stripped like any other name.
     }
+    const ch = s[i];
+    if (ch === '<') { depth += 1; i += 1; continue; }
     if (ch === '>') {
-      depth = Math.max(0, depth - 1);
-      continue;
+      // A `>` only closes a template list when we're inside one. At depth 0 it is
+      // the arrow operator's `>` (`->`) or a stray `>`, and must be kept literal —
+      // otherwise `p->get<T>` loses its `->` and resolves to garbage.
+      if (depth > 0) { depth -= 1; i += 1; continue; }
+      out += ch; i += 1; continue;
     }
     if (depth === 0) out += ch;
+    i += 1;
   }
   return out;
 }
@@ -106,22 +133,16 @@ function extractQualifiedScopeSegments(node, source) {
 // operator<=> would be mangled) and bail on unbalanced brackets (never truncate
 // a real name). Scope-level template args were already handled by
 // normalizeCppScope; this also covers the leaf and bare-function cases.
-function stripCppTemplateArgs(s) {
-  if (!s.includes('<')) return s;
-  if (s.includes('operator')) return s;
-  let out = '';
-  let depth = 0;
-  for (const ch of s) {
-    if (ch === '<') { depth += 1; continue; }
-    if (ch === '>') { if (depth > 0) depth -= 1; continue; }
-    if (depth === 0) out += ch;
-  }
-  return depth === 0 ? out : s; // unbalanced → keep original, don't truncate
-}
-
 function normalizeCppCallTarget({ text, owner }) {
-  const stripped = stripCppTemplateArgs(String(text ?? '').trim());
-  const raw = stripped.split(/\s+/u)[0] ?? '';
+  // Drop a `->template` / `.template` / `::template` disambiguator keyword
+  // (`p->template get<T>()` spells the function field as `p->template get`), so
+  // the leaf `get` survives the whitespace split below instead of yielding
+  // garbage like `p-template`. Then strip template args (operator-aware).
+  const detemplated = String(text ?? '').trim().replace(/(^|->|\.|::)\s*template\s+/u, '$1');
+  const stripped = stripTemplateArgs(detemplated);
+  // A leading `::foo` (explicit global scope) carries no scope before `::`, so it
+  // would fall through unresolved; drop the leading `::` to recover the base name.
+  const raw = (stripped.split(/\s+/u)[0] ?? '').replace(/^::/u, '');
   if (!raw) return '';
 
   const qualified = raw.match(/^(.+)::(~?[A-Za-z_]\w*)$/u);
@@ -302,6 +323,9 @@ export default {
   parser: Cpp,
   postExtract: postExtractCpp,
   normalizeCallTarget: normalizeCppCallTarget,
+  // Attribute file-scope / static-initializer calls to the File node (the C++
+  // self-registration idiom: `static Registrar r = Factory::add(...);`).
+  fileScopeCalls: true,
   extensions: ['.cc', '.cpp', '.cxx', '.hpp', '.hh', '.hxx', '.h'],
   confidence: {
     node: 0.6,

@@ -450,18 +450,26 @@ export function extractFile({ filePath, source, config }) {
     }
 
     const callRule = matchRule(node, config.refs?.calls, parentNode);
-    if (callRule && nextOwner) {
+    // File-scope / static-initializer calls (`static Reg r = doRegister();`,
+    // `int g = compute();`) have no enclosing function, so nextOwner is null and
+    // the edge was silently dropped. For languages that opt in (config.
+    // fileScopeCalls — C/C++, where self-registration statics are a dominant
+    // idiom), attribute these to the File node so "who calls X" surfaces the
+    // registration site. Other languages keep the old behavior (drop) to avoid
+    // perturbing their edge sets.
+    const callOwner = nextOwner ?? (config.fileScopeCalls ? fileNode : null);
+    if (callRule && callOwner) {
       const target = buildCallTarget({
         text: extractTextFromRule(node, source, callRule),
         node,
         source,
-        owner: nextOwner,
+        owner: callOwner,
         config,
       });
       if (target) {
         const baseRef = {
-          from_id: nextOwner.id,
-          from_label: nextOwner.label,
+          from_id: callOwner.id,
+          from_label: callOwner.label,
           target,
           source_file: filePath,
           source_line: lineNumber(node),
@@ -475,13 +483,13 @@ export function extractFile({ filePath, source, config }) {
           relation: 'CALLS',
         });
 
-        if (nextOwner.type === 'Test') {
+        if (callOwner.type === 'Test') {
           refs.push({
             ...baseRef,
             relation: 'TESTS',
           });
         }
-        symbolDeps.get(nextOwner.id)?.calls.push(target);
+        symbolDeps.get(callOwner.id)?.calls.push(target);
       }
     }
 

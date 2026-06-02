@@ -5,6 +5,7 @@ import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine } from '../lsp-evidence.js';
+import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 
 /**
  * One-shot edit safety check. Combines whereis + callers + impact + tests + trust
@@ -75,6 +76,17 @@ export async function graphPreflight({ repoRoot, symbol }) {
     // one incoming caller edge is clangd ground truth (LSP_VERIFIED) — that is
     // the only basis on which a low/empty caller set may read as SAFE-to-proceed.
     const callersHaveLspEvidence = incomingProvenance.some((row) => row.provenance === 'LSP_VERIFIED');
+    let coverageComplete = true;
+    let coverageReason = '';
+    try {
+      // Only a FOREIGN/UNITY DB downgrades a pre-collected lsp-verified caller
+      // set; a DB absent at query time must not flip SAFE→REVIEW (the edges were
+      // ground truth at collection time).
+      const cov = computeCompileDbCoverage({ projectRoot: repoRoot });
+      if (cov && cov.complete === false && (cov.foreignToolchain || cov.unityUnexpanded)) {
+        coverageComplete = false; coverageReason = cov.reason || '';
+      }
+    } catch { /* defensive — treat as complete */ }
     const decision = computeDecision({
       callerCount,
       testCount: tests.length,
@@ -82,6 +94,8 @@ export async function graphPreflight({ repoRoot, symbol }) {
       crossModule,
       confidence: node.confidence ?? 1.0,
       callersHaveLspEvidence,
+      coverageComplete,
+      coverageReason,
     });
 
     // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis (cohesion
@@ -143,7 +157,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
   }
 }
 
-export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false }) {
+export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false, coverageComplete = true, coverageReason = '' }) {
   // CONFIRM: many callers + cross-module OR weak trust
   if (callerCount > 5 && crossModule) {
     return { tier: 'CONFIRM', reason: `${callerCount} callers across module boundaries — confirm change scope with user before editing.` };
@@ -173,6 +187,20 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
     return {
       tier: 'REVIEW',
       reason: `${callerCount} caller(s) — caller set is heuristic, not exhaustive; verify with code_intel_references before deleting/changing signature.`,
+    };
+  }
+
+  // FALSE-EXHAUSTIVE GUARD (2026-06-02): LSP_VERIFIED edges are present, but on a
+  // foreign (Linux/WSL) or unexpanded-unity compile DB the clangd index is
+  // silently PARTIAL — real cross-TU callers live in TUs that never compiled. An
+  // lsp-verified caller set is then a FLOOR, so it must NOT read as SAFE-to-
+  // delete. Downgrade to REVIEW with the foreign/unity remedy. (Same root cause
+  // the coverage gate fixed in code_intel_references / hierarchy.)
+  if (coverageComplete === false) {
+    const remedy = /unity/i.test(coverageReason) ? 'expand the unity build' : 'set APG_CLANGD_WSL=1';
+    return {
+      tier: 'REVIEW',
+      reason: `${callerCount} lsp-verified caller(s), but the compile DB only PARTIALLY covers this repo (${remedy}) — the caller set is a floor; verify with code_intel_references / rg before deleting/changing signature.`,
     };
   }
 

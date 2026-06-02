@@ -116,6 +116,16 @@ export function buildReferencesEvidence({ freshness, callsiteCount, defCount, re
       warnings,
     };
   }
+  // Misdiagnosis fix (2026-06-02): if the compile DB is known-incomplete, surface
+  // the actionable remedy on EVERY degraded path below — not only the
+  // fresh+callsites one (which already returned above). Without this, a foreign-DB
+  // session that never warms past cold/unknown is told to "retry / pass
+  // warmupFiles" forever instead of "fix the index (APG_CLANGD_WSL=1 / expand
+  // unity)". Does NOT affect the exhaustive grant: that path requires fresh +
+  // callsites, which with incomplete coverage already returned at the gate above.
+  if (coverage && coverage.complete === false && coverage.reason) {
+    warnings.push(coverage.reason);
+  }
   // Exhaustive requires: ready (fresh), at least one callsite OR an
   // honest empty in a freshly-warmed context, and no degraded cause.
   if (freshness === 'fresh' && callsiteCount > 0) {
@@ -366,7 +376,11 @@ export async function codeIntelReferences({ repoRoot, language = 'cpp', file, li
   // silently bumping confidence on a quietly-recovered cold index.
   const priorSticky = session.referencesStickyDegraded;
   if (evidence.degraded && evidence.cause) {
-    session.referencesStickyDegraded = { cause: evidence.cause, since: Date.now() };
+    // `since` tracks the FIRST degrade in an unbroken degraded streak (so it can
+    // measure how long the session has been degraded), not the most recent call.
+    // Preserve it across same-streak calls; only refresh cause.
+    const since = (priorSticky && priorSticky.since) ? priorSticky.since : Date.now();
+    session.referencesStickyDegraded = { cause: evidence.cause, since };
   } else if (evidence.ready && evidence.exhaustive) {
     if (priorSticky) {
       evidence.previouslyDegraded = priorSticky.cause;
