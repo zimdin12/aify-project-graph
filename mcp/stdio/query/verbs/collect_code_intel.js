@@ -24,6 +24,7 @@ import { runCollection } from '../../code-intel/runner.js';
 import { registerProvider, getProvider } from '../../code-intel/providers/index.js';
 import { createCppClangdProvider } from '../../code-intel/providers/cpp-clangd.js';
 import { createTsLangServerProvider } from '../../code-intel/providers/ts-langserver.js';
+import { createPyrightProvider } from '../../code-intel/providers/pyright.js';
 import { openDb, openExistingDb } from '../../storage/db.js';
 import { importCodeIntel } from '../../ingest/code-intel/importer.js';
 
@@ -114,6 +115,9 @@ function ensureBuiltinProviders() {
   }
   if (!getProvider('ts-langserver')) {
     registerProvider('ts-langserver', () => createTsLangServerProvider());
+  }
+  if (!getProvider('pyright')) {
+    registerProvider('pyright', () => createPyrightProvider());
   }
   providersRegistered = true;
 }
