@@ -8,7 +8,13 @@ export function countTrustRelevantDirtyEdges(dirtyEdges = []) {
     (count, ref) => {
       if (TRUST_EXCLUDED_RELATIONS.has(ref?.relation)) return count;
       const bucket = classifyUnresolvedRef(ref);
-      if (bucket.startsWith('external-by-design:') || bucket.startsWith('shape-issue:')) {
+      // external-by-design / shape-issue / denylisted-by-design are all NOT
+      // fixable resolution gaps, so none of them are trust-relevant (audit
+      // 2026-06-12: denylisted names like parse/log/__dirname used to inflate
+      // this count, making the trust banner read worse than reality).
+      if (bucket.startsWith('external-by-design:')
+        || bucket.startsWith('shape-issue:')
+        || bucket.startsWith('denylisted-by-design:')) {
         return count;
       }
       return count + 1;

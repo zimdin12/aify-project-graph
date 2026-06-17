@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { resolveImportSpecifier, probeWithExtensions } from './import-resolution.js';
+import { COMMON_NAMES } from './denylist.js';
 
 function parseExtra(node) {
   if (!node?.extra) return {};
@@ -96,17 +97,8 @@ function filterByLanguageFamily(matches, ref) {
 }
 
 // Common names that should NOT match globally — too ambiguous
-const COMMON_NAMES = new Set([
-  'close', 'open', 'read', 'write', 'get', 'set', 'put', 'delete', 'update',
-  'create', 'init', 'start', 'stop', 'run', 'main', 'test', 'log', 'print',
-  'send', 'receive', 'connect', 'disconnect', 'load', 'save', 'parse', 'format',
-  'json', 'str', 'int', 'len', 'map', 'filter', 'sort', 'find', 'index',
-  'push', 'pop', 'append', 'remove', 'clear', 'reset', 'error', 'warn',
-  'info', 'debug', 'toString', 'valueOf', 'hasOwnProperty', 'constructor',
-  'raise_for_status', 'status_code', 'text', 'content', 'data', 'result',
-  'request', 'response', 'handler', 'callback', 'resolve', 'reject',
-  '__init__', '__str__', '__repr__', 'self', 'this', 'cls', 'super',
-]);
+// COMMON_NAMES moved to ./denylist.js (shared with the unresolved-categorization
+// scoreboard so the two can't drift). Imported above.
 
 const SYMBOLIC_CHAIN_RELATIONS = new Set(['PASSES_THROUGH', 'INVOKES']);
 const INHERITED_MEMBER_RELATIONS = new Set(['CALLS', 'INVOKES', 'PASSES_THROUGH']);

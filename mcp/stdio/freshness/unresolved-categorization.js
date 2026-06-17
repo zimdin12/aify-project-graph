@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { readDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
 import { loadManifest } from './manifest.js';
 import { readJsonCappedSafe } from '../util/json.js';
+import { COMMON_NAMES, JS_RUNTIME_GLOBALS } from '../ingest/denylist.js';
 
 const CLASSIFIERS = [
   {
@@ -12,9 +13,18 @@ const CLASSIFIERS = [
   },
   {
     bucket: 'external-by-design:npm',
-    test: (r) => (r.extractor === 'javascript' || r.extractor === 'typescript') && r.relation === 'IMPORTS'
-      ? /^[a-z@][a-z0-9@/_.-]*$/.test((r.target || '').split('.')[0])
-      : false,
+    // Audit 2026-06-12: the old regex `^[a-z@][a-z0-9@/_.-]*$` allowed `/`, so a
+    // normalized intra-repo import target like `mcp/stdio/code-intel/...` matched
+    // and a genuinely-fixable edge was hidden in the external bucket. An npm
+    // specifier is either bare (`react`, no slash) or scoped (`@scope/name` —
+    // exactly scope + one segment); a repo path has `/` without an `@` scope.
+    test: (r) => {
+      if (!(r.extractor === 'javascript' || r.extractor === 'typescript') || r.relation !== 'IMPORTS') return false;
+      const head = (r.target || '').split('.')[0];
+      if (!head) return false;
+      if (head.includes('/')) return /^@[a-z0-9._~-]+\/[a-z0-9._~-]+$/.test(head);
+      return /^[a-z@][a-z0-9@_.-]*$/.test(head);
+    },
   },
   {
     bucket: 'external-by-design:python-stdlib',
@@ -47,6 +57,20 @@ const CLASSIFIERS = [
   {
     bucket: 'shape-issue:operator-only',
     test: (r) => /^[()[\]{}<>+\-*/=!?:;,.$#@&|^~%\s`'"]+$/.test(r.target || ''),
+  },
+  // Audit 2026-06-12: route targets the resolver refuses BY DESIGN to a
+  // denylisted bucket BEFORE the fixable shapes below, so the scoreboard stops
+  // counting `parse`/`log`/`__dirname` as actionable. Shares the exact list with
+  // the resolver (ingest/denylist.js) so the two can't drift.
+  {
+    bucket: 'denylisted-by-design:common-name',
+    test: (r) => (r.relation === 'CALLS' || r.relation === 'REFERENCES')
+      && !(r.target || '').includes('.') && COMMON_NAMES.has(r.target || ''),
+  },
+  {
+    bucket: 'denylisted-by-design:js-global',
+    test: (r) => (r.relation === 'CALLS' || r.relation === 'REFERENCES')
+      && !(r.target || '').includes('.') && JS_RUNTIME_GLOBALS.has(r.target || ''),
   },
   {
     bucket: 'fixable:call-short-name',
@@ -97,12 +121,13 @@ export function categorizeRefs(refs) {
 
   const sorted = Object.entries(buckets).sort((a, b) => b[1] - a[1]);
   const external = sorted.filter(([k]) => k.startsWith('external-by-design:')).reduce((s, [, n]) => s + n, 0);
+  const denylisted = sorted.filter(([k]) => k.startsWith('denylisted-by-design:')).reduce((s, [, n]) => s + n, 0);
   const fixable = sorted.filter(([k]) => k.startsWith('fixable:')).reduce((s, [, n]) => s + n, 0);
   const shapeIssues = sorted.filter(([k]) => k.startsWith('shape-issue:')).reduce((s, [, n]) => s + n, 0);
   const unclassified = sorted.filter(([k]) => k === 'unclassified').reduce((s, [, n]) => s + n, 0);
 
   return {
-    summary: { external, fixable, shapeIssues, unclassified },
+    summary: { external, denylisted, fixable, shapeIssues, unclassified },
     buckets: Object.fromEntries(sorted),
     samples: samplesByBucket,
   };
@@ -154,6 +179,7 @@ export function renderUnresolvedCategorizationReport(output) {
   lines.push(`Total unresolved refs: ${output.total}`);
   lines.push(`  source: ${output.source}${output.capped ? ` (sampled ${output.sample_size}/${output.total})` : ''}`);
   lines.push(`  external-by-design: ${output.summary.external} (${pct(output.summary.external, output.sample_size || output.total)})`);
+  lines.push(`  denylisted-by-design: ${output.summary.denylisted ?? 0} (${pct(output.summary.denylisted ?? 0, output.sample_size || output.total)})`);
   lines.push(`  fixable:            ${output.summary.fixable} (${pct(output.summary.fixable, output.sample_size || output.total)})`);
   lines.push(`  shape-issue:        ${output.summary.shapeIssues} (${pct(output.summary.shapeIssues, output.sample_size || output.total)})`);
   lines.push(`  unclassified:       ${output.summary.unclassified} (${pct(output.summary.unclassified, output.sample_size || output.total)})`);

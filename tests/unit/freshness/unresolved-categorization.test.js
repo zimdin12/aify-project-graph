@@ -59,12 +59,44 @@ describe('unresolved categorization', () => {
       extractor: 'javascript',
     })).toBe('external-by-design:node-builtin');
 
+    // A genuinely-fixable short-name call (not on the resolver denylist) stays
+    // fixable — it is NOT misclassified as an external package.
     expect(classifyUnresolvedRef({
       relation: 'CALLS',
-      target: 'set',
+      target: 'renderWidget',
       source_file: 'src/a.js',
       extractor: 'javascript',
     })).toBe('fixable:call-short-name');
+  });
+
+  it('routes resolver-denylisted names + JS globals to denylisted-by-design, not fixable', () => {
+    // COMMON_NAMES (set/get/parse/log/…) — the resolver refuses these by design,
+    // so an unresolved CALLS/REFERENCES to one is NOT actionable backlog.
+    expect(classifyUnresolvedRef({
+      relation: 'CALLS', target: 'set', extractor: 'javascript',
+    })).toBe('denylisted-by-design:common-name');
+    expect(classifyUnresolvedRef({
+      relation: 'REFERENCES', target: 'parse', extractor: 'typescript',
+    })).toBe('denylisted-by-design:common-name');
+    // JS/Node ambient globals — structurally unresolvable (no def node).
+    expect(classifyUnresolvedRef({
+      relation: 'REFERENCES', target: '__dirname', extractor: 'javascript',
+    })).toBe('denylisted-by-design:js-global');
+  });
+
+  it('does not hide an intra-repo JS import as an external npm package', () => {
+    // Audit 2026-06-12: a normalized intra-repo import target contains `/` with
+    // no `@` scope — it must remain visible (fixable/unclassified), not npm.
+    expect(classifyUnresolvedRef({
+      relation: 'IMPORTS', target: 'mcp/stdio/code-intel/providers/index.js.registerProvider', extractor: 'javascript',
+    })).not.toBe('external-by-design:npm');
+    // A real bare/scoped npm specifier is still classified npm.
+    expect(classifyUnresolvedRef({
+      relation: 'IMPORTS', target: 'react.useState', extractor: 'javascript',
+    })).toBe('external-by-design:npm');
+    expect(classifyUnresolvedRef({
+      relation: 'IMPORTS', target: '@scope/pkg.thing', extractor: 'typescript',
+    })).toBe('external-by-design:npm');
   });
 
   it('counts only fixable or unclassified unresolved refs as trust-relevant', () => {
