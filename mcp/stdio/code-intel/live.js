@@ -11,6 +11,12 @@ import { LspClient } from './lsp-client.js';
 import { getBackend, normalizeLanguage } from './backends.js';
 
 const SESSIONS = new Map();
+// In-flight start promises, keyed the same as SESSIONS. Audit 2026-06-12: two
+// concurrent verb calls for the same (language, projectRoot) both awaited
+// client.start() and both SESSIONS.set — the loser's spawned server was
+// overwritten in the map and never shut down (leaked clangd/tsserver/pyright).
+// Dedup by parking concurrent callers on the first start's promise.
+const STARTING = new Map();
 
 function keyFor(language, projectRoot) { return `${language}:::${projectRoot}`; }
 
@@ -24,7 +30,12 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
   const lang = normalizeLanguage(language);
   const key = keyFor(lang, projectRoot);
   const existing = SESSIONS.get(key);
-  if (existing) return existing;
+  // A crashed/exited client must never be handed back — evict and re-spawn.
+  if (existing && !existing.client.dead) return existing;
+  if (existing) SESSIONS.delete(key);
+
+  const inflight = STARTING.get(key);
+  if (inflight) return inflight;
 
   let spawnCfg = spawn;
   let timeoutMs;
@@ -41,38 +52,50 @@ export async function getLiveSession({ language, projectRoot, spawn } = {}) {
     throw err;
   }
 
-  const client = new LspClient({
-    ...spawnCfg,
-    rootUri: pathToFileURL(projectRoot).toString(),
-    ...(timeoutMs ? { timeoutMs } : {})
-  });
-  // `warmedOnce` flips after the first diagnostics batch so cold sessions
-  // get one longer warm-up (reference parity: cold servers return empty
-  // first-call diagnostics) and warm sessions stay low-latency.
-  // Plan #14 Step D: sticky degraded-references state per session.
-  // Once references comes back degraded (cold_index, timeout, etc.) we
-  // remember the cause until a later ready+exhaustive result clears it.
-  // Subsequent technically-clean results in the degraded window carry a
-  // warning so an agent doesn't bump confidence prematurely.
-  const session = { language: lang, projectRoot, client, openedUris: new Set(), warmedOnce: false, referencesStickyDegraded: null };
+  const startPromise = (async () => {
+    const client = new LspClient({
+      ...spawnCfg,
+      rootUri: pathToFileURL(projectRoot).toString(),
+      ...(timeoutMs ? { timeoutMs } : {})
+    });
+    // `warmedOnce` flips after the first diagnostics batch so cold sessions
+    // get one longer warm-up (reference parity: cold servers return empty
+    // first-call diagnostics) and warm sessions stay low-latency.
+    // Plan #14 Step D: sticky degraded-references state per session.
+    // Once references comes back degraded (cold_index, timeout, etc.) we
+    // remember the cause until a later ready+exhaustive result clears it.
+    // Subsequent technically-clean results in the degraded window carry a
+    // warning so an agent doesn't bump confidence prematurely.
+    const session = { language: lang, projectRoot, client, openedUris: new Set(), warmedOnce: false, referencesStickyDegraded: null };
+    try {
+      await client.start();
+    } catch (err) {
+      // Review-fix #2: preserve the binary name + original errno so the
+      // error response upstream can render an actionable hint ("clangd not
+      // on PATH; install via …") instead of a generic "language_server_
+      // missing." The original ENOENT carries err.path = the binary name
+      // and err.code = 'ENOENT' / 'EACCES' / etc.
+      const binary = err?.path ?? spawnCfg?.command ?? language;
+      const wrapped = new Error(`language_server_missing: ${binary} (${err?.code ?? 'spawn failed'}) — ${err?.message ?? ''}`.trim());
+      wrapped.code = 'language_server_missing';
+      wrapped.binary = binary;
+      wrapped.originalCode = err?.code ?? null;
+      wrapped.cause = err;
+      throw wrapped;
+    }
+    SESSIONS.set(key, session);
+    // Self-evict on crash/exit so a dead session is never returned and the next
+    // call re-spawns cleanly (client.dead is also checked above as a backstop).
+    client.once('exit', () => { if (SESSIONS.get(key) === session) SESSIONS.delete(key); });
+    return session;
+  })();
+
+  STARTING.set(key, startPromise);
   try {
-    await client.start();
-  } catch (err) {
-    // Review-fix #2: preserve the binary name + original errno so the
-    // error response upstream can render an actionable hint ("clangd not
-    // on PATH; install via …") instead of a generic "language_server_
-    // missing." The original ENOENT carries err.path = the binary name
-    // and err.code = 'ENOENT' / 'EACCES' / etc.
-    const binary = err?.path ?? spawnCfg?.command ?? language;
-    const wrapped = new Error(`language_server_missing: ${binary} (${err?.code ?? 'spawn failed'}) — ${err?.message ?? ''}`.trim());
-    wrapped.code = 'language_server_missing';
-    wrapped.binary = binary;
-    wrapped.originalCode = err?.code ?? null;
-    wrapped.cause = err;
-    throw wrapped;
+    return await startPromise;
+  } finally {
+    STARTING.delete(key);
   }
-  SESSIONS.set(key, session);
-  return session;
 }
 
 export async function shutdownAllSessions() {

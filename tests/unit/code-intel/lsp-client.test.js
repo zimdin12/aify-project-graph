@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import path from 'node:path';
-import { LspClient } from '../../../mcp/stdio/code-intel/lsp-client.js';
+import { LspClient, canonicalUri } from '../../../mcp/stdio/code-intel/lsp-client.js';
+
+const itWin = process.platform === 'win32' ? it : it.skip;
 
 const fakeServer = path.resolve('tests/fixtures/code-intel/lsp/fake-lsp-server.mjs');
 
@@ -202,5 +204,69 @@ describe('P5-3: clangd orphan self-exit (PPID poll)', () => {
     expect(client._ppidPollTimer).not.toBeNull();
     await client.shutdown();
     expect(client._ppidPollTimer).toBeNull();
+  });
+});
+
+// Audit 2026-06-12 Wave 1 — Windows URI keying + JSON-RPC robustness.
+describe('LspClient — URI canonicalization (Windows diagnostics keying)', () => {
+  itWin('collapses %3A-encoded colon and drive-letter case to one key', () => {
+    const a = canonicalUri('file:///c%3A/Users/x/A.ts');
+    const b = canonicalUri('file:///C:/Users/x/A.ts');
+    const c = canonicalUri('file:///c:/Users/x/A.ts');
+    expect(a).toBe(b);
+    expect(b).toBe(c);
+  });
+
+  it('passes non-file and unparseable strings through unchanged', () => {
+    expect(canonicalUri('untitled:foo')).toBe('untitled:foo');
+    expect(canonicalUri(undefined)).toBe(undefined);
+  });
+
+  itWin('diagnostics published under vscode-uri encoding resolve via a Node file URL key', () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///C:/r' });
+    // pyright/tsserver publish `file:///c%3A/...`; we query with pathToFileURL form.
+    client._handle({ method: 'textDocument/publishDiagnostics', params: { uri: 'file:///c%3A/r/foo.ts', diagnostics: [{ message: 'boom' }] } });
+    expect(client.diagnosticsFor('file:///C:/r/foo.ts')).toHaveLength(1);
+    expect(client.diagnosticPublishCount('file:///C:/r/foo.ts')).toBe(1);
+  });
+});
+
+describe('LspClient — JSON-RPC server-request / crash robustness', () => {
+  it('does not resolve a pending client request when a server REQUEST reuses its id', () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    client._send = () => {}; // avoid touching a real (null) stdin
+    let resolved = false;
+    client.pending.set(1, { resolve: () => { resolved = true; }, reject: () => {} });
+    // Server-initiated request reusing id 1 (it has a `method`) must NOT be
+    // treated as the response to our pending request.
+    client._handle({ jsonrpc: '2.0', id: 1, method: 'workspace/configuration', params: {} });
+    expect(resolved).toBe(false);
+    expect(client.pending.has(1)).toBe(true);
+  });
+
+  it('replies MethodNotFound to an unhandled server request so the server is not left waiting', () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    const sent = [];
+    client._send = (m) => sent.push(m);
+    client._handle({ jsonrpc: '2.0', id: 7, method: 'window/showMessageRequest', params: {} });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].id).toBe(7);
+    expect(sent[0].error.code).toBe(-32601);
+  });
+
+  it('rejects in-flight requests and marks dead when the server exits', () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    let rejected = null;
+    client.pending.set(5, { resolve: () => {}, reject: (e) => { rejected = e; } });
+    client._onProcExit(1);
+    expect(rejected).toBeInstanceOf(Error);
+    expect(client.dead).toBe(true);
+    expect(client.pending.size).toBe(0);
+  });
+
+  it('_send throws on a dead client instead of writing to a destroyed pipe', () => {
+    const client = new LspClient({ command: process.execPath, args: [fakeServer], rootUri: 'file:///r' });
+    client.dead = true;
+    expect(() => client._send({ jsonrpc: '2.0', method: 'noop' })).toThrow(/not connected/);
   });
 });

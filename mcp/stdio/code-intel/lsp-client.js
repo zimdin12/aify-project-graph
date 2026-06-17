@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { Buffer } from 'node:buffer';
 import { EventEmitter } from 'node:events';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import { hostToWsl, wslToHost } from './compile-db.js';
 
 // ── WSL-clangd URI translation (opt-in APG_CLANGD_WSL) ─────────────────────
@@ -20,6 +21,25 @@ import { hostToWsl, wslToHost } from './compile-db.js';
 // undefined and these are exact no-ops.
 
 const FILE_URI_PREFIX = 'file://';
+
+// Canonicalize a `file://` URI for stable map keying. Audit 2026-06-12: we build
+// diagnostic keys with Node's pathToFileURL (`file:///C:/...`) but
+// typescript-language-server / pyright (vscode-uri) PUBLISH them as
+// `file:///c%3A/...` (lowercase drive, percent-encoded colon). Keyed verbatim,
+// every diagnostics lookup on Windows missed → waitForDiagnostics always timed
+// out (1.5–3s tax per file) and the hierarchy cold-parse gate never saw a
+// publish. Round-trip through the OS path (decodes %3A) then lowercase the drive
+// letter so `C:` and `c:` collapse to one key. Non-file / unparseable URIs and
+// posix paths pass through unchanged (round-trip is a stable no-op there).
+export function canonicalUri(uri) {
+  if (typeof uri !== 'string' || !uri.startsWith(FILE_URI_PREFIX)) return uri;
+  try {
+    const round = pathToFileURL(fileURLToPath(uri)).toString();
+    return round.replace(/^(file:\/\/\/)([A-Za-z]):/, (_, p, d) => `${p}${d.toLowerCase()}:`);
+  } catch {
+    return uri;
+  }
+}
 
 // Translate a single `file://` URI. `dir` is 'out' (host→WSL) or 'in'
 // (WSL→host). Pure + exported for direct unit testing.
@@ -103,6 +123,9 @@ export class LspClient extends EventEmitter {
     // (warmed + ready signal). Increments per successful didOpen.
     this.workspaceWarmCount = 0;
     this.started = false;
+    // Flips true when the child process exits/crashes. A dead client must not be
+    // reused (live.js evicts it) and _send must not write to its destroyed pipe.
+    this.dead = false;
     // P5-3: parent-liveness poll. A long-lived clangd child spawned below can
     // outlive a HARD-killed parent (kill -9 leaves no chance to run shutdown),
     // leaking the process plus its file watches / on-disk index WAL. We record
@@ -185,7 +208,11 @@ export class LspClient extends EventEmitter {
 
     this.proc.stdout.on('data', chunk => this._onData(chunk));
     this.proc.stderr.on('data', chunk => this.emit('stderr', chunk.toString('utf8')));
-    this.proc.on('exit', code => this.emit('exit', code));
+    // A write to a dead child's stdin (server crashed) surfaces as an unhandled
+    // 'error' (EPIPE / ERR_STREAM_DESTROYED) that would take down the whole MCP
+    // process. Sink it — _send guards on this.dead and _onProcExit cleans up.
+    this.proc.stdin.on('error', () => { /* server gone; handled by exit */ });
+    this.proc.on('exit', code => this._onProcExit(code));
     // NOTE: the post-init re-emit of 'error' on this LspClient is deferred
     // until after start() resolves (below). Attaching it here would race
     // the early listener — both would fire on ENOENT, and the
@@ -243,6 +270,22 @@ export class LspClient extends EventEmitter {
     // P5-3: begin the parent-liveness poll now that the child is live.
     this._startPpidPoll();
     return initResult;
+  }
+
+  // Child exited/crashed. Audit 2026-06-12: previously the only handler
+  // re-emitted 'exit' and left every in-flight request hanging its full
+  // timeout (45s for cpp live sessions) while live.js kept the dead session
+  // cached so the next verb _send'd into a destroyed pipe. Now: mark dead,
+  // stop the poll, and reject all pending so callers fail fast.
+  _onProcExit(code) {
+    this.dead = true;
+    this.started = false;
+    this._stopPpidPoll();
+    for (const p of this.pending.values()) {
+      try { p.reject(new Error(`LSP server exited (code ${code}) before responding`)); } catch { /* noop */ }
+    }
+    this.pending.clear();
+    this.emit('exit', code);
   }
 
   async shutdown() {
@@ -334,7 +377,7 @@ export class LspClient extends EventEmitter {
   }
 
   diagnosticsFor(uri) {
-    return this.diagnosticsByUri.get(uri) || [];
+    return this.diagnosticsByUri.get(canonicalUri(uri)) || [];
   }
 
   async diagnosticsForWithFreshness(uri, waitMs = 1500, { sincePublishCount = null, force = true } = {}) {
@@ -342,6 +385,9 @@ export class LspClient extends EventEmitter {
   }
 
   async diagnostics(uri, waitMs = 1500, { sincePublishCount = null, force = true } = {}) {
+    // NB: cache lookups canonicalize the URI internally (helpers below), but the
+    // ORIGINAL uri is what we send to the server — it opened the doc under the
+    // caller's form, so requests must use it verbatim.
     if (this.supportsPullDiagnostics()) {
       return this.pullDiagnostics(uri, { force });
     }
@@ -352,7 +398,7 @@ export class LspClient extends EventEmitter {
       return { freshness: 'fresh', diagnostics: this.diagnosticsFor(uri) };
     }
 
-    if (this.diagnosticsByUri.has(uri)) {
+    if (this.diagnosticsByUri.has(canonicalUri(uri))) {
       return { freshness: 'stale', diagnostics: this.diagnosticsFor(uri) };
     }
 
@@ -360,15 +406,17 @@ export class LspClient extends EventEmitter {
   }
 
   async pullDiagnostics(uri, { force = true } = {}) {
-    if (!force && this.diagnosticsByUri.has(uri)) {
+    const key = canonicalUri(uri);
+    if (!force && this.diagnosticsByUri.has(key)) {
       return { freshness: 'stale', diagnostics: this.diagnosticsFor(uri) };
     }
 
+    // Send the caller's original uri — the server keys the document by it.
     const result = await this._request('textDocument/diagnostic', {
       textDocument: { uri }
     });
     const diagnostics = Array.isArray(result?.items) ? result.items : this.diagnosticsFor(uri);
-    this.diagnosticsByUri.set(uri, diagnostics);
+    this.diagnosticsByUri.set(key, diagnostics);
     return { freshness: 'fresh', diagnostics };
   }
 
@@ -377,10 +425,11 @@ export class LspClient extends EventEmitter {
   }
 
   diagnosticPublishCount(uri) {
-    return this.diagnosticPublishCounts.get(uri) || 0;
+    return this.diagnosticPublishCounts.get(canonicalUri(uri)) || 0;
   }
 
   waitForDiagnostics(uri, sincePublishCount, waitMs) {
+    uri = canonicalUri(uri);
     if (this.diagnosticPublishCount(uri) > sincePublishCount) {
       return Promise.resolve(true);
     }
@@ -405,6 +454,7 @@ export class LspClient extends EventEmitter {
   }
 
   _removeDiagnosticWaiter(uri, waiter) {
+    uri = canonicalUri(uri);
     const waiters = this.diagnosticWaiters.get(uri);
     if (!waiters) return;
     const remaining = waiters.filter(w => w !== waiter);
@@ -543,6 +593,9 @@ export class LspClient extends EventEmitter {
   }
 
   _send(message) {
+    if (this.dead || !this.proc || !this.proc.stdin || this.proc.stdin.destroyed) {
+      throw new Error('LSP client is not connected (server exited)');
+    }
     // WSL transport: translate host file URIs → WSL before they reach clangd.
     // Work on a structural copy so callers' objects aren't mutated.
     let outgoing = message;
@@ -598,7 +651,13 @@ export class LspClient extends EventEmitter {
       return;
     }
 
-    if (msg.id !== undefined && this.pending.has(msg.id)) {
+    // A RESPONSE has an id and no method; a server-initiated REQUEST has both.
+    // Audit 2026-06-12: gating only on `pending.has(id)` conflated the two —
+    // vscode-languageserver ids also start at 0/1, so a server request
+    // (workspace/configuration, client/registerCapability, window/showMessageRequest)
+    // could collide with an in-flight client id and resolve our pending promise
+    // with `undefined`. Require method===undefined for the response branch.
+    if (msg.id !== undefined && msg.method === undefined && this.pending.has(msg.id)) {
       const p = this.pending.get(msg.id);
       this.pending.delete(msg.id);
       if (msg.error) p.reject(new Error(msg.error.message || 'LSP error'));
@@ -606,7 +665,7 @@ export class LspClient extends EventEmitter {
       return;
     }
     if (msg.method === 'textDocument/publishDiagnostics') {
-      const uri = msg.params?.uri;
+      const uri = canonicalUri(msg.params?.uri);
       const diags = msg.params?.diagnostics || [];
       if (uri) {
         this.diagnosticsByUri.set(uri, diags);
@@ -625,6 +684,13 @@ export class LspClient extends EventEmitter {
         if (remaining.length === 0) this.diagnosticWaiters.delete(uri);
         else this.diagnosticWaiters.set(uri, remaining);
       }
+      return;
+    }
+    // Unhandled server-initiated REQUEST (has id + method, not matched above).
+    // Reply MethodNotFound so the server doesn't block waiting for a response
+    // (an unanswered workspace/* or window/* request can stall pyright/tsserver).
+    if (msg.id !== undefined && msg.method !== undefined) {
+      this._send({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: `method not found: ${msg.method}` } });
     }
   }
 }

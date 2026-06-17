@@ -44,6 +44,7 @@ import {
 import { checkRequestSize, MAX_MCP_LINE_BYTES } from './security/request-size.js';
 import { findSensitivePathArg } from './security/sensitive-paths.js';
 import { SERVER_INSTRUCTIONS } from './server-instructions.js';
+import { shutdownAllSessions } from './code-intel/live.js';
 import {
   codeIntelDiagnostics,
   codeIntelReferences,
@@ -1147,7 +1148,39 @@ rl.on('line', async (line) => {
     return;
   }
 
-  if (req.id) {
+  if (req.id != null) {
     send({ jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `method not found: ${req.method}` } });
   }
 });
+
+// ── Server lifecycle / shutdown ────────────────────────────────────────────
+//
+// Audit 2026-06-12 (3 agents, mirrors codegraph 0b1a2ee): the only wired event
+// used to be rl.on('line'). With no stdin close/error or signal handling, when
+// the MCP host closed stdin (the standard stdio shutdown signal) live LSP
+// SESSIONS (spawned clangd/tsserver/pyright children) kept the event loop alive
+// — the server lingered and leaked language-server children on every host exit.
+//
+// On stdin CLOSE we only TEAR DOWN the long-lived LSP children (which is what
+// pins the loop) and then let Node exit NATURALLY once any in-flight verb
+// handlers have written their replies. We must NOT process.exit() here: the
+// line handler is async, so a hard exit on close would race mid-flight handlers
+// and truncate their stdout responses (and process.exit can drop buffered pipe
+// writes). A broken stdin/stdout pipe or a signal, by contrast, means the host
+// is already gone and we cannot drain/reply — there we exit after best-effort
+// teardown so we neither linger nor crash on a dead pipe.
+let shuttingDown = false;
+async function teardownSessions() {
+  try { await shutdownAllSessions(); } catch { /* best-effort teardown */ }
+}
+async function gracefulExit(code = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  await teardownSessions();
+  process.exit(code);
+}
+rl.on('close', () => { teardownSessions(); });
+process.stdin.on('error', () => { gracefulExit(0); });
+process.stdout.on('error', () => { gracefulExit(0); });
+process.on('SIGINT', () => { gracefulExit(0); });
+process.on('SIGTERM', () => { gracefulExit(0); });
