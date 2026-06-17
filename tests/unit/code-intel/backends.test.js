@@ -70,6 +70,46 @@ describe('computeCoverage — per-language exhaustiveness strategy', () => {
     expect(c.complete).toBe(false);   // live verbs: no DB ⇒ not exhaustive
     expect(c.partial).toBe(false);    // graph banners: absent DB ⇒ don't downgrade ground-truth edges
   });
+
+  // Audit 2026-06-12 (B1): root-tsconfig presence is NOT proof the queried file
+  // is in a configured project — file-aware coverage closes that false-exhaustive.
+  it('typescript file INSIDE a root tsconfig include → complete', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-tsinc-'));
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ include: ['src'] }));
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    const c = computeCoverage({ language: 'typescript', projectRoot: dir, file: 'src/a.ts' });
+    expect(c.complete).toBe(true);
+    expect(c.partial).toBe(false);
+  });
+  it('typescript file OUTSIDE the tsconfig include scope → partial (false-exhaustive closed)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-tsout-'));
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ include: ['src'] }));
+    const c = computeCoverage({ language: 'typescript', projectRoot: dir, file: 'packages/other/b.ts' });
+    expect(c.complete).toBe(false);
+    expect(c.partial).toBe(true);
+    expect(c.reason).toMatch(/outside|scope|inferred/i);
+  });
+  it('typescript uses the NEAREST enclosing tsconfig (monorepo per-package)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-tsmono-'));
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), JSON.stringify({ include: ['nothing'] }));
+    const pkg = path.join(dir, 'packages', 'app');
+    fs.mkdirSync(path.join(pkg, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(pkg, 'tsconfig.json'), JSON.stringify({ include: ['src'] }));
+    const c = computeCoverage({ language: 'typescript', projectRoot: dir, file: 'packages/app/src/x.ts' });
+    expect(c.complete).toBe(true);
+  });
+  it('typescript with a tsconfig but no include/files → covers its whole subtree', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-tsall-'));
+    fs.writeFileSync(path.join(dir, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    const c = computeCoverage({ language: 'typescript', projectRoot: dir, file: 'lib/deep/y.ts' });
+    expect(c.complete).toBe(true);
+  });
+  it('typescript file with NO enclosing tsconfig → partial', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-tsnone-'));
+    const c = computeCoverage({ language: 'typescript', projectRoot: dir, file: 'src/a.ts' });
+    expect(c.complete).toBe(false);
+    expect(c.partial).toBe(true);
+  });
 });
 
 describe('resolveNodeBin — resolution order', () => {

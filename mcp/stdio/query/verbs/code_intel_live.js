@@ -366,9 +366,13 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   // is trustworthy for completeness (native/WSL-clangd + expanded unity), so a
   // partial index over a foreign/unity DB can't be reported as a complete
   // caller set. Best-effort — never let coverage detection fail the query.
+  // Pass the queried `file` so TS coverage checks the file is actually inside the
+  // nearest tsconfig project (not just that a root tsconfig exists). On a
+  // detection error FAIL CLOSED — a missing guard must not let a partial index be
+  // reported as exhaustive (audit 2026-06-12).
   let coverage = null;
-  try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot }); }
-  catch { coverage = null; }
+  try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot, file }); }
+  catch { coverage = { complete: false, partial: true, kind: 'unknown', foreignToolchain: false, unityUnexpanded: false, reason: 'coverage detection failed — treating as partial (fail-closed)' }; }
   const evidence = buildReferencesEvidence({
     freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage
   });

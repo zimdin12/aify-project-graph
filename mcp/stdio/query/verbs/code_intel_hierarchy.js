@@ -485,9 +485,12 @@ export async function codeIntelHierarchy(args = {}) {
   // FALSE-EXHAUSTIVE GUARD: per-language coverage gates the exhaustive claim (a
   // foreign/unity C++ DB, a no-tsconfig TS project, or Python's dynamic dispatch
   // all yield a silently-partial index). Best-effort.
+  // Pass `file` so TS coverage verifies the file is inside the nearest tsconfig
+  // project, and FAIL CLOSED on a detection error (audit 2026-06-12) — a missing
+  // guard must never let a partial index earn an exhaustive hierarchy claim.
   let coverage = null;
-  try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot }); }
-  catch { coverage = null; }
+  try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot, file }); }
+  catch { coverage = { complete: false, partial: true, kind: 'unknown', foreignToolchain: false, unityUnexpanded: false, reason: 'coverage detection failed — treating as partial (fail-closed)' }; }
 
   // Open the anchor file so clangd has the TU loaded.
   const uri = await openIfNeeded(session, file);
