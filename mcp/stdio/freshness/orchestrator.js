@@ -108,6 +108,10 @@ export async function ensureFresh({
       && manifest.commit === commit
       && (manifest.schemaVersion ?? 1) === SCHEMA_VERSION
       && existsSync(dbPath)
+      // NB: tooling-version drift is intentionally NOT gated here. This is the
+      // transient "another process is mid-rebuild, don't block read callers"
+      // fast path; once that rebuild flips status to 'ok', the next ensureFresh
+      // hits the main decision which forces a full rebuild on toolingMismatch.
     ) {
       const db = openDb(dbPath);
       try {
@@ -150,6 +154,15 @@ export async function ensureFresh({
     const db = openDb(join(graphDir, 'graph.sqlite'));
     try {
       const schemaMismatch = (manifest.schemaVersion ?? 1) !== SCHEMA_VERSION;
+      // Audit 2026-06-12 (graphify 8401c50): the extractor + parser-grammar
+      // versions are written to the manifest but were never compared, so a
+      // shipped extractor/grammar fix never re-reached unchanged files without a
+      // manual force=true. Treat a version drift like a schema drift — force a
+      // clean full rebuild so corrected extraction applies across the repo. The
+      // manifest defaults these to '0.0.0' when absent, so pre-versioning graphs
+      // rebuild once on upgrade.
+      const toolingMismatch = (manifest.extractorVersion ?? '0.0.0') !== EXTRACTOR_VERSION
+        || (manifest.parserBundleVersion ?? '0.0.0') !== PARSER_BUNDLE_VERSION;
 
       // Crash-recovery: if the previous run wrote `status: 'indexing'` and
       // crashed before flipping to `'ok'`, the chunked-commit code has
@@ -163,6 +176,7 @@ export async function ensureFresh({
       const existingNodeCount = countNodes(db);
       const canResumeFromPartial = !force
         && !schemaMismatch
+        && !toolingMismatch
         && manifest.status === 'indexing'
         && manifest.commit
         && manifest.commit === commit
@@ -172,7 +186,8 @@ export async function ensureFresh({
         || manifestState.status !== 'ok'
         || !manifest.commit
         || manifest.status === 'indexing'
-        || schemaMismatch);
+        || schemaMismatch
+        || toolingMismatch);
 
       const effectiveIgnoredDirs = loadEffectiveIgnoredDirs(repoRoot);
       let filesToProcess;

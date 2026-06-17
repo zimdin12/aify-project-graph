@@ -84,6 +84,45 @@ describe('freshness orchestrator', () => {
     expect(manifest.trustDirtyEdgeCount).toBe(0);
   });
 
+  it('forces a full rebuild when the manifest extractor version is stale', async () => {
+    // Audit 2026-06-12 (graphify 8401c50): an otherwise-fresh graph (status ok,
+    // commit == HEAD, schema current) built by an OLDER extractor version must
+    // be rebuilt so shipped extractor fixes reach unchanged files — previously
+    // this was a silent noop until a manual force=true.
+    await writeFile(join(repoRoot, 'src', 'helper.py'), 'def helper():\n    return 1\n');
+    await mkdir(join(repoRoot, '.aify-graph'), { recursive: true });
+    const seed = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    seed.close();
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'head-stale-extractor', indexedAt: '2026-04-23T00:00:00.000Z',
+      nodes: 0, edges: 0, schemaVersion: 4,
+      extractorVersion: '0.0.1', parserBundleVersion: '2026.04.16',
+      status: 'ok', dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0, trustDirtyEdgeCount: 0,
+    }));
+
+    getHeadCommit.mockResolvedValue('head-stale-extractor');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const result = await ensureFresh({ repoRoot });
+    expect(result.indexed).toBe(true);
+
+    // A noop (no version check) would leave the DB empty since no files are
+    // dirty/changed. A full rebuild re-extracts the whole repo → helper present.
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const fns = db.all("SELECT label FROM nodes WHERE type = 'Function'").map((r) => r.label);
+      expect(fns).toContain('helper');
+    } finally {
+      db.close();
+    }
+    const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+    expect(manifest.extractorVersion).toBe('0.1.0');
+    expect(manifest.parserBundleVersion).toBe('2026.04.16');
+  });
+
   it('ignores build-prefixed scratch trees during a full rebuild', async () => {
     await mkdir(join(repoRoot, 'build-linux-techlead', 'generated'), { recursive: true });
     await writeFile(join(repoRoot, 'src', 'main.py'), 'def main():\n    return 1\n');
