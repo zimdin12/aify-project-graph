@@ -119,7 +119,7 @@ describe('freshness orchestrator', () => {
       db.close();
     }
     const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
-    expect(manifest.extractorVersion).toBe('0.1.0');
+    expect(manifest.extractorVersion).toBe('0.2.0');
     expect(manifest.parserBundleVersion).toBe('2026.04.16');
   });
 

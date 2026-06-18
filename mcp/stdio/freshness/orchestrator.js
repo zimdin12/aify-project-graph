@@ -39,7 +39,11 @@ import { synthesizeVirtualOverrides } from '../ingest/frameworks/virtual_overrid
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
 
-const EXTRACTOR_VERSION = '0.1.0';
+// 0.2.0 (audit Wave 3): NodeNext .js→.ts import rewrite, arrow/function-expression
+// const symbols + TS enum/abstract-class, import-evidence-before-label resolver
+// ordering, and `new Foo()` instantiation edges. Bumping forces deployed graphs
+// to re-extract/re-resolve once so these reach unchanged files.
+const EXTRACTOR_VERSION = '0.2.0';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
 const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema', 'ShaderBinding'];
 const EXTRACTION_CHUNK_SIZE = 500;
