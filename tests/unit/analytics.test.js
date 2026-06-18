@@ -14,6 +14,7 @@ import {
   computeCycles,
   computeProvenanceMix,
   computeDigest,
+  computeIsolated,
   normalizeRotation,
 } from '../../mcp/stdio/intelligence/analytics.js';
 
@@ -80,6 +81,18 @@ describe('analytics: computeOverview', () => {
     const c1 = overview.find((c) => c.cluster === 'c:1');
     const toC2 = c1.edges_to.find((e) => e.cluster === 'c:2');
     expect(toC2.count).toBe(3); // a1→b1 (x2) + a2→b2
+  });
+
+  it('computeIsolated surfaces degree<=1 symbols (knowledge gaps), not hubs', () => {
+    const iso = computeIsolated(db, { limit: 10 });
+    expect(iso.every((i) => i.degree <= 1)).toBe(true);     // only the isolated tail
+    expect(iso.map((i) => i.label)).not.toContain('hubA');  // the high-degree hub is excluded
+    expect(iso.length).toBeGreaterThanOrEqual(1);           // a3 / b2 have degree 1
+  });
+
+  it('computeDigest includes a GAPS block when isolated symbols exist', () => {
+    const text = computeDigest(db, { budget: 8000 });
+    expect(text).toContain('GAPS');
   });
 
   it('falls back to top-level dir when no community_id', () => {

@@ -233,6 +233,33 @@ export function computeHotspots(db, { limit = 15 } = {}) {
 }
 
 // ───────────────────────────────────────────────────────────────────────────
+// computeIsolated — the under-connected tail (knowledge gaps).
+// Borrow: graphify report.py isolated-nodes. Symbol-ish nodes with in+out
+// degree <= 1 — likely missing edges, undocumented, or dead. Complements
+// computeHotspots (over-connected). Rows ascending by degree; stop once past 1.
+// ───────────────────────────────────────────────────────────────────────────
+export function computeIsolated(db, { limit = 12 } = {}) {
+  const rows = db.all(`
+    SELECT n.id, n.label, n.type, n.file_path,
+           (SELECT COUNT(*) FROM edges e WHERE e.to_id = n.id)   AS fan_in,
+           (SELECT COUNT(*) FROM edges e WHERE e.from_id = n.id) AS fan_out
+    FROM nodes n
+    WHERE n.type NOT IN ('Repository','File','Module','Directory','Document','Config','External')
+    ORDER BY (fan_in + fan_out) ASC, n.label
+    LIMIT $window
+  `, { window: Math.max(limit * 3, 40) });
+  const out = [];
+  for (const r of rows) {
+    const degree = r.fan_in + r.fan_out;
+    if (degree > 1) break; // ascending — past the isolated tail
+    if (HOTSPOT_NOISE.has(r.label)) continue;
+    out.push({ label: r.label, type: r.type, file_path: r.file_path, degree });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
 // computeCycles — file-level import/include cycles.
 //
 // graphify find_import_cycles, reimplemented (MIT). Collapse symbol nodes to
@@ -535,6 +562,17 @@ export function computeDigest(db, { budget = 6000, architecture = null } = {}) {
       hs.push(`- ${h.label} ${(h.type || '').toLowerCase()} ${h.file_path} (deg ${h.degree}; ${h.fan_in} in / ${h.fan_out} out)`);
     }
     blocks.push(hs);
+  }
+
+  // GAPS — the under-connected tail (borrow: graphify isolated-nodes report).
+  // Symbols with degree <=1 are likely missing edges / undocumented / dead — the
+  // complement to HOTSPOTS. A degree-0/1 symbol that is ALSO heuristic-only is a
+  // strong "review me" candidate (our trust layer adds signal graphify lacks).
+  const isolated = computeIsolated(db, { limit: 8 });
+  if (isolated.length) {
+    const gaps = ['GAPS (isolated symbols, degree <=1 — likely missing edges / undocumented / dead code)'];
+    for (const g of isolated) gaps.push(`- ${g.label} ${(g.type || '').toLowerCase()} ${g.file_path || ''} (deg ${g.degree})`);
+    blocks.push(gaps);
   }
 
   if (prov.shader.bindings > 0 || prov.shader.loads_shader > 0 || prov.shader.declares_binding > 0) {

@@ -78,6 +78,9 @@
     .src-ln { color:var(--faint,#666); text-align:right; min-width:34px; user-select:none; padding:0 4px; }
     .src-row code { color:var(--text); }
     #cap-note { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:5; background:rgba(187,135,0,0.14); border:1px solid #bf8700; color:var(--text); padding:5px 12px; border-radius:6px; font-size:12px; max-width:70%; text-align:center; }
+    .nav-back-bar { margin-bottom:6px; }
+    .nav-back-btn { background:var(--bg); border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:3px 9px; cursor:pointer; font-size:11px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .nav-back-btn:hover { border-color:var(--accent); color:var(--text); }
     .toggle-pill.active { border-color: var(--accent); background: var(--accent-bg); color: #cfe5ff; }
     .toggle-pill:hover { border-color: var(--accent); }
     .view-pill { display:flex; align-items:center; gap:5px; padding: 6px 11px; font-size:12px; }
@@ -225,6 +228,8 @@
     let sidebarCollapsed = false;
     const RENDER_NODE_CAP = 3000; // per-node views cap nodes above this so a heavy pick can't freeze the UI
     let lastRenderCap = { capped: 0, total: 0 };
+    let navStack = [];            // node-detail visit history (back-stack)
+    let navigatingBack = false;
 
     const activeTypes = new Set();
     const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
@@ -403,6 +408,7 @@
       view.innerHTML = `<div class="src-box">${data.lines.map((ln, i) => `<div class="src-row"><span class="src-ln">${data.from + i}</span><code>${tourEsc(ln)}</code></div>`).join('')}</div>`;
     }
     async function renderIdleOverview(stats) {
+      navStack = []; // back to overview → start a fresh exploration history
       const detail = $('node-detail');
       const [hotspotsResp, provResp] = await Promise.all([
         fetch('/api/hotspots?limit=10').then(r => r.json()).catch(() => ({ hotspots: [] })),
@@ -426,11 +432,34 @@
     async function showNodeDetail(nodeId) {
       const node = allData.nodes.find(n => n.id === nodeId);
       if (!node) return;
-      if (node.layer && node.layer !== 'code' && node.kind !== 'Document') { renderRolePanel(node); return; }
+      // Navigation history (borrow: understand-anything node back-stack) — push
+      // each visited node so a click-through exploration can be retraced.
+      if (!navigatingBack && navStack[navStack.length - 1] !== nodeId) {
+        navStack.push(nodeId);
+        if (navStack.length > 40) navStack.shift();
+      }
+      navigatingBack = false;
+      if (node.layer && node.layer !== 'code' && node.kind !== 'Document') { renderRolePanel(node); prependNavBack(); return; }
       const codeId = nodeId.startsWith('code:') ? nodeId.slice('code:'.length) : nodeId;
       const data = await fetch(`/api/node/${encodeURIComponent(codeId)}`).then(r => r.json()).catch(() => null);
-      if (!data?.node) { renderRolePanel(node); return; }
+      if (!data?.node) { renderRolePanel(node); prependNavBack(); return; }
       renderRolePanel(node, data);
+      prependNavBack();
+    }
+    // Prepend a "← back to <prev>" control to the detail panel when there's history.
+    function prependNavBack() {
+      if (navStack.length < 2) return;
+      const detail = $('node-detail');
+      const prev = allData.nodes.find(n => n.id === navStack[navStack.length - 2]);
+      const bar = document.createElement('div');
+      bar.className = 'nav-back-bar';
+      bar.innerHTML = `<button class="nav-back-btn" type="button">← back${prev ? ` to ${tourEsc(prev.label)}` : ''}</button>`;
+      bar.querySelector('.nav-back-btn').onclick = () => {
+        navStack.pop();
+        navigatingBack = true;
+        window.focusNode(navStack[navStack.length - 1]);
+      };
+      detail.insertBefore(bar, detail.firstChild);
     }
 
     // ───────────────────────── stats + controls ─────────────────────────
