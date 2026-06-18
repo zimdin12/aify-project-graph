@@ -71,4 +71,9 @@ ORIENTATION (3 shapes, they compose): graph_packet mode:orient = one symbol/feat
 FRESHNESS:
 - If a response says "graph stale", run graph_index first (or set APG_AUTO_REINDEX=1 for auto-refresh).
 - A stale "not found" is NOT proof a symbol is gone — re-run after indexing. The graph self-heals on
-  read when APG_AUTO_REINDEX is set; otherwise refresh manually with graph_index.`;
+  read when APG_AUTO_REINDEX is set; otherwise refresh manually with graph_index.
+- LSP-VERIFIED edges do NOT survive a full re-index. graph_collect_code_intel materializes [lsp✓]
+  edges into the graph; a force rebuild (or an extractor-version bump) re-extracts from tree-sitter
+  and DROPS them. If graph_health.codeIntel shows a collection but the LSP-verified % reads 0 (or
+  [lsp✓] edges vanished), re-run graph_collect_code_intel to restore them. (code_intel_replay only
+  QUERIES stored collection facts — it does not re-materialize graph edges.)`;

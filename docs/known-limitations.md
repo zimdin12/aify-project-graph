@@ -138,6 +138,26 @@ top of `brief.agent.md`). For "what calls into this verb from
 outside the graph," that's a server-tool-dispatch concern not a code
 graph concern.
 
+## LSP-verified edges do not survive a full re-index
+
+`graph_collect_code_intel` materializes `LSP_VERIFIED` / `[lsp✓]` edges (clangd /
+tsserver / pyright ground truth) into the graph. A **full rebuild** —
+`graph_index(force=true)`, or the automatic one-time rebuild after an
+**extractor-version bump** — re-extracts from tree-sitter and replaces edges,
+**dropping the verified ones**. The stored collection rows
+(`code_intel_collections` / records) survive, but the graph EDGES don't.
+
+**Symptom.** After a reindex, `graph_health.codeIntel` shows a collection but the
+dashboard / banners read **LSP-verified 0%**, and `[lsp✓]` edges have vanished.
+
+**Why.** The importer's nodes/edges are keyed by file; a rebuild that re-extracts
+those files deletes them along with the tree-sitter ones. Re-import only happens
+during a collection, not during indexing.
+
+**Workaround.** Re-run `graph_collect_code_intel` after a force rebuild / version
+bump to restore the verified edges. Note `code_intel_replay` does NOT help here —
+it only queries stored collection facts, it does not re-materialize graph edges.
+
 ## Overlay anchors are binary (resolved / not) today
 
 Every anchor in `functionality.json` is treated equally regardless of
