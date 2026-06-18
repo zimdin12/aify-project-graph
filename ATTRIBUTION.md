@@ -75,7 +75,11 @@ From **agent-understand-anything** (MIT):
 
 From **graphify** (MIT): isolated-nodes / knowledge-gaps + suggested-questions
 report (report.py) → `computeIsolated`, the GAPS block, and the SUGGESTED
-QUESTIONS block in `graph_digest` (`intelligence/analytics.js`).
+QUESTIONS block in `graph_digest` (`intelligence/analytics.js`). Also the
+betweenness-ranked community-bridge analysis with hub exclusion (report.py
+bridge ranking) → `computeBridges` (edge-betweenness on the cluster meta-graph,
+god-object hub edges excluded) replacing the old heaviest-single-edge ranking in
+the digest's COMMUNITY BRIDGES block.
 
 From **agent-code-intel** (UNLICENSED — PATTERN-ONLY, re-derived from the described
 idea, no code read into ours): comment/string masking before regex scans (used in

@@ -15,6 +15,7 @@ import {
   computeProvenanceMix,
   computeDigest,
   computeIsolated,
+  computeBridges,
   normalizeRotation,
 } from '../../mcp/stdio/intelligence/analytics.js';
 
@@ -106,6 +107,51 @@ describe('analytics: computeOverview', () => {
     const overview = computeOverview(db, { topSymbols: 5 });
     // all nodes have community ids here, so no dir-clusters expected
     expect(overview.every((c) => c.cluster.startsWith('c:'))).toBe(true);
+  });
+});
+
+describe('analytics: computeBridges (betweenness + hub exclusion)', () => {
+  let tmp; let db;
+  beforeAll(async () => {
+    tmp = await mkdtemp(join(tmpdir(), 'apg-analytics-bridges-'));
+    db = openDb(join(tmp, 'graph.sqlite'));
+    // 4 communities. b1 is a hub bridging A, C, D (the structural connector);
+    // A and C ALSO connect directly via a heavy (x3) edge with high raw COUNT
+    // but low betweenness (peripheral). Meta-graph edges: A-B, B-C, B-D, A-C.
+    addNode(db, 'a1', { community_id: 1, file_path: 'a/a1.js' });
+    addNode(db, 'a2', { community_id: 1, file_path: 'a/a2.js' });
+    addNode(db, 'b1', { community_id: 2, file_path: 'b/b1.js', label: 'hubB' });
+    addNode(db, 'b2', { community_id: 2, file_path: 'b/b2.js' });
+    addNode(db, 'c1', { community_id: 3, file_path: 'c/c1.js' });
+    addNode(db, 'c2', { community_id: 3, file_path: 'c/c2.js' });
+    addNode(db, 'd1', { community_id: 4, file_path: 'd/d1.js' });
+    addNode(db, 'd2', { community_id: 4, file_path: 'd/d2.js' });
+    addEdge(db, 'a1', 'b1');                                  // A-B (via hub b1)
+    addEdge(db, 'b1', 'c1');                                  // B-C (via hub b1)
+    addEdge(db, 'b1', 'd1');                                  // B-D (via hub b1)
+    addEdge(db, 'a2', 'c2', { relation: 'CALLS' });           // A-C direct, heavy…
+    addEdge(db, 'a2', 'c2', { relation: 'REFERENCES' });
+    addEdge(db, 'a2', 'c2', { relation: 'IMPORTS' });
+  });
+  afterAll(async () => { db.close(); await rm(tmp, { recursive: true, force: true }); });
+
+  it('ranks by edge-betweenness, not raw edge count (heavy peripheral A-C is not #1)', () => {
+    const bridges = computeBridges(db, { topN: 10 });
+    const ac = bridges.find((b) =>
+      (b.fromKey === 'c:1' && b.toKey === 'c:3') || (b.fromKey === 'c:3' && b.toKey === 'c:1'));
+    expect(ac.count).toBe(3);                                 // highest raw count…
+    expect(bridges[0].betweenness).toBeGreaterThan(ac.betweenness); // …but not top
+    expect([bridges[0].fromKey, bridges[0].toKey]).toContain('c:2'); // a hub-connector wins
+  });
+
+  it('hub exclusion drops edges incident to the god node, changing the bridge set', () => {
+    const withHub = computeBridges(db, { topN: 10 });
+    const withoutHub = computeBridges(db, { topN: 10, excludeNodeIds: new Set(['b1']) });
+    expect(withHub.some((b) => b.fromKey === 'c:2' || b.toKey === 'c:2')).toBe(true);
+    // With b1 excluded, every B-incident inter-cluster edge disappears; only the
+    // direct A-C coupling survives.
+    expect(withoutHub.length).toBe(1);
+    expect([withoutHub[0].fromKey, withoutHub[0].toKey].sort()).toEqual(['c:1', 'c:3']);
   });
 });
 

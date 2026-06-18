@@ -69,16 +69,13 @@ function topLevelDir(filePath) {
   return slash === -1 ? '(root)' : norm.slice(0, slash);
 }
 
-export function computeOverview(db, { topSymbols = 5, architecture = null } = {}) {
-  // Pull every non-container node with its community_id + file_path. We assign
-  // each node to a cluster key with the documented fallback chain.
-  const nodes = db.all(`
-    SELECT n.id, n.label, n.type, n.file_path,
-           ${communityIdExpr()} AS community_id
-    FROM nodes n
-  `);
-
-  // Optional architecture-layer lookup: file path → layerId.
+// Shared cluster-assignment policy: a node → {key,label} via the documented
+// fallback chain (community_id → architecture layer → top-level directory).
+// Factored out so computeOverview and computeBridges agree on cluster identity
+// (one source of truth — they must, or bridges would point at clusters the
+// overview never names). Returns the assignment fn plus the layer lookups the
+// overview still needs for its dominant-layer relabeling.
+function makeClusterOf(architecture = null) {
   const layerByPath = new Map();
   if (architecture?.assignments) {
     for (const [path, asg] of Object.entries(architecture.assignments)) {
@@ -89,7 +86,6 @@ export function computeOverview(db, { topSymbols = 5, architecture = null } = {}
   if (architecture?.layers) {
     for (const l of architecture.layers) layerName.set(l.id, l.name || l.id);
   }
-
   const clusterOf = (n) => {
     if (n.community_id != null && n.community_id !== '') {
       return { key: `c:${n.community_id}`, label: `community ${n.community_id}` };
@@ -102,6 +98,19 @@ export function computeOverview(db, { topSymbols = 5, architecture = null } = {}
     const dir = topLevelDir(n.file_path);
     return { key: `d:${dir}`, label: dir };
   };
+  return { clusterOf, layerByPath, layerName };
+}
+
+export function computeOverview(db, { topSymbols = 5, architecture = null } = {}) {
+  // Pull every non-container node with its community_id + file_path. We assign
+  // each node to a cluster key with the documented fallback chain.
+  const nodes = db.all(`
+    SELECT n.id, n.label, n.type, n.file_path,
+           ${communityIdExpr()} AS community_id
+    FROM nodes n
+  `);
+
+  const { clusterOf, layerByPath, layerName } = makeClusterOf(architecture);
 
   // node id → cluster key, and per-cluster accumulator.
   const nodeCluster = new Map();
@@ -220,6 +229,7 @@ export function computeHotspots(db, { limit = 15 } = {}) {
   for (const r of rows) {
     if (HOTSPOT_NOISE.has(r.label)) continue;
     hotspots.push({
+      id: r.id,
       label: r.label,
       type: r.type,
       file_path: r.file_path,
@@ -230,6 +240,107 @@ export function computeHotspots(db, { limit = 15 } = {}) {
     if (hotspots.length >= limit) break;
   }
   return hotspots;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// computeBridges — betweenness-ranked community bridges (borrow: graphify
+// report.py bridge ranking + hub-exclusion).
+//
+// The naive "heaviest single inter-cluster edge per cluster" can't tell a
+// structural cut-point from two big clusters that merely happen to share many
+// edges. Instead we build the cluster META-GRAPH (clusters = nodes, inter-
+// cluster edge counts = weights) and rank its edges by EDGE BETWEENNESS — how
+// many shortest cluster-to-cluster paths cross each one. A high-betweenness
+// meta-edge is a true bridge: cutting it fragments the architecture.
+//
+// HUB EXCLUSION: god-object nodes (top-degree hotspots) touch everything, so
+// their edges make every cluster look coupled to every other and drown the real
+// bridges. We drop edges incident to the hub set BEFORE aggregating, so the
+// ranking reflects genuine structural coupling (graphify excludes hubs before
+// community/bridge analysis). The meta-graph is small (number of clusters), so
+// exact Brandes betweenness is cheap.
+// ───────────────────────────────────────────────────────────────────────────
+export function computeBridges(db, { architecture = null, excludeNodeIds = null, topN = 5 } = {}) {
+  const { clusterOf } = makeClusterOf(architecture);
+  const rows = db.all(`
+    SELECT n.id, n.file_path, ${communityIdExpr()} AS community_id
+    FROM nodes n
+  `);
+  const nodeCluster = new Map();
+  const labelByKey = new Map();
+  for (const n of rows) {
+    const { key, label } = clusterOf(n);
+    nodeCluster.set(n.id, key);
+    if (!labelByKey.has(key)) labelByKey.set(key, label);
+  }
+  const hub = excludeNodeIds instanceof Set ? excludeNodeIds : new Set(excludeNodeIds || []);
+
+  // Undirected inter-cluster weights; hub-incident edges dropped.
+  const weight = new Map(); // `a|b` (a<b) → count
+  for (const e of db.all('SELECT from_id, to_id FROM edges')) {
+    if (hub.has(e.from_id) || hub.has(e.to_id)) continue;
+    const a = nodeCluster.get(e.from_id), b = nodeCluster.get(e.to_id);
+    if (!a || !b || a === b) continue;
+    const k = a < b ? `${a}|${b}` : `${b}|${a}`;
+    weight.set(k, (weight.get(k) || 0) + 1);
+  }
+  if (!weight.size) return [];
+
+  // Adjacency for the meta-graph.
+  const adj = new Map();
+  const addAdj = (x, y) => { if (!adj.has(x)) adj.set(x, new Set()); adj.get(x).add(y); };
+  for (const k of weight.keys()) { const [a, b] = k.split('|'); addAdj(a, b); addAdj(b, a); }
+
+  const between = brandesEdgeBetweenness(adj);
+  return [...weight.entries()]
+    .map(([k, count]) => {
+      const [a, b] = k.split('|');
+      return {
+        fromKey: a, toKey: b,
+        from: labelByKey.get(a) || a, to: labelByKey.get(b) || b,
+        count, betweenness: between.get(k) || 0,
+      };
+    })
+    .sort((x, y) => y.betweenness - x.betweenness || y.count - x.count)
+    .slice(0, topN);
+}
+
+// Brandes edge-betweenness on an unweighted undirected graph given as an
+// adjacency Map(node → Set(neighbors)). Returns Map(`a|b` with a<b → score).
+// Standard Brandes accumulation; each undirected edge is summed from both
+// endpoints so we halve at the end.
+function brandesEdgeBetweenness(adj) {
+  const nodes = [...adj.keys()];
+  const ekey = (u, v) => (u < v ? `${u}|${v}` : `${v}|${u}`);
+  const eb = new Map();
+  for (const s of nodes) {
+    const stack = [];
+    const pred = new Map(nodes.map((n) => [n, []]));
+    const sigma = new Map(nodes.map((n) => [n, 0])); sigma.set(s, 1);
+    const dist = new Map(nodes.map((n) => [n, -1])); dist.set(s, 0);
+    const queue = [s];
+    let qi = 0;
+    while (qi < queue.length) {
+      const v = queue[qi++];
+      stack.push(v);
+      for (const w of adj.get(v) || []) {
+        if (dist.get(w) < 0) { dist.set(w, dist.get(v) + 1); queue.push(w); }
+        if (dist.get(w) === dist.get(v) + 1) { sigma.set(w, sigma.get(w) + sigma.get(v)); pred.get(w).push(v); }
+      }
+    }
+    const delta = new Map(nodes.map((n) => [n, 0]));
+    while (stack.length) {
+      const w = stack.pop();
+      for (const v of pred.get(w)) {
+        const c = (sigma.get(v) / sigma.get(w)) * (1 + delta.get(w));
+        const k = ekey(v, w);
+        eb.set(k, (eb.get(k) || 0) + c);
+        delta.set(v, delta.get(v) + c);
+      }
+    }
+  }
+  for (const k of eb.keys()) eb.set(k, eb.get(k) / 2);
+  return eb;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -606,18 +717,19 @@ export function computeDigest(db, { budget = 6000, architecture = null } = {}) {
     blocks.push([`CYCLES none found (import/include graph is acyclic at file level)`]);
   }
 
-  // COMMUNITY BRIDGES (if cheap): clusters with the heaviest cross-cluster edge.
-  const bridges = [];
-  for (const c of overview) {
-    const top = c.edges_to[0];
-    if (top) bridges.push({ from: c.label, to: top.cluster, count: top.count, fromKey: c.cluster });
-  }
-  const labelByKey = new Map(overview.map((c) => [c.cluster, c.label]));
+  // COMMUNITY BRIDGES (borrow: graphify betweenness ranking + hub exclusion).
+  // Rank inter-cluster connections by edge-betweenness on the cluster meta-graph
+  // (true structural cut-points), with god-object hub edges excluded so they
+  // don't make everything look coupled. Beats the old "heaviest single edge".
+  const bridges = computeBridges(db, {
+    architecture,
+    excludeNodeIds: new Set(hotspots.map((h) => h.id)),
+    topN: 5,
+  });
   if (bridges.length) {
-    bridges.sort((a, b) => b.count - a.count);
-    const bl = ['COMMUNITY BRIDGES (heaviest inter-cluster edges)'];
-    for (const b of bridges.slice(0, 5)) {
-      bl.push(`- ${b.from} → ${labelByKey.get(b.to) || b.to} (${b.count} edges)`);
+    const bl = ['COMMUNITY BRIDGES (highest edge-betweenness — structural cut-points; hub edges excluded)'];
+    for (const b of bridges) {
+      bl.push(`- ${b.from} ↔ ${b.to} (betweenness ${b.betweenness.toFixed(1)}, ${b.count} edge${b.count === 1 ? '' : 's'})`);
     }
     blocks.push(bl);
   }
@@ -632,7 +744,7 @@ export function computeDigest(db, { budget = 6000, architecture = null } = {}) {
     if (heur > 0) questions.push(`${heur} of ${prov.total_call_edges} call edges are heuristic (${prov.lsp_verified_pct}% LSP-verified) — run graph_collect_code_intel + verify before any "no callers" claim.`);
   }
   if (cycles.length) questions.push(`Break the import cycle ${cycles[0].slice(0, 3).join(' → ')}${cycles[0].length > 3 ? ' → …' : ''}?`);
-  if (bridges[0]) questions.push(`Why does ${bridges[0].from} couple to ${labelByKey.get(bridges[0].to) || bridges[0].to} (${bridges[0].count} edges) — intended, or a leak?`);
+  if (bridges[0]) questions.push(`Is the ${bridges[0].from} ↔ ${bridges[0].to} coupling (highest-betweenness bridge, ${bridges[0].count} edge${bridges[0].count === 1 ? '' : 's'}) an intended seam, or a leak that fragments if cut?`);
   if (isolated[0]) questions.push(`Is ${isolated[0].label} (deg ${isolated[0].degree}) dead code or a missing edge?`);
   if (questions.length) blocks.push(['QUESTIONS (worth investigating)', ...questions.map((q) => `- ${q}`)]);
 
