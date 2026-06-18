@@ -5,6 +5,28 @@ import { loadManifest } from './manifest.js';
 import { readJsonCappedSafe } from '../util/json.js';
 import { COMMON_NAMES, JS_RUNTIME_GLOBALS } from '../ingest/denylist.js';
 
+// C++ standard-library headers spelled WITHOUT an extension (`#include <vector>`).
+// Audit 2026-06-12 (echoes measurement): these were the bulk of the
+// `unclassified` bucket (710) because the cpp-system regex keyed on `.h` / known
+// vendor prefixes and never saw a bare STL header.
+const CPP_STDLIB_HEADERS = new Set([
+  'algorithm', 'any', 'array', 'atomic', 'barrier', 'bit', 'bitset', 'cassert',
+  'cctype', 'cerrno', 'cfenv', 'cfloat', 'charconv', 'chrono', 'cinttypes',
+  'climits', 'clocale', 'cmath', 'codecvt', 'compare', 'complex', 'concepts',
+  'condition_variable', 'coroutine', 'csetjmp', 'csignal', 'cstdarg', 'cstaddef',
+  'cstddef', 'cstdint', 'cstdio', 'cstdlib', 'cstring', 'ctime', 'cuchar',
+  'cwchar', 'cwctype', 'deque', 'exception', 'execution', 'expected', 'filesystem',
+  'format', 'forward_list', 'fstream', 'functional', 'future', 'initializer_list',
+  'iomanip', 'ios', 'iosfwd', 'iostream', 'istream', 'iterator', 'latch', 'limits',
+  'list', 'locale', 'map', 'memory', 'memory_resource', 'mutex', 'new', 'numbers',
+  'numeric', 'optional', 'ostream', 'queue', 'random', 'ranges', 'ratio', 'regex',
+  'scoped_allocator', 'semaphore', 'set', 'shared_mutex', 'source_location', 'span',
+  'sstream', 'stack', 'stdexcept', 'stop_token', 'streambuf', 'string', 'string_view',
+  'strstream', 'syncstream', 'system_error', 'thread', 'tuple', 'type_traits',
+  'typeindex', 'typeinfo', 'unordered_map', 'unordered_set', 'utility', 'valarray',
+  'variant', 'vector', 'version',
+]);
+
 const CLASSIFIERS = [
   {
     bucket: 'external-by-design:node-builtin',
@@ -37,9 +59,18 @@ const CLASSIFIERS = [
   },
   {
     bucket: 'external-by-design:cpp-system',
-    test: (r) => (r.extractor === 'cpp' || r.extractor === 'c')
-      ? /^(std|boost|glm|vk|vma|vulkan|<|\w+\.h)/.test(r.target || '')
-      : false,
+    // Gated to IMPORTS (system headers are includes) — which also stops a project
+    // symbol starting with `vk`/`std` being miscounted as a system include (M5).
+    test: (r) => {
+      if (!(r.extractor === 'cpp' || r.extractor === 'c') || r.relation !== 'IMPORTS') return false;
+      const t = (r.target || '').trim();
+      if (!t) return false;
+      if (t.startsWith('<')) return true;                       // explicit angle-bracket include
+      if (CPP_STDLIB_HEADERS.has(t)) return true;               // bare STL header (<vector>)
+      if (/\.(h|hpp|hh|hxx|inl|ipp)$/i.test(t)) return true;    // any header file incl. paths (SDL3/SDL.h)
+      if (/^(std|boost|glm|vma|vulkan|imgui|entt|flecs)\b/.test(t)) return true; // known vendor roots
+      return false;
+    },
   },
   {
     bucket: 'external-by-design:php-framework',

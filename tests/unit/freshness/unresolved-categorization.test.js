@@ -84,6 +84,17 @@ describe('unresolved categorization', () => {
     })).toBe('denylisted-by-design:js-global');
   });
 
+  it('classifies C++ system/STL includes as external (audit: echoes measurement)', () => {
+    // Bare STL header (#include <vector>) — was landing in unclassified.
+    expect(classifyUnresolvedRef({ relation: 'IMPORTS', target: 'algorithm', extractor: 'cpp' })).toBe('external-by-design:cpp-system');
+    expect(classifyUnresolvedRef({ relation: 'IMPORTS', target: 'memory', extractor: 'cpp' })).toBe('external-by-design:cpp-system');
+    // Path-style third-party header — was landing in fixable:qualified-path.
+    expect(classifyUnresolvedRef({ relation: 'IMPORTS', target: 'SDL3/SDL.h', extractor: 'cpp' })).toBe('external-by-design:cpp-system');
+    expect(classifyUnresolvedRef({ relation: 'IMPORTS', target: 'audio/miniaudio.h', extractor: 'cpp' })).toBe('external-by-design:cpp-system');
+    // A project CALLS target starting with a vendor-ish prefix is NOT a system include (M5).
+    expect(classifyUnresolvedRef({ relation: 'CALLS', target: 'stdSort', extractor: 'cpp' })).not.toBe('external-by-design:cpp-system');
+  });
+
   it('does not hide an intra-repo JS import as an external npm package', () => {
     // Audit 2026-06-12: a normalized intra-repo import target contains `/` with
     // no `@` scope — it must remain visible (fixable/unclassified), not npm.
