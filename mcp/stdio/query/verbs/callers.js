@@ -10,10 +10,12 @@ import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
+import { normalizePathArg } from '../../util/paths.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
 export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
+  file = normalizePathArg(file); // accept Windows backslash dir/path filters
   if (!symbol) return 'ERROR: symbol parameter is required';
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_callers' });
   if (freshness.blocker) return freshness.blocker;

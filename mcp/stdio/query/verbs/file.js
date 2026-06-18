@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { normalizePathArg } from '../../util/paths.js';
 
 /**
  * Everything about one file in a single call.
@@ -10,6 +11,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
  */
 export async function graphFile({ repoRoot, path, top_k = 20 }) {
   if (!path || typeof path !== 'string') return 'ERROR: path parameter is required (e.g. graph_file(path="service/db.py"))';
+  path = normalizePathArg(path); // accept Windows backslash paths (src\foo.cpp)
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_file' });
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));

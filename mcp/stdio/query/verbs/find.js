@@ -17,6 +17,7 @@ import { ensureFresh } from '../../freshness/orchestrator.js';
 import { loadFunctionality } from '../../overlay/loader.js';
 import { attachReadWarnings, inspectReadFreshness, staleNotFoundCaveat } from './read_freshness.js';
 import { isGeneratedPath } from '../generated.js';
+import { normalizePathArg } from '../../util/paths.js';
 
 // P1-5 — generated codegen stubs sort LAST among otherwise-equal hits. Penalty
 // exceeds the per-layer/match bonuses so a hand-written symbol with the same
@@ -152,6 +153,9 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
   if (!query || query.trim().length < 1) {
     return 'ERROR: query parameter is required (minimum 1 character)';
   }
+  // Accept a Windows backslash path fragment (src\foo.cpp) — file_path is stored
+  // with forward slashes. Safe for symbol queries too (they never contain '\').
+  query = normalizePathArg(query);
   // Server-side tokenization: compound queries like "pressure vacuum gas"
   // silently returned empty before — each word was passed as one literal
   // substring match, so the search only fired if any label/text contained
