@@ -18,8 +18,10 @@
 // other verbs walk, plus OVERRIDDEN_BY to bridge virtual dispatch.
 
 import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
 import { resolveSymbol } from './symbol_lookup.js';
+import { scanDynamicBoundaries, renderDynamicBoundaries } from '../dynamic-boundaries.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine } from '../lsp-evidence.js';
 import {
@@ -349,6 +351,17 @@ function renderSuccess({ db, repoRoot, fromNode, toNode, pathSteps, budget, trus
   return lines.join('\n');
 }
 
+// Read a node's body source (its start..end line range) for boundary scanning.
+function readNodeBody(repoRoot, node) {
+  if (!node?.file_path) return '';
+  try {
+    const all = readFileSync(join(repoRoot, node.file_path), 'utf8').split('\n');
+    const from = Math.max(0, (node.start_line || 1) - 1);
+    const to = Math.min(all.length, node.end_line || all.length);
+    return all.slice(from, to).join('\n');
+  } catch { return ''; }
+}
+
 function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
   const lines = [];
   lines.push(`TRACE ${fromNode.label} → ${toNode.label}: NO STATIC PATH within ${maxHops} hops.`);
@@ -356,6 +369,18 @@ function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
   lines.push('Inlining both endpoints + their neighbors + the destination file\'s other top-level functions (the missing hop usually lives there).');
   lines.push('No further node/Read needed for symbols shown.');
   lines.push('');
+
+  // Announce the likely dynamic-dispatch boundary (codegraph #687): scan both
+  // endpoint bodies for the dispatch site where the static path ends, instead of
+  // guessing a bridge edge. Synthesizes nothing — query-time, honest.
+  for (const node of [fromNode, toNode]) {
+    const block = renderDynamicBoundaries(
+      scanDynamicBoundaries({ source: readNodeBody(repoRoot, node), language: node.language, baseLine: node.start_line || 1 }),
+      { symbolLabel: node.label },
+    );
+    if (block) { lines.push(block); lines.push(''); }
+  }
+
   lines.push(SOURCE_BUNDLE_HEADER);
   lines.push('');
 
