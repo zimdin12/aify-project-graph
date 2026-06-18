@@ -716,13 +716,18 @@
 
     // ───────────────────────── layout configs ─────────────────────────
     function fcoseConfig(grouped, nodeCount) {
+      // fcose runs SYNCHRONOUSLY (animate:false); on big raw sets a high iteration
+      // count blocks the main thread long enough that the browser kills the tab
+      // ("page crashed" on the 2D Force view). Scale quality + iterations DOWN as
+      // the set grows so it always finishes fast (the node cap already bounds it).
+      const big = nodeCount > 2000, mid = nodeCount > 1200;
       return {
-        name: 'fcose', quality: nodeCount > 1200 ? 'default' : 'proof', animate: false, randomize: true,
+        name: 'fcose', quality: big ? 'draft' : (mid ? 'default' : 'proof'), animate: false, randomize: true,
         nodeDimensionsIncludeLabels: true, packComponents: true, tile: true,
         nodeRepulsion: grouped ? 7000 : 5000,
         idealEdgeLength: (edge) => (edge.data('edge_class') === 'cross-layer' ? 160 : 55),
         edgeElasticity: 0.45, nestingFactor: 0.12, gravity: 0.28, gravityRangeCompound: 1.4,
-        gravityCompound: 1.0, gravityRange: 3.8, numIter: nodeCount > 1200 ? 1500 : 2500,
+        gravityCompound: 1.0, gravityRange: 3.8, numIter: big ? 350 : (mid ? 1000 : 2500),
         nodeSeparation: grouped ? 90 : 60, padding: 30,
       };
     }
