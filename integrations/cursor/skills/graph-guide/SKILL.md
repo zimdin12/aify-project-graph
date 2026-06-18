@@ -148,7 +148,7 @@ The graph's tree-sitter edges are heuristic. To upgrade them to compiler-verifie
 real language server for **C++ (clangd), TypeScript/JavaScript (typescript-language-server),
 and Python (pyright)**, auto-selected by file extension / repo markers. The servers are
 bundled with the plugin (no host LSP setup). Honesty: C++ gated on compile-DB coverage; TS
-exhaustive with a tsconfig; Python is never provably exhaustive (dynamic dispatch) → a
+exhaustive only when the file is inside its nearest tsconfig project (not just present at the root); Python is never provably exhaustive (dynamic dispatch) → a
 verified floor, not "safe to delete".
 
 Legacy C++-only manual path (when a C++ repo has `compile_commands.json` and you want the raw scripts):

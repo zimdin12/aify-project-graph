@@ -9,6 +9,15 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-12 — reference pull + audit fixes (3 waves + real-repo measurement)
+
+Pulled all 4 `reference/` repos and ran an 8-agent audit (`docs/reference-pull-and-audit-2026-06-12.md`), then fixed in waves.
+
+- **Wave 1 (safety/honesty):** server shutdown path (tears down leaked clangd/tsserver/pyright children on host exit); LSP client robustness — Windows file-URI canonicalization (TS/pyright diagnostics on win32), JSON-RPC server-request id-collision guard + MethodNotFound, reject-pending + mark-dead on crash, dead-pipe `_send` guard; live-session start dedup + dead-session eviction; extractor/parser-version cache invalidation (shipped extractor fixes now reach unchanged files); unresolved-scoreboard honesty — a shared `denylisted-by-design` bucket (COMMON_NAMES + JS globals) excluded from `fixable` and trust-relevant counts.
+- **Wave 2 (false-exhaustive trust holes):** file-aware TS coverage (nearest tsconfig + include/exclude scope, not mere presence); coverage guard fails **closed**; call-hierarchy truncation / overload sets downgrade to `truncated_to_caps` (not exhaustive); collection enumeration cap → `partial`; long-lived sessions re-sync edited files (`didChange`); `graph_callers` exhaustive banner requires an **all-verified** edge set; per-language `cause` (`partial_tsconfig_scope` / `python_dynamic_dispatch`, no "compile DB" for TS/Python); verified-edge banner attributed to its own backend (#11).
+- **Wave 3 (resolution quality):** NodeNext `.js→.ts` import rewrite; arrow/function-expression const symbols + TS enum/abstract-class; import-evidence consulted before the repo-wide label guess; `new Foo()` instantiation edges; renamed default-export resolution. `EXTRACTOR_VERSION 0.1.0 → 0.2.2`.
+- **Real-repo measurement (echoes_of_the_fallen):** redirected the work onto a 1069-edge bug — out-of-line C++ methods (`Class::method`) failed to link to their class. Skip body-less (forward-declaration) class specifiers; owner resolution prefers a type/namespace over a same-named constructor; classify C++ STL + path includes as external. Total unresolved 5927→4853 (−18%), `contains-missing-target` 1072→3.
+
 ### 2026-04-26 — upgrade plan v2 executed (M0.5 → M4b)
 
 Co-designed and locked plan at `docs/superpowers/plans/2026-04-25-upgrade-plan.md`,

@@ -33,8 +33,9 @@ TOOL SELECTION BY INTENT:
 
 TRUST RULES (this server's differentiator):
 - Edges marked [lsp✓] (provenance LSP_VERIFIED) are clangd ground truth. Do NOT re-grep them.
-- A "TRUST: lsp-verified (index-ready, N callers)" banner means the caller set is EXHAUSTIVE — safe basis for "no callers / dead code / safe to delete" — UNLESS the structured evidence.cause is partial_compile_db_coverage (or the banner itself reads lsp-partial). On a foreign/unity compile DB the index is partial; prefer evidence.exhaustive over the banner text when they could disagree.
+- A "TRUST: lsp-verified (index-ready, N callers)" banner means the caller set is EXHAUSTIVE — safe basis for "no callers / dead code / safe to delete". It is granted ONLY when EVERY edge in the result is LSP_VERIFIED and the index covers the symbol; a mix of verified + heuristic edges reads as lsp-partial (a FLOOR), never exhaustive. The single source of truth is the structured evidence.exhaustive flag — prefer it over the banner text when they could disagree.
 - "lsp-partial" / "heuristic only" means the set may be incomplete — verify before any "no callers / safe to delete" claim.
+- evidence.exhaustive:false carries a cause naming WHY it is not a complete set: partial_compile_db_coverage (C++ foreign/unity compile DB — see below), partial_tsconfig_scope (the TS file is outside its nearest tsconfig's project, so tsserver ran it in a loose inferred project), python_dynamic_dispatch (Python is never provably exhaustive), or truncated_to_caps (a call-hierarchy tree hit the breadth/total caps or only the first root of an overload set was walked — raise breadthCap/totalCap or verify). In every case the set is a FLOOR; confirm with code_intel_references / rg before any absence claim.
 - cause=partial_compile_db_coverage (degraded, exhaustive:false) means the index is silently PARTIAL even though clangd reported "fresh": the compile DB is either a foreign (Linux/WSL) toolchain run against host clangd, or a CMake unity/jumbo build whose per-source TUs are absent. Some real callers are invisible and will NOT be flagged individually — never treat such a result as "no callers / dead code / safe to delete"; confirm with rg first. Fix the index with APG_CLANGD_WSL=1 (foreign toolchain) or by expanding the unity build.
 - OVERRIDDEN_BY and INFERRED edges are static guesses, not ground truth — confirm with code_intel_hierarchy kind=subtypes on the OWNING CLASS (returns derived overriders), or kind=callers on the virtual method (kind=subtypes on a METHOD resolves to its return type, not its overrides).
 - Results tagged generated:true are codegen stubs (.pb.*, moc_*, *_generated.h); prefer the hand-written symbol of the same name.
@@ -52,7 +53,9 @@ LANGUAGES (LSP trust spine): code_intel_* + graph_collect_code_intel work on C++
 TypeScript/JavaScript (typescript-language-server), and Python (pyright). Language is inferred
 from the file extension — you do NOT need to pass language. The servers are bundled with the
 plugin; the host needs no LSP config. Honesty per language: C++ gated on compile-DB coverage;
-TS exhaustive WITH a tsconfig (partial without); Python is NEVER provably exhaustive (duck typing
+TS exhaustive only when the queried file is INSIDE its nearest tsconfig/jsconfig project (a root
+tsconfig merely existing is not enough — a file outside its include scope returns
+partial_tsconfig_scope); Python is NEVER provably exhaustive (duck typing
 / getattr / dynamic dispatch) → references/hierarchy return exhaustive:false — a FLOOR, verify
 with rg before any delete/rename. Other languages remain tree-sitter structural-only.
 
