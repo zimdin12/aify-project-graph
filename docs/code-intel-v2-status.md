@@ -1,5 +1,9 @@
 # Code-Intel v2 — delivery status, A/B findings, known issues, roadmap
 
+> ⚠️ **HISTORICAL SNAPSHOT (pre-2026-06).** This predates the 2026-06 audit +
+> reference-borrow rounds. For the CURRENT state read `CHANGELOG.md` and
+> `docs/reference-pull-and-audit-2026-06-12.md`; this file is kept for provenance.
+
 _Living current-state doc. Branch `plan/next-gen-code-intel-bridge`._
 _2026-05-08 build round (L0–L5) + 2026-05-31 holistic-review fixes (R1/R2) — both landed. Historical records (master-plan, ab-rubric, ab-results, holistic-review, reference-borrow-synthesis) now live under `docs/code-intel-v2/`._
 

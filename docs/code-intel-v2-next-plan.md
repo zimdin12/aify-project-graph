@@ -1,5 +1,9 @@
 # Code-Intel v2 — consolidated NEXT-PLAN backlog (everything not yet done)
 
+> ⚠️ **STALE BACKLOG (2026-05-08 snapshot).** Most of this has since shipped —
+> do NOT read it as "remaining work." Current state: `CHANGELOG.md` +
+> `docs/reference-pull-and-audit-2026-06-12.md`. Kept for provenance only.
+
 _2026-05-08. The single source of truth for remaining work, so nothing from the build round + reference reviews gets lost. Pulls together: not-done layers from the master plan, the original JS-resolution waves we deferred when we pivoted to C++, the 4 A/B known issues, the dashboard research, the "what we missed" sweep, and the agent-UX deep-dive._
 
 DONE so far (for context): L0 win32 hygiene · L1 clangd foundation · L2a clangd→LSP_VERIFIED edges · L2b trust banner + unity expansion · L3 readiness-gated reliable refs · L4 call/type hierarchy · L5 C++↔GLSL shader bridge · installed both runtimes · A/B validated. See `code-intel-v2-status.md`.
