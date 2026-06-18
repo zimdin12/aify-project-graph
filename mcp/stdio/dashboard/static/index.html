@@ -82,6 +82,14 @@
     .nav-back-btn { background:var(--bg); border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:3px 9px; cursor:pointer; font-size:11px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .nav-back-btn:hover { border-color:var(--accent); color:var(--text); }
     #node-tip { position:absolute; z-index:8; pointer-events:none; background:#161b22; border:1px solid var(--border); color:var(--text); padding:4px 8px; border-radius:6px; font-size:11px; max-width:280px; line-height:1.5; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
+    /* File-tree explorer */
+    #files-btn { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:2px 8px; cursor:pointer; font-size:12px; }
+    #files-panel { border:1px solid var(--border); border-radius:8px; padding:8px; margin:8px 0; background:var(--bg); max-height:340px; overflow:auto; }
+    .ftree-row { display:flex; align-items:center; gap:3px; font-size:12px; padding:1px 2px; cursor:pointer; white-space:nowrap; border-radius:4px; }
+    .ftree-row:hover { background:#21262d; }
+    .ftree-dir { color:var(--text); font-weight:500; }
+    .ftree-file { color:var(--muted); }
+    .ftree-tw { width:11px; display:inline-block; color:var(--faint); }
     .toggle-pill.active { border-color: var(--accent); background: var(--accent-bg); color: #cfe5ff; }
     .toggle-pill:hover { border-color: var(--accent); }
     .view-pill { display:flex; align-items:center; gap:5px; padding: 6px 11px; font-size:12px; }
@@ -157,6 +165,7 @@
       <span id="mode-label">2D map</span>
       <div class="header-actions">
         <button id="tour-btn" type="button" title="Guided tour of this codebase">🧭 Tour</button>
+        <button id="files-btn" type="button" title="Browse files (folder tree)">📁 Files</button>
         <a id="mode-link" href="/3d">open 3D</a>
         <button id="sidebar-toggle" type="button">hide</button>
       </div>
@@ -168,6 +177,7 @@
       </div>
       <div id="stats">Loading…</div>
       <div id="tour-panel" style="display:none"></div>
+      <div id="files-panel" style="display:none"></div>
       <div id="controls"></div>
       <div id="node-detail"><p style="color: var(--muted);">Click a node to inspect it.</p></div>
     </div>
@@ -1090,6 +1100,72 @@
       renderTour();
     }
 
+    // ─────────────────── file-tree explorer ───────────────────
+    // Borrow: understand-anything FileExplorer. A collapsible folder→file tree
+    // built client-side from the file_paths already present on graph nodes (the
+    // graph IS the allowlist), so no new endpoint is needed. Clicking a file
+    // focuses its node, reusing focusNode() + the existing source viewer.
+    function buildFileTree() {
+      const root = { dirs: new Map(), files: [] };
+      const seen = new Set();
+      for (const n of (allData.nodes || [])) {
+        const fp = n.file_path;
+        if (!fp || seen.has(fp)) continue;
+        seen.add(fp);
+        const parts = String(fp).split('/');
+        let cur = root;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const d = parts[i];
+          if (!cur.dirs.has(d)) cur.dirs.set(d, { dirs: new Map(), files: [] });
+          cur = cur.dirs.get(d);
+        }
+        cur.files.push({ name: parts[parts.length - 1], path: fp });
+      }
+      return root;
+    }
+    function fileTreeFocus(path) {
+      // Prefer the File node for this path; fall back to the first node in it.
+      const nodes = allData.nodes || [];
+      const node = nodes.find((n) => n.type === 'File' && n.file_path === path)
+        || nodes.find((n) => n.file_path === path);
+      if (node && window.focusNode) window.focusNode(node.id);
+    }
+    function renderFileTree(node, depth, out) {
+      const dirs = [...node.dirs.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+      for (const [name, sub] of dirs) {
+        const collapsed = depth >= 1; // top level open, deeper levels collapsed
+        out.push(`<div class="ftree-row ftree-dir" style="padding-left:${depth * 12}px"><span class="ftree-tw">${collapsed ? '▸' : '▾'}</span>${tourEsc(name)}/</div>`);
+        const childOut = [];
+        renderFileTree(sub, depth + 1, childOut);
+        out.push(`<div class="ftree-children" style="display:${collapsed ? 'none' : 'block'}">${childOut.join('')}</div>`);
+      }
+      for (const f of [...node.files].sort((a, b) => a.name.localeCompare(b.name))) {
+        out.push(`<div class="ftree-row ftree-file" data-path="${tourEsc(f.path)}" style="padding-left:${depth * 12 + 12}px" title="${tourEsc(f.path)}">${tourEsc(f.name)}</div>`);
+      }
+    }
+    function closeFiles() { document.getElementById('files-panel').style.display = 'none'; }
+    function openFiles() {
+      const panel = document.getElementById('files-panel');
+      const tree = buildFileTree();
+      const out = [];
+      renderFileTree(tree, 0, out);
+      const body = out.length ? out.join('') : '<div class="tour-why">No files in the graph yet.</div>';
+      panel.innerHTML = `<div class="tour-head">📁 Files<button class="tour-x" id="files-close" type="button">✕</button></div>${body}`;
+      panel.style.display = 'block';
+      panel.querySelector('#files-close').onclick = closeFiles;
+      panel.querySelectorAll('.ftree-dir').forEach((el) => {
+        el.onclick = () => {
+          const kids = el.nextElementSibling;
+          if (kids && kids.classList.contains('ftree-children')) {
+            const open = kids.style.display !== 'none';
+            kids.style.display = open ? 'none' : 'block';
+            el.querySelector('.ftree-tw').textContent = open ? '▸' : '▾';
+          }
+        };
+      });
+      panel.querySelectorAll('.ftree-file').forEach((el) => { el.onclick = () => fileTreeFocus(el.dataset.path); });
+    }
+
     // ───────────────────────── init ─────────────────────────
     async function init() {
       loading(true, 'Fetching graph…');
@@ -1119,7 +1195,11 @@
       $('sidebar-reopen').addEventListener('click', () => setSidebarCollapsed(false));
       $('tour-btn').addEventListener('click', () => {
         const panel = document.getElementById('tour-panel');
-        if (panel.style.display === 'none' || !panel.style.display) openTour(); else closeTour();
+        if (panel.style.display === 'none' || !panel.style.display) { closeFiles(); openTour(); } else closeTour();
+      });
+      $('files-btn').addEventListener('click', () => {
+        const panel = document.getElementById('files-panel');
+        if (panel.style.display === 'none' || !panel.style.display) { closeTour(); openFiles(); } else closeFiles();
       });
 
       const searchEl = $('search');

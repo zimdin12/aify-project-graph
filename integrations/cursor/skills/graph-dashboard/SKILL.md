@@ -35,6 +35,7 @@ Layers shown:
 - **PNG export** (⤓) — save the current 2D/3D view as an image.
 - **Navigation history** — a "← back" control in the node detail retraces your click-through path.
 - **Hover tooltip** — hover a node for its kind + in/out/total connection counts (degree at a glance).
+- **File tree** (📁 Files) — a collapsible folder→file tree of every indexed file; click a file to focus its node and open its source. Best for "take me to file X" navigation when you know the path.
 - Layer/node-type filters to toggle layers independently.
 - Large graphs: the per-node views (Force/Shader/Tree/Flow, all 3D views) cap to the top ~3000 nodes by degree so a heavy pick can't freeze the UI (a note says how many of how many; filter or use the grouped Map to see all).
 

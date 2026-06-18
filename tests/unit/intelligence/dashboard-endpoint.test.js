@@ -332,6 +332,11 @@ describe('P2b frontend wiring (structural)', () => {
     expect(html).toContain('nav-back-btn');
     expect(html).toContain('node-tip');
     expect(html).toContain('ensureDegMaps');
+    // Borrow: file-tree explorer panel (understand-anything FileExplorer).
+    expect(html).toContain('buildFileTree');   // folder→file tree from node file_paths
+    expect(html).toContain('fileTreeFocus');   // click a file → focus its node
+    expect(html).toContain('files-panel');     // collapsible tree panel
+    expect(html).toContain('ftree-row');        // tree row styling
   });
 
   it('exposes map + shader view modes and ShaderBinding styling', () => {

@@ -66,7 +66,9 @@ From **agent-understand-anything** (MIT):
 - NodeNext `.js→.ts` import-specifier rewrite (a6c653e) — `ingest/import-resolution.js`.
 - Dashboard guided tour (LearnPanel), inline source viewer (CodeViewer — incl. the
   graph-as-allowlist security gate), PNG export (ExportMenu), the node
-  navigation-history back-stack, and the hover degree tooltip (NodeTooltip) —
+  navigation-history back-stack, the hover degree tooltip (NodeTooltip), and the
+  collapsible file-tree explorer (FileExplorer — folder→file tree built from the
+  file_paths already on graph nodes; clicking a file focuses its node) —
   `mcp/stdio/dashboard/`.
 
 From **graphify** (MIT): isolated-nodes / knowledge-gaps + suggested-questions

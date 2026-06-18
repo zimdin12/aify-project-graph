@@ -9,6 +9,10 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-18 — file-tree explorer (dashboard borrow)
+
+- **File-tree explorer panel** (understand-anything FileExplorer): a 📁 Files button opens a collapsible folder→file tree built client-side from the `file_path`s already on graph nodes (no new endpoint — the graph is the allowlist). Top level expanded, deeper folders collapse on click; clicking a file focuses its node, reusing `focusNode()` + the inline source viewer. Browser-verified on this repo (189 dirs / 778 files, toggle + click-to-focus, no console errors). Tour and Files panels are mutually exclusive.
+
 ### 2026-06-12 — dashboard UX/perf + launch surfacing + more borrows
 
 - **3D performance:** the 3D default view rendered every node mesh; every 3D view now caps to the top ~3000 nodes by degree (3D has no light group-box view), plus cheaper geometry (nodeResolution 8→5, linkResolution 3) and adaptive physics ticks. Browser-verified on an 8.8k-node graph.
