@@ -33,7 +33,9 @@ Layers shown:
 - **Guided Tour** (🧭) — an ordered orientation walk (entrypoints → subsystems → hotspots); each step's symbols are click-to-focus pills.
 - **Inline source** — click a code node → "show source" to read its line range without leaving the dashboard.
 - **PNG export** (⤓) — save the current 2D/3D view as an image.
+- **Navigation history** — a "← back" control in the node detail retraces your click-through path.
 - Layer/node-type filters to toggle layers independently.
+- Large graphs: the per-node views (Force/Shader/Tree/Flow, all 3D views) cap to the top ~3000 nodes by degree so a heavy pick can't freeze the UI (a note says how many of how many; filter or use the grouped Map to see all).
 
 ## Steps
 

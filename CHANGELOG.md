@@ -9,6 +9,15 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-12 — dashboard UX/perf + launch surfacing + more borrows
+
+- **3D performance:** the 3D default view rendered every node mesh; every 3D view now caps to the top ~3000 nodes by degree (3D has no light group-box view), plus cheaper geometry (nodeResolution 8→5, linkResolution 3) and adaptive physics ticks. Browser-verified on an 8.8k-node graph.
+- **Heavy-view guard (2D + 3D):** per-node views cap node count with a "showing top N of M" note so a heavy pick can't freeze the controls.
+- **Mode-aware controls:** Blast radius + Pathfinder (cytoscape-only) and the zoom buttons are hidden in 3D where they were no-ops.
+- **`graph_dashboard` in the default tool surface:** "open the dashboard" is now one verb call instead of a hand-rolled launcher.
+- **Borrows:** navigation-history "← back" breadcrumb (understand-anything) in the node detail; a GAPS block in `graph_digest` (graphify isolated-nodes — degree-≤1 symbols as likely missing-edge/dead-code candidates), the under-connected complement to HOTSPOTS.
+- **Docs:** archived stale Apr-era Horizon planning docs + banners on the superseded v2 status/backlog; documented that LSP-verified edges don't survive a re-index (re-run `graph_collect_code_intel`); install/launch-scope design notes.
+
 ### 2026-06-12 — reference-borrow round 2 (verbs + dashboard)
 
 A second borrow sweep over codegraph / agent-understand-anything / agent-code-intel.
