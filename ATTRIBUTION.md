@@ -55,7 +55,12 @@ From **codegraph** (MIT), patterns reimplemented (no code copied):
 
 From **graphify** (MIT): renamed default-export resolution (6dc23db) and
 extractor-version cache invalidation (8401c50) — `ingest/resolver.js`,
-`freshness/orchestrator.js`.
+`freshness/orchestrator.js`; HTML-output hardening (#1357) — escape dashboard
+node labels/types/relations rendered into innerHTML.
+
+From **codegraph** (MIT) #855: `uncaughtException`/`unhandledRejection` handlers
+that tear down LSP children and exit cleanly instead of orphaning/spinning the
+MCP server — `mcp/stdio/server.js`.
 
 From **agent-understand-anything** (MIT):
 - NodeNext `.js→.ts` import-specifier rewrite (a6c653e) — `ingest/import-resolution.js`.

@@ -18,6 +18,8 @@ A second borrow sweep over codegraph / agent-understand-anything / agent-code-in
 - **Multi-language `code_intel_analyze`**: was C++-only; TS/JS/Python now route through the language server's own diagnostics (mode `lsp`, provenance `TS_LANGSERVER`/`PYRIGHT`).
 - **TS/JS class arrow-fields** (codegraph 38eb4e6): `handleSubmit = () => {}` class fields extract as methods (classify by value; data fields stay out). `EXTRACTOR_VERSION → 0.2.3`.
 - **Dashboard** (understand-anything LearnPanel/CodeViewer/ExportMenu): Guided Tour stepper (`/api/tour`, reuses the already-computed `graph_tour` steps), inline source viewer (`/api/source`, graph-as-allowlist security gate), and PNG export.
+- **Mode-aware dashboard controls** (browser-verified): Blast radius + Pathfinder (cytoscape-only) and the discrete zoom buttons are hidden in 3D, where they were no-ops; everything that works in 3D (Focus, grouping, filters, Fit, Tour) stays.
+- **Hardening** (latest ref pull): `uncaughtException`/`unhandledRejection` → clean exit with LSP teardown (codegraph #855); dashboard node labels/types/relations escaped before innerHTML (graphify #1357 — fixes `vector<int>`-style breakage + latent XSS).
 
 ### 2026-06-12 — reference pull + audit fixes (3 waves + real-repo measurement)
 
