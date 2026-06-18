@@ -151,6 +151,16 @@ function pythonCoverage() {
   };
 }
 
+// Map a coverage verdict to the structured evidence `cause` label. cpp (and any
+// unknown/fail-closed kind) keep `partial_compile_db_coverage` — the string the
+// MCP server-instructions and existing consumers key on — while TS/Python get
+// accurate, non-misleading causes (a Python repo has no compile DB to be partial).
+export function coverageCause(coverage) {
+  if (coverage?.kind === 'tsconfig') return 'partial_tsconfig_scope';
+  if (coverage?.kind === 'python_dynamic') return 'python_dynamic_dispatch';
+  return 'partial_compile_db_coverage';
+}
+
 export function computeCoverage({ language, projectRoot, file = null, env = process.env } = {}) {
   const lang = normalizeLang(language);
   if (lang === 'typescript' || lang === 'javascript') return tsCoverage(projectRoot, file);

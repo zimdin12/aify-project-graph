@@ -10,7 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
-import { computeCoverage } from '../../code-intel/coverage.js';
+import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
@@ -111,7 +111,7 @@ export function buildReferencesEvidence({ freshness, callsiteCount, defCount, re
   if (freshness === 'fresh' && callsiteCount > 0 && coverage && coverage.complete === false) {
     warnings.push(coverage.reason || 'compile-DB coverage is incomplete — caller set may be a floor, not exhaustive');
     return {
-      ready: true, degraded: true, cause: 'partial_compile_db_coverage', confidence: 'medium',
+      ready: true, degraded: true, cause: coverageCause(coverage), confidence: 'medium',
       exhaustive: false,
       fallback: coverage.reason || 'compile DB does not fully cover this repo; verify callers with rg before any delete/rename',
       warnings,

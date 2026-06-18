@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { inferLanguage, normalizeLanguage, getBackend } from '../../../mcp/stdio/code-intel/backends.js';
-import { computeCoverage } from '../../../mcp/stdio/code-intel/coverage.js';
+import { computeCoverage, coverageCause } from '../../../mcp/stdio/code-intel/coverage.js';
 import { resolveNodeBin } from '../../../mcp/stdio/code-intel/node-bin.js';
 
 describe('inferLanguage — extension → backend', () => {
@@ -109,6 +109,20 @@ describe('computeCoverage — per-language exhaustiveness strategy', () => {
     const c = computeCoverage({ language: 'typescript', projectRoot: dir, file: 'src/a.ts' });
     expect(c.complete).toBe(false);
     expect(c.partial).toBe(true);
+  });
+});
+
+describe('coverageCause — accurate degraded cause per language (audit #12)', () => {
+  it('cpp / unknown / missing kind → partial_compile_db_coverage (preserves the server-instructions contract)', () => {
+    expect(coverageCause({ kind: 'compile_db' })).toBe('partial_compile_db_coverage');
+    expect(coverageCause({})).toBe('partial_compile_db_coverage');
+    expect(coverageCause({ kind: 'unknown' })).toBe('partial_compile_db_coverage');
+  });
+  it('typescript → partial_tsconfig_scope (NOT a compile DB)', () => {
+    expect(coverageCause({ kind: 'tsconfig' })).toBe('partial_tsconfig_scope');
+  });
+  it('python → python_dynamic_dispatch', () => {
+    expect(coverageCause({ kind: 'python_dynamic' })).toBe('python_dynamic_dispatch');
   });
 });
 

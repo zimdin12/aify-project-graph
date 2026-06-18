@@ -26,7 +26,7 @@ import path from 'node:path';
 import { join } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
-import { computeCoverage } from '../../code-intel/coverage.js';
+import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { openExistingDb } from '../../storage/db.js';
@@ -281,7 +281,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
     // FLOOR; transitive callers in uncovered TUs are invisible. Downgrade.
     if (coverage && coverage.complete === false) {
       return {
-        ready: true, degraded: true, cause: 'partial_compile_db_coverage', confidence: 'medium',
+        ready: true, degraded: true, cause: coverageCause(coverage), confidence: 'medium',
         exhaustive: false,
         fallback: coverage.reason || `compile DB does not fully cover this repo; verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
         warnings: [coverage.reason || `tree may undercount — compile-DB coverage incomplete; verify ${noun} with rg before delete/rename`],
