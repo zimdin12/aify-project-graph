@@ -325,6 +325,9 @@ describe('P2b frontend wiring (structural)', () => {
     // Mode-aware controls: blast/pathfinder (cytoscape-only) are gated out in 3D.
     expect(html).toContain('twoDOnlyTools');
     expect(html).toMatch(/is3DMode\s*\?\s*''\s*:/);
+    // Heavy-render guard: per-node views cap node count so they can't freeze the UI.
+    expect(html).toContain('RENDER_NODE_CAP');
+    expect(html).toContain('cap-note');
   });
 
   it('exposes map + shader view modes and ShaderBinding styling', () => {

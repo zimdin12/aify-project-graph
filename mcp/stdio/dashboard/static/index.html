@@ -77,6 +77,7 @@
     .src-row { display:flex; gap:8px; white-space:pre; font-family:ui-monospace,Menlo,Consolas,monospace; }
     .src-ln { color:var(--faint,#666); text-align:right; min-width:34px; user-select:none; padding:0 4px; }
     .src-row code { color:var(--text); }
+    #cap-note { position:absolute; top:10px; left:50%; transform:translateX(-50%); z-index:5; background:rgba(187,135,0,0.14); border:1px solid #bf8700; color:var(--text); padding:5px 12px; border-radius:6px; font-size:12px; max-width:70%; text-align:center; }
     .toggle-pill.active { border-color: var(--accent); background: var(--accent-bg); color: #cfe5ff; }
     .toggle-pill:hover { border-color: var(--accent); }
     .view-pill { display:flex; align-items:center; gap:5px; padding: 6px 11px; font-size:12px; }
@@ -172,6 +173,7 @@
     <div id="cy"></div>
     <div id="fg3d"></div>
     <div id="ctxbar" style="display:none"></div>
+    <div id="cap-note" style="display:none"></div>
     <div id="canvas-tools">
       <button id="t-fit" title="Fit to screen (F)">⊡</button>
       <button id="t-zin" title="Zoom in">＋</button>
@@ -221,6 +223,8 @@
     let groupMode = 'dir';        // 'dir' | 'community'
     let groupDepth = 2;           // directory depth for dir grouping
     let sidebarCollapsed = false;
+    const RENDER_NODE_CAP = 3000; // per-node views cap nodes above this so a heavy pick can't freeze the UI
+    let lastRenderCap = { capped: 0, total: 0 };
 
     const activeTypes = new Set();
     const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
@@ -547,11 +551,29 @@
         : allData.nodes.filter(n => activeTypes.has(n.type));
       if (currentViewMode === 'shader') { const s = shaderViewIds(); nodes = nodes.filter(n => s.has(n.id)); }
       if (drilledGroup) nodes = nodes.filter(n => groupKeyFor(n) === drilledGroup);
-      const nodeIds = new Set(nodes.map(n => n.id));
-      const edges = isMultilayer
+      let nodeIds = new Set(nodes.map(n => n.id));
+      let edges = isMultilayer
         ? allData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target) && activeEdgeClasses.has(e.edge_class || 'code') && activeProvenance.has(e.provenance || 'code'))
         : allData.edges.filter(e => nodeIds.has(e.from_id) && nodeIds.has(e.to_id));
-      return { nodes, edges, isMultilayer };
+
+      // HEAVY-RENDER GUARD: the per-node views (raw Force/Shader/Tree/Flow, or a
+      // drilled Map group) lay out every node synchronously — on a big graph that
+      // freezes the main thread so the controls stop responding. Cap to the
+      // highest-degree nodes so a heavy pick can't lock the UI. The grouped Map
+      // overview (boxes) is light and exempt.
+      const perNode = !!drilledGroup || ['force', 'shader', 'tree', 'flow'].includes(currentViewMode);
+      const total = nodes.length;
+      let capped = 0;
+      if (perNode && total > RENDER_NODE_CAP) {
+        const deg = new Map();
+        for (const e of edges) { const a = e.source ?? e.from_id, b = e.target ?? e.to_id; deg.set(a, (deg.get(a) || 0) + 1); deg.set(b, (deg.get(b) || 0) + 1); }
+        nodes = [...nodes].sort((x, y) => (deg.get(y.id) || 0) - (deg.get(x.id) || 0)).slice(0, RENDER_NODE_CAP);
+        capped = total - nodes.length;
+        nodeIds = new Set(nodes.map(n => n.id));
+        edges = edges.filter(e => nodeIds.has(e.source ?? e.from_id) && nodeIds.has(e.target ?? e.to_id));
+      }
+      lastRenderCap = { capped, total };
+      return { nodes, edges, isMultilayer, capped, total };
     }
     function nodeDataEl(n) {
       return { group: 'nodes', data: {
@@ -946,6 +968,14 @@
         const showEC = !is3DMode && currentViewMode === 'map' && drilledGroup;
         $('t-expand').style.display = 'none';
         $('t-collapse').style.display = showEC ? 'flex' : 'none';
+        // Heavy-render notice: tell the user when the view was capped (and how to see all).
+        const note = $('cap-note');
+        if (note) {
+          if (lastRenderCap.capped > 0) {
+            note.textContent = `Showing top ${(lastRenderCap.total - lastRenderCap.capped).toLocaleString()} of ${lastRenderCap.total.toLocaleString()} nodes (by degree) — filter by type/layer or switch to the grouped Map to see all.`;
+            note.style.display = 'block';
+          } else { note.style.display = 'none'; }
+        }
       }, 16);
     }
 
