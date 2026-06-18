@@ -319,6 +319,29 @@ describe('code_intel_hierarchy — evidence/banner unit cases', () => {
     expect(e.exhaustive).toBe(false);
     expect(e.cause).toBe('partial_compile_db_coverage');
   });
+  // Audit 2026-06-12 B3 — a tree truncated at the caps or an overload set is NOT exhaustive.
+  it('buildHierarchyEvidence: index-ready but truncated edges → truncated_to_caps, not exhaustive', () => {
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 26, kind: 'callers', coverage: { complete: true }, truncated: 5 });
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('truncated_to_caps');
+    expect(e.warnings.join(' ')).toMatch(/truncat/i);
+  });
+  it('buildHierarchyEvidence: index-ready but multi-root overload set → truncated_to_caps, not exhaustive', () => {
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3, kind: 'callers', coverage: { complete: true }, multiRoot: true });
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('truncated_to_caps');
+    expect(e.fallback).toMatch(/overload|root/i);
+  });
+  it('buildHierarchyTrustLine: index-ready but truncated → lsp-partial (never lsp-verified)', () => {
+    const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'callers', nodeCount: 26, coverage: { complete: true }, truncated: 5 });
+    expect(line).toMatch(/lsp-partial/);
+    expect(line).not.toMatch(/lsp-verified/);
+    expect(line).toMatch(/TRUNCATED/);
+  });
+  it('buildHierarchyEvidence: index-ready + complete coverage + no truncation → still exhaustive', () => {
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3, kind: 'callers', coverage: { complete: true }, truncated: 0, multiRoot: false });
+    expect(e.exhaustive).toBe(true);
+  });
   it('buildHierarchyTrustLine: index-ready BUT incomplete coverage → lsp-partial banner (agrees with evidence, never lsp-verified)', () => {
     const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'callers', nodeCount: 3, coverage: { complete: false, reason: 'foreign toolchain' } });
     expect(line).toMatch(/lsp-partial/);

@@ -250,7 +250,7 @@ function itemLabel(item, projectRoot) {
 // `nodeCount` is the total nodes in the walked tree (root + resolved
 // callers/callees/subtypes). nodeCount<=1 means the root resolved but NOTHING
 // linked to it — the "0 callers" case the thesis bug mis-reported.
-export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage }) {
+export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage, truncated = 0, multiRoot = false }) {
   const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
   const empty = !(Number(nodeCount) > 1); // root-only / unresolved root → empty
   if (mode === 'bounded') {
@@ -287,6 +287,21 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
         warnings: [coverage.reason || `tree may undercount — compile-DB coverage incomplete; verify ${noun} with rg before delete/rename`],
       };
     }
+    // Audit 2026-06-12 B3: a tree that hit the breadth/total caps (edges dropped)
+    // OR an overload set where only the first root was walked is COMPLETE ONLY UP
+    // TO THE CAPS — not a basis for "no callers / dead code". Downgrade exhaustive.
+    if (Number(truncated) > 0 || multiRoot) {
+      const bits = [];
+      if (Number(truncated) > 0) bits.push(`${truncated} ${noun} dropped at the breadth/total caps`);
+      if (multiRoot) bits.push('overload/multi-root set — only the first root was walked');
+      const why = bits.join('; ');
+      return {
+        ready: true, degraded: true, cause: 'truncated_to_caps', confidence: 'medium',
+        exhaustive: false,
+        fallback: `tree is complete only up to the caps (${why}); raise breadthCap/totalCap or verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
+        warnings: [`hierarchy truncated: ${why} — NOT exhaustive`],
+      };
+    }
     return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings: [] };
   }
   // INDEXED mode but the index never reached idle within budget.
@@ -300,7 +315,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
 
 // Single-line TRUST banner, same vocabulary as lsp-evidence.js buildTrustLine,
 // but derived from the LIVE session's index-ready state (not a collection row).
-export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage }) {
+export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated = 0, multiRoot = false }) {
   const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'type' : 'call';
   const edgeNoun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
   const empty = !(Number(nodeCount) > 1);
@@ -323,6 +338,11 @@ export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, cov
   if (indexReady === true && coverage && coverage.complete === false) {
     return `TRUST: lsp-partial (clangd, index-ready but compile-DB coverage incomplete — ${noun} hierarchy is a FLOOR, may undercount; verify with code_intel_references / rg before any "no ${edgeNoun}" / delete) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
   }
+  if (indexReady === true && (Number(truncated) > 0 || multiRoot)) {
+    // Audit 2026-06-12 B3 — capped/overload tree is complete only up to the caps.
+    const why = [Number(truncated) > 0 ? `${truncated} dropped at caps` : null, multiRoot ? 'overload set, first root only' : null].filter(Boolean).join('; ');
+    return `TRUST: lsp-partial (clangd, index-ready but tree TRUNCATED — ${why}; a FLOOR, not exhaustive; raise breadthCap/totalCap or verify with code_intel_references / rg) [${nodeCount} node${nodeCount === 1 ? '' : 's'}]`;
+  }
   if (indexReady === true) {
     return `TRUST: lsp-verified (clangd, index-ready, ${noun} hierarchy, ${nodeCount} node${nodeCount === 1 ? '' : 's'})`;
   }
@@ -335,7 +355,10 @@ export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, cov
 // `direction` is 'callers' (incomingCalls) or 'callees' (outgoingCalls).
 async function walkCallHierarchy(session, rootItem, { direction, depth, breadthCap, totalCap, projectRoot }) {
   const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0 };
-  const budget = { nodes: 1 };
+  // `truncated` accumulates every edge dropped at the breadth/total caps so the
+  // caller can downgrade the exhaustive claim — a capped tree is a FLOOR, not a
+  // complete caller set (audit 2026-06-12 B3).
+  const budget = { nodes: 1, truncated: 0 };
   const seen = new Set([root.key]); // cycle guard (recursion / virtual loops)
 
   async function expand(item, node, level) {
@@ -350,9 +373,11 @@ async function walkCallHierarchy(session, rootItem, { direction, depth, breadthC
     edges = Array.isArray(edges) ? edges : [];
     const capped = edges.slice(0, breadthCap);
     node.truncated = Math.max(0, edges.length - capped.length);
+    budget.truncated += node.truncated;
     for (const edge of capped) {
       if (budget.nodes >= totalCap) {
         node.truncated += 1;
+        budget.truncated += 1;
         continue;
       }
       const childItem = direction === 'callers' ? edge.from : edge.to;
@@ -372,14 +397,14 @@ async function walkCallHierarchy(session, rootItem, { direction, depth, breadthC
   }
 
   await expand(rootItem, root, 0);
-  return { root, nodeCount: budget.nodes };
+  return { root, nodeCount: budget.nodes, truncated: budget.truncated };
 }
 
 // Type hierarchy is one level of subtypes/supertypes by default but we honor
 // `depth` for deep inheritance chains, with the same caps.
 async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthCap, totalCap, projectRoot }) {
   const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0 };
-  const budget = { nodes: 1 };
+  const budget = { nodes: 1, truncated: 0 };
   const seen = new Set([root.key]);
 
   async function expand(item, node, level) {
@@ -394,8 +419,9 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
     kids = Array.isArray(kids) ? kids : [];
     const capped = kids.slice(0, breadthCap);
     node.truncated = Math.max(0, kids.length - capped.length);
+    budget.truncated += node.truncated;
     for (const kid of capped) {
-      if (budget.nodes >= totalCap) { node.truncated += 1; continue; }
+      if (budget.nodes >= totalCap) { node.truncated += 1; budget.truncated += 1; continue; }
       const childLabel = itemLabel(kid, projectRoot);
       const child = { ...childLabel, children: [], truncated: 0 };
       budget.nodes += 1;
@@ -407,7 +433,7 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
   }
 
   await expand(rootItem, root, 0);
-  return { root, nodeCount: budget.nodes };
+  return { root, nodeCount: budget.nodes, truncated: budget.truncated };
 }
 
 // Render the tree as compact indented text. Each hop carries file:line + a
@@ -604,8 +630,10 @@ export async function codeIntelHierarchy(args = {}) {
   }
 
   const nodeCount = walked.nodeCount;
-  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage });
-  const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage });
+  const truncated = walked.truncated || 0;
+  const multiRoot = items.length > 1;
+  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage, truncated, multiRoot });
+  const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated, multiRoot });
   // I3 + HIGH-1 — only stamp the ground-truth `[lsp✓]` when the FINAL evidence is
   // exhaustive (INDEXED mode + indexReady===true AND a non-empty resolved tree).
   // An index-ready-but-empty tree is now lsp-partial (no_incoming_unconfirmed),
@@ -614,6 +642,9 @@ export async function codeIntelHierarchy(args = {}) {
   const nodeMark = finalEvidence.exhaustive ? '[lsp✓]' : '[lsp~]';
   const treeText = [
     `${kind.toUpperCase()} of ${rootItem.name || symbol || file} (depth ${depth})`,
+    // Overload/multi-root sets: we walk only the first root to stay budgeted —
+    // say so, since callers of the OTHER overloads are absent from this tree.
+    ...(multiRoot ? [`(note: ${items.length} hierarchy roots resolved — overload/multi-decl set; only the first was walked; the others' ${kind} are NOT shown)`] : []),
     ...renderTree(walked.root, { isRoot: true, mark: nodeMark }),
     trust
   ].join('\n');

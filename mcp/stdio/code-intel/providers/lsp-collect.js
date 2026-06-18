@@ -231,13 +231,23 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
     try { await client.shutdown(); } catch { /* ignore */ }
   }
 
-  if (budgetExhausted) {
-    for (const op of Object.keys(operations)) { if (operations[op].status === 'ok') { operations[op].status = 'partial'; operations[op].reason = `budget_exhausted_${filesProcessed}_of_${files.length}_files`; } }
+  // Audit 2026-06-12 B3: file enumeration hitting the maxFiles cap is a partial
+  // collection too — not just a budget timeout. The cpp provider already promotes
+  // truncation → partial; mirror that here so a >maxFiles TS/Python repo can't
+  // report status:'ok'/indexReady and have downstream trust banners treat a
+  // partial index as a complete one.
+  const enumTruncated = Boolean(enumStats && enumStats.truncated && !(req.files && req.files.length > 0));
+  const incomplete = budgetExhausted || enumTruncated;
+  if (incomplete) {
+    const reason = budgetExhausted
+      ? `budget_exhausted_${filesProcessed}_of_${files.length}_files`
+      : `enumeration_truncated_at_${enumStats.after_filter}_of_${enumStats.total}_files_cap_${enumStats.max_files}`;
+    for (const op of Object.keys(operations)) { if (operations[op].status === 'ok') { operations[op].status = 'partial'; operations[op].reason = reason; } }
   }
-  const status = budgetExhausted ? 'partial' : 'ok';
-  const notes = budgetExhausted
-    ? [{ code: 'budget_exhausted', message: `partial: ${filesProcessed}/${files.length} files within ${budgetMs}ms — run graph_collect_code_intel again to continue.` }]
-    : [];
+  const status = incomplete ? 'partial' : 'ok';
+  const notes = [];
+  if (budgetExhausted) notes.push({ code: 'budget_exhausted', message: `partial: ${filesProcessed}/${files.length} files within ${budgetMs}ms — run graph_collect_code_intel again to continue.` });
+  if (enumTruncated) notes.push({ code: 'enumeration_truncated', message: `partial: enumeration capped at ${enumStats.after_filter}/${enumStats.total} files (max_files=${enumStats.max_files}) — raise maxFiles or pass an explicit files[] for full coverage. Caller sets are a FLOOR.` });
 
   return {
     ...envelopeBase,
