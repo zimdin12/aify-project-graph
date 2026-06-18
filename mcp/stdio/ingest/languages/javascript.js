@@ -78,8 +78,11 @@ export default {
   symbols: [
     { type: 'Class', nodeTypes: ['class_declaration'], field: 'name' },
     { type: 'Function', nodeTypes: ['function_declaration', 'method_definition'], field: 'name', signatureFields: ['parameters'] },
-    // Arrow / function-expression consts: `const foo = () => {}` (audit W3 #4).
-    { type: 'Function', nodeTypes: ['variable_declarator'], extractSymbolInfo: arrowFnSymbolInfo },
+    // Arrow / function-expression consts AND class fields: `const foo = () => {}`,
+    // `handleSubmit = () => {}` (a class field → becomes a Method of its class).
+    // classify-by-value: only fields whose VALUE is an arrow/fn expr (audit W3 #4
+    // + borrow codegraph 38eb4e6 — a data field must NOT become a method).
+    { type: 'Function', nodeTypes: ['variable_declarator', 'public_field_definition', 'field_definition'], extractSymbolInfo: arrowFnSymbolInfo },
   ],
   refs: {
     imports: [{ nodeTypes: ['import_statement'], extractTargets: extractImportTargets }],

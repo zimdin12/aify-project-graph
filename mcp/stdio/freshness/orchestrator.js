@@ -47,8 +47,9 @@ import { detectMentions } from '../analysis/mentions.js';
 // resolution ambiguous (1072 unresolved CONTAINS).
 // 0.2.2: reverse-CONTAINS owner resolution prefers a type/namespace over a
 // same-named constructor Method (echoes Engine god-class).
+// 0.2.3: extract TS/JS class arrow-FIELDS (handleSubmit = () => {}) as methods.
 // Bumping forces deployed graphs to re-extract/re-resolve once.
-const EXTRACTOR_VERSION = '0.2.2';
+const EXTRACTOR_VERSION = '0.2.3';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
 const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema', 'ShaderBinding'];
 const EXTRACTION_CHUNK_SIZE = 500;

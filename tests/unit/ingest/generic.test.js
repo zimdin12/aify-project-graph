@@ -236,6 +236,23 @@ describe('generic extractor', () => {
     expect(findRef(result.refs, 'CALLS', 'build', 'Widget')).toBeTruthy();
   });
 
+  it('extracts class arrow-FIELDS as methods, classifying by value (React handler idiom)', () => {
+    const tsSource = [
+      'class Widget {',
+      '  handleSubmit = () => { return 1; };',  // arrow field → Method
+      '  onClick = function () { return 2; };',  // fn-expr field → Method
+      '  count = 0;',                            // data field → NOT a symbol
+      '  items: string[] = [];',                 // data field → NOT a symbol
+      '}',
+      '',
+    ].join('\n');
+    const result = extractFile({ filePath: 'src/widget.ts', source: tsSource, config: typescript });
+    expect(findNode(result.nodes, 'Method', 'handleSubmit')).toBeTruthy();
+    expect(findNode(result.nodes, 'Method', 'onClick')).toBeTruthy();
+    expect(result.nodes.find((n) => n.label === 'count')).toBeFalsy();
+    expect(result.nodes.find((n) => n.label === 'items')).toBeFalsy();
+  });
+
   it('extracts TS enum + abstract class as symbols (audit W3 #4)', () => {
     const tsSource = [
       'export enum Color { Red, Green }',
