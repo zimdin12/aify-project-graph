@@ -186,6 +186,40 @@ describe('generic extractor', () => {
     expect(findRef(tsResult.refs, 'IMPLEMENTS', 'Child', 'Runner')).toBeTruthy();
   });
 
+  it('extracts arrow / function-expression consts as Function symbols (audit W3 #4)', () => {
+    const tsSource = [
+      'export const fetchUser = async (id: string) => { return id; };',
+      'const renderWidget = function () { return 1; };',
+      'const MAX = 5;',                 // data const → NOT a symbol
+      'const cfg = makeConfig();',      // call-valued const → NOT a symbol
+      'const { a, b } = destructured;', // destructuring → NOT a symbol
+      '',
+    ].join('\n');
+    const result = extractFile({ filePath: 'src/widgets.ts', source: tsSource, config: typescript });
+
+    expect(findNode(result.nodes, 'Function', 'fetchUser')).toBeTruthy();
+    expect(findNode(result.nodes, 'Function', 'renderWidget')).toBeTruthy();
+    expect(findNode(result.nodes, 'Function', 'MAX')).toBeFalsy();
+    expect(findNode(result.nodes, 'Function', 'cfg')).toBeFalsy();
+    expect(findNode(result.nodes, 'Function', 'a')).toBeFalsy();
+
+    // Same for plain JS.
+    const jsResult = extractFile({ filePath: 'src/util.js', source: 'export const handler = () => {};\nconst n = 3;\n', config: javascript });
+    expect(findNode(jsResult.nodes, 'Function', 'handler')).toBeTruthy();
+    expect(findNode(jsResult.nodes, 'Function', 'n')).toBeFalsy();
+  });
+
+  it('extracts TS enum + abstract class as symbols (audit W3 #4)', () => {
+    const tsSource = [
+      'export enum Color { Red, Green }',
+      'export abstract class Shape { abstract area(): number; }',
+      '',
+    ].join('\n');
+    const result = extractFile({ filePath: 'src/types.ts', source: tsSource, config: typescript });
+    expect(findNode(result.nodes, 'Type', 'Color')).toBeTruthy();
+    expect(findNode(result.nodes, 'Class', 'Shape')).toBeTruthy();
+  });
+
   it('types test functions as Test and emits TESTS refs for their calls', () => {
     const source = [
       'def helper():',

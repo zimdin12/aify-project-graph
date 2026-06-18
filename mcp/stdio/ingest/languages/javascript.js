@@ -2,6 +2,7 @@ import { posix } from 'node:path';
 import TypeScript from 'tree-sitter-typescript';
 import { extractDecoratorReferences } from '../extractors/decorators.js';
 import { augmentJsImports } from '../js-import-evidence.js';
+import { arrowFnSymbolInfo } from './_js_symbols.js';
 
 function normalizeImportSource(text, filePath) {
   const raw = text.trim();
@@ -76,6 +77,8 @@ export default {
   symbols: [
     { type: 'Class', nodeTypes: ['class_declaration'], field: 'name' },
     { type: 'Function', nodeTypes: ['function_declaration', 'method_definition'], field: 'name', signatureFields: ['parameters'] },
+    // Arrow / function-expression consts: `const foo = () => {}` (audit W3 #4).
+    { type: 'Function', nodeTypes: ['variable_declarator'], extractSymbolInfo: arrowFnSymbolInfo },
   ],
   refs: {
     imports: [{ nodeTypes: ['import_statement'], extractTargets: extractImportTargets }],
