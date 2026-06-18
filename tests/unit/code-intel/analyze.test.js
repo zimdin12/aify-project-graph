@@ -5,6 +5,9 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 
 import { codeIntelAnalyze } from '../../../mcp/stdio/query/verbs/code_intel_analyze.js';
+import { shutdownAllSessions } from '../../../mcp/stdio/code-intel/live.js';
+
+const fakeLspServer = path.resolve('tests/fixtures/code-intel/lsp/fake-lsp-server.mjs');
 
 function tmpRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-analyze-'));
@@ -37,6 +40,26 @@ function fakeSpawn({ stdout = '', stderr = '', exitCode = 0, calls }) {
 }
 
 describe('code_intel_analyze', () => {
+  it('routes TS/JS/Python files through the language server diagnostics (multi-language analyze)', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-analyze-ts-'));
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'bad.ts'), 'const x: number = "no";\n');
+    try {
+      const result = await codeIntelAnalyze({
+        repoRoot: dir, language: 'typescript', files: ['src/bad.ts'],
+        spawn: { command: process.execPath, args: [fakeLspServer] },
+      });
+      expect(result.status).toBe('ok');
+      expect(result.mode).toBe('lsp');
+      expect(result.language).toBe('typescript');
+      expect(result.diagnostics.length).toBeGreaterThanOrEqual(1);
+      expect(result.diagnostics[0].provenance).toBe('TS_LANGSERVER');
+      expect(result.files[0]).toMatchObject({ file: 'src/bad.ts', status: 'ok' });
+    } finally {
+      await shutdownAllSessions();
+    }
+  });
+
   it('runs clang-tidy for explicit files and returns structured diagnostics', async () => {
     const repoRoot = tmpRepo();
     const calls = [];

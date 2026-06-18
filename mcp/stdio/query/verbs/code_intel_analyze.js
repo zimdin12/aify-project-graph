@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn as nodeSpawn } from 'node:child_process';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
+import { inferLanguage, normalizeLanguage } from '../../code-intel/backends.js';
+import { codeIntelDiagnostics } from './code_intel_live.js';
 
 const DEFAULT_TIMEOUT_MS = 120000;
 const MAX_TIMEOUT_MS = 10 * 60 * 1000;
@@ -187,6 +189,40 @@ function boundedTimeout(timeoutMs) {
   return Math.min(Math.max(1, Number(timeoutMs)), MAX_TIMEOUT_MS);
 }
 
+// TS/JS/Python analyze: drive the language server's diagnostics (the live
+// backend already collects them) and reshape into the analyze contract.
+async function analyzeViaLsp({ repoRoot, language, files, timeoutMs, spawn }) {
+  const startedAt = Date.now();
+  const reqFiles = normalizeFiles(files);
+  if (reqFiles.length === 0) return errorResponse('files_required', 'code_intel_analyze requires an explicit files[] list');
+  // analyze's `spawn` is a process-spawn FUNCTION (for the C++ path); the live
+  // diagnostics path wants a spawn CONFIG {command,args} (or undefined → real
+  // backend). Only forward an actual config so production uses the real LSP.
+  const lspSpawn = (spawn && typeof spawn === 'object' && spawn.command) ? spawn : undefined;
+  const diag = await codeIntelDiagnostics({ repoRoot, language, files: reqFiles, diagnosticsWaitMs: boundedTimeout(timeoutMs), spawn: lspSpawn });
+  if (diag.status === 'error') return diag;
+  const provenance = language === 'python' ? 'PYRIGHT' : 'TS_LANGSERVER';
+  const diagnostics = (diag.diagnostics || []).map((d) => ({
+    file: d.file,
+    line: (d.range?.start?.line ?? 0) + 1,
+    col: (d.range?.start?.character ?? 0) + 1,
+    severity: (d.severity === 'info' || d.severity === 'hint') ? 'note' : d.severity,
+    message: d.message || '',
+    source: provenance.toLowerCase(),
+    provenance,
+  }));
+  const fileResults = (diag.files || []).map((f) => ({ file: f.file, status: 'ok', diagnostics: f.diagnostics, provenance }));
+  return {
+    status: 'ok',
+    language,
+    mode: 'lsp',
+    files: fileResults,
+    diagnostics,
+    summary: { files: reqFiles.length, ...summarize(diagnostics), notCollected: 0 },
+    telemetry: { operation: 'analyze', mode: 'lsp', files: reqFiles.length, latencyMs: Math.max(0, Date.now() - startedAt) },
+  };
+}
+
 export async function codeIntelAnalyze({
   repoRoot,
   language = 'cpp',
@@ -197,7 +233,17 @@ export async function codeIntelAnalyze({
 }) {
   const startedAt = Date.now();
   if (!repoRoot) return errorResponse('internal_error', 'repoRoot required');
-  if (language !== 'cpp') return errorResponse('unsupported_mode', `language ${language} is not supported by code_intel_analyze`);
+  // Multi-language analyze (borrow: agent-code-intel's per-language analyzer
+  // dispatch — reimplemented). C++ keeps clang-tidy/compile; TS/JS/Python route
+  // through the language server's own diagnostics (already collected by the live
+  // backends) instead of erroring. Pick the backend from explicit language or by
+  // inferring from the first file.
+  const rawFiles = normalizeFiles(files);
+  const inferred = rawFiles.length ? inferLanguage(rawFiles[0]) : null;
+  const effLang = (language && language !== 'cpp') ? normalizeLanguage(language) : (inferred || 'cpp');
+  if (effLang === 'typescript' || effLang === 'javascript' || effLang === 'python') {
+    return analyzeViaLsp({ repoRoot, language: effLang, files: rawFiles, timeoutMs, spawn });
+  }
   if (!['clang-tidy', 'compile'].includes(mode)) return errorResponse('unsupported_mode', `mode ${mode} is not supported`);
   const requestedFiles = normalizeFiles(files).filter(f => CPP_EXT_RE.test(f));
   if (requestedFiles.length === 0) return errorResponse('files_required', 'code_intel_analyze requires explicit C/C++ files');

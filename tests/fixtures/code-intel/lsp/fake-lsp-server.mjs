@@ -94,8 +94,9 @@ function handle(msg) {
       if (process.env.FAKE_LSP_HIERARCHY_EMPTY === '1') {
         notify('textDocument/publishDiagnostics', { uri: msg.params.textDocument.uri, diagnostics: [] });
       }
-      // Emit a fake diagnostic for files whose URI ends with `bad.cpp`.
-      if ((msg.params.textDocument.uri || '').endsWith('bad.cpp')) {
+      // Emit a fake diagnostic for any file named `bad.<ext>` (bad.cpp/bad.ts/bad.py)
+      // so multi-language tests can exercise the diagnostics path.
+      if (/bad\.\w+$/.test(msg.params.textDocument.uri || '')) {
         notify('textDocument/publishDiagnostics', {
           uri: msg.params.textDocument.uri,
           diagnostics: [{
