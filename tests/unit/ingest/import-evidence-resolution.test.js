@@ -225,6 +225,41 @@ describe('import-evidence — short-name CALLS resolution (P3-2)', () => {
     });
   });
 
+  it('import evidence beats a closer same-named local (W3 #6 wrong-target fix)', () => {
+    withTempDb((db) => {
+      // The imported `greet` lives in src/lib/greet.ts...
+      insertNode(db, {
+        id: 'fn-imported', type: 'Function', label: 'greet',
+        file_path: 'src/lib/greet.ts', extra: '{"qname":"src.lib.greet.greet"}',
+      });
+      // ...but a same-named decoy sits in the SAME directory as the caller, so
+      // proximity alone would wrongly pick it.
+      insertNode(db, {
+        id: 'fn-decoy', type: 'Function', label: 'greet',
+        file_path: 'src/decoy.ts', extra: '{"qname":"src.decoy.greet"}',
+      });
+      insertNode(db, {
+        id: 'fn-caller', type: 'Function', label: 'render',
+        file_path: 'src/app.ts', extra: '{"qname":"src.app.render"}',
+      });
+      const ctx = buildImportContext({
+        repoRoot: '/x', fileSet: new Set(['src/lib/greet.ts', 'src/decoy.ts', 'src/app.ts']),
+      });
+      const { edges } = resolveRefs({
+        db,
+        importContext: ctx,
+        refs: [{
+          from_id: 'fn-caller', relation: 'CALLS', target: 'greet',
+          source_file: 'src/app.ts', source_line: 9, confidence: 0.9, extractor: 'typescript',
+          importMap: { greet: { source: './lib/greet', exportedName: 'greet' } },
+        }],
+      });
+      const callEdge = edges.find((e) => e.relation === 'CALLS');
+      expect(callEdge?.to_id).toBe('fn-imported'); // NOT fn-decoy
+      expect(callEdge?.provenance).toBe('INFERRED');
+    });
+  });
+
   it('does NOT resolve when two symbols share the name (non-unique → unresolved)', () => {
     withTempDb((db) => {
       // Two different files both export `doThing`. The import source resolves to

@@ -498,15 +498,19 @@ function resolveTarget(ref, resolvers, importContext = null) {
     return null;
   }
 
-  const labelMatch = preferProximate(labelMatches, ref.source_file);
-  if (labelMatch) return { node: labelMatch, provenance: pickProvenance(labelMatches, 'EXTRACTED') };
-
-  // P3-2: import-evidence resolution. The generic label/proximity passes above
-  // couldn't disambiguate this short name; consult the file's imports. Gated to
-  // unique-match (or unique-within-imported-file) so it drops fixable counts
-  // without inflating wrong edges.
+  // Audit 2026-06-12 W3 (#6): consult the file's IMPORTS before a repo-wide
+  // label/proximity guess. If the importer imports `foo` from `./b`, the call is
+  // to b's `foo` — even when a same-named (or merely closer) `foo` sits in the
+  // importer's own directory. Running preferProximate first attached the edge to
+  // the wrong node with EXTRACTED provenance. resolveViaImportEvidence is strict
+  // (unique within the resolved imported file, or globally unique) and returns
+  // null when unsure, so moving it ahead never ADDS a wrong edge — it only
+  // redirects a guess to the import-backed truth.
   const viaImport = resolveViaImportEvidence(ref, resolvers, importContext);
   if (viaImport) return viaImport;
+
+  const labelMatch = preferProximate(labelMatches, ref.source_file);
+  if (labelMatch) return { node: labelMatch, provenance: pickProvenance(labelMatches, 'EXTRACTED') };
 
   return resolveViaInheritance(ref, resolvers);
 }
