@@ -173,6 +173,7 @@
       <button id="t-zout" title="Zoom out">－</button>
       <button id="t-expand" title="Expand all groups">⊕</button>
       <button id="t-collapse" title="Collapse all groups">⊖</button>
+      <button id="t-export" title="Export current view as PNG">⤓</button>
     </div>
     <div id="loading"><div class="spin"></div><div id="loading-text">Building graph…</div></div>
     <div id="legend"></div>
@@ -879,6 +880,18 @@
     // ───────────────────────── canvas tools ─────────────────────────
     function wireCanvasTools() {
       $('t-fit').addEventListener('click', () => { if (cy) cy.fit(undefined, 40); else if (fg3d?.zoomToFit) fg3d.zoomToFit(700, 80); });
+      // PNG export of the current view (borrow idea: understand-anything ExportMenu;
+      // uses cytoscape's native cy.png / the 3D renderer's canvas).
+      $('t-export').addEventListener('click', () => {
+        try {
+          let url = null;
+          if (cy) url = cy.png({ full: true, scale: 2, bg: getComputedStyle(document.body).backgroundColor || '#0d1117' });
+          else if (fg3d && fg3d.renderer) url = fg3d.renderer().domElement.toDataURL('image/png');
+          if (!url) return;
+          const a = document.createElement('a');
+          a.href = url; a.download = 'aify-project-graph.png'; a.click();
+        } catch { /* export is best-effort */ }
+      });
       $('t-zin').addEventListener('click', () => { if (cy) cy.zoom({ level: cy.zoom() * 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }); });
       $('t-zout').addEventListener('click', () => { if (cy) cy.zoom({ level: cy.zoom() / 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }); });
       $('t-collapse').title = 'Back to Map overview';
