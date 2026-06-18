@@ -40,6 +40,21 @@ export function lspVerifiedEdgeCount(edges = []) {
   return edges.reduce((n, e) => (e?.provenance === LSP_PROVENANCE ? n + 1 : n), 0);
 }
 
+// Derive the backend LANGUAGE from a verified edge's extractor tag
+// (`cpp-clangd#…`, `ts-langserver#…`, `pyright#…`). Audit finding #11: the
+// banner used to always prefer the cpp collection, so a TS/Python verified edge
+// was attributed to clangd's compile-db hash + coverage. Returns null when no
+// verified edge / unknown tag (caller falls back to the latest collection).
+export function verifiedEdgeLanguage(edges = []) {
+  const v = edges.find((e) => e?.provenance === LSP_PROVENANCE);
+  const ex = String(v?.extractor || '').toLowerCase();
+  if (!ex) return null;
+  if (ex.startsWith('cpp-clangd') || ex.startsWith('clangd')) return 'cpp';
+  if (ex.startsWith('ts-langserver') || ex.startsWith('typescript')) return 'typescript';
+  if (ex.startsWith('pyright') || ex.startsWith('python')) return 'python';
+  return null;
+}
+
 // Short hash for display. The clangd extractor tags edges `cpp-clangd#<dbhash8>`
 // and the collection row carries the full compile_db_hash; we show 8 chars.
 function hash8(value) {
@@ -106,10 +121,16 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
     return HEURISTIC_TRUST_LINE;
   }
 
-  // We have verified evidence — name the collection that produced it.
+  // We have verified evidence — name the collection that produced it. Select by
+  // the verified edge's OWN language (#11) so a TS/Python banner doesn't cite the
+  // cpp compile-db hash/coverage; fall back to cpp, then any latest.
+  const verifiedLang = verifiedEdgeLanguage(edges);
   let collection = null;
-  try { collection = getLatestCollection(db, { language: 'cpp' }) ?? getLatestCollection(db); }
-  catch { /* defensive — fall back to a generic verified line below */ }
+  try {
+    collection = (verifiedLang ? getLatestCollection(db, { language: verifiedLang }) : null)
+      ?? getLatestCollection(db, { language: 'cpp' })
+      ?? getLatestCollection(db);
+  } catch { /* defensive — fall back to a generic verified line below */ }
 
   const dbHash = hash8(collection?.compileDbHash);
   const when = relativeTime(collection?.collectedAt);
