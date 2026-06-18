@@ -26,6 +26,20 @@ export const PROBE_EXTENSIONS = [
   '/index.ts', '/index.tsx', '/index.js', '/index.jsx',
 ];
 
+// NodeNext / TS-ESM: a source file imports the COMPILED extension (`./config.js`)
+// even when only the SOURCE (`config.ts`) exists on disk. Map each compiled
+// extension to its source candidates so we resolve to the real file instead of
+// dropping the edge. Borrowed from understand-anything a6c653e (MIT) — see
+// ATTRIBUTION.md. Audit 2026-06-12 (W3): our old probe only APPENDED extensions,
+// producing nonsense like `config.js.ts` and silently losing every intra-repo
+// edge on a modern ESM-TS repo.
+export const NODENEXT_REWRITES = {
+  '.js': ['.ts', '.tsx', '.js', '.jsx'],
+  '.jsx': ['.tsx', '.jsx'],
+  '.mjs': ['.mts', '.mjs', '.ts'],
+  '.cjs': ['.cts', '.cjs', '.ts'],
+};
+
 // Tolerant JSON parse for tsconfig/jsconfig: strips // and /* */ comments and
 // trailing commas (tsconfig is JSONC). Returns null on failure.
 function parseJsonc(text) {
@@ -113,7 +127,22 @@ function matchTsAliasInConfig(specifier, config) {
 // path or null.
 export function probeWithExtensions(repoRelPath, fileSet) {
   if (!fileSet || !repoRelPath) return null;
+  // Exact on-disk match wins (a literal `.js` that really exists — pure-JS repo,
+  // or a partial migration where both `.js` and `.ts` are present).
   if (fileSet.has(repoRelPath)) return repoRelPath;
+  // NodeNext compiled-extension rewrite, BEFORE the append ladder. If the
+  // specifier carries a compiled extension, rewrite it to its source candidates;
+  // appending more extensions to an already-extensioned path would only build
+  // nonsense, so we give up cleanly afterwards rather than fall through.
+  for (const [ext, targets] of Object.entries(NODENEXT_REWRITES)) {
+    if (repoRelPath.endsWith(ext)) {
+      const base = repoRelPath.slice(0, -ext.length);
+      for (const t of targets) {
+        if (fileSet.has(base + t)) return base + t;
+      }
+      return null;
+    }
+  }
   for (const ext of PROBE_EXTENSIONS) {
     const candidate = repoRelPath + ext;
     if (fileSet.has(candidate)) return candidate;

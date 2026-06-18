@@ -56,6 +56,27 @@ describe('import-resolution — extension probing', () => {
     expect(probeWithExtensions('src/nope', fileSet)).toBeNull();
   });
 
+  // Audit 2026-06-12 W3 — NodeNext / TS-ESM compiled-extension rewrite.
+  it('rewrites a NodeNext .js specifier to the .ts/.tsx source on disk', () => {
+    const fileSet = new Set(['src/config.ts', 'src/widget.tsx', 'src/util.mts']);
+    expect(probeWithExtensions('src/config.js', fileSet)).toBe('src/config.ts');
+    expect(probeWithExtensions('src/widget.jsx', fileSet)).toBe('src/widget.tsx');
+    expect(probeWithExtensions('src/util.mjs', fileSet)).toBe('src/util.mts');
+  });
+  it('prefers a real on-disk .js over the .ts rewrite (partial migration)', () => {
+    const fileSet = new Set(['src/a.js', 'src/a.ts']);
+    expect(probeWithExtensions('src/a.js', fileSet)).toBe('src/a.js');
+  });
+  it('does NOT build nonsense like x.js.ts when nothing matches', () => {
+    const fileSet = new Set(['src/other.ts']);
+    expect(probeWithExtensions('src/config.js', fileSet)).toBeNull();
+  });
+  it('leaves pure-JS and extensionless specifiers unchanged', () => {
+    const fileSet = new Set(['src/plain.js', 'src/ext.ts']);
+    expect(probeWithExtensions('src/plain.js', fileSet)).toBe('src/plain.js'); // exact
+    expect(probeWithExtensions('src/ext', fileSet)).toBe('src/ext.ts');        // append ladder
+  });
+
   it('resolves a relative IMPORTS target to the real .ts File node', () => {
     withTempDb((db) => {
       insertNode(db, { id: 'f-foo', type: 'File', label: 'foo.ts', file_path: 'src/lib/foo.ts' });
