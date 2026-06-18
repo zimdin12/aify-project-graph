@@ -75,7 +75,12 @@ export default {
   ],
   refs: {
     imports: [{ nodeTypes: ['import_statement'], extractTargets: extractImportTargets }],
-    calls: [{ nodeTypes: ['call_expression'], field: 'function' }],
+    // `new Foo()` is a call site too — capture the constructor so graph_callers
+    // on a class surfaces its instantiation sites (audit W3, codegraph d0e6499).
+    calls: [
+      { nodeTypes: ['call_expression'], field: 'function' },
+      { nodeTypes: ['new_expression'], field: 'constructor' },
+    ],
     extends: [{ nodeTypes: ['extends_clause'], descendantTypes: ['identifier', 'type_identifier'] }],
     implements: [{ nodeTypes: ['implements_clause'], descendantTypes: ['identifier', 'type_identifier'] }],
     usesTypes: [{ nodeTypes: ['type_annotation'], descendantTypes: ['type_identifier'] }],

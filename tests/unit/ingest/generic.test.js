@@ -209,6 +209,17 @@ describe('generic extractor', () => {
     expect(findNode(jsResult.nodes, 'Function', 'n')).toBeFalsy();
   });
 
+  it('captures `new Foo()` as a CALLS edge to the constructor (audit W3, class instantiation)', () => {
+    const tsSource = [
+      'class Widget {}',
+      'function build() { return new Widget(); }',
+      '',
+    ].join('\n');
+    const result = extractFile({ filePath: 'src/build.ts', source: tsSource, config: typescript });
+    expect(findNode(result.nodes, 'Class', 'Widget')).toBeTruthy();
+    expect(findRef(result.refs, 'CALLS', 'build', 'Widget')).toBeTruthy();
+  });
+
   it('extracts TS enum + abstract class as symbols (audit W3 #4)', () => {
     const tsSource = [
       'export enum Color { Red, Green }',
