@@ -2,7 +2,7 @@ import { posix } from 'node:path';
 import TypeScript from 'tree-sitter-typescript';
 import { extractDecoratorReferences } from '../extractors/decorators.js';
 import { augmentJsImports } from '../js-import-evidence.js';
-import { arrowFnSymbolInfo } from './_js_symbols.js';
+import { arrowFnSymbolInfo, markDefaultExport } from './_js_symbols.js';
 
 function normalizeImportSource(text, filePath) {
   const raw = text.trim();
@@ -49,6 +49,7 @@ function postExtractTypeScript({ tree, source, filePath, nodes, refs, fileNode }
     ownerTypes: ['class_declaration', 'method_definition', 'public_field_definition'],
   });
   const extraImportRefs = augmentJsImports({ source, filePath, refs, extractor: 'typescript', fileNode });
+  markDefaultExport({ tree, source, nodes });
   return { refs: [...(decorators?.refs ?? []), ...extraImportRefs] };
 }
 

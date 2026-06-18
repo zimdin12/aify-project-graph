@@ -209,6 +209,14 @@ describe('generic extractor', () => {
     expect(findNode(jsResult.nodes, 'Function', 'n')).toBeFalsy();
   });
 
+  it('marks a file default export with extra.isDefaultExport (audit W3)', () => {
+    const tsSource = 'export default class Service {}\n';
+    const result = extractFile({ filePath: 'src/service.ts', source: tsSource, config: typescript });
+    const svc = findNode(result.nodes, 'Class', 'Service');
+    expect(svc).toBeTruthy();
+    expect(svc.extra.isDefaultExport).toBe(true);
+  });
+
   it('captures `new Foo()` as a CALLS edge to the constructor (audit W3, class instantiation)', () => {
     const tsSource = [
       'class Widget {}',

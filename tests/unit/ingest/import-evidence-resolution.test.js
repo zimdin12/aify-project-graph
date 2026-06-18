@@ -225,6 +225,35 @@ describe('import-evidence — short-name CALLS resolution (P3-2)', () => {
     });
   });
 
+  it('binds a RENAMED default import to the file default export (W3, graphify 6dc23db)', () => {
+    withTempDb((db) => {
+      // foo.ts default-exports class Foo; app imports it as `Bar` and calls new Bar().
+      insertNode(db, {
+        id: 'cls-foo', type: 'Class', label: 'Foo',
+        file_path: 'src/foo.ts', extra: JSON.stringify({ qname: 'src.foo.Foo', isDefaultExport: true }),
+      });
+      insertNode(db, {
+        id: 'fn-caller', type: 'Function', label: 'build',
+        file_path: 'src/app.ts', extra: '{"qname":"src.app.build"}',
+      });
+      const ctx = buildImportContext({
+        repoRoot: '/x', fileSet: new Set(['src/foo.ts', 'src/app.ts']),
+      });
+      const { edges } = resolveRefs({
+        db,
+        importContext: ctx,
+        refs: [{
+          from_id: 'fn-caller', relation: 'CALLS', target: 'Bar',
+          source_file: 'src/app.ts', source_line: 4, confidence: 0.9, extractor: 'typescript',
+          importMap: { Bar: { source: './foo', exportedName: 'default' } },
+        }],
+      });
+      const callEdge = edges.find((e) => e.relation === 'CALLS');
+      expect(callEdge?.to_id).toBe('cls-foo');
+      expect(callEdge?.provenance).toBe('INFERRED');
+    });
+  });
+
   it('import evidence beats a closer same-named local (W3 #6 wrong-target fix)', () => {
     withTempDb((db) => {
       // The imported `greet` lives in src/lib/greet.ts...

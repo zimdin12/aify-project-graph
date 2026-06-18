@@ -181,6 +181,16 @@ function buildResolvers(db) {
       AND (file_path = ? OR file_path LIKE ?)
   `);
 
+  // Audit 2026-06-12 W3 (graphify 6dc23db): the symbol a file `export default`s,
+  // so a renamed default import binds to it regardless of the local alias.
+  const findDefaultExportInFile = db.raw.prepare(`
+    SELECT *
+    FROM nodes
+    WHERE file_path = ?
+      AND json_extract(extra, '$.isDefaultExport') IN (1, 'true')
+      AND type IN ('Class', 'Function', 'Type', 'Method')
+  `);
+
   const findContainedMember = db.raw.prepare(`
     SELECT n.*
     FROM edges e
@@ -278,6 +288,16 @@ function buildResolvers(db) {
         pending,
       );
     },
+    findDefaultExportInFile(filePath) {
+      const pending = pendingNodes.filter((node) =>
+        node.file_path === filePath
+        && node.extra?.isDefaultExport === true
+        && ['Class', 'Function', 'Type', 'Method'].includes(node.type));
+      return mergeRows(
+        normalizeRows(findDefaultExportInFile.all(filePath)),
+        pending,
+      );
+    },
     findContainedMember(ownerId, label) {
       return normalizeRows(findContainedMember.all(ownerId, label));
     },
@@ -372,6 +392,15 @@ function resolveViaImportEvidence(ref, resolvers, importContext) {
   const resolvedFile = importContext
     ? resolveImportSpecifier({ specifier: entry.source, importerFile: ref.source_file, ctx: importContext })
     : null;
+
+  // Default import → default export: `import Bar from './foo'` binds whatever
+  // './foo' default-exports, regardless of the local name `Bar`. Match by the
+  // file's marked default export (unique-or-drop) instead of the local name, which
+  // would otherwise never find a renamed default export (audit W3, graphify 6dc23db).
+  if (entry.exportedName === 'default' && resolvedFile && typeof resolvers.findDefaultExportInFile === 'function') {
+    const defs = filterByLanguageFamily(resolvers.findDefaultExportInFile(resolvedFile), ref);
+    if (defs.length === 1) return { node: defs[0], provenance: 'INFERRED' };
+  }
 
   // Candidate symbols for this short name. Prefer the exported name when the
   // alias was `import { exportedName as target }`.
