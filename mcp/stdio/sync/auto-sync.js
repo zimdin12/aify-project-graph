@@ -57,8 +57,10 @@ export function startAutoSync({
 
   let syncing = false;
   let pendingSync = false;
+  let stopped = false; // set by stop(); gates runSync entry + the coalesced rerun
 
   async function runSync(reason) {
+    if (stopped) return;
     if (syncing) {
       // Another sync is already running; coalesce by setting a pending flag
       // so the in-flight sync triggers one more pass when it finishes.
@@ -74,7 +76,9 @@ export function startAutoSync({
       log?.(`[auto-sync] ensureFresh failed: ${err?.message ?? err}`);
     } finally {
       syncing = false;
-      if (pendingSync) {
+      // Audit M3: don't fire the coalesced-burst rerun after stop() — that
+      // straggling setImmediate was the real race behind the flaky test.
+      if (pendingSync && !stopped) {
         pendingSync = false;
         // Recurse asynchronously so we don't keep a single sync chain
         // alive forever in pathological burst scenarios.
@@ -106,6 +110,7 @@ export function startAutoSync({
 
   return {
     stop: () => {
+      stopped = true;
       watcher.stop();
     },
     status: 'running',
