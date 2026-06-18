@@ -73,6 +73,7 @@ const DEFAULT_LISTED = [
   'graph_callers',
   'graph_collect_code_intel',
   'graph_consequences',
+  'graph_dashboard',
   'graph_digest',
   'graph_explain_diff',
   'graph_explore',
@@ -92,7 +93,7 @@ describe('server toolset selection', () => {
     const names = tools.map(tool => tool.name).sort();
     // The default surface is EXACTLY the focused intent set — not the full API.
     expect(names).toEqual(DEFAULT_LISTED);
-    expect(names.length).toBe(16);
+    expect(names.length).toBe(17);
     // graph_index must be listed so managed workers can self-refresh a stale
     // graph (2026-06-01 Sand Castle A/B field-report fix).
     expect(names).toContain('graph_index');
@@ -101,7 +102,9 @@ describe('server toolset selection', () => {
     // from the default listing (still callable — proven in a later test).
     expect(names).not.toContain('graph_callees');
     expect(names).not.toContain('graph_onboard');
-    expect(names).not.toContain('graph_dashboard');
+    // graph_dashboard is now LISTED by default (one-call launch) — it moved out of
+    // the hidden set; assert it IS present instead.
+    expect(names).toContain('graph_dashboard');
     expect(names).not.toContain('graph_overview');
     expect(names).not.toContain('graph_shader');
     expect(names).not.toContain('graph_file');

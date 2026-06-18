@@ -740,6 +740,10 @@ const DEFAULT_TOOL_NAMES = new Set([
   // the read verbs but not graph_index — they couldn't act on the "run
   // graph_index" staleness warning because it wasn't in their surface.
   'graph_index',
+  // Listed so "open/show me the graph" is ONE verb call ({url,port}, keeps
+  // serving) instead of agents hand-rolling a server launcher when the verb was
+  // unlisted (2026-06 field report).
+  'graph_dashboard',
 ]);
 
 // Full profile still keeps EVERY verb callable by name, but the tools/list
