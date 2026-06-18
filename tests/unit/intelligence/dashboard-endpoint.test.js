@@ -253,6 +253,20 @@ describe('P2b dashboard analytics endpoints', () => {
       expect(body.edges.some(e => e.code_provenance === 'LSP_VERIFIED')).toBe(true);
     });
   });
+
+  it('/api/tour returns ordered structured steps with title/why/refs (Guided Tour)', async () => {
+    ({ dir: repo, db } = tmpRepoWithSeededGraph());
+    await withDashboard(repo, db, async (base) => {
+      const { status, body } = await fetchJson(`${base}/api/tour?steps=8`);
+      expect(status).toBe(200);
+      expect(Array.isArray(body.steps)).toBe(true);
+      expect(body.steps.length).toBeGreaterThanOrEqual(1);
+      const s = body.steps[0];
+      expect(typeof s.title).toBe('string');
+      expect(typeof s.why).toBe('string');
+      expect(Array.isArray(s.refs)).toBe(true); // bare labels → focus pills
+    });
+  });
 });
 
 describe('P2b frontend wiring (structural)', () => {
@@ -273,6 +287,7 @@ describe('P2b frontend wiring (structural)', () => {
     expect(html).toContain('/api/provenance');
     expect(html).toContain('/api/search?');
     expect(html).toContain('/api/node/');
+    expect(html).toContain('/api/tour');
   });
 
   it('wires the core interactive features', () => {

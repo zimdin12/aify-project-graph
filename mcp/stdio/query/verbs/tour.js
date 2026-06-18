@@ -19,7 +19,7 @@ function regionRank(c) {
   return c.node_count * (1 + interTotal);
 }
 
-export function buildTour(db, { steps = 8, focus = null, architecture = null } = {}) {
+export function buildTour(db, { steps = 8, focus = null, architecture = null, json = false } = {}) {
   const total = db.get('SELECT COUNT(*) AS c FROM nodes').c;
   if (!total) return 'TOUR — the graph is empty. Run graph_index first (no nodes indexed).';
 
@@ -53,6 +53,7 @@ export function buildTour(db, { steps = 8, focus = null, architecture = null } =
       title: 'Entry points',
       why: 'where execution starts — trace outward from here',
       symbols: entrypoints.slice(0, 4).map((e) => `${e.label} @ ${e.file_path}:${e.start_line ?? '?'}`),
+      refs: entrypoints.slice(0, 4).map((e) => e.label),
       verb: ep ? `graph_trace ${ep.label} <target>` : 'graph_callers <symbol>',
     });
   }
@@ -63,6 +64,7 @@ export function buildTour(db, { steps = 8, focus = null, architecture = null } =
       title: r.label,
       why: `${r.node_count} symbol${r.node_count === 1 ? '' : 's'}${r.archetype && r.archetype.confidence !== 'low' ? ` (${r.archetype.name})` : ''} — a major subsystem`,
       symbols: r.top_symbols.slice(0, 4).map((s) => `${s.label}${s.degree ? ` ·${s.degree} deg` : ''}`),
+      refs: r.top_symbols.slice(0, 4).map((s) => s.label),
       verb: topSym ? `graph_packet ${topSym}` : 'graph_packet <symbol>',
     });
   }
@@ -74,11 +76,16 @@ export function buildTour(db, { steps = 8, focus = null, architecture = null } =
         title: 'Hotspots',
         why: 'the highest-degree symbols you will touch most — review before refactoring',
         symbols: hot.slice(0, 5).map((h) => `${h.label} ·${h.degree} deg @ ${h.file_path || '?'}`),
+        refs: hot.slice(0, 5).map((h) => h.label),
         verb: `graph_impact ${hot[0].label}`,
       });
     }
   }
   const capped = stepsOut.slice(0, steps);
+
+  // Structured form for the dashboard Guided Tour panel (each step's `refs` are
+  // bare symbol labels the UI turns into click-to-focus pills).
+  if (json) return capped;
 
   const lines = [];
   lines.push(`TOUR — ${focus ? `focus: ${focus}; ` : ''}${capped.length} step${capped.length === 1 ? '' : 's'}`);

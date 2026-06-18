@@ -5,6 +5,7 @@ import { join, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
 import { searchNodesFts } from '../storage/nodes.js';
+import { buildTour } from '../query/verbs/tour.js';
 import {
   computeOverview,
   computeHotspots,
@@ -558,6 +559,19 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
         map[cid] = { name: c.archetype?.name || c.label, id: c.archetype?.id || null, confidence: c.archetype?.confidence || 'low' };
       }
       writeJson({ archetypes: map });
+      return;
+    }
+
+    // Guided Tour (borrow: understand-anything LearnPanel) — ordered orientation
+    // steps (entrypoints → archetype regions → hotspots) the frontend renders as
+    // a click-through stepper. Data already computed by buildTour (graph_tour).
+    if (req.url?.startsWith('/api/tour')) {
+      const url = new URL(req.url, 'http://localhost');
+      const steps = Math.max(1, Math.min(20, parseInt(url.searchParams.get('steps') || '8', 10) || 8));
+      const focus = url.searchParams.get('focus') || null;
+      const architecture = loadArchitecture();
+      const tourSteps = buildTour(db, { steps, focus, architecture, json: true });
+      writeJson({ steps: Array.isArray(tourSteps) ? tourSteps : [] });
       return;
     }
 

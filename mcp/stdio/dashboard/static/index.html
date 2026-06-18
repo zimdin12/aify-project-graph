@@ -57,6 +57,21 @@
     .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
     .subtle { margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.45; }
     .toggle-pill { padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text); cursor: pointer; font-size: 11px; user-select:none; }
+    /* Guided Tour (borrow: understand-anything LearnPanel) */
+    #tour-btn { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 12px; }
+    #tour-panel { border: 1px solid var(--border); border-radius: 8px; padding: 10px; margin: 8px 0; background: var(--bg); }
+    .tour-head { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; }
+    .tour-prog { color: var(--muted); font-weight:400; font-size:11px; }
+    .tour-x { margin-left:auto; background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; }
+    .tour-title { margin-top:6px; font-weight:600; font-size:13px; }
+    .tour-why { color: var(--muted); font-size:12px; margin:3px 0 6px; }
+    .tour-pills { display:flex; flex-wrap:wrap; gap:4px; }
+    .tour-pill { padding:3px 8px; border-radius:999px; border:1px solid var(--border); background:var(--bg); color:var(--text); cursor:pointer; font-size:11px; }
+    .tour-pill:hover { border-color: var(--accent, #3fb950); }
+    .tour-verb { margin-top:7px; font-size:11px; color:var(--faint,#888); }
+    .tour-nav { display:flex; gap:6px; margin-top:8px; }
+    .tour-nav button { flex:1; padding:4px; border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:6px; cursor:pointer; font-size:12px; }
+    .tour-nav button:disabled { opacity:.4; cursor:default; }
     .toggle-pill.active { border-color: var(--accent); background: var(--accent-bg); color: #cfe5ff; }
     .toggle-pill:hover { border-color: var(--accent); }
     .view-pill { display:flex; align-items:center; gap:5px; padding: 6px 11px; font-size:12px; }
@@ -131,6 +146,7 @@
     <div class="mode-line">
       <span id="mode-label">2D map</span>
       <div class="header-actions">
+        <button id="tour-btn" type="button" title="Guided tour of this codebase">🧭 Tour</button>
         <a id="mode-link" href="/3d">open 3D</a>
         <button id="sidebar-toggle" type="button">hide</button>
       </div>
@@ -141,6 +157,7 @@
         <div id="search-results"></div>
       </div>
       <div id="stats">Loading…</div>
+      <div id="tour-panel" style="display:none"></div>
       <div id="controls"></div>
       <div id="node-detail"><p style="color: var(--muted);">Click a node to inspect it.</p></div>
     </div>
@@ -885,6 +902,47 @@
       }, 16);
     }
 
+    // ───────────────────────── Guided Tour ─────────────────────────
+    // Borrow: understand-anything LearnPanel. Ordered orientation steps from
+    // /api/tour (entrypoints → archetype regions → hotspots); each step's refs
+    // become click-to-focus pills (resolved label→node via /api/search).
+    const tourEsc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const __tour = { steps: [], i: 0 };
+    async function tourFocusLabel(label) {
+      try {
+        const hits = await fetch(`/api/search?q=${encodeURIComponent(label)}`).then(r => r.json()).catch(() => []);
+        if (Array.isArray(hits) && hits.length && window.focusNode) window.focusNode(hits[0].id);
+      } catch { /* best effort */ }
+    }
+    function renderTour() {
+      const panel = document.getElementById('tour-panel');
+      const s = __tour.steps[__tour.i];
+      if (!s) { panel.innerHTML = '<div class="tour-head">🧭 Guided Tour<button class="tour-x" id="tour-close" type="button">✕</button></div><div class="tour-why">No tour available — is the graph empty?</div>'; panel.querySelector('#tour-close').onclick = closeTour; return; }
+      const pills = (s.refs || []).map((l) => `<button class="tour-pill" type="button" data-label="${tourEsc(l)}">${tourEsc(l)}</button>`).join('');
+      panel.innerHTML = `
+        <div class="tour-head">🧭 Guided Tour <span class="tour-prog">${__tour.i + 1}/${__tour.steps.length}</span><button class="tour-x" id="tour-close" type="button">✕</button></div>
+        <div class="tour-title">${tourEsc(s.title)}</div>
+        <div class="tour-why">${tourEsc(s.why)}</div>
+        <div class="tour-pills">${pills}</div>
+        ${s.verb ? `<div class="tour-verb">try: <code>${tourEsc(s.verb)}</code></div>` : ''}
+        <div class="tour-nav"><button id="tour-prev" type="button" ${__tour.i === 0 ? 'disabled' : ''}>← prev</button><button id="tour-next" type="button" ${__tour.i >= __tour.steps.length - 1 ? 'disabled' : ''}>next →</button></div>`;
+      panel.querySelector('#tour-close').onclick = closeTour;
+      panel.querySelector('#tour-prev').onclick = () => { if (__tour.i > 0) { __tour.i--; renderTour(); } };
+      panel.querySelector('#tour-next').onclick = () => { if (__tour.i < __tour.steps.length - 1) { __tour.i++; renderTour(); } };
+      panel.querySelectorAll('.tour-pill').forEach((b) => { b.onclick = () => tourFocusLabel(b.dataset.label); });
+    }
+    function closeTour() { document.getElementById('tour-panel').style.display = 'none'; }
+    async function openTour() {
+      const panel = document.getElementById('tour-panel');
+      if (!__tour.steps.length) {
+        const data = await fetch('/api/tour?steps=8').then(r => r.json()).catch(() => ({ steps: [] }));
+        __tour.steps = (data && data.steps) || [];
+      }
+      __tour.i = 0;
+      panel.style.display = 'block';
+      renderTour();
+    }
+
     // ───────────────────────── init ─────────────────────────
     async function init() {
       loading(true, 'Fetching graph…');
@@ -912,6 +970,10 @@
 
       $('sidebar-toggle').addEventListener('click', () => setSidebarCollapsed(true));
       $('sidebar-reopen').addEventListener('click', () => setSidebarCollapsed(false));
+      $('tour-btn').addEventListener('click', () => {
+        const panel = document.getElementById('tour-panel');
+        if (panel.style.display === 'none' || !panel.style.display) openTour(); else closeTour();
+      });
 
       const searchEl = $('search');
       searchEl.addEventListener('input', (e) => {
