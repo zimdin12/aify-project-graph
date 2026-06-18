@@ -83,7 +83,8 @@
     .nav-back-btn:hover { border-color:var(--accent); color:var(--text); }
     #node-tip { position:absolute; z-index:8; pointer-events:none; background:#161b22; border:1px solid var(--border); color:var(--text); padding:4px 8px; border-radius:6px; font-size:11px; max-width:280px; line-height:1.5; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
     /* File-tree explorer */
-    #files-btn { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:2px 8px; cursor:pointer; font-size:12px; }
+    #files-btn, #diff-btn { background:var(--bg); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:2px 8px; cursor:pointer; font-size:12px; }
+    #diff-btn.active { background:#3d1d1d; border-color:#ff7b72; color:#ffb3ad; }
     #files-panel { border:1px solid var(--border); border-radius:8px; padding:8px; margin:8px 0; background:var(--bg); max-height:340px; overflow:auto; }
     .ftree-row { display:flex; align-items:center; gap:3px; font-size:12px; padding:1px 2px; cursor:pointer; white-space:nowrap; border-radius:4px; }
     .ftree-row:hover { background:#21262d; }
@@ -166,6 +167,7 @@
       <div class="header-actions">
         <button id="tour-btn" type="button" title="Guided tour of this codebase">🧭 Tour</button>
         <button id="files-btn" type="button" title="Browse files (folder tree)">📁 Files</button>
+        <button id="diff-btn" type="button" title="Highlight files changed in git (uncommitted + untracked)">◆ Changes</button>
         <a id="mode-link" href="/3d">open 3D</a>
         <button id="sidebar-toggle" type="button">hide</button>
       </div>
@@ -925,6 +927,34 @@
     function paintBlast() { if (!cy || !blastResult) return; cy.batch(() => cy.nodes('[!isGroup]').forEach(n => { n.removeClass('blast-changed blast-affected blast-faded'); const id = n.id(); if (blastResult.changed.has(id)) n.addClass('blast-changed'); else if (blastResult.affected.has(id)) n.addClass('blast-affected'); else n.addClass('blast-faded'); })); }
     function clearBlast() { blastResult = null; if (cy) cy.nodes().removeClass('blast-changed blast-affected blast-faded'); }
 
+    // ─────────────────── git-diff change overlay ───────────────────
+    // Borrow: understand-anything change-overlay. Seed the blast highlight from a
+    // REAL `git diff` (via /api/diff) instead of a hand-picked node: nodes in
+    // changed files paint as "changed", their 1-hop neighbors as "affected",
+    // everything else fades. Reuses paintBlast()/clearBlast(). 2D (cytoscape)
+    // only — hidden in 3D, like blast radius itself.
+    let diffActive = false;
+    async function toggleDiffOverlay() {
+      const btn = $('diff-btn');
+      if (diffActive) { diffActive = false; btn.classList.remove('active'); btn.textContent = '◆ Changes'; clearBlast(); return; }
+      const res = await fetch('/api/diff').then(r => r.json()).catch(() => null);
+      if (!res) { btn.textContent = '◆ Changes (error)'; return; }
+      if (res.error || !res.files || !res.files.length) {
+        btn.textContent = res.error ? '◆ Changes (no git)' : '◆ Changes (0)';
+        setTimeout(() => { if (!diffActive) btn.textContent = '◆ Changes'; }, 2500);
+        return;
+      }
+      const changedFiles = new Set(res.files);
+      const changed = new Set();
+      for (const n of (allData.nodes || [])) { if (n.file_path && changedFiles.has(n.file_path)) changed.add(n.id); }
+      const affected = new Set();
+      for (const id of changed) for (const nb of neighborIdsFor(id)) if (!changed.has(nb)) affected.add(nb);
+      blastResult = { changed, affected };
+      diffActive = true; btn.classList.add('active');
+      btn.textContent = `◆ Changes (${res.files.length})`;
+      paintBlast();
+    }
+
     // ───────────────────────── pathfinder ─────────────────────────
     async function runPathfinder(fromQuery, toQuery) {
       const resolveId = async (q) => { if (!q) return null; const hits = await fetch(`/api/search?q=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []); return (hits && hits.length) ? hits[0].id : q; };
@@ -1201,6 +1231,9 @@
         const panel = document.getElementById('files-panel');
         if (panel.style.display === 'none' || !panel.style.display) { closeTour(); openFiles(); } else closeFiles();
       });
+      // Git-diff overlay is cytoscape-only (paints via blast classes) — hide in 3D.
+      if (is3DMode) $('diff-btn').style.display = 'none';
+      else $('diff-btn').addEventListener('click', toggleDiffOverlay);
 
       const searchEl = $('search');
       searchEl.addEventListener('input', (e) => {

@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join, extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
@@ -692,6 +693,33 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       try { allLines = readFileSync(abs, 'utf8').split('\n'); } catch { writeJson({ error: 'read_failed', path: rel }); return; }
       const slice = allLines.slice(from - 1, Math.min(allLines.length, to));
       writeJson({ path: rel, from, to: from - 1 + slice.length, lines: slice });
+      return;
+    }
+
+    // Git-diff overlay (borrow: understand-anything change-overlay). Seed a
+    // "what did I just touch" highlight from a REAL git diff instead of a hand-
+    // picked blast node. Returns the changed files that are also graph nodes
+    // (the graph is the allowlist, same as /api/source) so the client can light
+    // up their nodes. Tolerates non-git repos / git-not-installed: returns an
+    // empty set with a reason rather than throwing.
+    if (req.url?.startsWith('/api/diff')) {
+      const url = new URL(req.url, 'http://localhost');
+      const base = (url.searchParams.get('base') || 'HEAD').replace(/[^\w./~^-]/g, ''); // sanitize the rev
+      const gitLines = (args) => {
+        try {
+          return execFileSync('git', ['-C', repoRoot, ...args], {
+            encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'],
+          }).split('\n').map(s => s.trim()).filter(Boolean);
+        } catch { return null; }
+      };
+      // Tracked changes vs base (staged + unstaged) + untracked-but-not-ignored.
+      const tracked = gitLines(['diff', '--name-only', base]);
+      if (tracked === null) { writeJson({ files: [], changed: 0, error: 'not_a_git_repo_or_git_missing', base }); return; }
+      const untracked = gitLines(['ls-files', '--others', '--exclude-standard']) || [];
+      const all = [...new Set([...tracked, ...untracked].map(p => p.replace(/\\/g, '/')))];
+      // Keep only files that are graph nodes — same allowlist contract as /api/source.
+      const indexed = all.filter(rel => db.get('SELECT 1 AS ok FROM nodes WHERE file_path = $p LIMIT 1', { p: rel }));
+      writeJson({ files: indexed, changed: all.length, indexed: indexed.length, base });
       return;
     }
 

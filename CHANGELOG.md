@@ -9,9 +9,10 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
-### 2026-06-18 — file-tree explorer (dashboard borrow)
+### 2026-06-18 — file-tree explorer + git-diff overlay (dashboard borrows)
 
 - **File-tree explorer panel** (understand-anything FileExplorer): a 📁 Files button opens a collapsible folder→file tree built client-side from the `file_path`s already on graph nodes (no new endpoint — the graph is the allowlist). Top level expanded, deeper folders collapse on click; clicking a file focuses its node, reusing `focusNode()` + the inline source viewer. Browser-verified on this repo (189 dirs / 778 files, toggle + click-to-focus, no console errors). Tour and Files panels are mutually exclusive.
+- **Git-diff change overlay** (understand-anything change-overlay): a ◆ Changes button calls a new `/api/diff` endpoint (`git diff --name-only <base>` + untracked, filtered through the graph allowlist) and paints nodes in changed files as "changed", their 1-hop neighbors as "affected", fading the rest — a blast-radius seed from a real `git diff` instead of a hand-picked node. Reuses the existing blast paint classes; cytoscape-only so it's hidden in 3D, like blast radius. `/api/diff` tolerates non-git repos / missing git (empty + reason, no throw). Browser-verified on this repo's own uncommitted changes (3 indexed of 4 changed; the un-indexed file correctly filtered).
 
 ### 2026-06-12 — dashboard UX/perf + launch surfacing + more borrows
 

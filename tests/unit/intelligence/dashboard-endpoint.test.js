@@ -276,6 +276,45 @@ describe('P2b dashboard analytics endpoints', () => {
     } finally { sdb.close(); }
   });
 
+  it('/api/diff returns empty + reason for a non-git repo (graceful, no throw)', async () => {
+    ({ dir: repo, db } = tmpRepoWithSeededGraph());
+    await withDashboard(repo, db, async (base) => {
+      const { status, body } = await fetchJson(`${base}/api/diff`);
+      expect(status).toBe(200);
+      expect(body.files).toEqual([]);
+      expect(body.error).toBe('not_a_git_repo_or_git_missing');
+    });
+  });
+
+  it('/api/diff lists changed files that are graph nodes, filtering un-indexed ones', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-diff-'));
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(dir, '.aify-graph'), { recursive: true });
+    // A git repo with one tracked+committed file we then modify, plus an
+    // untracked indexed file and an untracked NON-indexed file.
+    const git = (...a) => execFileSync('git', ['-C', dir, ...a], { stdio: ['ignore', 'pipe', 'ignore'] });
+    git('init', '-q');
+    git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
+    fs.writeFileSync(path.join(dir, 'src', 'tracked.js'), 'v1\n');
+    git('add', '.'); git('commit', '-qm', 'init');
+    fs.writeFileSync(path.join(dir, 'src', 'tracked.js'), 'v2\n');       // modified (tracked)
+    fs.writeFileSync(path.join(dir, 'src', 'new.js'), 'new\n');          // untracked + indexed
+    fs.writeFileSync(path.join(dir, 'src', 'ghost.js'), 'ghost\n');      // untracked + NOT indexed
+    const ddb = openDb(path.join(dir, '.aify-graph', 'graph.sqlite'));
+    addNode(ddb, 'n1', { type: 'File', label: 'tracked.js', file_path: 'src/tracked.js' });
+    addNode(ddb, 'n2', { type: 'File', label: 'new.js', file_path: 'src/new.js' });
+    try {
+      await withDashboard(dir, ddb, async (base) => {
+        const { body } = await fetchJson(`${base}/api/diff`);
+        expect(body.error).toBeUndefined();
+        expect(body.files).toEqual(expect.arrayContaining(['src/tracked.js', 'src/new.js']));
+        expect(body.files).not.toContain('src/ghost.js'); // un-indexed → filtered
+        expect(body.indexed).toBe(2);
+      });
+    } finally { ddb.close(); }
+  });
+
   it('/api/tour returns ordered structured steps with title/why/refs (Guided Tour)', async () => {
     ({ dir: repo, db } = tmpRepoWithSeededGraph());
     await withDashboard(repo, db, async (base) => {
@@ -337,6 +376,10 @@ describe('P2b frontend wiring (structural)', () => {
     expect(html).toContain('fileTreeFocus');   // click a file → focus its node
     expect(html).toContain('files-panel');     // collapsible tree panel
     expect(html).toContain('ftree-row');        // tree row styling
+    // Borrow: git-diff change overlay (understand-anything).
+    expect(html).toContain('toggleDiffOverlay'); // /api/diff → blast highlight
+    expect(html).toContain('/api/diff');
+    expect(html).toContain('diff-btn');
   });
 
   it('exposes map + shader view modes and ShaderBinding styling', () => {

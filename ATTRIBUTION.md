@@ -68,7 +68,9 @@ From **agent-understand-anything** (MIT):
   graph-as-allowlist security gate), PNG export (ExportMenu), the node
   navigation-history back-stack, the hover degree tooltip (NodeTooltip), and the
   collapsible file-tree explorer (FileExplorer — folder→file tree built from the
-  file_paths already on graph nodes; clicking a file focuses its node) —
+  file_paths already on graph nodes; clicking a file focuses its node), and the
+  git-diff change overlay (highlight nodes in files changed vs a git rev — a
+  blast-radius seed from a real `git diff` instead of a hand-picked node) —
   `mcp/stdio/dashboard/`.
 
 From **graphify** (MIT): isolated-nodes / knowledge-gaps + suggested-questions
