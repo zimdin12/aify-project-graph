@@ -638,7 +638,74 @@ function synthesizeLspEdges(envelope, db, stats) {
   return out;
 }
 
-function makeRecordInserter(db) {
+// Prune the side-table records of collections that a fresh COMPLETE collection
+// supersedes. Without this, every `graph_collect_code_intel` run appends a full
+// set of code_intel_records and the prior ones are never removed — the table
+// grows unbounded (sand_castle hit 1.03M rows / 732MB across 13 clangd runs) AND
+// getCodeIntelEvidenceForSymbol/getCodeIntelDiagnosticsForFiles query ACROSS all
+// collections, so stale evidence/diagnostics from superseded runs resurface.
+//
+// "Superseded" = a prior collection from the SAME provider (clangd/tsserver/
+// pyright) — the backend just re-collected, so its older runs are stale. Other
+// providers' collections are untouched (a cpp collect must not wipe a python
+// collection). Only a COMPLETE collect prunes; a partial re-collected a slice
+// and must not drop the rest. Mirrors the edge-invalidation policy in
+// synthesizeLspEdges (complete-only, backend-scoped). Returns prune stats.
+function pruneSupersededCollections(db, { provider, currentCollectionId }) {
+  const out = { collectionsPruned: 0, recordsPruned: 0 };
+  const superseded = db.all(
+    `SELECT collection_id FROM code_intel_collections
+      WHERE provider IS $provider AND collection_id != $current`,
+    { provider: provider ?? null, current: currentCollectionId },
+  );
+  for (const row of superseded) {
+    const cid = row.collection_id;
+    const c = db.get(`SELECT COUNT(*) AS c FROM code_intel_records WHERE collection_id = $cid`, { cid }).c;
+    db.run(`DELETE FROM code_intel_records WHERE collection_id = $cid`, { cid });
+    db.run(`DELETE FROM code_intel_collections WHERE collection_id = $cid`, { cid });
+    out.recordsPruned += c;
+    out.collectionsPruned += 1;
+  }
+  return out;
+}
+
+// One-shot maintenance: keep only the most recent collection per provider and
+// prune every older one's records. Use to reclaim space on a graph that bloated
+// BEFORE the per-collect auto-prune landed (sand_castle: 1.03M rows / 13 clangd
+// collections). Caller is responsible for VACUUM afterward to shrink the file
+// (DELETE alone frees pages for reuse but doesn't shrink on disk). Returns
+// { collectionsPruned, recordsPruned, kept[] }.
+export function compactCodeIntelRecords(db) {
+  ensureCodeIntelCollectionsTable(db);
+  ensureCodeIntelRecordsTable(db);
+  const collections = db.all(
+    `SELECT collection_id, provider, collected_at FROM code_intel_collections`,
+  );
+  // Most recent per provider wins (mirrors getLatestCollection's ORDER BY
+  // collected_at DESC), so compaction agrees with how the system picks current.
+  const latestByProvider = new Map();
+  for (const c of collections) {
+    const key = c.provider ?? '';
+    const cur = latestByProvider.get(key);
+    if (!cur || String(c.collected_at ?? '') > String(cur.collected_at ?? '')) {
+      latestByProvider.set(key, c);
+    }
+  }
+  const keep = new Set([...latestByProvider.values()].map((c) => c.collection_id));
+  let collectionsPruned = 0;
+  let recordsPruned = 0;
+  for (const c of collections) {
+    if (keep.has(c.collection_id)) continue;
+    const n = db.get(`SELECT COUNT(*) AS c FROM code_intel_records WHERE collection_id = $cid`, { cid: c.collection_id }).c;
+    db.run(`DELETE FROM code_intel_records WHERE collection_id = $cid`, { cid: c.collection_id });
+    db.run(`DELETE FROM code_intel_collections WHERE collection_id = $cid`, { cid: c.collection_id });
+    recordsPruned += n;
+    collectionsPruned += 1;
+  }
+  return { collectionsPruned, recordsPruned, kept: [...keep] };
+}
+
+function makeRecordInserter(db, collectionId) {
   ensureCodeIntelRecordsTable(db);
   const sql = `
     INSERT INTO code_intel_records
@@ -649,7 +716,11 @@ function makeRecordInserter(db) {
   return (record) => {
     const range = record.range || {};
     db.run(sql, {
-      collection_id: record.collectionId,
+      // Stamp the ENVELOPE's collectionId (authoritative) so the side-table
+      // always matches the code_intel_collections row — otherwise prune/replay,
+      // which key on collection_id, can silently miss records if a record's own
+      // collectionId ever diverges from the envelope's.
+      collection_id: collectionId ?? record.collectionId,
       kind: record.kind,
       language: record.language,
       symbol_id: record.symbolId ?? null,
@@ -678,7 +749,7 @@ function importV02Collection(envelope, db) {
   };
   ensureCodeIntelCollectionsTable(db);
   ensureCodeIntelRecordsTable(db);
-  const insertRecord = makeRecordInserter(db);
+  const insertRecord = makeRecordInserter(db, envelope.collectionId);
   const firstRecord = envelope.records?.[0];
 
   const run = db.transaction(() => {
@@ -734,6 +805,18 @@ function importV02Collection(envelope, db) {
     for (const record of (envelope.records || [])) {
       insertRecord(record);
       stats.recordsImported += 1;
+    }
+
+    // Prune superseded same-provider collections' side-table records on a
+    // COMPLETE collect (keeps the table from growing unbounded across runs and
+    // stops stale evidence from resurfacing). Partial collects don't prune.
+    if (envelope.status === 'ok') {
+      const pruned = pruneSupersededCollections(db, {
+        provider: envelope.provider,
+        currentCollectionId: envelope.collectionId,
+      });
+      stats.collectionsPruned = pruned.collectionsPruned;
+      stats.recordsPruned = pruned.recordsPruned;
     }
 
     // L2a: synthesize real graph edges (provenance LSP_VERIFIED) from the
