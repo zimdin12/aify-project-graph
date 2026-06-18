@@ -374,12 +374,12 @@
       }
       const n = codeDetail?.node || node;
       const semanticBlock = renderSemanticDetailBlock(n.file_path);
-      const inc = codeDetail ? `<div class="section-title">Incoming (${codeDetail.incoming.length})</div><div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} ← ${e.from_label} <span style="color:var(--faint)">[${e.from_type}]</span></div>`)}</div>
-          <div class="section-title">Outgoing (${codeDetail.outgoing.length})</div><div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${e.relation} → ${e.to_label} <span style="color:var(--faint)">[${e.to_type}]</span></div>`)}</div>` : '';
+      const inc = codeDetail ? `<div class="section-title">Incoming (${codeDetail.incoming.length})</div><div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${tourEsc(e.relation)} ← ${tourEsc(e.from_label)} <span style="color:var(--faint)">[${tourEsc(e.from_type)}]</span></div>`)}</div>
+          <div class="section-title">Outgoing (${codeDetail.outgoing.length})</div><div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${tourEsc(e.relation)} → ${tourEsc(e.to_label)} <span style="color:var(--faint)">[${tourEsc(e.to_type)}]</span></div>`)}</div>` : '';
       const srcBtn = (n.file_path && n.start_line)
         ? `<button class="mini-button" id="src-load" data-path="${encodeURIComponent(n.file_path)}" data-from="${n.start_line}" data-to="${n.end_line || n.start_line}" style="margin-top:6px">📄 show source</button><div id="src-view"></div>`
         : '';
-      detail.innerHTML = `<h3>${n.label}</h3><div class="detail-card"><div class="field"><span class="field-label">Kind:</span> ${n.type || n.kind}</div><div class="field"><span class="field-label">Path:</span> ${renderLocation(n.file_path, n.start_line)}</div><div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>${trustMeter}</div>${semanticBlock}${inc}${srcBtn}`;
+      detail.innerHTML = `<h3>${tourEsc(n.label)}</h3><div class="detail-card"><div class="field"><span class="field-label">Kind:</span> ${tourEsc(n.type || n.kind)}</div><div class="field"><span class="field-label">Path:</span> ${renderLocation(n.file_path, n.start_line)}</div><div class="field"><span class="field-label">Language:</span> ${tourEsc(n.language || '—')}</div>${trustMeter}</div>${semanticBlock}${inc}${srcBtn}`;
       const sb = detail.querySelector('#src-load');
       if (sb) sb.addEventListener('click', () => loadSource(sb));
     }

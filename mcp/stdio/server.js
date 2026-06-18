@@ -1184,3 +1184,15 @@ process.stdin.on('error', () => { gracefulExit(0); });
 process.stdout.on('error', () => { gracefulExit(0); });
 process.on('SIGINT', () => { gracefulExit(0); });
 process.on('SIGTERM', () => { gracefulExit(0); });
+// Borrow (codegraph #855): a truly-unexpected error must EXIT cleanly (after
+// tearing down LSP children), not orphan/spin the process at 100% CPU. Verb
+// handlers already catch their own errors and return isError; these are the
+// last-resort net for everything else. Note them on stderr first.
+process.on('uncaughtException', (err) => {
+  try { process.stderr.write(`[aify-project-graph] uncaughtException: ${err?.stack ?? err}\n`); } catch { /* ignore */ }
+  gracefulExit(1);
+});
+process.on('unhandledRejection', (reason) => {
+  try { process.stderr.write(`[aify-project-graph] unhandledRejection: ${reason?.stack ?? reason}\n`); } catch { /* ignore */ }
+  gracefulExit(1);
+});
