@@ -95,6 +95,13 @@ describe('analytics: computeOverview', () => {
     expect(text).toContain('GAPS');
   });
 
+  it('computeDigest includes a SUGGESTED QUESTIONS block synthesized from the facts', () => {
+    const text = computeDigest(db, { budget: 8000 });
+    expect(text).toContain('QUESTIONS');
+    // pairs structure with our trust angle (heuristic call edges → verify)
+    expect(text).toMatch(/god object|heuristic|dead code|couple|cycle/i);
+  });
+
   it('falls back to top-level dir when no community_id', () => {
     const overview = computeOverview(db, { topSymbols: 5 });
     // all nodes have community ids here, so no dir-clusters expected

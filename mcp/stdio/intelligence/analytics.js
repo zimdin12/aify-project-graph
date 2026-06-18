@@ -612,15 +612,29 @@ export function computeDigest(db, { budget = 6000, architecture = null } = {}) {
     const top = c.edges_to[0];
     if (top) bridges.push({ from: c.label, to: top.cluster, count: top.count, fromKey: c.cluster });
   }
+  const labelByKey = new Map(overview.map((c) => [c.cluster, c.label]));
   if (bridges.length) {
     bridges.sort((a, b) => b.count - a.count);
-    const labelByKey = new Map(overview.map((c) => [c.cluster, c.label]));
     const bl = ['COMMUNITY BRIDGES (heaviest inter-cluster edges)'];
     for (const b of bridges.slice(0, 5)) {
       bl.push(`- ${b.from} → ${labelByKey.get(b.to) || b.to} (${b.count} edges)`);
     }
     blocks.push(bl);
   }
+
+  // SUGGESTED QUESTIONS (borrow: graphify report.py) — turn the facts above into
+  // a short investigation agenda. Pairs structure (hubs / bridges / cycles / gaps)
+  // with OUR trust data (LSP-verified vs heuristic) — a framing graphify can't do.
+  const questions = [];
+  if (hotspots[0]) questions.push(`Is ${hotspots[0].label} (deg ${hotspots[0].degree}) doing too much — a god object to split?`);
+  if (prov.total_call_edges && prov.lsp_verified_pct < 100) {
+    const heur = prov.total_call_edges - (prov.by_provenance?.LSP_VERIFIED || 0);
+    if (heur > 0) questions.push(`${heur} of ${prov.total_call_edges} call edges are heuristic (${prov.lsp_verified_pct}% LSP-verified) — run graph_collect_code_intel + verify before any "no callers" claim.`);
+  }
+  if (cycles.length) questions.push(`Break the import cycle ${cycles[0].slice(0, 3).join(' → ')}${cycles[0].length > 3 ? ' → …' : ''}?`);
+  if (bridges[0]) questions.push(`Why does ${bridges[0].from} couple to ${labelByKey.get(bridges[0].to) || bridges[0].to} (${bridges[0].count} edges) — intended, or a leak?`);
+  if (isolated[0]) questions.push(`Is ${isolated[0].label} (deg ${isolated[0].degree}) dead code or a missing edge?`);
+  if (questions.length) blocks.push(['QUESTIONS (worth investigating)', ...questions.map((q) => `- ${q}`)]);
 
   // Assemble under the hard char budget; drop trailing blocks first, then note.
   let text = blocks.map((b) => b.join('\n')).join('\n\n');
