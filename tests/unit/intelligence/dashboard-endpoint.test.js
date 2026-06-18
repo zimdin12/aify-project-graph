@@ -254,6 +254,28 @@ describe('P2b dashboard analytics endpoints', () => {
     });
   });
 
+  it('/api/source serves an indexed file range but REFUSES un-indexed paths', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-src-'));
+    fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
+    fs.mkdirSync(path.join(dir, '.aify-graph'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'src', 'a.js'), 'line1\nline2\nline3\nline4\n');
+    fs.writeFileSync(path.join(dir, 'secret.txt'), 'TOP SECRET\n');
+    const sdb = openDb(path.join(dir, '.aify-graph', 'graph.sqlite'));
+    addNode(sdb, 'n1', { type: 'File', label: 'a.js', file_path: 'src/a.js' });
+    try {
+      await withDashboard(dir, sdb, async (base) => {
+        const ok = await fetchJson(`${base}/api/source?path=src/a.js&from=2&to=3`);
+        expect(ok.status).toBe(200);
+        expect(ok.body.lines).toEqual(['line2', 'line3']);
+        expect(ok.body.from).toBe(2);
+        // A real file that is NOT a graph node must be refused (graph = allowlist).
+        const denied = await fetchJson(`${base}/api/source?path=secret.txt&from=1&to=1`);
+        expect(denied.body.error).toBe('not_indexed');
+        expect(denied.body.lines).toBeUndefined();
+      });
+    } finally { sdb.close(); }
+  });
+
   it('/api/tour returns ordered structured steps with title/why/refs (Guided Tour)', async () => {
     ({ dir: repo, db } = tmpRepoWithSeededGraph());
     await withDashboard(repo, db, async (base) => {
@@ -288,6 +310,7 @@ describe('P2b frontend wiring (structural)', () => {
     expect(html).toContain('/api/search?');
     expect(html).toContain('/api/node/');
     expect(html).toContain('/api/tour');
+    expect(html).toContain('/api/source?');
   });
 
   it('wires the core interactive features', () => {

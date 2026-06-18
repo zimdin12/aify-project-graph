@@ -72,6 +72,11 @@
     .tour-nav { display:flex; gap:6px; margin-top:8px; }
     .tour-nav button { flex:1; padding:4px; border:1px solid var(--border); background:var(--bg); color:var(--text); border-radius:6px; cursor:pointer; font-size:12px; }
     .tour-nav button:disabled { opacity:.4; cursor:default; }
+    /* Inline source viewer */
+    .src-box { margin-top:8px; border:1px solid var(--border); border-radius:6px; overflow:auto; max-height:340px; background:#0d1117; font-size:11px; }
+    .src-row { display:flex; gap:8px; white-space:pre; font-family:ui-monospace,Menlo,Consolas,monospace; }
+    .src-ln { color:var(--faint,#666); text-align:right; min-width:34px; user-select:none; padding:0 4px; }
+    .src-row code { color:var(--text); }
     .toggle-pill.active { border-color: var(--accent); background: var(--accent-bg); color: #cfe5ff; }
     .toggle-pill:hover { border-color: var(--accent); }
     .view-pill { display:flex; align-items:center; gap:5px; padding: 6px 11px; font-size:12px; }
@@ -371,7 +376,27 @@
       const semanticBlock = renderSemanticDetailBlock(n.file_path);
       const inc = codeDetail ? `<div class="section-title">Incoming (${codeDetail.incoming.length})</div><div class="list">${renderList(codeDetail.incoming, e => `<div class="edge-item" onclick="focusNode('code:${e.from_id}')">${e.relation} ← ${e.from_label} <span style="color:var(--faint)">[${e.from_type}]</span></div>`)}</div>
           <div class="section-title">Outgoing (${codeDetail.outgoing.length})</div><div class="list">${renderList(codeDetail.outgoing, e => `<div class="edge-item" onclick="focusNode('code:${e.to_id}')">${e.relation} → ${e.to_label} <span style="color:var(--faint)">[${e.to_type}]</span></div>`)}</div>` : '';
-      detail.innerHTML = `<h3>${n.label}</h3><div class="detail-card"><div class="field"><span class="field-label">Kind:</span> ${n.type || n.kind}</div><div class="field"><span class="field-label">Path:</span> ${renderLocation(n.file_path, n.start_line)}</div><div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>${trustMeter}</div>${semanticBlock}${inc}`;
+      const srcBtn = (n.file_path && n.start_line)
+        ? `<button class="mini-button" id="src-load" data-path="${encodeURIComponent(n.file_path)}" data-from="${n.start_line}" data-to="${n.end_line || n.start_line}" style="margin-top:6px">📄 show source</button><div id="src-view"></div>`
+        : '';
+      detail.innerHTML = `<h3>${n.label}</h3><div class="detail-card"><div class="field"><span class="field-label">Kind:</span> ${n.type || n.kind}</div><div class="field"><span class="field-label">Path:</span> ${renderLocation(n.file_path, n.start_line)}</div><div class="field"><span class="field-label">Language:</span> ${n.language || '—'}</div>${trustMeter}</div>${semanticBlock}${inc}${srcBtn}`;
+      const sb = detail.querySelector('#src-load');
+      if (sb) sb.addEventListener('click', () => loadSource(sb));
+    }
+    // Inline source viewer (borrow: understand-anything CodeViewer) — fetches the
+    // node's line range from /api/source (graph-gated) and shows it inline.
+    async function loadSource(btn) {
+      const view = document.getElementById('src-view');
+      if (!view) return;
+      view.innerHTML = '<div class="subtle">loading source…</div>';
+      const p = decodeURIComponent(btn.dataset.path);
+      const from = +btn.dataset.from, to = +btn.dataset.to;
+      const data = await fetch(`/api/source?path=${encodeURIComponent(p)}&from=${from}&to=${to}`).then(r => r.json()).catch(() => null);
+      if (!data || data.error || !Array.isArray(data.lines)) {
+        view.innerHTML = `<div class="subtle">source unavailable${data && data.error ? ` (${data.error})` : ''}</div>`;
+        return;
+      }
+      view.innerHTML = `<div class="src-box">${data.lines.map((ln, i) => `<div class="src-row"><span class="src-ln">${data.from + i}</span><code>${tourEsc(ln)}</code></div>`).join('')}</div>`;
     }
     async function renderIdleOverview(stats) {
       const detail = $('node-detail');

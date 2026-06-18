@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
-import { join, extname, resolve } from 'node:path';
+import { join, extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
 import { searchNodesFts } from '../storage/nodes.js';
@@ -670,6 +670,28 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       `, { id });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
       res.end(JSON.stringify({ node, incoming, outgoing }));
+      return;
+    }
+
+    // Inline source viewer (borrow: understand-anything CodeViewer). SECURITY:
+    // only serve a file that appears as a graph node's file_path — the graph IS
+    // the allowlist, so this can't read arbitrary files. Returns the requested
+    // line range (capped), highlighted client-side.
+    if (req.url?.startsWith('/api/source')) {
+      const url = new URL(req.url, 'http://localhost');
+      const rel = (url.searchParams.get('path') || '').replace(/\\/g, '/');
+      const from = Math.max(1, parseInt(url.searchParams.get('from') || '1', 10) || 1);
+      const toReq = Math.max(from, parseInt(url.searchParams.get('to') || String(from), 10) || from);
+      const to = Math.min(toReq, from + 600); // hard cap on lines served
+      const known = rel && db.get('SELECT 1 AS ok FROM nodes WHERE file_path = $p LIMIT 1', { p: rel });
+      if (!known) { writeJson({ error: 'not_indexed', path: rel }); return; }
+      const root = resolve(repoRoot);
+      const abs = resolve(repoRoot, rel);
+      if (abs !== root && !abs.startsWith(root + sep)) { writeJson({ error: 'out_of_tree' }); return; }
+      let allLines = [];
+      try { allLines = readFileSync(abs, 'utf8').split('\n'); } catch { writeJson({ error: 'read_failed', path: rel }); return; }
+      const slice = allLines.slice(from - 1, Math.min(allLines.length, to));
+      writeJson({ path: rel, from, to: from - 1 + slice.length, lines: slice });
       return;
     }
 
