@@ -15,7 +15,8 @@ _Next-session work lands here until we tag a release._
 - **Heavy-view guard (2D + 3D):** per-node views cap node count with a "showing top N of M" note so a heavy pick can't freeze the controls.
 - **Mode-aware controls:** Blast radius + Pathfinder (cytoscape-only) and the zoom buttons are hidden in 3D where they were no-ops.
 - **`graph_dashboard` in the default tool surface:** "open the dashboard" is now one verb call instead of a hand-rolled launcher.
-- **Borrows:** navigation-history "← back" breadcrumb (understand-anything) in the node detail; a GAPS block in `graph_digest` (graphify isolated-nodes — degree-≤1 symbols as likely missing-edge/dead-code candidates), the under-connected complement to HOTSPOTS.
+- **Borrows:** navigation-history "← back" breadcrumb + hover tooltip with in/out/total degree (understand-anything); GAPS (isolated-nodes) and SUGGESTED QUESTIONS blocks in `graph_digest` (graphify) — the QUESTIONS block pairs structure (hubs/bridges/cycles/gaps) with our trust data (heuristic vs LSP-verified edges).
+- **2D Force-view crash fixed:** fcose runs synchronously; on a big raw node set the iteration count blocked the main thread long enough that the browser killed the tab. fcose quality + iterations now scale down as the set grows (draft/350 on big sets).
 - **Docs:** archived stale Apr-era Horizon planning docs + banners on the superseded v2 status/backlog; documented that LSP-verified edges don't survive a re-index (re-run `graph_collect_code_intel`); install/launch-scope design notes.
 
 ### 2026-06-12 — reference-borrow round 2 (verbs + dashboard)

@@ -65,11 +65,13 @@ MCP server — `mcp/stdio/server.js`.
 From **agent-understand-anything** (MIT):
 - NodeNext `.js→.ts` import-specifier rewrite (a6c653e) — `ingest/import-resolution.js`.
 - Dashboard guided tour (LearnPanel), inline source viewer (CodeViewer — incl. the
-  graph-as-allowlist security gate), PNG export (ExportMenu), and the node
-  navigation-history back-stack — `mcp/stdio/dashboard/`.
+  graph-as-allowlist security gate), PNG export (ExportMenu), the node
+  navigation-history back-stack, and the hover degree tooltip (NodeTooltip) —
+  `mcp/stdio/dashboard/`.
 
-From **graphify** (MIT): isolated-nodes / knowledge-gaps report (report.py) →
-`computeIsolated` + the GAPS block in `graph_digest` (`intelligence/analytics.js`).
+From **graphify** (MIT): isolated-nodes / knowledge-gaps + suggested-questions
+report (report.py) → `computeIsolated`, the GAPS block, and the SUGGESTED
+QUESTIONS block in `graph_digest` (`intelligence/analytics.js`).
 
 From **agent-code-intel** (UNLICENSED — PATTERN-ONLY, re-derived from the described
 idea, no code read into ours): comment/string masking before regex scans (used in
