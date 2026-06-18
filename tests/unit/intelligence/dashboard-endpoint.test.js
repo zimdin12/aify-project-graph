@@ -322,6 +322,9 @@ describe('P2b frontend wiring (structural)', () => {
     expect(html).toContain('renderIdleOverview');    // idle project overview panel
     expect(html).toContain('runBlastRadius');        // blast radius
     expect(html).toContain('runPathfinder');         // pathfinder
+    // Mode-aware controls: blast/pathfinder (cytoscape-only) are gated out in 3D.
+    expect(html).toContain('twoDOnlyTools');
+    expect(html).toMatch(/is3DMode\s*\?\s*''\s*:/);
   });
 
   it('exposes map + shader view modes and ShaderBinding styling', () => {

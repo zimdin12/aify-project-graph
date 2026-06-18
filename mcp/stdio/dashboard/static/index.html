@@ -475,15 +475,20 @@
         types.map(t => `<button class="toggle-pill active" data-type="${t}" type="button">${t} (${graphData.nodes.filter(n => (n.kind || n.type) === t).length})</button>`).join('') + `</div></div></details>`;
 
       // analysis tools
-      html += `<details class="fold"><summary>Analysis tools</summary><div class="fold-body">
-        <div class="section-title" style="margin-top:2px">Focus</div>
-        <div class="btn-row"><button class="mini-button" id="focus-neighborhood" type="button">Neighborhood</button><button class="mini-button" id="clear-focus" type="button">Clear</button></div>
+      // Blast radius + Pathfinder paint only into the 2D cytoscape canvas
+      // (paintBlast/paintPath early-return without `cy`), so hide them in 3D —
+      // their controls would do nothing there. Focus/Neighborhood work in both.
+      const twoDOnlyTools = is3DMode ? '' : `
         <div class="section-title">Blast radius</div>
         <div class="pill-row"><button class="toggle-pill ${blastMode ? 'active' : ''}" id="blast-toggle" type="button">blast mode${blastMode ? ' ✓' : ''}</button><button class="mini-button" id="blast-clear" type="button">clear</button></div>
         <div class="subtle">Toggle on, click a node — changed=red, affected=amber.</div>
         <div class="section-title">Pathfinder</div>
         <div class="pill-row" style="gap:4px"><input id="path-from" class="mini-input" placeholder="from" style="flex:1;min-width:80px"><input id="path-to" class="mini-input" placeholder="to" style="flex:1;min-width:80px"><button class="mini-button" id="path-go" type="button">find</button></div>
-        <div class="subtle" id="path-status"></div></div></details>`;
+        <div class="subtle" id="path-status"></div>`;
+      html += `<details class="fold"><summary>Analysis tools</summary><div class="fold-body">
+        <div class="section-title" style="margin-top:2px">Focus</div>
+        <div class="btn-row"><button class="mini-button" id="focus-neighborhood" type="button">Neighborhood</button><button class="mini-button" id="clear-focus" type="button">Clear</button></div>
+        ${twoDOnlyTools}</div></details>`;
 
       el.innerHTML = html;
 
@@ -503,9 +508,10 @@
       el.querySelectorAll('[data-type]').forEach(b => b.addEventListener('click', () => { toggleSet(activeTypes, b.dataset.type); b.classList.toggle('active', activeTypes.has(b.dataset.type)); renderGraph(false); }));
       $('focus-neighborhood').addEventListener('click', () => { if (currentFocusNodeId) applyNeighborhoodMode(currentFocusNodeId); });
       $('clear-focus').addEventListener('click', () => { clearNeighborhoodMode(); renderIdleOverview(window.__lastStats); });
-      $('blast-toggle').addEventListener('click', (e) => { blastMode = !blastMode; e.target.classList.toggle('active', blastMode); e.target.textContent = `blast mode${blastMode ? ' ✓' : ''}`; });
-      $('blast-clear').addEventListener('click', clearBlast);
-      $('path-go').addEventListener('click', () => runPathfinder($('path-from').value.trim(), $('path-to').value.trim()));
+      // Blast/Pathfinder controls exist only in 2D (cytoscape) — guard the wiring.
+      $('blast-toggle')?.addEventListener('click', (e) => { blastMode = !blastMode; e.target.classList.toggle('active', blastMode); e.target.textContent = `blast mode${blastMode ? ' ✓' : ''}`; });
+      $('blast-clear')?.addEventListener('click', clearBlast);
+      $('path-go')?.addEventListener('click', () => runPathfinder($('path-from').value.trim(), $('path-to').value.trim()));
       syncGroupCtlVisibility();
     }
     function syncGroupCtlVisibility() {
@@ -919,6 +925,9 @@
       });
       $('t-zin').addEventListener('click', () => { if (cy) cy.zoom({ level: cy.zoom() * 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }); });
       $('t-zout').addEventListener('click', () => { if (cy) cy.zoom({ level: cy.zoom() / 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }); });
+      // The discrete +/- zoom buttons only drive the 2D cytoscape canvas; 3D uses
+      // scroll-zoom + Fit, so hide them in 3D (mode-appropriate controls).
+      if (is3DMode) { $('t-zin').style.display = 'none'; $('t-zout').style.display = 'none'; }
       $('t-collapse').title = 'Back to Map overview';
       $('t-collapse').textContent = '⊖';
       $('t-collapse').addEventListener('click', () => { drilledGroup = null; setView('map'); });
