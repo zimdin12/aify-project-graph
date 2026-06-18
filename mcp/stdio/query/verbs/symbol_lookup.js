@@ -114,11 +114,15 @@ function candidateSortKey(a, b) {
 }
 
 export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
-  if (!symbol || QUALIFIER_RE.test(symbol)) return null;
+  if (!symbol) return null;
 
   const concrete = preferConcrete(rows);
   if (concrete.length <= 1) return null;
 
+  // Group by canonical definition identity (qname / parent-class+label / file).
+  // Overloads and the C++ decl/def split share a canonical key → one group →
+  // not ambiguous. Genuinely distinct definitions (e.g. `Foo::bar` living in two
+  // namespaces) form separate groups.
   const groups = new Map();
   for (const row of concrete) {
     const key = canonicalSymbolKey(row);
@@ -132,15 +136,29 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
 
   if (groups.size <= 1) return null;
 
+  // C6 fix: do NOT blanket-skip qualified symbols. The old guard returned early
+  // whenever the input contained `::`/`.`, assuming the qualifier disambiguated
+  // — but a class-qualified name can STILL resolve to multiple distinct
+  // definitions (same class name in two namespaces, suffix-matched qnames).
+  // Skipping the guard there let graph_impact/graph_callers silently UNION every
+  // matching definition's blast radius (overstated impact, dishonest trust
+  // banner). We now flag whenever >1 distinct definition survives, regardless of
+  // qualification, and tailor the retry hint: if the caller already qualified,
+  // tell them class-qualification was not enough — narrow harder.
+  const qualified = QUALIFIER_RE.test(symbol);
   const candidates = [...groups.values()]
     .sort(candidateSortKey)
     .slice(0, limit)
     .map((row) => `- ${displaySymbolCandidate(row)} ${row.file_path}:${row.start_line ?? 0}`);
 
+  const retryHint = qualified
+    ? 'These are DISTINCT definitions (same name, different namespace/file) — class qualification did not disambiguate. Add more namespace qualification (Namespace::Class::method) or query one file to avoid overstating impact.'
+    : 'Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.';
+
   return [
     `AMBIGUOUS MATCH for "${symbol}". ${groups.size} concrete candidates found:`,
     ...candidates,
-    'Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.',
+    retryHint,
   ].join('\n');
 }
 

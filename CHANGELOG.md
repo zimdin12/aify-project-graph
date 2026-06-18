@@ -9,6 +9,9 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-18 — fix: overstated blast radius on qualified ambiguous symbols (C6)
+
+- **`graph_impact` (and `graph_callers`/`graph_neighbors`/`graph_path`/`graph_consequences`/`graph_callees`/`graph_change_plan`) no longer silently union the blast radii of distinct same-named definitions.** Root cause: `buildAmbiguousMatchMessage` blanket-skipped any symbol containing `::`/`.`, assuming the qualifier disambiguated — but a class-qualified name can still resolve to multiple definitions (the same class name in two namespaces; qname-suffix matches), and the skip let those verbs treat ALL of them as the target and union their callers. The result overstated impact **and** fed an inflated set to the trust banner — directly contradicting the trust contract. Now the guard groups by canonical definition identity (overloads + the C++ decl/def split share a key → not flagged) and surfaces `AMBIGUOUS MATCH` whenever >1 distinct definition survives, qualified or not, with a qualifier-aware hint (narrow by namespace/file). A more-qualified retry (`alpha::ChunkManager::setVoxel`) still resolves cleanly. Regression tests cover the union-prevention, the sibling verbs, and the recovery path. Suite 1211 green.
 ### 2026-06-18 — file-tree explorer + git-diff overlay (dashboard borrows)
 
 - **File-tree explorer panel** (understand-anything FileExplorer): a 📁 Files button opens a collapsible folder→file tree built client-side from the `file_path`s already on graph nodes (no new endpoint — the graph is the allowlist). Top level expanded, deeper folders collapse on click; clicking a file focuses its node, reusing `focusNode()` + the inline source viewer. Browser-verified on this repo (189 dirs / 778 files, toggle + click-to-focus, no console errors). Tour and Files panels are mutually exclusive.
