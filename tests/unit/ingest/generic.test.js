@@ -209,6 +209,14 @@ describe('generic extractor', () => {
     expect(findNode(jsResult.nodes, 'Function', 'n')).toBeFalsy();
   });
 
+  it('does NOT extract a C++ forward declaration as a Class node (audit: owner ambiguity)', () => {
+    const fwd = extractFile({ filePath: 'engine/Engine.h', source: 'class DayNightCycle;\n', config: cpp });
+    expect(findNode(fwd.nodes, 'Class', 'DayNightCycle')).toBeFalsy();
+    // ...but a real definition with a body still produces a Class node.
+    const def = extractFile({ filePath: 'engine/DayNightCycle.h', source: 'class DayNightCycle {\npublic:\n  void update();\n};\n', config: cpp });
+    expect(findNode(def.nodes, 'Class', 'DayNightCycle')).toBeTruthy();
+  });
+
   it('marks a file default export with extra.isDefaultExport (audit W3)', () => {
     const tsSource = 'export default class Service {}\n';
     const result = extractFile({ filePath: 'src/service.ts', source: tsSource, config: typescript });

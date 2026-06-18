@@ -282,6 +282,22 @@ function extractCppMethodDeclSymbol({ node, source }) {
   return { name, type: 'Method' };
 }
 
+// Extract a Class/struct symbol ONLY from a real definition (has a body).
+// Audit 2026-06-12 (echoes measurement): a forward declaration `class Foo;` is a
+// class_specifier with a name but no body. Extracting it as a full Class node
+// spawned duplicate same-named classes across headers, which made out-of-line
+// method owner resolution ambiguous — 1072 unresolved `CONTAINS "undefined"`
+// edges (the single largest non-denylisted bucket). Skip body-less specifiers;
+// if the real definition isn't in the repo, the name is honestly external.
+function extractCppClassSymbol({ node, source }) {
+  const body = node.childForFieldName('body')
+    ?? node.namedChildren.find((c) => c.type === 'field_declaration_list');
+  if (!body) return null;
+  const nameNode = node.childForFieldName('name');
+  const name = nameNode ? nodeText(nameNode, source).trim() : '';
+  return name ? { name } : null;
+}
+
 function extractCppFunctionSymbol({ node, source }) {
   const declarator = node.childForFieldName('declarator');
   const namedDeclarator = findCppNamedDeclarator(declarator);
@@ -333,7 +349,7 @@ export default {
     call: 0.6,
   },
   symbols: [
-    { type: 'Class', nodeTypes: ['class_specifier', 'struct_specifier'], field: 'name', confidence: 0.7 },
+    { type: 'Class', nodeTypes: ['class_specifier', 'struct_specifier'], extractSymbolInfo: extractCppClassSymbol, confidence: 0.7 },
     {
       type: 'Function',
       nodeTypes: ['function_definition'],

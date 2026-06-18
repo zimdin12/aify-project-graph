@@ -103,6 +103,9 @@ function filterByLanguageFamily(matches, ref) {
 const SYMBOLIC_CHAIN_RELATIONS = new Set(['PASSES_THROUGH', 'INVOKES']);
 const INHERITED_MEMBER_RELATIONS = new Set(['CALLS', 'INVOKES', 'PASSES_THROUGH']);
 const CLASSLIKE_TYPES = new Set(['Class', 'Interface', 'Type']);
+// Node types that can OWN an out-of-line member (for reverse-CONTAINS resolution).
+// A namespace (Module) can too; a Method/Function never can.
+const OWNER_TYPES = new Set(['Class', 'Interface', 'Type', 'Module']);
 
 function preferProximate(matches, sourceFile) {
   if (!matches || matches.length === 0) return null;
@@ -612,6 +615,17 @@ export function resolveRefs({ db, refs, importContext = null }) {
 
   function resolveOwner(ref) {
     if (!ref.from_target) return null;
+    // An out-of-line member's owner is a TYPE or namespace, never a Method/Function.
+    // Audit 2026-06-12 (echoes): a class with a same-named constructor (Method
+    // `Engine` alongside class `Engine`) made findByLabel ambiguous, so hundreds
+    // of out-of-line method CONTAINS owners failed to resolve (the bulk of the
+    // `CONTAINS "undefined"` bucket). Prefer an owner-capable node first.
+    const ownerCandidates = filterByLanguageFamily(resolvers.findByLabel(ref.from_target), ref)
+      .filter((n) => OWNER_TYPES.has(n.type));
+    if (ownerCandidates.length) {
+      const pick = preferProximate(ownerCandidates, ref.source_file) ?? ownerCandidates[0];
+      if (pick) return { node: pick, provenance: 'EXTRACTED' };
+    }
     return resolveTarget({
       target: ref.from_target,
       source_file: ref.source_file,
