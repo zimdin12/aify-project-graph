@@ -561,7 +561,11 @@
       // freezes the main thread so the controls stop responding. Cap to the
       // highest-degree nodes so a heavy pick can't lock the UI. The grouped Map
       // overview (boxes) is light and exempt.
-      const perNode = !!drilledGroup || ['force', 'shader', 'tree', 'flow'].includes(currentViewMode);
+      // 3D always renders individual node meshes (no lightweight group-box view
+      // like the 2D Map), so EVERY 3D view is per-node and must be capped — that
+      // was the main 3D-lag source (the default 3D 'map' rendered every node). In
+      // 2D only the raw/drilled views are per-node; the grouped Map is exempt.
+      const perNode = is3DMode || !!drilledGroup || ['force', 'shader', 'tree', 'flow'].includes(currentViewMode);
       const total = nodes.length;
       let capped = 0;
       if (perNode && total > RENDER_NODE_CAP) {
@@ -797,12 +801,19 @@
         .nodeLabel(n => `${n.label}\n${n.__group}`)
         .nodeColor(n => n.__color)
         .nodeRelSize(4)
+        // Perf: lower sphere segment count (8→5) — far fewer triangles per node,
+        // visually ~identical at this scale; big win on thousands of nodes (3D lag).
+        .nodeResolution(5)
         .nodeVal(n => n.layer === 'feature' ? 9 : n.layer === 'task' ? 6 : n.layer === 'doc' ? 5 : 2.6)
         .linkColor(l => edgeColor(l))
         .linkWidth(l => (l.edge_class || 'code') === 'cross-layer' ? 1.3 : 0.6)
         .linkOpacity(0.18)
+        .linkResolution(3)
         .linkCurvature(0).linkDirectionalParticles(0)
-        .cooldownTicks(currentViewMode === 'layers' ? 0 : 120)
+        // Perf: stop the physics sim sooner on big graphs (each tick is O(n) +
+        // the clustering force) — fewer ticks = the layout settles faster and the
+        // main thread frees up. Layers view doesn't simulate.
+        .cooldownTicks(currentViewMode === 'layers' ? 0 : (nodes.length > 1500 ? 60 : 120))
         .enableNodeDrag(nodes.length < 2500)
         .onNodeClick(n => { currentFocusNodeId = n.id; showNodeDetail(n.id); applyNeighborhoodMode(n.id); fg3d.cameraPosition({ x: n.x, y: n.y, z: (n.z || 0) + 200 }, n, 700); });
 
