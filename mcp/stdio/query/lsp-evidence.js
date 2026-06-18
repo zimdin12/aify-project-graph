@@ -158,10 +158,24 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
       + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}]`;
   }
 
+  // Audit 2026-06-12 B4: the "index-ready, N callers" wording is the one banner
+  // that licenses "safe to delete / dead code" (server-instructions). It must NOT
+  // fire when the result MIXES verified + heuristic edges — a heuristic caller in
+  // the set means clangd did not verify the whole caller set for this symbol, so
+  // it's a FLOOR, not an exhaustive ceiling. Only an all-LSP_VERIFIED result over
+  // an index-ready collection earns the exhaustive attestation.
+  const totalEdges = Array.isArray(edges) ? edges.length : 0;
+  const allVerified = totalEdges > 0 && verifiedCount === totalEdges;
   let line;
-  if (collection && collection.indexReady === true) {
+  if (collection && collection.indexReady === true && allVerified) {
     line = `TRUST: lsp-verified (clangd, index-ready, ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}, collected ${when})`;
+  } else if (collection && collection.indexReady === true) {
+    const heur = totalEdges - verifiedCount;
+    line = `TRUST: lsp-partial (clangd index-ready but result mixes ${verifiedCount} verified + ${heur} heuristic edge${heur === 1 ? '' : 's'} — caller set is a FLOOR, not exhaustive; verify with code_intel_references / rg before any "no callers" / delete) `
+      + `[compile-db ${dbHash}]`;
   } else {
+    // null/unknown indexReady: name provenance + freshness, make NO completeness
+    // claim (honest for a mixed set — it isn't licensing "exhaustive").
     line = `TRUST: lsp-verified (clangd, compile-db ${dbHash}, collected ${when})`;
   }
 

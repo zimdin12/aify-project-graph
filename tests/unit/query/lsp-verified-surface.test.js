@@ -73,6 +73,17 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
         provenance: 'INFERRED', extractor: 'cpp',
       });
 
+      // ALL-VERIFIED symbol: `cleanExecute` has a single clangd-verified caller
+      // and NO heuristic edges — the only shape that may earn the index-ready
+      // "exhaustive" attestation (audit 2026-06-12 B4).
+      upsertNode(db, node('fn:cleanCaller', 'CleanDispatch', 'src/clean.cpp'));
+      upsertNode(db, node('fn:cleanTarget', 'cleanExecute', 'src/cleanpass.cpp'));
+      upsertEdge(db, {
+        from_id: 'fn:cleanCaller', to_id: 'fn:cleanTarget', relation: 'CALLS',
+        source_file: 'src/clean.cpp', source_line: 11, confidence: 0.5,
+        provenance: 'LSP_VERIFIED', extractor: `cpp-clangd#${COMPILE_DB_HASH.slice(0, 8)}`,
+      });
+
       // Heuristic-ONLY symbol: `parseConfig` has a single INFERRED caller and
       // no clangd evidence at all.
       upsertNode(db, node('fn:plainCaller', 'bootstrap', 'src/boot.cpp'));
@@ -135,7 +146,7 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     expect(out).not.toContain('lsp-verified');
   });
 
-  it('(d) FIX A/B: indexReady=true → "index-ready, N callers" attestation', async () => {
+  it('(d) FIX A/B: indexReady=true + ALL-verified result → "index-ready, N callers" attestation', async () => {
     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     try {
       // Stamp the existing collection as index-ready with the new columns.
@@ -143,10 +154,27 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     } finally {
       db.close();
     }
-    const out = await graphCallers({ repoRoot, symbol: 'execute' });
+    // cleanExecute has ONLY an LSP_VERIFIED caller → clean set → exhaustive banner.
+    const out = await graphCallers({ repoRoot, symbol: 'cleanExecute' });
     expect(out).toContain('[lsp✓]');
     expect(out).toMatch(/TRUST: lsp-verified \(clangd, index-ready, \d+ caller/);
     expect(out).not.toContain('lsp-partial');
+  });
+
+  it('(d2) B4: indexReady=true but MIXED verified+heuristic result → lsp-partial FLOOR, not exhaustive', async () => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      db.run(`UPDATE code_intel_collections SET index_ready = 1, mode = 'indexed', refs_found = 5, refs_not_found = 0 WHERE collection_id = 'ci-1'`);
+    } finally {
+      db.close();
+    }
+    // `execute` has one LSP_VERIFIED + one heuristic caller — must NOT earn the
+    // "index-ready, N callers" delete-licensing banner.
+    const out = await graphCallers({ repoRoot, symbol: 'execute' });
+    expect(out).toContain('[lsp✓]');           // the verified edge is still marked
+    expect(out).toContain('lsp-partial');       // but the banner is a floor
+    expect(out).toMatch(/FLOOR/);
+    expect(out).not.toMatch(/TRUST: lsp-verified \(clangd, index-ready, \d+ caller/);
   });
 
   it('(e) FIX A/B: indexReady=false → lsp-partial "index NOT ready" banner', async () => {
