@@ -43,6 +43,30 @@ items, Tier-2 header+count, Tier-3 drop only as last rail, never dropping the
 target section) is adapted from codegraph (#564/#569), MIT licensed. Pattern
 reimplemented, not copied.
 
+## 2026-06 reference-borrow sweep (additional)
+
+From **codegraph** (MIT), patterns reimplemented (no code copied):
+- Dynamic-dispatch boundary detection (#687) — `mcp/stdio/query/dynamic-boundaries.js`,
+  surfaced in `graph_trace`'s failure path.
+- Class instantiation (`new Foo()`) as a caller/callee edge (#774/#804).
+- TS/JS class-field-by-value classification (38eb4e6) — arrow/fn-expr fields
+  become methods, data fields don't (`languages/_js_symbols.js`).
+- Windows backslash path args in verbs (0171785) — `mcp/stdio/util/paths.js`.
+
+From **graphify** (MIT): renamed default-export resolution (6dc23db) and
+extractor-version cache invalidation (8401c50) — `ingest/resolver.js`,
+`freshness/orchestrator.js`.
+
+From **agent-understand-anything** (MIT):
+- NodeNext `.js→.ts` import-specifier rewrite (a6c653e) — `ingest/import-resolution.js`.
+- Dashboard guided tour (LearnPanel), inline source viewer (CodeViewer — incl. the
+  graph-as-allowlist security gate), and PNG export (ExportMenu) — `mcp/stdio/dashboard/`.
+
+From **agent-code-intel** (UNLICENSED — PATTERN-ONLY, re-derived from the described
+idea, no code read into ours): comment/string masking before regex scans (used in
+`dynamic-boundaries.js`); per-language analyzer dispatch (the multi-language
+`code_intel_analyze` route is our own code over the existing LSP diagnostics).
+
 ## Karpathy's LLM Wiki
 
 The concept of "persistent structured artifact between model and raw sources" is inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Our implementation addresses the failure modes identified in [this critique](https://medium.com/data-science-in-your-pocket/andrej-karpathys-llm-wiki-is-a-bad-idea-8c7e8953c618) by using deterministic tree-sitter extraction instead of LLM-generated content.

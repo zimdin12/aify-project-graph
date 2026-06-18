@@ -9,6 +9,16 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-12 — reference-borrow round 2 (verbs + dashboard)
+
+A second borrow sweep over codegraph / agent-understand-anything / agent-code-intel.
+
+- **Windows backslash path args** (codegraph 0171785): `graph_file`/`graph_callers`/`graph_find` no longer return empty on `src\foo.cpp` (shared `normalizePathArg`).
+- **Dynamic-dispatch boundary surfacing** (codegraph #687): when `graph_trace` finds no static path, it names the exact dispatch site (computed call / dynamic import / getattr / member-pointer / typed bus) over comment/string-blanked bodies, instead of guessing an edge.
+- **Multi-language `code_intel_analyze`**: was C++-only; TS/JS/Python now route through the language server's own diagnostics (mode `lsp`, provenance `TS_LANGSERVER`/`PYRIGHT`).
+- **TS/JS class arrow-fields** (codegraph 38eb4e6): `handleSubmit = () => {}` class fields extract as methods (classify by value; data fields stay out). `EXTRACTOR_VERSION → 0.2.3`.
+- **Dashboard** (understand-anything LearnPanel/CodeViewer/ExportMenu): Guided Tour stepper (`/api/tour`, reuses the already-computed `graph_tour` steps), inline source viewer (`/api/source`, graph-as-allowlist security gate), and PNG export.
+
 ### 2026-06-12 — reference pull + audit fixes (3 waves + real-repo measurement)
 
 Pulled all 4 `reference/` repos and ran an 8-agent audit (`docs/reference-pull-and-audit-2026-06-12.md`), then fixed in waves.

@@ -108,7 +108,7 @@ The failure mode to avoid: calling graph_find once, getting empty, giving up. Us
 - `code_intel_definitions(file, line, col)` — defs across translation units. **Replaces "open header file, search."**
 - `code_intel_hover(file, line, col)` — type signature + docstring at a position. **Replaces "read declaration."**
 - `code_intel_symbols(file)` — document symbol outline. **Replaces "scan whole file."**
-- `code_intel_analyze(files=[...], mode="clang-tidy"|"compile")` — bounded analyzer/build evidence for explicit files. Use when clangd diagnostics are not enough and you need `CLANG_TIDY` / `BUILD` provenance.
+- `code_intel_analyze(files=[...], mode="clang-tidy"|"compile")` — bounded analyzer/build evidence for explicit files. Use when clangd diagnostics are not enough and you need `CLANG_TIDY` / `BUILD` provenance. **Multi-language:** C++ uses clang-tidy/compile; TS/JS/Python route through the language server's own diagnostics (mode reported as `lsp`, provenance `TS_LANGSERVER` / `PYRIGHT`).
 - `code_intel_hierarchy(symbol, kind="callers"|"callees"|"supertypes"|"subtypes")` — call + type hierarchy via clangd. The trustworthy **transitive** path (who-calls-transitively, virtual overrides). Per-node `[lsp✓]` only when the index is ready; otherwise `lsp-partial`. For a `base*->virt()` callsite use call hierarchy on the virtual (or hierarchy on the owning class) plus static `OVERRIDDEN_BY` edges to see runtime overrides.
 
 Analyzer `partial` / `not_collected` means evidence was unavailable for some requested files; it is not the same as "analyzer ran clean."

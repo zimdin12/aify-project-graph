@@ -30,6 +30,9 @@ Layers shown:
 - **Search-to-focus** — type a symbol/file/feature; pick a result to jump the view to that node and its group.
 - **Blast radius** — toggle blast mode and click a node: changed node + affected neighbors highlight, everything else fades.
 - **Pathfinder** — enter a `from` and `to` node to draw the path between them.
+- **Guided Tour** (🧭) — an ordered orientation walk (entrypoints → subsystems → hotspots); each step's symbols are click-to-focus pills.
+- **Inline source** — click a code node → "show source" to read its line range without leaving the dashboard.
+- **PNG export** (⤓) — save the current 2D/3D view as an image.
 - Layer/node-type filters to toggle layers independently.
 
 ## Steps
