@@ -81,6 +81,7 @@
     .nav-back-bar { margin-bottom:6px; }
     .nav-back-btn { background:var(--bg); border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:3px 9px; cursor:pointer; font-size:11px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .nav-back-btn:hover { border-color:var(--accent); color:var(--text); }
+    #node-tip { position:absolute; z-index:8; pointer-events:none; background:#161b22; border:1px solid var(--border); color:var(--text); padding:4px 8px; border-radius:6px; font-size:11px; max-width:280px; line-height:1.5; box-shadow:0 2px 8px rgba(0,0,0,0.4); }
     .toggle-pill.active { border-color: var(--accent); background: var(--accent-bg); color: #cfe5ff; }
     .toggle-pill:hover { border-color: var(--accent); }
     .view-pill { display:flex; align-items:center; gap:5px; padding: 6px 11px; font-size:12px; }
@@ -177,6 +178,7 @@
     <div id="fg3d"></div>
     <div id="ctxbar" style="display:none"></div>
     <div id="cap-note" style="display:none"></div>
+    <div id="node-tip" style="display:none"></div>
     <div id="canvas-tools">
       <button id="t-fit" title="Fit to screen (F)">⊡</button>
       <button id="t-zin" title="Zoom in">＋</button>
@@ -230,6 +232,16 @@
     let lastRenderCap = { capped: 0, total: 0 };
     let navStack = [];            // node-detail visit history (back-stack)
     let navigatingBack = false;
+    let degIn = null, degOut = null; // per-node in/out degree (hover tooltip), lazy
+    function ensureDegMaps() {
+      if (degIn) return;
+      degIn = new Map(); degOut = new Map();
+      for (const e of (allData.edges || [])) {
+        const a = e.source ?? e.from_id, b = e.target ?? e.to_id;
+        if (a) degOut.set(a, (degOut.get(a) || 0) + 1);
+        if (b) degIn.set(b, (degIn.get(b) || 0) + 1);
+      }
+    }
 
     const activeTypes = new Set();
     const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
@@ -789,6 +801,19 @@
       });
       cy.on('mouseover', 'node[?isGroup]', (e) => e.target.addClass('hovergrp'));
       cy.on('mouseout', 'node[?isGroup]', (e) => e.target.removeClass('hovergrp'));
+      // Hover tooltip with degree (borrow: understand-anything NodeTooltip) — gauge
+      // a node's importance/role without clicking.
+      cy.on('mouseover', 'node[!isGroup]', (e) => {
+        ensureDegMaps();
+        const n = e.target, id = n.id();
+        const ind = degIn.get(id) || 0, outd = degOut.get(id) || 0;
+        const tip = $('node-tip');
+        tip.innerHTML = `<b>${tourEsc(n.data('label'))}</b> <span style="color:var(--faint)">[${tourEsc(n.data('kind') || n.data('type') || '')}]</span><br>${ind} in · ${outd} out · ${ind + outd} total`;
+        const rp = e.renderedPosition || { x: 0, y: 0 };
+        tip.style.left = (rp.x + 14) + 'px'; tip.style.top = (rp.y + 10) + 'px';
+        tip.style.display = 'block';
+      });
+      cy.on('mouseout', 'node[!isGroup]', () => { const t = $('node-tip'); if (t) t.style.display = 'none'; });
 
       if (blastResult) paintBlast();
       if (pathChain) paintPath();
@@ -832,7 +857,7 @@
       fg3d = ForceGraph3D()(container)
         .backgroundColor('#0d1117')
         .graphData({ nodes: nodeObjs, links })
-        .nodeLabel(n => `${n.label}\n${n.__group}`)
+        .nodeLabel(n => { ensureDegMaps(); const i = degIn.get(n.id) || 0, o = degOut.get(n.id) || 0; return `${n.label}\n${n.__group}\n${i} in · ${o} out · ${i + o} total`; })
         .nodeColor(n => n.__color)
         .nodeRelSize(4)
         // Perf: lower sphere segment count (8→5) — far fewer triangles per node,

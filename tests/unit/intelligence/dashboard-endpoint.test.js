@@ -328,6 +328,10 @@ describe('P2b frontend wiring (structural)', () => {
     // Heavy-render guard: per-node views cap node count so they can't freeze the UI.
     expect(html).toContain('RENDER_NODE_CAP');
     expect(html).toContain('cap-note');
+    // Borrows: nav-history back-stack + hover degree tooltip.
+    expect(html).toContain('nav-back-btn');
+    expect(html).toContain('node-tip');
+    expect(html).toContain('ensureDegMaps');
   });
 
   it('exposes map + shader view modes and ShaderBinding styling', () => {
