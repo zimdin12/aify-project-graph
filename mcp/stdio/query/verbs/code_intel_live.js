@@ -196,14 +196,36 @@ function rangeFromLsp(r) {
   return { start: { line: r.start.line + 1, col: r.start.character + 1 }, end: { line: r.end.line + 1, col: r.end.character + 1 } };
 }
 
-async function openIfNeeded(session, file) {
+export async function openIfNeeded(session, file) {
   const abs = path.isAbsolute(file) ? file : path.join(session.projectRoot, file);
   const uri = pathToFileURL(abs).toString();
-  if (session.openedUris.has(uri)) return uri;
+  if (!session.openDocState) session.openDocState = new Map();
+  let stat = null;
+  try { stat = fs.statSync(abs); } catch { /* missing file — handled below */ }
+
+  if (session.openedUris.has(uri)) {
+    // Already open. Audit 2026-06-12 B2: re-sync if the file changed on disk
+    // since we last sent it, otherwise the server answers references/diagnostics/
+    // hierarchy against STALE text (drifted line/col, and exhaustive:true on code
+    // that no longer exists). Cheap stat (mtime+size) gates the re-read.
+    const prev = session.openDocState.get(uri);
+    const cur = stat ? { mtimeMs: stat.mtimeMs, size: stat.size } : null;
+    const changed = cur && (!prev || prev.mtimeMs !== cur.mtimeMs || prev.size !== cur.size);
+    if (changed) {
+      let text = '';
+      try { text = fs.readFileSync(abs, 'utf8'); } catch { /* leave empty */ }
+      const version = (prev?.version || 1) + 1;
+      try { await session.client.didChange(uri, text, version); } catch { /* best-effort */ }
+      session.openDocState.set(uri, { version, mtimeMs: cur.mtimeMs, size: cur.size });
+    }
+    return uri;
+  }
+
   let text = '';
   try { text = fs.readFileSync(abs, 'utf8'); } catch { /* leave empty */ }
   await session.client.didOpen(uri, session.language, text);
   session.openedUris.add(uri);
+  session.openDocState.set(uri, { version: 1, mtimeMs: stat?.mtimeMs ?? 0, size: stat?.size ?? 0 });
   return uri;
 }
 

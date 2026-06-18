@@ -11,9 +11,12 @@ import {
   codeIntelSymbols,
   buildReferencesEvidence,
   buildDefinitionsEvidence,
-  splitDefinitionFromReferences
+  splitDefinitionFromReferences,
+  openIfNeeded
 } from '../../../mcp/stdio/query/verbs/code_intel_live.js';
 import { _resetSessions, shutdownAllSessions } from '../../../mcp/stdio/code-intel/live.js';
+import { LspClient } from '../../../mcp/stdio/code-intel/lsp-client.js';
+import { vi } from 'vitest';
 
 const fakeServer = path.resolve('tests/fixtures/code-intel/lsp/fake-lsp-server.mjs');
 const fakeSpawn = { command: process.execPath, args: [fakeServer] };
@@ -373,5 +376,32 @@ describe('code_intel_symbols (live)', () => {
     expect(r.status).toBe('ok');
     expect(r.symbols.length).toBeGreaterThan(0);
     expect(r.symbols[0].name).toBe('foo');
+  });
+});
+
+// Audit 2026-06-12 B2 — long-lived sessions must re-sync edited files.
+describe('openIfNeeded — re-sync on disk edit (stale-doc fix)', () => {
+  it('sends didChange with a bumped version when the file changed on disk', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-b2-'));
+    const file = path.join(dir, 'a.cpp');
+    fs.writeFileSync(file, 'void a(){}\n');
+    const client = new LspClient({ ...fakeSpawn, rootUri: 'file:///r' });
+    await client.start();
+    const session = { projectRoot: dir, language: 'cpp', client, openedUris: new Set() };
+
+    await openIfNeeded(session, 'a.cpp'); // didOpen, version 1
+    const spy = vi.spyOn(client, 'didChange');
+
+    // Edit on disk (append → different size, and a new mtime).
+    fs.writeFileSync(file, 'void a(){}\nvoid a2(){}\n');
+    await openIfNeeded(session, 'a.cpp');
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0][2]).toBe(2); // version bumped
+
+    // No further change → no extra didChange.
+    await openIfNeeded(session, 'a.cpp');
+    expect(spy).toHaveBeenCalledTimes(1);
+
+    await client.shutdown();
   });
 });

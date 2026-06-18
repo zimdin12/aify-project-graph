@@ -314,6 +314,17 @@ export class LspClient extends EventEmitter {
     return this._notify('textDocument/didClose', { textDocument: { uri } });
   }
 
+  // Full-sync document update. Audit 2026-06-12 B2: long-lived sessions kept the
+  // first-opened text forever, so after an on-disk edit the server answered
+  // against stale content (drifted lines; "exhaustive" results on code that no
+  // longer exists). Re-sends the whole file (textDocumentSync: Full).
+  async didChange(uri, text, version = 2) {
+    return this._notify('textDocument/didChange', {
+      textDocument: { uri, version },
+      contentChanges: [{ text }],
+    });
+  }
+
   async references(uri, position, includeDeclaration = false) {
     return this._request('textDocument/references', {
       textDocument: { uri }, position, context: { includeDeclaration }
