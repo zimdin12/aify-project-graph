@@ -629,8 +629,11 @@ export function startDashboard({ db, port = 0, repoRoot = process.cwd() }) {
       const edgeCount = db.get('SELECT count(*) AS c FROM edges').c;
       const types = db.all('SELECT type, count(*) AS c FROM nodes GROUP BY type ORDER BY c DESC');
       const relations = db.all('SELECT relation, count(*) AS c FROM edges GROUP BY relation ORDER BY c DESC');
+      // Repo name so the dashboard titles itself after the project it's showing
+      // (not the hardcoded tool name) — matters once you point it at several repos.
+      const repoName = resolve(repoRoot).split(/[/\\]/).filter(Boolean).pop() || 'project';
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': 'null' });
-      res.end(JSON.stringify({ nodeCount, edgeCount, types, relations }));
+      res.end(JSON.stringify({ nodeCount, edgeCount, types, relations, repoName }));
       return;
     }
 

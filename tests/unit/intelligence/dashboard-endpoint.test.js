@@ -380,6 +380,12 @@ describe('P2b frontend wiring (structural)', () => {
     expect(html).toContain('toggleDiffOverlay'); // /api/diff → blast highlight
     expect(html).toContain('/api/diff');
     expect(html).toContain('diff-btn');
+    // Trust lens: isolate the clangd-verified call spine vs heuristic edges.
+    expect(html).toContain('trustLens');
+    expect(html).toContain('data-trust');
+    expect(html).toContain('Trust lens');
+    // Dynamic project title (not the hardcoded tool name).
+    expect(html).toContain('app-title');
   });
 
   it('exposes map + shader view modes and ShaderBinding styling', () => {

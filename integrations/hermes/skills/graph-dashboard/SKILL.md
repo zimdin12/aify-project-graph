@@ -37,7 +37,9 @@ Layers shown:
 - **Hover tooltip** — hover a node for its kind + in/out/total connection counts (degree at a glance).
 - **File tree** (📁 Files) — a collapsible folder→file tree of every indexed file; click a file to focus its node and open its source. Best for "take me to file X" navigation when you know the path.
 - **Changes** (◆ Changes, 2D only) — highlights nodes in files changed vs `HEAD` (uncommitted + untracked) using a real `git diff`: changed-file nodes light up red, their neighbors amber, the rest fade. A blast-radius seed from what you actually touched — best in Force/Tree/Flow or after drilling into a Map box (grouped Map collapses the leaf nodes). Shows the changed-file count in the button; click again to clear.
+- **Trust lens** (all / ✓ verified / ~ heuristic) — isolates the clangd-verified call spine. "verified" shows only `[lsp✓]` LSP_VERIFIED call edges (ground truth); "heuristic" shows only the unverified call edges that still need checking; structural edges (CONTAINS/IMPORTS) always stay. The header shows what % of call edges are clangd-verified. Best in Force/Tree/Flow or a drilled box. Use it to answer "which of these call relationships can I actually trust" — visible only after `graph_collect_code_intel` has run.
 - Layer/node-type filters to toggle layers independently.
+- The dashboard titles itself after the indexed project (the repo''s directory name), so it''s clear which project you''re looking at when you point it at several repos.
 - Large graphs: the per-node views (Force/Shader/Tree/Flow, all 3D views) cap to the top ~3000 nodes by degree so a heavy pick can't freeze the UI (a note says how many of how many; filter or use the grouped Map to see all).
 
 ## Steps

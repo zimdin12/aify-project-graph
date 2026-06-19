@@ -161,7 +161,7 @@
 </head>
 <body>
   <div id="sidebar">
-    <h1><span class="logo"></span> aify-project-graph</h1>
+    <h1><span class="logo"></span> <span id="app-title">aify-project-graph</span></h1>
     <div class="mode-line">
       <span id="mode-label">2D map</span>
       <div class="header-actions">
@@ -259,6 +259,7 @@
     const activeLayers = new Set(['code', 'feature', 'task', 'doc']);
     const activeEdgeClasses = new Set(['code', 'cross-layer']);
     const activeProvenance = new Set(['code', 'curated', 'inferred']);
+    let trustLens = 'all'; // 'all' | 'verified' | 'heuristic' — isolate the LSP-verified call spine
 
     let cy = null, fg3d = null, ecApi = null;
     let allData = null;
@@ -519,6 +520,19 @@
         <div class="slider-row" id="depth-row"><span>depth</span><input type="range" id="group-depth" min="1" max="4" step="1" value="${groupDepth}"><span id="depth-val">${groupDepth}</span></div>
         <div class="subtle">Map shows labeled <b>group boxes</b>. Double-click a box (or ⊕) to expand it; double-click a node to focus its group.</div></div>`;
 
+      // TRUST LENS — the project's differentiator made visible: isolate the
+      // clangd-verified call spine vs the heuristic guesses that still need
+      // verifying. Only meaningful on the multilayer graph (carries provenance).
+      if (isMultilayer) {
+        const lspPct = window.__provenance ? window.__provenance.lsp_verified_pct : null;
+        html += `<div class="ctl-group"><div class="section-title">Trust lens${lspPct != null ? ` <span class="subtle">(${lspPct}% of calls clangd-verified)</span>` : ''}</div><div class="pill-row">
+            <button class="toggle-pill ${trustLens === 'all' ? 'active' : ''}" data-trust="all" type="button">all</button>
+            <button class="toggle-pill ${trustLens === 'verified' ? 'active' : ''}" data-trust="verified" type="button"><span style="color:#3fb950">●</span> verified</button>
+            <button class="toggle-pill ${trustLens === 'heuristic' ? 'active' : ''}" data-trust="heuristic" type="button"><span style="color:#8b949e">●</span> heuristic</button>
+          </div>
+          <div class="subtle">Show only clangd-proven <code>[lsp✓]</code> call edges, or only the heuristic ones that still need verifying.</div></div>`;
+      }
+
       // legend-ish filters
       html += `<details class="fold"><summary>Filters</summary><div class="fold-body">`;
       if (isMultilayer) {
@@ -550,6 +564,11 @@
       el.innerHTML = html;
 
       el.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { setView(b.dataset.view); }));
+      el.querySelectorAll('[data-trust]').forEach(b => b.addEventListener('click', () => {
+        trustLens = b.dataset.trust;
+        el.querySelectorAll('[data-trust]').forEach(o => o.classList.toggle('active', o.dataset.trust === trustLens));
+        renderGraph(false);
+      }));
       el.querySelectorAll('[data-group]').forEach(b => b.addEventListener('click', () => {
         groupMode = b.dataset.group;
         drilledGroup = null; // key space changed — a drilled key from the old mode won't match (would empty the graph)
@@ -608,6 +627,17 @@
       let edges = isMultilayer
         ? allData.edges.filter(e => nodeIds.has(e.source) && nodeIds.has(e.target) && activeEdgeClasses.has(e.edge_class || 'code') && activeProvenance.has(e.provenance || 'code'))
         : allData.edges.filter(e => nodeIds.has(e.from_id) && nodeIds.has(e.to_id));
+
+      // TRUST LENS — isolate the clangd-verified call spine vs heuristic guesses.
+      // Only call-family edges carry trust provenance; structural edges (CONTAINS,
+      // IMPORTS, …) are always kept so the skeleton stays intact.
+      if (trustLens !== 'all') {
+        edges = edges.filter(e => {
+          if (!isCallFamily(e.relation)) return true;
+          const verified = (e.code_provenance || 'EXTRACTED') === 'LSP_VERIFIED';
+          return trustLens === 'verified' ? verified : !verified;
+        });
+      }
 
       // HEAVY-RENDER GUARD: the per-node views (raw Force/Shader/Tree/Flow, or a
       // drilled Map group) lay out every node synchronously — on a big graph that
@@ -1052,7 +1082,7 @@
           else if (fg3d && fg3d.renderer) url = fg3d.renderer().domElement.toDataURL('image/png');
           if (!url) return;
           const a = document.createElement('a');
-          a.href = url; a.download = 'aify-project-graph.png'; a.click();
+          a.href = url; a.download = `${(window.__lastStats && window.__lastStats.repoName) || 'graph'}.png`; a.click();
         } catch { /* export is best-effort */ }
       });
       $('t-zin').addEventListener('click', () => { if (cy) cy.zoom({ level: cy.zoom() * 1.3, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } }); });
@@ -1210,6 +1240,11 @@
       applyIntelligence(intel);
       allData = graphData;
       window.__lastStats = stats; window.__provenance = provenance;
+      // Title the dashboard after the project it's showing (not the tool name).
+      if (stats && stats.repoName) {
+        $('app-title').textContent = stats.repoName;
+        document.title = `${stats.repoName} — graph`;
+      }
       if (is3DMode) currentViewMode = 'map';
       $('mode-label').textContent = is3DMode ? '3D map' : '2D map';
       $('mode-link').href = is3DMode ? '/' : '/3d';

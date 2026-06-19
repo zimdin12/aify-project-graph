@@ -9,6 +9,10 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-19 — dashboard: trust lens + project-named title
+
+- **Trust lens** (all / ✓ verified / ~ heuristic): a new control that isolates the clangd-verified call spine on the graph. "verified" renders only `LSP_VERIFIED` (`[lsp✓]`) call edges, "heuristic" only the unverified ones that still need checking; structural edges (CONTAINS/IMPORTS) always stay so the skeleton holds. The header shows the verified-% of call edges. Makes the project's trust differentiator visible — "which of these call relationships can I actually trust" — now that real LSP data exists. Browser-verified on sand_castle (32% verified; "verified" view is visibly sparser than "all").
+- **Dashboard titles itself after the project** instead of the hardcoded tool name: `/api/stats` returns the repo directory name, and the `<title>`, header, and PNG-export filename use it. Matters once you point the dashboard at several repos (e.g. it now reads "sand_castle", not "aify-project-graph").
 ### 2026-06-19 — C++ trust-spine robustness: dedup huge collects + LSP survives tooling rebuilds
 
 - **Duplicate collection records are now collapsed (fixes a crash + GB-scale bloat).** clangd re-reports each reference once per translation unit that includes the defining header, so a whole-repo `references` collect exploded — sand_castle produced **5.07M records**, which overflowed `JSON.stringify`'s max string length (the collect verb writes the envelope to a temp file → `RangeError: Invalid string length`) and would have bloated the DB to multiple GB. New `dedupCollectionRecords` (wired into `runCollection`, with a defensive pass in the importer) collapses byte-identical records by identity (kind + symbol + location); on sand_castle that's **5.07M → 1.04M (−80%)**, losslessly (every duplicate resolves to the same edge). `importV02Collection` is now exported for in-memory import without the temp-file round-trip.
