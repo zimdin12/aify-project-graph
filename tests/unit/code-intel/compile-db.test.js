@@ -218,7 +218,13 @@ describe('prepareCompileDb — foreign-toolchain strip (win32)', () => {
     expect(r.found).toBe(true);
     expect(r.foreignToolchain).toBe(true);
     expect(r.strippedFlags).toBeGreaterThanOrEqual(2); // -isysroot value + -isystem /usr/include
-    expect(r.diagnostics.some(d => d.code === 'foreign_toolchain')).toBe(true);
+    const foreignDiag = r.diagnostics.find(d => d.code === 'foreign_toolchain');
+    expect(foreignDiag).toBeTruthy();
+    // Honesty fix (Sand Castle finding 1): the message must NOT claim references
+    // are safe on a foreign DB — they're truncated, even same-file.
+    expect(foreignDiag.message).not.toMatch(/stay usable/i);
+    expect(foreignDiag.message).toMatch(/TRUNCATED/);
+    expect(foreignDiag.message).toMatch(/APG_CLANGD_WSL/);
 
     const norm = JSON.parse(fs.readFileSync(r.normalizedPath, 'utf8'));
     const c = norm[0].command;

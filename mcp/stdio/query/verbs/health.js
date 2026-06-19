@@ -19,6 +19,7 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { getLatestCollection } from '../../code-intel/query.js';
+import { prepareCompileDb } from '../../code-intel/compile-db.js';
 
 // Single source of truth for trust-level thresholds. graph_health and the
 // brief's trust() both consume this so they can't drift. Echoes bench
@@ -155,6 +156,24 @@ export async function graphHealth({ repoRoot }) {
   // measurement.
   const verdicts = [];
   verdicts.push(`nodes=${nodes} edges=${edges}`);
+
+  // Proactive foreign-toolchain warning (Sand Castle live finding 1). On win32 a
+  // Linux/WSL-built compile DB makes clangd silently TRUNCATE caller sets — even
+  // same-file references — so code_intel_references can't be trusted as a
+  // completeness oracle here. Surface it in health BEFORE a query returns a
+  // partial set, not only in the degraded result after. Cheap + side-effect-free
+  // in practice: prepareCompileDb is cached once a collect has run, and the check
+  // is win32-gated (on Linux a Linux DB is native, not "foreign").
+  if (codeIntel.available && process.platform === 'win32') {
+    try {
+      const cdb = prepareCompileDb({ projectRoot: repoRoot });
+      if (cdb?.found && cdb.foreignToolchain) {
+        codeIntel.compileDbForeign = true;
+        codeIntel.callerCompletenessTrustworthy = false;
+        verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd caller sets are silently TRUNCATED (even same-file refs); code_intel_references is NOT a completeness oracle here. Set APG_CLANGD_WSL=1 for a complete index, or build a native Windows compile_commands.json. Do NOT trust "no callers / safe to delete" until fixed.');
+      }
+    } catch { /* detection is best-effort — never block health on it */ }
+  }
   verdicts.push(
     trustUnresolvedEdges === unresolvedEdges
       ? `trust=${trust} (${unresolvedEdges} unresolved)`

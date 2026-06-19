@@ -9,6 +9,13 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-19 — Sand Castle live finding 1: foreign-DB caller truncation honesty
+
+A live test (code_intel_references on a file-local C++ function) returned 2 of 5 in-file callsites on a Windows host whose compile DB was built under WSL — and crucially, our own `foreign_toolchain` diagnostic claimed *"References and call/type hierarchy stay usable"*, which the 2/5 (same-file!) result disproves.
+
+- **Diagnostic honesty fix.** The `foreign_toolchain` message no longer claims references are safe on a foreign DB. It now states plainly that on a Windows host with a Linux/WSL compile DB, clangd can't compile the TUs → the index is silently PARTIAL → `code_intel_references`/`code_intel_hierarchy` caller sets are TRUNCATED (even same-file), so it is NOT a completeness oracle there; verify with rg, and fix with `APG_CLANGD_WSL=1` (clangd under WSL) or a native Windows compile DB.
+- **Proactive `graph_health` warning.** `graph_health` now detects a foreign compile DB on win32 and surfaces it UP FRONT (`codeIntel.compileDbForeign`, `callerCompletenessTrustworthy:false`, + a loud summary verdict) — so an agent sees the truncation risk before a query returns a partial set, not only in the degraded result after. Verified on sand_castle (the real scenario).
+- Confirmed the trust contract itself held perfectly in the report (it refused to claim completeness — `exhaustive:false` + the exact cause + the WSL fix), and that the complete fix is the existing `APG_CLANGD_WSL` path. Making that path on-by-default (auto on win32+foreign+WSL-available) is a separate behavior-change decision, deferred to the maintainer.
 ### 2026-06-19 — install script wires the discoverability hook by default
 
 - **`init-project-mcp.mjs` now recommends + wires the SessionStart discoverability hook.** Following up the Sand Castle P0 #1 fix: the project-local installer (which already writes `.mcp.json` to close the managed-session MCP gap) now ALSO merges the SessionStart hint into that project's `.claude/settings.json` for claude-code — so managed/spawned agents are nudged to `ToolSearch "graph"` and orient with graph_packet/graph_pull without anyone hand-editing settings. Idempotent (won't duplicate), preserves existing hooks, claude-code only (Cursor has no equivalent surface), and opt-out via `--no-hint-hook`. install.claude.md promotes the hook from "Optional" to "Recommended" and documents the auto-wiring. New `mergeSessionStartHook` export + tests (wiring, idempotency, opt-out, cursor-skip).

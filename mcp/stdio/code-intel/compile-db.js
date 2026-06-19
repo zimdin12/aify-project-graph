@@ -654,7 +654,14 @@ export function prepareCompileDb({ projectRoot }) {
   if (foreignToolchain) {
     diagnostics.push({
       code: 'foreign_toolchain',
-      message: `compile DB built on Linux/WSL (signals: ${foreignReasons.join(', ')}); stripped ${strippedFlags} Linux-only toolchain flag(s) from the normalized DB. References and call/type hierarchy stay usable, but the C++ stdlib won't resolve against the host clangd, so diagnostics and hover are DEGRADED (bogus 'file not found' cascade likely). For full stdlib diagnostics/hover, set APG_CLANGD_WSL=1 to run clangd under WSL against the original Linux DB (locations round-trip back to Windows paths).`,
+      // HONESTY FIX (Sand Castle live finding 1): the old message claimed
+      // "references and call/type hierarchy stay usable" — they are NOT. When a
+      // foreign (Linux/WSL) DB's TUs fail to compile against the host clangd, the
+      // index falls back to PARTIAL and caller sets are silently truncated —
+      // even SAME-FILE references (observed: 2 of 5 in-file callsites returned).
+      // So this host can't use code_intel_references as a completeness oracle
+      // until the index is fixed. Stripping Linux-only flags is not enough.
+      message: `compile DB built on Linux/WSL (signals: ${foreignReasons.join(', ')}); stripped ${strippedFlags} Linux-only toolchain flag(s). On this Windows host clangd cannot compile these TUs, so the index is silently PARTIAL: code_intel_references / code_intel_hierarchy caller sets are TRUNCATED — even SAME-FILE references can be missed — and diagnostics/hover are degraded. Do NOT trust any "no callers / dead code / safe to delete" result here; verify with rg. Fix: set APG_CLANGD_WSL=1 to run clangd UNDER WSL against the original Linux DB for a COMPLETE index (locations round-trip back to Windows paths), or build a native Windows compile_commands.json.`,
       fix: 'set APG_CLANGD_WSL=1 to run clangd under WSL against the original Linux compile_commands.json (requires clangd installed in WSL), or build a native Windows compile_commands.json'
     });
   }
