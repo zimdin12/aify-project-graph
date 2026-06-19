@@ -48,7 +48,17 @@ export function loadFunctionality(repoRoot) {
     // the single source of truth for the "no overlay" return shape.
     const raw = readJsonCapped(path, { mustExist: true });
     const features = Array.isArray(raw.features) ? raw.features.map(normalizeFeature) : [];
-    return { version: raw.version || '0.1', features, mtime, path, lint: lintFeatures(raw.features) };
+    const lint = lintFeatures(raw.features);
+    // Fail LOUD on a schema-version the resolver doesn't understand — a file
+    // hand-bumped to a future version (or a typo) would otherwise resolve its
+    // anchors silently against rules that no longer match (Sand Castle report
+    // P0 #2). A missing version is treated as 0.1 (the bootstrap default) and
+    // is NOT warned, since the shape lint already catches legacy 0.1 files.
+    const declaredVersion = raw.version != null ? String(raw.version) : null;
+    if (declaredVersion && !KNOWN_SCHEMA_VERSIONS.has(declaredVersion)) {
+      lint.unshift(`functionality.json declares schema version '${declaredVersion}', which this build does not recognize (known: ${[...KNOWN_SCHEMA_VERSIONS].join(', ')}) — anchors may resolve to nothing; check docs/schemas/functionality.schema.json`);
+    }
+    return { version: raw.version || '0.1', features, mtime, path, lint };
   } catch (err) {
     return {
       version: null, features: [], mtime: 0, path,
@@ -60,6 +70,9 @@ export function loadFunctionality(repoRoot) {
 }
 
 const KEBAB_RE = /^[a-z0-9][a-z0-9-]*$/u;
+// Schema versions the anchor resolver understands. A file declaring anything
+// else gets a loud lint warning (vs. silently resolving against the wrong rules).
+const KNOWN_SCHEMA_VERSIONS = new Set(['0.1', '0.2']);
 
 // Lint RAW feature objects (pre-normalization) so legacy/invalid overlay shapes
 // surface a loud, actionable migration hint instead of silently producing 0/0

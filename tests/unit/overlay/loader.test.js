@@ -85,6 +85,24 @@ describe('overlay/loader', () => {
       const out = loadFunctionality(repoRoot);
       expect(out.features[0].anchors.symbols).toEqual(['a', 'b']);
     });
+
+    it('warns LOUD on an unrecognized schema version (sc-manager P0 #2)', async () => {
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        version: '0.9',
+        features: [{ id: 'x', anchors: { files: ['src/x.cpp'] } }],
+      }));
+      const out = loadFunctionality(repoRoot);
+      expect(out.lint.some((w) => /schema version '0\.9'/.test(w))).toBe(true);
+    });
+
+    it('does NOT warn for a known schema version or a versionless (bootstrap) file', async () => {
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        version: '0.2',
+        features: [{ id: 'x', anchors: { files: ['src/x.cpp'] } }],
+      }));
+      const out = loadFunctionality(repoRoot);
+      expect(out.lint.some((w) => /schema version/.test(w))).toBe(false);
+    });
   });
 
   describe('hasOverlay', () => {

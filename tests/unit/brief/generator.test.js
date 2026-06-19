@@ -125,6 +125,22 @@ describe('brief/generator', () => {
       expect(agent).toMatch(/features with stale anchors/);
     });
 
+    it('surfaces a LOUD ⚠ OVERLAY DEGRADED line for a legacy-format overlay (sc-manager P0 #2)', async () => {
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      seedNodes(db, [{ id: 'f1', type: 'File', label: 'terrain.cpp', file_path: 'sim/terrain.cpp' }]);
+      db.close();
+      // Legacy shape: top-level `paths` (ignored by the resolver) + underscore id
+      // → silently resolves to 0 anchors. brief.agent.md (the orient entry point)
+      // must say so loudly, not look like the graph broke.
+      await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
+        features: [{ id: 'build_system', paths: ['sim/terrain.cpp'] }],
+      }));
+      generateBrief({ repoRoot });
+      const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(agent).toContain('⚠ OVERLAY DEGRADED');
+      expect(agent).toMatch(/migrate functionality\.json|graph-build-functionality/);
+    });
+
     it('brief.plan.md renders per-feature open tasks inside FEATURES', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
       seedNodes(db, [

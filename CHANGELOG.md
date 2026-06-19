@@ -9,6 +9,13 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-19 — Sand Castle usage-report fixes (P0: discoverability + loud overlay failure)
+
+From the Sand Castle team's first real-usage report on v0.2.0:
+
+- **Fail LOUD on a degraded functionality.json (P0 #2).** A legacy/invalid overlay (top-level `paths`, underscore ids, or an unrecognized `version`) silently resolved to 0 anchors, so the feature map read empty and looked like the *graph* broke rather than the *overlay* being stale-format. The linter existed but only surfaced in `graph_health` (rarely opened mid-flow). Now: (a) `brief.agent.md` — the orient entry point — carries a loud `⚠ OVERLAY DEGRADED: N/M features resolve no anchors … migrate functionality.json` line, and (b) `loadFunctionality` warns on an unrecognized `schema_version` (known: 0.1, 0.2) instead of resolving against the wrong rules.
+- **Discoverability nudge for managed sessions (P0 #1).** Managed Claude/Codex sessions defer MCP tools behind a search step, so an agent that doesn't already know APG exists never loads its verbs. The server `instructions` now carry an explicit `DISCOVERABILITY` line ("if you don't see graph_*/code_intel_* tools, run ToolSearch 'graph', then orient with graph_packet/graph_pull") — always-on, reaches every host. Plus a new optional `scripts/hooks/session-start-hint.mjs` SessionStart hook that fires the same hint at session start in any repo with a `.aify-graph/` directory (silent elsewhere; install instructions in install.claude.md).
+- Confirmed (no code needed): `graph_pull` (threads the stale-snapshot warning block) and `graph_packet` (renders a `STALE` marker in its SNAPSHOT line) already signal staleness — closing the team's forward-looking #4 concern about the orient front-door.
 ## [0.2.0] — 2026-06-19
 
 First tagged release — early but usable for daily work on real projects. Highlights since the 0.1.0 dev baseline: the multi-language LSP trust spine (clangd C++ / typescript-language-server / pyright → `[lsp✓]` LSP_VERIFIED edges), the rebuilt multi-layer dashboard (Map/Tree/Flow/Force/Shader, grouping, Tour, file-tree, git-diff overlay, trust lens), the 8-agent-audit correctness/honesty fixes, and the reference borrows. The dated entries below are the detail.

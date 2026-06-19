@@ -16,6 +16,12 @@ verbs named below (graph_onboard, graph_shader, graph_callees, graph_overview,
 …) are still CALLABLE by name even when not listed — invoke them directly. Run
 with --toolset=full to list the whole API.
 
+DISCOVERABILITY: if you do NOT see graph_* / code_intel_* tools in your available
+tools (managed Claude/Codex sessions defer MCP tools behind a search step), they
+are NOT missing — run ToolSearch with query "graph" to load them, then ORIENT
+with graph_packet / graph_pull (the front door). Any repo with a .aify-graph/
+directory has this server; reach for it before falling back to grep.
+
 ORIENT FIRST (cheap, often saves 2-5 shell calls):
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
 - graph_packet {target, mode} — the FIRST move. Most "what is X / how does Y work / understand

@@ -6,6 +6,10 @@ describe('SERVER_INSTRUCTIONS front door', () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/graph_packet/);
     expect(SERVER_INSTRUCTIONS).toMatch(/ONE graph_packet|first move|prefer it over chaining/i);
   });
+  it('tells deferred/managed sessions to ToolSearch to load the verbs (discoverability)', () => {
+    expect(SERVER_INSTRUCTIONS).toMatch(/DISCOVERABILITY/);
+    expect(SERVER_INSTRUCTIONS).toMatch(/ToolSearch/);
+  });
   it('includes an honest KNOWN LIMITS section', () => {
     expect(SERVER_INSTRUCTIONS).toMatch(/KNOWN LIMITS/);
     expect(SERVER_INSTRUCTIONS).toMatch(/dynamic dispatch|function-pointer|script callback|std::function/i);

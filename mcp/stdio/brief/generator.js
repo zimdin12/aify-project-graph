@@ -1220,6 +1220,21 @@ function renderAgentMarkdown(data) {
   if (langStr) lines.push(`LANG: ${langStr}`);
   if (tooling && tooling.length) lines.push(`TOOLING: ${tooling.join(', ')}`);
   if (coverage) lines.push(`COVERS: ${coverage} — fall back to direct file reads for topics not listed here`);
+  // ⚠ OVERLAY DEGRADED — a legacy/invalid functionality.json silently resolves
+  // to 0 anchors and the FEATURE map reads empty, which looks like the GRAPH
+  // broke rather than the overlay being stale-format. Surface it LOUD right at
+  // the orient entry point (Sand Castle report P0 #2: graph_health is rarely
+  // opened mid-flow; brief.agent.md is). Fires on lint warnings OR when every
+  // feature resolves zero anchors.
+  {
+    const lint = Array.isArray(data.overlay?.lint) ? data.overlay.lint : [];
+    const featTotal = data.overlay?.features?.length || 0;
+    const featBroken = data.overlayHealth?.broken?.length || 0;
+    if (lint.length || (featTotal > 0 && featBroken === featTotal)) {
+      const detail = lint[0] || `all ${featTotal} features resolve 0 anchors against the current graph`;
+      lines.push(`⚠ OVERLAY DEGRADED: ${featBroken}/${featTotal} features resolve no anchors — ${detail}. The FEATURE map below is unreliable; migrate functionality.json (schema: docs/schemas/functionality.schema.json) or run /graph-build-functionality.`);
+    }
+  }
   if (entries.length) {
     lines.push('ENTRY:');
     for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);
