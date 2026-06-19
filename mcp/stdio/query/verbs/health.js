@@ -170,7 +170,7 @@ export async function graphHealth({ repoRoot }) {
       if (cdb?.found && cdb.foreignToolchain) {
         codeIntel.compileDbForeign = true;
         codeIntel.callerCompletenessTrustworthy = false;
-        verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd caller sets are silently TRUNCATED (even same-file refs); code_intel_references is NOT a completeness oracle here. Set APG_CLANGD_WSL=1 for a complete index, or build a native Windows compile_commands.json. Do NOT trust "no callers / safe to delete" until fixed.');
+        verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd caller sets are silently TRUNCATED (even same-file refs); code_intel_references is NOT a completeness oracle here. FIX: generate a native Windows compile DB (Ninja+clang-cl: cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers it); fallback APG_CLANGD_WSL=1. Do NOT trust "no callers / safe to delete" until fixed.');
       }
     } catch { /* detection is best-effort — never block health on it */ }
   }
