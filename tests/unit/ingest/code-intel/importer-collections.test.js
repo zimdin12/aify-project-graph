@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { openDb } from '../../../../mcp/stdio/storage/db.js';
-import { importCodeIntel, compactCodeIntelRecords } from '../../../../mcp/stdio/ingest/code-intel/importer.js';
+import { importCodeIntel, compactCodeIntelRecords, resynthesizeLspEdgesFromCollection } from '../../../../mcp/stdio/ingest/code-intel/importer.js';
 
 function loadFixture(name) {
   return JSON.parse(fs.readFileSync(path.join(process.cwd(), 'tests/fixtures/code-intel/v02', name), 'utf8'));
@@ -88,6 +88,32 @@ describe('importer records collections', () => {
     const ids = db.all('SELECT collection_id FROM code_intel_collections ORDER BY collection_id').map((r) => r.collection_id);
     expect(ids).toContain('ci-py');   // other backend survives
     expect(ids).toContain('ci-cpp');
+  });
+
+  // A: a full rebuild does `DELETE FROM edges` and wipes the LSP trust spine,
+  // but code_intel_records survives — so we can re-synthesize the identical
+  // edges from the persisted records without re-running clangd.
+  it('resynthesizeLspEdgesFromCollection restores LSP edges from persisted records', () => {
+    const db = openDb(':memory:');
+    const stats = importEnvelope(db, loadFixture('cpp-basic-collection.json'));
+    const before = db.get("SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED'").c;
+    expect(before).toBeGreaterThan(0);
+
+    db.exec('DELETE FROM edges'); // simulate the full-rebuild wipe
+    expect(db.get("SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED'").c).toBe(0);
+
+    const r = resynthesizeLspEdgesFromCollection(db, { collectionId: stats.collectionId });
+    expect(r.edgesCreated).toBe(before);
+    expect(db.get("SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED'").c).toBe(before);
+  });
+
+  it('resynthesizeLspEdgesFromCollection is a safe no-op for an unknown/empty collection', () => {
+    const db = openDb(':memory:');
+    importEnvelope(db, loadFixture('cpp-basic-collection.json'));
+    db.exec('DELETE FROM edges');
+    const r = resynthesizeLspEdgesFromCollection(db, { collectionId: 'does-not-exist' });
+    expect(r.edgesCreated).toBe(0);
+    expect(db.get("SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED'").c).toBe(0);
   });
 
   // One-shot maintenance for graphs that bloated before the auto-prune landed

@@ -36,6 +36,8 @@ import { resolveRefs } from '../ingest/resolver.js';
 import { getGitCandidateFiles } from '../ingest/git-candidates.js';
 import { buildImportContext } from '../ingest/import-resolution.js';
 import { synthesizeVirtualOverrides } from '../ingest/frameworks/virtual_overrides.js';
+import { resynthesizeLspEdgesFromCollection } from '../ingest/code-intel/importer.js';
+import { getLatestCollection } from '../code-intel/query.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
 
@@ -473,6 +475,32 @@ export async function ensureFresh({
         synthesizeVirtualOverrides(db, { upsertEdge });
       } catch (err) {
         // Virtual-override synthesis failed — non-fatal, skip silently.
+      }
+
+      // A — restore the LSP-verified trust spine after a full rebuild wiped it
+      // (the `DELETE FROM edges` above). The clangd records persist in
+      // code_intel_records, so when the rebuild was triggered by TOOLING (an
+      // extractor-version bump, schema change, or forced reindex) and NOT by a
+      // code change, the stored evidence is still exactly valid — re-synthesize
+      // the identical LSP edges instead of forcing an expensive re-collect.
+      //
+      // HONESTY GATE: only when the latest collection's indexedCommit equals the
+      // current HEAD (code unchanged since collection). If the commit moved, the
+      // clangd line numbers could resolve onto shifted code, so we must NOT
+      // re-stamp them LSP_VERIFIED — the user re-collects instead. Non-fatal.
+      if (fullRebuild && commit) {
+        try {
+          const latest = getLatestCollection(db);
+          if (latest && latest.indexedCommit && latest.indexedCommit === commit) {
+            const r = resynthesizeLspEdgesFromCollection(db, { collectionId: latest.collectionId });
+            if (r.edgesCreated > 0) {
+              console.warn(`[aify-project-graph] restored ${r.edgesCreated} LSP-verified edge(s) from commit-current collection ${latest.collectionId} (rebuild preserved the trust spine)`);
+            }
+          }
+        } catch {
+          // Re-synthesis is best-effort; a failure just leaves the spine to a
+          // manual re-collect, never blocks the index.
+        }
       }
 
       // Post-indexing analysis (skip on very large graphs to avoid OOM)

@@ -6,6 +6,7 @@ import { upsertEdge } from '../../storage/edges.js';
 import { validateCodeIntelRecord } from './schema.js';
 import { detectSchemaVersion, validateAny } from './schema.js';
 import { ensureCodeIntelRecordsTable, ensureCodeIntelCollectionsTable } from '../../storage/schema.js';
+import { dedupCollectionRecords } from '../../code-intel/dedup-records.js';
 
 function hash(parts) {
   return createHash('sha1').update(parts.join('::')).digest('hex');
@@ -705,6 +706,64 @@ export function compactCodeIntelRecords(db) {
   return { collectionsPruned, recordsPruned, kept: [...keep] };
 }
 
+// A — restore LSP-verified edges from a PERSISTED collection's records WITHOUT
+// re-running clangd. A full rebuild (freshness orchestrator) does
+// `DELETE FROM edges` and wipes the LSP_VERIFIED trust spine, but the
+// code_intel_records side-table survives. When that rebuild was triggered by
+// TOOLING (extractor-version bump, schema change, forced reindex) and not by a
+// code change, the stored clangd evidence is still exactly valid — so we can
+// re-synthesize the identical LSP edges from the records instead of forcing an
+// expensive re-collect.
+//
+// HONESTY GATE IS THE CALLER'S JOB: this only ever re-runs the same resolution
+// synthesizeLspEdges does, against the CURRENT tree-sitter nodes. If the code
+// moved since collection, line numbers would resolve wrong and we'd be stamping
+// stale evidence as LSP_VERIFIED. The orchestrator therefore invokes this ONLY
+// when the collection's indexedCommit equals the current HEAD (code unchanged).
+export function resynthesizeLspEdgesFromCollection(db, { collectionId } = {}) {
+  const empty = { edgesCreated: 0, nodesCreated: 0, edgesInvalidated: 0, records: 0 };
+  if (!collectionId) return empty;
+  ensureCodeIntelCollectionsTable(db);
+  ensureCodeIntelRecordsTable(db);
+  const col = db.get(
+    `SELECT collection_id, provider, status, compile_db_hash FROM code_intel_collections WHERE collection_id = $cid`,
+    { cid: collectionId },
+  );
+  if (!col) return empty;
+  const rows = db.all(
+    `SELECT kind, language, symbol_id, qname, file, confidence, result_state, raw
+       FROM code_intel_records WHERE collection_id = $cid`,
+    { cid: collectionId },
+  );
+  if (rows.length === 0) return empty;
+  const records = rows.map((r) => {
+    let raw = {};
+    try { raw = JSON.parse(r.raw); } catch { /* ignore */ }
+    return {
+      kind: r.kind,
+      language: r.language,
+      symbolId: r.symbol_id,
+      qname: r.qname,
+      file: r.file,
+      range: raw.range,
+      confidence: raw.confidence ?? r.confidence,
+      result_state: r.result_state,
+    };
+  });
+  const envelope = {
+    status: col.status,
+    provider: col.provider,
+    collectionId,
+    records,
+    session: { compileDbHash: col.compile_db_hash },
+  };
+  const stats = {};
+  // Batch the synthesis (hundreds of thousands of edge upserts on a real repo).
+  const run = db.transaction(() => synthesizeLspEdges(envelope, db, stats));
+  run();
+  return { ...stats, records: records.length };
+}
+
 function makeRecordInserter(db, collectionId) {
   ensureCodeIntelRecordsTable(db);
   const sql = `
@@ -736,7 +795,7 @@ function makeRecordInserter(db, collectionId) {
   };
 }
 
-function importV02Collection(envelope, db) {
+export function importV02Collection(envelope, db) {
   const stats = {
     schemaVersion: '0.2',
     collectionId: envelope.collectionId,
@@ -749,6 +808,12 @@ function importV02Collection(envelope, db) {
   };
   ensureCodeIntelCollectionsTable(db);
   ensureCodeIntelRecordsTable(db);
+  // Defensive dedup for direct file imports that bypass runCollection (which
+  // already dedups). Idempotent on an already-deduped envelope. Lossless —
+  // duplicate clangd refs resolve to the same edge. Keeps the side-table bounded.
+  if (Array.isArray(envelope.records) && envelope.records.length) {
+    envelope = { ...envelope, records: dedupCollectionRecords(envelope.records) };
+  }
   const insertRecord = makeRecordInserter(db, envelope.collectionId);
   const firstRecord = envelope.records?.[0];
 

@@ -579,4 +579,52 @@ describe('freshness orchestrator', () => {
     const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
     expect(manifest.status).toBe('indexing');
   });
+
+  // A — LSP-verified edges survive a TOOLING rebuild (extractor-version bump /
+  // forced reindex) by re-synthesizing from the persisted clangd records, but
+  // ONLY when the collection was captured at the current commit. Otherwise stale
+  // evidence would be falsely re-stamped LSP_VERIFIED (trust-contract violation).
+  async function indexThenCollect(commitAtCollect) {
+    await writeFile(join(repoRoot, 'src', 'foo.cpp'),
+      'namespace ns {\n\n\n\n\n\n\n\n\n\n\nint foo(int x) {\n  return x;\n}\n}\n');
+    await writeFile(join(repoRoot, 'src', 'bar.cpp'),
+      '#include "foo.h"\nint use() {\n  //\n  //\n  //\n  //\n  return ns::foo(1);\n}\n');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+    getHeadCommit.mockResolvedValue('head-1');
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot });
+    // Import a clangd collection captured AT `commitAtCollect`.
+    const { importCodeIntel } = await import('../../../mcp/stdio/ingest/code-intel/importer.js');
+    const fixture = JSON.parse(await readFile(
+      join(process.cwd(), 'tests/fixtures/code-intel/v02/cpp-basic-collection.json'), 'utf8'));
+    fixture.session = { ...(fixture.session || {}), indexedCommit: commitAtCollect };
+    const tmp = join(repoRoot, 'coll.json');
+    await writeFile(tmp, JSON.stringify(fixture));
+    const dbPath = join(repoRoot, '.aify-graph', 'graph.sqlite');
+    const db = openDb(dbPath);
+    try { importCodeIntel(tmp, db); } finally { db.close(); }
+    return { ensureFresh, dbPath };
+  }
+  const lspCount = (dbPath) => {
+    const db = openDb(dbPath);
+    try { return db.get("SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED'").c; }
+    finally { db.close(); }
+  };
+
+  it('A: a forced rebuild at the SAME commit preserves the LSP trust spine', async () => {
+    const { ensureFresh, dbPath } = await indexThenCollect('head-1');
+    expect(lspCount(dbPath)).toBeGreaterThan(0);           // collected
+    await ensureFresh({ repoRoot, force: true });          // tooling rebuild @ head-1
+    expect(lspCount(dbPath)).toBeGreaterThan(0);           // SURVIVED via re-synthesis
+  });
+
+  it('A: a forced rebuild at a DIFFERENT commit does NOT re-stamp stale evidence', async () => {
+    const { ensureFresh, dbPath } = await indexThenCollect('head-OLD');
+    expect(lspCount(dbPath)).toBeGreaterThan(0);
+    getHeadCommit.mockResolvedValue('head-1');             // HEAD moved since collection
+    await ensureFresh({ repoRoot, force: true });
+    expect(lspCount(dbPath)).toBe(0);                      // gate refused — needs fresh collect
+  });
 });

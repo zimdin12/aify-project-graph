@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { getProvider } from './providers/index.js';
+import { dedupCollectionRecords } from './dedup-records.js';
 
 const HINTS = {
   provider_missing: 'install the relevant provider tool (e.g. clangd) and add it to PATH, or set --no-code-intel to silence',
@@ -54,7 +55,21 @@ export async function runCollection(req) {
   }
 
   try {
-    return await provider.collect(req);
+    const envelope = await provider.collect(req);
+    // Collapse duplicate records (clangd re-reports each ref once per including
+    // TU) BEFORE the verb serializes the envelope to a temp file — a whole-repo
+    // collect can otherwise produce millions of byte-identical records that
+    // overflow JSON.stringify and bloat the DB. Lossless: duplicates resolve to
+    // the same edge. See dedup-records.js.
+    if (envelope && Array.isArray(envelope.records) && envelope.records.length) {
+      const before = envelope.records.length;
+      envelope.records = dedupCollectionRecords(envelope.records);
+      const dropped = before - envelope.records.length;
+      if (dropped > 0) {
+        envelope.session = { ...(envelope.session || {}), recordsBeforeDedup: before, recordsDeduped: dropped };
+      }
+    }
+    return envelope;
   } catch (err) {
     return errorCollection({
       language, projectRoot: req.projectRoot,
