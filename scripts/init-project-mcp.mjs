@@ -60,13 +60,14 @@ function usage(exitCode = 2) {
 }
 
 function parseArgs(argv) {
-  const opts = { runtime: null, projectRoot: null, check: false, pluginRoot: null };
+  const opts = { runtime: null, projectRoot: null, check: false, pluginRoot: null, hintHook: true };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--runtime') opts.runtime = argv[++i];
     else if (a === '--project-root') opts.projectRoot = argv[++i];
     else if (a === '--plugin-root') opts.pluginRoot = argv[++i];
     else if (a === '--check') opts.check = true;
+    else if (a === '--no-hint-hook') opts.hintHook = false;
     else if (a === '-h' || a === '--help') usage(0);
     else { console.error(`unknown arg: ${a}`); usage(); }
   }
@@ -131,6 +132,35 @@ export function mergeAifyEntry(existing, pluginRoot) {
   return next;
 }
 
+// The SessionStart discoverability hook command (Sand Castle report P0 #1):
+// managed sessions defer MCP tools behind a search step, so this fires at
+// session start and tells the agent to ToolSearch "graph" + orient with
+// graph_packet/graph_pull. Project-local, silent outside an .aify-graph/ repo.
+function sessionHintCommand(pluginRoot) {
+  const root = pluginRoot.replace(/\\/g, '/');
+  return `node "${root}/scripts/hooks/session-start-hint.mjs"`;
+}
+
+/**
+ * Merge the SessionStart discoverability hook into a project-local Claude Code
+ * settings object (`.claude/settings.json`). Idempotent — skips if a
+ * session-start-hint.mjs hook is already wired. Preserves all other hooks/keys.
+ * Returns { settings, added }.
+ */
+export function mergeSessionStartHook(existing, pluginRoot) {
+  const next = { ...(existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {}) };
+  const hooks = { ...(next.hooks && typeof next.hooks === 'object' && !Array.isArray(next.hooks) ? next.hooks : {}) };
+  const sessionStart = Array.isArray(hooks.SessionStart) ? [...hooks.SessionStart] : [];
+  const already = sessionStart.some((group) => Array.isArray(group?.hooks)
+    && group.hooks.some((h) => typeof h?.command === 'string' && h.command.includes('session-start-hint.mjs')));
+  if (!already) {
+    sessionStart.push({ hooks: [{ type: 'command', command: sessionHintCommand(pluginRoot) }] });
+  }
+  hooks.SessionStart = sessionStart;
+  next.hooks = hooks;
+  return { settings: next, added: !already };
+}
+
 function approvalNoteFor(runtime) {
   if (runtime === 'claude-code') {
     return 'NOTE: Claude Code may prompt the user for trust approval the first time a project-scoped MCP server is invoked. Approve once per project.';
@@ -158,6 +188,21 @@ async function main() {
 
   const merged = mergeAifyEntry(existing, pluginRoot);
 
+  // RECOMMENDED for claude-code: also wire the SessionStart discoverability hook
+  // into project-local .claude/settings.json so managed/spawned sessions in this
+  // project get nudged to ToolSearch the verbs (the #1 adoption gap). Claude-Code
+  // only (Cursor has no equivalent SessionStart hook surface here). Opt out with
+  // --no-hint-hook.
+  const wantHintHook = opts.hintHook && opts.runtime === 'claude-code';
+  const settingsPath = path.join(projectRoot, '.claude', 'settings.json');
+  let hintPlan = null;
+  if (wantHintHook) {
+    let settingsExisting;
+    try { settingsExisting = readJsonOrEmpty(settingsPath); }
+    catch (err) { console.error(err.message); process.exit(3); }
+    hintPlan = mergeSessionStartHook(settingsExisting, pluginRoot);
+  }
+
   if (opts.check) {
     console.log(JSON.stringify({
       mode: 'check',
@@ -167,14 +212,25 @@ async function main() {
       pluginRoot,
       existingHadAifyEntry: !!(existing?.mcpServers?.['aify-project-graph']),
       approvalNote: approvalNoteFor(opts.runtime),
+      hintHook: wantHintHook
+        ? { settingsPath, wouldWrite: hintPlan.settings, alreadyPresent: !hintPlan.added }
+        : { skipped: opts.runtime !== 'claude-code' ? 'not claude-code' : 'disabled (--no-hint-hook)' },
     }, null, 2));
     return;
   }
 
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
   fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + '\n');
-
   console.log(`Wrote ${configPath}`);
+
+  if (wantHintHook) {
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, JSON.stringify(hintPlan.settings, null, 2) + '\n');
+    console.log(hintPlan.added
+      ? `Wired the SessionStart discoverability hint into ${settingsPath} (managed agents will be nudged to ToolSearch the graph verbs).`
+      : `SessionStart discoverability hint already present in ${settingsPath} — left as-is.`);
+  }
+
   const note = approvalNoteFor(opts.runtime);
   if (note) console.log(note);
   console.log(`\nNext: restart your ${opts.runtime} session in ${projectRoot} for the MCP server to load.`);

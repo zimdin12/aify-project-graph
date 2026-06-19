@@ -133,9 +133,19 @@ node "$CLONE_PATH/bin/apg.js" code-intel doctor cpp   # prerequisite report with
 
 The C++ repo needs a `compile_commands.json` (project root or `build/`) for cross-TU references. **Windows note:** a `compile_commands.json` built under WSL/Linux carries Linux include/sysroot paths; references and hierarchy stay trustworthy, but full-quality **diagnostics/hover need clangd run under WSL** against the Linux DB (see `docs/code-intel-v2-status.md` known-issue P0-3).
 
-### Optional — SessionStart discoverability hint (managed/spawned agents)
+### Recommended — SessionStart discoverability hint (managed/spawned agents)
 
-In **managed** Claude/Codex sessions the MCP tools are deferred behind a search step, so an agent that doesn't already know APG exists can go straight to grep. The MCP server's own instructions already tell agents to `ToolSearch "graph"` (always on). For an extra nudge that fires at session start — before any tool call — wire the hook into the host settings (`.claude/settings.json` for the project, or user settings):
+In **managed** Claude/Codex sessions the MCP tools are deferred behind a search step, so an agent that doesn't already know APG exists can go straight to grep. The MCP server's own instructions already tell agents to `ToolSearch "graph"` (always on); this hook adds a stronger nudge that fires at session start, before any tool call.
+
+**The project-local installer wires it for you.** When you run the Step-2 setup for claude-code:
+
+```bash
+node "$CLONE_PATH/scripts/init-project-mcp.mjs" --runtime claude-code --project-root /abs/path/to/project
+```
+
+…it now ALSO merges the SessionStart hook into that project's `.claude/settings.json` (idempotent; pass `--no-hint-hook` to skip). The hook prints a one-line "APG available — ToolSearch 'graph', orient with graph_packet/graph_pull" hint **only** when the cwd has a `.aify-graph/` directory, and is silent everywhere else.
+
+To wire it by hand instead (e.g. into user-level settings so it covers every project):
 
 ```json
 {
@@ -147,8 +157,6 @@ In **managed** Claude/Codex sessions the MCP tools are deferred behind a search 
   }
 }
 ```
-
-It prints a one-line "APG available — ToolSearch 'graph', orient with graph_packet/graph_pull" hint **only** when the cwd has a `.aify-graph/` directory, and is silent everywhere else (safe to install globally).
 
 ## Verify (after restart — agent cannot do this before)
 

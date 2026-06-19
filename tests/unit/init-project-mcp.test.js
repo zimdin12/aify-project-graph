@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { mergeAifyEntry } from '../../scripts/init-project-mcp.mjs';
+import { mergeAifyEntry, mergeSessionStartHook } from '../../scripts/init-project-mcp.mjs';
 
 const SCRIPT = path.resolve('scripts/init-project-mcp.mjs');
 
@@ -162,6 +162,40 @@ describe('init-project-mcp.mjs — --check mode', () => {
     expect(out.runtime).toBe('claude-code');
     expect(out.wouldWrite.mcpServers['aify-project-graph']).toBeDefined();
     expect(fs.existsSync(cfgPath)).toBe(false);
+  });
+});
+
+describe('init-project-mcp.mjs — SessionStart discoverability hook (Sand Castle P0 #1)', () => {
+  it('wires the SessionStart hint into .claude/settings.json for claude-code by default', () => {
+    const dir = tmpProject();
+    const r = runScript(['--runtime', 'claude-code', '--project-root', dir]);
+    expect(r.ok).toBe(true);
+    expect(r.stdout).toMatch(/SessionStart discoverability hint/);
+    const settings = JSON.parse(fs.readFileSync(path.join(dir, '.claude', 'settings.json'), 'utf8'));
+    const cmds = settings.hooks.SessionStart.flatMap((g) => g.hooks.map((h) => h.command));
+    expect(cmds.some((c) => c.includes('session-start-hint.mjs'))).toBe(true);
+  });
+
+  it('--no-hint-hook skips the hook (only .mcp.json written)', () => {
+    const dir = tmpProject();
+    runScript(['--runtime', 'claude-code', '--project-root', dir, '--no-hint-hook']);
+    expect(fs.existsSync(path.join(dir, '.claude', 'settings.json'))).toBe(false);
+  });
+
+  it('does NOT wire the hook for cursor (no equivalent SessionStart surface)', () => {
+    const dir = tmpProject();
+    runScript(['--runtime', 'cursor', '--project-root', dir]);
+    expect(fs.existsSync(path.join(dir, '.claude', 'settings.json'))).toBe(false);
+  });
+
+  it('is idempotent + preserves existing hooks (mergeSessionStartHook unit)', () => {
+    const existing = { hooks: { SessionStart: [{ hooks: [{ type: 'command', command: 'echo other' }] }] } };
+    const first = mergeSessionStartHook(existing, '/abs/plugin');
+    expect(first.added).toBe(true);
+    expect(first.settings.hooks.SessionStart).toHaveLength(2); // kept the existing one
+    const second = mergeSessionStartHook(first.settings, '/abs/plugin');
+    expect(second.added).toBe(false); // already present → no duplicate
+    expect(second.settings.hooks.SessionStart).toHaveLength(2);
   });
 });
 
