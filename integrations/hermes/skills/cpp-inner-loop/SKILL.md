@@ -101,6 +101,15 @@ If `evidence.exhaustive` is false, **do not** state "no callers" or "safe to del
 
    Pass `audited: true` for safety-critical code; the packet surfaces `SOURCE_REQUIRED` even when code-intel is fresh. Pass `analyze: true, analyzeMode: "clang-tidy"|"compile"` to fold analyzer evidence into the packet.
 
+## Trust-spine verbs beyond the bounded loop (Code-Intel v2)
+
+The bounded `code_intel_*` verbs are the inner loop. The trust spine adds a few graph verbs for transitive / cross-cutting C++ questions. The rule across all of them: **`[lsp✓]` / `LSP_VERIFIED` = clangd ground truth — don't re-grep it; absence claims still gate on exhaustive evidence.**
+
+- **Virtual dispatch / transitive callers → `code_intel_hierarchy({ symbol, kind })`.** Call hierarchy (who-calls-transitively) and type hierarchy (virtual overrides) in one call. This is the trustworthy transitive path — `graph_callers`/`graph_impact`/`graph_path` cross-link to it for "transitive + LSP-exhaustive". Per-node `[lsp✓]` only stamps when the index is ready; bounded/not-ready mode renders `lsp-partial`. For a `base*->virt()` callsite, clangd resolves to the *declared* type''s method — use call hierarchy on the virtual (or hierarchy on the owning class), plus the static `OVERRIDDEN_BY` edges, to see runtime overrides.
+- **Whole call path A→B → `graph_trace({ from, to })`.** Inlines each hop body (`cat -n`) with the call-site line; dynamic-dispatch bridges annotated. When there''s no static path it inlines both endpoints + their callers/callees instead of returning 404.
+- **Repo-wide `[lsp✓]` callers → `graph_collect_code_intel({ language:"cpp", scope:"all" })` then `graph_callers`.** The collection imports clangd refs as `LSP_VERIFIED` edges; `graph_callers` (and `graph_pull(layers:["code_intel"])`) then render the `[lsp✓]` marker + TRUST banner on real caller edges. Use this when you want a ranked repo-wide caller set rather than one bounded `code_intel_references` answer. (Collect is time-budgeted and may return `partial` on a cold index — the live verbs remain the unaffected fast path.)
+- **Shader binding seams → `graph_shader()`.** C++↔GLSL binding bridge (`DECLARES_BINDING` / `LOADS_SHADER`) — finds the CPU declarers/loaders of a shader binding, the seam no plain LSP crosses.
+- **Build-graph queries (CMake) → `graph_callers` / `graph_neighbors` on a `BuildTarget` / `BuildTest` node.** `CMakeLists.txt` / `*.cmake` are now indexed: `add_executable`/`add_library` → `BuildTarget` nodes (kind + sources in `extra`), `add_test` → `BuildTest`, with `LINKS` edges (`target_link_libraries`, between known targets) and `RUNS` edges (`add_test … COMMAND <target>`). So "what does target X link / what links X / which test runs target Y / what does this target depend on" resolves on the graph — the target↔test mapping plain LSP can''t see. Appears after a full `graph_index`; it is NOT gated on a version bump, so if your graph predates it run `graph_index(force=true)` once.
 ## Freshness states
 
 `navigationFreshness` is now a 4-state model (Plan #14 Step B):
