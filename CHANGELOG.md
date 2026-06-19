@@ -9,6 +9,10 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+## [0.2.0] — 2026-06-19
+
+First tagged release — early but usable for daily work on real projects. Highlights since the 0.1.0 dev baseline: the multi-language LSP trust spine (clangd C++ / typescript-language-server / pyright → `[lsp✓]` LSP_VERIFIED edges), the rebuilt multi-layer dashboard (Map/Tree/Flow/Force/Shader, grouping, Tour, file-tree, git-diff overlay, trust lens), the 8-agent-audit correctness/honesty fixes, and the reference borrows. The dated entries below are the detail.
+
 ### 2026-06-19 — dashboard: trust lens + project-named title
 
 - **Trust lens** (all / ✓ verified / ~ heuristic): a new control that isolates the clangd-verified call spine on the graph. "verified" renders only `LSP_VERIFIED` (`[lsp✓]`) call edges, "heuristic" only the unverified ones that still need checking; structural edges (CONTAINS/IMPORTS) always stay so the skeleton holds. The header shows the verified-% of call edges. Makes the project's trust differentiator visible — "which of these call relationships can I actually trust" — now that real LSP data exists. Browser-verified on sand_castle (32% verified; "verified" view is visibly sparser than "all").
