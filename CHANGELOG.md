@@ -9,6 +9,10 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-19 — Sand Castle report P1/P2: CMake build graph + impact reframe
+
+- **CMake build graph (P1 #3).** A new framework plugin (`ingest/frameworks/cmake.js`) parses `CMakeLists.txt` / `*.cmake` and emits a build graph the structural extractor never had: `BuildTarget` nodes (`add_executable`/`add_library`, with kind + captured sources), `BuildTest` nodes (`add_test`), `LINKS` edges (`target_link_libraries` between known targets), and `RUNS` edges (`add_test … COMMAND <target>`). So "what links X / what test runs Y / what does target Z depend on" finally resolves on a C++ repo. Wired into the framework-plugin pass; `BuildTarget`/`BuildTest` joined `SPECIAL_TYPES` and the edges carry `source_file=''` so the per-file extraction loop (which processes the non-source CMakeLists.txt) can't reap them. Validated end-to-end on echoes (6 targets, 1 test, real link graph `EchoesOfTheFallen→TesseractEngine→{imgui_lib,lua_static}`). NOT gated on an EXTRACTOR_VERSION bump — existing graphs pick it up on their next full/forced reindex, so an actively-used graph isn't force-rebuilt out from under its trust spine.
+- **Impact/consequences reframe (P2 #5).** The server instructions now pitch `graph_consequences`/`graph_impact` as high-value EVEN on familiar code ("blast radius across subsystems is the thing memory can't hold — reach for these before a rename/signature/behavior change"), plus a one-liner routing build-graph questions to the new BuildTarget/BuildTest nodes.
 ### 2026-06-19 — Sand Castle usage-report fixes (P0: discoverability + loud overlay failure)
 
 From the Sand Castle team's first real-usage report on v0.2.0:

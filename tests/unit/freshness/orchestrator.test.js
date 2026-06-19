@@ -627,4 +627,34 @@ describe('freshness orchestrator', () => {
     await ensureFresh({ repoRoot, force: true });
     expect(lspCount(dbPath)).toBe(0);                      // gate refused — needs fresh collect
   });
+
+  // P1 #3 (Sand Castle): the CMake build graph must SURVIVE the per-file
+  // extraction loop, which processes the non-source CMakeLists.txt and would
+  // otherwise reap the BuildTarget nodes + their edges (the bug that made them
+  // vanish until BuildTarget/BuildTest joined SPECIAL_TYPES and the edges got
+  // source_file='').
+  it('indexes CMake build targets + link edges that survive a full index', async () => {
+    await writeFile(join(repoRoot, 'CMakeLists.txt'),
+      'add_library(core STATIC src/core.cpp)\nadd_executable(app src/main.cpp)\ntarget_link_libraries(app PRIVATE core)\n');
+    await writeFile(join(repoRoot, 'src', 'core.cpp'), 'int core() { return 1; }\n');
+    await writeFile(join(repoRoot, 'src', 'main.cpp'), 'int main() { return 0; }\n');
+    getHeadCommit.mockResolvedValue('head-cmake');
+    getDirtyFileEntries.mockResolvedValue([]);
+    getDirtyFiles.mockResolvedValue([]);
+    getChangedFiles.mockResolvedValue([]);
+
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot });
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      const targets = db.all("SELECT label FROM nodes WHERE type='BuildTarget' ORDER BY label").map((r) => r.label);
+      expect(targets).toEqual(['app', 'core']);
+      const links = db.all(
+        `SELECT f.label AS frm, t.label AS too FROM edges e
+         JOIN nodes f ON f.id=e.from_id JOIN nodes t ON t.id=e.to_id
+         WHERE e.relation='LINKS'`);
+      expect(links.map((l) => `${l.frm}->${l.too}`)).toEqual(['app->core']);
+    } finally { db.close(); }
+  });
 });

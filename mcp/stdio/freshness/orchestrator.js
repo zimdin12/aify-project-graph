@@ -32,6 +32,7 @@ import { railsPlugin } from '../ingest/frameworks/rails.js';
 import { springPlugin } from '../ingest/frameworks/spring.js';
 import { cppFrameworksPlugin } from '../ingest/frameworks/cpp_frameworks.js';
 import { shaderBindingsPlugin } from '../ingest/frameworks/shader_bindings.js';
+import { cmakePlugin } from '../ingest/frameworks/cmake.js';
 import { resolveRefs } from '../ingest/resolver.js';
 import { getGitCandidateFiles } from '../ingest/git-candidates.js';
 import { buildImportContext } from '../ingest/import-resolution.js';
@@ -53,7 +54,11 @@ import { detectMentions } from '../analysis/mentions.js';
 // Bumping forces deployed graphs to re-extract/re-resolve once.
 const EXTRACTOR_VERSION = '0.2.3';
 const PARSER_BUNDLE_VERSION = '2026.04.16';
-const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema', 'ShaderBinding'];
+// Plugin-emitted node types that the per-file extraction loop must NOT reap.
+// They're attributed to non-source files (a Route to routes/web.php, a
+// BuildTarget to CMakeLists.txt) that the loop would otherwise delete-then-not-
+// re-extract; clearSpecialNodes rebuilds the whole set each full index instead.
+const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema', 'ShaderBinding', 'BuildTarget', 'BuildTest'];
 const EXTRACTION_CHUNK_SIZE = 500;
 
 // TTL cache: skip git checks if the graph was confirmed fresh within the last 5 seconds
@@ -336,6 +341,7 @@ export async function ensureFresh({
           springPlugin,
           cppFrameworksPlugin,
           shaderBindingsPlugin,
+          cmakePlugin,
         ],
       });
 

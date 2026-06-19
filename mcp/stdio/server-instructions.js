@@ -32,7 +32,8 @@ ORIENT FIRST (cheap, often saves 2-5 shell calls):
 TOOL SELECTION BY INTENT:
 - who calls X / is it safe to delete → code_intel_references or graph_callers (read the evidence banner).
 - who calls X transitively / who overrides this virtual → code_intel_hierarchy.
-- what breaks if I change X → graph_consequences / graph_impact.
+- what breaks if I change X → graph_consequences / graph_impact. HIGH VALUE EVEN ON CODE YOU KNOW WELL: the blast radius across subsystems/contracts is the thing memory can't hold — reach for these before a rename/signature/behavior change, not just when orienting.
+- what build target builds / links / tests X → graph_callers/graph_neighbors on the BuildTarget/BuildTest node (CMake graph: LINKS = target_link_libraries, RUNS = add_test).
 - everything about X across code+features+tasks+docs → graph_pull.
 - C++ ↔ GLSL shader bindings → graph_shader.
 - locate a symbol → graph_search / graph_whereis.
