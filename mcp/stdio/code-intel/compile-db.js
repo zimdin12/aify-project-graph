@@ -26,6 +26,13 @@ import { BUILD_DEP_PREFIXES } from './providers/cpp-clangd.js';
 // first-party entries) wins, so order only matters for ties (first kept).
 const PROBE_DIRS = [
   '',                 // <projectRoot>/compile_commands.json
+  // Native Windows / clangd-dedicated DBs first — these are the ones our own
+  // foreign-DB guidance tells users to create (Ninja+clang-cl) so host clangd
+  // matches the DB. They MUST be probed, and on win32 a native one wins over a
+  // foreign (Linux/WSL) one regardless of entry count (see the selection below).
+  'build-win-clangd',
+  'build-clangd',
+  'build-win',
   'build',
   'build-debug',
   'build-linux',
@@ -534,18 +541,41 @@ export function prepareCompileDb({ projectRoot }) {
   const cached = _prepareCache.get(projectRoot);
   if (cached && cached.fingerprint === fingerprint) return cached.result;
 
-  // 1. Probe every candidate, parse, and pick the one with the most in-repo
-  //    first-party entries (after WSL-normalization for accurate matching).
-  let best = null;
-  for (const dir of PROBE_DIRS) {
-    const candidate = path.join(projectRoot, dir, 'compile_commands.json');
-    if (!fs.existsSync(candidate)) continue;
+  const mkCandidate = (candidate) => {
+    if (!fs.existsSync(candidate)) return null;
     const raw = parseDb(candidate);
-    if (!raw) continue;
+    if (!raw) return null;
     const normalized = raw.map(normalizeEntry);
     const { firstParty, unity } = countFirstParty(normalized, projectRoot);
-    if (!best || firstParty > best.firstParty) {
-      best = { sourcePath: candidate, raw, normalized, firstParty, unity, entryCount: raw.length };
+    // On win32 a NATIVE (non-foreign) DB is strictly preferred over a foreign
+    // (Linux/WSL) one — host clangd can only compile the native one, so a foreign
+    // DB with MORE entries still truncates caller sets. detectForeignToolchain is
+    // a no-op off win32. (Sand Castle probe bug: WSL build/ was winning by count.)
+    const foreign = detectForeignToolchain(raw).foreign;
+    return { sourcePath: candidate, raw, normalized, firstParty, unity, entryCount: raw.length, foreign };
+  };
+
+  // 0. APG_COMPILE_DB pins a specific compile DB (a compile_commands.json file or
+  //    its directory), overriding the probe entirely — a deterministic escape
+  //    hatch when auto-selection picks the wrong DB. Falls through to the probe
+  //    if the pinned path is missing/unparseable.
+  let best = null;
+  const pinRaw = String(process.env.APG_COMPILE_DB ?? '').trim();
+  if (pinRaw) {
+    const asFile = pinRaw.toLowerCase().endsWith('.json') ? pinRaw : path.join(pinRaw, 'compile_commands.json');
+    best = mkCandidate(path.resolve(asFile));
+  }
+
+  // 1. Probe every candidate, parse, and pick the best: a non-foreign DB beats a
+  //    foreign one (win32); within the same foreign status, most first-party wins.
+  if (!best) {
+    for (const dir of PROBE_DIRS) {
+      const cand = mkCandidate(path.join(projectRoot, dir, 'compile_commands.json'));
+      if (!cand) continue;
+      if (!best) { best = cand; continue; }
+      if (best.foreign && !cand.foreign) { best = cand; continue; } // native beats foreign
+      if (!best.foreign && cand.foreign) continue;                  // keep the native one
+      if (cand.firstParty > best.firstParty) best = cand;           // tie-break by coverage
     }
   }
 

@@ -9,6 +9,15 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+### 2026-06-19 — compile-DB probe: prefer native over foreign + pin env (Sand Castle follow-up)
+
+Standing up the recommended `build-win-clangd` Windows DB didn't help — APG kept using the WSL `build/`. Root cause (sc-manager's diagnosis): the probe picked the candidate with the most first-party entries, so a foreign (Linux/WSL) DB with more entries beat the native one — and `build-win-clangd` wasn't even in the probe list. Three fixes:
+
+- **`build-win-clangd` / `build-clangd` / `build-win` are now probed** (and listed first). The dir our own foreign-DB guidance tells users to create was never discovered — now it is.
+- **On win32, a NATIVE (non-foreign) compile DB beats a foreign (Linux/WSL) one regardless of entry count.** Host clangd can only compile the native DB, so a foreign DB with more entries still truncates — preferring it was backwards. Now `build-win-clangd/` wins over a WSL `build/` without touching the latter. Verified on the real sand_castle (now selects `build-win-clangd`, 441 entries, foreign=false).
+- **New `APG_COMPILE_DB` env pins a specific compile DB** (a `compile_commands.json` file or its dir), overriding the probe entirely — a deterministic escape hatch.
+
+Note: the live clangd session binds to the chosen DB at start, so an APG server/session restart is still needed to re-bind after the DB changes (a warm session won't re-probe). Win32-gated prefer-native test + a cross-platform pin test.
 ### 2026-06-19 — Sand Castle live finding 1: foreign-DB caller truncation honesty
 
 A live test (code_intel_references on a file-local C++ function) returned 2 of 5 in-file callsites on a Windows host whose compile DB was built under WSL — and crucially, our own `foreign_toolchain` diagnostic claimed *"References and call/type hierarchy stay usable"*, which the 2/5 (same-file!) result disproves.

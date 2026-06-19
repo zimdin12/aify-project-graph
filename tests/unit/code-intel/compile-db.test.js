@@ -275,3 +275,49 @@ describe('prepareCompileDb — foreign-toolchain strip (win32)', () => {
     expect(r.diagnostics.some(d => d.code === 'foreign_toolchain')).toBe(false);
   });
 });
+
+// Sand Castle probe bug: with both a WSL build/ and a native build-win-clangd/,
+// APG picked build/ by entry count → truncated caller sets. Fix: native wins.
+describe('prepareCompileDb — native DB preferred + APG_COMPILE_DB pin', () => {
+  let repo;
+  beforeEach(() => {
+    repo = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-prefer-'));
+    fs.mkdirSync(path.join(repo, 'engine'), { recursive: true });
+    fs.writeFileSync(path.join(repo, 'engine', 'a.cpp'), 'void a(){}\n');
+    fs.writeFileSync(path.join(repo, 'engine', 'b.cpp'), 'void b(){}\n');
+  });
+  afterEach(() => { delete process.env.APG_COMPILE_DB; try { fs.rmSync(repo, { recursive: true, force: true }); } catch {} });
+  const writeDb = (rel, entries) => {
+    const p = path.join(repo, rel);
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    fs.writeFileSync(p, JSON.stringify(entries, null, 2));
+  };
+  const nativeEntry = (dir, rel) => ({
+    directory: path.join(repo, dir).replace(/\\/g, '/'),
+    file: path.join(repo, rel).replace(/\\/g, '/'),
+    arguments: ['clang-cl', '-I' + path.join(repo, 'engine').replace(/\\/g, '/'), '-c', path.join(repo, rel).replace(/\\/g, '/')],
+  });
+
+  it('on win32, a native build-win-clangd/ wins over a foreign build/ even with MORE foreign entries', () => {
+    if (!isWin) return; // foreign detection is a win32-only concept
+    // Foreign build/ with 2 entries (/mnt/ paths) vs native build-win-clangd/ with 1.
+    writeDb('build/compile_commands.json', [
+      { directory: wslish(repo, 'build'), file: wslish(repo, 'engine/a.cpp'), command: `/usr/bin/c++ -c ${wslish(repo, 'engine/a.cpp')}` },
+      { directory: wslish(repo, 'build'), file: wslish(repo, 'engine/b.cpp'), command: `/usr/bin/c++ -c ${wslish(repo, 'engine/b.cpp')}` },
+    ]);
+    writeDb('build-win-clangd/compile_commands.json', [nativeEntry('build-win-clangd', 'engine/a.cpp')]);
+    const r = prepareCompileDb({ projectRoot: repo });
+    expect(r.found).toBe(true);
+    expect(r.sourcePath.replace(/\\/g, '/')).toMatch(/build-win-clangd\/compile_commands\.json$/);
+    expect(!!r.foreignToolchain).toBe(false);
+  });
+
+  it('APG_COMPILE_DB pins a specific DB, overriding the probe (cross-platform)', () => {
+    writeDb('build/compile_commands.json', [nativeEntry('build', 'engine/a.cpp')]);
+    writeDb('custom-db/compile_commands.json', [nativeEntry('custom-db', 'engine/b.cpp')]);
+    process.env.APG_COMPILE_DB = path.join(repo, 'custom-db', 'compile_commands.json');
+    const r = prepareCompileDb({ projectRoot: repo });
+    expect(r.found).toBe(true);
+    expect(r.sourcePath.replace(/\\/g, '/')).toMatch(/custom-db\/compile_commands\.json$/);
+  });
+});
