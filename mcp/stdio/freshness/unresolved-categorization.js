@@ -214,6 +214,18 @@ export function renderUnresolvedCategorizationReport(output) {
   lines.push(`  fixable:            ${output.summary.fixable} (${pct(output.summary.fixable, output.sample_size || output.total)})`);
   lines.push(`  shape-issue:        ${output.summary.shapeIssues} (${pct(output.summary.shapeIssues, output.sample_size || output.total)})`);
   lines.push(`  unclassified:       ${output.summary.unclassified} (${pct(output.summary.unclassified, output.sample_size || output.total)})`);
+  // Turn the `fixable` NUMBER into an ACTION (Sand Castle field report
+  // 2026-07-10, #4a): a count with no next step doesn't tell a reader what to
+  // do. `fixable:*` edges are plain-name CALLS/REFERENCES tree-sitter saw but
+  // couldn't bind to a definition — the LSP trust spine resolves most of them.
+  if ((output.summary.fixable ?? 0) > 0) {
+    lines.push('');
+    lines.push(
+      `  → fixable = tree-sitter saw a plain call/reference but couldn't bind it to a definition. ` +
+      `Run graph_collect_code_intel to let the LSP (clangd/tsserver/pyright) resolve them into real edges; ` +
+      `residue is genuinely cross-TU / dynamic and expected.`,
+    );
+  }
   lines.push('');
   lines.push('Per-bucket breakdown:');
   for (const [bucket, count] of Object.entries(output.buckets)) {

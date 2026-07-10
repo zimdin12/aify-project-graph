@@ -8,11 +8,13 @@ import { selectBestRoot } from './path.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
+import { normalizePathArg } from '../../util/paths.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
 export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
+  file = normalizePathArg(file); // accept Windows backslash file filters (mirror graph_callers)
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_callees' });
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));

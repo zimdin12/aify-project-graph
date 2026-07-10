@@ -134,7 +134,18 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   // staleness caveat reports the SAME "N commits behind" agents see from health.
   const commitsBehind = stale ? commitsBehindHead(repoRoot, manifest.commit, head) : null;
   if (stale) {
-    warnings.push(`graph snapshot is stale: indexed ${manifest.commit.slice(0, 7)}, HEAD ${head.slice(0, 7)}`);
+    // Surface the commits-behind count (already computed above) AND the refresh
+    // call-to-action on the SAME line every read verb prints via
+    // prefixReadWarnings — a stale count with no next step reads as noise
+    // (Sand Castle field report 2026-07-10, #1: staleness is the top value
+    // killer when the fix isn't spelled out). APG_AUTO_REINDEX is named here for
+    // discoverability without changing its opt-in default.
+    const behind = commitsBehind != null
+      ? `${commitsBehind} commit${commitsBehind === 1 ? '' : 's'} behind`
+      : 'behind';
+    warnings.push(
+      `graph snapshot is stale (${behind} HEAD): indexed ${manifest.commit.slice(0, 7)}, HEAD ${head.slice(0, 7)} — run graph_index() to refresh (or set APG_AUTO_REINDEX=1 for auto-refresh on read).`,
+    );
   }
   if (dirtyFiles.length > 0) {
     warnings.push(`working tree has ${dirtyFiles.length} dirty file${dirtyFiles.length === 1 ? '' : 's'}; live reads use the last completed snapshot`);

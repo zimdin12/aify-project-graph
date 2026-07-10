@@ -53,6 +53,42 @@ no longer compounds via state loss.
 refactors or long-running incremental sessions if unresolved counts
 look stale.
 
+## Keeping the graph fresh on a high-commit-velocity repo
+
+On a fast-moving repo the graph drifts behind HEAD between reindexes. A
+stale index doesn't lie — every read verb prefixes a `graph snapshot is
+stale (N commits behind HEAD) — run graph_index()…` warning, and a stale
+`not found` is flagged as non-authoritative — but load-bearing questions
+(caller enumeration before a signature change, blast radius before an
+edit) want a fresh index. Three tiers, cheapest first:
+
+1. **Auto-refresh on read (`APG_AUTO_REINDEX=1`).** Set this env var and
+   the MCP self-heals a behind-HEAD graph with an *incremental* refresh
+   before each read verb. Incremental is fast — a few seconds even for
+   a couple hundred changed files. Cost: that latency is paid on the
+   first read after commits land, and a full rebuild (schema/extractor
+   bump) still drops `[lsp✓]` edges (see below). Best default for
+   managed workers who can't call `graph_index` themselves.
+2. **Proactive git hook (supported installer).** For teams that would
+   rather pay refresh cost at commit time than read time, install the
+   backgrounded `post-commit` reindex hook:
+
+   ```sh
+   node /abs/path/to/aify-project-graph/scripts/install-graph-hook.mjs /abs/path/to/target-repo
+   ```
+
+   It writes an idempotent, aify-delimited block into the target repo's
+   `.git/hooks/post-commit` (preserving any existing hook content) that
+   runs `scripts/reindex.mjs` backgrounded, so commits stay instant and
+   the next read sees a fresh graph. Re-running replaces the block rather
+   than duplicating it.
+3. **Manual.** `graph_index()` on demand — fine for low-velocity repos
+   or when you want explicit control.
+
+After any FULL rebuild (force, or a schema/extractor bump — not
+incremental), re-run `graph_collect_code_intel` to restore `[lsp✓]`
+edges (see "LSP-verified edges do not survive a full re-index").
+
 ## Unresolved count can jump after a schema bump
 
 After a schema-version bump that forces a full rebuild, `unresolvedEdges`

@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildUnresolvedCategorization, classifyUnresolvedRef } from '../../../mcp/stdio/freshness/unresolved-categorization.js';
+import { buildUnresolvedCategorization, classifyUnresolvedRef, renderUnresolvedCategorizationReport } from '../../../mcp/stdio/freshness/unresolved-categorization.js';
 import { countTrustRelevantDirtyEdges } from '../../../mcp/stdio/freshness/unresolved-metrics.js';
 
 describe('unresolved categorization', () => {
@@ -108,6 +108,26 @@ describe('unresolved categorization', () => {
     expect(classifyUnresolvedRef({
       relation: 'IMPORTS', target: '@scope/pkg.thing', extractor: 'typescript',
     })).toBe('external-by-design:npm');
+  });
+
+  it('render turns a non-zero fixable count into an actionable pointer (field report #4a)', () => {
+    const withFixable = renderUnresolvedCategorizationReport({
+      repoRoot: '/repo', total: 3, source: 'sidecar', capped: false, sample_size: 3,
+      summary: { external: 0, denylisted: 0, fixable: 2, shapeIssues: 0, unclassified: 1 },
+      buckets: { 'fixable:call-short-name': 2, unclassified: 1 },
+      samples: {},
+    });
+    expect(withFixable).toMatch(/fixable =/);
+    expect(withFixable).toContain('graph_collect_code_intel');
+
+    // No fixable → no pointer noise on the happy path.
+    const noFixable = renderUnresolvedCategorizationReport({
+      repoRoot: '/repo', total: 1, source: 'sidecar', capped: false, sample_size: 1,
+      summary: { external: 1, denylisted: 0, fixable: 0, shapeIssues: 0, unclassified: 0 },
+      buckets: { 'external-by-design:npm': 1 },
+      samples: {},
+    });
+    expect(noFixable).not.toMatch(/fixable =/);
   });
 
   it('counts only fixable or unclassified unresolved refs as trust-relevant', () => {

@@ -2,8 +2,10 @@ import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { normalizePathArg } from '../../util/paths.js';
 
 export async function graphModuleTree({ repoRoot, path = '.', depth = 2, top_k = 30 }) {
+  path = normalizePathArg(path); // accept Windows backslash paths (src\foo)
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_module_tree' });
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));

@@ -109,4 +109,44 @@ describe('read verbs use existing snapshots only', () => {
     expect(result).toMatch(/working tree has 1 dirty file/);
     expect(result).toMatch(/src\/app\.js:1/);
   });
+
+  it('stale snapshot warning carries the commits-behind count AND a refresh call-to-action (field report #1a)', async () => {
+    initGitRepo(repoRoot);
+    await mkdir(join(repoRoot, '.aify-graph'), { recursive: true });
+    await mkdir(join(repoRoot, 'src'), { recursive: true });
+    await writeFile(join(repoRoot, 'src', 'app.js'), 'export function foo() { return 1; }\n');
+    const indexedCommit = gitCommit(repoRoot, 'init');
+
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db.run(
+      `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, extra)
+       VALUES ('fn1', 'Function', 'foo', 'src/app.js', 1, 1, 'javascript', 1.0, '{}')`,
+    );
+    db.close();
+
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: indexedCommit,
+      indexedAt: new Date().toISOString(),
+      nodes: 1,
+      edges: 0,
+      schemaVersion: 4,
+      extractorVersion: '0.1.0',
+      status: 'ok',
+      dirtyFiles: [],
+      dirtyEdges: [],
+      dirtyEdgeCount: 0,
+    }));
+
+    // Advance HEAD past the indexed commit so the snapshot is stale (behind HEAD).
+    await writeFile(join(repoRoot, 'src', 'other.js'), 'export const x = 1;\n');
+    gitCommit(repoRoot, 'second');
+
+    const result = await graphWhereis({ repoRoot, symbol: 'foo' });
+
+    expect(result).toMatch(/SNAPSHOT WARNINGS/);
+    expect(result).toMatch(/graph snapshot is stale/);
+    expect(result).toMatch(/1 commit behind HEAD/);
+    expect(result).toMatch(/graph_index\(\)/);
+    expect(result).toMatch(/APG_AUTO_REINDEX/);
+  });
 });

@@ -4,6 +4,7 @@ import { renderCompact } from '../renderer.js';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { isGeneratedPath } from '../generated.js';
+import { normalizePathArg } from '../../util/paths.js';
 import { loadEmbeddings, embedderFromEnv, rankBySimilarity } from '../../intelligence/embeddings.js';
 
 // P1-5 — generated codegen stubs sort LAST among otherwise-equal candidates.
@@ -82,6 +83,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
   if (!query || query.trim().length === 0) {
     return 'QUERY_TOO_SHORT — provide at least 1 character';
   }
+  file = normalizePathArg(file); // accept Windows backslash file filters (src\foo)
 
   const normalizedQuery = query.trim();
   let freshnessWarnings = [];
