@@ -76,21 +76,25 @@ mcp_servers:
 
 Expand `<CLONE_PATH>` to the absolute clone path. `--max-old-space-size=8192` gives Node an 8 GB heap; on 8 GB RAM machines use `4096`.
 
-### Step 2b — REQUIRED: allow the toolset through `platform_toolsets` (the common "connected but no tools" trap)
+### Step 2b — CONDITIONAL: if a `platform_toolsets` allowlist exists, add the toolset to it
 
-Hermes exposes each MCP server's tools through a **dynamic toolset named `mcp-<server>`** — here, **`mcp-aify-project-graph`**. If your Hermes profile enables an explicit `platform_toolsets.cli` allowlist (many do), the server will connect successfully but its tools are **filtered out of the session** unless the toolset is on that list. This is the single most common reason a correctly-registered Hermes MCP server shows **zero verbs** — especially in managed/spawned sessions (see Plan #20 below).
+Hermes exposes each MCP server's tools through a **dynamic toolset named `mcp-<server>`** — here, **`mcp-aify-project-graph`**. If a Hermes profile enables an **explicit** `platform_toolsets` allowlist, the server connects successfully but its tools are **filtered out of the session** unless the toolset is on that list. When an allowlist exists, this is the single most common reason a correctly-registered Hermes MCP server shows **zero verbs**.
 
-Add `mcp-aify-project-graph` to the `cli` toolset list (and to any other profile your agents run under):
+**First check whether an allowlist even exists** — the handling is different, and getting this wrong can BREAK a working fleet:
 
-```yaml
-# $HERMES_HOME/config.yaml
-platform_toolsets:
-  cli:
-    - hermes-cli          # keep whatever entries already exist
-    - mcp-aify-project-graph
-```
+- **A `platform_toolsets:` block EXISTS** → append `mcp-aify-project-graph` to the relevant profile's list (keep every existing entry):
 
-If your config has **no** `platform_toolsets:` block at all, Hermes is not filtering by allowlist and this step is a no-op — but adding the block above makes the tools explicit and survives a later profile that does filter. **After Form A (the `hermes mcp add` CLI) too:** the CLI writes `mcp_servers` but does not necessarily touch `platform_toolsets`, so apply this step regardless of which registration form you used.
+  ```yaml
+  # $HERMES_HOME/config.yaml
+  platform_toolsets:
+    cli:
+      - hermes-cli          # keep whatever entries already exist
+      - mcp-aify-project-graph
+  ```
+
+- **NO `platform_toolsets:` block anywhere** → Hermes is NOT filtering by allowlist, so the graph tools should already be visible. **Do NOT blind-create the section.** Writing a fresh `platform_toolsets.cli: [hermes-cli, mcp-aify-project-graph]` risks RESTRICTING the session to only those two toolsets and silently dropping whatever else loaded by default. If the tools are still missing with no section present, the cause is **elsewhere** — MCP exposure, or a managed/spawned wrapper profile (see Plan #20) — not this allowlist. Only introduce a `platform_toolsets` section after you've listed the toolsets ACTUALLY active in a working session (check `hermes --help` / the TUI help for the "list toolsets" command in your build) and can preserve them all.
+
+**Note on Form A:** the `hermes mcp add` CLI writes `mcp_servers` but does not touch `platform_toolsets`, so if a filtering profile already exists you must append the toolset there manually.
 
 ### Optional — clangd setup for the C++ code-intel trust spine
 
