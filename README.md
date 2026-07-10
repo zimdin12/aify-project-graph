@@ -246,7 +246,7 @@ Under the hood each install doc does the same thing:
    - Codex: `codex mcp add aify-project-graph -- node --max-old-space-size=8192 <path>/mcp/stdio/server.js --toolset=lean`
    - OpenCode: JSON-patch `${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json` → `mcp.aify-project-graph`
    - oh-my-pi / Pi-Linux: native CLI or OpenCode-style JSON patch (see `install.pi.md`)
-   - Hermes: `hermes mcp add` CLI form, or JSON-patch `${XDG_CONFIG_HOME:-~/.config}/hermes/hermes.json` → `mcpServers.aify-project-graph` (server stanza is runtime-agnostic)
+   - Hermes: `hermes mcp add` CLI form, or YAML-patch `$HERMES_HOME/config.yaml` (default `~/.hermes/config.yaml`) → `mcp_servers.aify-project-graph` — then ALSO add `mcp-aify-project-graph` to `platform_toolsets.cli` or the tools stay filtered out of CLI/managed sessions (see `install.hermes.md` Step 2b). Server stanza is runtime-agnostic.
    - Cursor: JSON-patch `~/.cursor/mcp.json` → `mcpServers.aify-project-graph` + optional `.cursor/rules/aify-graph.mdc`
 4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`; Hermes: `integrations/hermes/skill{,s}/` → `~/.config/hermes/skills/`. OpenCode skips; MCP verb descriptions carry the guidance there.
 5. User restarts the runtime

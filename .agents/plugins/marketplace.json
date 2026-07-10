@@ -31,7 +31,7 @@
       "capabilities": ["mcp", "project-graph", "static-briefs", "task-feature-overlays", "graph-packet", "dashboard", "optional-code-intel"],
       "uninstall": {
         "derived_paths": [".aify-graph"],
-        "runtime_configs": ["~/.claude.json", "~/.codex/mcp.json", "${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json", "${XDG_CONFIG_HOME:-~/.config}/hermes/hermes.json", "~/.cursor/mcp.json"]
+        "runtime_configs": ["~/.claude.json", "~/.codex/mcp.json", "${XDG_CONFIG_HOME:-~/.config}/opencode/opencode.json", "${HERMES_HOME:-~/.hermes}/config.yaml", "~/.cursor/mcp.json"]
       }
     }
   ]

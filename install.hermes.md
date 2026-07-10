@@ -56,36 +56,45 @@ hermes mcp add aify-project-graph \
   -- node --max-old-space-size=8192 "$CLONE_PATH/mcp/stdio/server.js" --toolset=lean
 ```
 
-**Form B — JSON config patch (fallback; use if Hermes has no `mcp` CLI):**
+**Form B — YAML config patch (fallback; use if Hermes has no `mcp` CLI):**
 
-Hermes config is assumed at `${XDG_CONFIG_HOME:-$HOME/.config}/hermes/hermes.json`. Patch via Node so existing `mcpServers` entries are merged, not overwritten. If your Hermes build reads a different config file, change `CONFIG_FILE` only — the server stanza is correct as-is.
+Hermes reads MCP servers from **`$HERMES_HOME/config.yaml`** (default `$HOME/.hermes/config.yaml`) under the top-level **`mcp_servers`** key — NOT a JSON file. Add this block (merge into an existing `mcp_servers:` map if one is already present; do not clobber sibling servers):
 
-```bash
-CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/hermes/hermes.json"
-mkdir -p "$(dirname "$CONFIG_FILE")"
-if [ ! -f "$CONFIG_FILE" ]; then echo '{}' > "$CONFIG_FILE"; fi
-
-node -e '
-  const fs = require("fs");
-  const file = process.argv[1];
-  const serverPath = process.argv[2];
-  let data = {};
-  try { data = JSON.parse(fs.readFileSync(file, "utf-8")); } catch (_) {}
-  if (!data || typeof data !== "object") data = {};
-  if (!data.mcpServers || typeof data.mcpServers !== "object" || Array.isArray(data.mcpServers)) data.mcpServers = {};
-  data.mcpServers["aify-project-graph"] = {
-    command: "node",
-    args: ["--max-old-space-size=8192", serverPath, "--toolset=lean"],
-  };
-  fs.writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
-' "$CONFIG_FILE" "$CLONE_PATH/mcp/stdio/server.js"
+```yaml
+# $HERMES_HOME/config.yaml  (default ~/.hermes/config.yaml)
+mcp_servers:
+  aify-project-graph:
+    command: node
+    args:
+      - --max-old-space-size=8192
+      - <CLONE_PATH>/mcp/stdio/server.js
+      - --toolset=lean
+    timeout: 120
+    connect_timeout: 60
+    enabled: true
 ```
 
-`--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
+Expand `<CLONE_PATH>` to the absolute clone path. `--max-old-space-size=8192` gives Node an 8 GB heap; on 8 GB RAM machines use `4096`.
+
+### Step 2b — REQUIRED: allow the toolset through `platform_toolsets` (the common "connected but no tools" trap)
+
+Hermes exposes each MCP server's tools through a **dynamic toolset named `mcp-<server>`** — here, **`mcp-aify-project-graph`**. If your Hermes profile enables an explicit `platform_toolsets.cli` allowlist (many do), the server will connect successfully but its tools are **filtered out of the session** unless the toolset is on that list. This is the single most common reason a correctly-registered Hermes MCP server shows **zero verbs** — especially in managed/spawned sessions (see Plan #20 below).
+
+Add `mcp-aify-project-graph` to the `cli` toolset list (and to any other profile your agents run under):
+
+```yaml
+# $HERMES_HOME/config.yaml
+platform_toolsets:
+  cli:
+    - hermes-cli          # keep whatever entries already exist
+    - mcp-aify-project-graph
+```
+
+If your config has **no** `platform_toolsets:` block at all, Hermes is not filtering by allowlist and this step is a no-op — but adding the block above makes the tools explicit and survives a later profile that does filter. **After Form A (the `hermes mcp add` CLI) too:** the CLI writes `mcp_servers` but does not necessarily touch `platform_toolsets`, so apply this step regardless of which registration form you used.
 
 ### Optional — clangd setup for the C++ code-intel trust spine
 
-clangd is **optional** but powers the `code_intel_*` verbs + `LSP_VERIFIED` caller edges. Resolution order: `APG_CLANGD` env var → `C:/Program Files/LLVM/bin/clangd.exe` (Windows) → `clangd` on PATH. On Hermes, set `APG_CLANGD` in the MCP server's `env` (config.yaml `mcp_servers` / `mcpServers` stanza) when clangd isn't on PATH — for a WSL Hermes that means the WSL clangd path (e.g. `/usr/bin/clangd`), which also gives full diagnostics against a WSL-built `compile_commands.json`:
+clangd is **optional** but powers the `code_intel_*` verbs + `LSP_VERIFIED` caller edges. Resolution order: `APG_CLANGD` env var → `C:/Program Files/LLVM/bin/clangd.exe` (Windows) → `clangd` on PATH. On Hermes, set `APG_CLANGD` in the MCP server's `env` (the `config.yaml` `mcp_servers.aify-project-graph` stanza) when clangd isn't on PATH — for a WSL Hermes that means the WSL clangd path (e.g. `/usr/bin/clangd`), which also gives full diagnostics against a WSL-built `compile_commands.json`:
 
 ```yaml
 # config.yaml — mcp_servers stanza env (illustrative)
@@ -109,7 +118,7 @@ The registered MCP server has ONE `repoRoot` — whatever directory Hermes was l
 
 ### Plan #20 — managed-session install: USER-LEVEL ONLY (today)
 
-No project-local MCP config path is documented for Hermes today. User-level (Form A CLI / Form B JSON-config) is the only path. As with Codex, **managed/spawned Hermes sessions** (started via aify-comms or any other orchestrator) may not inherit user-level MCP and therefore may report no APG verbs in `tools/list`. If your Hermes build proves to support a project-local MCP file path, file an issue with the path and we'll add it to `scripts/init-project-mcp.mjs` alongside claude-code and cursor.
+No project-local MCP config path is documented for Hermes today. User-level (Form A CLI / Form B YAML-config) is the only path. **Managed/spawned Hermes sessions** (started via aify-comms `hermes-aify` or any other orchestrator) launch a real Hermes CLI session that DOES read `$HERMES_HOME/config.yaml` — so they pick up `mcp_servers` normally. The usual reason a managed Hermes agent reports **no APG verbs** while a hand-launched one sees them is the **`platform_toolsets.cli` allowlist (Step 2b)**: the managed profile filters the `mcp-aify-project-graph` toolset out. Fix Step 2b and restart the managed session. If your Hermes build proves to support a project-local MCP file path, file an issue with the path and we'll add it to `scripts/init-project-mcp.mjs` alongside claude-code and cursor.
 
 ## Step 3 — install the skills
 
@@ -155,6 +164,6 @@ Returns a trust/indexing summary. If no graph exists yet, call `graph_index(forc
 
 ## Troubleshooting
 
-- **MCP tool not visible** → confirm Step 2 wrote the entry (CLI: re-run `hermes mcp add`; JSON: check `mcpServers.aify-project-graph` in the Hermes config file). If your Hermes build uses a different config path or CLI verb, only the registration entrypoint changes — the `node … server.js --toolset=lean` stanza is correct.
+- **MCP tool not visible** → (1) confirm Step 2 wrote the entry: `mcp_servers.aify-project-graph` under `$HERMES_HOME/config.yaml` (CLI: re-run `hermes mcp add`). (2) **Most common cause:** confirm Step 2b — `mcp-aify-project-graph` is listed under `platform_toolsets.cli` (and any other profile in use). A server that's "connected" per `graph_health` failing to appear in `tools/list` is almost always this allowlist filter, not a registration miss. If your Hermes build uses a different config path or CLI verb, only the registration entrypoint changes — the `node … server.js --toolset=lean` stanza is correct.
 - **`better-sqlite3` flipped platforms** (same clone across Windows/WSL) → clone separately per environment, or `npm rebuild better-sqlite3` in the runtime you use.
 - **Graph seems stale** → `graph_index(force=true)` for a full rebuild.
