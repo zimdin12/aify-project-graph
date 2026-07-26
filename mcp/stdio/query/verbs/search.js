@@ -12,6 +12,11 @@ import { loadEmbeddings, embedderFromEnv, rankBySimilarity } from '../../intelli
 // shared label, but the generated node stays reachable (never hidden).
 const GENERATED_PENALTY = 2000;
 
+// Hard ceiling on candidates pulled from SQL before ranking. Past this, nodes are
+// never scored, so raising `limit` cannot surface them — the result must say so
+// rather than look complete (LH-1).
+const SQL_CANDIDATE_CAP = 200;
+
 // Code-first ranking: agents want code symbols, not docs/dirs
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
 const STRUCTURE_TYPES = new Set(['File', 'Module', 'Entrypoint', 'Route', 'Schema']);
@@ -155,7 +160,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
     const clauses = ['label LIKE $q', ...baseClauses];
     const params = { ...baseParams, q: `%${normalizedQuery}%`, limit: cappedLimit };
     const where = clauses.join(' AND ');
-    const hits = db.all(`SELECT * FROM nodes WHERE ${where} LIMIT 200`, params);
+    const hits = db.all(`SELECT * FROM nodes WHERE ${where} LIMIT ${SQL_CANDIDATE_CAP}`, params);
 
     if (hits.length === 0) {
       const base = `NO RESULTS for "${normalizedQuery}". Try graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or check graph_status() to verify the graph covers your files.`;
@@ -163,14 +168,38 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
       return caveat ? `${base}\n${caveat}` : base;
     }
 
-    // Re-rank by agent-intent scoring
-    const scored = hits
+    // Re-rank by agent-intent scoring.
+    // LH-1 (2026-07-26): this truncated SILENTLY, twice — the SQL `LIMIT 200`
+    // above caps what is even scored, and this slice caps what is shown (default
+    // 20) — and renderCompact was called with no `truncated` argument, so no
+    // marker was emitted at all. An agent saw 20 hits with no hint that more
+    // existed, which is the same false-completeness failure as a bad
+    // exhaustive:true. Both caps are now reported.
+    const ranked = hits
       .map(n => ({ ...n, _score: scoreNode(n, normalizedQuery) }))
-      .sort((a, b) => b._score - a._score)
-      .slice(0, limit);
+      .sort((a, b) => b._score - a._score);
+    const scored = ranked.slice(0, limit);
+    const dropped = ranked.length - scored.length;
 
-    const rendered = annotateGenerated(renderCompact({ nodes: scored, edges: [] }), scored);
-    return prefixReadWarnings(rendered, freshnessWarnings);
+    const rendered = annotateGenerated(
+      renderCompact({
+        nodes: scored,
+        edges: [],
+        truncated: dropped,
+        suggestion: `limit=${limit + 20}`,
+      }),
+      scored,
+    );
+    // The SQL cap is a separate, harder ceiling: past it, candidates were never
+    // scored at all, so raising `limit` alone cannot reveal them.
+    const sqlCapNote = hits.length >= SQL_CANDIDATE_CAP
+      ? `\n⚠ candidate cap: matched at least ${SQL_CANDIDATE_CAP} nodes and only the first ${SQL_CANDIDATE_CAP} were ranked`
+        + ' — results are a FLOOR, not a complete match set. Narrow with type= / file=, or use graph_find for a broader sweep.'
+      : '';
+    const shownNote = dropped > 0 || sqlCapNote
+      ? `\nSHOWING ${scored.length} of ${hits.length}${hits.length >= SQL_CANDIDATE_CAP ? '+' : ''} matches.`
+      : '';
+    return prefixReadWarnings(rendered + shownNote + sqlCapNote, freshnessWarnings);
   } finally {
     db.close();
   }

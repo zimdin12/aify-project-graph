@@ -187,7 +187,55 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
   // an index-ready collection earns the exhaustive attestation.
   const totalEdges = Array.isArray(edges) ? edges.length : 0;
   const allVerified = totalEdges > 0 && verifiedCount === totalEdges;
+
+  // P0-5 (2026-07-26): staleness must be decided BEFORE the wording is chosen.
+  // It used to be appended as " — STALE, re-collect" AFTER the
+  // "index-ready, N callers" attestation had already been emitted — the one
+  // banner our server-instructions say licenses "safe to delete". Sand Castle
+  // ran against a collection 5 weeks / 100+ commits behind HEAD and still saw
+  // the exhaustive wording. A stale collection can never license exhaustiveness.
+  let stale = false;
+  if (collection) {
+    try {
+      const head = await getHeadCommit(repoRoot).catch(() => null);
+      if (head && collection.indexedCommit && head !== collection.indexedCommit) stale = true;
+    } catch { /* defensive */ }
+    if (
+      collection.freshnessBasis === 'compile_db_hash'
+      && collection.compileDbHash
+      && collection.freshnessValue
+      && collection.compileDbHash !== collection.freshnessValue
+    ) {
+      stale = true;
+    }
+  } else {
+    // A verified edge with no collection row to vouch for it — treat as stale so
+    // the agent re-collects rather than trusting an orphan edge.
+    stale = true;
+  }
+
+  // P0-3: a collection that left a large share of symbols unresolved did not
+  // index the repo completely, so its verified set is a floor regardless of the
+  // indexReady bit. sand_castle: 2274 unresolved of 8917 (25%).
+  const refsFound = Number(collection?.refsFound) || 0;
+  const refsNotFound = Number(collection?.refsNotFound) || 0;
+  const refsTotal = refsFound + refsNotFound;
+  const unresolvedRatio = refsTotal > 0 ? refsNotFound / refsTotal : 0;
+  const heavilyUnresolved = unresolvedRatio >= 0.1;
+
   let line;
+  if (collection && collection.indexReady === true && allVerified && stale) {
+    line = `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection is STALE — `
+      + `indexed ${String(collection.indexedCommit ?? '?').slice(0, 7)}, HEAD has moved. The set is a FLOOR, not exhaustive; `
+      + `re-run graph_collect_code_intel, or verify with rg before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
+    return line;
+  }
+  if (collection && collection.indexReady === true && allVerified && heavilyUnresolved) {
+    line = `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection left `
+      + `${refsNotFound} of ${refsTotal} symbols (${Math.round(unresolvedRatio * 100)}%) unresolved — the index is incomplete, so this `
+      + `is a FLOOR, not exhaustive; verify with rg before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
+    return line;
+  }
   if (collection && collection.indexReady === true && allVerified) {
     line = `TRUST: lsp-verified (clangd, index-ready, ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}, collected ${when})`;
   } else if (collection && collection.indexReady === true) {
@@ -200,32 +248,9 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
     line = `TRUST: lsp-verified (clangd, compile-db ${dbHash}, collected ${when})`;
   }
 
-  // Stale check: HEAD moved past the indexed commit, OR the compile-db hash
-  // recorded on the collection no longer matches its freshness anchor. Either
-  // way the verified edges may be out of date — say so, don't pass silently.
-  let stale = false;
-  if (collection) {
-    try {
-      const head = await getHeadCommit(repoRoot).catch(() => null);
-      if (head && collection.indexedCommit && head !== collection.indexedCommit) {
-        stale = true;
-      }
-    } catch { /* defensive */ }
-    // freshnessBasis === 'compile_db_hash' means freshnessValue is the hash the
-    // collection was gated on; a drift from compile_db_hash signals re-collect.
-    if (
-      collection.freshnessBasis === 'compile_db_hash'
-      && collection.compileDbHash
-      && collection.freshnessValue
-      && collection.compileDbHash !== collection.freshnessValue
-    ) {
-      stale = true;
-    }
-  } else {
-    // We saw a verified edge but no collection row to vouch for it — treat as
-    // stale so the agent re-collects rather than trusting an orphan edge.
-    stale = true;
-  }
+  // `stale` was computed above, before the wording was chosen (P0-5), so an
+  // exhaustive-licensing banner can never be emitted for a stale collection.
+  // The remaining (already non-exhaustive) wordings still carry the marker.
 
   if (stale) line += ' — STALE, re-collect';
   return line;

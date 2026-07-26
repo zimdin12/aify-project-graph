@@ -77,6 +77,14 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
 
     if (edges.length === 0) return absence(`NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
 
+    // NOTE (P0-4): `source_file`/`source_line` here carry the CALLER's
+    // DECLARATION location, not the call site. That is deliberate — edges are
+    // function-granular (see docs/known-limitations.md), so one edge can stand
+    // for several call sites inside the caller and there is no single call-site
+    // line to show. It is also what makes the `file` directory filter below mean
+    // "callers living under this path". The location is honest data; what was
+    // NOT honest was rendering it in a format that reads as a call site, so the
+    // output now says which it is (see LOCATIONS note below).
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
       source_file: e.from_file, source_line: e.from_line,
@@ -129,8 +137,16 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
     } catch { /* defensive — never block result on trust-line failure */ }
 
+    // P0-4: state what the printed locations ARE. The Sand Castle field test
+    // scored graph_callers 0/8 on a call-site census because its `file:line`
+    // values (function declarations) were read as call sites. The data was
+    // right; the label was missing.
+    const locationsNote = '\nLOCATIONS: each file:line is the CALLER FUNCTION\'s declaration, not a call site '
+      + '(edges are function-granular — one caller may contain several call sites). '
+      + `For exact call-site lines use code_intel_references, or rg -n "${symbol}\\b" within these files.`;
+
     return prefixReadWarnings(
-      (rolledUp ? `${header}\n${body}` : body) + trustLine + confidenceFooter,
+      (rolledUp ? `${header}\n${body}` : body) + locationsNote + trustLine + confidenceFooter,
       freshness.warnings,
     );
   } finally {
