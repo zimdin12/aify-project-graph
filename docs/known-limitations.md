@@ -106,6 +106,26 @@ as "quality got worse." Often it just means the count is finally truthful.
 **Workaround.** Treat the first post-bump rebuild as a visibility reset, not
 as comparative trend data. Compare subsequent runs on the same schema.
 
+## `.aify-graph/` is per-WORKING-DIRECTORY, not per-agent
+
+A recurring misconception on multi-agent teams: *"`.aify-graph/` is gitignored,
+so it's per-machine — every agent needs to build their own index."* That is not
+how it works, and believing it blocks people needlessly.
+
+The index lives in the repo directory. **Every agent pointed at the same working
+directory shares the same index** — if one teammate runs `graph_index`, all of
+them see the result immediately, regardless of runtime (Claude, Codex, Hermes,
+Cursor). Being gitignored only means the index does not travel through git; it
+says nothing about who on the machine can read it.
+
+You need a *separate* index only when you have a genuinely separate working
+directory — a second clone, or a `git worktree`. In that case each directory
+gets its own `.aify-graph/` and each needs its own `graph_index`.
+
+**Practical rule.** One team, one checkout → one index, built once, shared by
+everyone. If you are unsure which case you are in, compare the `repoRoot` each
+agent's MCP server was launched from; identical path ⇒ shared index.
+
 ## Multi-repo live verbs require per-repo MCP registration
 
 The MCP server binds to ONE `repoRoot` — the directory where the

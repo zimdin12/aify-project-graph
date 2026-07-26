@@ -174,6 +174,23 @@ export async function graphHealth({ repoRoot }) {
       }
     } catch { /* detection is best-effort — never block health on it */ }
   }
+  // P1-3 (2026-07-26): a compile DB can exist, be native and non-unity, and still
+  // contain NONE of your own code — the sand_castle case was 441 entries, all
+  // _deps, zero first-party, which silently produced 3-of-8 caller sets. This is
+  // the single most useful thing health can tell such a repo, and it is
+  // platform-independent (a dependencies-only export is not a Windows quirk).
+  if (codeIntel.available) {
+    try {
+      const cdb = prepareCompileDb({ projectRoot: repoRoot });
+      if (cdb?.found && Number(cdb.firstPartyCount ?? 0) === 0) {
+        codeIntel.compileDbFirstPartyCount = 0;
+        codeIntel.callerCompletenessTrustworthy = false;
+        verdicts.push(`⚠ compile-db covers ZERO first-party sources (${cdb.entryCount ?? '?'} entries, all third-party/_deps) — clangd has no compile command for your own code and falls back to inferred commands, so caller sets are silently PARTIAL and code_intel_references is NOT a completeness oracle. FIX: export compile commands for YOUR targets, not just dependencies (-DCMAKE_EXPORT_COMPILE_COMMANDS=ON on a build that compiles them), then confirm your sources appear in compile_commands.json. Do NOT trust "no callers / safe to delete" until fixed.`);
+      } else if (cdb?.found) {
+        codeIntel.compileDbFirstPartyCount = Number(cdb.firstPartyCount ?? 0);
+      }
+    } catch { /* best-effort */ }
+  }
   verdicts.push(
     trustUnresolvedEdges === unresolvedEdges
       ? `trust=${trust} (${unresolvedEdges} unresolved)`

@@ -92,9 +92,59 @@ Hermes exposes each MCP server's tools through a **dynamic toolset named `mcp-<s
       - mcp-aify-project-graph
   ```
 
-- **NO `platform_toolsets:` block anywhere** → Hermes is NOT filtering by allowlist, so the graph tools should already be visible. **Do NOT blind-create the section.** Writing a fresh `platform_toolsets.cli: [hermes-cli, mcp-aify-project-graph]` risks RESTRICTING the session to only those two toolsets and silently dropping whatever else loaded by default. If the tools are still missing with no section present, the cause is **elsewhere** — MCP exposure, or a managed/spawned wrapper profile (see Plan #20) — not this allowlist. Only introduce a `platform_toolsets` section after you've listed the toolsets ACTUALLY active in a working session (check `hermes --help` / the TUI help for the "list toolsets" command in your build) and can preserve them all.
+- **NO `platform_toolsets:` block anywhere** → Hermes is not filtering by an allowlist you can see, so the graph tools *should* already be visible. Follow the decision procedure below rather than guessing — **do not blind-create the section as a first move**, because a fresh `platform_toolsets.cli: [hermes-cli, mcp-aify-project-graph]` can RESTRICT the session to those two toolsets and silently drop whatever else loaded by default.
 
 **Note on Form A:** the `hermes mcp add` CLI writes `mcp_servers` but does not touch `platform_toolsets`, so if a filtering profile already exists you must append the toolset there manually.
+
+### Step 2c — DECIDE IT FROM EVIDENCE (do this instead of guessing)
+
+An earlier version of this doc stopped at "if there is no section, look elsewhere," which left teams with a conditional they had no way to resolve — one real deployment sat blocked for two weeks because of it. Resolve it by observation instead:
+
+1. **Observe whether the tools are actually exposed.** Start a normal hermes session in a repo that has a `.aify-graph/` directory and ask it to list its available tools, or invoke one directly by name:
+
+   ```text
+   graph_health()
+   ```
+
+   - **Tools respond** → nothing is filtering them. You are done; the allowlist is not your problem.
+   - **`graph_health` is unknown / no `graph_*` tools listed** → continue to step 2.
+
+2. **Confirm the server itself is connecting.** Check the hermes logs/console for an `aify-project-graph` MCP connection at startup.
+   - **It never connects** → this is a registration or command problem (Step 1/2), not a toolset filter. Verify the `command`/`args` path in `config.yaml` runs by hand: `node <CLONE_PATH>/mcp/stdio/server.js --toolset=lean` should start and wait on stdin.
+   - **It connects but the tools are invisible** → this IS the toolset-exposure case. Go to step 3.
+
+3. **Try the allowlist — reversibly.** This is safe because you take a backup first and verify both directions:
+
+   ```bash
+   cp "$HERMES_HOME/config.yaml" "$HERMES_HOME/config.yaml.bak"
+   ```
+
+   Add the section, including any toolsets you already rely on, plus ours:
+
+   ```yaml
+   platform_toolsets:
+     cli:
+       - hermes-cli
+       - mcp-aify-project-graph
+   ```
+
+   Restart hermes and check BOTH:
+   - graph tools now respond (`graph_health()`), **and**
+   - the tools your agents were already using still work.
+
+   **If anything you relied on disappeared, restore immediately:**
+
+   ```bash
+   mv "$HERMES_HOME/config.yaml.bak" "$HERMES_HOME/config.yaml"
+   ```
+
+   and report what vanished — that tells us the real default set for your build.
+
+Note the reference precedent: the CodeGraph installer creates `platform_toolsets` with `[hermes-cli, mcp-codegraph]` when the section is absent, so create-if-missing is an established recipe — the backup-and-verify loop above is simply how you confirm it for *your* build without betting a working fleet on it.
+
+### Managed / spawned hermes agents
+
+If a hand-launched hermes session sees the tools but a **managed/spawned** one (e.g. via an orchestrator wrapper) does not, the difference is the managed profile, not `config.yaml` — see Plan #20 below.
 
 ### Optional — clangd setup for the C++ code-intel trust spine
 
