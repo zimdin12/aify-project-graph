@@ -89,15 +89,34 @@ function configPathFor(runtime, projectRoot) {
   throw new Error(`configPathFor: unsupported runtime ${runtime}`);
 }
 
-function readJsonOrEmpty(filePath) {
-  if (!fs.existsSync(filePath)) return {};
+// "File absent" and "file unparseable" MUST take different branches: absent may
+// be created, unparseable must abort rather than silently overwrite a config
+// whose other entries (mcpServers, hooks, theme) we'd destroy.
+//
+// The BOM case is why this needs care on Windows specifically: plenty of Windows
+// editors and PowerShell redirections write UTF-8 with a leading BOM, and
+// JSON.parse rejects it. Treating that as "unparseable" would abort the install
+// on a file that is perfectly valid JSON — so strip the BOM before parsing, and
+// reserve the abort for genuinely malformed content.
+export function parseJsonRelaxed(text, filePath) {
   try {
-    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return JSON.parse(text.replace(/^﻿/, ''));
   } catch (err) {
-    // Honest failure: refuse to overwrite a file we can't parse — caller
-    // sees the error + can decide whether to delete or fix manually.
     throw new Error(`existing ${filePath} is not valid JSON: ${err.message}`);
   }
+}
+
+function readJsonOrEmpty(filePath) {
+  if (!fs.existsSync(filePath)) return {};
+  return parseJsonRelaxed(fs.readFileSync(filePath, 'utf8'), filePath);
+}
+
+// Back up a file we are about to modify, so a bad merge is always recoverable.
+// Best-effort: a backup failure must not block the install itself.
+function backupBeforeWrite(filePath) {
+  try {
+    if (fs.existsSync(filePath)) fs.copyFileSync(filePath, `${filePath}.apg-bak`);
+  } catch { /* non-fatal */ }
 }
 
 function mcpServerStanza(pluginRoot) {
@@ -220,11 +239,13 @@ async function main() {
   }
 
   fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  backupBeforeWrite(configPath);
   fs.writeFileSync(configPath, JSON.stringify(merged, null, 2) + '\n');
   console.log(`Wrote ${configPath}`);
 
   if (wantHintHook) {
     fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    backupBeforeWrite(settingsPath);
     fs.writeFileSync(settingsPath, JSON.stringify(hintPlan.settings, null, 2) + '\n');
     console.log(hintPlan.added
       ? `Wired the SessionStart discoverability hint into ${settingsPath} (managed agents will be nudged to ToolSearch the graph verbs).`

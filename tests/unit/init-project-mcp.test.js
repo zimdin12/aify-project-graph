@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execFileSync } from 'node:child_process';
-import { mergeAifyEntry, mergeSessionStartHook } from '../../scripts/init-project-mcp.mjs';
+import { mergeAifyEntry, mergeSessionStartHook, parseJsonRelaxed } from '../../scripts/init-project-mcp.mjs';
 
 const SCRIPT = path.resolve('scripts/init-project-mcp.mjs');
 
@@ -216,5 +216,24 @@ describe('mergeAifyEntry (unit)', () => {
     const arg = merged.mcpServers['aify-project-graph'].args.find(a => a.includes('server.js'));
     expect(arg).not.toMatch(/\\\\/);
     expect(arg).toMatch(/C:\/Docker\/aify-project-graph/);
+  });
+});
+
+// P2-8 — config-write safety. "Absent" and "unparseable" must take DIFFERENT
+// branches: absent may be created, unparseable must abort rather than silently
+// overwrite a config whose other entries (mcpServers, hooks, theme) we would
+// destroy. The BOM case matters on Windows specifically: editors and PowerShell
+// redirection write UTF-8 with a leading BOM constantly and JSON.parse rejects
+// it, so treating that as "unparseable" would abort the install on a perfectly
+// valid config.
+describe('config parsing safety', () => {
+  it('parses JSON that carries a UTF-8 BOM', () => {
+    const parsed = parseJsonRelaxed('\uFEFF{"mcpServers":{"other":{"command":"node"}}}', 'x.json');
+    expect(parsed.mcpServers.other.command).toBe('node');
+  });
+
+  it('still refuses genuinely malformed JSON, naming the file', () => {
+    expect(() => parseJsonRelaxed('{ not json', 'C:/repo/.mcp.json'))
+      .toThrow(/is not valid JSON/);
   });
 });
