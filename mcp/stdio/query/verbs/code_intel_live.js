@@ -127,8 +127,28 @@ export function buildReferencesEvidence({ freshness, callsiteCount, defCount, re
   if (coverage && coverage.complete === false && coverage.reason) {
     warnings.push(coverage.reason);
   }
-  // Exhaustive requires: ready (fresh), at least one callsite OR an
-  // honest empty in a freshly-warmed context, and no degraded cause.
+  // FAIL-CLOSED GATE (P0-2, 2026-07-26). Previously this branch granted
+  // exhaustive whenever the index was fresh and returned >=1 callsite, and the
+  // downgrade above only fired on `coverage.complete === false`. So UNKNOWN
+  // coverage — undefined, null, or a probe that could not decide — was treated
+  // as PROVEN coverage. That is the unsafe default on the one flag our contract
+  // says licenses "no callers / dead code / safe to delete".
+  //
+  // `exhaustive:true` now requires POSITIVE proof. Silence is not proof.
+  if (freshness === 'fresh' && callsiteCount > 0 && coverage?.complete !== true) {
+    warnings.push(
+      'compile-DB / project coverage could not be verified for this query, so the caller set is a FLOOR, '
+      + 'not a complete set — it is NOT a completeness oracle. Verify with rg before any "no callers / '
+      + 'dead code / safe to delete" claim.',
+    );
+    return {
+      ready: true, degraded: true, cause: 'coverage_unknown', confidence: 'medium',
+      exhaustive: false,
+      fallback: 'coverage for this query is unproven; confirm with code_intel_references on the declaring TU or rg before absence claims',
+      warnings,
+    };
+  }
+  // Exhaustive requires: ready (fresh), at least one callsite, and PROVEN coverage.
   if (freshness === 'fresh' && callsiteCount > 0) {
     return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings };
   }
@@ -164,7 +184,20 @@ export function buildReferencesEvidence({ freshness, callsiteCount, defCount, re
   };
 }
 
-export function buildDefinitionsEvidence({ freshness, defCount }) {
+export function buildDefinitionsEvidence({ freshness, defCount, coverage }) {
+  // P0-2: this took NO coverage input at all, so a partial index yielded
+  // "this is THE definition" unconditionally. Same fail-closed rule as
+  // references — an unproven index cannot attest that a definition set is
+  // complete (overloads / out-of-line definitions in unindexed TUs are exactly
+  // what goes missing).
+  if (freshness === 'fresh' && defCount > 0 && coverage?.complete !== true) {
+    return {
+      ready: true, degraded: true, cause: 'coverage_unknown', confidence: 'medium',
+      exhaustive: false,
+      fallback: 'coverage for this query is unproven; the definition set may be incomplete (overloads / out-of-line definitions in unindexed TUs) — verify with rg before absence claims',
+      warnings: ['compile-DB / project coverage could not be verified for this query — the definition set is a FLOOR, not a complete set'],
+    };
+  }
   if (freshness === 'fresh' && defCount > 0) {
     return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings: [] };
   }
@@ -465,7 +498,12 @@ export async function codeIntelDefinitions({ repoRoot, language, file, line, col
   const defs = await session.client.definition(uri, pos);
   const list = Array.isArray(defs) ? defs : (defs ? [defs] : []);
   const definitions = list.filter(d => d?.uri).map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range), provenance: 'clangd@live', confidence: 'high' }));
-  const evidence = buildDefinitionsEvidence({ freshness, defCount: definitions.length });
+  // Same fail-closed coverage input the references path uses (P0-2). Best-effort:
+  // a failed probe yields complete:false, which under-claims rather than over-claims.
+  let defCoverage = null;
+  try { defCoverage = computeCoverage({ language: lang, projectRoot: repoRoot, file }); }
+  catch { defCoverage = { complete: false, partial: true, kind: 'unknown', reason: 'coverage detection failed — treating as partial (fail-closed)' }; }
+  const evidence = buildDefinitionsEvidence({ freshness, defCount: definitions.length, coverage: defCoverage });
   return markNoValueAdded({
     status: 'ok',
     freshness,

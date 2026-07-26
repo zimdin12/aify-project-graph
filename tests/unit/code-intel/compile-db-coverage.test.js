@@ -3,7 +3,12 @@ import { computeCompileDbCoverage } from '../../../mcp/stdio/code-intel/compile-
 
 // The coverage verdict gates the false-exhaustive guard. Test the decision logic
 // directly by injecting `prepared` flags (no real compile DB / clangd needed).
-const prep = (over) => ({ found: true, foreignToolchain: false, unity: false, unityExpanded: false, dbHash: Math.random().toString(36), ...over });
+//
+// `firstPartyCount` defaults to a non-zero value because the real
+// prepareCompileDb ALWAYS reports it (compile-db.js:711) — a stub without it
+// would not represent any reachable state. The zero case is its own test below
+// (P0-1: a DB covering no first-party code can never license exhaustive).
+const prep = (over) => ({ found: true, foreignToolchain: false, unity: false, unityExpanded: false, firstPartyCount: 5, dbHash: Math.random().toString(36), ...over });
 
 describe('computeCompileDbCoverage — trustworthy-for-exhaustive verdict', () => {
   it('native, non-unity DB → complete (exhaustive allowed)', () => {
@@ -36,6 +41,18 @@ describe('computeCompileDbCoverage — trustworthy-for-exhaustive verdict', () =
     expect(c.complete).toBe(true);
   });
 
+  // P0-1 (sand_castle 2026-07-26): a native, non-unity DB whose entries are all
+  // third-party/_deps. Neither the foreign nor the unity gate fires, yet clangd
+  // has no compile command for any first-party file.
+  it('zero first-party entries → NOT complete even when native and non-unity', () => {
+    const c = computeCompileDbCoverage({ projectRoot: '/x', prepared: prep({ firstPartyCount: 0 }), env: {} });
+    expect(c.complete).toBe(false);
+    expect(c.noFirstParty).toBe(true);
+    expect(c.foreignToolchain).toBe(false);
+    expect(c.unityUnexpanded).toBe(false);
+    expect(c.reason).toMatch(/first-party/i);
+  });
+
   it('no compile DB found → NOT complete (no index, never exhaustive)', () => {
     const c = computeCompileDbCoverage({ projectRoot: '/x', prepared: { found: false }, env: {} });
     expect(c.complete).toBe(false);
@@ -50,18 +67,18 @@ describe('computeCompileDbCoverage — trustworthy-for-exhaustive verdict', () =
   // dbHash) MUST recompute the flags, not serve a stale verdict.
   it('cache invalidates when dbHash changes for the same projectRoot', () => {
     const root = '/cache-test-repo';
-    const first = computeCompileDbCoverage({ projectRoot: root, prepared: { found: true, foreignToolchain: true, unity: false, unityExpanded: false, dbHash: 'hash-A' }, env: {} });
+    const first = computeCompileDbCoverage({ projectRoot: root, prepared: { found: true, foreignToolchain: true, unity: false, unityExpanded: false, firstPartyCount: 5, dbHash: 'hash-A' }, env: {} });
     expect(first.complete).toBe(false);
     expect(first.foreignToolchain).toBe(true);
     // Same projectRoot, NEW dbHash, now native — verdict must flip, not stick.
-    const second = computeCompileDbCoverage({ projectRoot: root, prepared: { found: true, foreignToolchain: false, unity: false, unityExpanded: false, dbHash: 'hash-B' }, env: {} });
+    const second = computeCompileDbCoverage({ projectRoot: root, prepared: { found: true, foreignToolchain: false, unity: false, unityExpanded: false, firstPartyCount: 5, dbHash: 'hash-B' }, env: {} });
     expect(second.complete).toBe(true);
     expect(second.foreignToolchain).toBe(false);
   });
 
   it('WSL-mode verdict is derived fresh per call even on a cache hit (same dbHash)', () => {
     const root = '/cache-test-repo-wsl';
-    const prepared = { found: true, foreignToolchain: true, unity: false, unityExpanded: false, dbHash: 'hash-WSL' };
+    const prepared = { found: true, foreignToolchain: true, unity: false, unityExpanded: false, firstPartyCount: 5, dbHash: 'hash-WSL' };
     expect(computeCompileDbCoverage({ projectRoot: root, prepared, env: {} }).complete).toBe(false);
     // Same cached flags (same dbHash), but APG_CLANGD_WSL flips the env verdict.
     expect(computeCompileDbCoverage({ projectRoot: root, prepared, env: { APG_CLANGD_WSL: '1' } }).complete).toBe(true);

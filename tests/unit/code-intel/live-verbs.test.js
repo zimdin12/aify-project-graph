@@ -149,8 +149,10 @@ describe('Plan #14 evidence contract — integration', () => {
 });
 
 describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', () => {
-  it('fresh + callsites → exhaustive:true, ready:true, no cause', () => {
-    const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1 });
+  it('fresh + callsites + PROVEN coverage → exhaustive:true, ready:true, no cause', () => {
+    // P0-2 (2026-07-26): proven coverage is now required. Previously this passed
+    // with no coverage argument at all.
+    const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1, coverage: { complete: true } });
     expect(e.exhaustive).toBe(true);
     expect(e.ready).toBe(true);
     expect(e.degraded).toBe(false);
@@ -177,9 +179,14 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
     expect(e.cause).toBeNull();
   });
 
-  it('coverage omitted → unchanged (treated as trustworthy, back-compat)', () => {
+  // REVERSED 2026-07-26 (P0-2). This test previously asserted that omitting
+  // coverage was "treated as trustworthy, back-compat" — it codified the
+  // false-exhaustive defect as intended behavior. Sand Castle proved the cost:
+  // 3 of 8 real call sites returned as exhaustive:true. Silence is not proof.
+  it('coverage omitted → NOT exhaustive (fail-closed)', () => {
     const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1 });
-    expect(e.exhaustive).toBe(true);
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('coverage_unknown');
   });
 
   it('fresh + only def in refs → cause:definition_only, degraded, warned', () => {
@@ -225,10 +232,16 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
 });
 
 describe('Plan #14 evidence contract — buildDefinitionsEvidence unit cases', () => {
-  it('fresh + defs → exhaustive:true', () => {
-    const e = buildDefinitionsEvidence({ freshness: 'fresh', defCount: 1 });
+  it('fresh + defs + PROVEN coverage → exhaustive:true', () => {
+    const e = buildDefinitionsEvidence({ freshness: 'fresh', defCount: 1, coverage: { complete: true } });
     expect(e.exhaustive).toBe(true);
     expect(e.ready).toBe(true);
+  });
+
+  it('fresh + defs but coverage unproven → NOT exhaustive (P0-2 fail-closed)', () => {
+    const e = buildDefinitionsEvidence({ freshness: 'fresh', defCount: 1 });
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('coverage_unknown');
   });
 
   it('cold + empty → cold_index', () => {

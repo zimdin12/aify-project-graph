@@ -782,8 +782,43 @@ function wslClangdActive(env = process.env) {
  * per projectRoot+dbHash. Defensive: never throws; complete:false on any failure
  * (the safe under-claim — codegraph's "partial coverage is worse than none").
  */
-export function computeCompileDbCoverage({ projectRoot, prepared, env = process.env } = {}) {
-  const fail = (reason) => ({ complete: false, reason, foreignToolchain: false, unityUnexpanded: false, unity: false });
+// P0-1 (2026-07-26): the set of first-party, repo-relative source files the DB
+// actually has a compile command for. Cached per normalized-DB hash because a
+// coverage check runs on every live reference/hierarchy query.
+const _dbFileSetCache = new Map();
+function firstPartyFileSet(projectRoot, prep) {
+  const cached = _dbFileSetCache.get(projectRoot);
+  if (cached && cached.dbHash === prep.dbHash) return cached.set;
+  const set = new Set();
+  try {
+    for (const entry of parseDb(prep.normalizedPath) || []) {
+      if (!entry || typeof entry.file !== 'string') continue;
+      if (isUnityFile(entry.file)) continue;
+      const rel = repoRel(projectRoot, entry);
+      if (!rel || isDepRel(rel)) continue;
+      set.add(rel.toLowerCase());
+    }
+  } catch { /* unreadable DB → empty set; callers treat that as "cannot prove" */ }
+  _dbFileSetCache.set(projectRoot, { dbHash: prep.dbHash, set });
+  return set;
+}
+
+// A header has no translation unit of its own — it is compiled as part of every
+// TU that includes it — so its absence from the DB is expected and must NOT be
+// read as missing coverage.
+const HEADER_RE = /\.(h|hh|hpp|hxx|inl|ipp|ixx)$/i;
+
+const NO_FIRST_PARTY_REASON =
+  'the compile DB contains ZERO first-party entries — every command belongs to third-party/_deps code, '
+  + 'so clangd has no compile command for any of your own sources and falls back to inferred commands. '
+  + 'The index is silently PARTIAL: caller sets are TRUNCATED (even same-file references) and are NOT a '
+  + 'completeness oracle. Verify with rg before any "no callers / dead code / safe to delete" claim. '
+  + 'FIX: configure CMake to export compile commands for your OWN targets, not only dependencies — '
+  + 'cmake -S . -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON '
+  + '(APG auto-discovers build-win-clangd/), then confirm your sources appear in its compile_commands.json.';
+
+export function computeCompileDbCoverage({ projectRoot, prepared, file = null, env = process.env } = {}) {
+  const fail = (reason) => ({ complete: false, reason, foreignToolchain: false, unityUnexpanded: false, unity: false, firstPartyCount: 0 });
   if (!projectRoot) return fail('no projectRoot');
   let prep;
   try { prep = prepared || prepareCompileDb({ projectRoot }); }
@@ -806,18 +841,45 @@ export function computeCompileDbCoverage({ projectRoot, prepared, env = process.
   const foreignBlocking = flags.foreignToolchain && !wslClangdActive(env);
   const unityUnexpanded = flags.unityUnexpanded;
 
+  // P0-1: a native, non-unity DB proves NOTHING if it does not actually cover
+  // your code. Measured on sand_castle: 5 DBs, 441-512 entries each, ZERO
+  // first-party — and we reported exhaustive:true while clangd returned 3 of 8
+  // in-file call sites. `firstPartyCount` was already computed by
+  // prepareCompileDb and simply never consulted here.
+  const firstPartyCount = Number(prep.firstPartyCount ?? 0);
+  const noFirstParty = firstPartyCount === 0;
+
+  // File-aware gate (mirrors the 2026-06-12 tsCoverage hardening, which C++
+  // never received): a SOURCE file with no compile command is not covered.
+  // Headers are exempt — they have no TU of their own.
+  let fileUncovered = false;
+  if (file && !noFirstParty && !HEADER_RE.test(String(file))) {
+    const rel = String(file).replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
+    fileUncovered = !firstPartyFileSet(projectRoot, prep).has(rel);
+  }
+
   let reason = null;
-  if (foreignBlocking) {
+  if (noFirstParty) {
+    reason = NO_FIRST_PARTY_REASON;
+  } else if (fileUncovered) {
+    reason = `the queried file has no compile command in the compile DB (it is not in compile_commands.json), `
+      + `so clangd compiles it with an inferred command and its index for this file is PARTIAL — caller sets `
+      + `may miss real callers. Verify with rg before any delete/rename, and ensure this source is part of a `
+      + `target exported with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.`;
+  } else if (foreignBlocking) {
     reason = 'compile DB was built by a different (Linux/WSL) toolchain than the host clangd, so some TUs fail to compile and the index is silently PARTIAL — caller sets may miss real callers. Set APG_CLANGD_WSL=1 (run clangd under WSL against the native DB) for a trustworthy index, and verify with rg before any delete/rename';
   } else if (unityUnexpanded) {
     reason = 'compile DB is a CMake UNITY build whose per-source TUs are absent (aggregates not expanded on this host), so callers in unity-only sources are invisible to clangd — verify with rg before any delete/rename';
   }
   return {
-    complete: !foreignBlocking && !unityUnexpanded,
+    complete: !foreignBlocking && !unityUnexpanded && !noFirstParty && !fileUncovered,
     reason,
     foreignToolchain: flags.foreignToolchain,
     unityUnexpanded,
     unity: flags.unity,
+    firstPartyCount,
+    noFirstParty,
+    fileUncovered,
   };
 }
 

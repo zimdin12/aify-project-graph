@@ -167,8 +167,15 @@ export function computeCoverage({ language, projectRoot, file = null, env = proc
   if (lang === 'python') return pythonCoverage();
   // Default: C++ / clangd compile-DB coverage. `partial` mirrors the old
   // graph-verb gate (only foreign/unity downgrade pre-collected edges; a DB
-  // merely absent at query time does not).
-  const cov = computeCompileDbCoverage({ projectRoot, env });
-  const partial = cov.complete === false && (Boolean(cov.foreignToolchain) || Boolean(cov.unityUnexpanded));
+  // merely absent at query time does not) — plus, since 2026-07-26, a DB that
+  // covers NO first-party code at all, which is intrinsic incompleteness of the
+  // same severity and must downgrade pre-collected edges too.
+  //
+  // `file` is threaded through so the C++ path is file-aware like tsCoverage
+  // (hardened 2026-06-12); C++ had never received that treatment, which is how a
+  // query against a file with no compile command still read as exhaustive.
+  const cov = computeCompileDbCoverage({ projectRoot, file, env });
+  const partial = cov.complete === false
+    && (Boolean(cov.foreignToolchain) || Boolean(cov.unityUnexpanded) || Boolean(cov.noFirstParty));
   return { ...cov, partial, kind: 'compile_db' };
 }
