@@ -48,6 +48,43 @@ describe('blankCppClassHeadMacros', () => {
     const src = 'class Widget : public Base { void Draw(); };';
     expect(blankCppClassHeadMacros(src)).toBe(src);
   });
+
+  // False positives found by reviewing the rule against real C/C++ shapes. Each
+  // of these is lexically identical to a class head; only the absence of a body
+  // (`{`) or base-clause (`:`) distinguishes them.
+  it('does NOT touch an elaborated-type variable declaration (valid C)', () => {
+    // `struct RECT r;` — RECT is the TYPE, not a macro. Blanking it destroyed a
+    // real type reference before the body requirement was added.
+    const src = 'void f() { struct RECT r; use(r); }';
+    expect(blankCppClassHeadMacros(src)).toBe(src);
+    expect(blankCppClassHeadMacros('void g(struct RECT r);')).toBe('void g(struct RECT r);');
+  });
+
+  it('does NOT touch a forward declaration', () => {
+    // Declares no members, so nothing is lost by skipping it — and it is
+    // indistinguishable from `struct RECT r;` without a body.
+    const src = 'class MYLIB_API Widget;';
+    expect(blankCppClassHeadMacros(src)).toBe(src);
+  });
+
+  it('does NOT fire inside a string literal or a comment', () => {
+    const inString = 'const char* s = "class MYLIB_API Widget {";';
+    expect(blankCppClassHeadMacros(inString)).toBe(inString);
+    const inComment = '// class MYLIB_API Widget {\nclass Real { void go(); };';
+    expect(blankCppClassHeadMacros(inComment)).toBe(inComment);
+  });
+
+  it('leaves enum class and alignas alone', () => {
+    expect(blankCppClassHeadMacros('enum class FOO { A, B };')).toBe('enum class FOO { A, B };');
+    expect(blankCppClassHeadMacros('enum class FOO : int { A };')).toBe('enum class FOO : int { A };');
+    expect(blankCppClassHeadMacros('class alignas(16) Aligned { void go(); };'))
+      .toBe('class alignas(16) Aligned { void go(); };');
+  });
+
+  it('still handles a templated class carrying an export macro', () => {
+    const out = blankCppClassHeadMacros('template<typename T> class MYLIB_API Holder { void go(); };');
+    expect(out).toBe('template<typename T> class           Holder { void go(); };');
+  });
 });
 
 describe('C++ extraction survives an export macro in the class head', () => {

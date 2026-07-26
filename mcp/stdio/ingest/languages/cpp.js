@@ -1,4 +1,5 @@
 import Cpp from 'tree-sitter-cpp';
+import { blankCommentsAndStrings } from '../../query/dynamic-boundaries.js';
 
 function nodeText(node, source) {
   if (!node) return '';
@@ -349,20 +350,36 @@ function extractCppFunctionSymbol({ node, source }) {
 // see `class           Widget`.
 //
 // The matcher is structural, not a macro list: an ALL-CAPS token of 3+ chars
-// (optionally with a parenthesized argument list) that sits between the keyword
-// and ANOTHER identifier. Requiring a following identifier is what stops it
-// eating a legitimately shouty class name — `class WIDGET {` has `{` next, not an
-// identifier, so it is left alone.
-const CLASS_HEAD_MACRO_RE = /\b(class|struct|union)(\s+)([A-Z][A-Z0-9_]{2,})(\s*\([^)\n]{0,200}\))?(\s+)(?=[A-Za-z_]\w*)/g;
+// (optionally with a parenthesized argument list) between the keyword and the
+// type name, where the declaration then OPENS A BODY (`{`) or a base-clause
+// (`:`).
+//
+// Requiring the body is what makes this safe. `struct RECT r;` is a valid C
+// elaborated-type variable declaration and is lexically identical to a class
+// head — without the `{`/`:` requirement the rule blanked `RECT`, destroying a
+// real type reference (measured). A forward declaration `class MYLIB_API W;` is
+// likewise left alone; it declares no members, so nothing is lost by skipping it,
+// whereas the damage this fixes (class + every member vanishing) only ever
+// happens to a definition WITH a body.
+const CLASS_HEAD_MACRO_RE = /\b(class|struct|union)(\s+)([A-Z][A-Z0-9_]{2,})(\s*\([^)\n]{0,200}\))?(\s+)([A-Za-z_]\w*)(\s*)(?=[{:])/g;
 
 export function blankCppClassHeadMacros(source) {
-  if (typeof source !== 'string' || source.indexOf('class') === -1 && source.indexOf('struct') === -1 && source.indexOf('union') === -1) {
-    return source;
+  if (typeof source !== 'string') return source;
+  if (!/\b(?:class|struct|union)\b/.test(source)) return source;
+
+  // Match against comment/string-BLANKED text so a macro mentioned inside a
+  // string literal or a commented-out declaration can't fire, then splice the
+  // replacement into the ORIGINAL at the same offsets (the blanker preserves
+  // every offset, so the two texts stay aligned).
+  const masked = blankCommentsAndStrings(source, 'cpp');
+  let out = source;
+  for (const m of masked.matchAll(CLASS_HEAD_MACRO_RE)) {
+    const [, kw, gap1, macro, args] = m;
+    const macroStart = m.index + kw.length + gap1.length;
+    const macroLen = macro.length + (args ? args.length : 0);
+    out = out.slice(0, macroStart) + ' '.repeat(macroLen) + out.slice(macroStart + macroLen);
   }
-  return source.replace(CLASS_HEAD_MACRO_RE, (match, kw, gap1, macro, args, gap2) => {
-    const blanked = ' '.repeat(macro.length + (args ? args.length : 0));
-    return `${kw}${gap1}${blanked}${gap2}`;
-  });
+  return out;
 }
 
 export default {
