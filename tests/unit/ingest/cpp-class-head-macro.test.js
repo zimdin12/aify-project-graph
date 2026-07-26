@@ -37,11 +37,15 @@ describe('blankCppClassHeadMacros', () => {
     expect(out).toBe('class               Widget {};');
   });
 
-  it('leaves a shouty CLASS NAME alone (no following identifier)', () => {
-    // `class WIDGET {` — WIDGET is the name, not a macro. The rule requires
-    // ANOTHER identifier after the candidate, which is what disambiguates.
+  it('leaves a shouty CLASS NAME alone', () => {
+    // `class WIDGET {` — WIDGET is the NAME, not a macro. The rule needs a macro
+    // AND a following type name before the body; here the body follows directly,
+    // so there is no second identifier to be the real name.
     const src = 'class WIDGET { void Draw(); };';
     expect(blankCppClassHeadMacros(src)).toBe(src);
+    // Same for an enum with a shouty name and a base type.
+    expect(blankCppClassHeadMacros('enum class LOG_LEVEL : int { A };'))
+      .toBe('enum class LOG_LEVEL : int { A };');
   });
 
   it('leaves ordinary declarations untouched', () => {

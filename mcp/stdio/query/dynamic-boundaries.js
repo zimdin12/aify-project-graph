@@ -15,19 +15,31 @@
 // commented-out / string-embedded code can't fire) while snippets + keys are
 // sliced from the ORIGINAL at the same offsets (the blanker preserves offsets).
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+
+// Scan budget. Declared here (above its first use) rather than beside the
+// scanner, because readSymbolBody caps its slice to the same value.
+const MAX_BODY_CHARS = 60000;
 
 // Read a graph node's source body (its start_line..end_line slice). Shared by
 // every verb that scans for boundaries so the slicing rule stays in one place.
 // Returns '' on any failure — a boundary scan is always best-effort.
+//
+// This runs on a QUERY path, so it is bounded twice: a generated/vendored file
+// far larger than any real symbol body is skipped outright, and the returned
+// slice is capped at the scanner's own budget (a bigger slice would be truncated
+// by scanDynamicBoundaries anyway, so reading more buys nothing).
+const MAX_SOURCE_FILE_BYTES = 4_000_000;
 export function readSymbolBody(repoRoot, node) {
   if (!node?.file_path) return '';
   try {
-    const all = readFileSync(join(repoRoot, node.file_path), 'utf8').split('\n');
+    const path = join(repoRoot, node.file_path);
+    if (statSync(path).size > MAX_SOURCE_FILE_BYTES) return '';
+    const all = readFileSync(path, 'utf8').split('\n');
     const from = Math.max(0, (node.start_line || 1) - 1);
     const to = Math.min(all.length, node.end_line || all.length);
-    return all.slice(from, to).join('\n');
+    return all.slice(from, to).join('\n').slice(0, MAX_BODY_CHARS);
   } catch { return ''; }
 }
 
@@ -113,7 +125,6 @@ const FORMS = [
 ];
 
 const MAX_MATCHES = 4;
-const MAX_BODY_CHARS = 60000;
 
 function normLang(language) {
   const l = String(language || '').toLowerCase();

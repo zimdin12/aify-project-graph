@@ -90,19 +90,26 @@ describe('compile-DB coverage requires first-party coverage', () => {
   });
 
   it('reports NOT complete when the queried SOURCE file has no entry in the DB', () => {
+    // The DB must cover the repo WELL overall, so the ratio gate passes and the
+    // PER-FILE gate is what fires — otherwise this would just re-test the ratio.
     const buildDir = hostPath(repo, 'build-win-clangd');
-    fs.writeFileSync(path.join(repo, 'sim', 'Other.cpp'), 'void o(){}\n');
-    writeDb('build-win-clangd/compile_commands.json', [
-      {
+    const entries = [];
+    for (let i = 0; i < 30; i++) {
+      fs.writeFileSync(path.join(repo, 'sim', `Other${i}.cpp`), `void o${i}(){}\n`);
+      entries.push({
         directory: buildDir,
-        file: hostPath(repo, 'sim/Other.cpp'),
-        command: `clang-cl -c ${hostPath(repo, 'sim/Other.cpp')}`,
-      },
-    ]);
+        file: hostPath(repo, `sim/Other${i}.cpp`),
+        command: `clang-cl -c ${hostPath(repo, `sim/Other${i}.cpp`)}`,
+      });
+    }
+    writeDb('build-win-clangd/compile_commands.json', entries);
 
-    // DB covers first-party code, but not the file we are asking about.
+    // 30 of 31 sources covered (97%) — the ratio is fine, but the queried file
+    // itself has no compile command.
     const cov = computeCompileDbCoverage({ projectRoot: repo, file: 'sim/Terrain.cpp', env: {} });
 
+    expect(cov.poorlyCovered).toBe(false);
+    expect(cov.fileUncovered).toBe(true);
     expect(cov.complete).toBe(false);
     expect(cov.reason).toMatch(/no compile command|not in the compile/i);
   });
@@ -128,7 +135,8 @@ describe('compile-DB coverage requires first-party coverage', () => {
     expect(cov.poorlyCovered).toBe(true);
     expect(cov.firstPartyCount).toBe(1);
     expect(cov.firstPartySourcesOnDisk).toBeGreaterThan(20);
-    expect(cov.reason).toMatch(/covers only 1 of/);
+    expect(cov.reason).toMatch(/covers 1 of ~\d+ first-party sources/);
+    expect(cov.reason).toMatch(/unindexed/);
   });
 
   it('withdraws the header exemption when coverage is poor', () => {

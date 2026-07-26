@@ -848,9 +848,26 @@ function firstPartySourcesOnDisk(projectRoot, dbHash) {
   return count;
 }
 
-// Below this share of first-party sources present in the compile DB, clangd's
-// index cannot support a completeness claim for the repo.
-const MIN_FIRST_PARTY_COVERAGE = 0.5;
+// Threshold for licensing an EXHAUSTIVE caller set.
+//
+// Reasoning it through: "X has no callers" is a claim about the WHOLE repo, and
+// clangd can only see callers in translation units its index covers. A TU absent
+// from the compile DB is a TU whose calls are invisible — so every uncovered
+// first-party source is a place a caller could be hiding. The queried file being
+// present proves only that the QUERIED TU compiles; it says nothing about where
+// the callers live.
+//
+// That argues for requiring 100%. In practice a healthy repo legitimately
+// excludes some sources from a given build (platform-specific files, tools,
+// alternate backends), so a hard 1.0 would make `exhaustive` unreachable and the
+// contract useless. 0.9 is the compromise: it rejects the pathological cases this
+// was built for (0%, 1-of-500, half a repo) while staying reachable.
+//
+// The residual risk is REAL and is not hidden: the shortfall is named in the
+// reason with exact counts, so an agent can see that N sources are unindexed and
+// weigh an absence claim accordingly. A threshold does not make the remainder
+// safe — it only bounds it.
+const MIN_FIRST_PARTY_COVERAGE = 0.9;
 
 // A header has no translation unit of its own — it is compiled as part of every
 // TU that includes it — so its absence from the DB is expected and must NOT be
@@ -933,10 +950,11 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   if (noFirstParty) {
     reason = NO_FIRST_PARTY_REASON;
   } else if (poorlyCovered) {
-    reason = `the compile DB covers only ${firstPartyCount} of ~${diskSources} first-party sources `
-      + `(${Math.round(coverageRatio * 100)}%), so clangd has no compile command for most of your code and its index is `
-      + `PARTIAL — caller sets are TRUNCATED and are NOT a completeness oracle. Verify with rg before any `
-      + `"no callers / dead code / safe to delete" claim. FIX: export compile commands for all your targets `
+    const missing = Math.max(0, diskSources - firstPartyCount);
+    reason = `the compile DB covers ${firstPartyCount} of ~${diskSources} first-party sources `
+      + `(${Math.round(coverageRatio * 100)}%), leaving ~${missing} translation unit(s) unindexed. A caller in any of `
+      + `those is INVISIBLE to clangd, so the caller set is a FLOOR, not a completeness oracle — verify with rg before `
+      + `any "no callers / dead code / safe to delete" claim. FIX: export compile commands for all your targets `
       + `(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON on a build that compiles them) and confirm your sources appear in compile_commands.json.`;
   } else if (fileUncovered) {
     reason = `the queried file has no compile command in the compile DB (it is not in compile_commands.json), `
