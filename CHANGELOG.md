@@ -9,11 +9,11 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
-## [0.3.0] — 2026-07-11
+## [0.3.0] — 2026-07-26
 
 Stability release: everything the Sand Castle team hit in real daily use, closed. This is the version to run — the trust contract, the freshness signals, and the install paths all had honesty or accuracy gaps that only showed up under real multi-agent usage on a high-velocity C++ repo, and they're fixed here. Highlights: the compile-DB probe now prefers a native Windows DB (so C++ caller sets stop silently truncating), staleness warnings finally say how far behind and what to run, Windows backslash paths work across every path-taking verb, the CMake build graph landed, and the Hermes install docs were wrong in two ways that made the graph unreachable from that runtime.
 
-### 2026-07-11 — shipped skills: fixed silent cross-runtime drift (incl. missing trust guidance)
+### 2026-07-26 — shipped skills: fixed silent cross-runtime drift (incl. missing trust guidance)
 
 We ship the same 14 skills to four runtimes as four physical copies, and nothing verified they stayed in sync. They hadn't. Four distinct defects, found by adding the guard first:
 
