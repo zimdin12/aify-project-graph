@@ -31,10 +31,10 @@ describe('blankCppClassHeadMacros', () => {
   });
 
   it('blanks a macro that carries an argument list, keeping length', () => {
-    const src = 'class API_EXPORT(2) Widget {};';
+    const src = 'class API_EXPORT(2) Widget { public: void go(); };';
     const out = blankCppClassHeadMacros(src);
     expect(out).toHaveLength(src.length);
-    expect(out).toBe('class               Widget {};');
+    expect(out).toBe('class               Widget { public: void go(); };');
   });
 
   it('leaves a shouty CLASS NAME alone', () => {
@@ -104,9 +104,38 @@ describe('blankCppClassHeadMacros', () => {
     expect(symbolsOf(src)).not.toContain('Class:p');
   });
 
-  it('still blanks a class with an EMPTY body (not an initializer)', () => {
-    expect(blankCppClassHeadMacros('class API_EXPORT(2) Widget {};'))
-      .toBe('class               Widget {};');
+  // Second-review findings: the body test is now a depth-aware scan for things
+  // only a class body contains (an access specifier, or a `;` at the body's own
+  // level). The naive "no `;` and no newline" test was wrong BOTH ways.
+  it('does NOT touch multi-line brace initialization', () => {
+    // Previously produced a phantom `Class:ts` named after the VARIABLE and
+    // destroyed the TIMESPEC type reference.
+    const src = 'void f() {\n  struct TIMESPEC ts {\n    0, 0\n  };\n}';
+    expect(blankCppClassHeadMacros(src)).toBe(src);
+    expect(symbolsOf(src)).not.toContain('Class:ts');
+  });
+
+  it('does NOT treat a lambda inside brace-init as a class body', () => {
+    // The lambda's `;` sits one brace deeper than the initializer, which is
+    // exactly what the depth scan distinguishes.
+    const src = 'void f() {\n  struct HANDLER_T h { [](){ g(); } };\n}';
+    expect(blankCppClassHeadMacros(src)).toBe(src);
+    expect(symbolsOf(src)).not.toContain('Class:h');
+  });
+
+  it('does NOT touch empty value-initialization', () => {
+    // `T x{}` is common; an EMPTY class has no members to lose, so the safe
+    // reading of an ambiguous `{}` is "not a class".
+    const src = 'void f() {\n  struct WSADATA w {};\n  use(w);\n}';
+    expect(blankCppClassHeadMacros(src)).toBe(src);
+    expect(symbolsOf(src)).not.toContain('Class:w');
+  });
+
+  it('DOES blank a class whose only member has an inline body', () => {
+    // Previously missed (no `;` at body level), so the original bug survived:
+    // the class and its method both vanished.
+    expect(symbolsOf('class MYLIB_API Foo { public: void go() {} };'))
+      .toEqual(['Class:Foo', 'Method:go']);
   });
 
   it('still handles a templated class carrying an export macro', () => {

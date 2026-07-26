@@ -385,18 +385,45 @@ const CLASS_HEAD_MACRO_RE = new RegExp(
 // declarations). A class body either spans lines or declares members. Anything
 // we cannot classify is treated as a class head (the rule's whole purpose), so
 // this only rejects the unambiguous initializer shape.
-function isBraceInit(text, fromIndex) {
+// Decide whether `KEYWORD MACRO Name { … }` is a class DEFINITION or a variable
+// declaration with brace initialization (`struct POINT_T p {1,2};`). The two are
+// lexically identical, so this looks at what the body CONTAINS, using a
+// depth-aware scan — the naive "no `;` and no newline" test was wrong in both
+// directions: it called `struct TIMESPEC ts {\n0,0\n};` a class (inventing a
+// phantom class named after the variable) and `struct H h { [](){ f(); } };` a
+// class (the lambda's `;`), while missing real classes.
+//
+// A class body declares things: it has an access specifier, or a `;` at the
+// body's own brace depth. An initializer is a flat value list; a lambda's inner
+// `;` sits deeper, so depth is what separates them.
+//
+// Deliberate bias: anything not positively identified as a class body is left
+// ALONE. Failing to blank costs the original bug for that spelling; blanking a
+// declaration corrupts working code and fabricates symbols. An EMPTY body is
+// therefore also left alone — `T x{}` value-init is common, while an empty class
+// has no members to lose.
+function looksLikeClassBody(text, fromIndex) {
   const open = text.indexOf('{', fromIndex);
   if (open === -1) return false;
-  // A base-clause (`: public B {`) means it is definitely a class head.
-  if (text.slice(fromIndex, open).includes(':')) return false;
-  const close = text.indexOf('}', open);
-  if (close === -1) return false;
-  const body = text.slice(open + 1, close);
-  // An EMPTY body (`class API_X W {};`) is a valid, if bare, class — and an
-  // empty initializer would be pointless — so only a body carrying actual values
-  // counts as brace-init.
-  return body.trim().length > 0 && !body.includes(';') && !body.includes('\n');
+  // A base-clause (`: public B {`) can only be a class head.
+  if (text.slice(fromIndex, open).includes(':')) return true;
+
+  let depth = 0;
+  for (let i = open; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '{') { depth += 1; continue; }
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return false;   // body ended, nothing class-like found
+      continue;
+    }
+    if (depth !== 1) continue;         // only inspect the body's own level
+    if (ch === ';') return true;       // a member declaration
+    if (ch === ':' && /\b(public|private|protected)\s*$/.test(text.slice(Math.max(0, i - 12), i))) {
+      return true;                     // an access specifier
+    }
+  }
+  return false;                        // unbalanced — do not touch
 }
 
 export function blankCppClassHeadMacros(source) {
@@ -410,7 +437,7 @@ export function blankCppClassHeadMacros(source) {
   const spans = [];
   for (const m of masked.matchAll(CLASS_HEAD_MACRO_RE)) {
     const [, nl, indent, tmpl, kw, gap1, macro, args] = m;
-    if (isBraceInit(masked, m.index + m[0].length)) continue;
+    if (!looksLikeClassBody(masked, m.index + m[0].length)) continue;
     const start = m.index + nl.length + indent.length + tmpl.length + kw.length + gap1.length;
     spans.push([start, start + macro.length + (args ? args.length : 0)]);
   }

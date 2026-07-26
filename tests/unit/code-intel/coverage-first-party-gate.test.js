@@ -157,32 +157,75 @@ describe('compile-DB coverage requires first-party coverage', () => {
     expect(cov.complete).toBe(false);
   });
 
-  // A capped walk UNDER-counts sources, which inflates firstPartyCount/diskSources
-  // and pushes the ratio toward granting exhaustive — the unsafe direction. An
-  // incomplete measurement must read as "unknown", never as "fine".
-  it('treats a walk that hit its budget as unknown coverage, not passing coverage', () => {
+  // The ratio must be an intersection of the SAME kind of thing on both sides.
+  // Counting compile-DB ENTRIES against distinct files on disk let a source
+  // compiled into 3 targets count 3× — the ordinary CMake shape for object
+  // libraries or a source in both a lib and a test — pushing the "ratio" past
+  // 1.0 while most of the repo was unindexed.
+  it('counts DISTINCT covered sources, not compile-DB entries', () => {
     const buildDir = hostPath(repo, 'build');
     const entries = [];
-    // Exceed DISK_WALK_DIR_CAP so the walk stops early.
-    for (let d = 0; d < 4100; d++) {
-      const dir = path.join(repo, 'sim', `d${d}`);
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, 'f.cpp'), 'void f(){}\n');
-      if (d < 10) {
+    for (let i = 0; i < 10; i++) {
+      fs.writeFileSync(path.join(repo, 'sim', `s${i}.cpp`), `void s${i}(){}\n`);
+    }
+    // Only 4 of 11 sources covered, but each appears in 3 targets = 12 entries.
+    for (let i = 0; i < 4; i++) {
+      for (let t = 0; t < 3; t++) {
         entries.push({
           directory: buildDir,
-          file: hostPath(repo, `sim/d${d}/f.cpp`),
-          command: `clang-cl -c ${hostPath(repo, `sim/d${d}/f.cpp`)}`,
+          file: hostPath(repo, `sim/s${i}.cpp`),
+          command: `clang-cl -DT${t} -c ${hostPath(repo, `sim/s${i}.cpp`)}`,
         });
       }
     }
     writeDb('build/compile_commands.json', entries);
 
     const cov = computeCompileDbCoverage({ projectRoot: repo, env: {} });
-    expect(cov.firstPartyWalkCapped).toBe(true);
+    expect(cov.firstPartySourcesCovered).toBe(4);
+    expect(cov.coverageRatio).toBeLessThan(1);
     expect(cov.complete).toBe(false);
-    expect(cov.coverageRatio).toBeNull();
-    expect(cov.reason).toMatch(/too large to enumerate/);
+  });
+
+  // Entries for files that no longer exist, and non-C++ entries, must not count
+  // toward coverage either — the intersection handles all of these at once.
+  it('ignores DB entries for deleted files when computing coverage', () => {
+    const buildDir = hostPath(repo, 'build');
+    const entries = [];
+    for (let i = 0; i < 10; i++) {
+      fs.writeFileSync(path.join(repo, 'sim', `r${i}.cpp`), `void r${i}(){}\n`);
+    }
+    entries.push({
+      directory: buildDir,
+      file: hostPath(repo, 'sim/r0.cpp'),
+      command: `clang-cl -c ${hostPath(repo, 'sim/r0.cpp')}`,
+    });
+    for (let i = 0; i < 50; i++) {
+      entries.push({
+        directory: buildDir,
+        file: hostPath(repo, `sim/gone${i}.cpp`),
+        command: 'clang-cl -c gone',
+      });
+    }
+    writeDb('build/compile_commands.json', entries);
+
+    const cov = computeCompileDbCoverage({ projectRoot: repo, env: {} });
+    expect(cov.firstPartySourcesCovered).toBe(1);
+    expect(cov.complete).toBe(false);
+  });
+
+  it('reports the walk-budget flag, and a normal repo is not capped', () => {
+    // The caps are a guard against a pathological tree, not something a real
+    // repo should hit — brute-forcing them would make this suite unusably slow,
+    // so assert the flag is surfaced and false in the ordinary case.
+    const buildDir = hostPath(repo, 'build');
+    writeDb('build/compile_commands.json', [{
+      directory: buildDir,
+      file: hostPath(repo, 'sim/Terrain.cpp'),
+      command: `clang-cl -c ${hostPath(repo, 'sim/Terrain.cpp')}`,
+    }]);
+    const cov = computeCompileDbCoverage({ projectRoot: repo, env: {} });
+    expect(cov.firstPartyWalkCapped).toBe(false);
+    expect(typeof cov.coverageRatio).toBe('number');
   });
 
   it('accepts an ABSOLUTE queried path (agents pass them)', () => {

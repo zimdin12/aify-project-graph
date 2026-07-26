@@ -812,38 +812,63 @@ function firstPartyFileSet(projectRoot, prep) {
 // command for ~everything, and caller sets still truncate silently.
 // Bounded (dirs + files) so this can run on a query path; cached per prepared DB.
 const SOURCE_EXT_RE = /\.(c|cc|cpp|cxx|c\+\+|ixx)$/i;
-const DISK_WALK_FILE_CAP = 8000;
-const DISK_WALK_DIR_CAP = 4000;
+// Generous enough that real repos FINISH. An unfinished walk has to fail closed
+// (an under-counted denominator inflates the ratio), but clamping too early made
+// `exhaustive` unreachable on any repo past ~4000 directories — a mid-size C++
+// project. These bounds exist only to stop a pathological tree (or a symlink
+// explosion) from hanging a query; the walk is cached per compile-DB hash, and
+// measured ~50ms per 9k files.
+const DISK_WALK_FILE_CAP = 200_000;
+const DISK_WALK_DIR_CAP = 50_000;
 
 // Returns { count, capped }. `capped` matters for SAFETY, not just accuracy: if
 // the walk stops early the count is UNDER-reported, which INFLATES
 // firstPartyCount/diskSources and pushes the ratio toward granting exhaustive —
 // the unsafe direction. A capped walk therefore means "coverage unknown", never
 // "coverage fine".
-function countFirstPartySourcesOnDisk(projectRoot) {
-  let files = 0;
+// Returns { set, capped } — the SET of first-party source files on disk, keyed
+// the same way firstPartyFileSet keys DB entries so the two can be intersected.
+// Counting them separately was the H1 defect: `countFirstParty` counts one per DB
+// ENTRY, so a source compiled into 3 targets (object library, static+shared pair,
+// lib+test) counted 3 times and the "ratio" exceeded 1.0 while 60% of the repo
+// was unindexed.
+function walkFirstPartySourcesOnDisk(projectRoot) {
+  const set = new Set();
   let dirs = 0;
   let capped = false;
+  const seenDirs = new Set();          // realpath guard: symlink cycles
   const stack = [projectRoot];
   while (stack.length) {
-    if (files >= DISK_WALK_FILE_CAP || dirs >= DISK_WALK_DIR_CAP) { capped = true; break; }
+    if (set.size >= DISK_WALK_FILE_CAP || dirs >= DISK_WALK_DIR_CAP) { capped = true; break; }
     const dir = stack.pop();
+    // Symlinked/junctioned source trees are common in monorepos; skipping them
+    // shrank the denominator and inflated coverage (H2). Follow them, but only
+    // once per real path.
+    let real;
+    try { real = fs.realpathSync(dir); } catch { real = dir; }
+    if (seenDirs.has(real)) continue;
+    seenDirs.add(real);
     dirs += 1;
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
     for (const entry of entries) {
       const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        const rel = path.relative(projectRoot, full).replace(/\\/g, '/');
-        if (!rel || isDepRel(rel) || entry.name.startsWith('.')) continue;
+      const rel = path.relative(projectRoot, full).replace(/\\/g, '/');
+      if (!rel || isDepRel(rel)) continue;
+      // A Dirent for a symlink reports isSymbolicLink(), NOT isDirectory().
+      let isDir = entry.isDirectory();
+      if (!isDir && entry.isSymbolicLink()) {
+        try { isDir = fs.statSync(full).isDirectory(); } catch { isDir = false; }
+      }
+      if (isDir) {
+        if (entry.name.startsWith('.')) continue;
         stack.push(full);
       } else if (SOURCE_EXT_RE.test(entry.name)) {
-        const rel = path.relative(projectRoot, full).replace(/\\/g, '/');
-        if (!isDepRel(rel)) files += 1;
+        set.add(rel.toLowerCase());
       }
     }
   }
-  return { count: files, capped };
+  return { set, capped };
 }
 
 // Cached per (projectRoot, dbHash). NOTE the deliberate limitation: sources added
@@ -852,11 +877,16 @@ function countFirstPartySourcesOnDisk(projectRoot) {
 // build compiles is exactly the drift this gate is meant to catch, and it will be
 // caught on the next DB change. It is cached at all because the walk runs on a
 // query path.
+// Cached per (projectRoot, dbHash) because the walk runs on a query path. The
+// TTL bounds the known limitation: sources added WITHOUT a compile-DB change
+// (mid-edit, not yet built) are exactly the highest-risk hidden callers, so the
+// denominator must not be frozen for the whole process lifetime (M7).
+const DISK_WALK_TTL_MS = 60_000;
 const _diskCountCache = new Map();
 function firstPartySourcesOnDisk(projectRoot, dbHash) {
   const cached = _diskCountCache.get(projectRoot);
-  if (cached && cached.dbHash === dbHash) return cached;
-  const result = { dbHash, ...countFirstPartySourcesOnDisk(projectRoot) };
+  if (cached && cached.dbHash === dbHash && (Date.now() - cached.at) < DISK_WALK_TTL_MS) return cached;
+  const result = { dbHash, at: Date.now(), ...walkFirstPartySourcesOnDisk(projectRoot) };
   _diskCountCache.set(projectRoot, result);
   return result;
 }
@@ -935,11 +965,21 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   // coverage — the same silent-truncation shape as exporting none. Compare
   // against the sources actually on disk and require a real share.
   const disk = firstPartySourcesOnDisk(projectRoot, prep.dbHash);
-  const diskSources = disk.count;
-  // A capped walk under-counts sources, which would INFLATE the ratio and push
-  // toward granting exhaustive. Treat it as unknown coverage (fail closed)
-  // rather than as a passing ratio.
-  const coverageRatio = (!disk.capped && diskSources > 0) ? firstPartyCount / diskSources : null;
+  const diskSources = disk.set.size;
+  // The ratio is |DB sources ∩ disk sources| / |disk sources| — an intersection
+  // of the SAME kind of thing on both sides. Comparing a DB ENTRY count against a
+  // distinct-file count (H1) let duplicates across targets, non-C++ entries
+  // (.cu/.m/.S/.rc), and entries for deleted files all inflate the numerator past
+  // 1.0 while most of the repo was unindexed.
+  let coveredOnDisk = 0;
+  if (diskSources > 0) {
+    for (const rel of firstPartyFileSet(projectRoot, prep)) {
+      if (disk.set.has(rel)) coveredOnDisk += 1;
+    }
+  }
+  // A capped walk under-counts the denominator, which would INFLATE the ratio
+  // toward granting exhaustive — treat as unknown, never as passing.
+  const coverageRatio = (!disk.capped && diskSources > 0) ? coveredOnDisk / diskSources : null;
   const poorlyCovered = disk.capped
     ? true
     : (coverageRatio !== null && coverageRatio < MIN_FIRST_PARTY_COVERAGE);
@@ -973,8 +1013,8 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
       + `so the share of your code the compile DB actually covers could not be established. The caller set is therefore a `
       + `FLOOR, not a completeness oracle — verify with rg before any "no callers / dead code / safe to delete" claim.`;
   } else if (poorlyCovered) {
-    const missing = Math.max(0, diskSources - firstPartyCount);
-    reason = `the compile DB covers ${firstPartyCount} of ~${diskSources} first-party sources `
+    const missing = Math.max(0, diskSources - coveredOnDisk);
+    reason = `the compile DB covers ${coveredOnDisk} of ~${diskSources} first-party sources `
       + `(${Math.round(coverageRatio * 100)}%), leaving ~${missing} translation unit(s) unindexed. A caller in any of `
       + `those is INVISIBLE to clangd, so the caller set is a FLOOR, not a completeness oracle — verify with rg before `
       + `any "no callers / dead code / safe to delete" claim. FIX: export compile commands for all your targets `
@@ -997,6 +1037,7 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
     unity: flags.unity,
     firstPartyCount,
     firstPartySourcesOnDisk: diskSources,
+    firstPartySourcesCovered: coveredOnDisk,
     firstPartyWalkCapped: disk.capped,
     coverageRatio,
     poorlyCovered,
