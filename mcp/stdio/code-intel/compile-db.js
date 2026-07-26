@@ -815,11 +815,18 @@ const SOURCE_EXT_RE = /\.(c|cc|cpp|cxx|c\+\+|ixx)$/i;
 const DISK_WALK_FILE_CAP = 8000;
 const DISK_WALK_DIR_CAP = 4000;
 
+// Returns { count, capped }. `capped` matters for SAFETY, not just accuracy: if
+// the walk stops early the count is UNDER-reported, which INFLATES
+// firstPartyCount/diskSources and pushes the ratio toward granting exhaustive —
+// the unsafe direction. A capped walk therefore means "coverage unknown", never
+// "coverage fine".
 function countFirstPartySourcesOnDisk(projectRoot) {
   let files = 0;
   let dirs = 0;
+  let capped = false;
   const stack = [projectRoot];
-  while (stack.length && files < DISK_WALK_FILE_CAP && dirs < DISK_WALK_DIR_CAP) {
+  while (stack.length) {
+    if (files >= DISK_WALK_FILE_CAP || dirs >= DISK_WALK_DIR_CAP) { capped = true; break; }
     const dir = stack.pop();
     dirs += 1;
     let entries;
@@ -836,16 +843,22 @@ function countFirstPartySourcesOnDisk(projectRoot) {
       }
     }
   }
-  return files;
+  return { count: files, capped };
 }
 
+// Cached per (projectRoot, dbHash). NOTE the deliberate limitation: sources added
+// or deleted on disk WITHOUT a compile-DB change reuse the cached count. That is
+// acceptable because the DB is what determines coverage — adding sources that no
+// build compiles is exactly the drift this gate is meant to catch, and it will be
+// caught on the next DB change. It is cached at all because the walk runs on a
+// query path.
 const _diskCountCache = new Map();
 function firstPartySourcesOnDisk(projectRoot, dbHash) {
   const cached = _diskCountCache.get(projectRoot);
-  if (cached && cached.dbHash === dbHash) return cached.count;
-  const count = countFirstPartySourcesOnDisk(projectRoot);
-  _diskCountCache.set(projectRoot, { dbHash, count });
-  return count;
+  if (cached && cached.dbHash === dbHash) return cached;
+  const result = { dbHash, ...countFirstPartySourcesOnDisk(projectRoot) };
+  _diskCountCache.set(projectRoot, result);
+  return result;
 }
 
 // Threshold for licensing an EXHAUSTIVE caller set.
@@ -921,9 +934,15 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   // H1: a bare `> 0` check let a DB exporting 1 of 500 sources claim full
   // coverage — the same silent-truncation shape as exporting none. Compare
   // against the sources actually on disk and require a real share.
-  const diskSources = firstPartySourcesOnDisk(projectRoot, prep.dbHash);
-  const coverageRatio = diskSources > 0 ? firstPartyCount / diskSources : null;
-  const poorlyCovered = coverageRatio !== null && coverageRatio < MIN_FIRST_PARTY_COVERAGE;
+  const disk = firstPartySourcesOnDisk(projectRoot, prep.dbHash);
+  const diskSources = disk.count;
+  // A capped walk under-counts sources, which would INFLATE the ratio and push
+  // toward granting exhaustive. Treat it as unknown coverage (fail closed)
+  // rather than as a passing ratio.
+  const coverageRatio = (!disk.capped && diskSources > 0) ? firstPartyCount / diskSources : null;
+  const poorlyCovered = disk.capped
+    ? true
+    : (coverageRatio !== null && coverageRatio < MIN_FIRST_PARTY_COVERAGE);
   const noFirstParty = firstPartyCount === 0;
 
   // File-aware gate (mirrors the 2026-06-12 tsCoverage hardening, which C++
@@ -949,6 +968,10 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   let reason = null;
   if (noFirstParty) {
     reason = NO_FIRST_PARTY_REASON;
+  } else if (poorlyCovered && disk.capped) {
+    reason = `this repo is too large to enumerate within the coverage-check budget (stopped at ~${diskSources} sources), `
+      + `so the share of your code the compile DB actually covers could not be established. The caller set is therefore a `
+      + `FLOOR, not a completeness oracle — verify with rg before any "no callers / dead code / safe to delete" claim.`;
   } else if (poorlyCovered) {
     const missing = Math.max(0, diskSources - firstPartyCount);
     reason = `the compile DB covers ${firstPartyCount} of ~${diskSources} first-party sources `
@@ -974,6 +997,7 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
     unity: flags.unity,
     firstPartyCount,
     firstPartySourcesOnDisk: diskSources,
+    firstPartyWalkCapped: disk.capped,
     coverageRatio,
     poorlyCovered,
     noFirstParty,

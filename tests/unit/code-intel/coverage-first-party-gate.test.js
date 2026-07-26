@@ -157,6 +157,34 @@ describe('compile-DB coverage requires first-party coverage', () => {
     expect(cov.complete).toBe(false);
   });
 
+  // A capped walk UNDER-counts sources, which inflates firstPartyCount/diskSources
+  // and pushes the ratio toward granting exhaustive — the unsafe direction. An
+  // incomplete measurement must read as "unknown", never as "fine".
+  it('treats a walk that hit its budget as unknown coverage, not passing coverage', () => {
+    const buildDir = hostPath(repo, 'build');
+    const entries = [];
+    // Exceed DISK_WALK_DIR_CAP so the walk stops early.
+    for (let d = 0; d < 4100; d++) {
+      const dir = path.join(repo, 'sim', `d${d}`);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'f.cpp'), 'void f(){}\n');
+      if (d < 10) {
+        entries.push({
+          directory: buildDir,
+          file: hostPath(repo, `sim/d${d}/f.cpp`),
+          command: `clang-cl -c ${hostPath(repo, `sim/d${d}/f.cpp`)}`,
+        });
+      }
+    }
+    writeDb('build/compile_commands.json', entries);
+
+    const cov = computeCompileDbCoverage({ projectRoot: repo, env: {} });
+    expect(cov.firstPartyWalkCapped).toBe(true);
+    expect(cov.complete).toBe(false);
+    expect(cov.coverageRatio).toBeNull();
+    expect(cov.reason).toMatch(/too large to enumerate/);
+  });
+
   it('accepts an ABSOLUTE queried path (agents pass them)', () => {
     const buildDir = hostPath(repo, 'build');
     writeDb('build/compile_commands.json', [{
