@@ -798,15 +798,69 @@ function firstPartyFileSet(projectRoot, prep) {
       if (!rel || isDepRel(rel)) continue;
       set.add(rel.toLowerCase());
     }
-  } catch { /* unreadable DB → empty set; callers treat that as "cannot prove" */ }
-  _dbFileSetCache.set(projectRoot, { dbHash: prep.dbHash, set });
+    // L2: only cache a set we actually built. Caching an EMPTY set after a parse
+    // failure would pin "every file uncovered" for the whole process lifetime
+    // against a otherwise-valid dbHash.
+    _dbFileSetCache.set(projectRoot, { dbHash: prep.dbHash, set });
+  } catch { /* unreadable DB → uncached empty set; callers treat as "cannot prove" */ }
   return set;
 }
 
+// Count first-party translation units ON DISK, so DB coverage can be expressed
+// as a RATIO rather than a "> 0" boolean. A DB exporting 1 of 500 sources is not
+// meaningfully different from one exporting none: clangd still has no compile
+// command for ~everything, and caller sets still truncate silently.
+// Bounded (dirs + files) so this can run on a query path; cached per prepared DB.
+const SOURCE_EXT_RE = /\.(c|cc|cpp|cxx|c\+\+|ixx)$/i;
+const DISK_WALK_FILE_CAP = 8000;
+const DISK_WALK_DIR_CAP = 4000;
+
+function countFirstPartySourcesOnDisk(projectRoot) {
+  let files = 0;
+  let dirs = 0;
+  const stack = [projectRoot];
+  while (stack.length && files < DISK_WALK_FILE_CAP && dirs < DISK_WALK_DIR_CAP) {
+    const dir = stack.pop();
+    dirs += 1;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        const rel = path.relative(projectRoot, full).replace(/\\/g, '/');
+        if (!rel || isDepRel(rel) || entry.name.startsWith('.')) continue;
+        stack.push(full);
+      } else if (SOURCE_EXT_RE.test(entry.name)) {
+        const rel = path.relative(projectRoot, full).replace(/\\/g, '/');
+        if (!isDepRel(rel)) files += 1;
+      }
+    }
+  }
+  return files;
+}
+
+const _diskCountCache = new Map();
+function firstPartySourcesOnDisk(projectRoot, dbHash) {
+  const cached = _diskCountCache.get(projectRoot);
+  if (cached && cached.dbHash === dbHash) return cached.count;
+  const count = countFirstPartySourcesOnDisk(projectRoot);
+  _diskCountCache.set(projectRoot, { dbHash, count });
+  return count;
+}
+
+// Below this share of first-party sources present in the compile DB, clangd's
+// index cannot support a completeness claim for the repo.
+const MIN_FIRST_PARTY_COVERAGE = 0.5;
+
 // A header has no translation unit of its own — it is compiled as part of every
 // TU that includes it — so its absence from the DB is expected and must NOT be
-// read as missing coverage.
-const HEADER_RE = /\.(h|hh|hpp|hxx|inl|ipp|ixx)$/i;
+// read as missing coverage. NOTE: exempting a header only makes sense when the
+// DB covers the repo well; with poor coverage the header's including TUs are
+// exactly what is missing, so the exemption is withdrawn (H1).
+// M7: `.ixx` is a C++20 module interface — a REAL translation unit with its own
+// compile command — so it must NOT be exempt. Template/inline-only extensions
+// that never appear in a compile DB must be.
+const HEADER_RE = /\.(h|hh|hpp|hxx|inl|ipp|tpp|tcc|txx|inc|def)$/i;
 
 const NO_FIRST_PARTY_REASON =
   'the compile DB contains ZERO first-party entries — every command belongs to third-party/_deps code, '
@@ -847,20 +901,43 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   // in-file call sites. `firstPartyCount` was already computed by
   // prepareCompileDb and simply never consulted here.
   const firstPartyCount = Number(prep.firstPartyCount ?? 0);
+  // H1: a bare `> 0` check let a DB exporting 1 of 500 sources claim full
+  // coverage — the same silent-truncation shape as exporting none. Compare
+  // against the sources actually on disk and require a real share.
+  const diskSources = firstPartySourcesOnDisk(projectRoot, prep.dbHash);
+  const coverageRatio = diskSources > 0 ? firstPartyCount / diskSources : null;
+  const poorlyCovered = coverageRatio !== null && coverageRatio < MIN_FIRST_PARTY_COVERAGE;
   const noFirstParty = firstPartyCount === 0;
 
   // File-aware gate (mirrors the 2026-06-12 tsCoverage hardening, which C++
   // never received): a SOURCE file with no compile command is not covered.
   // Headers are exempt — they have no TU of their own.
   let fileUncovered = false;
-  if (file && !noFirstParty && !HEADER_RE.test(String(file))) {
-    const rel = String(file).replace(/\\/g, '/').replace(/^\.\//, '').toLowerCase();
-    fileUncovered = !firstPartyFileSet(projectRoot, prep).has(rel);
+  // The header exemption only holds when the DB covers the repo well (H1): with
+  // poor coverage, the TUs that include the header are precisely what is absent.
+  const headerExempt = HEADER_RE.test(String(file ?? '')) && !poorlyCovered;
+  if (file && !noFirstParty && !headerExempt) {
+    // M2: agents legitimately pass ABSOLUTE paths (openIfNeeded accepts them),
+    // but the DB set is keyed repo-relative. Without this, an absolute path never
+    // matched and produced a permanent `fileUncovered` with a factually WRONG
+    // reason ("no compile command") for a file that is in the DB.
+    let rel = String(file).replace(/\\/g, '/').replace(/^\.\//, '');
+    const rootFwd = String(projectRoot).replace(/\\/g, '/').replace(/\/$/, '');
+    if (rel.toLowerCase().startsWith(`${rootFwd.toLowerCase()}/`)) {
+      rel = rel.slice(rootFwd.length + 1);
+    }
+    fileUncovered = !firstPartyFileSet(projectRoot, prep).has(rel.toLowerCase());
   }
 
   let reason = null;
   if (noFirstParty) {
     reason = NO_FIRST_PARTY_REASON;
+  } else if (poorlyCovered) {
+    reason = `the compile DB covers only ${firstPartyCount} of ~${diskSources} first-party sources `
+      + `(${Math.round(coverageRatio * 100)}%), so clangd has no compile command for most of your code and its index is `
+      + `PARTIAL — caller sets are TRUNCATED and are NOT a completeness oracle. Verify with rg before any `
+      + `"no callers / dead code / safe to delete" claim. FIX: export compile commands for all your targets `
+      + `(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON on a build that compiles them) and confirm your sources appear in compile_commands.json.`;
   } else if (fileUncovered) {
     reason = `the queried file has no compile command in the compile DB (it is not in compile_commands.json), `
       + `so clangd compiles it with an inferred command and its index for this file is PARTIAL — caller sets `
@@ -872,12 +949,15 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
     reason = 'compile DB is a CMake UNITY build whose per-source TUs are absent (aggregates not expanded on this host), so callers in unity-only sources are invisible to clangd — verify with rg before any delete/rename';
   }
   return {
-    complete: !foreignBlocking && !unityUnexpanded && !noFirstParty && !fileUncovered,
+    complete: !foreignBlocking && !unityUnexpanded && !noFirstParty && !poorlyCovered && !fileUncovered,
     reason,
     foreignToolchain: flags.foreignToolchain,
     unityUnexpanded,
     unity: flags.unity,
     firstPartyCount,
+    firstPartySourcesOnDisk: diskSources,
+    coverageRatio,
+    poorlyCovered,
     noFirstParty,
     fileUncovered,
   };

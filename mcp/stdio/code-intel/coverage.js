@@ -176,6 +176,7 @@ export function computeCoverage({ language, projectRoot, file = null, env = proc
   // query against a file with no compile command still read as exhaustive.
   const cov = computeCompileDbCoverage({ projectRoot, file, env });
   const partial = cov.complete === false
-    && (Boolean(cov.foreignToolchain) || Boolean(cov.unityUnexpanded) || Boolean(cov.noFirstParty));
+    && (Boolean(cov.foreignToolchain) || Boolean(cov.unityUnexpanded)
+      || Boolean(cov.noFirstParty) || Boolean(cov.poorlyCovered));
   return { ...cov, partial, kind: 'compile_db' };
 }

@@ -210,28 +210,29 @@ export async function graphHealth({ repoRoot }) {
     const t = Date.parse(iso);
     return Number.isFinite(t) ? Math.floor((Date.now() - t) / 86_400_000) : null;
   };
-  const STALE_ARTIFACT_DAYS = 14;
+  // AGE IS NOT STALENESS for the curated overlays. `functionality.json` is
+  // hand-maintained: a correct, stable one would emit a ⚠ forever, and a warning
+  // that can never be resolved trains agents to ignore ⚠ lines on the one surface
+  // where they must stay load-bearing. So ages are REPORTED structurally, and a
+  // verdict fires only on a real, actionable signal — broken anchors (which
+  // `overlay.broken` already measures) or, for tasks, links that resolve to
+  // nothing. Drift after renames is the `graph-anchor-drift` skill's job.
   try {
-    for (const [name, file, fix] of [
-      ['functionality', 'functionality.json', 'refresh with /graph-build-functionality'],
-      ['tasks', 'tasks.json', 'refresh with /graph-build-tasks'],
-    ]) {
+    for (const [name, file] of [['functionality', 'functionality.json'], ['tasks', 'tasks.json']]) {
       const p = join(repoRoot, '.aify-graph', file);
       if (!existsSync(p)) continue;
-      const days = Math.floor((Date.now() - statSync(p).mtimeMs) / 86_400_000);
-      artifactAges[name] = days;
-      if (days >= STALE_ARTIFACT_DAYS) {
-        verdicts.push(`⚠ ${file} is ${days} days old — graph_index does NOT refresh it (${fix})`);
-      }
+      artifactAges[name] = Math.floor((Date.now() - statSync(p).mtimeMs) / 86_400_000);
     }
   } catch { /* best-effort */ }
-  // The code-intel collection is the trust spine; graph_index never refreshes it.
+  // The code-intel collection IS age-sensitive in a way the overlays are not: it
+  // is a snapshot of a specific commit's index, and `graph_index` never refreshes
+  // it. But the honest trigger is commit drift, not the calendar — a collection
+  // whose indexedCommit still equals HEAD is current no matter how old it is.
   const collectedDays = ageInDays(codeIntel?.collectedAt);
-  if (collectedDays != null) {
-    artifactAges.codeIntel = collectedDays;
-    if (collectedDays >= STALE_ARTIFACT_DAYS) {
-      verdicts.push(`⚠ code-intel collection is ${collectedDays} days old — [lsp✓] evidence is stale and cannot attest exhaustiveness (re-run graph_collect_code_intel)`);
-    }
+  if (collectedDays != null) artifactAges.codeIntel = collectedDays;
+  if (codeIntel?.indexedCommit && head && codeIntel.indexedCommit !== head) {
+    verdicts.push(`⚠ code-intel collection was indexed at ${String(codeIntel.indexedCommit).slice(0, 7)} but HEAD is ${head.slice(0, 7)}`
+      + `${collectedDays != null ? ` (${collectedDays}d old)` : ''} — [lsp✓] evidence is stale and cannot attest exhaustiveness (re-run graph_collect_code_intel)`);
   }
   if (overlay.present) {
     if (overlayQuality.featureCount === 0) {

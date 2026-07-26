@@ -302,6 +302,20 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
         warnings: [`hierarchy truncated: ${why} — NOT exhaustive`],
       };
     }
+    // FAIL-CLOSED GATE (P0-2 parity, 2026-07-26). Everything above only
+    // downgrades when coverage is PROVEN incomplete (`complete === false`), so
+    // undefined / null / undecided coverage fell through to exhaustive:true here
+    // exactly as it used to in buildReferencesEvidence. This verb answers the
+    // TRANSITIVE "who calls X" and licenses dead-code claims just as strongly,
+    // so it needs the same rule: silence is not proof.
+    if (coverage?.complete !== true) {
+      return {
+        ready: true, degraded: true, cause: 'coverage_unknown', confidence: 'medium',
+        exhaustive: false,
+        fallback: `coverage for this query is unproven; the ${noun} tree is a FLOOR — verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
+        warnings: [`compile-DB / project coverage could not be verified — the ${noun} tree is a FLOOR, not a complete set`],
+      };
+    }
     return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings: [] };
   }
   // INDEXED mode but the index never reached idle within budget.

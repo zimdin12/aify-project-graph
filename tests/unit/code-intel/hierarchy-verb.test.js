@@ -289,11 +289,22 @@ describe('code_intel_hierarchy — error envelopes', () => {
 });
 
 describe('code_intel_hierarchy — evidence/banner unit cases', () => {
-  it('buildHierarchyEvidence: indexed+ready → exhaustive', () => {
-    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3 });
+  it('buildHierarchyEvidence: indexed+ready+PROVEN coverage → exhaustive', () => {
+    // P0-2 parity (2026-07-26): proven coverage is now required. This test
+    // previously passed NO coverage at all and asserted exhaustive:true — it
+    // pinned the fail-open default on the transitive "who calls X" verb, which
+    // licenses dead-code claims just as strongly as references.
+    const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3, coverage: { complete: true } });
     expect(e.exhaustive).toBe(true);
     expect(e.ready).toBe(true);
     expect(e.cause).toBeNull();
+  });
+  it('buildHierarchyEvidence: indexed+ready but coverage UNPROVEN → not exhaustive', () => {
+    for (const coverage of [undefined, null, { complete: undefined }]) {
+      const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3, coverage });
+      expect(e.exhaustive).toBe(false);
+      expect(e.cause).toBe('coverage_unknown');
+    }
   });
   it('buildHierarchyEvidence: indexed+not-ready → cold_index', () => {
     const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: false, nodeCount: 3 });

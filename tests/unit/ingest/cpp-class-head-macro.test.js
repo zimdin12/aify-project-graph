@@ -81,6 +81,30 @@ describe('blankCppClassHeadMacros', () => {
       .toBe('class alignas(16) Aligned { void go(); };');
   });
 
+  // M1 (adversarial review): `final` sits between the name and the body, so the
+  // body requirement skipped it and the ORIGINAL bug survived for this spelling —
+  // which is common on exported types.
+  it('handles `final` between the type name and the body', () => {
+    expect(symbolsOf('class MYLIB_API Widget final : public Base {\npublic:\n  void Draw();\n};'))
+      .toEqual(['Class:Widget', 'Method:Draw']);
+    expect(symbolsOf('class MYLIB_API Widget final {\npublic:\n  void Draw();\n};'))
+      .toEqual(['Class:Widget', 'Method:Draw']);
+  });
+
+  // M6: an elaborated type with BRACE INITIALIZATION is still lexically a class
+  // head. Blanking it destroyed a type reference AND invented a phantom class
+  // named after the variable.
+  it('does NOT touch an elaborated type with brace initialization', () => {
+    const src = 'void f() {\n  struct POINT_T p {1,2};\n  use(p);\n}';
+    expect(blankCppClassHeadMacros(src)).toBe(src);
+    expect(symbolsOf(src)).not.toContain('Class:p');
+  });
+
+  it('still blanks a class with an EMPTY body (not an initializer)', () => {
+    expect(blankCppClassHeadMacros('class API_EXPORT(2) Widget {};'))
+      .toBe('class               Widget {};');
+  });
+
   it('still handles a templated class carrying an export macro', () => {
     const out = blankCppClassHeadMacros('template<typename T> class MYLIB_API Holder { void go(); };');
     expect(out).toBe('template<typename T> class           Holder { void go(); };');

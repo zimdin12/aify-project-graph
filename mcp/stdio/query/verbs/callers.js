@@ -143,7 +143,9 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // right; the label was missing.
     const locationsNote = '\nLOCATIONS: each file:line is the CALLER FUNCTION\'s declaration, not a call site '
       + '(edges are function-granular — one caller may contain several call sites). '
-      + `For exact call-site lines use code_intel_references, or rg -n "${symbol}\\b" within these files.`;
+      // -F (fixed-string): a symbol like `ns::foo(int)` interpolated into a regex
+      // makes `(int)` a capture group, which silently matches `ns::fooint`.
+      + `For exact call-site lines use code_intel_references, or rg -nF "${symbol}" within these files.`;
 
     return prefixReadWarnings(
       (rolledUp ? `${header}\n${body}` : body) + locationsNote + trustLine + confidenceFooter,

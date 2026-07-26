@@ -107,6 +107,66 @@ describe('compile-DB coverage requires first-party coverage', () => {
     expect(cov.reason).toMatch(/no compile command|not in the compile/i);
   });
 
+  // H1 (adversarial review): a bare `firstPartyCount > 0` check let a DB
+  // exporting ONE source out of hundreds claim full coverage — the same silent
+  // truncation as exporting none. Worse, headers were exempt from the per-file
+  // gate entirely, and C++ declarations live in headers, so the exempt path was
+  // the normal path: the field-report failure verbatim.
+  it('reports NOT complete when the DB covers only a tiny share of first-party sources', () => {
+    const buildDir = hostPath(repo, 'build');
+    for (let i = 0; i < 40; i++) {
+      fs.writeFileSync(path.join(repo, 'sim', `f${i}.cpp`), `void f${i}(){}\n`);
+    }
+    writeDb('build/compile_commands.json', [{
+      directory: buildDir,
+      file: hostPath(repo, 'sim/f0.cpp'),
+      command: `clang-cl -c ${hostPath(repo, 'sim/f0.cpp')}`,
+    }]);
+
+    const cov = computeCompileDbCoverage({ projectRoot: repo, env: {} });
+    expect(cov.complete).toBe(false);
+    expect(cov.poorlyCovered).toBe(true);
+    expect(cov.firstPartyCount).toBe(1);
+    expect(cov.firstPartySourcesOnDisk).toBeGreaterThan(20);
+    expect(cov.reason).toMatch(/covers only 1 of/);
+  });
+
+  it('withdraws the header exemption when coverage is poor', () => {
+    const buildDir = hostPath(repo, 'build');
+    for (let i = 0; i < 40; i++) {
+      fs.writeFileSync(path.join(repo, 'sim', `g${i}.cpp`), `void g${i}(){}\n`);
+    }
+    fs.writeFileSync(path.join(repo, 'sim', 'Widget.h'), '#pragma once\n');
+    writeDb('build/compile_commands.json', [{
+      directory: buildDir,
+      file: hostPath(repo, 'sim/g0.cpp'),
+      command: `clang-cl -c ${hostPath(repo, 'sim/g0.cpp')}`,
+    }]);
+
+    // With a well-covered DB a header is legitimately exempt; with a poorly
+    // covered one, the TUs that include it are exactly what is missing.
+    const cov = computeCompileDbCoverage({ projectRoot: repo, file: 'sim/Widget.h', env: {} });
+    expect(cov.complete).toBe(false);
+  });
+
+  it('accepts an ABSOLUTE queried path (agents pass them)', () => {
+    const buildDir = hostPath(repo, 'build');
+    writeDb('build/compile_commands.json', [{
+      directory: buildDir,
+      file: hostPath(repo, 'sim/Terrain.cpp'),
+      command: `clang-cl -c ${hostPath(repo, 'sim/Terrain.cpp')}`,
+    }]);
+
+    // Same file, absolute vs repo-relative — the verdict must agree. Before the
+    // fix the absolute form never matched the repo-relative DB key and produced
+    // a factually wrong "no compile command" reason.
+    const rel = computeCompileDbCoverage({ projectRoot: repo, file: 'sim/Terrain.cpp', env: {} });
+    const abs = computeCompileDbCoverage({ projectRoot: repo, file: hostPath(repo, 'sim/Terrain.cpp'), env: {} });
+    expect(rel.complete).toBe(true);
+    expect(abs.complete).toBe(true);
+    expect(abs.fileUncovered).toBe(false);
+  });
+
   it('does NOT penalize a queried HEADER for being absent from the DB', () => {
     // Headers legitimately have no translation unit of their own; they are
     // compiled as part of the TUs that include them.

@@ -217,11 +217,19 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
   // P0-3: a collection that left a large share of symbols unresolved did not
   // index the repo completely, so its verified set is a floor regardless of the
   // indexReady bit. sand_castle: 2274 unresolved of 8917 (25%).
-  const refsFound = Number(collection?.refsFound) || 0;
-  const refsNotFound = Number(collection?.refsNotFound) || 0;
-  const refsTotal = refsFound + refsNotFound;
-  const unresolvedRatio = refsTotal > 0 ? refsNotFound / refsTotal : 0;
-  const heavilyUnresolved = unresolvedRatio >= 0.1;
+  // M4: `refsFound`/`refsNotFound` are NULL on any pre-telemetry collection. A
+  // missing measurement is not a good measurement — treating absent telemetry as
+  // "0% unresolved" would grant the exhaustive banner on exactly the collections
+  // we know least about, which is the same "unknown treated as proven" pattern
+  // the fail-closed work removed elsewhere.
+  const refsFound = Number(collection?.refsFound);
+  const refsNotFound = Number(collection?.refsNotFound);
+  const haveTelemetry = Number.isFinite(refsFound) && Number.isFinite(refsNotFound)
+    && (refsFound + refsNotFound) > 0;
+  const refsTotal = haveTelemetry ? refsFound + refsNotFound : 0;
+  const unresolvedRatio = haveTelemetry ? refsNotFound / refsTotal : 0;
+  const heavilyUnresolved = haveTelemetry && unresolvedRatio >= 0.1;
+  const telemetryMissing = !haveTelemetry;
 
   let line;
   if (collection && collection.indexReady === true && allVerified && stale) {
@@ -234,6 +242,12 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
     line = `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection left `
       + `${refsNotFound} of ${refsTotal} symbols (${Math.round(unresolvedRatio * 100)}%) unresolved — the index is incomplete, so this `
       + `is a FLOOR, not exhaustive; verify with rg before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
+    return line;
+  }
+  if (collection && collection.indexReady === true && allVerified && telemetryMissing) {
+    // No resolution telemetry recorded, so we cannot show the index actually
+    // resolved what it saw. Name the provenance without licensing exhaustiveness.
+    line = `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but this collection recorded no resolution telemetry, so completeness is unproven — treat as a FLOOR and verify before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
     return line;
   }
   if (collection && collection.indexReady === true && allVerified) {

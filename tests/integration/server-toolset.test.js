@@ -100,10 +100,14 @@ describe('server toolset selection', () => {
     const byName = Object.fromEntries(tools.map(t => [t.name, t.annotations.readOnlyHint]));
     // graph_index rebuilds the graph on disk — it is NOT read-only.
     expect(byName.graph_index).toBe(false);
-    // Pure reads.
-    expect(byName.graph_health).toBe(true);
+    // Verbs that reach prepareCompileDb materialize a normalized
+    // compile_commands.json, so they cannot claim readOnlyHint truthfully —
+    // the annotation is a promise clients gate on (Cursor Ask mode).
+    expect(byName.graph_health).toBe(false);
+    expect(byName.graph_callers).toBe(false);
+    // Genuinely pure reads.
     expect(byName.graph_search).toBe(true);
-    expect(byName.graph_callers).toBe(true);
+    expect(byName.graph_packet).toBe(true);
   });
 
   it('lists the focused ~15-verb default set when no toolset is given (P4-1)', async () => {

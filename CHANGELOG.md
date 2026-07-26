@@ -7,7 +7,79 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
-_Next-session work lands here until we tag a release._
+### 2026-07-26 — the trust contract stops trusting silence (BEHAVIOR CHANGE)
+
+A scored field test on a real C++ repo returned **3 of 8 real call sites** while
+reporting `exhaustive:true, degraded:false, confidence:"high", warnings:[]`.
+Since our instructions tell agents that `evidence.exhaustive` licenses "no
+callers / dead code / safe to delete", the flag was actively wrong — worse than
+no tool, because grep gets it right in one second.
+
+**If you consume `evidence.exhaustive`, expect more `false`.** That is the point:
+it is now granted only on POSITIVE proof of coverage.
+
+- **Compile-DB coverage must prove it covers YOUR code.** It only ever asked "is
+  the DB foreign or a unity build?". Measured on the reporting repo: all five
+  compile databases held 441–512 entries and **zero first-party** ones (every
+  entry `_deps/` third-party), so clangd had no compile command for any project
+  source — and that read as complete coverage. Coverage is now a **ratio** of
+  first-party DB entries to first-party sources on disk, the C++ path is
+  file-aware (a queried source with no compile command is not covered), and the
+  header exemption is withdrawn when overall coverage is poor.
+- **Unknown coverage no longer counts as proven.** `exhaustive:true` requires
+  `coverage.complete === true`; undefined / null / undecided now yields
+  `exhaustive:false, cause:'coverage_unknown'`. Applied to references,
+  definitions (which previously took no coverage input at all) and
+  `code_intel_hierarchy` (the transitive "who calls X", which licenses dead-code
+  claims just as strongly).
+- **A stale collection can no longer emit the exhaustive banner.** Staleness used
+  to be appended AFTER the "index-ready, N callers" wording was chosen; it is now
+  decided first. Same for a collection that left ≥10% of symbols unresolved, and
+  for one with no resolution telemetry at all (absent measurement ≠ good
+  measurement).
+- **`graph_callers` says what its locations ARE** — caller *declarations*, not
+  call sites (edges are function-granular). It scored 0/8 on a call-site census
+  purely because the format read as a call site.
+- **`graph_search` no longer truncates silently.** It capped candidates in SQL and
+  again on display while rendering no marker at all; it now reports
+  `SHOWING n of m` and warns when the hard candidate cap makes results a FLOOR.
+- **`graph_callees` names the dispatch site** where a callee set provably ends,
+  instead of only warning that it might be incomplete.
+- **Every `cause` the server can emit is now documented** in the MCP instructions
+  — 6 of 9 were missing while the list read as complete.
+
+### 2026-07-26 — C++ extraction: export macros in the class head
+
+`class MYLIB_API Widget { … }` extracted **NOTHING** — the class and every member
+vanished, silently, contained to that class. Fixed with one offset-preserving
+pre-parse pass (measured: only this shape breaks; `FORCEINLINE`, reflection-macro
+bodies and leading attribute macros were all fine). Guarded against the shapes
+that are lexically identical: `struct RECT r;`, brace-init `struct POINT_T p{1,2};`,
+forward declarations, `enum class`, and macros inside strings/comments.
+
+### 2026-07-26 — fixed: a relative `repoRoot` silently produced an empty graph
+
+`normalizeRelativePath` derives repo-relative paths with
+`absPath.slice(repoRoot.length + 1)`, so `repoRoot:'.'` chopped two characters off
+every path, nothing matched a language config, every file was skipped — and the
+rebuild reported **success**. Measured 562 nodes / 0 files versus 3603 / 398.
+`ensureFresh` now resolves `repoRoot` once at the entry point.
+
+### 2026-07-26 — other
+
+- `graph_health` reports a compile DB covering zero first-party sources, and flags
+  a code-intel collection whose indexed commit no longer matches HEAD.
+- `readOnlyHint` annotations on `tools/list` (Cursor's Ask mode refuses tools
+  without them). Verbs that materialize the normalized compile DB are correctly
+  NOT annotated read-only.
+- New `scripts/dump-graph.mjs`: deterministic natural-key graph dump so
+  behaviour-preserving changes can be gated on a byte-identical diff.
+- `scripts/compact-graph.mjs` reports leftover collection envelopes (452 MB found
+  on the reporting repo); `--delete-envelopes` removes them.
+- Installer: config reads tolerate a UTF-8 BOM (Windows editors write them
+  constantly) instead of aborting, and back up any file before modifying it.
+- Docs: `.aify-graph/` is per-working-directory, not per-agent; Hermes install now
+  gives an evidence-based decision procedure instead of an unresolvable conditional.
 
 ## [0.3.0] — 2026-07-26
 

@@ -349,37 +349,81 @@ function extractCppFunctionSymbol({ node, source }) {
 // (and therefore every reported line/column) is preserved, and let tree-sitter
 // see `class           Widget`.
 //
-// The matcher is structural, not a macro list: an ALL-CAPS token of 3+ chars
-// (optionally with a parenthesized argument list) between the keyword and the
-// type name, where the declaration then OPENS A BODY (`{`) or a base-clause
-// (`:`).
+// The matcher is structural, not a macro list. Three guards, each added because
+// a looser rule was measured corrupting real code:
 //
-// Requiring the body is what makes this safe. `struct RECT r;` is a valid C
-// elaborated-type variable declaration and is lexically identical to a class
-// head — without the `{`/`:` requirement the rule blanked `RECT`, destroying a
-// real type reference (measured). A forward declaration `class MYLIB_API W;` is
-// likewise left alone; it declares no members, so nothing is lost by skipping it,
-// whereas the damage this fixes (class + every member vanishing) only ever
-// happens to a definition WITH a body.
-const CLASS_HEAD_MACRO_RE = /\b(class|struct|union)(\s+)([A-Z][A-Z0-9_]{2,})(\s*\([^)\n]{0,200}\))?(\s+)([A-Za-z_]\w*)(\s*)(?=[{:])/g;
+//  1. The declaration must OPEN A BODY (`{`) or a base-clause (`:`), optionally
+//     via `final`. `struct RECT r;` is a valid C elaborated-type variable
+//     declaration, lexically identical to a class head; without this the rule
+//     blanked `RECT` and destroyed a real type reference. A forward declaration
+//     `class MYLIB_API W;` is skipped for the same reason — it declares no
+//     members, so nothing is lost, while the damage fixed here (class + every
+//     member vanishing) only ever happens to a definition with a body.
+//  2. The keyword must start a LINE (optionally indented, optionally after a
+//     `template<...>` head). Without this, `void f() { struct POINT_T p {1,2}; }`
+//     — an elaborated type with brace-init — matched, blanking the type and
+//     inventing a phantom class named after the variable.
+//  3. Matching runs over comment/string-BLANKED text, so a macro mentioned in a
+//     literal or a commented-out declaration cannot fire.
+//
+// `final` is explicitly allowed between the name and the body: `class API_X W
+// final : public B {` is common on exported types, and omitting it left the
+// original bug fully intact for that spelling.
+const CLASS_HEAD_MACRO_RE = new RegExp(
+  '(^|\\n)([ \\t]*)((?:template\\s*<[^>\\n]{0,200}>\\s*)?)'   // line start (+ optional template head)
+  + '(class|struct|union)(\\s+)'                              // keyword
+  + '([A-Z][A-Z0-9_]{2,})(\\s*\\([^)\\n]{0,200}\\))?'         // the macro (+ optional arg list)
+  + '(\\s+)([A-Za-z_]\\w*)'                                   // the real type name
+  + '(?=(?:\\s+final)?\\s*[{:])',                             // ...then a body / base-clause
+  'g',
+);
+
+// `struct POINT_T p {1,2};` — an elaborated type with BRACE INITIALIZATION — is
+// still lexically identical to a class head even at line start, and blanking it
+// invents a phantom class named after the variable. A brace-INIT body is a flat
+// value list: it closes on the same line and contains no `;` (no member
+// declarations). A class body either spans lines or declares members. Anything
+// we cannot classify is treated as a class head (the rule's whole purpose), so
+// this only rejects the unambiguous initializer shape.
+function isBraceInit(text, fromIndex) {
+  const open = text.indexOf('{', fromIndex);
+  if (open === -1) return false;
+  // A base-clause (`: public B {`) means it is definitely a class head.
+  if (text.slice(fromIndex, open).includes(':')) return false;
+  const close = text.indexOf('}', open);
+  if (close === -1) return false;
+  const body = text.slice(open + 1, close);
+  // An EMPTY body (`class API_X W {};`) is a valid, if bare, class — and an
+  // empty initializer would be pointless — so only a body carrying actual values
+  // counts as brace-init.
+  return body.trim().length > 0 && !body.includes(';') && !body.includes('\n');
+}
 
 export function blankCppClassHeadMacros(source) {
   if (typeof source !== 'string') return source;
   if (!/\b(?:class|struct|union)\b/.test(source)) return source;
 
-  // Match against comment/string-BLANKED text so a macro mentioned inside a
-  // string literal or a commented-out declaration can't fire, then splice the
-  // replacement into the ORIGINAL at the same offsets (the blanker preserves
-  // every offset, so the two texts stay aligned).
   const masked = blankCommentsAndStrings(source, 'cpp');
-  let out = source;
+  // Collect spans first and rebuild ONCE. Splicing per match re-copied the whole
+  // file each time: measured 840ms on a 400KB file with 8000 matches, and 73ms
+  // on a 950KB file — comparable to the tree-sitter parse it feeds.
+  const spans = [];
   for (const m of masked.matchAll(CLASS_HEAD_MACRO_RE)) {
-    const [, kw, gap1, macro, args] = m;
-    const macroStart = m.index + kw.length + gap1.length;
-    const macroLen = macro.length + (args ? args.length : 0);
-    out = out.slice(0, macroStart) + ' '.repeat(macroLen) + out.slice(macroStart + macroLen);
+    const [, nl, indent, tmpl, kw, gap1, macro, args] = m;
+    if (isBraceInit(masked, m.index + m[0].length)) continue;
+    const start = m.index + nl.length + indent.length + tmpl.length + kw.length + gap1.length;
+    spans.push([start, start + macro.length + (args ? args.length : 0)]);
   }
-  return out;
+  if (spans.length === 0) return source;
+
+  const parts = [];
+  let cursor = 0;
+  for (const [start, end] of spans) {
+    parts.push(source.slice(cursor, start), ' '.repeat(end - start));
+    cursor = end;
+  }
+  parts.push(source.slice(cursor));
+  return parts.join('');
 }
 
 export default {

@@ -702,16 +702,36 @@ const LEAN_TOOL_NAMES = new Set([
   'graph_watch',
 ]);
 
-// Verbs that WRITE state — everything else is a pure read and is annotated
-// `readOnlyHint: true` in tools/list. Kept explicit (deny-list) rather than
-// derived, so a new verb is read-only only when someone says so:
+// Verbs that WRITE state — everything else is annotated `readOnlyHint: true` in
+// tools/list. Kept explicit (deny-list) rather than derived, so a new verb is
+// read-only only when someone says so.
+//
 //   graph_index                — rebuilds the graph + briefs on disk
 //   graph_collect_code_intel   — runs an LSP collection and imports edges
 //   graph_watch                — starts/stops the file-watcher auto-reindex loop
+//
+// The rest reach `prepareCompileDb`, which MATERIALIZES a normalized
+// compile_commands.json under .aify-graph/code-intel/ — a real filesystem write.
+// `readOnlyHint` is a promise to the client (Cursor's Ask mode gates on it), so
+// claiming it for a verb that writes would be buying access with an untrue
+// assertion. They are listed here because the annotation must be accurate, even
+// though the write is an internal cache rather than a user-visible mutation.
 const MUTATING_TOOLS = new Set([
   'graph_index',
   'graph_collect_code_intel',
   'graph_watch',
+  // Reach computeCoverage/prepareCompileDb (normalized compile-DB write):
+  'graph_health',
+  'graph_callers',
+  'graph_callees',
+  'graph_trace',
+  'code_intel_references',
+  'code_intel_definitions',
+  'code_intel_hierarchy',
+  'code_intel_diagnostics',
+  'code_intel_hover',
+  'code_intel_symbols',
+  'code_intel_analyze',
 ]);
 
 // DEFAULT profile (P4-1, 2026-05-31): the ACTUAL default `tools/list` surface

@@ -191,11 +191,18 @@ export function buildDefinitionsEvidence({ freshness, defCount, coverage }) {
   // complete (overloads / out-of-line definitions in unindexed TUs are exactly
   // what goes missing).
   if (freshness === 'fresh' && defCount > 0 && coverage?.complete !== true) {
+    // M3: name the REAL cause. `coverage_unknown` means "we could not decide";
+    // when coverage was decided and came back incomplete, the honest cause is
+    // the specific one (partial_compile_db_coverage / partial_tsconfig_scope /
+    // python_dynamic_dispatch) — same rule the references path uses.
+    const decided = coverage?.complete === false;
     return {
-      ready: true, degraded: true, cause: 'coverage_unknown', confidence: 'medium',
+      ready: true, degraded: true, cause: decided ? coverageCause(coverage) : 'coverage_unknown', confidence: 'medium',
       exhaustive: false,
-      fallback: 'coverage for this query is unproven; the definition set may be incomplete (overloads / out-of-line definitions in unindexed TUs) — verify with rg before absence claims',
-      warnings: ['compile-DB / project coverage could not be verified for this query — the definition set is a FLOOR, not a complete set'],
+      fallback: (decided && coverage.reason)
+        || 'coverage for this query is unproven; the definition set may be incomplete (overloads / out-of-line definitions in unindexed TUs) — verify with rg before absence claims',
+      warnings: [(decided && coverage.reason)
+        || 'compile-DB / project coverage could not be verified for this query — the definition set is a FLOOR, not a complete set'],
     };
   }
   if (freshness === 'fresh' && defCount > 0) {
