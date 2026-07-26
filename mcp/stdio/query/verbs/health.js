@@ -164,32 +164,31 @@ export async function graphHealth({ repoRoot }) {
   // partial set, not only in the degraded result after. Cheap + side-effect-free
   // in practice: prepareCompileDb is cached once a collect has run, and the check
   // is win32-gated (on Linux a Linux DB is native, not "foreign").
-  if (codeIntel.available && process.platform === 'win32') {
-    try {
-      const cdb = prepareCompileDb({ projectRoot: repoRoot });
-      if (cdb?.found && cdb.foreignToolchain) {
-        codeIntel.compileDbForeign = true;
-        codeIntel.callerCompletenessTrustworthy = false;
-        verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd caller sets are silently TRUNCATED (even same-file refs); code_intel_references is NOT a completeness oracle here. FIX: generate a native Windows compile DB (Ninja+clang-cl: cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers it); fallback APG_CLANGD_WSL=1. Do NOT trust "no callers / safe to delete" until fixed.');
-      }
-    } catch { /* detection is best-effort — never block health on it */ }
-  }
-  // P1-3 (2026-07-26): a compile DB can exist, be native and non-unity, and still
-  // contain NONE of your own code — the sand_castle case was 441 entries, all
-  // _deps, zero first-party, which silently produced 3-of-8 caller sets. This is
-  // the single most useful thing health can tell such a repo, and it is
-  // platform-independent (a dependencies-only export is not a Windows quirk).
+  // Two ways a compile DB can exist and still not support a completeness claim.
+  // Both read the SAME prepared DB, so probe once.
+  //   - FOREIGN (win32 only): a Linux/WSL-built DB against host clangd — TUs fail
+  //     to compile, so caller sets truncate even for same-file references.
+  //   - ZERO FIRST-PARTY (any platform): the DB is native and non-unity but holds
+  //     only third-party/_deps entries, so clangd has no compile command for the
+  //     project's own code. Measured on sand_castle: 441 entries, 0 first-party,
+  //     which silently produced 3-of-8 caller sets while we reported exhaustive.
+  //     A dependencies-only export is not a Windows quirk, hence not win32-gated.
   if (codeIntel.available) {
     try {
       const cdb = prepareCompileDb({ projectRoot: repoRoot });
-      if (cdb?.found && Number(cdb.firstPartyCount ?? 0) === 0) {
-        codeIntel.compileDbFirstPartyCount = 0;
-        codeIntel.callerCompletenessTrustworthy = false;
-        verdicts.push(`⚠ compile-db covers ZERO first-party sources (${cdb.entryCount ?? '?'} entries, all third-party/_deps) — clangd has no compile command for your own code and falls back to inferred commands, so caller sets are silently PARTIAL and code_intel_references is NOT a completeness oracle. FIX: export compile commands for YOUR targets, not just dependencies (-DCMAKE_EXPORT_COMPILE_COMMANDS=ON on a build that compiles them), then confirm your sources appear in compile_commands.json. Do NOT trust "no callers / safe to delete" until fixed.`);
-      } else if (cdb?.found) {
+      if (cdb?.found) {
         codeIntel.compileDbFirstPartyCount = Number(cdb.firstPartyCount ?? 0);
+        if (process.platform === 'win32' && cdb.foreignToolchain) {
+          codeIntel.compileDbForeign = true;
+          codeIntel.callerCompletenessTrustworthy = false;
+          verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd caller sets are silently TRUNCATED (even same-file refs); code_intel_references is NOT a completeness oracle here. FIX: generate a native Windows compile DB (Ninja+clang-cl: cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers it); fallback APG_CLANGD_WSL=1. Do NOT trust "no callers / safe to delete" until fixed.');
+        }
+        if (codeIntel.compileDbFirstPartyCount === 0) {
+          codeIntel.callerCompletenessTrustworthy = false;
+          verdicts.push(`⚠ compile-db covers ZERO first-party sources (${cdb.entryCount ?? '?'} entries, all third-party/_deps) — clangd has no compile command for your own code and falls back to inferred commands, so caller sets are silently PARTIAL and code_intel_references is NOT a completeness oracle. FIX: export compile commands for YOUR targets, not just dependencies (-DCMAKE_EXPORT_COMPILE_COMMANDS=ON on a build that compiles them), then confirm your sources appear in compile_commands.json. Do NOT trust "no callers / safe to delete" until fixed.`);
+        }
       }
-    } catch { /* best-effort */ }
+    } catch { /* detection is best-effort — never block health on it */ }
   }
   verdicts.push(
     trustUnresolvedEdges === unresolvedEdges
