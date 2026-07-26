@@ -9,7 +9,7 @@
 // the overlay validator + the brief's trust logic already expose.
 
 import { join } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getDirtyFiles } from '../../freshness/git.js';
@@ -199,6 +199,41 @@ export async function graphHealth({ repoRoot }) {
   if (manifestStatus !== 'ok') verdicts.push(`rebuild-incomplete: status=${manifestStatus} (run graph_index(force=true))`);
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
+
+  // LH-3 (2026-07-26): `graph_index` refreshes the structural graph + briefs and
+  // says NOTHING about the other derived artifacts, so "reindexed" reasonably
+  // reads as "everything is current". Measured on sand_castle right after a
+  // successful reindex: functionality.json 54 days old, tasks.json 85 days
+  // (9 tasks, 0 linked), code-intel collection 5 weeks. Each has a DIFFERENT
+  // refresh command, so name the artifact, its age, and the command.
+  const artifactAges = {};
+  const ageInDays = (iso) => {
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? Math.floor((Date.now() - t) / 86_400_000) : null;
+  };
+  const STALE_ARTIFACT_DAYS = 14;
+  try {
+    for (const [name, file, fix] of [
+      ['functionality', 'functionality.json', 'refresh with /graph-build-functionality'],
+      ['tasks', 'tasks.json', 'refresh with /graph-build-tasks'],
+    ]) {
+      const p = join(repoRoot, '.aify-graph', file);
+      if (!existsSync(p)) continue;
+      const days = Math.floor((Date.now() - statSync(p).mtimeMs) / 86_400_000);
+      artifactAges[name] = days;
+      if (days >= STALE_ARTIFACT_DAYS) {
+        verdicts.push(`⚠ ${file} is ${days} days old — graph_index does NOT refresh it (${fix})`);
+      }
+    }
+  } catch { /* best-effort */ }
+  // The code-intel collection is the trust spine; graph_index never refreshes it.
+  const collectedDays = ageInDays(codeIntel?.collectedAt);
+  if (collectedDays != null) {
+    artifactAges.codeIntel = collectedDays;
+    if (collectedDays >= STALE_ARTIFACT_DAYS) {
+      verdicts.push(`⚠ code-intel collection is ${collectedDays} days old — [lsp✓] evidence is stale and cannot attest exhaustiveness (re-run graph_collect_code_intel)`);
+    }
+  }
   if (overlay.present) {
     if (overlayQuality.featureCount === 0) {
       verdicts.push('overlay=empty');
@@ -264,6 +299,9 @@ export async function graphHealth({ repoRoot }) {
     overlay,
     overlayQuality,
     codeIntel,
+    // Age in days of the derived artifacts graph_index does NOT refresh
+    // (functionality / tasks / codeIntel). LH-3.
+    artifactAges,
     summary: verdicts.join(' · '),
   };
 }
