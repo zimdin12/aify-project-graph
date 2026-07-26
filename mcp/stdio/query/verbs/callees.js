@@ -9,6 +9,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
+import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -143,8 +144,33 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
     } catch { /* defensive — never block result on trust-line failure */ }
 
+    // P2-1: turn "this set may be incomplete" into a POINTER. A callee list is
+    // OUTGOING, which is exactly the direction the boundary scanner models — a
+    // dynamic-dispatch site inside THIS symbol's body is a place where its callee
+    // set provably ends, and naming the site beats a generic caveat.
+    //
+    // Deliberately NOT wired into graph_callers: that question is INCOMING, and
+    // scanning the queried symbol's own body would report its outgoing dispatch
+    // as if it explained missing callers. (The obvious alternative — treating
+    // REFERENCES edges as "address taken, may be invoked indirectly" — measured
+    // too noisy to use: name-collision matches like `file`/`abs`/`trust`
+    // dominate, and noise on the trust surface is worse than silence.)
+    let boundaryBlock = '';
+    try {
+      const src = readSymbolBody(repoRoot, root);
+      if (src) {
+        const matches = scanDynamicBoundaries({
+          source: src,
+          language: root.language,
+          baseLine: root.start_line ?? 1,
+        });
+        const rendered = renderDynamicBoundaries(matches, { symbolLabel: root.label });
+        if (rendered) boundaryBlock = `\n${rendered}`;
+      }
+    } catch { /* best-effort — never block the result on boundary scanning */ }
+
     return prefixReadWarnings(
-      body + trustLine,
+      body + trustLine + boundaryBlock,
       freshness.warnings,
     );
   } finally {

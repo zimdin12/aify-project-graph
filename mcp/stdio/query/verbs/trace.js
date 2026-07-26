@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
 import { resolveSymbol } from './symbol_lookup.js';
-import { scanDynamicBoundaries, renderDynamicBoundaries } from '../dynamic-boundaries.js';
+import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine } from '../lsp-evidence.js';
 import {
@@ -352,15 +352,8 @@ function renderSuccess({ db, repoRoot, fromNode, toNode, pathSteps, budget, trus
 }
 
 // Read a node's body source (its start..end line range) for boundary scanning.
-function readNodeBody(repoRoot, node) {
-  if (!node?.file_path) return '';
-  try {
-    const all = readFileSync(join(repoRoot, node.file_path), 'utf8').split('\n');
-    const from = Math.max(0, (node.start_line || 1) - 1);
-    const to = Math.min(all.length, node.end_line || all.length);
-    return all.slice(from, to).join('\n');
-  } catch { return ''; }
-}
+// Moved to ../dynamic-boundaries.js so callees/trace share one slicing rule.
+const readNodeBody = readSymbolBody;
 
 function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
   const lines = [];

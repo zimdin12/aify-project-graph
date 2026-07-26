@@ -15,6 +15,22 @@
 // commented-out / string-embedded code can't fire) while snippets + keys are
 // sliced from the ORIGINAL at the same offsets (the blanker preserves offsets).
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+// Read a graph node's source body (its start_line..end_line slice). Shared by
+// every verb that scans for boundaries so the slicing rule stays in one place.
+// Returns '' on any failure — a boundary scan is always best-effort.
+export function readSymbolBody(repoRoot, node) {
+  if (!node?.file_path) return '';
+  try {
+    const all = readFileSync(join(repoRoot, node.file_path), 'utf8').split('\n');
+    const from = Math.max(0, (node.start_line || 1) - 1);
+    const to = Math.min(all.length, node.end_line || all.length);
+    return all.slice(from, to).join('\n');
+  } catch { return ''; }
+}
+
 // Blank the CONTENTS of comments and string literals (quotes preserved, every
 // other char/newline preserved so offsets line up with the original). C-family
 // uses // and /* */ + ' " ` strings; Python uses # + ' " strings.
