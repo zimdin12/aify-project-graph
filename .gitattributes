@@ -1,0 +1,12 @@
+# Normalize text files to LF in the repo. The integration skill trees are copied
+# verbatim into agent runtimes (some on Linux/WSL), and mixed line endings made
+# cross-runtime drift checks report false differences on identical content.
+* text=auto eol=lf
+
+# Binary — never touch.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.wasm binary
+*.sqlite binary

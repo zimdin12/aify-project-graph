@@ -1,6 +1,6 @@
 {
   "name": "aify-project-graph",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "On-demand codebase graph map for coding agents (Claude Code, Codex). Tree-sitter extraction → SQLite graph → compact MCP query verbs.",
   "type": "module",
   "license": "MIT",

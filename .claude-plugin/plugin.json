@@ -3,7 +3,7 @@
   "name": "aify-project-graph",
   "display_name": "Aify Project Graph",
   "description": "Local SQLite-backed project graph, briefs, packets, and MCP code-intel verbs for coding agents.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "runtime": "claude-code",
   "entrypoint": {
     "command": "node",

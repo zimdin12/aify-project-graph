@@ -9,6 +9,38 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 _Next-session work lands here until we tag a release._
 
+## [0.3.0] — 2026-07-11
+
+Stability release: everything the Sand Castle team hit in real daily use, closed. This is the version to run — the trust contract, the freshness signals, and the install paths all had honesty or accuracy gaps that only showed up under real multi-agent usage on a high-velocity C++ repo, and they're fixed here. Highlights: the compile-DB probe now prefers a native Windows DB (so C++ caller sets stop silently truncating), staleness warnings finally say how far behind and what to run, Windows backslash paths work across every path-taking verb, the CMake build graph landed, and the Hermes install docs were wrong in two ways that made the graph unreachable from that runtime.
+
+### 2026-07-11 — shipped skills: fixed silent cross-runtime drift (incl. missing trust guidance)
+
+We ship the same 14 skills to four runtimes as four physical copies, and nothing verified they stayed in sync. They hadn't. Four distinct defects, found by adding the guard first:
+
+- **codex and cursor were missing the compile-DB coverage gate entirely.** The main `skill/SKILL.md` for those two runtimes never received the Windows-first trust guidance that landed in claude-code and hermes — the paragraph explaining that a foreign/unity `compile_commands.json` makes the clangd index silently PARTIAL, that this returns `exhaustive:false` with `cause:"partial_compile_db_coverage"`, and that such a result must NOT be read as "no callers / safe to delete". Agents on those two runtimes were reading a skill that omitted the core absence-claim safety rule. Also missing: the cold-clangd retry guidance ("index/AST not confirmed ready" is a retry signal, not "no hierarchy"). Both propagated.
+- **`''` corruption in shipped prose.** The codex/cursor/hermes copies of `cpp-inner-loop` and `graph-dashboard` each carried 6 doubled-apostrophe artifacts (`type''s`, `there''s`, `can''t`, `repo''s`, `it''s`) — a quoting escape that leaked into rendered markdown body text. 18 spots fixed.
+- **Mixed line endings.** 6 files (the codex/cursor/hermes main skill + `graph-guide`) were CRLF while the whole rest of the repo is LF. Beyond inconsistency in trees copied verbatim into Linux/WSL runtimes, it made every drift check report whole-file differences on identical content — which is precisely what hid the missing-trust-guidance defect above. Added a minimal `.gitattributes` (`* text=auto eol=lf`).
+- **A dropped blank line before a heading** in three copies of `cpp-inner-loop`.
+
+Guards so this can't silently recur: **`tests/unit/integrations/skill-parity.test.js`** asserts the four trees ship the same skill set, that skill BODIES are byte-identical across runtimes (frontmatter may differ), no `''` corruption, LF endings, and non-empty `name`/`description` frontmatter. **`scripts/sync-skills.mjs`** makes that test actionable — it propagates the canonical claude-code bodies while preserving each runtime's frontmatter (`--check` for a CI-friendly report, idempotent).
+
+### 2026-07-10 — Hermes MCP wiring corrected (wrong config file + the toolset filter)
+
+Sand Castle reported their Hermes managed agents couldn't see graph verbs at all while their Claude agents could. Two real defects in our own install path:
+
+- **`install.hermes.md` documented the wrong config entirely.** The JSON-patch fallback wrote `~/.config/hermes/hermes.json` → `mcpServers`. Hermes actually reads **`$HERMES_HOME/config.yaml`** (default `~/.hermes/config.yaml`) under a top-level **`mcp_servers`** key — YAML, not JSON. Anyone following the fallback produced a file Hermes never reads. Corrected in `install.hermes.md`, `README.md`, and the marketplace `runtime_configs` metadata.
+- **Documented the `platform_toolsets` filter.** Hermes exposes each MCP server as a dynamic toolset `mcp-<server>`; if a profile enables an explicit allowlist, the server connects fine but its tools are filtered out of the session. This gotcha was already recorded in our own plan doc (P0-6, marked DONE) but had never actually shipped into the install steps.
+- **Made that step conditional after a live counter-example.** sc-manager's config dump showed the server registered with **no** `platform_toolsets` section at all — so the allowlist wasn't the cause there, and blind-creating `cli: [hermes-cli, mcp-aify-project-graph]` would have RESTRICTED their session to those two toolsets and dropped whatever else loaded by default. Step 2b now appends only when an allowlist already exists, and explicitly says not to create one otherwise. (Root cause for that specific fleet is still open — likely the managed wrapper profile, not config.)
+
+### 2026-07-10 — Sand Castle field report: staleness CTA, fixable pointer, path-arg parity
+
+From a heavy 10-commit / 5-agent session where the index sat 166 commits behind and the load-bearing graph work fell back to grep:
+
+- **Staleness warnings now carry the count AND the fix.** `commitsBehindHead` was already computed and then dropped on the floor — the warning only said "indexed abc123, HEAD def456". Every read verb now prints `graph snapshot is stale (N commits behind HEAD): … — run graph_index() (or set APG_AUTO_REINDEX=1 for auto-refresh on read)`, via the one `prefixReadWarnings` path every verb shares. Names the existing opt-in env var for discoverability without changing its default.
+- **The unresolved-edge report's "fixable" count is now an action.** It reported e.g. "149 fixable of 4676" with no next step. It now explains that fixable means tree-sitter saw a plain call/reference it couldn't bind, and to run `graph_collect_code_intel` so the LSP resolves them — with residue named as genuinely cross-TU/dynamic. Suppressed when the count is zero.
+- **Windows backslash paths work everywhere now.** `normalizePathArg` existed and was wired into `graph_callers`/`graph_file`/`graph_find`, but `graph_callees`, `graph_search`, and `graph_module_tree` took path/file filters without it — so on our own primary OS a `src\foo` filter silently matched nothing and returned an empty result. All three fixed.
+- **Documented a high-velocity freshness recipe** in `known-limitations.md`: three tiers (auto-refresh env var / the supported `install-graph-hook.mjs` backgrounded post-commit reindex / manual), plus the reminder that a full rebuild drops `[lsp✓]` edges and needs a re-collect.
+
 ### 2026-06-19 — compile-DB probe: prefer native over foreign + pin env (Sand Castle follow-up)
 
 Standing up the recommended `build-win-clangd` Windows DB didn't help — APG kept using the WSL `build/`. Root cause (sc-manager's diagnosis): the probe picked the candidate with the most first-party entries, so a foreign (Linux/WSL) DB with more entries beat the native one — and `build-win-clangd` wasn't even in the probe list. Three fixes:
