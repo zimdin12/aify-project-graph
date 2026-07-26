@@ -702,6 +702,18 @@ const LEAN_TOOL_NAMES = new Set([
   'graph_watch',
 ]);
 
+// Verbs that WRITE state — everything else is a pure read and is annotated
+// `readOnlyHint: true` in tools/list. Kept explicit (deny-list) rather than
+// derived, so a new verb is read-only only when someone says so:
+//   graph_index                — rebuilds the graph + briefs on disk
+//   graph_collect_code_intel   — runs an LSP collection and imports edges
+//   graph_watch                — starts/stops the file-watcher auto-reindex loop
+const MUTATING_TOOLS = new Set([
+  'graph_index',
+  'graph_collect_code_intel',
+  'graph_watch',
+]);
+
 // DEFAULT profile (P4-1, 2026-05-31): the ACTUAL default `tools/list` surface
 // when no `--toolset`/AIFY_GRAPH_PROFILE is set. The Hermes tech-lead's
 // finish-line point: ~40 verbs is fine as an EXPERT/full API but too many as
@@ -925,6 +937,11 @@ rl.on('line', async (line) => {
           name: t.name,
           description: t.description,
           inputSchema: t.schema,
+          // MCP tool annotations. `readOnlyHint` matters for real clients:
+          // Cursor's Ask mode REFUSES to run any MCP tool that does not declare
+          // it, so an unannotated read verb is simply unavailable there. The
+          // field is purely additive — clients that don't know it ignore it.
+          annotations: { readOnlyHint: !MUTATING_TOOLS.has(t.name) },
         })),
       },
     });

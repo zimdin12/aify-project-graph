@@ -88,6 +88,24 @@ const DEFAULT_LISTED = [
 ].sort();
 
 describe('server toolset selection', () => {
+  // Cursor's Ask mode REFUSES any MCP tool that does not declare readOnlyHint,
+  // so an unannotated read verb is simply unavailable there. Purely additive:
+  // clients that don't know the field ignore it.
+  it('annotates every listed tool with readOnlyHint, true for reads and false for writers', async () => {
+    const tools = extractTools(await runToolRpc());
+    for (const tool of tools) {
+      expect(tool.annotations, `${tool.name} annotations`).toBeDefined();
+      expect(typeof tool.annotations.readOnlyHint, `${tool.name} readOnlyHint type`).toBe('boolean');
+    }
+    const byName = Object.fromEntries(tools.map(t => [t.name, t.annotations.readOnlyHint]));
+    // graph_index rebuilds the graph on disk — it is NOT read-only.
+    expect(byName.graph_index).toBe(false);
+    // Pure reads.
+    expect(byName.graph_health).toBe(true);
+    expect(byName.graph_search).toBe(true);
+    expect(byName.graph_callers).toBe(true);
+  });
+
   it('lists the focused ~15-verb default set when no toolset is given (P4-1)', async () => {
     const tools = extractTools(await runToolRpc());
     const names = tools.map(tool => tool.name).sort();
