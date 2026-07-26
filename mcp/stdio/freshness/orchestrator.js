@@ -1,6 +1,6 @@
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { openDb } from '../storage/db.js';
 import { SCHEMA_VERSION } from '../storage/schema.js';
 import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/nodes.js';
@@ -89,12 +89,22 @@ function buildDeferredPartialResumeResult({ db, manifest, commit }) {
 }
 
 export async function ensureFresh({
-  repoRoot,
-  graphDir = join(repoRoot, '.aify-graph'),
+  repoRoot: repoRootArg,
+  graphDir: graphDirArg,
   force = false,
   allowLargePartialResume = true,
   partialResumeLimit = 250,
 }) {
+  // A RELATIVE repoRoot silently produced a near-empty graph. normalizeRelativePath
+  // derives repo-relative paths with `absPath.slice(repoRoot.length + 1)`, so
+  // repoRoot='.' (length 1) chopped the first TWO characters off every path
+  // ('mcp/stdio/x.js' -> 'c/stdio/x.js'). Nothing matched a language config, every
+  // file was skipped, and the rebuild "succeeded" with only Directory/Config nodes:
+  // measured 3603 nodes / 398 files with an absolute root vs 562 nodes / 0 files
+  // with '.'. Silent, total, and reported as success — so resolve it here, once,
+  // at the entry point rather than trusting every caller.
+  const repoRoot = resolve(repoRootArg ?? '.');
+  const graphDir = graphDirArg ?? join(repoRoot, '.aify-graph');
   // Fast path: if we confirmed freshness recently and no force, return the
   // cached result — but only if HEAD hasn't moved since. P1-6 makes cosmetic
   // (body-only) edits resolve to a cached noop; without the commit guard, a

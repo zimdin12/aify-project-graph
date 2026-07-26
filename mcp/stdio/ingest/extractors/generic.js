@@ -288,7 +288,14 @@ function finalizeFingerprints(node, deps) {
 }
 
 export function extractFile({ filePath, source, config }) {
-  const tree = parseSource({ source, config });
+  // Optional per-language pre-parse normalization. MUST preserve byte offsets
+  // (blank, never delete) so every reported line/column still points at the
+  // ORIGINAL source. Symbol text is still sliced from `source`, not the parsed
+  // text, so only the parse is affected.
+  const parseText = typeof config.preParse === 'function'
+    ? config.preParse(source)
+    : source;
+  const tree = parseSource({ source: parseText, config });
   const nodes = [];
   const edges = [];
   const refs = [];

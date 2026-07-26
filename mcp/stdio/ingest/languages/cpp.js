@@ -334,9 +334,41 @@ function extractCppFunctionSymbol({ node, source }) {
   return { name: nameMatch[1] };
 }
 
+// A dllexport/visibility macro sitting between `class`/`struct`/`union` and the
+// type name — `class MYLIB_API Widget { … }` — makes tree-sitter read the whole
+// declaration as something else, and the class AND EVERY MEMBER disappear from
+// the graph. Measured 2026-07-26: `class MYLIB_API Widget { void Draw(); };`
+// extracts NOTHING, with or without a base-clause and with or without macro
+// arguments, while a plain `class Widget` extracts fine. Damage is contained to
+// that class (a later class in the same file survives), which is exactly why it
+// goes unnoticed — a repo using an export macro silently loses those types, and
+// "no callers" on their methods is then false absence.
+//
+// Fix: blank the macro token with the SAME NUMBER OF SPACES so every byte offset
+// (and therefore every reported line/column) is preserved, and let tree-sitter
+// see `class           Widget`.
+//
+// The matcher is structural, not a macro list: an ALL-CAPS token of 3+ chars
+// (optionally with a parenthesized argument list) that sits between the keyword
+// and ANOTHER identifier. Requiring a following identifier is what stops it
+// eating a legitimately shouty class name — `class WIDGET {` has `{` next, not an
+// identifier, so it is left alone.
+const CLASS_HEAD_MACRO_RE = /\b(class|struct|union)(\s+)([A-Z][A-Z0-9_]{2,})(\s*\([^)\n]{0,200}\))?(\s+)(?=[A-Za-z_]\w*)/g;
+
+export function blankCppClassHeadMacros(source) {
+  if (typeof source !== 'string' || source.indexOf('class') === -1 && source.indexOf('struct') === -1 && source.indexOf('union') === -1) {
+    return source;
+  }
+  return source.replace(CLASS_HEAD_MACRO_RE, (match, kw, gap1, macro, args, gap2) => {
+    const blanked = ' '.repeat(macro.length + (args ? args.length : 0));
+    return `${kw}${gap1}${blanked}${gap2}`;
+  });
+}
+
 export default {
   language: 'cpp',
   parser: Cpp,
+  preParse: blankCppClassHeadMacros,
   postExtract: postExtractCpp,
   normalizeCallTarget: normalizeCppCallTarget,
   // Attribute file-scope / static-initializer calls to the File node (the C++
