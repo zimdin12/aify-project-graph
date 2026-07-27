@@ -463,17 +463,36 @@ function extractPaths(db, exportsArr, limit = 5) {
 // exploration. Bench 2026-04-20 found the brief becomes pure overhead (+55%
 // duration in worst case) when its content is task-irrelevant; this hint lets
 // the agent abandon the brief faster.
+// Returns { text, shown, total } — the COUNTS matter. Field report: this rendered
+// the first 5 of 14 features in overlay-file order and the caller paired it with
+// "fall back to direct file reads for topics not listed here". An arbitrary
+// truncation was therefore published as a CAPABILITY CLAIM plus an explicit
+// instruction to abandon the tool — for exactly the subsystems the repo lives in.
+// The reporter acted on it himself, concluded the overlay didn't cover the sim
+// domain, and published a wrong conclusion before catching it.
+//
+// A truncated list must never assert scope. The honest style already exists two
+// lines below in EXPORTS ("6 listed — target missing from list? grep").
 function briefCoverage(subs, overlayHealth) {
   if (overlayHealth?.valid?.length) {
-    return overlayHealth.valid.slice(0, 5).map(v => v.feature.label || v.feature.id).join(', ');
+    const all = overlayHealth.valid;
+    return {
+      text: all.slice(0, 5).map(v => v.feature.label || v.feature.id).join(', '),
+      shown: Math.min(5, all.length),
+      total: all.length,
+    };
   }
   if (subs.length) {
-    return subs.slice(0, 4).map(s => {
-      const segs = s.path.split('/').filter(Boolean);
-      return segs[segs.length - 1] || s.path;
-    }).join(', ');
+    return {
+      text: subs.slice(0, 4).map(s => {
+        const segs = s.path.split('/').filter(Boolean);
+        return segs[segs.length - 1] || s.path;
+      }).join(', '),
+      shown: Math.min(4, subs.length),
+      total: subs.length,
+    };
   }
-  return '';
+  return null;
 }
 
 function readJsonSafe(path) {
@@ -1219,7 +1238,13 @@ function renderAgentMarkdown(data) {
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
   if (langStr) lines.push(`LANG: ${langStr}`);
   if (tooling && tooling.length) lines.push(`TOOLING: ${tooling.join(', ')}`);
-  if (coverage) lines.push(`COVERS: ${coverage} — fall back to direct file reads for topics not listed here`);
+  // Never pair a truncated list with "fall back to direct file reads" — that
+  // turns an arbitrary cut into a false scope contract (field report).
+  if (coverage?.text) {
+    lines.push(coverage.total > coverage.shown
+      ? `COVERS: ${coverage.text} (${coverage.shown} of ${coverage.total} shown — see brief.plan.md for the rest; this is NOT the full scope)`
+      : `COVERS: ${coverage.text}`);
+  }
   // ⚠ OVERLAY DEGRADED — a legacy/invalid functionality.json silently resolves
   // to 0 anchors and the FEATURE map reads empty, which looks like the GRAPH
   // broke rather than the overlay being stale-format. Surface it LOUD right at
@@ -1361,7 +1386,11 @@ function renderOnboardAgentMarkdown(data) {
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
   if (langStr) lines.push(`LANG: ${langStr}`);
   if (tooling && tooling.length) lines.push(`TOOLING: ${tooling.join(', ')}`);
-  if (coverage) lines.push(`COVERS: ${coverage}`);
+  if (coverage?.text) {
+    lines.push(coverage.total > coverage.shown
+      ? `COVERS: ${coverage.text} (${coverage.shown} of ${coverage.total} shown)`
+      : `COVERS: ${coverage.text}`);
+  }
   if (entries.length) {
     lines.push('ENTRY:');
     for (const e of entries.slice(0, 3)) lines.push(`  ${e.file}:${e.line} ${e.label}`);

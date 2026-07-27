@@ -13,8 +13,12 @@ export const SERVER_INSTRUCTIONS = `aify-project-graph — symbol-aware code int
 
 TOOL SURFACE: tools/list shows a FOCUSED default (~15 intent verbs). Long-tail
 verbs named below (graph_onboard, graph_shader, graph_callees, graph_overview,
-…) are still CALLABLE by name even when not listed — invoke them directly. Run
-with --toolset=full to list the whole API.
+…) remain callable by name in hosts that allow calling an unlisted tool. IN A
+MANAGED SESSION THAT DEFERS MCP TOOLS BEHIND A SEARCH STEP (e.g. managed Claude
+Code) THEY ARE NOT REACHABLE: the deferred-tool index only contains LISTED tools,
+so ToolSearch cannot return a schema for an unlisted verb and the call cannot be
+made. If ToolSearch does not find a verb named here, do NOT keep trying — either
+use a listed verb, or have the server started with --toolset=full.
 
 DISCOVERABILITY: if you do NOT see graph_* / code_intel_* tools in your available
 tools (managed Claude/Codex sessions defer MCP tools behind a search step), they
