@@ -8,8 +8,10 @@
 // Synthesis-only. No new data — just a coherent view of what graph_status +
 // the overlay validator + the brief's trust logic already expose.
 
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { existsSync, readFileSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getDirtyFiles } from '../../freshness/git.js';
@@ -31,6 +33,34 @@ export function computeTrustLevel(unresolvedEdges) {
   if (unresolvedEdges > UNRESOLVED_WEAK) return 'weak';
   if (unresolvedEdges > UNRESOLVED_OK) return 'ok';
   return 'strong';
+}
+
+// Which BUILD of the server is answering — not which commit of the target repo
+// is indexed. An MCP server process is long-lived and does not hot-reload, so
+// "pushed" and "in effect for this agent" are different states. A field tester
+// hit exactly this: they could only tell their server predated a fix by probing
+// for a behavioural side effect of that fix, which happens to work only when a
+// change is observable in output. Reporting the build makes that a one-call check.
+//
+// Cached: the build cannot change while this process lives.
+let _serverBuild;
+function serverBuild() {
+  if (_serverBuild) return _serverBuild;
+  // .../mcp/stdio/query/verbs/health.js -> repo root
+  const here = dirname(fileURLToPath(import.meta.url));
+  const root = join(here, '..', '..', '..', '..');
+  let version = null;
+  try { version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version ?? null; } catch { /* ignore */ }
+  let commit = null;
+  let dirty = null;
+  try {
+    commit = execFileSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim() || null;
+    dirty = execFileSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=no'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim().length > 0;
+  } catch { /* not a git checkout (installed copy) — version alone still identifies it */ }
+  _serverBuild = { version, commit, dirty, startedAt: new Date().toISOString() };
+  return _serverBuild;
 }
 
 export async function graphHealth({ repoRoot }) {
@@ -324,6 +354,7 @@ export async function graphHealth({ repoRoot }) {
     // Age in days of the derived artifacts graph_index does NOT refresh
     // (functionality / tasks / codeIntel). LH-3.
     artifactAges,
+    server: serverBuild(),
     summary: verdicts.join(' · '),
   };
 }
