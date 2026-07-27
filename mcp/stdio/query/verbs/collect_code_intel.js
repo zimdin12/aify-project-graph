@@ -19,14 +19,14 @@
 // / the DB (graph_pull's code_intel layer).
 
 import { join } from 'node:path';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { runCollection } from '../../code-intel/runner.js';
 import { registerProvider, getProvider } from '../../code-intel/providers/index.js';
 import { createCppClangdProvider } from '../../code-intel/providers/cpp-clangd.js';
 import { createTsLangServerProvider } from '../../code-intel/providers/ts-langserver.js';
 import { createPyrightProvider } from '../../code-intel/providers/pyright.js';
 import { openDb, openExistingDb } from '../../storage/db.js';
-import { importCodeIntel } from '../../ingest/code-intel/importer.js';
+import { importV02Collection } from '../../ingest/code-intel/importer.js';
 
 // FIX 2 (test-round-2026-05-31): `language` used to be required-with-no-default,
 // inconsistent with every other code_intel_* verb (which default to 'cpp').
@@ -189,11 +189,22 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
       const db = openDb(dbPath);
       db.close();
     }
-    const tmpPath = join(graphDir, `code-intel-${result.collectionId}.json`);
-    writeFileSync(tmpPath, JSON.stringify(result));
+    // BLOCKER (field report, 10k-node C++ repo): this used to
+    // `writeFileSync(tmp, JSON.stringify(result))` and re-read it. At 1.35M
+    // records JSON.stringify exceeds V8's max string length and throws
+    // "Invalid string length" — DETERMINISTICALLY, so retrying never helps.
+    // The perverse consequence: the import succeeded only while the collection
+    // was INCOMPLETE (a killed, partial run imported fine), so on a large repo
+    // the trust spine could never reach full coverage — capping the whole
+    // exhaustiveness story at ~24% verified.
+    //
+    // importV02Collection takes the envelope OBJECT, so the serialize →
+    // write → read → parse round-trip was pure overhead. Removing it also stops
+    // us leaving a full copy of every collection on disk (452MB of leftover
+    // code-intel-*.json envelopes measured on that repo).
     const db = openExistingDb(dbPath, { readonly: false });
     try {
-      importStats = importCodeIntel(tmpPath, db);
+      importStats = importV02Collection(result, db);
       edgeSample = sampleLspEdges(db, { cap: 10 });
     } finally { db.close(); }
   } catch (err) {
@@ -229,7 +240,13 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   const summary = {
     schema_version: '0.2',
     summary: true, // explicit marker: this is the budgeted summary, not the raw envelope
-    status: result.status, // 'ok' | 'partial'
+    // A failed import must NOT read as `ok`. The collection may have succeeded,
+    // but nothing landed in the graph — so the trust spine is unchanged and any
+    // caller treating `ok` as "the spine now covers this" is misled. That is the
+    // same shape of lie the exhaustiveness work removed: a green envelope over a
+    // failed operation. Downgrade to 'error'; the details stay in errors[].
+    status: importError ? 'error' : result.status, // 'ok' | 'partial' | 'error'
+    importFailed: Boolean(importError),
     collectionId: result.collectionId,
     provider: result.provider ?? null,
     providerVersion: result.providerVersion ?? null,
