@@ -89,3 +89,16 @@ idea, no code read into ours): comment/string masking before regex scans (used i
 ## Karpathy's LLM Wiki
 
 The concept of "persistent structured artifact between model and raw sources" is inspired by Andrej Karpathy's [LLM Wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f). Our implementation addresses the failure modes identified in [this critique](https://medium.com/data-science-in-your-pocket/andrej-karpathys-llm-wiki-is-a-bad-idea-8c7e8953c618) by using deterministic tree-sitter extraction instead of LLM-generated content.
+
+## understory
+
+From **understory** ([thecodacus/understory](https://github.com/thecodacus/understory), Apache-2.0):
+the SESSION SEED concept (`packages/server/src/mcp/seed.ts`) → `mcp/stdio/session-seed.js`.
+Their measured failure was that a client model saw only tool NAMES, so it
+answered from its own head and never looked — the knowledge sat on disk,
+invisible. The load-bearing detail we took is seeding with what each thing is
+ABOUT rather than with filenames, because a question is far likelier to brush
+against a described concept than against a file name. Our implementation is our
+own code over our own artifacts (`functionality.json` features, `brief.agent.md`);
+their project is a personal-memory server and shares no code with ours. Both
+build on Karpathy's LLM Wiki idea, credited above.

@@ -161,8 +161,25 @@ export function buildReferencesEvidence({ freshness, callsiteCount, defCount, re
   // warmupFiles" forever instead of "fix the index (APG_CLANGD_WSL=1 / expand
   // unity)". Does NOT affect the exhaustive grant: that path requires fresh +
   // callsites, which with incomplete coverage already returned at the gate above.
+  //
+  // GAP CLOSED (field report, 2026-07-27): the cause-honesty fix above only
+  // guarded the fresh+callsites branch, so the "FIX: export compile commands for
+  // all your targets" text still reached users on the ready:false / cause
+  // "unknown" path — for a file that IS in the compile DB. Same misdirection,
+  // different branch: regenerate a DB that already contains the file, recover
+  // nothing. The rule is the same everywhere — a repo-wide coverage gap can hide
+  // callers in OTHER files, but never explains anything about THIS one when this
+  // one is covered.
   if (coverage && coverage.complete === false && coverage.reason) {
-    warnings.push(coverage.reason);
+    const fileCovered = coverage.fileUncovered !== true;
+    const ratioOnly = fileCovered
+      && coverage.poorlyCovered === true
+      && !coverage.foreignToolchain
+      && !coverage.unityUnexpanded
+      && !coverage.noFirstParty;
+    warnings.push(ratioOnly
+      ? 'repo-wide compile-DB coverage is partial, which could hide callers in OTHER files — but this file IS in the compile DB, so it does not explain anything missing from this one (regenerating the DB may recover nothing here).'
+      : coverage.reason);
   }
   // FAIL-CLOSED GATE (P0-2, 2026-07-26). Previously this branch granted
   // exhaustive whenever the index was fresh and returned >=1 callsite, and the

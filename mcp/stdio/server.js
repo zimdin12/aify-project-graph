@@ -44,6 +44,7 @@ import {
 import { checkRequestSize, MAX_MCP_LINE_BYTES } from './security/request-size.js';
 import { findSensitivePathArg } from './security/sensitive-paths.js';
 import { SERVER_INSTRUCTIONS } from './server-instructions.js';
+import { buildSessionSeed } from './session-seed.js';
 import { shutdownAllSessions } from './code-intel/live.js';
 import {
   codeIntelDiagnostics,
@@ -941,7 +942,13 @@ rl.on('line', async (line) => {
         // P1-1 — intent-routed playbook. MCP hosts inject this into the agent
         // system prompt once/session; single source of truth in
         // server-instructions.js.
-        instructions: SERVER_INSTRUCTIONS,
+        // Static playbook (HOW to use us) + a per-repo seed (WHAT this repo's
+        // graph actually knows). Without the seed an agent learns the API and
+        // still has no reason to believe we hold anything for its task.
+        instructions: (() => {
+          const seed = buildSessionSeed(process.cwd());
+          return seed ? `${SERVER_INSTRUCTIONS}\n\n${seed}` : SERVER_INSTRUCTIONS;
+        })(),
       },
     });
     return;
