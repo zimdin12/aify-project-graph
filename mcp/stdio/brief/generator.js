@@ -1421,8 +1421,36 @@ function renderPlanAgentMarkdown(data) {
   // caller count. Agent can see "for this feature, open X, tests are at Y,
   // touching Z symbols will ripple to N callers" without another tool call.
   if (enrichedValid?.length) {
-    lines.push('FEATURES:');
-    for (const { feature, resolved, tests, callers_total } of enrichedValid.slice(0, 6)) {
+    // RANK, don't take the first 6 in declaration order. Field report: on a repo
+    // with 14 features this rendered 6 — all infrastructure — and never reached
+    // the five where 100% of the actual work lived. 20 of 21 linked tasks were
+    // invisible, and the document contradicted itself: its own RISK section named
+    // a feature it had never defined. A reader concluded the repo had one open
+    // task on replay infrastructure.
+    //
+    // Order by what makes a feature worth reading TODAY: open tasks first (that
+    // is live work), then dirty-seam overlap (that is what you are touching),
+    // then blast radius. Declaration order carries no signal at all.
+    const PLAN_FEATURE_CAP = 8;
+    const dirtySet = new Set(
+      (data.dirtySeams?.features || []).map((f) => (typeof f === 'string' ? f : f?.id)).filter(Boolean),
+    );
+    const rankedFeatures = [...enrichedValid].sort((a, b) => {
+      const openA = (tasksByFeature.get(a.feature.id) || []).length;
+      const openB = (tasksByFeature.get(b.feature.id) || []).length;
+      if (openA !== openB) return openB - openA;
+      const dirtyA = dirtySet.has(a.feature.id) ? 1 : 0;
+      const dirtyB = dirtySet.has(b.feature.id) ? 1 : 0;
+      if (dirtyA !== dirtyB) return dirtyB - dirtyA;
+      return (b.callers_total || 0) - (a.callers_total || 0);
+    });
+    const shownFeatures = rankedFeatures.slice(0, PLAN_FEATURE_CAP);
+    const hiddenFeatures = rankedFeatures.slice(PLAN_FEATURE_CAP);
+    // Silent truncation is the failure this is fixing — never hide the hiding.
+    lines.push(hiddenFeatures.length
+      ? `FEATURES (showing ${shownFeatures.length} of ${rankedFeatures.length}, ranked by open tasks · dirty seams · blast radius):`
+      : 'FEATURES:');
+    for (const { feature, resolved, tests, callers_total } of shownFeatures) {
       const primaryFile = resolved.files[0] || '(no file anchor)';
       const primarySym = resolved.symbols[0] || '';
       const testStr = tests.length > 0 ? tests[0] : '(no test anchor)';
@@ -1447,6 +1475,14 @@ function renderPlanAgentMarkdown(data) {
           lines.push(`      - ${t.id} ${t.title} [${taskLinkStrength(t)}]`);
         }
       }
+    }
+    // Name what was cut, so the omission is visible and addressable rather than
+    // looking like the repo has no other features.
+    if (hiddenFeatures.length) {
+      const names = hiddenFeatures.map((h) => h.feature.id);
+      const head = names.slice(0, 8).join(', ');
+      lines.push(`  not shown (${hiddenFeatures.length}): ${head}${names.length > 8 ? `, +${names.length - 8} more` : ''}`);
+      lines.push('    → graph_pull(node="feature:<id>") or graph_packet for any of these');
     }
   }
   if (overlayQuality?.featureCount) {
