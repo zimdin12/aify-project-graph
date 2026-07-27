@@ -14,6 +14,11 @@ import { normalizePathArg } from '../../util/paths.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
+// Hard ceiling on caller edges pulled from SQL. Distinct from the `top_k` display
+// budget: past THIS the rows were never fetched, so the trust banner cannot claim
+// the caller set is complete.
+const EDGE_FETCH_CAP = 100;
+
 export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   file = normalizePathArg(file); // accept Windows backslash dir/path filters
   if (!symbol) return 'ERROR: symbol parameter is required';
@@ -29,13 +34,17 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     const params = {};
     targetIds.forEach((id, i) => { params[`t${i}`] = id; });
 
+    // The SQL cap is a HARDER ceiling than the top_k display budget: past it the
+    // edges were never fetched, so raising top_k cannot reveal them and the trust
+    // banner must not claim an exhaustive caller set. Fetch one extra row purely
+    // to detect that we hit it.
     let edges;
     if (depth <= 1) {
       edges = db.all(
         `SELECT e.*, n.label AS from_label, n.type AS from_type, n.file_path AS from_file, n.start_line AS from_line
          FROM edges e JOIN nodes n ON n.id = e.from_id
          WHERE e.to_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
-         LIMIT 100`,
+         LIMIT ${EDGE_FETCH_CAP + 1}`,
         params
       );
     } else {
@@ -57,10 +66,13 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
           AND e.to_id = c.to_id
           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
          JOIN nodes n ON n.id = e.from_id
-         LIMIT 100`,
+         LIMIT ${EDGE_FETCH_CAP + 1}`,
         { ...params, depth }
       );
     }
+
+    const edgesTruncated = edges.length > EDGE_FETCH_CAP;
+    if (edgesTruncated) edges = edges.slice(0, EDGE_FETCH_CAP);
 
     // I1 / R2-2026-05-31 — an absence claim ("NO CALLERS") is the most dangerous
     // output. Graph-edge traversal can never honestly attest an EXHAUSTIVE
@@ -134,7 +146,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // heuristic-only undercount caveat. Shared helper so all four verbs agree.
     let trustLine = '';
     try {
-      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, truncated: edgesTruncated });
     } catch { /* defensive — never block result on trust-line failure */ }
 
     // P0-4: state what the printed locations ARE. The Sand Castle field test

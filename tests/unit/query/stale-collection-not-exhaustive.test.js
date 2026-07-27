@@ -89,6 +89,21 @@ describe('stale / unresolved collections cannot license exhaustiveness', () => {
     expect(line).not.toMatch(/STALE/i);
   });
 
+  it('a capped edge fetch cannot claim a complete caller set', async () => {
+    const head = await commitAll(repoRoot, 'one');
+    const db = openDb(dbPath);
+    insertCollection(db, { commit: head, found: 100, notFound: 0 });
+    // Same inputs that would otherwise earn "index-ready, N callers" — only the
+    // truncation flag differs, and it must be enough to withdraw the claim.
+    const line = await buildTrustLine({ edges: [verifiedEdge], db, repoRoot, truncated: true });
+    db.close();
+
+    expect(line).toMatch(/lsp-partial/);
+    expect(line).toMatch(/FLOOR/);
+    expect(line).toMatch(/cap/);
+    expect(line).not.toMatch(/index-ready, \d+ caller/);
+  });
+
   it('a collection that left many symbols unresolved reports lsp-partial with the ratio', async () => {
     const head = await commitAll(repoRoot, 'one');
 

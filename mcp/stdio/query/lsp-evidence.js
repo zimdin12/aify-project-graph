@@ -116,7 +116,7 @@ export async function buildAbsenceTrustLine({ noun = 'edges' } = {}) {
 //   db       — open graph db (for getLatestCollection).
 //   repoRoot — repo root (for HEAD comparison).
 // Returns a string (no leading newline) the verb can append on its own line.
-export async function buildTrustLine({ edges = [], db, repoRoot }) {
+export async function buildTrustLine({ edges = [], db, repoRoot, truncated = false }) {
   if (!hasLspVerifiedEdge(edges)) {
     return HEURISTIC_TRUST_LINE;
   }
@@ -243,6 +243,14 @@ export async function buildTrustLine({ edges = [], db, repoRoot }) {
       + `${refsNotFound} of ${refsTotal} symbols (${Math.round(unresolvedRatio * 100)}%) unresolved — the index is incomplete, so this `
       + `is a FLOOR, not exhaustive; verify with rg before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
     return line;
+  }
+  // The caller edges were capped by the SQL fetch, so rows beyond the cap were
+  // never seen. "N callers" would name a floor while reading as a census — the
+  // same false-exhaustive shape the evidence contract already refuses.
+  if (collection && collection.indexReady === true && allVerified && truncated) {
+    return `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the edge fetch hit its cap `
+      + `— more callers exist that were never retrieved, so this is a FLOOR, not a complete set. Narrow with file=, or use `
+      + `code_intel_references for a per-symbol census) [compile-db ${dbHash}, collected ${when}]`;
   }
   if (collection && collection.indexReady === true && allVerified && telemetryMissing) {
     // No resolution telemetry recorded, so we cannot show the index actually
