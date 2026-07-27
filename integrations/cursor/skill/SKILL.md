@@ -73,6 +73,8 @@ Ordered N-step orientation walk for a repo you don't know yet: entrypoints → n
 
 `graph_index` is now in the default tool surface so a worker can refresh its own stale graph. If a read verb prints a **"graph stale"** warning (indexed commit behind HEAD), run `graph_index()` to refresh — or set `APG_AUTO_REINDEX=1` to auto-refresh on stale reads. Line numbers may have drifted until you do. A stale **"not found"** is NOT proof a symbol is gone — re-index before concluding a symbol was deleted.
 
+**AFTER A FULL REBUILD, RE-COLLECT.** `graph_index(force=true)` (and any rebuild from a schema/extractor bump) DELETES the `[lsp✓]` trust spine. It is restored automatically only while the stored collection's commit still equals HEAD; once HEAD has moved it cannot be — re-stamping shifted line numbers as "verified" would be a lie. Measured on a real repo: a reindex left **0 verified edges of 17544 CALLS**, so every caller answer silently became heuristic-only and nothing could attest exhaustiveness. When `graph_index` returns `trustSpineDropped` / `nextAction`, or `graph_health` says **"trust spine EMPTY"**, run `graph_collect_code_intel` before trusting any "no callers / safe to delete" claim.
+
 ## Default pattern: MIXED mode (graph for orientation, Read/Grep for details)
 
 Measured on the 2026-04-22 echoes bench (9 agents × 3 variants × 3 task classes): **mixed mode beats pure graph-only by 8-19% tokens and matches no-graph on time, while producing the best DEBUG quality (32% fewer tokens, 33% less time than no-graph).** The winning shape is:

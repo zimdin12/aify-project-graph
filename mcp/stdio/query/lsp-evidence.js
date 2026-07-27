@@ -26,6 +26,7 @@
 import { getLatestCollection } from '../code-intel/query.js';
 import { getHeadCommit } from '../freshness/git.js';
 import { computeCoverage } from '../code-intel/coverage.js';
+import { prepareCompileDb } from '../code-intel/compile-db.js';
 
 const LSP_PROVENANCE = 'LSP_VERIFIED';
 
@@ -116,7 +117,7 @@ export async function buildAbsenceTrustLine({ noun = 'edges' } = {}) {
 //   db       — open graph db (for getLatestCollection).
 //   repoRoot — repo root (for HEAD comparison).
 // Returns a string (no leading newline) the verb can append on its own line.
-export async function buildTrustLine({ edges = [], db, repoRoot, truncated = false }) {
+export async function buildTrustLine({ edges = [], db, repoRoot, truncated = false, file = null }) {
   if (!hasLspVerifiedEdge(edges)) {
     return HEURISTIC_TRUST_LINE;
   }
@@ -132,9 +133,23 @@ export async function buildTrustLine({ edges = [], db, repoRoot, truncated = fal
       ?? getLatestCollection(db);
   } catch { /* defensive — fall back to a generic verified line below */ }
 
-  const dbHash = hash8(collection?.compileDbHash);
   const when = relativeTime(collection?.collectedAt);
   const verifiedCount = lspVerifiedEdgeCount(edges);
+
+  // L11: name the backend that ACTUALLY produced the evidence. Every banner
+  // hardcoded "clangd" and a "compile-db <hash>" tag, so a pyright- or
+  // tsserver-verified result claimed a C++ toolchain and printed
+  // `compile-db ????????` (hash8 of an absent hash). Small, but it is a false
+  // statement on the trust surface, and the compile DB is a C++-only concept.
+  const lang = collection?.language || verifiedLang || 'cpp';
+  const backend = lang === 'python' ? 'pyright'
+    : (lang === 'typescript' || lang === 'javascript') ? 'tsserver'
+      : 'clangd';
+  // Only C++ has a compile DB; for other backends cite the collection instead.
+  const provenanceTag = (backend === 'clangd' && collection?.compileDbHash)
+    ? `compile-db ${hash8(collection.compileDbHash)}`
+    : `${backend} collection`;
+  const dbHash = provenanceTag;
 
   // FALSE-EXHAUSTIVE GUARD (2026-06-02): index-ready attests only that clangd's
   // background index went idle — NOT that the compile DB covers every TU. On a
@@ -150,15 +165,29 @@ export async function buildTrustLine({ edges = [], db, repoRoot, truncated = fal
   // `partial` is the generic "intrinsically incomplete" flag (foreign/unity C++,
   // no-tsconfig TS, or any Python collection). It is FALSE for a C++ DB merely
   // absent at query time, so pre-collected ground-truth edges aren't downgraded.
+  //
+  // M5 (2026-07-27): `file` is now threaded in. Without it this computed
+  // repo-wide coverage while code_intel_references computed FILE-AWARE coverage,
+  // so the same symbol could get `exhaustive:false, partial_compile_db_coverage`
+  // from one verb and the exhaustive-licensing banner from another. Our own
+  // instructions tell agents the structured flag wins "when they could disagree"
+  // — but an agent reading graph_callers never sees the flag. Two trust surfaces
+  // contradicting each other is the worst possible failure for a tool whose
+  // product IS its honesty, so the file-level verdict now downgrades the banner
+  // too: if the queried symbol's own TU has no compile command, the collected
+  // edges for it came from an index that could not compile it.
   let coverageIncomplete = false;
   let coverageReason = '';
   try {
-    const cov = computeCoverage({ language: collection?.language || 'cpp', projectRoot: repoRoot });
-    if (cov && cov.partial === true) { coverageIncomplete = true; coverageReason = cov.reason || ''; }
+    const cov = computeCoverage({ language: collection?.language || 'cpp', projectRoot: repoRoot, file: file || null });
+    if (cov && (cov.partial === true || cov.fileUncovered === true)) {
+      coverageIncomplete = true;
+      coverageReason = cov.reason || '';
+    }
   } catch { /* defensive — treat as complete */ }
   if (coverageIncomplete) {
     return `TRUST: lsp-partial (index coverage incomplete — caller set is a FLOOR, verify with code_intel_references / rg before any "no callers" / delete) `
-      + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}; ${coverageReason}]`;
+      + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, ${dbHash}; ${coverageReason}]`;
   }
 
   // FIX A/B — readiness-gated honesty. references are only trustworthy-as-
@@ -175,8 +204,8 @@ export async function buildTrustLine({ edges = [], db, repoRoot, truncated = fal
     const undercount = notFound > 0
       ? ` — ${notFound} symbol(s) unresolved`
       : '';
-    return `TRUST: lsp-partial (clangd index NOT ready${undercount} — may undercount; re-collect) `
-      + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}]`;
+    return `TRUST: lsp-partial (${backend} index NOT ready${undercount} — may undercount; re-collect) `
+      + `[${verifiedCount} verified caller${verifiedCount === 1 ? '' : 's'}, ${dbHash}]`;
   }
 
   // Audit 2026-06-12 B4: the "index-ready, N callers" wording is the one banner
@@ -200,13 +229,17 @@ export async function buildTrustLine({ edges = [], db, repoRoot, truncated = fal
       const head = await getHeadCommit(repoRoot).catch(() => null);
       if (head && collection.indexedCommit && head !== collection.indexedCommit) stale = true;
     } catch { /* defensive */ }
-    if (
-      collection.freshnessBasis === 'compile_db_hash'
-      && collection.compileDbHash
-      && collection.freshnessValue
-      && collection.compileDbHash !== collection.freshnessValue
-    ) {
-      stale = true;
+    // M4 (2026-07-27): this used to compare collection.compileDbHash against
+    // collection.freshnessValue — but the provider writes BOTH from the same
+    // variable (cpp-clangd.js), so the condition could never be true and the
+    // documented "or the compile DB changed" staleness signal never fired once.
+    // Compare against the compile DB as it exists NOW: a rebuilt/re-configured
+    // DB means the collected evidence describes a different index.
+    if (collection.freshnessBasis === 'compile_db_hash' && collection.compileDbHash) {
+      try {
+        const prep = prepareCompileDb({ projectRoot: repoRoot });
+        if (prep?.found && prep.dbHash && prep.dbHash !== collection.compileDbHash) stale = true;
+      } catch { /* best-effort — a probe failure must not fabricate staleness */ }
     }
   } else {
     // A verified edge with no collection row to vouch for it — treat as stale so
@@ -233,41 +266,41 @@ export async function buildTrustLine({ edges = [], db, repoRoot, truncated = fal
 
   let line;
   if (collection && collection.indexReady === true && allVerified && stale) {
-    line = `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection is STALE — `
+    line = `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection is STALE — `
       + `indexed ${String(collection.indexedCommit ?? '?').slice(0, 7)}, HEAD has moved. The set is a FLOOR, not exhaustive; `
-      + `re-run graph_collect_code_intel, or verify with rg before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
+      + `re-run graph_collect_code_intel, or verify with rg before any "no callers" / delete) [${dbHash}, collected ${when}]`;
     return line;
   }
   if (collection && collection.indexReady === true && allVerified && heavilyUnresolved) {
-    line = `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection left `
+    line = `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the collection left `
       + `${refsNotFound} of ${refsTotal} symbols (${Math.round(unresolvedRatio * 100)}%) unresolved — the index is incomplete, so this `
-      + `is a FLOOR, not exhaustive; verify with rg before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
+      + `is a FLOOR, not exhaustive; verify with rg before any "no callers" / delete) [${dbHash}, collected ${when}]`;
     return line;
   }
   // The caller edges were capped by the SQL fetch, so rows beyond the cap were
   // never seen. "N callers" would name a floor while reading as a census — the
   // same false-exhaustive shape the evidence contract already refuses.
   if (collection && collection.indexReady === true && allVerified && truncated) {
-    return `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the edge fetch hit its cap `
+    return `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but the edge fetch hit its cap `
       + `— more callers exist that were never retrieved, so this is a FLOOR, not a complete set. Narrow with file=, or use `
-      + `code_intel_references for a per-symbol census) [compile-db ${dbHash}, collected ${when}]`;
+      + `code_intel_references for a per-symbol census) [${dbHash}, collected ${when}]`;
   }
   if (collection && collection.indexReady === true && allVerified && telemetryMissing) {
     // No resolution telemetry recorded, so we cannot show the index actually
     // resolved what it saw. Name the provenance without licensing exhaustiveness.
-    line = `TRUST: lsp-partial (clangd verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but this collection recorded no resolution telemetry, so completeness is unproven — treat as a FLOOR and verify before any "no callers" / delete) [compile-db ${dbHash}, collected ${when}]`;
+    line = `TRUST: lsp-partial (${backend} verified ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, but this collection recorded no resolution telemetry, so completeness is unproven — treat as a FLOOR and verify before any "no callers" / delete) [${dbHash}, collected ${when}]`;
     return line;
   }
   if (collection && collection.indexReady === true && allVerified) {
-    line = `TRUST: lsp-verified (clangd, index-ready, ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, compile-db ${dbHash}, collected ${when})`;
+    line = `TRUST: lsp-verified (${backend}, index-ready, ${verifiedCount} caller${verifiedCount === 1 ? '' : 's'}, ${dbHash}, collected ${when})`;
   } else if (collection && collection.indexReady === true) {
     const heur = totalEdges - verifiedCount;
-    line = `TRUST: lsp-partial (clangd index-ready but result mixes ${verifiedCount} verified + ${heur} heuristic edge${heur === 1 ? '' : 's'} — caller set is a FLOOR, not exhaustive; verify with code_intel_references / rg before any "no callers" / delete) `
-      + `[compile-db ${dbHash}]`;
+    line = `TRUST: lsp-partial (${backend} index-ready but result mixes ${verifiedCount} verified + ${heur} heuristic edge${heur === 1 ? '' : 's'} — caller set is a FLOOR, not exhaustive; verify with code_intel_references / rg before any "no callers" / delete) `
+      + `[${dbHash}]`;
   } else {
     // null/unknown indexReady: name provenance + freshness, make NO completeness
     // claim (honest for a mixed set — it isn't licensing "exhaustive").
-    line = `TRUST: lsp-verified (clangd, compile-db ${dbHash}, collected ${when})`;
+    line = `TRUST: lsp-verified (clangd, ${dbHash}, collected ${when})`;
   }
 
   // `stale` was computed above, before the wording was chosen (P0-5), so an

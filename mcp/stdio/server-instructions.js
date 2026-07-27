@@ -81,6 +81,7 @@ FRESHNESS:
 - If a response says "graph stale", run graph_index first (or set APG_AUTO_REINDEX=1 for auto-refresh).
 - A stale "not found" is NOT proof a symbol is gone — re-run after indexing. The graph self-heals on
   read when APG_AUTO_REINDEX is set; otherwise refresh manually with graph_index.
+- AFTER ANY FULL REBUILD, RE-COLLECT. graph_index(force=true) — and any rebuild triggered by a schema/extractor bump — DELETES the [lsp✓] trust spine. It is restored automatically only when the stored collection's commit still equals HEAD; once HEAD has moved it CANNOT be (re-stamping shifted line numbers as "verified" would be a lie). Measured on a real repo: a reindex left 0 verified edges of 17544 CALLS, so every caller answer silently became heuristic-only and nothing could attest exhaustiveness. When graph_index returns trustSpineDropped / nextAction, or graph_health says "trust spine EMPTY", run graph_collect_code_intel before trusting any absence claim.
 - LSP-VERIFIED edges do NOT survive a full re-index. graph_collect_code_intel materializes [lsp✓]
   edges into the graph; a force rebuild (or an extractor-version bump) re-extracts from tree-sitter
   and DROPS them. If graph_health.codeIntel shows a collection but the LSP-verified % reads 0 (or

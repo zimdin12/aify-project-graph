@@ -146,7 +146,13 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // heuristic-only undercount caveat. Shared helper so all four verbs agree.
     let trustLine = '';
     try {
-      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, truncated: edgesTruncated });
+      // M5: pass the queried symbol's own file so this banner and
+      // code_intel_references compute the SAME coverage verdict, instead of one
+      // granting the verified banner while the other returns exhaustive:false.
+      trustLine = '\n' + await buildTrustLine({
+        edges: mapped, db, repoRoot, truncated: edgesTruncated,
+        file: targets?.[0]?.file_path ?? null,
+      });
     } catch { /* defensive — never block result on trust-line failure */ }
 
     // P0-4: state what the printed locations ARE. The Sand Castle field test

@@ -8,6 +8,16 @@ import { generateBrief } from '../../brief/generator.js';
 export async function graphIndex({ repoRoot, paths, force = false }) {
   const result = await ensureFresh({ repoRoot, force });
 
+  // EASE-OF-USE GAP: a full rebuild wipes the [lsp✓] trust spine, and when the
+  // stored collection is too stale to restore, the graph silently drops to
+  // heuristic-only — measured at 0 verified edges of 17544 CALLS on a real repo,
+  // with nothing telling anyone. The agent that just ran this call is exactly who
+  // can fix it, so put the remedy at the TOP of the response rather than leaving
+  // it to a console warning nobody reads.
+  if (result?.trustSpineDropped) {
+    result.nextAction = 'run graph_collect_code_intel — this rebuild dropped the [lsp✓] trust spine, so caller sets are heuristic-only and cannot attest exhaustiveness until it is re-collected';
+  }
+
   result.artifacts = {};
 
   try {

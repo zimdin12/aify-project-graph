@@ -141,7 +141,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // marked as clangd ground truth. One line, shared helper.
     let trustLine = '';
     try {
-      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, file: root?.file_path ?? null });
     } catch { /* defensive — never block result on trust-line failure */ }
 
     // P2-1: turn "this set may be incomplete" into a POINTER. A callee list is
