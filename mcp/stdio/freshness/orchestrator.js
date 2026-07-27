@@ -219,6 +219,9 @@ export async function ensureFresh({
       const effectiveIgnoredDirs = loadEffectiveIgnoredDirs(repoRoot);
       let filesToProcess;
       let resumedFromPartial = false;
+      // Set when a full rebuild wiped the LSP trust spine and the stored
+      // collection was too stale to restore — the agent must re-collect.
+      let trustSpineDropped = null;
       // P1-6: files whose content changed but whose STRUCTURAL shape did not
       // (body/comment/whitespace/literal edits). These keep their existing
       // nodes/edges and are skipped from re-extraction + re-resolution.
@@ -512,6 +515,24 @@ export async function ensureFresh({
             if (r.edgesCreated > 0) {
               console.warn(`[aify-project-graph] restored ${r.edgesCreated} LSP-verified edge(s) from commit-current collection ${latest.collectionId} (rebuild preserved the trust spine)`);
             }
+          } else if (latest) {
+            // The honesty gate correctly refused to re-stamp stale evidence — but
+            // refusing SILENTLY is how a repo ends up running at 0% trust spine
+            // without anyone noticing. Measured on a real project: a reindex after
+            // HEAD moved left 0 LSP_VERIFIED edges of 17544 CALLS, so every
+            // "who calls X" answer fell back to the heuristic layer and the tool's
+            // whole differentiator was gone. Say it, and say the one command back.
+            trustSpineDropped = {
+              collectionId: latest.collectionId,
+              collectedAt: latest.collectedAt ?? null,
+              indexedCommit: latest.indexedCommit ?? null,
+              currentCommit: commit,
+              hint: 'run graph_collect_code_intel to rebuild the [lsp✓] trust spine — until then caller sets are heuristic-only and cannot attest exhaustiveness',
+            };
+            console.warn('[aify-project-graph] this rebuild DROPPED the LSP-verified trust spine: '
+              + `the stored collection was indexed at ${String(latest.indexedCommit ?? '?').slice(0, 7)} but HEAD is ${commit.slice(0, 7)}, `
+              + 'so its evidence cannot be re-stamped as verified. Run graph_collect_code_intel to restore it — '
+              + 'until then caller sets are heuristic-only.');
           }
         } catch {
           // Re-synthesis is best-effort; a failure just leaves the spine to a
@@ -606,6 +627,7 @@ export async function ensureFresh({
         edges: edgeCount,
         processedFiles: existingFiles,
         resumedFromPartial,
+        trustSpineDropped,
         cosmeticSkipped: cosmeticSkippedFiles.length,
       };
       return result;

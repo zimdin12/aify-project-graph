@@ -230,6 +230,28 @@ export async function graphHealth({ repoRoot }) {
   // whose indexedCommit still equals HEAD is current no matter how old it is.
   const collectedDays = ageInDays(codeIntel?.collectedAt);
   if (collectedDays != null) artifactAges.codeIntel = collectedDays;
+
+  // A stored collection with ZERO materialized [lsp✓] edges is the silent
+  // failure mode that makes this tool look useless: every caller query falls back
+  // to the heuristic layer, so nothing can attest exhaustiveness, and nothing
+  // says why. Measured on a real project: 0 of 17544 CALLS verified after a
+  // reindex moved HEAD past the collection. One command fixes it.
+  if (codeIntel?.available) {
+    try {
+      const db2 = openExistingDb(dbPath);
+      try {
+        const verified = db2.get("SELECT COUNT(*) AS c FROM edges WHERE provenance = 'LSP_VERIFIED'").c ?? 0;
+        const calls = db2.get("SELECT COUNT(*) AS c FROM edges WHERE relation = 'CALLS'").c ?? 0;
+        codeIntel.lspVerifiedEdges = verified;
+        codeIntel.lspVerifiedPctOfCalls = calls > 0 ? Math.round((verified / calls) * 100) : 0;
+        if (calls > 0 && verified === 0) {
+          codeIntel.callerCompletenessTrustworthy = false;
+          verdicts.push('⚠ trust spine EMPTY: 0 of ' + calls + ' CALLS edges are [lsp✓] verified — every caller answer is heuristic-only and CANNOT attest exhaustiveness. '
+            + 'A full reindex drops verified edges; run graph_collect_code_intel to restore them.');
+        }
+      } finally { db2.close(); }
+    } catch { /* best-effort */ }
+  }
   if (codeIntel?.indexedCommit && head && codeIntel.indexedCommit !== head) {
     verdicts.push(`⚠ code-intel collection was indexed at ${String(codeIntel.indexedCommit).slice(0, 7)} but HEAD is ${head.slice(0, 7)}`
       + `${collectedDays != null ? ` (${collectedDays}d old)` : ''} — [lsp✓] evidence is stale and cannot attest exhaustiveness (re-run graph_collect_code_intel)`);
