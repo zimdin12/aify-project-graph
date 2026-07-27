@@ -109,6 +109,43 @@ export function buildReferencesEvidence({ freshness, callsiteCount, defCount, re
   // Downgrade to non-exhaustive with the concrete reason. (coverage may be
   // undefined for non-cpp / callers that don't pass it -> treated as trustworthy.)
   if (freshness === 'fresh' && callsiteCount > 0 && coverage && coverage.complete === false) {
+    // CAUSE HONESTY (field report, 2026-07-27). We correctly said exhaustive:false,
+    // then asserted cause "partial_compile_db_coverage" and prescribed "export
+    // compile commands for all your targets" — on a case where ALL eight real
+    // call sites were in the SAME TU as the definition, a TU clangd had demonstrably
+    // indexed. Cross-TU coverage could not explain a single miss, and the
+    // prescribed fix would have recovered ZERO of them. Someone spends a day
+    // regenerating a compile DB and the number does not move.
+    //
+    // That is the same error the reporter had made by hand that morning: correctly
+    // detecting something was missing, confidently wrong about WHY — and it is
+    // worse from a tool, because a banner reads as machine-verified. An honest
+    // exhaustive:false has to be honest about the cause too, or the remedy
+    // misdirects.
+    //
+    // So: only attribute the repo-wide coverage gap when the queried file itself
+    // is NOT covered. When the file IS covered, the gap may still hide callers in
+    // other unindexed TUs — say that as a possibility — but do not name it as THE
+    // cause or prescribe its fix, because it cannot explain a miss inside this file.
+    const fileIsCovered = coverage.fileUncovered !== true;
+    const ratioOnly = fileIsCovered
+      && coverage.poorlyCovered === true
+      && !coverage.foreignToolchain
+      && !coverage.unityUnexpanded
+      && !coverage.noFirstParty;
+    if (ratioOnly) {
+      const note = 'the caller set is INCOMPLETE but the cause is not established: this file IS in the compile DB, so '
+        + 'misses inside it are NOT explained by compile-DB coverage and regenerating the DB may recover none of them. '
+        + `Repo-wide coverage is partial (${coverage.reason ? 'see coverage detail' : 'some TUs unindexed'}), which could hide callers in OTHER files. `
+        + 'Verify with rg before any "no callers / dead code / safe to delete" claim.';
+      warnings.push(note);
+      return {
+        ready: true, degraded: true, cause: 'coverage_unknown', confidence: 'medium',
+        exhaustive: false,
+        fallback: note,
+        warnings,
+      };
+    }
     warnings.push(coverage.reason || 'compile-DB coverage is incomplete — caller set may be a floor, not exhaustive');
     return {
       ready: true, degraded: true, cause: coverageCause(coverage), confidence: 'medium',

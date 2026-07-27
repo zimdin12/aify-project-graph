@@ -91,7 +91,7 @@ describe('graph_pull — map context signals', () => {
       id: 'auth',
       file_count: 1,
     });
-    expect(result._warnings).toEqual(expect.arrayContaining([expect.stringMatching(/working tree has 1 dirty file/i)]));
+    expect(result._warnings).toEqual(expect.arrayContaining([expect.stringMatching(/working tree has 1 modified tracked file/i)]));
   });
 
   it('resolves feature prefixes consistently', async () => {

@@ -106,7 +106,7 @@ describe('read verbs use existing snapshots only', () => {
     const result = await graphWhereis({ repoRoot, symbol: 'foo' });
 
     expect(result).toMatch(/SNAPSHOT WARNINGS/);
-    expect(result).toMatch(/working tree has 1 dirty file/);
+    expect(result).toMatch(/working tree has 1 modified tracked file/);
     expect(result).toMatch(/src\/app\.js:1/);
   });
 

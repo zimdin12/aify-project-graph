@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../freshness/orchestrator.js';
-import { getDirtyFiles, getHeadCommit } from '../../freshness/git.js';
+import { getDirtyFileEntries, getHeadCommit } from '../../freshness/git.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { openExistingDb } from '../../storage/db.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
@@ -128,7 +128,8 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
 
   const warnings = [];
   const head = await getHeadCommit(repoRoot).catch(() => null);
-  const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+  const dirtyEntries = await getDirtyFileEntries(repoRoot).catch(() => []);
+  const dirtyFiles = dirtyEntries.map((e) => e.path);
   const stale = Boolean(manifest.commit && head && manifest.commit !== head);
   // Reuse graph_health's indexed-commit → HEAD basis so the loud not-found
   // staleness caveat reports the SAME "N commits behind" agents see from health.
@@ -147,8 +148,17 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
       `graph snapshot is stale (${behind} HEAD): indexed ${manifest.commit.slice(0, 7)}, HEAD ${head.slice(0, 7)} — run graph_index() to refresh (or set APG_AUTO_REINDEX=1 for auto-refresh on read).`,
     );
   }
-  if (dirtyFiles.length > 0) {
-    warnings.push(`working tree has ${dirtyFiles.length} dirty file${dirtyFiles.length === 1 ? '' : 's'}; live reads use the last completed snapshot`);
+  // The stale-read guard must key on TRACKED modifications. Field report: on a
+  // repo with 0 tracked modifications and 592 untracked files, one verb warned
+  // "592 dirty" and another "4 dirty" for the same tree at the same commit —
+  // and the decision-relevant number was 0. Untracked files were never in the
+  // graph, so they cannot make the snapshot stale relative to indexed source;
+  // warning about them tells the user to distrust a snapshot that is current.
+  // This warning is the only thing standing between a user and a stale answer,
+  // so it keys on the one number that means drift.
+  const trackedDirty = dirtyEntries.filter((e) => !e.untracked).map((e) => e.path);
+  if (trackedDirty.length > 0) {
+    warnings.push(`working tree has ${trackedDirty.length} modified tracked file${trackedDirty.length === 1 ? '' : 's'}; live reads use the last completed snapshot`);
   }
 
   return {
