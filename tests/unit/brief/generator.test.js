@@ -503,7 +503,12 @@ describe('brief/generator', () => {
       generateBrief({ repoRoot });
       const agent = readFileSync(join(repoRoot, '.aify-graph', 'brief.agent.md'), 'utf8');
       expect(agent).toMatch(/COVERS:/);
-      expect(agent).toContain('fall back to direct file reads');
+      // REVERSED (field report): this used to assert "fall back to direct file
+      // reads for topics not listed here" — which pinned the defect. Pairing a
+      // TRUNCATED list with that instruction publishes an arbitrary cut as a
+      // scope contract and tells the agent to abandon the tool for subsystems it
+      // actually covers. A reader acted on it and published a wrong conclusion.
+      expect(agent).not.toContain('fall back to direct file reads');
     });
   });
 

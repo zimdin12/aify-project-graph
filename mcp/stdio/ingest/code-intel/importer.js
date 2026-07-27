@@ -486,7 +486,30 @@ function synthesizeLspEdges(envelope, db, stats) {
   //   (b) DELETE only edges THIS synthesizer created from scratch — a clean
   //       `cpp-clangd#%` extractor with no stash. Promoted rows are restored,
   //       not dropped, so the heuristic graph survives a clangd drop-out.
-  const completeCollection = envelope.status === 'ok';
+  // DATA-LOSS FIX (field report, HIGH). This was `envelope.status === 'ok'`, so a
+  // one-file collect requesting ONLY symbols+diagnostics returned ok — it did
+  // succeed at what it was asked — and was therefore treated as a globally
+  // authoritative snapshot. It then deleted EVERY LSP_VERIFIED edge in the repo:
+  // 5961 verified edges -> 0, ~30 minutes of full-collect work destroyed in
+  // seconds, reported as status:"ok" / importFailed:false with the only signal
+  // being `edgesInvalidated: 5208` (which reads like routine cleanup). The
+  // documented inner-loop workflow — collect after touching a file — walks
+  // straight into it.
+  //
+  // A collection can only invalidate edge classes it had the authority to
+  // observe. CALLS edges come from the `references` operation; a run that never
+  // collected references has NOTHING to say about which CALLS edges still exist,
+  // and absence from its records is not evidence of deletion.
+  //
+  // NOTE this was latent and masked: the same call previously failed on a full
+  // disk, so the import aborted and the spine survived by accident. Freeing the
+  // disk unmasked it.
+  const refsOp = envelope.operations?.references;
+  const collectedReferences = Boolean(refsOp) && refsOp.status !== 'not_collected';
+  const completeCollection = envelope.status === 'ok' && collectedReferences;
+  if (envelope.status === 'ok' && !collectedReferences) {
+    out.invalidationSkipped = 'collection did not include the references operation, so it has no authority over CALLS edges — existing [lsp✓] edges preserved';
+  }
   if (completeCollection) {
     // (a) restore promoted (stashed) edges to their heuristic origin.
     const promoted = db.all(
