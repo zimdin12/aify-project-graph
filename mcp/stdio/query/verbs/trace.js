@@ -358,21 +358,35 @@ const readNodeBody = readSymbolBody;
 function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
   const lines = [];
   lines.push(`TRACE ${fromNode.label} → ${toNode.label}: NO STATIC PATH within ${maxHops} hops.`);
-  lines.push('The chain most likely breaks at a dynamic-dispatch (virtual / function-pointer / callback) boundary the static graph cannot cross.');
-  lines.push('Inlining both endpoints + their neighbors + the destination file\'s other top-level functions (the missing hop usually lives there).');
-  lines.push('No further node/Read needed for symbols shown.');
-  lines.push('');
 
-  // Announce the likely dynamic-dispatch boundary (codegraph #687): scan both
-  // endpoint bodies for the dispatch site where the static path ends, instead of
-  // guessing a bridge edge. Synthesizes nothing — query-time, honest.
+  // ZERO-RESULT CAUSE HONESTY. This used to assert "the chain most likely breaks
+  // at a dynamic-dispatch boundary" unconditionally — a cause never checked, on
+  // every failed trace. Measured in the field on a deliberately IMPOSSIBLE pair:
+  // the real reason was that the two symbols are simply unrelated, and there was
+  // no branch that could say so. It sent the reader hunting a virtual dispatch
+  // that does not exist.
+  //
+  // The scan below already answers the question, so run it FIRST and let the
+  // claim follow the evidence.
+  const boundaryBlocks = [];
   for (const node of [fromNode, toNode]) {
     const block = renderDynamicBoundaries(
       scanDynamicBoundaries({ source: readNodeBody(repoRoot, node), language: node.language, baseLine: node.start_line || 1 }),
       { symbolLabel: node.label },
     );
-    if (block) { lines.push(block); lines.push(''); }
+    if (block) boundaryBlocks.push(block);
   }
+
+  lines.push(boundaryBlocks.length
+    ? 'A dynamic-dispatch site WAS found in an endpoint (below) — that is the most likely place the static chain breaks.'
+    : 'CAUSE UNKNOWN. Ruled out: no dynamic-dispatch site (virtual / function-pointer / callback / computed call) was found in either endpoint body, '
+      + 'so this is NOT the usual dispatch-boundary case. The two symbols may simply be unrelated, or the connecting hop may lie outside the '
+      + `${maxHops}-hop budget — re-run with a higher maxHops before assuming a missing edge.`);
+  lines.push('Inlining both endpoints + their neighbors + the destination file\'s other top-level functions (the missing hop usually lives there).');
+  lines.push('No further node/Read needed for symbols shown.');
+  lines.push('');
+
+  for (const block of boundaryBlocks) { lines.push(block); lines.push(''); }
 
   lines.push(SOURCE_BUNDLE_HEADER);
   lines.push('');

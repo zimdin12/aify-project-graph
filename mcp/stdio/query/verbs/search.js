@@ -163,9 +163,29 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
     const hits = db.all(`SELECT * FROM nodes WHERE ${where} LIMIT ${SQL_CANDIDATE_CAP}`, params);
 
     if (hits.length === 0) {
-      const base = `NO RESULTS for "${normalizedQuery}". Try graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or check graph_status() to verify the graph covers your files.`;
+      // ZERO-RESULT CAUSE HONESTY. This used to suggest "check graph_status() to
+      // verify the graph covers your files" — a CAUSE we never checked, pointing
+      // at expensive remediation that usually cannot help. Worse, the semantic
+      // degradation hint computed above went into freshnessWarnings and this
+      // branch returned `base` WITHOUT them, so the one accurate explanation was
+      // dropped exactly when it mattered: an NL query in semantic mode with no
+      // embeddings sidecar rarely matches lexically, which is the whole reason
+      // someone selects semantic mode. Measured in the field: the banner fired on
+      // the results path and vanished on the empty path.
+      //
+      // Say what we KNOW and what we RULED OUT; never name an unverified cause.
+      const ruledOut = [];
+      if (freshnessState && !freshnessState.stale) ruledOut.push('the index is fresh');
+      if (type || file || kind !== 'code') ruledOut.push('filters are active (type/file/kind) and may be excluding matches');
+      const base = [
+        `NO RESULTS for "${normalizedQuery}".`,
+        ruledOut.length ? `Ruled out: ${ruledOut.join('; ')}.` : '',
+        `Next: graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or graph_find for a broader cross-layer sweep.`,
+      ].filter(Boolean).join(' ');
       const caveat = staleNotFoundCaveat(freshnessState);
-      return caveat ? `${base}\n${caveat}` : base;
+      // prefixReadWarnings carries the semantic-degradation hint (and any
+      // snapshot warnings). Omitting it here is what lost the one accurate cause.
+      return prefixReadWarnings(caveat ? `${base}\n${caveat}` : base, freshnessWarnings);
     }
 
     // Re-rank by agent-intent scoring.
