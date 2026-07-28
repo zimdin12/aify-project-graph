@@ -75,12 +75,28 @@ Important runtime behavior: **read verbs are snapshot-first**. The first query i
 
 **Typical full `/graph-build-all` timing**: 30-90s first run. Subsequent reindex is git-diff-aware — <100ms if nothing changed, seconds if a few files edited. Briefs regenerate in 2-3s regardless of repo size. Functionality proposal (the bottleneck) is ~30-60s for an LLM pass.
 
-## Inspiration
+## Inspiration & what we borrowed, per project
 
-Built on ideas from two sources:
+We read other tools in this space deliberately and take from them. Full detail,
+including which file each idea landed in, is in **[ATTRIBUTION.md](ATTRIBUTION.md)** —
+this is the summary.
 
-- **[graphify](https://github.com/safishamsi/graphify)** (MIT) — the compact NODE/EDGE line format, named query verbs, token-budget discipline, and interface-first `GRAPH_REPORT` digest are patterns we adapted from graphify's design.
-- **[Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)** — the concept of a persistent structured artifact between model and raw sources, with an index layer that teaches the agent how to use it.
+| Project | License | What we took |
+|---|---|---|
+| **[graphify](https://github.com/safishamsi/graphify)** | MIT | The compact `NODE`/`EDGE` line response format, the high-intent named-verb surface, token-budget discipline, and the interface-first `GRAPH_REPORT` digest. |
+| **[codegraph](https://github.com/colbymchenry/codegraph)** | MIT | Packet `clampToBudget` skeletonize-before-drop (collapse → header+count → drop, never dropping the target section); dynamic-dispatch **boundary detection** (announce the dispatch site instead of guessing an edge) → `query/dynamic-boundaries.js`; `new Foo()` as a caller edge; betweenness-ranked community bridges with hub exclusion. |
+| **[agent-understand-anything](https://github.com/thejesh23/agent-understand-anything)** | MIT | JS/TS import-specifier resolution heuristics → `ingest/import-resolution.js`, `ingest/js-import-evidence.js`. |
+| **[understory](https://github.com/thecodacus/understory)** | Apache-2.0 | The **session seed** → `mcp/stdio/session-seed.js`. Their finding: a client model that sees only *tool names* answers from its own head and never looks. The load-bearing detail is seeding with what each thing is **about**, not with filenames. |
+| **agent-code-intel** | *unlicensed* | **Pattern only — no code read into ours.** Comment/string masking before regex scans (re-derived from the described idea), used in `dynamic-boundaries.js`. |
+| **[Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)** | — | The concept of a persistent structured artifact between model and raw sources, with an index layer that teaches the agent how to use it. We use deterministic tree-sitter extraction rather than LLM-generated content, which addresses the main [critique](https://medium.com/data-science-in-your-pocket/andrej-karpathys-llm-wiki-is-a-bad-idea-8c7e8953c618) of the original. |
+
+Borrowing is measured, not assumed: several widely-recommended ideas were
+**rejected after probing them against this codebase** — the analysis claimed five
+C++ macro failure modes and only one reproduced; `indirect_call` recall via
+`REFERENCES` edges measured too noisy to use (its top hits were std-library name
+collisions); and an `isError` audit found we were already compliant. Those
+non-adoptions are recorded in `docs/v0.3-hardening-plan.md` so they are not
+re-litigated.
 
 ## What we solved
 
@@ -433,6 +449,32 @@ out
 ```
 
 Sample feature overlay for Laravel: `docs/examples/functionality.sample.laravel.json`.
+
+## Token cost — what the map costs vs what it displaces
+
+The product only makes sense if querying the map is cheaper than reading the
+code. Measured 2026-07-27 on this repo (`chars/4` proxy — rough in absolute
+terms, but consistent across rows, which is what a comparison needs):
+
+| | tokens |
+|---|---:|
+| `graph_search` | 70 |
+| `graph_whereis` | 73 |
+| `graph_packet(orient)` | 136 |
+| `graph_callers` | 329 |
+| **reading ONE source file instead** (313 lines) | **4,557** |
+| `brief.agent.md` (orientation, read once) | 1,405 |
+| fixed cost: MCP instructions + session seed | 3,118 |
+
+A verb call is **14–65× cheaper than a single `Read`**, so the map pays for its
+fixed cost on the **first avoided file read**.
+
+**The honest limit of this number:** it measures *cost per call*, not *substitution
+rate*. If an agent reads the file anyway, the map is pure overhead; one
+substitution and it has already paid. Whether agents actually substitute is an
+agent-behaviour measurement (`scripts/ab-runner.mjs`, `bench-ab.mjs`) that has
+**not** been run end-to-end — see the caveat under *A/B Test Results*. Treat the
+table as "the economics are sound", not as a productivity claim.
 
 ## Performance
 
