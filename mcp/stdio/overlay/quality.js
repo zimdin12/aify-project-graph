@@ -23,10 +23,56 @@ export function loadTasksArtifact(repoRoot) {
   }
 }
 
-export function taskFeatureRefs(task) {
-  if (Array.isArray(task.features) && task.features.length) return task.features.filter(Boolean);
-  if (Array.isArray(task.related_features) && task.related_features.length) return task.related_features.filter(Boolean);
+// Accepted spellings for "which features does this task touch". `features` is
+// canonical; the rest are shapes hand-written and imported tasks actually use.
+//
+// Field report (2026-07-27): a tasks.json written with singular `feature: "auth"`
+// produced ZERO feature links and NO warning. Every downstream count read
+// "0 linked / N tasks", which is indistinguishable from a genuinely unlinked
+// backlog — the user had no way to learn the key was simply misspelled. A schema
+// this forgiving to read must be loud about what it ignored.
+const TASK_FEATURE_KEYS = ['features', 'related_features', 'feature', 'feature_ids', 'feature_id'];
+
+// Near-miss keys we deliberately do NOT silently accept, but DO report. Anything
+// here is almost certainly a typo for a real key rather than a new concept.
+const TASK_FEATURE_TYPO_KEYS = ['featues', 'featurs', 'feature_refs', 'features_ids', 'linked_features'];
+
+function asRefList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean).map(String);
+  if (typeof value === 'string' && value.trim()) return [value.trim()];
   return [];
+}
+
+export function taskFeatureRefs(task) {
+  for (const key of TASK_FEATURE_KEYS) {
+    const refs = asRefList(task?.[key]);
+    if (refs.length) return refs;
+  }
+  return [];
+}
+
+// Report tasks whose feature link was DROPPED rather than absent: an unreadable
+// key, or a key we do not accept. Returns [] for a clean artifact so the caller
+// can stay quiet. Surfaced by graph_health alongside overlay-lint.
+export function lintTaskSchema(tasks = []) {
+  const findings = [];
+  for (const task of tasks) {
+    if (!task || typeof task !== 'object') continue;
+    const id = task.id ?? task.key ?? '(unnamed task)';
+    if (taskFeatureRefs(task).length > 0) continue;
+    const typo = TASK_FEATURE_TYPO_KEYS.find((k) => task[k] !== undefined);
+    if (typo) {
+      findings.push(`${id}: unknown key "${typo}" — feature link dropped; rename to "features"`);
+      continue;
+    }
+    // A recognised key that is present but the WRONG SHAPE (e.g. features: {} or
+    // features: 42) reads as unlinked too, and that is worth naming.
+    const badShape = TASK_FEATURE_KEYS.find((k) => task[k] !== undefined && asRefList(task[k]).length === 0);
+    if (badShape) {
+      findings.push(`${id}: "${badShape}" is present but empty or not a string/array — feature link dropped`);
+    }
+  }
+  return findings;
 }
 
 export function taskLinkStrength(task) {

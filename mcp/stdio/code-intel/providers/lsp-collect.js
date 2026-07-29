@@ -14,6 +14,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { getHeadCommit } from '../../freshness/git.js';
+import { findIdentifierPosition, leafNameOf } from '../identifier-position.js';
 
 function realpath(p) {
   try { return fs.realpathSync.native(p); } catch { return p; }
@@ -65,11 +66,16 @@ function flattenSymbols(symbols, out = []) {
 function positionFor(sym, projectRoot, rel, loadSourceLines) {
   if (sym.location && sym.location.range) {
     const bodyRange = sym.location.range;
-    const leafName = String(sym.name || '').split(/::|\./u).pop();
-    const declLine = (loadSourceLines()[bodyRange.start.line]) || '';
-    let col = 0;
-    if (leafName) { const idx = declLine.indexOf(leafName); if (idx >= 0) col = idx; }
-    return { bodyRange, pos: { line: bodyRange.start.line, character: col } };
+    // Shared with the clangd provider. This used to be `declLine.indexOf(name)` —
+    // the first SUBSTRING hit — which sent every request to the wrong token
+    // whenever the name occurred inside a longer identifier on the same line
+    // (`Builder Builder::build()`). See identifier-position.js.
+    const found = findIdentifierPosition(loadSourceLines(), bodyRange.start.line, leafNameOf(sym.name));
+    return {
+      bodyRange,
+      pos: { line: found.line, character: found.character },
+      positionGuessed: found.guessed,
+    };
   }
   const bodyRange = sym.selectionRange || sym.range || { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
   return { bodyRange, pos: bodyRange.start };

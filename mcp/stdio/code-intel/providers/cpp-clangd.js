@@ -7,6 +7,7 @@ import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
 import { buildClangdSpawn } from '../resolve-clangd.js';
 import { getHeadCommit } from '../../freshness/git.js';
+import { findIdentifierPosition, leafNameOf } from '../identifier-position.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
 // can take well over the default 10s before the first query resolves.
@@ -288,6 +289,11 @@ export function createCppClangdProvider({ spawn } = {}) {
         // `references` resolved ≥1 location; notFound = not_found_after_retry.
         let refsFoundSymbols = 0;
         let refsNotFoundSymbols = 0;
+        // Symbols whose identifier column could not be located, so every LSP
+        // request for them was issued at a GUESSED position. Reported in the
+        // envelope: a clangd answer at a guessed position is not ground truth, and
+        // silence about that is how a type-reference became a CALLS [lsp✓] edge.
+        let positionGuesses = 0;
 
         // For each file: try documentSymbol → definitions / references / hover at top symbol position.
         for (const op of ['definitions', 'references', 'hover', 'symbols']) {
@@ -357,15 +363,9 @@ export function createCppClangdProvider({ spawn } = {}) {
               // column. If not findable, fall back to column 0 — better
               // than (0,0) since the line is still correct.
               bodyRange = sym.location.range;
-              const leafName = String(sym.name || '').split('::').pop();
-              const lines = loadSourceLines();
-              const declLine = lines[bodyRange.start.line] || '';
-              let col = 0;
-              if (leafName) {
-                const idx = declLine.indexOf(leafName);
-                if (idx >= 0) col = idx;
-              }
-              pos = { line: bodyRange.start.line, character: col };
+              const found = findIdentifierPosition(loadSourceLines(), bodyRange.start.line, leafNameOf(sym.name));
+              if (found.guessed) positionGuesses += 1;
+              pos = { line: found.line, character: found.character };
             } else {
               bodyRange = sym.selectionRange || sym.range || { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
               pos = bodyRange.start;
@@ -557,6 +557,7 @@ export function createCppClangdProvider({ spawn } = {}) {
             // undercount" instead of silently reverting to the generic line.
             refsFoundSymbols,
             refsNotFoundSymbols,
+            positionGuesses,
             // P0-1 — total-budget + resume signal. budgetExhausted=true means
             // the call returned partial because the budget was hit before the
             // index was ready and/or all files were processed; a warm re-run

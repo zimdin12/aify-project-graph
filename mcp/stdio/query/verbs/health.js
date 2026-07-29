@@ -19,7 +19,7 @@ import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization
 import { getHeadCommit } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
-import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
+import { loadTasksArtifact, lintTaskSchema, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { getLatestCollection } from '../../code-intel/query.js';
 import { prepareCompileDb } from '../../code-intel/compile-db.js';
 
@@ -111,6 +111,11 @@ export async function graphHealth({ repoRoot }) {
   const functionality = hasOverlay(repoRoot) ? loadFunctionality(repoRoot) : { features: [] };
   const tasksArtifact = loadTasksArtifact(repoRoot);
   const overlayQuality = summarizeOverlayQuality(functionality.features ?? [], tasksArtifact.tasks ?? []);
+  // A task whose feature link was DROPPED (misspelled or wrong-shaped key) counts
+  // as unlinked everywhere downstream, which is indistinguishable from a
+  // genuinely unlinked backlog. Naming it is the difference between a one-line
+  // fix and an unexplained "0 linked" the user cannot act on.
+  const taskSchemaLint = lintTaskSchema(tasksArtifact.tasks ?? []);
   const dirtySeams = summarizeDirtySeams(functionality.features ?? [], dirtyFiles);
   let overlay = { present: false, checked: 0, broken: 0, sample: [] };
   if (functionality.features.length > 0 || hasOverlay(repoRoot)) {
@@ -324,6 +329,11 @@ export async function graphHealth({ repoRoot }) {
   } else {
     verdicts.push('overlay=none');
   }
+  // Independent of whether an overlay exists: a DROPPED task→feature link is a
+  // different failure from an absent one, and only this line distinguishes them.
+  if (taskSchemaLint.length) {
+    verdicts.push(`task-schema-lint=${taskSchemaLint.length} (feature links DROPPED, not absent — e.g. ${taskSchemaLint[0]})`);
+  }
   if (dirtyFiles.length > 0) {
     if (dirtySeams.features.length > 0) {
       const preview = dirtySeams.features.slice(0, 3)
@@ -361,6 +371,7 @@ export async function graphHealth({ repoRoot }) {
     unresolvedCategorizationStaleVsManifest,
     overlay,
     overlayQuality,
+    taskSchemaLint,
     codeIntel,
     // Age in days of the derived artifacts graph_index does NOT refresh
     // (functionality / tasks / codeIntel). LH-3.
