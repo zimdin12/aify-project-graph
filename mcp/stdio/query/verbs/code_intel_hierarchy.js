@@ -28,6 +28,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
+import { identifierColumn, leafNameOf } from '../../code-intel/identifier-position.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { openExistingDb } from '../../storage/db.js';
 
@@ -233,7 +234,59 @@ function itemLabel(item, projectRoot) {
 // caller/callee actually resolved. So `kind=callers` on a symbol that HAS a real
 // cross-TU caller but whose caller TU was not confirmably indexed returned
 // "0 callers, exhaustive=true, lsp-verified" — a dangerous false absence.
+// ZERO-ROOT ANCHOR DIAGNOSIS.
 //
+// `prepareCallHierarchy` answers about the token under the position it is given.
+// When it resolves nothing, the cause is almost never "this symbol has no
+// hierarchy" — it is that the position was not on an identifier. That is
+// checkable with one file read, and the check is what separates a stated fact
+// from the unverified cause the field report caught this verb printing.
+//
+// Returns null only when the file cannot be read (then we claim nothing).
+export function diagnoseAnchor({ repoRoot, file, line, col, symbol }) {
+  let lines;
+  try {
+    lines = fs.readFileSync(join(repoRoot, file), 'utf8').split(/\r?\n/u);
+  } catch {
+    return null;
+  }
+  const text = lines[line - 1];
+  if (text === undefined) {
+    return { verdict: 'line_out_of_range', lineCount: lines.length };
+  }
+  const idx = Math.max(0, (col || 1) - 1);
+  const onIdentifier = /[A-Za-z0-9_$]/u.test(text[idx] ?? '');
+  const leaf = symbol ? leafNameOf(symbol) : null;
+  const betterCol = leaf ? identifierColumn(text, leaf) : -1;
+  return {
+    verdict: onIdentifier ? 'on_identifier' : 'not_on_identifier',
+    onIdentifier,
+    // Only ever offered when we located the symbol's own name on that line.
+    suggestCol: betterCol >= 0 && betterCol !== idx ? betterCol + 1 : null,
+    charAt: text[idx] ?? '(past end of line)',
+    lineText: text.trim().slice(0, 120),
+  };
+}
+
+export function renderAnchorDiagnosis(d, kind) {
+  if (!d) return '';
+  if (d.verdict === 'line_out_of_range') {
+    return `\nCAUSE: the anchor line is past the end of the file (${d.lineCount} lines) — the anchor is stale. Re-resolve the symbol.`;
+  }
+  if (d.verdict === 'not_on_identifier') {
+    const fix = d.suggestCol
+      ? ` The symbol's name is at col ${d.suggestCol} on that line — retry with col=${d.suggestCol}.`
+      : ' Retry with a column that lands on the symbol name.';
+    return `\nCAUSE: the anchor column is not on an identifier (character there: "${d.charAt}").${fix}`;
+  }
+  // On an identifier and still nothing. State what was ruled out and name the
+  // remaining space; do not invent a single cause we did not verify.
+  const wanted = (kind === 'subtypes' || kind === 'supertypes') ? 'type' : 'callable';
+  return '\nCAUSE UNKNOWN. Ruled out: the anchor IS on an identifier.'
+    + ` Remaining possibilities: the token is not a ${wanted}, or it is macro-generated so the server sees no`
+    + ` declaration there. The anchor line reads: ${d.lineText}`;
+}
+
 // Mirror code_intel_references' gating (buildReferencesEvidence): an EMPTY result
 // is only ever exhaustive when there is POSITIVE evidence (a non-empty tree). A
 // `prepareCallHierarchy` root that returns 0 incoming/outgoing on a background
@@ -608,6 +661,17 @@ export async function codeIntelHierarchy(args = {}) {
   const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0, kind, coverage });
 
   if (items.length === 0) {
+    // ROOT DEFECT, LAST INSTANCE (field report 2026-07-27): a zero-result path
+    // must state what it KNOWS and what it RULED OUT, never a cause nobody
+    // checked. "no call hierarchy root at f:l:c" reads as "this symbol has no
+    // callers", which is a completeness claim we did not make and cannot support.
+    //
+    // The overwhelmingly common reason a prepare resolves nothing is that the
+    // POSITION IS NOT ON AN IDENTIFIER — the same class of bug that made
+    // identifier-position.js necessary. That is checkable in one file read, and
+    // checking it turns a dead end into a corrected call.
+    const diagnosis = diagnoseAnchor({ repoRoot, file, line, col: col || 1, symbol });
+    const anchorNote = renderAnchorDiagnosis(diagnosis, kind);
     return {
       status: 'ok',
       kind,
@@ -620,8 +684,8 @@ export async function codeIntelHierarchy(args = {}) {
       // latter is a "retry"/"warm the index" signal, NOT "this symbol has no
       // hierarchy" — surfacing it stops an agent reading cold as absence.
       treeText: (indexReady === true)
-        ? `(no ${needsCall ? 'call' : 'type'} hierarchy root at ${file}:${line}:${col || 1})`
-        : `(no ${needsCall ? 'call' : 'type'} hierarchy root resolved at ${file}:${line}:${col || 1} — clangd index/AST not confirmed ready${coldPrepareRetries ? ` after ${coldPrepareRetries} parse-wait retr${coldPrepareRetries === 1 ? 'y' : 'ies'}` : ''}; re-run in INDEXED mode or after warmup before treating this as "no hierarchy")`,
+        ? `(no ${needsCall ? 'call' : 'type'} hierarchy root at ${file}:${line}:${col || 1})${anchorNote}`
+        : `(no ${needsCall ? 'call' : 'type'} hierarchy root resolved at ${file}:${line}:${col || 1} — clangd index/AST not confirmed ready${coldPrepareRetries ? ` after ${coldPrepareRetries} parse-wait retr${coldPrepareRetries === 1 ? 'y' : 'ies'}` : ''}; re-run in INDEXED mode or after warmup before treating this as "no hierarchy")${anchorNote}`,
       trust: buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount: 0, coverage }),
       evidence,
       telemetry: {
