@@ -107,6 +107,18 @@ const CLASSLIKE_TYPES = new Set(['Class', 'Interface', 'Type']);
 // A namespace (Module) can too; a Method/Function never can.
 const OWNER_TYPES = new Set(['Class', 'Interface', 'Type', 'Module']);
 
+// Node rows come straight from SQLite, so `extra` is a JSON STRING here, not an
+// object (in-memory extractor nodes carry the object form). Accept both.
+export function mergesOverloads(node) {
+  const raw = node?.extra;
+  if (!raw) return false;
+  let extra = raw;
+  if (typeof raw === 'string') {
+    try { extra = JSON.parse(raw); } catch { return false; }
+  }
+  return (extra?.overloads ?? 1) > 1;
+}
+
 function preferProximate(matches, sourceFile) {
   if (!matches || matches.length === 0) return null;
   if (matches.length === 1) return matches[0];
@@ -715,6 +727,23 @@ export function resolveRefs({ db, refs, importContext = null }) {
       continue;
     }
 
+    // A SELF-EDGE ON AN OVERLOAD-MERGED NODE IS NOT PROVEN RECURSION.
+    //
+    // Node identity carries no signature, so all overloads of a name in a file
+    // collapse to one node (see generic.js). A call from `render(int)` to
+    // `render(Widget&)` therefore lands on the caller itself and reads as
+    // recursion — a fabricated fact, and one an agent acts on (recursion changes
+    // how you reason about a function).
+    //
+    // Real recursion is indistinguishable from this at the structural layer, so
+    // the edge is kept and its provenance is downgraded to AMBIGUOUS rather than
+    // asserted as EXTRACTED. A node that merges no overloads keeps full trust, so
+    // genuine `factorial → factorial` is unaffected.
+    const isSelfEdge = fromId === targetNode.node.id;
+    const provenance = (isSelfEdge && mergesOverloads(targetNode.node))
+      ? 'AMBIGUOUS'
+      : (ref.provenance ?? targetNode.provenance ?? 'EXTRACTED');
+
     edges.push({
       from_id: fromId,
       to_id: targetNode.node.id,
@@ -722,7 +751,7 @@ export function resolveRefs({ db, refs, importContext = null }) {
       source_file: ref.source_file,
       source_line: ref.source_line,
       confidence: ref.confidence,
-      provenance: ref.provenance ?? targetNode.provenance ?? 'EXTRACTED',
+      provenance,
       extractor: ref.extractor,
     });
   }

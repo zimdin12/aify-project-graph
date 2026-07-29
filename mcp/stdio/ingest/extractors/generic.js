@@ -396,6 +396,33 @@ export function extractFile({ filePath, source, config }) {
 
         const existingNode = symbolsById.get(createdNode.id);
         const activeNode = existingNode ?? createdNode;
+        // OVERLOAD-SET MERGING, made visible.
+        //
+        // Node identity is stableId([type, filePath, qname]) and qname carries no
+        // signature, so `render(int)` and `render(Widget&)` in one file produce the
+        // SAME id and silently collapse into one node. Nothing recorded that it
+        // happened, which is how a call from one overload to another came back as
+        // "this function is recursive" (field report 2026-07-27).
+        //
+        // Splitting identity by signature is a graph-wide ID migration needing a
+        // full reindex; it is tracked separately. What can land now is the DISCLOSURE:
+        // a node that merges N declarations says so, and the resolver downgrades
+        // self-edges on it because it genuinely cannot tell recursion from an
+        // inter-overload call.
+        if (existingNode && signature) {
+          const sigs = existingNode.extra.overload_signatures
+            ?? (existingNode.extra.overload_signatures = [existingNode.extra.signature].filter(Boolean));
+          if (!sigs.includes(signature)) {
+            sigs.push(signature);
+            existingNode.extra.overloads = sigs.length;
+            // Declaration lines of the merged siblings. The node's own start/end
+            // range is deliberately NOT widened — downstream logic uses it to tell
+            // a declaration from a call site, and a widened range would swallow
+            // real call sites between the overloads.
+            (existingNode.extra.overload_lines ??= [existingNode.start_line])
+              .push(lineNumber(node));
+          }
+        }
         if (!existingNode) {
           nodes.push(createdNode);
           symbolsById.set(createdNode.id, createdNode);

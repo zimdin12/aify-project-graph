@@ -140,6 +140,23 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // kind=subtypes on a METHOD resolves to the method's return type, not its
     // overrides — the verified override set comes from kind=subtypes on the
     // OWNING CLASS, or kind=callers on the virtual method itself.
+    // OVERLOAD SELF-CALL DISCLOSURE. Node identity carries no signature, so all
+    // overloads of a name in one file collapse to a single node — a call from
+    // `render(int)` to `render(Widget&)` renders as the symbol calling itself.
+    // "This function is recursive" changes how an agent reasons about it, so a
+    // self-edge on a merged node must not be presented as recursion.
+    const selfEdges = [...kept, ...overrideMapped].filter((e) => e.to_id === root.id);
+    let overloadCount = 1;
+    try {
+      const extra = JSON.parse(root.extra || '{}');
+      overloadCount = extra.overloads ?? 1;
+    } catch { /* extra unparseable — claim nothing */ }
+    if (selfEdges.length > 0 && overloadCount > 1) {
+      body += `\nNOTE: "${root.label}" is ONE node merging ${overloadCount} overloads in ${root.file_path}`
+        + ` (symbol identity does not yet carry the signature). The self-CALLS edge${selfEdges.length === 1 ? '' : 's'} above`
+        + ' may be a call to a DIFFERENT overload rather than recursion — read the call site before treating it as recursive.';
+    }
+
     if (overrideCount > 0) {
       const owningClass = symbol.includes('::') ? symbol.slice(0, symbol.lastIndexOf('::')) : null;
       const verifyHint = owningClass
