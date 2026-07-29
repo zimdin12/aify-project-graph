@@ -17,6 +17,8 @@ import { loadIntelligenceOverlays } from '../../intelligence/overlays.js';
 import {
   computeOverview,
   computeHotspots,
+  hotspotBoundCaveat,
+  UPPER_BOUND_FOOTNOTE,
   computeCycles,
   computeDigest,
   computeProvenanceMix,
@@ -79,8 +81,9 @@ export async function graphHotspots({ repoRoot, limit = 15 }) {
     const hotspots = computeHotspots(db, { limit });
     const lines = [`HOTSPOTS ${hotspots.length} god node(s), by in+out degree`];
     for (const h of hotspots) {
-      lines.push(`- ${h.label} ${(h.type || '').toLowerCase()} ${h.file_path} (deg ${h.degree}; ${h.fan_in} in / ${h.fan_out} out)`);
+      lines.push(`- ${h.label} ${(h.type || '').toLowerCase()} ${h.file_path} (deg ${h.degree}; ${h.fan_in} in / ${h.fan_out} out)${hotspotBoundCaveat(h)}`);
     }
+    if (hotspots.some((h) => h.degree_is_upper_bound)) lines.push(UPPER_BOUND_FOOTNOTE);
     if (hotspots.length === 0) lines.push('(no ranked symbols — graph may be container-only)');
     // M1 — wrap text + appended JSON in ONE staleness-wrapper call (see graph_overview).
     const text = lines.join('\n') + '\n\n' + JSON.stringify({ hotspots }, null, 2);

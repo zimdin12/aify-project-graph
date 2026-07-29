@@ -15,6 +15,7 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { computeTrustLevel } from './health.js';
+import { getTrackedDirtyFilesSync } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
 import { getPacketTokenBudget } from '../response-budget.js';
@@ -108,11 +109,19 @@ function safeGitHead(repoRoot) {
   } catch { return null; }
 }
 
+// SNAPSHOT `dirty=` is a TRUST number: it tells the agent whether the indexed
+// source can still be believed. It therefore counts tracked modifications only,
+// via the same shared helper the read-verb warning uses.
+//
+// This used to shell out to `git status --porcelain` and count every line —
+// untracked files and ignored-dir noise included. Field report: `dirty=592` on a
+// tree with zero tracked modifications, while the read-verb warning (correctly)
+// said nothing. The agent had two contradictory dirty counts for one tree and no
+// way to tell which was load-bearing, so the honest banner lost credibility to
+// the wrong one.
 function safeDirtyCount(repoRoot) {
   try {
-    const out = execFileSync('git', ['-C', repoRoot, 'status', '--porcelain'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
-    return out.split('\n').filter((l) => l.trim()).length;
+    return getTrackedDirtyFilesSync(repoRoot).length;
   } catch { return 0; }
 }
 

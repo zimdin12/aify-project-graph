@@ -777,24 +777,93 @@ function readFirst(db, limit = 6, opts = {}) {
   return out;
 }
 
-function testAnchors(db, limit = 3) {
-  // Prefer Test-typed nodes. Fall back to files under conventional test dirs.
-  // Exclude doc/markdown paths that coincidentally contain "test" or "spec".
-  const rows = q(db,
-    `SELECT file_path AS file FROM nodes
-     WHERE (type = 'Test'
-            OR file_path LIKE 'tests/%'
-            OR file_path LIKE 'test/%'
-            OR file_path LIKE '%/__tests__/%'
-            OR file_path LIKE '%.test.js'
-            OR file_path LIKE '%.test.ts'
-            OR file_path LIKE '%.spec.js'
-            OR file_path LIKE '%_test.py'
-            OR file_path LIKE 'tests/%_test.py')
+// Test-typed nodes plus files under conventional test paths, across the
+// languages we actually index. Markdown is excluded because doc paths
+// coincidentally containing "test"/"spec" are not tests.
+//
+// C++ suffixes are spelled `_test`/`_tests` rather than a bare `%test.cpp`:
+// SQLite LIKE is case-insensitive, so `%test.cpp` would also match innocent
+// names like `latest.cpp`.
+const TEST_FILE_PREDICATE = `(
+       type = 'Test'
+       OR file_path LIKE 'tests/%'
+       OR file_path LIKE 'test/%'
+       OR file_path LIKE '%/tests/%'
+       OR file_path LIKE '%/test/%'
+       OR file_path LIKE '%/__tests__/%'
+       OR file_path LIKE '%.test.js'
+       OR file_path LIKE '%.test.ts'
+       OR file_path LIKE '%.spec.js'
+       OR file_path LIKE '%.spec.ts'
+       OR file_path LIKE '%_test.py'
+       OR file_path LIKE '%_test.cpp'
+       OR file_path LIKE '%_test.cc'
+       OR file_path LIKE '%_tests.cpp'
+       OR file_path LIKE '%_test.go'
+       OR file_path LIKE '%_test.rs'
+     )`;
+
+// One row per test file, carrying how many declared test CASES live in it.
+// `cases` counts Test-typed nodes (Catch2 TEST_CASE / GTest TEST / pytest etc.),
+// which is what separates a real suite file from a helper script that merely
+// sits under tests/.
+function testFileRows(db) {
+  return q(db,
+    `SELECT file_path AS file,
+            sum(CASE WHEN type = 'Test' THEN 1 ELSE 0 END) AS cases
+     FROM nodes
+     WHERE ${TEST_FILE_PREDICATE}
+       AND file_path IS NOT NULL AND file_path <> ''
        AND file_path NOT LIKE '%.md'
-     GROUP BY file_path
-     LIMIT $limit`, { limit });
-  return rows.map(r => ({ file: r.file, why: 'test file' }));
+       AND file_path NOT LIKE '%node_modules/%'
+     GROUP BY file_path`);
+}
+
+// What test system does this repo ACTUALLY use, and how big is it? Without this,
+// the three anchors below are indistinguishable from "this repo has three tests".
+function testInventory(db) {
+  const rows = testFileRows(db);
+  const byExt = new Map();
+  for (const r of rows) {
+    const ext = (r.file.match(/\.[A-Za-z0-9_+]+$/) ?? ['(none)'])[0].toLowerCase();
+    const cur = byExt.get(ext) ?? { ext, files: 0, cases: 0 };
+    cur.files += 1;
+    cur.cases += r.cases ?? 0;
+    byExt.set(ext, cur);
+  }
+  const systems = [...byExt.values()]
+    .sort((a, b) => b.files - a.files || a.ext.localeCompare(b.ext));
+  return { total: rows.length, systems };
+}
+
+// The rendered TESTS block is a 3-file SAMPLE. Naming three files with no
+// denominator invites the exact misread seen in the field: the sample was taken
+// for the repo's entire test system. State the total and the per-extension mix so
+// the dominant suite is visible even when the sample cannot show it.
+function testSectionHeader(label, shown, inv) {
+  if (!inv || inv.total <= shown) return `${label}:`;
+  const mix = inv.systems.slice(0, 3).map((s) => `${s.ext} ${s.files}`).join(', ');
+  return `${label} (showing ${shown} of ${inv.total}${mix ? `; ${mix}` : ''}):`;
+}
+
+function testAnchors(db, limit = 3) {
+  // ORDER matters more here than it looks. Framework plugins (Catch2/GTest for
+  // C++) run in the ENRICH phase, so their Test nodes are inserted LAST — under
+  // the old unordered `LIMIT 3` they could never win a tie no matter how many
+  // there were. Sand Castle field report (2026-07-27): brief.agent.md named 3
+  // Python helper scripts as the test system of a repo with 129 Catch2 files.
+  // An agent reading that looks for the wrong suite and concludes the real one
+  // does not exist.
+  //
+  // Rank by declared test cases (a file with 12 TEST_CASEs is more
+  // representative than a helper with none), then by path for determinism.
+  const rows = testFileRows(db)
+    .sort((a, b) => (b.cases ?? 0) - (a.cases ?? 0) || a.file.localeCompare(b.file))
+    .slice(0, limit);
+  return rows.map(r => ({
+    file: r.file,
+    why: r.cases > 0 ? `test file (${r.cases} cases)` : 'test file',
+  }));
 }
 
 // For each valid feature, precompute action-bearing data the plan brief
@@ -918,9 +987,13 @@ function enrichRisksForPlanning(db, risksArr, features) {
       .map(f => f.id);
     // Nearest test: file in same dir or one of the feature's test files
     const dir = r.file.split('/').slice(0, -1).join('/') || '.';
+    // Same C++ blindness as the anchors had: keying on a literal `tests/%`
+    // prefix returned nearest_test: null for every risk file in a repo whose
+    // suite lives anywhere else. Reuse the shared predicate.
     const nearestTest = db.get(
       `SELECT file_path FROM nodes
-       WHERE type = 'File' AND file_path LIKE 'tests/%'
+       WHERE ${TEST_FILE_PREDICATE}
+         AND file_path NOT LIKE '%.md'
          AND file_path LIKE $pattern
        LIMIT 1`, { pattern: `%${dir.split('/').pop()}%` });
     return {
@@ -1198,7 +1271,12 @@ function renderMarkdown(data) {
 
   if (tests.length || risksArr.length) {
     lines.push('## Tests & risk');
-    for (const t of tests) lines.push(`- test: \`${t.file}\``);
+    const inv = data.testInv;
+    if (inv && inv.total > tests.length) {
+      const mix = inv.systems.slice(0, 3).map((s) => `${s.ext} ${s.files}`).join(', ');
+      lines.push(`- suite: ${inv.total} test files${mix ? ` (${mix})` : ''} — ${tests.length} shown`);
+    }
+    for (const t of tests) lines.push(`- test: \`${t.file}\` (${t.why})`);
     for (const r of risksArr) lines.push(`- risk: \`${r.file}\` (${r.why})`);
     lines.push('');
   }
@@ -1342,8 +1420,9 @@ function renderAgentMarkdown(data) {
     for (const r of readFirstArr.slice(0, 4)) lines.push(`  ${r.file}`);
   }
   if (tests.length) {
-    lines.push('TESTS:');
-    for (const t of tests.slice(0, 3)) lines.push(`  ${t.file}`);
+    const shown = tests.slice(0, 3);
+    lines.push(testSectionHeader('TESTS', shown.length, data.testInv));
+    for (const t of shown) lines.push(`  ${t.file}`);
   }
   // RISKS: top high-fan-in / orphan files by inbound-ref count. Already in
   // brief.json.risks but previously only surfaced in brief.md and brief.plan.md.
@@ -1616,6 +1695,9 @@ function renderJson(data, repoRoot) {
     hubs: hubsArr.map(h => ({ label: h.label, type: h.type, role: h.role, file: h.file, line: h.line, fan_in: h.fan_in })),
     read_first: readFirstArr,
     tests,
+    // The anchors are a SAMPLE. Programmatic consumers need the denominator and
+    // the per-extension breakdown to know which suite the sample came from.
+    test_inventory: data.testInv ?? null,
     risks: risksArr,
     recent_activity: recent,
     overlay_quality: overlayQuality,
@@ -1685,6 +1767,7 @@ export function generateBrief({ repoRoot }) {
     const subs = subsystems(db);
     const hubsArr = hubs(db);
     const tests = testAnchors(db);
+    const testInv = testInventory(db);
     const risksArr = risks(db);
     const recent = recentActivity(repoRoot);
 
@@ -1768,6 +1851,7 @@ export function generateBrief({ repoRoot }) {
       hubsArr,
       readFirstArr,
       tests,
+      testInv,
       risksArr,
       recent,
       health,

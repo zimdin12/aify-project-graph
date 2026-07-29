@@ -50,6 +50,22 @@ export function getDirtyFilesSync(repoRoot) {
   return getDirtyFileEntriesSync(repoRoot).map((entry) => entry.path);
 }
 
+// TRACKED modifications only — the one dirty number that means "the snapshot may
+// disagree with the source it was built from." Untracked files were never in the
+// graph, so they cannot make an indexed file stale.
+//
+// Field report (2026-07-27): on a tree with 0 tracked modifications and 592
+// untracked files, graph_packet printed `dirty=592` while the read-verb warning
+// printed nothing, for the same tree at the same commit. Two numbers for one
+// question is worse than either number alone: the agent cannot tell which verb is
+// lying. Every surface that reports a dirty COUNT to influence trust routes
+// through here.
+export function getTrackedDirtyFilesSync(repoRoot) {
+  return getDirtyFileEntriesSync(repoRoot)
+    .filter((entry) => !entry.untracked)
+    .map((entry) => entry.path);
+}
+
 export async function getChangedFiles(repoRoot, fromRef, toRef = 'HEAD') {
   return getChangedFilesSync(repoRoot, fromRef, toRef);
 }

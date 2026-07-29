@@ -20,6 +20,7 @@
 // tightest-first, early-stop to avoid blowup.
 
 import { classifyArchetype } from './archetypes.js';
+import { COMMON_NAMES } from '../ingest/denylist.js';
 
 // Symbol-ish node types — the things that carry real degree / are worth ranking
 // as hotspots or clustering. Containers (File/Dir/Module/etc.) are excluded
@@ -31,10 +32,19 @@ const CONTAINER_TYPES = new Set([
 // Noise denylist for hotspots — reuses onboard.js HUB_NOISE wording so the two
 // surfaces agree on what counts as a "boring" hub. Common stdlib/dunder names
 // that rank high by degree but carry no architectural signal.
+//
+// DERIVED from COMMON_NAMES, not hand-copied. These were two independently
+// maintained lists describing the same thing ("names too ambiguous to trust"),
+// and they had drifted: `main` was in COMMON_NAMES but not here, so the field
+// report's impossible `main` (321 inbound on a C++ repo) sailed straight into
+// HOTSPOTS. denylist.js already carries this exact warning about resolver drift;
+// the analytics surface needed the same treatment.
 export const HOTSPOT_NOISE = new Set([
-  'get', 'set', 'run', 'init', 'test', 'close', 'open', 'read', 'write',
-  'json', 'print', 'log', 'parse', 'constructor', 'send', 'str', 'int',
-  'len', '__init__', '__str__', '__repr__', 'toString',
+  ...COMMON_NAMES,
+  // Additions specific to ranking (degree-noisy but resolvable, so they are not
+  // on the resolver's refusal list).
+  'build', 'process', 'execute', 'handle', 'apply', 'validate', 'render',
+  'toString', 'equals', 'hash', 'size', 'empty', 'begin', 'end', 'next',
 ]);
 
 import { IMPORT_FAMILY, PROVENANCE_CALL_FAMILY } from '../storage/taxonomy.js';
@@ -212,6 +222,64 @@ function degreeMap(db) {
 // computeHotspots — god nodes (top-N by in+out degree).
 // ───────────────────────────────────────────────────────────────────────────
 
+// A fan-in built ONLY from name resolution is an upper bound, not a measurement.
+//
+// Field report (2026-07-27): HOTSPOTS ranked `main` at 321 inbound and `build` at
+// 612 on a C++ repo where `build` has 6 real occurrences. Traced to resolver.js:
+// when a bare call target has exactly ONE label match repo-wide, resolveTarget
+// attaches the edge to it and pickProvenance stamps EXTRACTED — global uniqueness
+// of a NAME is taken as proof of IDENTITY. In C++ that is unsound: `a.build()`
+// and `b.build()` are different methods, and if only one `build` is in the graph,
+// every call site in the repo piles onto it.
+//
+// Fixing identity is a resolver change with repo-wide blast radius (tracked
+// separately as the identifier-position work). What must not wait is the CLAIM.
+// These thresholds decide when a degree is reported as a bound rather than a
+// fact: a symbol reached from many distinct files with no ground-truth edge among
+// them is the exact shape of a collapsed identity.
+const UPPER_BOUND_MIN_FAN_IN = 25;
+const UPPER_BOUND_MIN_SOURCE_FILES = 10;
+const GROUND_TRUTH_PROVENANCE = new Set(['LSP_VERIFIED', 'CODE_INTEL']);
+
+// One grouped query for the whole candidate window — not N per-node queries.
+function inboundEvidence(db, ids) {
+  const evidence = new Map();
+  if (ids.length === 0) return evidence;
+  const params = Object.fromEntries(ids.map((id, i) => [`i${i}`, id]));
+  const rows = db.all(
+    `SELECT to_id AS id, provenance,
+            COUNT(*) AS n,
+            COUNT(DISTINCT source_file) AS files
+     FROM edges
+     WHERE to_id IN (${ids.map((_, i) => `$i${i}`).join(',')})
+     GROUP BY to_id, provenance`,
+    params,
+  );
+  for (const r of rows) {
+    const cur = evidence.get(r.id) ?? { verified: 0, nameResolved: 0, sourceFiles: 0 };
+    if (GROUND_TRUTH_PROVENANCE.has(r.provenance)) cur.verified += r.n;
+    else cur.nameResolved += r.n;
+    // Per-provenance DISTINCT counts do not sum to a true global distinct, so
+    // this is a floor. It is only ever compared against a minimum, so a floor is
+    // the safe direction: it can delay the caveat, never fabricate one.
+    cur.sourceFiles = Math.max(cur.sourceFiles, r.files);
+    evidence.set(r.id, cur);
+  }
+  return evidence;
+}
+
+// Shared wording so graph_digest and the standalone graph_hotspots verb cannot
+// disagree about whether a number is measured or bounded.
+export const UPPER_BOUND_FOOTNOTE =
+  '  ⚠ `≤` marks a fan-in resolved by NAME only, with no ground-truth (LSP/code-intel) edge among the'
+  + ' inbound. A bare name cannot distinguish overloads or same-named methods on different types, so that'
+  + ' degree is a CEILING — verify with code_intel_references before treating the symbol as a hub.';
+
+export function hotspotBoundCaveat(h) {
+  if (!h?.degree_is_upper_bound) return '';
+  return ` ≤ upper bound — ${h.fan_in} inbound from ≥${h.fan_in_source_files} files, 0 verified`;
+}
+
 export function computeHotspots(db, { limit = 15 } = {}) {
   // Degree = incoming + outgoing edges. We restrict to symbol-ish node types
   // and drop the noise denylist. Pull a generous candidate window then filter.
@@ -225,10 +293,15 @@ export function computeHotspots(db, { limit = 15 } = {}) {
     LIMIT $window
   `, { window: Math.max(limit * 4, 60) });
 
-  const hotspots = [];
-  for (const r of rows) {
-    if (HOTSPOT_NOISE.has(r.label)) continue;
-    hotspots.push({
+  const kept = rows.filter((r) => !HOTSPOT_NOISE.has(r.label)).slice(0, limit);
+  const evidence = inboundEvidence(db, kept.map((r) => r.id));
+
+  return kept.map((r) => {
+    const ev = evidence.get(r.id) ?? { verified: 0, nameResolved: 0, sourceFiles: 0 };
+    const unverifiedFanIn = ev.verified === 0
+      && r.fan_in >= UPPER_BOUND_MIN_FAN_IN
+      && ev.sourceFiles >= UPPER_BOUND_MIN_SOURCE_FILES;
+    return {
       id: r.id,
       label: r.label,
       type: r.type,
@@ -236,10 +309,13 @@ export function computeHotspots(db, { limit = 15 } = {}) {
       fan_in: r.fan_in,
       fan_out: r.fan_out,
       degree: r.fan_in + r.fan_out,
-    });
-    if (hotspots.length >= limit) break;
-  }
-  return hotspots;
+      fan_in_verified: ev.verified,
+      fan_in_source_files: ev.sourceFiles,
+      // True → the degree ranking this node is a CEILING. Renderers must not
+      // present it as a measured fan-in.
+      degree_is_upper_bound: unverifiedFanIn,
+    };
+  });
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -670,8 +746,9 @@ export function computeDigest(db, { budget = 6000, architecture = null } = {}) {
   if (hotspots.length) {
     const hs = ['HOTSPOTS (god nodes, by in+out degree)'];
     for (const h of hotspots) {
-      hs.push(`- ${h.label} ${(h.type || '').toLowerCase()} ${h.file_path} (deg ${h.degree}; ${h.fan_in} in / ${h.fan_out} out)`);
+      hs.push(`- ${h.label} ${(h.type || '').toLowerCase()} ${h.file_path} (deg ${h.degree}; ${h.fan_in} in / ${h.fan_out} out)${hotspotBoundCaveat(h)}`);
     }
+    if (hotspots.some((h) => h.degree_is_upper_bound)) hs.push(UPPER_BOUND_FOOTNOTE);
     blocks.push(hs);
   }
 

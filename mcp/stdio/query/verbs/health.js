@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
-import { getDirtyFiles } from '../../freshness/git.js';
+import { getDirtyFileEntries } from '../../freshness/git.js';
 import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
@@ -79,7 +79,16 @@ export async function graphHealth({ repoRoot }) {
   const { manifest } = await loadManifest(graphDir);
   const manifestStatus = manifest?.status ?? 'ok';
   const head = await getHeadCommit(repoRoot).catch(() => null);
-  const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+  // health is the diagnostic verb, so it keeps BOTH numbers and labels them.
+  // `dirtyFiles` (tracked + untracked) still feeds dirty-seam analysis — a new
+  // untracked source file is a genuine seam signal — but the count reported in
+  // the verdict line distinguishes the trust-relevant tracked number from
+  // untracked noise. Unlabelled, a large untracked count reads as snapshot drift
+  // (field report: 592 untracked, 0 tracked modifications).
+  const dirtyEntries = await getDirtyFileEntries(repoRoot).catch(() => []);
+  const dirtyFiles = dirtyEntries.map((e) => e.path);
+  const trackedDirtyFiles = dirtyEntries.filter((e) => !e.untracked).map((e) => e.path);
+  const untrackedDirtyCount = dirtyFiles.length - trackedDirtyFiles.length;
   const stale = Boolean(manifest?.commit && head && manifest.commit !== head);
   const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
 
@@ -323,7 +332,8 @@ export async function graphHealth({ repoRoot }) {
       const orphan = dirtySeams.orphanDirtyFiles > 0 ? `, orphan ${dirtySeams.orphanDirtyFiles}` : '';
       verdicts.push(`dirty-seams: ${preview}${orphan}`);
     } else {
-      verdicts.push(`dirty=${dirtyFiles.length} files`);
+      const untracked = untrackedDirtyCount > 0 ? ` (+${untrackedDirtyCount} untracked, not in graph)` : '';
+      verdicts.push(`dirty=${trackedDirtyFiles.length} tracked${untracked}`);
     }
   }
   if (briefStaleVsManifest) {
@@ -341,6 +351,7 @@ export async function graphHealth({ repoRoot }) {
     nodes,
     edges,
     dirtyFiles,
+    trackedDirtyFiles,
     dirtySeams,
     commit: manifest?.commit ?? null,
     currentHead: head,
