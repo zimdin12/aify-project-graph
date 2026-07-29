@@ -201,12 +201,18 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
     const scored = ranked.slice(0, limit);
     const dropped = ranked.length - scored.length;
 
+    // The hint used to read `limit=${limit + 20}` regardless of how much was
+    // dropped: with 200 candidates and limit=20 it suggested 40, so an agent
+    // following the hint still could not see the set and had no way to know how
+    // many rounds it would take. Name the number that actually shows everything
+    // ranked (bounded by the 100 hard cap, which the suffix below explains).
+    const enough = Math.min(ranked.length, 100);
     const rendered = annotateGenerated(
       renderCompact({
         nodes: scored,
         edges: [],
         truncated: dropped,
-        suggestion: `limit=${limit + 20}`,
+        suggestion: dropped > 0 ? `limit=${enough}` : undefined,
       }),
       scored,
     );

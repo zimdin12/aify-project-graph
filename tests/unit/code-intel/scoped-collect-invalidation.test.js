@@ -85,4 +85,57 @@ describe('scoped collect must not wipe the trust spine', () => {
     // legitimately dropped — the guard must not over-correct into never pruning.
     expect(verifiedCount(db)).toBe(0);
   });
+
+  // SECOND HALF OF THE SAME DEFECT. The references gate above stops a
+  // symbols-only collect, but a run that DID collect references while scoped to
+  // `files: [one.cpp]` still deleted every clangd edge in the repo. It asked
+  // clangd about the symbols in those files and nothing else, so its silence
+  // about the rest of the tree is not evidence of deletion.
+  //
+  // Authority is scoped on the CALLEE side: a scoped run queried `references` for
+  // symbols DEFINED IN the scoped files (those references come back from
+  // anywhere), so the edges it re-observed are those whose target is in scope.
+  const scopedEnvelope = (files) => ({
+    schema_version: '0.2',
+    collectionId: 'c3',
+    status: 'ok',
+    language: 'cpp',
+    projectRoot: dir,
+    providerVersion: '0.1.0',
+    provider: 'cpp-clangd',
+    session: { collectedAt: new Date().toISOString(), scope: { kind: 'files', files } },
+    operations: { references: { status: 'ok', count: 0 } },
+    records: [],
+  });
+
+  it('a references-collecting run scoped to other files leaves out-of-scope edges alone', () => {
+    expect(verifiedCount(db)).toBe(1);
+
+    // The seeded edge TARGETS sim/B.cpp. This run only examined sim/C.cpp.
+    const stats = importV02Collection(scopedEnvelope(['sim/C.cpp']), db);
+
+    expect(verifiedCount(db)).toBe(1);
+    expect(stats.edgesInvalidated).toBe(0);
+    expect(stats.invalidationScopedTo).toBe(1);
+  });
+
+  it('a scoped run DOES invalidate edges targeting its own files', () => {
+    // The guard must not over-correct into never pruning within scope.
+    expect(verifiedCount(db)).toBe(1);
+
+    importV02Collection(scopedEnvelope(['sim/B.cpp']), db);
+
+    expect(verifiedCount(db)).toBe(0);
+  });
+
+  it('a repo-wide run keeps full authority', () => {
+    expect(verifiedCount(db)).toBe(1);
+
+    const envelope = scopedEnvelope([]);
+    envelope.session.scope = { kind: 'repo' };
+    const stats = importV02Collection(envelope, db);
+
+    expect(verifiedCount(db)).toBe(0);
+    expect(stats.invalidationScopedTo).toBeUndefined();
+  });
 });

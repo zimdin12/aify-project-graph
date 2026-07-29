@@ -510,12 +510,37 @@ function synthesizeLspEdges(envelope, db, stats) {
   if (envelope.status === 'ok' && !collectedReferences) {
     out.invalidationSkipped = 'collection did not include the references operation, so it has no authority over CALLS edges — existing [lsp✓] edges preserved';
   }
+
+  // SECOND HALF OF THE SAME DEFECT. The references-operation gate above stops a
+  // symbols-only collect from wiping the spine, but a run that DID collect
+  // references while scoped to `files: [one.cpp]` still deleted every clangd edge
+  // in the repo. It asked clangd about the symbols in those files and nothing
+  // else, so its silence about the rest of the repo is not evidence.
+  //
+  // Authority is scoped on the CALLEE side, not the call site: a scoped run
+  // queried `references` for symbols DEFINED IN the scoped files, and those
+  // references legitimately come back from anywhere in the tree. So the edges it
+  // re-observed are the ones whose `to_id` is a symbol defined in scope.
+  const scope = envelope.session?.scope;
+  const scopedFiles = scope?.kind === 'files' && Array.isArray(scope.files) && scope.files.length > 0
+    ? scope.files.map((f) => String(f).replace(/\\/g, '/'))
+    : null;
+  // Build the scope predicate once. Empty string = unrestricted (repo-wide run).
+  let scopeClause = '';
+  let scopeParams = {};
+  if (scopedFiles) {
+    scopeParams = Object.fromEntries(scopedFiles.map((f, i) => [`sf${i}`, f]));
+    const list = scopedFiles.map((_, i) => `$sf${i}`).join(',');
+    scopeClause = ` AND to_id IN (SELECT id FROM nodes WHERE file_path IN (${list}))`;
+    out.invalidationScopedTo = scopedFiles.length;
+  }
+
   if (completeCollection) {
     // (a) restore promoted (stashed) edges to their heuristic origin.
     const promoted = db.all(
       `SELECT from_id, to_id, relation, extractor FROM edges
-        WHERE provenance = $p AND extractor LIKE $stash`,
-      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%` },
+        WHERE provenance = $p AND extractor LIKE $stash${scopeClause}`,
+      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%`, ...scopeParams },
     );
     for (const row of promoted) {
       const origin = decodeStash(row.extractor);
@@ -533,14 +558,14 @@ function synthesizeLspEdges(envelope, db, stats) {
     // (b) delete only synthesizer-created edges (clean cpp-clangd#% extractor).
     const invalidated = db.get(
       `SELECT count(*) AS c FROM edges
-        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash`,
-      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%` },
+        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash${scopeClause}`,
+      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%`, ...scopeParams },
     );
     out.edgesInvalidated = invalidated?.c ?? 0;
     db.run(
       `DELETE FROM edges
-        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash`,
-      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%` },
+        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash${scopeClause}`,
+      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%`, ...scopeParams },
     );
     // Cheap orphan-node cleanup: drop prior LSP-synthesized symbol nodes that no
     // longer have any edge (real tree-sitter / file nodes are untouched).

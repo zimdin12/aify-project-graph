@@ -36,6 +36,12 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
         `SELECT e.*, n.label AS to_label, n.type AS to_type, n.file_path AS to_file, n.start_line AS to_line
          FROM edges e JOIN nodes n ON n.id = e.to_id
          WHERE e.from_id IN (${placeholders}) AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
+         -- Mirror rankCallees so the SQL cut and the final ranking agree: a
+         -- verified edge late in the body must not be dropped by LIMIT in favour
+         -- of a heuristic one early in it. Without any ORDER BY at all this
+         -- LIMIT truncated arbitrarily.
+         ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
+                  e.source_line, n.label
          LIMIT 100`,
         params
       );
@@ -59,6 +65,8 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
           AND e.to_id = c.to_id
           AND e.relation IN (${EXECUTION_RELATIONS.map((relation) => `'${relation}'`).join(',')})
          JOIN nodes n ON n.id = e.to_id
+         ORDER BY CASE WHEN e.provenance = 'LSP_VERIFIED' THEN 0 ELSE 1 END,
+                  c.depth, e.source_line, n.label
          LIMIT 100`,
         { sid, depth }
       );
@@ -93,7 +101,13 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
 
     let mapped = edges.map(e => ({
       from_id: e.from_id, to_id: e.to_id, relation: e.relation,
+      // Displayed location stays the CALLEE'S DEFINITION — that is where the
+      // agent navigates next.
       source_file: e.to_file, source_line: e.to_line,
+      // The CALL SITE is kept separately for ordering. Overwriting source_line
+      // with the definition line discarded the only field that could express
+      // call order, which is why the list came back scrambled (see rankCallees).
+      call_line: e.source_line ?? null,
       confidence: e.confidence,
       provenance: e.provenance ?? 'EXTRACTED',
       depth: e.depth ?? 1,

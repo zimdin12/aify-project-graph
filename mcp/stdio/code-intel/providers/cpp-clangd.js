@@ -167,7 +167,8 @@ export function createCppClangdProvider({ spawn } = {}) {
       let files;
       let enumStats = null;
       const maxFiles = Number.isFinite(req.maxFiles) ? req.maxFiles : 200;
-      if (req.files && req.files.length > 0) {
+      const explicitFileScope = Boolean(req.files && req.files.length > 0);
+      if (explicitFileScope) {
         files = req.files;
       } else if (req.scope === 'all' || req.scope === 'changed') {
         const enum_ = enumerateFirstParty(compileCmds, projectRoot, { maxFiles, skipBuildDepFilter: !!req.skipBuildDepFilter });
@@ -566,6 +567,16 @@ export function createCppClangdProvider({ spawn } = {}) {
             budgetExhausted,
             filesProcessed,
             filesTotal,
+            // SCOPE OF AUTHORITY. An explicitly-scoped run (`files: [...]`) asked
+            // clangd about the symbols in those files and nothing else; an
+            // enumerated run (`scope: 'all'`) is repo-wide. The envelope used to
+            // look identical either way, so the importer could not tell them
+            // apart and invalidated the whole trust spine from a one-file collect
+            // (see importer.js). Recorded here because the provider is the only
+            // place that knows which branch produced `files`.
+            scope: explicitFileScope
+              ? { kind: 'files', files: files.map((f) => String(f).replace(/\\/g, '/')) }
+              : { kind: 'repo' },
             ...(enumStats ? { enumeration: enumStats } : {})
           },
           operations,

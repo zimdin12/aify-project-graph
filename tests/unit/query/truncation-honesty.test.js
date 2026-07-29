@@ -46,7 +46,11 @@ describe('truncation honesty', () => {
 
     // 40 match, 10 shown — the agent must be told, and told how to see more.
     expect(out).toMatch(/SHOWING 10 of 40/);
-    expect(out).toMatch(/limit=30/);
+    // The hint must name a limit that actually SHOWS the set. This asserted
+    // `limit=30` (a hardcoded limit+20) which pinned a defect: with 200
+    // candidates and limit=20 the hint said 40, so an agent following it still
+    // could not see the set and had no way to know how many rounds it would take.
+    expect(out).toMatch(/limit=40/);
   });
 
   it('graph_search stays quiet when nothing was dropped', async () => {
