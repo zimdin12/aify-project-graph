@@ -315,6 +315,18 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
           edgesCreated: importStats.edgesCreated ?? 0,
           nodesCreated: importStats.nodesCreated ?? 0,
           edgesInvalidated: importStats.edgesInvalidated ?? 0,
+          // WHY 0 INVALIDATED. Without these two fields, "edgesInvalidated: 0"
+          // is ambiguous between "correctly preserved out-of-scope edges" and
+          // "the delete matched nothing at all" — and those look identical while
+          // meaning opposite things about whether the scope guard engaged. A
+          // verification that cannot tell them apart is vacuous, which is the
+          // trap this whole hardening pass has been closing.
+          ...(importStats.invalidationScopedTo != null
+            ? { invalidationScopedTo: importStats.invalidationScopedTo }
+            : {}),
+          ...(importStats.invalidationSkipped
+            ? { invalidationSkipped: importStats.invalidationSkipped }
+            : {}),
         }
       : null,
     index: {

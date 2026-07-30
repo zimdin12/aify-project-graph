@@ -40,9 +40,13 @@ function rangeFromLsp(range) {
   if (!range) return null;
   return { start: { line: range.start.line + 1, col: range.start.character + 1 }, end: { line: range.end.line + 1, col: range.end.character + 1 } };
 }
-function uriToRepoRelative(uri, projectRoot) {
-  try { return toRepoRelative(uri, projectRoot); } catch { return uri; }
-}
+// (Removed) `uriToRepoRelative` lived here with its arguments REVERSED —
+// `toRepoRelative(uri, projectRoot)` — and passing a `file://` URI where a
+// filesystem path was expected. It was never called, which is the only reason it
+// never produced a wrong path. Deleted rather than corrected: a plausible-looking
+// helper with inverted arguments is a trap for the next caller, and the correct
+// implementation already exists as uriToRepoRelativeSafe in
+// ingest/code-intel/paths.js.
 function severityFromLsp(sev) {
   return ({ 1: 'error', 2: 'warning', 3: 'info', 4: 'hint' })[sev] || 'info';
 }

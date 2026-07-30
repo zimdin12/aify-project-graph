@@ -1,7 +1,6 @@
 // Real-clangd integration tests for bounded live verbs. Gated on clangd
 // availability — skips cleanly on hosts where clangd is not installed.
 import { describe, it, expect, afterEach } from 'vitest';
-import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,10 +12,9 @@ import {
 } from '../../../mcp/stdio/query/verbs/code_intel_live.js';
 import { shutdownAllSessions, _resetSessions } from '../../../mcp/stdio/code-intel/live.js';
 
-const clangdAvailable = (() => {
-  const out = spawnSync('clangd', ['--version'], { encoding: 'utf8' });
-  return out.status === 0;
-})();
+// Gate on the PRODUCT's resolver, not on bare PATH — see clangd-gate.js. The old
+// PATH-only check made this whole suite skip on any normal Windows LLVM install.
+import { clangdAvailable, skipReason } from './clangd-gate.js';
 
 function tmpRepo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-live-real-'));
@@ -90,6 +88,6 @@ describe.skipIf(!clangdAvailable)('bounded live verbs (real clangd)', () => {
 
 if (!clangdAvailable) {
   describe('bounded live verbs (real clangd)', () => {
-    it.skip('skipped — clangd not on PATH', () => {});
+    it.skip(`skipped — ${skipReason}`, () => {});
   });
 }

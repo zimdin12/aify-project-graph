@@ -3,7 +3,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
-import { toRepoRelative } from '../../ingest/code-intel/paths.js';
+import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
 import { buildClangdSpawn } from '../resolve-clangd.js';
 import { getHeadCommit } from '../../freshness/git.js';
@@ -81,9 +81,12 @@ function rangeFromLsp(range) {
   };
 }
 
+// Routes through the shared normalizer so a collection cannot record raw
+// `file:///C:/...` URIs (or throw outright) when clangd's canonical path form
+// differs from projectRoot's — 8.3 short names, junctions, drive-letter case.
+// See uriToRepoRelativeSafe.
 function uriToRepoRelative(uri, projectRoot) {
-  const abs = fileURLToPath(uri);
-  return toRepoRelative(projectRoot, abs);
+  return uriToRepoRelativeSafe(uri, projectRoot).path;
 }
 
 function severityFromLsp(sev) {

@@ -12,7 +12,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { getLiveSession } from '../../code-intel/live.js';
 import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
-import { toRepoRelative } from '../../ingest/code-intel/paths.js';
+import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 
 const HINTS = {
@@ -364,8 +364,13 @@ async function waitForReady(session, waitForReadyMs = 0) {
   return session.client.waitForReady(Math.min(Math.max(Number(waitForReadyMs) || 0, 0), 30000));
 }
 
+// A bare `catch { return uri }` here shipped raw `file:///C:/...` URIs as if they
+// were repo-relative paths whenever clangd's canonical form differed from
+// repoRoot's (8.3 short names, junctions, drive-letter case). See
+// uriToRepoRelativeSafe — it normalizes through realpath on both sides and never
+// returns a URI for a path that IS inside the repo.
 function uriToRel(uri, projectRoot) {
-  try { return toRepoRelative(projectRoot, fileURLToPath(uri)); } catch { return uri; }
+  return uriToRepoRelativeSafe(uri, projectRoot).path;
 }
 
 /** Diagnostics for a bounded set of files. */
