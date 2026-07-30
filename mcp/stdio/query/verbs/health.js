@@ -282,17 +282,35 @@ export async function graphHealth({ repoRoot }) {
           let remedy;
           if (clangCl) {
             const binDir = dirname(clangCl.command).replace(/\\/g, '/');
+            // ★ ONE MISSING ENVIRONMENT, SURFACING REPEATEDLY AT INCREASING DEPTH.
+            //
+            // Field-walked end to end (ef-manager, echoes, 2026-07-30). A Ninja
+            // configure outside a developer shell failed three times, each deeper
+            // than the last, on three Windows SDK components that were all INSTALLED
+            // and all off-PATH: rc.exe, then the import libraries (LIB unset), then
+            // fxc.exe fifteen dependencies in.
+            //
+            // Those are not three problems. The Visual Studio generator supplies the
+            // whole SDK environment internally, which is why the real build works and
+            // why nobody notices these are off-PATH. A Ninja configure inherits none
+            // of it and must be handed each piece by hand — so per-tool flags fix one
+            // symptom at a time and the next one appears later and costs more.
+            //
+            // Hence the dev shell is recommended FIRST rather than as a fallback: it
+            // supplies everything at once, which is the actual shape of the problem.
+            // The per-tool overrides remain for hosts without VS installed.
             remedy = 'WHY: if this project\'s Windows build uses the Visual Studio generator it CANNOT emit compile_commands.json '
               + '(only the Makefile/Ninja generators support CMAKE_EXPORT_COMPILE_COMMANDS), so a Linux/WSL DB may be the only one that exists — '
               + 'this is usually not a misconfiguration. '
-              + 'FIX (a SECOND configure alongside your real build, not a replacement): '
+              + 'FIX (a SECOND configure alongside your real build, not a replacement) — run it from a Developer Command Prompt / vcvars64 shell, '
+              + 'because a Ninja configure outside one inherits none of the Windows SDK environment the VS generator supplies internally '
+              + '(rc.exe, the import libs via LIB, fxc.exe are typically installed but off-PATH, and they surface one at a time at increasing depth): '
               + `cmake -B build-win-clangd -G Ninja -DCMAKE_C_COMPILER="${binDir}/clang-cl.exe" `
               + `-DCMAKE_CXX_COMPILER="${binDir}/clang-cl.exe" -DCMAKE_RC_COMPILER="${binDir}/llvm-rc.exe" `
               + '-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DCMAKE_EXPORT_COMPILE_COMMANDS=ON '
-              + '(APG auto-discovers the result; keep the existing build dir). '
-              + 'The C and RC overrides are required because CMake\'s compiler test links; TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY skips that link, '
-              + 'which a compile DB never needed. If a later find_package still requires a real link, run the same command from a vcvars64 shell so LIB/INCLUDE are set. '
-              + 'CHEAPER ALTERNATIVE: APG_CLANGD_WSL=1 drives clangd under WSL against the DB you already have — no second build at all.';
+              + '(TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY skips the compiler test\'s link, which a compile DB never needed. APG auto-discovers the result; keep your existing build dir). '
+              + 'NOTE: on projects that FetchContent their dependencies this configure performs NETWORK DOWNLOADS and is not a side-effect-free local operation. '
+              + 'CHEAPER ALTERNATIVE: APG_CLANGD_WSL=1 drives clangd under WSL against the DB you already have — no second build, no downloads, no dev shell.';
           } else {
             remedy = 'FIX: no clang-cl found in the configured toolchain dir, the standard LLVM install location, or PATH — '
               + 'set APG_CLANGD_WSL=1 to drive clangd inside WSL against this Linux DB (no rebuild needed), '

@@ -115,4 +115,22 @@ describe('resolveClangCl', () => {
     // The no-rebuild path must be offered, since it is cheaper than a second build.
     expect(health).toMatch(/CHEAPER ALTERNATIVE: APG_CLANGD_WSL=1/);
   });
+
+  it('recommends the dev shell FIRST, not as a fallback, and warns about downloads', () => {
+    // Three field failures — rc.exe, then LIB, then fxc.exe fifteen dependencies
+    // in — were ONE missing environment surfacing at increasing depth, not three
+    // problems. The VS generator supplies the whole SDK environment internally; a
+    // Ninja configure inherits none of it. Per-tool flags therefore fix one symptom
+    // at a time and the next appears later and costs more, so the shell that
+    // supplies everything at once belongs first.
+    const health = fs.readFileSync(
+      new URL('../../../mcp/stdio/query/verbs/health.js', import.meta.url),
+      'utf8',
+    );
+    expect(health).toMatch(/run it from a Developer Command Prompt \/ vcvars64 shell/);
+    expect(health).toMatch(/surface one at a time at increasing depth/);
+    // A configure that hits the network is a materially different proposition from
+    // "run this flag" — on a metered or air-gapped host especially.
+    expect(health).toMatch(/performs NETWORK DOWNLOADS/);
+  });
 });
