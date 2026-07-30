@@ -102,3 +102,48 @@ if (!clangdAvailable) {
     it.skip(`skipped — ${skipReason}`, () => {});
   });
 }
+
+// definitionLocations WAS STRUCTURALLY ALWAYS EMPTY.
+//
+// It returned the INTERSECTION of references and definitions — reference entries
+// sitting at a definition location. But references are requested with
+// includeDeclaration=false, so a spec-compliant server never returns the
+// declaration, so the intersection is empty by construction. Only a server IGNORING
+// the flag ever populated it.
+//
+// Meanwhile textDocument/definition was already being called, and its result used
+// ONLY as a filter — the definition was in hand and discarded. A field tester
+// queried a symbol AT its own definition and got [] against a documented contract
+// promising "declaration entries split out" (ef-manager, echoes, 2026-07-30). He
+// isolated it by elimination — full coverage, non-degraded, still zero — which is
+// what made the mechanism findable rather than arguable.
+describe.skipIf(!clangdAvailable)('definitionLocations is populated (real clangd)', () => {
+  it('returns the definition when queried AT the definition', async () => {
+    const repo = tmpRepo();
+    const r = await codeIntelReferences({
+      repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 5,
+      warmupFiles: ['src/bar.cpp', 'src/foo.h'], waitForReadyMs: 15000,
+    });
+    expect(r.status).toBe('ok');
+    expect(r.definitionLocations.length).toBeGreaterThan(0);
+    // And it must say WHERE it came from: "split out of the reference set" and
+    // "resolved by a definition request" are different provenance, and a reader
+    // comparing counts deserves to know which they hold.
+    expect(['definition_request', 'split_from_references']).toContain(r.definitionSource);
+    expect(r.definitionLocations[0].file).toMatch(/foo\.(cpp|h)$/);
+  }, 60000);
+
+  it('callsites and definitions stay disjoint — the split is not double-counting', async () => {
+    const repo = tmpRepo();
+    const r = await codeIntelReferences({
+      repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 5,
+      warmupFiles: ['src/bar.cpp', 'src/foo.h'], waitForReadyMs: 15000,
+    });
+    const callsiteKeys = new Set(r.referenceLocations.map(x => `${x.file}:${x.range.start.line}`));
+    for (const d of r.definitionLocations) {
+      // A definition surfaced via the definition request must not also be counted
+      // as a callsite, or "6 callers" silently becomes 7.
+      expect(callsiteKeys.has(`${d.file}:${d.range.start.line}`)).toBe(false);
+    }
+  }, 60000);
+});

@@ -410,9 +410,34 @@ export async function graphHealth({ repoRoot }) {
         codeIntel.lspVerifiedEdges = verified;
         codeIntel.lspVerifiedPctOfCalls = calls > 0 ? Math.round((verified / calls) * 100) : 0;
         if (calls > 0 && verified === 0) {
+          // ★ SCOPE THE CLAIM TO THE SURFACE IT GOVERNS.
+          //
+          // This said "every caller answer is heuristic-only and CANNOT attest
+          // exhaustiveness". That is true of the STORED GRAPH and false of the LIVE
+          // verbs, which query the language server directly and never touch these
+          // edges. The field caught the pair in one session, minutes apart, on one
+          // server (ef-manager, echoes, 2026-07-30):
+          //
+          //   graph_health           : trust spine EMPTY, CANNOT attest exhaustiveness
+          //   code_intel_references  : exhaustive true, confidence high, degraded false
+          //
+          // Both were correct about different things, and that is precisely why the
+          // pair was harmful: a reader deciding whether to delete a symbol could not
+          // tell which surface governed the decision. An over-broad true statement
+          // is not safer than a false one — it destroys the reader's ability to use
+          // the accurate signal sitting next to it.
+          //
+          // `callerCompletenessTrustworthy` is likewise about the GRAPH spine, so it
+          // is renamed in meaning rather than value: graphCallerCompletenessTrustworthy.
+          // The old key stays for back-compat.
           codeIntel.callerCompletenessTrustworthy = false;
-          verdicts.push('⚠ trust spine EMPTY: 0 of ' + calls + ' CALLS edges are [lsp✓] verified — every caller answer is heuristic-only and CANNOT attest exhaustiveness. '
-            + 'A full reindex drops verified edges; run graph_collect_code_intel to restore them.');
+          codeIntel.graphCallerCompletenessTrustworthy = false;
+          codeIntel.liveVerbsUnaffectedByEmptySpine = true;
+          verdicts.push('⚠ trust spine EMPTY: 0 of ' + calls + ' CALLS edges are [lsp✓] verified — '
+            + 'GRAPH-BACKED caller answers (graph_callers, graph_impact, graph_pull, graph_consequences) are heuristic-only here and cannot attest exhaustiveness. '
+            + 'This does NOT constrain the LIVE verbs: code_intel_references / code_intel_hierarchy query the language server directly and carry their own evidence block — '
+            + 'trust THEIR evidence.exhaustive for a delete decision, not this line. '
+            + 'A full reindex drops verified edges; run graph_collect_code_intel to restore the graph spine.');
         }
         // THE PERCENTAGE IS A FLOOR, AND IT MUST SAY SO IN THE RENDERED LINE.
         //

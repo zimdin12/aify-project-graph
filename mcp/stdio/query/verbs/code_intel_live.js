@@ -515,7 +515,33 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   } catch { /* definition lookup is best-effort; absence shouldn't fail refs */ }
 
   const allRefs = refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' }));
-  const { callsiteLocations, definitionLocations } = splitDefinitionFromReferences(allRefs, defLocations);
+  const split = splitDefinitionFromReferences(allRefs, defLocations);
+  const { callsiteLocations } = split;
+
+  // ★ definitionLocations WAS STRUCTURALLY ALWAYS EMPTY.
+  //
+  // The split returns the INTERSECTION of references and definitions — reference
+  // entries that happen to sit at a definition location. But we request references
+  // with includeDeclaration=false, so a spec-compliant server never returns the
+  // declaration, so the intersection is empty by construction. The only way the
+  // field was ever populated was a server IGNORING the flag.
+  //
+  // Meanwhile textDocument/definition was already being called and its result used
+  // ONLY as a filter — we had the definition in hand and threw it away. A field
+  // tester queried a symbol AT its own definition and got definitionLocations: []
+  // with a documented contract saying "declaration entries split out"
+  // (ef-manager, echoes, 2026-07-30). He isolated it by elimination — full
+  // coverage, non-degraded, still zero — which is what made the mechanism findable.
+  //
+  // Surface what we resolved, and say WHERE it came from, because "split out of the
+  // reference set" and "resolved by a definition request" are different provenance
+  // and a reader comparing counts deserves to know which they have.
+  const definitionLocations = split.definitionLocations.length > 0
+    ? split.definitionLocations
+    : defLocations.map(d => ({ ...d, provenance: 'clangd@live', confidence: 'high' }));
+  const definitionSource = split.definitionLocations.length > 0
+    ? 'split_from_references'
+    : (defLocations.length > 0 ? 'definition_request' : 'none');
   // FALSE-EXHAUSTIVE GUARD: gate the exhaustive claim on whether the compile DB
   // is trustworthy for completeness (native/WSL-clangd + expanded unity), so a
   // partial index over a foreign/unity DB can't be reported as a complete
@@ -568,7 +594,11 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
     warmedFiles: batch.length,
     references: allRefs,                  // compat: full LSP-shape array
     referenceLocations: callsiteLocations, // non-declaration callsites
-    definitionLocations,                   // declaration entries pulled out of refs
+    definitionLocations,                   // the symbol's declaration/definition site(s)
+    // 'split_from_references' (server returned the decl among refs) |
+    // 'definition_request' (resolved via textDocument/definition — the normal case,
+    // since we ask for references with includeDeclaration=false) | 'none'.
+    definitionSource,
     evidence,                              // Plan #14 contract — read this for absence claims
     telemetry: {
       operation: 'references', references: allRefs.length, callsites: callsiteLocations.length,
