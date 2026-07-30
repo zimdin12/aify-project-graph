@@ -88,6 +88,10 @@ function positionFor(sym, projectRoot, rel, loadSourceLines) {
 const DEFAULT_COLLECT_BUDGET_MS = 60000;
 const DEFAULT_MAX_FILES = 200;
 
+// Shared with the clangd provider: a hub symbol's reference set is capped, and the
+// cap is always reported on the record so a capped set reads as a FLOOR.
+const MAX_REFS_PER_SYMBOL = 2000;
+
 /**
  * Run a collection over a standard LSP server.
  * @param {object} o
@@ -150,6 +154,11 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   let budgetExhausted = false;
   let refsFoundSymbols = 0;
   let refsNotFoundSymbols = 0;
+  // Symbols whose relations were DECLINED (position unplaceable) and hubs whose
+  // reference set hit the cap. Reported so a coverage figure over this collection
+  // reads as a FLOOR rather than a rate.
+  let positionGuessSkipped = 0;
+  let refsTruncatedSymbols = 0;
   let anyResult = false;
 
   try {
@@ -183,7 +192,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
 
       for (const sym of symbols) {
         if (overBudget()) { budgetExhausted = true; break; }
-        const { bodyRange, pos } = positionFor(sym, projectRoot, relPath, loadSourceLines);
+        const { bodyRange, pos, positionGuessed } = positionFor(sym, projectRoot, relPath, loadSourceLines);
         const symbolId = symbolIdFor(relPath, pos.line + 1, pos.character + 1);
         const qname = sym.name || '<anon>';
         anyResult = true;
@@ -191,6 +200,24 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
         if (requestedOps.has('symbols')) {
           records.push({ ...recordBase(collectionId, language, prov), kind: 'symbol', symbolId, qname, name: sym.name, file: relPath, range: rangeFromLsp(bodyRange), confidence: 'high', freshness: fresh, result_state: 'found' });
           operations.symbols.count += 1;
+        }
+
+        // A POSITION WE CANNOT PLACE MUST NOT BE QUERIED — same guard the clangd
+        // provider carries. This backend serves TypeScript/JS and Python, and the
+        // failure is language-independent: when the identifier column cannot be
+        // located we fall back to column 0, which is whatever token sits there. The
+        // server answers truthfully about the WRONG symbol and we would record it
+        // under this one. On C++ that produced ~35,190 refs/file against a healthy
+        // ~51 (field, 2026-07-30) — nothing about that mechanism is C++-specific.
+        if (positionGuessed) {
+          positionGuessSkipped += 1;
+          records.push({
+            ...recordBase(collectionId, language, prov), kind: 'symbol', symbolId, qname,
+            name: sym.name, file: relPath, range: rangeFromLsp(bodyRange),
+            confidence: 'low', result_state: 'position_unresolved',
+            note: 'identifier column could not be located; definitions/references were NOT queried',
+          });
+          continue;
         }
         if (requestedOps.has('definitions')) {
           try {
@@ -211,10 +238,20 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
               records.push({ ...recordBase(collectionId, language, prov), kind: 'reference', symbolId, qname, confidence: 'low', result_state: 'not_found_after_retry' });
             } else {
               refsFoundSymbols += 1;
-              for (const ref of refs) {
-                records.push({ ...recordBase(collectionId, language, prov), kind: 'reference', symbolId, qname, file: relativizeUri(ref.uri, realRoot), range: rangeFromLsp(ref.range), context: 'call_expr', confidence: 'high', freshness: fresh, result_state: 'found' });
+              // Per-symbol cap, reported never silent. A widely-used type or a
+              // framework base method returns tens of thousands of references, and
+              // the import is O(records). A silently capped set read as "no other
+              // callers" is the false-completeness failure this codebase exists to
+              // prevent.
+              const kept = refs.slice(0, MAX_REFS_PER_SYMBOL);
+              const droppedRefs = refs.length - kept.length;
+              if (droppedRefs > 0) refsTruncatedSymbols += 1;
+              for (const ref of kept) {
+                records.push({ ...recordBase(collectionId, language, prov), kind: 'reference', symbolId, qname, file: relativizeUri(ref.uri, realRoot), range: rangeFromLsp(ref.range), context: 'call_expr', confidence: 'high', freshness: fresh, result_state: 'found',
+                  ...(droppedRefs > 0 ? { truncated: droppedRefs, totalReferences: refs.length } : {}) });
               }
-              operations.references.count += refs.length;
+              operations.references.count += kept.length;
+              if (droppedRefs > 0) operations.references.status = 'partial';
             }
           } catch { /* per-symbol */ }
         }
@@ -268,6 +305,9 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       // so a non-empty result IS index-ready. Null when nothing resolved.
       indexReady: anyResult ? true : null,
       refsFoundSymbols, refsNotFoundSymbols,
+      // What was never asked — see the guards above. Without these a coverage
+      // percentage over this collection reads as a rate when it is a FLOOR.
+      positionGuessSkipped, refsTruncatedSymbols,
       filesProcessed, filesTotal: files.length,
       enumeration: enumStats,
     },

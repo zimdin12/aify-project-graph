@@ -42,11 +42,16 @@ const db = openExistingDb(dbPath, { readonly: false });
 try {
   const count = (sql) => { try { return db.get(sql).c; } catch { return 0; } };
 
-  // Only clangd-synthesized edges. A hand-authored or tree-sitter edge is not
-  // ours to delete, and LSP_VERIFIED rows carrying a `|was:` stash are PROMOTED
-  // heuristic edges whose origin must be restored rather than dropped.
+  // Only LSP-SYNTHESIZED edges. A hand-authored or tree-sitter edge is not ours to
+  // delete, and LSP_VERIFIED rows carrying a `|was:` stash are PROMOTED heuristic
+  // edges whose origin must be restored rather than dropped.
+  //
+  // Keyed on provenance, NOT on a `cpp-clangd#%` extractor prefix. The prefix
+  // version was silently C++-only: on a TypeScript or Python repo it reported zero
+  // and reset nothing while printing success — a project-specific assumption in a
+  // tool meant for any repo, which is exactly the class this pass has been removing.
   const edges = count(
-    "SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE 'cpp-clangd#%'");
+    "SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED'");
   const promoted = (() => { try {
     return db.get("SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE $s",
       { s: `%${STASH_SEP}%` }).c; } catch { return 0; } })();
@@ -55,7 +60,7 @@ try {
   const ledgerExists = existsSync(ledgerPath(repoRoot));
 
   console.log(`repo:              ${repoRoot}`);
-  console.log(`LSP_VERIFIED edges (cpp-clangd, synthesized): ${edges}`);
+  console.log(`LSP_VERIFIED edges (any backend, synthesized): ${edges}`);
   console.log(`  of which PROMOTED heuristic edges (restored, not deleted): ${promoted}`);
   console.log(`code_intel_records:      ${records}`);
   console.log(`code_intel_collections:  ${collections}`);
@@ -103,7 +108,7 @@ try {
     if (restored !== stashed.length) {
       console.warn(`⚠ ${stashed.length - restored} promoted edge(s) had an undecodable stash and were left as-is (not deleted)`);
     }
-    db.run("DELETE FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $s",
+    db.run("DELETE FROM edges WHERE provenance='LSP_VERIFIED' AND extractor NOT LIKE $s",
       { s: `%${STASH_SEP}%` });
     db.run("DELETE FROM nodes WHERE id LIKE 'ci:lsp:%' AND id NOT IN (SELECT from_id FROM edges UNION SELECT to_id FROM edges)");
     try { db.run('DELETE FROM code_intel_records'); } catch { /* table may not exist */ }

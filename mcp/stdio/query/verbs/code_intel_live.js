@@ -350,12 +350,45 @@ function planAutoPrewarm(session, queriedFile, callerWarmupFiles, prewarmCap) {
 async function batchWarmup(session, files, warmupMs) {
   // Open every requested file before collection — closes the transient
   // unresolved-symbol noise window on newly added cross-file symbols.
-  for (const f of files) await openIfNeeded(session, f);
+  const uris = [];
+  for (const f of files) uris.push(await openIfNeeded(session, f));
+
   // Plan #11 Fix 3: a cold session gets one longer warm-up; warm sessions
   // stay low-latency. Caller may override via warmupMs.
-  let settle = Number.isFinite(warmupMs) ? Math.max(0, warmupMs)
+  const settle = Number.isFinite(warmupMs) ? Math.max(0, warmupMs)
     : (session.warmedOnce ? DEFAULT_WARMUP_MS : COLD_WARMUP_MS);
-  await new Promise(r => setTimeout(r, settle));
+
+  // WAIT FOR THE PARSE SIGNAL, NOT FOR A DURATION.
+  //
+  // This slept a fixed `settle` and called it warm. A fixed sleep is a TIMING
+  // PROXY for "the server has parsed these files", and it is only as good as the
+  // machine is idle: under load — several language servers competing, a busy CI
+  // box — the sleep expires before the AST exists and the cross-TU callers in
+  // those files are legitimately absent from the answer. The caller then gets an
+  // UNDERCOUNT that looks like a complete result, which is the failure this whole
+  // trust layer exists to prevent.
+  //
+  // Surfaced as a test that failed only under full-suite concurrency; the same
+  // race hits a real agent on a loaded machine, silently. clangd's first
+  // diagnostics publish for a URI IS the parse-complete signal, and the hierarchy
+  // verb already uses it for exactly this — so this is applying an existing
+  // mechanism where it was missing, not inventing one.
+  //
+  // Falls back to the sleep when the client cannot report publishes, and the
+  // settle remains the hard ceiling either way, so this can only ever return
+  // sooner or equally warm — never later.
+  const canWaitParse = typeof session.client.waitForDiagnostics === 'function'
+    && typeof session.client.diagnosticPublishCount === 'function';
+  if (canWaitParse && uris.length > 0) {
+    const deadline = Date.now() + settle;
+    await Promise.all(uris.filter(Boolean).map(async (uri) => {
+      if (session.client.diagnosticPublishCount(uri) > 0) return; // already parsed
+      const remaining = deadline - Date.now();
+      if (remaining > 0) await session.client.waitForDiagnostics(uri, 0, remaining);
+    }));
+  } else {
+    await new Promise(r => setTimeout(r, settle));
+  }
   session.warmedOnce = true;
 }
 
