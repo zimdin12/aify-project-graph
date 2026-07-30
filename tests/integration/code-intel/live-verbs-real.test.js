@@ -44,12 +44,23 @@ describe.skipIf(!clangdAvailable)('bounded live verbs (real clangd)', () => {
     // Plan #9b: clangd is started with --background-index=false, so callers
     // in other TUs must be opened via warmupFiles before clangd will return
     // them. Pass the known related files explicitly.
+    // FLAKE FIX, not a mask. This failed once under full-suite concurrency and
+    // passed in isolation and on every rerun. Cause is resource contention: several
+    // real-server integration files each spawn their own language server, so
+    // clangd's warmup for bar.cpp can still be in flight when references is issued
+    // — and a cross-TU caller that is not yet parsed is legitimately absent.
+    //
+    // The honest fix is to wait for the readiness the product already exposes,
+    // rather than retry until green (which would hide a real undercount) or widen
+    // the assertion to accept a missing caller (which would delete the thing this
+    // test exists to check).
     const r = await codeIntelReferences({
       repoRoot: repo,
       file: 'src/foo.cpp',
       line: 1,
       col: 5,
-      warmupFiles: ['src/bar.cpp', 'src/foo.h']
+      warmupFiles: ['src/bar.cpp', 'src/foo.h'],
+      waitForReadyMs: 15000,
     });
     expect(r.status).toBe('ok');
     // Plan #8 / item I: the fixture has exactly one call site (src/bar.cpp:2)
