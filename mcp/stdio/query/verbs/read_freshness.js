@@ -6,6 +6,7 @@ import { getDirtyFileEntries, getHeadCommit } from '../../freshness/git.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { openExistingDb } from '../../storage/db.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
+import { staleProcessWarning } from '../../server-build.js';
 
 // Count commits between the indexed snapshot and current HEAD using the same
 // indexed-commit → HEAD basis graph_health uses for its `stale` verdict. We
@@ -127,6 +128,15 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   }
 
   const warnings = [];
+  // STALE PROCESS FIRST. If this server is executing code that is no longer on
+  // disk, every answer below is suspect — including the freshness answers. It used
+  // to be reported only by graph_health, so a reader who never called that verb
+  // could act on stale-build output indefinitely; sc-manager lost a verification
+  // window to exactly that (2026-07-30). A stale process is not a graph condition,
+  // it is a condition on the whole session, so it belongs on the shared channel
+  // every read verb already prints through.
+  const staleBuild = staleProcessWarning();
+  if (staleBuild) warnings.push(staleBuild);
   const head = await getHeadCommit(repoRoot).catch(() => null);
   const dirtyEntries = await getDirtyFileEntries(repoRoot).catch(() => []);
   const dirtyFiles = dirtyEntries.map((e) => e.path);

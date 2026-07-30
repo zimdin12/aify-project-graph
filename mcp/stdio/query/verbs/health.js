@@ -15,6 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getDirtyFileEntries } from '../../freshness/git.js';
+import { serverBuildInfo } from '../../server-build.js';
 import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
@@ -37,68 +38,13 @@ export function computeTrustLevel(unresolvedEdges) {
 
 // Which BUILD of the server is answering — not which commit of the target repo
 // is indexed. An MCP server process is long-lived and does not hot-reload, so
-// "pushed" and "in effect for this agent" are different states. A field tester
-// hit exactly this: they could only tell their server predated a fix by probing
-// for a behavioural side effect of that fix, which happens to work only when a
-// change is observable in output. Reporting the build makes that a one-call check.
+// "pushed" and "in effect for this agent" are different states.
 //
-// Cached: the build cannot change while this process lives.
-let _serverBuild;
-// .../mcp/stdio/query/verbs/health.js -> repo root
-const _serverRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
-
-function gitAt(root, args) {
-  try {
-    return execFileSync('git', ['-C', root, ...args],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
-  } catch { return null; }
-}
-
-// BUILD IDENTITY IS CAPTURED AT MODULE LOAD — i.e. when this process started and
-// therefore when the CODE NOW RUNNING was read from disk.
-//
-// It used to be read lazily, inside the first graph_health call, from the working
-// directory. That is not the identity of the running code: a long-lived MCP server
-// whose checkout is updated underneath it (git pull, a colleague's push) reports
-// the NEW commit while executing the OLD code. `startedAt` had the same flaw — it
-// recorded the time of the first health call, not process start, so it could not
-// be used to spot the mismatch either.
-//
-// This cost a real run (2026-07-30): sc-manager correctly confirmed
-// `server.commit e341de0` before testing a fix, got behaviour from an older build,
-// and spent a scarce exclusivity window on it. The one field whose entire purpose
-// is answering "which build is answering me" was answering about the filesystem
-// instead. Capturing at load makes the answer true, and comparing against the
-// live tree turns a silent mismatch into a loud one.
-const _processStartedAt = new Date().toISOString();
-const _loadedCommit = gitAt(_serverRoot, ['rev-parse', '--short', 'HEAD']);
-
-function serverBuild() {
-  if (_serverBuild) return _serverBuild;
-  let version = null;
-  try { version = JSON.parse(readFileSync(join(_serverRoot, 'package.json'), 'utf8')).version ?? null; } catch { /* ignore */ }
-  const dirtyOut = gitAt(_serverRoot, ['status', '--porcelain', '--untracked-files=no']);
-  // Read the tree NOW. If it has moved since load, this process is stale: the
-  // reported commit is what is RUNNING, and the tree is what would run after a
-  // restart. Saying so is the difference between a wasted verification window and
-  // a restart.
-  const treeCommit = gitAt(_serverRoot, ['rev-parse', '--short', 'HEAD']);
-  const stale = Boolean(_loadedCommit && treeCommit && _loadedCommit !== treeCommit);
-  _serverBuild = {
-    version,
-    commit: _loadedCommit,
-    dirty: dirtyOut == null ? null : dirtyOut.length > 0,
-    startedAt: _processStartedAt,
-    ...(stale ? {
-      workingTreeCommit: treeCommit,
-      staleProcess: true,
-      staleWarning: `SERVER IS RUNNING STALE CODE: this process loaded ${_loadedCommit} at ${_processStartedAt},`
-        + ` but the checkout is now ${treeCommit}. Answers come from ${_loadedCommit}.`
-        + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.',
-    } : {}),
-  };
-  return _serverBuild;
-}
+// Build identity moved to ../../server-build.js so EVERY surface can carry the
+// stale-process warning, not only this diagnostic verb. A reader who never calls
+// graph_health would otherwise never learn that the answers they are acting on
+// came from code that is no longer on disk.
+const serverBuild = serverBuildInfo;
 
 export async function graphHealth({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
