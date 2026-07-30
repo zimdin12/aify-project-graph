@@ -108,6 +108,29 @@ The bounded `code_intel_*` verbs are the inner loop. The trust spine adds a few 
 - **Virtual dispatch / transitive callers → `code_intel_hierarchy({ symbol, kind })`.** Call hierarchy (who-calls-transitively) and type hierarchy (virtual overrides) in one call. This is the trustworthy transitive path — `graph_callers`/`graph_impact`/`graph_path` cross-link to it for "transitive + LSP-exhaustive". Per-node `[lsp✓]` only stamps when the index is ready; bounded/not-ready mode renders `lsp-partial`. For a `base*->virt()` callsite, clangd resolves to the *declared* type's method — use call hierarchy on the virtual (or hierarchy on the owning class), plus the static `OVERRIDDEN_BY` edges, to see runtime overrides.
 - **Whole call path A→B → `graph_trace({ from, to })`.** Inlines each hop body (`cat -n`) with the call-site line; dynamic-dispatch bridges annotated. When there's no static path it inlines both endpoints + their callers/callees instead of returning 404.
 - **Repo-wide `[lsp✓]` callers → `graph_collect_code_intel({ language:"cpp", scope:"all" })` then `graph_callers`.** The collection imports clangd refs as `LSP_VERIFIED` edges; `graph_callers` (and `graph_pull(layers:["code_intel"])`) then render the `[lsp✓]` marker + TRUST banner on real caller edges. Use this when you want a ranked repo-wide caller set rather than one bounded `code_intel_references` answer. (Collect is time-budgeted and may return `partial` on a cold index — the live verbs remain the unaffected fast path.)
+### Driving a repo-wide collect to completion (and reading its numbers)
+
+A collect is time-budgeted, so on a large repo one call returns `partial`. **Call it
+again — it CONTINUES rather than repeating.** Watch `index.resumedFrom` climb toward
+`index.enumeratedTotal`; `filesProcessed` resets every call and cannot show
+convergence. You are done when `index.filesTotal` is `0`.
+
+- `index.resumeLedger: "active"` means continuation is in play. An explicit
+  `files:[...]` scope deliberately does NOT resume — that is you stating what you
+  want, and a re-run repeats those files. The envelope note says which you got.
+- **`lspVerifiedPctOfCalls` is a FLOOR, not a rate.** Symbols whose identifier
+  position could not be resolved are NOT ASKED — they sit in the denominator and can
+  never reach the numerator. `graph_health` marks this explicitly when it applies.
+  Always read the triple, never the percentage alone:
+  `lspVerifiedPctOfCalls` · `positionGuessSkipped` · `refsTruncatedSymbols`.
+  A skipped symbol is *not asked*, not *asked and found nothing* — only the second
+  is evidence about the code.
+- **If a collection is known-bad**, clearing the resume ledger is NOT enough: it
+  removes the record of which files were collected, not the records themselves.
+  Reset the layer with `node scripts/reset-code-intel.mjs <repoRoot> --dry-run`,
+  check the counts, then `--yes`. It reverts promoted heuristic edges to their
+  origin rather than deleting them, and leaves the structural graph untouched.
+
 - **Shader binding seams → `graph_shader()`.** C++↔GLSL binding bridge (`DECLARES_BINDING` / `LOADS_SHADER`) — finds the CPU declarers/loaders of a shader binding, the seam no plain LSP crosses.
 - **Build-graph queries (CMake) → `graph_callers` / `graph_neighbors` on a `BuildTarget` / `BuildTest` node.** `CMakeLists.txt` / `*.cmake` are now indexed: `add_executable`/`add_library` → `BuildTarget` nodes (kind + sources in `extra`), `add_test` → `BuildTest`, with `LINKS` edges (`target_link_libraries`, between known targets) and `RUNS` edges (`add_test … COMMAND <target>`). So "what does target X link / what links X / which test runs target Y / what does this target depend on" resolves on the graph — the target↔test mapping plain LSP can't see. Appears after a full `graph_index`; it is NOT gated on a version bump, so if your graph predates it run `graph_index(force=true)` once.
 
