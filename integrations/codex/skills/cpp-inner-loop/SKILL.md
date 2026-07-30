@@ -125,6 +125,9 @@ convergence. You are done when `index.filesTotal` is `0`.
   `lspVerifiedPctOfCalls` · `positionGuessSkipped` · `refsTruncatedSymbols`.
   A skipped symbol is *not asked*, not *asked and found nothing* — only the second
   is evidence about the code.
+- **`definitionLocations[]` vs `referenceLocations[]` are DISJOINT.** Do not add them when counting callers. `definitionSource` says where the definition came from: `definition_request` (resolved via textDocument/definition — the normal case, since references are requested with includeDeclaration=false) or `split_from_references`.
+- **A trust-spine-empty verdict from `graph_health` scopes to GRAPH-backed answers only** (graph_callers, graph_impact, graph_pull, graph_consequences). It does NOT constrain the live verbs — they query the language server directly. For a delete decision read `evidence.exhaustive` on `code_intel_references`, not the health summary.
+- **Resume works on TypeScript and Python too**, not just C++: a partial collect continues on re-run, keyed by the tsconfig/mtime freshness basis.
 - **If a collection is known-bad**, clearing the resume ledger is NOT enough: it
   removes the record of which files were collected, not the records themselves.
   Reset the layer with `node scripts/reset-code-intel.mjs <repoRoot> --dry-run`,

@@ -15,6 +15,7 @@ import { LspClient } from '../lsp-client.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf } from '../identifier-position.js';
+import { readLedger, writeLedger, pendingFiles } from '../collect-ledger.js';
 
 function realpath(p) {
   try { return fs.realpathSync.native(p); } catch { return p; }
@@ -120,11 +121,33 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   const maxFiles = Number.isFinite(req.maxFiles) ? req.maxFiles : DEFAULT_MAX_FILES;
   let files;
   let enumStats = null;
+  // Resume bookkeeping — null for an explicit files[] request, which is the caller
+  // stating what they want and must be honored verbatim.
+  let ledger = null;
+  let resumedFrom = 0;
+  let enumeratedTotal = null;
   if (req.files && req.files.length > 0) {
     files = req.files;
   } else if (req.scope === 'all' || req.scope === 'changed') {
     const e = enumerateFiles(projectRoot, { maxFiles });
     files = e.files; enumStats = e.stats;
+    // REAL RESUME, same as the clangd path. Without this a budget-limited TS or
+    // Python collection restarted at file 0 on every call — a warm redo, not a
+    // continuation — and the budget-exhausted note promising otherwise was as
+    // untrue here as it was for C++ before e341de0. The ledger module was already
+    // language-agnostic; it had simply never been wired into this collector, so the
+    // fix reached only one of three backends.
+    //
+    // Keyed by the freshness value (tsconfig hash / mtime basis) rather than a
+    // compile-DB hash, which is this backend's equivalent notion of "the
+    // configuration this coverage was gathered under".
+    if (req.resume !== false) {
+      ledger = readLedger(projectRoot, freshnessValue || freshnessBasis);
+      const split = pendingFiles(files, ledger);
+      resumedFrom = split.alreadyCollected.length;
+      enumeratedTotal = files.length;
+      files = split.remaining;
+    }
   } else {
     return { ...envelopeBase, session: session0, operations: {}, status: 'ok',
       notes: [{ code: 'no_files', message: `no files to collect: pass files[] or scope=all/changed (scope was ${req.scope || 'unset'})` }],
@@ -273,6 +296,11 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
         }
       }
       filesProcessed += 1;
+      // Marked AFTER every requested op ran for this file. Marking earlier would let
+      // a budget cut mid-file record it as done, and the next resume would skip a
+      // file that was never finished — a silent coverage hole, strictly worse than
+      // redoing work.
+      if (ledger) ledger.collected.add(rel);
     }
   } finally {
     try { await client.shutdown(); } catch { /* ignore */ }
@@ -296,6 +324,11 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   if (budgetExhausted) notes.push({ code: 'budget_exhausted', message: `partial: ${filesProcessed}/${files.length} files within ${budgetMs}ms — run graph_collect_code_intel again to continue.` });
   if (enumTruncated) notes.push({ code: 'enumeration_truncated', message: `partial: enumeration capped at ${enumStats.after_filter}/${enumStats.total} files (max_files=${enumStats.max_files}) — raise maxFiles or pass an explicit files[] for full coverage. Caller sets are a FLOOR.` });
 
+  // Persist the resume point BEFORE assembling the envelope, so a caller who kills
+  // us after the response still keeps the progress. Best-effort by design: a write
+  // failure degrades to redoing work, never to a failed collection.
+  if (ledger) writeLedger(projectRoot, ledger, collectedAt);
+
   return {
     ...envelopeBase,
     session: {
@@ -309,6 +342,9 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       // percentage over this collection reads as a rate when it is a FLOOR.
       positionGuessSkipped, refsTruncatedSymbols,
       filesProcessed, filesTotal: files.length,
+      // Resume state — resumedFrom climbing toward enumeratedTotal is the
+      // convergence signal; filesProcessed resets every call and cannot show it.
+      resumedFrom, enumeratedTotal, resumeLedger: ledger ? 'active' : 'not_used',
       enumeration: enumStats,
     },
     operations,
