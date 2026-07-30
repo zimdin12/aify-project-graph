@@ -160,6 +160,11 @@ const IMPORT_BUDGET_SHARE = 0.35;
 // collect and reported as overrun than split into two useless halves.
 const MIN_COLLECT_BUDGET_MS = 5000;
 
+// Records-per-file above which a collection looks like a per-symbol blowup rather
+// than a big repo. Healthy C++ measures ~50-150/file; the 2026-07-30 explosion hit
+// ~7,200/file. Set well clear of both so it fires on the class, not on outliers.
+const RECORDS_PER_FILE_ANOMALY = 1000;
+
 export function splitCollectBudget(budgetMs) {
   const total = Number(budgetMs);
   if (!Number.isFinite(total) || total <= 0) return { collectBudgetMs: null, importReserveMs: 0 };
@@ -219,6 +224,7 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   let importStats = null;
   let edgeSample = [];
   let importError = null;
+  let explosionWarning = null;
   const importStartedAt = Date.now();
   try {
     const graphDir = join(repoRoot, '.aify-graph');
@@ -243,6 +249,37 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
     // code-intel-*.json envelopes measured on that repo).
     const db = openExistingDb(dbPath, { readonly: false });
     try {
+      // EXPLOSION CANARY, checked BEFORE the import rather than inferred from its
+      // duration afterwards.
+      //
+      // The import is O(records) and cannot be safely truncated: a half-imported
+      // collection is missing edges, and missing edges read as "no callers" — the
+      // exact false-absence this tool exists to prevent. So the bound belongs on
+      // the INPUT, and the budget split already caps the collect phase that
+      // produces it.
+      //
+      // What that split cannot catch is a per-symbol BLOWUP, where few files yield
+      // enormous records. That is what happened on 2026-07-30: guessed identifier
+      // positions made clangd answer about the wrong symbol, and 46 files produced
+      // 330,794 records and a 6.3-minute import against a 100s budget. The fix for
+      // the cause shipped (103020f) and the same batch now yields ~7,400 records in
+      // 2.3s — but a canary is what turns the NEXT bug of that class into a
+      // reported anomaly instead of a mysterious stall.
+      //
+      // Warn rather than refuse: a genuinely huge repo is allowed to be huge, and a
+      // refusal here would block real work over a heuristic.
+      const recordCount = Array.isArray(result.records) ? result.records.length : 0;
+      const filesSeen = Number(result.session?.filesProcessed) || 0;
+      const perFile = filesSeen > 0 ? recordCount / filesSeen : 0;
+      if (perFile > RECORDS_PER_FILE_ANOMALY) {
+        explosionWarning = {
+          code: 'record_volume_anomaly',
+          message: `${recordCount} records from ${filesSeen} files (~${Math.round(perFile)}/file) is far above the typical ~50-150/file`
+            + ' — this is the signature of a per-symbol reference blowup, not a large repo.',
+          hint: 'check index.positionGuessSkipped and index.refsTruncatedSymbols in this response;'
+            + ' a high guess count means symbols were queried at positions that could not be placed, so the references may belong to the wrong symbols.',
+        };
+      }
       importStats = importV02Collection(result, db);
       edgeSample = sampleLspEdges(db, { cap: 10 });
     } finally { db.close(); }
@@ -276,6 +313,7 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   // in the DB; use code_intel_replay / graph_pull's code_intel layer for them.
   const errors = [];
   if (importError) errors.push(importError);
+  if (explosionWarning) notes.push(explosionWarning);
   if (budgetNote && !errors.some(e => e.code === 'budget_exhausted')) errors.push(budgetNote);
 
   // NAME THE PHASE THAT OVERRAN. Without this the caller sees a collect phase
