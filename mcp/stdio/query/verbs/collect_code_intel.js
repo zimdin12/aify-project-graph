@@ -136,6 +136,38 @@ export function detectRepoLanguage(repoRoot) {
   return null;
 }
 
+// THE BUDGET IS FOR THE VERB, NOT FOR ONE PHASE OF IT.
+//
+// `budgetMs` was threaded to runCollection only. The IMPORT that follows is
+// unbounded and O(records) — on a 1.35M-record collection it dominates the wall
+// clock. The observable result: the collect phase honestly reports
+// `budgetExhausted: false` while the verb runs for half an hour, and the caller
+// has no field telling them which phase ate the time. Sand Castle's full collect
+// blew a 1800s host abort with the collect phase reporting itself well inside
+// budget — which is the same shape of lie the exhaustiveness work removed, a green
+// signal over an operation that did not fit.
+//
+// Two changes, both cheap:
+//   1. When a caller sets budgetMs, reserve a share of it for the import so the
+//      collection stops early enough that the WHOLE verb fits. A budget the verb
+//      routinely overruns is not a budget.
+//   2. Always report measured `timings`, so the phase that overran is a number
+//      rather than an inference. This is what makes the reserve share tunable with
+//      evidence instead of by feel.
+const IMPORT_BUDGET_SHARE = 0.35;
+// Never starve the collect phase into uselessness: below this it cannot warm
+// clangd and resolve anything, so a tiny budget is better spent entirely on the
+// collect and reported as overrun than split into two useless halves.
+const MIN_COLLECT_BUDGET_MS = 5000;
+
+export function splitCollectBudget(budgetMs) {
+  const total = Number(budgetMs);
+  if (!Number.isFinite(total) || total <= 0) return { collectBudgetMs: null, importReserveMs: 0 };
+  const collect = Math.round(total * (1 - IMPORT_BUDGET_SHARE));
+  if (collect < MIN_COLLECT_BUDGET_MS) return { collectBudgetMs: total, importReserveMs: 0 };
+  return { collectBudgetMs: collect, importReserveMs: total - collect };
+}
+
 export async function graphCollectCodeIntel({ repoRoot, language, scope = 'changed', files, since, operations, budgetMs }) {
   if (!repoRoot) return { schema_version: '0.2', status: 'error', errors: [{ code: 'internal_error', message: 'repoRoot required' }], records: [] };
 
@@ -153,6 +185,11 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   // P0-1: thread the optional total time budget down to the provider so the
   // collect ALWAYS returns inside it (default ~40s via APG_COLLECT_BUDGET_MS),
   // never blocking past the MCP host's tool-call timeout on a cold index.
+  //
+  // The provider only ever sees the COLLECT share — the rest is held back for the
+  // import, which used to run outside every bound (see splitCollectBudget).
+  const { collectBudgetMs, importReserveMs } = splitCollectBudget(budgetMs);
+  const collectStartedAt = Date.now();
   const result = await runCollection({
     language,
     projectRoot: repoRoot,
@@ -160,8 +197,9 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
     files: Array.isArray(files) && files.length > 0 ? files : undefined,
     since,
     operations: operations || ['definitions', 'references', 'diagnostics'],
-    ...(Number.isFinite(Number(budgetMs)) ? { budgetMs: Number(budgetMs) } : {})
+    ...(collectBudgetMs != null ? { budgetMs: collectBudgetMs } : {})
   });
+  const collectMs = Date.now() - collectStartedAt;
 
   // An error envelope carries no records and is already tiny — return as-is so
   // the error code/message reaches the agent unchanged (no import attempted).
@@ -181,6 +219,7 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   let importStats = null;
   let edgeSample = [];
   let importError = null;
+  const importStartedAt = Date.now();
   try {
     const graphDir = join(repoRoot, '.aify-graph');
     mkdirSync(graphDir, { recursive: true });
@@ -210,6 +249,8 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   } catch (err) {
     importError = { code: 'internal_error', message: `import failed: ${err.message}`, hint: 'collection succeeded but local import failed; re-run or import manually' };
   }
+  const importMs = Date.now() - importStartedAt;
+  const totalMs = collectMs + importMs;
 
   // P0-1: when the provider hit the time budget, surface the resume note so MCP
   // hosts/agents that only render errors still get the "run again to complete"
@@ -236,6 +277,23 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   const errors = [];
   if (importError) errors.push(importError);
   if (budgetNote && !errors.some(e => e.code === 'budget_exhausted')) errors.push(budgetNote);
+
+  // NAME THE PHASE THAT OVERRAN. Without this the caller sees a collect phase
+  // reporting itself inside budget next to a verb that took far longer, and has to
+  // guess. A measured attribution is the difference between "APG is slow" and
+  // "the import is O(records) and this collection had 1.35M of them".
+  if (Number.isFinite(Number(budgetMs)) && Number(budgetMs) > 0 && totalMs > Number(budgetMs)) {
+    const worst = importMs > collectMs ? 'import' : 'collect';
+    notes.push({
+      code: 'budget_overrun',
+      message: `verb took ${totalMs}ms against a ${Number(budgetMs)}ms budget (collect ${collectMs}ms, import ${importMs}ms)`
+        + ` — the ${worst} phase dominated.`,
+      hint: worst === 'import'
+        ? `the import is O(records) and this collection produced ${Array.isArray(result.records) ? result.records.length : 0};`
+          + ' narrow with files[] or a smaller scope, or raise budgetMs — the collect phase alone cannot bound it'
+        : 'raise budgetMs, or narrow scope/files[] so the collect phase converges sooner',
+    });
+  }
 
   const summary = {
     schema_version: '0.2',
@@ -265,6 +323,21 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
       budgetExhausted: !!sess.budgetExhausted,
       filesProcessed: sess.filesProcessed ?? null,
       filesTotal: sess.filesTotal ?? null,
+      // How many symbols were queried at a GUESSED position because their
+      // identifier column could not be located. Non-zero means some answers in
+      // this collection are not ground truth (see identifier-position.js).
+      positionGuesses: sess.positionGuesses ?? null,
+    },
+    // MEASURED, always. The import used to be invisible: a caller could see a
+    // collect phase inside its budget next to a verb that ran for half an hour and
+    // had no field to attribute it with.
+    timings: {
+      collectMs,
+      importMs,
+      totalMs,
+      budgetMs: Number.isFinite(Number(budgetMs)) ? Number(budgetMs) : null,
+      collectBudgetMs,
+      importReserveMs,
     },
     sampleEdges: edgeSample, // ≤10 created LSP_VERIFIED CALLS edges (concrete evidence)
     recordCount: Array.isArray(result.records) ? result.records.length : 0,
