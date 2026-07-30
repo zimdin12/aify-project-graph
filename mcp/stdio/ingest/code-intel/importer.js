@@ -522,20 +522,37 @@ function synthesizeLspEdges(envelope, db, stats) {
   // references legitimately come back from anywhere in the tree. So the edges it
   // re-observed are the ones whose `to_id` is a symbol defined in scope.
   const scope = envelope.session?.scope;
-  const scopedFiles = scope?.kind === 'files' && Array.isArray(scope.files) && scope.files.length > 0
+  const declaredFileScope = scope?.kind === 'files' && Array.isArray(scope.files);
+  const scopedFiles = declaredFileScope
     ? scope.files.map((f) => String(f).replace(/\\/g, '/'))
     : null;
+
+  // EMPTY SCOPE MEANS ZERO AUTHORITY, NOT UNLIMITED AUTHORITY.
+  //
+  // This read `scope.files.length > 0 ? scoped : null`, so a run declaring
+  // `{kind:'files', files: []}` fell through to REPO-WIDE invalidation — the
+  // maximum authority, from a run that walked nothing. Classic fail-open.
+  //
+  // It is reachable exactly where it hurts most: the last call of a resumed
+  // sequence, when the ledger says every file is already collected. That call
+  // holds no records, so it deleted every clangd edge in the graph and recreated
+  // nothing. Caught by the regression test written for the resume/invalidation
+  // interaction — 4 verified edges to 0 on a converged repo.
+  const walkedNothing = declaredFileScope && scopedFiles.length === 0;
+  if (walkedNothing) {
+    out.invalidationSkipped = 'collection walked no files (already converged), so it has authority over nothing — existing [lsp✓] edges preserved';
+  }
   // Build the scope predicate once. Empty string = unrestricted (repo-wide run).
   let scopeClause = '';
   let scopeParams = {};
-  if (scopedFiles) {
+  if (scopedFiles && scopedFiles.length > 0) {
     scopeParams = Object.fromEntries(scopedFiles.map((f, i) => [`sf${i}`, f]));
     const list = scopedFiles.map((_, i) => `$sf${i}`).join(',');
     scopeClause = ` AND to_id IN (SELECT id FROM nodes WHERE file_path IN (${list}))`;
     out.invalidationScopedTo = scopedFiles.length;
   }
 
-  if (completeCollection) {
+  if (completeCollection && !walkedNothing) {
     // (a) restore promoted (stashed) edges to their heuristic origin.
     const promoted = db.all(
       `SELECT from_id, to_id, relation, extractor FROM edges

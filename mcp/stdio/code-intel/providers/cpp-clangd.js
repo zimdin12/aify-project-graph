@@ -696,7 +696,19 @@ export function createCppClangdProvider({ spawn } = {}) {
             // apart and invalidated the whole trust spine from a one-file collect
             // (see importer.js). Recorded here because the provider is the only
             // place that knows which branch produced `files`.
-            scope: explicitFileScope
+            // AUTHORITY IS WHAT THIS CALL ACTUALLY WALKED, not what it enumerated.
+            //
+            // A resumed run is a SLICE by construction: e341de0 made repeated calls
+            // each cover the remaining files, so an enumerated run that reports
+            // `ok` may hold records for only the last handful. Claiming repo-wide
+            // authority there would make the importer invalidate every clangd edge
+            // in the graph and recreate only that final slice — destroying the
+            // earlier batches the resume just spent effort collecting. Resume and
+            // repo-wide invalidation are safe individually and lethal together.
+            //
+            // So: repo-wide ONLY when this single call walked the whole enumerated
+            // set from a cold ledger. Otherwise the scope is the files it walked.
+            scope: (explicitFileScope || resumedFrom > 0 || (enumeratedTotal != null && files.length < enumeratedTotal))
               ? { kind: 'files', files: files.map((f) => String(f).replace(/\\/g, '/')) }
               : { kind: 'repo' },
             ...(enumStats ? { enumeration: enumStats } : {})

@@ -254,3 +254,46 @@ if (!clangdAvailable) {
     it.skip(`skipped — ${skipReason}`, () => {});
   });
 }
+
+// RESUME + REPO-WIDE INVALIDATION ARE SAFE ALONE AND LETHAL TOGETHER.
+//
+// e341de0 made a scope=all run a SLICE by construction: each call covers only the
+// remaining files. But an enumerated run declared `scope: {kind:'repo'}`, so the
+// final call — holding records for just the last handful — would have claimed
+// repo-wide authority, invalidated every clangd edge in the graph, and recreated
+// only its own slice. That destroys exactly the batches the resume just paid for.
+//
+// Authority is what a call actually WALKED, never what it enumerated.
+describe.skipIf(!clangdAvailable)('resumed slices do not claim repo-wide authority', () => {
+  it('a resumed call scopes its authority to the files it walked', async () => {
+    const repo = cppRepo();
+
+    // Force a slice: tiny budget stops partway, so call 2 resumes.
+    await graphCollectCodeIntel({
+      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 9000,
+      operations: ['definitions', 'references', 'diagnostics'],
+    });
+    const afterFirst = verifiedEdgeCount(repo);
+    expect(afterFirst).toBeGreaterThan(0);
+
+    const second = await graphCollectCodeIntel({
+      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 30000,
+      operations: ['definitions', 'references', 'diagnostics'],
+    });
+    expect(second.index.resumedFrom).toBeGreaterThan(0);
+
+    // The resumed call must NOT have wiped the first batch's edges.
+    expect(verifiedEdgeCount(repo)).toBeGreaterThanOrEqual(afterFirst);
+  }, 240000);
+
+  it('a single call that walks the WHOLE enumerated set keeps repo-wide authority', async () => {
+    // The guard must not over-correct: a cold, complete, one-shot run is exactly
+    // the case where repo-wide invalidation is correct.
+    const repo = cppRepo();
+    const envelope = await runCollection({
+      language: 'cpp', projectRoot: repo, scope: 'all',
+      operations: ['definitions', 'references', 'diagnostics'],
+    });
+    expect(envelope.session.scope).toEqual({ kind: 'repo' });
+  }, 240000);
+});
