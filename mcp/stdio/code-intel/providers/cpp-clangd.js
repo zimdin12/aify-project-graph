@@ -35,6 +35,12 @@ const DEFAULT_COLLECT_BUDGET_MS = 40000;
 // verb) the local import all complete inside the budget rather than racing it.
 const BUDGET_TAIL_RESERVE_MS = 3000;
 
+// Per-symbol reference cap. A hub symbol can return tens of thousands of
+// references; every one becomes a record and the import is O(records). Truncation
+// is always REPORTED on the record (truncated/totalReferences) so a capped set is
+// read as a FLOOR, never as a complete answer.
+const MAX_REFS_PER_SYMBOL = 2000;
+
 function resolveClangdMode() {
   const raw = String(process.env.APG_CLANGD_MODE || 'indexed').trim().toLowerCase();
   return raw === 'bounded' ? 'bounded' : 'indexed';
@@ -320,6 +326,10 @@ export function createCppClangdProvider({ spawn } = {}) {
         // envelope: a clangd answer at a guessed position is not ground truth, and
         // silence about that is how a type-reference became a CALLS [lsp✓] edge.
         let positionGuesses = 0;
+        // Symbols whose relations were DECLINED because their position was
+        // guessed, and symbols whose reference set hit the cap.
+        let positionGuessSkipped = 0;
+        let refsTruncatedSymbols = 0;
 
         // For each file: try documentSymbol → definitions / references / hover at top symbol position.
         for (const op of ['definitions', 'references', 'hover', 'symbols']) {
@@ -382,6 +392,7 @@ export function createCppClangdProvider({ spawn } = {}) {
             // has location.range covering the whole body). DocumentSymbol[]
             // has selectionRange pointing at the identifier directly.
             let bodyRange, pos;
+            let posGuessed = false;
             if (sym.location && sym.location.range) {
               // SymbolInformation. Body range covers the whole declaration;
               // the identifier column is not directly known. Find the leaf
@@ -390,7 +401,8 @@ export function createCppClangdProvider({ spawn } = {}) {
               // than (0,0) since the line is still correct.
               bodyRange = sym.location.range;
               const found = findIdentifierPosition(loadSourceLines(), bodyRange.start.line, leafNameOf(sym.name));
-              if (found.guessed) positionGuesses += 1;
+              posGuessed = found.guessed;
+              if (posGuessed) positionGuesses += 1;
               pos = { line: found.line, character: found.character };
             } else {
               bodyRange = sym.selectionRange || sym.range || { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
@@ -409,6 +421,41 @@ export function createCppClangdProvider({ spawn } = {}) {
                 freshness: `compile_db_hash:${dbHash}`, result_state: 'found'
               });
               operations.symbols.count += 1;
+            }
+
+            // A GUESSED POSITION MUST NOT BE QUERIED FOR RELATIONS.
+            //
+            // When the identifier column cannot be located we fall back to column
+            // 0 of the declaration line — which is whatever token happens to sit
+            // there: a return type, a namespace, a macro. Asking clangd for
+            // definitions/references AT that position returns a truthful answer
+            // about the WRONG SYMBOL, and we were recording it under this symbol's
+            // id. For a common type that is tens of thousands of references.
+            //
+            // Field measurement (sc-manager, 2026-07-30) — two adjacent batches of
+            // the same repo, minutes apart, one server process:
+            //     files 1-60    3,083 refs   (~51/file)     55 guessed positions
+            //     files 61-106  1,618,718 refs (~35,190/file) 1,412 guessed
+            // A 500x per-file discontinuity moving in lockstep with the guess
+            // count. He reported the DISCONTINUITY rather than judging 1.6M
+            // implausible for templated C++, which is what made it diagnosable.
+            //
+            // The symbol record still stands — documentSymbol told us it exists.
+            // What we decline to do is attribute relations we cannot place.
+            if (posGuessed) {
+              positionGuessSkipped += 1;
+              records.push({
+                schema_version: '0.2', collectionId, kind: 'symbol',
+                language: 'cpp', symbolId, qname, name: sym.name, file: rel,
+                range: rangeFromLsp(range),
+                confidence: 'low', provenance: `${PROVIDER_NAME}@${PROVIDER_VERSION}`,
+                freshness: `compile_db_hash:${dbHash}`,
+                result_state: 'position_unresolved',
+                note: 'identifier column could not be located on the declaration line;'
+                  + ' definitions/references were NOT queried because a position we cannot place'
+                  + ' returns answers about a different symbol',
+              });
+              continue;
             }
 
             if (requestedOps.has('definitions')) {
@@ -449,7 +496,21 @@ export function createCppClangdProvider({ spawn } = {}) {
                   });
                 } else {
                   refsFoundSymbols += 1;
-                  for (const ref of refs) {
+                  // PER-SYMBOL CAP. Even at a correctly-placed position, a genuine
+                  // hub (a widely-used type, a base-class method) can return tens
+                  // of thousands of references. Every one becomes a record and the
+                  // import is O(records), so a handful of hubs can dominate the
+                  // whole collection: 330,794 records imported in one 46-file batch
+                  // took 6.3 minutes against a 100s budget (field, 2026-07-30).
+                  //
+                  // Truncation is REPORTED per record, never silent — a capped set
+                  // is a FLOOR, and a downstream "no other callers" read off a
+                  // silently-capped set would be exactly the false-completeness
+                  // failure this codebase exists to prevent.
+                  const kept = refs.slice(0, MAX_REFS_PER_SYMBOL);
+                  const droppedRefs = refs.length - kept.length;
+                  if (droppedRefs > 0) refsTruncatedSymbols += 1;
+                  for (const ref of kept) {
                     records.push({
                       schema_version: '0.2', collectionId, kind: 'reference',
                       language: 'cpp', symbolId, qname,
@@ -459,11 +520,13 @@ export function createCppClangdProvider({ spawn } = {}) {
                       confidence: deriveConfidence('reference', 'call_expr'),
                       provenance: `${PROVIDER_NAME}@${PROVIDER_VERSION}`,
                       freshness: `compile_db_hash:${dbHash}`,
-                      result_state: 'found'
+                      result_state: 'found',
+                      ...(droppedRefs > 0 ? { truncated: droppedRefs, totalReferences: refs.length } : {}),
                     });
                   }
+                  operations.references.count += kept.length;
+                  if (droppedRefs > 0) operations.references.status = 'partial';
                 }
-                operations.references.count += refs.length;
               } catch { /* swallow per-symbol */ }
             }
 
@@ -605,6 +668,8 @@ export function createCppClangdProvider({ spawn } = {}) {
             refsFoundSymbols,
             refsNotFoundSymbols,
             positionGuesses,
+            positionGuessSkipped,
+            refsTruncatedSymbols,
             // P0-1 — total-budget + resume signal. budgetExhausted=true means
             // the call returned partial because the budget was hit before the
             // index was ready and/or all files were processed; a warm re-run
