@@ -44,22 +44,59 @@ export function computeTrustLevel(unresolvedEdges) {
 //
 // Cached: the build cannot change while this process lives.
 let _serverBuild;
+// .../mcp/stdio/query/verbs/health.js -> repo root
+const _serverRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..', '..');
+
+function gitAt(root, args) {
+  try {
+    return execFileSync('git', ['-C', root, ...args],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
+  } catch { return null; }
+}
+
+// BUILD IDENTITY IS CAPTURED AT MODULE LOAD — i.e. when this process started and
+// therefore when the CODE NOW RUNNING was read from disk.
+//
+// It used to be read lazily, inside the first graph_health call, from the working
+// directory. That is not the identity of the running code: a long-lived MCP server
+// whose checkout is updated underneath it (git pull, a colleague's push) reports
+// the NEW commit while executing the OLD code. `startedAt` had the same flaw — it
+// recorded the time of the first health call, not process start, so it could not
+// be used to spot the mismatch either.
+//
+// This cost a real run (2026-07-30): sc-manager correctly confirmed
+// `server.commit e341de0` before testing a fix, got behaviour from an older build,
+// and spent a scarce exclusivity window on it. The one field whose entire purpose
+// is answering "which build is answering me" was answering about the filesystem
+// instead. Capturing at load makes the answer true, and comparing against the
+// live tree turns a silent mismatch into a loud one.
+const _processStartedAt = new Date().toISOString();
+const _loadedCommit = gitAt(_serverRoot, ['rev-parse', '--short', 'HEAD']);
+
 function serverBuild() {
   if (_serverBuild) return _serverBuild;
-  // .../mcp/stdio/query/verbs/health.js -> repo root
-  const here = dirname(fileURLToPath(import.meta.url));
-  const root = join(here, '..', '..', '..', '..');
   let version = null;
-  try { version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version ?? null; } catch { /* ignore */ }
-  let commit = null;
-  let dirty = null;
-  try {
-    commit = execFileSync('git', ['-C', root, 'rev-parse', '--short', 'HEAD'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim() || null;
-    dirty = execFileSync('git', ['-C', root, 'status', '--porcelain', '--untracked-files=no'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim().length > 0;
-  } catch { /* not a git checkout (installed copy) — version alone still identifies it */ }
-  _serverBuild = { version, commit, dirty, startedAt: new Date().toISOString() };
+  try { version = JSON.parse(readFileSync(join(_serverRoot, 'package.json'), 'utf8')).version ?? null; } catch { /* ignore */ }
+  const dirtyOut = gitAt(_serverRoot, ['status', '--porcelain', '--untracked-files=no']);
+  // Read the tree NOW. If it has moved since load, this process is stale: the
+  // reported commit is what is RUNNING, and the tree is what would run after a
+  // restart. Saying so is the difference between a wasted verification window and
+  // a restart.
+  const treeCommit = gitAt(_serverRoot, ['rev-parse', '--short', 'HEAD']);
+  const stale = Boolean(_loadedCommit && treeCommit && _loadedCommit !== treeCommit);
+  _serverBuild = {
+    version,
+    commit: _loadedCommit,
+    dirty: dirtyOut == null ? null : dirtyOut.length > 0,
+    startedAt: _processStartedAt,
+    ...(stale ? {
+      workingTreeCommit: treeCommit,
+      staleProcess: true,
+      staleWarning: `SERVER IS RUNNING STALE CODE: this process loaded ${_loadedCommit} at ${_processStartedAt},`
+        + ` but the checkout is now ${treeCommit}. Answers come from ${_loadedCommit}.`
+        + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.',
+    } : {}),
+  };
   return _serverBuild;
 }
 
@@ -199,6 +236,11 @@ export async function graphHealth({ repoRoot }) {
   // interpret several numeric fields. Each axis states a decision, not a
   // measurement.
   const verdicts = [];
+  // FIRST, above everything. If the running process is older than the checkout,
+  // every other verdict below describes the OLD build — and a reader comparing
+  // behaviour against a newly-landed fix will attribute the wrong result to it.
+  const _build = serverBuild();
+  if (_build.staleProcess) verdicts.push(`⛔ ${_build.staleWarning}`);
   verdicts.push(`nodes=${nodes} edges=${edges}`);
 
   // Proactive foreign-toolchain warning (Sand Castle live finding 1). On win32 a
