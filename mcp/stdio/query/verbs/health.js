@@ -146,6 +146,11 @@ export async function graphHealth({ repoRoot }) {
           indexedCommit: latest.indexedCommit,
           collectedAt: latest.collectedAt,
           operations: latest.operations,
+          // The coverage figure below is a FLOOR, not a rate. These say how much
+          // was never asked, so a reader does not mistake declined work for absent
+          // callers. Reported as a pair with the percentage, never as a footnote.
+          positionGuessSkipped: latest.positionGuessSkipped,
+          refsTruncatedSymbols: latest.refsTruncatedSymbols,
         };
       }
     } finally { db.close(); }
@@ -280,6 +285,25 @@ export async function graphHealth({ repoRoot }) {
           codeIntel.callerCompletenessTrustworthy = false;
           verdicts.push('⚠ trust spine EMPTY: 0 of ' + calls + ' CALLS edges are [lsp✓] verified — every caller answer is heuristic-only and CANNOT attest exhaustiveness. '
             + 'A full reindex drops verified edges; run graph_collect_code_intel to restore them.');
+        }
+        // THE PERCENTAGE IS A FLOOR, AND IT MUST SAY SO IN THE RENDERED LINE.
+        //
+        // Symbols we DECLINED to query — identifier column unlocatable, or a hub
+        // whose reference set hit the cap — sit in the denominator and can never
+        // reach the numerator. Quoting the percentage alone turns "not asked" into
+        // "asked and found nothing", which are different states and only one of
+        // them is evidence about the code. This is the same half-truth as a
+        // partial sample wearing the name of the whole, so the caveat travels with
+        // the number rather than living in a chat log.
+        const skipped = codeIntel.positionGuessSkipped ?? 0;
+        const capped = codeIntel.refsTruncatedSymbols ?? 0;
+        if (skipped > 0 || capped > 0) {
+          const bits = [];
+          if (skipped > 0) bits.push(`${skipped} symbol${skipped === 1 ? '' : 's'} NOT ASKED (identifier position unresolvable)`);
+          if (capped > 0) bits.push(`${capped} hub${capped === 1 ? '' : 's'} truncated at the per-symbol reference cap`);
+          codeIntel.coverageIsFloor = true;
+          verdicts.push(`⚠ lsp coverage ${codeIntel.lspVerifiedPctOfCalls}% is a FLOOR, not a rate — ${bits.join('; ')}.`
+            + ' Those are absent from the numerator but present in the denominator; do not read the gap as "no callers".');
         }
       } finally { db2.close(); }
     } catch { /* best-effort */ }

@@ -339,6 +339,13 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
       // identifier column could not be located. Non-zero means some answers in
       // this collection are not ground truth (see identifier-position.js).
       positionGuesses: sess.positionGuesses ?? null,
+      // ABSENT AND ZERO ARE DIFFERENT ANSWERS. These were emitted by the provider
+      // and dropped here, so a caller saw `positionGuesses: 55` with no skip count
+      // and could not tell "nothing was skipped" from "we don't report skips" —
+      // the exact conflation the guessed-position work exists to prevent, in the
+      // verb reporting it. Always emitted, `null` when unknown, never omitted.
+      positionGuessSkipped: sess.positionGuessSkipped ?? null,
+      refsTruncatedSymbols: sess.refsTruncatedSymbols ?? null,
       // RESUME STATE. `filesProcessed` resets every call, so on its own it cannot
       // show whether repeated runs are CONVERGING or just repeating — which is
       // exactly the ambiguity that let "run again to continue" stay false for so

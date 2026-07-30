@@ -899,6 +899,15 @@ export function importV02Collection(envelope, db) {
       indexWaitReason: sess.indexWaitReason ?? null,
       refsFoundSymbols: sess.refsFoundSymbols ?? null,
       refsNotFoundSymbols: sess.refsNotFoundSymbols ?? null,
+      // WHAT WAS NEVER ASKED. These must persist or graph_health cannot mark its
+      // coverage percentage as a FLOOR — a symbol we declined to query sits in the
+      // denominator and can never reach the numerator, so omitting them turns
+      // "not asked" into "asked, found nothing". Persisted here rather than only
+      // in the live envelope because health reads the stored collection, and a
+      // caveat that does not survive the write is not a caveat.
+      positionGuesses: sess.positionGuesses ?? null,
+      positionGuessSkipped: sess.positionGuessSkipped ?? null,
+      refsTruncatedSymbols: sess.refsTruncatedSymbols ?? null,
     },
   });
   db.run(

@@ -57,6 +57,15 @@ export function getLatestCollection(db, opts = {}) {
     indexWaitMs: row.index_wait_ms ?? sess.indexWaitMs ?? null,
     refsFound: row.refs_found ?? sess.refsFoundSymbols ?? null,
     refsNotFound: row.refs_not_found ?? sess.refsNotFoundSymbols ?? null,
+    // WHAT WAS NEVER ASKED. A coverage percentage is verified edges over total
+    // edges, so a symbol we DECLINED to query (identifier column unlocatable, or a
+    // hub whose reference set hit the cap) sits in the denominator and can never
+    // reach the numerator. Without these two, the percentage reads as a rate when
+    // it is a FLOOR, and "not asked" is indistinguishable from "asked, found
+    // nothing" — different states, only one of which is evidence about the code.
+    positionGuessSkipped: sess.positionGuessSkipped ?? null,
+    refsTruncatedSymbols: sess.refsTruncatedSymbols ?? null,
+    positionGuesses: sess.positionGuesses ?? null,
   };
 }
 
