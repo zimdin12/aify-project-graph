@@ -258,7 +258,7 @@ const LSP_PROVENANCE = 'LSP_VERIFIED';
 //     created this/prior runs (clean `cpp-clangd#%` extractor, no `|was:`).
 //   A promoted-from-tree-sitter edge is never deleted — its heuristic identity
 //   survives every re-collect.
-const STASH_SEP = '|was:';
+export const STASH_SEP = '|was:';
 
 function encodeStash(lspExtractor, original) {
   // original: { provenance, extractor, confidence }. Encode origin so the
@@ -271,7 +271,7 @@ function encodeStash(lspExtractor, original) {
   return `${lspExtractor}${STASH_SEP}${safe(prov)}::${safe(ext)}::${conf}`;
 }
 
-function decodeStash(extractor) {
+export function decodeStash(extractor) {
   if (typeof extractor !== 'string') return null;
   const idx = extractor.indexOf(STASH_SEP);
   if (idx === -1) return null;

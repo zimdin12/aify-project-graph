@@ -25,6 +25,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { openExistingDb } from '../mcp/stdio/storage/db.js';
 import { ledgerPath } from '../mcp/stdio/code-intel/collect-ledger.js';
+import { decodeStash, STASH_SEP } from '../mcp/stdio/ingest/code-intel/importer.js';
 
 const args = process.argv.slice(2);
 const repoRoot = resolve(args.find((a) => !a.startsWith('--')) ?? '.');
@@ -46,8 +47,9 @@ try {
   // heuristic edges whose origin must be restored rather than dropped.
   const edges = count(
     "SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE 'cpp-clangd#%'");
-  const promoted = count(
-    "SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE '%|was:%'");
+  const promoted = (() => { try {
+    return db.get("SELECT COUNT(*) AS c FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE $s",
+      { s: `%${STASH_SEP}%` }).c; } catch { return 0; } })();
   const records = count('SELECT COUNT(*) AS c FROM code_intel_records');
   const collections = count('SELECT COUNT(*) AS c FROM code_intel_collections');
   const ledgerExists = existsSync(ledgerPath(repoRoot));
@@ -70,18 +72,39 @@ try {
     // Restore promoted edges to their heuristic origin before deleting the rest,
     // mirroring the importer. Dropping them outright would silently lose real
     // tree-sitter edges that clangd had merely upgraded.
+    // Uses the importer's OWN decoder rather than a copy. A reimplementation here
+    // split the payload on '|' when the real component separator is '::', so for a
+    // stash of `EXTRACTED::generic::1` it would have written
+    // provenance="EXTRACTED::generic::1", extractor="", confidence=0.5 — silently
+    // corrupting the 891 promoted edges this restore exists to protect, while
+    // reporting success. Caught by checking the encoder before authorising the run
+    // on someone else's repo, not by testing after.
+    //
+    // The lesson is not "read more carefully": it is that a parser duplicated away
+    // from its encoder WILL drift. Importing decodeStash makes the drift
+    // impossible rather than unlikely.
     const stashed = db.all(
-      "SELECT from_id, to_id, relation, extractor FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE '%|was:%'");
+      `SELECT from_id, to_id, relation, extractor FROM edges
+        WHERE provenance='LSP_VERIFIED' AND extractor LIKE $stash`,
+      { stash: `%${STASH_SEP}%` });
+    let restored = 0;
     for (const row of stashed) {
-      const origin = String(row.extractor).split('|was:')[1] ?? '';
-      const [prov, extractor, conf] = origin.split('|');
-      if (!prov) continue;
+      const origin = decodeStash(row.extractor);
+      if (!origin) continue;
       db.run(
         `UPDATE edges SET provenance=$p, extractor=$e, confidence=$c
           WHERE from_id=$f AND to_id=$t AND relation=$r`,
-        { p: prov, e: extractor ?? '', c: Number(conf) || 0.5, f: row.from_id, t: row.to_id, r: row.relation });
+        {
+          p: origin.provenance, e: origin.extractor, c: origin.confidence,
+          f: row.from_id, t: row.to_id, r: row.relation,
+        });
+      restored += 1;
     }
-    db.run("DELETE FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE '%|was:%'");
+    if (restored !== stashed.length) {
+      console.warn(`⚠ ${stashed.length - restored} promoted edge(s) had an undecodable stash and were left as-is (not deleted)`);
+    }
+    db.run("DELETE FROM edges WHERE provenance='LSP_VERIFIED' AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $s",
+      { s: `%${STASH_SEP}%` });
     db.run("DELETE FROM nodes WHERE id LIKE 'ci:lsp:%' AND id NOT IN (SELECT from_id FROM edges UNION SELECT to_id FROM edges)");
     try { db.run('DELETE FROM code_intel_records'); } catch { /* table may not exist */ }
     try { db.run('DELETE FROM code_intel_collections'); } catch { /* table may not exist */ }
