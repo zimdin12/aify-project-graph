@@ -717,6 +717,39 @@ const LEAN_TOOL_NAMES = new Set([
 // claiming it for a verb that writes would be buying access with an untrue
 // assertion. They are listed here because the annotation must be accurate, even
 // though the write is an internal cache rather than a user-visible mutation.
+// `fresh` is advertised on every READ verb rather than declared per tool.
+//
+// Freshness is a per-QUESTION decision. A read against a snapshot is correct and
+// cheap for orientation; a read that will justify an edit or a deletion needs the
+// graph to match HEAD. Only the caller knows which one this call is, so the
+// parameter belongs on the call — not solely in APG_AUTO_REINDEX, which forces one
+// answer on an entire install.
+//
+// The description is written to tell an agent WHEN to reach for it, since a flag
+// whose cost is invisible gets either ignored or set on everything.
+const FRESH_PARAM = Object.freeze({
+  type: 'boolean',
+  default: false,
+  description:
+    'Reindex the graph to match HEAD before answering, when the snapshot is behind. '
+    + 'DEFAULT false: reads are cheap and any staleness is reported in the response, so you decide. '
+    + 'Set true when the answer will justify an ACTION — "is it safe to delete", "who calls this before I change it", '
+    + 'blast radius before an edit — and the graph is reported stale. '
+    + 'Leave false for orientation, browsing, and "how does X work": a snapshot answers those correctly and instantly. '
+    + 'COST: this can take seconds to minutes on a large repo, so it is opt-in per call rather than automatic. '
+    + 'A stale answer is not wrong-by-default — it is answered as of the indexed commit, and the response says which.',
+});
+
+function withFreshParam(tool) {
+  if (MUTATING_TOOLS.has(tool.name)) return tool.schema;
+  const schema = tool.schema ?? { type: 'object', properties: {} };
+  if (schema.properties?.fresh) return schema; // verb declares its own
+  return {
+    ...schema,
+    properties: { ...(schema.properties ?? {}), fresh: FRESH_PARAM },
+  };
+}
+
 const MUTATING_TOOLS = new Set([
   'graph_index',
   'graph_collect_code_intel',
@@ -963,7 +996,7 @@ rl.on('line', async (line) => {
         tools: LISTED_TOOLS.map(t => ({
           name: t.name,
           description: t.description,
-          inputSchema: t.schema,
+          inputSchema: withFreshParam(t),
           // MCP tool annotations. `readOnlyHint` matters for real clients:
           // Cursor's Ask mode REFUSES to run any MCP tool that does not declare
           // it, so an unannotated read verb is simply unavailable there. The
@@ -1125,14 +1158,24 @@ rl.on('line', async (line) => {
       if (normalized.depth != null) normalized.depth = Math.min(Math.max(Number(normalized.depth) || 1, 1), 10);
       if (normalized.top_k != null) normalized.top_k = Math.min(Math.max(Number(normalized.top_k) || 10, 1), 200);
       if (normalized.limit != null) normalized.limit = Math.min(Math.max(Number(normalized.limit) || 20, 1), 100);
-      // Opt-in self-heal: when APG_AUTO_REINDEX is set, refresh a stale graph
-      // BEFORE the handler reads it, so managed workers (who can't call
-      // graph_index) stop getting false-empty results. OFF by default — no
-      // surprise latency; warn-by-default behavior below is unchanged when off.
+      // FRESHNESS IS A PER-QUESTION DECISION, NOT A PER-INSTALL ONE.
+      //
+      // Auto-reindex was env-only (APG_AUTO_REINDEX), which forced one answer on
+      // every call. Both settings are genuinely defensible — ON never acts on stale
+      // data but turns an arbitrary read into a minutes-long reindex; OFF keeps
+      // reads cheap and staleness visible but lets an agent act on a stale graph if
+      // it ignores the banner. Neither is right globally, because the right answer
+      // depends on the QUESTION: "orient me in this repo" is fine on a snapshot,
+      // "is it safe to delete this symbol" is not.
+      //
+      // So the caller can now decide per call with `fresh: true`, and the env var
+      // remains the default for environments where the caller CANNOT decide —
+      // managed workers that get read verbs but no graph_index.
       if (name !== 'graph_index' && name !== 'graph_status') {
         try {
           const { autoReindexEnabled } = await import('./freshness/auto-reindex.js');
-          if (autoReindexEnabled(process.env.APG_AUTO_REINDEX)) {
+          const perCall = normalized.fresh === true;
+          if (perCall || autoReindexEnabled(process.env.APG_AUTO_REINDEX)) {
             const { getHeadCommit } = await import('./freshness/git.js');
             const { loadManifest } = await import('./freshness/manifest.js');
             const graphDir = path.join(repoRoot, '.aify-graph');
