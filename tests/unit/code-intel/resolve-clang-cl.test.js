@@ -73,8 +73,25 @@ describe('resolveClangCl', () => {
       new URL('../../../mcp/stdio/query/verbs/health.js', import.meta.url),
       'utf8',
     );
-    expect(health).toMatch(/const hasClangCl = Boolean\(resolveClangCl\(\)\)/);
+    expect(health).toMatch(/const clangCl = resolveClangCl\(\);/);
+    expect(health).toMatch(/codeIntel\.clangClAvailable = Boolean\(clangCl\)/);
     // The dead PATH helper must be gone, not merely unused.
-    expect(health).not.toMatch(/function hasOnPath\(/);
+    expect(health).not.toMatch(/^function hasOnPath\(/m);
+  });
+
+  it('the emitted recipe is runnable as written, not correct-in-outline', () => {
+    // The one-liner we shipped first FAILS on a standard Windows host: CMake's
+    // compiler test LINKS, the link invokes `rc` (Windows SDK, off-PATH outside a
+    // vcvars shell), and overriding only CXX leaves a C+CXX project without a C
+    // compiler. clang-cl compiled fine both times; the configure still aborted.
+    const health = fs.readFileSync(
+      new URL('../../../mcp/stdio/query/verbs/health.js', import.meta.url),
+      'utf8',
+    );
+    expect(health).toMatch(/CMAKE_C_COMPILER/);
+    expect(health).toMatch(/CMAKE_RC_COMPILER/);
+    expect(health).toMatch(/llvm-rc\.exe/);
+    // And it must say WHY those two are there, or the next reader drops them.
+    expect(health).toMatch(/compiler test links, and the link needs a resource compiler/);
   });
 });

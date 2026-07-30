@@ -234,13 +234,42 @@ export async function graphHealth({ repoRoot }) {
           //
           // So the recipe is now offered only when its toolchain exists, and the
           // WSL fallback is promoted to primary when it does not.
-          const hasClangCl = Boolean(resolveClangCl());
-          codeIntel.clangClAvailable = hasClangCl;
-          const remedy = hasClangCl
-            ? 'FIX: generate a native Windows compile DB (Ninja+clang-cl: cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers it); fallback APG_CLANGD_WSL=1.'
-            : 'FIX: clang-cl is NOT on this host, so the native-Windows recipe cannot run as written —'
-              + ' set APG_CLANGD_WSL=1 to drive clangd inside WSL against this Linux DB (no rebuild needed),'
-              + ' or install LLVM (winget install LLVM.LLVM) and then rebuild with Ninja+clang-cl.';
+          // THE RECIPE MUST BE RUNNABLE AS WRITTEN, not merely correct in outline.
+          //
+          // The earlier one-liner (`-DCMAKE_CXX_COMPILER=clang-cl` alone) FAILS on a
+          // standard Windows host, for two reasons a field tester hit in sequence
+          // (ef-manager, echoes, 2026-07-30):
+          //   - CMake's compiler test LINKS, and the link invokes `rc` (Windows
+          //     Resource Compiler), which ships with the Windows SDK and is not on
+          //     PATH outside a vcvars shell. clang-cl COMPILED fine; the configure
+          //     still aborted and declared the compiler broken.
+          //   - Only CXX was overridden, so a C+CXX project then failed with
+          //     "No CMAKE_C_COMPILER could be found" on its C dependencies.
+          //
+          // ★ The general trap, worth stating because it will recur: a project can be
+          // perfectly capable of EMITTING a compile database and still be blocked by
+          // a LINK-only dependency, because CMake will not reach the emit step until
+          // its compiler test links. A compile DB needs compile lines, not a binary.
+          //
+          // Both are answered from the LLVM install we just resolved — llvm-rc and
+          // clang-cl are siblings — so the recipe stays self-consistent and needs no
+          // vcvars wrapper.
+          const clangCl = resolveClangCl();
+          codeIntel.clangClAvailable = Boolean(clangCl);
+          let remedy;
+          if (clangCl) {
+            const binDir = dirname(clangCl.command).replace(/\\/g, '/');
+            remedy = 'FIX: generate a native Windows compile DB — '
+              + `cmake -B build-win-clangd -G Ninja -DCMAKE_C_COMPILER="${binDir}/clang-cl.exe" `
+              + `-DCMAKE_CXX_COMPILER="${binDir}/clang-cl.exe" -DCMAKE_RC_COMPILER="${binDir}/llvm-rc.exe" `
+              + '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON (APG auto-discovers the result; keep the existing build dir for A/B). '
+              + 'The C and RC overrides are required: CMake\'s compiler test links, and the link needs a resource compiler. '
+              + 'Fallback APG_CLANGD_WSL=1.';
+          } else {
+            remedy = 'FIX: no clang-cl found in the configured toolchain dir, the standard LLVM install location, or PATH — '
+              + 'set APG_CLANGD_WSL=1 to drive clangd inside WSL against this Linux DB (no rebuild needed), '
+              + 'or install LLVM (winget install LLVM.LLVM) and re-check.';
+          }
           // Deliberately NOT the word "truncated": `refsTruncatedSymbols` is OUR
           // per-symbol reference cap, and a reader seeing both in one response
           // reasonably assumed they were the same thing (ef-manager, 2026-07-30).
