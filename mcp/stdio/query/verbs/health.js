@@ -25,6 +25,10 @@ import { getLatestCollection } from '../../code-intel/query.js';
 import { prepareCompileDb } from '../../code-intel/compile-db.js';
 import { resolveClangCl } from '../../code-intel/resolve-clangd.js';
 
+// Cap for file lists in the health response. The counts stay exact; only the
+// sample is bounded. See the dirtyFiles comment below for why this exists.
+const DIRTY_LIST_CAP = 25;
+
 // Single source of truth for trust-level thresholds. graph_health and the
 // brief's trust() both consume this so they can't drift. Echoes bench
 // 2026-04-21 showed them disagreeing (brief said "strong" while health said
@@ -148,6 +152,12 @@ export async function graphHealth({ repoRoot }) {
           language: latest.language,
           freshnessBasis: latest.freshnessBasis,
           freshnessValue: latest.freshnessValue,
+          // HISTORICAL: the hash of the compile DB this COLLECTION was taken
+          // against. Sits next to compileDbFirstPartyCount, which is measured from
+          // the CURRENT probe — two adjacent fields with different provenance read
+          // as a contradiction when a DB is swapped (field: same hash, changed
+          // first-party count). currentCompileDbHash is always emitted alongside so
+          // the pair is self-explaining rather than requiring the drift verdict.
           compileDbHash: latest.compileDbHash,
           indexedCommit: latest.indexedCommit,
           collectedAt: latest.collectedAt,
@@ -330,6 +340,7 @@ export async function graphHealth({ repoRoot }) {
         // was dated NEWER than the collection that supposedly produced it
         // (2026-06-02 vs 2026-05-31). freshnessBasis is literally
         // 'compile_db_hash'; not comparing it was an unchecked freshness claim.
+        codeIntel.currentCompileDbHash = cdb.dbHash ?? null;
         if (cdb.dbHash && codeIntel.compileDbHash && cdb.dbHash !== codeIntel.compileDbHash) {
           codeIntel.compileDbDrifted = true;
           codeIntel.currentCompileDbHash = cdb.dbHash;
@@ -489,8 +500,24 @@ export async function graphHealth({ repoRoot }) {
     trustUnresolvedEdges,
     nodes,
     edges,
-    dirtyFiles,
-    trackedDirtyFiles,
+    // BOUNDED. These lists were emitted in full, and a 2804-file directory turned
+    // a ~90-line health response into 2,916 lines / 294KB — past an agent client's
+    // tool-result limit, so the primary diagnostic verb could not be read at all.
+    //
+    // ★ The trigger was OUR OWN ADVICE: "snapshot .aify-graph before touching it"
+    // creates thousands of untracked files, so every user careful enough to follow
+    // the safety practice broke health for themselves — and the failure surfaced as
+    // a client token error, which looks like their problem rather than ours.
+    // A diagnostic that degrades when the tree gets messy is useless exactly when
+    // the tree is messy.
+    //
+    // The COUNTS are the decision-relevant part and are kept exact; the lists are a
+    // sample. Truncation is reported, never silent.
+    dirtyFiles: dirtyFiles.slice(0, DIRTY_LIST_CAP),
+    dirtyFilesTotal: dirtyFiles.length,
+    ...(dirtyFiles.length > DIRTY_LIST_CAP ? { dirtyFilesTruncated: dirtyFiles.length - DIRTY_LIST_CAP } : {}),
+    trackedDirtyFiles: trackedDirtyFiles.slice(0, DIRTY_LIST_CAP),
+    trackedDirtyFilesTotal: trackedDirtyFiles.length,
     dirtySeams,
     commit: manifest?.commit ?? null,
     currentHead: head,
