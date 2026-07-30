@@ -36,6 +36,22 @@ export function computeTrustLevel(unresolvedEdges) {
   return 'strong';
 }
 
+// Is a tool actually available on this host? Used to avoid prescribing a remedy
+// the reader cannot run — see the FOREIGN compile-db banner. Cheap and cached: a
+// health call must never pay for this twice.
+const _pathProbe = new Map();
+function hasOnPath(cmd) {
+  if (_pathProbe.has(cmd)) return _pathProbe.get(cmd);
+  let found = false;
+  try {
+    const probe = process.platform === 'win32' ? ['where', cmd] : ['which', cmd];
+    execFileSync(probe[0], [probe[1]], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
+    found = true;
+  } catch { found = false; }
+  _pathProbe.set(cmd, found);
+  return found;
+}
+
 // Which BUILD of the server is answering — not which commit of the target repo
 // is indexed. An MCP server process is long-lived and does not hot-reload, so
 // "pushed" and "in effect for this agent" are different states.
@@ -218,7 +234,43 @@ export async function graphHealth({ repoRoot }) {
         if (process.platform === 'win32' && cdb.foreignToolchain) {
           codeIntel.compileDbForeign = true;
           codeIntel.callerCompletenessTrustworthy = false;
-          verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd caller sets are silently TRUNCATED (even same-file refs); code_intel_references is NOT a completeness oracle here. FIX: generate a native Windows compile DB (Ninja+clang-cl: cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers it); fallback APG_CLANGD_WSL=1. Do NOT trust "no callers / safe to delete" until fixed.');
+          // A PRESCRIBED FIX THAT CANNOT RUN IS AN UNVERIFIED CAUSE, WEARING A
+          // DIFFERENT HAT. This banner recommended a Ninja+clang-cl recipe
+          // unconditionally; a field tester checked and found clang-cl absent from
+          // the host, so the only remedy we named was impossible for them
+          // (ef-manager, echoes, 2026-07-30). Same defect family the zero-result
+          // work removed — we told someone to do something without checking they
+          // could — just on the ACTION side rather than the diagnosis side.
+          //
+          // So the recipe is now offered only when its toolchain exists, and the
+          // WSL fallback is promoted to primary when it does not.
+          const hasClangCl = hasOnPath('clang-cl');
+          codeIntel.clangClAvailable = hasClangCl;
+          const remedy = hasClangCl
+            ? 'FIX: generate a native Windows compile DB (Ninja+clang-cl: cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers it); fallback APG_CLANGD_WSL=1.'
+            : 'FIX: clang-cl is NOT on this host, so the native-Windows recipe cannot run as written —'
+              + ' set APG_CLANGD_WSL=1 to drive clangd inside WSL against this Linux DB (no rebuild needed),'
+              + ' or install LLVM (winget install LLVM.LLVM) and then rebuild with Ninja+clang-cl.';
+          // Deliberately NOT the word "truncated": `refsTruncatedSymbols` is OUR
+          // per-symbol reference cap, and a reader seeing both in one response
+          // reasonably assumed they were the same thing (ef-manager, 2026-07-30).
+          // Two mechanisms, two words.
+          verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd silently DROPS cross-TU callers (and even same-file refs); code_intel_references is NOT a completeness oracle here. '
+            + remedy + ' Do NOT trust "no callers / safe to delete" until fixed.');
+        }
+        // COLLECTION vs CURRENT COMPILE DB. We detect commit drift but never
+        // checked whether the compile DB itself moved since the collection was
+        // taken — so a collection could describe a toolchain state that no longer
+        // exists and nothing said so. Surfaced by a tester noticing the cached DB
+        // was dated NEWER than the collection that supposedly produced it
+        // (2026-06-02 vs 2026-05-31). freshnessBasis is literally
+        // 'compile_db_hash'; not comparing it was an unchecked freshness claim.
+        if (cdb.dbHash && codeIntel.compileDbHash && cdb.dbHash !== codeIntel.compileDbHash) {
+          codeIntel.compileDbDrifted = true;
+          codeIntel.currentCompileDbHash = cdb.dbHash;
+          codeIntel.callerCompletenessTrustworthy = false;
+          verdicts.push(`⚠ code-intel collection was taken against compile-db ${String(codeIntel.compileDbHash).slice(0, 8)} but the current DB hashes ${String(cdb.dbHash).slice(0, 8)}`
+            + ' — the build configuration changed since collection, so its [lsp✓] edges describe a toolchain state that no longer exists. Re-run graph_collect_code_intel.');
         }
         if (codeIntel.compileDbFirstPartyCount === 0) {
           codeIntel.callerCompletenessTrustworthy = false;
