@@ -198,6 +198,57 @@ describe.skipIf(!clangdAvailable)('scoped collect survives (real clangd, a/b/c p
   }, 240000);
 });
 
+describe.skipIf(!clangdAvailable)('collect resume actually resumes (real clangd)', () => {
+  it('a budget-limited scope=all run CONTINUES on re-run instead of repeating', async () => {
+    // THE FIELD FAILURE. The envelope said "run again to continue/complete" while
+    // the per-file loop restarted at index 0 with nothing persisted. On a 185-file
+    // repo that meant every "resume" re-walked the same files and regenerated
+    // their records, growing the import until a host idle timeout killed it.
+    const repo = cppRepo();
+
+    // A budget small enough to stop partway through 3 TUs, but not so small the
+    // index wait eats it entirely.
+    const first = await graphCollectCodeIntel({
+      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 9000,
+      operations: ['definitions', 'references', 'diagnostics'],
+    });
+    expect(['ok', 'partial']).toContain(first.status);
+    const ledger = JSON.parse(
+      fs.readFileSync(path.join(repo, '.aify-graph', 'code-intel', 'collect-progress.json'), 'utf8'),
+    );
+    // Whatever it managed, it must have RECORDED it — that is the resume point.
+    expect(Array.isArray(ledger.collected)).toBe(true);
+    expect(ledger.dbHash).toBeTruthy();
+    const firstBatch = [...ledger.collected];
+    expect(firstBatch.length).toBeGreaterThan(0);
+
+    // Re-run. It must skip what was done, not redo it.
+    const second = await graphCollectCodeIntel({
+      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 30000,
+      operations: ['definitions', 'references', 'diagnostics'],
+    });
+    expect(['ok', 'partial']).toContain(second.status);
+    expect(second.index.resumedFrom).toBe(firstBatch.length);
+    expect(second.index.resumeLedger).toBe('active');
+
+    // Converged: every enumerated first-party file is now recorded exactly once.
+    const finalLedger = JSON.parse(
+      fs.readFileSync(path.join(repo, '.aify-graph', 'code-intel', 'collect-progress.json'), 'utf8'),
+    );
+    expect(new Set(finalLedger.collected).size).toBe(finalLedger.collected.length);
+    expect(finalLedger.collected.length).toBe(second.index.enumeratedTotal);
+
+    // A THIRD run has nothing left to do — the convergence proof. Under the old
+    // behaviour this would have re-collected everything a third time.
+    const third = await graphCollectCodeIntel({
+      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 30000,
+      operations: ['definitions', 'references', 'diagnostics'],
+    });
+    expect(third.index.filesTotal).toBe(0);
+    expect(third.index.resumedFrom).toBe(finalLedger.collected.length);
+  }, 240000);
+});
+
 if (!clangdAvailable) {
   describe('scoped collect survives (real clangd, a/b/c protocol)', () => {
     it.skip(`skipped — ${skipReason}`, () => {});

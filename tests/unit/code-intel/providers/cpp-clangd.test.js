@@ -138,7 +138,18 @@ describe('cpp-clangd provider (fake LSP)', () => {
       expect(result.session.filesTotal).toBe(2);
       const note = (result.notes || []).find(n => n.code === 'budget_exhausted');
       expect(note).toBeTruthy();
-      expect(note.message).toMatch(/run graph_collect_code_intel again/);
+      // THIS ASSERTION USED TO PIN A FALSE CLAIM. It required the note to say
+      // "run graph_collect_code_intel again [to continue/complete]" — but this run
+      // uses an explicit files[] scope, which never resumed and still does not:
+      // a re-run repeats those exact files by design, because files[] is the
+      // caller stating what they want. The per-file loop also restarted at index 0
+      // with nothing persisted, so the promise was false for scope=all too
+      // (fixed by the ledger; see collect-ledger.test.js).
+      //
+      // For an explicit-files run the honest note is that a re-run REPEATS.
+      expect(note.message).toMatch(/re-run REPEATS these files/);
+      expect(note.message).toMatch(/next chunk of files\[\]/);
+      expect(note.message).not.toMatch(/continue\/complete/);
       // requested ops are demoted to partial for consistency
       expect(result.operations.references.status).toBe('partial');
       expect(validateCollection(result).valid).toBe(true);

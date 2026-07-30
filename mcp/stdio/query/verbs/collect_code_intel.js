@@ -339,6 +339,14 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
       // identifier column could not be located. Non-zero means some answers in
       // this collection are not ground truth (see identifier-position.js).
       positionGuesses: sess.positionGuesses ?? null,
+      // RESUME STATE. `filesProcessed` resets every call, so on its own it cannot
+      // show whether repeated runs are CONVERGING or just repeating — which is
+      // exactly the ambiguity that let "run again to continue" stay false for so
+      // long. resumedFrom climbing toward enumeratedTotal is the convergence
+      // signal; resumeLedger says whether continuation is even in play.
+      resumedFrom: sess.resumedFrom ?? null,
+      enumeratedTotal: sess.enumeratedTotal ?? null,
+      resumeLedger: sess.resumeLedger ?? null,
     },
     // MEASURED, always. The import used to be invisible: a caller could see a
     // collect phase inside its budget next to a verb that ran for half an hour and

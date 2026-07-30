@@ -8,6 +8,7 @@ import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
 import { buildClangdSpawn } from '../resolve-clangd.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf } from '../identifier-position.js';
+import { readLedger, writeLedger, pendingFiles } from '../collect-ledger.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
 // can take well over the default 10s before the first query resolves.
@@ -170,6 +171,11 @@ export function createCppClangdProvider({ spawn } = {}) {
       // unbounded scope=all hung 8 minutes silently on Sand Castle.
       let files;
       let enumStats = null;
+      // Resume bookkeeping — see collect-ledger.js. `ledger` stays null for an
+      // explicit files[] request so that path is unchanged.
+      let ledger = null;
+      let resumedFrom = 0;
+      let enumeratedTotal = null;
       const maxFiles = Number.isFinite(req.maxFiles) ? req.maxFiles : 200;
       const explicitFileScope = Boolean(req.files && req.files.length > 0);
       if (explicitFileScope) {
@@ -203,6 +209,23 @@ export function createCppClangdProvider({ spawn } = {}) {
             diagnostics: compileDb.diagnostics || [],
             records: []
           };
+        }
+        // REAL RESUME. Drop files a previous run already covered under this same
+        // compile-DB hash. Without this the loop restarted at 0 every call, so the
+        // envelope's "run again to continue/complete" was aspirational — a warm
+        // redo that re-walked the same files and regenerated their records, which
+        // is how a 185-file repo grew a bigger import on each "resume" instead of
+        // converging. Explicit files[] deliberately does NOT consult the ledger:
+        // that is the caller stating what they want.
+        if (req.resume !== false) {
+          ledger = readLedger(projectRoot, dbHash);
+          const split = pendingFiles(files, ledger);
+          resumedFrom = split.alreadyCollected.length;
+          if (resumedFrom > 0 && process.env.APG_VERBOSE_CODE_INTEL) {
+            process.stderr.write(`[apg code-intel] resuming: ${resumedFrom} file(s) already collected under compile-db ${String(dbHash).slice(0, 8)}; ${split.remaining.length} remaining\n`);
+          }
+          enumeratedTotal = files.length;
+          files = split.remaining;
         }
       } else {
         // No explicit files[] and scope is neither all/changed: nothing to
@@ -479,6 +502,11 @@ export function createCppClangdProvider({ spawn } = {}) {
           }
 
           filesProcessed += 1;
+          // Mark AFTER every requested op ran for this file. Recording it earlier
+          // would let a budget cut mid-file mark it collected, and the next resume
+          // would skip a file that was never finished — a silent coverage hole,
+          // which is strictly worse than redoing work.
+          if (ledger) ledger.collected.add(rel);
         }
 
         // P0-1: budget can also be exhausted because the index never went ready
@@ -488,6 +516,9 @@ export function createCppClangdProvider({ spawn } = {}) {
         // case (index still warming).
         const filesTotal = files.length;
         if (budgetEnabled && filesProcessed < filesTotal) budgetExhausted = true;
+        // Persist the resume point before assembling the envelope, so a caller who
+        // kills us after the response still keeps the progress.
+        if (ledger) writeLedger(projectRoot, ledger, collectedAt);
         if (budgetEnabled && mode === 'indexed' && !indexReady &&
             (indexWaitReason === 'index_wait_timeout' || indexWaitReason === 'index_wait_error')) {
           budgetExhausted = true;
@@ -529,9 +560,22 @@ export function createCppClangdProvider({ spawn } = {}) {
           const progressClause = filesProcessed < filesTotal
             ? `${filesProcessed}/${filesTotal} files done`
             : 'index still warming';
+          // The resume promise is now BACKED. It used to say "run again to
+          // continue/complete" while the per-file loop restarted at index 0 with
+          // nothing persisted — a warm redo, not a resume, which is how a 185-file
+          // repo grew a larger import on every retry instead of converging
+          // (Sand Castle, 2026-07-30). Only claim continuation when the ledger is
+          // actually recording it; otherwise say plainly that a re-run repeats.
+          const overall = enumeratedTotal != null
+            ? ` Overall ${resumedFrom + filesProcessed}/${enumeratedTotal} first-party files collected.`
+            : '';
           notes.push({
             code: 'budget_exhausted',
-            message: `partial: ${progressClause} within ${budgetMs}ms budget — clangd index is now persisting; run graph_collect_code_intel again to continue/complete (warm runs are ~fast).`
+            message: ledger
+              ? `partial: ${progressClause} within ${budgetMs}ms budget — clangd index is now persisting and the collected files are recorded;`
+                + ` run graph_collect_code_intel again to CONTINUE from where this stopped (warm runs are ~fast).${overall}`
+              : `partial: ${progressClause} within ${budgetMs}ms budget — this run used an explicit files[] scope, so a re-run REPEATS these files rather than continuing.`
+                + ' Pass the next chunk of files[] to make progress.'
           });
         }
 
@@ -571,6 +615,15 @@ export function createCppClangdProvider({ spawn } = {}) {
             budgetExhausted,
             filesProcessed,
             filesTotal,
+            // RESUME STATE, reported so "run again to continue" is checkable
+            // rather than taken on faith. resumedFrom counts files a prior run
+            // already covered under this same compile-DB hash; enumeratedTotal is
+            // the full first-party set, so a caller can see real convergence
+            // (resumedFrom climbing toward enumeratedTotal) instead of inferring
+            // it from a filesProcessed that resets every call.
+            resumedFrom,
+            enumeratedTotal,
+            resumeLedger: ledger ? 'active' : 'not_used',
             // SCOPE OF AUTHORITY. An explicitly-scoped run (`files: [...]`) asked
             // clangd about the symbols in those files and nothing else; an
             // enumerated run (`scope: 'all'`) is repo-wide. The envelope used to
