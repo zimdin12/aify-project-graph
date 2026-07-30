@@ -23,6 +23,7 @@ import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/lo
 import { loadTasksArtifact, lintTaskSchema, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { getLatestCollection } from '../../code-intel/query.js';
 import { prepareCompileDb } from '../../code-intel/compile-db.js';
+import { resolveClangCl } from '../../code-intel/resolve-clangd.js';
 
 // Single source of truth for trust-level thresholds. graph_health and the
 // brief's trust() both consume this so they can't drift. Echoes bench
@@ -36,21 +37,10 @@ export function computeTrustLevel(unresolvedEdges) {
   return 'strong';
 }
 
-// Is a tool actually available on this host? Used to avoid prescribing a remedy
-// the reader cannot run — see the FOREIGN compile-db banner. Cheap and cached: a
-// health call must never pay for this twice.
-const _pathProbe = new Map();
-function hasOnPath(cmd) {
-  if (_pathProbe.has(cmd)) return _pathProbe.get(cmd);
-  let found = false;
-  try {
-    const probe = process.platform === 'win32' ? ['where', cmd] : ['which', cmd];
-    execFileSync(probe[0], [probe[1]], { stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
-    found = true;
-  } catch { found = false; }
-  _pathProbe.set(cmd, found);
-  return found;
-}
+// (Removed) a PATH-only `hasOnPath` probe lived here for one hour. It answered
+// "is clang-cl on PATH", which is NOT the question — see resolveClangCl in
+// code-intel/resolve-clangd.js, which probes the configured toolchain directory
+// and the standard install location first, exactly as we already resolve clangd.
 
 // Which BUILD of the server is answering — not which commit of the target repo
 // is indexed. An MCP server process is long-lived and does not hot-reload, so
@@ -244,7 +234,7 @@ export async function graphHealth({ repoRoot }) {
           //
           // So the recipe is now offered only when its toolchain exists, and the
           // WSL fallback is promoted to primary when it does not.
-          const hasClangCl = hasOnPath('clang-cl');
+          const hasClangCl = Boolean(resolveClangCl());
           codeIntel.clangClAvailable = hasClangCl;
           const remedy = hasClangCl
             ? 'FIX: generate a native Windows compile DB (Ninja+clang-cl: cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers it); fallback APG_CLANGD_WSL=1.'

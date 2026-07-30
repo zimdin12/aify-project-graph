@@ -8,6 +8,7 @@
 //      ENOENT via the LspClient start() rejection path).
 
 import fs from 'node:fs';
+import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { withHidden } from '../util/exec.js';
 import { hostToWsl } from './compile-db.js';
@@ -76,6 +77,43 @@ export function _resetWslProbeCache() { _wslProbeCache = null; }
  * Resolve the clangd command to spawn.
  * @returns {{ command: string, source: 'env'|'win32-llvm'|'path' }}
  */
+// Is clang-cl available to BUILD a native Windows compile DB?
+//
+// This must not be a bare PATH lookup. A field tester reported "clang-cl NOT
+// FOUND" from `Get-Command clang-cl`, we shipped a fix gated on that, and he then
+// corrected himself: clang-cl.exe was present at C:/Program Files/LLVM/bin all
+// along — a full LLVM 22.1.6 install, simply not on PATH. His own summary of the
+// error is the right one: he reported a PATH fact as a HOST fact.
+//
+// The consequence of believing it was worse than the original bug. The banner used
+// to always recommend the native clang-cl recipe (correct on that host); gated on a
+// PATH probe it would have DEMOTED a correctly-equipped Windows machine to the WSL
+// fallback. A detection that fails closed toward the worse remedy is not a safe
+// default — it is a wrong answer with a confident tone.
+//
+// So probe the same way we already resolve clangd itself: explicit env first (a
+// configured APG_CLANGD pins the toolchain directory, and clang-cl is its sibling),
+// then the standard install location, then PATH.
+export function resolveClangCl(env = process.env) {
+  const candidates = [];
+  const clangdOverride = env.APG_CLANGD;
+  if (clangdOverride) {
+    candidates.push(path.join(path.dirname(clangdOverride), process.platform === 'win32' ? 'clang-cl.exe' : 'clang-cl'));
+  }
+  if (process.platform === 'win32') candidates.push('C:/Program Files/LLVM/bin/clang-cl.exe');
+  for (const c of candidates) {
+    try { if (fs.existsSync(c)) return { command: c, source: 'install-dir' }; } catch { /* keep probing */ }
+  }
+  try {
+    const probe = process.platform === 'win32' ? ['where', 'clang-cl'] : ['which', 'clang-cl'];
+    const out = spawnSync(probe[0], [probe[1]], { encoding: 'utf8', windowsHide: true });
+    if (out.status === 0 && String(out.stdout || '').trim()) {
+      return { command: String(out.stdout).trim().split(String.fromCharCode(10))[0].trim(), source: 'path' };
+    }
+  } catch { /* not on PATH */ }
+  return null;
+}
+
 export function resolveClangd() {
   const envOverride = process.env.APG_CLANGD;
   if (envOverride && fs.existsSync(envOverride)) {
