@@ -254,17 +254,45 @@ export async function graphHealth({ repoRoot }) {
           // Both are answered from the LLVM install we just resolved — llvm-rc and
           // clang-cl are siblings — so the recipe stays self-consistent and needs no
           // vcvars wrapper.
+          // ★ A FOREIGN DB ON WINDOWS IS OFTEN NOT MISCONFIGURATION.
+          //
+          // This banner said "FIX: generate a native Windows compile DB", which
+          // reads as "you set this up wrong and a flag corrects it". For a large
+          // class of Windows CMake projects that is false, and the field found out
+          // the hard way (ef-manager, echoes, 2026-07-30):
+          //
+          //   CMAKE_EXPORT_COMPILE_COMMANDS is supported ONLY by the Makefile and
+          //   Ninja generators. A project whose Windows build uses the Visual Studio
+          //   generator CANNOT emit compile_commands.json at all.
+          //
+          // Echoes builds fine on Windows — VS 2022 generator, shipped .exe on disk
+          // — and has NO compile_commands.json in that build tree, while its WSL
+          // build (Ninja) produces one. The Linux DB is not sloppiness; it is the
+          // only DB the project is capable of producing. Getting a native one means
+          // standing up a SECOND, Ninja-based configure alongside the real build,
+          // which then needs the dev-shell environment (LIB/INCLUDE) that the VS
+          // generator supplies internally.
+          //
+          // So: state the cause, keep the recipe, but stop implying a one-flag fix
+          // and name what it actually costs. Mislabelling a normal state as user
+          // error is the same failure as naming an unverified cause — it sends
+          // someone to fix something that is not broken.
           const clangCl = resolveClangCl();
           codeIntel.clangClAvailable = Boolean(clangCl);
           let remedy;
           if (clangCl) {
             const binDir = dirname(clangCl.command).replace(/\\/g, '/');
-            remedy = 'FIX: generate a native Windows compile DB — '
+            remedy = 'WHY: if this project\'s Windows build uses the Visual Studio generator it CANNOT emit compile_commands.json '
+              + '(only the Makefile/Ninja generators support CMAKE_EXPORT_COMPILE_COMMANDS), so a Linux/WSL DB may be the only one that exists — '
+              + 'this is usually not a misconfiguration. '
+              + 'FIX (a SECOND configure alongside your real build, not a replacement): '
               + `cmake -B build-win-clangd -G Ninja -DCMAKE_C_COMPILER="${binDir}/clang-cl.exe" `
               + `-DCMAKE_CXX_COMPILER="${binDir}/clang-cl.exe" -DCMAKE_RC_COMPILER="${binDir}/llvm-rc.exe" `
-              + '-DCMAKE_EXPORT_COMPILE_COMMANDS=ON (APG auto-discovers the result; keep the existing build dir for A/B). '
-              + 'The C and RC overrides are required: CMake\'s compiler test links, and the link needs a resource compiler. '
-              + 'Fallback APG_CLANGD_WSL=1.';
+              + '-DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY -DCMAKE_EXPORT_COMPILE_COMMANDS=ON '
+              + '(APG auto-discovers the result; keep the existing build dir). '
+              + 'The C and RC overrides are required because CMake\'s compiler test links; TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY skips that link, '
+              + 'which a compile DB never needed. If a later find_package still requires a real link, run the same command from a vcvars64 shell so LIB/INCLUDE are set. '
+              + 'CHEAPER ALTERNATIVE: APG_CLANGD_WSL=1 drives clangd under WSL against the DB you already have — no second build at all.';
           } else {
             remedy = 'FIX: no clang-cl found in the configured toolchain dir, the standard LLVM install location, or PATH — '
               + 'set APG_CLANGD_WSL=1 to drive clangd inside WSL against this Linux DB (no rebuild needed), '

@@ -91,7 +91,28 @@ describe('resolveClangCl', () => {
     expect(health).toMatch(/CMAKE_C_COMPILER/);
     expect(health).toMatch(/CMAKE_RC_COMPILER/);
     expect(health).toMatch(/llvm-rc\.exe/);
-    // And it must say WHY those two are there, or the next reader drops them.
-    expect(health).toMatch(/compiler test links, and the link needs a resource compiler/);
+    // And it must say WHY those are there, or the next reader drops them.
+    expect(health).toMatch(/compiler test links/);
+    // The link gate is skipped outright — a compile DB needs compile lines, not a
+    // binary. This is the "compile lines, not a binary" principle as a flag.
+    expect(health).toMatch(/CMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY/);
+  });
+
+  it('does NOT present a foreign DB as user misconfiguration', () => {
+    // CMAKE_EXPORT_COMPILE_COMMANDS is supported only by the Makefile/Ninja
+    // generators, so a Windows project built with the Visual Studio generator
+    // CANNOT emit a compile DB at all — the Linux/WSL one may be the only one that
+    // exists. Telling that user to "FIX" their setup sends them to repair something
+    // that is not broken, which is the same failure as naming an unverified cause.
+    const health = fs.readFileSync(
+      new URL('../../../mcp/stdio/query/verbs/health.js', import.meta.url),
+      'utf8',
+    );
+    expect(health).toMatch(/CANNOT emit compile_commands\.json/);
+    expect(health).toMatch(/usually not a misconfiguration/);
+    // And the real cost must be stated: a second configure, not a flag.
+    expect(health).toMatch(/a SECOND configure alongside your real build/);
+    // The no-rebuild path must be offered, since it is cheaper than a second build.
+    expect(health).toMatch(/CHEAPER ALTERNATIVE: APG_CLANGD_WSL=1/);
   });
 });
