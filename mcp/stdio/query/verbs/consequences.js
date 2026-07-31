@@ -479,6 +479,29 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       : [];
     const uniqueTests = uniqueTestPaths([...inferredTests, ...featureTests]);
 
+    // ★ ADJACENCY MUST NOT BE ASSERTED WHEN IT WAS NOT ESTABLISHED.
+    //
+    // The featureTests fallback above exists for a good reason — a monolithic
+    // tests/test_main.cpp defeats import/mention linkage — but it converts "no test
+    // linkage found" into "here is a test", and the caller cannot tell which they
+    // received.
+    //
+    // Measured cost (ef-manager, 2026-07-31). He asked, in a written-down
+    // experiment: "is there any mechanism that would tell me if I got this wrong?"
+    // graph_consequences answered tests_adjacent: ["tests/test_main.cpp"]. He
+    // hand-verified that file: ZERO matches for the symbol, for cylindrical, for
+    // LatBands, for glsl. The truth was that NO verification mechanism exists — and
+    // the flagship safety verb said one did, on the safety axis the tool exists to
+    // serve.
+    //
+    // Unearned confidence spends the credibility the honest parts depend on. So the
+    // list keeps the overlay's declaration — it is real curation and often right —
+    // but says which kind of claim it is.
+    const testsProvenance = inferredTests.length > 0
+      ? 'linked'                 // traversed: the test imports or mentions this code
+      : (featureTests.length > 0 ? 'feature_declared' : 'none');
+    const testsUnverifiedForSymbol = testsProvenance === 'feature_declared';
+
     // 6. Last-touched: git log for the matched files
     let lastTouched = [];
     if (matchedFiles.size > 0) {
@@ -549,6 +572,17 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       open_tasks_on_those_features: tasks,
       top_related_tasks: rankedTasks.slice(0, 3), // highest-signal subset
       tests_adjacent: uniqueTests,
+      // 'linked'           — the test imports or mentions this code; adjacency established.
+      // 'feature_declared' — taken from the overlay's curated tests[] for a touching
+      //                      feature. NOT verified against this symbol; it may be a
+      //                      monolithic entrypoint that never exercises it.
+      // 'none'             — nothing found, and nothing claimed.
+      tests_adjacent_provenance: testsProvenance,
+      ...(testsUnverifiedForSymbol ? {
+        tests_adjacent_warning:
+          'these tests are DECLARED by the touching feature, not verified against this symbol — '
+          + 'do NOT read them as proof that a change here is covered. Confirm the test actually exercises it before relying on it.',
+      } : {}),
       last_touched: lastTouched,
       dirty_overlap: dirtyOverlap,
       risk_flags: riskFlags,

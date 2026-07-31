@@ -151,15 +151,49 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
     .slice(0, limit)
     .map((row) => `- ${displaySymbolCandidate(row)} ${row.file_path}:${row.start_line ?? 0}`);
 
+  // ★ AMBIGUITY ACROSS LANGUAGES IS A FINDING, NOT A FAILURE TO DISAMBIGUATE.
+  //
+  // When the candidates span different LANGUAGES, "this symbol exists twice, in two
+  // languages, with nothing linking them" is frequently the answer the caller
+  // actually wanted — and we were modelling it as an error, printing it as a
+  // refusal, and then answering the qualified retry without ever mentioning the twin
+  // we had just listed.
+  //
+  // Measured (ef-manager, 2026-07-31). Asked what shader code must change in lockstep
+  // with a C++ header, graph_consequences returned exactly the two candidates —
+  // worldbuf.glsl:243 and CylindricalPosition.h:110 — as an AMBIGUOUS MATCH error.
+  // That pair WAS the answer. He found the real bug by hand: the GLSL copy hardcodes
+  // 32.0 where C++ uses CHUNK_SIZE, so changing the constant silently desyncs the GPU.
+  //
+  // His framing, which is why this is worth fixing rather than tuning: the filler
+  // suggestion manufactured a signal that was not there; this DISCARDS a signal that
+  // is. Both are framing bugs, not data bugs — the data was right both times.
+  const languages = new Set(
+    [...groups.values()].map((r) => String(r.language || '').toLowerCase()).filter(Boolean),
+  );
+  const crossLanguage = languages.size > 1;
+
   const retryHint = qualified
     ? 'These are DISTINCT definitions (same name, different namespace/file) — class qualification did not disambiguate. Add more namespace qualification (Namespace::Class::method) or query one file to avoid overstating impact.'
     : 'Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.';
+
+  const crossLanguageNote = crossLanguage
+    ? [
+      '',
+      `★ CROSS-LANGUAGE DUPLICATE — this name is defined in ${languages.size} languages (${[...languages].join(', ')}).`,
+      'That is usually a FINDING rather than a disambiguation problem: the same logic exists twice with no edge',
+      'linking the copies, so a change to one does NOT propagate and nothing will fail if they drift apart.',
+      'Check the copies for hardcoded literals that mirror a named constant on the other side — that is where',
+      'silent desync lives. If you meant one specific copy, qualify or pass file= to scope the query.',
+    ].join('\n')
+    : '';
 
   return [
     `AMBIGUOUS MATCH for "${symbol}". ${groups.size} concrete candidates found:`,
     ...candidates,
     retryHint,
-  ].join('\n');
+    crossLanguageNote,
+  ].filter(Boolean).join('\n');
 }
 
 // Try an exact label match first, then a class-qualified fallback.
