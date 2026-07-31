@@ -1,10 +1,10 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · six instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · ten instances in one day**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because six independent instances landed within
-one working day and someone happened to be counting. A name invites deference; six
+principle is worth something only because ten independent instances landed within
+one working day and someone happened to be counting. A name invites deference; ten
 instances invite you to check whether a seventh fits — and to say so if it doesn't.
 
 ## The shape
@@ -16,7 +16,7 @@ It is not a coding error and it is not carelessness. Every instance below was
 written by someone who had the real thing within reach and did not reach, because
 the stand-in was working.
 
-## The six instances
+## The ten instances
 
 **1. A filename match stood in for an include edge.**
 A hand-verified include chain used `#include` as the pattern for hop 1 and a bare
@@ -57,9 +57,41 @@ Python edges that clangd cannot verify in principle. 17% of the denominator was
 unverifiable by construction, so the number could never reach 100 and its movement
 was uninterpretable. The verifiable subset was one `GROUP BY` away.
 
+**7. A path prefix stood in for project membership.**
+Fixing instance 6 required a notion of "is this file part of the project", and the
+obvious test was a path prefix — `engine/|game/|tests/`. On this repo that would
+have silently excluded `tools/mcp/*.cpp` and `tools/*.py`: 1433 edges of real
+first-party code, dropped while looking entirely reasonable in review. Git tracking
+is the actual signal, needs no maintenance as directories are added, and excludes
+vendored trees by construction. *This one was caught before it shipped, inside the
+fix for instance 6.*
+
+**8. A `head -20` stood in for the population — with the total in the same output.**
+An attack was written claiming all 379 Python files in a repo were vendored. The
+command was `find . -name "*.py" ... | head -20`, and `find` traverses
+dot-directories first, so all 20 visible results were vendored while the 359
+first-party scripts were never seen. `(total: 379)` was printed on the next line.
+The stand-in and the real thing were **three lines apart**, and the claim was
+written by the person who had, two messages earlier, diagnosed exactly this defect
+in someone else's code.
+
+**9. A 500-item sample stood in for 4853 unresolved edges.**
+The fix for instance 10 — publishing the filter rule behind `trust` — was first
+computed over `manifest.dirtyEdges`, which is a capped sample. It reported
+"trust_relevant: 0 of 500" against a true 402 of 4853: a *published rule computed
+over a hidden subset*, inside the field built to expose hidden subsets. The full set
+was on disk the entire time. Caught only because the printed total disagreed with a
+number three lines above it.
+
+**10. A filtered count stood in for a rule.**
+`trust` was computed over 402 of 4853 unresolved edges, with the filter unpublished.
+The filter is defensible; an invisible one is indistinguishable from a hidden
+population. Same shape as instance 6, on the field that gates whether an agent
+believes anything else.
+
 ## Why it generates bugs rather than being one
 
-Instances 3–6 share a second property that makes them self-perpetuating:
+Instances 3–10 share a second property that makes them self-perpetuating:
 **the failure defaults toward the reassuring answer.**
 
 `exhaustive` was computed by AND-ing conditions, so a *missing* truncation flag
@@ -99,6 +131,38 @@ wasn't; it was lucky. The finding survives either framing, so recording it hones
 costs nothing — and it preserves the distinction between *a claim that was right*
 and *a claim that was justified*, which is the distinction this entire codebase
 exists to make legible.
+
+## The wrong finding that was worth keeping
+
+One of the ten attacks that produced this list was **factually wrong on every
+claim it made**. It asserted that a repo's Python edges came from vendored code
+inside a gitignored worktree, that the indexer was reading through `.gitignore`,
+and that a pending backend would import bogus coverage debt. Measured: zero nodes
+from those paths, the indexer honours `.gitignore`, and the files were first-party.
+
+It is in the record deliberately, and it produced more than most of the
+confirmations did:
+
+- It closed a **real latent defect** — scope and verifiability were conflated, and
+  on a repo where vendored trees *do* leak, the fix for instance 6 would have
+  silently imported their coverage debt the day a backend landed.
+- It produced **instance 7**, which was caught before shipping.
+- It is the only entry where the separation between **finding** and **diagnosis**
+  is visible. Everywhere else they arrived together, so the distinction is
+  invisible — and that distinction is the transferable skill.
+
+The load-bearing reason to record it, in the words of the agent who got it wrong:
+
+> A hit-rate-only record creates an incentive to attack only where you are already
+> confident — which is precisely where latent defects are not. If the record
+> rewards being right, the rational strategy is to stop probing the things you
+> cannot see into, and those are the only things worth probing.
+
+Instances 8 and 9 above are also self-inflicted: 8 was committed by the person
+writing the attacks, while writing them; 9 was committed inside the remedy for 10.
+That is not incidental to the document. **Its own examples section contains
+instances of its own principle, committed by both authors, while documenting it.**
+A reader who doubts that the principle generalizes has to explain that away.
 
 ## How to use this
 
