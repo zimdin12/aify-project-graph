@@ -164,8 +164,50 @@ That is not incidental to the document. **Its own examples section contains
 instances of its own principle, committed by both authors, while documenting it.**
 A reader who doubts that the principle generalizes has to explain that away.
 
+## ★ Why this document is not the remedy
+
+The natural conclusion from ten instances is *be more careful*. This session is
+direct evidence that being more careful does not work.
+
+Instances 8 and 9 were committed by the two people who had just spent hours writing
+this diagnosis, while actively hunting for instances of it, **with the
+disconfirming number visible in the same output** — `(total: 379)` three lines
+below one; `4853` three lines above the other. Both were inside the code
+implementing the remedy. Both failed anyway.
+
+That is not evidence about how *often* the defect occurs. It is evidence about
+**detectability**: it survives the strongest priming its authors will ever have.
+Two people, maximally primed, three lines from the answer, both wrong.
+
+So this document is a **recognition aid, not a control**. It is valuable after the
+fact — for naming a defect you are already looking at, and for deciding whether a
+new one is the same shape. It is close to worthless before the fact, and treating
+it as a safeguard would be the eleventh instance: a document standing in for a
+mechanism.
+
+The only things that actually prevented instances today were structural, and they
+share one property — **they work whether or not anyone is paying attention**, which
+is now demonstrably the binding constraint:
+
+- **Fail-closed defaults.** Unknown is not untruncated; unknown is not clean;
+  unreadable git is scope-unknown, not scope-everything. A dropped flag produces a
+  conservative claim instead of a false one.
+- **Forced doors.** `openReceiptBody(head, body)` is the only way to read claims,
+  so the integrity check cannot be skipped. A `{items, truncated}` pair must cross
+  the boundary together, so half of it cannot be dropped en route.
+
+A verification step you have to *remember* is one that gets skipped — including by
+the person who wrote it, on the day they wrote it. Prefer the default and the door.
+Fix the generator, not the instances.
+
 ## How to use this
 
 When you are about to derive, approximate, summarize, or cache — ask what the real
 thing is and whether you already have it. If you have it, the stand-in needs a
 reason beyond "it was working."
+
+But do not stop there, because the section above says that asking is not reliable.
+When you find an instance, the fix is not to correct it and move on — it is to ask
+**what default or missing door let it be written in the first place**, and change
+that instead. Ten instances in one day is not ten mistakes; it is a small number of
+permissive defaults, each emitting instances faster than anyone can catch them.
