@@ -1,11 +1,11 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · ten instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · thirteen instances in one day**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because ten independent instances landed within
-one working day and someone happened to be counting. A name invites deference; ten
-instances invite you to check whether an eleventh fits — and to say so if it doesn't.
+principle is worth something only because thirteen independent instances landed within
+one working day and someone happened to be counting. A name invites deference; thirteen
+instances invite you to check whether a fourteenth fits — and to say so if it doesn't.
 
 ## The shape
 
@@ -16,7 +16,7 @@ It is not a coding error and it is not carelessness. Every instance below was
 written by someone who had the real thing within reach and did not reach, because
 the stand-in was working.
 
-## The ten instances
+## The first ten instances
 
 **1. A filename match stood in for an include edge.**
 A hand-verified include chain used `#include` as the pattern for hop 1 and a bare
@@ -89,6 +89,68 @@ The filter is defensible; an invisible one is indistinguishable from a hidden
 population. Same shape as instance 6, on the field that gates whether an agent
 believes anything else.
 
+## The second wave — three that cost real data
+
+**11. Recency stood in for authority, and destroyed 8530 records.**
+`pruneOldCollections` kept the newest collection row per provider by `collected_at`
+alone. A converged collect that walked **zero files** correctly announced "authority
+over nothing" — and that guard worked, preserving every edge, node, and spine entry
+byte-identical. But it was implemented as *do not invalidate*, and the run still
+**authored a collection row**. That empty row won on recency and pruned a real
+8530-record collection out from under it, on a live repo. The real signal — does
+this collection contain anything — was one `COUNT(*)` away.
+
+★ This is the most instructive instance in the document because **neither half is
+wrong alone.** "Do not invalidate" was correct. "Keep the newest" was correct. The
+*composition* destroys data, which means the review that catches it has to be
+reading two files at once. Every other instance here is visible from one screen.
+
+**12. A legitimate zero stood in for a missing value.**
+Binding a caveat to its number required detecting that the qualifier was gone. The
+obvious check — `positionGuessSkipped == null` — never fires, because a wiped
+collection row returns **0**. "0 symbols skipped because nothing was asked" is
+byte-identical to "0 symbols skipped because nothing was skipped." The subtlest
+instance here: the stand-in is a *valid value*, not an absent one, so there is no
+missing field to detect. The only signal that a plausible zero cannot forge is the
+**contradiction between two sources** — 1507 verified edges existing while the
+session that produced them reports examining zero symbols.
+
+**13. An instruction about custody stood in for custody.**
+On learning that a teammate's backup was the sole copy of an irreplaceable dataset,
+the response was "please don't move or re-use that directory." The behaviour was
+secured; the substrate was never examined. The directory was in
+`AppData\Local\Temp` — cleanable, session-scoped, one cleanup away from gone, while
+both parties were being careful about it.
+
+## Two rules about method, both learned the hard way
+
+**"The ritual felt like rigor."**
+Two people pre-registered falsifiable ranges in opposite directions, used raw
+integers to avoid rounding, partitioned rather than gapped, and agreed a both-wrong
+outcome in advance — on a metric that could never have discriminated the
+hypotheses. The base rate dominated it, and underneath that the data had already
+lost the field that made it interpretable. **Pre-registration disciplines the
+answer and does nothing about whether the metric has power.** Doing the first well
+makes the second feel handled. Before registering any proportion, compute it over
+the whole population first; if they are close, register a *rate*, not a share.
+
+**"The arithmetic felt like proof."**
+Two discrepancies appeared together in a backup verification. One party explained
+them separately and stopped; the other reconciled both to a single cause that
+closed *to the byte*. The single-cause reconciliation was the better method — and
+it was still wrong, because the quantity was not stable: SQLite `-shm`/`-wal` files
+appear and vanish with connections, and the act of verifying moved the thing being
+measured.
+
+> **Closure is only evidence if the measurand is stable. Measure twice.**
+
+Note the inverted failure mode: closing to the byte is what made it feel decisive.
+A sloppy reconciliation would have prompted a harder look. **Precision was the
+thing that stopped the inquiry.** And the stable number was sitting beside the
+unstable ones the whole time — `graph.sqlite` was byte-identical across every copy.
+File count and byte total are not valid verification targets for a SQLite set;
+content plus the main file's size, or nothing.
+
 ## Why it generates bugs rather than being one
 
 Instances 3–10 share a second property that makes them self-perpetuating:
@@ -111,7 +173,7 @@ The structural fix is to flip the default so the stand-in fails closed:
 
 ## The corollary about reporting
 
-Instance 5 carries a lesson the other nine don't, and it is the reason this document
+Instance 5 carries a lesson the others don't, and it is the reason this document
 exists rather than a commit message.
 
 The finding that `co_consumer_files` produced — four dependents with zero textual
