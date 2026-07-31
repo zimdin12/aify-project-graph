@@ -330,7 +330,22 @@ function relationsForFile(db, filePath, limit = 10) {
      ORDER BY start_line LIMIT 50`, { p: filePath });
   return {
     imports: capped(importsRaw.map(r => r.file_path), limit),
-    imported_by: capped(importedByRaw.map(r => r.file_path), limit),
+    // ★ D5 — SAME RELATION, SAME HOP, SAME RESPONSE, ONE CAPPED AND ONE NOT.
+    //
+    // ef-manager on worldbuf.glsl: imported_by showed 10 of 13 with truncated:true
+    // while recompile_surface hop 1 listed all 13 with truncated:false. Both are
+    // the IMPORTS hop-1 set. Nothing was wrong in either number, which is exactly
+    // why it is worth fixing — a reader who has been trained to check `truncated`
+    // finds two answers to one question and has to work out which to believe.
+    //
+    // recompile_surface hop 1 IS this set, uncapped, so the capped one points at
+    // it rather than silently disagreeing.
+    imported_by: {
+      ...capped(importedByRaw.map(r => r.file_path), limit),
+      ...(importedByRaw.length > limit ? {
+        complete_set_at: 'relations.recompile_surface.byDepth[0] — same IMPORTS hop-1 set, uncapped',
+      } : {}),
+    },
     // Hop 1 answers "who includes this"; the RECOMPILE surface is transitive, and
     // for a deletion question the transitive surface is the whole point.
     recompile_surface: transitiveImporters,

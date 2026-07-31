@@ -749,11 +749,41 @@ export function compactCodeIntelRecords(db) {
   );
   // Most recent per provider wins (mirrors getLatestCollection's ORDER BY
   // collected_at DESC), so compaction agrees with how the system picks current.
+  // ★ AN EMPTY COLLECTION MUST NEVER SUPERSEDE A POPULATED ONE.
+  //
+  // This pruned by timestamp alone, so the NEWEST row won regardless of whether
+  // it contained anything. On 2026-07-31 a converged collect — one that walked
+  // ZERO files and correctly reported "authority over nothing" — wrote an empty
+  // collection row with a later collected_at, became "latest", and pruned the
+  // real collection out from under it: 8530 records to 0 on a live repo.
+  // ef-manager had a pre-collect backup only because this codebase has a prior
+  // incident of a collect destroying spine data, and his copy is the sole
+  // surviving source of the entire 52% dataset.
+  //
+  // The edge-preservation guard did work — 1507 LSP_VERIFIED edges, 28003 edges
+  // and 9034 nodes were byte-identical across the wipe. But "authority over
+  // nothing" had been implemented as DO NOT INVALIDATE, and it has to mean DO NOT
+  // WRITE. A run that examined nothing may not author a row at all, let alone one
+  // that supersedes real evidence.
+  //
+  // This is the same shape as everything else tonight: recency stood in for
+  // authority, while the real signal — does this collection actually contain
+  // anything — was one COUNT away.
+  const recordCountFor = (cid) => db.get(
+    `SELECT COUNT(*) AS c FROM code_intel_records WHERE collection_id = $cid`, { cid },
+  ).c ?? 0;
   const latestByProvider = new Map();
   for (const c of collections) {
     const key = c.provider ?? '';
     const cur = latestByProvider.get(key);
-    if (!cur || String(c.collected_at ?? '') > String(cur.collected_at ?? '')) {
+    if (!cur) { latestByProvider.set(key, c); continue; }
+    const curN = recordCountFor(cur.collection_id);
+    const cN = recordCountFor(c.collection_id);
+    // A populated collection outranks an empty one no matter how new the empty
+    // one is. Only when both are populated (or both empty) does recency decide.
+    if (cN > 0 && curN === 0) { latestByProvider.set(key, c); continue; }
+    if (cN === 0 && curN > 0) continue;
+    if (String(c.collected_at ?? '') > String(cur.collected_at ?? '')) {
       latestByProvider.set(key, c);
     }
   }
@@ -910,7 +940,24 @@ export function importV02Collection(envelope, db) {
       refsTruncatedSymbols: sess.refsTruncatedSymbols ?? null,
     },
   });
-  db.run(
+  // ★ AUTHORITY OVER NOTHING MUST MEAN WRITE NOTHING.
+  //
+  // The guard above stopped a no-walk run from INVALIDATING edges, and that half
+  // worked. But the same run still authored a collection row, and because pruning
+  // kept the newest row per provider, that empty row superseded and destroyed a
+  // real 8530-record collection. Two correct-looking halves composed into data
+  // loss. A run that walked no files is now a pure no-op on this table: it does
+  // not get to say anything, because it did not look at anything.
+  // Computed from the ENVELOPE, which is what this function actually has: a run
+  // that declared a file scope, walked none of it, and produced no records.
+  const declaredScope = envelope?.session?.scope;
+  const walkedNoFiles = Array.isArray(declaredScope?.files) && declaredScope.files.length === 0;
+  const authoredNothing = walkedNoFiles && (envelope?.records?.length ?? 0) === 0;
+  if (authoredNothing) {
+    stats.collectionRowSkipped = 'collection walked no files and produced no records — no collection row written, '
+      + 'so it cannot supersede a real one. Authority over nothing means write nothing.';
+  }
+  if (!authoredNothing) db.run(
     `INSERT OR REPLACE INTO code_intel_collections
        (collection_id, provider, provider_version, project_root, language, status,
         freshness_basis, freshness_value, compile_db_hash, indexed_commit,
