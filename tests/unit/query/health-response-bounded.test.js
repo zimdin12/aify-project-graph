@@ -53,7 +53,21 @@ describe('graph_health response stays bounded', () => {
     expect(h.dirtyFiles.length).toBeLessThanOrEqual(25);
     // The COUNT must survive intact — it is what the reader acts on.
     expect(h.dirtyFilesTotal).toBeGreaterThanOrEqual(300);
-    expect(h.dirtyFilesTruncated).toBe(h.dirtyFilesTotal - h.dirtyFiles.length);
+    // `truncated` is a BOOLEAN, matching the {items,total,truncated,limit} envelope
+    // used everywhere else. It previously held the omitted COUNT — a count named
+    // like a boolean, which truthiness let survive. The count is still reported,
+    // under a name that says what it is.
+    expect(h.dirtyFilesTruncated).toBe(true);
+    expect(h.dirtyFilesOmitted).toBe(h.dirtyFilesTotal - h.dirtyFiles.length);
+  });
+
+  it('reports truncation on the tracked list too, which had no signal at all', () => {
+    // Same defect one step further along: trackedDirtyFiles was capped at 25 with
+    // only a total to infer from and no flag of its own.
+    return graphHealth({ repoRoot: repo }).then((h) => {
+      expect(typeof h.trackedDirtyFilesTruncated).toBe('boolean');
+      expect(h.trackedDirtyFilesTruncated).toBe(h.trackedDirtyFilesTotal > h.trackedDirtyFiles.length);
+    });
   });
 
   it('the whole response stays small enough to return inline', async () => {

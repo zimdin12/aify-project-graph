@@ -777,11 +777,26 @@ export async function graphHealth({ repoRoot }) {
     //
     // The COUNTS are the decision-relevant part and are kept exact; the lists are a
     // sample. Truncation is reported, never silent.
+    // ★ A COUNT NAMED LIKE A BOOLEAN. `dirtyFilesTruncated` held 2779 — a number —
+    // while the {items,total,truncated,limit} envelope standardized elsewhere uses
+    // `truncated` as a BOOLEAN. Truthiness made both work, so nothing broke; that
+    // is exactly why it survived. Two meanings for one field name across sibling
+    // verbs is how a reader learns to guess instead of read (ef-manager, on the
+    // first health response from the new build).
+    //
+    // The count is the better datum, so it is kept — under a name that says what it
+    // is — and the boolean is provided alongside so the shape matches its siblings.
+    // trackedDirtyFiles was capped with NO truncation signal at all, which is the
+    // same defect one step further along; it gets both fields too.
     dirtyFiles: dirtyFiles.slice(0, DIRTY_LIST_CAP),
     dirtyFilesTotal: dirtyFiles.length,
-    ...(dirtyFiles.length > DIRTY_LIST_CAP ? { dirtyFilesTruncated: dirtyFiles.length - DIRTY_LIST_CAP } : {}),
+    dirtyFilesTruncated: dirtyFiles.length > DIRTY_LIST_CAP,
+    ...(dirtyFiles.length > DIRTY_LIST_CAP ? { dirtyFilesOmitted: dirtyFiles.length - DIRTY_LIST_CAP } : {}),
     trackedDirtyFiles: trackedDirtyFiles.slice(0, DIRTY_LIST_CAP),
     trackedDirtyFilesTotal: trackedDirtyFiles.length,
+    trackedDirtyFilesTruncated: trackedDirtyFiles.length > DIRTY_LIST_CAP,
+    ...(trackedDirtyFiles.length > DIRTY_LIST_CAP
+      ? { trackedDirtyFilesOmitted: trackedDirtyFiles.length - DIRTY_LIST_CAP } : {}),
     dirtySeams,
     commit: manifest?.commit ?? null,
     currentHead: head,
