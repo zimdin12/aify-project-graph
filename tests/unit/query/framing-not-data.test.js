@@ -64,7 +64,10 @@ describe('ambiguity across languages is a FINDING', () => {
 describe('adjacent tests cannot assert unverified coverage', () => {
   it('labels provenance so declared is distinguishable from linked', () => {
     expect(consequences).toMatch(/tests_adjacent_provenance: testsProvenance/);
-    expect(consequences).toMatch(/'linked'/);
+    // 'linked' split into import_linked vs symbol_referenced: a CALLS edge to vec3
+    // was being reported as test coverage under the same word as a real include.
+    expect(consequences).toMatch(/'symbol_referenced'/);
+    expect(consequences).toMatch(/'import_linked'/);
     expect(consequences).toMatch(/'feature_declared'/);
     expect(consequences).toMatch(/'none'/);
   });
@@ -81,7 +84,7 @@ describe('adjacent tests cannot assert unverified coverage', () => {
   it('only warns when the tests came from the overlay, not when linkage was found', () => {
     // A permanent caveat is noise, and noise on the trust surface is what makes real
     // banners ignorable — the same argument that killed the filler suggestion.
-    expect(consequences).toMatch(/const testsUnverifiedForSymbol = testsProvenance === 'feature_declared'/);
+    expect(consequences).toMatch(/const testsUnverifiedForSymbol = testsProvenance !== 'import_linked'/);
     expect(consequences).toMatch(/\.\.\.\(testsUnverifiedForSymbol \?/);
   });
 });

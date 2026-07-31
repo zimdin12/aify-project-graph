@@ -182,7 +182,19 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
       '',
       `★ CROSS-LANGUAGE DUPLICATE — this name is defined in ${languages.size} languages (${[...languages].join(', ')}).`,
       'That is usually a FINDING rather than a disambiguation problem: the same logic exists twice with no edge',
-      'linking the copies, so a change to one does NOT propagate and nothing will fail if they drift apart.',
+      // ★ WAS: "and nothing will fail if they drift apart." STATIC TEXT — an
+      // unevidenced universal negative about test coverage, printed regardless of
+      // whether any test was looked for. ef-manager asked directly whether it was
+      // conditioned on anything; it was not. It happened to be true for the symbol
+      // he checked, which is exactly how a static claim survives: it is only ever
+      // read next to cases where it holds.
+      //
+      // What IS established here is the absence of a graph EDGE between the copies.
+      // Whether a test would catch the drift is a separate question this function
+      // never asked, so it no longer answers it.
+      'linking the copies, so a change to one does NOT propagate through the graph. Whether any TEST would catch',
+      'the drift is not established here — this checks for an edge, not for coverage; call graph_consequences on',
+      'each copy and read tests_adjacent WITH its provenance before assuming either is unguarded.',
       'Check the copies for hardcoded literals that mirror a named constant on the other side — that is where',
       'silent desync lives. If you meant one specific copy, qualify or pass file= to scope the query.',
     ].join('\n')

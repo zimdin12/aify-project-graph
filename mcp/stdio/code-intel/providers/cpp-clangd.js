@@ -332,6 +332,11 @@ export function createCppClangdProvider({ spawn } = {}) {
         // `references` resolved ≥1 location; notFound = not_found_after_retry.
         let refsFoundSymbols = 0;
         let refsNotFoundSymbols = 0;
+        // ★ NEVER SUM DEGRADED WITH ABSENT. A "no references" statistic that
+        // includes definition-only results is not a floor, it is a wrong number
+        // pointing the wrong way (ef-manager).
+        let refsDegradedSymbols = 0;
+        let refsCleanNotFoundSymbols = 0;
         // LSP SymbolKind -> count, for the not-found population. See the comment at
         // the increment site: a stable unexplained 52% is worse than a known one.
         const refsNotFoundByKind = {};
@@ -533,11 +538,64 @@ export function createCppClangdProvider({ spawn } = {}) {
                   // anyone having to hypothesise.
                   const k = Number.isFinite(sym.kind) ? sym.kind : 0;
                   refsNotFoundByKind[k] = (refsNotFoundByKind[k] ?? 0) + 1;
+
+                  // ★ THE COLLECT WAS DISCARDING THE FIELD THAT SAYS WHETHER AN
+                  //   ABSENCE MEANS ANYTHING.
+                  //
+                  // ef-manager ground-truthed this against the live verb: for
+                  // symbols in the 833, code_intel_references returns
+                  // evidence.cause "definition_only", degraded true, exhaustive
+                  // false, confidence low, and the warning "definition-only
+                  // references are not safe evidence of no callers". The live verb
+                  // is RIGHT and says so in four fields. The collect stored only
+                  // result_state and threw all of it away, so refsNotFoundSymbols
+                  // summed "genuinely unreferenced" together with "do not
+                  // interpret this".
+                  //
+                  // He sampled 5 spanning the type space — method at an
+                  // out-of-line .cpp def, the same method at its .h declaration
+                  // with real callers warmed, a method defined in a header, a free
+                  // function, a namespace — and got definition_only 5 for 5, with
+                  // every one verifiably called (SaveManager::saveGame has 4 call
+                  // sites; WorldBuffer::removeChunk has 11 across 6 files). So the
+                  // degraded population is not a tail, it is most of the 833.
+                  //
+                  // This is "unknown is not untruncated" one layer up: degraded and
+                  // absent summed into one bucket, defaulting toward the alarming
+                  // reading. The evidence envelope exists precisely so this cannot
+                  // happen, and the collect dropped it at the boundary.
+                  //
+                  // Asking again WITH the declaration is the discriminator the live
+                  // verb already uses: if clangd knows the declaration but nothing
+                  // else, the empty result is a statement about the INDEX, not
+                  // about callers.
+                  let cause = 'no_references_found';
+                  let degraded = false;
+                  try {
+                    const withDecl = (await client.references(uri, pos, true)) || [];
+                    if (withDecl.length > 0) {
+                      cause = 'definition_only';
+                      degraded = true;
+                      refsDegradedSymbols += 1;
+                    } else {
+                      cause = 'no_index_entry';
+                      degraded = true;
+                      refsDegradedSymbols += 1;
+                    }
+                  } catch {
+                    cause = 'probe_failed';
+                    degraded = true;
+                    refsDegradedSymbols += 1;
+                  }
+                  if (!degraded) refsCleanNotFoundSymbols += 1;
                   records.push({
                     schema_version: '0.2', collectionId, kind: 'reference',
                     language: 'cpp', symbolId, qname,
                     confidence: 'low', provenance: `${PROVIDER_NAME}@${PROVIDER_VERSION}`,
-                    result_state: 'not_found_after_retry'
+                    result_state: 'not_found_after_retry',
+                    // ★ PERSISTED. Everything downstream follows from this one field.
+                    cause,
+                    degraded,
                   });
                 } else {
                   refsFoundSymbols += 1;
@@ -712,6 +770,13 @@ export function createCppClangdProvider({ spawn } = {}) {
             // undercount" instead of silently reverting to the generic line.
             refsFoundSymbols,
             refsNotFoundSymbols,
+            // The split. refsNotFoundSymbols is retained as the TOTAL for continuity,
+            // but it must never again be read as "symbols with no callers".
+            refsDegradedSymbols,
+            refsCleanNotFoundSymbols,
+            refsNotFoundNote: refsDegradedSymbols > 0
+              ? `${refsDegradedSymbols} of ${refsNotFoundSymbols} not-found results are DEGRADED (definition_only/no_index_entry) and are NOT evidence of no callers; only ${refsCleanNotFoundSymbols} are clean absences`
+              : null,
             // The not-found population BY SYMBOL KIND. ~52% of symbols returning no
             // references held to within 0.1% across a 13x sample and a different
             // compile DB, killing the foreign-DB explanation and leaving a stable

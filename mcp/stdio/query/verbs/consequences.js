@@ -114,6 +114,16 @@ function resolveTaskTarget(repoRoot, target) {
   };
 }
 
+// Provenance lattice: a claim is only as strong as its weakest input. Computed so a
+// derived field cannot silently outrank what it was derived from (ef-manager, D2).
+const PROVENANCE_RANK = { observed: 2, inferred: 1 };
+function weakestOf(values = []) {
+  if (values.length === 0) return 'inferred'; // nothing to stand on
+  return values.reduce((worst, v) => (
+    (PROVENANCE_RANK[v] ?? 1) < (PROVENANCE_RANK[worst] ?? 1) ? v : worst
+  ), values[0]);
+}
+
 function daysAgo(dateStr) {
   if (!dateStr) return null;
   const then = new Date(dateStr);
@@ -541,6 +551,8 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
 
     // 5. Adjacent tests — test files that reference the matched symbols/files
     const tests = [];
+    const fileAdjacencyImports = [];   // IMPORTS edges — structural
+    const fileAdjacencyRefs = [];      // every other relation — a reference to ONE symbol
     if (symbolNodes.length > 0) {
       const directTestRows = db.all(
         `SELECT DISTINCT COALESCE(NULLIF(n.file_path, ''), NULLIF(e.source_file, '')) AS test_file
@@ -565,8 +577,21 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       tests.push(...directTestRows.map((r) => r.test_file));
     }
     if (matchedFiles.size > 0) {
+      // ★ THIS QUERY HAD NO `e.relation` FILTER, so ANY edge of ANY type from a
+      // test-ish file to ANY symbol attributed to the target file counted as test
+      // adjacency. Measured on ef-manager's case: the single edge that made
+      // graph_consequences claim tests/test_main.cpp covers CylindricalPosition.h
+      // was `CALLS test_main.cpp -> vec3`. The test calls a math-type constructor,
+      // `vec3` is one of 15 symbols the graph attributes to that header, and the
+      // flagship safety verb reported test coverage on that basis — stamped
+      // `linked`/`observed` after my provenance fix.
+      //
+      // Relation and matched symbol are now BOTH carried out, because the fix is not
+      // just narrowing the filter: `vec3` is self-evidently vacuous the moment you
+      // can see it, and no threshold I pick will beat showing the reader the symbol.
       const fileAdjacencyRows = db.all(
-        `SELECT DISTINCT COALESCE(NULLIF(fn.file_path, ''), NULLIF(e.source_file, '')) AS test_file
+        `SELECT DISTINCT COALESCE(NULLIF(fn.file_path, ''), NULLIF(e.source_file, '')) AS test_file,
+                e.relation AS relation, tn.label AS via_symbol
          FROM edges e
          JOIN nodes fn ON fn.id = e.from_id
          JOIN nodes tn ON tn.id = e.to_id
@@ -589,10 +614,16 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
          LIMIT 10`,
         { files: JSON.stringify([...matchedFiles]) },
       );
-      tests.push(...fileAdjacencyRows.map((r) => r.test_file));
+      // IMPORTS is structural test adjacency. Everything else (CALLS, USES_TYPE, …)
+      // is a REFERENCE to one symbol — real information, but a much weaker claim,
+      // and it must travel with the symbol that produced it.
+      fileAdjacencyImports.push(...fileAdjacencyRows.filter((r) => r.relation === 'IMPORTS').map((r) => r.test_file));
+      fileAdjacencyRefs.push(...fileAdjacencyRows.filter((r) => r.relation !== 'IMPORTS'));
     }
     const importLinkedTests = matchedFiles.size > 0 ? findImportLinkedTestFiles(db, [...matchedFiles]) : [];
-    const directUniqueTests = uniqueTestPaths([...tests, ...importLinkedTests]);
+    const directUniqueTests = uniqueTestPaths([...tests, ...fileAdjacencyImports, ...importLinkedTests]);
+    const refTests = uniqueTestPaths(fileAdjacencyRefs.map((r) => r.test_file))
+      .filter((t) => !directUniqueTests.includes(t));
     const mentionTests = directUniqueTests.length === 0 && symbolNodes.length > 0
       ? findMentioningTestFiles(db, repoRoot, symbolNodes.map((node) => node.label))
       : [];
@@ -601,11 +632,32 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // The overlay is the source of truth when graph extraction misses;
     // ignoring it produced false `no_test_coverage` flags on repos with
     // shared test entrypoints (e.g. monolithic tests/test_main.cpp).
-    const inferredTests = uniqueTestPaths([...directUniqueTests, ...mentionTests]);
+    // ★ A WORD MATCH IS NOT A LINK — and this one was labelled `linked`/`observed`.
+    //
+    // ef-manager carried tests_adjacent as a defect, correctly, and diagnosed it as
+    // transitive-include reachability standing in for coverage. Measured, the real
+    // mechanism is worse than his hypothesis: for CylindricalPosition.h there is NO
+    // import path to tests/test_main.cpp at all (0 direct edges; its actual imports
+    // are 12 unrelated headers). The linkage came from findMentioningTestFiles
+    // word-matching two symbols defined in that header — `tesseract` (the project
+    // NAMESPACE) and `vec3` (a math type) — anywhere in the test file.
+    //
+    // So the field claimed observed test adjacency on the strength of a namespace
+    // name appearing in a test. `vec3` matches nearly any C++ file in this repo,
+    // which is why the proxy is near-vacuous exactly as he said — just for a
+    // different and more embarrassing reason.
+    //
+    // ★ This is his own mention-vs-edge error, committed in my code, and my
+    // provenance fix stamped it `observed`. He is right that correct provenance on
+    // a badly-scoped field is worse than no provenance: it launders a text
+    // coincidence into evidence. Text matches are kept — they are a real hint when
+    // the identifier is distinctive — but they are a SEPARATE, weaker tier that
+    // names the matching symbol so a reader can judge it.
+    const inferredTests = uniqueTestPaths(directUniqueTests);
     const featureTests = inferredTests.length === 0
       ? features.flatMap((f) => f.tests || []).filter(Boolean)
       : [];
-    const uniqueTests = uniqueTestPaths([...inferredTests, ...featureTests]);
+    const uniqueTests = uniqueTestPaths([...inferredTests, ...refTests, ...mentionTests, ...featureTests]);
 
     // ★ ADJACENCY MUST NOT BE ASSERTED WHEN IT WAS NOT ESTABLISHED.
     //
@@ -625,10 +677,27 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // Unearned confidence spends the credibility the honest parts depend on. So the
     // list keeps the overlay's declaration — it is real curation and often right —
     // but says which kind of claim it is.
+    // Four tiers now, because `linked` was covering two things with opposite
+    // evidential value — a real import edge, and a bare word match on a namespace.
+    //   import_linked     the test file IMPORTS the code. A structural edge.
+    //   text_mentioned    a symbol name appears in the test file. A HINT: strong for
+    //                     a distinctive identifier, worthless for `vec3`.
+    //   feature_declared  the curated overlay says so; unverified against this symbol.
+    //   none              nothing found, and nothing claimed.
     const testsProvenance = inferredTests.length > 0
-      ? 'linked'                 // traversed: the test imports or mentions this code
-      : (featureTests.length > 0 ? 'feature_declared' : 'none');
-    const testsUnverifiedForSymbol = testsProvenance === 'feature_declared';
+      ? 'import_linked'
+      : (refTests.length > 0 ? 'symbol_referenced'
+        : (mentionTests.length > 0 ? 'text_mentioned'
+          : (featureTests.length > 0 ? 'feature_declared' : 'none')));
+    const testsUnverifiedForSymbol = testsProvenance !== 'import_linked' && testsProvenance !== 'none';
+    // The symbol that produced a weak adjacency claim, so the reader can dismiss it
+    // in one glance — `vec3` needs no threshold to be recognised as vacuous.
+    const testsAdjacencyBasis = testsProvenance === 'symbol_referenced'
+      ? fileAdjacencyRefs
+        .filter((r) => refTests.includes(r.test_file))
+        .slice(0, 5)
+        .map((r) => ({ test_file: r.test_file, relation: r.relation, via_symbol: r.via_symbol }))
+      : null;
 
     // 6. Last-touched: git log for the matched files
     let lastTouched = [];
@@ -722,17 +791,42 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       //
       //   observed — derived from graph structure or file text (imports, symbols)
       //   inferred — reached through feature/task anchoring; as good as the overlay
-      field_provenance: {
+      field_provenance: ((base) => {
+        // Two-pass: base fields first, then derived fields resolve against them so
+        // the lattice is enforced by construction rather than by remembering.
+        const weakestProvenance = (inputs) => weakestOf(inputs.map((k) => base[k]).filter(Boolean));
+        return {
+          ...base,
+          risk_flags: weakestProvenance(['contracts_potentially_affected', 'tests_adjacent', 'features_touching']),
+          spec_docs: weakestProvenance(['features_touching']),
+        };
+      })({
         co_consumer_files: 'inferred',   // via shared feature anchors — the differentiated win, and unverifiable by text
         features_touching: 'inferred',
         contracts_potentially_affected: 'inferred',
         documents_mentioning: 'observed',   // MENTIONS edges from document text — catches what curation missed
         open_tasks_on_those_features: 'inferred',
-        tests_adjacent: testsProvenance === 'linked' ? 'observed' : 'inferred',
+        // Only a real import EDGE is observed. A text match is a hint, not structure —
+        // it was labelled `observed` on the strength of `vec3` appearing in a test.
+        tests_adjacent: testsProvenance === 'import_linked' ? 'observed' : 'inferred',
+        // ★ D2 — A DERIVED FIELD INHERITED AN INFERRED FIELD'S ERROR WITHOUT ITS LABEL.
+        //
+        // ef-manager: risk_flags and spec_docs were not in this map at all, and
+        // risk_flags says "contract_binding — 2 contract(s) may be affected" counting
+        // ONLY the two inferred, 97-day-stale overlay contracts with zero textual
+        // mention — while worldbuffer-authority.md, the contract that actually makes
+        // the file undeletable, is not counted because it arrived via the observed
+        // path. One level of derivation stripped the provenance and displayed
+        // authority exceeded evidentiary basis.
+        //
+        // His rule, and it is the right one because it cannot be forgotten the next
+        // time a derived field is added: provenance = the WEAKEST of the inputs,
+        // COMPUTED, never hand-assigned. (Resolved in the wrapper above, so a new
+        // derived field cannot be added without going through the lattice.)
         callers: 'observed',
         importers: 'observed',
         dirty_overlap: 'observed',
-      },
+      }),
       provenance_note:
         'INFERRED fields come from the feature/task overlay, not from code structure. They surface real '
         + 'dependents that text search cannot reach — and they are only as complete as the overlay is. '
@@ -818,6 +912,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
           + 'delete/rename decision.',
       } : {}),
       tests_adjacent: uniqueTests,
+      ...(testsAdjacencyBasis ? { tests_adjacent_basis: testsAdjacencyBasis } : {}),
       // 'linked'           — the test imports or mentions this code; adjacency established.
       // 'feature_declared' — taken from the overlay's curated tests[] for a touching
       //                      feature. NOT verified against this symbol; it may be a
