@@ -154,8 +154,43 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       records: [] };
   }
   if (files.length === 0) {
-    return { ...envelopeBase, session: { ...session0, enumeration: enumStats }, operations: {}, status: 'ok',
-      notes: [{ code: 'no_files', message: 'no first-party source files found to collect' }], records: [] };
+    // ★ "NOTHING TO COLLECT" AND "ALREADY COLLECTED" ARE DIFFERENT ANSWERS.
+    //
+    // Found by dogfooding this collector on APG's own source: the second run
+    // returned in 33ms with status ok and the note "no first-party source files
+    // found to collect" — on a repo full of source. Resume had worked perfectly and
+    // the remainder was legitimately empty, but the message asserted a cause that
+    // was not true and every resume field came back undefined, so a caller could
+    // not distinguish CONVERGED from BROKEN ENUMERATION.
+    //
+    // That is the same defect this pass has removed repeatedly: a message naming an
+    // unverified cause, and a state the response could not express. It survived
+    // because the early return predates resume and nobody re-read it after.
+    const convergedByResume = resumedFrom > 0 || (enumeratedTotal != null && enumeratedTotal > 0);
+    return {
+      ...envelopeBase,
+      session: {
+        ...session0,
+        enumeration: enumStats,
+        filesProcessed: 0,
+        filesTotal: 0,
+        remaining: 0,
+        complete: true,
+        resumedFrom,
+        enumeratedTotal,
+        resumeLedger: ledger ? 'active' : 'not_used',
+      },
+      operations: {},
+      status: 'ok',
+      notes: [convergedByResume
+        ? {
+          code: 'already_collected',
+          message: `nothing left to collect — all ${resumedFrom || enumeratedTotal} enumerated file(s) are already recorded for this configuration. The collection is COMPLETE; re-running is a no-op.`,
+          hint: 'pass resume:false to force a full re-collect, or files[] to target specific files',
+        }
+        : { code: 'no_files', message: 'no first-party source files found to collect' }],
+      records: [],
+    };
   }
 
   const budgetMs = Number.isFinite(req.budgetMs) ? req.budgetMs : DEFAULT_COLLECT_BUDGET_MS;
