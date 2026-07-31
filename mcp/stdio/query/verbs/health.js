@@ -18,7 +18,7 @@ import { getDirtyFileEntries } from '../../freshness/git.js';
 import { serverBuildInfo } from '../../server-build.js';
 import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
 import { getHeadCommit } from '../../freshness/git.js';
-import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
+import { getUnresolvedCounts, explainTrustExclusions } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
 import { loadTasksArtifact, lintTaskSchema, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { getLatestCollection } from '../../code-intel/query.js';
@@ -429,8 +429,49 @@ export async function graphHealth({ repoRoot }) {
   verdicts.push(
     trustUnresolvedEdges === unresolvedEdges
       ? `trust=${trust} (${unresolvedEdges} unresolved)`
-      : `trust=${trust} (${trustUnresolvedEdges} trust-relevant unresolved, ${unresolvedEdges} total)`,
+      : `trust=${trust} (${trustUnresolvedEdges} trust-relevant unresolved of ${unresolvedEdges} total — see trustBasis for the rule)`,
   );
+  // ★ ATTACK TEN — publish the rule that takes the total to the trust-relevant
+  // subset. `trust` is the most load-bearing word in the product; it gates whether
+  // an agent believes anything else, and its denominator was invisible. Same
+  // family as lspVerifiedPctOfCalls: a defensible filter nobody can see is still a
+  // hidden population.
+  //
+  // ★ AND THE FIRST DRAFT OF THIS FIX COMMITTED ATTACK SEVEN, AGAIN.
+  //
+  // `manifest.dirtyEdges` is a 500-item SAMPLE; the true count is dirtyEdgeCount
+  // (4853 here). Explaining the trust rule over the sample reported
+  // "trust_relevant: 0 of 500" while the real answer is 402 of 4853 — a published
+  // rule that was itself computed over a hidden subset, which is the exact defect
+  // this field exists to close. Caught only by noticing the total disagreed with
+  // the number three lines above it.
+  //
+  // The full set is written to dirty-edges.full.json. Read the real thing; fall
+  // back to the sample only when it is absent, and SAY SO when that happens.
+  const trustBasis = (() => {
+    if (trustUnresolvedEdges === unresolvedEdges) return null;
+    const fullPath = join(graphDir, 'dirty-edges.full.json');
+    if (existsSync(fullPath)) {
+      try {
+        const raw = JSON.parse(readFileSync(fullPath, 'utf8'));
+        const edges = Array.isArray(raw) ? raw : (raw?.dirtyEdges ?? raw?.edges ?? []);
+        if (edges.length > 0) return explainTrustExclusions(edges);
+      } catch { /* fall through to the sample, labelled */ }
+    }
+    const sample = manifest?.dirtyEdges ?? [];
+    const basis = explainTrustExclusions(sample);
+    if (!basis) return null;
+    return {
+      ...basis,
+      computed_over: 'SAMPLE',
+      sample_size: sample.length,
+      true_total: unresolvedEdges,
+      sample_warning:
+        `dirty-edges.full.json is missing, so this breakdown was computed over a ${sample.length}-edge SAMPLE `
+        + `of ${unresolvedEdges} — the proportions may not hold and the counts definitely do not. `
+        + 'Re-run graph_index to regenerate the full set.',
+    };
+  })();
   if (manifestStatus !== 'ok') verdicts.push(`rebuild-incomplete: status=${manifestStatus} (run graph_index(force=true))`);
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
@@ -720,6 +761,7 @@ export async function graphHealth({ repoRoot }) {
     trust,
     unresolvedEdges,
     trustUnresolvedEdges,
+    ...(trustBasis ? { trustBasis } : {}),
     nodes,
     edges,
     // BOUNDED. These lists were emitted in full, and a 2804-file directory turned

@@ -93,7 +93,9 @@ describe('graph_health — synthesis of graph state signals', () => {
     expect(result.trust).toBe('ok');
     expect(result.unresolvedEdges).toBe(5227);
     expect(result.trustUnresolvedEdges).toBe(600);
-    expect(result.summary).toMatch(/trust=ok \(600 trust-relevant unresolved, 5227 total\)/);
+    // Wording gained a pointer to trustBasis (attack ten): the filtered count is
+    // no longer stated without a way to see the filter that produced it.
+    expect(result.summary).toMatch(/trust=ok \(600 trust-relevant unresolved of 5227 total — see trustBasis for the rule\)/);
   });
 
   it('reports broken overlay state when functionality.json has broken anchors', async () => {
