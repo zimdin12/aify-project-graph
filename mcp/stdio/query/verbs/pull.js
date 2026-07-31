@@ -13,7 +13,39 @@
 
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
+import { buildReceipt, currentPins } from '../receipt.js';
+
+// Pin sources. Each returns null rather than a guess when unavailable — an
+// unpinned input that LOOKS pinned converts a known gap into an invisible one,
+// which is strictly worse than the gap.
+function pinRepoCommit(repoRoot) {
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+      cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
+    }).trim() || null;
+  } catch { return null; }
+}
+
+function pinManifest(repoRoot) {
+  try {
+    return JSON.parse(readFileSync(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+  } catch { return null; }
+}
+
+function pinOverlayAge(repoRoot) {
+  let newest = null;
+  for (const f of ['functionality.json', 'tasks.json']) {
+    const p = join(repoRoot, '.aify-graph', f);
+    if (!existsSync(p)) continue;
+    try {
+      const days = Math.floor((Date.now() - statSync(p).mtimeMs) / 86_400_000);
+      if (newest == null || days < newest) newest = days;
+    } catch { /* unreadable — null beats a guess */ }
+  }
+  return newest;
+}
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
 import { getDirtyFiles } from '../../freshness/git.js';
 import { assessOverlayBuild, loadTasksArtifact, overlayNotBuiltHint, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
@@ -562,6 +594,66 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
   if (layers.has('relations')) {
     out.layers.relations = relationsForFile(db, filePath);
   }
+
+  // ★ RECEIPT ON graph_pull — ef-manager's stated priority over graph_impact,
+  // because relations/docs are the layers that won his experiment 2 and the ones
+  // he would most want handed to a teammate with a receipt attached.
+  //
+  // The claims here are almost entirely `observed`: these come from edges, not
+  // from the curated overlay. That contrast IS the point — a teammate holding a
+  // pull receipt and a consequences receipt for the same file can see which
+  // fields survive without the overlay, and disagreement between them is itself
+  // the signal.
+  const rel = out.layers.relations;
+  // `capped()` returns {items,total,truncated} — and a capped LIST is a floor in
+  // exactly the way the closure cap is. Reading `.items` and ignoring `.truncated`
+  // would put a silently-shortened list under an exhaustive receipt, which is the
+  // same laundering this file already committed once inside `terminated`.
+  const importedBy = rel?.imported_by ?? {};
+  const docsLayer = out.layers.docs ?? {};
+  const listTruncated = Boolean(importedBy.truncated) || Boolean(docsLayer.truncated);
+  const pullClaims = [
+    ...(importedBy.items ?? []).map((f) => ({ field: 'imported_by', value: f, provenance: 'observed', basis: 'IMPORTS edge, hop 1' })),
+    ...(rel?.recompile_surface?.byDepth ?? []).flatMap((d) => d.files.map((f) => ({
+      field: 'recompile_surface', value: f, provenance: 'observed', basis: `IMPORTS closure, hop ${d.depth}`,
+    }))),
+    ...(docsLayer.items ?? []).map((d) => ({ field: 'docs', value: d.file ?? d.label, provenance: 'observed', basis: 'MENTIONS edge' })),
+  ];
+  const surface = rel?.recompile_surface;
+  out.receipt = buildReceipt({
+    verb: 'graph_pull',
+    args: { node: filePath, layers: [...layers] },
+    pins: currentPins({ repoCommit: pinRepoCommit(repoRoot), manifest: pinManifest(repoRoot), overlayAgeDays: pinOverlayAge(repoRoot) }),
+    claims: pullClaims,
+    floor: {
+      // Exhaustive ONLY when the closure genuinely terminated. A truncated or
+      // depth-capped surface is a FLOOR, and a receipt that called it exhaustive
+      // would launder that floor into a fact — the failure this file already had
+      // once, in `terminated` itself.
+      exhaustive: surface ? surface.terminated === true && !listTruncated : false,
+      cause: listTruncated
+        ? 'a returned list hit its display cap — the claim set is a subset of what was found'
+        : surface?.terminated === true
+          ? null
+          : surface?.truncated
+          ? 'recompile surface hit the file cap — closure is a floor, not the full set'
+          : surface?.depth_capped
+            ? 'recompile surface hit the depth cap with includers still unexplored — closure is a floor'
+            : 'relations layer not requested, so no closure was computed',
+      not_checked: [
+        'includers reachable only through a build system rather than a source include',
+        ...(surface?.truncated || surface?.depth_capped ? ['files beyond the traversal cap'] : []),
+      ],
+    },
+    disconfirm: {
+      verb: 'graph_consequences',
+      args: { target: filePath },
+      expect:
+        'consequences reaches dependents through feature anchors rather than include edges. A file it '
+        + 'lists as a co-consumer that is absent from recompile_surface is a real dependent with no '
+        + 'include path — which means this receipt\'s structural closure is not the whole blast radius.',
+    },
+  });
 
   return out;
 }

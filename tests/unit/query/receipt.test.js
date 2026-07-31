@@ -15,7 +15,7 @@
 // These tests pin the properties that make it a receipt rather than a citation —
 // and above all the one that makes it not a CACHE.
 import { describe, it, expect } from 'vitest';
-import { buildReceipt, validateReceipt, PINNED_INPUTS, RECEIPT_VERSION } from '../../../mcp/stdio/query/receipt.js';
+import { buildReceipt, validateReceipt, receiptHead, verifyReceiptIntegrity, PINNED_INPUTS, RECEIPT_VERSION } from '../../../mcp/stdio/query/receipt.js';
 
 const base = () => buildReceipt({
   verb: 'graph_consequences',
@@ -125,5 +125,73 @@ describe('an unverifiable pin is reported, never silently passed', () => {
     const v = validateReceipt({ receipt_version: RECEIPT_VERSION + 99 }, {});
     expect(v.valid).toBe(false);
     expect(v.reason).toBe('unreadable_receipt');
+  });
+});
+
+// ═══ CONTENT-ADDRESSING AND THE HEAD/BODY SPLIT ═══
+//
+// ef-manager rejected my (a)/(b)/(c) transport trichotomy as a trap, with a fact I
+// should have seen myself: WE DO NOT SHARE A REPO. He works in echoes_of_the_fallen,
+// I work in aify-project-graph, and a receipt written to echoes' .aify-graph/ is
+// invisible to me — every exchange across this engagement would have been unserved
+// by the local-file design I was about to pick. It generalizes: this project has a
+// standing rule that tester and coder use SEPARATE worktrees, so cross-filesystem
+// is the normal team case, not the exception.
+//
+// Make the body self-contained and content-addressed and the transport question
+// demotes from an architecture commitment to an operational detail.
+describe('★ content-addressed so transport stops being an architecture decision', () => {
+  it('derives the id from the body, not from a counter or a local path', () => {
+    const a = base();
+    const b = base();
+    expect(a.id).toMatch(/^rcpt_[0-9a-f]{16}$/);
+    expect(a.id).toBe(b.id); // same content → same id, on any machine
+  });
+
+  it('changes id when any claim changes', () => {
+    const a = base();
+    const b = buildReceipt({
+      verb: 'graph_consequences',
+      args: { target: 'engine/voxel/ChunkDataCache.h' },
+      pins: a.pinned_inputs,
+      claims: [{ field: 'x', value: 'y', provenance: 'observed', basis: 'z' }],
+      floor: { exhaustive: false, cause: 'overlay-derived', not_checked: ['unanchored features'] },
+      disconfirm: a.disconfirming_test,
+    });
+    expect(b.id).not.toBe(a.id);
+  });
+
+  it('detects a body that was altered after issue', () => {
+    const r = base();
+    expect(verifyReceiptIntegrity(r).intact).toBe(true);
+    const tampered = { ...r, claims: r.claims.slice(1) };
+    expect(verifyReceiptIntegrity(tampered).intact).toBe(false);
+    expect(verifyReceiptIntegrity(tampered).reason).toBe('id_mismatch');
+  });
+});
+
+describe('★ a teammate can detect drift without transferring the body', () => {
+  it('validates from the head alone', () => {
+    // Validation needs only pins; reading needs claims. You validate every time
+    // and read rarely — a single blob makes the cheap operation pay the cost of
+    // the expensive one.
+    const h = receiptHead(base());
+    expect(validateReceipt(h, h.pinned_inputs).valid).toBe(true);
+  });
+
+  it('refuses from the head alone when pins drifted', () => {
+    // Degrades in the right direction: if the pins moved, the claims are moot and
+    // the body never needs fetching at all.
+    const h = receiptHead(base());
+    expect(validateReceipt(h, { ...h.pinned_inputs, repo_commit: 'ffff' }).reason).toBe('pinned_input_drift');
+  });
+
+  it('is materially smaller than the body', () => {
+    const r = base();
+    expect(JSON.stringify(receiptHead(r)).length).toBeLessThan(JSON.stringify(r).length);
+  });
+
+  it('still carries the disconfirming test, so the head alone is actionable', () => {
+    expect(receiptHead(base()).disconfirming_test.verb).toBe('graph_pull');
   });
 });

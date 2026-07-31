@@ -44,9 +44,44 @@
 //   exactly the mechanism by which one agent's stale answer becomes shared truth.
 //   Fail loud.
 
+import { createHash } from 'node:crypto';
 import { serverBuildInfo } from '../server-build.js';
 
 export const RECEIPT_VERSION = 1;
+
+// ★ SELF-CONTAINED AND CONTENT-ADDRESSED, which is what makes the transport
+//   question stop mattering — ef-manager's correction to my (a)/(b)/(c) trichotomy.
+//
+// I was about to pick "write to .aify-graph/receipts/ with a stable id". He killed
+// it with a fact I should have seen: WE DO NOT SHARE A REPO. He works in
+// echoes_of_the_fallen, I work in aify-project-graph, and a receipt written to
+// echoes' .aify-graph/ is invisible to me. Every exchange across this engagement
+// would have been unserved by it. It generalizes too — this project has a standing
+// rule that tester and coder use SEPARATE worktrees, because a shared one destroyed
+// uncommitted patches. Cross-filesystem is the NORMAL case for teams, not the
+// exception, so any design assuming a shared path is fragile exactly where teams
+// need it most.
+//
+// With a content-derived id, all three transports work and the choice demotes from
+// an architecture commitment to an operational detail:
+//   paste the body                     — zero infrastructure, works today
+//   .aify-graph/receipts/<id>.json     — a local CACHE of bodies; dedup and
+//                                        integrity-checking fall out for free
+//   comms carries the HEAD             — body only if the recipient can't resolve it
+//
+// The id must therefore never point into local state.
+
+/** Stable stringify: sorted keys, so the same claim set always hashes the same. */
+function canonicalJson(value) {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  const keys = Object.keys(value).filter((k) => value[k] !== undefined).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(value[k])}`).join(',')}}`;
+}
+
+export function receiptId(body) {
+  return `rcpt_${createHash('sha256').update(canonicalJson(body)).digest('hex').slice(0, 16)}`;
+}
 
 // Pins are the invalidation conditions. Every one of these was observed changing
 // an answer while the repo commit stayed identical — that is the bar for being on
@@ -86,7 +121,7 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
   const missingPins = PINNED_INPUTS.filter((k) => pinned[k] === null);
 
   const trimmed = claims.slice(0, MAX_CLAIMS);
-  return {
+  const body = {
     receipt_version: RECEIPT_VERSION,
     replay: { verb, args },
     pinned_inputs: pinned,
@@ -116,6 +151,50 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
       + 'they are a cache at that point. If the pins match but a claim differs, THE DIFFERENCE IS THE '
       + 'FINDING and is worth more than the original claim.',
   };
+  return { id: receiptId(body), ...body };
+}
+
+/**
+ * ★ SPLIT HEAD FROM BODY — validation and reading are different jobs.
+ *
+ * ef-manager's refinement, and the property is one I would not give up: A TEAMMATE
+ * CAN DETECT DRIFT WITHOUT TRANSFERRING THE BODY. Validation needs only the pins;
+ * reading needs the claims. You validate every time and read rarely, so a single
+ * blob makes the cheap always-run operation pay the cost of the expensive
+ * rarely-run one — and 27 claims is already past comfortable pasting, before
+ * generalizing to more verbs.
+ *
+ * It also degrades in the right direction: a teammate holding only the head whose
+ * pins have DRIFTED already knows not to trust the claims, and never needs to
+ * fetch them. The stale case is exactly the case where shipping the body is pure
+ * waste, and the head alone fully resolves it.
+ */
+export function receiptHead(receipt) {
+  if (!receipt) return null;
+  return {
+    id: receipt.id,
+    receipt_version: receipt.receipt_version,
+    replay: receipt.replay,
+    pinned_inputs: receipt.pinned_inputs,
+    ...(receipt.unpinned_inputs ? { unpinned_inputs: receipt.unpinned_inputs } : {}),
+    claim_count: receipt.claims?.length ?? 0,
+    exhaustive: receipt.floor?.exhaustive === true,
+    disconfirming_test: receipt.disconfirming_test,
+    body_note:
+      'HEAD only. Sufficient to validate — pin drift is detectable from this alone, and if the pins '
+      + 'drifted the claims are moot, so the body is never worth fetching in that case. Fetch the body '
+      + `by id (${receipt.id}) only when the pins match AND you need the per-claim provenance.`,
+  };
+}
+
+/** Verify a body actually is the one the id names. Integrity falls out of content addressing. */
+export function verifyReceiptIntegrity(receipt) {
+  if (!receipt?.id) return { intact: false, reason: 'no_id' };
+  const { id, ...body } = receipt;
+  const recomputed = receiptId(body);
+  return recomputed === id
+    ? { intact: true }
+    : { intact: false, reason: 'id_mismatch', expected: id, recomputed, detail: 'receipt body does not hash to its id — it was altered in transit or hand-edited' };
 }
 
 /**
