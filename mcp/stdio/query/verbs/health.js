@@ -681,13 +681,50 @@ export async function graphHealth({ repoRoot }) {
         // them is evidence about the code. This is the same half-truth as a
         // partial sample wearing the name of the whole, so the caveat travels with
         // the number rather than living in a chat log.
-        const skipped = codeIntel.positionGuessSkipped ?? 0;
-        const capped = codeIntel.refsTruncatedSymbols ?? 0;
-        if (skipped > 0 || capped > 0) {
+        // ★ A CAVEAT MUST BE COMPUTED FROM THE SAME SOURCE AS THE NUMBER IT
+        //   QUALIFIES, OR IT CAN BE DELETED INDEPENDENTLY AND THE NUMBER KEEPS
+        //   PRINTING.
+        //
+        // ef-manager watched this happen with a before-image (2026-07-31). An
+        // empty collection row wiped the session stats, and:
+        //   BEFORE: "⚠ lsp coverage 12% is a FLOOR — 21 symbols NOT ASKED"
+        //   AFTER:  warning gone, coverageIsFloor gone, 12% STILL REPORTED.
+        // The percentage survived because it is computed from EDGES; the caveat
+        // died because it is computed from the COLLECTION SESSION. THE NUMBER
+        // OUTLIVED ITS QUALIFIER — which is the headline sentence of the entire
+        // 52% arc, reproducing through an unrelated mechanism inside the session
+        // convened to fix it.
+        //
+        // So the two are bound. `skipped`/`capped` being NULL is not the same as
+        // being ZERO: null means the qualifier could not be computed, and an
+        // uncomputable qualifier must produce a MORE cautious number, not a
+        // cleaner one. Same fail-closed default as "unknown is not untruncated".
+        const skippedRaw = codeIntel.positionGuessSkipped;
+        const cappedRaw = codeIntel.refsTruncatedSymbols;
+        // The wiped row does not return null — it returns 0, which is itself a
+        // stand-in: "0 symbols skipped" from a session that recorded nothing reads
+        // identically to "0 symbols skipped" from a clean full run. The structural
+        // discriminator is the CONTRADICTION between the two sources: verified
+        // edges exist, while the session that supposedly produced them claims to
+        // have examined no symbols at all. Numbers from different eras.
+        const sessionExamined = (codeIntel.refsFoundSymbols ?? 0) + (codeIntel.refsNotFoundSymbols ?? 0);
+        const qualifierUnavailable = (skippedRaw == null && cappedRaw == null)
+          || (verified > 0 && sessionExamined === 0);
+        const skipped = skippedRaw ?? 0;
+        const capped = cappedRaw ?? 0;
+        if (qualifierUnavailable) {
+          codeIntel.coverageIsFloor = true;
+          codeIntel.coverageFloorCause = 'qualifier_unavailable';
+          verdicts.push(`⚠ lsp coverage ${codeIntel.lspVerifiedPctOfCalls}% CANNOT BE QUALIFIED — the collection`
+            + ' session that records what was never asked (positionGuessSkipped, refsTruncatedSymbols) is missing,'
+            + ' so this figure may be a floor by an unknown margin. Treat it as unqualified, not as clean.'
+            + ' Re-run graph_collect_code_intel to restore the qualifier.');
+        } else if (skipped > 0 || capped > 0) {
           const bits = [];
           if (skipped > 0) bits.push(`${skipped} symbol${skipped === 1 ? '' : 's'} NOT ASKED (identifier position unresolvable)`);
           if (capped > 0) bits.push(`${capped} hub${capped === 1 ? '' : 's'} truncated at the per-symbol reference cap`);
           codeIntel.coverageIsFloor = true;
+          codeIntel.coverageFloorCause = 'not_asked_or_capped';
           verdicts.push(`⚠ lsp coverage ${codeIntel.lspVerifiedPctOfCalls}% is a FLOOR, not a rate — ${bits.join('; ')}.`
             + ' Those are absent from the numerator but present in the denominator; do not read the gap as "no callers".');
         }
