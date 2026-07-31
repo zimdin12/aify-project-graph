@@ -7,6 +7,29 @@ principle is worth something only because fourteen independent instances landed 
 one working day and someone happened to be counting. A name invites deference; fourteen
 instances invite you to check whether a fifteenth fits — and to say so if it doesn't.
 
+## Read this first — why the list exists and why it will keep growing
+
+> **A rule is not a remedy. However well phrased, a rule is a thing you read.**
+
+This document establishes below that *awareness does not prevent this defect* —
+instances 8 and 9 were committed by the two people writing the diagnosis, while
+hunting for it, with the disconfirming number three lines away. The corollary took
+another six hours to state, and it is the stronger form:
+
+**A well-phrased rule fails the same way.** Instance 14 exists because one author
+wrote a correct verification rule, and then — *one hour later* — asserted a
+violation of his own rule, confidently, in prose. The rule did not stop him. What
+stopped him was building the tool and running it, which put the two numbers on
+adjacent lines where the contradiction was unmissable.
+
+> **A claim you can execute gets tested. A claim you can only read gets believed.**
+
+So the remedy is never a rule, a doc, or a resolution to be careful. It is
+executable: **fail-closed defaults** and **forced doors** (see below). Everything
+else — including this page — is a recognition aid for naming a defect you are
+already looking at. Treating it as a safeguard would be the fifteenth instance: a
+document standing in for a mechanism.
+
 ## The shape
 
 > Something derived, cheap, or approximate stood in for something real — while the
