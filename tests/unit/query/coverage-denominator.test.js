@@ -35,7 +35,35 @@ describe('coverage is reported over what could be verified', () => {
 
   it('divides by the verifiable subset and says so', () => {
     expect(health).toMatch(/verified \/ verifiable/);
-    expect(health).toMatch(/lspVerifiedPctDenominator = 'verifiable_calls'/);
+    // Attack NINE narrowed this further: 'verifiable_calls' became
+    // 'verifiable_and_in_scope_calls'. Verifiability and scope are independent
+    // predicates and the language-only model conflated them.
+    expect(health).toMatch(/verifiable_and_in_scope_calls/);
+  });
+
+  it('★ keeps scope independent of language, so backends cannot import scope debt', () => {
+    // Attack nine's real finding. With language alone deciding the denominator, a
+    // Python backend landing would reclassify every Python edge from unverifiable
+    // to verifiable — pulling in coverage debt for files that may not be part of
+    // the project at all. Out-of-scope edges must never migrate.
+    expect(health).toMatch(/lspOutOfScopeCalls/);
+    expect(health).toMatch(/will NOT migrate into the denominator/);
+  });
+
+  it('★ decides scope by git tracking, not by a path-prefix guess', () => {
+    // A prefix list (engine/|game/|tests/) would itself have been a stand-in — and
+    // on this repo it would have wrongly excluded tools/mcp/*.cpp and tools/*.py,
+    // 1433 edges of real first-party code. Git tracking is the actual signal for
+    // "does the project own this file", and vendored trees, build output and stale
+    // worktrees are untracked by construction.
+    expect(health).toMatch(/git', \['ls-files'\]/);
+    expect(health).toMatch(/basis: 'not tracked by git'/);
+  });
+
+  it('treats unreadable scope as unknown rather than as everything-in-scope', () => {
+    // Same fail-closed default as truncation and worktree cleanliness.
+    expect(health).toMatch(/SCOPE UNKNOWN/);
+    expect(health).toMatch(/unknown scope ≠ everything in scope/);
   });
 
   it('reports the excluded population separately, with a reason per language', () => {

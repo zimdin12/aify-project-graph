@@ -505,22 +505,88 @@ export async function graphHealth({ repoRoot }) {
         // HAVE VERIFIED IS NOT AN EDGE THAT FAILED VERIFICATION. Same shape as the
         // other five instances — a percentage stood in for coverage while the real
         // thing, the verifiable subset, was computable from data already in hand.
+        // ★ ATTACK NINE — SCOPE AND VERIFIABILITY ARE ORTHOGONAL, AND THE
+        //   LANGUAGE-ONLY MODEL CONFLATED THEM.
+        //
+        // ef-manager caught this in the attack-eight FIX, one commit old. Making
+        // verifiability a language set means that when a Python backend lands,
+        // every Python call edge reclassifies from `unverifiable` to `verifiable`
+        // and enters the denominator as legitimate coverage debt — regardless of
+        // whether those files are part of the project at all.
+        //
+        // The two classes he named are both real and were indistinguishable:
+        //   (in-scope, unverifiable)  — GLSL under engine/voxel/shaders: real code
+        //                               you cannot check yet. Belongs in the debt.
+        //   (out-of-scope, verifiable) — vendored C++: you COULD check it and must
+        //                               never count it.
+        //
+        // ★ AND THE SCOPE PREDICATE ITSELF MUST NOT BE A STAND-IN. A path-prefix
+        // guess (engine/|game/|tests/) is exactly the failure this session named
+        // six times: it would have silently excluded tools/ and the repo-root
+        // scripts, which ARE first-party. The real signal is git tracking — a file
+        // the project version-controls is a file the project owns — and it is one
+        // command away. Vendored trees, build outputs and stale worktrees are all
+        // untracked by construction, so this is a stronger predicate than any
+        // prefix list AND it needs no maintenance.
+        const trackedFiles = (() => {
+          try {
+            const out = execFileSync('git', ['ls-files'], {
+              cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+              windowsHide: true, maxBuffer: 64 * 1024 * 1024,
+            });
+            const set = new Set(out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean));
+            return set.size > 0 ? set : null;
+          } catch { return null; } // unknown scope ≠ everything in scope
+        })();
+
         const byLang = db2.all(
-          `SELECT COALESCE(NULLIF(n.language, ''), '(unknown)') AS lang, COUNT(*) AS c
+          `SELECT COALESCE(NULLIF(n.language, ''), '(unknown)') AS lang,
+                  COALESCE(NULLIF(n.file_path, ''), '') AS fp,
+                  COUNT(*) AS c
              FROM edges e JOIN nodes n ON n.id = e.from_id
-            WHERE e.relation = 'CALLS' GROUP BY lang`,
-        );
+            WHERE e.relation = 'CALLS' GROUP BY lang, fp`,
+        ).reduce((acc, r) => {
+          // Unknown tracking state is NOT in-scope — same fail-closed default as
+          // truncation and worktree cleanliness. If git could not be read we say
+          // scope is unknown rather than assuming everything counts.
+          const inScope = trackedFiles == null ? null : trackedFiles.has(r.fp);
+          const key = `${r.lang} ${inScope}`;
+          acc.set(key, { lang: r.lang, inScope, c: (acc.get(key)?.c ?? 0) + r.c });
+          return acc;
+        }, new Map());
+        const langScopeRows = [...byLang.values()];
+        const outOfScope = langScopeRows.filter((r) => r.inScope === false);
+        const inScopeRows = langScopeRows.filter((r) => r.inScope !== false);
         // Languages an LSP backend in this server can actually verify. Anything
         // else is unverifiable by construction, not unverified by omission.
         const LSP_VERIFIABLE_LANGUAGES = new Set(['cpp', 'c', 'cxx', 'cc', 'h', 'hpp']);
-        const verifiable = byLang.filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang)).reduce((a, r) => a + r.c, 0);
-        const unverifiable = byLang.filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang));
+        // Verifiable AND in-scope. Out-of-scope edges never enter the denominator,
+        // and — the point of attack nine — never MIGRATE into it when a backend
+        // for their language lands.
+        const verifiable = inScopeRows.filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang)).reduce((a, r) => a + r.c, 0);
+        const unverifiable = inScopeRows.filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang));
 
         codeIntel.lspCallsTotal = calls;
         codeIntel.lspCallsVerifiable = verifiable;
         // The honest coverage number: verified over what could BE verified.
         codeIntel.lspVerifiedPctOfCalls = verifiable > 0 ? Math.round((verified / verifiable) * 100) : 0;
-        codeIntel.lspVerifiedPctDenominator = 'verifiable_calls';
+        codeIntel.lspVerifiedPctDenominator = trackedFiles == null
+          ? 'verifiable_calls (SCOPE UNKNOWN — git ls-files unreadable, so out-of-scope edges could not be excluded)'
+          : 'verifiable_and_in_scope_calls';
+        if (outOfScope.length > 0) {
+          const oosTotal = outOfScope.reduce((a, r) => a + r.c, 0);
+          codeIntel.lspOutOfScopeCalls = {
+            total: oosTotal,
+            pct_of_all_calls: calls > 0 ? Math.round((oosTotal / calls) * 100) : 0,
+            by_language: outOfScope.sort((a, b) => b.c - a.c).map((r) => ({ language: r.lang, edges: r.c })),
+            basis: 'not tracked by git',
+            note:
+              'Untracked files — vendored dependencies, build output, stale worktrees. Excluded from BOTH '
+              + 'numerator and denominator, and they will NOT migrate into the denominator when a backend for '
+              + 'their language lands. Scope and verifiability are independent: an edge can be in-scope and '
+              + 'unverifiable (real code, no backend yet) or out-of-scope and verifiable (vendored C++).',
+          };
+        }
         if (unverifiable.length > 0) {
           const unverifiableTotal = unverifiable.reduce((a, r) => a + r.c, 0);
           codeIntel.lspUnverifiableCalls = {
