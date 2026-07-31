@@ -370,6 +370,76 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     const contracts = [...new Set(features.flatMap((f) => f.contracts))].filter(Boolean);
     const specDocs = [...new Set(features.flatMap((f) => f.anchor_docs ?? []))].filter(Boolean);
 
+    // ★ THE SAFETY VERB MISSED THE BINDING CONTRACT THE BROWSE VERB FOUND.
+    //
+    // Measured (ef-manager, 2026-07-31): asked what a change to ChunkDataCache.h
+    // could break, graph_consequences listed two contracts with ZERO textual
+    // mention of the file — and MISSED worldbuffer-authority.md, which names it
+    // 22 times. graph_pull's docs layer found it immediately, from the same DB,
+    // same minute. The gap is mechanism, not data: contracts came only from
+    // feature.contracts (a curated, feature-level field), while the MENTIONS
+    // edge Document→node was sitting right there unqueried.
+    //
+    // Feature-level curation is the right DEFAULT — it encodes intent that text
+    // cannot. But a contract that names the file two dozen times is not a
+    // judgement call, and missing it on the verb whose entire job is "what could
+    // this break" is the worst place to be quietly incomplete. So we UNION the
+    // observed mentions in, and label where each one came from rather than
+    // blending them: `declared` survives curation, `mentions` is observed from
+    // document text.
+    // Widen to the LABELS declared in the matched files, not just nodes whose
+    // file_path is one of them. A contract discusses a type by NAME, and the
+    // node a MENTIONS edge lands on is often the forward decl / External /
+    // re-declaration living in a different file. Matching only on file_path
+    // collapsed every doc to a single mention and destroyed the ranking —
+    // the fix and the bug it caused were both invisible without checking.
+    const fileLabelRows = matchedFiles.size > 0
+      ? db.all(
+        `SELECT DISTINCT label FROM nodes
+          WHERE file_path IN (${[...matchedFiles].map((_, i) => `$fl${i}`).join(',')})
+            AND label IS NOT NULL AND label != '' LIMIT 200`,
+        Object.fromEntries([...matchedFiles].map((v, i) => [`fl${i}`, v])),
+      )
+      : [];
+    const mentionLabels = new Set([...matchedSymbols, ...fileLabelRows.map((r) => r.label)]);
+
+    const mentionParams = {};
+    const fileKeys = [...matchedFiles].map((v, i) => { mentionParams[`mf${i}`] = v; return `$mf${i}`; });
+    const symKeys = [...mentionLabels].map((v, i) => { mentionParams[`ms${i}`] = v; return `$ms${i}`; });
+    const mentionedDocs = (fileKeys.length > 0 || symKeys.length > 0)
+      ? db.all(
+        // COUNT(DISTINCT n.id), not COUNT(*): MENTIONS is deduped per
+        // (document, node) pair, so a raw row count is 1 for every doc and the
+        // ranking carries no signal. Distinct mentioned nodes IS the breadth
+        // measure — the binding contract names the type AND its methods, a
+        // passing reference names it once. On the case that motivated this,
+        // that separates worldbuffer-authority.md (8) from the field (≤3).
+        `SELECT d.label, d.file_path, COUNT(DISTINCT n.id) AS mention_count
+           FROM edges e
+           JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
+           JOIN nodes n ON n.id = e.to_id
+          WHERE e.relation = 'MENTIONS'
+            AND (${[
+          fileKeys.length ? `n.file_path IN (${fileKeys.join(',')})` : null,
+          symKeys.length ? `n.label IN (${symKeys.join(',')})` : null,
+        ].filter(Boolean).join(' OR ')})
+          GROUP BY d.id
+          ORDER BY mention_count DESC
+          LIMIT 15`,
+        mentionParams,
+      )
+      : [];
+
+    // A doc already named by a feature is DECLARED; don't double-report it.
+    const declaredDocSet = new Set([...contracts, ...specDocs].map((d) => String(d).toLowerCase()));
+    const documentsMentioning = mentionedDocs
+      .filter((d) => {
+        const p = String(d.file_path || '').toLowerCase();
+        const l = String(d.label || '').toLowerCase();
+        return ![...declaredDocSet].some((known) => p.endsWith(known) || l === known || p.includes(known));
+      })
+      .map((d) => ({ label: d.label, file: d.file_path, mentions: d.mention_count }));
+
     // 4. Open tasks bound to affected features. Reuse the tasks.json already
     // loaded above (if present) instead of re-reading/re-parsing.
     const tasks = [];
@@ -567,6 +637,9 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       },
       contracts_potentially_affected: contracts,
       spec_docs: specDocs,
+      // Observed counterpart to the two fields above: docs whose TEXT names this
+      // target, ranked by how often. Curation misses; 22 mentions does not.
+      documents_mentioning: documentsMentioning,
       features_touching: features,
       co_consumer_files: coConsumerFiles,
       open_tasks_on_those_features: tasks,
@@ -595,6 +668,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
         co_consumer_files: 'inferred',   // via shared feature anchors — the differentiated win, and unverifiable by text
         features_touching: 'inferred',
         contracts_potentially_affected: 'inferred',
+        documents_mentioning: 'observed',   // MENTIONS edges from document text — catches what curation missed
         open_tasks_on_those_features: 'inferred',
         tests_adjacent: testsProvenance === 'linked' ? 'observed' : 'inferred',
         callers: 'observed',
