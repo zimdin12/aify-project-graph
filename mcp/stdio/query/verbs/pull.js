@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
-import { buildReceipt, currentPins } from '../receipt.js';
+import { buildReceipt, currentPins, hashOverlayContent, hashWorktreeDirty } from '../receipt.js';
 
 // Pin sources. Each returns null rather than a guess when unavailable — an
 // unpinned input that LOOKS pinned converts a known gap into an invisible one,
@@ -31,6 +31,23 @@ function pinRepoCommit(repoRoot) {
 function pinManifest(repoRoot) {
   try {
     return JSON.parse(readFileSync(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
+  } catch { return null; }
+}
+
+// Identity, not age — see receipt.js: an age is a clock reading and cannot serve
+// as an invalidation condition.
+function pinOverlayHash(repoRoot) {
+  return hashOverlayContent(readFileSync, ['functionality.json', 'tasks.json'].map((f) => join(repoRoot, '.aify-graph', f)));
+}
+
+// Tracked modifications only. Untracked snapshot noise would drift this pin
+// constantly for reasons that cannot change an answer.
+function pinWorktreeDirty(repoRoot) {
+  try {
+    const out = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+      cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
+    });
+    return hashWorktreeDirty(out.split(/\r?\n/).map((l) => l.slice(3).trim()).filter(Boolean));
   } catch { return null; }
 }
 
@@ -623,7 +640,13 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
   out.receipt = buildReceipt({
     verb: 'graph_pull',
     args: { node: filePath, layers: [...layers] },
-    pins: currentPins({ repoCommit: pinRepoCommit(repoRoot), manifest: pinManifest(repoRoot), overlayAgeDays: pinOverlayAge(repoRoot) }),
+    pins: currentPins({
+      repoCommit: pinRepoCommit(repoRoot),
+      manifest: pinManifest(repoRoot),
+      overlayContentHash: pinOverlayHash(repoRoot),
+      worktreeDirtyHash: pinWorktreeDirty(repoRoot),
+    }),
+    reported_context: { overlay_age_days: pinOverlayAge(repoRoot) },
     claims: pullClaims,
     floor: {
       // Exhaustive ONLY when the closure genuinely terminated. A truncated or

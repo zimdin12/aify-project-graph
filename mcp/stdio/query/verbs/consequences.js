@@ -19,7 +19,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
-import { buildReceipt, currentPins } from '../receipt.js';
+import { buildReceipt, currentPins, hashOverlayContent, hashWorktreeDirty } from '../receipt.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
 import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
@@ -739,9 +739,20 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
         pins: currentPins({
           repoCommit: pinRepoCommit,
           manifest: pinManifest,
-          overlayAgeDays,
+          // Identity, not age — an age cannot be an invalidation condition.
+          overlayContentHash: hashOverlayContent(readFileSync, ['functionality.json', 'tasks.json'].map((f) => join(repoRoot, '.aify-graph', f))),
+          worktreeDirtyHash: (() => {
+            try {
+              const out = execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], {
+                cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
+              });
+              return hashWorktreeDirty(out.split(/\r?\n/).map((l) => l.slice(3).trim()).filter(Boolean));
+            } catch { return null; }
+          })(),
           indexReady: freshness?.ready ?? null,
         }),
+        // Still reported — it drives the 30-day warning — but it can never validate.
+        reported_context: { overlay_age_days: overlayAgeDays },
         claims: [
           ...contracts.map((c) => ({ field: 'contracts_potentially_affected', value: c, provenance: 'inferred', basis: 'feature.contracts overlay anchor', source_age_days: overlayAgeDays })),
           ...documentsMentioning.map((d) => ({ field: 'documents_mentioning', value: d.file, provenance: 'observed', basis: `MENTIONS edge, ${d.mentions} distinct nodes` })),

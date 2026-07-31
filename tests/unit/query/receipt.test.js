@@ -15,7 +15,7 @@
 // These tests pin the properties that make it a receipt rather than a citation —
 // and above all the one that makes it not a CACHE.
 import { describe, it, expect } from 'vitest';
-import { buildReceipt, validateReceipt, receiptHead, verifyReceiptIntegrity, PINNED_INPUTS, RECEIPT_VERSION } from '../../../mcp/stdio/query/receipt.js';
+import { buildReceipt, validateReceipt, receiptHead, verifyReceiptIntegrity, openReceiptBody, hashWorktreeDirty, PINNED_INPUTS, RECEIPT_VERSION } from '../../../mcp/stdio/query/receipt.js';
 
 const base = () => buildReceipt({
   verb: 'graph_consequences',
@@ -91,9 +91,15 @@ describe('★ a receipt that serves a stale answer is a cache — so it must ref
 
   it('pins every input observed to change an answer at a fixed repo commit', () => {
     // Repo commit alone would have validated every wrong answer in the engagement:
-    // server commit, compile DB hash, index readiness and overlay age each moved
+    // server commit, compile DB hash, index readiness and the overlay each moved
     // the output while the tree stood still.
-    for (const k of ['repo_commit', 'indexed_commit', 'server_commit', 'compile_db_hash', 'overlay_age_days', 'index_ready']) {
+    //
+    // This assertion originally listed `overlay_age_days`, and that was the defect
+    // rather than the guarantee — see A2. The overlay is still pinned; it is
+    // pinned by CONTENT, because an age is a measurement and measurements cannot
+    // serve as invalidation conditions. Updated, not deleted: the property being
+    // asserted is right, the field that expressed it was wrong.
+    for (const k of ['repo_commit', 'indexed_commit', 'server_commit', 'compile_db_hash', 'overlay_content_hash', 'index_ready']) {
       expect(PINNED_INPUTS).toContain(k);
     }
   });
@@ -193,5 +199,94 @@ describe('★ a teammate can detect drift without transferring the body', () => 
 
   it('still carries the disconfirming test, so the head alone is actionable', () => {
     expect(receiptHead(base()).disconfirming_test.verb).toBe('graph_pull');
+  });
+});
+
+// ═══ ★ ef-manager's PRE-REGISTERED ATTACKS (2026-07-31) ═══
+//
+// He wrote these as PREDICTIONS before he could execute them, labelled as such,
+// and refused to report any as findings until run. Two were outside the weak spots
+// I had named — which was the population I told him I could not find myself. All
+// six confirmed against the code.
+describe('★ A1 — the head/body split separated the address from the thing it addresses', () => {
+  // He proposed the split and flagged its cost in the next message: the content
+  // address closes body tampering ONLY IF the body is checked against head.id, but
+  // validateReceipt works on the head ALONE by design. A validated head followed by
+  // an unchecked body reads as verified, and the address is then present and doing
+  // nothing — worse than absent, because it reassures.
+  it('refuses a body that does not hash to its own id', () => {
+    const r = base();
+    const h = receiptHead(r);
+    expect(openReceiptBody(h, { ...r, claims: r.claims.slice(1) }).ok).toBe(false);
+  });
+
+  it('refuses a valid body paired with the wrong head', () => {
+    const r = base();
+    const other = buildReceipt({ verb: 'other', args: {}, pins: r.pinned_inputs, claims: [] });
+    const res = openReceiptBody(receiptHead(r), other);
+    expect(res.ok).toBe(false);
+    expect(res.reason).toBe('head_body_mismatch');
+  });
+
+  it('opens a matching pair, so the check is the door rather than an extra step', () => {
+    // A verify function you must remember to call is one that gets skipped.
+    const r = base();
+    expect(openReceiptBody(receiptHead(r), r).ok).toBe(true);
+  });
+});
+
+describe('★ A2 — a pin must be an identity, never a measurement', () => {
+  it('pins the overlay by CONTENT, not by age', () => {
+    // now-minus-mtime false-drifts daily, false-drifts on a byte-identical
+    // regeneration, and — the dangerous one — FALSE MATCHES when a rewritten
+    // overlay is replayed at the moment its computed age equals the stored number.
+    expect(PINNED_INPUTS).toContain('overlay_content_hash');
+    expect(PINNED_INPUTS).not.toContain('overlay_age_days');
+  });
+
+  it('still reports the age, structurally separated so nothing can validate on it', () => {
+    const r = buildReceipt({ verb: 'v', args: {}, pins: {}, claims: [], reported_context: { overlay_age_days: 96 } });
+    expect(r.reported_context.overlay_age_days).toBe(96);
+    expect(r.pinned_inputs.overlay_age_days).toBeUndefined();
+  });
+});
+
+describe('★ A3 — a clean commit pair over a dirty tree', () => {
+  it('pins uncommitted tracked state', () => {
+    // repo_commit matches, indexed_commit matches, and someone has forty
+    // uncommitted modifications open. No rebuild required, and nothing said so.
+    expect(PINNED_INPUTS).toContain('worktree_dirty_hash');
+  });
+
+  it('distinguishes a known-clean tree from an unknown one', () => {
+    expect(hashWorktreeDirty([])).toBe('clean');
+    expect(hashWorktreeDirty(null)).toBe(null); // unknown is not clean
+  });
+
+  it('is order-independent so the same dirty set hashes the same', () => {
+    expect(hashWorktreeDirty(['b.js', 'a.js'])).toBe(hashWorktreeDirty(['a.js', 'b.js']));
+  });
+});
+
+describe('★ B1/B2 — the two he predicted from my own list, both confirmed', () => {
+  it('reports how many pins the verdict actually rests on', () => {
+    // 5 nulls + 1 match reported valid:true on one-sixth of the evidence, and the
+    // caller had to read the pin block to find out. A validation that LOOKS
+    // complete converts a known gap into an invisible one — my own unpinned_inputs
+    // principle, turned back on me one level in.
+    const r = buildReceipt({ verb: 'v', args: {}, pins: { repo_commit: 'abc' }, claims: [] });
+    const v = validateReceipt(r, { repo_commit: 'abc' });
+    expect(v.valid).toBe(true);
+    expect(v.pins_compared).toBe(`1/${PINNED_INPUTS.length}`);
+    expect(v.partial_warning).toMatch(/close to meaningless/);
+  });
+
+  it('treats a type change as drift instead of coercing it away', () => {
+    // String(96) === String("96") let a JSON round-trip through a different
+    // representation pass as an unchanged input.
+    const r = buildReceipt({ verb: 'v', args: {}, pins: { repo_commit: 96 }, claims: [] });
+    const v = validateReceipt(r, { repo_commit: '96' });
+    expect(v.valid).toBe(false);
+    expect(v.drifted[0].note).toMatch(/type changed/);
   });
 });
