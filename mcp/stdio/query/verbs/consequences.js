@@ -15,7 +15,7 @@
 // + git log.
 
 import { join } from 'node:path';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
@@ -299,6 +299,22 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // we know which features are reached by task references to matchedFiles.
     const featureIdsReachedViaTasks = new Map(); // featureId → [taskId, ...]
     const tasksPath = join(repoRoot, '.aify-graph', 'tasks.json');
+    // Age of the curated overlay, in days — travels with every INFERRED field
+    // below rather than living only in graph_health where nobody reads it at the
+    // moment they act. Newest of the two overlay files: if either was refreshed,
+    // the anchoring is that fresh.
+    const overlayAgeDays = (() => {
+      let newest = null;
+      for (const f of ['functionality.json', 'tasks.json']) {
+        const p = join(repoRoot, '.aify-graph', f);
+        if (!existsSync(p)) continue;
+        try {
+          const days = Math.floor((Date.now() - statSync(p).mtimeMs) / 86_400_000);
+          if (newest == null || days < newest) newest = days;
+        } catch { /* unreadable — leave null rather than guess */ }
+      }
+      return newest;
+    })();
     let tasksRaw = null;
     if (existsSync(tasksPath) && matchedFiles.size > 0) {
       try {
@@ -678,7 +694,29 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       provenance_note:
         'INFERRED fields come from the feature/task overlay, not from code structure. They surface real '
         + 'dependents that text search cannot reach — and they are only as complete as the overlay is. '
-        + 'An absent entry is NOT evidence of no relationship; verify before acting on absence.',
+        + 'An absent entry is NOT evidence of no relationship; verify before acting on absence.'
+        + (overlayAgeDays != null ? ` OVERLAY IS ${overlayAgeDays} DAYS OLD — every INFERRED field above is exactly that stale.` : ''),
+      // ★ THE MOST VALUABLE LAYER IS THE ONE WHOSE STALENESS IS LEAST VISIBLE.
+      //
+      // ef-manager's unflattering read, and he is right: the feature-anchoring
+      // layer that WON his experiment is also the most staleness-sensitive thing
+      // in the product, and it won partly by luck. The overlay was 96 days old;
+      // it still described the code because THIS REPO IS MOTHBALLED. On an active
+      // repo the same confident output would have been wrong and nothing in the
+      // response would have said so. graph_health does report artifactAges — but
+      // co_consumer_files does not carry that age WITH it, and point of use is
+      // the only place it can actually stop someone.
+      //
+      // So the age travels with the claim now, the same way tests_adjacent's
+      // provenance does.
+      overlay_age_days: overlayAgeDays,
+      ...(overlayAgeDays != null && overlayAgeDays > 30 ? {
+        overlay_age_warning:
+          `The feature/task overlay was last updated ${overlayAgeDays} days ago. Every field marked `
+          + 'INFERRED above is derived from it and is that stale. On a repo whose code has moved since, '
+          + 'these fields can be confidently wrong — re-run graph_index before trusting them for a '
+          + 'delete/rename decision.',
+      } : {}),
       tests_adjacent: uniqueTests,
       // 'linked'           — the test imports or mentions this code; adjacency established.
       // 'feature_declared' — taken from the overlay's curated tests[] for a touching

@@ -231,6 +231,16 @@ function relationsForFile(db, filePath, limit = 10) {
           LIMIT ${TRANSITIVE_MAX_FILES}`,
         Object.fromEntries(frontier.map((f, i) => [`f${i}`, f])),
       );
+      // ★ THE SQL `LIMIT` IS ITSELF A TRUNCATION, AND IT WAS INVISIBLE.
+      //
+      // The old check only set `truncated` when `seen.size` crossed the cap. But
+      // the LIMIT clips rows inside SQLite BEFORE we ever count them: a hop whose
+      // returned rows are mostly already-seen discards real includers and leaves
+      // seen.size far below the cap — so the closure reported `terminated: true`
+      // while silently missing files. That is precisely the false-completeness
+      // failure this whole surface exists to prevent, sitting inside the fix for
+      // it. A full page of rows means "there may be more", always.
+      if (rows.length >= TRANSITIVE_MAX_FILES) truncated = true;
       const next = [];
       for (const r of rows) {
         if (!r.file_path || seen.has(r.file_path)) continue;
@@ -241,18 +251,26 @@ function relationsForFile(db, filePath, limit = 10) {
       if (next.length) byDepth.push({ depth, files: next });
       frontier = next;
     }
+    // Ran out of depth budget with work still queued — the closure is a FLOOR for
+    // a different reason than the file cap, and the caller deserves to know which.
+    const depthCapped = frontier.length > 0;
     const total = seen.size - 1;
     return {
       total,
       byDepth,
       truncated,
-      // A closure that stops because everything downstream is a .cpp has genuinely
-      // TERMINATED — which is the useful fact for a deletion. Distinguish that from
-      // stopping because we hit the cap.
-      terminated: !truncated && byDepth.length < TRANSITIVE_MAX_DEPTH,
+      depth_capped: depthCapped,
+      // TERMINATED means the walk ran out of INCLUDERS, not out of budget — the
+      // frontier emptied on its own. That is the useful fact for a deletion, and
+      // it is decided by the graph (a node with no incoming IMPORTS edge is
+      // terminal), never by file extension. Extension-based terminality would be
+      // defeated by the first .inl/.glsl/.tpp the walk met; this is not.
+      terminated: !truncated && !depthCapped,
       note: truncated
         ? `recompile surface TRUNCATED at ${TRANSITIVE_MAX_FILES} files — this is a FLOOR, not the full closure`
-        : `full transitive include closure: ${total} file(s) across ${byDepth.length} hop(s)`,
+        : depthCapped
+          ? `recompile surface CUT OFF at depth ${TRANSITIVE_MAX_DEPTH} with includers still unexplored — this is a FLOOR, not the full closure`
+          : `full transitive include closure: ${total} file(s) across ${byDepth.length} hop(s)`,
     };
   })();
 
