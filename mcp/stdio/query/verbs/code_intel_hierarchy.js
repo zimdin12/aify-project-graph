@@ -561,7 +561,23 @@ export async function codeIntelHierarchy(args = {}) {
   if (!(file && line)) {
     if (!symbol) return errorResponse('no_position', 'pass file+line (+col) OR symbol');
     const resolved = resolveSymbolPosition({ repoRoot, symbol });
-    if (!resolved) return errorResponse('symbol_not_found', `could not resolve symbol "${symbol}" to a position via the graph`);
+    if (!resolved) {
+      // Carry candidates instead of redirecting. A one-character typo on a symbol
+      // the graph definitely holds returned a bare "run graph_search" here — the
+      // same wasted round-trip did-you-mean removed elsewhere, still live on the
+      // verb a field user actually reached for (ef-manager, 2026-07-31).
+      let suggestions = [];
+      try {
+        const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+        try { suggestions = findSimilarSymbols(db, symbol); } finally { db.close(); }
+      } catch { /* suggestions are a convenience, never a new failure mode */ }
+      const near = suggestions.length
+        ? ` Did you mean: ${suggestions.map((s) => `${s.label} (${s.file_path}${s.start_line ? `:${s.start_line}` : ''})`).join(' · ')}`
+        : '';
+      const err = errorResponse('symbol_not_found', `could not resolve symbol "${symbol}" to a position via the graph.${near}`);
+      if (suggestions.length) err.suggestions = suggestions.map((s) => ({ symbol: s.label, file: s.file_path, line: s.start_line }));
+      return err;
+    }
     file = resolved.file; line = resolved.line; col = resolved.col;
   }
 

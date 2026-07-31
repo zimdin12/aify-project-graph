@@ -14,6 +14,7 @@ import { computeCoverage, coverageCause } from '../../code-intel/coverage.js';
 import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
+import { openExistingDb } from '../../storage/db.js';
 
 const HINTS = {
   language_unsupported: 'no live LSP session registered for this language; supported: cpp, typescript/javascript, python',
@@ -366,7 +367,11 @@ function planAutoPrewarm(session, queriedFile, callerWarmupFiles, prewarmCap) {
   const result = selectCppPrewarmFiles({
     projectRoot: session.projectRoot,
     queriedFile,
-    cap: prewarmCap
+    cap: prewarmCap,
+    // Let prewarm consult the call graph. Without this it picks warmup files by
+    // DIRECTORY ORDER while we hold the answer — measured at ~22s of warming
+    // non-callers, still returning non-exhaustive (ef-manager, 2026-07-31).
+    openDb: openExistingDb,
   });
   return { addedFiles: result.files, stats: result.stats };
 }

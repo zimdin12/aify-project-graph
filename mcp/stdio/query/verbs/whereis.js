@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
+import { noMatchMessage } from '../did-you-mean.js';
 
 export const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
 
@@ -15,7 +16,13 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
       { label: symbol, limit }
     );
     if (hits.length === 0) {
-      const base = `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") for partial matches.`;
+      // Suggest, do not redirect. This path was missed when did-you-mean landed on
+      // callers/callees/impact/change_plan — and graph_whereis is the verb a field
+      // user actually reached for, so the fix covered four verbs nobody hit and
+      // skipped the one they did (ef-manager, 2026-07-31). Same "the fix reached
+      // one path" shape this codebase keeps producing; the lesson is to enumerate
+      // every emitter of a message rather than the ones that come to mind.
+      const base = noMatchMessage(db, symbol);
       const caveat = staleNotFoundCaveat(freshness);
       return caveat ? `${base}\n${caveat}` : base;
     }

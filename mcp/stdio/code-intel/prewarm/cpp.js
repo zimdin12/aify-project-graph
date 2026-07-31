@@ -113,7 +113,47 @@ function listDirSiblings(projectRoot, queriedFileRel) {
  *
  * Honors `APG_DISABLE_PREWARM=1` (returns empty with source:'none').
  */
-export function selectCppPrewarmFiles({ projectRoot, queriedFile, cap = DEFAULT_PREWARM_CAP, env = process.env } = {}) {
+// ★ WE OWN A CALL GRAPH AND WERE USING THE FILESYSTEM AS THE HEURISTIC.
+//
+// Measured in the field (ef-manager, 2026-07-31): the first references call after a
+// restart spent ~22 SECONDS warming 15 files chosen by DIRECTORY ORDER — the
+// alphabetical head of engine/voxel/ — and not one of them was a caller. The answer
+// came back non-exhaustive anyway. His framing: "you own a call graph and you are
+// using the filesystem as your prewarm heuristic."
+//
+// The graph already knows which files call into this one. Even a STALE spine beats
+// alphabetical order, because a stale caller is still far more likely to be a real
+// caller than a directory neighbour. So graph-known callers go FIRST, then compile-DB
+// siblings, then the filesystem — each tier bounded by the same cap.
+//
+// Best-effort throughout: the graph may be absent, stale, or empty, and prewarm must
+// never fail a query. A miss here costs latency, never correctness.
+function callersFromGraph(openDb, projectRoot, queriedRel, cap) {
+  try {
+    const dbPath = path.join(projectRoot, '.aify-graph', 'graph.sqlite');
+    if (!fs.existsSync(dbPath)) return [];
+    const db = openDb(dbPath);
+    try {
+      const rows = db.all(
+        'SELECT DISTINCT cn.file_path AS file'
+        + '  FROM nodes tn'
+        + '  JOIN edges e ON e.to_id = tn.id'
+        + '  JOIN nodes cn ON cn.id = e.from_id'
+        + ' WHERE tn.file_path = $file'
+        + '   AND cn.file_path IS NOT NULL AND cn.file_path != $file'
+        + ' LIMIT $lim',
+        { file: queriedRel, lim: cap * 3 },
+      );
+      return rows
+        .map((r) => r.file)
+        .filter((f) => typeof f === 'string' && CPP_EXTENSIONS.has(path.posix.extname(f)));
+    } finally { db.close(); }
+  } catch {
+    return [];
+  }
+}
+
+export function selectCppPrewarmFiles({ projectRoot, queriedFile, cap = DEFAULT_PREWARM_CAP, env = process.env, openDb = null } = {}) {
   if (env.APG_DISABLE_PREWARM === '1') {
     return { files: [], stats: { cap, skipped: false, source: 'none' } };
   }
@@ -143,6 +183,22 @@ export function selectCppPrewarmFiles({ projectRoot, queriedFile, cap = DEFAULT_
   const out = [];
   let hasCompileDbSrc = false;
   let hasFsSrc = false;
+  let hasGraphSrc = false;
+
+  // Graph-known callers FIRST — the whole point of owning a call graph is not to
+  // guess when you can look. Only consulted when the caller supplies a db opener,
+  // so this module stays dependency-free for tests that exercise the fs/compile-DB
+  // tiers in isolation.
+  if (typeof openDb === 'function') {
+    for (const rel of callersFromGraph(openDb, projectRoot, queriedRel, cap)) {
+      if (seen.has(rel)) continue;
+      seen.add(rel);
+      out.push(rel);
+      hasGraphSrc = true;
+      if (out.length >= cap) break;
+    }
+  }
+
   for (const rel of fromCompileDb) {
     if (seen.has(rel)) continue;
     seen.add(rel);
@@ -164,10 +220,14 @@ export function selectCppPrewarmFiles({ projectRoot, queriedFile, cap = DEFAULT_
   unboundedCandidates.delete(queriedRel);
   const skipped = unboundedCandidates.size > cap;
 
+  // `source` is reported so a slow first call is DIAGNOSABLE: seeing
+  // 'fs_siblings' is what told a field user his 22 seconds went on alphabetical
+  // directory order rather than on callers. 'graph_callers' now names the good case.
   let source = 'none';
-  if (hasCompileDbSrc && hasFsSrc) source = 'mixed';
-  else if (hasCompileDbSrc) source = 'compile_db';
-  else if (hasFsSrc) source = 'fs_siblings';
+  const tiers = [hasGraphSrc && 'graph_callers', hasCompileDbSrc && 'compile_db', hasFsSrc && 'fs_siblings']
+    .filter(Boolean);
+  if (tiers.length > 1) source = `mixed(${tiers.join('+')})`;
+  else if (tiers.length === 1) [source] = tiers;
 
-  return { files: out, stats: { cap, skipped, source } };
+  return { files: out, stats: { cap, skipped, source, graphCallers: hasGraphSrc } };
 }
