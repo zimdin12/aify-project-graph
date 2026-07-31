@@ -125,6 +125,47 @@ export const REPORTED_CONTEXT = ['overlay_age_days'];
 const MAX_CLAIMS = 40;
 
 /**
+ * ★ UNKNOWN IS NOT UNTRUNCATED — the structural fix for the bug generator.
+ *
+ * ef-manager's, and he built it out of a sentence I had written four messages
+ * earlier about a different field ("'clean' and null are distinct — unknown is not
+ * clean"), then applied it where it actually pays.
+ *
+ * His diagnosis of WHY this defect kept recurring is the important part, and it is
+ * not "flags get dropped" — flags get dropped in every codebase. It is that
+ * `exhaustive` was computed by AND-ing conditions, so a MISSING truncation flag
+ * evaluated falsy, which read as "not truncated", which is PERMISSIVE. The default
+ * direction of the failure was toward claiming completeness. That is a bug
+ * GENERATOR: it produces new instances faster than they can be fixed one at a
+ * time, which is exactly the rate we observed — four in one day.
+ *
+ * So exhaustiveness inputs must be PROVEN non-truncated. A field whose truncation
+ * state is absent or undefined forces exhaustive:false with a cause naming it.
+ * Dropping a flag now produces a CONSERVATIVE receipt instead of a false one, and
+ * it retroactively covers paths nobody has audited.
+ *
+ * @param {Array<[string, any]>} namedLists - [fieldName, list] pairs feeding the claim
+ * @returns {{ proven: boolean, unknown: string[], truncated: string[] }}
+ */
+export function assessTruncation(namedLists = []) {
+  const unknown = [];
+  const truncated = [];
+  for (const [name, list] of namedLists) {
+    if (list == null) continue; // absent field claims nothing
+    if (Array.isArray(list)) {
+      // A bare array cannot prove it was not cut. This is the shape that caused
+      // every instance — including co_consumer_files, which won an experiment
+      // while silently stopping at 10.
+      unknown.push(name);
+      continue;
+    }
+    if (typeof list.truncated !== 'boolean') { unknown.push(name); continue; }
+    if (list.truncated) truncated.push(name);
+  }
+  return { proven: unknown.length === 0 && truncated.length === 0, unknown, truncated };
+}
+
+/**
  * Build a portable receipt for a claim set.
  *
  * @param {object} o
@@ -167,12 +208,34 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
       claims_truncated: true,
       claims_note: `receipt capped at ${MAX_CLAIMS} claims — ${claims.length - trimmed.length} omitted; replay for the full set`,
     } : {}),
-    // Property 4: the floor, stated.
-    floor: {
-      exhaustive: floor.exhaustive === true,
-      cause: floor.cause ?? null,
-      not_checked: floor.not_checked ?? [],
-    },
+    // Property 4: the floor, stated — and NOT taken on the caller's word.
+    //
+    // The door half of the fix: a caller may pass `sources` (named lists feeding
+    // the claim), and exhaustive:true survives only if every one PROVES it was not
+    // truncated. Combined with the flipped default this closes both directions —
+    // the door stops a bare array entering, the default stops it mattering if it
+    // slips past somewhere unaudited.
+    floor: (() => {
+      const declared = floor.exhaustive === true;
+      const t = assessTruncation(floor.sources ?? []);
+      if (declared && !t.proven) {
+        const why = [
+          t.unknown.length ? `truncation state unknown for ${t.unknown.join(', ')}` : null,
+          t.truncated.length ? `${t.truncated.join(', ')} was truncated` : null,
+        ].filter(Boolean).join('; ');
+        return {
+          exhaustive: false,
+          cause: `${floor.cause ? `${floor.cause}; ` : ''}exhaustive claim REFUSED — ${why}. An unproven list cannot support a completeness claim.`,
+          not_checked: floor.not_checked ?? [],
+          downgraded_from_declared_exhaustive: true,
+        };
+      }
+      return {
+        exhaustive: declared,
+        cause: floor.cause ?? null,
+        not_checked: floor.not_checked ?? [],
+      };
+    })(),
     // Property 5: the cheapest thing that would prove this wrong.
     disconfirming_test: disconfirm,
     how_to_use:

@@ -15,7 +15,7 @@
 // These tests pin the properties that make it a receipt rather than a citation —
 // and above all the one that makes it not a CACHE.
 import { describe, it, expect } from 'vitest';
-import { buildReceipt, validateReceipt, receiptHead, verifyReceiptIntegrity, openReceiptBody, hashWorktreeDirty, PINNED_INPUTS, RECEIPT_VERSION } from '../../../mcp/stdio/query/receipt.js';
+import { buildReceipt, validateReceipt, receiptHead, verifyReceiptIntegrity, openReceiptBody, hashWorktreeDirty, assessTruncation, PINNED_INPUTS, RECEIPT_VERSION } from '../../../mcp/stdio/query/receipt.js';
 
 const base = () => buildReceipt({
   verb: 'graph_consequences',
@@ -288,5 +288,66 @@ describe('★ B1/B2 — the two he predicted from my own list, both confirmed', 
     const v = validateReceipt(r, { repo_commit: '96' });
     expect(v.valid).toBe(false);
     expect(v.drifted[0].note).toMatch(/type changed/);
+  });
+});
+
+// ═══ ★ ATTACK SEVEN + THE BUG GENERATOR ═══
+//
+// ef-manager found attack seven in his own experiment-2 transcript with no running
+// build, from one observation: co_consumer_files returned EXACTLY 10 and — alone
+// among every list in the response — carried no total, no truncated, no limit.
+// Confirmed at consequences.js: a hard `break` at 10, emitted as a bare array.
+//
+// Measured after the fix: ChunkDataCache.h total 10 / truncated false — HIS
+// HEADLINE RESULT WAS NOT TRUNCATED, the 10 was the true count. WorldBuffer.h
+// total 43 / truncated true — the defect was real and severe. Both facts matter:
+// the mechanism was broken while his particular number happened to be safe.
+//
+// ★ And his structural fix, which he built from a sentence I wrote about a
+// different field ("unknown is not clean") and applied where it pays: exhaustive
+// was computed by AND-ing conditions, so a MISSING truncation flag evaluated
+// falsy, read as "not truncated", and was PERMISSIVE. The default direction of
+// failure was toward claiming completeness — a bug GENERATOR, producing instances
+// faster than they could be fixed one at a time. Four in one day.
+describe('★ unknown is not untruncated — the default fails closed now', () => {
+  it('refuses an exhaustive claim built on a bare array', () => {
+    // A bare array cannot prove it was not cut. This is the exact shape of
+    // co_consumer_files, which won an experiment while silently stopping at 10.
+    const r = buildReceipt({
+      verb: 'v', args: {}, pins: {}, claims: [],
+      floor: { exhaustive: true, sources: [['co_consumer_files', [1, 2, 3]]] },
+    });
+    expect(r.floor.exhaustive).toBe(false);
+    expect(r.floor.downgraded_from_declared_exhaustive).toBe(true);
+    expect(r.floor.cause).toMatch(/truncation state unknown for co_consumer_files/);
+  });
+
+  it('refuses when a source is known truncated', () => {
+    const r = buildReceipt({
+      verb: 'v', args: {}, pins: {}, claims: [],
+      floor: { exhaustive: true, sources: [['docs', { items: [1], total: 19, truncated: true }]] },
+    });
+    expect(r.floor.exhaustive).toBe(false);
+    expect(r.floor.cause).toMatch(/docs was truncated/);
+  });
+
+  it('allows an exhaustive claim only when every source PROVES it was not cut', () => {
+    const r = buildReceipt({
+      verb: 'v', args: {}, pins: {}, claims: [],
+      floor: { exhaustive: true, sources: [['a', { items: [1], total: 1, truncated: false }]] },
+    });
+    expect(r.floor.exhaustive).toBe(true);
+  });
+
+  it('treats a missing truncated field as unknown, not as false', () => {
+    // The generator itself: `!list.truncated` on an object lacking the key is
+    // truthy-permissive. It has to be an explicit boolean.
+    const t = assessTruncation([['x', { items: [1], total: 1 }]]);
+    expect(t.proven).toBe(false);
+    expect(t.unknown).toContain('x');
+  });
+
+  it('ignores absent fields, which claim nothing either way', () => {
+    expect(assessTruncation([['x', null]]).proven).toBe(true);
   });
 });

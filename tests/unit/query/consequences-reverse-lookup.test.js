@@ -134,9 +134,17 @@ describe('graph_consequences — task→file reverse lookup', () => {
     }));
 
     const result = await graphConsequences({ repoRoot, target: 'shaders/sharc_update.comp.glsl' });
-    const peers = result.co_consumer_files.map((c) => c.file);
+    // SHAPE CHANGE (attack seven): co_consumer_files was a bare array that stopped
+    // at 10 without saying so — the one list in the response carrying no
+    // total/truncated/limit while every neighbour had them. It is now the same
+    // {items,total,truncated,limit} envelope as docs/defines/imports.
+    const peers = result.co_consumer_files.items.map((c) => c.file);
     expect(peers).toContain('shaders/sharc_resolve.comp.glsl');
     expect(peers).toContain('shaders/sharc_clear.comp.glsl');
     expect(peers).not.toContain('shaders/sharc_update.comp.glsl'); // not itself
+    // The count must now be knowable, which is the actual fix — 10 items may be
+    // the true total or a truncation, and the caller could not tell them apart.
+    expect(result.co_consumer_files.truncated).toBe(false);
+    expect(result.co_consumer_files.total).toBe(peers.length);
   });
 });

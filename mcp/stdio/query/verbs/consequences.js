@@ -496,7 +496,28 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // `sharc_resolve.comp.glsl` as a co-consumer; both live under the same
     // feature but the verb only surfaced the queried file. Fix: surface the
     // peer set explicitly so refactor planners see the full blast radius.
-    const coConsumerFiles = [];
+    // ★ ATTACK SEVEN — THIS LIST WAS CAPPED AT 10 AND DROPPED ITS TRUNCATION STATE.
+    //
+    // ef-manager found it in his own experiment-2 transcript, without a running
+    // build, from a single observation: co_consumer_files came back with EXACTLY
+    // 10 entries and — alone among every list in the response — carried no total,
+    // no truncated, no limit. Every neighbour had them (docs 19/true/10,
+    // defines 29/true/10, imports 3/false/10). A bare array whose length equals
+    // the neighbouring limit.
+    //
+    // He named why it stings, and he is right: co_consumer_files is the field that
+    // WON experiment 2. The four dependents with zero textual mention are the
+    // strongest evidence for this tool in the record — and they were computed from
+    // a list that stopped at 10 without saying so, on a DELETION question, which is
+    // exactly where a silently-short list does the most damage. Neither of us
+    // noticed.
+    //
+    // His framing of the fix is the one that matters: 10 might well be the true
+    // count (6 + 4 is a legitimate answer). THAT is why the missing flag is the bug
+    // rather than the number — with total/truncated you can tell those apart, and
+    // without it you cannot. The whole pattern in one field.
+    const CO_CONSUMER_LIMIT = 10;
+    const coConsumerAll = [];
     if (affectedFeatureIds.size > 0 && functionality.features.length > 0) {
       const seen = new Set([...matchedFiles]);
       for (const f of functionality.features ?? []) {
@@ -505,12 +526,18 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
           if (anchor.endsWith('/*')) continue; // skip globs — agents can expand themselves
           if (seen.has(anchor)) continue;
           seen.add(anchor);
-          coConsumerFiles.push({ file: anchor, via_feature: f.id });
-          if (coConsumerFiles.length >= 10) break;
+          // Collect the TRUE total, then cap for display. Breaking early is what
+          // made the count unknowable — you cannot report what you refused to count.
+          coConsumerAll.push({ file: anchor, via_feature: f.id });
         }
-        if (coConsumerFiles.length >= 10) break;
       }
     }
+    const coConsumerFiles = {
+      items: coConsumerAll.slice(0, CO_CONSUMER_LIMIT),
+      total: coConsumerAll.length,
+      truncated: coConsumerAll.length > CO_CONSUMER_LIMIT,
+      limit: CO_CONSUMER_LIMIT,
+    };
 
     // 5. Adjacent tests — test files that reference the matched symbols/files
     const tests = [];
@@ -756,13 +783,17 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
         claims: [
           ...contracts.map((c) => ({ field: 'contracts_potentially_affected', value: c, provenance: 'inferred', basis: 'feature.contracts overlay anchor', source_age_days: overlayAgeDays })),
           ...documentsMentioning.map((d) => ({ field: 'documents_mentioning', value: d.file, provenance: 'observed', basis: `MENTIONS edge, ${d.mentions} distinct nodes` })),
-          ...coConsumerFiles.map((f) => ({ field: 'co_consumer_files', value: typeof f === 'string' ? f : f.file ?? f, provenance: 'inferred', basis: 'shared feature anchor', source_age_days: overlayAgeDays })),
+          ...coConsumerFiles.items.map((f) => ({ field: 'co_consumer_files', value: typeof f === 'string' ? f : f.file ?? f, provenance: 'inferred', basis: 'shared feature anchor', source_age_days: overlayAgeDays })),
         ],
         floor: {
           // Never exhaustive: the inferred fields are only as complete as a
           // curated overlay, and saying otherwise is the failure this repo exists
           // to prevent. An absent entry is not evidence of absence.
           exhaustive: false,
+          // Named so the door can check them. Even though this verb never claims
+          // exhaustive, wiring the sources means a future edit that DOES claim it
+          // gets refused rather than believed.
+          sources: [['co_consumer_files', coConsumerFiles], ['documents_mentioning', documentsMentioning]],
           cause: 'inferred fields derive from a curated feature/task overlay; absence is not evidence of absence',
           not_checked: [
             'features with no anchor covering this target',
