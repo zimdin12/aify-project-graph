@@ -1,11 +1,11 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · fourteen instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · fifteen instances in one day**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because fourteen independent instances landed within
-one working day and someone happened to be counting. A name invites deference; fourteen
-instances invite you to check whether a fifteenth fits — and to say so if it doesn't.
+principle is worth something only because fifteen independent instances landed within
+one working day and someone happened to be counting. A name invites deference; fifteen
+instances invite you to check whether a sixteenth fits — and to say so if it doesn't.
 
 ## Read this first — why the list exists and why it will keep growing
 
@@ -27,8 +27,12 @@ adjacent lines where the contradiction was unmissable.
 So the remedy is never a rule, a doc, or a resolution to be careful. It is
 executable: **fail-closed defaults** and **forced doors** (see below). Everything
 else — including this page — is a recognition aid for naming a defect you are
-already looking at. Treating it as a safeguard would be the fifteenth instance: a
+already looking at. Treating it as a safeguard would be another instance: a
 document standing in for a mechanism.
+
+*Instance 15 below is the predicted one, and it arrived ninety minutes after this
+header was written — by its author, with the disconfirming measurement already in
+hand. Authorship confers no immunity. If it did, the header would be wrong.*
 
 ## The shape
 
@@ -112,7 +116,7 @@ The filter is defensible; an invisible one is indistinguishable from a hidden
 population. Same shape as instance 6, on the field that gates whether an agent
 believes anything else.
 
-## The second wave — three that cost real data
+## The second wave — five more, three of which cost real data
 
 **11. Recency stood in for authority, and destroyed 8530 records.**
 `pruneOldCollections` kept the newest collection row per provider by `collected_at`
@@ -144,6 +148,34 @@ the response was "please don't move or re-use that directory." The behaviour was
 secured; the substrate was never examined. The directory was in
 `AppData\Local\Temp` — cleanable, session-scoped, one cleanup away from gone, while
 both parties were being careful about it.
+
+**15. An instruction stood in for the condition it depends on — and this one
+authorised a write.**
+The predicted instance, and it arrived within ninety minutes of the header above
+being written. The sequence matters more than the error:
+
+1. A third party agreed to restart an agent.
+2. The author **measured** the target's `-shm` file, found it present, and wrote —
+   to that third party, in the same message — that the state was ambiguous and he
+   would not guess at it.
+3. The third party said **"Done."**
+4. The author sent the agent: *"That restart IS the server-down window. Run the
+   restore as your first action."*
+
+The agent had **not** been restarted; its session was continuous. `"Done"` was a
+narrative; `-shm` present was the measurement; the author had the measurement in
+hand, had written down that he would not guess, and preferred the narrative
+anyway.
+
+The instruction was *correct for the session it was written for* and arrived at
+one where its premise was false. Unlike every other instance here, the action it
+authorised was a **write to a live SQLite file** — so the failure mode is
+corruption, not a misleading number. It was caught only because the receiving
+agent's script carried the condition as an executable refusal.
+
+> **A conditional instruction must carry its condition as an executable
+> precondition.**
+> *"Run this after the restart"* is read. *"Refuse unless `-shm` is absent"* is run.
 
 ## Two rules about method, both learned the hard way
 
