@@ -19,6 +19,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
+import { buildReceipt, currentPins } from '../receipt.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
 import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
@@ -303,6 +304,20 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
     // below rather than living only in graph_health where nobody reads it at the
     // moment they act. Newest of the two overlay files: if either was refreshed,
     // the anchoring is that fresh.
+    // Pinned separately from the health path's manifest — this is a different
+    // function scope, and reaching for a binding that happens to exist elsewhere
+    // is how a receipt ends up pinning the wrong run's commit.
+    const { manifest: pinManifest } = await loadManifest(join(repoRoot, '.aify-graph')).catch(() => ({ manifest: null }));
+    // The single most load-bearing pin: without it a receipt cannot prove the
+    // tree it described is the tree you are looking at. Cheap, so there is no
+    // excuse for leaving it null and warning about it instead.
+    const pinRepoCommit = (() => {
+      try {
+        return execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+          cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
+        }).trim() || null;
+      } catch { return null; }
+    })();
     const overlayAgeDays = (() => {
       let newest = null;
       for (const f of ['functionality.json', 'tasks.json']) {
@@ -710,6 +725,49 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       // So the age travels with the claim now, the same way tests_adjacent's
       // provenance does.
       overlay_age_days: overlayAgeDays,
+      // ★ THE CLAIM, PORTABLE — see receipt.js for why this shape and not prose.
+      //
+      // This verb is why the receipt exists: one response held the best answer of
+      // ef-manager's engagement (four co-consumers unreachable by grep) and a
+      // wrong one (the contracts), from the SAME mechanism, and nothing in the
+      // output let him tell them apart. field_provenance fixed that for a reader.
+      // The receipt fixes it for a TEAMMATE, who otherwise gets prose and must
+      // either re-derive the work or — the actual failure mode — not bother.
+      receipt: buildReceipt({
+        verb: 'graph_consequences',
+        args: { target: input, repoRoot },
+        pins: currentPins({
+          repoCommit: pinRepoCommit,
+          manifest: pinManifest,
+          overlayAgeDays,
+          indexReady: freshness?.ready ?? null,
+        }),
+        claims: [
+          ...contracts.map((c) => ({ field: 'contracts_potentially_affected', value: c, provenance: 'inferred', basis: 'feature.contracts overlay anchor', source_age_days: overlayAgeDays })),
+          ...documentsMentioning.map((d) => ({ field: 'documents_mentioning', value: d.file, provenance: 'observed', basis: `MENTIONS edge, ${d.mentions} distinct nodes` })),
+          ...coConsumerFiles.map((f) => ({ field: 'co_consumer_files', value: typeof f === 'string' ? f : f.file ?? f, provenance: 'inferred', basis: 'shared feature anchor', source_age_days: overlayAgeDays })),
+        ],
+        floor: {
+          // Never exhaustive: the inferred fields are only as complete as a
+          // curated overlay, and saying otherwise is the failure this repo exists
+          // to prevent. An absent entry is not evidence of absence.
+          exhaustive: false,
+          cause: 'inferred fields derive from a curated feature/task overlay; absence is not evidence of absence',
+          not_checked: [
+            'features with no anchor covering this target',
+            'documents that discuss the target without naming any indexed node',
+            ...(overlayAgeDays != null && overlayAgeDays > 30 ? [`code changes since the overlay was written ${overlayAgeDays} days ago`] : []),
+          ],
+        },
+        disconfirm: {
+          verb: 'graph_pull',
+          args: { node: input, layers: ['docs', 'relations'] },
+          expect:
+            'docs layer should agree with documents_mentioning, and relations.recompile_surface bounds the '
+            + 'structural blast radius independently of the overlay. A document present there and absent here '
+            + 'means the overlay-derived fields are incomplete — which is the cheapest single call that refutes this.',
+        },
+      }),
       ...(overlayAgeDays != null && overlayAgeDays > 30 ? {
         overlay_age_warning:
           `The feature/task overlay was last updated ${overlayAgeDays} days ago. Every field marked `
