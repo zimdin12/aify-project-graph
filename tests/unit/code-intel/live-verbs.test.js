@@ -204,11 +204,23 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
     expect(e.fallback).toMatch(/warmupFiles|grep/);
   });
 
-  it('stale → cause:stale_index, fallback guidance', () => {
+  it('stale → cause:stale_index, and says WHICH staleness it means', () => {
     const e = buildReferencesEvidence({ freshness: 'stale', callsiteCount: 5, defCount: 1 });
     expect(e.cause).toBe('stale_index');
     expect(e.exhaustive).toBe(false);
-    expect(e.fallback).toMatch(/wait_for_ready/);
+    // The verdict is unchanged — an unconfirmed live index genuinely cannot attest
+    // exhaustiveness, and softening that would be the false-exhaustive bug.
+    //
+    // What changed: "stale" meant two different things across two surfaces. A field
+    // user got cause:stale_index / confidence:low on an answer that was 6/6 CORRECT,
+    // while graph_health seconds later reported stale:false and indexReady:true
+    // (ef-manager, 2026-07-31). Same word, opposite verdicts, no way to tell them
+    // apart. A trust field that cries low-confidence over correct answers teaches a
+    // reader to stop reading evidence.exhaustive at all.
+    expect(e.scope).toBe('live_session');
+    expect(e.fallback).toMatch(/NOT the graph being behind HEAD/);
+    expect(e.fallback).toMatch(/only COMPLETENESS is unattested/);
+    expect(e.fallback).toMatch(/waitForReadyMs|warmupFiles/);
   });
 
   it('timeout → cause:timeout, exhaustive:false', () => {

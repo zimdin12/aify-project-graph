@@ -89,14 +89,31 @@ export function buildNextActions(s) {
     });
   }
 
-  // Then orientation — but only when there is something real to orient WITH.
-  // Suggesting graph_packet on a repo with no overlay would be advice-shaped noise.
-  if (out.length < 3 && s.overlayQuality?.featureCount > 0) {
-    const stale = s.artifactAges?.functionality;
+  // ★ DELETED: a "this repo has N mapped features → try graph_packet" rule.
+  //
+  // It fired on every repo with an overlay, which is the definition of generic, and
+  // a field reviewer took it apart precisely (ef-manager, 2026-07-31):
+  //   1. "this repo has features" is INVENTORY, not a finding;
+  //   2. its why and do CONTRADICTED — the why said the overlay is 96 days old and
+  //      should not be trusted, the do said go and use it;
+  //   3. it broke the contract stated three lines above it. I specified "EMPTY on a
+  //      healthy repo, never generic", then shipped a rule that fires on a healthy
+  //      repo — and cited it firing as VERIFICATION that the feature worked.
+  //
+  // His conclusion is the one that matters and it is a product argument, not a
+  // cleanup: an EMPTY nextActions on a healthy repo is a stronger statement than a
+  // populated one, because it is what makes a populated one mean something. A field
+  // that always has something in it gets skimmed by the third session — which is
+  // exactly the outcome the routing exists to avoid.
+  //
+  // A STALE overlay is still worth surfacing, because that is measured state rather
+  // than inventory — but as a regenerate action, which is what the measurement
+  // actually implies.
+  const overlayAge = s.artifactAges?.functionality;
+  if (out.length < 3 && s.overlayQuality?.featureCount > 0 && overlayAge != null && overlayAge > 14) {
     out.push({
-      why: `this repo has ${s.overlayQuality.featureCount} mapped features`
-        + (stale != null && stale > 14 ? ` (overlay is ${stale}d old — verify before trusting feature claims)` : ''),
-      do: 'graph_packet({ target: "feature:<id>" }) for one-call context on any of them, or graph_pull for cross-layer',
+      why: `the feature overlay is ${overlayAge}d old, so feature/task claims describe a previous state of the repo`,
+      do: 'regenerate it (/graph-build-functionality), or treat feature anchors as unverified until you do',
     });
   }
 

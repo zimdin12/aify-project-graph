@@ -239,9 +239,33 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
     };
   }
   if (freshness === 'stale') {
+    // ★ "STALE" MEANS TWO DIFFERENT THINGS AND WE WERE SAYING BOTH WITH ONE WORD.
+    //
+    // This is the LIVE SESSION's warmth — clangd has not confirmed its in-memory
+    // index for this query — and it is unrelated to whether the graph snapshot
+    // matches HEAD, which graph_health also calls "stale". A field user got
+    // `cause: stale_index, confidence: low, exhaustive: false` on an answer that was
+    // 6/6 CORRECT against ripgrep ground truth, while graph_health seconds later
+    // reported stale:false, indexReady:true, drift resolved (ef-manager,
+    // 2026-07-31). Two surfaces, one vocabulary, opposite verdicts.
+    //
+    // His point is the one that matters, and it is the same argument he made about
+    // advice-shaped filler: "the floor being honest is what makes it valuable; the
+    // floor being reflexively pessimistic is what makes it ignorable." A trust field
+    // that cries low-confidence over correct answers teaches a reader to stop
+    // reading evidence.exhaustive — which costs us the cases where it is right.
+    //
+    // The verdict does not change: an unconfirmed live index genuinely cannot
+    // attest exhaustiveness, and softening that would be the false-exhaustive bug.
+    // What changes is that the message says WHICH staleness it means and stops
+    // implying the graph is out of date.
     return {
       ready: false, degraded: true, cause: 'stale_index', confidence: 'low',
-      exhaustive: false, fallback: 'wait_for_ready (raise waitForReadyMs), retry; treat absence as unsafe', warnings
+      exhaustive: false,
+      scope: 'live_session',
+      fallback: 'the LIVE language-server session has not confirmed its index for this query — this is NOT the graph being behind HEAD (graph_health reports that separately). '
+        + 'Results already returned are still real; only COMPLETENESS is unattested. Raise waitForReadyMs or pass warmupFiles[] and retry before treating any absence as safe.',
+      warnings
     };
   }
   if (freshness === 'timeout') {

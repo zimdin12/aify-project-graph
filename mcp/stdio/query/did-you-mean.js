@@ -22,22 +22,37 @@
 const MAX_SUGGESTIONS = 5;
 const CANDIDATE_CAP = 200;
 
-// Levenshtein with an early bail — we only care whether it is SMALL. Anything past
-// the threshold is not a typo, it is a different word, and reporting it as a
-// suggestion would be noise.
+// DAMERAU-Levenshtein: a TRANSPOSITION costs 1, not 2.
+//
+// Plain Levenshtein charges a swapped pair as two substitutions, and transposition
+// is the single most common human typo. Measured consequence (ef-manager,
+// 2026-07-31): `ISimDomian` for `ISimDomain` — one swapped pair — scored distance 2
+// against a length-derived budget of 1, so the suggester found NOTHING and the miss
+// path looked byte-identical to the unfixed version. The feature was present and
+// silently useless on the most common typo it exists to catch.
+//
+// Early bail retained: we only care whether the distance is SMALL. Past the budget
+// it is a different word, and offering it would be noise — and noise here costs the
+// good suggestions their credibility.
 export function editDistanceWithin(a, b, max) {
   if (Math.abs(a.length - b.length) > max) return max + 1;
+  // Three rows: prev2 enables the transposition check (a[i-2..i-1] vs b[j-2..j-1]).
+  let prev2 = null;
   let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i += 1) {
     const cur = [i];
     let rowMin = i;
     for (let j = 1; j <= b.length; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
-      if (cur[j] < rowMin) rowMin = cur[j];
+      let v = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        v = Math.min(v, prev2[j - 2] + 1);
+      }
+      cur[j] = v;
+      if (v < rowMin) rowMin = v;
     }
-    // Whole row already past the budget — no completion can come back under it.
     if (rowMin > max) return max + 1;
+    prev2 = prev;
     prev = cur;
   }
   return prev[b.length];

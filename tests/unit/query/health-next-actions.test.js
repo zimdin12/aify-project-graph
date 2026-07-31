@@ -29,19 +29,43 @@ describe('health next-action routing', () => {
     expect(actions[0].why).toMatch(/different compile DB/);
   });
 
-  it('routes to graph_packet when the repo actually has features to orient with', () => {
-    // The case that would have caught ef-manager: healthy trust, 16 mapped
-    // features, and he never learned graph_packet existed for them.
+  it('a STALE overlay produces a regenerate action, not a go-use-it one', () => {
+    // ★ This test previously asserted the OPPOSITE and pinned a filler rule I
+    // shipped an hour earlier: "this repo has 16 features → try graph_packet".
+    // A field reviewer took it apart (ef-manager, 2026-07-31): inventory is not a
+    // finding; the why said the overlay was 96 days stale while the do said go use
+    // it; and it fired on a healthy repo, breaking the "empty on a healthy repo,
+    // never generic" contract stated in the same function.
+    //
+    // Measured state still deserves an action — but the action the measurement
+    // implies. A 96-day-old overlay means REGENERATE, not consume.
     const actions = buildNextActions({
       codeIntel: { available: true, lspVerifiedEdges: 1507 },
       overlayQuality: { featureCount: 16 },
       artifactAges: { functionality: 96 },
       stale: false,
     });
-    expect(actions.some(a => a.do.includes('graph_packet'))).toBe(true);
-    // And it must carry the overlay's age, since a 96-day-old feature map is a
-    // different proposition from a current one.
-    expect(actions.find(a => a.do.includes('graph_packet')).why).toMatch(/96d old/);
+    const overlay = actions.find(a => a.why.includes('overlay'));
+    expect(overlay).toBeTruthy();
+    expect(overlay.why).toMatch(/96d old/);
+    expect(overlay.do).toMatch(/regenerate/i);
+    // The contradiction is the thing being prevented: do not tell someone to
+    // consume an artifact you have just told them not to trust.
+    expect(overlay.do).not.toMatch(/graph_packet/);
+  });
+
+  it('a FRESH overlay produces NOTHING — inventory is not a finding', () => {
+    // The contract, now actually enforced: an empty nextActions on a healthy repo
+    // is a stronger statement than a populated one, because it is what makes a
+    // populated one mean something.
+    const actions = buildNextActions({
+      codeIntel: { available: true, lspVerifiedEdges: 1507 },
+      overlayQuality: { featureCount: 16 },
+      artifactAges: { functionality: 2 },
+      stale: false,
+      briefStaleVsManifest: false,
+    });
+    expect(actions).toEqual([]);
   });
 
   it('does NOT suggest graph_packet on a repo with no overlay — that would be noise', () => {
