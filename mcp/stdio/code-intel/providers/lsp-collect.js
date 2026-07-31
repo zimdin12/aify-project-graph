@@ -14,7 +14,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { getHeadCommit } from '../../freshness/git.js';
-import { findIdentifierPosition, leafNameOf } from '../identifier-position.js';
+import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
 import { readLedger, writeLedger, pendingFiles } from '../collect-ledger.js';
 
 function realpath(p) {
@@ -216,6 +216,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   // reference set hit the cap. Reported so a coverage figure over this collection
   // reads as a FLOOR rather than a rate.
   let positionGuessSkipped = 0;
+  let anonymousSkipped = 0;
   let refsTruncatedSymbols = 0;
   let anyResult = false;
 
@@ -268,6 +269,9 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
         // under this one. On C++ that produced ~35,190 refs/file against a healthy
         // ~51 (field, 2026-07-30) — nothing about that mechanism is C++-specific.
         if (positionGuessed) {
+          // See identifier-position.js: an anonymous callback has no name in the
+          // source, so it is not a symbol we FAILED to place.
+          if (isAnonymousSymbolName(sym.name)) { anonymousSkipped += 1; continue; }
           positionGuessSkipped += 1;
           records.push({
             ...recordBase(collectionId, language, prov), kind: 'symbol', symbolId, qname,
@@ -375,7 +379,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       refsFoundSymbols, refsNotFoundSymbols,
       // What was never asked — see the guards above. Without these a coverage
       // percentage over this collection reads as a rate when it is a FLOOR.
-      positionGuessSkipped, refsTruncatedSymbols,
+      positionGuessSkipped, anonymousSkipped, refsTruncatedSymbols,
       filesProcessed, filesTotal: files.length,
       // Resume state — resumedFrom climbing toward enumeratedTotal is the
       // convergence signal; filesProcessed resets every call and cannot show it.

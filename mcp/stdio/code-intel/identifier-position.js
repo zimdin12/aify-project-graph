@@ -63,3 +63,29 @@ export function findIdentifierPosition(lines, startLine, leafName) {
 export function leafNameOf(qname) {
   return String(qname || '').split(/::|\.|#/u).pop();
 }
+
+// ANONYMOUS SYMBOLS HAVE NO IDENTIFIER TO FIND, SO "UNRESOLVABLE" IS THE WRONG WORD.
+//
+// Language servers name anonymous constructs synthetically: tsserver emits
+// `catch() callback`, `map() callback`, `<function>`, `<unknown>`; clangd uses
+// `(anonymous struct)` and similar. Diagnosed on APG's own source, where 14 of 14
+// sampled "guessed positions" were anonymous callbacks — every one a construct with
+// no name in the source at all.
+//
+// Skipping them is CORRECT (there is no symbol to ask about), but counting them in
+// `positionGuessSkipped` inflates the "NOT ASKED" figure and makes coverage look
+// worse than it is. That number is load-bearing: a field reviewer is using it to
+// judge whether a 10% floor is really a floor, and padding it with constructs that
+// could never have references makes the honest signal noisier.
+//
+// So they are classified separately, and the skip count keeps its meaning: REAL
+// symbols whose position we could not establish.
+const SYNTHETIC_NAME_RE = /^<.*>$/u;
+export function isAnonymousSymbolName(name) {
+  const n = String(name || '').trim();
+  if (!n) return true;
+  if (SYNTHETIC_NAME_RE.test(n)) return true;          // <unknown>, <function>
+  if (/\bcallback$/u.test(n)) return true;             // "map() callback"
+  if (/^\(anonymous/u.test(n)) return true;            // "(anonymous struct)"
+  return false;
+}

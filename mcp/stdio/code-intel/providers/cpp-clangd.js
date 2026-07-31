@@ -7,7 +7,7 @@ import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/p
 import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
 import { buildClangdSpawn } from '../resolve-clangd.js';
 import { getHeadCommit } from '../../freshness/git.js';
-import { findIdentifierPosition, leafNameOf } from '../identifier-position.js';
+import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
 import { readLedger, writeLedger, pendingFiles } from '../collect-ledger.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
@@ -343,6 +343,7 @@ export function createCppClangdProvider({ spawn } = {}) {
         // Symbols whose relations were DECLINED because their position was
         // guessed, and symbols whose reference set hit the cap.
         let positionGuessSkipped = 0;
+        let anonymousSkipped = 0;
         let refsTruncatedSymbols = 0;
 
         // For each file: try documentSymbol → definitions / references / hover at top symbol position.
@@ -457,7 +458,14 @@ export function createCppClangdProvider({ spawn } = {}) {
             // The symbol record still stands — documentSymbol told us it exists.
             // What we decline to do is attribute relations we cannot place.
             if (posGuessed) {
-              positionGuessSkipped += 1;
+              // An anonymous construct has no identifier in the source, so
+              // "position unresolvable" is the wrong word for it and counting it
+              // here inflates the NOT-ASKED figure a reviewer is using to judge
+              // whether a coverage floor is really a floor. See
+              // isAnonymousSymbolName — diagnosed on JS where 14 of 14 sampled
+              // guesses were `map() callback` and `<function>`.
+              if (isAnonymousSymbolName(sym.name)) anonymousSkipped += 1;
+              else positionGuessSkipped += 1;
               records.push({
                 schema_version: '0.2', collectionId, kind: 'symbol',
                 language: 'cpp', symbolId, qname, name: sym.name, file: rel,
