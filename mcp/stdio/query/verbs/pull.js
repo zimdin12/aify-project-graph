@@ -198,6 +198,64 @@ function relationsForFile(db, filePath, limit = 10) {
        AND fn.file_path IS NOT NULL
        AND fn.file_path != $p
      LIMIT 50`, { p: filePath });
+  // ★ THE RECOMPILE SURFACE IS TRANSITIVE, AND WE WERE STOPPING AT HOP 1.
+  //
+  // ef-manager, deleting a header (2026-07-31): "ChunkManager.h and
+  // GpuTerrainGenerator.h are HEADERS, so the blast radius does not stop at the 10
+  // direct includers. One more grep gave ~30 additional TUs at hop 2, and showed
+  // propagation TERMINATES there because every hop-2 includer is a .cpp. For a
+  // deletion question the transitive surface is the whole point — imported_by is
+  // hop 1 only. You already have the edges; the walk is what is missing."
+  //
+  // He is right that it is a walk over edges we already hold, and right that hop 1
+  // is the wrong answer to "what do I have to rebuild". Bounded by depth and by a
+  // node cap so a hub header cannot produce an unbounded sweep, and the bound is
+  // REPORTED — a truncated closure that looks complete would be the same
+  // false-completeness failure this codebase exists to prevent.
+  const TRANSITIVE_MAX_DEPTH = 4;
+  const TRANSITIVE_MAX_FILES = 300;
+  const transitiveImporters = (() => {
+    const seen = new Set([filePath]);
+    const byDepth = [];
+    let frontier = [filePath];
+    let truncated = false;
+    for (let depth = 1; depth <= TRANSITIVE_MAX_DEPTH && frontier.length; depth += 1) {
+      const rows = db.all(
+        `SELECT DISTINCT fn.file_path
+           FROM edges e
+           JOIN nodes fn ON fn.id = e.from_id
+           JOIN nodes tn ON tn.id = e.to_id
+          WHERE tn.file_path IN (${frontier.map((_, i) => `$f${i}`).join(',')})
+            AND e.relation = 'IMPORTS'
+            AND fn.file_path IS NOT NULL
+          LIMIT ${TRANSITIVE_MAX_FILES}`,
+        Object.fromEntries(frontier.map((f, i) => [`f${i}`, f])),
+      );
+      const next = [];
+      for (const r of rows) {
+        if (!r.file_path || seen.has(r.file_path)) continue;
+        if (seen.size >= TRANSITIVE_MAX_FILES) { truncated = true; break; }
+        seen.add(r.file_path);
+        next.push(r.file_path);
+      }
+      if (next.length) byDepth.push({ depth, files: next });
+      frontier = next;
+    }
+    const total = seen.size - 1;
+    return {
+      total,
+      byDepth,
+      truncated,
+      // A closure that stops because everything downstream is a .cpp has genuinely
+      // TERMINATED — which is the useful fact for a deletion. Distinguish that from
+      // stopping because we hit the cap.
+      terminated: !truncated && byDepth.length < TRANSITIVE_MAX_DEPTH,
+      note: truncated
+        ? `recompile surface TRUNCATED at ${TRANSITIVE_MAX_FILES} files — this is a FLOOR, not the full closure`
+        : `full transitive include closure: ${total} file(s) across ${byDepth.length} hop(s)`,
+    };
+  })();
+
   // defines: top symbols defined in this file
   const definesRaw = db.all(
     `SELECT label, type, start_line FROM nodes
@@ -206,6 +264,9 @@ function relationsForFile(db, filePath, limit = 10) {
   return {
     imports: capped(importsRaw.map(r => r.file_path), limit),
     imported_by: capped(importedByRaw.map(r => r.file_path), limit),
+    // Hop 1 answers "who includes this"; the RECOMPILE surface is transitive, and
+    // for a deletion question the transitive surface is the whole point.
+    recompile_surface: transitiveImporters,
     defines: capped(definesRaw, limit),
   };
 }
@@ -418,10 +479,35 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
   }
 
   if (layers.has('functionality')) {
+    // ★ "ORPHAN" WAS A BROAD CLAIM MADE FROM A NARROW MECHANISM.
+    //
+    // featuresForFile matches ONLY `anchors.files` globs. graph_consequences also
+    // reaches features through SYMBOL anchors and through tasks.json references —
+    // so the two verbs answered "does this file map to a feature?" with flatly
+    // opposite verdicts on the same file, same server, same minute (ef-manager,
+    // 2026-07-31):
+    //     graph_pull          → features: [], orphan: true
+    //     graph_consequences  → features_touching: [world-buffer, chunk-management]
+    //
+    // And it mattered more than a cosmetic disagreement: that feature mapping is the
+    // mechanism that produced the ONLY decisive graph win in his experiments — four
+    // real dependents with zero textual mentions. One verb was reporting that the
+    // winning mechanism did not apply.
+    //
+    // Neither computation is wrong; the CLAIM was. `orphan` now says what it was
+    // derived from instead of asserting a global negative, which is the same
+    // scoping fix applied to the trust-spine banner and to "stale".
     const matchedIds = featuresForFile(features, filePath);
     out.layers.functionality = {
       features: matchedIds,
+      // Kept for back-compat, but read `orphanBasis` before acting on it.
       orphan: matchedIds.length === 0,
+      orphanBasis: 'file_glob_anchors_only',
+      ...(matchedIds.length === 0 ? {
+        note: 'no feature FILE-GLOB anchor matches this path. That is not proof the file is unmapped: '
+          + 'graph_consequences also resolves features via SYMBOL anchors and tasks.json references, and may map it. '
+          + 'Check there before treating this file as orphaned.',
+      } : {}),
     };
   }
 

@@ -571,6 +571,40 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       co_consumer_files: coConsumerFiles,
       open_tasks_on_those_features: tasks,
       top_related_tasks: rankedTasks.slice(0, 3), // highest-signal subset
+      // ★ WHICH FIELDS ARE OBSERVED AND WHICH ARE INFERRED.
+      //
+      // ef-manager's request after two measured experiments, and it is the
+      // generalisation of the tests_adjacent fix rather than a new idea:
+      //
+      //   "Criterion 3's win and criterion 4's miss came from the SAME inferential
+      //    mechanism; I could not tell them apart from the output."
+      //
+      // Feature anchoring produced this verb's single decisive win — four
+      // co-consumer files with ZERO textual mention of the target, unreachable by
+      // grep at any skill. The same mechanism then listed two contracts with no
+      // textual mention while MISSING the one that names the file 22 times.
+      //
+      // Both behaviours are correct for what they are: inference over a curated
+      // overlay. What was missing is any way for the reader to know which kind of
+      // claim they are holding — and he only trusted the win because he verified it
+      // by hand, which is the cost this field removes.
+      //
+      //   observed — derived from graph structure or file text (imports, symbols)
+      //   inferred — reached through feature/task anchoring; as good as the overlay
+      field_provenance: {
+        co_consumer_files: 'inferred',   // via shared feature anchors — the differentiated win, and unverifiable by text
+        features_touching: 'inferred',
+        contracts_potentially_affected: 'inferred',
+        open_tasks_on_those_features: 'inferred',
+        tests_adjacent: testsProvenance === 'linked' ? 'observed' : 'inferred',
+        callers: 'observed',
+        importers: 'observed',
+        dirty_overlap: 'observed',
+      },
+      provenance_note:
+        'INFERRED fields come from the feature/task overlay, not from code structure. They surface real '
+        + 'dependents that text search cannot reach — and they are only as complete as the overlay is. '
+        + 'An absent entry is NOT evidence of no relationship; verify before acting on absence.',
       tests_adjacent: uniqueTests,
       // 'linked'           — the test imports or mentions this code; adjacency established.
       // 'feature_declared' — taken from the overlay's curated tests[] for a touching
