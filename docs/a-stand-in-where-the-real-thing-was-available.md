@@ -1,11 +1,11 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · thirteen instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · fourteen instances in one day**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because thirteen independent instances landed within
-one working day and someone happened to be counting. A name invites deference; thirteen
-instances invite you to check whether a fourteenth fits — and to say so if it doesn't.
+principle is worth something only because fourteen independent instances landed within
+one working day and someone happened to be counting. A name invites deference; fourteen
+instances invite you to check whether a fifteenth fits — and to say so if it doesn't.
 
 ## The shape
 
@@ -146,10 +146,30 @@ measured.
 
 Note the inverted failure mode: closing to the byte is what made it feel decisive.
 A sloppy reconciliation would have prompted a harder look. **Precision was the
-thing that stopped the inquiry.** And the stable number was sitting beside the
-unstable ones the whole time — `graph.sqlite` was byte-identical across every copy.
-File count and byte total are not valid verification targets for a SQLite set;
-content plus the main file's size, or nothing.
+thing that stopped the inquiry.**
+
+**14. And then a stable measurement stood in for a diagnostic one.**
+The fix for the above was stated as "verify by content *plus the main file's
+size*", since `graph.sqlite` was byte-identical across every copy and therefore
+stable. It is stable. It is also **not diagnostic**: SQLite does not reclaim pages
+on `DELETE` — they go on the free list and the file never shrinks. Measured, the
+intact 8530-record database and the catastrophically wiped 0-record one are
+**both exactly 26,468,352 bytes.**
+
+> **Stable and diagnostic are different properties.** Stability makes a
+> measurement trustworthy *as a measurement*; it says nothing about whether it can
+> distinguish the states you care about. A number that reads identically in the
+> healthy case and the disaster is worse than no number, because its stability is
+> what makes it reassuring.
+
+Corrected rule, and it is now content-only: `PRAGMA integrity_check` + record count
++ a known row. Nothing else verifies a SQLite set.
+
+Worth recording *how* it surfaced: not by thinking harder, but by **building the
+restore script and dry-running it.** The dry run printed both sizes on adjacent
+lines and the equality was unmissable. The wrong rule had been asserted
+confidently in prose one hour after the "arithmetic felt like proof" lesson, and
+prose did not catch it. Constructing the artifact did.
 
 ## Why it generates bugs rather than being one
 
