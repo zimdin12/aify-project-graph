@@ -5,7 +5,7 @@
 Attributed to the session and the date rather than to a person, deliberately. The
 principle is worth something only because ten independent instances landed within
 one working day and someone happened to be counting. A name invites deference; ten
-instances invite you to check whether a seventh fits — and to say so if it doesn't.
+instances invite you to check whether an eleventh fits — and to say so if it doesn't.
 
 ## The shape
 
@@ -111,7 +111,7 @@ The structural fix is to flip the default so the stand-in fails closed:
 
 ## The corollary about reporting
 
-Instance 5 carries a lesson the other five don't, and it is the reason this document
+Instance 5 carries a lesson the other nine don't, and it is the reason this document
 exists rather than a commit message.
 
 The finding that `co_consumer_files` produced — four dependents with zero textual
