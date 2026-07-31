@@ -16,10 +16,27 @@ These are examples, not mandatory sequences. Adapt to the repo and trust level.
 
 ## Default loop
 
-1. Read the right brief first.
+**0. Start with `graph_health()` and read `nextActions`.**
+
+This is the single highest-value call and it is the one field-testers reach for
+unprompted. It answers *"can I trust what I am about to be told"* — compile DB
+usable? index behind HEAD? trust spine populated? — and nothing else derives those.
+
+`nextActions` is a ranked list of at most 3 concrete next calls, computed from THIS
+repo's measured state, and it is empty on a healthy repo. It exists because a field
+tester used 2 verbs out of 17 and never found `graph_packet` on a repo where
+orientation was literally his problem: documentation does not pull you toward the
+right verb, a suggestion at the moment of use does. Trust problems are ranked above
+orientation shortcuts, because a shortcut over an untrustworthy graph is worse than
+no shortcut.
+
+Also read the `GENERATED:` line at the top of any brief. Briefs state their own age;
+one that says `STALE` describes a previous state of the code.
+
+1. Read the right brief.
 - orient: `.aify-graph/brief.agent.md`
 - planning: `.aify-graph/brief.plan.md`
-- new repo you don't know yet: `graph_tour({steps, focus})` — an ordered walk (entrypoints → named subsystems like Physics/Rendering → hotspots → cross-subsystem flows). Read top-to-bottom, then drill with `graph_packet`. `focus` narrows to one subsystem. Callable by name; not in the default `tools/list`.
+- new repo you don't know yet: `graph_tour({steps, focus})` — an ordered walk (entrypoints → named subsystems like Physics/Rendering → hotspots → cross-subsystem flows). Read top-to-bottom, then drill with `graph_packet`. `focus` narrows to one subsystem. **Callable by name only where the host allows unlisted tools — in a managed session it may not resolve. If a tool-search finds nothing, use `graph_packet({mode:"orient"})` instead of retrying.**
 
 2. Check map quality quickly.
 - use `graph_health()`
