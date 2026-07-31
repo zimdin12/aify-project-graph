@@ -64,7 +64,13 @@ describe('exhaustive grant fails CLOSED on unproven coverage', () => {
     });
     expect(e.exhaustive).toBe(false);
     expect(e.degraded).toBe(true);
-    expect(e.warnings.join(' ')).toMatch(/foreign compile DB/);
+    // The reason is asserted where it CANONICALLY lives — `fallback`. This
+    // previously read it out of `warnings`, which held a byte-for-byte copy;
+    // duplicating a ~300-word paragraph on every degraded call was named the most
+    // annoying thing about the tool by a field user (ef-manager, 2026-07-30).
+    // Asserting the canonical field means the test cannot re-pin the duplication.
+    expect(e.fallback).toMatch(/foreign compile DB/);
+    expect(e.warnings).not.toContain(e.fallback);
   });
 
   it('correctly refuses exhaustive on a stale or cold index', () => {

@@ -169,8 +169,14 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
     expect(e.cause).toBe('partial_compile_db_coverage');
     expect(e.degraded).toBe(true);
     expect(e.confidence).toBe('medium');
-    expect(e.warnings.length).toBeGreaterThan(0);
+    // The REASON lives in `fallback`, once. This used to also assert
+    // warnings.length > 0 — pinning a byte-for-byte duplicate of `fallback` that a
+    // field user named the most annoying thing about the tool (ef-manager,
+    // 2026-07-30): a ~300-word paragraph printed twice on every degraded call.
+    // `warnings` now carries only what `fallback` does not already say, so an empty
+    // warnings array here is the fix working, not information lost.
     expect(e.fallback).toMatch(/foreign|verify|rg|compile DB/i);
+    expect(e.warnings).not.toContain(e.fallback);
   });
 
   it('fresh + callsites + COMPLETE coverage → exhaustive:true (coverage gate passes)', () => {

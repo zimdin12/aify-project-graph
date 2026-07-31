@@ -11,27 +11,29 @@
 // single source of truth — imported by the initialize handler.
 export const SERVER_INSTRUCTIONS = `aify-project-graph — symbol-aware code intelligence for this repo.
 
-TOOL SURFACE: tools/list shows a FOCUSED default (~15 intent verbs). Long-tail
-verbs named below (graph_onboard, graph_shader, graph_callees, graph_overview,
-…) remain callable by name in hosts that allow calling an unlisted tool. IN A
-MANAGED SESSION THAT DEFERS MCP TOOLS BEHIND A SEARCH STEP (e.g. managed Claude
-Code) THEY ARE NOT REACHABLE: the deferred-tool index only contains LISTED tools,
-so ToolSearch cannot return a schema for an unlisted verb and the call cannot be
-made. If ToolSearch does not find a verb named here, do NOT keep trying — either
-use a listed verb, or have the server started with --toolset=full.
+TOOL SURFACE: tools/list shows a FOCUSED default (~15 verbs). Long-tail verbs named
+below (graph_onboard, graph_shader, graph_callees, graph_overview, …) are callable
+only where a host allows calling an UNLISTED tool. In a managed session that defers
+MCP tools behind a search step, they are NOT reachable — the deferred index holds
+listed tools only. If a tool-search for one returns nothing, do NOT retry: use a
+listed verb, or start the server with --toolset=full.
 
-DISCOVERABILITY: if you do NOT see graph_* / code_intel_* tools in your available
-tools (managed Claude/Codex sessions defer MCP tools behind a search step), they
-are NOT missing — run ToolSearch with query "graph" to load them, then ORIENT
-with graph_packet / graph_pull (the front door). Any repo with a .aify-graph/
-directory has this server; reach for it before falling back to grep.
+DISCOVERABILITY: if you see no graph_* / code_intel_* tools, they are NOT missing —
+run ToolSearch with query "graph" to load them. Any repo with .aify-graph/ has this
+server; reach for it before falling back to grep.
 
 ORIENT FIRST (cheap, often saves 2-5 shell calls):
+- graph_packet {target, mode} — the FIRST move, and it is ALWAYS reachable. Most "what is X /
+  how does Y work / understand area Z" questions resolve in ONE graph_packet call; prefer it
+  over chaining graph_search + a node verb.
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
-- graph_packet {target, mode} — the FIRST move. Most "what is X / how does Y work / understand
-  area Z" questions resolve in ONE graph_packet call; prefer it over chaining graph_search + a node verb.
-- graph_onboard — orientation brief for a repo you have not seen (callable; not in the default list).
-- graph_tour {steps, focus} — an ORDERED "explore in N steps" walk (entrypoints → named subsystems → hotspots). Best first read on an unfamiliar repo; callable, not listed.
+- graph_health — run ONCE at session start. The only call that answers "can I trust what I am
+  about to be told" (compile-DB usable? index stale? trust spine present?); nothing else derives
+  it. Field-rated the highest-value call here: it surfaced a wrong-toolchain compile DB that the
+  user would never have thought to test for.
+- graph_onboard / graph_tour walk an unfamiliar repo, but MAY NOT BE CALLABLE in your runtime
+  (see TOOL SURFACE). If a tool-search finds neither, do not retry — graph_packet mode:orient is
+  listed and answers the same question.
 
 TOOL SELECTION BY INTENT:
 - who calls X / is it safe to delete → code_intel_references or graph_callers (read the evidence banner).

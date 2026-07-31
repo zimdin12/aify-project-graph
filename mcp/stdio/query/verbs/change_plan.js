@@ -14,6 +14,7 @@ import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
 import { buildTrustLine } from '../lsp-evidence.js';
+import { noMatchMessage } from '../did-you-mean.js';
 
 const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Test', 'Route', 'Entrypoint'];
 const INCOMING_RELATIONS = ['CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH'];
@@ -176,7 +177,7 @@ export async function buildChangePlanWithContext(db, {
   const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
   const candidates = resolveSymbol(db, symbol, typesClause);
   if (candidates.length === 0) {
-    return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    return noMatchMessage(db, symbol);
   }
   const ambiguity = buildAmbiguousMatchMessage(symbol, candidates);
   if (ambiguity) return ambiguity;

@@ -1297,6 +1297,28 @@ function renderMarkdown(data) {
 }
 
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
+// A SHARED ARTIFACT THAT DOES NOT SELF-DATE ROTS SILENTLY.
+//
+// Field feedback (ef-manager, 2026-07-30): the briefs are the nearest thing this
+// tool has to shared TEAM understanding of a codebase, and on his repo they sat 96
+// days stale while four agents worked around them. The staleness was visible ONLY
+// in graph_health — a verb none of them called. A brief read straight off disk
+// looked authoritative and was three months out of date.
+//
+// So every brief states its own age in its own first line. A reader who never runs
+// a verb still learns it. Days are computed from the indexed commit time, and the
+// line stays short because it is prepended to a token-budgeted artifact.
+function briefAgeLine(indexedAt) {
+  if (!indexedAt) return null;
+  const t = Date.parse(indexedAt);
+  if (!Number.isFinite(t)) return null;
+  const days = Math.floor((Date.now() - t) / 86400000);
+  const stamp = new Date(t).toISOString().slice(0, 10);
+  if (days <= 1) return `GENERATED: ${stamp} (today)`;
+  const warn = days >= 14 ? ' — STALE, regenerate before trusting feature/task claims' : '';
+  return `GENERATED: ${stamp} (${days}d ago)${warn}`;
+}
+
 function renderAgentMarkdown(data) {
   const {
     snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health,
@@ -1304,6 +1326,8 @@ function renderAgentMarkdown(data) {
     overlayQuality, dirtySeams, manifestCommit, headCommit,
   } = data;
   const lines = [];
+  const _age = briefAgeLine(data.manifestIndexedAt);
+  if (_age) lines.push(_age);
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   // SNAPSHOT line: lets brief-only agents see indexed-vs-HEAD drift without
   // a live verb call. STALE marker when commits diverge.
@@ -1461,6 +1485,8 @@ function renderAgentMarkdown(data) {
 function renderOnboardAgentMarkdown(data) {
   const { snapshot, entries, subs, hubsArr, readFirstArr, health, overlayHealth, tooling, coverage, exports: exportsArr } = data;
   const lines = [];
+  const _age = briefAgeLine(data.manifestIndexedAt);
+  if (_age) lines.push(_age);
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
   if (langStr) lines.push(`LANG: ${langStr}`);
@@ -1524,6 +1550,8 @@ function renderPlanAgentMarkdown(data) {
   const lines = [];
   const tasksByFeature = openTasksByFeature(tasksArtifact);
   const completedByFeature = completedTaskCountsByFeature(tasksArtifact);
+  const _age = briefAgeLine(data.manifestIndexedAt);
+  if (_age) lines.push(_age);
   lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
   // FEATURES now carries action-bearing data: primary file + test anchor +
   // caller count. Agent can see "for this feature, open X, tests are at Y,

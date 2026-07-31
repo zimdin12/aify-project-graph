@@ -99,7 +99,31 @@ export function splitDefinitionFromReferences(refs, defs) {
   return { callsiteLocations, definitionLocations };
 }
 
-export function buildReferencesEvidence({ freshness, callsiteCount, defCount, resultState, coverage }) {
+// THE VERDICT IS STRUCTURED; THE REASONING MUST NOT BE SAID TWICE.
+//
+// Field feedback (ef-manager, 2026-07-30) named this the single most ANNOYING thing
+// about the tool. `exhaustive` is perfect — one field, branch on it, done — and
+// sitting beside it was a ~300-word prose paragraph duplicated BYTE-FOR-BYTE between
+// `fallback` and `warnings[0]`, on every degraded call. The reader must scan the wall
+// of text to discover whether the structured field they already hold means anything,
+// and then reads the identical text a second time.
+//
+// Friction like this decides whether a tool gets reached for, and it is invisible to
+// every correctness test — a full day of them passed over it. One choke point rather
+// than fifteen return sites, so it cannot regress per-branch: `fallback` owns the
+// actionable remedy, and `warnings` carries only what is NOT already said there.
+export function buildReferencesEvidence(args) {
+  return dedupeEvidenceProse(buildReferencesEvidenceInner(args));
+}
+
+export function dedupeEvidenceProse(ev) {
+  if (!ev || !Array.isArray(ev.warnings) || ev.warnings.length === 0) return ev;
+  const fallback = typeof ev.fallback === 'string' ? ev.fallback.trim() : null;
+  const warnings = ev.warnings.filter((w) => typeof w === 'string' && w.trim() && w.trim() !== fallback);
+  return warnings.length === ev.warnings.length ? ev : { ...ev, warnings };
+}
+
+function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resultState, coverage }) {
   const warnings = [];
   // FALSE-EXHAUSTIVE GUARD (2026-06-02): a fresh index + >=1 callsite is NOT
   // enough to claim exhaustive. clangd's references only sees TUs its index
@@ -592,7 +616,18 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
     freshness,
     result_state: resultState,
     warmedFiles: batch.length,
-    references: allRefs,                  // compat: full LSP-shape array
+    // COMPAT ARRAY, DEDUPLICATED. `references` predates the
+    // referenceLocations/definitionLocations split and is kept so existing callers
+    // do not break. Field measurement (ef-manager, 2026-07-30): it was BYTE-IDENTICAL
+    // to referenceLocations in 4 of 4 responses, doubling every payload for zero
+    // information — and payload size is a real cost for an agent, not a cosmetic one.
+    //
+    // When the two are identical there is nothing to preserve, so emit the compat
+    // key as a reference to the same array (callers reading either field get the
+    // same data, and the serialized response carries it once). When they genuinely
+    // differ — a server that returned the declaration among refs — the full array is
+    // still emitted, because that is the case the compat field exists for.
+    references: allRefs.length === callsiteLocations.length ? callsiteLocations : allRefs,
     referenceLocations: callsiteLocations, // non-declaration callsites
     definitionLocations,                   // the symbol's declaration/definition site(s)
     // 'split_from_references' (server returned the decl among refs) |

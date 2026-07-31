@@ -11,6 +11,7 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
+import { noMatchMessage } from '../did-you-mean.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -28,7 +29,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
   try {
     const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);
     if (error) return error;
-    if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    if (targets.length === 0) return noMatchMessage(db, symbol);
 
     const placeholders = targetIds.map((_, i) => `$t${i}`).join(',');
     const params = {};

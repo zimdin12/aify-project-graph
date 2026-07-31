@@ -10,6 +10,7 @@ import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
+import { noMatchMessage } from '../did-you-mean.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -21,7 +22,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = resolveSymbol(db, symbol);
-    if (sources.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    if (sources.length === 0) return noMatchMessage(db, symbol);
     const ambiguity = buildAmbiguousMatchMessage(symbol, sources);
     if (ambiguity) return ambiguity;
     const root = selectBestRoot(sources);

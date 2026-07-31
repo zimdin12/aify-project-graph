@@ -9,6 +9,7 @@ import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
+import { noMatchMessage } from '../did-you-mean.js';
 
 // IMPACT_FAMILY includes OVERRIDDEN_BY (it belongs to the blast-radius family),
 // but impact.js queries override edges with a dedicated FORWARD walk below
@@ -25,7 +26,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
   try {
     const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);
     if (error) return error;
-    if (targets.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    if (targets.length === 0) return noMatchMessage(db, symbol);
 
     const relFilter = IMPACT_RELATIONS.map(r => `'${r}'`).join(',');
     const placeholders = targetIds.map((_, index) => `$tid${index}`).join(', ');
