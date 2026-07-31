@@ -56,6 +56,60 @@ export function computeTrustLevel(unresolvedEdges) {
 // came from code that is no longer on disk.
 const serverBuild = serverBuildInfo;
 
+// Ranked next steps, derived from measured state. Ordered by what actually blocks a
+// user: fix the trust problem before offering an orientation shortcut, because a
+// shortcut over an untrustworthy graph is worse than no shortcut. Capped at 3 — a
+// list of ten suggestions is a list nobody reads, and the cost of being ignored is
+// paid by the good suggestions too.
+export function buildNextActions(s) {
+  const out = [];
+
+  // Trust first. These change whether ANY answer can be believed.
+  if (s.codeIntel?.compileDbDrifted) {
+    out.push({
+      why: 'the code-intel collection was taken against a different compile DB than the one on disk now',
+      do: 'graph_collect_code_intel({ scope: "all" })',
+    });
+  } else if (s.codeIntel?.available && s.codeIntel.lspVerifiedEdges === 0) {
+    out.push({
+      why: 'no [lsp✓] edges — graph-backed caller answers here are heuristic and cannot attest exhaustiveness',
+      do: 'graph_collect_code_intel({ scope: "all" }) to build the trust spine (live verbs are unaffected)',
+    });
+  } else if (!s.codeIntel?.available) {
+    out.push({
+      why: 'no code-intel collection on this repo — caller/deletion answers will be heuristic only',
+      do: 'graph_collect_code_intel({ scope: "all" }), or use code_intel_references for one bounded symbol',
+    });
+  }
+
+  if (s.stale) {
+    out.push({
+      why: 'the graph snapshot is behind HEAD, so a "not found" may just be "not indexed yet"',
+      do: 'graph_index(), or pass fresh:true on the next read that will justify an action',
+    });
+  }
+
+  // Then orientation — but only when there is something real to orient WITH.
+  // Suggesting graph_packet on a repo with no overlay would be advice-shaped noise.
+  if (out.length < 3 && s.overlayQuality?.featureCount > 0) {
+    const stale = s.artifactAges?.functionality;
+    out.push({
+      why: `this repo has ${s.overlayQuality.featureCount} mapped features`
+        + (stale != null && stale > 14 ? ` (overlay is ${stale}d old — verify before trusting feature claims)` : ''),
+      do: 'graph_packet({ target: "feature:<id>" }) for one-call context on any of them, or graph_pull for cross-layer',
+    });
+  }
+
+  if (out.length < 3 && s.briefStaleVsManifest) {
+    out.push({
+      why: 'briefs are older than the graph, so they describe a previous state of the code',
+      do: 'regenerate with scripts/graph-brief.mjs (briefs now carry their own GENERATED date)',
+    });
+  }
+
+  return out.slice(0, 3);
+}
+
 export async function graphHealth({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
   const dbPath = join(graphDir, 'graph.sqlite');
@@ -518,6 +572,11 @@ export async function graphHealth({ repoRoot }) {
     verdicts.push('categorization-stale: regenerate via graph_index()');
   }
 
+  const _nextActions = buildNextActions({
+    codeIntel, overlay, overlayQuality, artifactAges, stale, trust,
+    briefStaleVsManifest, trustUnresolvedEdges,
+  });
+
   return {
     indexed: true,
     trust,
@@ -558,6 +617,27 @@ export async function graphHealth({ repoRoot }) {
     // (functionality / tasks / codeIntel). LH-3.
     artifactAges,
     server: serverBuild(),
-    summary: verdicts.join(' · '),
+    // ★ ROUTE FROM THE VERB PEOPLE ACTUALLY CALL TO THE ONES THEY SHOULD.
+    //
+    // Field accounting (ef-manager, 2026-07-30): "I used 2 verbs out of ~17. I never
+    // once called graph_packet or graph_pull — your documented front door — despite
+    // returning to a repo I hadn't touched in seven weeks, where orientation was
+    // literally my problem. Nothing in my workflow PULLED me toward them."
+    //
+    // That is a routing failure, not a capability failure, and no amount of
+    // correctness work touches it. Documentation does not pull; a suggestion at the
+    // moment of use does. graph_health is the one verb he DID reach for
+    // unprompted — so it is the only place with the standing to route.
+    //
+    // Derived from THIS repo's actual state, never generic advice: recommending
+    // graph_packet on a repo with no overlay would be noise, and noise here would
+    // cost the routing its credibility on the repos where it is right.
+    nextActions: _nextActions,
+    // The routing must reach the SUMMARY, not only the JSON. A reader who scans one
+    // string and stops is the common case — that is precisely how the 96-day-stale
+    // briefs went unnoticed while their staleness sat in a field nobody read.
+    summary: _nextActions.length
+      ? `${verdicts.join(' · ')} · NEXT: ${_nextActions.map((a) => a.do).join(' | ')}`
+      : verdicts.join(' · '),
   };
 }

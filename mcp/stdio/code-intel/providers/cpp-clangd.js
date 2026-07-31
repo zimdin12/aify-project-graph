@@ -109,6 +109,17 @@ function deriveConfidence(kind, context) {
   return 'high';
 }
 
+const LSP_SYMBOL_KINDS = { 1:'file',2:'module',3:'namespace',4:'package',5:'class',6:'method',7:'property',8:'field',9:'constructor',10:'enum',11:'interface',12:'function',13:'variable',14:'constant',15:'string',16:'number',17:'boolean',18:'array',19:'object',20:'key',21:'null',22:'enum_member',23:'struct',24:'event',25:'operator',26:'type_parameter' };
+
+// Turn raw LSP SymbolKind numbers into names. A breakdown nobody can read is not a
+// breakdown — the whole point is that a reader can see at a glance whether the
+// not-found population is fields (benign) or functions (a real gap).
+function labelSymbolKinds(byKind) {
+  const out = {};
+  for (const [k, n] of Object.entries(byKind)) out[LSP_SYMBOL_KINDS[k] || `kind_${k}`] = n;
+  return out;
+}
+
 function symbolIdFor(file, line, col) {
   return `c:cpp:${file}:${line}:${col}`;
 }
@@ -321,6 +332,9 @@ export function createCppClangdProvider({ spawn } = {}) {
         // `references` resolved ≥1 location; notFound = not_found_after_retry.
         let refsFoundSymbols = 0;
         let refsNotFoundSymbols = 0;
+        // LSP SymbolKind -> count, for the not-found population. See the comment at
+        // the increment site: a stable unexplained 52% is worse than a known one.
+        const refsNotFoundByKind = {};
         // Symbols whose identifier column could not be located, so every LSP
         // request for them was issued at a GUESSED position. Reported in the
         // envelope: a clangd answer at a guessed position is not ground truth, and
@@ -488,6 +502,29 @@ export function createCppClangdProvider({ spawn } = {}) {
                 }
                 if (resultState === 'not_found_after_retry') {
                   refsNotFoundSymbols += 1;
+                  // ★ MAKE THE UNEXPLAINED NUMBER EXPLAIN ITSELF.
+                  //
+                  // ~52% of symbols return no references, and that ratio held to
+                  // within 0.1% across a 13x larger sample, a different compile DB,
+                  // and a native toolchain (ef-manager, 2026-07-31: 64/70 foreign →
+                  // 766/833 native). That kills the "foreign DB drops cross-TU refs"
+                  // hypothesis and leaves a stable, structural, unexplained half.
+                  //
+                  // His point is the sharp one: a FLOOR of 10% computed over a
+                  // population where half the questions came back empty for unknown
+                  // reasons is not really a floor of 10%.
+                  //
+                  // The likeliest explanation is benign — documentSymbol returns
+                  // fields, enum members, typedefs and namespaces, many of which
+                  // genuinely have no NON-DECLARATION references, and we ask for
+                  // references with includeDeclaration=false. But "likeliest" is a
+                  // guess, and guessing causes is the habit this codebase keeps
+                  // paying for. So record the LSP SymbolKind of every not-found
+                  // symbol: the next collection distinguishes "fields with no
+                  // external use" from "functions that should have callers" without
+                  // anyone having to hypothesise.
+                  const k = Number.isFinite(sym.kind) ? sym.kind : 0;
+                  refsNotFoundByKind[k] = (refsNotFoundByKind[k] ?? 0) + 1;
                   records.push({
                     schema_version: '0.2', collectionId, kind: 'reference',
                     language: 'cpp', symbolId, qname,
@@ -667,7 +704,22 @@ export function createCppClangdProvider({ spawn } = {}) {
             // undercount" instead of silently reverting to the generic line.
             refsFoundSymbols,
             refsNotFoundSymbols,
-            positionGuesses,
+            // The not-found population BY SYMBOL KIND. ~52% of symbols returning no
+            // references held to within 0.1% across a 13x sample and a different
+            // compile DB, killing the foreign-DB explanation and leaving a stable
+            // unexplained half. This turns the next collection into the diagnosis:
+            // fields and enum members with no external use are benign, functions
+            // that should have callers are not, and until now nothing distinguished
+            // them.
+            refsNotFoundByKind: labelSymbolKinds(refsNotFoundByKind),
+            // ONE EVENT, ONE COUNTER. `positionGuesses` and `positionGuessSkipped`
+            // incremented on the same condition (`posGuessed`) and were therefore
+            // EXACTLY equal in every collection — a field user noticed the identity
+            // and correctly refused to guess which of the two was mismeasuring
+            // (ef-manager, 2026-07-31). Neither was: every guessed position is now
+            // skipped, so the two names describe one event. Two counters for one
+            // fact make a reader wonder which to trust, so only the one that names
+            // the CONSEQUENCE survives (see positionGuessSkipped below).
             positionGuessSkipped,
             refsTruncatedSymbols,
             // P0-1 — total-budget + resume signal. budgetExhausted=true means
@@ -679,7 +731,20 @@ export function createCppClangdProvider({ spawn } = {}) {
             budgetElapsedMs: budgetElapsed(),
             budgetExhausted,
             filesProcessed,
+            // `filesTotal` is the count THIS CALL had to process (the remainder
+            // after resume), not the repo total — but on a first pass that
+            // completes, remainder == enumerated, so the two look identical and the
+            // name reads as "total". A field user was told "repeat until filesTotal
+            // is 0", saw 122 == enumeratedTotal, and correctly refused to loop on a
+            // predicate that looked non-terminating (ef-manager, 2026-07-31). He was
+            // right to stop: the instruction cost an extra no-op call to observe a
+            // state the response already knew.
+            //
+            // So the completion signal is now EXPLICIT rather than inferred from a
+            // count reaching zero on a subsequent call.
             filesTotal,
+            remaining: Math.max(0, filesTotal - filesProcessed),
+            complete: !budgetExhausted && filesProcessed >= filesTotal,
             // RESUME STATE, reported so "run again to continue" is checkable
             // rather than taken on faith. resumedFrom counts files a prior run
             // already covered under this same compile-DB hash; enumeratedTotal is
