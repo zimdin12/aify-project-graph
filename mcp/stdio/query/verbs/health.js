@@ -479,7 +479,62 @@ export async function graphHealth({ repoRoot }) {
         const verified = db2.get("SELECT COUNT(*) AS c FROM edges WHERE provenance = 'LSP_VERIFIED'").c ?? 0;
         const calls = db2.get("SELECT COUNT(*) AS c FROM edges WHERE relation = 'CALLS'").c ?? 0;
         codeIntel.lspVerifiedEdges = verified;
-        codeIntel.lspVerifiedPctOfCalls = calls > 0 ? Math.round((verified / calls) * 100) : 0;
+
+        // ★ ATTACK EIGHT — THE DENOMINATOR WAS CONTAMINATED WITH EDGES THAT ARE
+        //   UNVERIFIABLE IN PRINCIPLE.
+        //
+        // ef-manager, on the headline coverage number I had been quoting to him
+        // since day one and that neither of us had ever opened up. The denominator
+        // was every CALLS edge, unrestricted. This repo's graph contains GLSL and
+        // Python: clangd cannot verify a single one of those edges — not because
+        // the index is cold, but because they are not C++ and were never in
+        // compile_commands.json.
+        //
+        // Measured here: 15530 CALLS = 12830 cpp + 1458 glsl + 1242 python. So
+        // 17.4% of the denominator was unverifiable BY CONSTRUCTION, and the
+        // number could never approach 100 however good collection got. Worse, its
+        // MOVEMENT was uninterpretable: a rise could mean better verification, or
+        // merely fewer shader edges after a refactor.
+        //
+        // And it broke the word `floor`, which is load-bearing here. A floor
+        // implies the true value is above it and reachable. A ratio over a
+        // contaminated denominator is not a floor of anything — it is a different
+        // quantity wearing a coverage label.
+        //
+        // His generalization of tonight's other fix is exact: AN EDGE NOBODY COULD
+        // HAVE VERIFIED IS NOT AN EDGE THAT FAILED VERIFICATION. Same shape as the
+        // other five instances — a percentage stood in for coverage while the real
+        // thing, the verifiable subset, was computable from data already in hand.
+        const byLang = db2.all(
+          `SELECT COALESCE(NULLIF(n.language, ''), '(unknown)') AS lang, COUNT(*) AS c
+             FROM edges e JOIN nodes n ON n.id = e.from_id
+            WHERE e.relation = 'CALLS' GROUP BY lang`,
+        );
+        // Languages an LSP backend in this server can actually verify. Anything
+        // else is unverifiable by construction, not unverified by omission.
+        const LSP_VERIFIABLE_LANGUAGES = new Set(['cpp', 'c', 'cxx', 'cc', 'h', 'hpp']);
+        const verifiable = byLang.filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang)).reduce((a, r) => a + r.c, 0);
+        const unverifiable = byLang.filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang));
+
+        codeIntel.lspCallsTotal = calls;
+        codeIntel.lspCallsVerifiable = verifiable;
+        // The honest coverage number: verified over what could BE verified.
+        codeIntel.lspVerifiedPctOfCalls = verifiable > 0 ? Math.round((verified / verifiable) * 100) : 0;
+        codeIntel.lspVerifiedPctDenominator = 'verifiable_calls';
+        if (unverifiable.length > 0) {
+          const unverifiableTotal = unverifiable.reduce((a, r) => a + r.c, 0);
+          codeIntel.lspUnverifiableCalls = {
+            total: unverifiableTotal,
+            pct_of_all_calls: calls > 0 ? Math.round((unverifiableTotal / calls) * 100) : 0,
+            by_reason: unverifiable
+              .sort((a, b) => b.c - a.c)
+              .map((r) => ({ language: r.lang, edges: r.c, reason: 'non_cpp_language — no LSP backend in this server can verify it' })),
+            note:
+              `${unverifiableTotal} CALLS edge(s) are unverifiable BY CONSTRUCTION and are excluded from the `
+              + 'coverage denominator. An edge nobody could have verified is not an edge that failed verification. '
+              + 'Including them would cap the achievable percentage below 100 and make its movement uninterpretable.',
+          };
+        }
         if (calls > 0 && verified === 0) {
           // ★ SCOPE THE CLAIM TO THE SURFACE IT GOVERNS.
           //
