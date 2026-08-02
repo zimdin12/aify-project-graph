@@ -1,11 +1,11 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · fifteen instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · seventeen instances in one day**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because fifteen independent instances landed within
-one working day and someone happened to be counting. A name invites deference; fifteen
-instances invite you to check whether a sixteenth fits — and to say so if it doesn't.
+principle is worth something only because seventeen independent instances landed within
+one working day and someone happened to be counting. A name invites deference; seventeen
+instances invite you to check whether an eighteenth fits — and to say so if it doesn't.
 
 ## Read this first — why the list exists and why it will keep growing
 
@@ -116,7 +116,7 @@ The filter is defensible; an invisible one is indistinguishable from a hidden
 population. Same shape as instance 6, on the field that gates whether an agent
 believes anything else.
 
-## The second wave — five more, three of which cost real data
+## The second wave — seven more, three of which cost real data
 
 **11. Recency stood in for authority, and destroyed 8530 records.**
 `pruneOldCollections` kept the newest collection row per provider by `collected_at`
@@ -176,6 +176,46 @@ agent's script carried the condition as an executable refusal.
 > **A conditional instruction must carry its condition as an executable
 > precondition.**
 > *"Run this after the restart"* is read. *"Refuse unless `-shm` is absent"* is run.
+
+**16. A proxy for liveness stood in for a lock test.**
+Two agents spent an evening waiting for a "server-down window" to restore a
+database, inferring from the presence of SQLite's `-shm` file that a process held
+it. One exclusive-open attempt showed nothing held it — the window had been open
+the whole time, and the `-shm` was a leftover from *their own read-only
+verification*. Confirming this reproduces it: a read-only connect recreates `-shm`
+within seconds. **`-shm` presence is a byproduct of observation, never a signal
+about occupancy.**
+
+> **Fail-closed is a correct default *and a prompt to go measure* — not a resting
+> state.** Refusing to act under an unknown is right, and it is why nothing was
+> lost. The defect is not converting the unknown into a known when it costs one
+> command. Without this half, "forced doors" reads as *refuse and wait*.
+
+**17. `?? 0` manufactured the very zero the comment above it warned about.**
+The only instance here that names a *code construct* rather than a reasoning
+failure — which makes it the only one enforceable by a lint rule instead of a
+habit.
+
+The contradiction check written to defeat instance 12 read
+`(codeIntel.refsFoundSymbols ?? 0) + (codeIntel.refsNotFoundSymbols ?? 0)`. Those
+fields live at `codeIntel.operations._session.*` and are `undefined` on that
+object, so the expression yields `0` and the branch fired on *every* populated
+collect. The comment three lines above it explains the legitimate-zero trap in
+detail.
+
+> **`?? 0` applied to a field you are about to test for zero destroys the
+> distinction you are testing.**
+
+Here *absent* and *zero* mean opposite things — absent is "I could not look", zero
+is "I looked and found none" — and `?? 0` collapses them while looking like
+defensive coding. It is "unknown is not untruncated" expressed as a language
+operator rather than a data-flow rule.
+
+*Checked mechanically after the fact: 92 uses of `?? 0` / `?? false` in the
+server, exactly one of which feeds a later equality test on the same variable
+(`firstPartyCount === 0` in `compile-db.js`) — and that one defaults toward
+refusing exhaustiveness, i.e. the cautious direction. The grep is cheap and worth
+re-running when this file grows.*
 
 ## Two rules about method, both learned the hard way
 
