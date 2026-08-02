@@ -97,15 +97,37 @@ he never read; the other had it for two days and did nothing with it. It became 
 treated it as actionable — it was raised as a complaint, received as a note, and
 sat.
 
-> **Mutual auditing improved our claims. It did not, on its own, reprioritise our
-> work.** Auditing catches what is wrong in what you chose to do; it does not tell
-> you that you chose the wrong thing.
+⛔ **This was first written as a finding — "auditing improves correctness, not
+prioritisation" — and that was not tested. It is retained here as the observation
+plus the reason it is not yet a claim, because the overclaim is more instructive
+than the tidy version.**
 
-Stated as a scope on the hypothesis rather than a caveat to it:
+**What was actually observed (n=1):** the list sat for two days, then a third party
+changed the goal, then it was done in an afternoon.
 
-> **Auditing improves correctness, not prioritisation.** A second agent tells you
-> whether what you built is right. It does not tell you whether it was the right
-> thing to build.
+**Why that does not support the rule:** *the two agents never audited each other's
+priorities.* Every exchange in the session audited **claims** — is this number
+right, is this scope accurate, does this check fire on its own motivating bug. Not
+once did either ask *"is this the right thing to be working on?"* So the conclusion
+"auditing does not reprioritise" is inferred from the absence of an outcome nobody
+attempted to produce.
+
+At least three explanations fit the same datum, and nothing distinguishes them:
+
+1. Auditing genuinely cannot reprioritise (the stated rule).
+2. Auditing *of claims* cannot reprioritise, but auditing *of priorities* — never
+   attempted — might.
+3. Nothing was wrong with the prioritisation at all: the two days in question were
+   spent on a live data-loss incident, which outranked a token cleanup on any
+   sensible ordering.
+
+Explanation 3 is the uncomfortable one, and it is at least as consistent with the
+evidence as the rule that was written.
+
+**The honest open question**, and it is cheap to test: *does a second agent asked
+to audit the work queue — rather than the work — change what gets built?* One
+session, one explicit "review my priorities, not my claims" prompt, and a record of
+whether anything moved.
 
 And a qualification on the pin-catch, from the agent it caught: it worked because
 *both* parties also behaved correctly — one made a claim about his own repo without

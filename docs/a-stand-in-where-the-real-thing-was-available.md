@@ -1,11 +1,11 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · nineteen instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · twenty instances in one session**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because nineteen independent instances landed within
-one working day and someone happened to be counting. A name invites deference; nineteen
-instances invite you to check whether a twentieth fits — and to say so if it doesn't.
+principle is worth something only because twenty independent instances landed within
+one working day and someone happened to be counting. A name invites deference; twenty
+instances invite you to check whether a twenty-first fits — and to say so if it doesn't.
 
 ## Read this first — why the list exists and why it will keep growing
 
@@ -116,7 +116,7 @@ The filter is defensible; an invisible one is indistinguishable from a hidden
 population. Same shape as instance 6, on the field that gates whether an agent
 believes anything else.
 
-## The second wave — nine more, three of which cost real data
+## The second wave — ten more, three of which cost real data
 
 **11. Recency stood in for authority, and destroyed 8530 records.**
 `pruneOldCollections` kept the newest collection row per provider by `collected_at`
@@ -303,6 +303,22 @@ without the thing being waited for.
 
 > **The first question about any blocked verification is whether it is actually
 > blocked.**
+
+**20. An anecdote stood in for a test — inside the file about untested claims.**
+Caught by the project owner, not by either author. The second-agent document stated
+*"auditing improves correctness, not prioritisation"* as a rule, in a blockquote,
+twice. Evidence: **one** observation — a list of unread fields sat for two days,
+then a third party changed the goal, then it got done.
+
+It fails its own document's standard three ways: n=1; the alternative explanation
+(those two days were spent on a live data-loss incident, which outranked a token
+cleanup on any sensible ordering) was never considered; and most damningly, **the
+two agents never audited each other's priorities at all.** Every exchange audited
+*claims*. So the rule was inferred from the absence of an outcome nobody attempted.
+
+Both authors had spent three days documenting exactly this, and both signed off on
+it. It survived because it was *phrased as a conclusion* — the same property that
+let *"instrumented, awaiting data"* survive for weeks.
 
 ## Two rules about method, both learned the hard way
 
