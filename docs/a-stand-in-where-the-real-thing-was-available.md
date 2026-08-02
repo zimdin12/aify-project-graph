@@ -1,11 +1,11 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · seventeen instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · eighteen instances in one day**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because seventeen independent instances landed within
-one working day and someone happened to be counting. A name invites deference; seventeen
-instances invite you to check whether an eighteenth fits — and to say so if it doesn't.
+principle is worth something only because eighteen independent instances landed within
+one working day and someone happened to be counting. A name invites deference; eighteen
+instances invite you to check whether a nineteenth fits — and to say so if it doesn't.
 
 ## Read this first — why the list exists and why it will keep growing
 
@@ -116,7 +116,7 @@ The filter is defensible; an invisible one is indistinguishable from a hidden
 population. Same shape as instance 6, on the field that gates whether an agent
 believes anything else.
 
-## The second wave — seven more, three of which cost real data
+## The second wave — eight more, three of which cost real data
 
 **11. Recency stood in for authority, and destroyed 8530 records.**
 `pruneOldCollections` kept the newest collection row per provider by `collected_at`
@@ -211,11 +211,41 @@ is "I looked and found none" — and `?? 0` collapses them while looking like
 defensive coding. It is "unknown is not untruncated" expressed as a language
 operator rather than a data-flow rule.
 
-*Checked mechanically after the fact: 92 uses of `?? 0` / `?? false` in the
-server, exactly one of which feeds a later equality test on the same variable
-(`firstPartyCount === 0` in `compile-db.js`) — and that one defaults toward
-refusing exhaustiveness, i.e. the cautious direction. The grep is cheap and worth
-re-running when this file grows.*
+**18. The lint written from instance 17 could not catch instance 17.**
+The check was specified as *"a default feeding a later equality test on the same
+variable"* and returned **1 candidate out of 92 uses** — a small number that read
+as *risk contained*, and ended the inquiry.
+
+But the motivating bug defaults two operands, **sums them**, and tests the *sum*:
+
+```js
+const sessionExamined = (a ?? 0) + (b ?? 0);
+… || (verified > 0 && sessionExamined === 0);
+```
+
+The defaults never touch an equality test. They are **arithmetic-mediated**, and
+the criterion walked straight past the one case known to have bitten. Re-run
+allowing an intervening arithmetic expression: **156 files, 173 default uses, 15
+candidates — 6 of them arithmetic-mediated**, including the descendant of the
+original bug.
+
+> **The first test of any new check should be the bug that inspired it.** If it
+> does not fire there, the check is measuring something else.
+
+*The conclusion survived and the basis did not.* All 15 were inspected: six are the
+idiomatic sort comparator `(b.confidence ?? 0) - (a.confidence ?? 0)` where
+treating a missing confidence as 0 **is** the intent; `compile-db.js:963` defaults
+toward refusing exhaustiveness; the rest are presence tests where 0 and absent
+genuinely coincide. So "risk contained" was right — but reached by a search that
+could not find what it was searching for, which is a coincidence rather than
+evidence, and would not have survived the file growing.
+
+⚠ **`health.js:765` is a true positive for the pattern and a false positive for the
+risk.** It still reads `(refsFound ?? 0) + (refsNotFound ?? 0)`, but a separate
+`sessionPresent` variable now carries the absent/zero distinction explicitly rather
+than hoping the default preserved it. That is the correct repair shape — restore
+the distinction in a variable, don't rely on the default. **Do not "fix" it on a
+future re-run.**
 
 ## Two rules about method, both learned the hard way
 
