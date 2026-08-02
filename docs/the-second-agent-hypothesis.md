@@ -67,6 +67,16 @@ audits.*
 auditing — which is stronger than per-check catching, and still says nothing about
 unaudited work.*
 
+**★ And the catching was mechanical, not clever.** The auditor's own account of how
+he found the miscount above: *he read three commits and had the numbers in front of
+him.* The insight came free with the data. Every correction in the session followed
+that pattern — a criterion published alongside a count, reasoning left as a comment
+on a revert, a scope claim stated precisely enough to be wrong. **The value came
+from the artifacts being checkable, not from the auditor being perceptive.**
+
+That is the strongest form of the tooling claim, because it is the version that
+does not require a talented second agent — only an output that can be contradicted.
+
 ## The hypothesis
 
 > **The tool's value concentrates in the meta layer *because that is the layer a
