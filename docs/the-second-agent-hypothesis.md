@@ -77,6 +77,30 @@ from the artifacts being checkable, not from the auditor being perceptive.**
 That is the strongest form of the tooling claim, because it is the version that
 does not require a talented second agent — only an output that can be contradicted.
 
+## The one piece of unconstructed evidence
+
+Every other observation supporting this file was **arranged**: seeded test arms,
+inspected columns, controls written on purpose. This one was not.
+
+An agent was one call away from reporting *"commit X verified"* against a server
+that was not running commit X. The receipt's `server_commit` pin refused to
+validate — pins drifted, claims moot — and the mistake surfaced at the last
+possible moment, in the field, on a real error nobody had planted.
+
+That is the difference between a test passing and a tool working. It is also the
+narrowest possible version of the claim in this document: a machine-checkable
+artifact caught a mistake that neither of two attentive agents caught by attention.
+
+**And a limit, from the same session.** One agent produced a list of response fields
+he never read; the other had it for two days and did nothing with it. It became a
+41% token reduction only when a third party made token cost a goal. Neither agent
+treated it as actionable — it was raised as a complaint, received as a note, and
+sat.
+
+> **Mutual auditing improved our claims. It did not, on its own, reprioritise our
+> work.** Auditing catches what is wrong in what you chose to do; it does not tell
+> you that you chose the wrong thing.
+
 ## The hypothesis
 
 > **The tool's value concentrates in the meta layer *because that is the layer a
