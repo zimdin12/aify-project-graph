@@ -130,9 +130,35 @@ const CODE_INTEL_RECORDS_TABLE_SQL = `
   CREATE INDEX IF NOT EXISTS code_intel_records_symbol_idx ON code_intel_records(symbol_id);
 `;
 
+// ★ THE EVIDENCE REACHED THE DB AND DIED ONE LAYER BELOW THE NUMBER PEOPLE READ.
+//
+// 3a4c5a5 made the collector compute evidence.cause on every not-found, and that
+// half works — the raw blob carries {"cause":"definition_only","degraded":true}.
+// But `cause` and `degraded` were persisted ONLY inside that JSON, with no columns
+// and nothing aggregating them, so graph_health still printed a bare
+// refsNotFoundSymbols=833 with no split. ef-manager got the answer by parsing 833
+// raw blobs by hand.
+//
+// His diagnosis is exact and it is the original defect moved down a level: the
+// qualifier now EXISTS and the summary statistic still cannot see it. Capturing
+// evidence is not the same as aggregating it.
+const CODE_INTEL_RECORDS_EXTRA_COLS = [
+  // Why an absence is an absence. NULL on 'found' records and on
+  // position_unresolved — the field discriminates rather than firing everywhere
+  // (verified: 400/400 found and 21/21 unresolved carry no cause).
+  { name: 'cause', ddl: 'ALTER TABLE code_intel_records ADD COLUMN cause TEXT' },
+  { name: 'degraded', ddl: 'ALTER TABLE code_intel_records ADD COLUMN degraded INTEGER' },
+];
+
 export function ensureCodeIntelRecordsTable(db) {
   // Accepts both raw better-sqlite3 Database and the wrapped db from db.js (both expose .exec).
   db.exec(CODE_INTEL_RECORDS_TABLE_SQL);
+  const cols = db.prepare
+    ? db.prepare('PRAGMA table_info(code_intel_records)').all().map((r) => r.name)
+    : db.all('PRAGMA table_info(code_intel_records)').map((r) => r.name);
+  for (const { name, ddl } of CODE_INTEL_RECORDS_EXTRA_COLS) {
+    if (!cols.includes(name)) db.exec(ddl);
+  }
 }
 
 const CODE_INTEL_COLLECTIONS_TABLE_SQL = `
@@ -165,6 +191,11 @@ const CODE_INTEL_COLLECTIONS_EXTRA_COLS = [
   { name: 'index_wait_ms', ddl: "ALTER TABLE code_intel_collections ADD COLUMN index_wait_ms INTEGER" },
   { name: 'refs_found', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_found INTEGER" },
   { name: 'refs_not_found', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_not_found INTEGER" },
+  // ★ NEVER SUM DEGRADED WITH ABSENT. refs_not_found is the TOTAL and must not be
+  // read as "symbols with no callers" — measured on echoes 2026-08-02, 833 of 833
+  // not-found results were definition_only and ZERO were clean absences.
+  { name: 'refs_degraded', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_degraded INTEGER" },
+  { name: 'refs_clean_not_found', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_clean_not_found INTEGER" },
 ];
 
 export function ensureCodeIntelCollectionsTable(db) {

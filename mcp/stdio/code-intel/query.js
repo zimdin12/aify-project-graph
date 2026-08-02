@@ -57,6 +57,13 @@ export function getLatestCollection(db, opts = {}) {
     indexWaitMs: row.index_wait_ms ?? sess.indexWaitMs ?? null,
     refsFound: row.refs_found ?? sess.refsFoundSymbols ?? null,
     refsNotFound: row.refs_not_found ?? sess.refsNotFoundSymbols ?? null,
+    // ★ THE SPLIT. refsNotFound is the TOTAL and must never be read as "symbols
+    // with no callers" — measured on echoes 2026-08-02, 833 of 833 not-found
+    // results were `definition_only` and ZERO were clean absences. A "no
+    // references" statistic that includes degraded results is not a floor, it is
+    // a wrong number pointing the wrong way.
+    refsDegraded: row.refs_degraded ?? sess.refsDegradedSymbols ?? null,
+    refsCleanNotFound: row.refs_clean_not_found ?? sess.refsCleanNotFoundSymbols ?? null,
     // WHAT WAS NEVER ASKED. A coverage percentage is verified edges over total
     // edges, so a symbol we DECLINED to query (identifier column unlocatable, or a
     // hub whose reference set hit the cap) sits in the denominator and can never

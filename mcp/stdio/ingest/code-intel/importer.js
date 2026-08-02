@@ -863,9 +863,9 @@ function makeRecordInserter(db, collectionId) {
   ensureCodeIntelRecordsTable(db);
   const sql = `
     INSERT INTO code_intel_records
-      (collection_id, kind, language, symbol_id, qname, file, range_start_line, range_end_line, confidence, provenance, result_state, raw)
+      (collection_id, kind, language, symbol_id, qname, file, range_start_line, range_end_line, confidence, provenance, result_state, cause, degraded, raw)
     VALUES
-      (@collection_id, @kind, @language, @symbol_id, @qname, @file, @range_start_line, @range_end_line, @confidence, @provenance, @result_state, @raw)
+      (@collection_id, @kind, @language, @symbol_id, @qname, @file, @range_start_line, @range_end_line, @confidence, @provenance, @result_state, @cause, @degraded, @raw)
   `;
   return (record) => {
     const range = record.range || {};
@@ -885,6 +885,10 @@ function makeRecordInserter(db, collectionId) {
       confidence: record.confidence ?? null,
       provenance: record.provenance ?? null,
       result_state: record.result_state ?? null,
+      // Promoted out of the raw blob into real columns. Capturing evidence is not
+      // aggregating it — these were reaching the DB and dying below the summary.
+      cause: record.cause ?? null,
+      degraded: record.degraded == null ? null : (record.degraded ? 1 : 0),
       raw: JSON.stringify(record),
     });
   };
@@ -929,6 +933,8 @@ export function importV02Collection(envelope, db) {
       indexWaitReason: sess.indexWaitReason ?? null,
       refsFoundSymbols: sess.refsFoundSymbols ?? null,
       refsNotFoundSymbols: sess.refsNotFoundSymbols ?? null,
+      refsDegradedSymbols: sess.refsDegradedSymbols ?? null,
+      refsCleanNotFoundSymbols: sess.refsCleanNotFoundSymbols ?? null,
       // WHAT WAS NEVER ASKED. These must persist or graph_health cannot mark its
       // coverage percentage as a FLOOR — a symbol we declined to query sits in the
       // denominator and can never reach the numerator, so omitting them turns
@@ -962,11 +968,11 @@ export function importV02Collection(envelope, db) {
        (collection_id, provider, provider_version, project_root, language, status,
         freshness_basis, freshness_value, compile_db_hash, indexed_commit,
         operations_json, collected_at, errors_json,
-        mode, index_ready, index_wait_ms, refs_found, refs_not_found)
+        mode, index_ready, index_wait_ms, refs_found, refs_not_found, refs_degraded, refs_clean_not_found)
      VALUES (@collection_id, @provider, @provider_version, @project_root, @language, @status,
              @freshness_basis, @freshness_value, @compile_db_hash, @indexed_commit,
              @operations_json, @collected_at, @errors_json,
-             @mode, @index_ready, @index_wait_ms, @refs_found, @refs_not_found)`,
+             @mode, @index_ready, @index_wait_ms, @refs_found, @refs_not_found, @refs_degraded, @refs_clean_not_found)`,
     {
       collection_id: envelope.collectionId,
       provider: envelope.provider,
@@ -986,6 +992,8 @@ export function importV02Collection(envelope, db) {
       index_wait_ms: sess.indexWaitMs ?? null,
       refs_found: sess.refsFoundSymbols ?? null,
       refs_not_found: sess.refsNotFoundSymbols ?? null,
+      refs_degraded: sess.refsDegradedSymbols ?? null,
+      refs_clean_not_found: sess.refsCleanNotFoundSymbols ?? null,
     },
   );
     for (const record of (envelope.records || [])) {

@@ -238,6 +238,16 @@ export async function graphHealth({ repoRoot }) {
           // callers. Reported as a pair with the percentage, never as a footnote.
           positionGuessSkipped: latest.positionGuessSkipped,
           refsTruncatedSymbols: latest.refsTruncatedSymbols,
+          // ★ THESE WERE NEVER PROJECTED, which is why the contradiction check in
+          // ccfe69c misfired on every populated collect: it tested fields that do
+          // not exist on this object and read undefined as "session missing".
+          // Instance twelve again — a legitimate absence (a field simply not
+          // carried) read as evidence of a state. The reader in code-intel/query.js
+          // had them all along.
+          refsFound: latest.refsFound,
+          refsNotFound: latest.refsNotFound,
+          refsDegraded: latest.refsDegraded,
+          refsCleanNotFound: latest.refsCleanNotFound,
         };
       }
     } finally { db.close(); }
@@ -607,6 +617,26 @@ export async function graphHealth({ repoRoot }) {
         const verifiable = inScopeRows.filter((r) => LSP_VERIFIABLE_LANGUAGES.has(r.lang)).reduce((a, r) => a + r.c, 0);
         const unverifiable = inScopeRows.filter((r) => !LSP_VERIFIABLE_LANGUAGES.has(r.lang));
 
+        // ★ SURFACE THE SPLIT. The honest headline is "833 not found, 833 degraded,
+        // 0 clean" and until now the tool could not say it — the cause reached the
+        // database and died one layer below the number people read.
+        const degraded = codeIntel.refsDegraded;
+        const cleanNotFound = codeIntel.refsCleanNotFound;
+        if (degraded != null || cleanNotFound != null) {
+          codeIntel.refsNotFoundBreakdown = {
+            total: codeIntel.refsNotFound ?? null,
+            degraded,
+            clean: cleanNotFound,
+            note: 'DEGRADED results (definition_only / no_index_entry) are NOT evidence of no callers — '
+              + 'the index could not answer, which is a statement about the index, not about the code. '
+              + 'Only `clean` counts as an observed absence. Never read `total` as "symbols with no callers".',
+          };
+          if (degraded > 0) {
+            verdicts.push(`⚠ ${degraded} of ${codeIntel.refsNotFound} "not found" reference results are DEGRADED`
+              + `${cleanNotFound === 0 ? ' and ZERO are clean absences' : `, only ${cleanNotFound} are clean absences`}`
+              + ' — do not read the not-found count as dead code.');
+          }
+        }
         codeIntel.lspCallsTotal = calls;
         codeIntel.lspCallsVerifiable = verifiable;
         // The honest coverage number: verified over what could BE verified.
@@ -699,6 +729,15 @@ export async function graphHealth({ repoRoot }) {
         // being ZERO: null means the qualifier could not be computed, and an
         // uncomputable qualifier must produce a MORE cautious number, not a
         // cleaner one. Same fail-closed default as "unknown is not untruncated".
+        // NOTE — a defect was suspected here and does not exist. The fresh collect
+        // carries 21 `position_unresolved` RECORDS while positionGuessSkipped
+        // reports 0, which looks like the capture-vs-aggregate gap seen elsewhere
+        // tonight. It is not: all 21 are ANONYMOUS constructs, which are counted
+        // separately (anonymousSkipped) and deliberately excluded from the
+        // not-asked figure — see isAnonymousSymbolName. Counting them here would
+        // INFLATE the very number a reviewer uses to judge whether a floor is
+        // really a floor, which is the inflation that exclusion exists to prevent.
+        // Deriving this count from records was drafted and reverted; 0 is correct.
         const skippedRaw = codeIntel.positionGuessSkipped;
         const cappedRaw = codeIntel.refsTruncatedSymbols;
         // The wiped row does not return null — it returns 0, which is itself a
@@ -707,9 +746,27 @@ export async function graphHealth({ repoRoot }) {
         // discriminator is the CONTRADICTION between the two sources: verified
         // edges exist, while the session that supposedly produced them claims to
         // have examined no symbols at all. Numbers from different eras.
-        const sessionExamined = (codeIntel.refsFoundSymbols ?? 0) + (codeIntel.refsNotFoundSymbols ?? 0);
+        // ★ THE CONTRADICTION CHECK KEYED ON A LEGITIMATE ZERO — instance twelve,
+        //   verbatim, inside the code written to fix instance twelve.
+        //
+        // ef-manager measured it on the fresh collect: coverageFloorCause reported
+        // `qualifier_unavailable` and the summary claimed the session "is missing"
+        // — while THE SAME RESPONSE carried refsFoundSymbols 766,
+        // refsNotFoundSymbols 833, positionGuessSkipped 0, refsTruncatedSymbols 0.
+        // The session was fully populated. positionGuessSkipped being 0 is a
+        // legitimate value on a clean run, and reading it as absence collapsed the
+        // known/unknown distinction this whole field exists to preserve — in the
+        // alarming direction.
+        //
+        // The fields here come from `sess`, so `refsFoundSymbols`/`refsNotFoundSymbols`
+        // are the wrong names on this object anyway (they read undefined → 0 → the
+        // contradiction fired on every populated collect). Use the reader's names,
+        // and treat "session present at all" as the real question.
+        const sessionExamined = (codeIntel.refsFound ?? 0) + (codeIntel.refsNotFound ?? 0);
+        const sessionPresent = codeIntel.refsFound != null || codeIntel.refsNotFound != null;
         const qualifierUnavailable = (skippedRaw == null && cappedRaw == null)
-          || (verified > 0 && sessionExamined === 0);
+          || (verified > 0 && sessionPresent && sessionExamined === 0)
+          || (verified > 0 && !sessionPresent);
         const skipped = skippedRaw ?? 0;
         const capped = cappedRaw ?? 0;
         if (qualifierUnavailable) {

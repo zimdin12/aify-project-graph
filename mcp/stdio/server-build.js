@@ -49,6 +49,32 @@ export function serverBuildInfo() {
   // reported commit is what is RUNNING; the tree is what a restart would load.
   const treeCommit = gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
   const staleProcess = Boolean(LOADED_COMMIT && treeCommit && LOADED_COMMIT !== treeCommit);
+  // ★ COMMIT IDENTITY STOOD IN FOR BEHAVIOURAL DIFFERENCE.
+  //
+  // staleProcess says RESTART whether the delta is a guard that prevents data loss
+  // or a single markdown file. ef-manager hit exactly that: loaded cad4569 vs tree
+  // c526849, staleProcess true — and the entire delta was one doc. He had to run
+  // `git diff --name-only` himself to learn the running server was behaviourally
+  // current, which is the difference between "you must restart before collecting"
+  // and "ignore this".
+  //
+  // Fail-closed remains right: unknown delta => assume it matters. But unknown had
+  // a one-command path to known, which is the session's own lesson — a fail-closed
+  // default is a prompt to go measure, not a resting state.
+  let staleDelta = null;
+  if (staleProcess) {
+    const changed = gitAt(SERVER_ROOT, ['diff', '--name-only', `${LOADED_COMMIT}..${treeCommit}`]);
+    if (changed != null) {
+      const files = changed.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
+      const executable = files.filter((f) => /\.(js|mjs|cjs|ts|json)$/i.test(f));
+      staleDelta = {
+        files_changed: files.length,
+        executable_files_changed: executable.length,
+        behaviourally_current: executable.length === 0,
+        sample: executable.slice(0, 5),
+      };
+    }
+  }
   _cached = {
     version,
     commit: LOADED_COMMIT,
@@ -57,9 +83,19 @@ export function serverBuildInfo() {
     ...(staleProcess ? {
       workingTreeCommit: treeCommit,
       staleProcess: true,
+      ...(staleDelta ? { staleDelta } : {}),
       staleWarning: `SERVER IS RUNNING STALE CODE: this process loaded ${LOADED_COMMIT} at ${PROCESS_STARTED_AT},`
         + ` but the checkout is now ${treeCommit}. Answers come from ${LOADED_COMMIT}.`
-        + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.',
+        + (staleDelta?.behaviourally_current
+          ? ` HOWEVER the delta is ${staleDelta.files_changed} non-executable file(s) only —`
+            + ' no .js/.mjs/.ts/.json changed, so this process is BEHAVIOURALLY CURRENT and a restart is not'
+            + ' required for correctness.'
+          : staleDelta
+            ? ` The delta includes ${staleDelta.executable_files_changed} executable file(s)`
+              + `${staleDelta.sample.length ? ` (e.g. ${staleDelta.sample.join(', ')})` : ''} —`
+              + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'
+            : ' Delta could not be computed, so assume it matters:'
+              + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'),
     } : {}),
   };
   return _cached;
