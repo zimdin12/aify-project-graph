@@ -38,7 +38,12 @@ const HINTS = {
   hierarchy_unsupported: 'this clangd build does not advertise callHierarchyProvider/typeHierarchyProvider; upgrade clangd (>=12)',
   symbol_not_found: 'no graph node matched this symbol; pass explicit file+line (and col) instead, or run graph_search',
   no_position: 'pass file+line (+col) OR a symbol name that resolves via the graph',
-  internal_error: 'see message'
+  // ★ A CALLER MISTAKE IS NOT AN INTERNAL ERROR, and "see message" is not a hint.
+  // A field reviewer reported never getting a useful answer out of this verb; the
+  // first thing it says on a missing required arg is that the TOOL failed
+  // internally, which tells an agent to give up rather than to fix the call.
+  invalid_request: 'this is a problem with the CALL, not the tool — fix the argument named in the message and retry',
+  internal_error: 'the tool failed while handling a valid request; this is not something the caller can fix by changing arguments'
 };
 
 // Bounded-output caps. Budget-stable: an agent gets the shape without a flood.
@@ -551,9 +556,14 @@ export async function codeIntelHierarchy(args = {}) {
   const repoRoot = args.repoRoot || args.repo;
   let { file, line, col } = args;
 
-  if (!repoRoot) return errorResponse('internal_error', 'repo (repoRoot) required');
+  if (!repoRoot) return errorResponse('invalid_request', 'repoRoot is required');
   if (!kind || (!KIND_CALL.has(kind) && !KIND_TYPE.has(kind))) {
-    return errorResponse('internal_error', `kind must be one of callers|callees|subtypes|supertypes (got ${JSON.stringify(kind)})`);
+    return errorResponse(
+      'invalid_request',
+      `kind is REQUIRED and must be one of callers|callees|subtypes|supertypes (got ${JSON.stringify(kind)}). `
+      + 'Example: code_intel_hierarchy({ symbol: "MyClass::method", kind: "callers" }). '
+      + 'Use callers/callees for functions and subtypes/supertypes for classes.',
+    );
   }
 
   // Position resolution: explicit file+line wins; else resolve the symbol via

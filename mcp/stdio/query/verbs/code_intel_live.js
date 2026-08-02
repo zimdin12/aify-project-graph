@@ -462,7 +462,7 @@ function uriToRel(uri, projectRoot) {
 /** Diagnostics for a bounded set of files. */
 export async function codeIntelDiagnostics({ repoRoot, language, files = [], diagnosticsWaitMs, warmupMs, spawn }) {
   const startedAt = Date.now();
-  if (!repoRoot) return errorResponse('internal_error', 'repoRoot required');
+  if (!repoRoot) return errorResponse('invalid_request', 'repoRoot is required');
   if (!Array.isArray(files) || files.length === 0) return { status: 'ok', files: [], diagnostics: [] };
   const waitMs = Number.isFinite(diagnosticsWaitMs) && diagnosticsWaitMs >= 0
     ? diagnosticsWaitMs : DEFAULT_DIAGNOSTICS_WAIT_MS;
@@ -525,7 +525,7 @@ export async function codeIntelDiagnostics({ repoRoot, language, files = [], dia
  *  background-index is disabled and you need clangd to consider those files. */
 export async function codeIntelReferences({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
-  if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
+  if (!repoRoot || !file || !line) return errorResponse('invalid_request', 'repoRoot, file and line are all required — pass file (repo-relative) and line (1-based)');
   // The file extension is authoritative for which language server to drive, so
   // agents don't have to pass `language` for TS/Python repos (default is cpp).
   const lang = language || inferLanguage(file) || 'cpp';
@@ -676,7 +676,7 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
 /** Definitions for a symbol at a position. Pass warmupFiles[] for cross-TU resolution. */
 export async function codeIntelDefinitions({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
-  if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
+  if (!repoRoot || !file || !line) return errorResponse('invalid_request', 'repoRoot, file and line are all required — pass file (repo-relative) and line (1-based)');
   const lang = language || inferLanguage(file) || 'cpp';
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
@@ -715,7 +715,7 @@ export async function codeIntelDefinitions({ repoRoot, language, file, line, col
 /** Hover (type + docstring) at a position. Pass warmupFiles[] when the symbol is declared in another TU. */
 export async function codeIntelHover({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
   const startedAt = Date.now();
-  if (!repoRoot || !file || !line) return errorResponse('internal_error', 'repoRoot, file, line required');
+  if (!repoRoot || !file || !line) return errorResponse('invalid_request', 'repoRoot, file and line are all required — pass file (repo-relative) and line (1-based)');
   const lang = language || inferLanguage(file) || 'cpp';
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }
@@ -735,7 +735,7 @@ export async function codeIntelHover({ repoRoot, language, file, line, col, warm
 
 /** Symbol outline for one file. */
 export async function codeIntelSymbols({ repoRoot, language, file, spawn }) {
-  if (!repoRoot || !file) return errorResponse('internal_error', 'repoRoot and file required');
+  if (!repoRoot || !file) return errorResponse('invalid_request', 'repoRoot and file are required — file must be repo-relative');
   const lang = language || inferLanguage(file) || 'cpp';
   let session;
   try { session = await getLiveSession({ language: lang, projectRoot: repoRoot, spawn }); }

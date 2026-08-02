@@ -174,7 +174,7 @@ export function splitCollectBudget(budgetMs) {
 }
 
 export async function graphCollectCodeIntel({ repoRoot, language, scope = 'changed', files, since, operations, budgetMs }) {
-  if (!repoRoot) return { schema_version: '0.2', status: 'error', errors: [{ code: 'internal_error', message: 'repoRoot required' }], records: [] };
+  if (!repoRoot) return { schema_version: '0.2', status: 'error', errors: [{ code: 'invalid_request', message: 'repoRoot is required' }], records: [] };
 
   // FIX 2: language defaults instead of hard-failing. Explicit wins; otherwise
   // infer from files[] extensions; otherwise default to 'cpp' (the games are

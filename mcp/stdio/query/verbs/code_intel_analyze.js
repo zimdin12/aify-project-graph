@@ -232,7 +232,7 @@ export async function codeIntelAnalyze({
   spawn = nodeSpawn
 }) {
   const startedAt = Date.now();
-  if (!repoRoot) return errorResponse('internal_error', 'repoRoot required');
+  if (!repoRoot) return errorResponse('invalid_request', 'repoRoot is required');
   // Multi-language analyze (borrow: agent-code-intel's per-language analyzer
   // dispatch — reimplemented). C++ keeps clang-tidy/compile; TS/JS/Python route
   // through the language server's own diagnostics (already collected by the live

@@ -91,7 +91,14 @@ describe('code_intel_hierarchy — kind routing', () => {
     const repo = tmpRepo();
     const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, kind: 'bogus', spawn: fakeProgressSpawn });
     expect(r.status).toBe('error');
-    expect(r.errors[0].code).toBe('internal_error');
+    // ★ A CALLER MISTAKE IS NOT AN INTERNAL ERROR. This asserted internal_error,
+    // which tells an agent the TOOL failed and there is nothing to fix by changing
+    // the call — a field reviewer reported never getting a useful answer from this
+    // verb, and the first thing it said on a bad argument was "internal error".
+    expect(r.errors[0].code).toBe('invalid_request');
+    // The message must name the valid values and show a call, not say "see message".
+    expect(r.errors[0].message).toMatch(/callers\|callees\|subtypes\|supertypes/);
+    expect(r.errors[0].hint).toMatch(/problem with the CALL, not the tool/);
   });
 });
 

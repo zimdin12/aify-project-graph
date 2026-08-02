@@ -45,10 +45,10 @@ function rowToRecord(row) {
 
 export async function codeIntelReplay({ repoRoot, collectionId = 'latest', symbol = null, file = null, kind = 'all', limit = 20 } = {}) {
   if (!repoRoot) {
-    return { status: 'error', errors: [{ code: 'internal_error', message: 'repoRoot required', hint: '' }], records: [] };
+    return { status: 'error', errors: [{ code: 'invalid_request', message: 'repoRoot is required', hint: 'this is a problem with the CALL, not the tool' }], records: [] };
   }
   if (!VALID_KINDS.has(kind)) {
-    return { status: 'error', errors: [{ code: 'internal_error', message: `invalid kind '${kind}'`, hint: `expected one of ${[...VALID_KINDS].join(', ')}` }], records: [] };
+    return { status: 'error', errors: [{ code: 'invalid_request', message: `invalid kind '${kind}'`, hint: `expected one of ${[...VALID_KINDS].join(', ')}` }], records: [] };
   }
 
   const dbPath = join(repoRoot, '.aify-graph', 'graph.sqlite');
