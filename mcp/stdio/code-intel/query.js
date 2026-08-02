@@ -70,6 +70,10 @@ export function getLatestCollection(db, opts = {}) {
     // reach the numerator. Without these two, the percentage reads as a rate when
     // it is a FLOOR, and "not asked" is indistinguishable from "asked, found
     // nothing" — different states, only one of which is evidence about the code.
+    // The not-found population BY SYMBOL KIND — benign kinds (field, enum member,
+    // namespace) vs kinds that should have callers. Emitted by the provider since it
+    // was written; never carried past the importer until 2026-08-02.
+    refsNotFoundByKind: sess.refsNotFoundByKind ?? null,
     positionGuessSkipped: sess.positionGuessSkipped ?? null,
     refsTruncatedSymbols: sess.refsTruncatedSymbols ?? null,
     positionGuesses: sess.positionGuesses ?? null,

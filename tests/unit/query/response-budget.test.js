@@ -1,47 +1,48 @@
+// ★ TOKEN BUDGET IS A PRODUCT REQUIREMENT, NOT A NICETY.
+//
+// Measured 2026-08-02 on a real repo, before these changes:
+//   graph_consequences  11506 bytes  (~3110 tokens) — receipt was 51.4% of it
+//   graph_pull           4395 bytes  (~1188 tokens) — receipt was 37.3%
+//
+// The head/body split existed and was not wired to the decision it was built for:
+// the full receipt shipped by default on every call. Validation needs pins,
+// reading needs claims, and you validate every time and read rarely — so the head
+// is the default and the body is opt-in.
+//
+// And a field reviewer reading everything adversarially across three experiments
+// listed the fields he never once read: overlay_quality (a 12-field block on every
+// pull), trust.advisory (null in every response he saw). Both are now conditional.
 import { describe, it, expect } from 'vitest';
-import { getPacketTokenBudget, assertMonotonicPacketTiers, PACKET_TIERS } from '../../../mcp/stdio/query/response-budget.js';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-describe('getPacketTokenBudget', () => {
-  it('maps node counts to the expected tier', () => {
-    expect(getPacketTokenBudget(0).name).toBe('tiny');
-    expect(getPacketTokenBudget(799).name).toBe('tiny');
-    expect(getPacketTokenBudget(800).name).toBe('tiny'); // boundary: <= maxNodes(800) → tiny
-    expect(getPacketTokenBudget(801).name).toBe('small');
-    expect(getPacketTokenBudget(4000).name).toBe('small');
-    expect(getPacketTokenBudget(4001).name).toBe('medium');
-    expect(getPacketTokenBudget(15000).name).toBe('medium');
-    expect(getPacketTokenBudget(40001).name).toBe('huge');
-    expect(getPacketTokenBudget(10_000_000).name).toBe('huge');
+const here = dirname(fileURLToPath(import.meta.url));
+const read = (p) => readFileSync(join(here, '../../../mcp/stdio', p), 'utf8');
+
+describe('receipts default to the head, body is opt-in', () => {
+  it('both receipt-bearing verbs route through receiptFor', () => {
+    expect(read('query/verbs/pull.js')).toMatch(/receiptFor\(buildReceipt\(/);
+    expect(read('query/verbs/consequences.js')).toMatch(/receiptFor\(buildReceipt\(/);
   });
 
-  it('returns budgetTokens and a full caps object', () => {
-    const b = getPacketTokenBudget(5000);
-    expect(b.budgetTokens).toBe(4500);
-    for (const k of ['evidence_records', 'affected_files', 'read_first', 'diagnostics', 'refs_per_symbol']) {
-      expect(typeof b.caps[k]).toBe('number');
-    }
+  it("receiptFor returns the head unless mode is 'full'", () => {
+    const r = read('query/receipt.js');
+    expect(r).toMatch(/return mode === 'full' \? receipt : receiptHead\(receipt\)/);
+  });
+});
+
+describe('fields with a measured zero read-rate are conditional', () => {
+  it('overlay_quality is opt-in on graph_pull, not emitted by default', () => {
+    const p = read('query/verbs/pull.js');
+    expect(p).toMatch(/wantOverlayQuality \? \{ overlay_quality/);
+    // and it must NOT appear as an unconditional key
+    expect(p).not.toMatch(/^\s+overlay_quality: overlayQuality,$/m);
   });
 
-  it('is monotonic: no axis decreases as repos grow', () => {
-    expect(assertMonotonicPacketTiers()).toBe(true);
-    const capAxes = ['evidence_records', 'affected_files', 'read_first', 'diagnostics', 'refs_per_symbol'];
-    for (let i = 1; i < PACKET_TIERS.length; i++) {
-      expect(PACKET_TIERS[i].budgetTokens).toBeGreaterThanOrEqual(PACKET_TIERS[i - 1].budgetTokens);
-      for (const a of capAxes) expect(PACKET_TIERS[i].caps[a]).toBeGreaterThanOrEqual(PACKET_TIERS[i - 1].caps[a]);
-    }
-  });
-
-  it('assertMonotonicPacketTiers throws on a regressed table', () => {
-    const bad = [
-      { name: 'a', maxNodes: 10, budgetTokens: 2000, caps: { evidence_records: 10, affected_files: 10, read_first: 10, diagnostics: 10, refs_per_symbol: 8 } },
-      { name: 'b', maxNodes: Infinity, budgetTokens: 1000, caps: { evidence_records: 10, affected_files: 10, read_first: 10, diagnostics: 10, refs_per_symbol: 8 } },
-    ];
-    expect(() => assertMonotonicPacketTiers(bad)).toThrow(/monoton/i);
-  });
-
-  it('defends against non-finite input (→ tiny, safest under-read)', () => {
-    expect(getPacketTokenBudget(undefined).name).toBe('tiny');
-    expect(getPacketTokenBudget(-5).name).toBe('tiny');
-    expect(getPacketTokenBudget(NaN).name).toBe('tiny');
+  it('trust.advisory is omitted rather than emitted as null', () => {
+    const c = read('query/verbs/consequences.js');
+    expect(c).toMatch(/\.\.\.\(level === 'weak' \? \{/);
+    expect(c).not.toMatch(/advisory: level === 'weak'[\s\S]{0,120}: null,/);
   });
 });

@@ -262,6 +262,26 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
  * fetch them. The stale case is exactly the case where shipping the body is pure
  * waste, and the head alone fully resolves it.
  */
+/**
+ * ★ HEAD BY DEFAULT. The body is opt-in.
+ *
+ * Measured 2026-08-02: the full receipt was 51% of a graph_consequences response
+ * (5913 of 11506 bytes) and 37% of graph_pull. The head is 1245 bytes — a ~40%
+ * cut to the flagship verb's total size.
+ *
+ * This is not only a token saving, it is the design the split was built for and
+ * then not wired to: validation needs pins, reading needs claims, and you validate
+ * every time and read rarely. The head carries {verb, args} so a teammate REPLAYS
+ * rather than fetching a body — replay is the primitive, the body is a convenience
+ * for comparing claim-by-claim without re-running.
+ *
+ * Pass mode='full' when you actually need the per-claim provenance.
+ */
+export function receiptFor(receipt, mode) {
+  if (!receipt) return null;
+  return mode === 'full' ? receipt : receiptHead(receipt);
+}
+
 export function receiptHead(receipt) {
   if (!receipt) return null;
   return {

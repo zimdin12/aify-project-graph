@@ -277,6 +277,11 @@ const TOOLS = [
       type: 'object',
       properties: {
         target: { type: 'string', description: 'Symbol name or repo-relative file path.' },
+        receipt: {
+          type: 'string',
+          enum: ['head', 'full'],
+          description: 'Receipt detail. Default "head" — pins + replay args + the disconfirming test, enough to VALIDATE the claim or hand it to another agent. "full" adds the per-claim provenance list and roughly DOUBLES the response; ask for it only when comparing claim-by-claim without replaying.',
+        },
       },
       required: ['target'],
     },
@@ -632,6 +637,15 @@ const TOOLS = [
           type: 'string',
           enum: ['downstream', 'upstream', 'both'],
           description: 'For transitive layer: walk direction. Default both.',
+        },
+        receipt: {
+          type: 'string',
+          enum: ['head', 'full'],
+          description: 'Receipt detail. Default "head" — pins + replay args + the disconfirming test, which is everything needed to VALIDATE a claim or hand it to another agent. Pass "full" only when you need the per-claim provenance list; it is ~4x larger.',
+        },
+        overlayQuality: {
+          type: 'boolean',
+          description: 'Include the repo-level overlay_quality block (feature/task curation stats). Default false — it is repo state, not node state, and graph_health reports it once. Only useful when diagnosing why anchors are missing.',
         },
       },
       required: ['node'],

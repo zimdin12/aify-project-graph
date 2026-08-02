@@ -19,7 +19,7 @@ import { existsSync, readFileSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
-import { buildReceipt, currentPins, hashOverlayContent, hashWorktreeDirty } from '../receipt.js';
+import { buildReceipt, receiptFor, currentPins, hashOverlayContent, hashWorktreeDirty } from '../receipt.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
 import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
@@ -228,13 +228,16 @@ async function loadTrustContext(repoRoot) {
     level,
     trust_relevant_unresolved: trust,
     total_unresolved: total,
-    advisory: level === 'weak'
-      ? 'Weak graph trust: prefer graph_pull(node=...) for narrower live context and verify in source.'
-      : null,
+    // Emitted ONLY when it says something. It was null in every response a field
+    // reviewer saw across three experiments — a key that is always present and
+    // always empty trains readers to skip the block it lives in.
+    ...(level === 'weak' ? {
+      advisory: 'Weak graph trust: prefer graph_pull(node=...) for narrower live context and verify in source.',
+    } : {}),
   };
 }
 
-export async function graphConsequences({ repoRoot, target, symbol }) {
+export async function graphConsequences({ repoRoot, target, symbol, receipt: receiptMode }) {
   const input = target ?? symbol;
   if (!input) return 'ERROR: target (symbol or file path) is required';
   const trust = await loadTrustContext(repoRoot);
@@ -854,7 +857,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
       // output let him tell them apart. field_provenance fixed that for a reader.
       // The receipt fixes it for a TEAMMATE, who otherwise gets prose and must
       // either re-derive the work or — the actual failure mode — not bother.
-      receipt: buildReceipt({
+      receipt: receiptFor(buildReceipt({
         verb: 'graph_consequences',
         args: { target: input, repoRoot },
         pins: currentPins({
@@ -903,7 +906,7 @@ export async function graphConsequences({ repoRoot, target, symbol }) {
             + 'structural blast radius independently of the overlay. A document present there and absent here '
             + 'means the overlay-derived fields are incomplete — which is the cheapest single call that refutes this.',
         },
-      }),
+      }), receiptMode),
       ...(overlayAgeDays != null && overlayAgeDays > 30 ? {
         overlay_age_warning:
           `The feature/task overlay was last updated ${overlayAgeDays} days ago. Every field marked `

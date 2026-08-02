@@ -70,8 +70,12 @@ describe('graph_pull — map context signals', () => {
     }
   });
 
-  it('returns overlay_quality and dirty_overlap for file targets', async () => {
-    const raw = await graphPull({ repoRoot, node: 'src/auth.js' });
+  it('returns overlay_quality (OPT-IN) and dirty_overlap for file targets', async () => {
+    // overlay_quality is now opt-in: it is repo-level state that was being emitted
+    // as a 12-field block on EVERY node query, and a reviewer reading everything
+    // adversarially across three experiments never read it once. It belongs in
+    // graph_health, once — pass overlayQuality:true to get it here.
+    const raw = await graphPull({ repoRoot, node: 'src/auth.js', overlayQuality: true });
     const result = JSON.parse(raw);
 
     expect(result.overlay_quality).toMatchObject({

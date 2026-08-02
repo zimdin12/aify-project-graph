@@ -935,6 +935,13 @@ export function importV02Collection(envelope, db) {
       refsNotFoundSymbols: sess.refsNotFoundSymbols ?? null,
       refsDegradedSymbols: sess.refsDegradedSymbols ?? null,
       refsCleanNotFoundSymbols: sess.refsCleanNotFoundSymbols ?? null,
+      // ★ CAPTURED AND NOT AGGREGATED — the fourth instance, caught by ef-manager
+      // predicting it would populate on a walking collect and then finding it
+      // absent. The provider HAS emitted refsNotFoundByKind since it was written;
+      // the importer never copied it into _session, so it died at this boundary
+      // and no collect has ever surfaced it. His hand-derivation from graph.sqlite
+      // remained the only SymbolKind data that had ever existed.
+      refsNotFoundByKind: sess.refsNotFoundByKind ?? null,
       // WHAT WAS NEVER ASKED. These must persist or graph_health cannot mark its
       // coverage percentage as a FLOOR — a symbol we declined to query sits in the
       // denominator and can never reach the numerator, so omitting them turns

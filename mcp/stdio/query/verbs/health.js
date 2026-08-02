@@ -244,6 +244,7 @@ export async function graphHealth({ repoRoot }) {
           // Instance twelve again — a legitimate absence (a field simply not
           // carried) read as evidence of a state. The reader in code-intel/query.js
           // had them all along.
+          refsNotFoundByKind: latest.refsNotFoundByKind,
           refsFound: latest.refsFound,
           refsNotFound: latest.refsNotFound,
           refsDegraded: latest.refsDegraded,
@@ -740,6 +741,27 @@ export async function graphHealth({ repoRoot }) {
         // Deriving this count from records was drafted and reverted; 0 is correct.
         const skippedRaw = codeIntel.positionGuessSkipped;
         const cappedRaw = codeIntel.refsTruncatedSymbols;
+        // Explain the disagreement a reader WILL find. positionGuessSkipped counts
+        // symbols we declined to ask about; anonymous constructs are excluded from
+        // it deliberately (counting them inflates the not-asked figure used to judge
+        // whether a floor is really a floor). But they still emit
+        // `position_unresolved` RECORDS, so anyone who greps the table finds a
+        // larger number than this header reports and has no way to know why.
+        // Two numbers that disagree with nothing explaining the gap is how a reader
+        // learns to distrust both.
+        try {
+          const unresolvedRecs = db2.get(
+            `SELECT COUNT(*) AS c FROM code_intel_records WHERE result_state = 'position_unresolved'`,
+          ).c ?? 0;
+          if (unresolvedRecs !== (skippedRaw ?? 0)) {
+            codeIntel.positionUnresolvedRecords = unresolvedRecs;
+            codeIntel.positionGuessSkippedNote =
+              `${unresolvedRecs} position_unresolved record(s) exist but positionGuessSkipped is ${skippedRaw ?? 0}: `
+              + 'anonymous constructs (e.g. "(anonymous namespace)") have no identifier to locate, so they are '
+              + 'recorded but deliberately NOT counted as "not asked" — counting them would inflate the figure '
+              + 'used to judge whether the coverage floor is really a floor.';
+          }
+        } catch { /* best-effort — never block health on the explanation */ }
         // The wiped row does not return null — it returns 0, which is itself a
         // stand-in: "0 symbols skipped" from a session that recorded nothing reads
         // identically to "0 symbols skipped" from a clean full run. The structural

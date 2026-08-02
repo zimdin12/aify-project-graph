@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
-import { buildReceipt, currentPins, hashOverlayContent, hashWorktreeDirty } from '../receipt.js';
+import { buildReceipt, receiptFor, currentPins, hashOverlayContent, hashWorktreeDirty } from '../receipt.js';
 
 // Pin sources. Each returns null rather than a guess when unavailable — an
 // unpinned input that LOOKS pinned converts a known gap into an invisible one,
@@ -543,7 +543,7 @@ function transitiveForFeature(db, feature, features, opts = {}) {
   return out;
 }
 
-function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
+function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptMode }) {
   const out = { node: { kind: 'file', path: filePath }, layers: {} };
 
   if (layers.has('code')) {
@@ -652,7 +652,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
     ...(docsLayer.items ?? []).map((d) => ({ field: 'docs', value: d.file ?? d.label, provenance: 'observed', basis: 'MENTIONS edge' })),
   ];
   const surface = rel?.recompile_surface;
-  out.receipt = buildReceipt({
+  out.receipt = receiptFor(buildReceipt({
     verb: 'graph_pull',
     args: { node: filePath, layers: [...layers] },
     pins: currentPins({
@@ -691,7 +691,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers }) {
         + 'lists as a co-consumer that is absent from recompile_surface is a real dependent with no '
         + 'include path — which means this receipt\'s structural closure is not the whole blast radius.',
     },
-  });
+  }), receiptMode);
 
   return out;
 }
@@ -953,7 +953,11 @@ function summarizeDirtyOverlapForNode({ kind, value, features, dirtyFiles }) {
 
 // ---------- main ----------
 
-export async function graphPull({ repoRoot, node, layers, direction }) {
+export async function graphPull({ repoRoot, node, layers, direction, receipt: receiptMode, overlayQuality: wantOverlayQuality }) {
+  // ★ overlay_quality was a 12-field block on EVERY graph_pull response, and a field
+  // reviewer reading everything adversarially across three experiments never once
+  // read it. It is repo-level state, so it belongs in graph_health ONCE — not on
+  // every node query. Opt in with overlayQuality:true.
   if (!node) return 'ERROR: node parameter is required (file path, feature id, symbol name, or task id)';
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_pull' });
   if (freshness.blocker) return freshness.blocker;
@@ -991,7 +995,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     if (featureMatch) {
       const result = attachReadWarnings({
         ...pullFeature({ db, featureId: featureMatch.id, features, allTasks, repoRoot, layers: layerSet, opts: { direction } }),
-        overlay_quality: overlayQuality,
+        ...(wantOverlayQuality ? { overlay_quality: overlayQuality } : {}),
         dirty_overlap: summarizeDirtyOverlapForNode({
           kind: 'feature',
           value: featureMatch,
@@ -1006,7 +1010,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     if (taskMatch) {
       const result = attachReadWarnings({
         ...pullTask({ db, taskId: taskMatch.id, features, allTasks, repoRoot, layers: layerSet }),
-        overlay_quality: overlayQuality,
+        ...(wantOverlayQuality ? { overlay_quality: overlayQuality } : {}),
         dirty_overlap: summarizeDirtyOverlapForNode({
           kind: 'task',
           value: taskMatch,
@@ -1029,7 +1033,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
           node: { kind: prefixed.kind, value: prefixed.value },
           error: 'overlay not built',
           hint: overlayNotBuiltHint(build.reason),
-          overlay_quality: overlayQuality,
+          ...(wantOverlayQuality ? { overlay_quality: overlayQuality } : {}),
           dirty_overlap: { direct_files: [], affected_features: [] },
         }, freshness.warnings)), null, 2);
       }
@@ -1043,7 +1047,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
           ? 'use a valid feature id/label, e.g. feature:chunk-management or feature/chunk-management'
           : 'use a valid task id, e.g. task:CU-123, task/CU-123, or CU-123',
         suggestions,
-        overlay_quality: overlayQuality,
+        ...(wantOverlayQuality ? { overlay_quality: overlayQuality } : {}),
         dirty_overlap: { direct_files: [], affected_features: [] },
       }, freshness.warnings)), null, 2);
     }
@@ -1051,8 +1055,8 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     const detected = detectNodeKind(db, node);
     if (detected.kind === 'file') {
       const result = attachReadWarnings({
-        ...pullFile({ db, filePath: detected.value, features, allTasks, repoRoot, layers: layerSet }),
-        overlay_quality: overlayQuality,
+        ...pullFile({ db, filePath: detected.value, features, allTasks, repoRoot, layers: layerSet, receiptMode }),
+        ...(wantOverlayQuality ? { overlay_quality: overlayQuality } : {}),
         dirty_overlap: summarizeDirtyOverlapForNode({
           kind: 'file',
           value: detected.value,
@@ -1065,7 +1069,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
     if (detected.kind === 'symbol') {
       const result = attachReadWarnings({
         ...pullSymbol({ db, sym: detected.value, features, allTasks, repoRoot, layers: layerSet }),
-        overlay_quality: overlayQuality,
+        ...(wantOverlayQuality ? { overlay_quality: overlayQuality } : {}),
         dirty_overlap: summarizeDirtyOverlapForNode({
           kind: 'symbol',
           value: detected.value,
@@ -1079,7 +1083,7 @@ export async function graphPull({ repoRoot, node, layers, direction }) {
       node: { kind: 'unresolved', value: node },
       error: 'could not resolve as feature id, task id, file path, or symbol',
       hint: 'try feature:<id>, feature/<id>, task:<id>, task/<id>, graph_whereis(symbol=...), or graph_search(query=...) to find the right node identifier',
-      overlay_quality: overlayQuality,
+      ...(wantOverlayQuality ? { overlay_quality: overlayQuality } : {}),
       dirty_overlap: { direct_files: [], affected_features: [] },
     }, freshness.warnings)), null, 2);
   } finally {
