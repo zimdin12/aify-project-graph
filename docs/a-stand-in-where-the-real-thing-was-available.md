@@ -1,11 +1,11 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · eighteen instances in one day**
+**Session of 2026-07-31 · graph-tech-lead + ef-manager · nineteen instances in one day**
 
 Attributed to the session and the date rather than to a person, deliberately. The
-principle is worth something only because eighteen independent instances landed within
-one working day and someone happened to be counting. A name invites deference; eighteen
-instances invite you to check whether a nineteenth fits — and to say so if it doesn't.
+principle is worth something only because nineteen independent instances landed within
+one working day and someone happened to be counting. A name invites deference; nineteen
+instances invite you to check whether a twentieth fits — and to say so if it doesn't.
 
 ## Read this first — why the list exists and why it will keep growing
 
@@ -116,7 +116,7 @@ The filter is defensible; an invisible one is indistinguishable from a hidden
 population. Same shape as instance 6, on the field that gates whether an agent
 believes anything else.
 
-## The second wave — eight more, three of which cost real data
+## The second wave — nine more, three of which cost real data
 
 **11. Recency stood in for authority, and destroyed 8530 records.**
 `pruneOldCollections` kept the newest collection row per provider by `collected_at`
@@ -246,6 +246,42 @@ risk.** It still reads `(refsFound ?? 0) + (refsNotFound ?? 0)`, but a separate
 than hoping the default preserved it. That is the correct repair shape — restore
 the distinction in a variable, don't rely on the default. **Do not "fix" it on a
 future re-run.**
+
+**19. A description of coverage stood in for coverage — three times, always in the
+same direction.**
+Three scope claims, each one hop wider than its evidence: *"verifies persistence"*
+when the test seeded the collection row directly; *"instrumented, awaiting data"*
+when nothing had walked a file; *"92 uses, 1 candidate, contained"* when the
+criterion could not see its own motivating bug. The third hop in the first case
+contained a live bug — `refs_degraded` read the session counter and nothing else,
+so a collection whose records carried `cause` summarised as `null`.
+
+**Every overclaim ran toward *covered*, never *uncovered*.** A random
+miscalibration goes both ways; a one-directional one is a bias with a mechanism.
+The likely mechanism: *a scope statement is written at the moment of finishing,
+when the thing you just built is vivid and the thing you did not build is
+invisible.*
+
+> **State scope by naming the hops and marking each one proven or on-report.**
+> Enumerate the chain, and the gap appears as a link with no test — rather than as
+> a sentence you have to doubt.
+
+That reformulation is what surfaced the bug: writing
+`records → importer → row → reader → surfacing` immediately exposed one link with
+nothing behind it. "Be more careful" would not have.
+
+*The paired error is worth recording because it is the same failure aimed
+elsewhere.* The other author's systematic bias ran the opposite way — stating
+**mechanisms** more confidently than measured (transitive-include, query-position,
+the single-cause `-shm` story), each retracted within a message. One overstates
+coverage, the other overstates explanation; both are a failure to distinguish what
+was *checked* from what was *assumed*.
+
+**And prefer a control to a prediction.** The prediction contract for this fix
+(*"after a restart, expect {833, 833, 0}; null is the finding"*) would have caught
+the bug — eventually, behind a restart nobody could perform. The control caught it
+immediately, with no restart, no clangd, and no waiting. **A prediction tells you
+something is wrong once you can finally run it; a control tells you now.**
 
 ## Two rules about method, both learned the hard way
 
