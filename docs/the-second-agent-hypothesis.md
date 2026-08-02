@@ -71,19 +71,59 @@ not designed against this criterion, so the correlation may be reversed: perhaps
 auditable verbs got audited, and therefore got fixed, and therefore got rated well.
 Two agents, one repo, one problem domain.
 
+**★ And the strongest objection is circularity.** One author observed that the
+record's honesty is *downstream of the auditing* — neither party could have written
+a one-directional account, because the other was checking. That sentence reads as
+support for the hypothesis, and it is actually the sharpest argument against using
+this record as evidence for it:
+
+> **If the record's honesty is itself a product of mutual auditing, the record
+> cannot serve as independent evidence that auditing produces honesty. It is inside
+> its own claim.**
+
+Which is why the experiment below has to be prospective and out-of-sample. Nothing
+in the originating session can settle this, including the parts that look most like
+confirmation.
+
 ## How to falsify it
 
-1. Score every verb on a single axis: *can a second agent contradict this output
-   using only what the output contains?* Do it blind to experiment results.
-2. Compare that ranking against measured usefulness in adversarial experiments.
-3. **If the rankings do not correlate, the hypothesis is wrong** — the meta layer's
-   value is something else, and the `graph_consequences` result is a coincidence.
-4. The sharper test: take one low-auditability verb, add *only* auditability — no
-   accuracy improvements — and re-run the experiment. If usefulness does not move,
-   the hypothesis is wrong.
+### ⛔ What will NOT falsify it — do not run this and report confirmation
 
-Step 4 is the one worth doing, because it is the only one where the prediction could
-fail cleanly.
+An earlier draft of this file proposed: *score every verb on auditability, compare
+the ranking against measured usefulness, and treat correlation as support.*
+
+**That is not a weak test. It is a guaranteed pass.** The "measured usefulness" data
+is the *same two experiments the hypothesis was pattern-matched out of* — n=2, one
+question chosen by each participant, and the claim was derived from those results
+after the fact. Ranking against them succeeds whether or not the hypothesis is true.
+
+This is the base-rate failure from the same session in a new costume: *a metric that
+cannot discriminate the hypotheses, presented as a check.* Recorded here as
+**non-evidence**, not as supporting evidence of lower weight — because the failure
+mode is someone running it, seeing correlation, and reporting confirmation. **A
+document that produces a false confirmation is worse than one with no test at all.**
+
+### ✅ The actual experiment
+
+Take one low-auditability verb, add **only** auditability — no accuracy
+improvements — and re-run the protocol. If usefulness does not move, the hypothesis
+is wrong. Out-of-sample, prospective, and it can fail.
+
+`graph_consequences` is the obvious subject: 3-for-3 the weak verb, and every fix
+that helped it in the originating session made it more *auditable* rather than more
+*accurate*. That is the observation the hypothesis rests on, so pushing further
+along the same axis is the cleanest available test.
+
+**Two conditions, binding, set before the change lands:**
+
+1. **The question is chosen by the party whose tool is being tested** — as in
+   experiment 2. In experiment 1 the checking agent chose the question and grep won;
+   that is the only reason that result carries weight. Write the question down
+   before the change is made.
+2. **Pre-register numerically what "usefulness moved" means, including a both-wrong
+   band.** The originating session already demonstrated what happens when two
+   parties register ranges that cannot discriminate — on a metric that turned out to
+   be measuring a degraded population.
 
 ## What would make this a finding rather than a hypothesis
 
