@@ -277,11 +277,32 @@ the single-cause `-shm` story), each retracted within a message. One overstates
 coverage, the other overstates explanation; both are a failure to distinguish what
 was *checked* from what was *assumed*.
 
-**And prefer a control to a prediction.** The prediction contract for this fix
-(*"after a restart, expect {833, 833, 0}; null is the finding"*) would have caught
-the bug — eventually, behind a restart nobody could perform. The control caught it
-immediately, with no restart, no clangd, and no waiting. **A prediction tells you
-something is wrong once you can finally run it; a control tells you now.**
+**And prefer a control to a prediction — within a boundary.** The prediction
+contract for this fix (*"after a restart, expect {833, 833, 0}; null is the
+finding"*) would have caught the bug — eventually, behind a restart nobody could
+perform. The control caught it immediately. *A prediction tells you something is
+wrong once you can finally run it; a control tells you now.*
+
+> ⚠ **The boundary, because the rule above over-applies without it.** A control
+> tests **the plumbing you built**; a prediction tests **reality**. They are not
+> substitutes.
+>
+> **Prefer a control when every input is one you can author.** Seeding a record
+> with `cause="definition_only"` tests your *handling* of that value — it cannot
+> test whether the language server's silence on that symbol genuinely means
+> definition-only. That is a claim about the world, and only a real run settles it.
+>
+> When the claim is external, a prediction is not a weaker control — it is the only
+> instrument. The rule is not *"controls beat predictions"*; it is **"a prediction
+> is what you use when you have run out of controls, and most people reach for it
+> long before that point."**
+
+The narrower lesson underneath: this session spent hours waiting on a restart for
+checks that never needed one — twice. The lock test and the seeded control both ran
+without the thing being waited for.
+
+> **The first question about any blocked verification is whether it is actually
+> blocked.**
 
 ## Two rules about method, both learned the hard way
 
