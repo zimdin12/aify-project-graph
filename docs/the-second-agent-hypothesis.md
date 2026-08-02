@@ -36,6 +36,37 @@ Both authors' good habits were visibly trained by the other:
 | running controls instead of asserting mechanisms | mechanisms had been caught unmeasured |
 | leaving reasoning as a comment on a revert | a non-action leaves no artifact to review |
 
+## A refinement, from the tail of the same session
+
+The obvious reading of the record is *a second agent catches what the first misses*.
+The tail of the session suggests something stronger and more useful.
+
+Across the final stretch, the correction rate went from **five consecutive
+corrections to three consecutive clean passes** — and the turn happened right after
+one author began writing the negative arm of a test *before being asked*, naming the
+hops in a scope claim *before* stating it, and publishing criteria alongside counts
+by default.
+
+| version | mechanism | value |
+|---|---|---|
+| **weak** | the auditor catches what the author missed | per-check; scales with number of checks; **disappears with the auditor** |
+| **strong** | auditing changes the author's **error rate** | the practice transfers; **persists between checks** |
+
+The tail is consistent with the strong version. That is a materially better product
+story: *tooling that makes work auditable would then pay off even on the runs nobody
+audits.*
+
+> ⚠ **The honest limit.** Three clean passes **with the auditor still present** is
+> not evidence the practices survive the auditor's *absence*. All three were written
+> knowing they would be checked. The solo question is exactly as untested as before —
+> and the only datum either author has on the unaudited case is negative: instance 14,
+> where one of them violated a rule sixty minutes after writing it, unchecked, in
+> prose.
+
+**Corrected claim:** *the observed effect is a drop in error rate under sustained
+auditing — which is stronger than per-check catching, and still says nothing about
+unaudited work.*
+
 ## The hypothesis
 
 > **The tool's value concentrates in the meta layer *because that is the layer a
