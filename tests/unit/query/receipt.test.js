@@ -351,3 +351,59 @@ describe('★ unknown is not untruncated — the default fails closed now', () =
     expect(assessTruncation([['x', null]]).proven).toBe(true);
   });
 });
+
+// ═══ ★ THE THIRD COMPARISON CASE — the one a claim_count cannot cover ═══
+//
+// When the receipt body moved behind an opt-in, the head carried `claim_count` and
+// the body_note argued: pin drift is detectable head-only, and if the pins drifted
+// the claims are moot, so the body is never worth fetching.
+//
+// ef-manager's counterexample: that is valid for TWO of three cases and drops the
+// third, which is the one the receipt exists for —
+//
+//     pins drift              head sufficient (claims are moot)
+//     pins match, all agree   head sufficient
+//   ★ pins match, claim DIFFERS   claim_count 27 === 27 says NOTHING about
+//                                 whether they are the same 27
+//
+// And the deleted how_to_use sentence had named that path exactly: "if the pins
+// match but a claim differs, THE DIFFERENCE IS THE FINDING". A content hash of the
+// canonical claims restores it head-only for ~16 bytes, and comparing one hash
+// beats diffing 27 objects by eye.
+describe('★ the head detects a differing answer, not just drift', () => {
+  const withClaims = (claims) => buildReceipt({
+    verb: 'v', args: { x: 1 }, pins: { repo_commit: 'abc' }, claims,
+    floor: { exhaustive: false, cause: 'overlay-derived' },
+  });
+
+  it('carries a claims_digest, not only a count', () => {
+    const h = receiptHead(withClaims([{ field: 'a', value: '1' }]));
+    expect(h.claims_digest).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it('★ same COUNT, different CLAIMS → different digest', () => {
+    // The exact case claim_count cannot see.
+    const a = receiptHead(withClaims([{ field: 'a', value: '1' }, { field: 'b', value: '2' }]));
+    const b = receiptHead(withClaims([{ field: 'a', value: '1' }, { field: 'b', value: 'DIFFERENT' }]));
+    expect(a.claim_count).toBe(b.claim_count);
+    expect(a.claims_digest).not.toBe(b.claims_digest);
+  });
+
+  it('identical claims → identical digest, so agreement is also detectable', () => {
+    const claims = [{ field: 'a', value: '1' }];
+    expect(receiptHead(withClaims(claims)).claims_digest)
+      .toBe(receiptHead(withClaims(claims)).claims_digest);
+  });
+
+  it('keeps floor_cause — a bare `exhaustive:false` with no reason gets skimmed past', () => {
+    const h = receiptHead(withClaims([]));
+    expect(h.exhaustive).toBe(false);
+    expect(h.floor_cause).toBe('overlay-derived');
+  });
+
+  it('keeps unpinned_warning with the list, because two field names are not a warning', () => {
+    const h = receiptHead(buildReceipt({ verb: 'v', args: {}, pins: { repo_commit: 'abc' }, claims: [] }));
+    expect(h.unpinned_inputs.length).toBeGreaterThan(0);
+    expect(h.unpinned_warning).toMatch(/weaker evidence than it looks/);
+  });
+});

@@ -482,7 +482,22 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         const l = String(d.label || '').toLowerCase();
         return ![...declaredDocSet].some((known) => p.endsWith(known) || l === known || p.includes(known));
       })
-      .map((d) => ({ label: d.label, file: d.file_path, mentions: d.mention_count }));
+      // ★ NAME THE METRIC WHERE IT IS READ, not only in the receipt.
+      //
+      // `mentions: 10` next to a grep that returns 22 reads as a discrepancy, and a
+      // field reviewer was one step from filing a false bug on exactly that. What
+      // stopped him was the receipt's per-claim `basis` string — "MENTIONS edge, 10
+      // DISTINCT NODES" — a different metric, correctly labelled. Moving the receipt
+      // body behind an opt-in took that away from the default response.
+      //
+      // Fixing it in the receipt would ship 5KB to rescue one word. The field itself
+      // should say what it counts, so the number is self-describing wherever it is
+      // read and the receipt is not load-bearing for basic comprehension.
+      .map((d) => ({
+        label: d.label,
+        file: d.file_path,
+        distinct_nodes_mentioned: d.mention_count,
+      }));
 
     // 4. Open tasks bound to affected features. Reuse the tasks.json already
     // loaded above (if present) instead of re-reading/re-parsing.
@@ -879,7 +894,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         reported_context: { overlay_age_days: overlayAgeDays },
         claims: [
           ...contracts.map((c) => ({ field: 'contracts_potentially_affected', value: c, provenance: 'inferred', basis: 'feature.contracts overlay anchor', source_age_days: overlayAgeDays })),
-          ...documentsMentioning.map((d) => ({ field: 'documents_mentioning', value: d.file, provenance: 'observed', basis: `MENTIONS edge, ${d.mentions} distinct nodes` })),
+          ...documentsMentioning.map((d) => ({ field: 'documents_mentioning', value: d.file, provenance: 'observed', basis: `MENTIONS edge, ${d.distinct_nodes_mentioned} distinct nodes` })),
           ...coConsumerFiles.items.map((f) => ({ field: 'co_consumer_files', value: typeof f === 'string' ? f : f.file ?? f, provenance: 'inferred', basis: 'shared feature anchor', source_age_days: overlayAgeDays })),
         ],
         floor: {

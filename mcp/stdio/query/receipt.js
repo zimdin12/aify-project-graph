@@ -289,15 +289,40 @@ export function receiptHead(receipt) {
     receipt_version: receipt.receipt_version,
     replay: receipt.replay,
     pinned_inputs: receipt.pinned_inputs,
-    ...(receipt.unpinned_inputs ? { unpinned_inputs: receipt.unpinned_inputs } : {}),
+    ...(receipt.unpinned_inputs ? {
+      unpinned_inputs: receipt.unpinned_inputs,
+      // A list of two field names does not convey that a PASSING replay is weaker
+      // than it looks. That is the whole point of reporting them, so the sentence
+      // travels with the list.
+      unpinned_warning: receipt.unpinned_warning,
+    } : {}),
     claim_count: receipt.claims?.length ?? 0,
+    // ★ THE THIRD CASE, which claim_count cannot cover: pins match and a CLAIM
+    // DIFFERS. `27 === 27` says nothing about whether they are the same 27, so a
+    // head carrying only a count optimises for the case where the receipt is moot
+    // (drift) and drops the case where it is most valuable. A content hash of the
+    // canonical claims restores it head-only, for ~16 bytes — and comparing one
+    // hash beats diffing 27 objects by eye.
+    claims_digest: claimsDigest(receipt.claims),
+    // A bare `exhaustive: false` with no reason is the reflexive-pessimism problem:
+    // a flag that never says why is a flag you stop reading, and then skim past on
+    // the one call where it mattered. The cause is one short string.
     exhaustive: receipt.floor?.exhaustive === true,
+    ...(receipt.floor?.cause ? { floor_cause: receipt.floor.cause } : {}),
     disconfirming_test: receipt.disconfirming_test,
     body_note:
-      'HEAD only. Sufficient to validate — pin drift is detectable from this alone, and if the pins '
-      + 'drifted the claims are moot, so the body is never worth fetching in that case. Fetch the body '
-      + `by id (${receipt.id}) only when the pins match AND you need the per-claim provenance.`,
+      'HEAD only, and sufficient for all three comparison cases: pin drift shows in pinned_inputs; '
+      + 'an identical answer shows as matching pins AND matching claims_digest; and a DIFFERING claim '
+      + 'shows as matching pins with a DIFFERENT claims_digest — which is the finding, and is worth '
+      + 'more than the original claim. Fetch the body (receipt:"full") only once a digest mismatch '
+      + 'tells you there is something to diff.',
   };
+}
+
+/** Content hash of the claim set, so a head can detect a differing answer. */
+export function claimsDigest(claims) {
+  if (!Array.isArray(claims)) return null;
+  return createHash('sha256').update(canonicalJson(claims)).digest('hex').slice(0, 16);
 }
 
 /**
