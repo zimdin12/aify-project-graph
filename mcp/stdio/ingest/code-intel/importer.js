@@ -963,6 +963,19 @@ export function importV02Collection(envelope, db) {
     stats.collectionRowSkipped = 'collection walked no files and produced no records — no collection row written, '
       + 'so it cannot supersede a real one. Authority over nothing means write nothing.';
   }
+  // Aggregate the split from the RECORDS, so a collection whose records carry
+  // `cause` is never summarised as null just because its session predates the
+  // counters. Null (not 0) when there are no not-found records at all — an
+  // absent split and a measured zero must stay distinguishable.
+  const notFoundRecs = (envelope?.records ?? []).filter(
+    (r) => r?.result_state === 'not_found_after_retry',
+  );
+  const degradedFromRecords = notFoundRecs.length > 0
+    ? notFoundRecs.filter((r) => r?.degraded === true || r?.cause != null).length
+    : null;
+  const cleanFromRecords = notFoundRecs.length > 0
+    ? notFoundRecs.filter((r) => !(r?.degraded === true || r?.cause != null)).length
+    : null;
   if (!authoredNothing) db.run(
     `INSERT OR REPLACE INTO code_intel_collections
        (collection_id, provider, provider_version, project_root, language, status,
@@ -992,8 +1005,21 @@ export function importV02Collection(envelope, db) {
       index_wait_ms: sess.indexWaitMs ?? null,
       refs_found: sess.refsFoundSymbols ?? null,
       refs_not_found: sess.refsNotFoundSymbols ?? null,
-      refs_degraded: sess.refsDegradedSymbols ?? null,
-      refs_clean_not_found: sess.refsCleanNotFoundSymbols ?? null,
+      // ★ DERIVE FROM THE RECORDS WHEN THE SESSION COUNTER IS ABSENT.
+      //
+      // This read `sess.refsDegradedSymbols ?? null` and nothing else, so a
+      // collection whose RECORDS carry `cause` but whose session predates the
+      // counters wrote NULL — and the breakdown read null with 833 causes sitting
+      // one table away. That is the original "captured, not aggregated" defect
+      // still live, one layer up, inside the region I had just described as
+      // covered. ef-manager caught the scope claim before the gap bit anyone.
+      //
+      // Records are ground truth; the session counter is a summary that can go
+      // missing. Prefer the summary when present (it counts symbols the provider
+      // examined, including any it chose not to record) and fall back to counting
+      // what is actually stored.
+      refs_degraded: sess.refsDegradedSymbols ?? degradedFromRecords,
+      refs_clean_not_found: sess.refsCleanNotFoundSymbols ?? cleanFromRecords,
     },
   );
     for (const record of (envelope.records || [])) {
