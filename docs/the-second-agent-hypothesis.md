@@ -101,6 +101,19 @@ sat.
 > work.** Auditing catches what is wrong in what you chose to do; it does not tell
 > you that you chose the wrong thing.
 
+Stated as a scope on the hypothesis rather than a caveat to it:
+
+> **Auditing improves correctness, not prioritisation.** A second agent tells you
+> whether what you built is right. It does not tell you whether it was the right
+> thing to build.
+
+And a qualification on the pin-catch, from the agent it caught: it worked because
+*both* parties also behaved correctly — one made a claim about his own repo without
+asserting anything about the other's server, and the other checked instead of
+assuming. **But the pin would have caught it even if neither had.** That is the
+argument for the primitive: it is the only link in that chain that does not depend
+on anyone behaving well.
+
 ## The hypothesis
 
 > **The tool's value concentrates in the meta layer *because that is the layer a
