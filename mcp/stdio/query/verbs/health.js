@@ -602,7 +602,7 @@ export async function graphHealth({ repoRoot }) {
           // truncation and worktree cleanliness. If git could not be read we say
           // scope is unknown rather than assuming everything counts.
           const inScope = trackedFiles == null ? null : trackedFiles.has(r.fp);
-          const key = `${r.lang} ${inScope}`;
+          const key = `${r.lang}\x00${inScope}`;
           acc.set(key, { lang: r.lang, inScope, c: (acc.get(key)?.c ?? 0) + r.c });
           return acc;
         }, new Map());

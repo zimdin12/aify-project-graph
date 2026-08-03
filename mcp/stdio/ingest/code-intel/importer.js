@@ -684,7 +684,7 @@ function synthesizeLspEdges(envelope, db, stats) {
     }
 
     // Dedup identical (from,to,relation,source_line).
-    const dedupKey = `${callerId} ${callee.nodeId} CALLS ${refLine}`;
+    const dedupKey = `${callerId}\x00${callee.nodeId}\x00CALLS\x00${refLine}`;
     if (seen.has(dedupKey)) continue;
     seen.add(dedupKey);
 
