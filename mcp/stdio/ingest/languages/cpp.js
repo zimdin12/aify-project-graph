@@ -169,9 +169,14 @@ function normalizeCppCallTarget({ text, owner }) {
   return bare?.[1] ?? raw;
 }
 
+// `destructor_name` and `operator_name` must be returned WHOLE. Recursing past
+// them reaches the inner identifier and silently drops the `~` or the `operator`
+// keyword — renaming `~GameHUD` to `GameHUD`, i.e. to its own class.
+const CPP_NAME_NODE_TYPES = ['identifier', 'field_identifier', 'qualified_identifier', 'destructor_name', 'operator_name'];
+
 function findCppNamedDeclarator(node) {
   if (!node) return null;
-  if (['identifier', 'field_identifier', 'qualified_identifier'].includes(node.type)) return node;
+  if (CPP_NAME_NODE_TYPES.includes(node.type)) return node;
   const direct = node.childForFieldName?.('declarator');
   if (direct) return findCppNamedDeclarator(direct);
   for (const child of node.namedChildren ?? []) {
@@ -341,7 +346,17 @@ function extractCppFunctionSymbol({ node, source }) {
   //
   // The text fallback stays for shapes the AST cannot resolve (macro-mangled
   // declarators), but it is now genuinely a FALLBACK rather than an override.
-  if (namedDeclarator?.type === 'identifier' || namedDeclarator?.type === 'field_identifier') {
+  // ★ A DESTRUCTOR'S NAME IS NOT ITS IDENTIFIER. `~GameHUD()` parses as
+  // destructor_name{ "~", identifier "GameHUD" }, so taking the identifier drops
+  // the tilde and renames the destructor to its class. Caught by diffing whole-repo
+  // extraction before/after this fix: 20 destructors silently lost their `~`.
+  //
+  // The test that should have caught it did not, and the reason is worth keeping:
+  // it used `MyClass::~MyClass`, which is a QUALIFIED name and takes the branch
+  // above — so it passed without ever exercising this path. A test that passes for
+  // the wrong reason is indistinguishable from one that passes for the right one.
+  const AST_NAME_TYPES = new Set(['identifier', 'field_identifier', 'destructor_name', 'operator_name']);
+  if (namedDeclarator && AST_NAME_TYPES.has(namedDeclarator.type)) {
     const astName = nodeText(namedDeclarator, source).trim();
     if (astName) return { name: astName };
   }

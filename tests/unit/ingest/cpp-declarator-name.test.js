@@ -60,7 +60,27 @@ describe('★ a default argument cannot rename the function', () => {
     expect(m.extra.parent_class).toBe('MyClass');
   });
 
-  it('still resolves a destructor and an operator', () => {
+  it('still resolves an OUT-OF-LINE destructor', () => {
     expect(extract('MyClass::~MyClass() {}').map((x) => x.label)).toContain('~MyClass');
+  });
+
+  it('★ resolves an INLINE destructor — the case the qualified test never exercised', () => {
+    // The original destructor test used `MyClass::~MyClass`, which is a QUALIFIED
+    // name and takes an earlier branch — so it passed without ever touching the
+    // AST-name path. An inline `~Foo()` does. Whole-repo extraction diffing caught
+    // 20 destructors silently renamed to their own class before this shipped.
+    const n = extract('struct Foo { ~Foo() {} };');
+    expect(n.map((x) => x.label)).toContain('~Foo');
+    expect(n.map((x) => x.label)).not.toContain('Foo');
+  });
+
+  it('★ keeps the operator token — a bare `operator` label collapses them all', () => {
+    // Before returning operator_name whole, every overload was labelled `operator`,
+    // so distinct operators shared a qname and merged into one node.
+    const n = extract('struct K { bool operator==(const K& o) const { return true; } K& operator=(const K& o) { return *this; } };');
+    const labels = n.map((x) => x.label);
+    expect(labels).toContain('operator==');
+    expect(labels).toContain('operator=');
+    expect(labels).not.toContain('operator');
   });
 });
