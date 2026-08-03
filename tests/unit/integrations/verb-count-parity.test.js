@@ -42,6 +42,11 @@ function actualCounts() {
 const CLAIMS = [
   { file: 'README.md', profile: 'full', re: /lists \*\*(\d+) verbs\*\*/ },
   { file: 'README.md', profile: 'lean', re: /the (\d+)-verb planning core/ },
+  // The install section states the same two counts in different words, and both
+  // were wrong while the rows above were right — a count is only as safe as the
+  // number of phrasings this list knows about.
+  { file: 'README.md', profile: 'lean', re: /exposes (\d+) visible verbs/ },
+  { file: 'README.md', profile: 'default', re: /focused `default` profile\*\* \((\d+) verbs\)/ },
   { file: 'mcp/stdio/server-instructions.js', profile: 'default', re: /FOCUSED default \((\d+) verbs\)/ },
   {
     file: 'integrations/claude-code/skills/graph-guide/SKILL.md',
