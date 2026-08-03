@@ -81,6 +81,59 @@ Use the full live layer more aggressively.
 
 Still verify code before changing it.
 
+### Heuristic vs compiler-backed — do not mix them up
+
+`graph_callers` / `graph_callees` read the STORED graph, extracted by tree-sitter.
+They **undercount C++ virtual and cross-TU dispatch** — on one measured project
+`graph_callers` found half the calling files. Use them as a **lead**, never as
+evidence of completeness. Their `file:line` is the **caller function's declaration**,
+not the call site (edges are function-granular), so do not read it as a callsite
+number.
+
+For a delete/rename decision use `code_intel_references` and gate on
+`evidence.exhaustive === true`. Where a code-intel collection has verified an edge,
+the stored verbs render it as `[lsp✓]` — that marker is the difference.
+
+## Reading an answer's evidence
+
+Three fields decide how much a result is worth. None of them are optional reading.
+
+**1. `evidence.exhaustive` — the only field that licenses an absence claim.**
+On `code_intel_references` / `code_intel_hierarchy`, only `exhaustive: true` supports
+"no callers / safe to delete". `degraded: true` with a `cause` means *the index could
+not answer* — a statement about the index, never about the code. On a cold session
+pass `waitForReadyMs` (e.g. `25000`): a cold call can return the **right** answer with
+`exhaustive: false`, which is correct but not actionable.
+
+**2. `field_provenance` on `graph_consequences` — observed vs inferred.**
+Every field is labelled. `observed` comes from graph structure (callers, importers,
+`documents_mentioning`). `inferred` comes from the curated feature/task overlay and is
+exactly as fresh as `overlay_age_days` says. **An absent INFERRED entry is not evidence
+of absence.** Derived fields (`risk_flags`) inherit the weakest provenance of their
+inputs.
+
+**3. `graph_health.refsNotFoundBreakdown` — before reading a "not found" count as dead code.**
+It reports `{total, degraded, clean}`. Only `clean` is an observed absence; `degraded`
+means the index could not answer. On one measured C++ project every not-found result
+was degraded and none were true absences — check your own repo rather than assuming
+either way.
+
+## Handing a claim to another agent — receipts
+
+`graph_pull` and `graph_consequences` return a portable `receipt`: the claim plus its
+**invalidation conditions** (repo / indexed / server commit, compile-DB hash, overlay
+content hash, worktree state), a `claims_digest`, and a named cheapest disconfirming
+test.
+
+- To check a teammate's claim, **replay** `receipt.replay.verb` with
+  `receipt.replay.args` — do not read the stored values.
+- If any pinned input drifted it **refuses to validate**. That is the point: serving
+  the old answer would make it a cache.
+- Pins match but `claims_digest` differs → **the difference is the finding**, and is
+  worth more than the original claim.
+- The head is the default; pass `receipt: "full"` only when you need per-claim
+  provenance (roughly doubles the response).
+
 ## Overlay target forms
 
 For overlay-native targets, prefer explicit node forms:
