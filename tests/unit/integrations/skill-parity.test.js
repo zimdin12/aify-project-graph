@@ -100,6 +100,27 @@ describe('shipped integration skills', () => {
     expect(offenders, 'files containing CRLF').toEqual([]);
   });
 
+  // The checks above compare `skills/<name>/SKILL.md` across trees, so they
+  // only see files that exist in the canonical tree. A file present ONLY in a
+  // downstream tree was invisible to all of them: `skill/references/SKILL-full.md`
+  // sat in codex/cursor/hermes for months — a full stale copy of the
+  // session-start skill, outside `skills/` so the set check missed it, and
+  // unreferenced so nothing forced it to be updated. It still carried verb
+  // counts that had since changed. Anything sync does not own must not exist.
+  it('no runtime ships a markdown file the canonical tree lacks', () => {
+    const rel = (p) => p.slice(INTEGRATIONS.length + 1).replace(/\\/g, '/');
+    const orphans = [];
+    for (const path of allShippedMarkdown()) {
+      const r = rel(path);
+      const slash = r.indexOf('/');
+      const rt = r.slice(0, slash);
+      if (rt === CANONICAL || !RUNTIMES.includes(rt)) continue;
+      const counterpart = join(INTEGRATIONS, CANONICAL, r.slice(slash + 1));
+      if (!existsSync(counterpart)) orphans.push(r);
+    }
+    expect(orphans, 'files in a runtime tree with no canonical counterpart').toEqual([]);
+  });
+
   it('every skill has non-empty name + description frontmatter', () => {
     for (const rt of RUNTIMES) {
       for (const name of skillNames()) {

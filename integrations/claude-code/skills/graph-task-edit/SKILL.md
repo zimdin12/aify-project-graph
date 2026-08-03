@@ -11,7 +11,7 @@ Surgical mutation of `.aify-graph/tasks.json`. For full refresh/sync from extern
 
 ```
 /graph-task-edit add <id> title="<title>" features="auth,billing" \
-                       status=open assignee=steven files_hint="src/auth.php"
+                       status=open assignee=alice files_hint="src/auth.php"
 
 /graph-task-edit edit <id> [title=...] [status=...] [assignee=...] [url=...]
 /graph-task-edit link <id> feature <feature-id>
