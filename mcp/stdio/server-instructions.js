@@ -23,9 +23,9 @@ run ToolSearch with query "graph" to load them. Any repo with .aify-graph/ has t
 server; reach for it before falling back to grep.
 
 ORIENT FIRST (cheap, often saves 2-5 shell calls):
-- graph_packet {target, mode} — the FIRST move, and it is ALWAYS reachable. Most "what is X /
-  how does Y work / understand area Z" questions resolve in ONE graph_packet call; prefer it
-  over chaining graph_search + a node verb.
+- graph_packet {target, mode} — first move WHEN STILL ORIENTING ("what is X / how does Y work");
+  one call instead of graph_search + a node verb. ★ ALREADY HAVE A PRECISE QUESTION? Use the verb
+  that names it (breaks-if-I-change -> graph_consequences; who-calls -> code_intel_references).
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
 - graph_health — run ONCE at session start. The only call that answers "can I trust what I am
   about to be told" (compile-DB usable? index stale? trust spine present?); nothing else derives

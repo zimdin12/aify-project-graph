@@ -487,6 +487,51 @@ export async function graphHealth({ repoRoot }) {
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
 
+  // ★ THE NUMBER WITHOUT THE CONSEQUENCE IS HALF AN ANSWER.
+  //
+  // sc-manager, field-testing on a repo nobody tuned this against: "It told me the
+  // fact (44 commits stale) but not the consequence. For orientation, 44 stale is
+  // harmless. For 'is #96 linked to this file', 44 stale was fatal."
+  //
+  // He is right, and his own case shows why the split is not obvious: the task
+  // overlay MISSED a card that the git layer FOUND, in the same call. Those two
+  // layers do not age together — `last_touched` and activity run `git log` LIVE at
+  // query time, while the task/feature overlay is a stored artifact. A single
+  // "stale" flag cannot express that, so a reader either over-trusts everything or
+  // discards everything.
+  //
+  // This states, per answer-class, whether being N commits behind actually matters.
+  const stalenessImpact = stale ? (() => {
+    // How far behind, in commits — the number sc-manager was given ("44 commits
+    // stale") and could not act on without knowing what it invalidated.
+    let behind = null;
+    try {
+      const out = execFileSync('git', ['rev-list', '--count', `${manifest.commit}..HEAD`], {
+        cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true,
+      }).trim();
+      behind = Number(out) || null;
+    } catch { /* unknown distance — the impact split below still holds */ }
+    return {
+      commits_behind: behind,
+      unaffected: [
+        'live code_intel_* verbs — they query the language server, not this snapshot',
+        'last_touched / activity — these run `git log` at query time, not from the index',
+      ],
+      degraded: [
+        'symbol lookups for code added since the indexed commit — a "not found" may mean "not indexed yet"',
+        'callers/callees/impact over new or moved code',
+        'file lists and per-file digests, which reflect the indexed tree',
+      ],
+      unaffected_by_staleness_but_check_separately: [
+        'feature/task overlay fields — they age on their OWN clock (see artifactAges), not on commit distance',
+      ],
+      note:
+        'Staleness is only fatal for questions ABOUT CODE THAT CHANGED. Orientation, architecture shape '
+        + 'and "what connects to what" over untouched code are unaffected. If your question concerns recent '
+        + 'work, run graph_index() first — an absence here is not evidence of absence.',
+    };
+  })() : null;
+
   // LH-3 (2026-07-26): `graph_index` refreshes the structural graph + briefs and
   // says NOTHING about the other derived artifacts, so "reindexed" reasonably
   // reads as "everything is current". Measured on sand_castle right after a
@@ -877,6 +922,7 @@ export async function graphHealth({ repoRoot }) {
     trust,
     unresolvedEdges,
     trustUnresolvedEdges,
+    ...(stalenessImpact ? { stalenessImpact } : {}),
     ...(trustBasis ? { trustBasis } : {}),
     nodes,
     edges,
