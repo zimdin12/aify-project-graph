@@ -45,7 +45,7 @@ If `npm install` cannot compile the native module, install `build-essential` (Li
 
 ## Step 2 — register the MCP server
 
-Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`) — keeps the highest-value live surfaces plus the one-shot workflow packet (`mode=orient|plan|debug|review|audit`). Hidden verbs stay callable by name via `tools/call`. Drop `--toolset=lean` for the full surface (30 verbs listed in `tools/list`; not recommended on lean runtimes).
+Recommended profile is `--toolset=lean` (6 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`, `graph_watch`) — keeps the highest-value live surfaces plus the one-shot workflow packet (`mode=orient|plan|debug|review|audit`). Hidden verbs stay callable by name via `tools/call`. Drop `--toolset=lean` for the full surface (31 verbs listed in `tools/list`; not recommended on lean runtimes).
 
 **Form A — Hermes MCP CLI (preferred if available):**
 

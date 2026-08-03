@@ -70,7 +70,7 @@ node -e '
 
 **Project-local install** (replace `~/.cursor/mcp.json` with `<project>/.cursor/mcp.json`).
 
-Recommended profile is `--toolset=lean` (5 visible verbs). Drop the flag for the full surface (30 verbs listed in `tools/list`).
+Recommended profile is `--toolset=lean` (6 visible verbs). Drop the flag for the full surface (31 verbs listed in `tools/list`).
 
 ### Multi-repo caveat — MCP is cwd-bound
 

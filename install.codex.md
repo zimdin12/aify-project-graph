@@ -46,7 +46,7 @@ If `npm install` fails to compile the native module, install `build-essential` (
 
 ## Step 2 — register the MCP server
 
-Use the `codex mcp` CLI. Recommended profile is `--toolset=lean` (5 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`) — measured to reduce tool-surface tax on Codex while keeping the highest-value live planning surfaces plus the one-shot workflow packet (`mode=orient|plan|debug|review|audit`). Hidden verbs remain callable by name via `tools/call`.
+Use the `codex mcp` CLI. Recommended profile is `--toolset=lean` (6 visible verbs: `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`, `graph_watch`) — measured to reduce tool-surface tax on Codex while keeping the highest-value live planning surfaces plus the one-shot workflow packet (`mode=orient|plan|debug|review|audit`). Hidden verbs remain callable by name via `tools/call`.
 
 ```bash
 codex mcp remove aify-project-graph >/dev/null 2>&1 || true
@@ -55,7 +55,7 @@ codex mcp add aify-project-graph \
   -- node --max-old-space-size=8192 "$CLONE_PATH/mcp/stdio/server.js" --toolset=lean
 ```
 
-Drop `--toolset=lean` if the user wants the full surface (30 verbs listed in `tools/list`; not recommended on Codex).
+Drop `--toolset=lean` if the user wants the full surface (31 verbs listed in `tools/list`; not recommended on Codex).
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
 

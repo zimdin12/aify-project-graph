@@ -47,6 +47,14 @@ const CLAIMS = [
   // number of phrasings this list knows about.
   { file: 'README.md', profile: 'lean', re: /exposes (\d+) visible verbs/ },
   { file: 'README.md', profile: 'default', re: /focused `default` profile\*\* \((\d+) verbs\)/ },
+  // The per-runtime install docs are what a NEW user follows, so a wrong count
+  // here is the first thing they learn. All four carried the pre-gating numbers.
+  { file: 'install.codex.md', profile: 'lean', re: /\((\d+) visible verbs:/ },
+  { file: 'install.codex.md', profile: 'full', re: /full surface \((\d+) verbs listed/ },
+  { file: 'install.cursor.md', profile: 'lean', re: /\((\d+) visible verbs\)/ },
+  { file: 'install.cursor.md', profile: 'full', re: /full surface \((\d+) verbs listed/ },
+  { file: 'install.hermes.md', profile: 'lean', re: /\((\d+) visible verbs:/ },
+  { file: 'install.opencode.md', profile: 'lean', re: /\((\d+) visible verbs:/ },
   { file: 'mcp/stdio/server-instructions.js', profile: 'default', re: /FOCUSED default \((\d+) verbs\)/ },
   {
     file: 'integrations/claude-code/skills/graph-guide/SKILL.md',
