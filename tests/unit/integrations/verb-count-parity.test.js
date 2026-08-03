@@ -85,6 +85,22 @@ describe('documented verb counts match the server profiles', () => {
     });
   }
 
+  it('install.hermes.md resolves HERMES_HOME to one directory throughout', () => {
+    // The doc set the SAME variable to two different defaults: the MCP-config
+    // step used $HOME/.hermes, the skills step used $HOME/.config/hermes. Both
+    // halves "worked", so following it end-to-end left the MCP server running
+    // and every skill installed where Hermes never looks — a silent no-op that
+    // reads as success. Found only because a stale skill survived an update
+    // that reported itself complete.
+    const text = readFileSync(join(REPO, 'install.hermes.md'), 'utf8');
+    const defaults = new Set(
+      [...text.matchAll(/HERMES_HOME:-([^}"']+)/g)].map((m) => m[1].trim()),
+    );
+    expect([...defaults], 'HERMES_HOME must have one default').toHaveLength(1);
+    // And it must be the home that actually holds config.yaml.
+    expect([...defaults][0]).toBe('$HOME/.hermes');
+  });
+
   it('the always-loaded session-start skill names no verb count at all', () => {
     // This one is stricter than the rows above on purpose. The root SKILL.md is
     // read at the start of every session, so a stale number there is both the

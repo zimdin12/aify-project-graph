@@ -179,7 +179,11 @@ No project-local MCP config path is documented for Hermes today. User-level (For
 If Hermes loads SKILL.md-style skills (same markdown as Claude Code / Codex, with a `trigger:` frontmatter field that auto-activates when the aify-graph MCP tools are present), copy the tree. If your Hermes build has no skill loader, skip this step — the MCP verb descriptions carry the core guidance regardless.
 
 ```bash
-HERMES_HOME="${HERMES_HOME:-$HOME/.config/hermes}"
+# Same default as Step 2 above ($HOME/.hermes). These MUST match: an earlier
+# version defaulted this block to $HOME/.config/hermes while the MCP-config
+# block used $HOME/.hermes, so following the doc end-to-end produced working
+# tools and skills installed where Hermes never looks — a silent no-op.
+HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 mkdir -p "$HERMES_HOME/skills"
 
 # Core skill
