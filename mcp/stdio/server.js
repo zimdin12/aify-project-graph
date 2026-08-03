@@ -138,7 +138,7 @@ const TOOLS = [
   {
     name: 'code_intel_references',
     handler: codeIntelReferences,
-    description: 'Compiler-backed "who references this symbol", asked of the LIVE language server — the only verb whose answer can support a delete or rename decision. Bounded and budgeted. ★ READ evidence BEFORE CONCLUDING: exhaustive:true means an absence of callers is real; degraded:true with a cause (definition_only, cold index) means the index could not answer, and ZERO REFERENCES IS THEN NOT EVIDENCE OF NO CALLERS. Measured on a real repo: 833 of 833 not-found results were definition_only — none were true absences. Unaffected by graph staleness, because it asks the language server rather than the snapshot. ON A COLD SESSION pass waitForReadyMs (e.g. 25000) — otherwise a CORRECT answer comes back UNATTESTED (degraded:true, cause stale_index, exhaustive:false) and cannot license a deletion.',
+    description: 'Compiler-backed "who references this symbol", asked of the LIVE language server — the only verb whose answer can support a delete or rename decision. Bounded and budgeted. ★ READ evidence BEFORE CONCLUDING: exhaustive:true means an absence of callers is real; degraded:true with a cause (definition_only, cold index) means the index could not answer, and ZERO REFERENCES IS THEN NOT EVIDENCE OF NO CALLERS. On one measured C++ project EVERY not-found result was definition_only and none were true absences, so treat degraded as uninformative rather than negative — check your own repo with graph_health.refsNotFoundBreakdown. Unaffected by graph staleness, because it asks the language server rather than the snapshot. ON A COLD SESSION pass waitForReadyMs (e.g. 25000) — otherwise a CORRECT answer comes back UNATTESTED (degraded:true, cause stale_index, exhaustive:false) and cannot license a deletion.',
     schema: {
       type: 'object',
       properties: {
@@ -509,7 +509,7 @@ const TOOLS = [
   {
     name: 'graph_callers',
     handler: graphCallers,
-    description: 'Incoming execution edges for a symbol (CALLS, INVOKES, PASSES_THROUGH) from the STORED graph. ★ HEURISTIC BY DEFAULT: tree-sitter extraction UNDERCOUNTS C++ virtual and cross-TU dispatch — measured on a real repo, it returned 2 of 4 calling files. Use it as a LEAD, never as evidence of completeness; for a delete decision use code_intel_references and read evidence.exhaustive. Each file:line is the CALLER FUNCTION\'s declaration, not the call site — edges are function-granular. Promoted to [lsp✓] where a code-intel collection has verified the edge.',
+    description: 'Incoming execution edges for a symbol (CALLS, INVOKES, PASSES_THROUGH) from the STORED graph. ★ HEURISTIC BY DEFAULT: tree-sitter extraction UNDERCOUNTS C++ virtual and cross-TU dispatch — on one measured project it found half the calling files. Use it as a LEAD, never as evidence of completeness; for a delete decision use code_intel_references and read evidence.exhaustive. Each file:line is the CALLER FUNCTION\'s declaration, not the call site — edges are function-granular. Promoted to [lsp✓] where a code-intel collection has verified the edge.',
     schema: {
       type: 'object',
       properties: {

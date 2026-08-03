@@ -75,6 +75,73 @@ Important runtime behavior: **read verbs are snapshot-first**. The first query i
 
 **Typical full `/graph-build-all` timing**: 30-90s first run. Subsequent reindex is git-diff-aware — <100ms if nothing changed, seconds if a few files edited. Briefs regenerate in 2-3s regardless of repo size. Functionality proposal (the bottleneck) is ~30-60s for an LLM pass.
 
+## ★ Read this before you trust an answer
+
+This tool answers questions about code, and — more importantly — **tells you how much
+to trust each answer**. That second part is the product. Two rules cover most of it.
+
+### 1. Empty is not absent
+
+Every evidence-bearing verb returns an `evidence` block. The only field that licenses
+a "there are no callers / this is safe to delete" conclusion is:
+
+```
+evidence.exhaustive === true
+```
+
+Anything else means *the tool could not answer*, which is a statement about the index
+— never about your code:
+
+| `evidence.cause` | what it licenses |
+|---|---|
+| `null` + `exhaustive: true` | the absence is real; safe to act on |
+| `definition_only` | the index knew the declaration and nothing else. **Not evidence of no callers.** |
+| `stale_index` / `cold_no_warm` | correct answer, unattested. Re-run with `waitForReadyMs` |
+| `no_index_entry` | the symbol is not in the index at all |
+
+**On a cold session pass `waitForReadyMs` (e.g. `25000`).** A cold call can return the
+*right* answer with `exhaustive: false` — same results, not licensed to act on.
+
+### 2. On C++, treat the verbs as an evidence source, not an answer source
+
+Measured on one 122-file C++ project (2026-08): **766 of 1599 queried symbols resolved
+references (47.9%)**. Of the 833 that did not, **every one was `definition_only` and
+none were true absences.** Failure is **per-symbol, not systemic** — on that repo
+`cylindricalLatBandsForBody` returned all 6 of its hand-verified callsites with
+`exhaustive: true`, while `SaveManager::saveGame` returned none and said so.
+
+Check your own repo rather than assuming these numbers:
+`graph_health` → `codeIntel.refsNotFoundBreakdown` reports `{total, degraded, clean}`.
+
+Use `code_intel_references` for delete/rename decisions. `graph_callers` is
+**heuristic** (tree-sitter) and undercounts C++ virtual and cross-TU dispatch — it is
+a lead, not a completeness claim.
+
+### 3. Receipts — handing a claim to another agent
+
+`graph_pull` and `graph_consequences` return a portable `receipt`: the claim plus its
+**invalidation conditions** (repo/index/server commit, compile-DB hash, overlay
+content hash, worktree state) and a named cheapest disconfirming test. Replay it with
+`replay.verb` + `replay.args`. **If any pinned input drifted it refuses to validate**
+rather than serving a stale answer — that is the difference between a receipt and a
+cache. Pass `receipt: "full"` for per-claim provenance.
+
+### 4. Self-check: is this graph telling me the truth right now?
+
+```
+graph_health          # trust level, staleness, coverage over a NAMED denominator,
+                      # which build is answering, and ≤3 ranked next actions
+                      # (EMPTY on a healthy repo — that is what makes it meaningful)
+```
+
+Read `artifactAges` before believing `graph_consequences`' **inferred** fields — they
+come from a curated overlay and are exactly as fresh as it is. If `trust spine EMPTY`
+appears, run `graph_collect_code_intel` before trusting any "no callers" claim.
+
+> ⚠ **`graph_collect_code_intel` deletes data.** A *complete* collect supersedes and
+> discards the prior collection for that provider; a *partial* one does not. Back up
+> `.aify-graph/` first if the current collection is your only copy.
+
 ## Inspiration & what we borrowed, per project
 
 We read other tools in this space deliberately and take from them. Full detail,
