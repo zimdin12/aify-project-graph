@@ -231,12 +231,23 @@ edit skills (`/graph-feature-edit`, `/graph-task-edit`).
 **Measured 2026-08-02 on a 122-file C++ project**, twice, by two verbs that know
 nothing about each other:
 
-- `code_intel_references` returned **833 not-found results, of which 833 were
-  `definition_only`** — i.e. clangd knew the declaration and nothing else. **Zero
-  were true absences.** Ground truth: `SaveManager::saveGame` is in that 833 and has
-  4 call sites; `WorldBuffer::removeChunk` has 11 across 6 files.
-- `code_intel_hierarchy(kind=callers)` on the same symbol returned **0 callers where
-  ground truth is 4**.
+- Of **1599 symbols** queried for references, **766 resolved (47.9%)** and **833 did
+  not**. Of those 833, **833 were `definition_only`** — clangd knew the declaration
+  and nothing else. **Zero were true absences.**
+- Ground truth for a failing case: `SaveManager::saveGame` is in that 833 and has 4
+  call sites; `WorldBuffer::removeChunk` has 11 across 6 files.
+- ★ **But the failure is PER-SYMBOL, not systemic.** `cylindricalLatBandsForBody`
+  returns all 6 of its hand-verified callsites with `exhaustive: true`,
+  `degraded: false` — including two files the heuristic `graph_callers` misses.
+  So the verb is usable for delete/rename decisions **gated on
+  `evidence.exhaustive === true`**; it is not usable as a blanket answer.
+
+> ⚠ **Two measurement errors were made here and both are worth avoiding.** "Near-zero
+> recall" came from reading `833/833` — a breakdown *of the failures* — as if it were
+> the whole population. "79% recall" came from dividing reference *locations* (3164)
+> by symbol *queries*, a unit mix. The correct statement is **47.9% of queried
+> symbols resolve; of those that do not, 100% are degraded and none are clean
+> absences.**
 
 **Why.** clangd resolves references from its background index. When a symbol's
 callers live in translation units the index has not fully cross-linked, the query
@@ -259,6 +270,13 @@ and `graph_health.refsNotFoundBreakdown` reports `{total, degraded, clean}` so a
 and not as an **answer source**: an empty result means *the index could not answer*,
 never *nothing calls this*. Any delete/rename decision needs `exhaustive: true`,
 and if you do not have it, fall back to `rg` and read the result as a floor.
+
+**Cold-path caveat.** On a cold session the verb prewarms candidate callers using
+`graph_callers` (`prewarmSource: "graph_callers"`, `prewarmCap: 15`), so **cold
+recall is bounded by the heuristic verb's top-15 ranking**. A warm/ready session
+needs no prewarm and is not bounded that way. Pass `waitForReadyMs` on a cold
+session — the first call may return the right answer with `exhaustive: false`, and
+only the ready call is licensed to support a deletion.
 
 **Status.** Open, and the highest-value item in the product — it is one root cause
 beneath two independently measured symptoms. Everything else currently on the list
