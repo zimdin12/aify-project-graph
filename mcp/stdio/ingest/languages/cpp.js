@@ -317,6 +317,35 @@ function extractCppFunctionSymbol({ node, source }) {
     }
   }
 
+  // ★ THE AST ALREADY ANSWERED — DO NOT THROW IT AWAY FOR A REGEX.
+  //
+  // findCppNamedDeclarator walks the real declarator chain and returns the actual
+  // function name. When that name is a plain identifier the code fell THROUGH to
+  // the text fallback below, which re-parses the declarator's SOURCE TEXT — and
+  // that text includes the parameter list, defaults and all.
+  //
+  // Measured (ef-manager, 2026-08-02) on:
+  //   inline CylindricalPositionId cylindricalIdFromWorldPos(
+  //       const glm::vec3& worldPosVoxels, ...,
+  //       const glm::vec3& spinAxis = glm::vec3(0, 1, 0), ...)
+  // The AST returned `cylindricalIdFromWorldPos`. The fallback regex then matched
+  // `glm::vec3(` — from the DEFAULT ARGUMENT — and named the function `vec3` with
+  // parent class `glm`, which also flipped its type from Function to Method.
+  //
+  // ★ AND IT SILENTLY DISABLED A WORKING FEATURE. worldbuf.glsl also defines
+  // cylindricalIdFromWorldPos, so this is a C++/GLSL duplicate pair — exactly what
+  // the cross-language duplicate detector exists to surface. It could not fire,
+  // because the C++ node was not labelled with the shared name. The detector's
+  // SILENCE is indistinguishable from "no duplicate exists": a missing label reads
+  // as a missing relationship.
+  //
+  // The text fallback stays for shapes the AST cannot resolve (macro-mangled
+  // declarators), but it is now genuinely a FALLBACK rather than an override.
+  if (namedDeclarator?.type === 'identifier' || namedDeclarator?.type === 'field_identifier') {
+    const astName = nodeText(namedDeclarator, source).trim();
+    if (astName) return { name: astName };
+  }
+
   const declaratorText = nodeText(declarator, source);
   const qualifiedMatch = declaratorText.match(/(?:^|[\s*&])((?:[A-Za-z_][\w]*::)+)(~?[A-Za-z_]\w*)\s*\(/u);
   if (qualifiedMatch) {
