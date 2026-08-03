@@ -225,3 +225,41 @@ the validation pass.
 workaround: use `/graph-anchor-drift` after renames to catch drift,
 and trust the manual-curation + evidence-standard discipline in the
 edit skills (`/graph-feature-edit`, `/graph-task-edit`).
+
+## ★ Cross-TU reference resolution is incomplete — and it is the biggest one
+
+**Measured 2026-08-02 on a 122-file C++ project**, twice, by two verbs that know
+nothing about each other:
+
+- `code_intel_references` returned **833 not-found results, of which 833 were
+  `definition_only`** — i.e. clangd knew the declaration and nothing else. **Zero
+  were true absences.** Ground truth: `SaveManager::saveGame` is in that 833 and has
+  4 call sites; `WorldBuffer::removeChunk` has 11 across 6 files.
+- `code_intel_hierarchy(kind=callers)` on the same symbol returned **0 callers where
+  ground truth is 4**.
+
+**Why.** clangd resolves references from its background index. When a symbol's
+callers live in translation units the index has not fully cross-linked, the query
+returns only the declaration — which, with `includeDeclaration=false`, is an empty
+result. This is a statement about the *index*, not about the code.
+
+**What the tool does about it.** Both verbs report it rather than asserting the
+absence:
+
+```
+evidence: { ready: false, degraded: true, cause: "definition_only",
+            exhaustive: false, confidence: "low" }
+warning:  "definition-only references are not safe evidence of no callers"
+```
+
+and `graph_health.refsNotFoundBreakdown` reports `{total, degraded, clean}` so a
+"no references" count can never again be read as dead code.
+
+**Impact.** On a repo in this state, the verbs are usable as an **evidence source**
+and not as an **answer source**: an empty result means *the index could not answer*,
+never *nothing calls this*. Any delete/rename decision needs `exhaustive: true`,
+and if you do not have it, fall back to `rg` and read the result as a floor.
+
+**Status.** Open, and the highest-value item in the product — it is one root cause
+beneath two independently measured symptoms. Everything else currently on the list
+is polish beside it.
