@@ -18,31 +18,31 @@ MCP tools behind a search step, they are NOT reachable — the deferred index ho
 listed tools only. If a tool-search for one returns nothing, do NOT retry: use a
 listed verb, or start the server with --toolset=full.
 
+DESCRIPTIONS ARE DELIBERATELY SHORT: what a verb is for, and when to doubt it. Parameter detail,
+output schema and examples live in the SKILLS — aify-project-graph (orientation + hard rules),
+graph-guide (verb choice, reading evidence), cpp-inner-loop (the live code_intel_* loop). Load one instead of guessing a parameter.
+
 DISCOVERABILITY: if you see no graph_* / code_intel_* tools, they are NOT missing —
 run ToolSearch with query "graph" to load them. Any repo with .aify-graph/ has this
 server; reach for it before falling back to grep.
 
 ORIENT FIRST (cheap, often saves 2-5 shell calls):
-- graph_packet {target, mode} — first move WHEN STILL ORIENTING ("what is X / how does Y work");
-  one call instead of graph_search + a node verb. ★ ALREADY HAVE A PRECISE QUESTION? Use the verb
-  that names it (breaks-if-I-change -> graph_consequences; who-calls -> code_intel_references).
+- graph_packet {target, mode} — first move WHEN STILL ORIENTING ("what is X / how does Y work").
+  ★ ALREADY HAVE A PRECISE QUESTION? Use the verb that names it (breaks-if-I-change ->
+  graph_consequences; who-calls -> code_intel_references).
 - Read .aify-graph/brief.* (brief.agent.md / brief.onboard.md / brief.plan.md) to orient before grepping.
-- graph_health — run ONCE at session start. The only call that answers "can I trust what I am
-  about to be told" (compile-DB usable? index stale? trust spine present?); nothing else derives
-  it. Field-rated the highest-value call here: it surfaced a wrong-toolchain compile DB that the
-  user would never have thought to test for.
-- graph_onboard / graph_tour walk an unfamiliar repo, but MAY NOT BE CALLABLE in your runtime
-  (see TOOL SURFACE). If a tool-search finds neither, do not retry — graph_packet mode:orient is
-  listed and answers the same question.
+- graph_health — run ONCE at session start; nothing else answers "can I trust what I am about to
+  be told". Field-rated the highest-value call here: it caught a wrong-toolchain compile DB.
+- graph_onboard / graph_tour walk an unfamiliar repo but MAY NOT BE CALLABLE (see TOOL SURFACE);
+  if a tool-search finds neither, do not retry — graph_packet mode:orient answers the same question.
 
 TOOL SELECTION BY INTENT:
 - who calls X / is it safe to delete → code_intel_references or graph_callers (read the evidence banner).
-- who calls X transitively / who overrides this virtual → code_intel_hierarchy.
+  Transitively, or who overrides this virtual → code_intel_hierarchy.
 - what breaks if I change X → graph_consequences / graph_impact. HIGH VALUE EVEN ON CODE YOU KNOW WELL: the blast radius across subsystems/contracts is the thing memory can't hold — reach for these before a rename/signature/behavior change, not just when orienting.
 - what build target builds / links / tests X → graph_callers/graph_neighbors on the BuildTarget/BuildTest node (CMake graph: LINKS = target_link_libraries, RUNS = add_test).
 - everything about X across code+features+tasks+docs → graph_pull.
-- C++ ↔ GLSL shader bindings → graph_shader.
-- locate a symbol → graph_search / graph_whereis.
+- locate a symbol → graph_search / graph_whereis. C++ ↔ GLSL shader bindings → graph_shader.
 
 TRUST RULES (this server's differentiator):
 - Edges marked [lsp✓] (provenance LSP_VERIFIED) are clangd ground truth. Do NOT re-grep them.

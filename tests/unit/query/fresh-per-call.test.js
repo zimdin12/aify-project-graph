@@ -54,9 +54,19 @@ describe('per-call freshness', () => {
   it('the description tells an agent WHEN to use it and what it costs', () => {
     // A flag whose cost is invisible gets either ignored or set on everything.
     // Both failure modes come from a description that only says what it does.
-    expect(src).toMatch(/DEFAULT false/);
-    expect(src).toMatch(/will justify an ACTION/);
-    expect(src).toMatch(/COST: this can take seconds to minutes/);
-    expect(src).toMatch(/A stale answer is not wrong-by-default/);
+    //
+    // These assert the PROPERTIES the description must carry, not its exact
+    // wording. The previous version pinned four literal sentences, which made
+    // it fail on a rewrite that kept every one of those properties — and this
+    // object is inlined into 10 verbs' schemas, so its length is billed ten
+    // times per session and shortening it has to stay possible.
+    expect(src, 'states its default').toMatch(/DEFAULT false/);
+    expect(src, 'says when true is warranted').toMatch(/will justify an ACTION/);
+    expect(src, 'names its cost').toMatch(/COST:.*(seconds|minutes)/);
+    // Matched as two short contiguous fragments: `src` is the raw file, so a
+    // longer phrase can straddle a string-concatenation break and fail on
+    // reflow alone.
+    expect(src, 'says staleness is surfaced, not silent').toMatch(/any staleness is/);
+    expect(src, 'leaves the call to the agent').toMatch(/so you decide/);
   });
 });

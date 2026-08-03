@@ -680,7 +680,8 @@ const TOOLS = [
 // trust=missing. Found by 2026-04-26 echoes A/B test contamination.
 const REPO_ARG_SCHEMA = {
   type: 'string',
-  description: 'Optional absolute path to the target repo. Use when the MCP server was not launched from inside the repo (e.g. from your home dir). Defaults to the server\'s process.cwd().',
+  // Inlined into all 17 listed verbs — see the note on FRESH_PARAM.
+  description: 'Absolute path to the target repo. Only needed when the server was not launched from inside it; defaults to process.cwd().',
 };
 for (const tool of TOOLS) {
   if (!tool.schema) tool.schema = { type: 'object', properties: {} };
@@ -744,14 +745,16 @@ const LEAN_TOOL_NAMES = new Set([
 const FRESH_PARAM = Object.freeze({
   type: 'boolean',
   default: false,
+  // Kept short because this object is INLINED INTO 10 VERBS' schemas, so every
+  // sentence here is billed ten times in every session. At its previous length
+  // it cost 1820 tokens across the listing — more than all 17 verb descriptions
+  // combined. What survives is the decision rule (when true, when false, what it
+  // costs); the rationale behind that rule moved to the comment above.
   description:
-    'Reindex the graph to match HEAD before answering, when the snapshot is behind. '
-    + 'DEFAULT false: reads are cheap and any staleness is reported in the response, so you decide. '
-    + 'Set true when the answer will justify an ACTION — "is it safe to delete", "who calls this before I change it", '
-    + 'blast radius before an edit — and the graph is reported stale. '
-    + 'Leave false for orientation, browsing, and "how does X work": a snapshot answers those correctly and instantly. '
-    + 'COST: this can take seconds to minutes on a large repo, so it is opt-in per call rather than automatic. '
-    + 'A stale answer is not wrong-by-default — it is answered as of the indexed commit, and the response says which.',
+    'Reindex to match HEAD before answering. DEFAULT false — reads are cheap and any staleness is '
+    + 'reported in the response, so you decide. Set true only when the answer will justify an ACTION '
+    + '(safe-to-delete, who-calls-before-I-change, blast radius) AND the graph is reported stale. '
+    + 'COST: seconds to minutes on a large repo.',
 });
 
 function withFreshParam(tool) {
@@ -874,9 +877,48 @@ const HIDDEN_FULL_TOOL_NAMES = new Set([
 //
 // The short-form tier is a real token optimisation and stays. It just must not
 // contain the verb that calibrates the others.
+// Tier-B listing overrides. `tools/list` is UNCONDITIONAL — every listed verb's
+// description is in context from the first token of every session, whether or
+// not the agent ever touches the graph. A skill body is the opposite: it costs
+// nothing until invoked. So the long form belongs in the skill and this surface
+// pays only for what a SELECTION decision needs.
+//
+// The rule each entry follows: keep (a) what the verb is for, and (b) when to
+// distrust its answer. Everything else — parameter detail, resume semantics,
+// output schema, worked examples, measurement history — is already carried by
+// the skills (verified: every clause removed here appears in skill/SKILL.md,
+// skills/graph-guide, or skills/cpp-inner-loop) and is dropped from here.
+//
+// (b) is not optional. Several of these verbs answer questions where a confident
+// wrong answer deletes code — graph_callers undercounts C++ dispatch,
+// code_intel_references returns empty when the index could not answer. Those
+// clauses stay in the always-loaded surface precisely because they must not
+// depend on the agent having chosen to load a skill first.
 const SHORT_DESCRIPTIONS = new Map([
   ['graph_search',      'Fuzzy symbol search. Use when the exact name is unknown.'],
   ['graph_file',        'Whole-file digest (symbols + exports). Use when briefs do not cover the file.'],
+
+  ['graph_health',      'FIRST CALL of any session: "can I trust what this graph is about to tell me?" Trust level, staleness, coverage, and up to 3 ranked next actions — EMPTY on a healthy repo, which is what makes a populated list mean something. ★ SCOPE: this verdict constrains GRAPH-backed verbs only; the live code_intel_* verbs query the language server directly. For a delete decision read evidence.exhaustive on code_intel_references, not this summary.'],
+
+  ['graph_packet',      'ORIENTATION packet for a task/feature/symbol — use when you do NOT yet have a precise question. If you already know the question ("what breaks if I change X" -> graph_consequences; "who calls X" -> code_intel_references), call that verb instead: this is NOT a mandatory first step. Returns ~500-900 tokens of fixed-schema markdown. mode=orient|plan|debug|review|audit|verify; verify is post-edit and takes files[] instead of a target.'],
+
+  ['code_intel_references', 'Compiler-backed "who references this symbol", asked of the LIVE language server — the only verb whose answer can support a delete or rename decision. ★ READ evidence BEFORE CONCLUDING: exhaustive:true means an absence of callers is real; degraded:true with a cause means the index could not answer, and ZERO REFERENCES IS THEN NOT EVIDENCE OF NO CALLERS. On a cold session pass waitForReadyMs (e.g. 25000), or a CORRECT answer comes back unattested and cannot license a deletion.'],
+
+  ['graph_collect_code_intel', 'Run a compiler/LSP-backed collection (clangd for C++) and import it as [lsp✓] verified edges. ★ THIS CALL DELETES DATA: a COMPLETE collect supersedes and DISCARDS the prior collection for the same provider. A PARTIAL collect does not. EXPLICIT ONLY — never auto-runs. A cold first run is time-budgeted and returns status:"partial" — that is NOT a failure; call it again until index.filesTotal is 0.'],
+
+  ['graph_callers',     'Incoming execution edges for a symbol from the STORED graph. ★ HEURISTIC BY DEFAULT: tree-sitter extraction UNDERCOUNTS C++ virtual and cross-TU dispatch — on one measured project it found half the calling files. Use as a LEAD, never as evidence of completeness; for a delete decision use code_intel_references and read evidence.exhaustive. Promoted to [lsp✓] where a collection verified the edge.'],
+
+  ['code_intel_hierarchy', 'Transitive call hierarchy (callers/callees) or type hierarchy (subtypes/supertypes) from the live language server, to a bounded depth. Requires kind. Use for "who ultimately reaches this" or "what overrides this virtual" — questions a single hop cannot answer. ★ READ evidence: an empty result carrying degraded:true means cross-TU resolution failed, NOT that nothing calls it. Pass waitForReadyMs on a cold session.'],
+
+  ['graph_consequences', '"What breaks if I touch X?" — cross-layer blast radius for a symbol or file: contracts, features, open tasks, adjacent tests, history, risk flags. Use BEFORE planning a non-trivial change. ★ READ field_provenance: each field is observed (graph structure) or inferred (curated overlay); an absent INFERRED entry is NOT evidence of absence. Lists carry {items,truncated} — check truncated before treating one as complete. Returns a portable receipt a second agent can validate.'],
+
+  ['graph_trace',       'PRIMARY for "show me the whole call path from A to B" — the entire trace in ONE call, each hop body inlined verbatim (treat as already Read; do NOT re-Read the files it shows). Bridges C++ virtual dispatch via OVERRIDDEN_BY; [lsp✓] marks clangd-verified hops, INFERRED marks dynamic ones. Capped at max_hops. On no static path it NAMES the likely dispatch boundary instead of returning nothing.'],
+
+  ['graph_explore',     'PRIMARY for "show me the source of these N symbols" — verbatim Read-equivalent source for a BAG of names in ONE budget-capped call, grouped by file. Do NOT re-Read the files it shows. Input is a LIST OF NAMES, not a question. Emits a TRUNCATED tail when over budget — narrow the list rather than assuming you saw everything. For the call PATH between two symbols use graph_trace.'],
+
+  ['graph_explain_diff', 'Explain an EXISTING change/diff (the reverse of graph_consequences). Keyed on a git range, NOT a symbol: range / staged=true / files[]; defaults to uncommitted working-tree changes. Returns CHANGED, AFFECTED 1-hop, LAYERS, RISK (a labeled heuristic score), TESTS, carrying the LSP-vs-heuristic trust banner. Use when triaging a PR or an already-made change.'],
+
+  ['graph_pull',        'Cross-layer pull for a node (file, feature, symbol, or task). Default layers code+functionality+tasks+activity; opt-in docs, relations, transitive. ★ In relations, recompile_surface answers "what must I rebuild": terminated:true means the walk ran out of includers, while truncated/depth_capped means the number is a FLOOR. imported_by is hop 1 only and is the WRONG answer when the includers are themselves headers.'],
 ]);
 
 function projectToShortDescription(tool) {
