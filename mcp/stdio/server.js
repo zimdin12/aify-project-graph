@@ -509,7 +509,7 @@ const TOOLS = [
   {
     name: 'graph_callers',
     handler: graphCallers,
-    description: 'Incoming execution edges for a symbol. Includes CALLS, INVOKES, PASSES_THROUGH. For transitive + LSP-exhaustive results use code_intel_hierarchy.',
+    description: 'Incoming execution edges for a symbol (CALLS, INVOKES, PASSES_THROUGH) from the STORED graph. ★ HEURISTIC BY DEFAULT: tree-sitter extraction UNDERCOUNTS C++ virtual and cross-TU dispatch — measured on a real repo, it returned 2 of 4 calling files. Use it as a LEAD, never as evidence of completeness; for a delete decision use code_intel_references and read evidence.exhaustive. Each file:line is the CALLER FUNCTION\'s declaration, not the call site — edges are function-granular. Promoted to [lsp✓] where a code-intel collection has verified the edge.',
     schema: {
       type: 'object',
       properties: {

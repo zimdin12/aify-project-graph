@@ -366,6 +366,17 @@ export function extractFile({ filePath, source, config }) {
         const parentClassQname = symbolInfo?.parentClassQname ?? parentClass?.extra?.qname ?? parentClassLabel;
         const syntheticOwnerTarget = symbolInfo?.parentClass ?? '';
         const explicitType = symbolInfo?.type ?? symbolRule.type;
+        // ★ `type` IS DERIVED, NOT A RECORD OF WHICH RULE FIRED.
+        //
+        // A Function-rule match becomes type 'Method' whenever a parent class is
+        // present — so reading the stored type as "which rule ran" is wrong, and it
+        // is the natural inference for anyone debugging extraction. It cost a real
+        // diagnosis: a node typed Method was attributed to the Method rule when the
+        // Function rule had matched and a bogus parentClass flipped the type.
+        //
+        // The rule name is recorded on the node (extra.extracted_by) so provenance
+        // is available instead of inferred — the same fix as labelling a field with
+        // the metric it actually counts.
         const resolvedType = explicitType === 'Function' && parentClassLabel ? 'Method' : explicitType;
         const detectedType = config.testDetector?.({
           label: name,
@@ -391,6 +402,10 @@ export function extractFile({ filePath, source, config }) {
             signature,
             decorators: [],
             parent_class: parentClassLabel,
+            // Which RULE produced this node. `type` is derived (see above) and
+            // cannot answer this; storing it makes extraction provenance readable
+            // rather than inferable.
+            extracted_by: symbolRule.type,
           },
         });
 
