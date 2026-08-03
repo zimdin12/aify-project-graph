@@ -138,7 +138,7 @@ const TOOLS = [
   {
     name: 'code_intel_references',
     handler: codeIntelReferences,
-    description: 'Compiler-backed "who references this symbol", asked of the LIVE language server — the only verb whose answer can support a delete or rename decision. Bounded and budgeted. ★ READ evidence BEFORE CONCLUDING: exhaustive:true means an absence of callers is real; degraded:true with a cause (definition_only, cold index) means the index could not answer, and ZERO REFERENCES IS THEN NOT EVIDENCE OF NO CALLERS. Measured on a real repo: 833 of 833 not-found results were definition_only — none were true absences. Unaffected by graph staleness, because it asks the language server rather than the snapshot.',
+    description: 'Compiler-backed "who references this symbol", asked of the LIVE language server — the only verb whose answer can support a delete or rename decision. Bounded and budgeted. ★ READ evidence BEFORE CONCLUDING: exhaustive:true means an absence of callers is real; degraded:true with a cause (definition_only, cold index) means the index could not answer, and ZERO REFERENCES IS THEN NOT EVIDENCE OF NO CALLERS. Measured on a real repo: 833 of 833 not-found results were definition_only — none were true absences. Unaffected by graph staleness, because it asks the language server rather than the snapshot. ON A COLD SESSION pass waitForReadyMs (e.g. 25000) — otherwise a CORRECT answer comes back UNATTESTED (degraded:true, cause stale_index, exhaustive:false) and cannot license a deletion.',
     schema: {
       type: 'object',
       properties: {
@@ -235,7 +235,7 @@ const TOOLS = [
   {
     name: 'code_intel_hierarchy',
     handler: codeIntelHierarchy,
-    description: 'Transitive call hierarchy (callers/callees) or type hierarchy (subtypes/supertypes) from the live language server, walked to a bounded depth. Requires kind. Use for "who ultimately reaches this" or "what overrides this virtual" — questions a single hop cannot answer. ★ READ evidence: as with code_intel_references, an empty result carrying degraded:true means cross-TU resolution failed, NOT that nothing calls it. Depth and breadth are capped and truncation is always reported.',
+    description: 'Transitive call hierarchy (callers/callees) or type hierarchy (subtypes/supertypes) from the live language server, walked to a bounded depth. Requires kind. Use for "who ultimately reaches this" or "what overrides this virtual" — questions a single hop cannot answer. ★ READ evidence: as with code_intel_references, an empty result carrying degraded:true means cross-TU resolution failed, NOT that nothing calls it. Depth and breadth are capped and truncation is always reported. ON A COLD SESSION pass waitForReadyMs — a cold call can return empty or unattested even when the answer exists.',
     schema: {
       type: 'object',
       properties: {
@@ -256,7 +256,7 @@ const TOOLS = [
   {
     name: 'graph_collect_code_intel',
     handler: graphCollectCodeIntel,
-    description: 'Run a compiler/LSP-backed collection (clangd for C++) and import it as [lsp✓] verified edges. EXPLICIT ONLY — never auto-runs. Use after touching code that needs compiler precision (C++ templates, virtual dispatch, macros), or when graph_health reports an empty trust spine. RESUMES: a cold first run is time-budgeted and returns status:"partial" — that is NOT a failure, call it again until index.filesTotal is 0. An explicit files[] scope deliberately does NOT resume. language is inferred from files/repo markers, default cpp; Python is never provably exhaustive. Every result carries its own coverage floor (positionGuessSkipped, refsTruncatedSymbols) and next-step hints — read them rather than reading a percentage as a rate.',
+    description: 'Run a compiler/LSP-backed collection (clangd for C++) and import it as [lsp✓] verified edges. ★ THIS CALL DELETES DATA: a COMPLETE collect supersedes and DISCARDS the prior collection for the same provider. A PARTIAL collect does not. If the current collection is the only copy of evidence you care about, back up .aify-graph first. EXPLICIT ONLY — never auto-runs. Use after touching code that needs compiler precision (C++ templates, virtual dispatch, macros), or when graph_health reports an empty trust spine. RESUMES: a cold first run is time-budgeted and returns status:"partial" — that is NOT a failure, call it again until index.filesTotal is 0. An explicit files[] scope deliberately does NOT resume. language is inferred from files/repo markers, default cpp; Python is never provably exhaustive. Every result carries its own coverage floor (positionGuessSkipped, refsTruncatedSymbols) and next-step hints — read them rather than reading a percentage as a rate.',
     schema: {
       type: 'object',
       properties: {
@@ -860,9 +860,22 @@ const HIDDEN_FULL_TOOL_NAMES = new Set([
 // short form cuts the manifest token tax on verbs that are useful but rarely
 // the first reach. Full descriptions are used whenever the tool is actually
 // invoked; this only shapes the listing.
+// ★ graph_health WAS IN HERE AND MUST NOT BE. This tier is documented as verbs that
+// are "rarely the first reach" — and graph_health is the verb the server
+// instructions tell agents to run FIRST. It was being listed as 66 characters
+// ("Graph trust + dirty-edge breakdown") while its real description explains when to
+// call it and what would make you distrust every OTHER verb's answer.
+//
+// A field reviewer read tools/list cold and failed it on exactly that: the one verb
+// whose purpose is "can I trust what I am about to be told" was the only one in the
+// set saying nothing about when to doubt it. Its output had told him the feature
+// overlay was 99 DAYS stale — the fact that discounts graph_consequences' inferred
+// fields — and nothing in the listing connected the two.
+//
+// The short-form tier is a real token optimisation and stays. It just must not
+// contain the verb that calibrates the others.
 const SHORT_DESCRIPTIONS = new Map([
   ['graph_search',      'Fuzzy symbol search. Use when the exact name is unknown.'],
-  ['graph_health',      'Graph trust + dirty-edge breakdown. Run to assess indexing quality.'],
   ['graph_file',        'Whole-file digest (symbols + exports). Use when briefs do not cover the file.'],
 ]);
 
