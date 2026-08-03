@@ -7,6 +7,24 @@ description: Use AT THE START of any session in a repo that has `.aify-graph/` �
 
 This graph is a **map**, not the source of truth. Use it to narrow the search space, then read the real files before changing code.
 
+## FIRST ACTION in any session
+
+Before calling any other tool, check whether this repo has a graph:
+
+```bash
+ls .aify-graph/brief.agent.md 2>/dev/null
+```
+
+If it exists, **read it first** — it's 300-1100 tokens of dense orientation (grows with public-API surface size and PATHS depth). Sections (in order): `REPO` stats · `LANG` · `TOOLING` (major libs from manifests) · `COVERS` (what the brief is actually about) · `ENTRY` · `EXPORTS` (public API surface — verbs, routes, package exports) · `SUBSYS` · `FEATURES` (if overlay populated) · `INTERNAL_HUBS` (high-fan-in helpers — NOT public API; those are in EXPORTS) · `PATHS` (pre-computed execution chains for top EXPORTS — answers trace-shape questions from context) · `READ` · `TESTS` · `RECENT` · `TRUST`. Much cheaper than exploring with shell.
+
+- For orient / onboarding: read `brief.agent.md` or `brief.onboard.md`
+- For change-planning: read `brief.plan.md` (has `open:` / `tests:` / `load:` per feature)
+- For cross-layer context on a specific thing: `graph_pull(node="X")`
+
+If `.aify-graph/` is missing, tell the user to run `/graph-build-all` — it builds everything in one pass.
+
+If the user wants to **see** the graph visually (not just query it), run `/graph-dashboard` — launches an interactive 2D multi-layer view in the browser with code + features + tasks + docs + cross-layer edges.
+
 ## Flagship traversal verb: `graph_consequences(target)`
 
 The verb to call **before planning a non-trivial change** — answers "what breaks if I touch X?" by traversing every layer at once. Input: a symbol name OR a repo-relative file path. Output:
@@ -43,27 +61,9 @@ Read verbs are **snapshot-first**. The one exception is first use in a repo with
 
 Those signals are no longer health-only: `graph_consequences`, `graph_pull`, and `graph_change_plan` now surface dirty-seam / map-gap hints directly in their output, so planning verbs can tell you when the target sits inside an actively edited seam.
 
-## FIRST ACTION in any session
-
-Before calling any other tool, check whether this repo has a graph:
-
-```bash
-ls .aify-graph/brief.agent.md 2>/dev/null
-```
-
-If it exists, **read it first** — it's 300-1100 tokens of dense orientation (grows with public-API surface size and PATHS depth). Sections (in order): `REPO` stats · `LANG` · `TOOLING` (major libs from manifests) · `COVERS` (what the brief is actually about) · `ENTRY` · `EXPORTS` (public API surface — verbs, routes, package exports) · `SUBSYS` · `FEATURES` (if overlay populated) · `INTERNAL_HUBS` (high-fan-in helpers — NOT public API; those are in EXPORTS) · `PATHS` (pre-computed execution chains for top EXPORTS — answers trace-shape questions from context) · `READ` · `TESTS` · `RECENT` · `TRUST`. Much cheaper than exploring with shell.
-
-- For orient / onboarding: read `brief.agent.md` or `brief.onboard.md`
-- For change-planning: read `brief.plan.md` (has `open:` / `tests:` / `load:` per feature)
-- For cross-layer context on a specific thing: `graph_pull(node="X")`
-
-If `.aify-graph/` is missing, tell the user to run `/graph-build-all` — it builds everything in one pass.
-
-If the user wants to **see** the graph visually (not just query it), run `/graph-dashboard` — launches an interactive 2D multi-layer view in the browser with code + features + tasks + docs + cross-layer edges.
-
 ## Orientation walk: `graph_tour({steps, focus})`
 
-Ordered N-step orientation walk for a repo you don't know yet: entrypoints → named subsystems (archetype regions like Physics/Rendering) → hotspots → cross-subsystem flows. Read top-to-bottom, then drill into anything with `graph_packet`. `focus` narrows to one subsystem (e.g. `focus:"physics"`). **Callable by name** — not in the default 16-verb `tools/list`, so invoke it directly via `tools/call`.
+Ordered N-step orientation walk for a repo you don't know yet: entrypoints → named subsystems (archetype regions like Physics/Rendering) → hotspots → cross-subsystem flows. Read top-to-bottom, then drill into anything with `graph_packet`. `focus` narrows to one subsystem (e.g. `focus:"physics"`). **Callable by name** — not in the default `tools/list`, so invoke it directly via `tools/call`.
 
 ## Find by meaning: `graph_search(mode:"semantic")`
 
@@ -98,7 +98,7 @@ The failure mode to avoid: calling graph_find once, getting empty, giving up. Us
 
 ## Use live verbs for
 
-**Lean profile** (default for Codex/OpenCode install, 5 verbs listed in `tools/list`):
+**Listed in every profile — reach for these first:**
 - `graph_packet(target="X", mode="orient|plan|debug|review|audit|verify")` — **one-shot agent prompt packet (cheap+coarse)**. For `feature:<id>` / `task:<id>` targets, reads overlay+brief JSON directly with no freshness rebuild. Bare symbols may use one budgeted lookup to map symbol→feature and print `MATCHED VIA: ...`. Returns ~500-900 tokens: MODE / STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Reach for this first when the task is scoped to a feature or task; pick `mode` by workflow. **`mode="verify"`** is a post-edit decision packet: pass `files:[...]` (and optional `audited:true`) to get diagnostics on touched files + freshness verdict + `SOURCE_REQUIRED` when audited code changes. Pass `analyze:true` to fold bounded `clang-tidy` / compile-command evidence into the same packet. No target needed for verify.
 - `graph_collect_code_intel(language="cpp", scope="all|changed|files", files=[...])` — public action verb to run a real code-intel collection (e.g. clangd over `compile_commands.json`). Imports the v0.2 collection into the local graph so subsequent `graph_health.codeIntel`, `graph_pull(layers:["code_intel"])`, `graph_change_plan`, and `graph_packet({mode:"verify"})` see compiler-backed evidence. Never auto-runs; explicit only.
 
@@ -127,18 +127,9 @@ Analyzer `partial` / `not_collected` means evidence was unavailable for some req
 
 **Hard budget on a planning task: at most 1 brief read + 3 live verb calls.** Measured 2026-04-26 echoes A-v2 bench: an agent that made 7 live verb calls (`graph_find` ×4, `graph_file` ×2, `graph_consequences` ×1) ended up +52% tokens / +15% wall-clock vs the same task with no graph at all. Each `graph_find`/`graph_consequences`/`graph_file` returns hundreds-to-thousands of context tokens; over-calling them tips the budget the wrong way. **0 live calls is often correct** after reading the brief. If your first 1-2 live calls return thin/empty results, drop to Grep — don't keep retrying with rephrased queries. `graph_find` already auto-tokenizes compound queries (since 2026-04-21), so thin results are the data, not a query bug.
 
-**Still callable in lean mode** (by name via `tools/call`, just hidden from `tools/list` to reduce manifest tax):
-- `graph_preflight(symbol="X")` — edit safety gate for high-fan-in symbols
-- `graph_path(symbol="X")` — execution / route / middleware flow
-- `graph_impact(symbol="X")` — blast radius
-- `graph_find(query="X")` — cross-layer disambiguator (NOT an rg replacement)
+**Listed ≠ callable.** Your `tools/list` shows a focused subset; every other verb stays callable by name via `tools/call`. Read the tool descriptions for what each one does — this skill does not re-list them, because a hand-maintained catalogue here drifts out of step with the server. Long-tail verbs worth knowing exist: `graph_preflight` / `graph_path` / `graph_find` / `graph_callees` / `graph_neighbors` / `graph_file` / `graph_shader` and the `graph_overview` / `graph_hotspots` / `graph_cycles` analytics behind `graph_digest`. Caveat: a host that defers MCP tools behind a search step can only reach **listed** verbs — if a tool-search finds one of these, do not retry; use a listed verb or start the server with `--toolset=full`.
 
-**Full callable surface** (Claude Code default — 30 verbs listed in `tools/list`; legacy aliases + analytics/code-intel long-tail stay callable-by-name but hidden from the manifest):
-- **Core graph:** `graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`, `graph_whereis`, `graph_search`, `graph_find`, `graph_callers`, `graph_callees`, `graph_neighbors`, `graph_file`, `graph_status`, `graph_index`, `graph_preflight`, `graph_path`, `graph_impact`, `graph_dashboard`.
-- **Tracing / source bundling (Code-Intel v2):** `graph_trace(from,to)` — whole call path, hop bodies inlined (on a no-static-path it NAMES the likely dynamic-dispatch boundary — computed call / dynamic import / getattr / member-pointer / typed bus — instead of 404ing); `graph_explore(symbols[])` — multi-symbol verbatim-source bundler ("treat as already Read"); `graph_explain_diff(range)` — git-diff/PR impact (reverse of consequences).
-- **Analytics:** `graph_digest()` — the ONE analytics front door (~1–2k-token project digest), composes `graph_overview` / `graph_hotspots` / `graph_cycles` (callable, hidden from list).
-- **C++ code-intel trust spine:** `code_intel_references/definitions/hover/symbols/diagnostics`, `code_intel_hierarchy` (call + type hierarchy, virtual overrides — the trustworthy transitive path), `graph_collect_code_intel` (clangd collection → `[lsp✓]` / `LSP_VERIFIED` caller edges on `graph_callers`), `graph_shader` (C++↔GLSL binding bridge). **Trust rule: `[lsp✓]` / `LSP_VERIFIED` = clangd ground truth — don't re-grep it; absence claims gate on exhaustive evidence.**
-- **Hidden legacy aliases** (callable by name): `graph_lookup`, `graph_summary`, `graph_report`, `graph_onboard`, `graph_module_tree`, `code_intel_replay`, `code_intel_analyze`.
+**Trust rule:** `[lsp✓]` / `LSP_VERIFIED` = language-server ground truth — don't re-grep it. Absence claims gate on `evidence.exhaustive === true`, never on an empty result.
 
 ## Edge provenance
 
