@@ -639,7 +639,46 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       fileAdjacencyRefs.push(...fileAdjacencyRows.filter((r) => r.relation !== 'IMPORTS'));
     }
     const importLinkedTests = matchedFiles.size > 0 ? findImportLinkedTestFiles(db, [...matchedFiles]) : [];
-    const directUniqueTests = uniqueTestPaths([...tests, ...fileAdjacencyImports, ...importLinkedTests]);
+
+    // ★ NOTHING EVER #INCLUDES A .cpp.
+    //
+    // Field report (sc-manager, Sand Castle, 2026-08-04→05). graph_consequences on
+    // sim/fields/UnifiedFluidWriteback.cpp returned tests_adjacent []. The same
+    // call on UnifiedFluidWriteback.h returned the test, provenance import_linked.
+    // The structural tier was working perfectly and answering a question nobody
+    // asks: tests include the HEADER, so an implementation file has no incoming
+    // include edges from tests and the honest structural answer is zero.
+    //
+    // Technically correct, practically useless — a reviewer asking "what tests
+    // this implementation file" is asking the right question. In C++ the
+    // declaration and the definition are one unit split across two files, and the
+    // test's include of the header IS test adjacency for the .cpp.
+    //
+    // Kept as a NAMED basis rather than folded in silently: the test imports the
+    // header, not this file, and a reader deciding whether coverage is real should
+    // see which of those two things was established.
+    const companionHeaders = (() => {
+      const impl = [...matchedFiles].filter((f) => /\.(cpp|cc|cxx|c\+\+|m|mm)$/i.test(f));
+      if (impl.length === 0) return [];
+      const stems = impl.map((f) => f.replace(/\.[^.]+$/, ''));
+      const rows = db.all(
+        `SELECT DISTINCT file_path FROM nodes
+          WHERE file_path IS NOT NULL AND file_path != ''
+            AND (file_path LIKE '%.h' OR file_path LIKE '%.hpp' OR file_path LIKE '%.hh' OR file_path LIKE '%.hxx')
+          LIMIT 5000`,
+      );
+      const want = new Set(stems);
+      return rows
+        .map((r) => r.file_path)
+        .filter((p) => want.has(p.replace(/\.[^.]+$/, '')));
+    })();
+    const companionHeaderTests = companionHeaders.length > 0
+      ? uniqueTestPaths(findImportLinkedTestFiles(db, companionHeaders))
+      : [];
+
+    const directUniqueTests = uniqueTestPaths([
+      ...tests, ...fileAdjacencyImports, ...importLinkedTests, ...companionHeaderTests,
+    ]);
     const refTests = uniqueTestPaths(fileAdjacencyRefs.map((r) => r.test_file))
       .filter((t) => !directUniqueTests.includes(t));
     const mentionTests = directUniqueTests.length === 0 && symbolNodes.length > 0
@@ -702,7 +741,15 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     //                     a distinctive identifier, worthless for `vec3`.
     //   feature_declared  the curated overlay says so; unverified against this symbol.
     //   none              nothing found, and nothing claimed.
-    const testsProvenance = inferredTests.length > 0
+    // `companion_header_linked` is a real import edge like `import_linked`, but the
+    // edge lands on the paired header rather than on the queried file — so it is
+    // named separately instead of being laundered into the stronger tier. It only
+    // claims the top spot when NOTHING imports the queried file directly.
+    const onlyViaCompanionHeader = companionHeaderTests.length > 0
+      && tests.length === 0 && fileAdjacencyImports.length === 0 && importLinkedTests.length === 0;
+    const testsProvenance = onlyViaCompanionHeader
+      ? 'companion_header_linked'
+      : inferredTests.length > 0
       ? 'import_linked'
       : (refTests.length > 0 ? 'symbol_referenced'
         : (mentionTests.length > 0 ? 'text_mentioned'
@@ -715,7 +762,14 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         .filter((r) => refTests.includes(r.test_file))
         .slice(0, 5)
         .map((r) => ({ test_file: r.test_file, relation: r.relation, via_symbol: r.via_symbol }))
-      : null;
+      : (testsProvenance === 'companion_header_linked'
+        ? companionHeaderTests.slice(0, 5).map((t) => ({
+          test_file: t,
+          relation: 'IMPORTS',
+          via_header: companionHeaders[0],
+          note: 'the test includes the paired HEADER, not this implementation file — real structural adjacency for the .cpp/.h unit, one edge removed from this path.',
+        }))
+        : null);
 
     // 6. Last-touched: git log for the matched files
     let lastTouched = [];
