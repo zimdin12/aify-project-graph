@@ -786,6 +786,59 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       // target, ranked by how often. Curation misses; 22 mentions does not.
       documents_mentioning: documentsMentioning,
       features_touching: features,
+      // ★ WHY THE OVERLAY FIELDS ARE EMPTY — unmapped is not unaffected.
+      //
+      // Field report (sc-manager, Sand Castle, 2026-08-04): graph_consequences on
+      // the file at the centre of five slices and two nights of work returned
+      // features/contracts/open_tasks/co_consumers ALL EMPTY. The code layer was
+      // fine — 12,130 nodes, freshly indexed. Every empty field was overlay-derived,
+      // and the overlay simply had no feature anchoring that subsystem. The agent
+      // had to work that out by hand, then reported internalising "it doesn't help"
+      // without ever learning why it didn't.
+      //
+      // field_provenance already said these fields were `inferred`. That names
+      // where a field COMES FROM; it does not say the overlay HAS NO ENTRY FOR
+      // THIS TARGET, and only the second fact explains an empty list. An empty
+      // curated field is the same shape whether the curation says "nothing here"
+      // or was never written — so the verb has to say which.
+      overlay_coverage: (() => {
+        const featureCount = functionality.features?.length ?? 0;
+        const base = { overlay_features_total: featureCount, overlay_age_days: overlayAgeDays };
+        if (featureCount === 0) {
+          return {
+            ...base,
+            target_is_mapped: false,
+            cause: hasOverlay(repoRoot) ? 'overlay_empty' : 'no_overlay',
+            consequence:
+              'features_touching, contracts_potentially_affected and open_tasks are empty because NO feature map exists — '
+              + 'NOT because this target has no features, contracts or tasks. Do not read them as clean.',
+            remedy: 'run /graph-build-functionality to create the feature map.',
+          };
+        }
+        if (features.length === 0) {
+          return {
+            ...base,
+            target_is_mapped: false,
+            cause: 'no_feature_anchors_this_target',
+            consequence:
+              `The overlay has ${featureCount} feature(s) and NONE of them anchor this target. `
+              + 'The empty overlay fields mean this region is UNMAPPED, not that it is unaffected. '
+              + 'An absence here is evidence about the MAP, not about the code.',
+            remedy:
+              'run /graph-build-functionality to add a feature anchoring this path, then re-run. '
+              + 'Until then, treat the observed fields (callers, importers, documents_mentioning, tests_adjacent) as the whole answer.',
+          };
+        }
+        return {
+          ...base,
+          target_is_mapped: true,
+          cause: null,
+          consequence:
+            `This target is anchored by ${features.length} mapped feature(s), so an empty contracts/tasks list is a curated `
+            + 'statement about it rather than a gap in the map — as fresh as overlay_age_days, and no fresher.',
+          remedy: null,
+        };
+      })(),
       co_consumer_files: coConsumerFiles,
       open_tasks_on_those_features: tasks,
       top_related_tasks: rankedTasks.slice(0, 3), // highest-signal subset
