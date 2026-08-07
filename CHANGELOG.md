@@ -7,6 +7,59 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-08-07
+
+**The release where the tool stops trusting silence.** v0.3.0 shipped with a
+fail-open coverage default that could return `exhaustive:true` on an incomplete
+caller set — a field test on a real C++ repo got **3 of 8 real call sites** with
+no signal that anything was missing. That class is closed: all six v0.3 hardening
+P0s are done, and an absence claim now requires proof of coverage rather than
+absence of evidence.
+
+The organizing lesson across 137 commits: **a stand-in was used where the real
+thing was available.** Twenty documented instances — a hand-written verb count
+standing in for the profile set, a text regex standing in for the AST answer, a
+default standing in for a measurement, a test asserting the buggy invariant it
+was meant to catch. The remedy is never a rule; it is a fail-closed default or a
+forced door.
+
+### Trust and evidence
+- `evidence.exhaustive` requires `coverage.complete === true`; every `false`
+  carries a named cause from a published vocabulary.
+- Receipts: content-addressed, pin-checked, with a named disconfirming test, so a
+  second agent can refute a claim without re-deriving it.
+- `graph_consequences` labels every field `observed` vs `inferred`, and
+  `overlay_coverage` now distinguishes **unmapped** from **unaffected** — an empty
+  curated field says which it is instead of reading as "nothing here".
+- `graph_health` reports staleness *consequences*, a named coverage denominator,
+  and the rule that filtered its unresolved-edge count.
+
+### Correctness
+- C++ `.cpp` targets inherit their paired header's test adjacency
+  (`companion_header_linked`) — nothing ever `#include`s a `.cpp`, so the honest
+  structural answer was zero.
+- Destructors and operators extract under their real names (AST answer preferred
+  over the text regex).
+- The stale-process guard no longer caches its own "I am not stale" verdict — it
+  had disabled itself precisely on long-lived processes, the population it exists
+  for.
+- Dashboard `repoRoot` is passed through; it had been serving another repo's
+  overlay over your code.
+
+### Cost
+- `tools/list` cut from 8010 to 5637 tokens — paid by every session, including
+  those that never touch the graph. 80% of it was schema, not prose; the single
+  largest item was one shared parameter inlined into ten verbs.
+- Doubt clauses deliberately stayed in the always-loaded surface: a caveat that
+  only lives in a skill is one the agent may never load.
+
+### Known limits at this tag
+- The `.cpp`/header pairing is unit-tested against a fixture reproducing the
+  reported shape, but has not yet run against a large real C++ codebase.
+- Graph freshness is still nobody's job by default — the `post-commit` reindex
+  hook exists but is not installed as part of setup, and covers only `post-commit`.
+  That is the subject of the next release.
+
 ### 2026-07-26 — the trust contract stops trusting silence (BEHAVIOR CHANGE)
 
 A scored field test on a real C++ repo returned **3 of 8 real call sites** while
