@@ -91,9 +91,11 @@ Expand `<CLONE_PATH>` to the absolute clone path. `--max-old-space-size=8192` gi
 
 Hermes exposes each MCP server's tools through a **dynamic toolset named `mcp-<server>`** — here, **`mcp-aify-project-graph`**. If a Hermes profile enables an **explicit** `platform_toolsets` allowlist, the server connects successfully but its tools are **filtered out of the session** unless the toolset is on that list. When an allowlist exists, this is the single most common reason a correctly-registered Hermes MCP server shows **zero verbs**.
 
-> ⚠ **The key may be named `toolsets:`, not `platform_toolsets:`.** The live config measured 2026-08-07 carried a top-level `toolsets: [hermes-cli]`. Grep for BOTH before concluding no allowlist exists — and grep the file at the resolved `$HERMES_HOME`, not a same-named file elsewhere. A field report reached "there is no allowlist" by checking the wrong file for the wrong key, and the proposed remedy (blind-create `platform_toolsets`) would have restricted the session to the two toolsets listed and dropped everything else.
+> ★ **MEASURED 2026-08-07: `platform_toolsets` does NOT gate MCP server tools.** The live config carried `toolsets: [hermes-cli]` (line 6), `platform_toolsets.cli` (line 590) listing **16 built-ins only** — browser, file, memory, terminal, skills, … — and `known_plugin_toolsets` (line 608). `aify-comms` is registered in `mcp_servers`, is **absent** from every one of those lists, and its tools reach sessions normally. That is a working counter-example: **an MCP server does not need to appear in any allowlist.**
 >
-> **Registration comes first regardless.** If the server is not in the live `mcp_servers`, no allowlist edit can help — the tools do not exist to be filtered. Confirm the server appears, THEN investigate filtering.
+> **So registration is the whole job, and it comes first.** If the server is not in the live `mcp_servers`, no allowlist edit can help — the tools do not exist to be filtered. Only if tools are still missing AFTER the server is registered in the resolved-`$HERMES_HOME` config and the session restarted does filtering become a real question.
+>
+> ⚠ **Grep for `toolsets:`, `platform_toolsets:` AND `known_plugin_toolsets:`, in the file at the resolved `$HERMES_HOME`.** Two ways to get this wrong, both observed in the field this week: checking a same-named config elsewhere, and reading the head of a long file and inferring a key's absence without searching for it. The second was mine — 632 lines, and I concluded from the first 20.
 
 **First check whether an allowlist even exists** — the handling is different, and getting this wrong can BREAK a working fleet:
 
