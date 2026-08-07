@@ -58,7 +58,18 @@ hermes mcp add aify-project-graph \
 
 **Form B — YAML config patch (fallback; use if Hermes has no `mcp` CLI):**
 
-Hermes reads MCP servers from **`$HERMES_HOME/config.yaml`** (default `$HOME/.hermes/config.yaml`) under the top-level **`mcp_servers`** key — NOT a JSON file. Add this block (merge into an existing `mcp_servers:` map if one is already present; do not clobber sibling servers):
+Hermes reads MCP servers from **`$HERMES_HOME/config.yaml`** under the top-level **`mcp_servers`** key — NOT a JSON file.
+
+> ⚠ **RESOLVE `$HERMES_HOME` FIRST — `~/.hermes` is a common default, not a safe assumption.** On a real Windows install (measured 2026-08-07) `HERMES_HOME` was `%LOCALAPPDATA%\hermes`, and a `~/.hermes/config.yaml` also existed carrying **ten** MCP servers — none of which Hermes ever loaded, because it reads the other file. The stale one looks perfectly plausible, so "I edited the config" is not evidence the config is live.
+>
+> ```bash
+> echo "$HERMES_HOME"                 # if set, this wins — use it
+> ls "$HERMES_HOME/config.yaml"       # the file Hermes actually reads
+> ```
+>
+> Confirm with a server you know works: if `aify-comms` (or any working server) is registered in one file and absent from the other, **the file containing it is the live one.** A registration written to the other file is a silent no-op.
+
+Add this block (merge into an existing `mcp_servers:` map if one is already present; do not clobber sibling servers):
 
 ```yaml
 # $HERMES_HOME/config.yaml  (default ~/.hermes/config.yaml)
@@ -79,6 +90,10 @@ Expand `<CLONE_PATH>` to the absolute clone path. `--max-old-space-size=8192` gi
 ### Step 2b — CONDITIONAL: if a `platform_toolsets` allowlist exists, add the toolset to it
 
 Hermes exposes each MCP server's tools through a **dynamic toolset named `mcp-<server>`** — here, **`mcp-aify-project-graph`**. If a Hermes profile enables an **explicit** `platform_toolsets` allowlist, the server connects successfully but its tools are **filtered out of the session** unless the toolset is on that list. When an allowlist exists, this is the single most common reason a correctly-registered Hermes MCP server shows **zero verbs**.
+
+> ⚠ **The key may be named `toolsets:`, not `platform_toolsets:`.** The live config measured 2026-08-07 carried a top-level `toolsets: [hermes-cli]`. Grep for BOTH before concluding no allowlist exists — and grep the file at the resolved `$HERMES_HOME`, not a same-named file elsewhere. A field report reached "there is no allowlist" by checking the wrong file for the wrong key, and the proposed remedy (blind-create `platform_toolsets`) would have restricted the session to the two toolsets listed and dropped everything else.
+>
+> **Registration comes first regardless.** If the server is not in the live `mcp_servers`, no allowlist edit can help — the tools do not exist to be filtered. Confirm the server appears, THEN investigate filtering.
 
 **First check whether an allowlist even exists** — the handling is different, and getting this wrong can BREAK a working fleet:
 
@@ -179,11 +194,19 @@ No project-local MCP config path is documented for Hermes today. User-level (For
 If Hermes loads SKILL.md-style skills (same markdown as Claude Code / Codex, with a `trigger:` frontmatter field that auto-activates when the aify-graph MCP tools are present), copy the tree. If your Hermes build has no skill loader, skip this step — the MCP verb descriptions carry the core guidance regardless.
 
 ```bash
-# Same default as Step 2 above ($HOME/.hermes). These MUST match: an earlier
-# version defaulted this block to $HOME/.config/hermes while the MCP-config
-# block used $HOME/.hermes, so following the doc end-to-end produced working
-# tools and skills installed where Hermes never looks — a silent no-op.
+# ★ DO NOT ASSUME THE DEFAULT — RESOLVE IT. On a real Windows install measured
+# 2026-08-07, HERMES_HOME was set to %LOCALAPPDATA%\hermes, and BOTH documented
+# defaults ($HOME/.config/hermes and $HOME/.hermes) were wrong. An earlier fix
+# here made the two blocks of this doc agree on $HOME/.hermes, which removed the
+# internal contradiction while leaving both halves pointing at a home Hermes
+# does not use — so skills and MCP config landed in a file nobody reads, and the
+# install reported success. Agreeing with yourself is not the same as being right.
+#
+# If HERMES_HOME is already exported, that value wins. Verify before copying:
+#   echo "$HERMES_HOME"                       # empty? then check both candidates
+#   ls "$HERMES_HOME/config.yaml"             # the config Hermes actually reads
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+echo "Installing skills to: $HERMES_HOME/skills"   # ← confirm this is the live home
 mkdir -p "$HERMES_HOME/skills"
 
 # Core skill
