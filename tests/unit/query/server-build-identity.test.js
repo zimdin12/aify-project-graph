@@ -42,11 +42,21 @@ describe('server build identity', () => {
     expect(accessor).toMatch(/commit: LOADED_COMMIT/);
   });
 
-  it('returns a stable identity across calls', () => {
+  it('returns a stable IDENTITY across calls — but not a frozen verdict', () => {
+    // This assertion used to be `expect(a).toBe(b)`, justified as "cached — the
+    // build cannot change while the process lives." The build cannot; the TREE
+    // can, and staleProcess is a comparison against the tree. Reference identity
+    // therefore required freezing the one field whose whole job is to change,
+    // and the test enshrined that. sc-manager ran three days on a server that had
+    // cached "not stale" on its first call and never looked again.
+    //
+    // What must actually be stable is the process's IDENTITY.
     _resetServerBuildCache();
     const a = serverBuildInfo();
     const b = serverBuildInfo();
-    expect(a).toBe(b); // cached — the build cannot change while the process lives
+    expect(b.commit).toBe(a.commit);
+    expect(b.startedAt).toBe(a.startedAt);
+    expect(b.version).toBe(a.version);
     expect(typeof a.startedAt).toBe('string');
     expect(new Date(a.startedAt).getTime()).toBeLessThanOrEqual(Date.now());
   });
@@ -56,7 +66,14 @@ describe('server build identity', () => {
     _resetServerBuildCache();
     const info = serverBuildInfo();
     // This test process loaded from a checkout that has not moved mid-run.
-    expect(info.staleProcess).toBeUndefined();
+    //
+    // staleProcess must be present and FALSE, not absent. It used to be omitted
+    // on the happy path, which made "this build is current" indistinguishable
+    // from "this build has no such check" — and that ambiguity is precisely the
+    // inference sc-manager drew when a frozen verdict returned no field: they
+    // concluded the guard post-dated their binary. It shipped five days before it.
+    expect(info.staleProcess).toBe(false);
+    expect(Object.hasOwn(info, 'staleProcess')).toBe(true);
     expect(info.workingTreeCommit).toBeUndefined();
     expect(staleProcessWarning()).toBeNull();
     expect(buildSrc).toMatch(/workingTreeCommit: treeCommit/);

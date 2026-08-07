@@ -36,10 +36,41 @@ function gitAt(root, args) {
 const PROCESS_STARTED_AT = new Date().toISOString();
 const LOADED_COMMIT = gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
 
-let _cached = null;
+// ★ THE STALENESS VERDICT MUST NOT BE CACHED — IT IS THE ONE FIELD THAT CHANGES.
+//
+// This function used to cache its ENTIRE result on first call. Two of the values
+// it returns are immutable by construction (the commit this process loaded, when
+// it started), but `staleProcess` is a comparison against the tree RIGHT NOW, and
+// the tree is the thing that moves.
+//
+// So the guard cached "I am not stale" and never looked again. Worse, the
+// negative verdict omits the key entirely (see the spread below), so the frozen
+// answer was indistinguishable from a build that had no check at all.
+//
+// Measured (sc-manager, 2026-08-07): their server loaded 709cacf on Aug 4, called
+// a verb that day while the tree still matched, and cached staleProcess:false.
+// Two commits landed on Aug 5. On Aug 7 graph_health returned NO staleProcess
+// field — and they reasonably concluded the field post-dated their binary. It did
+// not; it shipped Jul 30, five days before their process started. The check was
+// present, correct, and answering a question it had stopped asking.
+//
+// The population this guard exists for is long-lived processes. A long-lived
+// process is precisely the one that has had time to cache "fresh" before going
+// stale, so the cache disabled the guard exactly where it was needed — the same
+// shape as the defect it detects.
+//
+// Immutable parts stay cached. The comparison is recomputed, behind a short TTL
+// so a multi-verb turn does not shell out to git on every call.
+let _immutable = null;
+let _verdict = null;
+let _verdictAt = 0;
+const VERDICT_TTL_MS = 5000;
 
 export function serverBuildInfo() {
-  if (_cached) return _cached;
+  const now = Date.now();
+  if (_immutable && _verdict && (now - _verdictAt) < VERDICT_TTL_MS) {
+    return { ..._immutable, ..._verdict };
+  }
   let version = null;
   try {
     version = JSON.parse(readFileSync(join(SERVER_ROOT, 'package.json'), 'utf8')).version ?? null;
@@ -75,14 +106,20 @@ export function serverBuildInfo() {
       };
     }
   }
-  _cached = {
+  _immutable = {
     version,
     commit: LOADED_COMMIT,
-    dirty: dirtyOut == null ? null : dirtyOut.length > 0,
     startedAt: PROCESS_STARTED_AT,
+  };
+  _verdictAt = now;
+  _verdict = {
+    dirty: dirtyOut == null ? null : dirtyOut.length > 0,
+    // Explicit false rather than an omitted key. An absent field cannot be told
+    // apart from a build that never had the check — which is exactly the
+    // inference sc-manager drew, correctly, from a missing key.
+    staleProcess,
     ...(staleProcess ? {
       workingTreeCommit: treeCommit,
-      staleProcess: true,
       ...(staleDelta ? { staleDelta } : {}),
       staleWarning: `SERVER IS RUNNING STALE CODE: this process loaded ${LOADED_COMMIT} at ${PROCESS_STARTED_AT},`
         + ` but the checkout is now ${treeCommit}. Answers come from ${LOADED_COMMIT}.`
@@ -98,7 +135,7 @@ export function serverBuildInfo() {
               + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'),
     } : {}),
   };
-  return _cached;
+  return { ..._immutable, ..._verdict };
 }
 
 // The one-line form for the shared read-verb warning channel. A stale process
@@ -109,5 +146,5 @@ export function staleProcessWarning() {
   return b.staleProcess ? b.staleWarning : null;
 }
 
-// Test seam: allow re-derivation after a simulated tree change.
-export function _resetServerBuildCache() { _cached = null; }
+// Test seam: force the next call to re-derive instead of waiting out the TTL.
+export function _resetServerBuildCache() { _verdict = null; _verdictAt = 0; }
