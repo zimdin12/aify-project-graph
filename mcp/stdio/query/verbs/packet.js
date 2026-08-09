@@ -747,7 +747,32 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   if (matchedViaSymbol) {
     // Insert MATCHED VIA right after the FEATURE/TASK header so the agent
     // knows the packet is symbol-derived, not direct.
+    //
+    // ★ AND CARRY THE SYMBOL'S OWN LOCATION WITH IT.
+    //
+    // Field report (sc-manager / sc-coder, Sand Castle, 2026-08-09), from a real
+    // 223-member census in a 50k-line header set: asking for a symbol returned
+    // the broad owning feature and OMITTED the file that declares it.
+    // graph_whereis found it instantly at game/UnifiedFluidRuntime.h:378.
+    //
+    // The branches were inverted relative to what a reader needs. DEFINED IN was
+    // emitted ONLY by the symbol-pointer packet — the path taken when the symbol
+    // maps to NO feature and the packet can say least. The moment a feature DID
+    // resolve, the packet grew authority and lost the one line that says where
+    // the thing actually is. Their verdict, which is the right one: a packet that
+    // resolves to a feature but drops the defining declaration is worse than one
+    // that returns nothing, because it looks like an answer.
+    //
+    // The locations are already computed — symbolConsequences is what produced
+    // the feature match in the first place.
+    const symHits = symbolConsequences?.matched?.symbols ?? [];
+    const defLines = symHits.slice(0, 3)
+      .filter((s) => s?.file)
+      .map((s) => `  ${s.file}${s.line ? `:${s.line}` : ''} — ${s.type || 'symbol'}`);
     lines.splice(1, 0, `MATCHED VIA: symbol "${matchedViaSymbol}" → feature ${resolvedFeature.id}`);
+    if (defLines.length) {
+      lines.splice(2, 0, `DEFINED IN (the symbol you asked for, not the feature):`, ...defLines);
+    }
   }
 
   // LIVE: enrichment block. Enrichment is explicit-only. The packet exists
