@@ -567,10 +567,34 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     lines.push(`SYMBOL: ${symbol}`);
     lines.push('STATUS: known to graph; not mapped to a feature (symbol-context packet)');
     lines.push(snapshot);
-    const locItems = symHits.slice(0, 6).map((s) => ({
+    // ★ THIS LIST IS TRUNCATED AND UNRANKED — SAY BOTH.
+    //
+    // Field report (ef-manager, echoes_of_the_fallen, 2026-08-09). `GpuMaterial`
+    // has 16 hits: ONE authoritative C++ declaration and 15 GLSL mirrors. This
+    // slice showed five shader copies and dropped the C++ declaration entirely,
+    // while graph_whereis ranked the C++ one first. An agent trusting this list
+    // would have gone and edited a shader copy.
+    //
+    // The cause is that `slice(0, 6)` is arrival order, not relevance — and the
+    // packet never said so, which is what made a wrong first entry read as the
+    // answer. Ranking properly belongs in graph_whereis, which already does it;
+    // duplicating a heuristic here would give two rankings that can disagree.
+    // So the packet states what it is: an unranked sample, with a pointer to the
+    // verb that ranks. Silence about truncation is the defect, not the truncation.
+    const SHOWN = 6;
+    const locItems = symHits.slice(0, SHOWN).map((s) => ({
       file: s.file, why: `${s.type || 'symbol'}${s.line ? ` @ line ${s.line}` : ''}`,
     }));
-    lines.push(renderListSection('DEFINED IN', clampList(locItems, 6), (x) => `${x.file} — ${x.why}`));
+    lines.push(renderListSection('DEFINED IN', clampList(locItems, SHOWN), (x) => `${x.file} — ${x.why}`));
+    if (symHits.length > 1) {
+      lines.push(
+        symHits.length > SHOWN
+          ? `  ⚠ UNRANKED, showing ${SHOWN} of ${symHits.length} — order is arrival, not relevance. `
+            + `graph_whereis(symbol="${symbol}") ranks them; do not treat the first entry here as the definition.`
+          : `  ⚠ UNRANKED (${symHits.length} matches) — order is arrival, not relevance. `
+            + `graph_whereis(symbol="${symbol}") ranks them.`,
+      );
+    }
     if (fileHits.length) {
       lines.push(renderListSection('ALSO IN', clampList(fileHits.map((f) => ({ file: f })), 6), (x) => x.file));
     }
