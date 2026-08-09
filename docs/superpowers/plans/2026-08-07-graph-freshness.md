@@ -374,8 +374,11 @@ passing is not sufficient evidence.
 - [ ] **Step 7: Run the full suite**
 
 Run: `npx vitest run`
-Expected: PASS. `tests/integration/install-hooks.test.js` is gone, so the total
-test count DROPS — verify the drop matches that file's 6 cases and nothing else.
+Expected: PASS with the total UNCHANGED. This task deletes a 6-case file and adds
+a 6-case file, so the net is zero — do not go hunting for a phantom regression.
+Verify component-wise instead: confirm the deleted file had exactly 6 top-level
+`it()` cases and the new one contributes 6. A silently-dropped test elsewhere
+would show as a net LOSS.
 
 - [ ] **Step 8: Commit**
 

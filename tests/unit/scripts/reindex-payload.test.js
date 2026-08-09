@@ -48,3 +48,35 @@ describe('the hook payload refreshes everything a reader depends on', () => {
     expect(existsSync(join(REPO, 'scripts/hooks/session-start-hint.mjs'))).toBe(true);
   });
 });
+
+describe('the hook log survives an early failure', () => {
+  it('a failing refresh still writes its FAILED line to the hook log', async () => {
+    // ★ THIS DOES NOT GUARD THE mkdir IN log(), AND IS NOT CLAIMED TO.
+    //
+    // It was written to. It passes with that mkdir removed, because ensureFresh
+    // creates `.aify-graph/` before anything that can throw — verified by running
+    // both variants against a non-existent repoRoot. A test that passes with and
+    // without the change under test is not a regression guard for that change,
+    // and calling it one is how this repo shipped two tests asserting the buggy
+    // invariant they were meant to catch.
+    //
+    // Kept for the PROPERTY it does guard, which is real and worth holding: a
+    // refresh that fails must leave a diagnostic behind. If ensureFresh's ordering
+    // ever changes so `.aify-graph/` is created later, this catches it.
+    const { mkdtempSync, existsSync, readFileSync, rmSync } = await import('node:fs');
+    const { execFileSync } = await import('node:child_process');
+    const { tmpdir } = await import('node:os');
+
+    // A directory with no .aify-graph/ and no git repo, so ensureFresh fails early.
+    const bare = mkdtempSync(join(tmpdir(), 'apg-earlyfail-'));
+    try {
+      execFileSync('node', [join(REPO, 'scripts', 'reindex.mjs'), bare, 'post-commit'],
+        { encoding: 'utf8', timeout: 120000, stdio: ['ignore', 'pipe', 'pipe'] });
+      const logPath = join(bare, '.aify-graph', 'hook.log');
+      expect(existsSync(logPath), 'hook.log written even though .aify-graph did not exist').toBe(true);
+      expect(readFileSync(logPath, 'utf8')).toMatch(/post-commit/);
+    } finally {
+      try { rmSync(bare, { recursive: true, force: true }); } catch { /* windows lock */ }
+    }
+  }, 150000);
+});
