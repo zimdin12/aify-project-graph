@@ -10,9 +10,11 @@
 // Best-effort: always exits 0. A reindex failure must never fail a git operation.
 import { join, resolve } from 'node:path';
 import { appendFileSync, mkdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../mcp/stdio/freshness/orchestrator.js';
 import { writeUnresolvedCategorization } from '../mcp/stdio/freshness/unresolved-categorization.js';
 import { generateBrief } from '../mcp/stdio/brief/generator.js';
+import { writeRefreshBreadcrumb, readRefreshBreadcrumb } from '../mcp/stdio/freshness/refresh-breadcrumb.js';
 
 const repoRoot = resolve(process.argv[2] || process.cwd());
 const trigger = process.argv[3] || 'manual';
@@ -39,6 +41,17 @@ function log(line) {
   } catch { /* logging must never be louder than the thing it records */ }
 }
 
+function head() {
+  try {
+    return execFileSync('git', ['-C', repoRoot, 'rev-parse', '--short', 'HEAD'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
+  } catch { return null; }
+}
+
+// `from` is where the graph stood BEFORE this refresh — the previous breadcrumb's
+// `to`, not the current HEAD, which has already moved by the time a hook runs.
+const from = readRefreshBreadcrumb(repoRoot)?.to ?? null;
+
 try {
   const started = Date.now();
   const result = await ensureFresh({ repoRoot });
@@ -49,9 +62,11 @@ try {
   log(`${result?.nodes ?? '?'}N/${result?.edges ?? '?'}E in ${reindexMs}ms; `
     + `briefs+categorization in ${totalMs - reindexMs}ms (total ${totalMs}ms); `
     + `categorization=${categorization?.total ?? '?'}`);
+  writeRefreshBreadcrumb(repoRoot, { trigger, from, to: head(), status: 'ok' });
   process.exit(0);
 } catch (err) {
   log(`FAILED: ${err?.message ?? err}`);
   console.error(`[aify-project-graph] reindex failed: ${err?.message ?? err}`);
+  writeRefreshBreadcrumb(repoRoot, { trigger, from, to: head(), status: 'failed', error: err?.message ?? String(err) });
   process.exit(0);
 }
