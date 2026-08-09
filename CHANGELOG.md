@@ -7,6 +7,54 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-08-09
+
+**Freshness becomes somebody's job.** Two repos measured at v0.4.0: `sand_castle`
+20 commits stale — its manager made zero graph calls in a full session and
+concluded the tool did not help — and `aify-project-graph` itself **130 commits**
+stale. Neither was an indexing bug. The refresh mechanism existed, had never been
+installed, and nothing reported its absence.
+
+Tracing that turned up worse. There were **two** post-commit hook installers with
+mutually-unrecognised markers, and the one documented in the README guarded on
+`[ -f "$REPO_ROOT/scripts/graph-reindex-hook.mjs" ]` — a file present only in
+APG's own tree. Installed into any user repo it exited immediately and did
+nothing, silently, forever. Every file-content check would have passed.
+
+- **Refresh runs on every git event that moves HEAD** — `post-commit`,
+  `post-merge`, `post-checkout`, `post-rewrite` — not just local commits.
+  `post-checkout` inspects git's third argument so file checkouts do not trigger
+  a reindex.
+- **One installer, one payload.** The surviving payload refreshes the graph
+  **and briefs and the unresolved categorization**. The narrow version would have
+  produced a fresh graph behind a stale brief while reporting healthy — and since
+  the session-start skill tells every agent to read `brief.agent.md` first, that
+  is a freshness mechanism certifying stale data.
+- **Outcomes are recorded, not discarded.** Hooks run backgrounded with
+  `>/dev/null 2>&1` and cannot report through an exit code, so each writes
+  `.aify-graph/last-refresh.json` plus an appended `hook.log`.
+- **`graph_health.refreshMechanism` reports a dead mechanism as `degraded`** —
+  including installed-but-never-observed. An un-hooked repo reads
+  `unconfigured`, not degraded: fail-closed applies to a mechanism that is
+  supposed to be running, not one that was never enabled. Hooks are counted by
+  MARKER, not by path, so a foreign or superseded hook is not mistaken for ours.
+- **Installation is documented setup**, in the README and every `install.*.md`,
+  stated as per-clone because `git clone` does not carry hooks.
+- **Auto-reindex is documented as the fallback** it always was — it refreshes on
+  the read path, which means blocking.
+
+Rejected during design, recorded so they are not re-proposed: a shared language
+server (measured — clangd instances already share the on-disk background index),
+cross-process watcher election (an owner that dies reintroduces silent staleness
+as a distributed-systems problem), and one service per directory (its benefit
+addresses a measured non-problem — 429 MB across 6 processes, 0.45% of RAM —
+while making a long-lived stale-code-serving process the default architecture).
+
+Verified on this repo, which was the 130-commit case: the hooks fired on
+`post-commit` and `post-rewrite`, regenerated briefs, chained `from`→`to` across
+commits, and moved `refreshMechanism` from `unconfigured` through `degraded` to
+`ok`.
+
 ## [0.4.0] — 2026-08-07
 
 **The release where the tool stops trusting silence.** v0.3.0 shipped with a
