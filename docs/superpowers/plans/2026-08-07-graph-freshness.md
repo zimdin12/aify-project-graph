@@ -172,6 +172,230 @@ git commit -m "feat(hooks): reindex on every git event that moves HEAD, not just
 
 ---
 
+### Task 1b: Consolidate to ONE installer and ONE complete refresh payload
+
+**Added after Task 1**, from a finding by Task 1's implementer plus a trace that
+followed it. Not in the original spec — see the rationale below, which is the
+whole justification for the task.
+
+**The finding.** This repo has TWO independent post-commit hook installers with
+mutually-unrecognised markers, and **each has half of the right answer**:
+
+| | `install-hooks.mjs` (documented in README) | `install-graph-hook.mjs` (Task 1) |
+|---|---|---|
+| works in a repo that is not APG | **NO** — its template guards on `[ -f "$REPO_ROOT/scripts/graph-reindex-hook.mjs" ] \|\| exit 0`, and that file exists only in APG's own tree. Installed into any user repo it exits immediately and does nothing, silently, forever. | YES — absolute path to the APG clone |
+| refresh payload | **graph + unresolved-categorization + BRIEFS** | graph only |
+| logging | `.aify-graph/hook.log` | `/dev/null` |
+
+**Why the payload difference is the dangerous half.** The session-start skill
+instructs every agent to read `.aify-graph/brief.agent.md` FIRST. `graph_health`
+tracks brief and categorization staleness *separately* from graph staleness — on
+this repo today both report stale while the graph is being reindexed. A hook that
+runs `reindex.mjs` alone produces a fresh graph, stale briefs, and a refresh
+mechanism reporting `ok`: **a freshness mechanism that certifies stale data.**
+That is worse than no hook, and it is the exact failure class v0.5.0 exists to
+remove. Task 2's breadcrumb would have made it look healthy.
+
+No compatibility burden: only Sand Castle uses APG, and it has zero hooks
+installed, so there is nothing deployed to migrate.
+
+**Files:**
+- Modify: `scripts/reindex.mjs` (absorb the complete payload)
+- Delete: `scripts/install-hooks.mjs`, `scripts/hooks/post-commit`, `scripts/graph-reindex-hook.mjs`
+- Delete: `tests/integration/install-hooks.test.js`
+- Test: `tests/unit/scripts/reindex-payload.test.js`
+- Do NOT touch `scripts/hooks/session-start-hint.mjs` — despite its directory, it is a Claude Code SessionStart hook, unrelated to git.
+
+**Interfaces:**
+- Consumes: `AIFY_HOOKS` from Task 1.
+- Produces: `scripts/reindex.mjs` as the single hook payload entry, invoked as
+  `node reindex.mjs <repoRoot> <trigger>`. Task 2 extends this same file.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `tests/unit/scripts/reindex-payload.test.js`:
+
+```js
+// A hook that refreshes the graph but not the briefs is worse than no hook: the
+// session-start skill tells every agent to read brief.agent.md FIRST, so the
+// result is fresh graph + stale brief + a mechanism reporting ok. graph_health
+// tracks briefStaleVsManifest and unresolvedCategorizationStaleVsManifest
+// separately from graph staleness precisely because they can diverge.
+import { describe, it, expect } from 'vitest';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+const REPO = join(import.meta.dirname, '..', '..', '..');
+const src = readFileSync(join(REPO, 'scripts', 'reindex.mjs'), 'utf8');
+
+describe('the hook payload refreshes everything a reader depends on', () => {
+  it('refreshes the graph', () => {
+    expect(src).toMatch(/ensureFresh/);
+  });
+
+  it('★ regenerates briefs — agents read these before anything else', () => {
+    expect(src).toMatch(/generateBrief/);
+  });
+
+  it('★ refreshes the unresolved categorization', () => {
+    expect(src).toMatch(/writeUnresolvedCategorization/);
+  });
+
+  it('never fails the git operation', () => {
+    // Backgrounded hooks cannot report through an exit code anyway, but an
+    // uncaught throw would still print to the hook log and confuse the reader.
+    expect(src).toMatch(/process\.exit\(0\)/);
+  });
+
+  it('the superseded installers and payload are gone', () => {
+    // Two installers with two markers fighting over .git/hooks/post-commit is
+    // the two-sources-of-truth pattern that produced most of this repo's
+    // defects. One job, one mechanism.
+    for (const dead of [
+      'scripts/install-hooks.mjs',
+      'scripts/hooks/post-commit',
+      'scripts/graph-reindex-hook.mjs',
+    ]) {
+      expect(existsSync(join(REPO, dead)), `${dead} deleted`).toBe(false);
+    }
+  });
+
+  it('the unrelated SessionStart hook survives', () => {
+    // Same directory, completely different mechanism. Deleting it would remove
+    // the managed-session discoverability nudge.
+    expect(existsSync(join(REPO, 'scripts/hooks/session-start-hint.mjs'))).toBe(true);
+  });
+});
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `npx vitest run tests/unit/scripts/reindex-payload.test.js`
+Expected: FAIL — `generateBrief` and `writeUnresolvedCategorization` absent from `reindex.mjs`; the three dead files still exist.
+
+- [ ] **Step 3: Absorb the complete payload into reindex.mjs**
+
+Replace `scripts/reindex.mjs` entirely:
+
+```js
+// scripts/reindex.mjs — the single payload for the aify git refresh hooks.
+// Usage: node scripts/reindex.mjs <repoRoot> [trigger]
+//
+// Refreshes EVERYTHING a reader depends on, not just the graph. The session-start
+// skill tells agents to read .aify-graph/brief.agent.md first, and graph_health
+// tracks brief + categorization staleness separately from graph staleness — so a
+// payload that reindexed the graph alone would leave a fresh graph behind a stale
+// brief while reporting success.
+//
+// Best-effort: always exits 0. A reindex failure must never fail a git operation.
+import { resolve } from 'node:path';
+import { appendFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ensureFresh } from '../mcp/stdio/freshness/orchestrator.js';
+import { writeUnresolvedCategorization } from '../mcp/stdio/freshness/unresolved-categorization.js';
+import { generateBrief } from '../mcp/stdio/brief/generator.js';
+
+const repoRoot = resolve(process.argv[2] || process.cwd());
+const trigger = process.argv[3] || 'manual';
+
+// Appended history, complementary to the breadcrumb Task 2 adds: the breadcrumb
+// answers "what happened last time", the log answers "has this been failing for
+// a week". Inherited from the installer this task supersedes, which had it right.
+function log(line) {
+  try {
+    appendFileSync(join(repoRoot, '.aify-graph', 'hook.log'),
+      `[${new Date().toISOString()}] ${trigger}: ${line}\n`, 'utf8');
+  } catch { /* logging must never be louder than the thing it records */ }
+}
+
+try {
+  const started = Date.now();
+  const result = await ensureFresh({ repoRoot });
+  const reindexMs = Date.now() - started;
+  generateBrief({ repoRoot });
+  const categorization = await writeUnresolvedCategorization({ repoRoot });
+  const totalMs = Date.now() - started;
+  log(`${result?.nodes ?? '?'}N/${result?.edges ?? '?'}E in ${reindexMs}ms; `
+    + `briefs+categorization in ${totalMs - reindexMs}ms (total ${totalMs}ms); `
+    + `categorization=${categorization?.total ?? '?'}`);
+  process.exit(0);
+} catch (err) {
+  log(`FAILED: ${err?.message ?? err}`);
+  console.error(`[aify-project-graph] reindex failed: ${err?.message ?? err}`);
+  process.exit(0);
+}
+```
+
+- [ ] **Step 4: Delete the superseded mechanism**
+
+```bash
+git rm scripts/install-hooks.mjs scripts/hooks/post-commit scripts/graph-reindex-hook.mjs tests/integration/install-hooks.test.js
+```
+
+Confirm `scripts/hooks/session-start-hint.mjs` still exists — it shares the
+directory and is NOT a git hook:
+
+```bash
+ls scripts/hooks/
+```
+Expected: `session-start-hint.mjs` only.
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `npx vitest run tests/unit/scripts/reindex-payload.test.js`
+Expected: PASS (6 tests).
+
+- [ ] **Step 6: Prove the payload actually runs — the assertions above are only greps**
+
+The test greps source text. Run it for real against a temp git repo:
+
+```bash
+node -e "
+const {execFileSync}=require('child_process');
+const {mkdtempSync,writeFileSync,existsSync,readFileSync}=require('fs');
+const {join}=require('path');const {tmpdir}=require('os');
+const r=mkdtempSync(join(tmpdir(),'apg-payload-'));
+const git=(...a)=>execFileSync('git',['-C',r,...a],{stdio:'ignore'});
+git('init','-q');git('config','user.email','t@t');git('config','user.name','t');
+writeFileSync(join(r,'a.js'),'export function a(){return 1;}\n');
+git('add','-A');git('commit','-q','-m','first');
+execFileSync('node',[join(process.cwd(),'scripts','reindex.mjs'),r,'post-commit'],{stdio:'inherit',timeout:180000});
+for(const f of ['brief.agent.md','graph.sqlite','hook.log']){
+  console.log('  '+f+': '+(existsSync(join(r,'.aify-graph',f))?'present':'MISSING'));
+}
+console.log(readFileSync(join(r,'.aify-graph','hook.log'),'utf8').trim());
+"
+```
+Expected: `brief.agent.md`, `graph.sqlite` and `hook.log` all present, and a log
+line naming node/edge counts. **If `brief.agent.md` is missing, the payload did
+not regenerate briefs and this task has failed its purpose** — the grep test
+passing is not sufficient evidence.
+
+- [ ] **Step 7: Run the full suite**
+
+Run: `npx vitest run`
+Expected: PASS. `tests/integration/install-hooks.test.js` is gone, so the total
+test count DROPS — verify the drop matches that file's 6 cases and nothing else.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add -A
+git commit -m "fix(hooks): one installer, one payload — and the payload refreshes briefs too
+
+Two installers with mutually-unrecognised markers fought over
+.git/hooks/post-commit, and the README documented the one that silently no-ops
+in any repo that is not APG itself (its template guards on a file only APG has).
+
+The surviving installer had the wrong payload: it reindexed the graph but not
+briefs or the unresolved categorization, which graph_health tracks separately
+because they diverge. Since the session-start skill tells agents to read
+brief.agent.md first, that combination is a fresh graph behind a stale brief with
+the mechanism reporting ok — a freshness mechanism certifying stale data."
+```
+
+---
+
 ### Task 2: Write a refresh breadcrumb instead of discarding the outcome
 
 **Files:**
@@ -312,24 +536,24 @@ export function readRefreshBreadcrumb(repoRoot) {
 Run: `npx vitest run tests/unit/freshness/refresh-breadcrumb.test.js`
 Expected: PASS (6 tests).
 
-- [ ] **Step 5: Wire reindex.mjs to write the breadcrumb**
+- [ ] **Step 5: Add breadcrumb writing to reindex.mjs**
 
-Replace `scripts/reindex.mjs` entirely:
+⚠ **Do NOT replace the file.** Task 1b made `reindex.mjs` refresh briefs and the
+unresolved categorization as well as the graph; overwriting it with a graph-only
+version silently undoes that and reintroduces the exact defect Task 1b removed —
+a fresh graph behind a stale brief, reported as healthy. Make three additions to
+the file Task 1b produced.
+
+**(a)** Add to the imports:
 
 ```js
-// scripts/reindex.mjs — incremental reindex entry for the aify git hooks.
-// Usage: node scripts/reindex.mjs <repoRoot> [trigger]
-// Best-effort: never throws out and always exits 0 — a reindex failure must
-// never fail a git operation. The outcome goes to the breadcrumb instead, which
-// is the only channel a backgrounded `>/dev/null 2>&1` hook has left.
 import { execFileSync } from 'node:child_process';
-import { ensureFresh } from '../mcp/stdio/freshness/orchestrator.js';
-import { writeRefreshBreadcrumb } from '../mcp/stdio/freshness/refresh-breadcrumb.js';
-import { readRefreshBreadcrumb } from '../mcp/stdio/freshness/refresh-breadcrumb.js';
+import { writeRefreshBreadcrumb, readRefreshBreadcrumb } from '../mcp/stdio/freshness/refresh-breadcrumb.js';
+```
 
-const repoRoot = process.argv[2] || process.cwd();
-const trigger = process.argv[3] || 'manual';
+**(b)** Add after the `log()` helper:
 
+```js
 function head() {
   try {
     return execFileSync('git', ['-C', repoRoot, 'rev-parse', '--short', 'HEAD'],
@@ -337,22 +561,31 @@ function head() {
   } catch { return null; }
 }
 
-// `from` is where the graph was BEFORE this refresh, which is the previous
-// breadcrumb's `to` when we have one — not the current HEAD, which has already moved.
+// `from` is where the graph stood BEFORE this refresh — the previous breadcrumb's
+// `to`, not the current HEAD, which has already moved by the time a hook runs.
 const from = readRefreshBreadcrumb(repoRoot)?.to ?? null;
-
-ensureFresh({ repoRoot }).then(
-  (r) => {
-    writeRefreshBreadcrumb(repoRoot, { trigger, from, to: head(), status: 'ok' });
-    console.log(`[aify-project-graph] reindexed ${repoRoot}: ${r?.nodes ?? '?'} nodes`);
-  },
-  (e) => {
-    writeRefreshBreadcrumb(repoRoot, { trigger, from, to: head(), status: 'failed', error: e?.message ?? String(e) });
-    console.error(`[aify-project-graph] reindex failed: ${e?.message ?? e}`);
-    process.exit(0);
-  },
-);
 ```
+
+**(c)** Add one `writeRefreshBreadcrumb` call in each branch of the existing
+try/catch, immediately before its `process.exit(0)`:
+
+In the `try`, after the `log(...)` call:
+```js
+  writeRefreshBreadcrumb(repoRoot, { trigger, from, to: head(), status: 'ok' });
+```
+
+In the `catch`, after the `log(...)` call:
+```js
+  writeRefreshBreadcrumb(repoRoot, { trigger, from, to: head(), status: 'failed', error: err?.message ?? String(err) });
+```
+
+- [ ] **Step 5b: Confirm Task 1b's payload survived the edit**
+
+Run: `npx vitest run tests/unit/scripts/reindex-payload.test.js`
+Expected: PASS (6 tests). This is the guard against (a) being done as a wholesale
+replace. If `generateBrief` or `writeUnresolvedCategorization` assertions fail,
+you replaced the file instead of extending it — restore Task 1b's version and
+re-apply the three additions.
 
 - [ ] **Step 6: Run the whole freshness suite**
 
@@ -699,6 +932,30 @@ describe('refresh hooks are documented as setup', () => {
 Run: `npx vitest run tests/unit/integrations/refresh-docs-parity.test.js`
 Expected: FAIL — no doc mentions `install-graph-hook.mjs`.
 
+- [ ] **Step 2b: Remove the README's reference to the installer Task 1b deleted**
+
+`README.md` around line 307 documents the superseded installer:
+
+```
+node scripts/install-hooks.mjs <repoRoot>          # install
+node scripts/install-hooks.mjs <repoRoot> --remove # uninstall
+```
+
+That file no longer exists. Delete those lines and the prose around them that
+describes them; the replacement is added in Step 3. Also update
+`docs/known-limitations.md` around line 81, which describes the old single
+`post-commit` hook — it should now say four hooks and name the surviving
+installer.
+
+Verify nothing else still points at the deleted files:
+
+```bash
+grep -rn "install-hooks.mjs\|graph-reindex-hook\|scripts/hooks/post-commit" \
+  README.md install.*.md docs/known-limitations.md 2>/dev/null
+```
+Expected: no output. CHANGELOG.md hits are historical and must stay — a changelog
+describes what happened, not what currently exists.
+
 - [ ] **Step 3: Add the install step to README.md**
 
 In the numbered install procedure, insert as a new step after the skills-copy step:
@@ -1032,6 +1289,8 @@ Expected: `v0.5.0`
 | spec requirement | task |
 |---|---|
 | Extend hooks to post-merge/post-checkout/post-rewrite | Task 1 |
+| *(not in spec — found during Task 1)* consolidate two competing installers | Task 1b |
+| *(not in spec — found during Task 1)* payload must refresh briefs + categorization, not just the graph | Task 1b |
 | `post-checkout` third-argument guard | Task 1, step 1 + 3 |
 | Breadcrumb `.aify-graph/last-refresh.json` with the specified shape | Task 2 |
 | `graph_health` reports degraded on failure | Task 3 |
