@@ -688,6 +688,7 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   // line preserving the original target.
   let matchedViaSymbol = null;
   let symbolConsequences = null; // retained for the graceful degrade path below
+  let featureLookupTimedOut = false; // a timeout must never be rendered as "not found"
   if (!parsed.kind && !resolvedFeature && !resolvedTask) {
     const { graphConsequences } = await import('./consequences.js');
     let mapped;
@@ -696,6 +697,26 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
         graphConsequences({ repoRoot, target: parsed.value }),
         LIVE_BUDGET_MS,
       );
+      if (raw && raw.__timeout) {
+        // ★ A TIMEOUT IS NOT AN ABSENCE.
+        //
+        // Root-caused 2026-08-09 from ef-manager: graph_packet("SimCoordinator")
+        // on echoes returned ERROR: not found as feature, task, or symbol — while
+        // graph_consequences on the SAME symbol, overlay and process resolved it
+        // to TWO features. Measured: consequences takes 601ms on a 3958-node repo
+        // and 4316ms on a 12126-node one. The budget here is 2000ms.
+        //
+        // So on any repo large enough to matter, the lookup timed out and the
+        // packet reported the symbol as NOT FOUND. That is a latency fact rendered
+        // as a fact about the code — the exact substitution this whole project
+        // exists to remove, sitting in the flagship orientation verb.
+        //
+        // It also explains the count inversion ef-manager measured: a UNIQUE match
+        // runs the full computation and blows the budget, while AMBIGUOUS matches
+        // return early and cheap. Not inverted on count — inverted on COST. The
+        // cleanest input takes the most expensive path.
+        featureLookupTimedOut = true;
+      }
       if (raw && !raw.__timeout) {
         // graphConsequences returns an object directly (not a JSON string),
         // unlike some other verbs. Handle both shapes defensively.
@@ -732,6 +753,27 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       snapshot,
     });
     if (symbolPacket) return symbolPacket;
+  }
+
+  // ★ TIMED OUT ≠ NOT FOUND. Say which one happened.
+  //
+  // Before this, a lookup that blew the 2000ms budget fell through to the same
+  // ERROR as a symbol the graph has never heard of. A reader cannot act on that:
+  // "not found" invites you to conclude the symbol does not exist, when in fact
+  // it may map to several features and the tool simply ran out of time.
+  if (!resolvedFeature && !resolvedTask && featureLookupTimedOut) {
+    return renderLines([
+      `SYMBOL: ${parsed.value}`,
+      'STATUS: feature lookup TIMED OUT — this is NOT "symbol not found"',
+      snapshot,
+      `  The symbol→feature lookup exceeded its ${LIVE_BUDGET_MS}ms budget. On large`,
+      '  repos this is expected: the lookup runs a full cross-layer traversal.',
+      '  NOTHING here says the symbol is absent or unmapped — only that this verb',
+      '  could not finish in time. Do not read it as an absence.',
+      `NEXT: graph_consequences(target="${parsed.value}") — the same lookup, unbudgeted; it is what timed out here`,
+      `NEXT: graph_whereis(symbol="${parsed.value}") — cheapest way to locate it`,
+      'NEXT: graph_packet(target="feature:<id>") — if graph_consequences names a feature, ask for it directly',
+    ]);
   }
 
   if (!resolvedFeature && !resolvedTask) {
