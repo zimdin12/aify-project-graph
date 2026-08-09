@@ -69,19 +69,24 @@ edit) want a fresh index. Three tiers, cheapest first:
    first read after commits land, and a full rebuild (schema/extractor
    bump) still drops `[lsp✓]` edges (see below). Best default for
    managed workers who can't call `graph_index` themselves.
-2. **Proactive git hook (supported installer).** For teams that would
-   rather pay refresh cost at commit time than read time, install the
-   backgrounded `post-commit` reindex hook:
+2. **Proactive git hooks (the supported installer).** For teams that would
+   rather pay refresh cost when HEAD moves than at read time, install the
+   backgrounded reindex hooks:
 
    ```sh
    node /abs/path/to/aify-project-graph/scripts/install-graph-hook.mjs /abs/path/to/target-repo
    ```
 
-   It writes an idempotent, aify-delimited block into the target repo's
-   `.git/hooks/post-commit` (preserving any existing hook content) that
-   runs `scripts/reindex.mjs` backgrounded, so commits stay instant and
-   the next read sees a fresh graph. Re-running replaces the block rather
-   than duplicating it.
+   It writes an idempotent, aify-delimited block into **all four** of the
+   target repo's HEAD-moving hooks — `post-commit`, `post-merge`,
+   `post-checkout`, `post-rewrite` — preserving any existing hook content.
+   Each runs `scripts/reindex.mjs` backgrounded (graph + briefs +
+   unresolved categorization), so git operations stay instant and the next
+   read sees a fresh graph. `post-commit` alone would miss pulls, branch
+   switches and rebases. Re-running replaces the block rather than
+   duplicating it. Hooks are per-clone: `git clone` does not carry them.
+   Check `graph_health` → `refreshMechanism.state` to see whether the
+   mechanism is actually running.
 3. **Manual.** `graph_index()` on demand — fine for low-velocity repos
    or when you want explicit control.
 

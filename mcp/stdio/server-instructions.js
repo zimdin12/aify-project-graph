@@ -84,7 +84,7 @@ KNOWN LIMITS (don't burn calls on these — read the code instead):
 ORIENTATION (3 shapes, they compose): graph_packet mode:orient = one symbol/feature deep; graph_onboard = flat brief (entrypoints/key files/read order); graph_tour = ordered N-step walk of the whole repo. GROUPING terms: community = algorithmic cluster (leiden); archetype = its named purpose (Physics/Rendering — heuristic, orientation-only, never a trust basis); layer = curated overlay (truth when present).
 
 FRESHNESS:
-- If a response says "graph stale", run graph_index first (or set APG_AUTO_REINDEX=1 for auto-refresh).
+- If a response says "graph stale", run graph_index first. Check graph_health.refreshMechanism: \`unconfigured\` means no hook refreshes this repo (install-graph-hook.mjs); \`degraded\` means the mechanism is installed but failing, so staleness will RECUR until fixed.
 - A stale "not found" is NOT proof a symbol is gone — re-run after indexing. The graph self-heals on
   read when APG_AUTO_REINDEX is set; otherwise refresh manually with graph_index.
 - AFTER ANY FULL REBUILD, RE-COLLECT. graph_index(force=true) — and any rebuild triggered by a schema/extractor bump — DELETES the [lsp✓] trust spine. It is restored automatically only when the stored collection's commit still equals HEAD; once HEAD has moved it CANNOT be (re-stamping shifted line numbers as "verified" would be a lie). Measured on a real repo: a reindex left 0 verified edges of 17544 CALLS, so every caller answer silently became heuristic-only and nothing could attest exhaustiveness. When graph_index returns trustSpineDropped / nextAction, or graph_health says "trust spine EMPTY", run graph_collect_code_intel before trusting any absence claim.

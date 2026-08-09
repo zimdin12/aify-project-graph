@@ -102,6 +102,16 @@ done
 
 The skills are available after the MCP server is registered in Step 2. They cover the same workflows as the Claude Code set: `graph-build-all`, `graph-build-briefs`, `graph-build-functionality`, `graph-build-tasks`, `graph-feature-edit`, `graph-task-edit`, `graph-anchor-drift`, `graph-pull-context`, `graph-walk-bugs`, `graph-dashboard`, and `graph-guide`. Codex doesn't expose them as slash commands the same way Claude Code does, but the agent reads them when relevant tasks come up.
 
+## Step 3b — install the refresh hooks
+
+Hooks are per-clone and are NOT carried by `git clone` — install them in each repo you work in, on each machine:
+
+```bash
+node "$CLONE_PATH/scripts/install-graph-hook.mjs" /path/to/your/repo
+```
+
+Verify with `graph_health` → `refreshMechanism.state` should read `ok` after your next commit. `unconfigured` means the hooks are absent; `degraded` means they are installed but the last refresh failed or has never run.
+
 ## Step 4 — tell the user to restart
 
 Tell the user (paraphrase is fine):

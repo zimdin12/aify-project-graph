@@ -125,6 +125,16 @@ for dir in "$CLONE_PATH/integrations/cursor/skills"/*/; do
 done
 ```
 
+## Step 4b — install the refresh hooks
+
+Hooks are per-clone and are NOT carried by `git clone` — install them in each repo you work in, on each machine:
+
+```bash
+node "$CLONE_PATH/scripts/install-graph-hook.mjs" /path/to/your/repo
+```
+
+Verify with `graph_health` → `refreshMechanism.state` should read `ok` after your next commit. `unconfigured` means the hooks are absent; `degraded` means they are installed but the last refresh failed or has never run.
+
 ## Step 5 — tell the user to restart
 
 Tell the user (paraphrase is fine):

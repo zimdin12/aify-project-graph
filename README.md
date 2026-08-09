@@ -301,14 +301,9 @@ node scripts/graph-brief.mjs <repoRoot>
 
 Rebuilds all five briefs + reads `functionality.json` + `tasks.json` if present. User-curated files (`functionality.json`, `tasks.json`) are preserved across full graph rebuilds (`bench-rebuild.mjs`).
 
-### Auto-reindex on commit (optional)
+### Auto-refresh when HEAD moves
 
-```bash
-node scripts/install-hooks.mjs <repoRoot>          # install
-node scripts/install-hooks.mjs <repoRoot> --remove # uninstall
-```
-
-Installs a git `post-commit` hook that runs `ensureFresh` + regenerates briefs in the background after every commit. The hook returns immediately so commits stay fast; reindex output lands in `.aify-graph/hook.log`. Idempotent — re-running replaces our own hook. Refuses to overwrite a foreign `post-commit` hook unless you pass `--force`.
+See step 5 of [Install](#install) — `scripts/install-graph-hook.mjs` installs the refresh hooks that keep the graph (and the briefs) current without anyone choosing to.
 
 ## Install
 
@@ -332,7 +327,14 @@ Under the hood each install doc does the same thing:
    - Hermes: `hermes mcp add` CLI form, or YAML-patch `$HERMES_HOME/config.yaml` (default `~/.hermes/config.yaml`) → `mcp_servers.aify-project-graph` — then ALSO add `mcp-aify-project-graph` to `platform_toolsets.cli` or the tools stay filtered out of CLI/managed sessions (see `install.hermes.md` Step 2b). Server stanza is runtime-agnostic.
    - Cursor: JSON-patch `~/.cursor/mcp.json` → `mcpServers.aify-project-graph` + optional `.cursor/rules/aify-graph.mdc`
 4. Copies skills to the runtime's skill dir — Claude Code: `integrations/claude-code/skill{,s}/` → `~/.claude/skills/`; Codex: `integrations/codex/skill{,s}/` → `~/.codex/skills/`; Hermes: `integrations/hermes/skill{,s}/` → **`$HERMES_HOME/skills/` — resolve `$HERMES_HOME`, do not assume it.** Measured on a real Windows install it was `%LOCALAPPDATA%\hermes`, while a plausible-looking `~/.hermes` also existed and was never read. `echo "$HERMES_HOME"` first; the live home is the one whose `config.yaml` holds a server you know works. OpenCode skips; MCP verb descriptions carry the guidance there.
-5. User restarts the runtime
+5. **Installs the refresh hooks** (per clone — `git clone` does NOT carry hooks, so this is per-machine setup):
+
+   ```bash
+   node <CLONE_PATH>/scripts/install-graph-hook.mjs <targetRepoRoot>
+   ```
+
+   Installs 4 refresh hooks — `post-commit`, `post-merge`, `post-checkout`, `post-rewrite` — each running a backgrounded incremental reindex when HEAD moves. Without this, keeping the graph current is nobody's job: two repos measured 2026-08-07 had drifted 20 and 130 commits behind with nobody aware. `graph_health` reports `refreshMechanism.state` so you can tell whether it is actually running.
+6. User restarts the runtime
 
 **Lean profile** (`--toolset=lean`) exposes 6 visible verbs on `tools/list` (`graph_packet`, `graph_consequences`, `graph_pull`, `graph_change_plan`, `graph_health`, `graph_watch`). The other verbs stay callable by name via `tools/call` — hiding them from the manifest cuts Codex/OpenCode tool-surface tax without losing functionality. Claude Code uses the **focused `default` profile** (17 verbs), not `full`; legacy orient aliases and the analytics/code-intel long tail stay hidden from `tools/list` and remain callable by name. `graph_packet` is the one-shot context primitive: feature/task targets read overlay+brief JSON directly with no freshness rebuild; bare symbol targets may use one budgeted lookup to map symbol→feature. Pass `mode=orient|plan|debug|review|audit|verify` to shape the packet for the workflow, then escalate to `graph_consequences`/`graph_change_plan` when packet's coarse view loses the depth you need.
 
