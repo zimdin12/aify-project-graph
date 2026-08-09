@@ -141,7 +141,21 @@ export function serverBuildInfo() {
         // sessions: blocked, correctly refused to measure the old build, and had
         // no action available. (2026-08-09)
         + ' NOTE: an agent cannot self-restart this server — ask your operator to'
-        + ' reconnect MCP or relaunch the session.',
+        + ' reconnect MCP (/mcp) or relaunch the CLI. A session-level restart may'
+        + ' cycle the agent worker WITHOUT respawning this MCP child.'
+        // ★ AND GIVE THEM THE FIELD THAT ANSWERS "DID THE RESTART WORK".
+        //
+        // `commit` cannot answer it. After a failed restart it reads the same as
+        // after a successful restart that happened to load the same code — so a
+        // reader who checks `commit` retries the same action and re-reads the same
+        // hash. Measured: ef-manager's startedAt held at 15:37:34.353Z across seven
+        // hours, three commits and one restart attempt, which proved the process
+        // had never cycled. That is the discriminator, and I had told them to check
+        // the wrong field.
+        + ` PROCESS STARTED: ${PROCESS_STARTED_AT} — if you just restarted and this`
+        + ' timestamp is unchanged, the restart did not reach this process. Check'
+        + ' THIS, not the commit: an unsuccessful restart and a restart onto the'
+        + ' same commit are indistinguishable by commit alone.',
     } : {}),
   };
   return { ..._immutable, ..._verdict };
