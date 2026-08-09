@@ -26,9 +26,50 @@ describe('receipts default to the head, body is opt-in', () => {
     expect(read('query/verbs/consequences.js')).toMatch(/receiptFor\(buildReceipt\(/);
   });
 
-  it("receiptFor returns the head unless mode is 'full'", () => {
-    const r = read('query/receipt.js');
-    expect(r).toMatch(/return mode === 'full' \? receipt : receiptHead\(receipt\)/);
+  it('receiptFor tiers by mode: signals < head < full', async () => {
+    // Was a grep for one literal source line, which broke the moment a THIRD
+    // (cheaper) tier was added below the head — even though that change made the
+    // property it cared about strictly more true. Asserting the behaviour instead:
+    // the grep could not tell "the default got cheaper" from "the default broke".
+    const { receiptFor } = await import('../../../mcp/stdio/query/receipt.js');
+    const fixture = {
+      id: 'rcpt_test', receipt_version: 1,
+      replay: { verb: 'graph_consequences', args: { target: 'X' } },
+      pinned_inputs: { repo_commit: 'a', indexed_commit: 'a' },
+      claims: [{ field: 'callers', basis: 'CALLS edge' }],
+      floor: { exhaustive: true, cause: null },
+      disconfirming_test: 'rg -n "X" -- src/',
+    };
+
+    const signals = receiptFor(fixture, undefined);
+    const head = receiptFor(fixture, 'head');
+    const full = receiptFor(fixture, 'full');
+
+    // The property being defended is that THE DEFAULT IS THE CHEAPEST — that is
+    // what every caller pays. head-vs-full ordering is deliberately not asserted:
+    // `full` returns the receipt as-is while `head` DERIVES an object carrying a
+    // ~100-token body_note, so on a receipt with few claims the head is legitimately
+    // larger. Asserting an order that does not hold would be a test encoding a
+    // wrong belief, which this repo has shipped twice.
+    const size = (o) => JSON.stringify(o).length;
+    expect(size(signals), 'default is cheaper than head').toBeLessThan(size(head));
+    expect(size(signals), 'default is cheaper than full').toBeLessThan(size(full));
+
+    // ★ The default must keep the two fields that changed decisions in the field:
+    // ef-manager reversed a published deletion-safety verdict on `exhaustive`
+    // alone, and both managers cited disconfirming_test by name. A cheaper default
+    // that dropped these would be a quality cut wearing a cost-cut label.
+    expect(signals.exhaustive).toBe(true);
+    expect(signals.disconfirming_test).toBe(fixture.disconfirming_test);
+
+    // And it must name the way back, so a trimmed receipt is distinguishable from
+    // a build that never produced one.
+    expect(signals.full_receipt).toMatch(/receipt:"head"|receipt:"full"/);
+
+    // The apparatus belongs to the opt-in tiers only.
+    expect(signals.replay, 'replay args are not in the default').toBeUndefined();
+    expect(head.replay, 'head carries replay args').toBeTruthy();
+    expect(full.claims, 'full carries per-claim provenance').toBeTruthy();
   });
 });
 

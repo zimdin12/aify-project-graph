@@ -277,9 +277,48 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
  *
  * Pass mode='full' when you actually need the per-claim provenance.
  */
+// ★ THE DEFAULT CARRIES THE TRUST SIGNALS, NOT THE VALIDATION APPARATUS.
+//
+// Measured 2026-08-09 on a real graph_consequences call: the receipt head was 369
+// tokens in a response whose actual answer — matched + features_touching — was 66.
+// Split by what the fields DO:
+//
+//   trust signals        96 tok   exhaustive, floor_cause, disconfirming_test
+//   validation apparatus 273 tok  id, replay, pinned_inputs, claims_digest,
+//                                 body_note (102 tok of instructions for using a
+//                                 receipt the caller did not ask for)
+//
+// The signals are what actually changed decisions in the field: ef-manager reversed
+// a published deletion-safety verdict on `exhaustive` alone — cold and warm returned
+// the SAME six results, only the attestation differed — and both managers cited
+// disconfirming_test by name. The apparatus serves a different job: letting a SECOND
+// agent replay and refute the claim. That job is real and rarer than every call.
+//
+// So the default is the signals, and the apparatus is one parameter away. This is
+// not a quality cut — nothing that ever changed a decision is being removed.
 export function receiptFor(receipt, mode) {
   if (!receipt) return null;
-  return mode === 'full' ? receipt : receiptHead(receipt);
+  if (mode === 'full') return receipt;
+  if (mode === 'head') return receiptHead(receipt);
+  return receiptSignals(receipt);
+}
+
+/**
+ * The cheap default: only the fields a reader uses to decide whether to TRUST the
+ * answer in front of them. Anything needed to hand the claim to another agent
+ * lives in the head/full forms.
+ */
+export function receiptSignals(receipt) {
+  if (!receipt) return null;
+  return {
+    exhaustive: receipt.floor?.exhaustive === true,
+    ...(receipt.floor?.cause ? { floor_cause: receipt.floor.cause } : {}),
+    ...(receipt.disconfirming_test ? { disconfirming_test: receipt.disconfirming_test } : {}),
+    // Without this line the reader cannot tell a trimmed receipt from a build that
+    // never produced one — the absent-vs-false ambiguity this codebase keeps
+    // rediscovering. Name the way back.
+    full_receipt: 'pass receipt:"head" for pins + replay args, or receipt:"full" for per-claim provenance',
+  };
 }
 
 export function receiptHead(receipt) {

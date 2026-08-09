@@ -499,6 +499,23 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         distinct_nodes_mentioned: d.mention_count,
       }));
 
+    // ★ A ONE- OR TWO-NODE MENTION IS NOISE, BUT DROPPING IT SILENTLY IS WORSE.
+    //
+    // Measured (ef-manager, 2026-08-09): 14 entries, 10 of them with ≤2 distinct
+    // nodes mentioned — a long tail of documents that happen to name one symbol,
+    // in a response the reader was skimming for two fields.
+    //
+    // So the tail is filtered, and the filtering ANNOUNCES ITSELF. A quietly
+    // shortened list is indistinguishable from a short one, which is the defect
+    // this codebase keeps finding in itself; a reader who needs the tail has to be
+    // able to see that it existed and how to get it back.
+    const DOC_MENTION_FLOOR = 3;
+    const docsStrong = documentsMentioning.filter((d) => (d.distinct_nodes_mentioned ?? 0) >= DOC_MENTION_FLOOR);
+    const docsWeakCount = documentsMentioning.length - docsStrong.length;
+    const documentsMentioningNote = docsWeakCount > 0
+      ? `${docsWeakCount} document(s) mentioning this in fewer than ${DOC_MENTION_FLOOR} distinct nodes were omitted as a weak-signal tail — not absent, just thin. graph_pull(node="…", layers:["docs"]) returns all of them.`
+      : null;
+
     // 4. Open tasks bound to affected features. Reuse the tasks.json already
     // loaded above (if present) instead of re-reading/re-parsing.
     const tasks = [];
@@ -838,7 +855,8 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       spec_docs: specDocs,
       // Observed counterpart to the two fields above: docs whose TEXT names this
       // target, ranked by how often. Curation misses; 22 mentions does not.
-      documents_mentioning: documentsMentioning,
+      documents_mentioning: docsStrong,
+      ...(documentsMentioningNote ? { documents_mentioning_note: documentsMentioningNote } : {}),
       features_touching: features,
       // ★ WHY THE OVERLAY FIELDS ARE EMPTY — unmapped is not unaffected.
       //
@@ -895,7 +913,18 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       })(),
       co_consumer_files: coConsumerFiles,
       open_tasks_on_those_features: tasks,
-      top_related_tasks: rankedTasks.slice(0, 3), // highest-signal subset
+      // ★ ONLY WHEN IT SAYS SOMETHING open_tasks DOES NOT.
+      //
+      // Measured (ef-manager, 2026-08-09) on a real call: this field and
+      // open_tasks_on_those_features were BYTE-FOR-BYTE identical, 233 tokens
+      // each, in a response whose actual answer — matched + features_touching —
+      // was 66 tokens. The same task object printed twice.
+      //
+      // It is a ranked top-3, so it only carries information when there are MORE
+      // than 3 tasks to rank. At or below 3 it is the same set in a different
+      // order, and the reader pays full price for a reordering they cannot use.
+      // Emitting it unconditionally was the cost of never checking.
+      ...(tasks.length > 3 ? { top_related_tasks: rankedTasks.slice(0, 3) } : {}),
       // ★ WHICH FIELDS ARE OBSERVED AND WHICH ARE INFERRED.
       //
       // ef-manager's request after two measured experiments, and it is the
