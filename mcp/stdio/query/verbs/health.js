@@ -961,9 +961,30 @@ export async function graphHealth({ repoRoot }) {
     // is — and the boolean is provided alongside so the shape matches its siblings.
     // trackedDirtyFiles was capped with NO truncation signal at all, which is the
     // same defect one step further along; it gets both fields too.
-    dirtyFiles: dirtyFiles.slice(0, DIRTY_LIST_CAP),
+    // ★ WHEN NOTHING TRACKED IS DIRTY, THE SAMPLE IS PURE NOISE.
+    //
+    // Measured (ef-manager, 2026-08-09) on echoes: 25 sampled entries costing 537
+    // tokens, EVERY one an untracked backup directory — .aify-graph.bak-*,
+    // .aify-graph-PRE-RESTORE-* — out of 2824. Meanwhile trackedDirtyFiles was [],
+    // one line, and that is the field carrying the signal. Both his calls paid the
+    // 537 and neither used it.
+    //
+    // The sample earns its place when TRACKED files are dirty, because then it
+    // names code that may have moved under the snapshot. When nothing tracked is
+    // dirty it names build residue. So the count is always reported — a reader
+    // must still be able to see that 2824 untracked files exist — and the list of
+    // names is emitted only when the names could matter.
+    ...(trackedDirtyFiles.length > 0
+      ? {
+        dirtyFiles: dirtyFiles.slice(0, DIRTY_LIST_CAP),
+        dirtyFilesTruncated: dirtyFiles.length > DIRTY_LIST_CAP,
+      }
+      : {
+        dirtyFilesNote: dirtyFiles.length > 0
+          ? `${dirtyFiles.length} dirty file(s), none of them tracked by git — untracked build/backup residue, so the names are omitted. Nothing tracked has moved under the snapshot.`
+          : undefined,
+      }),
     dirtyFilesTotal: dirtyFiles.length,
-    dirtyFilesTruncated: dirtyFiles.length > DIRTY_LIST_CAP,
     ...(dirtyFiles.length > DIRTY_LIST_CAP ? { dirtyFilesOmitted: dirtyFiles.length - DIRTY_LIST_CAP } : {}),
     trackedDirtyFiles: trackedDirtyFiles.slice(0, DIRTY_LIST_CAP),
     trackedDirtyFilesTotal: trackedDirtyFiles.length,
