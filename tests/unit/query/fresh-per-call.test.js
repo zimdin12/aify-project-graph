@@ -69,4 +69,14 @@ describe('per-call freshness', () => {
     expect(src, 'says staleness is surfaced, not silent').toMatch(/any staleness is/);
     expect(src, 'leaves the call to the agent').toMatch(/so you decide/);
   });
+
+
+
+  it('names the hook mechanism as the primary path, not this one', () => {
+    // APG_AUTO_REINDEX and fresh:true both fix staleness ON THE READ PATH, which
+    // means blocking. The hooks fix it BEFORE the read. A reader choosing between
+    // them needs to know which one is the fallback — otherwise the blocking path
+    // looks like the intended design.
+    expect(src, 'points at the hooks').toMatch(/install-graph-hook|refresh hook/);
+  });
 });

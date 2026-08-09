@@ -286,3 +286,25 @@ only the ready call is licensed to support a deletion.
 **Status.** Open, and the highest-value item in the product — it is one root cause
 beneath two independently measured symptoms. Everything else currently on the list
 is polish beside it.
+
+## Auto-reindex is a fallback, not the primary freshness mechanism
+
+`APG_AUTO_REINDEX=1` and per-call `fresh:true` both refresh **on the read path**:
+a stale read blocks until the index finishes, and behind any in-flight index too.
+The cross-process retry budget is ~3 minutes, which a first index on a large C++
+repo can exceed.
+
+The primary mechanism is the git refresh hooks
+(`node scripts/install-graph-hook.mjs <repoRoot>`), which refresh when HEAD moves
+— off the critical path of any query, once per repo regardless of how many agent
+processes are running. `graph_health.refreshMechanism` reports whether they are
+installed and whether the last run succeeded.
+
+Auto-reindex remains correct and coordinated (one process indexes, the rest
+no-op behind the write lock) and is the right tool for the two cases the hooks
+cannot cover:
+
+- **uncommitted working-tree changes** — the hooks fire on git events, so edits
+  that were never committed do not trigger one;
+- **repos where the hooks are not installed**, including any machine that cloned
+  the repo without running the installer (`git clone` does not carry hooks).

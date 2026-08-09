@@ -754,7 +754,8 @@ const FRESH_PARAM = Object.freeze({
     'Reindex to match HEAD before answering. DEFAULT false — reads are cheap and any staleness is '
     + 'reported in the response, so you decide. Set true only when the answer will justify an ACTION '
     + '(safe-to-delete, who-calls-before-I-change, blast radius) AND the graph is reported stale. '
-    + 'COST: seconds to minutes on a large repo.',
+    + 'COST: seconds to minutes on a large repo. This is the FALLBACK path — it refreshes while you '
+    + 'wait. The primary is the refresh hooks (install-graph-hook.mjs), which refresh when HEAD moves.',
 });
 
 function withFreshParam(tool) {
