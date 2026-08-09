@@ -24,6 +24,7 @@ import { loadTasksArtifact, lintTaskSchema, summarizeDirtySeams, summarizeOverla
 import { getLatestCollection } from '../../code-intel/query.js';
 import { prepareCompileDb } from '../../code-intel/compile-db.js';
 import { resolveClangCl } from '../../code-intel/resolve-clangd.js';
+import { refreshMechanismVerdict } from '../../freshness/refresh-verdict.js';
 
 // Cap for file lists in the health response. The counts stay exact; only the
 // sample is bounded. See the dirtyFiles comment below for why this exists.
@@ -486,6 +487,16 @@ export async function graphHealth({ repoRoot }) {
   if (manifestStatus !== 'ok') verdicts.push(`rebuild-incomplete: status=${manifestStatus} (run graph_index(force=true))`);
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
+
+  // A stale snapshot is a fact; a dead refresh mechanism is WHY it will stay
+  // stale. Report the second next to the first — the first is what a reader
+  // notices, the second is the only one they can act on.
+  const refreshMechanism = refreshMechanismVerdict(repoRoot);
+  if (refreshMechanism.state === 'degraded') {
+    verdicts.push(`⛔ refresh mechanism DEGRADED: ${refreshMechanism.consequence}`);
+  } else if (refreshMechanism.state === 'unconfigured') {
+    verdicts.push(`⚠ no auto-refresh: ${refreshMechanism.remedy}`);
+  }
 
   // ★ THE NUMBER WITHOUT THE CONSEQUENCE IS HALF AN ANSWER.
   //
@@ -973,6 +984,7 @@ export async function graphHealth({ repoRoot }) {
     // Age in days of the derived artifacts graph_index does NOT refresh
     // (functionality / tasks / codeIntel). LH-3.
     artifactAges,
+    refreshMechanism,
     server: serverBuild(),
     // ★ ROUTE FROM THE VERB PEOPLE ACTUALLY CALL TO THE ONES THEY SHOULD.
     //
