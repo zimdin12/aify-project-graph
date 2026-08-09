@@ -69,9 +69,19 @@ Ordered N-step orientation walk for a repo you don't know yet: entrypoints → n
 
 `graph_search` defaults to `mode:"lexical"` (partial-name match). Pass `mode:"semantic"` to find code by **meaning** instead of name — opt-in embeddings (needs an embeddings sidecar). When no sidecar is present it **degrades to lexical + a hint**, so the call is always safe. Use semantic when you know what the code *does* but not what it's *called*; prefer `graph_whereis` for exact names.
 
-## Freshness self-heal
+## Freshness — check whose job it is before you trust an answer
 
-`graph_index` is now in the default tool surface so a worker can refresh its own stale graph. If a read verb prints a **"graph stale"** warning (indexed commit behind HEAD), run `graph_index()` to refresh — or set `APG_AUTO_REINDEX=1` to auto-refresh on stale reads. Line numbers may have drifted until you do. A stale **"not found"** is NOT proof a symbol is gone — re-index before concluding a symbol was deleted.
+A stale **"not found"** is NOT proof a symbol is gone. Re-index before concluding anything was deleted.
+
+**`graph_health.refreshMechanism` says whether anything is keeping this graph current.** Read it once at session start; it is the difference between "the graph is behind" and "the graph will STAY behind":
+
+- `ok` — git hooks refresh on every commit/pull/branch-switch/rebase. Staleness is transient.
+- `unconfigured` — no hooks. Nothing refreshes this repo. NOT a failure, just never set up: `node <apg>/scripts/install-graph-hook.mjs <repoRoot>`, per-clone (`git clone` does not carry hooks).
+- `degraded` — hooks are installed but not demonstrably working. The graph is drifting and will keep drifting; the `consequence` field names why.
+
+**If you need a refresh right now:** `graph_index()`, or `fresh:true` on the one call that will justify an action. Both refresh **on the read path**, so you wait for them — that is why the hooks exist. `APG_AUTO_REINDEX=1` is the same trade applied to every call; it is a fallback for un-hooked repos and uncommitted work, not the recommended setup.
+
+Two repos ran 20 and 130 commits stale with nobody noticing, because refreshing was nobody's job and nothing said so. That is the failure this field exists to make visible — do not skip it because the graph "looks fine".
 
 **AFTER A FULL REBUILD, RE-COLLECT.** `graph_index(force=true)` (and any rebuild from a schema/extractor bump) DELETES the `[lsp✓]` trust spine. It is restored automatically only while the stored collection's commit still equals HEAD; once HEAD has moved it cannot be — re-stamping shifted line numbers as "verified" would be a lie. Measured on a real repo: a reindex left **0 verified edges of 17544 CALLS**, so every caller answer silently became heuristic-only and nothing could attest exhaustiveness. When `graph_index` returns `trustSpineDropped` / `nextAction`, or `graph_health` says **"trust spine EMPTY"**, run `graph_collect_code_intel` before trusting any "no callers / safe to delete" claim.
 

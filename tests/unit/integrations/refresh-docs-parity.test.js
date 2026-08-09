@@ -39,3 +39,31 @@ describe('refresh hooks are documented as setup', () => {
     }
   });
 });
+
+describe('the SKILLS carry what the server reports', () => {
+  // v0.5.0 shipped `refreshMechanism` and updated server-instructions.js and the
+  // install docs — and NOT the skills, which still told agents APG_AUTO_REINDEX
+  // was the remedy. Two agent-facing surfaces, one updated. The skills are what
+  // an agent actually loads at session start, so a field the server reports and
+  // no skill explains is a field nobody reads.
+  const RUNTIMES = ['claude-code', 'codex', 'cursor', 'hermes'];
+
+  it('★ every runtime skill tree explains refreshMechanism', () => {
+    for (const rt of RUNTIMES) {
+      const root = readFileSync(join(REPO, 'integrations', rt, 'skill', 'SKILL.md'), 'utf8');
+      const guide = readFileSync(join(REPO, 'integrations', rt, 'skills', 'graph-guide', 'SKILL.md'), 'utf8');
+      expect(root, `${rt} session-start skill`).toMatch(/refreshMechanism/);
+      expect(guide, `${rt} graph-guide`).toMatch(/refreshMechanism/);
+    }
+  });
+
+  it('no skill still presents APG_AUTO_REINDEX as the primary remedy', () => {
+    // It is the fallback now — it refreshes on the read path, so you wait for it.
+    // Naming it as the fix, with no mention of the hooks, is what was there before.
+    for (const rt of RUNTIMES) {
+      const root = readFileSync(join(REPO, 'integrations', rt, 'skill', 'SKILL.md'), 'utf8');
+      if (!/APG_AUTO_REINDEX/.test(root)) continue;
+      expect(root, `${rt} names the hooks alongside it`).toMatch(/install-graph-hook|refresh hook/);
+    }
+  });
+});

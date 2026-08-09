@@ -16,7 +16,14 @@ These are examples, not mandatory sequences. Adapt to the repo and trust level.
 
 ## Default loop
 
-**0. Start with `graph_health()` and read `nextActions`.**
+**0. Start with `graph_health()` and read `nextActions` + `refreshMechanism`.**
+
+`refreshMechanism` answers a question the rest of the payload cannot: not "is this
+graph stale" but "will it STAY stale". `ok` means git hooks refresh it on every
+HEAD move. `unconfigured` means nothing does — the repo was never set up, and the
+drift compounds from here. `degraded` means hooks exist but are not demonstrably
+working, and `consequence` names why. Two repos ran 20 and 130 commits behind
+because refreshing was nobody's job and no field said so.
 
 This is the single highest-value call and it is the one field-testers reach for
 unprompted. It answers *"can I trust what I am about to be told"* — compile DB
