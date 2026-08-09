@@ -609,7 +609,29 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     // AMBIGUOUS MATCH (or any other informative string) → surface it verbatim
     // (it already lists the concrete candidate locations) plus the read-next.
     lines.push(`SYMBOL: ${symbol}`);
-    lines.push('STATUS: known to graph; ambiguous / no feature mapping (symbol-context packet)');
+    // ★ "NO FEATURE MAPPING" WAS NEVER ESTABLISHED ON THIS PATH.
+    //
+    // Found by ef-manager (2026-08-09) while reviewing the timeout fix, and it is
+    // the SAME defect 148 lines earlier — an unestablished negative rendered as a
+    // fact about the code.
+    //
+    // This branch fires when graphConsequences returns a human-readable AMBIGUOUS
+    // MATCH string. There is no features_touching in a string: consequences
+    // short-circuits to candidates BEFORE computing one. So nothing here ever
+    // looked for a feature — and the old wording claimed there was none.
+    //
+    // Disproved with data, not argued: `WorldBuffer` takes this exact path and is
+    // anchors.symbols[0] of feature `world-buffer`. `GpuMaterial` likewise, of
+    // `material-palette`. Both were being told they map to no feature.
+    //
+    // Worse than the timeout case in one respect: there, a lookup ran and failed.
+    // Here nothing was attempted, and the output could not distinguish "we looked
+    // and found none" from "ambiguity short-circuited before we looked". And by
+    // the cost analysis this is the CHEAP path — the one large C++ repos land on
+    // most often.
+    lines.push('STATUS: known to graph; AMBIGUOUS — feature mapping NOT CHECKED');
+    lines.push('  Ambiguity short-circuits the symbol→feature lookup, so this packet has NOT');
+    lines.push('  established that the symbol maps to no feature. Do not read it as unmapped.');
     lines.push(snapshot);
     // Keep the candidate lines from the consequences string (cap to stay budgeted).
     const candidateLines = trimmed.split('\n').filter((l) => l.startsWith('- ')).slice(0, 6);
@@ -617,6 +639,9 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       lines.push('CANDIDATES:');
       lines.push(...candidateLines);
     }
+    // The disambiguating step comes first here: on this path the useful next move
+    // is to narrow the target, not to re-ask the same ambiguous question.
+    lines.push(`NEXT: pick a candidate above, then graph_consequences(target="<file>:<symbol>") — resolves the feature the ambiguity hid`);
     lines.push(...readNext);
     return renderLines(lines);
   }

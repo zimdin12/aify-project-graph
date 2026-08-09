@@ -696,8 +696,29 @@ export async function graphHealth({ repoRoot }) {
         }
         codeIntel.lspCallsTotal = calls;
         codeIntel.lspCallsVerifiable = verifiable;
-        // The honest coverage number: verified over what could BE verified.
-        codeIntel.lspVerifiedPctOfCalls = verifiable > 0 ? Math.round((verified / verifiable) * 100) : 0;
+        // ★ THE DENOMINATOR TRAVELS IN THE NAME, NOT IN AN ADJACENT FIELD.
+        //
+        // ef-manager, 2026-08-09, from having made the mistake himself: a caveat
+        // stored beside a number protects the reader looking at the response, and
+        // abandons the reader who COPIES THE NUMBER OUT. He read
+        // refsNotFoundBreakdown.note — correct, well-worded — and days later still
+        // wrote "833/833, recall effectively zero" into a published verdict,
+        // because the 833 travelled and the note did not.
+        //
+        // lspVerifiedPctOfCalls was the same shape: `12` next to a separate
+        // lspVerifiedPctDenominator field. Copied into a summary it reads as 12%
+        // of ALL calls — false, and a far worse number than the truth.
+        //
+        // So the identifier carries it. Ugly on purpose: a name cannot be
+        // separated from its value. The adjacent field stays for the reader who
+        // is looking; the name protects the one who is not.
+        //
+        // The old key is retained as an alias — this ships mid-release and
+        // breaking a field agents already read would be a worse trade than a
+        // duplicated integer.
+        const verifiedPct = verifiable > 0 ? Math.round((verified / verifiable) * 100) : 0;
+        codeIntel.lspVerifiedPctOfVerifiableInScopeCalls = verifiedPct;
+        codeIntel.lspVerifiedPctOfCalls = verifiedPct;
         codeIntel.lspVerifiedPctDenominator = trackedFiles == null
           ? 'verifiable_calls (SCOPE UNKNOWN — git ls-files unreadable, so out-of-scope edges could not be excluded)'
           : 'verifiable_and_in_scope_calls';

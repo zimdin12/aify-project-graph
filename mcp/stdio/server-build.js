@@ -132,7 +132,16 @@ export function serverBuildInfo() {
               + `${staleDelta.sample.length ? ` (e.g. ${staleDelta.sample.join(', ')})` : ''} —`
               + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'
             : ' Delta could not be computed, so assume it matters:'
-              + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'),
+              + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.')
+        // ★ NAME WHO CAN ACT ON THIS. The reader is almost always an agent, and an
+        // agent cannot respawn its own MCP server — the host spawns it at session
+        // start, and killing it drops the connection rather than reloading it. So
+        // "RESTART the server" is correct for an operator and a dead end for the
+        // one actually reading the string. ef-manager hit this twice in two
+        // sessions: blocked, correctly refused to measure the old build, and had
+        // no action available. (2026-08-09)
+        + ' NOTE: an agent cannot self-restart this server — ask your operator to'
+        + ' reconnect MCP or relaunch the session.',
     } : {}),
   };
   return { ..._immutable, ..._verdict };
