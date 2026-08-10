@@ -42,6 +42,33 @@ So this release opens with deletion, not optimisation.
 
 ---
 
+## ⛔ Part 0 — my cost table was measured on the wrong repo
+
+Everything below was measured on `aify-project-graph`, a **JS** repo, to plan a
+**C++** release. ef-manager caught it and it is disqualifying for the audit as
+originally specified:
+
+```
+                    JS repo        C++ repo (echoes)
+graph_health total   880 tok        1951 tok
+  codeIntel           11 tok  (1%)   649 tok  (33%)
+```
+
+On TS/JS, clangd is unavailable so `codeIntel` collapses to `{available:false}`.
+On C++ it is the **single largest field in the response** — larger than every
+field I had listed for deletion combined.
+
+So the audit as written would have deleted ~290 tokens of genuinely low-value
+fields, left the 649-token block untouched on the repo type the C++ code-intel
+layer exists for, and **the ranking would have reported success**.
+
+His diagnosis, which is the right one: *"the base-rate error from the 52% arc in
+a new costume — measuring the population you HAVE rather than the population you
+are DECIDING ABOUT."*
+
+**Required before any cut:** re-measure every default payload on a C++ repo. The
+tables in Part 1 are retained only as a record of how the audit went wrong.
+
 ## Part 1 — the deletion audit (do this first)
 
 For every field in the DEFAULT payload of every listed verb, answer one question:
@@ -105,6 +132,46 @@ serves. Fields with no named decision are removed in this release.
 `disconfirming_test`, truncation markers, provenance labels — these are the
 mechanism. Anything from the contradiction table above is out of scope for the
 audit.
+
+## ★ Part 1b — the cut I had missed: invariant prose (~20% of every response)
+
+ef-manager classified every string ≥170 chars in two payloads and split them by
+whether the text **varies**:
+
+| | |
+|---|---|
+| **INVARIANT** — byte-identical on every call, every repo, forever | ~343 tok in health (18%), ~288 in consequences (22%) |
+| **VALUE-BEARING** — changes with repo state, embeds live numbers | `summary`, `positionGuessSkippedNote` (embeds 21/0), `overlay_age_warning` (embeds 106) |
+
+**The rule, and it is cleaner than field-by-field taste:**
+
+> If a string's value never varies, it is not data — it is **documentation being
+> re-transmitted per call.**
+
+Externalise those to a doc, leave a short stable key (`note_ref:
+"degraded-not-dead-code"`). Zero information lost, ~20% of every response gone,
+and **nothing on the protected list is touched** — because the protected thing is
+the mechanism, and the mechanism is the value-bearing sentence, not the paragraph
+explaining the concept in general.
+
+**⛔ The line that must not be crossed.** The value-DEPENDENT sentence stays
+inline: *"833 of 833 are DEGRADED — do not read as dead code"* is about **this
+repo's numbers**. Only the value-INDEPENDENT paragraph is externalised. Get that
+boundary wrong and we rebuild the number-outlives-its-qualifier defect that
+`lspVerifiedPctOfVerifiableInScopeCalls` exists to fix.
+
+## ★ Part 1c — the gap in my delete-rule: redundancy is invisible to it
+
+In one `graph_consequences` payload, *"inferred fields come from a stale curated
+overlay, so absence is not evidence of absence"* appears **five times**:
+`provenance_note`, `overlay_coverage.consequence`, `overlay_age_warning`,
+`receipt.floor_cause`, and bare `overlay_age_days`. ~230 tokens, one fact.
+
+Each instance individually **passes** "name the decision" — they all name the same
+real decision. A per-field test cannot see this.
+
+**Second question, asked after the first:** *is this the only place that says so?*
+Deduplicate before deleting, or five copies of everything that survives get kept.
 
 ## Part 2 — contradiction surface
 
@@ -273,15 +340,88 @@ quality wins is exactly the error this spec exists to avoid.
    (freshness) was the wrong axis; six measured failures settled it.
 2. ~~Deletion vs deprecation~~ — **decided: delete outright.** Steven: APG is a
    prototype, every team knows it, clutter goes.
-3. **Still open: `documents_mentioning_note` costs 46 tokens describing an EMPTY
-   list.** The disclosure is larger than the data. Disclosure is right in
-   principle, but a 46-token sentence about nothing is its own clutter. Probably:
-   suppress the note when the filtered list is empty AND nothing was omitted;
-   keep it whenever something was actually dropped. Wanted a manager reading
-   before deciding.
+3. ~~`documents_mentioning_note` costs 46 tokens describing an empty list~~ —
+   **resolved, and I had the diagnosis backwards.**
+
+   ef-manager: an empty list is where that note is at its **most** load-bearing,
+   not its least. `documents_mentioning: []` with no note reads as *"no documents
+   mention this"* — a false absence, the exact error class this product exists to
+   prevent. The 46 tokens buy the difference between *"nothing mentions this"* and
+   *"twelve things mention it, all below threshold."* **Opposite answers, not a
+   ratio problem.**
+
+   > You are measuring disclosure-to-DATA. The ratio that matters is
+   > disclosure-to-CONSEQUENCE-OF-BEING-MISLED, and on an empty list that
+   > consequence is maximal.
+
+   The real defect is that the note is **unconditional**, not that it is long.
+   Two fixes:
+   - print it only when `omitted > 0`;
+   - make it a **sibling key of the data**, not a parallel top-level field:
+     `documents_mentioning: { items: [...], omitted: 12, reason_ref: "weak-signal-tail" }`
+
+   That shape structurally enforces the caveat rule — the qualifier cannot be
+   deleted independently of the number, and cannot print when there is nothing to
+   qualify. It is the shape `co_consumer_files {items,total,truncated,limit}`
+   already uses. **Apply it everywhere; the problem was solved once and not
+   propagated.**
 4. **Still open: whether the overlay deletion generalises past one role.**
    sc-manager bounded their own verdict to a safety-class manager, explicitly not
    speaking for a lane doing cold orientation. Awaiting ef-manager.
+
+## ★ Verdicts from usage, and the inversion they expose
+
+ef-manager's field-by-field verdicts (deepest usage record on `graph_consequences`):
+
+**DELETE** — `tests_adjacent` (293 tok, and **3-for-3 wrong**: it asserted
+`tests/test_main.cpp` covers `cylindricalLatBandsForBody` on the basis of
+`CALLS test_main.cpp -> vec3`, for a file with zero matches — false coverage on
+the exact safety axis the verb exists for). Also `last_touched` (`git log
+--follow` is richer and always available), `overlay_age_warning` (duplicate of
+`provenance_note`), `trust` (health owns it), `nextActions`, `overlayQuality`,
+`dirtySeams`, `receipt.floor_cause`.
+
+**KEEP** — `summary` (*"if I could keep only one field in the entire API"*),
+`co_consumer_files`, `matched`, `overlay_coverage`, `field_provenance`,
+`provenance_note`, `server`, `receipt.disconfirming_test`.
+
+⚠ On `tests_adjacent`: **do not replace it with a better warning.** *"Every fix so
+far made it more AUDITABLE, never more ACCURATE."* If the safety axis is wanted
+back it needs a real mechanism — does this test exercise this symbol — not a
+wrapper.
+
+★ Free bug fix: deleting `dirtySeams` closes the `dirtyFilesOmitted 2799 vs total
+2824` inconsistency, because the five names that print come from
+`dirtySeams.orphanFilesSample`. Sometimes the cheapest fix for an inconsistent
+field is not having it.
+
+### ★★ Cost and value are anti-correlated
+
+> Your two most valuable fields cost 13 and 31 tokens. Your most expensive costs
+> 293 and is the only one that has ever misled me.
+
+`co_consumer_files` at **13 tok** surfaced four files containing zero textual
+occurrences of the target — unreachable by grep at any skill level. `matched` at
+**31 tok** is the only guard against "I asked about X and it answered about Y",
+which after `GpuMaterial` and `WorldBuffer` is a live failure mode.
+
+**This is why a cost-ranked cut list is the wrong instrument**, and why Part 0's
+error was not merely a bad measurement but a bad method.
+
+### Minimal `graph_consequences`: ~330 tok vs 1055
+
+`matched` · `co_consumer_files` (+feature names as its *basis*, not a top-level
+field) · `overlay_coverage` · `field_provenance` · `documents_mentioning{items,
+omitted}` · `receipt.disconfirming_test`.
+
+Two things about that list: it is **4 evidencing fields to 2 answering ones**, and
+293 of the 1055 tokens currently go to the one field that has never been right.
+The minimal version is not a diet — it is the current verb with its largest field
+removed and its two cheapest promoted.
+
+**Ship order (his recommendation, adopted):** invariant-prose cut and
+`tests_adjacent` deletion first. Largest, least controversial, neither touches the
+protected mechanism.
 
 ## ⚠ Measurement hygiene for this release
 
