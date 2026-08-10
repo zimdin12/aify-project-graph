@@ -320,6 +320,51 @@ sc-manager's caveat had two parts, and only one was a claim:
 > Do not build a per-role profile on my caveat. A responsibly-bounded claim is not
 > evidence of a population.
 
+### ★ My question was malformed — opt-in is only *coherent* for 3 of the 8
+
+ef-manager: the eight DELETE candidates are not one kind of thing, and
+configurability is only a meaningful option for the last group.
+
+| category | fields | why opt-in fails |
+|---|---|---|
+| **WRONG** | `tests_adjacent` | opt-in is **worse than status quo**. Today it misleads unasked; behind a flag it misleads at the moment you typed *"give me test coverage for this decision"* — **maximum trust meeting maximum error.** You cannot make a false claim safe by making it harder to reach; reaching for it is itself a statement of intent to rely on it. |
+| **DUPLICATE** | `overlay_age_warning`, `trust`, `receipt.floor_cause`, `nextActions` | a non-sequitur. You cannot deduplicate by making one copy optional — both still exist, and **which one is canonical becomes install-dependent.** A redundancy bug converted into a consistency bug. |
+| **UNREAD-BUT-CORRECT** | `overlayQuality`, `dirtySeams`, `last_touched` | the only category where the sentence parses. Answer still no. |
+
+So the proposal is being weighed against eight fields when it applies to three.
+
+### ★★ The sharper mechanism, and the one to lead with
+
+> A default field that is useless generates **complaints**. An opt-in field
+> generates **silence** — and its silence is **unfalsifiable.**
+
+This audit exists because those fields were in a user's face for weeks. That is
+the feedback channel working. Behind a flag the signal goes to zero permanently,
+and zero is then uninterpretable: useless, or nobody found the flag?
+
+**And the asymmetry that decides it:** deletion is a `git revert` *with a feedback
+channel* that names exactly what to restore and why. An opt-in field nobody
+enables is a permanent unknown that no future evidence can resolve.
+
+### Why the `--toolset` precedent does not carry
+
+> `--toolset` configures WHICH TOOLS. Tools are things an agent **selects.**
+> A profile would configure WHICH FIELDS. Fields are things an agent **receives.**
+
+Configuration works at the point of selection, where the agent is already
+choosing. Fields have no selection moment — by the time one is seen, the call is
+made and the tokens are spent. That is why the 42→17 cut worked and an
+`include:[]` param would not.
+
+### ★★ The structural ender
+
+If contradiction-class fields must **always** be on, and fields worth deleting
+must be **gone**, then configurability can only ever operate on the leftovers. It
+is structurally incapable of tuning value — it can only preserve clutter.
+
+> A config system whose reachable set is exactly the set of things nobody should
+> be reading is not a feature, it is a warehouse.
+
 ### ⚠ Their no-sighting is uneven, and they refused to average it
 
 | lane | window | strength |
@@ -416,9 +461,38 @@ quality wins is exactly the error this spec exists to avoid.
    qualify. It is the shape `co_consumer_files {items,total,truncated,limit}`
    already uses. **Apply it everywhere; the problem was solved once and not
    propagated.**
-4. **Still open: whether the overlay deletion generalises past one role.**
-   sc-manager bounded their own verdict to a safety-class manager, explicitly not
-   speaking for a lane doing cold orientation. Awaiting ef-manager.
+4. **Cold-orientation consumer — being MEASURED, not argued.** Authorised
+   2026-08-10: ef-manager spawns a subagent with no memory file and no field-test
+   context, gives it a cold orientation question on echoes, and records which
+   fields it actually **reads and cites**. Read-only.
+
+   Why it is worth running rather than settling by argument: sc-manager retracted
+   the role hypothesis outright, but their no-sighting is *uneven* — the two lanes
+   who would most plausibly BE the cold-orientation case have had graph access for
+   about a day and were quota-starved. The hypothesis is thin AND its strongest
+   disconfirmation is the weakest-windowed. One session closes that.
+
+   Prior evidence pointing the same way, with its limit stated: in ef-manager's
+   two most orientation-shaped experiments — *"what shader code must change in
+   lockstep"* and *"delete ChunkDataCache.h, what breaks"* — **not one of the eight
+   delete-candidates contributed to either result.** Every win came from
+   `co_consumer_files`, `graph_pull relations.recompile_surface`, and the docs
+   layer. He notes he had accumulated repo context in memory during both, so he is
+   not a clean cold reader and cannot answer for one.
+
+5. **Still open: does a correctly-labelled weak tier still mislead?** Holding the
+   `tests_adjacent` deletion on this. His damning case (`CALLS test_main.cpp →
+   vec3`) predates both the four-tier provenance split built for it and
+   `companion_header_linked` — which shipped in `0b090ea`, an ancestor of the
+   commit he measured. So DELETE may mean "unfixable" or "was unfixable before the
+   tiers, untested since". Different answers.
+
+   ⚠ Deleting it also permanently moots sc-manager's pending `.cpp` header-pairing
+   verification — the one v0.4.0 claim never run against real C++.
+
+   ⚠ When it does go: `tests_adjacent_basis`, `tests_adjacent_warning` and
+   `tests_adjacent_provenance` go **with** it. A surviving caveat about a deleted
+   number is the caveat-outlives-its-number defect running backwards.
 
 ## ★ Verdicts from usage, and the inversion they expose
 
