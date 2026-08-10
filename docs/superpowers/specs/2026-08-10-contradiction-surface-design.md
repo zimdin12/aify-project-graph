@@ -283,6 +283,57 @@ the one who is not.
 
 One already shipped. **Deliverable:** the rest, found by audit.
 
+## ★ DECIDED: not configurable, not opt-in, not per-role — deleted
+
+Steven proposed making unread fields configurable rather than deleting them
+(install profile, or a per-call param). Put to both managers. **Rejected**, on a
+structural argument rather than a preference:
+
+> Contradiction-class fields cannot be opt-in **by construction** — nobody asks to
+> be told they are wrong.
+
+sc-manager supported it empirically from a single afternoon. Three things that
+changed their conclusions, **all arriving unrequested**:
+
+| | |
+|---|---|
+| a control FAILING | told them a `0` was an instrument mismatch, not a measurement |
+| a lane REFUSING their brief | their 4-surface list would have produced 3 false "unreached" verdicts |
+| a lane RETRACTING its own ratio | one they had already banked into a filed ruling |
+
+> I would not have opted in to any of them, because in each case I did not know I
+> needed them — I believed the opposite. **An opt-in contradiction channel is off
+> exactly when it matters, and that is not a tuning failure, it is what opt-in
+> means.**
+
+**And a per-role profile does not escape it:** *"the role that most needs the
+contradiction is the one confident enough to have picked the lean profile."*
+
+### The role hypothesis was retracted by the person who raised it
+
+sc-manager's caveat had two parts, and only one was a claim:
+- *"I am not answering for them"* — a statement about the limit of their evidence.
+  Correct, and justifies nothing.
+- *"A cold-orientation lane is a different consumer"* — **a category they named,
+  not an observation they made.**
+
+> Do not build a per-role profile on my caveat. A responsibly-bounded claim is not
+> evidence of a population.
+
+### ⚠ Their no-sighting is uneven, and they refused to average it
+
+| lane | window | strength |
+|---|---|---|
+| sc-claude | ~10h dense, exactly this work, zero overlay consultation | STRONG |
+| sc-manager | same window + ~187 cards of history, zero | STRONG |
+| sc-coder / sc-architect | **~1 day of access** (registration landed 2026-08-09), quota-starved | **WEAK** |
+
+The weak half is precisely the pair who would most plausibly *be* the
+cold-orientation case. Delete survives it anyway, on asymmetry:
+
+> You can rebuild a deleted field in an afternoon if a real consumer complains.
+> You cannot recover the deletion pressure once it is opt-in.
+
 ## Non-goals
 
 - **No new tools.** Settled: we cut 42→17 listed verbs because agents under-pick
