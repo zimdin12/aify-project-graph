@@ -108,6 +108,40 @@ table-membership level, which a feature name cannot answer. They confirmed a
 ⚠ Bounded: both respondents are managers on deep C++ arcs. The cold-orientation
 consumer is unmeasured (see D1).
 
+
+### A4 The 25 unlisted verbs — 12 credible fold/delete candidates (graph-senior-dev)
+
+⚠ **Evidence limit stated by the reporter, and it is the important part:** the repo
+holds **no post-gating runtime telemetry**, so "nobody calls X" is not claimable.
+The zero-use search covered `docs/dogfood`, `eval`, `docs/code-intel-v2` only.
+
+- All `25_unlisted_verbs / 25_unlisted_verbs` are protocol-reachable by exact name
+  (`ACTIVE_TOOLS = TOOLS`), but **not discoverable** via `tools/list`. So "callable"
+  is strictly weaker than "agent-reachable".
+- `25/25` have a test and >=3 doc mentions — which proves **maintenance**, not demand.
+- Only `5/25` have any invocation-like record at all, and all are **April dogfood
+  artifacts predating the current gating**.
+
+**Fold/delete (12):** `graph_lookup`, `graph_summary` (server labels both legacy and
+names the replacement), `graph_overview`/`graph_hotspots`/`graph_cycles`
+(`graph_digest` explicitly composes all three), `graph_change_plan`/`graph_preflight`
+(hidden-full comment already calls them redundant), `graph_report`/`graph_onboard`/
+`graph_tour`/`graph_module_tree` (four different projections of "orient me" — exactly
+the data-surface multiplication agents under-pick from), `graph_neighbors`.
+
+**Retain — specialist/admin (9):** `graph_status` (raw state vs interpreted trust;
+consider moving to CLI rather than deleting), `graph_watch`, the four bounded
+`code_intel_*` atomics, `code_intel_replay`, `code_intel_analyze`, `graph_shader`.
+
+**Merge rather than delete blind (4):** `graph_file`, `graph_callees`
+(→ `graph_callers(direction=out)`), `graph_path` (→ a `graph_trace` mode; 9 recorded
+calls make it the strongest hidden-verb evidence), `graph_find`.
+
+★ **The sharpest finding is not "25 are dead".** It is that the server's own
+comments already acknowledge **11 hidden-full redundancies**, while code, tests and
+docs keep carrying them indefinitely. We wrote down that they were redundant and
+then maintained them anyway.
+
 ---
 
 ## B. Are the tools good? Is the service useful?
