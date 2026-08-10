@@ -19,6 +19,64 @@ import { getTrackedDirtyFilesSync } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
 import { getPacketTokenBudget } from '../response-budget.js';
+import { openExistingDb } from '../../storage/db.js';
+import { resolveSymbol } from './symbol_lookup.js';
+
+// ★ SYMBOL→FEATURE DOES NOT NEED THE FULL CONSEQUENCES TRAVERSAL.
+//
+// Measured (ef-manager, echoes, 2026-08-10): ALL THREE bare symbols tried —
+// SimCoordinator, WorldBuffer, GpuMaterial — blew the 2000ms budget. Not an edge
+// case: graph_packet's bare-symbol path was non-functional on a 12k-node C++ repo,
+// which is the repo class this verb exists to serve.
+//
+//   graphConsequences round-trip:  601ms @ 3,958 nodes · 4316ms @ 12,126 nodes
+//
+// The fix is not a bigger budget — that moves the cliff and leaves the reader
+// unable to tell which side they are on. It is to stop asking an expensive
+// question. graphConsequences computes callers, importers, documents_mentioning,
+// tasks, tests, git history, risk flags and a receipt. To answer "which feature
+// owns this symbol" none of that is needed: resolve the label, then check which
+// feature anchors it. Two cheap steps against data already in hand.
+//
+// The full traversal is still one NEXT line away for a reader who wants it.
+function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
+  if (!symbol || !functionality?.features?.length) return null;
+  let db;
+  try {
+    db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    const nodes = resolveSymbol(db, symbol);
+    if (!nodes.length) return null;
+
+    const matchedSymbols = new Set(nodes.map((n) => n.label).filter(Boolean));
+    const matchedFiles = new Set(nodes.map((n) => n.file_path).filter(Boolean));
+
+    // Same anchor semantics as consequences, deliberately — a different rule here
+    // would make the cheap path and the full path disagree about the same repo.
+    for (const f of functionality.features) {
+      const symbolHit = (f.anchors?.symbols ?? []).some((s) => matchedSymbols.has(s));
+      const fileHit = (f.anchors?.files ?? []).some((pattern) => (
+        pattern.endsWith('/*')
+          ? [...matchedFiles].some((p) => p.startsWith(pattern.slice(0, -1)))
+          : matchedFiles.has(pattern)
+      ));
+      if (symbolHit || fileHit) {
+        return {
+          feature: f,
+          locations: nodes.slice(0, 3).map((n) => ({
+            file: n.file_path, line: n.start_line, type: n.type,
+          })),
+        };
+      }
+    }
+    return { feature: null, locations: nodes.slice(0, 3).map((n) => ({
+      file: n.file_path, line: n.start_line, type: n.type,
+    })) };
+  } catch {
+    return null; // fall through to the budgeted path; never make orientation fail
+  } finally {
+    try { db?.close(); } catch { /* already closed */ }
+  }
+}
 
 // Section caps come first; the final token-estimate clamp is a safety
 // rail. Predictable shape → prompt-cache friendly.
@@ -714,7 +772,30 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   let matchedViaSymbol = null;
   let symbolConsequences = null; // retained for the graceful degrade path below
   let featureLookupTimedOut = false; // a timeout must never be rendered as "not found"
+  // ★ CHEAP PATH FIRST. See resolveFeatureForSymbolCheap: the budgeted traversal
+  // below could not finish on ANY bare symbol on a 12k-node C++ repo, so on the
+  // repos this verb matters most for it was never running at all.
   if (!parsed.kind && !resolvedFeature && !resolvedTask) {
+    const cheap = resolveFeatureForSymbolCheap(repoRoot, functionality, parsed.value);
+    if (cheap?.feature) {
+      resolvedFeature = cheap.feature;
+      kind = 'feature';
+      matchedViaSymbol = parsed.value;
+      // Feed the same shape the expensive path produced, so DEFINED IN renders
+      // identically whichever route got here.
+      symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
+        label: parsed.value, type: l.type, file: l.file, line: l.line,
+      })), files: [] } };
+    } else if (cheap?.locations?.length) {
+      // Known to the graph, anchored by no feature — the symbol-pointer packet's
+      // case, reached without paying for the traversal.
+      symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
+        label: parsed.value, type: l.type, file: l.file, line: l.line,
+      })), files: [] } };
+    }
+  }
+
+  if (!parsed.kind && !resolvedFeature && !resolvedTask && !symbolConsequences) {
     const { graphConsequences } = await import('./consequences.js');
     let mapped;
     try {
