@@ -290,7 +290,24 @@ export async function graphHealth({ repoRoot }) {
   // every other verdict below describes the OLD build — and a reader comparing
   // behaviour against a newly-landed fix will attribute the wrong result to it.
   const _build = serverBuild();
-  if (_build.staleProcess) verdicts.push(`⛔ ${_build.staleWarning}`);
+  // ★ A POINTER, NOT THE TEXT. Measured by ef-manager on e8c8d61: the full warning
+  // is 265 tokens and was being emitted TWICE — here at the head of `summary`, and
+  // again as `server.staleWarning` — making `server` the single largest field in the
+  // response at 26.8%.
+  //
+  // This is the nextActions-duplicated-into-summary defect reported and fixed this
+  // MORNING, recurring the same day in the stale-process feature shipped since. Same
+  // shape, same field. Fixing an instance does not fix the pattern, and the pattern
+  // here is: a summary that INLINES a field rather than naming it pays for that field
+  // twice, and the second copy is pure cost because both land in the same response.
+  //
+  // ⚠ The warning itself must NOT be externalised into a skill — unlike invariant
+  // prose it is VALUE-BEARING, embedding the loaded commit, the process start time and
+  // the checkout commit. It must be printed once, not made cheaper.
+  //
+  // The saving lands exactly when it is worth most: on every response from a stale
+  // process, which is when an agent is most likely to be making extra calls.
+  if (_build.staleProcess) verdicts.push('⛔ STALE PROCESS — see server.staleWarning');
   verdicts.push(`nodes=${nodes} edges=${edges}`);
 
   // Proactive foreign-toolchain warning (Sand Castle live finding 1). On win32 a

@@ -102,10 +102,41 @@ describe('server build identity', () => {
   it('graph_health surfaces it as the FIRST verdict, above nodes/edges', () => {
     // A JSON-only signal is not a signal — the rendered summary is what a reader
     // scans before attributing behaviour to a commit.
+    //
+    // ⚠ THIS ASSERTION IS SOURCE-ANCHORED AND THAT IS A KNOWN WEAKNESS, declared
+    // rather than hidden. It is one of the 68 cases in graph-senior-dev's 2026-08-10
+    // audit that read implementation text instead of running it — and it proved the
+    // point the same day: it failed when the summary line changed from inlining
+    // `_build.staleWarning` to naming it, which was a 265-token IMPROVEMENT, not a
+    // regression. It fired on a fix.
+    //
+    // Kept, narrowly, because forcing `staleProcess` behaviourally means faking a
+    // process whose loaded commit differs from the checkout, and the honest version of
+    // that fixture belongs with the suite reclassification in the plan (§3) rather
+    // than bolted on here. Until then it asserts ORDER ONLY — that the stale signal is
+    // pushed before `nodes=` — and deliberately does NOT assert the message text, so
+    // it cannot fire on wording again.
     const verdictBlock = healthSrc.slice(healthSrc.indexOf('const verdicts = []'));
-    const stalePos = verdictBlock.indexOf('_build.staleWarning');
+    const stalePos = verdictBlock.indexOf('_build.staleProcess');
     const nodesPos = verdictBlock.indexOf('`nodes=${nodes}');
-    expect(stalePos).toBeGreaterThan(-1);
-    expect(stalePos).toBeLessThan(nodesPos);
+    expect(stalePos, 'the stale-process verdict must still be pushed').toBeGreaterThan(-1);
+    expect(stalePos, 'and it must be pushed before nodes/edges').toBeLessThan(nodesPos);
+  });
+
+  it('the stale warning is emitted ONCE — summary names it, server carries it', () => {
+    // ef-manager, measured on e8c8d61: `server.staleWarning` (265 tok) was ALSO
+    // inlined verbatim at the head of `summary`, making `server` the largest field in
+    // the response at 26.8%. Same defect as nextActions-duplicated-into-summary,
+    // reported and fixed that morning, recurring the same day in a feature shipped
+    // since — so an instance fix did not prevent the pattern.
+    //
+    // The rule this pins: a summary NAMES a field, it does not INLINE it. Both land in
+    // the same response, so the second copy is pure cost.
+    const verdictBlock = healthSrc.slice(healthSrc.indexOf('const verdicts = []'));
+    const stalePush = verdictBlock.slice(0, verdictBlock.indexOf('`nodes=${nodes}'));
+    expect(stalePush, 'summary must POINT at server.staleWarning, not reproduce it')
+      .toMatch(/see server\.staleWarning/);
+    expect(stalePush, 'the full warning text must not be interpolated into the summary')
+      .not.toMatch(/\$\{_build\.staleWarning\}/);
   });
 });
