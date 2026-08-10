@@ -58,6 +58,46 @@ shrinking: `overlay_quality`, and the overlay block inside `graph_consequences`
 — "I ignored it at whatever it used to cost and I will ignore it at 1,494
 tokens."
 
+### ★ DECIDED: the overlay fields go — and the reason is granularity, not staleness
+
+I asked sc-manager the disambiguating question: *if your overlay were fresh and
+complete, would `features_touching` / `contracts_potentially_affected` change a
+decision?* Answer: **no**, and the reason matters more than the verdict:
+
+> Every load-bearing question today resolved at line-, blob-, or
+> table-membership granularity. A feature name cannot answer it.
+
+Their examples: a conjunctive source search across 134 files; membership of one
+row in a 105-row table; and — closest to `features_touching` — "what consumes
+`UnifiedFluidScatterResult`", where the lane still needed exact carriers and
+coordinates and **rejected a clangd answer on its own evidence banner**.
+
+So a fresh overlay would be *a correct answer at one resolution coarser than the
+decision being made*. The source read happens either way; the field is a step
+skipped, not a step that narrows.
+
+**Delete:** `features_touching`, `contracts_potentially_affected`,
+`open_tasks_on_those_features`, `overlay_age_days`, `overlay_age_warning`.
+
+**⚠ NOT `spec_docs` — judged separately.** Their argument, and it is a good one:
+it is a *pointer to authority*, not a derived summary, and their whole failure
+mode this session was **failing to retrieve authority they already had**.
+Different object from the other five. Delete it on its own evidence or not at all.
+
+### ⚠ Bounds on that verdict, which they supplied unprompted
+
+1. **Role-scoped.** They are a manager on a safety-class arc where every claim
+   needs epoch binding. *"A lane doing cold orientation on an unfamiliar subsystem
+   is a different consumer, and I am not answering for them."* One respondent is
+   not the population.
+2. **It is a counterfactual they cannot measure.** What they *can* report: ~10
+   hours of exactly the work those fields target — impact, consumers,
+   what-touches-this — with zero overlay consultation and no moment of wanting it.
+
+Before deleting, get ef-manager's verdict on the same list. Two managers agreeing
+is a pattern; one is a data point, and this spec has already been wrong once by
+generalising from a single reading.
+
 **Deliverable:** a table of every default field, its verdict, and the decision it
 serves. Fields with no named decision are removed in this release.
 
@@ -86,6 +126,61 @@ N references for other symbols in the same TU." That turns *"I got zero"* into
 *"I got zero from a query that demonstrably returns non-zero elsewhere."*
 
 Applies to `code_intel_references`, `code_intel_hierarchy`, and `graph_callers`.
+
+### ★ DECIDED: per-call, and staleness was the wrong axis
+
+I put per-call vs per-session to sc-manager as a freshness tradeoff. That framing
+was wrong, and their answer is measured rather than argued — **six extraction
+failures in one afternoon, none of them index failures**:
+
+```
+1  ^symbol anchor (x3)      query form wrong        index fine
+2  multi-colon capture      query form wrong        index fine
+3  comparator pattern set   query form wrong        index fine
+4  single-line TEST_CASE(   query form wrong        index fine
+5  kC0CertMembers row form  query aimed at wrong LAYER (macro indirection)
+6  span boundary            query aimed at wrong RANGE (471 lines vs 58)
+```
+
+**A per-session index probe would have been GREEN for all six.** Four produced a
+flattering wrong value — twice in opposite directions on the same subject.
+
+The two attest different objects:
+
+| | attests |
+|---|---|
+| per-session (b) | THE INDEX WORKS on this repo/session |
+| per-call (a) | THIS QUERY, AS AIMED, CAN SEE ITS SUBJECT |
+
+An absence claim is a claim about **one query's reach**, so only (a) controls for
+it. (b) is not wrong — it is *insufficient*, and the danger is that it **looks
+sufficient**: a green session probe attached to an absence claim reads as
+vindication.
+
+Their case 6 belongs in the release notes: the extractor was *the same instrument
+that had worked correctly minutes earlier on a different range*. Nothing
+degraded. **A perfect reader over the wrong range returns the wrong answer just
+as confidently.** No session-level probe can reach that, because what broke was
+per-query scope.
+
+**Therefore:**
+- Per-call control at every absence claim: a known-positive of the same query
+  shape in the same TU, reported inline.
+- **Report the control when it FAILS**, not only when it passes. Twice today a
+  failing control *was* the finding — it made a `0` legible as an instrument
+  mismatch rather than a measurement.
+- Keep a session-level probe only if it is cheap, name it **`index_health`**,
+  never `control`, and **forbid it from satisfying an absence claim.**
+
+### ⚠ And the limit of (a), stated so it is not oversold
+
+A same-TU positive proves the query reaches *a* positive of that shape. It does
+**not** prove the query's SCOPE matches the claim's scope — failures 5 and 6 were
+scope errors that a same-TU positive could still have passed.
+
+So the honest wording is *"this query demonstrably reaches its subject class in
+this TU"* — **not** *"this absence is exhaustive."* Selling (a) as complete would
+reproduce, one level up, the exact defect it was built to fix.
 
 ### 2.2 Truncation markers, everywhere a list is capped
 
@@ -174,10 +269,33 @@ quality wins is exactly the error this spec exists to avoid.
 
 ## Open questions for review
 
-1. **Positive control scope.** Per-call (find a control in the same TU, costs a
-   query) or per-session (probe once at warmup, cache the verdict)? Per-session is
-   cheaper and staler; per-call is honest and slower. Leaning per-session with the
-   probe's age reported, but this is the main design decision in the release.
-2. **Deletion is a breaking change.** Fields agents may read disappear. Given
-   only Sand Castle uses APG and both managers report ignoring the candidates, I
-   propose deleting outright rather than deprecating — but that is Steven's call.
+1. ~~Positive control scope~~ — **decided: per-call.** See §2.1. My framing
+   (freshness) was the wrong axis; six measured failures settled it.
+2. ~~Deletion vs deprecation~~ — **decided: delete outright.** Steven: APG is a
+   prototype, every team knows it, clutter goes.
+3. **Still open: `documents_mentioning_note` costs 46 tokens describing an EMPTY
+   list.** The disclosure is larger than the data. Disclosure is right in
+   principle, but a 46-token sentence about nothing is its own clutter. Probably:
+   suppress the note when the filtered list is empty AND nothing was omitted;
+   keep it whenever something was actually dropped. Wanted a manager reading
+   before deciding.
+4. **Still open: whether the overlay deletion generalises past one role.**
+   sc-manager bounded their own verdict to a safety-class manager, explicitly not
+   speaking for a lane doing cold orientation. Awaiting ef-manager.
+
+## ⚠ Measurement hygiene for this release
+
+sc-manager flagged that Steven's machine is currently running a MiniMax H3 video
+generator on the GPU. **Any timing- or GPU-shaped benchmark taken from this
+machine while that is live is contaminated** — and a contended GPU returns a
+plausible number, not an error, which is the same failure class as everything in
+§2.1.
+
+Affects one figure already in the record: the 601ms / 4316ms `graphConsequences`
+round-trips that motivated the cheap-path fix. Those are CPU/SQLite work rather
+than GPU, and the fix stands independently — ef-manager measured 3 of 3 bare
+symbols timing out, and the architectural argument (do not compute callers,
+importers, docs, tasks and a receipt to answer "which feature owns this symbol")
+does not depend on the exact milliseconds. But the specific numbers should not be
+quoted as precise, and no timing claim should enter this release without
+re-measuring on a quiet machine.
