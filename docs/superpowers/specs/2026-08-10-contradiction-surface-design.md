@@ -396,6 +396,23 @@ cold-orientation case. Delete survives it anyway, on asymmetry:
   C++ declaration first for free; a hand-written relevance heuristic would have
   been worse and unfalsifiable.
 
+## ★ A general rule from this audit, larger than any field
+
+ef-manager, correcting his own experiment design after it silently bound the build
+under test to the runner:
+
+> I fixed the axis I was looking at and did not enumerate the axes I moved.
+
+That is not specific to experiment design. It is what happened when the receipt
+was tiered (the guard test asserted reference identity and broke), when the
+dirtyFiles sample was suppressed (dirtyFilesOmitted kept subtracting a cap that no
+longer applied), and when the symbol_referenced predicate was left unchecked while
+the tier LABELS were being carefully designed around it.
+
+**Every change in this release names the axes it moves, not only the one it aims
+at.** Where a change touches a field that another field is computed from, the
+dependent field is re-derived and re-measured in the same commit.
+
 ## Testing
 
 Every change ships with a test that FAILS with the change reverted — not
@@ -521,6 +538,54 @@ quality wins is exactly the error this spec exists to avoid.
    ⚠ When it does go: `tests_adjacent_basis`, `tests_adjacent_warning` and
    `tests_adjacent_provenance` go **with** it. A surviving caveat about a deleted
    number is the caveat-outlives-its-number defect running backwards.
+
+## ★★★ A false positive in a coverage field DELETES A WARNING
+
+The single most important finding of the audit, measured by ef-manager on
+`e8c8d61` after the `symbol_referenced` identity check shipped:
+
+```
+BEFORE   risk_flags: ["orphan_anchor — no feature maps this symbol"]
+AFTER    risk_flags: ["no_test_coverage — no adjacent tests, regression risk",
+                      "orphan_anchor — no feature maps this symbol"]
+```
+
+`no_test_coverage` **never fired**, because `tests_adjacent` falsely claimed
+`tests/test_main.cpp` covered the symbol — on the strength of a `CALLS` edge whose
+`via_symbol` was `vec3`.
+
+> The cost of that bug was never "one wrong list entry". It was **the safety axis
+> silently reporting SAFE.** A false positive in a coverage field does not add
+> noise, it **deletes a warning** — and it deletes it precisely on the targets that
+> most need it, because a symbol with no tests is exactly the one a spurious edge
+> will attach a test to.
+
+Verified independently: `grep -c cylindricalLatBandsForBody tests/test_main.cpp`
+= 0, and `tests/` contains only `CMakeLists.txt` and `test_main.cpp`, so there is
+nowhere else coverage could live. The tool is now correctly reporting a **real,
+pre-existing gap in Echoes that its own defect had been concealing.**
+
+### And it inverts the deletion argument
+
+ef-manager retracted the DELETE because the field was 2-of-3 correct. The real
+reason it was wrong is stronger:
+
+> Deleting `tests_adjacent` would have deleted the field whose CORRECT OPERATION
+> IS THE ONLY THING THAT SURFACES UNCOVERED CODE. I was arguing to remove a safety
+> signal on the grounds that it was broken, when the fix was one predicate.
+
+**Release-notes wording, per his recommendation — "fixed a false positive"
+undersells it:** *a false positive in `tests_adjacent` was suppressing
+`no_test_coverage` warnings on exactly the symbols that lacked tests.*
+
+### ⚠ Scope of the verification, as he stated it
+
+Four fixes verified on `e8c8d61`: the identity check, the `import_linked` true
+positive surviving the tightening, the candidate-truncation disclosure, and the
+`dirtyFilesOmitted` arithmetic. **He did NOT re-run `GpuMaterialPalette.h`**, the
+true negative in the pre-fix sample — so this is *2-of-2 on `tests_adjacent` plus
+two separate bug fixes*, **not** "3-of-3 on the original sample". A tightening
+could in principle perturb a true negative and that has not been looked at.
 
 ## ★ Verdicts from usage, and the inversion they expose
 
