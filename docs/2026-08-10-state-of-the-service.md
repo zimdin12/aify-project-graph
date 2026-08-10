@@ -23,9 +23,53 @@ audit (`/ponytail-audit`) not yet run.
 | APG (JS) | 3,991 | 13,137 | 7,787 | 1,923 | **14.6%** |
 | lc-api (PHP) | 15,628 | 50,527 | 53,197 | 53,197 | **105.3%** |
 
-C++ is in good shape. **PHP is not**, and the JS number on our own repo is 4–10×
-worse than C++ — which is uncomfortable given it is the repo we develop in and
-therefore the one we look at most.
+⛔ **CORRECTED — these ratios are NOT comparable across languages.** See A1b. The
+JS figure is dominated by a class of edge C++ never emits, so "JS is 10× worse
+than C++" is an artifact of extractor configuration, not a quality measurement.
+The PHP figure remains real and remains the outlier.
+
+### A1b ⛔ CORRECTION — the cross-language comparison was invalid (graph-senior-dev)
+
+Verified independently, then re-verified by me at source:
+
+| | |
+|---|---|
+| `languages/cpp.js:545` | `references: []` — C++ emits **no** generic references |
+| `languages/javascript.js` | **no override** → inherits the generic default |
+| `extractors/generic.js:350` | `{ nodeTypes: ['identifier','type_identifier','name'] }` — **every identifier** |
+
+So JS emits a REFERENCE edge for every lexical identifier, including locals and
+parameters, which the graph does not model as nodes and **cannot resolve by
+construction**.
+
+Measured on the current APG sidecar (7,788 uncapped rows):
+- `1,910_JS_trust-relevant_rows / 1,923_all-trust-relevant_rows` = **99.3%**
+- `1,879_JS_reference-short-name_rows / 1,910_JS_trust-relevant_rows` = **98.4%**
+- only **56 unique targets**: `db` 379, `node` 340, `a` 204, `b` 168, `freshness` 152
+- spot-verified at source: `a`/`b` are the parameters of
+  `cosineSimilarity(a, b)` in `intelligence/embeddings.js:10`
+
+**Two mechanisms in sequence, both confirmed:**
+1. *Generator* — the JS extractor emits unresolvable-by-construction edges.
+2. *Metric* — the categorizer then labels that population `fixable:reference-short-name`,
+   promoting known-unresolvable rows **into** trust-relevance.
+
+The classifier is **not** C++-only, contrary to my earlier guess: it correctly
+excludes 2,524 JS common-name CALLS and 3,072 node/npm IMPORTS. Its blind spot is
+specifically JS *lexical* identifiers.
+
+**The genuinely comparable JS tail is `31_JS-qualified-IMPORT_rows / 1,910` = 1.6%** —
+which is the number that should have been compared against C++'s 1.4% all along.
+
+⚠ **Fix shape, and the anti-fix:** suppress generic REFERENCES for JS/TS as C++
+does, or narrow them to semantically representable references — **and separately**
+classify JS locals as not-applicable rather than fixable. Do **not** merely add
+`db`/`a`/`b` to a word denylist: the lexical vocabulary is open, so recurrence is
+guaranteed.
+
+★ This is the third time this week a cross-population comparison has been the
+defect rather than the data. It is the same shape as measuring a JS repo to plan a
+C++ release — **and I made both.**
 
 ### A2 ⛔ The PHP number is not (only) a bad graph — the trust metric silently stops working
 
