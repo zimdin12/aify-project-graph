@@ -383,6 +383,9 @@ export async function ensureFresh({
       // run. Merged with preserved fingerprints (cosmetic + untouched files)
       // before the sidecar is written.
       const computedFingerprints = new Map();
+      // Files this run DELETED from the graph and then failed to re-extract. Not an
+      // error log — a corpus attestation. See the comment at the read/parse catches.
+      const skipped = [];
 
       // Extract in bounded chunks so a mid-run failure only loses the current chunk.
       let chunkSize = 0;
@@ -406,25 +409,58 @@ export async function ensureFresh({
 
           const fileStat = await stat(absPath);
           if (fileStat.size > 1_000_000) {
+            // ★ A DELIBERATE SKIP IS STILL A HOLE. Found while building a fixture for
+            // the read/parse failures below — this branch deletes the file's nodes and
+            // continues, exactly like a failure, and it was the only one of the three
+            // that looked intentional enough not to question.
+            //
+            // Intent does not change what the consumer sees. A 1.2 MB generated source
+            // is absent from the graph, so "who calls X" returns nothing from it, and
+            // that reads as a true negative. The cap is a reasonable engineering choice;
+            // hiding it is not.
             deleteNodesForFile(db, relPath);
+            skipped.push({
+              file: relPath,
+              phase: 'too_large',
+              reason: `${Math.round(fileStat.size / 1024)} KB exceeds the 1000 KB per-file extraction cap`,
+            });
             continue;
           }
 
           deleteNodesForFile(db, relPath);
 
+          // ★ THE DELETE ABOVE ALREADY HAPPENED. A `continue` HERE IS NOT A SKIP.
+          //
+          // `deleteNodesForFile` runs before the read, so bailing out now does not leave
+          // the file's previous graph state in place — it leaves the file ABSENT from the
+          // graph, having been present a moment ago. "Skip files that fail to parse —
+          // non-fatal" described the intent and not the effect.
+          //
+          // Combined with a success envelope that reports `indexed: true`, that is the
+          // upstream failure graph-senior-dev named from four separate projects
+          // (codegraph #1502 "complete" with 0 files · #1361 lock failure → "up to date" ·
+          // Understand #628 dropped cross-batch edges · graphify #2520 parse holes with
+          // exit 0), and the generalisation is theirs: SUCCESS MUST ATTEST CORPUS AND
+          // SCOPE. An index that cannot say what it failed to read is not reporting
+          // success, it is reporting that it finished.
+          //
+          // Not made fatal: one unreadable file should not abandon a whole reindex, and a
+          // partial graph is genuinely better than none. What must not happen is the
+          // partiality being INVISIBLE — so every skip is now counted, named and carried
+          // out to the manifest, where graph_health reads it.
           let source;
           try {
             source = await readFile(absPath, 'utf8');
-          } catch {
-            // Skip files that fail to read — non-fatal
+          } catch (err) {
+            skipped.push({ file: relPath, phase: 'read', reason: String(err?.code ?? err?.message ?? err).slice(0, 120) });
             continue;
           }
 
           let extracted;
           try {
             extracted = extractFile({ filePath: relPath, source, config });
-          } catch {
-            // Skip files that fail to parse — non-fatal
+          } catch (err) {
+            skipped.push({ file: relPath, phase: 'parse', reason: String(err?.message ?? err).slice(0, 120) });
             continue;
           }
 
@@ -438,8 +474,19 @@ export async function ensureFresh({
             db.raw.exec('BEGIN');
             chunkSize = 0;
           }
-        } catch {
+        } catch (err) {
           // File-scope failure: discard the current chunk and keep going.
+          //
+          // ⚠ THIS ONE LOSES MORE THAN ONE FILE. The rollback discards the whole
+          // in-flight chunk — up to EXTRACTION_CHUNK_SIZE files whose extraction had
+          // already succeeded — so the blast radius is the chunk, not the file that
+          // threw. Recorded as such rather than as a single skip, because a reader
+          // counting `skipped.length` would otherwise undercount the damage.
+          skipped.push({
+            file: relPath ?? '(unknown)',
+            phase: 'chunk_rollback',
+            reason: `${String(err?.message ?? err).slice(0, 120)} — up to ${chunkSize} already-extracted file(s) in this chunk were rolled back with it`,
+          });
           try { db.raw.exec('ROLLBACK'); } catch {}
           db.raw.exec('BEGIN');
           chunkSize = 0;
@@ -579,6 +626,17 @@ export async function ensureFresh({
           : resolved.unresolved,
         dirtyEdgeCount: resolved.unresolved.length,
         trustDirtyEdgeCount,
+        // ★ SUCCESS MUST ATTEST CORPUS AND SCOPE. `status: 'ok'` above says the run
+        // finished; these say what it finished WITHOUT. Zero-length is the normal case
+        // and costs 2 fields — the cost is paid only by indexes that actually lost
+        // files, which are exactly the ones where it changes what an agent should do.
+        //
+        // Capped at 50 for the same reason dirtyEdges is capped: a pathological repo
+        // must not balloon the manifest. The COUNT is uncapped, so the cap can never
+        // make the loss look smaller than it is — the failure mode that made
+        // `dirtyEdgeCount` necessary next to `dirtyEdges` in the first place.
+        skippedFileCount: skipped.length,
+        skippedFiles: skipped.slice(0, 50),
       };
       await writeManifest(graphDir, nextManifest);
       await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);

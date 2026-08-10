@@ -553,6 +553,26 @@ export async function graphHealth({ repoRoot }) {
         + 'Re-run graph_index to regenerate the full set.',
     };
   })();
+  // ★ status:'ok' MEANS THE RUN FINISHED, NOT THAT IT READ EVERYTHING.
+  //
+  // The indexer deletes a file's nodes BEFORE re-extracting it, so a read or parse
+  // failure leaves that file ABSENT from the graph rather than merely un-updated —
+  // and the run still reports ok. An agent then asks "who calls X", gets a confident
+  // answer computed over a corpus missing those files, and has no way to know.
+  //
+  // This is the one verdict that must not be conditional on `stale`: a fresh index
+  // with holes is MORE dangerous than a stale one, because staleness is already
+  // reported and holes were not.
+  const skippedCount = Number(manifest.skippedFileCount ?? 0);
+  if (skippedCount > 0) {
+    const sample = (manifest.skippedFiles ?? []).slice(0, 3).map((s) => `${s.file} (${s.phase})`).join(', ');
+    verdicts.push(
+      `⛔ INCOMPLETE CORPUS — ${skippedCount} file(s) were DELETED from the graph and could not be re-extracted, `
+      + `so any "not found" / "no callers" result may be an artefact of the hole rather than a fact about the code. `
+      + `First: ${sample}${skippedCount > 3 ? ` (+${skippedCount - 3} more, see manifest.skippedFiles)` : ''}. `
+      + `Fix the file(s) or re-run graph_index; do NOT treat exhaustive results as exhaustive until this is zero.`,
+    );
+  }
   if (manifestStatus !== 'ok') verdicts.push(`rebuild-incomplete: status=${manifestStatus} (run graph_index(force=true))`);
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
