@@ -24,6 +24,7 @@ import {
   countGraphNodes,
   getSourceBundleBudget,
   renderSourceBundle,
+  manifestIndexedAtMs,
 } from '../source-bundle.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
 
@@ -108,15 +109,34 @@ export async function graphExplore({ repoRoot, symbols = [], max_files }) {
       }
     }
 
-    const { text: bundle, dropped: droppedBlocks } = renderSourceBundle({
+    const { text: bundle, dropped: droppedBlocks, unverified } = renderSourceBundle({
       blocks,
       repoRoot,
       budget,
+      indexedAtMs: manifestIndexedAtMs(repoRoot),
     });
 
     const lines = [];
     lines.push(`EXPLORE — ${resolved.length} symbol${resolved.length === 1 ? '' : 's'} across ${keptFiles.length} file${keptFiles.length === 1 ? '' : 's'} (tier=${budget.name}).`);
-    lines.push('Returned source is Read-equivalent — do NOT re-Read the files shown below.');
+    // ★ THE PROMISE IS NOW CONDITIONAL, AND IT IS THE PROMISE THAT MADE THE BUG SERIOUS.
+    //
+    // "Do NOT re-Read the files shown below" is an instruction to stop verifying. Issued
+    // unconditionally, it converted a stale-offset window from something a careful reader
+    // would catch into something they were told not to check. The line offsets come from
+    // the index; the bytes come from now; nothing reconciled them.
+    //
+    // So the banner is withdrawn for exactly the blocks that could not be verified, and
+    // the withdrawal names them — a blanket "some blocks may be stale" would leave the
+    // reader unable to act on it.
+    if (unverified.length === 0) {
+      lines.push('Returned source is Read-equivalent — do NOT re-Read the files shown below.');
+    } else {
+      const drifted = unverified.filter((u) => u.kind === 'offset_drift');
+      lines.push(`⚠ NOT Read-equivalent for ${unverified.length} of ${blocks.length} block(s) — re-Read those files before citing them. The rest are verbatim.`);
+      if (drifted.length > 0) {
+        lines.push(`⛔ ${drifted.length} block(s) show PROVEN offset drift (the symbol is absent from its own body): ${drifted.map((d) => `${d.symbol} @ ${d.filePath}`).join(', ')}. Run graph_index.`);
+      }
+    }
     lines.push('');
     lines.push(bundle);
 

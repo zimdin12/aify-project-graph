@@ -104,9 +104,11 @@ export function readSourceWindow(repoRoot, filePath, startLine, endLine, maxLine
     return { lines: [], startLine: startLine || 1, truncated: false, missing: true };
   }
   let raw;
+  let mtimeMs = null;
   try {
     // Bound the read by bytes first — a defensive cap against a giant file.
-    const size = statSync(abs).size;
+    const { size, mtimeMs: mt } = statSync(abs);
+    mtimeMs = mt;
     if (size > MAX_BLOCK_BYTES * 8) {
       // Very large file: still read, but Node reads the whole file; we slice
       // the window after split. The slice keeps memory bounded for rendering.
@@ -134,14 +136,76 @@ export function readSourceWindow(repoRoot, filePath, startLine, endLine, maxLine
   const truncated = effectiveEnd < end;
 
   const lines = allLines.slice(start - 1, effectiveEnd);
-  return { lines, startLine: start, truncated, missing: false };
+  return { lines, startLine: start, truncated, missing: false, mtimeMs };
+}
+
+// ★ THE OFFSETS ARE FROM THE INDEX. THE BYTES ARE FROM NOW.
+//
+// `readSourceWindow` reads the CURRENT file at line offsets recorded when the graph
+// was built. If lines were inserted or deleted above the symbol since, the window
+// slides and we serve a DIFFERENT symbol's body — under a header naming the symbol
+// the caller asked for, on the verbs whose entire selling point is
+// "Read-equivalent — do NOT re-Read these files".
+//
+// That is the worst shape a defect can have here: confidently wrong, on the surface
+// that tells the reader not to check. Every other stale-data path in this server
+// degrades toward silence; this one degrades toward a plausible lie.
+//
+// Two independent checks, because they fail on different things:
+//
+//   1. DRIFT PROOF (positive, cheap, no manifest needed). If we were told which
+//      symbol this block is, its name must appear somewhere in the returned window.
+//      A definition that does not contain its own name is proof the offsets moved.
+//      Catches drift even when the file's mtime looks fine.
+//
+//   2. STALENESS (structural). If the file was modified after the graph was indexed,
+//      the offsets are unverified whether or not check 1 happens to pass — a rename
+//      elsewhere in the file can slide a window onto a same-named overload.
+//
+// Check 1 can only fire when a symbol name is available and can false-negative on a
+// window that coincidentally contains the name; check 2 cannot see intra-index edits
+// but needs no name. Neither subsumes the other, so both run.
+// `indexedAt` from the manifest, as epoch ms. Returns null when unreadable — and a
+// null here DISABLES the staleness check rather than failing it, deliberately: an
+// absent manifest is already reported by the freshness layer, and inventing a second
+// warning from it would duplicate a signal instead of adding one. The drift proof
+// still runs, because it needs no manifest.
+export function manifestIndexedAtMs(repoRoot) {
+  try {
+    const raw = readFileSync(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8');
+    const t = Date.parse(JSON.parse(raw)?.indexedAt ?? '');
+    return Number.isFinite(t) ? t : null;
+  } catch {
+    return null;
+  }
+}
+
+function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs }) {
+  const warnings = [];
+  if (symbol && lines.length > 0 && !lines.some((l) => l.includes(symbol))) {
+    warnings.push({
+      kind: 'offset_drift',
+      text: `⛔ WRONG BODY — "${symbol}" does not appear in these lines. The graph's line
+   offsets are stale relative to the current file, so this window is some OTHER code.
+   Do NOT treat this as ${symbol}. Read the file directly, then graph_index.`,
+    });
+  }
+  if (indexedAtMs && mtimeMs && mtimeMs > indexedAtMs) {
+    warnings.push({
+      kind: 'modified_since_index',
+      text: `⚠ NOT Read-equivalent — this file changed after the graph was indexed, so the
+   line numbers shown may not be the lines these symbols now occupy. Verify before
+   citing, or run graph_index.`,
+    });
+  }
+  return warnings;
 }
 
 // Render one block: a header line (`symbol @ file:start-end`) followed by the
 // `cat -n` source. Line numbers are RIGHT-aligned and 1-based matching the file
 // so an agent can cite them directly. Returns { text, lineCount }.
-export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRoot, perBlockLines }) {
-  const { lines, startLine: actualStart, truncated, missing } = readSourceWindow(
+export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRoot, perBlockLines, indexedAtMs }) {
+  const { lines, startLine: actualStart, truncated, missing, mtimeMs } = readSourceWindow(
     repoRoot, filePath, startLine, endLine, perBlockLines,
   );
 
@@ -162,11 +226,16 @@ export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRo
     .map((line, i) => `${String(actualStart + i).padStart(width)}\t${line}`)
     .join('\n');
 
-  let text = `${head}\n${body}`;
+  const warnings = verifyWindow({ symbol, lines, mtimeMs, indexedAtMs });
+
+  // ABOVE the source, not below it. A reader who scans the body and stops has
+  // already been misled; a caveat under 40 lines of plausible C++ is decoration.
+  const banner = warnings.length > 0 ? `${warnings.map((w) => `   ${w.text}`).join('\n')}\n` : '';
+  let text = `${head}\n${banner}${body}`;
   if (truncated) {
     text += `\n   … (block truncated at ${perBlockLines} lines — Read ${filePath} for the rest)`;
   }
-  return { text, lineCount: lines.length };
+  return { text, lineCount: lines.length, warnings };
 }
 
 // Bundle several blocks under ONE framing header within a total-line budget.
@@ -175,7 +244,7 @@ export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRo
 // Returns { text, rendered, dropped } — text includes the header; `dropped` is
 // how many requested blocks were cut for budget (the caller emits the TRUNCATED
 // tail with a "narrow your list" steer).
-export function renderSourceBundle({ blocks = [], repoRoot, budget, includeHeader = true }) {
+export function renderSourceBundle({ blocks = [], repoRoot, budget, includeHeader = true, indexedAtMs }) {
   const b = budget ?? getSourceBundleBudget(0);
   const out = [];
   if (includeHeader) out.push(SOURCE_BUNDLE_HEADER);
@@ -183,6 +252,10 @@ export function renderSourceBundle({ blocks = [], repoRoot, budget, includeHeade
   let usedLines = 0;
   let rendered = 0;
   let dropped = 0;
+  // Collected so the CALLER can withdraw its "Read-equivalent" promise. A per-block
+  // warning under one block does not reach a reader who has already accepted a
+  // top-of-response banner telling them not to re-Read anything.
+  const unverified = [];
 
   for (const block of blocks) {
     if (rendered >= b.maxBlocks || usedLines >= b.totalLines) {
@@ -192,15 +265,19 @@ export function renderSourceBundle({ blocks = [], repoRoot, budget, includeHeade
     // Remaining line budget caps this block on top of the per-block cap.
     const remaining = b.totalLines - usedLines;
     const perBlock = Math.max(1, Math.min(b.perBlockLines, remaining));
-    const { text, lineCount } = renderSourceBlock({
+    const { text, lineCount, warnings } = renderSourceBlock({
       ...block,
       repoRoot,
       perBlockLines: perBlock,
+      indexedAtMs,
     });
     out.push(text);
     usedLines += lineCount;
     rendered += 1;
+    for (const w of warnings ?? []) {
+      unverified.push({ symbol: block.symbol, filePath: block.filePath, kind: w.kind });
+    }
   }
 
-  return { text: out.join('\n\n'), rendered, dropped };
+  return { text: out.join('\n\n'), rendered, dropped, unverified };
 }
