@@ -461,7 +461,59 @@ export async function graphHealth({ repoRoot }) {
   // The full set is written to dirty-edges.full.json. Read the real thing; fall
   // back to the sample only when it is absent, and SAY SO when that happens.
   const trustBasis = (() => {
-    if (trustUnresolvedEdges === unresolvedEdges) return null;
+    // ★ "NOTHING WAS EXCLUDED" AND "NOTHING COULD BE CLASSIFIED" ARE NOT THE SAME.
+    //
+    // This early return dropped trustBasis whenever no edge was excluded, on the
+    // reasoning that there was nothing to explain. Two very different situations
+    // reach it:
+    //
+    //   the classifier RAN and found nothing excludable   → nothing to say, fine
+    //   the classifier COULD NOT RUN                      → the reader must know
+    //
+    // Measured 2026-08-10 on lc-api (PHP): trustBasis came back UNDEFINED against
+    // 53,197 unresolved edges — MORE than its 50,527 total edges — and a `weak`
+    // verdict. Cause: its unresolved-categorization.json is on an April schema
+    // missing graph_commit/graph_indexed_at/source/writtenAt, so nothing could be
+    // classified, so nothing was excluded, so the whole explanation vanished. The
+    // reader was left with a raw five-figure count and a bad verdict caused by a
+    // stale artifact rather than by the code.
+    //
+    // Compare the other three repos, same build, same day: 1.4% / 3.8% / 14.6%
+    // trust-relevant. PHP's 105% is not a graph that is 70x worse — it is the
+    // exclusion pass silently not happening.
+    //
+    // This is the defect this project exists to remove, sitting inside the metric
+    // used to decide whether to trust everything else. So the no-exclusions case
+    // now STATES which of the two it is.
+    if (trustUnresolvedEdges === unresolvedEdges) {
+      const catPath = join(graphDir, 'unresolved-categorization.json');
+      let classifierRan = false;
+      let staleSchema = false;
+      if (existsSync(catPath)) {
+        try {
+          const cat = JSON.parse(readFileSync(catPath, 'utf8'));
+          // These keys were added when the artifact gained provenance. Their
+          // absence means the file predates it and cannot be trusted to describe
+          // the current graph — the same reason a stale collection cannot attest
+          // exhaustiveness.
+          staleSchema = !cat?.graph_commit || !cat?.source;
+          classifierRan = !staleSchema;
+        } catch { staleSchema = true; }
+      }
+      if (classifierRan) return null; // ran, excluded nothing — genuinely nothing to say
+      return {
+        total_unresolved: unresolvedEdges,
+        trust_relevant: trustUnresolvedEdges,
+        excluded: null,
+        classification: existsSync(catPath) ? 'STALE_ARTIFACT' : 'NOT_RUN',
+        consequence:
+          `NONE of the ${unresolvedEdges} unresolved edges could be classified, so ALL of them count as `
+          + 'trust-relevant and the trust verdict above is a FLOOR, not a measurement. This is a fact about '
+          + `the ${existsSync(catPath) ? 'categorization artifact being too old to trust' : 'categorization never having run'}`
+          + ', NOT about the code. Do not compare this ratio against a repo where classification succeeded.',
+        remedy: 'run graph_index() to regenerate .aify-graph/unresolved-categorization.json, then re-read this field.',
+      };
+    }
     const fullPath = join(graphDir, 'dirty-edges.full.json');
     if (existsSync(fullPath)) {
       try {
