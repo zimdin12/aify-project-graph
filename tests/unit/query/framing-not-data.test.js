@@ -81,10 +81,16 @@ describe('adjacent tests cannot assert unverified coverage', () => {
     expect(consequences).toMatch(/do NOT read them as proof/);
   });
 
-  it('only warns when the tests came from the overlay, not when linkage was found', () => {
-    // A permanent caveat is noise, and noise on the trust surface is what makes real
-    // banners ignorable — the same argument that killed the filler suggestion.
-    expect(consequences).toMatch(/const testsUnverifiedForSymbol = testsProvenance !== 'import_linked'/);
-    expect(consequences).toMatch(/\.\.\.\(testsUnverifiedForSymbol \?/);
-  });
+  // MOVED to tests/unit/query/tier-identity-behaviour.test.js as a behavioural case.
+  //
+  // It read:
+  //   expect(consequences).toMatch(/const testsUnverifiedForSymbol = testsProvenance !== 'import_linked'/)
+  //
+  // On 2026-08-10 that assertion failed — not because the caveat became permanent,
+  // but because the declaration was reformatted across two lines while the behaviour
+  // it guards got STRICTER. A source-grep test does not only fail to catch bugs; it
+  // also fires on things that are not bugs, and both failures spend the same
+  // attention. The replacement asserts the caveat's PRESENCE and ABSENCE against
+  // real results, so a rename or a reflow cannot move it and a regression cannot
+  // hide behind matching source text.
 });

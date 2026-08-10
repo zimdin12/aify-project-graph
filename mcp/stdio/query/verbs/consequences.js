@@ -605,11 +605,32 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
 
     // 5. Adjacent tests — test files that reference the matched symbols/files
     const tests = [];
+    // ★ A DIRECT EDGE TO THE TARGET SYMBOL IS NOT AN IMPORT, AND MUST NOT SAY IT IS.
+    //
+    // Found 2026-08-10 by the first test that RAN this code instead of grepping its
+    // source (tier-identity-behaviour.test.js). A test file whose only edge is
+    // `CALLS test_target.cpp -> targetSymbol`, with no IMPORTS edge anywhere in the
+    // database, came back `tests_adjacent_provenance: "import_linked"`.
+    //
+    // The EVIDENCE was real — a test calls the exact symbol asked about. The LABEL
+    // was false: it asserted a structural include that did not exist. Same class as
+    // the vec3 defect directly below, and the mirror image of it — there a weak
+    // basis wore a strong tier's name; here the STRONGEST basis wears a DIFFERENT
+    // claim's name, so an agent auditing the import graph is told an edge is there.
+    //
+    // It also mattered more than a naming nit: `import_linked` is the tier that
+    // clears `tests_unverified_for_symbol` and reports `observed`. The one tier that
+    // genuinely verifies the SYMBOL was borrowing that clearance from a tier that
+    // only verifies the FILE — and `import_linked` on a 2,000-line file says almost
+    // nothing about one function in it, while a direct CALLS edge says everything.
+    // The weaker claim was outranking the stronger one and lending it its name.
+    const directSymbolEdges = [];
     const fileAdjacencyImports = [];   // IMPORTS edges — structural
     const fileAdjacencyRefs = [];      // every other relation — a reference to ONE symbol
     if (symbolNodes.length > 0) {
       const directTestRows = db.all(
-        `SELECT DISTINCT COALESCE(NULLIF(n.file_path, ''), NULLIF(e.source_file, '')) AS test_file
+        `SELECT DISTINCT COALESCE(NULLIF(n.file_path, ''), NULLIF(e.source_file, '')) AS test_file,
+                e.relation AS relation
          FROM edges e
          JOIN nodes n ON n.id = e.from_id
          WHERE e.to_id IN (SELECT value FROM json_each($ids))
@@ -629,6 +650,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
          LIMIT 10`,
         { ids: JSON.stringify(symbolNodes.map((n) => n.id)) });
       tests.push(...directTestRows.map((r) => r.test_file));
+      directSymbolEdges.push(...directTestRows);
     }
     if (matchedFiles.size > 0) {
       // ★ THIS QUERY HAD NO `e.relation` FILTER, so ANY edge of ANY type from a
@@ -796,7 +818,12 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // but says which kind of claim it is.
     // Four tiers now, because `linked` was covering two things with opposite
     // evidential value — a real import edge, and a bare word match on a namespace.
-    //   import_linked     the test file IMPORTS the code. A structural edge.
+    //   symbol_direct     the test file has an edge straight to THIS symbol. The
+    //                     strongest tier, and the only one that verifies the symbol
+    //                     rather than the file it lives in.
+    //   import_linked     the test file IMPORTS the code. A structural edge — a
+    //                     claim about the FILE, which on a large file says little
+    //                     about any one symbol in it.
     //   text_mentioned    a symbol name appears in the test file. A HINT: strong for
     //                     a distinctive identifier, worthless for `vec3`.
     //   feature_declared  the curated overlay says so; unverified against this symbol.
@@ -809,15 +836,32 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       && tests.length === 0 && fileAdjacencyImports.length === 0 && importLinkedTests.length === 0;
     const testsProvenance = onlyViaCompanionHeader
       ? 'companion_header_linked'
+      // `symbol_direct` outranks `import_linked` because it answers the question
+      // actually asked. "A test imports the file this symbol lives in" is a claim
+      // about the FILE; "a test has an edge to this symbol" is a claim about the
+      // SYMBOL. Ranking the file-level claim first meant the precise answer was
+      // reported under the vaguer one's name.
+      : tests.length > 0
+      ? 'symbol_direct'
       : inferredTests.length > 0
       ? 'import_linked'
       : (refTests.length > 0 ? 'symbol_referenced'
         : (mentionTests.length > 0 ? 'text_mentioned'
           : (featureTests.length > 0 ? 'feature_declared' : 'none')));
-    const testsUnverifiedForSymbol = testsProvenance !== 'import_linked' && testsProvenance !== 'none';
+    // `symbol_direct` is the ONLY tier that verifies the symbol, so it is the one
+    // tier that unambiguously belongs here. `import_linked` keeps its long-standing
+    // clearance — it is a real structural edge — but note that it clears the flag on
+    // FILE evidence, which is a weaker warrant than the name of the flag implies.
+    const testsUnverifiedForSymbol = testsProvenance !== 'symbol_direct'
+      && testsProvenance !== 'import_linked' && testsProvenance !== 'none';
     // The symbol that produced a weak adjacency claim, so the reader can dismiss it
     // in one glance — `vec3` needs no threshold to be recognised as vacuous.
-    const testsAdjacencyBasis = testsProvenance === 'symbol_referenced'
+    const testsAdjacencyBasis = testsProvenance === 'symbol_direct'
+      ? directSymbolEdges
+        .filter((r) => r.test_file)
+        .slice(0, 5)
+        .map((r) => ({ test_file: r.test_file, relation: r.relation, via_symbol: symbolNodes[0]?.label ?? target }))
+      : testsProvenance === 'symbol_referenced'
       ? fileAdjacencyRefs
         .filter((r) => refTests.includes(r.test_file))
         .slice(0, 5)
@@ -1005,7 +1049,8 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         open_tasks_on_those_features: 'inferred',
         // Only a real import EDGE is observed. A text match is a hint, not structure —
         // it was labelled `observed` on the strength of `vec3` appearing in a test.
-        tests_adjacent: testsProvenance === 'import_linked' ? 'observed' : 'inferred',
+        tests_adjacent: (testsProvenance === 'symbol_direct' || testsProvenance === 'import_linked')
+          ? 'observed' : 'inferred',
         // ★ D2 — A DERIVED FIELD INHERITED AN INFERRED FIELD'S ERROR WITHOUT ITS LABEL.
         //
         // ef-manager: risk_flags and spec_docs were not in this map at all, and
