@@ -200,9 +200,37 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
     ].join('\n')
     : '';
 
+  // ★ THE LIST IS CAPPED. SAY SO — THE ONE THEY WANT MAY BE IN THE MISSING PART.
+  //
+  // Measured (ef-manager, echoes, 2026-08-10). `GpuMaterial` printed
+  // "16 concrete candidates found:" and then FIVE bullets, all GLSL, and stopped.
+  // No "11 more", no truncated flag, no limit. Ground truth by rg: exactly 16
+  // definitions — 1 C++ (engine/rendering/GpuMaterialPalette.h:30) and 15 GLSL.
+  //
+  // The single C++ declaration — the one a caller almost always means — was inside
+  // the silent eleven. A reader takes "16 found:" followed by a list as the list,
+  // and this one both understated itself and omitted the answer.
+  //
+  // His framing, and it is the right priority: ranking C++ first is a nice-to-have,
+  // disclosing the cap is the CORRECTNESS fix. A ranking tells you the order is
+  // unreliable and you must still go looking; a truncation marker tells you the
+  // LIST IS INCOMPLETE, which is a different and load-bearing claim.
+  //
+  // The idiom already exists in this codebase — documents_mentioning_note,
+  // co_consumer_files {items,total,truncated,limit}. It was simply never applied
+  // here.
+  const omitted = groups.size - candidates.length;
+  const truncationNote = omitted > 0
+    ? `  ⚠ SHOWING ${candidates.length} OF ${groups.size} — ${omitted} candidate(s) omitted. `
+      + 'The definition you want may be among them: on a repo with shader or generated '
+      + 'mirrors, the sole first-party declaration can fall outside this cap. '
+      + `Narrow with file= or a qualified name, or use graph_whereis(symbol="${symbol}") which ranks and does not cap the same way.`
+    : '';
+
   return [
     `AMBIGUOUS MATCH for "${symbol}". ${groups.size} concrete candidates found:`,
     ...candidates,
+    truncationNote,
     retryHint,
     crossLanguageNote,
   ].filter(Boolean).join('\n');

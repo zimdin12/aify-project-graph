@@ -1006,7 +1006,21 @@ export async function graphHealth({ repoRoot }) {
           : undefined,
       }),
     dirtyFilesTotal: dirtyFiles.length,
-    ...(dirtyFiles.length > DIRTY_LIST_CAP ? { dirtyFilesOmitted: dirtyFiles.length - DIRTY_LIST_CAP } : {}),
+    // ★ THE OMITTED-COUNT MUST MATCH WHAT WAS ACTUALLY PRINTED.
+    //
+    // Introduced by me the same day I suppressed the name list, and caught by
+    // ef-manager one commit later: it kept subtracting DIRTY_LIST_CAP, so on echoes
+    // it reported dirtyFilesOmitted 2799 of dirtyFilesTotal 2824 — arithmetic that
+    // asserts 25 names were shown, in a response that shows none. A count that
+    // disagrees with the payload beside it is worse than no count, because a reader
+    // reconciles them and concludes the payload was truncated somewhere they cannot
+    // see.
+    //
+    // Now derived from the list that was actually emitted, so the two cannot drift:
+    // suppressed → everything is omitted; capped → the cap is what shows.
+    ...(dirtyFiles.length > 0
+      ? { dirtyFilesOmitted: dirtyFiles.length - (trackedDirtyFiles.length > 0 ? Math.min(dirtyFiles.length, DIRTY_LIST_CAP) : 0) }
+      : {}),
     trackedDirtyFiles: trackedDirtyFiles.slice(0, DIRTY_LIST_CAP),
     trackedDirtyFilesTotal: trackedDirtyFiles.length,
     trackedDirtyFilesTruncated: trackedDirtyFiles.length > DIRTY_LIST_CAP,
