@@ -22,6 +22,7 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { buildReceipt, receiptFor, currentPins, hashOverlayContent, hashWorktreeDirty } from '../receipt.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
+import { isTaskOpen } from '../../overlay/task-status.js';
 import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
 import { getDirtyFiles } from '../../freshness/git.js';
 import { computeTrustLevel } from './health.js';
@@ -85,7 +86,7 @@ function resolveTaskTarget(repoRoot, target) {
   }
   const siblingTasks = (tasksRaw.tasks ?? [])
     .filter((t) => t.id !== target)
-    .filter((t) => t.status && /open|progress|active|todo|in_progress/i.test(t.status))
+    .filter((t) => isTaskOpen(t.status))
     .filter((t) => {
       const refs = t.features ?? t.related_features ?? [];
       return refs.some((f) => featureIds.includes(f));
@@ -521,7 +522,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     const tasks = [];
     if (tasksRaw?.tasks) {
       for (const t of tasksRaw.tasks) {
-        if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
+        if (!isTaskOpen(t.status)) continue;
         const featureRefs = t.features ?? t.related_features ?? [];
         if (!featureRefs.some((f) => affectedFeatureIds.has(f))) continue;
         tasks.push({
@@ -529,6 +530,24 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
           title: t.title ?? '',
           status: t.status ?? null,
           priority: t.priority ?? null,
+          // ★ THE TRACKER LINK IS A POINTER TO AUTHORITY — CARRY IT.
+          //
+          // tasks.json stores `url` (real example from echoes:
+          // "https://app.clickup.com/t/869cm99z3"), and graph_pull surfaces it.
+          // This verb — the one that answers "what breaks if I touch X" — dropped
+          // it, leaving the reader an id like `CU-869cm99z3` and no way to reach
+          // the thing it names.
+          //
+          // An id is only decodable by someone who already knows that tracker's URL
+          // scheme. APG is source-agnostic by design (ClickUp, Asana, Linear, Jira,
+          // Plane, GitHub Issues, plaintext), so the id prefix is exactly what
+          // cannot be relied on — while `url` is portable across every one of them.
+          //
+          // sc-manager's category applies: `spec_docs` was kept out of the deletion
+          // list because it is a POINTER TO AUTHORITY rather than a derived summary,
+          // and their failure mode this session was not retrieving authority they
+          // already had. A tracker link is the same kind of object, and cheaper.
+          ...(t.url ? { url: t.url } : {}),
           features: featureRefs.filter((f) => affectedFeatureIds.has(f)),
           link_strength: taskLinkStrength(t),
           evidence: t.evidence ?? null,

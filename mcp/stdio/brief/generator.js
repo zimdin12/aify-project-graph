@@ -14,6 +14,7 @@ import { join } from 'node:path';
 import { writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { isTaskOpen } from '../overlay/task-status.js';
 import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
 import { getDirtyFilesSync } from '../freshness/git.js';
@@ -1052,7 +1053,7 @@ function recentActivity(repoRoot, limit = 5) {
 function openTasksByFeature(tasksArtifact) {
   const byFeature = new Map();
   for (const t of tasksArtifact?.tasks || []) {
-    if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
+    if (!isTaskOpen(t.status)) continue;
     const featureRefs = taskFeatureRefs(t);
     if (featureRefs.length === 0) continue;
     for (const fid of featureRefs) {
@@ -1091,7 +1092,7 @@ function completedTaskCountsByFeature(tasksArtifact) {
 function openTasksWithoutFeatures(tasksArtifact) {
   const out = [];
   for (const t of tasksArtifact?.tasks || []) {
-    if (t.status && !/open|progress|active|todo|in_progress/i.test(t.status)) continue;
+    if (!isTaskOpen(t.status)) continue;
     if (taskFeatureRefs(t).length === 0) out.push(t);
   }
   return out;
