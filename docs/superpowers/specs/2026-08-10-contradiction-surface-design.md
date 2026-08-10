@@ -472,6 +472,34 @@ quality wins is exactly the error this spec exists to avoid.
    about a day and were quota-starved. The hypothesis is thin AND its strongest
    disconfirmation is the weakest-windowed. One session closes that.
 
+   **Design: runner and adjudicator are split.** ef-manager locked the falsifier
+   and prediction before the run; graph-tech-lead spawns and hands over the **raw
+   transcript**, not a summary. Their pre-registration protects against *their*
+   bias and does nothing about the runner's — so the falsifier is fixed by someone
+   who does not control the data, and the data comes from someone who cannot
+   revise the falsifier.
+
+   ⚠ **AMENDMENT, registered before any data:** the split silently bound a third
+   variable — a subagent inherits its parent's MCP servers, so moving the runner
+   moved **the build under test** with it. Caught when graph-tech-lead checked his
+   own side: his server was on `504563e`, *staler than ef-manager's `8e09c67`*, so
+   the run would have gated Sand Castle on a two-day-old build.
+
+   > The server commit is an experimental parameter, not an environmental detail.
+
+   **The transcript must OPEN with the cold lane's own `graph_health` server block**
+   — version, commit, startedAt, staleProcess — captured as its first act. Without
+   it a result gating another team's work carries no build provenance: the number
+   outliving its qualifier, in experimental form, which this arc has already
+   shipped three times in three mechanisms.
+
+   ★ It doubles as a free control: whether a fresh reader reaches for the trust
+   verb unprompted. ef-manager's registered prediction — **it will not**, because
+   nothing in an orientation question suggests trust is in doubt, which would make
+   it a finding about *discoverability* rather than value.
+
+   **Blocked on:** one `/mcp` reconnect covering both sessions.
+
    Prior evidence pointing the same way, with its limit stated: in ef-manager's
    two most orientation-shaped experiments — *"what shader code must change in
    lockstep"* and *"delete ChunkDataCache.h, what breaks"* — **not one of the eight
