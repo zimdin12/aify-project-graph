@@ -653,7 +653,31 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       // is a REFERENCE to one symbol — real information, but a much weaker claim,
       // and it must travel with the symbol that produced it.
       fileAdjacencyImports.push(...fileAdjacencyRows.filter((r) => r.relation === 'IMPORTS').map((r) => r.test_file));
-      fileAdjacencyRefs.push(...fileAdjacencyRows.filter((r) => r.relation !== 'IMPORTS'));
+      // ★ `symbol_referenced` CLAIMS THE TARGET IS REFERENCED. CHECK THAT IT IS.
+      //
+      // Measured (ef-manager, echoes, 8e09c67 — i.e. WITH the four-tier split
+      // already in place, so this is not a pre-tier wound):
+      //
+      //   cylindricalLatBandsForBody → tests_adjacent ["tests/test_main.cpp"]
+      //   provenance symbol_referenced, basis: relation CALLS, via_symbol "vec3"
+      //   ground truth: grep -c cylindricalLatBandsForBody tests/test_main.cpp = 0
+      //
+      // The tier predicate accepted ANY symbol edge between the test file and
+      // anything at all, then labelled it as though the TARGET were the referent.
+      // `vec3` is a math type used by nearly every C++ file in that repo, so the
+      // claim was true about vec3 and false about the symbol the caller asked
+      // about.
+      //
+      // This is not a correctly-labelled weak tier — those are the mechanism
+      // working. It is a STRONG TIER LABELLED FALSELY, which is a different and
+      // much more fixable thing. Same root shape as the original fileAdjacency
+      // defect: an unfiltered edge in, a confidently-tiered claim out.
+      //
+      // If via_symbol is not the target, the tier is not "weaker" — it is nothing,
+      // and the file must not be listed at all.
+      fileAdjacencyRefs.push(...fileAdjacencyRows.filter((r) => (
+        r.relation !== 'IMPORTS' && r.via_symbol && matchedSymbols.has(r.via_symbol)
+      )));
     }
     const importLinkedTests = matchedFiles.size > 0 ? findImportLinkedTestFiles(db, [...matchedFiles]) : [];
 
@@ -1073,10 +1097,41 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       //                      monolithic entrypoint that never exercises it.
       // 'none'             — nothing found, and nothing claimed.
       tests_adjacent_provenance: testsProvenance,
+      // ★ THE WARNING MUST DESCRIBE THE TIER THAT ACTUALLY FIRED.
+      //
+      // Measured (ef-manager, echoes, 8e09c67): provenance came back
+      // `symbol_referenced` while this warning read "DECLARED by the touching
+      // feature". "Declared by the touching feature" is the feature_declared
+      // mechanism — a different tier entirely. The text was hardcoded for one
+      // tier and printed on another.
+      //
+      // A third form of the caveat-must-match-its-number rule, and the nastiest:
+      // not a caveat outliving its number, and not a number outliving its caveat,
+      // but a caveat DESCRIBING A MECHANISM THAT DID NOT RUN. A reader who
+      // believes it goes looking for a feature declaration that was never
+      // involved, and finds nothing — which reads as the tool being vague rather
+      // than wrong.
+      //
+      // The suppression logic was already correct (import_linked emitted no
+      // warning); only the wording was not tier-selected.
       ...(testsUnverifiedForSymbol ? {
-        tests_adjacent_warning:
-          'these tests are DECLARED by the touching feature, not verified against this symbol — '
-          + 'do NOT read them as proof that a change here is covered. Confirm the test actually exercises it before relying on it.',
+        tests_adjacent_warning: (
+          testsProvenance === 'companion_header_linked'
+            ? 'these tests import the PAIRED HEADER, not this implementation file — real structural '
+              + 'adjacency for the .cpp/.h unit, but one edge removed from the file you asked about. '
+              + 'Confirm the test exercises this file\'s code before relying on it.'
+            : testsProvenance === 'symbol_referenced'
+              ? 'these tests REFERENCE this symbol (see tests_adjacent_basis for the relation and the '
+                + 'matching symbol) — a reference is not a test of behaviour. Confirm the test actually '
+                + 'exercises it before reading this as coverage.'
+              : testsProvenance === 'text_mentioned'
+                ? 'this symbol\'s NAME appears in these tests as text, with no structural edge — the '
+                  + 'weakest tier, and a common-word name can match anything. Verify in source before '
+                  + 'reading this as coverage at all.'
+                : 'these tests are DECLARED by the touching feature, not verified against this symbol — '
+                  + 'do NOT read them as proof that a change here is covered. Confirm the test actually '
+                  + 'exercises it before relying on it.'
+        ),
       } : {}),
       last_touched: lastTouched,
       dirty_overlap: dirtyOverlap,
