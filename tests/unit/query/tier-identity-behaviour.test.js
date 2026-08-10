@@ -140,6 +140,24 @@ describe('symbol_referenced tier — behaviour, not source text', () => {
     expect(res.tests_adjacent_warning, 'a verified tier must not carry the caveat').toBeUndefined();
   });
 
+  it('★ but an IMPORTS edge does NOT clear it — file evidence cannot discharge a symbol caveat', async () => {
+    // ef-manager's granularity rule. `import_linked` is a true claim about the FILE;
+    // `tests_unverified_for_symbol` is a claim about the SYMBOL. File-level evidence
+    // cannot discharge it at any file size.
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    insertNode(db, { id: 'target', type: 'Function', label: 'targetSymbol', file_path: 'src/target.cpp' });
+    insertNode(db, { id: 'src', type: 'File', label: 'target.cpp', file_path: 'src/target.cpp' });
+    insertNode(db, { id: 'test', type: 'File', label: 'test_target.cpp', file_path: 'tests/test_target.cpp' });
+    // A real structural include, and NOTHING touching the symbol itself.
+    insertEdge(db, { from_id: 'test', to_id: 'src', relation: 'IMPORTS', source_file: 'tests/test_target.cpp' });
+    db.close();
+
+    const res = await graphConsequences({ repoRoot, target: 'targetSymbol' });
+
+    expect(res.tests_adjacent_provenance).toBe('import_linked');
+    expect(res.tests_adjacent_warning, 'file evidence must not clear a symbol caveat').toBeDefined();
+  });
+
   it('★ and PRESENT when only a text mention was found', async () => {
     // The other half. Without it, deleting the warning entirely would pass the
     // case above — which is exactly how a caveat quietly disappears.

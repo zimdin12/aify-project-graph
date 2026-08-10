@@ -848,12 +848,26 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       : (refTests.length > 0 ? 'symbol_referenced'
         : (mentionTests.length > 0 ? 'text_mentioned'
           : (featureTests.length > 0 ? 'feature_declared' : 'none')));
-    // `symbol_direct` is the ONLY tier that verifies the symbol, so it is the one
-    // tier that unambiguously belongs here. `import_linked` keeps its long-standing
-    // clearance — it is a real structural edge — but note that it clears the flag on
-    // FILE evidence, which is a weaker warrant than the name of the flag implies.
+    // ★ A CAVEAT MAY BE CLEARED ONLY BY EVIDENCE AT THE SAME GRANULARITY AS THE CLAIM
+    // IT QUALIFIES. (ef-manager, 2026-08-10, deciding a question I raised and did not
+    // decide myself.)
+    //
+    // `import_linked` used to clear this flag and no longer does. The reason is NOT
+    // that its warrant became small once `symbol_direct` outranked it — ranking does
+    // not fix granularity. "This test file includes that header" is a claim about a
+    // FILE. "No test verifies this SYMBOL" is a claim about a SYMBOL. File-level
+    // evidence cannot discharge a symbol-level caveat at ANY file size; a 2,000-line
+    // file makes it obvious and a 20-line file has the same defect in miniature. Size
+    // is what made it noticeable; granularity is what makes it wrong.
+    //
+    // This is the caveat-same-source rule with a second axis, and it generalises past
+    // this tier — it is the same reason a file-level "indexed successfully" cannot
+    // attest per-symbol coverage.
+    //
+    // ⚠ EXPECT THIS TO FIRE MUCH MORE OFTEN. That is correct, and it will look like a
+    // regression in exactly the way the tests_adjacent tightening did.
     const testsUnverifiedForSymbol = testsProvenance !== 'symbol_direct'
-      && testsProvenance !== 'import_linked' && testsProvenance !== 'none';
+      && testsProvenance !== 'none';
     // The symbol that produced a weak adjacency claim, so the reader can dismiss it
     // in one glance — `vec3` needs no threshold to be recognised as vacuous.
     const testsAdjacencyBasis = testsProvenance === 'symbol_direct'
