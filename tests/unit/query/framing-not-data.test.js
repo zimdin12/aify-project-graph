@@ -66,7 +66,11 @@ describe('adjacent tests cannot assert unverified coverage', () => {
     expect(consequences).toMatch(/tests_adjacent_provenance: testsProvenance/);
     // 'linked' split into import_linked vs symbol_referenced: a CALLS edge to vec3
     // was being reported as test coverage under the same word as a real include.
-    expect(consequences).toMatch(/'symbol_referenced'/);
+    // `symbol_referenced` was DELETED 2026-08-11 — after the identity check its only
+    // reachable case was a duplicate-node-cap escape hatch, which is a bug in
+    // pickPrimarySymbol rather than an evidence class. The split this case documents
+    // still holds, now between `symbol_direct` and `import_linked`.
+    expect(consequences).toMatch(/'symbol_direct'/);
     expect(consequences).toMatch(/'import_linked'/);
     expect(consequences).toMatch(/'feature_declared'/);
     expect(consequences).toMatch(/'none'/);

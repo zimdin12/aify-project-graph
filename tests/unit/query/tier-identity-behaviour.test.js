@@ -48,7 +48,7 @@ function insertEdge(db, edge) {
   );
 }
 
-describe('symbol_referenced tier — behaviour, not source text', () => {
+describe('tests_adjacent tiers — behaviour, not source text', () => {
   let repoRoot;
 
   beforeEach(async () => {

@@ -221,13 +221,26 @@ function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs, verifiable = true }
 // Render one block: a header line (`symbol @ file:start-end`) followed by the
 // `cat -n` source. Line numbers are RIGHT-aligned and 1-based matching the file
 // so an agent can cite them directly. Returns { text, lineCount }.
-export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRoot, perBlockLines, indexedAtMs, verifiable = true }) {
+// ★ `symbol` IS WHAT WE VERIFY. `displayAs` IS WHAT THE HEADER SHOWS.
+//
+// They were the same field, and graph_trace passed decorated labels — `FROM: foo`,
+// `TO: bar` — as the thing to look for. Those strings cannot occur in source, so the
+// drift proof fired on EVERY correct trace. graph-senior-dev reproduced it live against
+// a real C++ graph.
+//
+// Second instance of one defect in a day: file blocks were drift-proved against their
+// own filename, this against a decorated label. Both are the same mistake — passing a
+// PRESENTATION string to a check that needs an IDENTIFIER — so the fix separates the two
+// roles rather than special-casing the callers, and a third caller cannot repeat it
+// without noticing the parameter.
+export function renderSourceBlock({ symbol, displayAs, filePath, startLine, endLine, repoRoot, perBlockLines, indexedAtMs, verifiable = true }) {
   const { lines, startLine: actualStart, truncated, missing, mtimeMs } = readSourceWindow(
     repoRoot, filePath, startLine, endLine, perBlockLines,
   );
 
   const loc = `${filePath ?? '(unknown)'}:${startLine ?? '?'}${endLine && endLine !== startLine ? `-${endLine}` : ''}`;
-  const head = symbol ? `── ${symbol} @ ${loc}` : `── ${loc}`;
+  const shown = displayAs ?? symbol;
+  const head = shown ? `── ${shown} @ ${loc}` : `── ${loc}`;
 
   if (missing) {
     return { text: `${head}\n   (source unavailable — file missing or unreadable; Read ${filePath} directly)`, lineCount: 1 };

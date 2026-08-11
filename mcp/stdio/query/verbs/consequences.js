@@ -761,6 +761,12 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     const directUniqueTests = uniqueTestPaths([
       ...tests, ...fileAdjacencyImports, ...importLinkedTests, ...companionHeaderTests,
     ]);
+    // ⛔ `refTests` no longer contributes to the listing. It was the input to the deleted
+    // `symbol_referenced` tier, and keeping it in `uniqueTests` after removing the tier
+    // would list those files under whatever OTHER tier happened to win — a file
+    // attributed to `text_mentioned` when nothing mentioned it, which is precisely the
+    // mislabelling this week has been spent removing. Retained only so the identity
+    // filter below stays measurable; nothing downstream reads it.
     const refTests = uniqueTestPaths(fileAdjacencyRefs.map((r) => r.test_file))
       .filter((t) => !directUniqueTests.includes(t));
     const mentionTests = directUniqueTests.length === 0 && symbolNodes.length > 0
@@ -796,7 +802,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     const featureTests = inferredTests.length === 0
       ? features.flatMap((f) => f.tests || []).filter(Boolean)
       : [];
-    const uniqueTests = uniqueTestPaths([...inferredTests, ...refTests, ...mentionTests, ...featureTests]);
+    const uniqueTests = uniqueTestPaths([...inferredTests, ...mentionTests, ...featureTests]);
 
     // ★ ADJACENCY MUST NOT BE ASSERTED WHEN IT WAS NOT ESTABLISHED.
     //
@@ -845,9 +851,31 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       ? 'symbol_direct'
       : inferredTests.length > 0
       ? 'import_linked'
-      : (refTests.length > 0 ? 'symbol_referenced'
-        : (mentionTests.length > 0 ? 'text_mentioned'
-          : (featureTests.length > 0 ? 'feature_declared' : 'none')));
+      // ⛔ `symbol_referenced` DELETED 2026-08-11. Both reviewers reached it separately.
+      //
+      // After the identity check, the tier required `via_symbol` to BE the target — but
+      // any edge satisfying that is also a direct edge to the target symbol, so
+      // `symbol_direct` takes it first. For FILE targets `matchedSymbols` is empty, so it
+      // could not fire at all.
+      //
+      // graph-senior-dev then corrected their own "structurally unreachable" claim, which
+      // is the version worth keeping: it IS reachable, via exactly one path — create four
+      // nodes sharing a symbol label, `pickPrimarySymbol()` caps selection at three, and a
+      // test edge to the omitted fourth escapes `symbol_direct` while still matching the
+      // label. So the enum survived only as an artefact of an unrelated cap.
+      //
+      // ★ That strengthens the deletion rather than weakening it. A tier whose sole
+      // reachable case is a duplicate-node-cap escape hatch does not denote a coherent
+      // evidence class — it denotes a bug in a different function. And its six green
+      // tests proved the winning behaviour and the old false positive, never reachability
+      // of the enum itself.
+      //
+      // ⚠ NOT restored under its old meaning. "A test references some OTHER symbol in the
+      // target's file" is not coverage of the target symbol; that reading is what let a
+      // `vec3` edge delete a `no_test_coverage` warning. If that weaker relation is ever
+      // wanted it must arrive under its own name and must not be able to clear the flag.
+      : (mentionTests.length > 0 ? 'text_mentioned'
+        : (featureTests.length > 0 ? 'feature_declared' : 'none'));
     // ★ A CAVEAT MAY BE CLEARED ONLY BY EVIDENCE AT THE SAME GRANULARITY AS THE CLAIM
     // IT QUALIFIES. (ef-manager, 2026-08-10, deciding a question I raised and did not
     // decide myself.)
@@ -875,11 +903,6 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         .filter((r) => r.test_file)
         .slice(0, 5)
         .map((r) => ({ test_file: r.test_file, relation: r.relation, via_symbol: symbolNodes[0]?.label ?? target }))
-      : testsProvenance === 'symbol_referenced'
-      ? fileAdjacencyRefs
-        .filter((r) => refTests.includes(r.test_file))
-        .slice(0, 5)
-        .map((r) => ({ test_file: r.test_file, relation: r.relation, via_symbol: r.via_symbol }))
       : (testsProvenance === 'companion_header_linked'
         ? companionHeaderTests.slice(0, 5).map((t) => ({
           test_file: t,
@@ -1198,11 +1221,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
             ? 'these tests import the PAIRED HEADER, not this implementation file — real structural '
               + 'adjacency for the .cpp/.h unit, but one edge removed from the file you asked about. '
               + 'Confirm the test exercises this file\'s code before relying on it.'
-            : testsProvenance === 'symbol_referenced'
-              ? 'these tests REFERENCE this symbol (see tests_adjacent_basis for the relation and the '
-                + 'matching symbol) — a reference is not a test of behaviour. Confirm the test actually '
-                + 'exercises it before reading this as coverage.'
-              : testsProvenance === 'text_mentioned'
+            : testsProvenance === 'text_mentioned'
                 ? 'this symbol\'s NAME appears in these tests as text, with no structural edge — the '
                   + 'weakest tier, and a common-word name can match anything. Verify in source before '
                   + 'reading this as coverage at all.'

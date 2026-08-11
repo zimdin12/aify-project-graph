@@ -28,6 +28,7 @@ import {
   countGraphNodes,
   getSourceBundleBudget,
   renderSourceBlock,
+  manifestIndexedAtMs,
   SOURCE_BUNDLE_HEADER,
 } from '../source-bundle.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
@@ -337,6 +338,11 @@ function renderSuccess({ db, repoRoot, fromNode, toNode, pathSteps, budget, trus
       endLine: hop.end_line,
       repoRoot,
       perBlockLines: perBlock,
+      // Was omitted, which silently disabled the staleness check for every hop on
+      // every trace — the verb that inlines the MOST source was the one verifying
+      // the least.
+      indexedAtMs: manifestIndexedAtMs(repoRoot),
+      verifiable: hop.type !== 'File' && hop.type !== 'Directory',
     });
     lines.push(text);
     lines.push('');
@@ -396,12 +402,18 @@ function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
   const half = Math.max(1, Math.floor(budget.totalLines / 2));
   for (const [tag, node] of [['FROM', fromNode], ['TO', toNode]]) {
     const { text } = renderSourceBlock({
-      symbol: `${tag}: ${node.label}`,
+      // The BARE label is what gets verified; the decorated one is only shown. Passing
+      // `FROM: label` as the symbol made the drift proof fire on every correct trace,
+      // because that string cannot occur in source.
+      symbol: node.label,
+      displayAs: `${tag}: ${node.label}`,
       filePath: node.file_path,
       startLine: node.start_line,
       endLine: node.end_line,
       repoRoot,
       perBlockLines: Math.min(budget.perBlockLines, half),
+      indexedAtMs: manifestIndexedAtMs(repoRoot),
+      verifiable: node.type !== 'File' && node.type !== 'Directory',
     });
     lines.push(text);
     lines.push('');
@@ -428,6 +440,8 @@ function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
       const remaining = Math.max(1, budget.totalLines - usedLines);
       const { text, lineCount } = renderSourceBlock({
         symbol: mate.label,
+        indexedAtMs: manifestIndexedAtMs(repoRoot),
+        verifiable: mate.type !== 'File' && mate.type !== 'Directory',
         filePath: mate.file_path,
         startLine: mate.start_line,
         endLine: mate.end_line,

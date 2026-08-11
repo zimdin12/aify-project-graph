@@ -76,7 +76,10 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/query/recompile-surface-termination.test.js',
   'unit/query/response-budget.test.js',
   'unit/query/stale-warning-actionable.test.js',
-  'unit/query/tier-identity-check.test.js',
+  // 'unit/query/tier-identity-check.test.js' — DELETED 2026-08-11 with the
+  // `symbol_referenced` tier it guarded. Its behavioural successor is
+  // tier-identity-behaviour.test.js, which found a live mislabel within three minutes
+  // of running the code the deleted file had only ever grepped.
   'unit/scripts/reindex-payload.test.js',
 ]);
 
