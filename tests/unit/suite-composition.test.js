@@ -83,10 +83,10 @@ function classify(filePath) {
 //
 // ⇒ Verified by hand, one file at a time, each mutation applied and reverted explicitly:
 //
-//   ⛔ candidate-truncation-disclosed — DECORATION. Made the "SHOWING n OF m" banner
+//   ✅ candidate-truncation-disclosed — CONVERTED 2026-08-11. Was DECORATION. Made the "SHOWING n OF m" banner
 //      UNREACHABLE (`omitted = 0`) while leaving every string in source: 4/4 still green.
 //      It asserts the banner's spelling, not that it ever fires.
-//   ⛔ health-dirty-noise — DECORATION. Corrupted the arithmetic it describes
+//   ✅ health-dirty-noise — CONVERTED 2026-08-11. Was DECORATION. Corrupted the arithmetic it describes
 //      (`dirtyFilesTotal + 999`) with all predicate text intact: 3/3 still green.
 //      ⚠ Note the irony recorded by ef-manager separately: the dirtyFilesOmitted
 //      arithmetic bug was caught by a human reading a live payload, NOT by this test —
@@ -99,18 +99,23 @@ function classify(filePath) {
 //      `.not.toMatch` negative guard and an assertion on a different line). Not
 //      decoration; untested.
 //
-// ⇒ Conversion of the two confirmed-decoration files is OWED and not yet done. They stay
-// listed below because the ratchet's job is to stop the count growing, not to pretend
-// these earn their place.
+// ⇒ BOTH CONFIRMED DECORATIONS ARE NOW CONVERTED and removed from the list below. Each
+// replacement was falsified against the exact mutation its predecessor survived:
+//   · candidate-truncation now calls `buildAmbiguousMatchMessage` with 16 same-named
+//     definitions and asserts the REAL integers (SHOWING 5 OF 16, 11 omitted). Making the
+//     banner unreachable turns 3 cases red where the old file stayed 4/4 green.
+//   · health-dirty-noise now indexes a scratch repo and compares `dirtyFilesTotal` to
+//     reality. The +999 mutation turns it red where the old file stayed 3/3 green.
+// Both also gained the missing negative half — no truncation marker when nothing was
+// truncated, tracked dirt still reported when suppression fires — so "always emit" or
+// "always suppress" cannot satisfy them.
 const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/code-intel/degraded-split-persistence.test.js',
   'unit/code-intel/skip-counters-survive-the-write.test.js',
   'unit/dashboard/repo-root-wiring.test.js',
   'unit/query/ambiguous-not-unmapped.test.js',
-  'unit/query/candidate-truncation-disclosed.test.js',
   'unit/query/coverage-denominator.test.js',
   'unit/query/dirty-omitted-reconciles.test.js',
-  'unit/query/health-dirty-noise.test.js',
   'unit/query/observed-doc-mentions.test.js',
   'unit/query/packet-cheap-symbol-lookup.test.js',
   'unit/query/packet-symbol-location.test.js',
