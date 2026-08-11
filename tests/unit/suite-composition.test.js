@@ -150,7 +150,6 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/dashboard/repo-root-wiring.test.js',
   'unit/query/packet-cheap-symbol-lookup.test.js',
   'unit/query/packet-symbol-location.test.js',
-  'unit/query/packet-unranked-candidates.test.js',
   'unit/query/recompile-surface-termination.test.js',
   // 'unit/query/response-budget.test.js' — reclassified 2026-08-11 when the classifier
   //   learned to see dynamic `await import()`. It was already running code; the

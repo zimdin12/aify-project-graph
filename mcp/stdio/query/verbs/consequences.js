@@ -950,6 +950,19 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       trust,
       matched: {
         symbols: symbolNodes.map((n) => ({ label: n.label, type: n.type, file: n.file_path, line: n.start_line })),
+        // ★★ THE TRUE COUNT, BECAUSE `symbols` IS CAPPED AND WAS BEING READ AS A TOTAL.
+        //
+        // `symbolNodes` is `pickPrimarySymbol(...)`, which slices to 3. `graph_packet`
+        // consumed `matched.symbols` and rendered "UNRANKED (3 matches)" on a repo with
+        // NINE definitions — a cap reported as a total, which is the same defect
+        // ef-manager found in symbol_lookup's candidate list and which this field made
+        // unavoidable downstream: the consumer had no way to know it had been capped.
+        //
+        // Found 2026-08-11 while converting the source-grep test that guarded that
+        // message. It had asserted the template's spelling and could never have seen
+        // that the number in it was wrong.
+        symbols_total: allSymbolMatches.length,
+        symbols_truncated: allSymbolMatches.length > symbolNodes.length,
         files: fileNodes.map((n) => n.file_path).filter(Boolean),
         // Other places where this label appears (forward decls in headers
         // for C++ classes, re-exports, etc.). Echoes PM Tier A #3: class

@@ -62,13 +62,18 @@ function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
       if (symbolHit || fileHit) {
         return {
           feature: f,
+          // ★ locationsTotal is NOT decoration. The slice below is a display cap, and
+          // without the true count the renderer printed the CAP as the total —
+          // "UNRANKED (3 matches)" for a symbol with nine definitions. Same class as
+          // the symbol_lookup candidate defect: a limit reported as a finding.
+          locationsTotal: nodes.length,
           locations: nodes.slice(0, 3).map((n) => ({
             file: n.file_path, line: n.start_line, type: n.type,
           })),
         };
       }
     }
-    return { feature: null, locations: nodes.slice(0, 3).map((n) => ({
+    return { feature: null, locationsTotal: nodes.length, locations: nodes.slice(0, 3).map((n) => ({
       file: n.file_path, line: n.start_line, type: n.type,
     })) };
   } catch {
@@ -644,12 +649,24 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       file: s.file, why: `${s.type || 'symbol'}${s.line ? ` @ line ${s.line}` : ''}`,
     }));
     lines.push(renderListSection('DEFINED IN', clampList(locItems, SHOWN), (x) => `${x.file} — ${x.why}`));
-    if (symHits.length > 1) {
+    // ★★ REPORT THE TRUE TOTAL, NOT THE CAP.
+    //
+    // `symHits` is `matched.symbols`, which upstream is `pickPrimarySymbol(...)` sliced to
+    // THREE. So `symHits.length > SHOWN` (6) was unreachable dead code, and the else
+    // branch rendered "(3 matches)" on a repo with nine definitions — the cap reported as
+    // the total, with no disclosure that anything had been dropped.
+    //
+    // That is the same defect ef-manager found in symbol_lookup's candidate list, one
+    // layer up: a capped list whose consumer could not tell it had been capped. The old
+    // test here asserted the template's spelling and could never have seen the number in
+    // it was wrong.
+    const symTotal = consequences.matched?.symbols_total ?? symHits.length;
+    if (symTotal > 1) {
       lines.push(
-        symHits.length > SHOWN
-          ? `  ⚠ UNRANKED, showing ${SHOWN} of ${symHits.length} — order is arrival, not relevance. `
+        symTotal > symHits.length
+          ? `  ⚠ UNRANKED, showing ${symHits.length} of ${symTotal} — order is arrival, not relevance. `
             + `graph_whereis(symbol="${symbol}") ranks them; do not treat the first entry here as the definition.`
-          : `  ⚠ UNRANKED (${symHits.length} matches) — order is arrival, not relevance. `
+          : `  ⚠ UNRANKED (${symTotal} matches) — order is arrival, not relevance. `
             + `graph_whereis(symbol="${symbol}") ranks them.`,
       );
     }
@@ -785,13 +802,13 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       // identically whichever route got here.
       symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
         label: parsed.value, type: l.type, file: l.file, line: l.line,
-      })), files: [] } };
+      })), symbols_total: cheap.locationsTotal, files: [] } };
     } else if (cheap?.locations?.length) {
       // Known to the graph, anchored by no feature — the symbol-pointer packet's
       // case, reached without paying for the traversal.
       symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
         label: parsed.value, type: l.type, file: l.file, line: l.line,
-      })), files: [] } };
+      })), symbols_total: cheap.locationsTotal, files: [] } };
     }
   }
 
