@@ -15,47 +15,113 @@
 //
 // Deliberately NOT fixed by raising the budget: a bigger number moves the cliff
 // and still leaves the reader unable to tell which side they are on.
-import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+//
+// ★★ CONVERTED FROM SOURCE-GREP 2026-08-11.
+//
+// The previous version had four cases and all four read packet.js as text: three took a
+// fixed-width slice after `indexOf('function resolveFeatureForSymbolCheap')` (2200 chars,
+// then 2400 for the fourth), and one compared two `indexOf` offsets to assert call order.
+// Grow the resolver past the slice width and cases go green having checked nothing.
+//
+// The real property is stronger than any of them and needs no source reading: make the
+// expensive verb NEVER RETURN, then require the packet to answer anyway. If the cheap
+// resolver is missing, dead, ordered after the budgeted call, or silently broken, the
+// packet lands in the timeout branch and this file goes red. One behavioural assertion
+// subsumes cases 1 and 2 — the resolver exists AND runs first AND actually works.
+import { describe, it, expect, afterEach, vi } from 'vitest';
+import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
 
-const src = readFileSync(
-  join(import.meta.dirname, '..', '..', '..', 'mcp', 'stdio', 'query', 'verbs', 'packet.js'),
-  'utf8',
-);
+// The budgeted path, made infinitely expensive. This is the echoes condition taken to its
+// limit: any packet that depends on graphConsequences to map symbol→feature cannot finish.
+vi.mock('../../../mcp/stdio/query/verbs/consequences.js', () => ({
+  graphConsequences: () => new Promise(() => {}),
+}));
+
+const { graphPacket } = await import('../../../mcp/stdio/query/verbs/packet.js');
+
+let repoRoot;
+
+// `anchors` is passed through verbatim so each test can state the anchor shape it means
+// to exercise — a symbol list, or a file glob.
+async function makeRepo(anchors, { breakDb = false } = {}) {
+  const repo = await mkdtemp(join(tmpdir(), 'apg-cheap-'));
+  await mkdir(join(repo, '.aify-graph'), { recursive: true });
+  execFileSync('git', ['-C', repo, 'init', '-q'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', repo, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-qm', 'i'], { stdio: 'ignore' });
+  const commit = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  await writeFile(join(repo, '.aify-graph', 'manifest.json'), JSON.stringify({
+    commit, indexedAt: new Date().toISOString(), nodes: 0, edges: 0,
+    schemaVersion: 4, extractorVersion: '0.1.0', status: 'ok',
+    dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
+  }));
+  await writeFile(join(repo, '.aify-graph', 'functionality.json'), JSON.stringify({
+    features: [{ id: 'sim-core', name: 'sim-core', anchors }],
+  }));
+  const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+  db.run(
+    `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, extra)
+     VALUES ('sc', 'Class', 'SimCoordinator', 'game/sim/coordinator.cpp', 88, 140, 'cpp', 1, '{}')`,
+  );
+  db.close();
+  if (breakDb) {
+    // Not deleted — deletion is a path the resolver can check for. A file that IS there
+    // and is NOT a database is the case that throws from inside, which is what the
+    // fall-through exists to absorb.
+    await writeFile(join(repo, '.aify-graph', 'graph.sqlite'), 'not a database at all');
+  }
+  return repo;
+}
+
+afterEach(async () => {
+  if (repoRoot) { try { await rm(repoRoot, { recursive: true, force: true }); } catch { /* windows lock */ } }
+  repoRoot = undefined;
+});
+
+const asText = (o) => (typeof o === 'string' ? o : JSON.stringify(o));
 
 describe('graph_packet resolves symbol→feature without the full traversal', () => {
-  it('★ has a cheap resolver that does not call graphConsequences', () => {
-    const i = src.indexOf('function resolveFeatureForSymbolCheap');
-    expect(i, 'the cheap resolver exists').toBeGreaterThan(-1);
-    const body = src.slice(i, i + 2200);
-    expect(body, 'resolves the label directly').toMatch(/resolveSymbol\(db, symbol\)/);
-    expect(body, 'does not reach for the expensive verb').not.toMatch(/graphConsequences/);
-  });
+  it('★★ answers a bare symbol even when the expensive verb NEVER returns', async () => {
+    // Cases 1 and 2 of the old file, as one property. Resolver missing, dead, ordered
+    // after the budgeted call, or broken → the packet times out and this goes red.
+    repoRoot = await makeRepo({ symbols: ['SimCoordinator'], files: [] });
+    const text = asText(await graphPacket({ repoRoot, target: 'SimCoordinator' }));
 
-  it('★ the cheap path runs BEFORE the budgeted one', () => {
-    // Order is the fix. Placed after, the budgeted call still runs first and still
-    // times out, and the cheap resolver becomes dead code that passes its own test.
-    const cheapAt = src.indexOf('resolveFeatureForSymbolCheap(repoRoot, functionality');
-    const budgetedAt = src.indexOf("await import('./consequences.js')");
-    expect(cheapAt).toBeGreaterThan(-1);
-    expect(budgetedAt).toBeGreaterThan(-1);
-    expect(cheapAt, 'cheap path precedes the budgeted import').toBeLessThan(budgetedAt);
-  });
+    expect(text, 'the feature must resolve without the traversal').toMatch(/sim-core/);
+    expect(text, 'reaching the timeout branch means the cheap path did not run or did not work')
+      .not.toMatch(/TIMED OUT/);
+  }, 20_000);
 
-  it('uses the SAME anchor semantics as consequences', () => {
-    // A different matching rule here would make the cheap and full paths disagree
-    // about the same repo — two answers to one question, which is the defect class
-    // this codebase keeps finding in itself.
-    const i = src.indexOf('function resolveFeatureForSymbolCheap');
-    const body = src.slice(i, i + 2200);
-    expect(body).toMatch(/anchors\?\.symbols/);
-    expect(body).toMatch(/anchors\?\.files/);
-    expect(body).toMatch(/pattern\.endsWith\('\/\*'\)/);
-  });
+  it('★★ matches file-glob anchors the same way consequences does', async () => {
+    // Two matching rules for one question is the defect class this codebase keeps
+    // finding in itself. The old test asserted the GLOB EXPRESSION was present in the
+    // source; this asserts a glob anchor actually resolves — with no symbol anchor at
+    // all, so only the file rule can produce the match.
+    repoRoot = await makeRepo({ symbols: [], files: ['game/sim/*'] });
+    const text = asText(await graphPacket({ repoRoot, target: 'SimCoordinator' }));
 
-  it('never makes orientation fail — falls through on any error', () => {
-    const i = src.indexOf('function resolveFeatureForSymbolCheap');
-    expect(src.slice(i, i + 2400)).toMatch(/catch\s*{\s*\n?\s*return null;/);
-  });
+    expect(text, 'a trailing-* file anchor must match by prefix').toMatch(/sim-core/);
+    expect(text).not.toMatch(/TIMED OUT/);
+  }, 20_000);
+
+  it('★ an exact (non-glob) file anchor matches only the exact path', async () => {
+    // The other half of the shared rule. If the glob branch were applied to every
+    // pattern, this prefix-of-nothing anchor would wrongly match.
+    repoRoot = await makeRepo({ symbols: [], files: ['game/sim'] });
+    const text = asText(await graphPacket({ repoRoot, target: 'SimCoordinator' }));
+
+    expect(text, 'an exact anchor is not a prefix anchor').not.toMatch(/sim-core/);
+  }, 20_000);
+
+  it('★ a broken database degrades orientation, it does not fail it', async () => {
+    // The fall-through, asserted as behaviour. The old case matched `catch { return null`
+    // in the source — which is true of a catch that rethrows two lines later.
+    repoRoot = await makeRepo({ symbols: ['SimCoordinator'], files: [] }, { breakDb: true });
+
+    const call = graphPacket({ repoRoot, target: 'SimCoordinator' });
+    await expect(call, 'orientation must never throw on a corrupt index').resolves.toBeDefined();
+  }, 20_000);
 });
