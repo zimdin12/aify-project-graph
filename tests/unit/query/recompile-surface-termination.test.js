@@ -13,12 +13,11 @@
 // worldbuf.glsl, not gravity-field.glsl.
 //
 // ★ But looking for his defect found a REAL one, of exactly the class he was
-// hunting: the SQL `LIMIT` clips rows inside SQLite before we count them, and
-// `truncated` was only set when the SEEN SET crossed the cap. A hop returning a
-// full page of mostly-already-seen files therefore discarded real includers,
-// left seen.size well below the cap, and reported `terminated: true` on an
-// incomplete closure — false completeness sitting inside the feature built to
-// prevent it.
+// hunting: the SQL `LIMIT` clips rows inside SQLite before we count them, while
+// `truncated` was set only when the SEEN SET crossed the cap. A hop can therefore
+// return a full page, lose real includers to the LIMIT, leave `seen` below the cap,
+// and report `terminated: true` on an incomplete closure — false completeness inside
+// the feature built to prevent it.
 //
 // ★★ CONVERTED FROM SOURCE-GREP 2026-08-11.
 //
@@ -29,12 +28,27 @@
 // different way and it reds too. Neither is a defect. Meanwhile a wrong verdict — the
 // actual bug — is invisible to all four, because none of them ever ran the walk.
 //
-// Building the isolating fixture required understanding the bug more precisely than the
-// source-grep ever had to: because the query is SELECT DISTINCT, a hop returning a full
-// page of 300 distinct paths normally drives `seen` to 300 as well, and the OLD guard
-// catches it. The two only come apart when one returned row is ALREADY SEEN — then the
-// page is full while `seen` stops one short and the old guard never fires. That is the
-// shape a cyclic include produces, and it is what `fullPageWithCycle` below builds.
+// ⚠⚠ MY FIXTURE CLAIM WAS FALSE, AND graph-senior-dev-hermes MEASURED IT.
+//
+// I wrote that `fullPageWithCycle` reproduces the clipping defect — that SQLite "had
+// already cut" the closure and real includers were discarded. They ran it: 300 candidates,
+// 300 returned, **0 omitted**. Nothing was clipped. On that exact graph the old
+// `terminated: true` was factually CORRECT.
+//
+// ⇒ The full-page fixture pins a conservative POLICY — "an exactly-full page cannot
+// establish completeness", which is true and worth pinning, because 300 returned rows
+// cannot distinguish 300 candidates from 3000. It is NOT a witness to omission, and I
+// presented it as one.
+//
+// ★ That is the wording-contract defect — a prose claim outliving its evidence — committed
+// inside the test file whose header teaches that lesson, in the session I wrote the lesson.
+// Recorded rather than quietly amended.
+//
+// So there are now TWO fixtures, and they assert different things:
+//   · fullPage (root + 299) — 300 candidates, nothing omitted → POLICY: cannot establish.
+//   · overflow (root + 300) — 301 candidates, 300 returned, ONE omitted → real clipping.
+// Only the second supports the defect narrative. Both preserve the already-seen root row,
+// so neither can be satisfied by the old seen-size guard.
 import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -80,13 +94,26 @@ async function makeRepo(build) {
   return repo;
 }
 
-// A full page whose last row is already seen. 299 fresh includers plus a self-edge on the
-// root gives exactly MAX_FILES distinct rows, of which one (the root) is already in `seen`
-// — so `seen` stops at 299 additions and the old seen-size guard never fires.
-const fullPageWithCycle = ({ node, imports }) => {
+// EXACTLY the cap. 299 fresh includers plus a self-edge on the root gives 300 distinct
+// candidates, of which one (the root) is already in `seen` — so `seen` takes only 299
+// additions and the old seen-size guard never fires. Nothing is omitted here: this fixture
+// exists to pin the POLICY that a full page cannot establish completeness.
+const fullPageExactly = ({ node, imports }) => {
   node('root', 'src/root.h');
   imports('root', 'root'); // the cyclic include; without it the old guard catches the page
   for (let i = 0; i < MAX_FILES - 1; i += 1) {
+    node(`a${i}`, `src/a${i}.cpp`);
+    imports(`a${i}`, 'root');
+  }
+};
+
+// ONE OVER the cap — dev's positive control, and the only fixture that witnesses real
+// omission. 300 fresh includers plus the root self-edge is 301 candidates for a LIMIT of
+// 300, so exactly one includer is discarded inside SQLite before anything is counted.
+const fullPageOverflow = ({ node, imports }) => {
+  node('root', 'src/root.h');
+  imports('root', 'root');
+  for (let i = 0; i < MAX_FILES; i += 1) {
     node(`a${i}`, `src/a${i}.cpp`);
     imports(`a${i}`, 'root');
   }
@@ -138,19 +165,44 @@ const surfaceOf = async (target) => {
 };
 
 describe('recompile surface cannot claim a completeness it did not verify', () => {
-  it('★★ a FULL PAGE of SQL rows is truncation, even when the seen set never filled', async () => {
-    // The real defect, reproduced. The LIMIT clips inside SQLite before anything is
-    // counted, so a full page means "there may be more" whatever `seen` says. Under the
-    // old rule this exact graph reported terminated:true on a closure the database had
-    // already cut.
-    repoRoot = await makeRepo(fullPageWithCycle);
+  it('★★ an exactly-FULL page cannot establish completeness (policy, not omission)', async () => {
+    // ⚠ This fixture omits NOTHING — measured: 300 candidates, 300 returned, 0 omitted.
+    // What it pins is that a full page is INDISTINGUISHABLE from an overflowing one, so
+    // the walk must decline to claim terminality. The old rule looked only at `seen`,
+    // which stops one short here, and claimed completeness.
+    repoRoot = await makeRepo(fullPageExactly);
     const s = await surfaceOf('src/root.h');
 
     expect(s.total, 'harness sanity: seen must stop SHORT of the cap, or the old guard fires')
       .toBeLessThan(MAX_FILES);
-    expect(s.truncated, 'a full page means there may be more, always').toBe(true);
-    expect(s.terminated, 'and a clipped closure is not a complete one').toBe(false);
-    expect(s.note, 'the note must say FLOOR, not report a total').toMatch(/FLOOR/);
+    expect(s.truncated, 'a full page means there MAY be more — it cannot prove otherwise').toBe(true);
+    expect(s.terminated, 'and an unestablished closure is not a complete one').toBe(false);
+    expect(s.note, 'the note must not overclaim either — see the wording fix in pull.js')
+      .toMatch(/completeness not established|may be incomplete/i);
+    // Nothing was actually lost here, and the test says so — the counterpart to the
+    // omitted-identity assertion below.
+    const reachedAll = new Set(s.byDepth.flatMap((d) => d.files));
+    const exist = Array.from({ length: MAX_FILES - 1 }, (_, i) => `src/a${i}.cpp`);
+    expect(exist.filter((f) => !reachedAll.has(f)), 'an exactly-full page omits nothing').toEqual([]);
+  }, 30_000);
+
+  it('★★ a page that OVERFLOWS really does lose an includer', async () => {
+    // dev's positive control, and the actual defect witness. 301 candidates against
+    // LIMIT 300: one real includer is discarded inside SQLite before anything counts it.
+    // This is the case my original fixture claimed to be and was not.
+    repoRoot = await makeRepo(fullPageOverflow);
+    const s = await surfaceOf('src/root.h');
+
+    expect(s.truncated, 'a genuinely clipped closure must say so').toBe(true);
+    expect(s.terminated).toBe(false);
+    // ★★ THE OMITTED IDENTITY, which is what makes this a witness rather than a rerun of
+    // the case above. Both fixtures report total=299 — that number alone distinguishes
+    // nothing. Here 300 includers EXIST and one of them is absent from the closure; in
+    // the exactly-full fixture all 299 that exist are present.
+    const reached = new Set(s.byDepth.flatMap((d) => d.files));
+    const expected = Array.from({ length: MAX_FILES }, (_, i) => `src/a${i}.cpp`);
+    const missing = expected.filter((f) => !reached.has(f));
+    expect(missing.length, 'exactly one real includer was discarded inside SQLite').toBe(1);
   }, 30_000);
 
   it('★★ running out of DEPTH is reported separately from running out of FILES', async () => {

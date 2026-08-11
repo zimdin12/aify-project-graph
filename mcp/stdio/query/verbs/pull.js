@@ -316,7 +316,11 @@ function relationsForFile(db, filePath, limit = 10) {
       // defeated by the first .inl/.glsl/.tpp the walk met; this is not.
       terminated: !truncated && !depthCapped,
       note: truncated
-        ? `recompile surface TRUNCATED at ${TRANSITIVE_MAX_FILES} files — this is a FLOOR, not the full closure`
+        ? // ⚠ WORDING CORRECTED 2026-08-12 (graph-senior-dev-hermes). "not the full closure"
+        // asserts omission, and on an EXACTLY-full page nothing may have been omitted —
+        // 300 returned rows cannot distinguish 300 candidates from 3000. What is true in
+        // both cases is that completeness was not established.
+        `recompile surface hit the ${TRANSITIVE_MAX_FILES}-file limit — COMPLETENESS NOT ESTABLISHED, treat as a FLOOR`
         : depthCapped
           ? `recompile surface CUT OFF at depth ${TRANSITIVE_MAX_DEPTH} with includers still unexplored — this is a FLOOR, not the full closure`
           : `full transitive include closure: ${total} file(s) across ${byDepth.length} hop(s)`,

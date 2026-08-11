@@ -235,7 +235,7 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
       const text = asText(await graphPacket({ repoRoot, target: 'GpuMaterial' }));
 
       expect(text, 'the population, counted — not the page that was fetched').toMatch(/showing 3 of 60/);
-      expect(text, 'the retrieval limit must never surface as the total').not.toMatch(/of 50/);
+      expect(text, 'the retrieval limit must never surface as the total').not.toMatch(/of 50\b/);
     }, 30_000);
   });
 });
