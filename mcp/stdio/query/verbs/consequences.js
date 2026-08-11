@@ -1088,11 +1088,29 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         importers: 'observed',
         dirty_overlap: 'observed',
       }),
-      provenance_note:
-        'INFERRED fields come from the feature/task overlay, not from code structure. They surface real '
-        + 'dependents that text search cannot reach — and they are only as complete as the overlay is. '
-        + 'An absent entry is NOT evidence of no relationship; verify before acting on absence.'
-        + (overlayAgeDays != null ? ` OVERLAY IS ${overlayAgeDays} DAYS OLD — every INFERRED field above is exactly that stale.` : ''),
+      // ★★ WAS 347 CHARS OF INVARIANT ESSAY WITH ONE VARYING SENTENCE ON THE END.
+      //
+      // ef-manager, from the used / never-read audit: *"`provenance_note` — I know it
+      // verbatim. It never varied."* Meanwhile they used `overlay_age_days` constantly and
+      // the paragraph never, and `field_provenance` — which labels each field observed vs
+      // inferred, per item, per call — produced their best finding of the day.
+      //
+      // ★ THAT IS THE WHOLE RULE: `field_provenance` VARIES, so it is data and it earned
+      // its place. This note RESTATES what those labels already say, identically, on every
+      // call to every repo forever. Same object as `trustBasis.rule` (475→98).
+      //
+      // ⚠ THE DOUBT SURVIVES, AND IT SURVIVES IN THE FORM THAT WAS ACTUALLY USED. The
+      // load-bearing sentence is the varying one — the age — because a reader who sees
+      // "113 days old" discounts the inferred fields without being told to. That is kept.
+      // The three sentences explaining what INFERRED means are documentation, and they
+      // belong where a reader goes once rather than in every payload.
+      //
+      // ⚠ Deliberately NOT teaching the cold reader here. Per-call transmission is the
+      // wrong channel for that — D1′ showed a cold lane does not read the prose it is
+      // handed anyway, and it would get these same 347 chars every single call.
+      provenance_note: overlayAgeDays != null
+        ? `INFERRED fields come from the overlay (see field_provenance for which). OVERLAY IS ${overlayAgeDays} DAYS OLD — every INFERRED field above is exactly that stale; absence is not evidence.`
+        : 'INFERRED fields come from the overlay (see field_provenance for which); absence is not evidence.',
       // ★ THE MOST VALUABLE LAYER IS THE ONE WHOSE STALENESS IS LEAST VISIBLE.
       //
       // ef-manager's unflattering read, and he is right: the feature-anchoring
@@ -1165,13 +1183,23 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
             + 'means the overlay-derived fields are incomplete — which is the cheapest single call that refutes this.',
         },
       }), receiptMode),
-      ...(overlayAgeDays != null && overlayAgeDays > 30 ? {
-        overlay_age_warning:
-          `The feature/task overlay was last updated ${overlayAgeDays} days ago. Every field marked `
-          + 'INFERRED above is derived from it and is that stale. On a repo whose code has moved since, '
-          + 'these fields can be confidently wrong — re-run graph_index before trusting them for a '
-          + 'delete/rename decision.',
-      } : {}),
+      // ⛔ `overlay_age_warning` REMOVED — 275 chars restating `overlay_age_days`.
+      //
+      // ef-manager defended this field earlier as a doubt clause, and was right to. Their
+      // used / never-read audit then split it precisely: *"I used the NUMBER
+      // (`overlay_age_days: 107`) constantly and the paragraph never."*
+      //
+      // Both statements hold, and together they say the SIGNAL earned its place while the
+      // PARAGRAPH did not. The number is what changed their behaviour — seeing 107 days,
+      // they stopped using `features_touching`. The paragraph told them, in prose, what
+      // the number had already told them.
+      //
+      // ⇒ `overlay_age_days` stays and is now named by `provenance_note`'s varying
+      // sentence, so the discounting cue survives on the field that carries it.
+      //
+      // ⚠ Removed rather than shortened: a shortened version would still be an invariant
+      // restatement, and this release's own rule is delete-over-shrink for anything that
+      // adds no information.
       tests_adjacent: uniqueTests,
       ...(testsAdjacencyBasis ? { tests_adjacent_basis: testsAdjacencyBasis } : {}),
       // 'linked'           — the test imports or mentions this code; adjacency established.

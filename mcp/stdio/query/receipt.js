@@ -308,16 +308,87 @@ export function receiptFor(receipt, mode) {
  * answer in front of them. Anything needed to hand the claim to another agent
  * lives in the head/full forms.
  */
+// ★★ INVARIANT PROSE OUT, FALSIFIER IN. The rule is ef-manager's, from the used /
+// never-read audit of ~40 real payloads (2026-08-11):
+//
+//   VARYING, per-item, machine-readable → earned its place decisively
+//   INVARIANT prose                     → never read, and it is most of what is safe to cut
+//
+// ⇒ "It is not a trust-vs-answer trade at all. It is DATA vs DOCUMENTATION, and the
+//   documentation happens to be shelved in the trust aisle."
+//
+// What goes, with their reason:
+//   · `disconfirming_test.expect` — 291 chars of essay explaining WHY the call refutes the
+//     claim. The CALL is self-executing; running it demonstrates the why better than
+//     reading about it. Never read closely, never needed, across a full day of use.
+//   · `floor_cause` — duplicates `provenance_note`, which is itself invariant.
+//   · `full_receipt` — the pointer to a tier NOBODY HAS EVER REQUESTED. If a reader does
+//     want it, `receipt` is a documented parameter on the verb.
+//
+// ⚠ THE FALSIFIER SURVIVES INTACT — `verb` + `args` remain, and they are the mechanism.
+// `exhaustive` stays, unconditionally, because absent-vs-false is the ambiguity this
+// codebase keeps rediscovering.
+//
+// ⚠ AND THE ZERO IS BOUNDED, NOT BANKED. ef-manager has never RUN a disconfirming test —
+// but bounded that themselves: they made no delete/rename decisions today, so the
+// decision population is empty, the same confound that blocks the overlay verdict. Their
+// zero is NOT evidence the mechanism is useless. What it supports is narrower and holds:
+// had they wanted to validate, verb+args suffice without the essay.
+// ★★ AND THE PREDICATE STAYS. graph-senior-dev caught me over-cutting this within the
+// hour, and the correction is the whole point:
+//
+//   "`expect` contains TWO things: the comparison predicate — load-bearing — and an essay
+//    explaining why the predicate matters — movable. Do not replace both with a call.
+//    A bare call does not tell a novice WHICH DIFFERENCE REFUTES WHICH CLAIM."
+//
+// ef-manager said verb+args are self-executing, and for them they are — they have run
+// this mechanism all day. graph-senior-dev's reader is the cold lane, which is exactly
+// Steven's regression worry. Both are right about different readers, and the resolution
+// is not to pick one: keep the predicate (short, tells you what to look for), drop the
+// essay (long, tells you why it matters).
+//
+// ⚠ `refutes_if` as a TYPED relation — machine-checkable, harness-verifiable — is the
+// better end state and is NOT built here. It requires a blind equivalence test first
+// (do fresh readers pick the same refuting observation from the typed form as from the
+// prose?), and building it before that test would be the same delete-then-justify the
+// constraint forbids.
+function compactDisconfirmingTest(test) {
+  if (!test) return null;
+  // Some receipts carry a bare command string rather than a verb/args pair — a shape I
+  // broke by destructuring blindly, caught by the suite one run later.
+  if (typeof test === 'string') return test;
+  const { verb, args, refutes_if: refutesIf, expect: why } = test;
+  return {
+    ...(verb ? { verb } : {}),
+    ...(args ? { args } : {}),
+    // The predicate, preferring an explicit one if a caller supplied it, else the first
+    // sentence of the prose — which is where the comparison lives.
+    ...(refutesIf ? { refutes_if: refutesIf }
+      : why ? { refutes_if: String(why).split(/(?<=\.)\s/)[0] } : {}),
+  };
+}
+
 export function receiptSignals(receipt) {
   if (!receipt) return null;
+  const test = compactDisconfirmingTest(receipt.disconfirming_test);
   return {
     exhaustive: receipt.floor?.exhaustive === true,
-    ...(receipt.floor?.cause ? { floor_cause: receipt.floor.cause } : {}),
-    ...(receipt.disconfirming_test ? { disconfirming_test: receipt.disconfirming_test } : {}),
-    // Without this line the reader cannot tell a trimmed receipt from a build that
-    // never produced one — the absent-vs-false ambiguity this codebase keeps
-    // rediscovering. Name the way back.
-    full_receipt: 'pass receipt:"head" for pins + replay args, or receipt:"full" for per-claim provenance',
+    ...(test ? { disconfirming_test: test } : {}),
+    // ⚠ RESTORED AFTER I CUT IT AHEAD OF THE EVIDENCE.
+    //
+    // ef-manager listed `full_receipt` as never-read — true — and in the same message
+    // proposed the disciplined version: *"does ANYONE ever pass receipt:'full'? If nobody
+    // does before or after, that tier was never load-bearing and can go first, at zero
+    // risk."* That is instrument-then-cut. I cut first.
+    //
+    // And the suite defended a property their usage list does not cover: this line is how
+    // a reader tells a TRIMMED receipt from a build that never produced one — the
+    // absent-vs-false ambiguity this codebase keeps rediscovering, most recently in
+    // `staleProcess` being omitted rather than false.
+    //
+    // Shortened rather than removed: the signal costs ~10 tokens and the ambiguity it
+    // prevents has cost days. Cut it when the instrumentation says nobody follows it.
+    full_receipt: 'receipt:"head" | "full" for more',
   };
 }
 
