@@ -77,7 +77,31 @@ export async function getChangedFiles(repoRoot, fromRef, toRef = 'HEAD') {
 // degrade gracefully instead of throwing.
 export function getChangedFilesSync(repoRoot, fromRef, toRef = 'HEAD') {
   try {
-    const stdout = execGit(repoRoot, ['diff', '--name-only', `${fromRef}..${toRef}`]);
+    // ★★ `--no-renames` IS LOAD-BEARING. WITHOUT IT A RENAME LEAKS THE OLD FILE'S NODES.
+    //
+    // git applies rename detection to `diff` by DEFAULT, and `--name-only` then reports
+    // only the DESTINATION path. Proven:
+    //
+    //     git mv src/oldname.js src/newname.js
+    //     git diff --name-only          → src/newname.js
+    //     git diff --no-renames --name-only → src/newname.js
+    //                                         src/oldname.js
+    //
+    // The source path never entered the changed-file list, so the refresh loop never
+    // called `deleteNodesForFile` on it and every node from the old path survived — File,
+    // Module and every symbol in it.
+    //
+    // ⛔ WHAT THAT COSTS A READER: `graph_search` returns a symbol at a path that does not
+    // exist; `code_intel_references` counts callers living in a deleted file; a
+    // deletion-safety judgement is computed over phantom code. Confidently wrong, in the
+    // direction of "there is more here than there is".
+    //
+    // ★ FOUND BY THE INCREMENTAL-VS-REBUILD ORACLE ON ITS FIRST RUN, which is the whole
+    // argument for that oracle: every per-file assertion in the suite passed throughout.
+    // The incremental graph and a clean rebuild simply disagreed, and nothing had ever
+    // compared them. A plain delete was handled correctly — only a RENAME hid, because
+    // only a rename is something git helpfully collapses for you.
+    const stdout = execGit(repoRoot, ['diff', '--no-renames', '--name-only', `${fromRef}..${toRef}`]);
     return normalizeLines(stdout);
   } catch {
     return [];
