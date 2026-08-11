@@ -152,7 +152,6 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   // 'unit/query/response-budget.test.js' — reclassified 2026-08-11 when the classifier
   //   learned to see dynamic `await import()`. It was already running code; the
   //   heuristic could not see it. Not a conversion, a measurement fix.
-  'unit/query/stale-warning-actionable.test.js',
   // 'unit/query/tier-identity-check.test.js' — DELETED 2026-08-11 with the
   // `symbol_referenced` tier it guarded. Its behavioural successor is
   // tier-identity-behaviour.test.js, which found a live mislabel within three minutes
