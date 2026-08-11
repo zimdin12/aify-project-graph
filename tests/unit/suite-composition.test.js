@@ -117,6 +117,14 @@ function classify(filePath) {
 //      DISTINCT guards a join fan-out rather than duplicate edges; (2) a single mention is
 //      below the weak-signal FLOOR and is dropped, so a ranking test needs both documents
 //      above it. Neither was visible from the source-grep version.
+//   ✅ packet-timeout-not-absence — CONVERTED 2026-08-11, using the seam ef-manager named:
+//      "needs an injectable slow lookup, then assert the TIMED OUT text". Was asserting
+//      `featureLookupTimedOut = true` and the ORDER OF TWO BRANCHES by their byte offsets
+//      — reorder them for readability and it goes red having found nothing, while a
+//      timeout silently rendered as "not found" sails through. A vi.mock lookup that
+//      never resolves reaches the real branch in the real verb; hanging rather than
+//      sleeping near the budget keeps it off the flaky-on-loaded-CI path. Falsified by
+//      discarding the timeout flag with every string intact: 3 of 3 red.
 //   ✅ ambiguous-not-unmapped — CONVERTED 2026-08-11. Mutation had shown it UNTESTED
 //      rather than cleared: 1 of 3 red, the other two never reached (a `.not.toMatch`
 //      negative guard no emission change can fail, and an assertion on a different line).
@@ -142,7 +150,6 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/dashboard/repo-root-wiring.test.js',
   'unit/query/packet-cheap-symbol-lookup.test.js',
   'unit/query/packet-symbol-location.test.js',
-  'unit/query/packet-timeout-not-absence.test.js',
   'unit/query/packet-unranked-candidates.test.js',
   'unit/query/recompile-surface-termination.test.js',
   // 'unit/query/response-budget.test.js' — reclassified 2026-08-11 when the classifier
