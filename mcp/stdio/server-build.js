@@ -165,8 +165,22 @@ export function serverBuildInfo() {
     // ★ BUILD IDENTITY IS THE COMMIT *PLUS* WHATEVER WAS UNCOMMITTED AT LOAD.
     // `commit` alone names a build this process may never have run.
     commit: LOADED_COMMIT,
+    // ★ ALWAYS PRESENT — OMIT-WHEN-HEALTHY IS RIGHT FOR DIAGNOSTICS AND WRONG FOR IDENTITY.
+    //
+    // This was wrapped in the dirty-only spread, so a clean load had NO `buildId` at all.
+    // I had just told ef-manager "quote buildId, not commit" — they went to quote it and
+    // it was absent, leaving only `commit`, which the comment two lines above calls
+    // insufficient. An instruction that cannot be followed on the healthy path is worse
+    // than no instruction.
+    //
+    // The asymmetry is the point: an empty `nextActions` MEANS something (nothing to do).
+    // A missing identifier means nothing — it is just missing, and the reader falls back
+    // to the field we are trying to replace. So there is exactly one name for the thing,
+    // present in both states: `323641d` clean, `4615ed1+2dirty` when not.
+    buildId: loadedDirtyCount
+      ? `${LOADED_COMMIT}+${loadedDirtyCount}dirty`
+      : LOADED_COMMIT,
     ...(loadedDirtyCount ? {
-      buildId: `${LOADED_COMMIT}+${loadedDirtyCount}dirty`,
       loadedDirtyFiles: LOADED_DIRTY_FILES.slice(0, 20),
       loadedDirtyNote: `⚠ This process loaded ${loadedDirtyCount} UNCOMMITTED file(s), so it is running code that`
         + ` exists in no commit. Do NOT diff its behaviour or its output against ${LOADED_COMMIT} —`

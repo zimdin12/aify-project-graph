@@ -32,6 +32,7 @@ import {
   SOURCE_BUNDLE_HEADER,
 } from '../source-bundle.js';
 import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
+import { buildEvidenceBlock } from './packet-evidence.js';
 
 // Call-graph edge families followed during the trace. CALLS/INVOKES/
 // PASSES_THROUGH are the execution edges (the registry EXECUTION_FAMILY — the
@@ -363,6 +364,18 @@ function renderSuccess({ db, repoRoot, fromNode, toNode, pathSteps, budget, trus
   ];
 
   let usedLines = 0;
+  // ★ A DECLARATION AND ITS DEFINITION CAN COLLAPSE ONTO THE SAME NODE.
+  //
+  // ef-manager, on real C++ after the declaration fix: an interface→impl trace rendered
+  // `WorldBufferDomain.cpp:132-144` at START **and** at HOP 1 — the same 13 lines twice
+  // in a one-hop trace. Before the fix START showed the one-line declaration: wrong, but
+  // distinct. Resolving both to the definition made them identical, and on a large
+  // function that doubles the payload for zero information.
+  //
+  // The provenance line still prints for each — that is real and differs — but the body
+  // is emitted once. Tracked by resolved node identity rather than by index, so it holds
+  // for any pair of hops that land on the same definition, not just START/HOP 1.
+  const renderedNodes = new Set();
   chain.forEach((rawHop, i) => {
     // Prefer the DEFINITION over a header declaration. If none exists in the graph the
     // declaration is returned unchanged and is annotated below, so the reader is never
@@ -382,6 +395,17 @@ function renderSuccess({ db, repoRoot, fromNode, toNode, pathSteps, budget, trus
         + ' prototype and any "callees: (none indexed)" beneath it says nothing about the real function.'
         + ' Read the implementation directly, or run graph_index if it should have been extracted.');
     }
+
+    // Same definition already shown above — name it and move on rather than repeating
+    // the body. The reader loses nothing: the location is stated and the block is
+    // identical to one they have already read in this response.
+    const nodeKey = `${hop.file_path}:${hop.start_line}-${hop.end_line}`;
+    if (renderedNodes.has(nodeKey)) {
+      lines.push(`   (body identical to the block already shown for ${nodeKey} — not repeated)`);
+      lines.push('');
+      return;
+    }
+    renderedNodes.add(nodeKey);
 
     const remaining = Math.max(1, budget.totalLines - usedLines);
     const perBlock = Math.min(budget.perBlockLines, remaining);
@@ -437,11 +461,35 @@ function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
     if (block) boundaryBlocks.push(block);
   }
 
-  lines.push(boundaryBlocks.length
+  // ★ THE CAUSE ANALYSIS MUST NAME THE CAUSE THE SERVER ALREADY KNOWS.
+  //
+  // ef-manager, on real C++: a NO STATIC PATH result correctly ruled out dynamic dispatch
+  // and said CAUSE UNKNOWN rather than inventing one — honest — but never mentioned that
+  // the repo had NO clangd collection, which is the highest-prior cause of a missing CALLS
+  // edge on a C++ tree. The fact was in the payload (`codeIntel.available: false`) and
+  // absent from the section whose entire job is naming causes. The trust banner said
+  // "heuristic only… run graph_collect_code_intel" at the BOTTOM, disconnected from the
+  // question.
+  //
+  // Same defect as `dirtyFilesOmitted` disagreeing with the list it summarised: two parts
+  // of one response that know different things. A cause section that omits a known cause
+  // is not merely incomplete — it implies the causes it lists are the candidates.
+  const noCollection = (() => {
+    try {
+      return buildEvidenceBlock({ repoRoot })?.available === false;
+    } catch { return false; }
+  })();
+  const collectionCause = noCollection
+    ? ' ⚠ AND THE HIGHEST-PRIOR CAUSE IS PRESENT AND UNRULED-OUT: this repo has NO code-intel'
+      + ' collection (codeIntel.available=false), so CALLS edges here come from tree-sitter'
+      + ' heuristics only and cross-TU / template / overload call sites are routinely missed.'
+      + ' Run graph_collect_code_intel before concluding the edge does not exist.'
+    : '';
+  lines.push((boundaryBlocks.length
     ? 'A dynamic-dispatch site WAS found in an endpoint (below) — that is the most likely place the static chain breaks.'
     : 'CAUSE UNKNOWN. Ruled out: no dynamic-dispatch site (virtual / function-pointer / callback / computed call) was found in either endpoint body, '
       + 'so this is NOT the usual dispatch-boundary case. The two symbols may simply be unrelated, or the connecting hop may lie outside the '
-      + `${maxHops}-hop budget — re-run with a higher maxHops before assuming a missing edge.`);
+      + `${maxHops}-hop budget — re-run with a higher maxHops before assuming a missing edge.`) + collectionCause);
   lines.push('Inlining both endpoints + their neighbors + the destination file\'s other top-level functions (the missing hop usually lives there).');
   lines.push('No further node/Read needed for symbols shown.');
   lines.push('');

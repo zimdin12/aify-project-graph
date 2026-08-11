@@ -193,15 +193,25 @@ describe('server build identity', () => {
     expect(Object.hasOwn(info, 'dirty'), 'the ambiguous `dirty` name is retired').toBe(false);
     expect(Object.hasOwn(info, 'treeDirtyNow'), 'query-time dirtiness must be named as such').toBe(true);
 
-    if (info.buildId) {
-      // This run loaded a dirty tree — assert identity carries it and says why it matters.
+    // ★★ buildId is UNCONDITIONAL. It was originally emitted only on a dirty load, so a
+    // clean process had none — and ef-manager, told "quote buildId, not commit", went to
+    // quote it and found it absent. An instruction that cannot be followed on the healthy
+    // path is worse than no instruction.
+    //
+    // OMIT-WHEN-HEALTHY IS RIGHT FOR DIAGNOSTICS AND WRONG FOR IDENTITY: an empty
+    // `nextActions` means "nothing to do"; a missing identifier means nothing at all, and
+    // the reader falls back to the field we are replacing.
+    expect(info.buildId, 'identity must exist in BOTH states').toBeTruthy();
+
+    if (info.loadedDirtyFiles) {
+      // Loaded a dirty tree — identity carries it and says why it matters.
       expect(info.buildId).toMatch(/\+\d+dirty$/);
       expect(info.loadedDirtyFiles.length).toBeGreaterThan(0);
       expect(info.loadedDirtyNote).toMatch(/exists in no commit/);
       expect(info.loadedDirtyNote, 'must forbid the invalid comparison explicitly').toMatch(/Do NOT diff/);
     } else {
-      // Clean at load — identity is the bare commit and no dirty fields are invented.
-      expect(info.loadedDirtyFiles).toBeUndefined();
+      // Clean at load — identity is the bare commit, and no dirty fields are invented.
+      expect(info.buildId).toBe(info.commit);
       expect(info.loadedDirtyNote).toBeUndefined();
     }
   });

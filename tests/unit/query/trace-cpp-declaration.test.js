@@ -115,6 +115,27 @@ describe('graph_trace on a C++ header/implementation split', () => {
     expect(text).toMatch(/resolved from the declaration at engine\/WorldBuffer\.h/);
   });
 
+  it('★ the same definition is not rendered twice in one trace', async () => {
+    // ef-manager, on real C++ after the declaration fix: an interface→impl trace rendered
+    // the SAME 13 lines at START and at HOP 1, because resolving both to the definition
+    // collapsed them onto one node. Before the fix START showed the one-line declaration
+    // — wrong, but distinct. On a large function this doubles the payload for zero
+    // information.
+    //
+    // A fix that introduces a new cost is not finished. The provenance line still prints
+    // for each hop; only the repeated BODY is suppressed.
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    // Make START itself resolve to the same definition as the hop target.
+    db.run("UPDATE nodes SET file_path='engine/WorldBuffer.h', start_line=4, end_line=4 WHERE id='setVoxel'");
+    db.run("UPDATE nodes SET label='writeSingleVoxelGpu' WHERE id='setVoxel'");
+    db.close();
+
+    const text = asText(await graphTrace({ repoRoot, from: 'writeSingleVoxelGpu', to: 'writeSingleVoxelGpu' }));
+
+    const bodyCount = (text.match(/dispatchCompute/g) ?? []).length;
+    expect(bodyCount, 'the shared definition body must appear at most once').toBeLessThanOrEqual(1);
+  });
+
   it('★ when NO definition exists, it says DECLARATION ONLY rather than implying the function is empty', async () => {
     // The honest fallback. "callees: (none indexed)" under a prototype is an artefact of
     // what got resolved, not a fact about the code — so the absence must be labelled.
