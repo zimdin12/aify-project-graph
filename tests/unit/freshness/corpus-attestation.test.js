@@ -25,6 +25,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../../mcp/stdio/freshness/orchestrator.js';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
 
 let repoRoot;
 
@@ -126,6 +127,59 @@ describe('an index that loses files must say so', () => {
     expect(text).toMatch(/INCOMPLETE CORPUS/);
     expect(text, 'must name the consequence, not just the count').toMatch(/no callers|not found/);
     expect(text).toMatch(/huge\.js/);
+  });
+
+  it('★★★ a chunk ROLLBACK attests every file it lost, not just the one that threw', async () => {
+    // graph-senior-dev's blocker, reproduced with their method: a SQLite trigger that
+    // aborts insertion of one file AFTER its chunk-mates were already extracted.
+    //
+    // A ROLLBACK unwinds SQL and leaves JavaScript untouched. The old code kept the
+    // JS-side refs, fingerprints and file list accumulated inside the rolled-back
+    // transaction, so: `skipped` recorded ONE file while the DB had lost the whole
+    // chunk; the fingerprint sidecar asserted current fingerprints for files with no
+    // rows; and retained refs could resolve into a CALLS edge whose from_id named no
+    // node — a structurally inconsistent COMMITTED graph.
+    await writeFile(join(repoRoot, 'src', 'a.js'), 'export function alpha() { return beta(); }\n');
+    await writeFile(join(repoRoot, 'src', 'b.js'), 'export function beta() { return 2; }\n');
+    await writeFile(join(repoRoot, 'src', 'fail.js'), 'export function gamma() { return alpha(); }\n');
+    await commitAll();
+
+    // First index cleanly, then arm a trigger that aborts any node insert for fail.js.
+    await ensureFresh({ repoRoot });
+    const dbPath = join(repoRoot, '.aify-graph', 'graph.sqlite');
+    const db = openDb(dbPath);
+    db.raw.exec(`
+      CREATE TRIGGER IF NOT EXISTS abort_failjs
+      BEFORE INSERT ON nodes
+      WHEN NEW.file_path LIKE '%fail.js'
+      BEGIN SELECT RAISE(ABORT, 'synthetic extraction failure'); END;
+    `);
+    db.close();
+
+    await ensureFresh({ repoRoot, force: true });
+
+    const manifest = await readManifest();
+    const names = (manifest.skippedFiles ?? []).map((s) => s.file);
+
+    // ★ ALL THREE, not just the thrower. Measured before the fix: 1. After: 3.
+    // Asserting the exact set is what stops this passing vacuously — "the file that
+    // threw is named" was true of the broken version too.
+    expect(names.sort()).toEqual(['src/a.js', 'src/b.js', 'src/fail.js']);
+    // And the phase must really be the rollback path, or the fixture is exercising a
+    // different branch and proving nothing about the transaction boundary.
+    expect((manifest.skippedFiles ?? []).every((s) => s.phase === 'chunk_rollback')).toBe(true);
+    expect(manifest.skippedFileCount, 'the count is FILES lost, not exceptions caught')
+      .toBe((manifest.skippedFiles ?? []).length);
+
+    // ★ And the committed graph must not contain an edge from a node that does not exist.
+    const check = openDb(dbPath);
+    const dangling = check.all(`
+      SELECT e.from_id, e.to_id, e.relation FROM edges e
+      LEFT JOIN nodes n ON n.id = e.from_id
+      WHERE n.id IS NULL LIMIT 5
+    `);
+    check.close();
+    expect(dangling, 'a rolled-back file must not leave edges behind it').toEqual([]);
   });
 
   it('the count is UNCAPPED even though the list is capped', async () => {

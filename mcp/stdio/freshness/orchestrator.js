@@ -387,6 +387,28 @@ export async function ensureFresh({
       // error log — a corpus attestation. See the comment at the read/parse catches.
       const skipped = [];
 
+      // ★ TRANSACTION-LOCAL STATE. See the rollback catch below for why these exist.
+      //
+      // Anything derived from rows written inside the open transaction must live here
+      // until COMMIT, because ROLLBACK unwinds SQL and leaves JavaScript untouched. The
+      // rule that generalises past this loop: DURABLE STATE AND THE DATABASE MUST BE
+      // PROMOTED BY THE SAME EVENT, or they can disagree and nothing will notice.
+      let pendingRefs = [];
+      let pendingFingerprints = new Map();
+      let pendingFiles = [];
+      const commitPending = () => {
+        refs.push(...pendingRefs);
+        for (const [f, fp] of pendingFingerprints) computedFingerprints.set(f, fp);
+        pendingRefs = [];
+        pendingFingerprints = new Map();
+        pendingFiles = [];
+      };
+      const discardPending = () => {
+        pendingRefs = [];
+        pendingFingerprints = new Map();
+        pendingFiles = [];
+      };
+
       // Extract in bounded chunks so a mid-run failure only loses the current chunk.
       let chunkSize = 0;
       db.raw.exec('BEGIN');
@@ -466,34 +488,66 @@ export async function ensureFresh({
 
           for (const node of extracted.nodes) upsertNode(db, node);
           for (const edge of extracted.edges) upsertEdge(db, edge);
-          refs.push(...extracted.refs);
-          computedFingerprints.set(relPath, fileStructuralFingerprint(extracted));
+          // Transaction-local. Promoted to `refs` by commitPending() only after the
+          // COMMIT that makes the matching nodes real — otherwise a rollback leaves refs
+          // that resolve into edges pointing at nodes which no longer exist.
+          pendingRefs.push(...extracted.refs);
+          pendingFiles.push(relPath);
+          pendingFingerprints.set(relPath, fileStructuralFingerprint(extracted));
           chunkSize += 1;
           if (chunkSize >= EXTRACTION_CHUNK_SIZE) {
             db.raw.exec('COMMIT');
+            commitPending();
             db.raw.exec('BEGIN');
             chunkSize = 0;
           }
         } catch (err) {
-          // File-scope failure: discard the current chunk and keep going.
+          // ★ A ROLLBACK UNDOES SQL. IT DOES NOT UNDO JAVASCRIPT.
           //
-          // ⚠ THIS ONE LOSES MORE THAN ONE FILE. The rollback discards the whole
-          // in-flight chunk — up to EXTRACTION_CHUNK_SIZE files whose extraction had
-          // already succeeded — so the blast radius is the chunk, not the file that
-          // threw. Recorded as such rather than as a single skip, because a reader
-          // counting `skipped.length` would otherwise undercount the damage.
-          skipped.push({
-            file: relPath ?? '(unknown)',
-            phase: 'chunk_rollback',
-            reason: `${String(err?.message ?? err).slice(0, 120)} — up to ${chunkSize} already-extracted file(s) in this chunk were rolled back with it`,
-          });
-          try { db.raw.exec('ROLLBACK'); } catch {}
+          // graph-senior-dev, executable probe with a SQLite trigger, 2026-08-11. The
+          // old code rolled back the transaction and then kept the JS-side `refs`,
+          // `computedFingerprints` and `existingFiles` accumulated inside it. Three
+          // consequences, in ascending order of seriousness:
+          //
+          //   1. `skipped` recorded ONE entry — the file that threw — while the rollback
+          //      had removed every file in the chunk. Health then reported "1 file
+          //      deleted" over a corpus missing all three of three.
+          //   2. `structural-fp.json` asserted current fingerprints for files with no
+          //      rows in the DB, which can keep absent state alive through later
+          //      cosmetic-fast-path decisions.
+          //   3. ★ Retained `refs` from rolled-back files could later resolve into a
+          //      CALLS edge whose `from_id` names no node. That is not a bad manifest —
+          //      it is a STRUCTURALLY INCONSISTENT COMMITTED GRAPH.
+          //
+          // So all three are now transaction-local and merge only after COMMIT succeeds.
+          // The durable state and the database can no longer disagree, because the same
+          // event promotes both.
+          //
+          // ⚠ AND THE ATTESTATION NOW NAMES EVERY AFFECTED FILE, not just the thrower.
+          // `skippedFileCount` counts impacted FILES, not caught exceptions — the
+          // distinction that made the old count wrong by a factor of the chunk size.
+          const reason = String(err?.message ?? err).slice(0, 120);
+          for (const lost of pendingFiles) {
+            skipped.push({
+              file: lost,
+              phase: 'chunk_rollback',
+              reason: lost === relPath
+                ? reason
+                : `rolled back with the chunk containing ${relPath ?? '(unknown)'}: ${reason}`,
+            });
+          }
+          if (!pendingFiles.includes(relPath) && relPath) {
+            skipped.push({ file: relPath, phase: 'chunk_rollback', reason });
+          }
+          try { db.raw.exec('ROLLBACK'); } catch { /* already unwound */ }
+          discardPending();
           db.raw.exec('BEGIN');
           chunkSize = 0;
         }
       }
 
       db.raw.exec('COMMIT');
+      commitPending();
       } catch (err) {
         try { db.raw.exec('ROLLBACK'); } catch {}
         throw err;

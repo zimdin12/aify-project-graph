@@ -7,7 +7,8 @@
   "scripts": {
     "test": "node ./scripts/run-vitest.mjs",
     "test:watch": "node ./scripts/run-vitest.mjs --watch",
-    "validate:marketplace": "node ./scripts/validate-marketplace-package.mjs"
+    "validate:marketplace": "node ./scripts/validate-marketplace-package.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "bin": {
     "apg": "./bin/apg.js",
