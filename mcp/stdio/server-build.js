@@ -34,6 +34,24 @@ function gitAt(root, args) {
 
 // Both captured at load: this is the process's own identity.
 const PROCESS_STARTED_AT = new Date().toISOString();
+
+// ★★ ONE REGISTRY, TWO CONSUMERS — because they had already diverged.
+//
+// The classifier tested /\.(js|mjs|cjs|ts|json)$/ while the sentence beneath it told the
+// reader "no .js/.mjs/.ts/.json changed". `.cjs` was checked and NOT named: the prose
+// under-reported the rule it was describing, so a reader auditing the claim against a
+// .cjs-only delta would have been told the process was behaviourally current by a
+// sentence that never mentioned the extension that decided it.
+//
+// Found while closing graph-senior-dev-hermes's finding that the test pinned only `.js` —
+// removing `.json` from the classifier left 8/8 green. They were right about the gap and
+// the gap was already occupied.
+//
+// ⇒ Both the predicate and the sentence now derive from this array, so they cannot drift.
+// A test gates membership separately: adding an extension here without a case is caught.
+export const EXECUTABLE_EXTENSIONS = ['js', 'mjs', 'cjs', 'ts', 'json'];
+const EXECUTABLE_RE = new RegExp(`\\.(${EXECUTABLE_EXTENSIONS.join('|')})$`, 'i');
+const EXECUTABLE_LIST = EXECUTABLE_EXTENSIONS.map((e) => `.${e}`).join('/');
 const LOADED_COMMIT = gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
 
 // ★ CAPTURED AT LOAD, BESIDE THE COMMIT — NOT READ FROM DISK PER QUERY.
@@ -150,7 +168,7 @@ export function serverBuildInfo() {
     const changed = gitAt(SERVER_ROOT, ['diff', '--name-only', `${LOADED_COMMIT}..${treeCommit}`]);
     if (changed != null) {
       const files = changed.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
-      const executable = files.filter((f) => /\.(js|mjs|cjs|ts|json)$/i.test(f));
+      const executable = files.filter((f) => EXECUTABLE_RE.test(f));
       staleDelta = {
         files_changed: files.length,
         executable_files_changed: executable.length,
@@ -207,7 +225,7 @@ export function serverBuildInfo() {
         + ` but the checkout is now ${treeCommit}. Answers come from ${LOADED_COMMIT}.`
         + (staleDelta?.behaviourally_current
           ? ` HOWEVER the delta is ${staleDelta.files_changed} non-executable file(s) only —`
-            + ' no .js/.mjs/.ts/.json changed, so this process is BEHAVIOURALLY CURRENT and a restart is not'
+            + ` no ${EXECUTABLE_LIST} changed, so this process is BEHAVIOURALLY CURRENT and a restart is not`
             + ' required for correctness.'
           : staleDelta
             ? ` The delta includes ${staleDelta.executable_files_changed} executable file(s)`

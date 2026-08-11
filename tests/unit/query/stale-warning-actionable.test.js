@@ -67,7 +67,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
-const { staleProcessWarning, serverBuildInfo, _resetServerBuildCache } = await import('../../../mcp/stdio/server-build.js');
+const { staleProcessWarning, serverBuildInfo, EXECUTABLE_EXTENSIONS, _resetServerBuildCache } = await import('../../../mcp/stdio/server-build.js');
 
 // The module captured LOADED_COMMIT='aaaaaaa' on import above. Advancing the tree now is
 // what a `git pull` in the checkout does to a server that is already running.
@@ -233,14 +233,67 @@ describe('the stale warning is actionable by whoever reads it', () => {
         .toMatch(/BEHAVIOURALLY CURRENT and a restart is not/);
     });
 
-    it('★★ one executable file in the delta withdraws that reassurance', () => {
-      diffFiles = ['docs/notes.md', 'mcp/stdio/query/verbs/health.js'];
+    // ⛔ THIS PINNED ONLY `.js`, AND THE OTHER FOUR ARMS WERE UNTESTED.
+    //
+    // graph-senior-dev-hermes removed `.json` from the production classifier and the file
+    // stayed 8/8 GREEN; a package.json-only delta then produced the false reassurance
+    // "BEHAVIOURALLY CURRENT" for a process whose executable config had changed.
+    //
+    // ⇒ The arms are DERIVED FROM THE PRODUCTION REGISTRY, not from a list copied into the
+    // test — a copied list drifts from the thing it claims to describe, which is exactly
+    // what had already happened to the prose (see EXECUTABLE_EXTENSIONS in server-build).
+    // Adding an extension there without thinking cannot silently go untested.
+    it('★★ the REGISTRY ITSELF is gated — shrinking it must not shrink the test set', () => {
+      // ⛔ THE HOLE IN DERIVING ARMS FROM PRODUCTION, and I walked straight into it.
+      //
+      // The table below generates one case per registry member, which is right: a copied
+      // list drifts from the thing it describes. But it means REMOVING a member removes
+      // its own test. Replaying dev's exact mutant — deleting `.json` from the classifier
+      // — produced 13 passing cases instead of 14 and NOT ONE FAILURE. The defect deleted
+      // the evidence of itself.
+      //
+      // ⇒ So membership is pinned here, deliberately as a hand-written list. This is the
+      // one place a copied list is correct: it is a RATCHET, not a description. Changing
+      // what counts as executable is a decision that must be made consciously and stated
+      // twice, because the reassurance "a restart is not required" is built on it.
+      expect([...EXECUTABLE_EXTENSIONS].sort(), 'an extension may not silently leave the rule')
+        .toEqual(['cjs', 'js', 'json', 'mjs', 'ts']);
+    });
+
+    it.each(EXECUTABLE_EXTENSIONS)('★★ a .%s in the delta withdraws the reassurance', (ext) => {
+      diffFiles = ['docs/notes.md', `mcp/stdio/query/verbs/health.${ext}`];
       _resetServerBuildCache();
       const w = warning();
 
-      expect(w, 'a .js in the delta means the running code differs')
+      expect(w, `a .${ext} in the delta means the running code may differ`)
         .not.toMatch(/BEHAVIOURALLY CURRENT/);
       expect(w).toMatch(/delta includes 1 executable file/);
+    });
+
+    it('★ a NON-member extension does not withdraw it — the rule discriminates', () => {
+      // Without this the table above is satisfied by a classifier that calls everything
+      // executable, which would make the reassurance unreachable rather than correct.
+      diffFiles = ['docs/notes.md', 'assets/logo.png', 'notes.txt'];
+      _resetServerBuildCache();
+
+      expect(warning(), 'a .png is not executable code')
+        .toMatch(/BEHAVIOURALLY CURRENT and a restart is not/);
+    });
+
+    it('★★ the SENTENCE names exactly what the CLASSIFIER checks', () => {
+      // The divergence this registry was introduced to end: the predicate tested .cjs
+      // while the prose said ".js/.mjs/.ts/.json", so the sentence under-reported the rule
+      // it described. A reader auditing a .cjs-only delta would have been told the process
+      // was behaviourally current by a sentence that never mentioned the deciding
+      // extension. Prose and predicate must be the same list or one of them is lying.
+      diffFiles = ['docs/notes.md'];
+      _resetServerBuildCache();
+      const w = warning();
+
+      for (const ext of EXECUTABLE_EXTENSIONS) {
+        expect(w, `the reassurance must name .${ext}, which the classifier checks`)
+          .toContain(`.${ext}`);
+      }
     });
 
     it('★ an UNCOMPUTABLE delta fails closed, not open', () => {
