@@ -498,7 +498,36 @@ export function extractFile({ filePath, source, config }) {
       }
     }
 
-    const callRule = matchRule(node, config.refs?.calls, parentNode);
+    // ★ A DEFAULT ARGUMENT IS EVALUATED BY THE CALLER, NOT INSIDE THE FUNCTION.
+    //
+    //     int cylindricalIdFromWorldPos(const glm::vec3& worldPos,
+    //                                   const glm::vec3& spinAxis = glm::vec3(0, 1, 0))
+    //
+    // That `glm::vec3(0,1,0)` is a call_expression sitting in the PARAMETER LIST. The
+    // generic call rule matched it and attributed it as a call made BY
+    // cylindricalIdFromWorldPos, which the function never makes — the caller does, at
+    // the call site, only when the argument is omitted.
+    //
+    // ⛔ THIS IS THE ROOT OF THE `vec3` PHANTOM, and I fixed its consumers twice before
+    // finding it. The bad ref made `vec3` look like a callee of every function whose
+    // signature defaulted a glm type; `tests_adjacent` then used it as `via_symbol` and
+    // SUPPRESSED `no_test_coverage` on untested symbols (fixed at the consumer), and
+    // `graph_trace` later listed it in a callee list (found by ef-manager on real C++,
+    // 2026-08-11, after the consumer fix).
+    //
+    // ★ THE RULE THAT KEEPS BEING RELEARNED: a fix at one layer does not cover the other
+    // consumers of the same bad data. Two consumers patched, the data untouched, and it
+    // resurfaced in a third. Fixed here so every reader of CALLS inherits it at once.
+    //
+    // Scoped deliberately: only call expressions whose nearest structural ancestor is a
+    // parameter list are dropped. A default argument that calls a real function is also
+    // not called by this function, so the exclusion is correct in general, not just for
+    // constructors.
+    // Reuses the existing `isInsideParameterList` predicate rather than a second list of
+    // parameter node types — two lists of the same thing is how one of them goes stale.
+    const callRule = isInsideParameterList(ancestors)
+      ? null
+      : matchRule(node, config.refs?.calls, parentNode);
     // File-scope / static-initializer calls (`static Reg r = doRegister();`,
     // `int g = compute();`) have no enclosing function, so nextOwner is null and
     // the edge was silently dropped. For languages that opt in (config.
