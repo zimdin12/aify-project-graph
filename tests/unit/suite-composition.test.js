@@ -145,7 +145,15 @@ function classify(filePath) {
 // truncated, tracked dirt still reported when suppression fires — so "always emit" or
 // "always suppress" cannot satisfy them.
 const KNOWN_SOURCE_CONTRACT = new Set([
-  'unit/code-intel/degraded-split-persistence.test.js',
+  // ★★ EMPTY as of 2026-08-11. All eighteen source-contract tests are now behavioural.
+  // The last was degraded-split-persistence; the one before it, stale-warning-actionable,
+  // was the file that argued advisory prose needed no fixture — and it had broken twice
+  // that same day for reasons that were not behaviour changes.
+  //
+  // ⚠ Keep this set EMPTY. An addition here is a test that reads source instead of running
+  // it, and the ratchet exists so that choice has to be made deliberately rather than by
+  // reaching for readFileSync because a seam looked hard to build. Every one of the
+  // eighteen had a seam; four of them exposed live defects once the seam existed.
   // 'unit/query/response-budget.test.js' — reclassified 2026-08-11 when the classifier
   //   learned to see dynamic `await import()`. It was already running code; the
   //   heuristic could not see it. Not a conversion, a measurement fix.

@@ -41,6 +41,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // while the checkout has advanced. Nothing here fakes the warning — the module derives a
 // genuine stale verdict and emits its own text.
 let head = 'aaaaaaa';
+// What `git diff --name-only LOADED..TREE` reports. `null` makes the call throw, which is
+// the "delta unknown" case rather than the "delta empty" one.
+let diffFiles = ['docs/notes.md'];
 
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal();
@@ -50,6 +53,13 @@ vi.mock('node:child_process', async (importOriginal) => {
       if (cmd === 'git' && Array.isArray(args)) {
         if (args.includes('rev-parse')) return `${head}\n`;
         if (args.includes('status')) return ''; // clean tree; dirt is a separate signal
+        // The stale DELTA — which files differ between the loaded commit and the tree.
+        // A THROW here is not an empty delta: it is "could not be computed", which the
+        // warning must treat as fail-closed rather than as nothing-changed.
+        if (args.includes('diff')) {
+          if (diffFiles === null) throw new Error('git diff unavailable');
+          return diffFiles.join('\n');
+        }
       }
       return actual.execFileSync(cmd, args, opts);
     },
@@ -62,6 +72,7 @@ const { staleProcessWarning, _resetServerBuildCache } = await import('../../../m
 // what a `git pull` in the checkout does to a server that is already running.
 beforeEach(() => {
   head = 'bbbbbbb';
+  diffFiles = ['docs/notes.md'];
   _resetServerBuildCache(); // the verdict is TTL-cached; a stale cache would hide the move
 });
 
@@ -137,5 +148,48 @@ describe('the stale warning is actionable by whoever reads it', () => {
     _resetServerBuildCache();
 
     expect(staleProcessWarning(), 'no drift, no warning').toBeNull();
+  });
+
+  // ★★ MOVED HERE 2026-08-11 from degraded-split-persistence.test.js, whose last two cases
+  // were about this module rather than about code-intel. They were three regexes over
+  // server-build.js; the git mock above already reproduces the real condition, so they
+  // become behaviour at no extra cost — and they belong beside the warning they qualify.
+  //
+  // The defect: staleProcess said RESTART whether the delta was a guard preventing data
+  // loss or a single markdown file. ef-manager hit exactly that — loaded cad4569 vs tree
+  // c526849, and the entire delta was one doc. He had to run `git diff --name-only`
+  // himself to learn the running server was behaviourally current.
+  describe('the delta distinguishes a doc change from a behaviour change', () => {
+    it('★★ a docs-only delta is called BEHAVIOURALLY CURRENT', () => {
+      diffFiles = ['docs/notes.md', 'README.md'];
+      _resetServerBuildCache();
+
+      expect(warning(), 'the process is behind, but not in any way that runs')
+        .toMatch(/BEHAVIOURALLY CURRENT and a restart is not/);
+    });
+
+    it('★★ one executable file in the delta withdraws that reassurance', () => {
+      diffFiles = ['docs/notes.md', 'mcp/stdio/query/verbs/health.js'];
+      _resetServerBuildCache();
+      const w = warning();
+
+      expect(w, 'a .js in the delta means the running code differs')
+        .not.toMatch(/BEHAVIOURALLY CURRENT/);
+      expect(w).toMatch(/delta includes 1 executable file/);
+    });
+
+    it('★ an UNCOMPUTABLE delta fails closed, not open', () => {
+      // The whole point of the classifier is to let a reader ignore a doc-only drift. That
+      // makes "unknown" dangerous in exactly one direction, so unknown must read as
+      // "assume it matters" — a fail-closed default is a prompt to go measure, not a
+      // resting state.
+      diffFiles = null; // the git call throws
+      _resetServerBuildCache();
+      const w = warning();
+
+      expect(w).toMatch(/Delta could not be computed, so assume it matters/);
+      expect(w, 'silence about the delta must never read as reassurance')
+        .not.toMatch(/BEHAVIOURALLY CURRENT/);
+    });
   });
 });
