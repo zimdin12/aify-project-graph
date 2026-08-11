@@ -17,7 +17,49 @@ the tool) outranks everything in it.
 > spawns a small subagent to look and use the graph and return an answer. We should test
 > it also deeply — is it actually useful."*
 
-**Assessment: this is ON-PLAN NOW, not later.** It targets §1 directly, which is the
+## ⚠ CORRECTED 2026-08-11 — I read this as ROUTING. It is a CAPABILITY.
+
+My first assessment framed `ask_graph` as an adoption fix: one entry tool, less choice
+friction, §1. Steven corrected it:
+
+> *"I was thinking more of `ask_graph` as something that would ADD FUNCTIONALITY… it
+> shouldn't 'solve' the context issue, it is just displaced context usage. It can do more
+> complex answering based on all the data the graph / data system has (also the agent can
+> check inside the file)."*
+
+**Both halves of that matter and the second one is sharper than what I wrote.**
+
+★ **He is not claiming a token win, and he is right not to.** I filed "total tokens likely
+go UP" as a risk to be resolved. It is not a risk — it is a known, accepted cost.
+A subagent moves context off the caller; it does not remove it. Selling that as a context
+fix would be the same mislabelling as calling a stale field clean.
+
+★★ **And the value proposition changes completely.** The question is no longer *"will
+agents reach for it"* but:
+
+> **Can it answer a question that no single verb answers, and that chaining verbs by hand
+> answers worse?**
+
+"What breaks if I change the voxel material ID to 16 bits" requires the code graph AND the
+overlay AND open tasks AND docs AND **reading actual file contents** — plus judgement about
+which of those matter. No verb does that. Today an agent must run
+`graph_consequences` → read files → `code_intel_references` → `graph_pull` → synthesise,
+and carry every intermediate payload while doing it.
+
+⇒ **That is a synthesis capability, and it is testable in a way adoption is not.** The
+comparison is `ask_graph` versus a competent agent chaining verbs manually on the same
+question — and the D1′ dependence method already measures exactly that: enumerate the
+load-bearing claims in each answer, then ask whether either produced one the other could
+not support. Answer quality, not usage counts.
+
+⚠ **The §1 argument below still holds as a SIDE EFFECT, not as the case for building it.**
+Keep the two separate: if `ask_graph` ships and adoption rises, that is the assisted-
+adoption arm and says nothing about preference. The capability claim stands or falls on
+answer quality alone.
+
+---
+
+**Assessment (original, on the routing framing): it targets §1**, which is the
 highest-ranked open problem in the plan and the one nothing else currently addresses.
 
 ### Why it fits the evidence we already have
@@ -70,6 +112,25 @@ nothing for a dedicated subagent.
 subagent can read a payload that mixes orientation, absence claims and deletion warnings,
 and answer the ONE question asked. That is a real argument in its favour and it is
 independent of adoption.
+
+### ⇒ IDEA 1b — subagents for SCANNING AND FILLING the graph
+
+> *"Scanning and filling some parts of the project could be a subagent with a skill or
+> something."*
+
+A different thing from `ask_graph`, and further along than it looks: `/graph-build-
+functionality`, `/graph-build-intelligence` and `/graph-build-tasks` are already
+LLM-authoring steps done by skills. Making them subagents is mostly a packaging change.
+
+★ **But it lands on an open wound.** The overlay those skills author is exactly what Part 1
+cannot justify — four fields unanswered, nothing licensed. **Automating the production of a
+layer we cannot show anyone reads would scale the unvalidated investment**, and cheap
+authoring makes the "is it worth it" question harder to ask, not easier.
+
+⇒ So: **the filling half waits on Part 1**, same as the memory layer, and for the same
+reason. The SCANNING half — extraction, indexing, collection — is not overlay work and does
+not wait; that is the `graph_collect_code_intel` path and it already has an exhaustiveness
+contract.
 
 ### Prerequisites before building
 
