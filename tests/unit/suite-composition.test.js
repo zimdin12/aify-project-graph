@@ -106,6 +106,17 @@ function classify(filePath) {
 //      extracted to query/coverage-denominator.js and wired back, so the tested code is
 //      the shipped code. Falsified by restoring the ORIGINAL 12% defect (divide by every
 //      CALLS edge): 4 of 7 cases red.
+//   ✅ observed-doc-mentions — CONVERTED 2026-08-11. Was SQL fragments and variable names
+//      (`e.relation = 'MENTIONS'`, `COUNT(DISTINCT n.id)`, `declaredDocSet`) — rewrite the
+//      query with a JOIN or rename a local and it goes red having found nothing, while a
+//      genuinely reversed ranking sails through. Now builds a graph where the answer is
+//      order-sensitive and asserts the ORDER. Falsified by flipping DESC to ASC.
+//      ⚠ TWO FIXTURES WERE WRONG FIRST, and both were findings: (1) duplicate MENTIONS
+//      rows are UNREPRESENTABLE — the schema has a UNIQUE constraint on
+//      (from_id,to_id,relation), which the query's own comment already states, so the
+//      DISTINCT guards a join fan-out rather than duplicate edges; (2) a single mention is
+//      below the weak-signal FLOOR and is dropped, so a ranking test needs both documents
+//      above it. Neither was visible from the source-grep version.
 //   ⚠ ambiguous-not-unmapped — 1 real, 2 NOT REACHED by the mutation applied (a
 //      `.not.toMatch` negative guard and an assertion on a different line). Not
 //      decoration; untested.
@@ -125,7 +136,6 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/code-intel/skip-counters-survive-the-write.test.js',
   'unit/dashboard/repo-root-wiring.test.js',
   'unit/query/ambiguous-not-unmapped.test.js',
-  'unit/query/observed-doc-mentions.test.js',
   'unit/query/packet-cheap-symbol-lookup.test.js',
   'unit/query/packet-symbol-location.test.js',
   'unit/query/packet-timeout-not-absence.test.js',
