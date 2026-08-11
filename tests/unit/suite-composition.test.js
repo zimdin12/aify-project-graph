@@ -91,9 +91,13 @@ function classify(filePath) {
 //      ⚠ Note the irony recorded by ef-manager separately: the dirtyFilesOmitted
 //      arithmetic bug was caught by a human reading a live payload, NOT by this test —
 //      which guards that exact line.
-//   ✅ dirty-omitted-reconciles — 1 real guard, 1 decoration. Case 1 caught a DIFFERENT
-//      arithmetic error of the same class; case 2 asserts a COMMENT near the field and
-//      cannot fail for any arithmetic reason.
+//   ✅ dirty-omitted-reconciles — CONVERTED 2026-08-11. Mutation split it cleanly: case 1
+//      DID catch a different arithmetic error of the same class (a real guard, but one
+//      pinning a spelling that a harmless refactor would break); case 2 asserted a
+//      COMMENT within 900 chars of the field and could not fail for any arithmetic
+//      reason. Replaced by a RECONCILIATION over the emitted payload — omitted + shown
+//      must equal total — falsified by restoring the ORIGINAL historical bug
+//      (unconditional `- DIRTY_LIST_CAP`), which turns 2 of 3 cases red.
 //   ✅ packet-unranked-candidates — 3 of 4 real; the emissions were genuinely removed.
 //   ⚠ ambiguous-not-unmapped — 1 real, 2 NOT REACHED by the mutation applied (a
 //      `.not.toMatch` negative guard and an assertion on a different line). Not
@@ -115,7 +119,6 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/dashboard/repo-root-wiring.test.js',
   'unit/query/ambiguous-not-unmapped.test.js',
   'unit/query/coverage-denominator.test.js',
-  'unit/query/dirty-omitted-reconciles.test.js',
   'unit/query/observed-doc-mentions.test.js',
   'unit/query/packet-cheap-symbol-lookup.test.js',
   'unit/query/packet-symbol-location.test.js',
