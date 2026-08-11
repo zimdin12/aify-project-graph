@@ -64,6 +64,44 @@ function classify(filePath) {
 //   · tier-identity-check's comment-matching case → tier-identity-behaviour.test.js,
 //     which found a live `import_linked` mislabel within three minutes of running code
 //   · framing-not-data's two declaration-shape assertions → the same file
+// ★★ MUTATION EVIDENCE, 2026-08-11 — recorded per file, with the mutation named.
+//
+// ef-manager: "delete the behaviour, run the test, see if it goes red. Where it stays
+// green, the test is decoration regardless of what either of us judged about it." And
+// their caution, which decides how a result may be read: "a case that stays GREEN is
+// decoration ONLY IF the mutation actually reached the behaviour it names."
+//
+// ⚠ MY FIRST TWO SWEEPS BOTH MEASURED THE WRONG THING, and the second failure is the more
+// embarrassing:
+//
+//   ROUND 1 — mutated the LITERAL the test greps for (renamed the field, deleted the
+//     string). All six went red, which proves nothing: a source-grep test notices a
+//     spelling change by construction. I measured whether the grep works.
+//   ROUND 2 — right mutation (keep the text, break the code), WRONG HARNESS. It treated
+//     any thrown exception as a failing test, so a spawn error read as a caught mutation.
+//     It reported RED for two files that are green. Careful direct runs are the truth.
+//
+// ⇒ Verified by hand, one file at a time, each mutation applied and reverted explicitly:
+//
+//   ⛔ candidate-truncation-disclosed — DECORATION. Made the "SHOWING n OF m" banner
+//      UNREACHABLE (`omitted = 0`) while leaving every string in source: 4/4 still green.
+//      It asserts the banner's spelling, not that it ever fires.
+//   ⛔ health-dirty-noise — DECORATION. Corrupted the arithmetic it describes
+//      (`dirtyFilesTotal + 999`) with all predicate text intact: 3/3 still green.
+//      ⚠ Note the irony recorded by ef-manager separately: the dirtyFilesOmitted
+//      arithmetic bug was caught by a human reading a live payload, NOT by this test —
+//      which guards that exact line.
+//   ✅ dirty-omitted-reconciles — 1 real guard, 1 decoration. Case 1 caught a DIFFERENT
+//      arithmetic error of the same class; case 2 asserts a COMMENT near the field and
+//      cannot fail for any arithmetic reason.
+//   ✅ packet-unranked-candidates — 3 of 4 real; the emissions were genuinely removed.
+//   ⚠ ambiguous-not-unmapped — 1 real, 2 NOT REACHED by the mutation applied (a
+//      `.not.toMatch` negative guard and an assertion on a different line). Not
+//      decoration; untested.
+//
+// ⇒ Conversion of the two confirmed-decoration files is OWED and not yet done. They stay
+// listed below because the ratchet's job is to stop the count growing, not to pretend
+// these earn their place.
 const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/code-intel/degraded-split-persistence.test.js',
   'unit/code-intel/skip-counters-survive-the-write.test.js',
