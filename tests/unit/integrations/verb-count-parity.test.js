@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { HIDDEN_FULL_TOOL_NAMES } from '../../../mcp/stdio/hidden-tools.js';
 
 // Docs that state a verb count kept drifting from the profile sets in
 // server.js: the always-loaded session-start skill claimed a "default 16-verb
@@ -25,7 +26,14 @@ function nameSet(constName) {
 }
 
 function actualCounts() {
-  const hidden = new Set(nameSet('HIDDEN_FULL_TOOL_NAMES'));
+  // HIDDEN_FULL_TOOL_NAMES is IMPORTED, not scraped. It moved to its own module on
+  // 2026-08-11 so the deprecation probe could derive from the same source, and this
+  // test broke on the move — the third source-grep case that day to fire on a
+  // refactor while the behaviour was unchanged or better. The scrape survives for the
+  // other three sets because they still live in server.js and a real import of
+  // server.js would start a stdio server inside the test process; that is a
+  // known weakness, declared rather than hidden.
+  const hidden = HIDDEN_FULL_TOOL_NAMES;
   const all = [...new Set(
     [...SERVER.matchAll(/^\s*name:\s*'([a-z_0-9]+)'/gm)].map(m => m[1]),
   )];

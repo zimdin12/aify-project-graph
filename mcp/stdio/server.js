@@ -56,6 +56,8 @@ import {
 import { codeIntelReplay } from './query/verbs/code_intel_replay.js';
 import { codeIntelAnalyze } from './query/verbs/code_intel_analyze.js';
 import { codeIntelHierarchy } from './query/verbs/code_intel_hierarchy.js';
+import { noteDeprecatedVerbCall } from './deprecation-probe.js';
+import { HIDDEN_FULL_TOOL_NAMES } from './hidden-tools.js';
 
 const TOOLS = [
   // ── Administrative ───────────────────────────────────────────
@@ -845,19 +847,9 @@ const DEFAULT_TOOL_NAMES = new Set([
 //      (references/definitions/hover/symbols/diagnostics/hierarchy) are the
 //      coherent front; replay (parent-session reads) + analyze (clang-tidy/
 //      build) are specialist follow-ups.
-const HIDDEN_FULL_TOOL_NAMES = new Set([
-  'graph_lookup',
-  'graph_summary',
-  'graph_report',
-  'graph_change_plan',
-  'graph_preflight',
-  'graph_module_tree',
-  'graph_overview',
-  'graph_hotspots',
-  'graph_cycles',
-  'code_intel_replay',
-  'code_intel_analyze',
-]);
+// HIDDEN_FULL_TOOL_NAMES now lives in ./hidden-tools.js so the deprecation probe
+// derives from the SAME source — see that file for why the two unlisted sets are not
+// the same thing.
 
 // Tier B — kept visible in `tools/list` but with a one-line description in
 // place of the full prose. Agents can still discover them by name, and the
@@ -1155,6 +1147,11 @@ rl.on('line', async (line) => {
       send({ jsonrpc: '2.0', id: req.id, error: { code: -32601, message: `unknown tool: ${name}` } });
       return;
     }
+
+    // Deletion evidence for the eleven hidden-as-redundant verbs. Does not gate, warn
+    // the caller, or change the response — see deprecation-probe.js for why that
+    // matters. Placed after resolution so a typo'd name cannot forge a call record.
+    noteDeprecatedVerbCall(name, args?.repoRoot ?? args?.repo ?? args?.projectRoot);
 
     // Plan #21 — sensitive-path gate. Refuse tool calls whose path-
     // shaped args (repo/repoRoot/projectRoot/file/files[]/etc.) resolve
