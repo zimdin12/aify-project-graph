@@ -110,9 +110,27 @@ describe('graph_packet resolves symbol→feature without the full traversal', ()
   it('★ an exact (non-glob) file anchor matches only the exact path', async () => {
     // The other half of the shared rule. If the glob branch were applied to every
     // pattern, this prefix-of-nothing anchor would wrongly match.
+    //
+    // ⛔ NON-EXECUTION USED TO SATISFY THIS. graph-senior-dev-hermes made the exact-anchor
+    // comparison THROW: the cheap resolver fell through to the expensive traversal, which
+    // is mocked to never return, the packet landed in the timeout branch — and the case
+    // still passed, because "sim-core is absent" is trivially true of an output that
+    // reports nothing at all. A negative assertion cannot tell "we looked and it was not
+    // there" from "we never got as far as looking".
+    //
+    // ⇒ SAME-CALL LIVENESS FIRST. The resolver must be shown to have RUN and produced its
+    // known-symbol answer before absence means anything.
     repoRoot = await makeRepo({ symbols: [], files: ['game/sim'] });
     const text = asText(await graphPacket({ repoRoot, target: 'SimCoordinator' }));
 
+    expect(text, 'LIVENESS: the cheap resolver must have run — a timeout proves nothing here')
+      .not.toMatch(/TIMED OUT/);
+    expect(text, 'LIVENESS: and it must have resolved the symbol, not merely failed quietly')
+      .toMatch(/SimCoordinator/);
+    expect(text, 'LIVENESS: reaching the symbol-pointer path is what "known but unmapped" looks like')
+      .toMatch(/game\/sim\/coordinator\.cpp/);
+
+    // Only now is the absence evidence.
     expect(text, 'an exact anchor is not a prefix anchor').not.toMatch(/sim-core/);
   }, 20_000);
 

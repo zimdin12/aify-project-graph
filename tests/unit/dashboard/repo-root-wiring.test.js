@@ -32,12 +32,20 @@ vi.mock('../../../mcp/stdio/dashboard/server.js', async (importOriginal) => {
     ...actual,
     startDashboard: (args) => {
       started.push(args);
-      return Promise.resolve({ url: 'http://127.0.0.1:0', port: 0, server: { close: () => {} } });
+      // ⚠ The stub must honour the node http contract it is standing in for: close(cb)
+      // INVOKES cb. The first version ignored it, and shutdown — which awaits that
+      // callback — deadlocked the whole file. A stub that is unfaithful on the exact
+      // method under test turns a real defect into a hang and hides both.
+      return Promise.resolve({
+        url: 'http://127.0.0.1:0',
+        port: 0,
+        server: { close: (cb) => { if (typeof cb === 'function') cb(); } },
+      });
     },
   };
 });
 
-const { graphDashboard } = await import('../../../mcp/stdio/query/verbs/dashboard.js');
+const { graphDashboard, stopAllDashboards, activeDashboardCount } = await import('../../../mcp/stdio/query/verbs/dashboard.js');
 
 // ⚠ The mock above replaces startDashboard for EVERY importer, including this file. The
 // last two cases need the REAL server, so they take it via importActual — reaching for the
@@ -46,6 +54,7 @@ const { startDashboard } = await vi.importActual('../../../mcp/stdio/dashboard/s
 
 let repoRoot;
 let running;
+let db; // hoisted so a throw mid-case cannot strand the handle outside afterEach
 
 // A file whose content exists ONLY in the fixture. If the dashboard falls back to cwd it
 // cannot produce this line — it would read this test repo instead, or fail outright.
@@ -74,10 +83,29 @@ async function makeRepo() {
   return repo;
 }
 
+// ⛔ CLEANUP THAT DOES NOT CLEAN UP LOOKS EXACTLY LIKE CLEANUP THAT DOES.
+//
+// graph-senior-dev-hermes found this on a GREEN run: the mocked case calls the real
+// graphDashboard, which opens SQLite and files {db, server} in a module-global registry —
+// and the mock's `close()` is a no-op, so nothing ever released the handle. Every
+// repetition left an `apg-dashroot-*` directory on Windows; 72 accumulated across their
+// probes. Linux hides it (an open file can be unlinked), which is worse, not better.
+//
+// ⚠ And the old teardown SWALLOWED the removal failure, so the leak could not surface
+// even as a noisy test. Now the removal error is captured and asserted below.
+let removalError;
+
 afterEach(async () => {
   started.length = 0;
+  // Release the production registry FIRST — it owns the handle the fixture directory
+  // depends on, and the real-server cases file entries there too.
+  await stopAllDashboards();
   if (running) { await new Promise((r) => running.server.close(r)); running = undefined; }
-  if (repoRoot) { try { await rm(repoRoot, { recursive: true, force: true }); } catch { /* windows lock */ } }
+  if (db) { try { db.close(); } catch { /* already closed */ } db = undefined; }
+  removalError = undefined;
+  if (repoRoot) {
+    try { await rm(repoRoot, { recursive: true, force: true }); } catch (e) { removalError = e; }
+  }
   repoRoot = undefined;
 });
 
@@ -92,17 +120,52 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
       .not.toBe(process.cwd());
   }, 20_000);
 
+  it('★★ the handle it opens is RELEASABLE — a green response is not cleanup evidence', async () => {
+    // dev's finding, as an assertion. graphDashboard opens SQLite and files it in a
+    // module-global registry; before this there was no path that ever took it out, so
+    // every call leaked a handle and every run stayed green. Their probes accumulated 72
+    // stale fixture directories on Windows.
+    //
+    // ★ Asserted on the REGISTRY, not on the response. The response was always fine —
+    // that is precisely why the leak survived. And the removal is checked for failure
+    // rather than swallowed, since a swallowed rmdir error is how a held handle stays
+    // invisible.
+    repoRoot = await makeRepo();
+    await graphDashboard({ repoRoot, port: 0 });
+
+    expect(activeDashboardCount(), 'harness sanity: the call must register something').toBe(1);
+    const released = await stopAllDashboards();
+    expect(released, 'shutdown must report what it released').toBe(1);
+    expect(activeDashboardCount(), 'the registry must actually drain').toBe(0);
+
+    // With the handle released the fixture is removable — on Windows, where an open
+    // SQLite file cannot be unlinked. This is the observable the leak actually produced.
+    await rm(repoRoot, { recursive: true, force: true });
+    repoRoot = undefined;
+  }, 20_000);
+
+  it('★ teardown surfaces a removal failure instead of swallowing it', async () => {
+    // The guard on the guard. If afterEach silently ignores rm() failing, a re-leaked
+    // handle produces no signal at all — which is the state this file was in.
+    repoRoot = await makeRepo();
+    await graphDashboard({ repoRoot, port: 0 });
+    await stopAllDashboards();
+
+    await rm(repoRoot, { recursive: true, force: true });
+    repoRoot = undefined;
+    expect(removalError, 'a released handle must leave a removable directory').toBeUndefined();
+  }, 20_000);
+
   it('★★ an explicitly-rooted server serves THAT repo\'s bytes', async () => {
     // The half the old file could only gesture at with /resolve\(repoRoot, rel\)/. That
     // regex is true of code that resolves against repoRoot and then reads somewhere else.
     // Fetching the canary is not.
     repoRoot = await makeRepo();
-    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     running = await startDashboard({ db, port: 0, repoRoot });
 
     const res = await fetch(`${running.url}/api/source?path=src/probe.cpp&from=1&to=2`);
     const body = await res.json();
-    db.close();
 
     expect(body.error, `the fixture file must be readable: ${JSON.stringify(body)}`).toBeUndefined();
     expect(body.lines?.[0], 'served from the fixture, not from cwd').toBe(CANARY);
@@ -112,7 +175,7 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     // The containment check is what makes an explicit root meaningful. Without it the
     // wiring is decoration: any caller could read outside the repo it named.
     repoRoot = await makeRepo();
-    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     // Indexed under a traversing path, so the not_indexed guard cannot be what stops it —
     // the containment check has to be.
     db.run(
@@ -123,7 +186,6 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
 
     const res = await fetch(`${running.url}/api/source?path=../../../etc/passwd&from=1&to=2`);
     const body = await res.json();
-    db.close();
 
     expect(body.lines, 'nothing outside the root may be served').toBeUndefined();
     expect(body.error).toBe('out_of_tree');

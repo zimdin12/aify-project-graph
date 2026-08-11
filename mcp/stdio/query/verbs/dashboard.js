@@ -45,3 +45,48 @@ export async function graphDashboard({ repoRoot, port }) {
     throw err;
   }
 }
+
+// ⛔ NOTHING COULD EVER RELEASE THESE, and a green test run proved it.
+//
+// graph-senior-dev-hermes, auditing the dashboard tests: every repetition left an
+// `apg-dashroot-*` directory behind on Windows because the SQLite handle stayed open
+// until worker disposal — 72 stale fixture directories accumulated across their probe
+// runs. The runs were GREEN throughout. On Linux the open handle is invisible because a
+// file can be unlinked while held, so the symptom hides and the leak does not.
+//
+// ★ The registry was write-only: entries went in and nothing took them out. That is a
+// production gap as much as a test one — a long-lived server that dashboards several
+// repos holds a handle per repo forever, and there was no shutdown path at all.
+//
+// ⇒ A response assertion is not cleanup evidence. Tests snapshot this registry before
+// and after, on BOTH the succeeding and the failing path.
+export async function stopAllDashboards() {
+  const entries = [...activeDashboards.values()];
+  activeDashboards.clear();
+  for (const entry of entries) {
+    // Close the server first so no request can arrive against a closed database.
+    //
+    // ⚠ BOUNDED. `close(cb)` is only obliged to call back once every connection drains,
+    // and a server that never does would otherwise hang shutdown forever — trading a leak
+    // for a hang, which is worse because it is load-bearing on the exit path. Caught
+    // immediately: the first version of this deadlocked the test suite against a stub
+    // whose close() ignored its callback.
+    //
+    // ⇒ The DB close below is what actually frees the handle, so it must not be reachable
+    // only through a promise someone else controls.
+    if (entry.server) {
+      await Promise.race([
+        new Promise((resolve) => { try { entry.server.close(resolve); } catch { resolve(); } }),
+        new Promise((resolve) => { setTimeout(resolve, 2000).unref?.(); }),
+      ]);
+    }
+    try { entry.db?.close(); } catch { /* already closed */ }
+  }
+  return entries.length;
+}
+
+// Read-only view, so a test can assert the registry is empty without reaching into
+// module state or depending on the shape of what is stored.
+export function activeDashboardCount() {
+  return activeDashboards.size;
+}

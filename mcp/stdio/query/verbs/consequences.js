@@ -276,7 +276,10 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // ⛔ Same upstream cap as packet: resolveSymbol returns at most 50 rows, so its
     // length is a retrieval limit and not the population. Reported as a total it is the
     // very defect symbols_total was added to remove.
-    const { rows: allSymbolMatches, total: allSymbolMatchesTotal } = resolveSymbolWithTotal(
+    // ⚠ `total` is deliberately NOT destructured any more — the only consumer was the
+    // dead symbols_total field below, and binding a value nothing reads is how a dead
+    // field survives a review by looking wired-up.
+    const { rows: allSymbolMatches } = resolveSymbolWithTotal(
       db,
       input,
       "'Function','Method','Class','Interface','Type'",
@@ -964,8 +967,26 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         // Found 2026-08-11 while converting the source-grep test that guarded that
         // message. It had asserted the template's spelling and could never have seen
         // that the number in it was wrong.
-        symbols_total: allSymbolMatchesTotal,
-        symbols_truncated: allSymbolMatches.length > symbolNodes.length,
+        // ⛔ symbols_total / symbols_truncated WERE HERE AND WERE DEAD. Removed 2026-08-12.
+        //
+        // graph-senior-dev-hermes deleted both and every consequences + packet test stayed
+        // green — 18 of 18. I read that as a missing contract pin and set out to write one.
+        // Measuring first showed why no pin was possible: this `matched` block is only
+        // built when the symbol resolves UNIQUELY. Multiple definitions short-circuit to
+        // the AMBIGUOUS MATCH string hundreds of lines earlier, before `matched` exists.
+        // So on this route symbols_total could only ever equal symbols.length and
+        // symbols_truncated could only ever be false. A field that cannot vary cannot
+        // inform, and cannot be tested either.
+        //
+        // ★ The count IS carried where multiplicity actually happens: the ambiguity
+        // message states "N concrete candidates found". That number is the real contract
+        // and it is pinned in tests/unit/query/symbol-total-response-contract.test.js.
+        //
+        // ⇒ Deleted rather than kept-and-explained. A field that is always trivially true
+        // is not harmless: it costs tokens in every response, it is a second answer to a
+        // question already answered, and its presence here is what made me believe the
+        // expensive path was covered. packet.js keeps its own carrier on the CHEAP path,
+        // where the cap is real and the value genuinely varies.
         files: fileNodes.map((n) => n.file_path).filter(Boolean),
         // Other places where this label appears (forward decls in headers
         // for C++ classes, re-exports, etc.). Echoes PM Tier A #3: class
