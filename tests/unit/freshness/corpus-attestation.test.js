@@ -86,6 +86,31 @@ describe('an index that loses files must say so', () => {
     expect(manifest.status).toBe('ok');
   });
 
+  it('★★ graph_index does not name a DROPPED file as processed, and discloses in its own response', async () => {
+    // ef-manager on a 4.1 MB miniaudio.h, 2026-08-11: the file appeared in
+    // `processedFiles`, `graph_whereis("ma_device_init")` returned NO MATCH, and the
+    // response carried no disclosure at all. graph_health was correct — but this is the
+    // response the REINDEXING agent reads, at the moment it learns what the index did,
+    // and it affirmatively asserted the opposite.
+    //
+    // `existingFiles` is populated BEFORE the size/read/parse checks, which is how a
+    // dropped file ended up on the processed list.
+    await writeFile(join(repoRoot, 'src', 'good.js'), 'export function good() { return 1; }\n');
+    await writeFile(join(repoRoot, 'src', 'huge.js'), `// ${'x'.repeat(1_100_000)}\nexport function huge() {}\n`);
+    await commitAll();
+
+    const result = await ensureFresh({ repoRoot });
+
+    const processed = result.processedFiles ?? [];
+    expect(processed.some((f) => f.includes('good.js')), 'the file that WAS indexed must be listed').toBe(true);
+    expect(processed.some((f) => f.includes('huge.js')), 'a dropped file must NOT be listed as processed').toBe(false);
+
+    // And the disclosure must be here, not only in the manifest — a caller should not
+    // have to be told to go look somewhere else.
+    expect(result.skippedFileCount).toBeGreaterThan(0);
+    expect((result.skippedFiles ?? []).some((s) => s.file.includes('huge.js'))).toBe(true);
+  });
+
   it('★★ graph_health refuses to let status:ok stand alone when the corpus has holes', async () => {
     // The attestation is worthless if it stops at the manifest. This is the assertion
     // that makes the fix reach an agent: the verb everyone is told to call first must

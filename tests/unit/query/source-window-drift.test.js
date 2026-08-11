@@ -141,9 +141,64 @@ describe('source window verification — the offsets are from the index, the byt
     });
 
     expect(warnings.map((w) => w.kind)).toContain('modified_since_index');
-    expect(text).toMatch(/NOT Read-equivalent/);
-    // Not the strong claim — nothing here proves the body is wrong.
+    expect(text).toMatch(/UNVERIFIED BODY/);
+    // A DIFFERENT claim, not a weaker one. `WRONG BODY` asserts the served lines are
+    // provably not the symbol; `UNVERIFIED BODY` asserts we cannot tell — which
+    // ef-manager's decoy test showed is the more dangerous of the two, because the
+    // undetectable case is the one that reads as correct.
     expect(text).not.toMatch(/WRONG BODY/);
+  });
+
+  it('★★ BOTH kinds on one block counts as ONE unverified block, not two', async () => {
+    // ef-manager, on a real C++ repo: "NOT Read-equivalent for 2 of 1 block(s)".
+    // `unverified` counted WARNINGS while `blocks` counted BLOCKS.
+    //
+    // ★ MY FIXTURES MADE THIS UNREACHABLE, which is the more important half. The drift
+    // cases above synthesise staleness by writing a file and passing old line numbers,
+    // with no manifest — so exactly one warning fires and the two kinds never co-occur.
+    // In production they ALWAYS co-occur: a real edit changes content and mtime
+    // together. The suite asserted the production-impossible case and never saw the
+    // guaranteed one.
+    const { renderSourceBundle } = await import('../../../mcp/stdio/query/source-bundle.js');
+    const file = join(repoRoot, 'src', 'target.cpp');
+    await writeFile(file, AFTER_EDIT);
+    await writeManifest(new Date(Date.now() - 60_000).toISOString());
+    const after = new Date(Date.now() + 60_000);
+    await utimes(file, after, after);
+
+    const { unverified } = renderSourceBundle({
+      blocks: [{ symbol: 'targetSymbol', filePath: 'src/target.cpp', startLine: 1, endLine: 3 }],
+      repoRoot,
+      indexedAtMs: manifestIndexedAtMs(repoRoot),
+    });
+
+    expect(unverified, 'ONE block is unverified, however many ways it is unverified').toHaveLength(1);
+    expect(unverified[0].kinds.sort()).toEqual(['modified_since_index', 'offset_drift']);
+  });
+
+  it('★ the staleness warning names FABRICATION, not a numbering slip', async () => {
+    // ef-manager's adversarial case: 200 decoy lines crafted so the stale window still
+    // opens with the correct signature and closes with a brace, defeating the drift
+    // proof by construction. The served body was entirely fabricated and the reader was
+    // told only that "line numbers may not be the lines these symbols now occupy".
+    //
+    // The severities were ordered by DETECTABILITY, not by HARM: the loud ⛔ fired when
+    // the body was obviously wrong, the soft ⚠ when it was convincingly wrong.
+    const file = join(repoRoot, 'src', 'target.cpp');
+    await writeFile(file, AT_INDEX_TIME);
+    await writeManifest(new Date(Date.now() - 60_000).toISOString());
+    const after = new Date(Date.now() + 60_000);
+    await utimes(file, after, after);
+
+    const { text } = renderSourceBlock({
+      symbol: 'targetSymbol', filePath: 'src/target.cpp', startLine: 1, endLine: 3,
+      repoRoot, perBlockLines: 50, indexedAtMs: manifestIndexedAtMs(repoRoot),
+    });
+
+    // Must say the CONTENT may be another function, not that the numbering is off.
+    expect(text).toMatch(/DIFFERENT function/);
+    expect(text, 'and must say what the passing name-check does NOT rule out').toMatch(/rules out only the obvious case/);
+    expect(text, 'a fabricated body is not a soft warning').toMatch(/⛔/);
   });
 
   it('an unreadable manifest DISABLES the staleness check rather than failing it', async () => {

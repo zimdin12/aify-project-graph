@@ -191,11 +191,26 @@ function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs }) {
     });
   }
   if (indexedAtMs && mtimeMs && mtimeMs > indexedAtMs) {
+    // ★ THIS WORDING SAID "THE NUMBERING MAY BE OFF". THAT UNDERSTATED IT BY A LOT.
+    //
+    // ef-manager's adversarial test, 2026-08-11: 200 decoy lines inserted above
+    // GpuMaterialPalette::uploadFromRegistry, crafted so the stale window still OPENS
+    // with the correct signature and CLOSES with a brace — defeating the drift proof by
+    // construction. The served body was entirely fabricated, under a correct signature,
+    // and all the reader was told was that line numbers might be off.
+    //
+    // ★★ THE SEVERITIES WERE ORDERED BY DETECTABILITY, NOT BY HARM. The loud ⛔ fires
+    // when the body is OBVIOUSLY wrong — the case a reader would catch unaided. The soft
+    // ⚠ fires when it is CONVINCINGLY wrong — the case only this warning can catch.
+    // Exactly inverted. So this now names the failure mode rather than its symptom, and
+    // says explicitly what the passing drift check does and does not rule out.
     warnings.push({
       kind: 'modified_since_index',
-      text: `⚠ NOT Read-equivalent — this file changed after the graph was indexed, so the
-   line numbers shown may not be the lines these symbols now occupy. Verify before
-   citing, or run graph_index.`,
+      text: `⛔ UNVERIFIED BODY — this file changed after the graph was indexed. These lines
+   are whatever now sits at the recorded offsets: possibly this symbol, possibly a
+   DIFFERENT function that opens with a similar signature. The name check passed, which
+   rules out only the obvious case, not a plausible one. Do not cite this as ${symbol ?? 'this symbol'}
+   without re-Reading the file, or run graph_index.`,
     });
   }
   return warnings;
@@ -274,8 +289,26 @@ export function renderSourceBundle({ blocks = [], repoRoot, budget, includeHeade
     out.push(text);
     usedLines += lineCount;
     rendered += 1;
-    for (const w of warnings ?? []) {
-      unverified.push({ symbol: block.symbol, filePath: block.filePath, kind: w.kind });
+    // ★ ONE ENTRY PER BLOCK, NOT PER WARNING.
+    //
+    // This pushed one entry per warning, and explore then rendered
+    // `${unverified.length} of ${blocks.length} block(s)`. A single block raising both
+    // offset_drift and modified_since_index produced "NOT Read-equivalent for 2 of 1
+    // block(s)". Found by ef-manager on a real C++ repo, 2026-08-11.
+    //
+    // ⚠ AND MY FIXTURE MADE IT UNREACHABLE. The drift test synthesises a stale offset by
+    // writing the file and passing the graph's old line numbers — content changes,
+    // manifest is absent, so only ONE warning ever fires and the pair never co-occurs.
+    // In production they ALWAYS co-occur: a real edit changes content and mtime together.
+    // So the condition the test asserts is the one that cannot happen, and the condition
+    // that always happens was never tested. A green suite asserting a production-
+    // impossible invariant is §3's complaint arriving as a user-visible arithmetic bug.
+    if ((warnings ?? []).length > 0) {
+      unverified.push({
+        symbol: block.symbol,
+        filePath: block.filePath,
+        kinds: warnings.map((w) => w.kind),
+      });
     }
   }
 

@@ -607,7 +607,14 @@ export async function ensureFresh({
       const edgeCount = countEdges(db);
       const trustDirtyEdgeCount = countTrustRelevantDirtyEdges(resolved.unresolved);
 
+      const skippedPaths = new Set(skipped.map((s) => s.file));
       const nextManifest = {
+        // ⚠ 'ok' MEANS THE RUN FINISHED, NOT THAT THE CORPUS IS COMPLETE. Deliberate,
+        // and ef-manager flagged it as arguable: a status that goes non-ok on any skip
+        // would make one 4 MB vendored header look like a failed rebuild, and callers
+        // would learn to ignore it. The completeness signal is skippedFileCount, which
+        // is precise, and graph_health leads with it. Revisit if 'ok' is ever read as
+        // "complete" by something that cannot see the count.
         status: 'ok',  // Clear the 'indexing' marker — rebuild succeeded
         commit,
         indexedAt: new Date().toISOString(),
@@ -683,7 +690,24 @@ export async function ensureFresh({
         unresolvedEdges: resolved.unresolved.length,
         nodes: nodeCount,
         edges: edgeCount,
-        processedFiles: existingFiles,
+        // ★ A DROPPED FILE MUST NOT BE NAMED AS PROCESSED.
+        //
+        // `existingFiles` is populated BEFORE the size/read/parse checks, so
+        // `processedFiles` was listing files the run had deleted and failed to
+        // re-extract. Found by ef-manager on a 4.1 MB miniaudio.h, 2026-08-11: the file
+        // appeared in processedFiles, `graph_whereis("ma_device_init")` returned NO
+        // MATCH, and the response carried no disclosure at all.
+        //
+        // That is worse than an omission. `graph_health` had the attestation and was
+        // correct — but this is the response the REINDEXING agent reads, at the exact
+        // moment it learns what the index did, and it affirmatively asserted the
+        // opposite. A caller who checks the thing designed to be checked was misled.
+        processedFiles: existingFiles.filter((f) => !skippedPaths.has(f)),
+        // The same attestation the manifest carries, at the call site that needs it.
+        // Success must attest corpus AND SCOPE — the manifest was the scope half; this
+        // is the half a caller sees without being told to go look somewhere else.
+        skippedFileCount: skipped.length,
+        skippedFiles: skipped.slice(0, 50),
         resumedFromPartial,
         trustSpineDropped,
         cosmeticSkipped: cosmeticSkippedFiles.length,

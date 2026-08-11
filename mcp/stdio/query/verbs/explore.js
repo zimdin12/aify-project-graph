@@ -131,10 +131,14 @@ export async function graphExplore({ repoRoot, symbols = [], max_files }) {
     if (unverified.length === 0) {
       lines.push('Returned source is Read-equivalent — do NOT re-Read the files shown below.');
     } else {
-      const drifted = unverified.filter((u) => u.kind === 'offset_drift');
-      lines.push(`⚠ NOT Read-equivalent for ${unverified.length} of ${blocks.length} block(s) — re-Read those files before citing them. The rest are verbatim.`);
+      // `unverified` is one entry PER BLOCK — it used to be one per warning, which
+      // rendered "NOT Read-equivalent for 2 of 1 block(s)" as soon as a block raised
+      // both kinds. In production both kinds always co-occur, because a real edit
+      // changes content and mtime together.
+      const drifted = unverified.filter((u) => u.kinds.includes('offset_drift'));
+      lines.push(`⛔ NOT Read-equivalent for ${unverified.length} of ${blocks.length} block(s) — re-Read those files before citing them. The rest are verbatim.`);
       if (drifted.length > 0) {
-        lines.push(`⛔ ${drifted.length} block(s) show PROVEN offset drift (the symbol is absent from its own body): ${drifted.map((d) => `${d.symbol} @ ${d.filePath}`).join(', ')}. Run graph_index.`);
+        lines.push(`⛔ ${drifted.length} of those show PROVEN offset drift (the symbol is absent from its own body): ${drifted.map((d) => `${d.symbol} @ ${d.filePath}`).join(', ')}. Run graph_index.`);
       }
     }
     lines.push('');
