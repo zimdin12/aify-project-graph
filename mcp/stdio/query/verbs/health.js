@@ -458,7 +458,7 @@ export async function graphHealth({ repoRoot }) {
   verdicts.push(
     trustUnresolvedEdges === unresolvedEdges
       ? `trust=${trust} (${unresolvedEdges} unresolved)`
-      : `trust=${trust} (${trustUnresolvedEdges} trust-relevant unresolved of ${unresolvedEdges} total — see trustBasis for the rule)`,
+      : `trust=${trust} (${trustUnresolvedEdges} trust-relevant unresolved of ${unresolvedEdges} total — see trustBasis.basis)`,
   );
   // ★ ATTACK TEN — publish the rule that takes the total to the trust-relevant
   // subset. `trust` is the most load-bearing word in the product; it gates whether

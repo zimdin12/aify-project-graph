@@ -68,11 +68,27 @@ export function explainTrustExclusions(dirtyEdges = []) {
     excluded: [...byReason.entries()]
       .sort((a, b) => b[1] - a[1])
       .map(([reason, count]) => ({ reason, count })),
-    rule:
-      'An unresolved edge is TRUST-RELEVANT unless it is a CONTAINS relation, or classifies as '
-      + 'external-by-design (the target genuinely lives outside this repo), shape-issue (the reference '
-      + 'is not resolvable in principle), or denylisted-by-design (generic names like parse/log/__dirname). '
-      + 'None of those are fixable resolution gaps, so counting them made the trust banner read worse '
-      + 'than reality. The rule is published here so a small denominator is distinguishable from a hidden one.',
+    // ★ v0.7.0 Part 1b — 475 CHARS OF INVARIANT PROSE, ON THE VERB EVERY SESSION IS TOLD
+    // TO CALL FIRST.
+    //
+    // The old `rule` field spelled the exclusion policy out in full: byte-identical on
+    // every call, every repo, forever. That is not data, it is DOCUMENTATION BEING
+    // RE-TRANSMITTED PER CALL — ~132 tok paid by every session to restate something that
+    // never varies.
+    //
+    // ⚠ NOT DELETED, AND THE DISTINCTION MATTERS. The reason the prose existed is real
+    // and is preserved: *a small denominator must be distinguishable from a hidden one.*
+    // Deleting it outright would have removed a doubt clause on cost grounds, which is
+    // out of scope for any cut in this release.
+    //
+    // What replaces it is the same guarantee in the form Part 2.3 asks for — THE
+    // DENOMINATOR TRAVELS IN ITS NAME. `basis` states the policy as a compact identifier,
+    // `excluded` already itemises exactly what was removed and how many, and the full
+    // text lives in the skill for a reader who wants the argument rather than the fact.
+    //
+    // A reader can still tell a small denominator from a hidden one — `excluded` is the
+    // evidence and always was. The prose was the essay about the evidence.
+    basis: 'trust_relevant = unresolved − (CONTAINS | external-by-design | shape-issue | denylisted-by-design)',
+    basisRef: 'aify-project-graph skill § trust denominator',
   };
 }
