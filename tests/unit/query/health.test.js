@@ -150,7 +150,11 @@ describe('graph_health — synthesis of graph state signals', () => {
 
     const result = await graphHealth({ repoRoot });
     expect(result.manifestStatus).toBe('indexing');
-    expect(result.summary).toContain('rebuild-incomplete: status=indexing');
+    // Renamed 2026-08-11. `rebuild-incomplete` promised corpus completeness while only
+    // ever reading a process-completion flag — it stayed silent on a genuinely
+    // incomplete corpus because `status` was 'ok'. The name now matches what it detects;
+    // corpus completeness is the separate INCOMPLETE CORPUS verdict.
+    expect(result.summary).toContain('previous-run-did-not-finish: status=indexing');
   });
 
   it('flags stale unresolved categorization separately from stale briefs', async () => {

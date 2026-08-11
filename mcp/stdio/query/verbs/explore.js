@@ -105,6 +105,18 @@ export async function graphExplore({ repoRoot, symbols = [], max_files }) {
           filePath: n.file_path,
           startLine: n.start_line,
           endLine: n.end_line || n.start_line,
+          // ★ A FILE BLOCK'S "SYMBOL" IS ITS FILENAME, AND A FILE NEED NOT CONTAIN ITS
+          // OWN NAME. Passing `n.label` as the thing to look for made the drift proof
+          // report PROVEN OFFSET DRIFT on a perfectly fresh index — graph-senior-dev
+          // reproduced it live on `bin/apg.js`.
+          //
+          // That is the worst possible failure for this check: a false ⛔ on the loudest
+          // warning we emit, on a correct repo. A warning that fires when nothing is
+          // wrong trains readers to ignore it, which costs more than never having built
+          // it — the same argument that killed the filler suggestion and the permanent
+          // caveat. Filename absence proves nothing, so file blocks are not drift-proved
+          // at all; the staleness check still covers them.
+          verifiable: n.type !== 'File' && n.type !== 'Directory',
         });
       }
     }

@@ -20,9 +20,14 @@ import { join } from 'node:path';
 import { DEPRECATION_REPLACEMENTS } from '../../mcp/stdio/deprecation-probe.js';
 
 let repo;
+let telemetryDir;
+let sinkPath;
 
 beforeAll(async () => {
   repo = await mkdtemp(join(tmpdir(), 'apg-depprobe-'));
+  // Redirect the telemetry sink so the suite never writes into a real home directory.
+  telemetryDir = await mkdtemp(join(tmpdir(), 'apg-telemetry-'));
+  sinkPath = join(telemetryDir, 'deprecated-verb-calls.jsonl');
   await mkdir(join(repo, 'src'), { recursive: true });
   await writeFile(join(repo, 'src', 'a.js'), 'export function alpha() { return 1; }\n');
   execFileSync('git', ['init', '-q'], { cwd: repo });
@@ -33,13 +38,17 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (repo) { try { await rm(repo, { recursive: true, force: true }); } catch { /* windows lock */ } }
+  for (const d of [repo, telemetryDir]) {
+    if (d) { try { await rm(d, { recursive: true, force: true }); } catch { /* windows lock */ } }
+  }
 });
 
 function runRpc(messages, args = []) {
   return new Promise((resolve, reject) => {
     const child = spawn('node', ['mcp/stdio/server.js', ...args], {
-      cwd: process.cwd(), env: { ...process.env }, stdio: ['pipe', 'pipe', 'pipe'],
+      cwd: process.cwd(),
+      env: { ...process.env, APG_TELEMETRY_DIR: telemetryDir },
+      stdio: ['pipe', 'pipe', 'pipe'],
     });
     let stdout = ''; let stderr = '';
     child.stdout.on('data', (c) => { stdout += c.toString(); });
@@ -105,10 +114,17 @@ describe('the deprecation probe makes the deletion decision decidable', () => {
     }
   });
 
-  it('★ calling a hidden verb leaves a DURABLE breadcrumb naming its replacement', async () => {
-    // stderr alone would make "it never fired" unfalsifiable next month — the same
-    // unverified-absence shape as every other defect in this codebase. The file
-    // outlives the session, so a future reader checks rather than recollects.
+  it('★★ the breadcrumb is DURABLE, and lands OUTSIDE the queried repo', async () => {
+    // Two properties in one case because they are the same decision.
+    //
+    // DURABLE: stderr alone would make "it never fired" unfalsifiable next month — the
+    // same unverified-absence shape as every other defect here.
+    //
+    // OUTSIDE THE REPO: graph-senior-dev found the probe wrote beneath a caller-supplied
+    // path BEFORE the sensitive-path gate had approved it, and that writing into the
+    // queried repo breaks the no-residue contract protecting repos we do not own. A
+    // probe that cannot run against a read-only repo cannot measure the repos we most
+    // want to measure.
     const { stderr } = await runRpc([
       { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
       { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_overview', arguments: { repoRoot: repo } } },
@@ -117,13 +133,41 @@ describe('the deprecation probe makes the deletion decision decidable', () => {
     expect(stderr).toMatch(/DEPRECATION PROBE: graph_overview/);
     expect(stderr, 'the replacement must be named, or the log is a complaint not a steer').toMatch(/graph_digest/);
 
-    const crumb = join(repo, '.aify-graph', 'deprecated-verb-calls.jsonl');
-    expect(existsSync(crumb), 'the breadcrumb must survive the process').toBe(true);
-    const rows = (await readFile(crumb, 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
+    // ⛔ NO RESIDUE in the repo that was queried.
+    expect(existsSync(join(repo, '.aify-graph', 'deprecated-verb-calls.jsonl')),
+      'the probe must not write into the queried repo').toBe(false);
+
+    const rows = (await readFile(sinkPath, 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
     const row = rows.find((r) => r.verb === 'graph_overview');
-    expect(row).toBeTruthy();
+    expect(row, 'the breadcrumb must survive the process').toBeTruthy();
     expect(row.replacement).toMatch(/graph_digest/);
+    expect(row.repo, 'the repo must be recorded as data, never used as a write target').toContain('apg-depprobe');
     expect(Date.parse(row.at), 'undated evidence cannot be reasoned about later').not.toBeNaN();
+  });
+
+  it('★★ records the DENOMINATOR — armed sessions, and whether the host could reach these verbs', async () => {
+    // ef-manager: on a deferred-MCP host, 0 of 11 hidden verbs are reachable at all,
+    // because such a host builds its callable set FROM tools/list. So an empty call log
+    // meant nothing — reachability was zero.
+    //
+    // Without this, "never fires → delete" is reasoning from a DEGRADED absence: this
+    // project's own refsNotFoundBreakdown rule, turned on an instrument built the same
+    // day. The index could not answer is a statement about the index, not the code.
+    await runRpc([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} },
+    ]);
+
+    const rows = (await readFile(sinkPath, 'utf8')).trim().split('\n').map((l) => JSON.parse(l));
+    const armed = rows.filter((r) => r.event === 'armed');
+    expect(armed.length, 'every session that lists tools must record that the probe was armed').toBeGreaterThan(0);
+
+    const last = armed[armed.length - 1];
+    expect(last.watching, 'the denominator must say how many verbs were being watched').toBeGreaterThan(0);
+    // On the DEFAULT profile the hidden verbs are absent from the listing, so a host
+    // building its callable set from it cannot reach them. False is the safe reading:
+    // it withholds the licence to delete rather than granting it.
+    expect(last.hostCanReachUnlisted).toBe(false);
   });
 
   it('★ a LISTED verb leaves nothing — the probe must not manufacture its own evidence', async () => {

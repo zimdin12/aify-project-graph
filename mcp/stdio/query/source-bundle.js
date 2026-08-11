@@ -180,9 +180,11 @@ export function manifestIndexedAtMs(repoRoot) {
   }
 }
 
-function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs }) {
+function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs, verifiable = true }) {
   const warnings = [];
-  if (symbol && lines.length > 0 && !lines.some((l) => l.includes(symbol))) {
+  // `verifiable` is false for File/Directory blocks, whose "symbol" is a filename that
+  // the file itself need not contain. See explore.js for the live false positive.
+  if (verifiable && symbol && lines.length > 0 && !lines.some((l) => l.includes(symbol))) {
     warnings.push({
       kind: 'offset_drift',
       text: `⛔ WRONG BODY — "${symbol}" does not appear in these lines. The graph's line
@@ -219,7 +221,7 @@ function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs }) {
 // Render one block: a header line (`symbol @ file:start-end`) followed by the
 // `cat -n` source. Line numbers are RIGHT-aligned and 1-based matching the file
 // so an agent can cite them directly. Returns { text, lineCount }.
-export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRoot, perBlockLines, indexedAtMs }) {
+export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRoot, perBlockLines, indexedAtMs, verifiable = true }) {
   const { lines, startLine: actualStart, truncated, missing, mtimeMs } = readSourceWindow(
     repoRoot, filePath, startLine, endLine, perBlockLines,
   );
@@ -241,7 +243,7 @@ export function renderSourceBlock({ symbol, filePath, startLine, endLine, repoRo
     .map((line, i) => `${String(actualStart + i).padStart(width)}\t${line}`)
     .join('\n');
 
-  const warnings = verifyWindow({ symbol, lines, mtimeMs, indexedAtMs });
+  const warnings = verifyWindow({ symbol, lines, mtimeMs, indexedAtMs, verifiable });
 
   // ABOVE the source, not below it. A reader who scans the body and stops has
   // already been misled; a caveat under 40 lines of plausible C++ is decoration.

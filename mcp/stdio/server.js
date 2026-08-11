@@ -56,7 +56,7 @@ import {
 import { codeIntelReplay } from './query/verbs/code_intel_replay.js';
 import { codeIntelAnalyze } from './query/verbs/code_intel_analyze.js';
 import { codeIntelHierarchy } from './query/verbs/code_intel_hierarchy.js';
-import { noteDeprecatedVerbCall } from './deprecation-probe.js';
+import { noteDeprecatedVerbCall, noteProbeArmed } from './deprecation-probe.js';
 import { HIDDEN_FULL_TOOL_NAMES } from './hidden-tools.js';
 
 const TOOLS = [
@@ -1052,6 +1052,20 @@ rl.on('line', async (line) => {
   if (req.method === 'notifications/initialized') return;
 
   if (req.method === 'tools/list') {
+    // ★ ARM THE DENOMINATOR. A tools/list call means a host is building its callable
+    // set from the listing — so if these verbs are filtered out of it, that host CANNOT
+    // reach them however much it might want to. ef-manager measured 0 of 11 reachable on
+    // exactly such a host, which means an empty call log proves nothing about demand.
+    //
+    // `hostCanReachUnlisted` is false whenever any watched verb is absent from what we
+    // are about to send, which is the honest reading: we can see what we listed, we
+    // cannot see whether this particular client also permits calling unlisted names.
+    // False here therefore means "not demonstrably reachable", and it is the safe
+    // direction — it withholds the licence to delete rather than granting it.
+    const listedNames = new Set(LISTED_TOOLS.map(t => t.name));
+    noteProbeArmed({
+      hostCanReachUnlisted: [...HIDDEN_FULL_TOOL_NAMES].every(n => listedNames.has(n)),
+    });
     send({
       jsonrpc: '2.0', id: req.id,
       result: {
@@ -1148,10 +1162,6 @@ rl.on('line', async (line) => {
       return;
     }
 
-    // Deletion evidence for the eleven hidden-as-redundant verbs. Does not gate, warn
-    // the caller, or change the response — see deprecation-probe.js for why that
-    // matters. Placed after resolution so a typo'd name cannot forge a call record.
-    noteDeprecatedVerbCall(name, args?.repoRoot ?? args?.repo ?? args?.projectRoot);
 
     // Plan #21 — sensitive-path gate. Refuse tool calls whose path-
     // shaped args (repo/repoRoot/projectRoot/file/files[]/etc.) resolve
@@ -1168,6 +1178,22 @@ rl.on('line', async (line) => {
       }});
       return;
     }
+
+    // ★ DELETION EVIDENCE — AFTER the sensitive-path gate, deliberately.
+    //
+    // This used to run before it. graph-senior-dev found that a hidden-verb call could
+    // therefore write telemetry beneath a caller-supplied path that the very next check
+    // was about to reject as sensitive: the catch stopped the append throwing outward, it
+    // did not undo a successful unauthorised write. Telemetry must never be the thing
+    // that touches a path the request is not yet allowed to touch.
+    //
+    // The sink has also moved out of the queried repo entirely, so this ordering is now
+    // belt-and-braces rather than load-bearing — but the ordering is the part that would
+    // be wrong again if the sink ever moved back.
+    //
+    // Still after tool resolution, so a typo'd name cannot forge a call record. Still
+    // does not gate, warn, or change the response.
+    noteDeprecatedVerbCall(name, args?.repoRoot ?? args?.repo ?? args?.projectRoot);
 
     try {
       let repoRoot = args?.repo ?? process.cwd();

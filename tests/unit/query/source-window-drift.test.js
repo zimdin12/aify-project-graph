@@ -201,6 +201,40 @@ describe('source window verification — the offsets are from the index, the byt
     expect(text, 'a fabricated body is not a soft warning').toMatch(/⛔/);
   });
 
+  it('★★ a FILE block is never drift-proved — a file need not contain its own name', async () => {
+    // graph-senior-dev reproduced this live on a FRESH index: `graphExplore({symbols:
+    // ['bin/apg.js']})` reported PROVEN OFFSET DRIFT, because file targets resolve to
+    // File nodes whose `label` is the filename, and that filename was passed as the
+    // symbol to look for. A source file need not mention its own name anywhere.
+    //
+    // A false ⛔ on a correct repo is the worst outcome available for this check. A
+    // warning that fires when nothing is wrong trains readers to ignore it, which costs
+    // more than never having built it.
+    const file = join(repoRoot, 'src', 'target.cpp');
+    await writeFile(file, AT_INDEX_TIME);
+
+    const { text, warnings } = renderSourceBlock({
+      symbol: 'target.cpp',          // a File node's label
+      filePath: 'src/target.cpp',
+      startLine: 1,
+      endLine: 3,
+      repoRoot,
+      perBlockLines: 50,
+      verifiable: false,             // set by explore for File/Directory nodes
+    });
+
+    expect(warnings, 'a correct file block must raise nothing').toEqual([]);
+    expect(text).not.toMatch(/WRONG BODY/);
+
+    // And the guard must be the FLAG, not luck: the same block with verifiable defaulted
+    // would fire, which is exactly the shipped bug.
+    const { warnings: unguarded } = renderSourceBlock({
+      symbol: 'target.cpp', filePath: 'src/target.cpp', startLine: 1, endLine: 3,
+      repoRoot, perBlockLines: 50,
+    });
+    expect(unguarded.map((w) => w.kind)).toContain('offset_drift');
+  });
+
   it('an unreadable manifest DISABLES the staleness check rather than failing it', async () => {
     // Deliberate: an absent manifest is already reported by the freshness layer, so
     // inventing a second warning from it duplicates a signal instead of adding one.

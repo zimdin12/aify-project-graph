@@ -573,7 +573,26 @@ export async function graphHealth({ repoRoot }) {
       + `Fix the file(s) or re-run graph_index; do NOT treat exhaustive results as exhaustive until this is zero.`,
     );
   }
-  if (manifestStatus !== 'ok') verdicts.push(`rebuild-incomplete: status=${manifestStatus} (run graph_index(force=true))`);
+  // ★ RENAMED FROM `rebuild-incomplete`, WHICH IT NEVER DETECTED.
+  //
+  // ef-manager, 2026-08-11, meeting a falsifier I had written for myself: this verdict is
+  // keyed on `manifestStatus` ALONE and cannot see `skippedFileCount`. On a genuinely
+  // incomplete corpus — a file deleted from the graph and not re-extracted, its symbols
+  // unfindable — status was 'ok', so the one line whose name promises to report an
+  // incomplete rebuild said nothing.
+  //
+  // The field is not wrong; the CONSUMER was. `status` reports whether the run FINISHED,
+  // and I had defended keeping it that way. But a field named `rebuild-incomplete`
+  // reading a build-completion flag is exactly the stand-in this project keeps producing:
+  // the name promised corpus completeness and the value only ever meant process
+  // completion. Renamed to what it actually detects, so nothing can misread it again.
+  // Corpus completeness is the INCOMPLETE CORPUS verdict above, which is precise.
+  //
+  // ⚠ Two other consumers read status without the count — read_freshness.js and
+  // status.js, which re-exports it as `manifestStatus` for anyone downstream. Neither
+  // claims completeness in its name, so neither is renamed; flagged here so the next
+  // reader knows the audit happened rather than was skipped.
+  if (manifestStatus !== 'ok') verdicts.push(`previous-run-did-not-finish: status=${manifestStatus} (run graph_index(force=true))`);
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
 
