@@ -52,6 +52,38 @@ const LOADED_COMMIT = gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
 // The old comment here said "version alone is not load-bearing". It became load-bearing
 // the moment release notes were keyed to a version number, which is the same day this
 // was found. A field's blast radius is not fixed at the time it is written.
+// ★★ WAS THE TREE DIRTY WHEN THIS PROCESS LOADED? CAPTURED AT LOAD, LIKE THE COMMIT.
+//
+// Third instance of one defect in this file in one day, found by ef-manager each time:
+// a QUERY-TIME field sitting inside the block whose job is BUILD IDENTITY, beside
+// LOAD-TIME fields, with nothing marking which is which.
+//
+// The case that exposed it: their process started at 18:45 with HEAD=4615ed1 and
+// UNCOMMITTED edits to this very file. Four minutes later those edits became 040b518. So
+// the process runs code that exists in NO COMMIT — 4615ed1 plus part of 040b518 — and it
+// reported:
+//
+//     commit: 4615ed1 · dirty: false · startedAt: 18:45:45Z
+//
+// `dirty` was true at load and read false afterwards, because the edits had since been
+// committed. A reader parses that as "a clean build of 4615ed1". It is NEITHER.
+//
+// ⛔ THE FIELD FLIPPED TO A REASSURING VALUE WHILE THE PROCESS KEPT RUNNING THE DIRTY
+// CODE. That is worse than a stale field: it is a field that heals itself while the
+// condition it describes persists.
+//
+// ⇒ And it made the warning's own sentence false. "Answers come from 4615ed1" is untrue
+// for a process that loaded 4615ed1 PLUS uncommitted changes — so the string whose job is
+// to tell you which build you are on was misidentifying it.
+//
+// The query-time value is still reported, separately and named as such: the tree's
+// CURRENT dirtiness is a real thing a reader may want. It just is not build identity.
+const LOADED_DIRTY_FILES = (() => {
+  const out = gitAt(SERVER_ROOT, ['status', '--porcelain', '--untracked-files=no']);
+  if (out == null) return null;
+  return out.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''));
+})();
+
 const LOADED_VERSION = (() => {
   try {
     return JSON.parse(readFileSync(join(SERVER_ROOT, 'package.json'), 'utf8')).version ?? null;
@@ -127,14 +159,29 @@ export function serverBuildInfo() {
       };
     }
   }
+  const loadedDirtyCount = LOADED_DIRTY_FILES == null ? null : LOADED_DIRTY_FILES.length;
   _immutable = {
     version,
+    // ★ BUILD IDENTITY IS THE COMMIT *PLUS* WHATEVER WAS UNCOMMITTED AT LOAD.
+    // `commit` alone names a build this process may never have run.
     commit: LOADED_COMMIT,
+    ...(loadedDirtyCount ? {
+      buildId: `${LOADED_COMMIT}+${loadedDirtyCount}dirty`,
+      loadedDirtyFiles: LOADED_DIRTY_FILES.slice(0, 20),
+      loadedDirtyNote: `⚠ This process loaded ${loadedDirtyCount} UNCOMMITTED file(s), so it is running code that`
+        + ` exists in no commit. Do NOT diff its behaviour or its output against ${LOADED_COMMIT} —`
+        + ' that comparison is invalid in both directions. Restart from a clean tree before'
+        + ' attributing anything to a commit.',
+    } : {}),
     startedAt: PROCESS_STARTED_AT,
   };
   _verdictAt = now;
   _verdict = {
-    dirty: dirtyOut == null ? null : dirtyOut.length > 0,
+    // ⚠ QUERY-TIME, and named so it cannot be mistaken for build identity. This is the
+    // tree's dirtiness NOW — it says nothing about what this process loaded, and it
+    // silently healed to `false` once the edits a stale process was running got committed.
+    // Build identity lives in `buildId` / `loadedDirtyFiles` above.
+    treeDirtyNow: dirtyOut == null ? null : dirtyOut.length > 0,
     // Explicit false rather than an omitted key. An absent field cannot be told
     // apart from a build that never had the check — which is exactly the
     // inference sc-manager drew, correctly, from a missing key.

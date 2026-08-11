@@ -167,6 +167,45 @@ describe('server build identity', () => {
     }
   });
 
+  it('★★ a dirty-at-load tree is part of BUILD IDENTITY, and `dirty` cannot heal itself', async () => {
+    // ef-manager, third instance of one defect in this file in one day.
+    //
+    // Their process started at 18:45 with HEAD=4615ed1 and UNCOMMITTED edits to
+    // server-build.js. Four minutes later those edits became 040b518 — so the process
+    // runs code that exists in NO COMMIT, and reported:
+    //
+    //     commit: 4615ed1 · dirty: false · startedAt: 18:45:45Z
+    //
+    // `dirty` was TRUE at load and read FALSE afterwards, because the edits had since
+    // been committed. A reader parses that as "a clean build of 4615ed1". It is neither.
+    //
+    // ⛔ The field HEALED ITSELF while the condition it described persisted, which is
+    // worse than a merely stale field — and it made the warning's own sentence
+    // "Answers come from 4615ed1" false for that very process.
+    //
+    // The property: build identity must be load-time, and the query-time value must not
+    // be able to masquerade as it.
+    const { serverBuildInfo: build } = await import('../../../mcp/stdio/server-build.js');
+    _resetServerBuildCache();
+    const info = build();
+
+    // Whatever the tree's state, the two must be distinguishable — never one field.
+    expect(Object.hasOwn(info, 'dirty'), 'the ambiguous `dirty` name is retired').toBe(false);
+    expect(Object.hasOwn(info, 'treeDirtyNow'), 'query-time dirtiness must be named as such').toBe(true);
+
+    if (info.buildId) {
+      // This run loaded a dirty tree — assert identity carries it and says why it matters.
+      expect(info.buildId).toMatch(/\+\d+dirty$/);
+      expect(info.loadedDirtyFiles.length).toBeGreaterThan(0);
+      expect(info.loadedDirtyNote).toMatch(/exists in no commit/);
+      expect(info.loadedDirtyNote, 'must forbid the invalid comparison explicitly').toMatch(/Do NOT diff/);
+    } else {
+      // Clean at load — identity is the bare commit and no dirty fields are invented.
+      expect(info.loadedDirtyFiles).toBeUndefined();
+      expect(info.loadedDirtyNote).toBeUndefined();
+    }
+  });
+
   it('the stale warning is emitted ONCE — summary names it, server carries it', () => {
     // ef-manager, measured on e8c8d61: `server.staleWarning` (265 tok) was ALSO
     // inlined verbatim at the head of `summary`, making `server` the largest field in
