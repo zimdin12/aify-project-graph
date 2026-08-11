@@ -626,7 +626,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // The weaker claim was outranking the stronger one and lending it its name.
     const directSymbolEdges = [];
     const fileAdjacencyImports = [];   // IMPORTS edges — structural
-    const fileAdjacencyRefs = [];      // every other relation — a reference to ONE symbol
+
     if (symbolNodes.length > 0) {
       const directTestRows = db.all(
         `SELECT DISTINCT COALESCE(NULLIF(n.file_path, ''), NULLIF(e.source_file, '')) AS test_file,
@@ -694,31 +694,21 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       // is a REFERENCE to one symbol — real information, but a much weaker claim,
       // and it must travel with the symbol that produced it.
       fileAdjacencyImports.push(...fileAdjacencyRows.filter((r) => r.relation === 'IMPORTS').map((r) => r.test_file));
-      // ★ `symbol_referenced` CLAIMS THE TARGET IS REFERENCED. CHECK THAT IT IS.
+      // ⛔ The non-IMPORTS branch fed `symbol_referenced`, deleted 2026-08-11. The
+      // history is worth one paragraph because the defect class recurs:
       //
-      // Measured (ef-manager, echoes, 8e09c67 — i.e. WITH the four-tier split
-      // already in place, so this is not a pre-tier wound):
+      // Measured on echoes — `cylindricalLatBandsForBody` returned
+      // `tests_adjacent ["tests/test_main.cpp"]`, provenance `symbol_referenced`, basis
+      // `CALLS via vec3`, while ground truth was zero mentions of the target in that
+      // file. The predicate accepted ANY symbol edge between the test file and anything
+      // at all, then labelled it as though the TARGET were the referent. Not a
+      // correctly-labelled weak tier — a STRONG TIER LABELLED FALSELY. And it was not
+      // merely noise: the bogus coverage claim SUPPRESSED `no_test_coverage`, so the
+      // safety axis reported SAFE on an untested symbol.
       //
-      //   cylindricalLatBandsForBody → tests_adjacent ["tests/test_main.cpp"]
-      //   provenance symbol_referenced, basis: relation CALLS, via_symbol "vec3"
-      //   ground truth: grep -c cylindricalLatBandsForBody tests/test_main.cpp = 0
-      //
-      // The tier predicate accepted ANY symbol edge between the test file and
-      // anything at all, then labelled it as though the TARGET were the referent.
-      // `vec3` is a math type used by nearly every C++ file in that repo, so the
-      // claim was true about vec3 and false about the symbol the caller asked
-      // about.
-      //
-      // This is not a correctly-labelled weak tier — those are the mechanism
-      // working. It is a STRONG TIER LABELLED FALSELY, which is a different and
-      // much more fixable thing. Same root shape as the original fileAdjacency
-      // defect: an unfiltered edge in, a confidently-tiered claim out.
-      //
-      // If via_symbol is not the target, the tier is not "weaker" — it is nothing,
-      // and the file must not be listed at all.
-      fileAdjacencyRefs.push(...fileAdjacencyRows.filter((r) => (
-        r.relation !== 'IMPORTS' && r.via_symbol && matchedSymbols.has(r.via_symbol)
-      )));
+      // Tightening it to require the referent to BE the target left the tier reachable
+      // only through a duplicate-node-cap escape hatch, so it was removed rather than
+      // kept as a class nothing coherently belonged to.
     }
     const importLinkedTests = matchedFiles.size > 0 ? findImportLinkedTestFiles(db, [...matchedFiles]) : [];
 
@@ -761,14 +751,6 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     const directUniqueTests = uniqueTestPaths([
       ...tests, ...fileAdjacencyImports, ...importLinkedTests, ...companionHeaderTests,
     ]);
-    // ⛔ `refTests` no longer contributes to the listing. It was the input to the deleted
-    // `symbol_referenced` tier, and keeping it in `uniqueTests` after removing the tier
-    // would list those files under whatever OTHER tier happened to win — a file
-    // attributed to `text_mentioned` when nothing mentioned it, which is precisely the
-    // mislabelling this week has been spent removing. Retained only so the identity
-    // filter below stays measurable; nothing downstream reads it.
-    const refTests = uniqueTestPaths(fileAdjacencyRefs.map((r) => r.test_file))
-      .filter((t) => !directUniqueTests.includes(t));
     const mentionTests = directUniqueTests.length === 0 && symbolNodes.length > 0
       ? findMentioningTestFiles(db, repoRoot, symbolNodes.map((node) => node.label))
       : [];

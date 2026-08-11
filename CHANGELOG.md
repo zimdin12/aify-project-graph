@@ -7,6 +7,82 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-08-11
+
+**Every verb that could be confidently wrong now either is right, or says it cannot
+tell.** v0.5.0 made freshness somebody's job. This release is about the answers
+themselves: eight defects where the tool stated something false with no hedge, found
+by two agents testing on a real 339-file C++ repo rather than on fixtures the author
+wrote.
+
+The through-line: *an output that degrades toward silence is survivable; one that
+degrades toward a plausible lie is not.*
+
+### Fixed — outputs that were confidently wrong
+
+- **`graph_explore` served the wrong function's body.** Line offsets came from the
+  index, bytes from the current file, and nothing reconciled them — so inserting lines
+  above a symbol slid the window onto different code, under the right symbol's header,
+  beneath a banner reading *"do NOT re-Read the files shown below."* That promise was
+  what made it serious: it told the reader to stop checking. Now two independent
+  checks — a symbol absent from its own body is proven drift; a file modified after
+  indexing is unverified regardless — and the Read-equivalence promise is withdrawn for
+  exactly the blocks that failed.
+- **`graph_trace` cried wolf on every correct trace.** Its no-path branch passed
+  `"FROM: label"` as the identifier to verify, a string that cannot occur in source, so
+  it emitted a guaranteed false *WRONG BODY*. It also never passed the index timestamp,
+  leaving its staleness check dead. The verb that inlines the most source was verifying
+  the least.
+- **`tests_adjacent` reported coverage that did not exist**, and the false positive
+  *suppressed* `no_test_coverage` — so the safety axis reported SAFE on an untested
+  symbol. A `CALLS` edge to a shared math type counted as evidence about an unrelated
+  function.
+- **`import_linked` was claimed where no import existed**, and cleared the
+  "unverified for this symbol" caveat on file-level evidence. A caveat may now only be
+  cleared by evidence at the same granularity as the claim it qualifies.
+- **`graph_index` named files it had dropped as `processed`.** A 4.1 MB header was
+  deleted from the graph, reported as indexed, and its symbols were unfindable — with
+  no disclosure in the response the reindexing agent actually reads.
+- **A chunk rollback left the graph structurally inconsistent.** `ROLLBACK` unwinds SQL
+  and leaves JavaScript untouched, so refs from rolled-back files could resolve into
+  edges whose source node no longer existed, and the skip count reported one file when
+  a whole chunk was gone.
+- **42 of 101 tracker tasks were silently dropped** from the brief every agent is told
+  to read first, because one status string was unrecognised.
+
+### Added — the tool now attests what it did
+
+- **`INCOMPLETE CORPUS`** in `graph_health`, plus `skippedFileCount` / `skippedFiles`
+  in the manifest and the index response. Four skip paths are counted and named,
+  including the >1 MB cap that had been dropping files silently by design. *Success
+  must attest corpus and scope* — an index that cannot say what it failed to read is
+  reporting that it finished, not that it succeeded.
+- **`symbol_direct`** tests_adjacent tier — the only tier that verifies the symbol
+  rather than the file it lives in.
+- **`npm run smoke`** — boots the server and exercises the three calls every client
+  makes, in 1.3 seconds.
+
+### Removed
+
+- ⚠ **`symbol_referenced` tests_adjacent tier.** After the identity fix its only
+  reachable case was an escape hatch in an unrelated cap. Consumers reading
+  `tests_adjacent_provenance` will no longer see this value; `symbol_direct` and
+  `import_linked` carry the real claims.
+
+### Changed
+
+- `rebuild-incomplete` → `previous-run-did-not-finish`. It never detected corpus
+  completeness — it read a process-completion flag — and stayed silent on a genuinely
+  incomplete corpus.
+
+### Internal
+
+- Suite composition is measured and ratcheted: 202 behavioural / 10 mixed / 15
+  source-contract files. Tests that assert implementation *text* cannot fail when the
+  behaviour breaks, and three of them fired on fixes this cycle rather than on
+  regressions, so they are now counted separately and cannot grow silently.
+
+
 ## [0.5.0] — 2026-08-09
 
 **Freshness becomes somebody's job.** Two repos measured at v0.4.0: `sand_castle`

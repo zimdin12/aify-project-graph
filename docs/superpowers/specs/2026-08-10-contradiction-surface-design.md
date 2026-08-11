@@ -1,4 +1,11 @@
-# v0.6.0 — contradiction surface, and a deletion audit
+# v0.7.0 — contradiction surface, and a deletion audit
+
+> ⚠ **RENUMBERED 2026-08-11: this was written as v0.6.0.** v0.6.0 shipped instead as a
+> correctness release — eight defects where a verb stated something false with no hedge,
+> found by two agents testing on a real C++ repo. That work is not this design, and
+> shipping it under this title would have left the document lying about its own version,
+> which is the same stand-in defect the document is about. None of the plan below
+> changed; only the number it ships under.
 
 **Status:** design, awaiting review
 **Evidence base:** two C++ manager agents, measured across 2026-08-09/10
