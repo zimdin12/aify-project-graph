@@ -76,6 +76,46 @@ function hasBody(node) {
   return Number(node?.end_line) > Number(node?.start_line);
 }
 
+// ★ A HOP THAT RESOLVES TO A HEADER DECLARATION ENDS THE INVESTIGATION AT THE
+// PROTOTYPE — UNDER A BANNER TELLING THE READER NOT TO LOOK FURTHER.
+//
+// ef-manager, on real C++, 2026-08-11. `ChunkManager::setVoxel →
+// WorldBuffer::writeSingleVoxelGpu` resolved hop 1 to `WorldBuffer.h:580`:
+//
+//     void writeSingleVoxelGpu(int slot, int localX, ..., uint8_t material);
+//     LAST MILE — writeSingleVoxelGpu callees: (none indexed)
+//
+// One line of prototype, beneath "treat each block as a Read you have ALREADY
+// performed; do not Read a file shown here". The implementation is
+// `WorldBuffer.cpp:2151` — ~50 lines that wait on a fence, record a command buffer,
+// push constants and dispatch. So the trace terminated exactly where the work is,
+// and "callees: none indexed" was true of the prototype and false of the function.
+//
+// ★ It was also INCONSISTENT, which is what makes it a bug rather than a policy: an
+// OVERRIDDEN_BY hop in the same session resolved to the .cpp definition with a full
+// body and populated callees. Same verb, same repo — CALLS went to the header,
+// OVERRIDDEN_BY to the implementation.
+//
+// ⚠ AND NO FIXTURE I OWN COULD HAVE PRODUCED IT. JS has no header/implementation
+// split. Third defect this cycle invisible to a JS fixture while the tool is used
+// mainly on C++ — see tests/fixtures/cpp-split for the corpus that closes that gap.
+function definitionFor(db, node) {
+  if (!db || !node || hasBody(node)) return node;
+  try {
+    const rows = db.all(
+      `SELECT id, label, file_path, start_line, end_line FROM nodes
+       WHERE label = $label AND end_line > start_line
+       ORDER BY (CASE WHEN file_path LIKE '%.h' OR file_path LIKE '%.hpp' OR file_path LIKE '%.hxx' THEN 1 ELSE 0 END),
+                (end_line - start_line) DESC
+       LIMIT 1`,
+      { label: node.label },
+    );
+    return rows.length ? { ...node, ...rows[0], resolvedFromDeclaration: node.file_path } : node;
+  } catch {
+    return node;
+  }
+}
+
 // Outgoing call-edge count for a node — used to prefer the definition that
 // actually has callees as the `from` endpoint (a header decl has none).
 function outDegree(db, nodeId) {
@@ -323,11 +363,25 @@ function renderSuccess({ db, repoRoot, fromNode, toNode, pathSteps, budget, trus
   ];
 
   let usedLines = 0;
-  chain.forEach((hop, i) => {
+  chain.forEach((rawHop, i) => {
+    // Prefer the DEFINITION over a header declaration. If none exists in the graph the
+    // declaration is returned unchanged and is annotated below, so the reader is never
+    // silently handed a prototype.
+    const hop = definitionFor(db, rawHop);
     const ann = i === 0 ? '' : hopAnnotation(hop);
     if (i > 0) trustEdges.push({ provenance: hop.provenance });
     const arrow = i === 0 ? 'START' : `HOP ${i} (${hop.relation})`;
     lines.push(`${arrow}: ${hop.label}${ann}`);
+    if (hop.resolvedFromDeclaration) {
+      lines.push(`   (resolved from the declaration at ${hop.resolvedFromDeclaration} — body shown is the definition)`);
+    } else if (!hasBody(hop)) {
+      // No definition in the graph. Say so, because the next line will report zero
+      // callees and that absence is an artefact of resolving to a prototype, not a
+      // fact about the code.
+      lines.push('   ⚠ DECLARATION ONLY — no definition for this symbol is in the graph, so the body below is a'
+        + ' prototype and any "callees: (none indexed)" beneath it says nothing about the real function.'
+        + ' Read the implementation directly, or run graph_index if it should have been extracted.');
+    }
 
     const remaining = Math.max(1, budget.totalLines - usedLines);
     const perBlock = Math.min(budget.perBlockLines, remaining);
