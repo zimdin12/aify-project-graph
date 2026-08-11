@@ -11,22 +11,102 @@ const REPO = join(import.meta.dirname, '..', '..', '..');
 const src = readFileSync(join(REPO, 'scripts', 'reindex.mjs'), 'utf8');
 
 describe('the hook payload refreshes everything a reader depends on', () => {
-  it('refreshes the graph', () => {
-    expect(src).toMatch(/ensureFresh/);
+  // ★★ THESE THREE WERE `toMatch(/ensureFresh/)` AND FRIENDS — a regex for a function
+  // NAME, which passes whether or not the call ever runs, and fails on a rename that
+  // changes nothing. ef-manager adjudicated them as "gave up" and named the observable
+  // signals: graph_health already reports briefStaleVsManifest and
+  // unresolvedCategorizationStaleVsManifest precisely BECAUSE they can diverge from
+  // graph freshness.
+  //
+  // So the property is asserted end to end: index a repo, make the graph stale by
+  // committing a change, run the hook payload, and confirm the graph AND both derived
+  // artifacts came back in step. That is the actual claim the file's header makes —
+  // "a hook that refreshes the graph but not the briefs is worse than no hook" — and no
+  // regex over function names could ever check it.
+  it('★★ refreshes graph AND briefs AND categorization together — RUN, not grepped', async () => {
+    const { mkdtemp, rm, writeFile, mkdir, readFile } = await import('node:fs/promises');
+    const { tmpdir } = await import('node:os');
+    const { execFileSync } = await import('node:child_process');
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const { graphHealth } = await import('../../../mcp/stdio/query/verbs/health.js');
+
+    const repo = await mkdtemp(join(tmpdir(), 'apg-hook-payload-'));
+    try {
+      await mkdir(join(repo, 'src'), { recursive: true });
+      await writeFile(join(repo, 'src', 'a.js'), 'export function alpha() { return 1; }\n');
+      execFileSync('git', ['init', '-q'], { cwd: repo });
+      execFileSync('git', ['config', 'user.email', 't@t'], { cwd: repo });
+      execFileSync('git', ['config', 'user.name', 't'], { cwd: repo });
+      execFileSync('git', ['add', '-A'], { cwd: repo });
+      execFileSync('git', ['commit', '-qm', 'one'], { cwd: repo });
+      await ensureFresh({ repoRoot: repo });
+
+      // Move HEAD so the snapshot is genuinely behind the checkout.
+      await writeFile(join(repo, 'src', 'b.js'), 'export function beta() { return alpha(); }\n');
+      execFileSync('git', ['add', '-A'], { cwd: repo });
+      execFileSync('git', ['commit', '-qm', 'two'], { cwd: repo });
+
+      execFileSync(process.execPath, [join(REPO, 'scripts', 'reindex.mjs'), repo, 'test'], { stdio: 'ignore' });
+
+      const health = await graphHealth({ repoRoot: repo });
+      const text = typeof health === 'string' ? health : JSON.stringify(health);
+
+      // The graph caught up...
+      expect(text, 'the hook must refresh the graph').not.toMatch(/stale: indexed/);
+      // ...and so did BOTH derived artifacts. These are the fields that exist because
+      // they can diverge; a hook that moved only the graph would light them up.
+      expect(text).not.toMatch(/briefStaleVsManifest":\s*true/);
+      expect(text).not.toMatch(/unresolvedCategorizationStaleVsManifest":\s*true/);
+
+      // And the brief really is on disk, not merely un-flagged.
+      const brief = await readFile(join(repo, '.aify-graph', 'brief.agent.md'), 'utf8');
+      expect(brief.length, 'agents read this file first — it must exist and be non-empty').toBeGreaterThan(0);
+      expect(brief, 'the brief must reflect the SECOND commit, not the first').toMatch(/beta/);
+    } finally {
+      try { await rm(repo, { recursive: true, force: true }); } catch { /* windows lock */ }
+    }
   });
 
-  it('★ regenerates briefs — agents read these before anything else', () => {
-    expect(src).toMatch(/generateBrief/);
-  });
+  it('★★ never fails the git operation — RUN, not grepped', async () => {
+    // ef-manager's adjudication (2026-08-11) named this the highest-consequence miss of
+    // the eighteen source-contract tests, and they were right about why:
+    //
+    //   it asserted /process\.exit\(0\)/ ON A POST-COMMIT HOOK.
+    //
+    // The regex passes as long as that literal appears ANYWHERE in the file — including
+    // on a path that never executes, or beside a throw that fires first. A green test
+    // while the hook breaks someone's commit is not a hypothetical failure mode; it is
+    // the only failure mode that matters here, because a hook that exits non-zero is
+    // the one thing a user cannot ignore.
+    //
+    // So: give it a repoRoot that cannot possibly work, and assert the EXIT CODE.
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const run = promisify(execFile);
 
-  it('★ refreshes the unresolved categorization', () => {
-    expect(src).toMatch(/writeUnresolvedCategorization/);
-  });
+    // ⚠ THE FIRST FIXTURE PASSED VACUOUSLY. It used a non-existent nested directory,
+    // which reindex simply CREATES via mkdir recursive — so nothing failed and the exit
+    // code proved nothing. Worse, running it left a stray `no/such/directory` tree in
+    // the repo. Caught by running the script by hand and reading its output instead of
+    // trusting the green tick.
+    //
+    // A path that IS A FILE cannot be mkdir'd, so it produces a genuine ENOTDIR deep in
+    // the refresh — a real error on a real path, not a synthetic one.
+    const notADirectory = join(REPO, 'package.json');
+    let code = null;
+    let stderr = '';
+    try {
+      const res = await run(process.execPath, [join(REPO, 'scripts', 'reindex.mjs'), notADirectory, 'test']);
+      code = 0;
+      stderr = res.stderr ?? '';
+    } catch (err) {
+      code = err.code ?? 'threw without a code';
+      stderr = err.stderr ?? '';
+    }
 
-  it('never fails the git operation', () => {
-    // Backgrounded hooks cannot report through an exit code anyway, but an
-    // uncaught throw would still print to the hook log and confuse the reader.
-    expect(src).toMatch(/process\.exit\(0\)/);
+    // Sanity FIRST: prove something actually went wrong, or "exit 0" is meaningless.
+    expect(stderr, 'the fixture must actually make reindex fail').toMatch(/reindex failed/);
+    expect(code, 'a post-commit hook must never fail the commit, whatever went wrong').toBe(0);
   });
 
   it('the superseded installers and payload are gone', () => {

@@ -43,7 +43,12 @@ function classify(filePath) {
   const src = readFileSync(filePath, 'utf8');
   const readsImplText = /readFileSync\([^)]*(mcp|scripts|integrations)/.test(src)
     || /readFileSync\(\s*join\([^)]*(mcp|scripts)/.test(src);
-  const importsImplCode = /from '[^']*\/(mcp|scripts)\//.test(src);
+  // Static `from '…/mcp/…'` AND dynamic `await import('…/mcp/…')`. The dynamic form was
+  // missed at first, so a genuine conversion (reindex-payload, 2026-08-11) stayed
+  // classified as source-contract and the ratchet refused it credit. A measurement that
+  // cannot see an improvement will eventually be worked around rather than fixed.
+  const importsImplCode = /from '[^']*\/(mcp|scripts)\//.test(src)
+    || /import\(\s*'[^']*\/(mcp|scripts)\//.test(src);
   if (readsImplText && !importsImplCode) return 'source_contract';
   if (readsImplText && importsImplCode) return 'mixed';
   return 'behavioural';
@@ -74,13 +79,21 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/query/packet-timeout-not-absence.test.js',
   'unit/query/packet-unranked-candidates.test.js',
   'unit/query/recompile-surface-termination.test.js',
-  'unit/query/response-budget.test.js',
+  // 'unit/query/response-budget.test.js' — reclassified 2026-08-11 when the classifier
+  //   learned to see dynamic `await import()`. It was already running code; the
+  //   heuristic could not see it. Not a conversion, a measurement fix.
   'unit/query/stale-warning-actionable.test.js',
   // 'unit/query/tier-identity-check.test.js' — DELETED 2026-08-11 with the
   // `symbol_referenced` tier it guarded. Its behavioural successor is
   // tier-identity-behaviour.test.js, which found a live mislabel within three minutes
   // of running the code the deleted file had only ever grepped.
-  'unit/scripts/reindex-payload.test.js',
+  // 'unit/scripts/reindex-payload.test.js' — CONVERTED 2026-08-11, the first entry
+  //   retired by running code rather than by argument. Its "never fails the git
+  //   operation" case asserted /process\.exit\(0\)/ on a POST-COMMIT HOOK; it now forces
+  //   a real ENOTDIR and asserts the exit code. Its three payload regexes now index a
+  //   repo, move HEAD, run the hook and assert graph + briefs + categorization all came
+  //   back in step. Falsified: disabling generateBrief fails the new test, while
+  //   toMatch(/generateBrief/) still passed on the import line alone.
 ]);
 
 describe('suite composition — what the green headline actually covers', () => {
