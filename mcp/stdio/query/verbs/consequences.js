@@ -26,7 +26,7 @@ import { isTaskOpen } from '../../overlay/task-status.js';
 import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
 import { getDirtyFiles } from '../../freshness/git.js';
 import { computeTrustLevel } from './health.js';
-import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { buildAmbiguousMatchMessage, resolveSymbolWithTotal } from './symbol_lookup.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
 // Class names often appear multiple times — forward declarations in
@@ -273,7 +273,10 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // body. `start_line` is populated for definitions; forward decls often
     // still have one but come from headers. Heuristic: pick the node whose
     // file is NOT a header (.h/.hpp) when a non-header definition exists.
-    const allSymbolMatches = resolveSymbol(
+    // ⛔ Same upstream cap as packet: resolveSymbol returns at most 50 rows, so its
+    // length is a retrieval limit and not the population. Reported as a total it is the
+    // very defect symbols_total was added to remove.
+    const { rows: allSymbolMatches, total: allSymbolMatchesTotal } = resolveSymbolWithTotal(
       db,
       input,
       "'Function','Method','Class','Interface','Type'",
@@ -961,7 +964,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         // Found 2026-08-11 while converting the source-grep test that guarded that
         // message. It had asserted the template's spelling and could never have seen
         // that the number in it was wrong.
-        symbols_total: allSymbolMatches.length,
+        symbols_total: allSymbolMatchesTotal,
         symbols_truncated: allSymbolMatches.length > symbolNodes.length,
         files: fileNodes.map((n) => n.file_path).filter(Boolean),
         // Other places where this label appears (forward decls in headers

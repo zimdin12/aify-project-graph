@@ -230,13 +230,34 @@ export async function buildChangePlanWithContext(db, {
     sourceOccurrenceFiles: additionalOccurrenceFiles,
   });
 
-  const callerFiles = groupByFile(incomingRows, 'from_file', 'from_label', 'relation')
-    .filter((entry) => !targetFiles.includes(entry.file))
-    .slice(0, top_k);
-  const dependencyFiles = groupByFile(outgoingRows, 'to_file', 'to_label', 'relation')
-    .filter((entry) => entry.file && !targetFiles.includes(entry.file))
-    .slice(0, top_k);
-  const testFiles = groupByFile(testRows, 'test_file', 'test_label', 'confidence').slice(0, top_k);
+  // ⛔ TOTALS BEFORE THE CAP. Found by ef-manager's sweep for "an array is capped, then
+  // the CAPPED array's length is emitted as a count" — the third instance of the class,
+  // after symbol_lookup's candidate list and graph_packet's DEFINED IN.
+  //
+  // ⚠ SEVERITY, STATED ACCURATELY — my first write-up of this overstated it and the
+  // correction is worth keeping. I claimed the cap "fed the RISK VERDICT". It does reach
+  // computeDecision as `testCount`, but that function branches only on `testCount === 0`
+  // vs `> 0` (preflight.js:173, :208), and slicing a non-empty array never yields an
+  // empty one — so THE TIER COULD NEVER CHANGE. A test asserting the verdict moved was
+  // vacuous, and passed with the defect reinstated.
+  //
+  // I then retreated to "it reaches the reason string" (preflight.js:209) and could not
+  // reach that branch either. ⇒ The only DEMONSTRATED consequence is the SIGNALS line.
+  //
+  // The testCount change below stays anyway — handing a display cap to a decision function
+  // is wrong independently of whether today's thresholds happen to be insensitive to it —
+  // but it is defence in depth, not a defect with a shown consequence.
+  //
+  // The cap stays — it is a display budget and it is fine as one. What it must not do is
+  // stand in for the population.
+  const callerFilesAll = groupByFile(incomingRows, 'from_file', 'from_label', 'relation')
+    .filter((entry) => !targetFiles.includes(entry.file));
+  const dependencyFilesAll = groupByFile(outgoingRows, 'to_file', 'to_label', 'relation')
+    .filter((entry) => entry.file && !targetFiles.includes(entry.file));
+  const testFilesAll = groupByFile(testRows, 'test_file', 'test_label', 'confidence');
+  const callerFiles = callerFilesAll.slice(0, top_k);
+  const dependencyFiles = dependencyFilesAll.slice(0, top_k);
+  const testFiles = testFilesAll.slice(0, top_k);
   const crossModule = new Set(callerFiles.map((entry) => fileDir(entry.file))).size > 1;
   // R2-2026-05-31 (BUG 2) — the caller set is "lsp-verified" only when at least
   // one incoming caller edge is clangd ground truth. A heuristic-only caller set
@@ -255,7 +276,7 @@ export async function buildChangePlanWithContext(db, {
   const decision = upgradeDecisionForWeakTrustOccurrenceGap({
     decision: computeDecision({
       callerCount,
-      testCount: testFiles.length,
+      testCount: testFilesAll.length, // the POPULATION, never the display cap
       dirtyCount,
       crossModule,
       confidence: root.confidence ?? 1.0,
@@ -322,7 +343,8 @@ export async function buildChangePlanWithContext(db, {
     lines.push(`DIRTY SEAM — ${parts.join(' · ')}`);
   }
   lines.push(`RISK ${decision.tier} — ${decision.reason}`);
-  lines.push(`SIGNALS ${callerCount} caller(s), ${dependencyFiles.length} dependency file(s), ${testFiles.length} test file(s)${additionalOccurrenceFiles.length > 0 ? `, ${additionalOccurrenceFiles.length} source-occurrence file(s)` : ''}${signalsCaveat}`);
+  const shown = (all, cap) => (all.length > cap.length ? `${cap.length} of ${all.length}` : `${all.length}`);
+  lines.push(`SIGNALS ${callerCount} caller(s), ${shown(dependencyFilesAll, dependencyFiles)} dependency file(s), ${shown(testFilesAll, testFiles)} test file(s)${additionalOccurrenceFiles.length > 0 ? `, ${additionalOccurrenceFiles.length} source-occurrence file(s)` : ''}${signalsCaveat}`);
   lines.push('READ ORDER');
   readOrder.forEach((step, index) => {
     lines.push(`${index + 1}. ${step.file} — ${step.reason}`);

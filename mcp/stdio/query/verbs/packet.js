@@ -20,7 +20,21 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
 import { getPacketTokenBudget } from '../response-budget.js';
 import { openExistingDb } from '../../storage/db.js';
-import { resolveSymbol } from './symbol_lookup.js';
+import { resolveSymbolWithTotal } from './symbol_lookup.js';
+
+// Definitions grouped by language, over ALL nodes rather than the displayed slice.
+// Falls back to the file extension when the language column is empty, so a repo indexed
+// before languages were recorded still gets a breakdown instead of a blank one.
+function countByLanguage(nodes) {
+  const counts = new Map();
+  for (const n of nodes) {
+    const ext = (n.file_path || '').split('.').pop();
+    const key = n.language || (ext && ext !== n.file_path ? ext : 'unknown');
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  // Largest group first: the dominant mirror set is the one a reader must act on.
+  return [...counts.entries()].sort((x, y) => y[1] - x[1]).map(([lang, count]) => ({ lang, count }));
+}
 
 // ★ SYMBOL→FEATURE DOES NOT NEED THE FULL CONSEQUENCES TRAVERSAL.
 //
@@ -44,7 +58,10 @@ function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
   let db;
   try {
     db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
-    const nodes = resolveSymbol(db, symbol);
+    // ⛔ `nodes` is capped at 50 by the retrieval query; `resolvedTotal` is the COUNT.
+    // Reporting nodes.length as the total was the same cap-as-total defect this whole
+    // change exists to remove, one level upstream — caught by graph-senior-dev-hermes.
+    const { rows: nodes, total: resolvedTotal } = resolveSymbolWithTotal(db, symbol);
     if (!nodes.length) return null;
 
     const matchedSymbols = new Set(nodes.map((n) => n.label).filter(Boolean));
@@ -66,14 +83,21 @@ function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
           // without the true count the renderer printed the CAP as the total —
           // "UNRANKED (3 matches)" for a symbol with nine definitions. Same class as
           // the symbol_lookup candidate defect: a limit reported as a finding.
-          locationsTotal: nodes.length,
+          locationsTotal: resolvedTotal,
+          // ★★ BY LANGUAGE, because for a mirrored type the COUNT IS THE FINDING.
+          // ef-manager, echoes: `GpuMaterial` is 16 definitions — 1 C++ header and 15 GLSL
+          // shaders on a shared std430 stride, where every copy must agree or
+          // materialPalette[id] addresses the wrong entry for every material above 0. A
+          // fixed cap treats N definitions as a list to SAMPLE; here N is a property of
+          // the symbol and the property is the hazard.
+          locationsByLanguage: countByLanguage(nodes),
           locations: nodes.slice(0, 3).map((n) => ({
             file: n.file_path, line: n.start_line, type: n.type,
           })),
         };
       }
     }
-    return { feature: null, locationsTotal: nodes.length, locations: nodes.slice(0, 3).map((n) => ({
+    return { feature: null, locationsTotal: resolvedTotal, locationsByLanguage: countByLanguage(nodes), locations: nodes.slice(0, 3).map((n) => ({
       file: n.file_path, line: n.start_line, type: n.type,
     })) };
   } catch {
@@ -802,13 +826,13 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       // identically whichever route got here.
       symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
         label: parsed.value, type: l.type, file: l.file, line: l.line,
-      })), symbols_total: cheap.locationsTotal, files: [] } };
+      })), symbols_total: cheap.locationsTotal, symbols_by_language: cheap.locationsByLanguage, files: [] } };
     } else if (cheap?.locations?.length) {
       // Known to the graph, anchored by no feature — the symbol-pointer packet's
       // case, reached without paying for the traversal.
       symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
         label: parsed.value, type: l.type, file: l.file, line: l.line,
-      })), symbols_total: cheap.locationsTotal, files: [] } };
+      })), symbols_total: cheap.locationsTotal, symbols_by_language: cheap.locationsByLanguage, files: [] } };
     }
   }
 
@@ -960,7 +984,42 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       .map((s) => `  ${s.file}${s.line ? `:${s.line}` : ''} — ${s.type || 'symbol'}`);
     lines.splice(1, 0, `MATCHED VIA: symbol "${matchedViaSymbol}" → feature ${resolvedFeature.id}`);
     if (defLines.length) {
-      lines.splice(2, 0, `DEFINED IN (the symbol you asked for, not the feature):`, ...defLines);
+      // ⛔ THIS IS THE SECOND CAP, AND I FIXED THE OTHER ONE FIRST.
+      //
+      // The no-feature path got `symbols_total` and a "showing n of m" line. This branch
+      // has its OWN cap and got nothing — so on the case that actually matters it stayed
+      // broken. ef-manager, testing the fix on real echoes: `GpuMaterial` has SIXTEEN
+      // definitions and the packet listed three, with no count and no marker of any kind.
+      // Their words, and they are the point: a wrong number is at least a number a reader
+      // can doubt; a silently complete-looking list of 3 offers nothing to doubt.
+      //
+      // ★ I fixed the axis I was looking at and did not enumerate the axes I moved —
+      // again. The test I wrote used a NO-FEATURE fixture, so it never ran this branch.
+      const total = symbolConsequences?.matched?.symbols_total ?? symHits.length;
+      const byLang = symbolConsequences?.matched?.symbols_by_language ?? [];
+      const sampled = total > defLines.length;
+      const header = sampled
+        ? `DEFINED IN (the symbol you asked for, not the feature) — showing ${defLines.length} of ${total}:`
+        : 'DEFINED IN (the symbol you asked for, not the feature):';
+      const extra = [];
+      if (sampled && byLang.length) {
+        // Repo-size-independent in a way the sample can never be: two lines say "1 C++
+        // header and 15 shader mirrors" whatever the cap happens to be.
+        extra.push(`  ALL ${total} BY LANGUAGE: ${byLang.map((b) => `${b.lang} ${b.count}`).join(' · ')}`);
+      }
+      if (byLang.length > 1 && total > 1) {
+        // ★ graph_consequences ALREADY calls this a finding — "CROSS-LANGUAGE DUPLICATE …
+        // usually a FINDING rather than a disambiguation problem". Two verbs, one repo,
+        // one symbol, opposite treatment: one named the hazard, this one truncated it in
+        // silence. Same sentence, same data, no new analysis required.
+        extra.push('  ★ CROSS-LANGUAGE DUPLICATE — defined in more than one language.'
+          + ' For a mirrored struct every copy must agree; this is usually a FINDING,'
+          + ' not a disambiguation problem.');
+      }
+      if (sampled) {
+        extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — every definition, unsampled`);
+      }
+      lines.splice(2, 0, header, ...defLines, ...extra);
     }
   }
 

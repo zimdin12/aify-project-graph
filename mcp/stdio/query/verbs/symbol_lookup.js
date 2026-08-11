@@ -239,18 +239,48 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
 // Try an exact label match first, then a class-qualified fallback.
 // `typesClause` is the SQL fragment used inside IN (...) — callers pass
 // their own set (whereis and preflight include Test, path uses all nodes).
+// ⛔ THE RETRIEVAL CAP IS NOT THE POPULATION, AND IT WAS BEING REPORTED AS ONE.
+//
+// Found by graph-senior-dev-hermes reviewing my own fix for this exact class. I had made
+// graph_packet say "showing 3 of N" instead of printing the cap as a total — but N came
+// from `resolveSymbol().length`, and every query below is `LIMIT 50`. Their probe: insert
+// 60 same-label nodes, ask the packet, get "showing 3 of 50". The number I introduced to
+// FIX a cap-as-total defect was itself a cap reported as a total, one level upstream.
+//
+// ⇒ resolveSymbolWithTotal runs a COUNT over the SAME predicate as the stage that actually
+// matched, so the total is the population and the rows stay bounded. The count is skipped
+// entirely when the page came back short, which is the common case — a short page IS the
+// population, and that is knowable without asking.
+//
+// `resolveSymbol` keeps its exact signature and behaviour; every existing caller is
+// unaffected.
 export function resolveSymbol(db, symbol, typesClause = null) {
-  if (!symbol) return [];
+  return resolveSymbolWithTotal(db, symbol, typesClause).rows;
+}
+
+const RESOLVE_LIMIT = 50;
+
+export function resolveSymbolWithTotal(db, symbol, typesClause = null) {
+  if (!symbol) return { rows: [], total: 0, truncated: false };
   const typeFilter = typesClause ? `AND type IN (${typesClause})` : '';
+  // A full page cannot establish the population, so it is the only case that pays for a
+  // COUNT. A short page is its own total.
+  const settle = (rows, countSql, params) => {
+    if (rows.length < RESOLVE_LIMIT) return { rows, total: rows.length, truncated: false };
+    const total = db.get(countSql, params)?.n ?? rows.length;
+    return { rows, total, truncated: total > rows.length };
+  };
 
   const exact = db.all(
     `SELECT * FROM nodes WHERE label = $label ${typeFilter} LIMIT 50`,
     { label: symbol },
   );
-  if (exact.length > 0 || !QUALIFIER_RE.test(symbol)) return exact;
+  if (exact.length > 0 || !QUALIFIER_RE.test(symbol)) {
+    return settle(exact, `SELECT COUNT(*) AS n FROM nodes WHERE label = $label ${typeFilter}`, { label: symbol });
+  }
 
   const { parent, name } = splitQualifiedSymbol(symbol);
-  if (!name) return exact;
+  if (!name) return { rows: exact, total: exact.length, truncated: false };
 
   const dotted = symbol.replace(/::/g, '.');
   const qnameHits = db.all(
@@ -262,13 +292,21 @@ export function resolveSymbol(db, symbol, typesClause = null) {
      LIMIT 50`,
     { qname: dotted, qnameSuffix: `%.${dotted}` },
   );
-  if (qnameHits.length > 0) return preferConcrete(qnameHits);
+  if (qnameHits.length > 0) {
+    const settled = settle(qnameHits,
+      `SELECT COUNT(*) AS n FROM nodes WHERE (json_extract(extra, '$.qname') = $qname
+         OR json_extract(extra, '$.qname') LIKE $qnameSuffix) ${typeFilter}`,
+      { qname: dotted, qnameSuffix: `%.${dotted}` });
+    return { ...settled, rows: preferConcrete(qnameHits) };
+  }
 
   const byName = db.all(
     `SELECT * FROM nodes WHERE label = $label ${typeFilter} LIMIT 50`,
     { label: name },
   );
-  if (byName.length === 0 || !parent) return byName;
+  const byNameSettled = settle(byName,
+    `SELECT COUNT(*) AS n FROM nodes WHERE label = $label ${typeFilter}`, { label: name });
+  if (byName.length === 0 || !parent) return byNameSettled;
 
   // Disambiguate by parent class when multiple rows share the bare name.
   // Uses both parent_class and qname suffixes, but normalizes template and
@@ -286,5 +324,8 @@ export function resolveSymbol(db, symbol, typesClause = null) {
       return false;
     }
   });
-  return matchingParent.length > 0 ? preferConcrete(matchingParent) : preferConcrete(byName);
+  return {
+    ...byNameSettled,
+    rows: matchingParent.length > 0 ? preferConcrete(matchingParent) : preferConcrete(byName),
+  };
 }
