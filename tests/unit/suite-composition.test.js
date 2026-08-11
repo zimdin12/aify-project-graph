@@ -99,6 +99,13 @@ function classify(filePath) {
 //      must equal total — falsified by restoring the ORIGINAL historical bug
 //      (unconditional `- DIRTY_LIST_CAP`), which turns 2 of 3 cases red.
 //   ✅ packet-unranked-candidates — 3 of 4 real; the emissions were genuinely removed.
+//   ✅ coverage-denominator — CONVERTED 2026-08-11. Was EIGHT regexes over health.js, all
+//      spelling, none able to fail on a wrong number — on a statistic whose entire failure
+//      mode IS a wrong number, and which ef-manager confirmed they actually use. The
+//      computation was inline in health.js, which is why it had never been run in a test;
+//      extracted to query/coverage-denominator.js and wired back, so the tested code is
+//      the shipped code. Falsified by restoring the ORIGINAL 12% defect (divide by every
+//      CALLS edge): 4 of 7 cases red.
 //   ⚠ ambiguous-not-unmapped — 1 real, 2 NOT REACHED by the mutation applied (a
 //      `.not.toMatch` negative guard and an assertion on a different line). Not
 //      decoration; untested.
@@ -118,7 +125,6 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/code-intel/skip-counters-survive-the-write.test.js',
   'unit/dashboard/repo-root-wiring.test.js',
   'unit/query/ambiguous-not-unmapped.test.js',
-  'unit/query/coverage-denominator.test.js',
   'unit/query/observed-doc-mentions.test.js',
   'unit/query/packet-cheap-symbol-lookup.test.js',
   'unit/query/packet-symbol-location.test.js',

@@ -12,6 +12,7 @@ import { join, dirname } from 'node:path';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { computeCoverage } from '../coverage-denominator.js';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getDirtyFileEntries } from '../../freshness/git.js';
@@ -824,7 +825,11 @@ export async function graphHealth({ repoRoot }) {
         // The old key is retained as an alias — this ships mid-release and
         // breaking a field agents already read would be a worse trade than a
         // duplicated integer.
-        const verifiedPct = verifiable > 0 ? Math.round((verified / verifiable) * 100) : 0;
+        // ★ Computed by the extracted, unit-tested `computeCoverage`. It was inline here,
+        // which is why the only guard on it was eight regexes over this file — every one
+        // asserting spelling, none able to fail on a wrong number, on a statistic whose
+        // entire failure mode IS a wrong number.
+        const verifiedPct = computeCoverage(langScopeRows, verified).pct;
         codeIntel.lspVerifiedPctOfVerifiableInScopeCalls = verifiedPct;
         codeIntel.lspVerifiedPctOfCalls = verifiedPct;
         codeIntel.lspVerifiedPctDenominator = trackedFiles == null

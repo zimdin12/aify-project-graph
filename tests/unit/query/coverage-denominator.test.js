@@ -1,88 +1,99 @@
-// ★ ATTACK EIGHT — AN EDGE NOBODY COULD HAVE VERIFIED IS NOT AN EDGE THAT FAILED
-//   VERIFICATION.
+// THE DENOMINATOR DECIDES WHETHER A COVERAGE NUMBER MEANS ANYTHING.
 //
-// ef-manager, 2026-07-31, on the headline coverage number I had been quoting to him
-// since day one and that neither of us had ever opened up. The denominator of
-// lspVerifiedPctOfCalls was every CALLS edge, unrestricted. This repo's graph
-// contains GLSL and Python; clangd cannot verify a single one of those edges — not
-// because the index is cold, but because they are not C++ and were never in
-// compile_commands.json.
+// Dividing verified edges by EVERY CALLS edge reported 12% on a repo where every
+// verifiable edge had in fact been verified. That reads as a coverage failure and was an
+// accounting one — and ef-manager checked the 833/1599 arithmetic against this exact
+// field, which makes it one of the few they confirmed they actually use.
 //
-// Measured on echoes: 15530 CALLS = 12830 cpp + 1458 glsl + 1242 python. 17% of the
-// denominator was unverifiable BY CONSTRUCTION, so:
-//   · the number could never approach 100 however good collection got;
-//   · its MOVEMENT was uninterpretable — a rise could mean better verification or
-//     merely fewer shader edges after a refactor;
-//   · and it broke the word `floor`, which is load-bearing. A floor implies the
-//     true value is above it and reachable. A ratio over a contaminated
-//     denominator is a different quantity wearing a coverage label.
+// ★★ CONVERTED FROM SOURCE-GREP 2026-08-11.
 //
-// Sixth instance of the session's organizing shape: a percentage stood in for
-// coverage while the real thing — the verifiable subset — was computable from data
-// already in hand.
+// The previous version was eight regexes over health.js: `verified / verifiable`,
+// `verifiable_and_in_scope_calls`, `lspOutOfScopeCalls`, `LSP_VERIFIABLE_LANGUAGES`, and
+// so on. Every one asserts SPELLING. None could fail on a wrong number — and a wrong
+// number is the entire failure mode of a coverage statistic.
+//
+// The computation was inline in health.js, which is why it had never been tested by
+// running it. It now lives in `query/coverage-denominator.js` and this calls it with rows
+// and compares integers.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { computeCoverage, LSP_VERIFIABLE_LANGUAGES } from '../../../mcp/stdio/query/coverage-denominator.js';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const health = readFileSync(join(here, '../../../mcp/stdio/query/verbs/health.js'), 'utf8');
+describe('lsp coverage denominator', () => {
+  it('★★ divides by the VERIFIABLE subset, not by every CALLS edge', () => {
+    // The original defect, as arithmetic. 100 C++ edges all verified, plus 700 JS edges
+    // no backend here can verify. The honest answer is 100%; dividing by 800 gives 12%.
+    const rows = [
+      { lang: 'cpp', c: 100, inScope: true },
+      { lang: 'javascript', c: 700, inScope: true },
+    ];
+    const r = computeCoverage(rows, 100);
 
-describe('coverage is reported over what could be verified', () => {
-  it('does not divide by every CALLS edge', () => {
-    expect(health).not.toMatch(/lspVerifiedPctOfCalls = calls > 0 \? Math\.round\(\(verified \/ calls\)/);
+    expect(r.verifiable, 'JS edges are not verifiable by this backend').toBe(100);
+    expect(r.pct, 'every verifiable edge was verified — that is 100%, not 12%').toBe(100);
   });
 
-  it('divides by the verifiable subset and says so', () => {
-    expect(health).toMatch(/verified \/ verifiable/);
-    // Attack NINE narrowed this further: 'verifiable_calls' became
-    // 'verifiable_and_in_scope_calls'. Verifiability and scope are independent
-    // predicates and the language-only model conflated them.
-    expect(health).toMatch(/verifiable_and_in_scope_calls/);
+  it('★★ out-of-scope edges never enter the denominator', () => {
+    // Attack nine: an edge outside the tracked corpus is not verification debt.
+    const rows = [
+      { lang: 'cpp', c: 50, inScope: true },
+      { lang: 'cpp', c: 950, inScope: false },
+    ];
+    const r = computeCoverage(rows, 50);
+
+    expect(r.verifiable).toBe(50);
+    expect(r.outOfScope).toBe(950);
+    expect(r.pct).toBe(100);
   });
 
-  it('★ keeps scope independent of language, so backends cannot import scope debt', () => {
-    // Attack nine's real finding. With language alone deciding the denominator, a
-    // Python backend landing would reclassify every Python edge from unverifiable
-    // to verifiable — pulling in coverage debt for files that may not be part of
-    // the project at all. Out-of-scope edges must never migrate.
-    expect(health).toMatch(/lspOutOfScopeCalls/);
-    expect(health).toMatch(/will NOT migrate into the denominator/);
+  it('★★ and out-of-scope edges do NOT migrate in when their language becomes verifiable', () => {
+    // The subtler half of attack nine, and the one a spelling test cannot express: an
+    // out-of-scope C++ edge is ALREADY in a verifiable language. If scope were ignored it
+    // would sit in the denominator and drag the percentage down for a corpus we never
+    // claimed to cover. Scope is checked FIRST, independently of language.
+    const inScopeOnly = computeCoverage([{ lang: 'cpp', c: 10, inScope: true }], 10);
+    const withOutOfScope = computeCoverage([
+      { lang: 'cpp', c: 10, inScope: true },
+      { lang: 'cpp', c: 10_000, inScope: false },
+    ], 10);
+
+    expect(withOutOfScope.pct, 'adding out-of-scope work must not change coverage')
+      .toBe(inScopeOnly.pct);
   });
 
-  it('★ decides scope by git tracking, not by a path-prefix guess', () => {
-    // A prefix list (engine/|game/|tests/) would itself have been a stand-in — and
-    // on this repo it would have wrongly excluded tools/mcp/*.cpp and tools/*.py,
-    // 1433 edges of real first-party code. Git tracking is the actual signal for
-    // "does the project own this file", and vendored trees, build output and stale
-    // worktrees are untracked by construction.
-    expect(health).toMatch(/git', \['ls-files'\]/);
-    expect(health).toMatch(/basis: 'not tracked by git'/);
+  it('★ reports the excluded population separately, with a reason per language', () => {
+    // Excluding silently would be the same defect wearing a better number — the reader
+    // must be able to see what was taken out and why.
+    const r = computeCoverage([
+      { lang: 'cpp', c: 10, inScope: true },
+      { lang: 'javascript', c: 40, inScope: true },
+      { lang: 'python', c: 5, inScope: true },
+    ], 10);
+
+    expect(r.unverifiable.map((u) => u.lang).sort()).toEqual(['javascript', 'python']);
+    expect(r.unverifiable.every((u) => u.reason === 'non_cpp_language')).toBe(true);
+    expect(r.unverifiable.reduce((a, u) => a + u.count, 0)).toBe(45);
   });
 
-  it('treats unreadable scope as unknown rather than as everything-in-scope', () => {
-    // Same fail-closed default as truncation and worktree cleanliness.
-    expect(health).toMatch(/SCOPE UNKNOWN/);
-    expect(health).toMatch(/unknown scope ≠ everything in scope/);
+  it('★ the denominator names its own population', () => {
+    // §4's basis rule: a ratio that travels without its denominator is how two correct
+    // numbers produce a wrong comparison. This is the field ef-manager used to check the
+    // 833/1599 arithmetic.
+    expect(computeCoverage([], 0).denominator).toBe('verifiable_and_in_scope_calls');
   });
 
-  it('reports the excluded population separately, with a reason per language', () => {
-    // Excluding them silently would be its own version of the bug: the reader
-    // could not tell a small honest denominator from a hidden one.
-    expect(health).toMatch(/lspUnverifiableCalls/);
-    expect(health).toMatch(/by_reason/);
-    expect(health).toMatch(/non_cpp_language/);
+  it('a zero denominator reports 0, never NaN', () => {
+    // A NaN percentage renders as a plausible-looking blank rather than as an error.
+    const r = computeCoverage([{ lang: 'javascript', c: 10, inScope: true }], 0);
+    expect(r.verifiable).toBe(0);
+    expect(r.pct).toBe(0);
+    expect(Number.isNaN(r.pct)).toBe(false);
   });
 
-  it('names the principle so the next backend inherits it', () => {
-    expect(health).toMatch(/unverifiable BY CONSTRUCTION/);
-    expect(health).toMatch(/not an edge that failed verification/);
-  });
-
-  it('scopes verifiability to languages an LSP backend here actually covers', () => {
-    // When a TS/Python backend lands, that language moves from unverifiable to
-    // verifiable and the denominator grows — which is the correct behaviour and
-    // the reason this is a set rather than a hardcoded 'not glsl'.
-    expect(health).toMatch(/LSP_VERIFIABLE_LANGUAGES/);
+  it('verifiability is scoped to languages a backend here actually covers', () => {
+    // Kept as a structural assertion because the SET is the contract — but on the
+    // exported value, not on a regex over the file that happens to define it.
+    expect(LSP_VERIFIABLE_LANGUAGES.has('cpp')).toBe(true);
+    expect(LSP_VERIFIABLE_LANGUAGES.has('javascript')).toBe(false);
+    expect(LSP_VERIFIABLE_LANGUAGES.has('python')).toBe(false);
   });
 });
