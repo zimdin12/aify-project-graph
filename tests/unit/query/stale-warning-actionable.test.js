@@ -34,6 +34,7 @@
 // particular advice: the class of bug was a true-sounding claim about the reader's
 // environment, and the only durable defence is to not make claims about it.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 // The staleness verdict is `LOADED_COMMIT !== treeCommit`, where LOADED_COMMIT is captured
 // when the module is first imported and treeCommit is read on every call. Moving `head`
@@ -104,46 +105,65 @@ describe('the stale warning is actionable by whoever reads it', () => {
     //
     // ⇒ So the assertion is inverted, and it is inverted on the EMITTED string now rather
     // than on the source, which is what makes it a claim about what a reader receives.
-    // ★★ BOTH DELTA ROUTES, because the warning has two message branches and the default
-    // fixture only exercised one. dev's synonym mutant landed in the executable-delta
-    // branch; my docs-only default never rendered it, so the assertion passed without ever
-    // seeing the text it forbids. One route says nothing about its sibling.
+    // ⚠⚠ THIS CASE HAS NOW FAILED THREE WAYS, each one a different reviewer mutant, and
+    // the sequence is the whole lesson:
+    //
+    //  1. It forbade TWO EXACT PHRASINGS. dev inserted the synonym "This agent is unable
+    //     to restart the MCP process itself." → still green. A ban on two spellings is
+    //     not a ban on the claim.
+    //  2. I replaced them with an ACTOR-enumerating regex — you / your / the agent /
+    //     an agent — and their mutant said "THIS agent". Enumerating actors is the same
+    //     mistake one level up: I kept listing members of an open class.
+    //  3. The rewrite that finally had the right semantics was UNRUNNABLE: a `\b` written
+    //     through a python heredoc became a literal backspace byte, so the regex matched
+    //     a control character that appears in no output. Green, twice, for a third
+    //     unrelated reason — and I twice concluded my semantics were wrong.
+    //
+    // ⇒ Three defences, because each failure needed a different one:
+    //   · the invariant is stated with NO ACTOR — the warning may never pair an inability
+    //     modal with a restart verb, whoever is said to be unable. Whether anyone can
+    //     restart this process is a property of the HOST, which the server cannot know.
+    //   · every route is exercised, because the warning has three delta branches and the
+    //     default fixture only ever rendered one, so it never saw the text it forbids.
+    //   · the matcher must match a forbidden canary before it is trusted (liveness).
     const routes = [
       { name: 'docs-only (behaviourally current)', files: ['docs/notes.md'] },
       { name: 'executable delta', files: ['mcp/stdio/query/verbs/health.js'] },
       { name: 'delta uncomputable', files: null },
-    ];    const w = warning();
-
-    // ⚠ THIS USED TO FORBID TWO EXACT PHRASINGS, and dev showed that inserting the
-    // synonym "This agent is unable to restart the MCP process itself." left it GREEN.
-    // A ban on two spellings is not a ban on the claim — the prohibited thing is a
-    // SEMANTIC CLASS: any assertion about what the READER is or is not able to do.
-    //
-    // So the assertion is a class, not a list: a capability modal attached to an actor.
-    // It is deliberately broad; a false positive here costs one reworded sentence, while
-    // a false negative costs a reader two rounds of asking the wrong person.
-    // ⚠⚠ MY FIRST REPAIR OF THIS ALSO FAILED, and the way it failed is the lesson.
-    // I replaced two literal phrasings with an ACTOR-enumerating regex — you / your /
-    // the agent / an agent — and dev's mutant said "THIS agent is unable to…", which my
-    // list did not contain. Enumerating actors is the same mistake as enumerating
-    // spellings, one level up: I keep listing members of an open class.
-    //
-    // ⇒ So the invariant is stated WITHOUT the actor. The warning may never pair an
-    // inability modal with a restart verb, no matter who is said to be unable. There is
-    // no legitimate reason for this string to contain such a pairing: whether anyone can
-    // restart the process is a property of the HOST, which this server cannot know.
+    ];
     const INABILITY_TO_RESTART =
       /\b(cannot|can'?t|can not|unable to|not able to|no way to|impossible to|incapable of)\b[^.]{0,60}\b(restart|respawn|reload|relaunch|cycle)\w*/i;
-    expect(w, 'what anyone can do about this process is host-dependent and unknowable from here')
-      .not.toMatch(INABILITY_TO_RESTART);
-    // Reverse ordering, since the verb can precede the modal ("restarting … is not possible").
-    expect(w).not.toMatch(/\b(restart|respawn|relaunch)\w*\b[^.]{0,60}\b(is|are)\s+(not|im)?possible\b/i);
-    expect(w, 'must not route to a single fixed actor').not.toMatch(/ask your operator to/i);
     for (const route of routes) {
       diffFiles = route.files;
       _resetServerBuildCache();
       const rw = warning();
-      expect(rw, `[${route.name}] no inability-to-restart claim`).not.toMatch(INABILITY_TO_RESTART);
+
+      // ★★ BIDIRECTIONAL LIVENESS before the prohibition is trusted. The forbidden canary
+      // is the reviewer's own mutant text, so this matcher cannot be green unless it
+      // would really have caught it — which is exactly what a literal-backspace `\b`
+      // silently prevented, twice, while every run stayed green.
+      expectAbsentWithLiveMatcher(
+        INABILITY_TO_RESTART,
+        {
+          forbidden: 'This agent is unable to restart the MCP process itself.',
+          allowed: 'this PROCESS must be restarted; reloading files will not do it.',
+        },
+        rw,
+        `[${route.name}] what anyone can do about this process is host-dependent`,
+      );
+      // Reverse ordering too, since the verb can precede the modal.
+      expectAbsentWithLiveMatcher(
+        // ★ The liveness check caught this regex DEAD on its first run: `(not|im)?possible`
+        // requires "notpossible" with no space, so it could never match "is not possible".
+        // A brand-new dead matcher, found before it could pass vacuously even once.
+        /\b(restart|respawn|relaunch)\w*\b[^.]{0,60}\b(is|are)\s+(not\s+|im)?possible\b/i,
+        {
+          forbidden: 'restarting this server is not possible from here.',
+          allowed: 'this PROCESS must be restarted; reloading files will not do it.',
+        },
+        rw,
+        `[${route.name}] no inability claim in either word order`,
+      );
       expect(rw, `[${route.name}] no fixed actor`).not.toMatch(/ask your operator to/i);
       expect(rw, `[${route.name}] the invariant it CAN assert: the process, not the files`)
         .toMatch(/this PROCESS must be restarted/);
