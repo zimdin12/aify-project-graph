@@ -117,9 +117,14 @@ function classify(filePath) {
 //      DISTINCT guards a join fan-out rather than duplicate edges; (2) a single mention is
 //      below the weak-signal FLOOR and is dropped, so a ranking test needs both documents
 //      above it. Neither was visible from the source-grep version.
-//   ⚠ ambiguous-not-unmapped — 1 real, 2 NOT REACHED by the mutation applied (a
-//      `.not.toMatch` negative guard and an assertion on a different line). Not
-//      decoration; untested.
+//   ✅ ambiguous-not-unmapped — CONVERTED 2026-08-11. Mutation had shown it UNTESTED
+//      rather than cleared: 1 of 3 red, the other two never reached (a `.not.toMatch`
+//      negative guard no emission change can fail, and an assertion on a different line).
+//      ★ The negative guard is the point: the defect was a WRONG SENTENCE, so the test
+//      that matters is "the old claim is not made" — and a source regex can only assert
+//      that about the FILE, while a phrase absent from one file can be assembled in
+//      another. Now asserts it about the OUTPUT. Falsified by restoring the original
+//      false claim ("ambiguous / no feature mapping"): 2 of 3 red.
 //
 // ⇒ BOTH CONFIRMED DECORATIONS ARE NOW CONVERTED and removed from the list below. Each
 // replacement was falsified against the exact mutation its predecessor survived:
@@ -135,7 +140,6 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   'unit/code-intel/degraded-split-persistence.test.js',
   'unit/code-intel/skip-counters-survive-the-write.test.js',
   'unit/dashboard/repo-root-wiring.test.js',
-  'unit/query/ambiguous-not-unmapped.test.js',
   'unit/query/packet-cheap-symbol-lookup.test.js',
   'unit/query/packet-symbol-location.test.js',
   'unit/query/packet-timeout-not-absence.test.js',
