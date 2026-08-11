@@ -36,6 +36,30 @@ function gitAt(root, args) {
 const PROCESS_STARTED_AT = new Date().toISOString();
 const LOADED_COMMIT = gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
 
+// ★ CAPTURED AT LOAD, BESIDE THE COMMIT — NOT READ FROM DISK PER QUERY.
+//
+// ef-manager, 2026-08-11, on the v0.6.0 release itself: `version` was read from
+// package.json at QUERY time, so it reported the CHECKOUT's version and never the
+// running process's. Observed twice on one process — "0.5.0" before the release commit,
+// "0.6.0" after, with `startedAt` IDENTICAL. The number moved without a restart.
+//
+// ⛔ Why this was the worst possible field to get wrong: `commit`, `staleProcess` and
+// `staleWarning` are all honest, and `version` CONTRADICTED all three inside the same
+// object — the one block whose entire job is telling a reader whether to trust the build.
+// An agent asked to "verify the shipping build" reads `version`, sees the new number, and
+// proceeds on a stale process.
+//
+// The old comment here said "version alone is not load-bearing". It became load-bearing
+// the moment release notes were keyed to a version number, which is the same day this
+// was found. A field's blast radius is not fixed at the time it is written.
+const LOADED_VERSION = (() => {
+  try {
+    return JSON.parse(readFileSync(join(SERVER_ROOT, 'package.json'), 'utf8')).version ?? null;
+  } catch {
+    return null; // installed copy without package.json
+  }
+})();
+
 // ★ THE STALENESS VERDICT MUST NOT BE CACHED — IT IS THE ONE FIELD THAT CHANGES.
 //
 // This function used to cache its ENTIRE result on first call. Two of the values
@@ -71,10 +95,7 @@ export function serverBuildInfo() {
   if (_immutable && _verdict && (now - _verdictAt) < VERDICT_TTL_MS) {
     return { ..._immutable, ..._verdict };
   }
-  let version = null;
-  try {
-    version = JSON.parse(readFileSync(join(SERVER_ROOT, 'package.json'), 'utf8')).version ?? null;
-  } catch { /* installed copy without package.json — version alone is not load-bearing */ }
+  const version = LOADED_VERSION;
   const dirtyOut = gitAt(SERVER_ROOT, ['status', '--porcelain', '--untracked-files=no']);
   // Read the tree NOW and compare. A difference means this process is stale: the
   // reported commit is what is RUNNING; the tree is what a restart would load.

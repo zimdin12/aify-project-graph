@@ -123,6 +123,50 @@ describe('server build identity', () => {
     expect(stalePos, 'and it must be pushed before nodes/edges').toBeLessThan(nodesPos);
   });
 
+  it('★★ version is captured at LOAD, not read from disk per query', async () => {
+    // ef-manager, on the v0.6.0 release itself, 2026-08-11. `version` was read from
+    // package.json at QUERY time, so it reported the CHECKOUT's version and never the
+    // running process's. Observed twice on ONE process — "0.5.0" before the release
+    // commit landed, "0.6.0" after, with `startedAt` IDENTICAL. The number moved
+    // without a restart.
+    //
+    // ⛔ The worst possible field to get wrong: `commit`, `staleProcess` and
+    // `staleWarning` are all honest, and `version` contradicted all three inside the
+    // same object — the one block whose job is telling a reader whether to trust the
+    // build. An agent asked to "verify the shipping build" reads version, sees the new
+    // number, and proceeds on a stale process.
+    //
+    // The property, stated so it cannot regress: within one process, version must be
+    // as immutable as startedAt. Mutating package.json on disk must not move it.
+    const { serverBuildInfo } = await import('../../../mcp/stdio/server-build.js');
+    const { readFileSync, writeFileSync } = await import('node:fs');
+    const { join: pjoin } = await import('node:path');
+
+    const pkgPath = pjoin(here, '../../../package.json');
+    const original = readFileSync(pkgPath, 'utf8');
+    const before = serverBuildInfo();
+
+    try {
+      const bumped = JSON.parse(original);
+      bumped.version = '99.99.99-probe';
+      writeFileSync(pkgPath, `${JSON.stringify(bumped, null, 2)}\n`);
+
+      // ⚠ THE CACHE MUST BE DEFEATED OR THIS CASE IS VACUOUS. serverBuildInfo() memoises
+      // for 5s, so a second call inside that window returns the previous object and the
+      // disk is never touched — the test then passes whether or not the defect exists.
+      // Verified by reintroducing the bug: 8/8 still green until this line was added.
+      _resetServerBuildCache();
+      const after = serverBuildInfo();
+      expect(after.version, 'a disk edit must NOT move the running process version')
+        .toBe(before.version);
+      expect(after.version).not.toBe('99.99.99-probe');
+      // ...and startedAt is the reference immutable — if it moved, the fixture is wrong.
+      expect(after.startedAt).toBe(before.startedAt);
+    } finally {
+      writeFileSync(pkgPath, original);
+    }
+  });
+
   it('the stale warning is emitted ONCE — summary names it, server carries it', () => {
     // ef-manager, measured on e8c8d61: `server.staleWarning` (265 tok) was ALSO
     // inlined verbatim at the head of `summary`, making `server` the largest field in

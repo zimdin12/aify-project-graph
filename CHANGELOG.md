@@ -7,6 +7,29 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-08-11
+
+**A patch on the release that shipped hours earlier, found by the first person to
+verify it.** `server.version` was read from `package.json` on disk at query time, so it
+reported the CHECKOUT's version and never the running process's.
+
+Observed twice on one process: `"0.5.0"` before the release commit, `"0.6.0"` after,
+with `startedAt` **identical**. The number moved without a restart.
+
+`commit`, `staleProcess` and `staleWarning` were all honest — and `version` contradicted
+all three inside the same object, in the one block whose job is telling a reader whether
+to trust the build. An agent asked to verify the shipping build reads `version`, sees the
+new number, and proceeds on a stale process. That is v0.6.0's own through-line landing on
+v0.6.0.
+
+### Fixed
+- `server.version` is captured at module load beside `server.commit`, so it describes the
+  running process rather than the filesystem.
+
+The prior comment on that line read *"version alone is not load-bearing."* It became
+load-bearing the moment release notes were keyed to a version number — **a field's blast
+radius is not fixed at the time it is written.**
+
 ## [0.6.0] — 2026-08-11
 
 **Every verb that could be confidently wrong now either is right, or says it cannot
