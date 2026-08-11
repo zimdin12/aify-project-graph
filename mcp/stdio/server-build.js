@@ -154,16 +154,29 @@ export function serverBuildInfo() {
               + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'
             : ' Delta could not be computed, so assume it matters:'
               + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.')
-        // ★ NAME WHO CAN ACT ON THIS. The reader is almost always an agent, and an
-        // agent cannot respawn its own MCP server — the host spawns it at session
-        // start, and killing it drops the connection rather than reloading it. So
-        // "RESTART the server" is correct for an operator and a dead end for the
-        // one actually reading the string. ef-manager hit this twice in two
-        // sessions: blocked, correctly refused to measure the old build, and had
-        // no action available. (2026-08-09)
-        + ' NOTE: an agent cannot self-restart this server — ask your operator to'
-        + ' reconnect MCP (/mcp) or relaunch the CLI. A session-level restart may'
-        + ' cycle the agent worker WITHOUT respawning this MCP child.'
+        // ⛔ THIS SENTENCE USED TO ASSERT A FALSE CAPABILITY CLAIM ABOUT THE HOST.
+        //
+        // It told the reader that an agent could not self-restart the server and to ask
+        // the operator. False in this deployment: a peer agent can restart a managed
+        // session through aify-comms, which respawns the worker and its MCP children.
+        // ef-manager read it, believed it, and asked the operator twice for something
+        // they could do in one call. It did not merely fail to help — it routed a capable
+        // reader away from the action available to them. (2026-08-11)
+        //
+        // ★★ THE GENERAL FORM, worth more than the fix: PROSE CAN CARRY FACTUAL CLAIMS,
+        // AND FACTS GO STALE. This string is pinned by stale-warning-actionable.test.js —
+        // the ONE source-contract test judged legitimate of eighteen, because advisory
+        // prose has no computation behind it. But a wording contract pins whatever
+        // assertions the wording carries and DEFENDS THEM AGAINST CORRECTION: that test
+        // would have gone red on this fix. Mutation cannot catch the class either — no
+        // mutation of code makes a false sentence false-er. Only a reader acting on wrong
+        // advice finds it, which is what happened.
+        //
+        // ⇒ So the fix is not better routing advice: it is to STOP ASSERTING A PROPERTY OF
+        // THE HOST. Whether the reader can restart this process depends on who is hosting
+        // it, and this server cannot know that. Only the invariant is stated — the PROCESS
+        // must cycle, and the timestamp below is how you know it did.
+        + ' TO CLEAR IT: this PROCESS must be restarted; reloading files or re-running the tool will not do it. How to restart depends on your host (an operator /mcp reconnect or CLI relaunch; in some deployments a peer agent can restart a managed session directly). A session-level restart may cycle the agent worker WITHOUT respawning this MCP child, so verify with the timestamp below rather than assuming it worked.'
         // ★ AND GIVE THEM THE FIELD THAT ANSWERS "DID THE RESTART WORK".
         //
         // `commit` cannot answer it. After a failed restart it reads the same as
