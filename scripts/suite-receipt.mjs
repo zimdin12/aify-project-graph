@@ -48,37 +48,31 @@ const git = (...a) => {
 // ⇒ I attributed a cause from a correlation I had not checked, in the same message where I
 // was reporting on the danger of unattributed claims. The digest field below is what makes
 // that checkable by anyone, including me.
-// ⛔ THE DIGEST USED TO SKIP SUBDIRECTORIES SILENTLY (`if (!st.isFile()) continue`), so two
-// materially different graph states could share one digest. graph-senior-dev-hermes's ruling,
-// taken over my first proposal of merely ANNOTATING the omission: annotating produces an
-// incompleteness receipt, NOT a graph identity. Cover the declared population recursively or
-// refuse to emit. Unreadable or special entries fail closed rather than being skipped.
+// ⚠ KNOWN-INCOMPLETE, AND DELIBERATELY LEFT SO ON THIS CARRIER. This walk skips
+// subdirectories, so two graph states differing only in nested content share a digest. The
+// recursive replacement is a SEPARATE row on its own carrier, because its proof domain is
+// different from this file's commit-attribution matrix and it needs a differential fixture
+// (nested content change, nested rename, file↔dir type change, empty-dir policy, unreadable
+// entry, symlink handling, same-tree stability) that does not exist yet.
+//
+// ⇒ I originally shipped the recursive version bundled with `carrierValidity()` in one commit
+// — not intentionally, just because they share a file. graph-senior-dev-hermes: "same-file
+// proximity does not unify the proof domains", and bundling forces either over-crediting the
+// weaker row or withholding the stronger one. Split, and this row is the weaker one.
 function graphIdentity() {
   const dir = join(REPO, '.aify-graph');
   if (!existsSync(dir)) return { present: false, reason: 'absent (gitignored; repo not indexed here)' };
   const h = createHash('sha256');
   const files = [];
-  const problems = [];
-  const walk = (abs, rel) => {
-    let entries;
-    try { entries = readdirSync(abs).sort(); }
-    catch (e) { problems.push(`${rel || '.'}: unreadable directory (${e.code})`); return; }
-    for (const name of entries) {
-      const childAbs = join(abs, name);
-      const childRel = rel ? `${rel}/${name}` : name;
-      let st;
-      try { st = statSync(childAbs); }
-      catch (e) { problems.push(`${childRel}: unstattable (${e.code})`); continue; }
-      if (st.isDirectory()) { h.update(`D:${childRel}`); walk(childAbs, childRel); continue; }
-      if (!st.isFile()) { problems.push(`${childRel}: not a regular file`); continue; }
-      try { h.update(`F:${childRel}`).update(readFileSync(childAbs)); files.push(childRel); }
-      catch (e) { problems.push(`${childRel}: unreadable (${e.code})`); }
-    }
-  };
-  walk(dir, '');
-  // A digest that could not read part of its declared population is not an identity.
-  if (problems.length) return { present: true, digest: null, files, incomplete: problems.slice(0, 10) };
-  return { present: true, files, digest: h.digest('hex').slice(0, 16) };
+  for (const name of readdirSync(dir).sort()) {
+    const p = join(dir, name);
+    let st;
+    try { st = statSync(p); } catch { continue; }
+    if (!st.isFile()) continue;
+    files.push(name);
+    h.update(name).update(readFileSync(p));
+  }
+  return { present: true, files, digest: h.digest('hex').slice(0, 16), coverage: 'TOP-LEVEL FILES ONLY — nested state not identified' };
 }
 
 // ⛔ THE OLD GUARD TESTED THE WRONG PROPERTY. It asked "is the tree dirty"
@@ -162,6 +156,25 @@ try {
 // ★ A receipt that misreports is worse than no receipt: it launders a wrong number through
 // a format that looks rigorous. Same class as every wrong-instance regex in this repo —
 // the pattern was right and the SUBJECT was wrong.
+// ⛔ THE ATTRIBUTION INTERVAL — the carrier was read only BEFORE the run.
+//
+// graph-senior-dev-hermes: "A suite that changes tracked or generated state can still emit
+// counts attributed to the pre-run carrier." Correct, and it defeats the entire point of the
+// file: the receipt binds counts to a commit that may not have been the commit throughout.
+// A carrier is an INTERVAL, not an instant, so both ends are read and they must agree.
+const validityAfter = carrierValidity();
+const graphAfter = graphIdentity();
+const intervalProblems = [];
+if (validityAfter.state !== validity.state) intervalProblems.push(`carrier state moved ${validity.state} → ${validityAfter.state} during the run`);
+if ((validityAfter.commit ?? null) !== (validity.commit ?? null)) intervalProblems.push('HEAD moved during the run');
+if ((validityAfter.tree ?? null) !== (validity.tree ?? null)) intervalProblems.push('tree moved during the run');
+// Generated state has a stated temporal policy rather than an assumed one: for a suite that
+// does not mutate its carrier, pre must equal post. If that ever fails, the correct reading is
+// "this suite writes to .aify-graph", which is a finding — not something to normalise away.
+if (carrier.aifyGraph.digest !== graphAfter.digest) {
+  intervalProblems.push(`.aify-graph digest moved ${carrier.aifyGraph.digest} → ${graphAfter.digest} during the run (the suite mutated generated state)`);
+}
+
 const plain = raw.replace(/\x1b\[[0-9;]*m/g, '');
 const summaryOf = (label) => plain.split('\n').find((l) => new RegExp(`^\\s*${label}\\s`).test(l)) ?? '';
 const filesLine = summaryOf('Test Files');
@@ -178,7 +191,32 @@ const counts = {
   parsed: Boolean(filesLine && testsLine),
 };
 
-const receipt = { counts, carrier, generatedAt: new Date().toISOString() };
+// ⛔ PARSE FAILURE WAS ONLY A WARNING, AND THE EXIT PATH LET IT THROUGH.
+//
+// `counts.parsed === false` printed a line and carried on; the final guard tested
+// `counts.failed > 0`, and the sentinel is **-1**, so `-1 > 0` is false and an UNPARSEABLE run
+// exited 0 with a rigorous-looking receipt full of sentinels. That is the exact failure this
+// file was written to prevent, sitting in its own exit path — a number nobody could read,
+// published in a format that says it was read.
+//
+// ⇒ Unparseable output is an APPARATUS failure, not a low-confidence result. Counts must also
+// be nonnegative integers and reconcile, because "two summary lines exist" was never the claim.
+const countProblems = [];
+if (!counts.parsed) countProblems.push('summary lines not found in reporter output');
+for (const [k, v] of Object.entries(counts)) {
+  if (k === 'parsed') continue;
+  if (!Number.isInteger(v) || v < 0) countProblems.push(`${k} is ${JSON.stringify(v)} — not a nonnegative integer`);
+}
+if (counts.parsed && Number.isInteger(counts.testFiles) && Number.isInteger(counts.testFilesFailed)
+    && counts.testFilesFailed > 0 && counts.failed === 0) {
+  countProblems.push(`${counts.testFilesFailed} test file(s) failed but 0 tests failed — counts do not reconcile`);
+}
+
+const receipt = {
+  counts, carrier, generatedAt: new Date().toISOString(),
+  attributionInterval: { before: validity.state, after: validityAfter.state, problems: intervalProblems },
+  countProblems,
+};
 
 if (process.argv.includes('--json')) {
   console.log(JSON.stringify(receipt, null, 2));
@@ -189,10 +227,9 @@ if (process.argv.includes('--json')) {
   console.log(`  commit        ${carrier.commit ?? '(none — not a git working copy)'}  (tree ${carrier.tree?.slice(0, 12) ?? 'n/a'})`
     + `${validity.state === 'ok' ? '' : '   ⚠ NOT the carrier of these counts — see `carrier` below'}`);
   console.log(`  carrier       ${validity.state}${validity.detail ? ` — ${validity.detail}` : ''}${validity.dirty ? ` (${validity.dirty} files)` : ''}`);
+  // Coverage is printed with the digest, so nobody reads it as whole-directory identity.
   console.log(`  .aify-graph   ${carrier.aifyGraph.present
-    ? (carrier.aifyGraph.digest
-      ? `present, ${carrier.aifyGraph.files.length} entries, digest ${carrier.aifyGraph.digest}`
-      : `present, ${carrier.aifyGraph.files.length} entries, DIGEST WITHHELD — ${carrier.aifyGraph.incomplete.join('; ')}`)
+    ? `${carrier.aifyGraph.files.length} top-level files, digest ${carrier.aifyGraph.digest}  [${carrier.aifyGraph.coverage}]`
     : carrier.aifyGraph.reason}`);
   console.log(`  vitest pool   ${carrier.vitest.pool}`);
   console.log(`  platform      ${carrier.platform.os}/${carrier.platform.arch} node ${carrier.platform.node}`);
@@ -204,6 +241,19 @@ if (process.argv.includes('--json')) {
 if (validity.state !== 'ok') {
   console.error(`\n⛔ NOT COMMIT-BOUND [${validity.state}]: ${validity.detail ?? `${validity.dirty} tracked files differ from the commit`}`);
   console.error('   The counts above are real; their ATTRIBUTION is not. No commit-bound receipt emitted.');
+  process.exit(1);
+}
+// The interval must hold at BOTH ends, or the counts belong to no single carrier.
+if (intervalProblems.length) {
+  console.error('\n⛔ ATTRIBUTION INTERVAL BROKEN — the carrier changed while the suite ran:');
+  for (const p of intervalProblems) console.error(`   · ${p}`);
+  console.error('   These counts cannot be attributed to the commit above. No receipt emitted.');
+  process.exit(1);
+}
+// Unreadable counts are an apparatus failure and must never exit 0 on a sentinel.
+if (countProblems.length) {
+  console.error('\n⛔ COUNTS NOT ESTABLISHED — refusing to publish unreadable numbers:');
+  for (const p of countProblems) console.error(`   · ${p}`);
   process.exit(1);
 }
 if (counts.failed > 0) process.exit(1);
