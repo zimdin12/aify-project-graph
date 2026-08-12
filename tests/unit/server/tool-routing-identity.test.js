@@ -104,12 +104,14 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
     rpc(child, 1, 'initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 't', version: '1' } });
     await waitForReply(child, 1);
 
+    const collected = new Map();
     let id = 10;
     for (const route of ROUTES) {
       id += 1;
       rpc(child, id, 'tools/call', { name: route.tool, arguments: { repo: repoRoot, ...route.args } });
       const reply = await waitForReply(child, id);
       const text = JSON.stringify(reply);
+      collected.set(route.tool, text);
 
       // ★★ ROUTE AUTHORITY, the four properties separately discriminated. An error reply
       // satisfies most negative checks trivially, so "did not return the wrong verb's
@@ -128,6 +130,36 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
         .not.toMatch(route.mustNotMatch);
     }
 
+    // ⛔ SHAPE IS NOT IDENTITY. dev replaced the registered handler with
+    // `async () => ({schema_version:'0.2', collectionId:'withheld-wrong-handler'})` and
+    // this test stayed 1/1 GREEN — because it identified the verb by a RESPONSE PATTERN,
+    // and any lookalike can emit a pattern. That proves name→some-same-shaped-response,
+    // not name→graphCollectCodeIntel.
+    //
+    // ⇒ A SIDE EFFECT is what a lookalike cannot forge. The real collect verb PERSISTS a
+    // collection; a literal returned from a stub does not touch the database. So the
+    // route is identified by what it CHANGED, not by what it said.
     child.stdin.end();
+
+    // ⚠ My first attempt asserted a PERSISTED collection. Wrong instrument for this
+    // fixture: with no clangd present the real verb legitimately fails with
+    // `compile_db_missing`, so nothing is persisted and the check failed against correct
+    // production code. A discriminator that the honest path cannot satisfy is not a
+    // discriminator — it is a second defect.
+    //
+    // ⇒ What the real verb DOES emit that a literal cannot: the FIXTURE REPO PATH it was
+    // asked about, and the provider it actually selected. A stub knows neither, because
+    // both are derived from the request and the registry rather than written into a
+    // constant.
+    const collectReply = collected.get('graph_collect_code_intel') ?? '';
+    // The fixture's unique directory NAME, which survives JSON's double-escaping of
+    // Windows separators — asserting the full path made this fail on escaping rather than
+    // on identity, which would have been a third instrument bug rather than a check.
+    const fixtureName = repoRoot.split(/[\\/]/).pop();
+    expect(collectReply, 'the response must reference the repo it was ASKED about — a '
+      + 'lookalike returning a constant cannot know this directory')
+      .toContain(fixtureName);
+    expect(collectReply, 'and must name the provider the registry actually selected')
+      .toMatch(/cpp-clangd/);
   }, 120_000);
 });
