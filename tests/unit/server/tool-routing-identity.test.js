@@ -120,10 +120,22 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
         route: route.tool,
         response: reply,
         invoked: (r) => r?.result != null || r?.error != null,
-        identity: () => route.mustMatch.test(text),
-        // JSON-RPC signals failure with `error`; a tool that ran and failed still returns
-        // a result, so both are checked.
-        succeeded: (r) => r?.error == null && !/"isError":\s*true/.test(JSON.stringify(r ?? {})),
+        // ⚠ WAS `() => route.mustMatch.test(text)` — a closure over `text`, reading nothing
+        // from its argument. dev's finding, and my own helper now rejects it: a predicate
+        // that ignores the response cannot be evidence about the response.
+        identity: (r) => route.mustMatch.test(JSON.stringify(r ?? {})),
+        // ⚠ WAS an ABSENCE test (`r.error == null && !isError`), which is true of anything
+        // lacking an error field — including a sentinel sharing none of this response's
+        // values. The binding check caught it. Success now needs POSITIVE evidence: a
+        // result payload actually came back.
+        //
+        // ⚠ Deliberately NOT requiring inner `status:'ok'`: on this fixture there is no
+        // compile DB, so graph_collect_code_intel legitimately returns an inner error.
+        // dev measured that requiring inner success reds 1/15 against correct production
+        // code. Handler IDENTITY for that route is carried by the repo-path discriminator
+        // below instead, which an inner failure does not weaken.
+        succeeded: (r) => r?.result != null && r?.error == null
+          && !/"isError":\s*true/.test(JSON.stringify(r.result)),
       });
 
       expect(text, `${route.tool}: must not return a different verb's output`)

@@ -43,11 +43,48 @@ import { expect } from 'vitest';
  * @param {(r:any)=>boolean} claim.succeeded      proof of a SUCCESSFUL terminal state
  * @param {() => boolean} [claim.cleanedUp]       proof the owner released its resources
  */
+// ⛔ A PREDICATE THAT IGNORES ITS ARGUMENT IS A CONSTANT WEARING A FUNCTION'S CLOTHES.
+//
+// graph-senior-dev-hermes rebound each predicate to consume a canned satisfying object
+// instead of the supplied response — invocation, identity and success each independently —
+// and the selected suite stayed 25/25 GREEN. Deleting the helper outright reds; changing
+// what it READS does not. So the helper proved the callbacks returned true, never that
+// they returned true ABOUT THIS RESPONSE.
+//
+// ⇒ Each predicate is offered a MISMATCH SENTINEL as well. A predicate that answers the
+// same for the real response and for an object sharing none of its properties is not
+// reading the response, and its verdict is worthless. Exactly the live-matcher rule, one
+// level up: an instrument must be shown capable of the other answer.
+const MISMATCH_SENTINEL = Object.freeze({
+  __routeAuthoritySentinel: true,
+  result: undefined, error: undefined, status: '__sentinel__', provider: '__sentinel__',
+  schema_version: undefined, collectionId: undefined, importFailed: true,
+});
+
+function assertConsumesResponse(name, predicate, response, route) {
+  let sentinelVerdict;
+  try {
+    sentinelVerdict = predicate(MISMATCH_SENTINEL);
+  } catch {
+    // Throwing on a foreign shape IS discrimination — it plainly read the argument.
+    return;
+  }
+  expect(sentinelVerdict, `${route}: the ${name} predicate answers the SAME for the real `
+    + 'response and for a sentinel sharing none of its values — it is not reading the '
+    + 'response, so its verdict is about nothing').toBe(false);
+}
+
 export function expectRouteAuthority({ route, response, invoked, identity, succeeded, cleanedUp }) {
   const shown = () => {
     const t = typeof response === 'string' ? response : JSON.stringify(response);
     return t.length > 240 ? `${t.slice(0, 240)}…` : t;
   };
+
+  // Binding is checked BEFORE the verdicts, so an unbound predicate is reported as such
+  // rather than silently supplying a pass.
+  assertConsumesResponse('invoked', invoked, response, route);
+  assertConsumesResponse('identity', identity, response, route);
+  assertConsumesResponse('succeeded', succeeded, response, route);
 
   expect(invoked(response), `${route}: NOT INVOKED — the intended route did not run, so nothing `
     + `it returned is evidence about that route. Response: ${shown()}`).toBe(true);

@@ -146,6 +146,34 @@ describe('the counters travel from the PROVIDER through the collect verb', () =>
       .toMatch(/provider_identity_mismatch/);
   }, 30_000);
 
+  it('★★ an ENVELOPE claiming a different provider is REJECTED — the sibling of the object check', async () => {
+    // dev's D: disabling production's envelope-provider mismatch check left 18/18 green.
+    // The OBJECT identity was pinned and the ENVELOPE identity was not, so a provider that
+    // occupied the right slot and returned a collection labelled as someone else's passed
+    // straight through — and a mislabelled collection poisons every later read.
+    registerProvider(PROVIDER_SLOT, () => ({
+      name: PROVIDER_SLOT,                 // honest about its slot
+      version: 'fake 1.0',
+      async collect() {
+        return {
+          schemaVersion: '0.2', collectionId: 'ci-envelope-liar', status: 'ok',
+          provider: 'pyright',             // ...but labels the collection as another provider
+          providerVersion: 'fake 1.0 (test double)', projectRoot: repoRoot,
+          language: LANGUAGE, repoCommit: 'abc1234', createdAt: new Date().toISOString(),
+          operations: { requested: ['references'] }, records: [],
+          session: { mode: 'full', indexReady: true },
+        };
+      },
+    }));
+
+    const res = asObj(await graphCollectCodeIntel({
+      repoRoot, language: LANGUAGE, scope: 'all', operations: ['references'],
+    }));
+
+    expect(JSON.stringify(res), 'the envelope claim must be checked against the slot too')
+      .toMatch(/provider_identity_mismatch/);
+  }, 30_000);
+
   it('★★ what the provider session reports is what the verb reports', async () => {
     // The prefix of the journey the sibling file claimed but never ran. If the collect
     // verb stops forwarding these — dev's exact mutation — this goes red, and nothing
