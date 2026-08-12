@@ -15,6 +15,9 @@ import { writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { isTaskOpen } from '../overlay/task-status.js';
+// Non-graph brief inputs live in artifacts.js so the renderers can be split out without a
+// cycle — see that file's header for why this slice had to come first.
+import { computeCoverage, openTasksByFeature, completedTaskCountsByFeature, openTasksWithoutFeatures } from './artifacts.js';
 import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
 import { getDirtyFilesSync } from '../freshness/git.js';
@@ -58,22 +61,6 @@ function count(db, sql, params = {}) {
 }
 
 // ---------- data gatherers ----------
-
-// Composite feature-health tier. Synthesis-only — no new data:
-//   🟢 healthy — all anchors resolve, has contract(s), task overhang under control
-//   🟡 watch   — anchors resolve but thin (no contract OR task overhang 10-20)
-//   🔴 risk    — broken anchors OR severe task overhang (>20)
-// Per echoes PM 2026-04-21: "features are binary today (resolved/not).
-// pcas-simulation (22 tasks, 0 tests) and world-buffer (1 contract, strong
-// test coverage) both read ✓." This tier fixes that binary reading.
-export function computeCoverage({ resolved, declared, taskCount, contractCount }) {
-  const anchorRatio = declared === 0 ? 1 : resolved / declared;
-  if (anchorRatio < 1) return { tier: '🔴', label: 'risk', reason: 'broken anchors' };
-  if (taskCount > 20) return { tier: '🔴', label: 'risk', reason: `${taskCount} open tasks` };
-  if (taskCount > 10) return { tier: '🟡', label: 'watch', reason: `${taskCount} open tasks` };
-  if (contractCount === 0) return { tier: '🟡', label: 'watch', reason: 'no contract binding' };
-  return { tier: '🟢', label: 'healthy', reason: 'anchors resolve · has contract · low task overhang' };
-}
 
 function repoSnapshot(db, repoRoot) {
   const totalNodes = count(db, 'SELECT count(*) AS c FROM nodes');
@@ -1048,54 +1035,6 @@ function recentActivity(repoRoot, limit = 5) {
   } catch {
     return []; // Not a git repo — skip section
   }
-}
-
-function openTasksByFeature(tasksArtifact) {
-  const byFeature = new Map();
-  for (const t of tasksArtifact?.tasks || []) {
-    if (!isTaskOpen(t.status)) continue;
-    const featureRefs = taskFeatureRefs(t);
-    if (featureRefs.length === 0) continue;
-    for (const fid of featureRefs) {
-      if (!byFeature.has(fid)) byFeature.set(fid, []);
-      byFeature.get(fid).push(t);
-    }
-  }
-  for (const [fid, tasks] of byFeature.entries()) {
-    byFeature.set(fid, [...tasks].sort((a, b) => {
-      const rank = { strong: 0, mixed: 1, broad: 2, unlinked: 3 };
-      const diff = rank[taskLinkStrength(a)] - rank[taskLinkStrength(b)];
-      if (diff !== 0) return diff;
-      return String(a.id || '').localeCompare(String(b.id || ''));
-    }));
-  }
-  return byFeature;
-}
-
-// M4a: count completed tasks per feature so brief.plan.md can show
-// progress without listing them all. Open/in-progress are the noisy
-// rows; completed counts are a single number.
-function completedTaskCountsByFeature(tasksArtifact) {
-  const counts = new Map();
-  for (const t of tasksArtifact?.tasks || []) {
-    if (!t.status || !/done|complete|closed|resolved|merged|shipped/i.test(t.status)) continue;
-    for (const fid of taskFeatureRefs(t)) {
-      counts.set(fid, (counts.get(fid) ?? 0) + 1);
-    }
-  }
-  return counts;
-}
-
-// Separate accessor for tasks with no feature attribution — brief.plan.md
-// surfaces them in their own section instead of silently dropping them
-// (dev audit 11b90fb). Shape mirrors openTasksByFeature's filter.
-function openTasksWithoutFeatures(tasksArtifact) {
-  const out = [];
-  for (const t of tasksArtifact?.tasks || []) {
-    if (!isTaskOpen(t.status)) continue;
-    if (taskFeatureRefs(t).length === 0) out.push(t);
-  }
-  return out;
 }
 
 function formatTaskLinkSummary(counts = {}, { includeZeros = false } = {}) {

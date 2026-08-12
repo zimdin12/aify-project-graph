@@ -4,7 +4,7 @@
 // test coverage) both read ✓." This tier surfaces the gradient.
 
 import { describe, expect, it } from 'vitest';
-import { computeCoverage } from '../../../mcp/stdio/brief/generator.js';
+import { computeCoverage } from '../../../mcp/stdio/brief/artifacts.js';
 
 describe('computeCoverage — feature health tier', () => {
   it('returns 🟢 healthy when anchors resolve + has contract + low tasks', () => {
