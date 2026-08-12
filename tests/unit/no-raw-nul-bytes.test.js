@@ -29,11 +29,38 @@ import { fileURLToPath } from 'node:url';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
-function trackedSourceFiles() {
-  const out = execFileSync('git', ['ls-files', '*.js', '*.mjs', '*.cjs', '*.ts', '*.json', '*.md'], {
-    cwd: repoRoot, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+// ⛔ THE POPULATION WAS SELF-SELECTED, AND TWO WITHHELD CARRIERS WALKED THROUGH IT.
+//
+// graph-senior-dev-hermes:
+//   1. the scan listed only *.js/*.mjs/*.cjs/*.ts/*.json/*.md, so a tracked
+//      `raw-control-probe.html` carrying one 0x08 stayed GREEN — while the test's own
+//      claim said "every tracked source file".
+//   2. worse, it split lines and `.trim()`ed each path. A tracked file named
+//      ` leading.js` had its name CHANGED by the trim, the read then failed, and the
+//      `catch { continue }` swallowed it. Green again.
+//
+// ⇒ Both are the same defect as the thing being scanned for: a gate that reports "clean"
+// when it did not look. Patching in one more extension would repeat it.
+//
+// THE PARTITION IS NOW CLOSED, three ways:
+//   · `git ls-files -z` — NUL-separated, so path bytes survive verbatim. No trim, no
+//     line splitting, no assumption that a filename lacks leading/trailing space.
+//   · EVERY tracked file is scanned. `.gitattributes` declares `* text=auto eol=lf` and
+//     the repo currently tracks zero binaries, so "text" is the whole population — there
+//     is no filter to get wrong.
+//   · a read failure FAILS. It cannot mean "clean" — that is the fail-open shape this
+//     codebase exists to eliminate.
+//
+// ★ BINARY_FILES is the ratchet. If a genuinely binary file is ever tracked, this gate
+// fails until it is listed here — a conscious decision, recorded, rather than a silent
+// widening of an exclusion glob.
+const BINARY_FILES = new Set([]);
+
+function trackedFiles() {
+  const out = execFileSync('git', ['ls-files', '-z'], {
+    cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
   });
-  return out.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  return out.split('\0').filter((s) => s.length > 0);
 }
 
 // ★★ GENERALISED 2026-08-12 FROM NUL TO EVERY C0 CONTROL, and the second instance is
@@ -80,16 +107,50 @@ describe('★ no tracked source file contains a raw control byte', () => {
       'TAB/LF/CR are ordinary text').toEqual([]);
   });
 
-  it('every tracked text file is searchable by ripgrep-class tooling', () => {
+  it('★★ EVERY tracked file is scanned — an unreadable one fails, it does not pass', () => {
+    const files = trackedFiles();
+    // A population this small would be an obvious bug; assert it rather than trust it.
+    expect(files.length, 'harness sanity: the tracked population must be substantial')
+      .toBeGreaterThan(100);
+
+    // ★ CLOSED-POPULATION CONTROL. The scan must cover EXACTLY what git tracks — no
+    // filter, no dropped entries. dev's `.html` carrier walked through the old extension
+    // list, and this is what makes that impossible rather than merely unlikely.
+    const trackedCount = execFileSync('git', ['ls-files'], {
+      cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+    }).split('\n').filter((l) => l.length > 0).length;
+    expect(files.length, 'the scanned population must equal the tracked population')
+      .toBe(trackedCount);
+
+    // ★ PATH-IDENTITY CONTROL. The old version `.trim()`ed each path, so a tracked file
+    // named ` leading.js` was renamed by the parser, failed to read, and was swallowed by
+    // a `catch { continue }`. -z parsing cannot do that, and this proves the property
+    // rather than trusting the flag: no path may differ from its own trimmed form
+    // unnoticed — if one does, it must still be readable below.
+    const withEdgeWhitespace = files.filter((f) => f !== f.trim());
+    expect(withEdgeWhitespace.every((f) => files.includes(f)),
+      'paths with leading/trailing space must survive parsing verbatim').toBe(true);
+
     const offenders = [];
-    for (const rel of trackedSourceFiles()) {
+    const unreadable = [];
+    for (const rel of files) {
+      if (BINARY_FILES.has(rel)) continue;
       let buf;
-      try { buf = readFileSync(join(repoRoot, rel)); } catch { continue; }
+      try {
+        buf = readFileSync(join(repoRoot, rel));
+      } catch (e) {
+        // ⛔ NOT `continue`. A file we could not read is a file we did not check, and
+        // reporting that as clean is the exact defect this gate exists to catch.
+        unreadable.push(`${rel} (${e.code || e.message})`);
+        continue;
+      }
       const found = rawControlBytes(buf);
       if (found.size > 0) {
         offenders.push(`${rel} (${[...found.entries()].map(([b, n]) => `${hex(b)}x${n}`).join(' ')})`);
       }
     }
+    expect(unreadable, 'every tracked file must be readable, or the scan is incomplete')
+      .toEqual([]);
     // Write the delimiter as the escape `\x00`, never as a literal byte — the
     // runtime value is identical and the file stays greppable.
     expect(offenders).toEqual([]);

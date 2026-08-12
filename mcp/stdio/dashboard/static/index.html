@@ -704,7 +704,7 @@
         const s = e.source ?? `code:${e.from_id}`, t = e.target ?? `code:${e.to_id}`;
         const gs = nodeGroup.get(s), gt = nodeGroup.get(t);
         if (gs == null || gt == null || gs === gt) continue;
-        const key = gs + '' + gt;
+        const key = gs + '\u0001' + gt;
         agg.set(key, (agg.get(key) || 0) + 1);
       }
       const els = keys.map(k => {
@@ -713,7 +713,7 @@
         return { group: 'nodes', data: { id: `grp:${k}`, label: `${groupTitle(k, g.members)}\n${g.count}`, isGroup: true, groupKey: k, accent: pal.get(k), size: sz } };
       });
       for (const [key, count] of agg) {
-        const [a, b] = key.split('');
+        const [a, b] = key.split('\u0001');
         els.push({ group: 'edges', data: { id: `agg:${a}>${b}`, source: `grp:${a}`, target: `grp:${b}`, aggCount: count, width: Math.min(10, 1 + Math.log(1 + count) * 1.5) } });
       }
       return { els, groupCount: keys.length, nodeCount: nodes.length };
