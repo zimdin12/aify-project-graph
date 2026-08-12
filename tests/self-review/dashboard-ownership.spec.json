@@ -1,0 +1,58 @@
+[
+  {
+    "name": "D1 reserve ownership AFTER the await, not before",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "  const pending = { pendingStart: true, repoRoot, joinable: new Promise((r) => { settle = r; }) };\n  activeDashboards.set(repoRoot, pending);",
+    "to": "  const pending = { pendingStart: true, repoRoot, joinable: new Promise((r) => { settle = r; }) };",
+    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+  },
+  {
+    "name": "D2 a pending start is reported as already_running",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "    if (existing.pendingStart) return existing.joinable;",
+    "to": "    // mutated: pending read as running",
+    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+  },
+  {
+    "name": "D3 drop the shutdown-ACTIVE check, keep only the generation",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "teardownGeneration !== startedInGeneration || shutdownInFlight",
+    "to": "teardownGeneration !== startedInGeneration",
+    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+  },
+  {
+    "name": "D4 teardown clears the whole registry unconditionally",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "    if (activeDashboards.get(key) === entry) activeDashboards.delete(key);",
+    "to": "    activeDashboards.clear();",
+    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+  },
+  {
+    "name": "D5 stale pending branch deletes without re-reading the key",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "      const current = activeDashboards.get(key);\n      if (current === entry) { activeDashboards.delete(key); continue; }\n      if (!current) continue;\n      entry = current;",
+    "to": "      activeDashboards.delete(key); continue;\n      // eslint-disable-next-line no-unreachable\n      let current;",
+    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+  },
+  {
+    "name": "D6 the generation never advances",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "  teardownGeneration += 1;",
+    "to": "  // mutated: generation frozen",
+    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+  },
+  {
+    "name": "D7 dashboard shutdown unwired from process teardown",
+    "file": "mcp/stdio/server.js",
+    "from": "  try { await stopAllDashboards(); } catch { /* best-effort teardown */ }",
+    "to": "  // mutated: shutdown written but not wired",
+    "tests": ["tests/unit/dashboard/process-exits-after-dashboard.test.js"]
+  },
+  {
+    "name": "D8 startup failure cleanup replaces the primary cause",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "    try { db.close(); } catch { /* the startup failure below is the one that matters */ }",
+    "to": "    db.close();",
+    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+  }
+]
