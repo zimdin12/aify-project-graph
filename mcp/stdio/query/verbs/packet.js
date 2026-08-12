@@ -824,15 +824,43 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     const allCandidates = consequenceLines.filter((l) => l.startsWith('- '));
     const candidateLines = allCandidates.slice(0, 6);
     const statedTotal = Number(trimmed.match(/(\d+)\s+concrete candidates/)?.[1] ?? NaN);
+    // ⛔ A POPULATION CAN ITSELF BE CAPPED, AND "of N" SAYS IT WAS NOT.
+    //
+    // ef-manager built the case both of us had recorded as untested — 60 headers each defining
+    // the same struct, above the 50-row retrieval cap. `graph_consequences` got it exactly
+    // right: "AT LEAST 50 concrete candidates, identified from 50 of 60 matching rows — the
+    // full ambiguity population is NOT established (retrieval was capped before grouping)".
+    // Three distinct facts kept separate. This branch then printed `showing 5 of 50` — THE CAP
+    // AS THE POPULATION, when the truth is 60 and the sibling says so in as many words.
+    //
+    // ★ That is the ORIGINAL defect — a cap reported as a finding — reappearing at the
+    // truncation boundary. The fail-closed work taught this branch to carry a population;
+    // nobody told it the population it carries can itself be a floor.
+    //
+    // ⇒ AND IT EXPOSES A FOURTH STATE the three-state vocabulary lacked: ATTESTED-AS-A-FLOOR.
+    // Not UNKNOWN (50 is real and useful), not `of N` (50 is not the total). Rendering it as
+    // `of N` is the only wrong choice available.
+    //
+    // ⇒ ef-manager's structural point, which the shared renderer does NOT address: a renderer
+    // handed the bare integer 50 will faithfully print "of 50" in every branch at once, and the
+    // parity arm passes with both routes agreeing on the same wrong word. The exactness must
+    // travel WITH the value, not be re-derived at each call site.
+    const populationIsFloor = /AT LEAST|NOT established/.test(trimmed);
+    const rowsSeen = trimmed.match(/identified from (\d+) of (\d+) matching rows/);
     const crossLanguage = consequenceLines.find((l) => /CROSS-LANGUAGE DUPLICATE/.test(l));
     if (candidateLines.length) {
       // Two caps can apply: consequences already sampled, and this packet samples again.
       // The header states what is SHOWN HERE against the producer-attested population — and
       // says UNKNOWN rather than guessing when the producer did not state one.
       const attested = Number.isInteger(statedTotal) && statedTotal >= candidateLines.length;
-      lines.push(attested
-        ? `CANDIDATES — showing ${candidateLines.length} of ${statedTotal}${statedTotal > candidateLines.length ? ` (${statedTotal - candidateLines.length} not listed here)` : ''}:`
-        : `CANDIDATES — showing ${candidateLines.length}; total population UNKNOWN (not stated by graph_consequences):`);
+      lines.push(!attested
+        ? `CANDIDATES — showing ${candidateLines.length}; total population UNKNOWN (not stated by graph_consequences):`
+        : populationIsFloor
+          // The fourth state. `at least`, plus the rows that were and were not examined, so the
+          // reader can see the cap rather than inherit it as a total.
+          ? `CANDIDATES — showing ${candidateLines.length} of AT LEAST ${statedTotal}`
+            + `${rowsSeen ? ` (grouped from ${rowsSeen[1]} of ${rowsSeen[2]} matching rows — retrieval was capped BEFORE grouping, so the population is a FLOOR)` : ' (retrieval capped before grouping — population is a FLOOR)'}:`
+          : `CANDIDATES — showing ${candidateLines.length} of ${statedTotal}${statedTotal > candidateLines.length ? ` (${statedTotal - candidateLines.length} not listed here)` : ''}:`);
       lines.push(...candidateLines);
       // Disclosures come from the SHARED renderer, so this branch cannot drift from its
       // sibling again. The languages are recovered from the consequences text this branch is
