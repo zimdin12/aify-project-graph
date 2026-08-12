@@ -39,6 +39,19 @@ const REPO = join(HERE, '..', '..', '..');
 async function makeFakeInstall(root) {
   await mkdir(join(root, 'mcp', 'stdio'), { recursive: true });
   await cp(join(REPO, 'mcp', 'stdio', 'server-build.js'), join(root, 'mcp', 'stdio', 'server-build.js'));
+  // ⚠ AND ITS SIBLINGS. Copying a module without its local imports produces
+  // "Cannot find module" at import time — which is what three tests started reporting the
+  // moment server-build gained `./stale-warning-claims.js`.
+  //
+  // ★ Those three failures are the ones I dismissed as "an undiagnosed flake" in a6a02d9.
+  // They were never flaky: they were reproducible, caused by this copy, and they were the
+  // signal that the commit was broken. A re-run happened to pass only because the schema
+  // file had already been lost by then — the suite went green because the WORK WAS GONE.
+  // ⇒ An unexplained failure is a finding, not noise, and "it passed on retry" is a
+  // question rather than an answer.
+  for (const sibling of ['stale-warning-claims.js']) {
+    await cp(join(REPO, 'mcp', 'stdio', sibling), join(root, 'mcp', 'stdio', sibling));
+  }
   await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'fake', version: '9.9.9' }));
   const git = (...a) => execFileSync('git', ['-C', root, ...a], { stdio: 'ignore' });
   git('init', '-q');

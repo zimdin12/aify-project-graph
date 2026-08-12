@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CLAIM, renderClaim } from './stale-warning-claims.js';
 
 const SERVER_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -287,7 +288,17 @@ export function serverBuildInfo() {
         // THE HOST. Whether the reader can restart this process depends on who is hosting
         // it, and this server cannot know that. Only the invariant is stated — the PROCESS
         // must cycle, and the timestamp below is how you know it did.
-        + RESTART_GUIDANCE
+        // ★★ RENDERED FROM THE CLAIM SCHEMA, not hand-assembled. Each fragment is one
+        // enumerable claim ID in stale-warning-claims.js, so adding an assertion to this
+        // warning means adding a claim — a visible act — rather than appending a sentence
+        // inside a template literal where nothing enumerates it.
+        //
+        // ⚠ Buys CHANGE VISIBILITY, not independent authorization: a contributor editing
+        // the schema and its test together still authorises themselves. Said plainly
+        // because overclaiming here would be the defect the warning exists to prevent.
+        + renderClaim(CLAIM.PROCESS_RESTART_REQUIRED)
+        + renderClaim(CLAIM.HOST_METHOD_UNKNOWN)
+        + renderClaim(CLAIM.SESSION_RESTART_MAY_NOT_RESPAWN)
         // ★ AND GIVE THEM THE FIELD THAT ANSWERS "DID THE RESTART WORK".
         //
         // `commit` cannot answer it. After a failed restart it reads the same as
@@ -297,10 +308,11 @@ export function serverBuildInfo() {
         // hours, three commits and one restart attempt, which proved the process
         // had never cycled. That is the discriminator, and I had told them to check
         // the wrong field.
-        + ` PROCESS STARTED: ${PROCESS_STARTED_AT} — if you just restarted and this`
-        + ' timestamp is unchanged, the restart did not reach this process. Check'
-        + ' THIS, not the commit: an unsuccessful restart and a restart onto the'
-        + ' same commit are indistinguishable by commit alone.',
+        // The dynamic authority is BOUND rather than interpolated here, so a test can
+        // check that `startedAt` is the real process identity separately from checking
+        // that the sentence says the right thing. Those are two claims and were one.
+        + renderClaim(CLAIM.VERIFY_BY_STARTED_AT, { startedAt: PROCESS_STARTED_AT })
+        + renderClaim(CLAIM.COMMIT_NOT_RESTART_IDENTITY),
     } : {}),
   };
   return { ..._immutable, ..._verdict };
