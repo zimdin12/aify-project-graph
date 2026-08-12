@@ -26,12 +26,17 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 // Captures what the verb actually hands the server. Nothing is asserted about the source
 // text — only about the value that arrives.
 const started = [];
+// Lets a case park a start inside its await, so teardown can be raced against it.
+let startDelay = null;
+// Lets a case hold a server close open, so a second start can land mid-teardown.
+let closeDelay = null;
 vi.mock('../../../mcp/stdio/dashboard/server.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    startDashboard: (args) => {
+    startDashboard: async (args) => {
       started.push(args);
+      if (startDelay) { const d = startDelay; startDelay = null; await d; }
       // ⚠ The stub must honour the node http contract it is standing in for: close(cb)
       // INVOKES cb. The first version ignored it, and shutdown — which awaits that
       // callback — deadlocked the whole file. A stub that is unfaithful on the exact
@@ -39,7 +44,7 @@ vi.mock('../../../mcp/stdio/dashboard/server.js', async (importOriginal) => {
       return Promise.resolve({
         url: 'http://127.0.0.1:0',
         port: 0,
-        server: { close: (cb) => { if (typeof cb === 'function') cb(); } },
+        server: { close: (cb) => { const d = closeDelay; if (d) { d.then(() => { if (typeof cb === 'function') cb(); }); } else if (typeof cb === 'function') cb(); } },
       });
     },
   };
@@ -166,6 +171,67 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     expect(a, 'both callers see the same completed shutdown').toBe(1);
     expect(b).toBe(1);
     expect(activeDashboardCount(), 'and the registry is drained exactly once').toBe(0);
+  }, 20_000);
+
+  it('★★ a start IN FLIGHT during shutdown does not publish an orphan', async () => {
+    // dev's schedule 1. graphDashboard used to register ownership only AFTER
+    // `await startDashboard()` returned, so a start held at that await was invisible to
+    // teardown: shutdown snapshotted an empty registry, reported 0/completed, and the
+    // start then published a live server + DB that nothing would ever close.
+    //
+    // ★ The process-exit test opens a FULLY STARTED dashboard and structurally cannot see
+    // this boundary — which is why it stayed green while the window was open.
+    repoRoot = await makeRepo();
+    let releaseStart;
+    const held = new Promise((r) => { releaseStart = r; });
+    started.length = 0;
+    startDelay = held; // the mock awaits this before resolving
+
+    const starting = graphDashboard({ repoRoot, port: 0 });
+    // Teardown runs while the start is parked inside its await.
+    await stopAllDashboards();
+    releaseStart();
+    const result = await starting;
+
+    expect(activeDashboardCount(), 'nothing may be registered after teardown completed').toBe(0);
+    expect(result?.status, 'the racing start must release itself, not publish')
+      .toBe('shutting_down');
+  }, 20_000);
+
+  it('★★ a shutdown does not ERASE a dashboard that started after its snapshot', async () => {
+    // dev's schedule 2. The old teardown ended with an unconditional
+    // `activeDashboards.clear()`, so a dashboard registered after the snapshot was dropped
+    // from the registry WITHOUT its server or DB ever being closed. Erasing a resource is
+    // not releasing it, and from outside the two are indistinguishable.
+    repoRoot = await makeRepo();
+    await graphDashboard({ repoRoot, port: 0 });
+    expect(activeDashboardCount()).toBe(1);
+
+    // ⚠ B must register WHILE A is closing, not after teardown finishes. My first version
+    // started B afterwards, which an unconditional clear() cannot affect — so the mutant
+    // survived and the case proved nothing. Holding A's close open creates the real window.
+    let releaseClose;
+    closeDelay = new Promise((r) => { releaseClose = r; });
+
+    const tearing = stopAllDashboards();          // parks inside A's server.close
+    const second = await makeRepo();
+    try {
+      await graphDashboard({ repoRoot: second, port: 0 });   // B registers mid-teardown
+      releaseClose();
+      const closed = await tearing;
+
+      expect(closed, 'only the snapshotted dashboard was closed').toBe(1);
+      expect(activeDashboardCount(), 'B must SURVIVE a teardown that never owned it').toBe(1);
+
+      // And B must still be genuinely releasable — erased-from-the-registry and
+      // released-properly are indistinguishable unless the next shutdown can close it.
+      const closedSecond = await stopAllDashboards();
+      expect(closedSecond, 'B is closed by the shutdown that does own it').toBe(1);
+      expect(activeDashboardCount()).toBe(0);
+    } finally {
+      closeDelay = null;
+      await rm(second, { recursive: true, force: true });
+    }
   }, 20_000);
 
   it('★★ an explicitly-rooted server serves THAT repo\'s bytes', async () => {

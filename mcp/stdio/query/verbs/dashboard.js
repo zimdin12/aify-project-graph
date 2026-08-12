@@ -9,6 +9,14 @@ import { inspectReadFreshness } from './read_freshness.js';
 const activeDashboards = new Map();
 
 export async function graphDashboard({ repoRoot, port }) {
+  // ⚠ CAPTURED BEFORE THE FIRST AWAIT. My first placement read this AFTER
+  // inspectReadFreshness, by which time a teardown could already have started and
+  // finished — so the generation matched, the guard saw nothing wrong, and the orphan
+  // published anyway. The test said `expected 0, got 1` twice before this moved.
+  //
+  // ⇒ The window a start must be measured against opens when the CALL begins, not when
+  // the part of it I happened to be looking at begins.
+  const startedInGeneration = teardownGeneration;
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_dashboard' });
   if (freshness.blocker) return freshness.blocker;
 
@@ -21,6 +29,25 @@ export async function graphDashboard({ repoRoot, port }) {
     };
   }
 
+  // ⛔ OWNERSHIP MUST BE RESERVED BEFORE THE AWAIT, NOT AFTER IT.
+  //
+  // graph-senior-dev-hermes, two independent schedules:
+  //   1. a start held inside `await startDashboard()` → shutdown snapshots an EMPTY
+  //      registry, returns 0/completed → the start then publishes a live server + DB
+  //      AFTER teardown. The process-exit test opens a fully-started dashboard and
+  //      structurally cannot witness this.
+  //   2. dashboard A closing while B starts → A's unconditional clear() DISCARDS B's
+  //      entry without ever closing B's server or DB.
+  //
+  // ★ Both are the same root: the registry recorded only COMPLETED starts, so anything
+  // in flight was invisible to the owner that is supposed to release it. A shutdown that
+  // cannot see a resource cannot free it, and reports success either way.
+  //
+  // ⇒ A pending marker goes in FIRST, so teardown can join it. And the stdin handler
+  // calls teardownSessions() unawaited, which makes this window real rather than theoretical.
+  const pending = { pendingStart: true, repoRoot };
+  activeDashboards.set(repoRoot, pending);
+
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // ★ repoRoot MUST be passed. startDashboard defaults it to process.cwd(), which
@@ -31,6 +58,16 @@ export async function graphDashboard({ repoRoot, port }) {
     // Invisible on a single-repo setup where cwd happens to match; wrong the moment
     // one server serves a second repo.
     const result = await startDashboard({ db, port: port || 0, repoRoot });
+
+    // ⚠ If teardown ran while this start was in flight, the dashboard we just created is
+    // already orphaned — nothing will ever close it. Release it here rather than
+    // publishing a server the owner has stopped tracking.
+    if (teardownGeneration !== startedInGeneration) {
+      await new Promise((resolve) => { try { result.server.close(resolve); } catch { resolve(); } });
+      try { db.close(); } catch { /* already closed */ }
+      activeDashboards.delete(repoRoot);
+      return { status: 'shutting_down', url: null, port: null };
+    }
 
     activeDashboards.set(repoRoot, { ...result, db });
 
@@ -45,6 +82,8 @@ export async function graphDashboard({ repoRoot, port }) {
     // "listen failed" followed by `db.close()` throwing delivered only "db close failed" —
     // the caller was told about the janitor instead of the fire.
     try { db.close(); } catch { /* the startup failure below is the one that matters */ }
+    // The reservation must not outlive a failed start, or shutdown waits on a ghost.
+    if (activeDashboards.get(repoRoot) === pending) activeDashboards.delete(repoRoot);
     throw err;
   }
 }
@@ -80,10 +119,30 @@ export function stopAllDashboards() {
 // from the hang this exists to prevent. One budget for the whole teardown.
 const SHUTDOWN_BUDGET_MS = 2000;
 
+// ⚠ A GENERATION COUNTER, NOT A BOOLEAN — and the difference is the whole finding.
+//
+// My first attempt used a `shuttingDownAll` flag cleared when teardown finished. dev's
+// schedule is precisely the case that defeats it: teardown COMPLETES, and only then does
+// the in-flight start publish. By that moment the flag is already false, so the start sees
+// a quiet system and installs a server nobody owns. The test failed on the first run and
+// said so — expected 0 registered, got 1.
+//
+// ⇒ What a start needs to know is not "is a teardown happening NOW" but "has a teardown
+// happened SINCE I began". That is a monotonic counter, and it cannot be raced.
+let teardownGeneration = 0;
+
 async function doStopAllDashboards() {
-  const entries = [...activeDashboards.values()];
+  // ⛔ SNAPSHOT BY KEY, AND DELETE ONLY WHAT WAS SNAPSHOTTED. The previous version ended
+  // with an unconditional `activeDashboards.clear()`, which DISCARDED any dashboard
+  // registered after the snapshot — dev's schedule 2: A closing while B starts meant B's
+  // server and DB were dropped from the registry without ever being closed. Erasing a
+  // resource is not releasing it, and it looks identical from the outside.
+  const snapshot = [...activeDashboards.entries()];
   const deadline = Date.now() + SHUTDOWN_BUDGET_MS;
-  for (const entry of entries) {
+  for (const [key, entry] of snapshot) {
+    // A reservation with no server yet: the start is still awaiting. Drop the marker so
+    // the starter sees `shuttingDownAll` and closes what it creates.
+    if (entry.pendingStart) { activeDashboards.delete(key); continue; }
     // Close the server first so no request can arrive against a closed database.
     //
     // ⚠ BOUNDED, and caught immediately: the first version deadlocked the whole suite
@@ -108,9 +167,12 @@ async function doStopAllDashboards() {
     }
     // Always reached, even if the server refused to close — this is what frees the handle.
     try { entry.db?.close(); } catch { /* already closed */ }
+    // Remove THIS key only, and only if it still holds the entry we just closed. A start
+    // that replaced it mid-teardown owns its own cleanup and must not be erased here.
+    if (activeDashboards.get(key) === entry) activeDashboards.delete(key);
   }
-  activeDashboards.clear();
-  return entries.length;
+  teardownGeneration += 1;
+  return snapshot.filter(([, e]) => !e.pendingStart).length;
 }
 
 // Read-only view, so a test can assert the registry is empty without reaching into
