@@ -22,6 +22,14 @@ export async function graphDashboard({ repoRoot, port }) {
 
   const existing = activeDashboards.get(repoRoot);
   if (existing) {
+    // ⛔ A PENDING START IS NOT A RUNNING ONE. dev: a second same-key call settled early
+    // with `status:'already_running'` and `url/port: undefined` — reporting success and
+    // handing back nothing, because the reservation marker installed below was read as a
+    // completed dashboard. The caller then had a "running" dashboard it could not reach.
+    //
+    // ⇒ Join the in-flight start instead of racing past it. One start per key, and every
+    // caller waits for the same answer.
+    if (existing.pendingStart) return existing.joinable;
     return {
       url: existing.url,
       port: existing.port,
@@ -45,8 +53,12 @@ export async function graphDashboard({ repoRoot, port }) {
   //
   // ⇒ A pending marker goes in FIRST, so teardown can join it. And the stdin handler
   // calls teardownSessions() unawaited, which makes this window real rather than theoretical.
-  const pending = { pendingStart: true, repoRoot };
+  // The reservation carries the promise every later caller for this key will await, so a
+  // second call joins rather than being told a lie about a dashboard that does not exist yet.
+  let settle;
+  const pending = { pendingStart: true, repoRoot, joinable: new Promise((r) => { settle = r; }) };
   activeDashboards.set(repoRoot, pending);
+  const finish = (value) => { settle(value); return value; };
 
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
@@ -62,21 +74,31 @@ export async function graphDashboard({ repoRoot, port }) {
     // ⚠ If teardown ran while this start was in flight, the dashboard we just created is
     // already orphaned — nothing will ever close it. Release it here rather than
     // publishing a server the owner has stopped tracking.
-    if (teardownGeneration !== startedInGeneration) {
+    // ⚠ TWO CONDITIONS, because dev showed one is not enough:
+    //   · the generation MOVED — a teardown began and finished around this start; and
+    //   · a teardown is ACTIVE RIGHT NOW — it has taken its snapshot (which cannot include
+    //     this start) and is still closing. Publishing here produces a live dashboard that
+    //     the in-progress teardown will never see. Their probe: a new-key start entered
+    //     while teardown was held, completed before the generation moved, and returned
+    //     `running`.
+    //
+    // ⇒ "Has a teardown happened since I began" and "is one happening now" are different
+    // questions, and a start is orphaned by either.
+    if (teardownGeneration !== startedInGeneration || shutdownInFlight) {
       await new Promise((resolve) => { try { result.server.close(resolve); } catch { resolve(); } });
       try { db.close(); } catch { /* already closed */ }
-      activeDashboards.delete(repoRoot);
-      return { status: 'shutting_down', url: null, port: null };
+      if (activeDashboards.get(repoRoot) === pending) activeDashboards.delete(repoRoot);
+      return finish({ status: 'shutting_down', url: null, port: null });
     }
 
     activeDashboards.set(repoRoot, { ...result, db });
 
-    return {
+    return finish({
       url: result.url,
       port: result.port,
       status: 'running',
       warnings: freshness.warnings,
-    };
+    });
   } catch (err) {
     // ⚠ THE CLEANUP MUST NOT REPLACE THE CAUSE. dev: `startDashboard` throwing
     // "listen failed" followed by `db.close()` throwing delivered only "db close failed" —
@@ -139,10 +161,24 @@ async function doStopAllDashboards() {
   // resource is not releasing it, and it looks identical from the outside.
   const snapshot = [...activeDashboards.entries()];
   const deadline = Date.now() + SHUTDOWN_BUDGET_MS;
-  for (const [key, entry] of snapshot) {
-    // A reservation with no server yet: the start is still awaiting. Drop the marker so
-    // the starter sees `shuttingDownAll` and closes what it creates.
-    if (entry.pendingStart) { activeDashboards.delete(key); continue; }
+  let closedCount = 0;
+  for (const [key, snapshotted] of snapshot) {
+    let entry = snapshotted;
+    // ⛔ A STALE PENDING SNAPSHOT MUST NOT ERASE ITS OWN REPLACEMENT. dev: while an
+    // earlier key delayed this loop, the pending start completed and replaced the marker
+    // with a real {server, db} — and this branch then deleted the key unconditionally,
+    // closing NEITHER. Expected close=1, actual 0; the registry looked empty only because
+    // ownership had been erased rather than released.
+    //
+    // ⇒ Re-read the key. If it still holds the marker we snapshotted, drop it (the starter
+    // will see the teardown and release itself). If it has been REPLACED, fall through and
+    // close the real thing instead of deleting the evidence of it.
+    if (entry.pendingStart) {
+      const current = activeDashboards.get(key);
+      if (current === entry) { activeDashboards.delete(key); continue; }
+      if (!current) continue;
+      entry = current; // the completed replacement is now the thing to close
+    }
     // Close the server first so no request can arrive against a closed database.
     //
     // ⚠ BOUNDED, and caught immediately: the first version deadlocked the whole suite
@@ -169,10 +205,11 @@ async function doStopAllDashboards() {
     try { entry.db?.close(); } catch { /* already closed */ }
     // Remove THIS key only, and only if it still holds the entry we just closed. A start
     // that replaced it mid-teardown owns its own cleanup and must not be erased here.
+    closedCount += 1;
     if (activeDashboards.get(key) === entry) activeDashboards.delete(key);
   }
   teardownGeneration += 1;
-  return snapshot.filter(([, e]) => !e.pendingStart).length;
+  return closedCount;
 }
 
 // Read-only view, so a test can assert the registry is empty without reaching into

@@ -216,22 +216,62 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     const tearing = stopAllDashboards();          // parks inside A's server.close
     const second = await makeRepo();
     try {
-      await graphDashboard({ repoRoot: second, port: 0 });   // B registers mid-teardown
+      // ⚠ NOT awaited before the release: B's own close now uses the same held promise, so
+      // awaiting here deadlocks the fixture. That deadlock is a property of my mock, not of
+      // production — but it is exactly the kind of self-inflicted hang that looks like a
+      // product bug, so it is worth naming.
+      const startingB = graphDashboard({ repoRoot: second, port: 0 });
       releaseClose();
       const closed = await tearing;
+      const resultB = await startingB;
 
-      expect(closed, 'only the snapshotted dashboard was closed').toBe(1);
-      expect(activeDashboardCount(), 'B must SURVIVE a teardown that never owned it').toBe(1);
+      expect(closed, 'the snapshotted dashboard was closed').toBe(1);
 
-      // And B must still be genuinely releasable — erased-from-the-registry and
-      // released-properly are indistinguishable unless the next shutdown can close it.
-      const closedSecond = await stopAllDashboards();
-      expect(closedSecond, 'B is closed by the shutdown that does own it').toBe(1);
-      expect(activeDashboardCount()).toBe(0);
+      // ⇒ CORRECTED EXPECTATION. My first version asserted B must SURVIVE. dev's A2 shows
+      // that is wrong: a start completing while a teardown is ACTIVE is orphaned relative
+      // to that teardown — the snapshot cannot contain it, so nothing in that teardown
+      // will ever close it. It must release itself, not publish.
+      expect(resultB?.status, 'a start completing during teardown must not publish')
+        .toBe('shutting_down');
+      expect(activeDashboardCount(), 'and must leave nothing registered').toBe(0);
     } finally {
       closeDelay = null;
       await rm(second, { recursive: true, force: true });
     }
+  }, 20_000);
+
+  it('★★ a SECOND same-key call joins the in-flight start, it is not told a lie', async () => {
+    // dev's A1: the reservation marker was read as a completed dashboard, so a second
+    // same-key call settled early with `status:'already_running'` and url/port UNDEFINED.
+    // The caller was handed a success it could not use — worse than an error, because an
+    // error is actionable and this looks like it worked.
+    repoRoot = await makeRepo();
+    let releaseStart;
+    startDelay = new Promise((r) => { releaseStart = r; });
+
+    const first = graphDashboard({ repoRoot, port: 0 });
+    // ⚠ SEQUENCING IS THE TEST. Issuing both calls back-to-back does NOT create the race:
+    // graphDashboard awaits freshness before registering its marker, so the second call
+    // can read an empty registry and simply start its own. Both of dev's mutants survived
+    // my first version for exactly that reason — the schedule I meant to exercise never
+    // occurred. Waiting until the marker EXISTS is what makes the second call a joiner.
+    await vi.waitFor(() => expect(started.length).toBe(1), { timeout: 5000 });
+    const second = graphDashboard({ repoRoot, port: 0 });   // arrives while first is parked
+    // ⚠ And the joiner needs time to GET to the registry read. graphDashboard awaits
+    // freshness first, so releasing immediately let the first call finish and the second
+    // find a COMPLETED entry — the join branch never executed and both of dev's mutants
+    // survived a test that looked like it covered them. Draining the microtask queue is
+    // what puts the second call inside the window.
+    // A real delay, not microtasks: inspectReadFreshness does file and git I/O, so the
+    // joiner needs wall-clock time to reach the registry read while the first is parked.
+    await new Promise((r) => setTimeout(r, 250));
+    releaseStart();
+    const [a, b] = await Promise.all([first, second]);
+
+    expect(a?.status, 'the first call starts it').toBe('running');
+    expect(b?.url, 'the joiner must receive a usable url, never undefined').toBeTruthy();
+    expect(b?.url, 'and it must be the SAME dashboard, not a second one').toBe(a.url);
+    expect(started, 'exactly one start may occur per key').toHaveLength(1);
   }, 20_000);
 
   it('★★ an explicitly-rooted server serves THAT repo\'s bytes', async () => {
