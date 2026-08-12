@@ -36,6 +36,18 @@ const git = (...a) => {
 
 // ★ TYPED ABSENCE. "no .aify-graph" must be a recorded value, not a missing key — an
 // absent field reads as "nobody looked", which is the ambiguity this whole exercise is about.
+//
+// ⚠ A CORRECTION, recorded here because the claim was made and needs unmaking. I reported
+// that "the suite mutates its own carrier", having watched this digest move across runs
+// (7 → 12 → 14 entries). MEASURED TWICE AFTERWARDS, and it is false:
+//   · digest before a full suite run == digest after (8f0500941ff523ac, unchanged)
+//   · with the directory moved away, a full query-suite run does NOT recreate it
+// The movement was entirely MY OWN contamination — an `mv` that landed inside a directory
+// recreated between steps, leaving a 37MB nested copy.
+//
+// ⇒ I attributed a cause from a correlation I had not checked, in the same message where I
+// was reporting on the danger of unattributed claims. The digest field below is what makes
+// that checkable by anyone, including me.
 function graphIdentity() {
   const dir = join(REPO, '.aify-graph');
   if (!existsSync(dir)) return { present: false, reason: 'absent (gitignored; repo not indexed here)' };
