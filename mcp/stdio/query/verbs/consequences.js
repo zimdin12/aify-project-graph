@@ -987,26 +987,42 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         // Found 2026-08-11 while converting the source-grep test that guarded that
         // message. It had asserted the template's spelling and could never have seen
         // that the number in it was wrong.
-        // ⛔ symbols_total / symbols_truncated WERE HERE AND WERE DEAD. Removed 2026-08-12.
+        // ⛔ I DELETED THESE TWO FIELDS ON 2026-08-12 ON A RATIONALE THAT WAS FALSE, AND
+        // RESTORED THEM THE SAME DAY. The reasoning I removed them with, verbatim, was:
+        // "this `matched` block is only built when the symbol resolves UNIQUELY … so
+        // symbols_total could only ever equal symbols.length and symbols_truncated could
+        // only ever be false. A field that cannot vary cannot inform."
         //
-        // graph-senior-dev-hermes deleted both and every consequences + packet test stayed
-        // green — 18 of 18. I read that as a missing contract pin and set out to write one.
-        // Measuring first showed why no pin was possible: this `matched` block is only
-        // built when the symbol resolves UNIQUELY. Multiple definitions short-circuit to
-        // the AMBIGUOUS MATCH string hundreds of lines earlier, before `matched` exists.
-        // So on this route symbols_total could only ever equal symbols.length and
-        // symbols_truncated could only ever be false. A field that cannot vary cannot
-        // inform, and cannot be tested either.
+        // ★ THE WORD THAT WAS WRONG IS "UNIQUELY". `buildAmbiguousMatchMessage` returns null
+        // when the rows collapse to ≤1 CANONICAL KEY (symbol_lookup.js:131-152) — not when
+        // there is ≤1 ROW. Nine rows sharing one canonical key pass BOTH ambiguity guards,
+        // reach here, and are sliced to 3 by pickPrimarySymbol. Canonical uniqueness is not
+        // row uniqueness, and I read the two as the same thing.
         //
-        // ★ The count IS carried where multiplicity actually happens: the ambiguity
-        // message states "N concrete candidates found". That number is the real contract
-        // and it is pinned in tests/unit/query/symbol-total-response-contract.test.js.
+        // graph-senior-dev-hermes refuted it with an EXECUTED counterexample on this exact
+        // tree (74a45de): a real graph fixture of 9 `Class` rows, same label, same file,
+        // distinct ids/lines → return type object, `matched.symbols.length` 3,
+        // matching-row population 9, `referenced_in.length` 6, and no ambiguity string.
+        // On that route the deleted fields would have read symbols_total=9 (not 3) and
+        // symbols_truncated=true (not false). The invariant I asserted is refuted by
+        // construction, not by argument.
         //
-        // ⇒ Deleted rather than kept-and-explained. A field that is always trivially true
-        // is not harmless: it costs tokens in every response, it is a second answer to a
-        // question already answered, and its presence here is what made me believe the
-        // expensive path was covered. packet.js keeps its own carrier on the CHEAP path,
-        // where the cap is real and the value genuinely varies.
+        // ⚠ I had also re-derived the deletion INDEPENDENTLY, hours later, and reached the
+        // same wrong answer by the same route — I read line 295's word "identity" as "row".
+        // Two agreeing derivations from one misreading are not corroboration.
+        //
+        // ⇒ WHAT THESE FIELDS MEAN, precisely, because the vagueness is what let them be
+        // deleted: `symbols` is a SAMPLE — pickPrimarySymbol prefers non-header files and
+        // then slices at 3. `symbols_total` is the uncapped count of MATCHING ROWS, so the
+        // consumer can see that its sample is a sample. `symbols_truncated` is the
+        // sample/population inequality, NOT retrieval truncation (`matchRowsTruncated` is
+        // necessarily false here — line 301 returns above this point when it is true).
+        //
+        // This is the defect the fields existed for: graph_packet read `matched.symbols`
+        // and rendered "UNRANKED (3 matches)" on a repo with NINE definitions — a cap
+        // reported as a population, with no way for the consumer to know it had been capped.
+        symbols_total: matchRowsTotal,
+        symbols_truncated: matchRowsTotal > symbolNodes.length,
         files: fileNodes.map((n) => n.file_path).filter(Boolean),
         // Other places where this label appears (forward decls in headers
         // for C++ classes, re-exports, etc.). Echoes PM Tier A #3: class

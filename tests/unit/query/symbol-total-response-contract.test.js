@@ -1,20 +1,28 @@
-// WHERE THE COUNT ACTUALLY LIVES ON THE EXPENSIVE PATH — AND WHY THE FIELD I ADDED THERE
-// WAS DEAD.
+// WHERE THE COUNT ACTUALLY LIVES ON THE EXPENSIVE PATH.
 //
-// graph-senior-dev-hermes deleted `symbols_total` and `symbols_truncated` from
-// consequences.js and every consequences + packet test stayed GREEN, 18 of 18. I took that
-// as a missing contract pin and set out to write one.
+// ⛔ THIS FILE PREVIOUSLY RATCHETED THE TWO FIELDS *ABSENT*, AND THAT RATCHET WAS DEFENDING
+// A FALSE GENERALIZATION. Its stated basis was: "the `matched` block is only built when the
+// symbol resolves UNIQUELY, so `symbols_total` could only ever equal `symbols.length`."
 //
-// ⇒ MEASURING FIRST SHOWED THERE WAS NOTHING TO PIN. The `matched` block in
-// graphConsequences is only built when the symbol resolves UNIQUELY. Two or more
-// definitions short-circuit to the human-readable AMBIGUOUS MATCH string long before
-// `matched` exists. So on that route `symbols_total` could only ever equal
-// `symbols.length` and `symbols_truncated` could only ever be false. A field that cannot
-// vary cannot inform — and cannot be tested. Both were deleted rather than pinned.
+// ★ THE WORD THAT WAS WRONG IS "UNIQUELY". `buildAmbiguousMatchMessage` returns null when
+// the rows collapse to ≤1 CANONICAL KEY (symbol_lookup.js:131-152) — not ≤1 ROW. Nine rows
+// sharing one canonical key clear BOTH ambiguity guards, reach `matched`, and are sliced to
+// 3 by pickPrimarySymbol. Canonical uniqueness is not row uniqueness.
 //
-// ★ The count IS carried where multiplicity actually occurs: the ambiguity message says
-// "N concrete candidates found". THAT is the expensive path's real contract, and it is
-// what this file pins.
+// graph-senior-dev-hermes refuted it by EXECUTION on tree 2fcb7537: 9 `Class` rows, one
+// label, one file → object result, `symbols.length` 3, population 9, `referenced_in` 6, no
+// ambiguity string. The restored fields read 9 / true on that input.
+//
+// ⚠ WHY THE OLD RATCHET COULD NOT HAVE CAUGHT IT: it asserted absence using only the
+// one-row `uniqueThing` fixture. A singleton arm cannot establish an invariant across the
+// canonical-collapse arm — it proves the trivial case and generalises silently. THAT is the
+// lesson worth keeping: a ratchet is only as wide as the inputs it is exercised on, and an
+// absence assertion on one arm reads as a guarantee on all of them.
+//
+// ⇒ The three controls below exist because ONE fixture cannot carry this contract:
+//   1 row / one key        -> matched, total 1, truncated false
+//   9 rows / one key       -> matched, total 9, truncated TRUE   (the refuting case)
+//   60 rows / one key      -> NO matched block; refuses via AMBIGUOUS BY TRUNCATION
 //
 // ⚠ The first version of this file was itself vacuous, and in the exact way dev warned
 // about: its second case opened with `if (typeof res === 'string' || !res?.matched) return;`
@@ -130,7 +138,10 @@ describe('the expensive path states its candidate count where multiplicity happe
 
   it('★★ a UNIQUE symbol takes the matched route, and it does not claim multiplicity', async () => {
     // The sibling route, asserted rather than assumed — this is the one that produces a
-    // `matched` block, and knowing that is what proved the deleted fields were dead.
+    // `matched` block. ⚠ This comment used to end "…and knowing that is what proved the
+    // deleted fields were dead". It proved no such thing: reaching `matched` on a ONE-ROW
+    // input says nothing about reaching it on a NINE-ROW one-canonical-key input, which is
+    // exactly the generalisation that made the old ratchet wrong. See CONTROL 2.
     repoRoot = await makeRepo();
     const res = await graphConsequences({ repoRoot, target: 'uniqueThing' });
 
@@ -139,20 +150,50 @@ describe('the expensive path states its candidate count where multiplicity happe
     expect(asText(res), 'one definition is not ambiguous').not.toMatch(/AMBIGUOUS MATCH/);
   }, 30_000);
 
-  it('★★ the dead fields stay deleted — a field that cannot vary must not be re-added', async () => {
-    // ⇒ A ratchet, not a preference. Re-adding `symbols_total` to this block would put
-    // back a value that is trivially `symbols.length` on every reachable input, costing
-    // tokens in every response and — as it did once — creating the impression that the
-    // expensive path was covered when nothing could cover it.
-    //
-    // If multiplicity is ever made reachable HERE (an ambiguity route that returns
-    // structured data instead of prose), delete this case and pin the real thing.
+  it('★★ CONTROL 1 of 3 — one row, one key: the fields are present and report no truncation', async () => {
+    // The singleton arm. This is the ONLY arm the deleted ratchet ever exercised, and on its
+    // own it is consistent with both the true contract and the false one — which is exactly
+    // why it could not defend anything.
     repoRoot = await makeRepo();
     const res = await graphConsequences({ repoRoot, target: 'uniqueThing' });
 
     expect(res.matched, 'harness sanity: the matched block must exist to be checked').toBeTruthy();
-    expect(Object.keys(res.matched), 'no field that can only ever be trivially true')
-      .not.toContain('symbols_total');
-    expect(Object.keys(res.matched)).not.toContain('symbols_truncated');
+    expect(res.matched.symbols.length, 'harness sanity: exactly one definition').toBe(1);
+    // HAND-WRITTEN, not read back from the response: 1 row means total 1, nothing hidden.
+    expect(res.matched.symbols_total, 'population is carried even when it equals the sample').toBe(1);
+    expect(res.matched.symbols_truncated, 'nothing was omitted on a one-row input').toBe(false);
+  }, 30_000);
+
+  it('★★ CONTROL 2 of 3 — NINE rows collapsing to ONE canonical key still reach `matched`, and must disclose 9', async () => {
+    // ⇒ THE REFUTING CASE, replayed from graph-senior-dev-hermes's executed counterexample.
+    // Nine rows, one label, one file: canonical grouping sees a single identity, both
+    // ambiguity guards pass, and pickPrimarySymbol slices the sample to 3. If the deleted
+    // fields were restored wrongly — or deleted again — this is the arm that fails.
+    repoRoot = await makeRepo({ defs: 9, sameIdentity: true });
+    const res = await graphConsequences({ repoRoot, target: 'GpuMaterial' });
+
+    expect(typeof res, 'canonical collapse must reach the STRUCTURED route, not a string').toBe('object');
+    expect(res.matched, 'the matched block must exist on the collapse arm').toBeTruthy();
+    // Hand-written numbers. 9 rows in, 3 shown, so the population must read 9 and the
+    // sample must declare itself incomplete. `3` here is pickPrimarySymbol's cap, asserted
+    // deliberately: if that cap changes, this test should be re-read, not silently adapt.
+    expect(res.matched.symbols.length, 'sample is capped at 3 by pickPrimarySymbol').toBe(3);
+    expect(res.matched.symbols_total, 'the POPULATION, not the sample — this is the whole contract').toBe(9);
+    expect(res.matched.symbols_truncated, '3 of 9 shown must report as truncated').toBe(true);
+    // And the sample must not masquerade as the population.
+    expect(res.matched.symbols_total, 'a sample reported as a total is the defect these fields exist for')
+      .not.toBe(res.matched.symbols.length);
+  }, 30_000);
+
+  it('★★ CONTROL 3 of 3 — above the retrieval cap, one key must REFUSE rather than sample', async () => {
+    // The boundary between "disclose the population" and "you cannot know the population".
+    // Past the 50-row retrieval cap the total itself is unestablished, so the correct
+    // behaviour is refusal — NOT a structured block carrying a confident number.
+    repoRoot = await makeRepo({ defs: 60, sameIdentity: true });
+    const res = await graphConsequences({ repoRoot, target: 'GpuMaterial' });
+
+    expect(typeof res, 'above the cap the verb must return the refusal string').toBe('string');
+    expect(res).toMatch(/AMBIGUOUS BY TRUNCATION/);
+    expect(res).toMatch(/uniqueness is NOT established/);
   }, 30_000);
 });
