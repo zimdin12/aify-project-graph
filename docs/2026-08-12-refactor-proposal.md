@@ -178,6 +178,33 @@ themselves part of the source-contract conversion under review. Moving that code
 guarantees are still being verified would mean refactoring against tests I do not yet
 trust — which is the reason the whole refactor waits on dev's verdict.
 
-**Behaviour must not change.** Every slice is a move, not a rewrite. The check is the full
-suite plus `npm run smoke` before and after each slice, and a byte-identical brief output
-for this repo across the move.
+**Behaviour must not change.** Every slice is a move, not a rewrite.
+
+### ⚠ The verification section as first written was WRONG, and the correction is the point
+
+It said the check is "the full suite plus `npm run smoke` before and after each slice, and
+a byte-identical brief output". That is insufficient for the very first slice, and I only
+found it by asking *what would catch me HERE* instead of *does a check exist*:
+
+⇒ **Extracting `TOOLS` from `server.js` changes no brief artefact at all.** The brief oracle
+would have reported byte-identical output across a slice it cannot observe, and the suite
+does not compare the emitted tool surface either. **The safest, highest-value slice had no
+safety net** — and a green result would have read as confirmation.
+
+★ A general check plus a specific check is not coverage; it is a general check plus one
+specific check that happens to exist. Each slice needs an oracle that can see THAT slice.
+
+| slice | what changes | oracle that can SEE it |
+|---|---|---|
+| 1. `tools/schema.js` | the emitted tool surface | `scripts/toolsurface-oracle.mjs` — full `tools/list` over the real protocol: names, descriptions, every schema byte |
+| 2. `brief/render.js` | brief artefacts | `scripts/refactor-oracle.mjs` — all four artefacts, subject held fixed |
+| 3. `extract.js` / `graph-shape.js` / `artifacts.js` | brief artefacts | `scripts/refactor-oracle.mjs` |
+| 4. `server.js` dispatch/toolset | routing and tool surface | `toolsurface-oracle` **plus** `tests/unit/server/tool-routing-identity.test.js` (name → handler, proven against a forged lookalike) |
+
+Both oracles are proven bidirectionally — unchanged code exits 0, a real change exits 1 —
+because an oracle that cannot detect a change is worse than none: it manufactures
+confidence. The tool-surface one reds on a tool rename and on an input-schema type change;
+the brief one reds on `hubs(5 → 4)`.
+
+⇒ **Run capture BEFORE the slice.** Both refuse a compare with no capture rather than
+treating absence as agreement.
