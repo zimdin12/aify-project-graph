@@ -46,6 +46,29 @@ beforeEach(() => { head = 'bbbbbbb'; diffFiles = ['docs/notes.md']; _resetServer
 afterEach(() => { head = 'aaaaaaa'; _resetServerBuildCache(); });
 
 describe('the stale warning renders a closed set of typed claims', () => {
+  // ⛔ SELF-REVIEW SURVIVOR M1 — THE REGISTRY-DERIVED-ARMS TRAP, THIRD TIME TODAY.
+  //
+  // The ordering case below iterates ROUTE_CLAIMS, so DELETING a claim from a route simply
+  // makes it check fewer fragments: my own mutation dropped
+  // SESSION_RESTART_MAY_NOT_RESPAWN from docs_only and the file stayed green. Same shape as
+  // deriving classifier arms from the production registry, and as importing the approved
+  // prose fragment from the module under test.
+  //
+  // ⇒ A HAND-WRITTEN sequence is the ratchet. Changing what a route asserts now takes two
+  // edits in different places, which is the conscious act the schema exists to force.
+  const EXPECTED_CLAIMS = {
+    docs_only: [
+      'process_is_stale', 'delta_non_executable', 'process_restart_required',
+      'host_method_unknown', 'session_restart_may_not_respawn',
+      'verify_by_started_at', 'commit_not_restart_identity',
+    ],
+  };
+
+  it('★★ the route\'s claim sequence matches the hand-approved list exactly', () => {
+    expect(ROUTE_CLAIMS.docs_only, 'a claim may not silently leave or join a route')
+      .toEqual(EXPECTED_CLAIMS.docs_only);
+  });
+
   it('★★ every claim the schema declares for a route APPEARS, in order', () => {
     // Order is part of the contract: the verification step must follow the instruction it
     // verifies, or a reader acts before being told how to check whether it worked.
