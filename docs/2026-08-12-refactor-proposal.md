@@ -79,9 +79,33 @@ brief/structure.js   entryPoints, subsystems, hubs,       ~710
 brief/render.js      the five renderers                   ~578
 ```
 
-⇒ No file over ~710, each with a one-sentence job. `structure.js` is the largest and could
-split again later (graph-shape vs. reading-order) — **not proposed now**, because that seam
-is not yet verified and an unverified seam is a guess.
+⇒ No file over ~710, each with a one-sentence job.
+
+### `structure.js` sub-seam — now verified (2026-08-12)
+
+The first version of this document declined to split the 710-line analysis block because
+the seam was unverified. It has since been measured, and the axis is **not topic — it is
+DATA SOURCE**:
+
+| takes | functions | ~lines |
+|---|---|---|
+| `db` | `entryPoints`, `subsystems`, `classifyRole`, `hubs`, `readFirst`, `testInventory`, `testAnchors`, `risks` | 470 |
+| `repoRoot` / artifacts | `recentActivity` (git), `openTasksByFeature` (tasks.json), `summarizeUnresolvedFromManifest` (manifest) | 200 |
+
+⇒ Split on that axis, not on the topical grouping I would have guessed at:
+
+```
+brief/graph-shape.js   everything derived from the graph db      ~470
+brief/artifacts.js     git / tasks.json / manifest               ~200
+```
+
+★ **The one function that crosses it:** `enrichFeaturesForPlanning(db, validFeatures)` takes
+the graph AND the overlay. It is the real boundary and should live with `graph-shape` while
+taking the overlay slice as a parameter — the existing signature already does this, which
+is evidence the boundary is real rather than imposed.
+
+⚠ `trust(snapshot, entries, subs, hubsArr, overlayHealth, …)` takes no data source at all —
+it is a pure combinator over already-computed results, so it belongs with orchestration.
 
 ---
 
