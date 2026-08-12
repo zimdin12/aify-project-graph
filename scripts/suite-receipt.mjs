@@ -98,7 +98,7 @@ try {
 // ★ A receipt that misreports is worse than no receipt: it launders a wrong number through
 // a format that looks rigorous. Same class as every wrong-instance regex in this repo —
 // the pattern was right and the SUBJECT was wrong.
-const plain = raw.replace(/\[[0-9;]*m/g, '');
+const plain = raw.replace(/\x1b\[[0-9;]*m/g, '');
 const summaryOf = (label) => plain.split('\n').find((l) => new RegExp(`^\\s*${label}\\s`).test(l)) ?? '';
 const filesLine = summaryOf('Test Files');
 const testsLine = summaryOf('Tests');
