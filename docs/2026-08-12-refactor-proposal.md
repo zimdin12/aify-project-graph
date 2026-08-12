@@ -1,5 +1,32 @@
 # Refactor proposal — two files, verified seams
 
+> ## ⚠ READ THIS FIRST — this document went stale in under a day, and it predicted that
+>
+> **Measurements below are pinned to the commit at which they were taken.** They were not,
+> and by the time I audited this document its own numbers had drifted: `server.js` had grown
+> 12 lines, the `TOOLS` array ended 7 lines earlier than stated, and `consequences.js` had
+> gained 57. Re-measured at **`40c7e91`**: `server.js` 1394 total, `TOOLS` spans **62–675**,
+> `generator.js` 1965, `consequences.js` 1323, `packet.js` 1154.
+>
+> ★ **The document contains a section warning that "a line number in a comment is a reference
+> that no tool checks and every move invalidates" — and that section had itself gone stale,
+> describing a hazard I had already closed.** It made the argument and then demonstrated it,
+> on itself, within a day. Prefer citations that survive a move: `TOOLS` from its declaration
+> to its closing bracket, clusters by first/last FUNCTION NAME. Any line number here carries
+> the commit it was measured at, or it is a guess.
+>
+> **Two ambiguous referents, both corrected below:** `server.js` is `mcp/stdio/server.js` —
+> `mcp/stdio/dashboard/server.js` also exists. `computeCoverage` is
+> `brief/generator.js:69` — `code-intel/coverage.js` and `query/coverage-denominator.js` each
+> export a *different* function of that name, with different signatures.
+>
+> **Comment percentages use `comments / total lines`.** Stated because the denominator was
+> never named; under `comments/(code+comments)` each figure shifts 1–2 points. The one number
+> driving a do-not-touch decision is robust either way: `health.js` is 48% / 49%.
+>
+> ⛔ **Both target sections' central SAFETY claims were false when audited** — see the
+> corrections inline. The structural measurements survived; the completeness claims did not.
+
 Steven asked how many files are oversized and whether a refactor is due. Measured rather
 than estimated, and the answer is **narrower than the raw counts suggest**.
 
@@ -23,18 +50,35 @@ analysis only. No code has moved.
 wrong refactors.** This codebase carries unusually dense commentary — defect histories,
 field reports, and the reasoning behind non-obvious choices:
 
-| file | total | comments | **code** |
-|---|---|---|---|
-| `brief/generator.js` | 1965 | 18% | **1487** |
-| `server.js` | 1382 | 19% | **1063** |
-| `query/verbs/consequences.js` | 1266 | 41% | 704 |
-| `query/verbs/packet.js` | 1104 | 30% | 682 |
-| `query/verbs/health.js` | 1181 | **48%** | 582 |
+**Re-measured at `40c7e91`** (comments ÷ total lines; the previous table was taken days earlier
+and had drifted on every row):
 
-⇒ `health.js` is not a 1,181-line file. It is a 582-line file carrying 569 lines of
-recorded defect history, and that history is the most expensive thing in it. **Leave it
-alone.** The same goes for `consequences.js` and `packet.js`: large, but each is one verb
-doing one job, and the bulk is explanation rather than logic.
+| file | total | comments | **code** | exported |
+|---|---|---|---|---|
+| `mcp/stdio/brief/generator.js` | 1966 | 19% | **1487** | — |
+| `mcp/stdio/server.js` | 1395 | 20% | **1064** | — |
+| `query/verbs/consequences.js` | 1324 | 43% | **713** | 1 |
+| `query/verbs/packet.js` | 1155 | 32% | **695** | 3 |
+| `query/verbs/health.js` | 1182 | **48%** | **582** | 3 |
+
+⇒ `health.js` is not a 1,182-line file. It is a 582-line file carrying ~570 lines of recorded
+defect history, and that history is the most expensive thing in it. **Leave it alone.**
+
+⚠ **The leave-alone decision is right; its stated reason was not right for every file.**
+Audited:
+
+- `consequences.js` — exactly as described: **one export, one job.** Reason holds.
+- `health.js` — 3 exports, so "one verb doing one job" is imprecise; but the reason actually
+  relied on (48% recorded defect history) is measured and holds under either denominator
+  (48% / 49%). Decision safe.
+- `packet.js` — the shared reason was *"the bulk is explanation rather than logic."* At **32%
+  comments, 68% is logic** — the lowest of the three, grouped with files at 43% and 48% on a
+  justification that does not measure the same way for it.
+
+★ This is **not** a recommendation to split `packet.js`: 39 top-level functions over 695 code
+lines averages ~18 lines each, which is well-factored rather than tangled. **The decision is
+right for a reason this document did not give** — and a conclusion whose stated basis is false
+for a third of its cases will mislead the next reader even while reaching the correct answer.
 
 **Two files are genuine targets. Six are not.**
 
@@ -57,7 +101,25 @@ not interleave:
 **What makes the render seam clean, checked not assumed:** all five renderers
 (`renderMarkdown`, `renderAgentMarkdown`, `renderOnboardAgentMarkdown`,
 `renderPlanAgentMarkdown`, `renderJson`) take a single `data` object, destructure it, and
-return a string. No shared mutable state, no back-references into analysis. `renderJson`
+return a string. ⛔ **"No shared mutable state, no back-references into analysis" was HALF
+false.** Module-level mutable state: none — that half holds, measured. But **six** functions
+declared outside the render block are called from inside it: `computeCoverage` (declared line
+69, in the *extraction* range), `testSectionHeader`, `openTasksByFeature`,
+`completedTaskCountsByFeature`, `openTasksWithoutFeatures`, `formatTaskLinkSummary`.
+
+★ **The consequence this document missed: the proposed split creates a CIRCULAR IMPORT.** It
+puts `computeCoverage` in `generator.js` and the renderers in `render.js` — but `generator.js`
+must import `render.js` to call them, and `render.js` would import `computeCoverage` back. In
+the slice nominated *second-safest*. `computeCoverage` and the three task-artifact readers must
+land where both sides can import; `testSectionHeader` and `formatTaskLinkSummary` are pure
+formatting helpers misfiled in the analysis range and should move with render.
+
+⚠ Four other apparent back-references were FALSE POSITIVES and are not defects: `subsystems:`,
+`hubs:` and `risks:` are object-literal keys, and every `trust` hit is either the key `trust:`
+or the text `trust=` inside a template string — **`trust()` is never called from render**, so
+this document's note that it belongs with orchestration stands. Each of the ten hits was read
+individually, because a matcher that cannot tell a call from a property read is the `...HEAD`
+artefact recorded two sections down. `renderJson`
 additionally takes `repoRoot`.
 
 **What makes the analysis seam clean:** those functions take `(db, ...)` and return plain
@@ -99,7 +161,25 @@ brief/graph-shape.js   everything derived from the graph db      ~470
 brief/artifacts.js     git / tasks.json / manifest               ~200
 ```
 
-★ **The one function that crosses it:** `enrichFeaturesForPlanning(db, validFeatures)` takes
+⛔ **"THE ONE FUNCTION THAT CROSSES IT" IS UNDER-COUNTED — there are two.** Measured over the
+24 analysis functions: 11 db-only (454 lines), 7 artifact-only (131), **1 crossing the
+db/filesystem axis** (40), 5 pure helpers taking no data source at all (85).
+
+- The crosser this document names: `enrichFeaturesForPlanning(db, validFeatures)` — db + overlay.
+- The crosser it misses: **`entryPoints(db, repoRoot, limit)`** — db + filesystem; it calls
+  `detectFromPackageJson(repoRoot)` and genuinely reads outside the graph. The table above
+  files it under db-only, as its **first** entry.
+
+⇒ Under this document's own stated axis — *"the axis is DATA SOURCE"* — **both cross**, so
+`graph-shape.js` as proposed still needs `repoRoot` and a filesystem read, and the ~470/~200
+split is not clean.
+
+✓ Two claims here were independently corroborated by that same measurement, which is worth
+recording since most of this audit was falsification: `trust` really does take no data source
+(classified *neither*, exactly as written below), and `testSectionHeader` / `formatTaskLinkSummary`
+classify as *neither* too — confirming by a second method that they are misfiled render helpers.
+
+★ **The one function this document names as crossing:** `enrichFeaturesForPlanning(db, validFeatures)` takes
 the graph AND the overlay. It is the real boundary and should live with `graph-shape` while
 taking the overlay slice as a parameter — the existing signature already does this, which
 is evidence the boundary is real rather than imposed.
@@ -109,7 +189,7 @@ it is a pure combinator over already-computed results, so it belongs with orches
 
 ---
 
-## Target 2 — `server.js` (1063 code lines)
+## Target 2 — `mcp/stdio/server.js` (1064 code lines at `40c7e91`)
 
 ### The seam, verified
 
@@ -137,19 +217,36 @@ belong beside the dispatcher. Extracting `tools/schema.js` alone takes `server.j
   `MUTATING_TOOLS` (1). Its single direct `TOOLS` reference is the alias
   `const ACTIVE_TOOLS = TOOLS` on line 998 — in the boundary zone, and it becomes an import.
 
-⇒ This is the safest slice available in the repo: a pure data literal with no inbound or
-outbound coupling. If any slice can be done without risk, it is this one.
+⛔ **THE SENTENCE THAT USED TO BE HERE WAS FALSE.** It read: *"the safest slice available in
+the repo: a pure data literal with no inbound or outbound coupling."* Measured at `40c7e91`:
 
-#### ⚠ One hazard found while verifying
+- `TOOLS` carries **42 `handler:` references to 42 distinct imported functions**, resolved by
+  **33 of the 46 import statements** above it. Those 33 imports must move WITH the literal.
+- So the slice is not data movement. It relocates the module that knows every verb
+  implementation, and `server.js` then imports it back. That is arguably the better
+  architecture — but "no outbound coupling" was wrong, and `1382 → ~760` inherited the error.
 
-`server.js:678` contains `// … Handler at line 536 already routes it`. **A line number in a
-comment is a reference that no tool checks and every move invalidates** — and this one is
-already wrong. It is the same class as the byte-offset test assertions converted earlier
-this week: an address that looks like a citation and silently stops pointing at anything.
+✓ **Cycle risk is genuinely nil, and this one was verified rather than asserted:** no module
+reachable from those 33 handler imports imports `mcp/stdio/server.js`. 152 modules traversed
+transitively, and the offender predicate was separately proven capable of firing before the
+null result was accepted. (Its first version tested `endsWith('/server.js')` and flagged
+`mcp/stdio/dashboard/server.js` — the ambiguous-basename hazard this document warns about,
+walked into by the instrument checking it.)
 
-Only one instance exists across both target files (`generator.js` has none), so this is a
-one-line fix during the slice, not a workstream. **Replace it with the handler's name**,
-which survives a move.
+#### ✅ CLOSED — one hazard found while verifying, fixed before the slice
+
+`mcp/stdio/server.js` contained `// … Handler at line 536 already routes it`. **A line number
+in a comment is a reference that no tool checks and every move invalidates** — and that one was
+already wrong. Same class as the byte-offset test assertions converted earlier this week: an
+address that looks like a citation and silently stops pointing at anything.
+
+**Closed:** replaced with the handler's name, which survives a move. Re-measured at `40c7e91`:
+zero `line N` citations remain in `mcp/stdio/server.js`, and `generator.js` never had any.
+
+⇒ ★ **And this section was itself the hazard for most of a day.** It went on describing an
+open defect after I had closed it, while the seam tables above it cited line ranges that had
+drifted. The document made the argument against stale citations and then became an instance of
+it — which is why the header now pins every measurement to a commit.
 
 ⇒ And it has a second payoff: `tools/list` bills **every session**, ~80% of it schema. A
 dedicated module makes that cost visible and measurable instead of buried mid-file.

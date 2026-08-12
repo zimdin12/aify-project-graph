@@ -199,12 +199,22 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
     // forgeable response-shape property, and this row is excluded from coverage numerators.
     //
     // ⚠ AND THE OLD JUSTIFICATION WAS FACTUALLY WRONG. It closed with "which needs a working
-    // clangd, which CI does not have." MEASURED 2026-08-12: there is NO CI in this repo at
-    // all — no .github/workflows, no gitlab-ci, circle, azure, travis or drone config is
-    // tracked. The real constraint is that no supported language server is installed on the
-    // developer machine (clangd, typescript-language-server, pyright, pyright-langserver and
-    // tsserver all probe ABSENT). A gap excused by a constraint that does not exist is an
-    // unexamined gap wearing a reason.
+    // clangd, which CI does not have." A cause cannot refer to a carrier that does not exist.
+    //
+    // ⇒ TWO SEPARATELY TYPED ABSENCES, measured 2026-08-12, neither generalisable to an
+    // environment nobody has inspected (dev's correction — I had collapsed them into one):
+    //
+    //   (1) NO APPLICABLE LOCAL LANGUAGE-SERVER CAPABILITY OBSERVED. clangd,
+    //       typescript-language-server, pyright, pyright-langserver and tsserver all probe
+    //       ABSENT on this machine. This says nothing about any other machine.
+    //   (2) NO TRACKED CI EXECUTION ROUTE EXISTS AT ALL. No .github/workflows, gitlab-ci,
+    //       circle, azure, travis or drone config is tracked anywhere in the repository.
+    //       So there is no CI carrier for a statement about CI to be true or false of.
+    //
+    // Neither absence implies the other, and neither is a property of the code under test.
+    // ★ A gap excused by a constraint that does not exist is an unexamined gap wearing a
+    // reason — and I only looked because dev said to probe before finalising ABSENT rather
+    // than assume. The probe falsified my own stated cause.
     //
     // NAMED CLOSER (per dev, and capability admission must be MEASURED, not inferred — a
     // binary merely existing is not closure): run a successful public graph_collect_code_intel
