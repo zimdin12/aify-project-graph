@@ -1,0 +1,51 @@
+[
+  {
+    "name": "E1 magic matched ANYWHERE, not at offset 0",
+    "file": "tests/unit/no-raw-nul-bytes.test.js",
+    "from": "    if (sig.bytes.every((b, i) => buf[i] === b)) return sig.name;",
+    "to": "    if (buf.includes(Buffer.from(sig.bytes))) return sig.name;",
+    "tests": ["tests/unit/no-raw-nul-bytes.test.js"]
+  },
+  {
+    "name": "E2 png signature truncated to 2 bytes",
+    "file": "tests/unit/no-raw-nul-bytes.test.js",
+    "from": "{ name: 'png', bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] }",
+    "to": "{ name: 'png', bytes: [0x89, 0x50] }",
+    "tests": ["tests/unit/no-raw-nul-bytes.test.js"]
+  },
+  {
+    "name": "E3 DEL (0x7f) no longer counted as a control byte",
+    "file": "tests/unit/no-raw-nul-bytes.test.js",
+    "from": "    if ((b < 0x20 && !ALLOWED_CONTROLS.has(b)) || b === 0x7f) {",
+    "to": "    if (b < 0x20 && !ALLOWED_CONTROLS.has(b)) {",
+    "tests": ["tests/unit/no-raw-nul-bytes.test.js"]
+  },
+  {
+    "name": "E4 vertical tab and form feed silently allowed",
+    "file": "tests/unit/no-raw-nul-bytes.test.js",
+    "from": "const ALLOWED_CONTROLS = new Set([0x09, 0x0a, 0x0d]);",
+    "to": "const ALLOWED_CONTROLS = new Set([0x09, 0x0a, 0x0b, 0x0c, 0x0d]);",
+    "tests": ["tests/unit/no-raw-nul-bytes.test.js"]
+  },
+  {
+    "name": "E5 tracked file list parsed by newline instead of NUL",
+    "file": "tests/unit/no-raw-nul-bytes.test.js",
+    "from": "  const out = execFileSync('git', ['ls-files', '-z'], {",
+    "to": "  const out = execFileSync('git', ['ls-files'], {",
+    "tests": ["tests/unit/no-raw-nul-bytes.test.js"]
+  },
+  {
+    "name": "E6 an unreadable file is skipped instead of failing",
+    "file": "tests/unit/no-raw-nul-bytes.test.js",
+    "from": "      unreadable.push(`${rel} (${e.code || e.message})`);\n      continue;",
+    "to": "      continue;",
+    "tests": ["tests/unit/no-raw-nul-bytes.test.js"]
+  },
+  {
+    "name": "E7 exemption membership check accepts any superset",
+    "file": "tests/unit/no-raw-nul-bytes.test.js",
+    "from": "    expect([...BINARY_FILES].sort(), 'every exemption must be on the hand-approved list')\n      .toEqual([...APPROVED_BINARY_EXEMPTIONS].sort());",
+    "to": "    for (const f of APPROVED_BINARY_EXEMPTIONS) expect([...BINARY_FILES]).toContain(f);",
+    "tests": ["tests/unit/no-raw-nul-bytes.test.js"]
+  }
+]
