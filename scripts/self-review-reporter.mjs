@@ -31,6 +31,16 @@ export default class SelfReviewReporter {
           name: task.name,
           status: task.result?.state ?? 'skipped',
           messages: (task.result?.errors || []).map((e) => e?.message ?? String(e)),
+          // ⛔ PHASE IS NOT AVAILABLE. Measured on Vitest 3.2.4: a task's `result` carries
+          // {state,startTime,retryCount,repeatCount,errors,duration} and NOTHING naming the
+          // lifecycle phase, so a `beforeEach` throw is stored in the same slot as a body
+          // assertion. The only incidental difference is the ERROR TYPE — a hook `throw new
+          // Error(...)` yields `Error`, a body `expect` yields `AssertionError` — and that is
+          // author-controlled, so it is a contamination signal, NOT route authority.
+          errorTypes: (task.result?.errors || []).map((e) => e?.name ?? 'Unknown'),
+          // Exposed by Vitest and used to refuse attempt-multiplied evidence.
+          retryCount: task.result?.retryCount ?? 0,
+          repeatCount: task.result?.repeatCount ?? 0,
         });
         return;
       }
@@ -57,7 +67,7 @@ export default class SelfReviewReporter {
     const out = process.env.SELF_REVIEW_OUT;
     if (!out) return;
     writeFileSync(out, JSON.stringify({
-      schema: 'self-review-evidence/1',
+      schema: 'self-review-evidence/2',
       cases,
       fileErrors,
       counts: {

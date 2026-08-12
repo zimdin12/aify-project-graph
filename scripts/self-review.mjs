@@ -75,6 +75,26 @@ for (const [i, m] of spec.entries()) {
   }
 }
 
+// ⛔ THE GAUGE MUST NOT BE IN THE SUBJECT POPULATION. Dev mutated ONLY the evidence reporter
+// — inserting logic that flipped a passing case to `fail` with a chosen message — and v4
+// credited CAUGHT while no production guarantee was broken. `runTests` loads the reporter from
+// the WORKING TREE, so a mutation to the gauge adjudicates itself.
+const APPARATUS = [
+  'scripts/self-review.mjs',
+  'scripts/self-review-reporter.mjs',
+  'vitest.config.js',
+  'package.json',
+  'package-lock.json',
+];
+for (const [i, m] of spec.entries()) {
+  const f = String(m.file).replace(/\\/g, '/');
+  if (APPARATUS.some((a) => f === a || f.endsWith(`/${a}`))) {
+    console.error(`⛔ spec[${i}] targets APPARATUS "${m.file}". The instrument cannot be the subject:`);
+    console.error('   a mutation to the gauge would be adjudicated by the mutated gauge.');
+    process.exit(2);
+  }
+}
+
 const files = [...new Set(spec.map((m) => m.file))];
 const pristine = new Map();
 for (const f of files) {
@@ -149,8 +169,21 @@ function restoreAndVerify() {
 // shipped it). We therefore emit our own evidence via scripts/self-review-reporter.mjs, which
 // carries the non-case error population — suite-level hook failures included.
 const REPORTER = './scripts/self-review-reporter.mjs';
+// Pinned once, from the committed blob, and re-checked around every invocation. Excluding the
+// reporter from the spec is necessary but not sufficient — anything else that rewrites it mid
+// run would still be certifying itself.
+const REPORTER_SHA = sha(gitRaw('show', 'HEAD:scripts/self-review-reporter.mjs'));
+const reporterIntact = () => {
+  try { return sha(readFileSync(join(REPO, 'scripts/self-review-reporter.mjs'), 'utf8')) === REPORTER_SHA; }
+  catch { return false; }
+};
+
 function runTests(tests, outFile) {
-  const argv = ['vitest', 'run', `--reporter=${REPORTER}`, ...tests];
+  if (!reporterIntact()) return { apparatus: 'evidence reporter bytes differ from HEAD before invocation' };
+  // ⚠ `--retry=0` is evidence hygiene, not tuning. Measured: a case with `retry: 2` emits
+  // THREE failure messages, so any message-population rule would be reasoning about attempts
+  // it never preregistered. Retries are disabled and non-zero retry/repeat counts are refused.
+  const argv = ['vitest', 'run', '--retry=0', `--reporter=${REPORTER}`, ...tests];
   let exit = 0; let signal = null; let stdio = '';
   try {
     stdio = execFileSync('npx', argv, { cwd: REPO, encoding: 'utf8', shell: true, stdio: 'pipe', env: { ...process.env, SELF_REVIEW_OUT: outFile } });
@@ -165,9 +198,10 @@ function runTests(tests, outFile) {
   catch (e) { return { apparatus: `evidence file unparseable: ${e.message}` }; }
   // SCHEMA PIN. An unsupported evidence shape is an APPARATUS failure, not a missing case —
   // otherwise a reporter change would silently degrade every arm to INVALID and read as data.
-  if (json.schema !== 'self-review-evidence/1' || !Array.isArray(json.cases) || !Array.isArray(json.fileErrors)) {
+  if (json.schema !== 'self-review-evidence/2' || !Array.isArray(json.cases) || !Array.isArray(json.fileErrors)) {
     return { apparatus: `evidence schema unsupported (got ${JSON.stringify(json.schema)})` };
   }
+  if (!reporterIntact()) return { apparatus: 'evidence reporter bytes changed DURING invocation' };
   return { exit, signal, json, stdio, argv: argv.join(' ') };
 }
 
@@ -191,7 +225,7 @@ function structuralFailure(json) {
 }
 
 let credited = 0; let notCredited = 0; let halted = false;
-console.log(`self-review v4: ${spec.length} mutation(s)   run ${runId}\n`);
+console.log(`self-review v5: ${spec.length} mutation(s)   run ${runId}\n`);
 
 for (const [i, m] of spec.entries()) {
   if (halted) { console.log(`  ${String(m.name).padEnd(46)} — SKIPPED (halted by APPARATUS_ERROR)`); continue; }
@@ -251,6 +285,29 @@ for (const [i, m] of spec.entries()) {
 
     // ── ATTRIBUTION: the expected witness must appear in THIS case's failureMessages.
     // v2 searched the whole transcript, so a case NAME or console line forged it.
+    // ⚠ ATTEMPT POPULATION. Measured: `retry: 2` yields THREE messages on one case, so any
+    // message rule without this is reasoning about attempts nobody preregistered.
+    if (same.retryCount || same.repeatCount) {
+      record(VERDICT.INVALID, `case was retried/repeated (retry=${same.retryCount}, repeat=${same.repeatCount}) — attempt-multiplied evidence`);
+      continue;
+    }
+    // ⛔ FAIL CLOSED ON UNATTRIBUTABLE ORIGIN. Vitest 3.2.4 gives no lifecycle phase, so a
+    // `beforeEach` throw occupies the SAME slot as a body assertion — dev credited a CAUGHT
+    // that way while the body never executed. Since origin cannot be established, anything
+    // that is not a single AssertionError is refused.
+    //
+    // ★ THIS IS A CONTAMINATION FILTER, NOT ROUTE AUTHORITY, and saying otherwise would be
+    // the same overclaim four rounds running: a hook CAN throw an AssertionError (call
+    // `expect` inside `beforeEach`) and would pass this. The class closer is a body-entry
+    // witness hooks cannot mint, and it is NOT BUILT.
+    if (same.messages.length !== 1) {
+      record(VERDICT.INVALID, `case carries ${same.messages.length} failure messages; exactly 1 is accountable — extra: ${same.messages.filter((x) => !x.includes(m.expect))[0]?.slice(0, 50) ?? '(none matched)'}`);
+      continue;
+    }
+    if (same.errorTypes[0] !== 'AssertionError') {
+      record(VERDICT.INVALID, `failure is a ${same.errorTypes[0]}, not an AssertionError — body origin cannot be established (hook throw impersonates the witness)`);
+      continue;
+    }
     if (!same.messages.some((msg) => msg.includes(m.expect))) {
       record(VERDICT.INVALID, `named case failed, but NOT on the preregistered assertion "${m.expect}"`);
       continue;
