@@ -35,6 +35,38 @@ function gitAt(root, args) {
 // Both captured at load: this is the process's own identity.
 const PROCESS_STARTED_AT = new Date().toISOString();
 
+// ⛔ AN OPEN PROSE CLASS CANNOT BE POLICED BY A LIST OF FORBIDDEN PHRASINGS.
+//
+// This guidance has now failed three reviews in a row, each time to a sentence the
+// previous fix did not anticipate:
+//   · two exact phrasings banned → a synonym walked through
+//   · actors enumerated (you / your / the agent / an agent) → "THIS agent" walked through
+//   · an inability-modal + restart-verb pairing → graph-senior-dev-hermes appended
+//     "Only a human operator is permitted to restart this service." and it walked through
+//     too. It is a false host-capability claim that contains no inability modal at all.
+//
+// ★ Each repair was a better blacklist, and a blacklist over natural language is never
+// finished. There is no regex that proves a paragraph makes NO claim about the reader's
+// environment; the class is open and negative evidence cannot close it.
+//
+// ⇒ SO THE PARAGRAPH BECOMES A CLOSED SET, NOT A FILTERED ONE. The restart guidance is
+// this one approved fragment. A test asserts the emitted paragraph EQUALS it after the
+// dynamic instant is substituted, so ANY added sentence — synonym, novel phrasing, or a
+// claim nobody has thought of — changes the string and fails.
+//
+// ⚠ Yes, this is a wording contract, and this session has spent all day on the damage
+// those do. The distinction that makes it correct here: a wording contract is dangerous
+// when it pins prose carrying FACTUAL CLAIMS that can go stale — it then defends the stale
+// claim against correction. This fragment is deliberately claim-FREE about the host, and
+// the contract exists precisely to keep it that way. Changing it must be a conscious edit
+// in two places, which is the point rather than the cost.
+export const RESTART_GUIDANCE =
+  ' TO CLEAR IT: this PROCESS must be restarted; reloading files or re-running the tool'
+  + ' will not do it. How to restart depends on your host (an operator /mcp reconnect or'
+  + ' CLI relaunch; in some deployments a peer agent can restart a managed session'
+  + ' directly). A session-level restart may cycle the agent worker WITHOUT respawning'
+  + ' this MCP child, so verify with the timestamp below rather than assuming it worked.';
+
 // ★★ ONE REGISTRY, TWO CONSUMERS — because they had already diverged.
 //
 // The classifier tested /\.(js|mjs|cjs|ts|json)$/ while the sentence beneath it told the
@@ -255,7 +287,7 @@ export function serverBuildInfo() {
         // THE HOST. Whether the reader can restart this process depends on who is hosting
         // it, and this server cannot know that. Only the invariant is stated — the PROCESS
         // must cycle, and the timestamp below is how you know it did.
-        + ' TO CLEAR IT: this PROCESS must be restarted; reloading files or re-running the tool will not do it. How to restart depends on your host (an operator /mcp reconnect or CLI relaunch; in some deployments a peer agent can restart a managed session directly). A session-level restart may cycle the agent worker WITHOUT respawning this MCP child, so verify with the timestamp below rather than assuming it worked.'
+        + RESTART_GUIDANCE
         // ★ AND GIVE THEM THE FIELD THAT ANSWERS "DID THE RESTART WORK".
         //
         // `commit` cannot answer it. After a failed restart it reads the same as

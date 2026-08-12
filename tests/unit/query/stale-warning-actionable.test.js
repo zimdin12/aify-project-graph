@@ -67,7 +67,7 @@ vi.mock('node:child_process', async (importOriginal) => {
   };
 });
 
-const { staleProcessWarning, serverBuildInfo, EXECUTABLE_EXTENSIONS, _resetServerBuildCache } = await import('../../../mcp/stdio/server-build.js');
+const { staleProcessWarning, serverBuildInfo, EXECUTABLE_EXTENSIONS, RESTART_GUIDANCE, _resetServerBuildCache } = await import('../../../mcp/stdio/server-build.js');
 
 // The module captured LOADED_COMMIT='aaaaaaa' on import above. Advancing the tree now is
 // what a `git pull` in the checkout does to a server that is already running.
@@ -81,6 +81,27 @@ afterEach(() => {
   head = 'aaaaaaa';
   _resetServerBuildCache();
 });
+
+// ⛔ THE APPROVAL MUST NOT COME FROM THE THING BEING APPROVED.
+//
+// My first closed-set attempt imported RESTART_GUIDANCE from server-build and compared the
+// emitted warning against it. dev's mutant appends its sentence to that very constant — so
+// production and the approval moved together and the check stayed GREEN. A contract that
+// derives its expectation from its subject cannot constrain the subject.
+//
+// ★ Exactly the trap dev named for the classifier table (deriving arms from the production
+// registry means shrinking the registry shrinks the test set), one level up and in prose.
+// I applied the lesson there and then rebuilt the same hole here within the hour.
+//
+// ⇒ This is a HAND-WRITTEN copy. Changing the guidance now requires editing it in two
+// places — production and here — which is the conscious decision the ratchet exists to
+// force. Any sentence added to the paragraph, anywhere, by anyone, fails.
+const APPROVED_RESTART_GUIDANCE =
+  ' TO CLEAR IT: this PROCESS must be restarted; reloading files or re-running the tool'
+  + ' will not do it. How to restart depends on your host (an operator /mcp reconnect or'
+  + ' CLI relaunch; in some deployments a peer agent can restart a managed session'
+  + ' directly). A session-level restart may cycle the agent worker WITHOUT respawning'
+  + ' this MCP child, so verify with the timestamp below rather than assuming it worked.';
 
 const warning = () => {
   const w = staleProcessWarning();
@@ -137,6 +158,33 @@ describe('the stale warning is actionable by whoever reads it', () => {
       diffFiles = route.files;
       _resetServerBuildCache();
       const rw = warning();
+
+      // ★★ THE CLOSED-SET CHECK, which is what actually closes this class.
+      //
+      // Everything below is a BLACKLIST, and a blacklist over natural language is never
+      // finished — this case has now failed three reviews to three sentences no previous
+      // filter anticipated, most recently dev's "Only a human operator is permitted to
+      // restart this service." (a false host-capability claim containing no inability
+      // modal at all, so every regex here missed it).
+      //
+      // ⇒ The restart guidance must be EXACTLY the approved fragment. Any added sentence —
+      // synonym, novel phrasing, or a claim nobody has imagined — changes the string and
+      // fails here, without anyone having to predict it. The regexes below are kept as
+      // cheap early diagnostics that name WHAT went wrong; this is the one that cannot be
+      // walked around.
+      expect(rw, `[${route.name}] the restart guidance must be the approved fragment, verbatim`)
+        .toContain(APPROVED_RESTART_GUIDANCE);
+
+      // ⚠ CONTAINMENT ALONE IS NOT CLOSURE — an extra sentence can sit either side of an
+      // intact fragment, which is exactly what dev's mutant did. So the guidance's
+      // boundaries are pinned: it must be immediately followed by the PROCESS STARTED
+      // sentence, and the warning must end with the commit-cannot-answer-it sentence.
+      // Together those close the two insertion points that matter.
+      const at = rw.indexOf(APPROVED_RESTART_GUIDANCE);
+      expect(rw.slice(at + APPROVED_RESTART_GUIDANCE.length), `[${route.name}] nothing may be inserted after the guidance`)
+        .toMatch(/^ PROCESS STARTED: /);
+      expect(rw.endsWith('indistinguishable by commit alone.'),
+        `[${route.name}] nothing may be appended after the final sentence`).toBe(true);
 
       // ★★ BIDIRECTIONAL LIVENESS before the prohibition is trusted. The forbidden canary
       // is the reviewer's own mutant text, so this matcher cannot be green unless it
