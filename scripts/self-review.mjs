@@ -1,57 +1,45 @@
 #!/usr/bin/env node
 // MUTATE YOUR OWN WORK BEFORE THE REVIEWER DOES.
 //
-// Every substantive finding against this repo in the last two days came from someone
-// changing production and observing that the tests stayed GREEN. Nothing about writing a
-// test tells you whether it can fail; only breaking the thing it guards does. This turns
-// that loop into something runnable instead of something remembered.
-//
 //   node scripts/self-review.mjs <spec.json>
 //
-// The spec is a list of mutations, each naming the file, an anchor to replace, its
-// replacement, and the test files that SHOULD go red:
+// Spec entries REQUIRE a preregistered witness. `case` and `expect` are not optional:
 //
-//   [{ "name": "drop a claim from the route",
-//      "file": "mcp/stdio/stale-warning-claims.js",
-//      "from": "CLAIM.VERIFY_BY_STARTED_AT, ",
-//      "to": "",
-//      "tests": ["tests/unit/query/stale-warning-claim-schema.test.js"],
-//      "case":  "every route claim is pinned",          // REQUIRED for CAUGHT credit
-//      "expect": "route must carry VERIFY_BY_STARTED_AT" }]  // the witness assertion
+//   [{ "name":   "resolver returns sample as population",
+//      "file":   "mcp/stdio/query/verbs/packet.js",
+//      "from":   "if (Number.isInteger(total) && total >= sampleLength) ...",
+//      "to":     "return { attested: true, total: sampleLength };",
+//      "tests":  ["tests/unit/query/packet-population-fail-closed.test.js"],
+//      "case":   "RESOLVER — only a producer-attested",      // must match EXACTLY ONE case
+//      "expect": "population is carried even when it equals the sample", // in ITS failureMessages
+//      "expectFailures": 1 }]                                 // optional; defaults to 1
 //
-// ★★ FOUR STATES, not two. `tests[]` alone is not enough authority to credit a catch:
+// ★★★ THIS TOOL HAS BEEN WRONG THREE TIMES, EACH TIME BY READING SHAPE INSTEAD OF ROUTE.
 //
-//   CAUGHT   — the tests were GREEN before the mutation, the NAMED case executed, and it
-//              failed carrying the PREREGISTERED assertion message. Only this earns credit.
-//   SURVIVED — exit 0 under the mutation. The guarantee does not exist. A finding.
-//   INVALID  — anything structural: parse, import, config, zero-tests, hook, timeout, a
-//              failure in some OTHER case, or a failure on a DIFFERENT assertion than the
-//              one named. Nonzero exit, ZERO credit. Also a finding — against the spec.
-//   APPARATUS_ERROR — restore/hash/parse of the apparatus itself cannot be established.
+//  v1  `|| 1` minted an assertion count from ANY nonzero exit. A `(((` syntax error that no
+//      assertion could evaluate was reported RED and the run concluded "every mutation was
+//      caught."
+//  v2  I "fixed" it by accepting a parsed `×` line — a narrower version of the same defect.
+//      graph-senior-dev-hermes then executed three more forgeries against v2:
+//        A. `expect` was OPTIONAL, so CAUGHT could be credited on case-name shape alone.
+//        B. `out.includes(expect)` was a WHOLE-OUTPUT predicate, unbound from the failed
+//           case — text in a case NAME, a console log or a sibling failure satisfied it.
+//        C. The STRUCTURAL regex list fired on VOCABULARY: a genuine intended assertion whose
+//           message contained "Unhandled error" was classified INVALID and its real CAUGHT
+//           discarded. A matcher that censors correct findings is worse than an absent one.
 //
-// ⇒ Raw per-arm vitest output is written to `.self-review-raw/` BEFORE restoration and its
-// hash is printed beside each verdict. The summary line is NOT the evidence; the raw file
-// is. A summary that cannot be traced to retained output is exactly how every historical
-// "caught" from this tool became unverifiable.
+// ⇒ v3 STOPS PARSING HUMAN TEXT. Vitest's JSON reporter yields per-case `fullName`, `status`
+// and `failureMessages`, so identity and attribution come from structure, not vocabulary.
+// There is no global text predicate anywhere in this file, by design.
 //
-// ★★ THREE CARRIER RULES, each of which I violated today at real cost:
-//
-//  1. RESTORE FROM AN IMMUTABLE OBJECT. Not a working-tree copy — a git blob. I restored
-//     from a scratch backup taken AFTER a mutation, shipped the mutation, and the
-//     contaminated tree reported GREEN because the contaminant also satisfied the
-//     exemption that hid it.
-//  2. ASSERT THE MUTATION APPLIED. A replacement whose anchor has drifted silently does
-//     nothing, and "no test failed" then means "nothing was tested". Twice today a
-//     no-op mutation read as a surviving one.
-//  3. VERIFY THE RESTORE BY HASH before running anything else. A partial restore is a
-//     second contaminated carrier, and the next result is about a tree nobody has seen.
-//
-// ⚠ Requires a CLEAN working tree for the files it touches: it restores from HEAD, so
-// uncommitted edits to those files would be destroyed. It refuses to run otherwise —
-// I have lost work to exactly that three times.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+// ★★ CARRIER RULES, each violated at real cost:
+//  1. RESTORE FROM AN IMMUTABLE OBJECT — a git blob, never a working-tree copy.
+//  2. ASSERT THE MUTATION APPLIED — a drifted anchor does nothing, and "no test failed" then
+//     means "nothing was tested".
+//  3. VERIFY THE RESTORE BY HASH, in a `finally`, before anything else runs.
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -62,174 +50,218 @@ if (!specPath) {
   process.exit(2);
 }
 
-const spec = JSON.parse(readFileSync(specPath, 'utf8'));
-const files = [...new Set(spec.map((m) => m.file))];
+const VERDICT = { SURVIVED: 'SURVIVED', CAUGHT: 'CAUGHT', INVALID: 'INVALID', APPARATUS: 'APPARATUS_ERROR' };
+const sha = (s) => createHash('sha256').update(s).digest('hex');
+// ⚠ TWO HELPERS, AND THE DISTINCTION IS LOAD-BEARING. `git()` trims, which is right for
+// rev-parse/status and CATASTROPHIC for blob content: reusing it for `git show` stripped the
+// trailing newline from every restored file, so each run silently rewrote a byte of the
+// source. Worse, `restoreAndVerify()` hashed that SAME trimmed content, so the check
+// validated against its own corruption and reported OK — a verifier that cannot see the
+// defect it was written to catch. Found because the next run refused on a dirty tree.
+const git = (...a) => execFileSync('git', a, { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }).trim();
+const gitRaw = (...a) => execFileSync('git', a, { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
-// RULE 1 — the pristine copy comes from git, not from the working tree.
-const pristine = new Map();
-for (const f of files) {
-  try {
-    pristine.set(f, execFileSync('git', ['show', `HEAD:${f}`], { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
-  } catch {
-    console.error(`⛔ ${f} is not committed at HEAD — nothing immutable to restore from`);
-    process.exit(2);
+const specRaw = readFileSync(specPath, 'utf8');
+const spec = JSON.parse(specRaw);
+
+// ── SPEC VALIDATION. `case` and `expect` were optional in v2 and dev credited a CAUGHT with
+// no assertion authority at all. Required now, before any mutation runs.
+for (const [i, m] of spec.entries()) {
+  for (const k of ['name', 'file', 'from', 'to', 'tests', 'case', 'expect']) {
+    if (!m[k] || (Array.isArray(m[k]) && !m[k].length)) {
+      console.error(`⛔ spec[${i}] "${m.name || '?'}" is missing required field "${k}" — a witness is not optional`);
+      process.exit(2);
+    }
   }
 }
 
-// Refuse to run against uncommitted edits in the target files.
-const dirty = execFileSync('git', ['status', '--porcelain', '--', ...files], { cwd: REPO, encoding: 'utf8' })
-  .split('\n').map((l) => l.trim()).filter(Boolean);
+const files = [...new Set(spec.map((m) => m.file))];
+const pristine = new Map();
+for (const f of files) {
+  try { pristine.set(f, gitRaw('show', `HEAD:${f}`)); }
+  catch { console.error(`⛔ ${f} is not committed at HEAD — nothing immutable to restore from`); process.exit(2); }
+}
+const dirty = git('status', '--porcelain', '--', ...files).split('\n').map((l) => l.trim()).filter(Boolean);
 if (dirty.length) {
   console.error('⛔ uncommitted changes in target files — commit or stash first, or this tool will destroy them:');
   for (const d of dirty) console.error(`   ${d}`);
   process.exit(2);
 }
+const baselineHash = new Map([...pristine].map(([f, s]) => [f, sha(s)]));
 
-const hash = (s) => createHash('sha1').update(s).digest('hex').slice(0, 10);
-const baseline = new Map([...pristine].map(([f, s]) => [f, hash(s)]));
+// ── RUN CUSTODY. v2 wrote `arm-NN.txt` into a fixed directory, so every run overwrote the
+// previous run's evidence and a printed hash had no durable referent. A unique run directory,
+// created EXCLUSIVELY (recursive:false throws on collision), plus a manifest binding
+// commit/tree/spec/mutation bytes to every artifact.
+const runId = randomUUID();
+const runDir = join(REPO, '.self-review-raw', runId);
+try { mkdirSync(runDir, { recursive: false }); }
+catch (e) {
+  if (e.code !== 'ENOENT') { console.error(`⛔ APPARATUS_ERROR: run directory collision or unwritable: ${e.message}`); process.exit(4); }
+  mkdirSync(join(REPO, '.self-review-raw'), { recursive: true });
+  try { mkdirSync(runDir, { recursive: false }); }
+  catch (e2) { console.error(`⛔ APPARATUS_ERROR: cannot create run dir: ${e2.message}`); process.exit(4); }
+}
+const manifest = {
+  runId,
+  startedAtIso: new Date().toISOString(),
+  commit: (() => { try { return git('rev-parse', 'HEAD'); } catch { return null; } })(),
+  tree: (() => { try { return git('rev-parse', 'HEAD^{tree}'); } catch { return null; } })(),
+  specPath,
+  specSha256: sha(specRaw),
+  node: process.version,
+  platform: `${process.platform}/${process.arch}`,
+  arms: [],
+};
+const writeManifest = () => writeFileSync(join(runDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
-// RULE 3 — restore, then PROVE the restore.
 function restoreAndVerify() {
   for (const [f, content] of pristine) writeFileSync(join(REPO, f), content);
-  for (const [f, h] of baseline) {
-    const now = hash(readFileSync(join(REPO, f), 'utf8'));
-    if (now !== h) {
-      console.error(`⛔ RESTORE FAILED for ${f} (${now} != ${h}) — refusing to continue`);
-      process.exit(3);
+  for (const [f, h] of baselineHash) {
+    if (sha(readFileSync(join(REPO, f), 'utf8')) !== h) {
+      return { ok: false, file: f };
+    }
+  }
+  return { ok: true };
+}
+
+// ── EXECUTION. Apparatus failures (spawn, signal, unparseable report) are TYPED, not folded
+// into test results. v2 collapsed ENOENT, signals and maxBuffer into the same classifier,
+// where some became INVALID by luck and none could become APPARATUS_ERROR.
+function runTests(tests, outFile) {
+  const argv = ['vitest', 'run', '--reporter=json', `--outputFile=${outFile}`, ...tests];
+  let exit = 0; let signal = null; let stdio = '';
+  try {
+    stdio = execFileSync('npx', argv, { cwd: REPO, encoding: 'utf8', shell: true, stdio: 'pipe' });
+  } catch (e) {
+    if (e.code === 'ENOENT' || e.code === 'EACCES') return { apparatus: `spawn failed: ${e.code}` };
+    if (e.signal) return { apparatus: `terminated by signal ${e.signal}` };
+    exit = e.status ?? 1; signal = e.signal ?? null; stdio = `${e.stdout || ''}${e.stderr || ''}`;
+  }
+  if (!existsSync(outFile)) return { apparatus: 'vitest produced no JSON report' };
+  let json;
+  try { json = JSON.parse(readFileSync(outFile, 'utf8')); }
+  catch (e) { return { apparatus: `JSON report unparseable: ${e.message}` }; }
+  return { exit, signal, json, stdio, argv: argv.join(' ') };
+}
+
+// Case identity comes from `fullName`, and must be UNIQUE. v2 matched substrings against the
+// whole verbose transcript, where a comment, a console line or a sibling prefix satisfied it.
+function findCases(json, needle) {
+  const all = (json.testResults || []).flatMap((f) => (f.assertionResults || []).map((a) => ({
+    fullName: a.fullName, status: a.status, messages: a.failureMessages || [], file: f.name,
+  })));
+  return { all, hits: all.filter((c) => c.fullName.includes(needle)) };
+}
+
+// Collection/setup failure is read from STRUCTURE — a file that failed while contributing no
+// case results — never from vocabulary. v2's regex list demoted a genuine CAUGHT because its
+// assertion message happened to contain "Unhandled error".
+function structuralFailure(json) {
+  for (const f of json.testResults || []) {
+    if (f.status === 'failed' && (f.assertionResults || []).length === 0) {
+      return `file "${f.name}" failed without producing any case results (collection/import/setup)`;
+    }
+  }
+  return null;
+}
+
+let credited = 0; let notCredited = 0; let halted = false;
+console.log(`self-review v3: ${spec.length} mutation(s)   run ${runId}\n`);
+
+for (const [i, m] of spec.entries()) {
+  if (halted) { console.log(`  ${String(m.name).padEnd(46)} — SKIPPED (halted by APPARATUS_ERROR)`); continue; }
+  const arm = { index: i, name: m.name, file: m.file, case: m.case, expect: m.expect };
+  const record = (verdict, why) => {
+    arm.verdict = verdict; arm.why = why; manifest.arms.push(arm); writeManifest();
+    const mark = verdict === VERDICT.CAUGHT ? '' : verdict === VERDICT.SURVIVED ? '⚠ ' : '⛔ ';
+    console.log(`  ${String(m.name).padEnd(46)} ${mark}${verdict} — ${why}`);
+    if (verdict === VERDICT.CAUGHT) credited += 1; else notCredited += 1;
+    if (verdict === VERDICT.APPARATUS) halted = true;
+  };
+
+  try {
+    const r0 = restoreAndVerify();
+    if (!r0.ok) { record(VERDICT.APPARATUS, `restore/hash failed for ${r0.file} before baseline`); break; }
+
+    // ── BASELINE, retained. v2 kept only mutant output while claiming baseline discovery.
+    const baseFile = join(runDir, `arm-${i}-baseline.json`);
+    const base = runTests(m.tests, baseFile);
+    if (base.apparatus) { record(VERDICT.APPARATUS, `baseline: ${base.apparatus}`); break; }
+    arm.baselineArtifact = { path: `arm-${i}-baseline.json`, sha256: sha(readFileSync(baseFile, 'utf8')), exit: base.exit, command: base.argv };
+
+    const b = findCases(base.json, m.case);
+    if (b.hits.length === 0) { record(VERDICT.INVALID, `named case "${m.case}" was not collected in the baseline`); continue; }
+    if (b.hits.length > 1) { record(VERDICT.INVALID, `named case "${m.case}" is AMBIGUOUS — matches ${b.hits.length} cases`); continue; }
+    const identity = b.hits[0].fullName;   // exact identity carried forward
+    arm.caseIdentity = identity;
+    if (b.hits[0].status !== 'passed') { record(VERDICT.INVALID, `named case was not PASSING before mutation (${b.hits[0].status})`); continue; }
+    if (base.exit !== 0) { record(VERDICT.INVALID, 'baseline run was not green'); continue; }
+
+    // ── MUTATE
+    const before = readFileSync(join(REPO, m.file), 'utf8');
+    const after = before.replace(m.from, m.to);
+    if (after === before) { record(VERDICT.INVALID, 'anchor missing — nothing was mutated'); continue; }
+    arm.mutation = { preSha256: sha(before), postSha256: sha(after) };
+    writeFileSync(join(REPO, m.file), after);
+
+    const mutFile = join(runDir, `arm-${i}-mutant.json`);
+    const mut = runTests(m.tests, mutFile);
+    if (mut.apparatus) { record(VERDICT.APPARATUS, `mutant: ${mut.apparatus}`); break; }
+    arm.mutantArtifact = { path: `arm-${i}-mutant.json`, sha256: sha(readFileSync(mutFile, 'utf8')), exit: mut.exit, command: mut.argv };
+
+    const structural = structuralFailure(mut.json);
+    const after1 = findCases(mut.json, m.case);
+    const same = after1.all.find((c) => c.fullName === identity);
+
+    if (!same) {
+      record(VERDICT.INVALID, structural
+        ? `the named case did not execute — ${structural}`
+        : 'the named case did not execute under the mutant (discovery/selection changed)');
+      continue;
+    }
+    if (same.status === 'passed') { record(VERDICT.SURVIVED, 'the named case executed and still passed — the guarantee does not exist'); continue; }
+    if (same.status !== 'failed') { record(VERDICT.INVALID, `named case status was "${same.status}", not a failure`); continue; }
+
+    // ── ATTRIBUTION: the expected witness must appear in THIS case's failureMessages.
+    // v2 searched the whole transcript, so a case NAME or console line forged it.
+    if (!same.messages.some((msg) => msg.includes(m.expect))) {
+      record(VERDICT.INVALID, `named case failed, but NOT on the preregistered assertion "${m.expect}"`);
+      continue;
+    }
+    // ── POPULATION: unrelated sibling failures must not ride along on a credited catch.
+    const failed = after1.all.filter((c) => c.status === 'failed');
+    const wanted = m.expectFailures ?? 1;
+    if (failed.length !== wanted) {
+      record(VERDICT.INVALID, `expected ${wanted} failing case(s), observed ${failed.length} — population does not reconcile`);
+      continue;
+    }
+    record(VERDICT.CAUGHT, 'exact case transitioned pass→fail on the preregistered assertion');
+  } finally {
+    // RULE 3 — restoration is not optional and not conditional on the path taken.
+    const r = restoreAndVerify();
+    if (!r.ok) {
+      manifest.restorationFailure = r.file;
+      writeManifest();
+      console.error(`⛔ APPARATUS_ERROR: restore/hash failed for ${r.file} — working tree may hold mutant bytes`);
+      halted = true;
     }
   }
 }
 
-// ⛔ THE OLD VERSION MINTED A CATCH FROM ANY NONZERO EXIT, AND I PROVED IT AGAINST MYSELF.
-//
-//   catch (e) { return out.split('\n').filter(l => /^\s+×/.test(l)).length || 1; }
-//
-// A mutation injecting `(((` into a function signature — a pure syntax error that no
-// assertion can evaluate — was reported `RED (1)` and the run concluded "✓ every mutation
-// was caught." The `|| 1` fabricated the count: with no `×` lines at all (parse, import,
-// collection, config or missing-file failure) it invented one.
-//
-// graph-senior-dev-hermes's ruling, and the part I got wrong when proposing the fix: a
-// parsed `×` line or a generic AssertionError is STILL too weak. Vitest prints `×` for
-// import, collection, setup, afterEach and timeout failures, and an AssertionError can
-// arise before the intended witness ever runs. I proposed a narrower version of the same
-// shape-reading defect as its own remedy.
-//
-// ⇒ The authority must be the PREREGISTERED WITNESS: the named case executed, and the
-// expected failure signature appeared. Everything else is INVALID and earns zero credit.
-const VERDICT = { SURVIVED: 'SURVIVED', CAUGHT: 'CAUGHT', INVALID: 'INVALID', APPARATUS: 'APPARATUS_ERROR' };
+manifest.finishedAtIso = new Date().toISOString();
+manifest.credited = credited;
+manifest.notCredited = notCredited;
+writeManifest();
 
-// ⚠ `--reporter=verbose` IS LOad-BEARING, not cosmetic. The default reporter does not print
-// the names of PASSING tests, so baseline case-discovery could never find the witness and
-// every arm classified INVALID — fail-closed, but useless. Caught by running the repaired
-// tool against a spec I knew should produce one INVALID and one CAUGHT, and getting two
-// INVALIDs. A tool that refuses everything is as uninformative as one that credits everything.
-function runTests(tests) {
-  const argv = ['vitest', 'run', '--reporter=verbose', ...tests];
-  try {
-    const out = execFileSync('npx', argv, { cwd: REPO, encoding: 'utf8', shell: true, stdio: 'pipe' });
-    return { exit: 0, out };
-  } catch (e) {
-    return { exit: e.status ?? 1, out: `${e.stdout || ''}${e.stderr || ''}` };
-  }
-}
-
-const strip = (s) => s.replace(/\x1B\[[0-9;]*m/g, '');
-
-// Structural failures prove nothing about the guarantee — they say the apparatus broke.
-//
-// ⚠ UNEXERCISED, STATED SO RATHER THAN IMPLIED. On the syntax-error forgery this list did
-// NOT fire: vitest reported a file-level failure and the arm was rejected one rule later, by
-// case-attribution ("something failed, but not the named case"). So the outcome was right
-// and THESE PATTERNS ARE UNTESTED. They are defence in depth behind a rule that already
-// works; do not read their presence as evidence they match anything real.
-const STRUCTURAL = [
-  [/Error: Failed to load|Cannot find module|ERR_MODULE_NOT_FOUND/, 'import/module resolution'],
-  [/SyntaxError|Transform failed|Unexpected token|Expected .* but found/, 'parse/transform'],
-  [/No test files found|no tests? (were )?(found|run)/i, 'zero tests collected'],
-  [/Error: Vitest failed to (access|load) its config|Failed to resolve config/, 'config'],
-  // ⚠ ANCHORED TO FAILURE, not to the hook's NAME. My first version listed a bare
-  // `beforeAll`, which matches any output merely mentioning it — that would classify a
-  // genuine CAUGHT as INVALID, i.e. discard real findings. A matcher that over-fires on the
-  // conservative side is still a wrong matcher.
-  [/Unhandled error|Error: Hook .* failed|(beforeAll|beforeEach|afterAll|afterEach)[^\n]{0,40}failed/, 'setup/teardown hook'],
-  [/Test timed out in \d+ms/, 'timeout'],
-];
-
-// `m` carries the preregistered witness: `case` (stable name substring) and `expect`
-// (substring of the assertion message that MUST be the one that fails).
-function classify(m, result, baselineOk) {
-  const out = strip(result.out);
-  if (!baselineOk) return { verdict: VERDICT.INVALID, why: 'named case was not green BEFORE mutation' };
-  for (const [re, label] of STRUCTURAL) {
-    if (re.test(out)) return { verdict: VERDICT.INVALID, why: `structural failure (${label}) — no assertion evaluated` };
-  }
-  if (result.exit === 0) return { verdict: VERDICT.SURVIVED, why: 'exit 0, nothing failed' };
-  if (!m.case) return { verdict: VERDICT.INVALID, why: 'spec names no witness case — cannot attribute the failure' };
-  // The named case must be the one reported failing, and the expected message must appear.
-  const failedNamed = new RegExp(`[×✗]\\s.*${escapeRe(m.case)}`).test(out);
-  if (!failedNamed) return { verdict: VERDICT.INVALID, why: `something failed, but not the named case "${m.case}"` };
-  if (m.expect && !out.includes(m.expect)) {
-    return { verdict: VERDICT.INVALID, why: `named case failed on a DIFFERENT assertion than "${m.expect}"` };
-  }
-  return { verdict: VERDICT.CAUGHT, why: m.expect ? `named case failed on the preregistered assertion` : 'named case failed' };
-}
-
-const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-let credited = 0;
-let notCredited = 0;
-const rawDir = join(REPO, '.self-review-raw');
-mkdirSync(rawDir, { recursive: true });
-console.log(`self-review: ${spec.length} mutation(s)\n`);
-
-for (const [i, m] of spec.entries()) {
-  restoreAndVerify();
-
-  // ⚠ PRE-MUTATION BASELINE, per dev: without it an ALREADY-RED test makes every mutation
-  // look caught. The named case must be discovered and green before the mutation is applied.
-  const base = runTests(m.tests);
-  const baseOut = strip(base.out);
-  const caseFound = !m.case || new RegExp(escapeRe(m.case)).test(baseOut);
-  const baselineOk = base.exit === 0 && caseFound;
-  if (!baselineOk) {
-    const why = base.exit !== 0 ? 'selected tests were NOT GREEN before mutation' : `named case "${m.case}" was never collected`;
-    console.log(`  ${String(m.name).padEnd(50)} ⛔ ${VERDICT.INVALID} — ${why}`);
-    notCredited += 1;
-    continue;
-  }
-
-  const before = readFileSync(join(REPO, m.file), 'utf8');
-  const after = before.replace(m.from, m.to);
-  // RULE 2 — a mutation that did not apply is not a surviving mutation.
-  if (after === before) {
-    console.log(`  ${String(m.name).padEnd(50)} ⛔ ${VERDICT.INVALID} — anchor missing, nothing was mutated`);
-    notCredited += 1;
-    continue;
-  }
-  writeFileSync(join(REPO, m.file), after);
-  const result = runTests(m.tests);
-
-  // RAW OUTPUT IS THE EVIDENCE CARRIER, not this summary — stored BEFORE restoration so it
-  // describes the tree that produced it, and hashed so the summary cannot drift from it.
-  const rawPath = join(rawDir, `arm-${String(i).padStart(2, '0')}.txt`);
-  writeFileSync(rawPath, result.out);
-  const rawHash = createHash('sha256').update(result.out).digest('hex').slice(0, 12);
-
-  const { verdict, why } = classify(m, result, true);
-  const mark = verdict === VERDICT.CAUGHT ? '' : verdict === VERDICT.SURVIVED ? '⚠ ' : '⛔ ';
-  console.log(`  ${String(m.name).padEnd(50)} ${mark}${verdict} — ${why}  [raw ${rawHash}]`);
-  if (verdict === VERDICT.CAUGHT) credited += 1; else notCredited += 1;
-}
-restoreAndVerify();
-
-console.log(`\nrestore verified against HEAD blobs. raw output: ${rawDir}`);
+console.log(`\nrun custody: ${runDir}`);
 console.log(`CAUGHT (credited): ${credited}   not credited: ${notCredited}`);
-// ★ Only CAUGHT earns credit. INVALID exits nonzero and earns ZERO — a structural failure
-// is not a guarantee, and treating it as one is precisely what made every historical
-// "caught" from this tool unverifiable.
-if (notCredited > 0) {
-  console.error(`⛔ ${notCredited} arm(s) SURVIVED or were INVALID — findings, not coverage.`);
+// ⚠ NOT DONE, stated rather than implied: mutations still run in THIS checkout, not in a
+// disposable per-arm worktree. A kill between mutate and restore leaves mutant bytes on disk;
+// the manifest records the arm but cannot rewrite history. That is dev's redesign item 7 and
+// it is open.
+if (notCredited > 0 || halted) {
+  console.error(`⛔ ${notCredited} arm(s) SURVIVED / INVALID / APPARATUS — findings, not coverage.`);
   process.exit(1);
 }
-console.log('✓ every mutation was caught by its preregistered witness.');
+console.log('✓ every mutation was caught by its exact preregistered witness.');
