@@ -1,5 +1,56 @@
 # Refactor proposal — two files, verified seams
 
+> # ✅ EXECUTED 2026-08-12. This section is the OUTCOME; everything below is the plan it was
+> # judged against, including the three places the plan was wrong.
+>
+> | | before | after |
+> |---|---|---|
+> | `mcp/stdio/server.js` | 1395 | **738** + `tools/schema.js` 680 |
+> | `mcp/stdio/brief/generator.js` | 1966 | **560** + graph-shape 571 · render 613 · extract 200 · artifacts 87 |
+>
+> **The stated target — no file over ~710 — is met.** Five slices, each its own commit, each
+> with full suite + smoke green before the next: `c8cc8eb` · `c306196` · `cb7c023` · `a76e437` ·
+> `067e3ad`.
+>
+> **Behaviour proven unchanged rather than asserted:** the `tools/list` payload was captured from
+> a detached worktree at the pre-refactor commit and compared byte-for-byte —
+> `e0f83fc27088885f` before and after, covering descriptions and input schemas, not just the 17
+> names. `HIDDEN_FULL_TOOL_NAMES` reachable stayed 0 of 11, independently re-checked in the field
+> by ef-manager after each slice.
+>
+> ## What the plan got wrong, and what that cost
+>
+> 1. **"a pure data literal with no inbound or outbound coupling"** — false. `TOOLS` carries 42
+>    handler references; 34 imports moved with it. The slice is still safe (cycle risk verified
+>    nil across 152 modules) but it is coupling, not data movement.
+> 2. **"the verified-cleanest seam … no back-references into analysis"** — false, and it would
+>    have produced a **circular import**. `brief/artifacts.js` (slice 2a) exists only because the
+>    renderers could not move until `computeCoverage` and the task readers landed where both
+>    sides could import them. That slice is not in this plan at all.
+> 3. **"THE ONE function that crosses"** — there are three (`entryPoints`, `repoSnapshot`,
+>    `extractExports`), and the plan filed `entryPoints` under db-only as the FIRST entry of that
+>    group while it calls `detectFromPackageJson`.
+>
+> ⇒ **The crossers were left with orchestration rather than split.** Splitting a crosser to force
+> a clean boundary moves the defect into the seam instead of naming it: a symbol that genuinely
+> belongs to two modules is a fact about the design, and forcing it into one produces a
+> clean-looking boundary with a hidden coupling.
+>
+> ## ★ The rule this refactor produced, which generalises past it
+>
+> The extraction planner written *for* this work enumerated imports and function calls, never
+> module constants, and reported **"movers call, stays behind: none"**. Five constants were left
+> behind; the suite caught it. **A partial check reporting a clean result** — the same defect as
+> `ALL 16 BY LANGUAGE` and every cap-as-total in this repo, committed inside the tool built to
+> prevent it.
+>
+> > **Emit the basis next to the number.** `movers call, stays behind: none (checked: imports,
+> > function calls — NOT module constants)`. A clean result that names what it examined cannot be
+> > mistaken for an exhaustive one.
+>
+> ef-manager's framing, and it is the strongest form of the argument: *a checker which does not
+> publish its scope will eventually be trusted beyond it, including by its author.*
+
 > ## ⚠ READ THIS FIRST — this document went stale in under a day, and it predicted that
 >
 > **Measurements below are pinned to the commit at which they were taken.** They were not,
