@@ -325,10 +325,28 @@ if (intervalProblems.length) {
   // (a coherent snapshot via the SQLite backup API or a governed checkpoint protocol), keeping
   // this total byte-tree identity under its current name and claim. Not a narrowing of it.
   if (intervalProblems.some((p) => p.includes('.aify-graph'))) {
-    console.error('\n   ENVIRONMENTAL LIMIT: `.aify-graph` moved because the suite opened the graph DB');
-    console.error('   (SQLite -wal/-shm). `-wal` can carry COMMITTED pages, so it is NOT excluded by');
-    console.error('   name — doing so could give different committed states the same identity.');
-    console.error('   Re-run with the database quiescent, or accept that this run is unbindable.');
+    // ⛔ EVIDENCE, NOT AN ASSERTED CAUSE. This block previously read ".aify-graph moved BECAUSE
+    // the suite opened the graph DB (SQLite -wal/-shm)" — upgrading one observed run into a
+    // known cause for every future one. The gate observes MOVEMENT; it does not establish why.
+    // A future move could be a hook, a concurrent writer, a test mutation, or another file
+    // entirely. Assigning cause from a substring is the same defect this whole file exists to
+    // prevent, committed in its own diagnostic.
+    const before = new Set(carrier.aifyGraph.entries ?? []);
+    const after = new Set(graphAfter.entries ?? []);
+    const added = [...after].filter((e) => !before.has(e));
+    const removed = [...before].filter((e) => !after.has(e));
+    console.error('\n   OBSERVED population change in `.aify-graph`:');
+    if (added.length) console.error(`     + ${added.slice(0, 10).join(', ')}${added.length > 10 ? ` … (+${added.length - 10})` : ''}`);
+    if (removed.length) console.error(`     - ${removed.slice(0, 10).join(', ')}${removed.length > 10 ? ` … (-${removed.length - 10})` : ''}`);
+    if (!added.length && !removed.length) console.error('     (population identical — content or coverage changed instead)');
+    console.error('   ONE KNOWN CAUSE is SQLite sidecars (-wal/-shm) created during database access;');
+    console.error('   inspect the paths above rather than assuming it. `-wal` is NOT excluded by name:');
+    console.error('   it can carry COMMITTED pages, so excluding it could give two different committed');
+    console.error('   states one identity.');
+    console.error('   Remedies: run with `.aify-graph` typed ABSENT if that is the intended carrier;');
+    console.error('   eliminate the generated-state writes; or build the separate coherent semantic');
+    console.error('   snapshot identity. Quiescence cannot be presumed from a re-run — this suite');
+    console.error('   opens the database itself.');
   }
   process.exit(1);
 }
