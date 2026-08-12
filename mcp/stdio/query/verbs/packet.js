@@ -765,11 +765,42 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     lines.push('  Ambiguity short-circuits the symbol→feature lookup, so this packet has NOT');
     lines.push('  established that the symbol maps to no feature. Do not read it as unmapped.');
     lines.push(snapshot);
-    // Keep the candidate lines from the consequences string (cap to stay budgeted).
-    const candidateLines = trimmed.split('\n').filter((l) => l.startsWith('- ')).slice(0, 6);
+    // ⛔ THE THIRD ROUTE. This branch kept the candidate rows and DROPPED the population that
+    // was sitting in the same string. ef-manager, on real C++ with no overlay: `GpuMaterial`
+    // printed five candidates with no count, no truncation marker and no cross-language
+    // finding, while `graph_consequences` — the source of this very text — printed
+    // "16 concrete candidates found", "SHOWING 5 OF 16 — 11 omitted" and the DUPLICATE finding
+    // for the same symbol in the same repo. Eleven definitions silently absent, including the
+    // sole C++ declaration.
+    //
+    // ★ Same cap-as-total defect fixed twice already in this verb, surviving in a THIRD branch:
+    // a fix applied per-route does not cover the other routes reading the same data. And the
+    // block is meticulous about a DIFFERENT unknown four lines up — it explains at length that
+    // feature mapping was NOT CHECKED — so one unknown was disclosed with care while the other
+    // was not disclosed at all.
+    //
+    // ⇒ Nothing is recomputed here. The population, the omission and the finding are carried
+    // through from the text this branch is already reading.
+    const consequenceLines = trimmed.split('\n');
+    const allCandidates = consequenceLines.filter((l) => l.startsWith('- '));
+    const candidateLines = allCandidates.slice(0, 6);
+    const statedTotal = Number(trimmed.match(/(\d+)\s+concrete candidates/)?.[1] ?? NaN);
+    const crossLanguage = consequenceLines.find((l) => /CROSS-LANGUAGE DUPLICATE/.test(l));
     if (candidateLines.length) {
-      lines.push('CANDIDATES:');
+      // Two caps can apply: consequences already sampled, and this packet samples again.
+      // The header states what is SHOWN HERE against the producer-attested population — and
+      // says UNKNOWN rather than guessing when the producer did not state one.
+      const attested = Number.isInteger(statedTotal) && statedTotal >= candidateLines.length;
+      lines.push(attested
+        ? `CANDIDATES — showing ${candidateLines.length} of ${statedTotal}${statedTotal > candidateLines.length ? ` (${statedTotal - candidateLines.length} not listed here)` : ''}:`
+        : `CANDIDATES — showing ${candidateLines.length}; total population UNKNOWN (not stated by graph_consequences):`);
       lines.push(...candidateLines);
+      // The duplicate finding is a FINDING, not decoration — it was already computed and this
+      // branch was throwing it away.
+      if (crossLanguage) lines.push(`  ${crossLanguage.trim()}`);
+      if (attested && statedTotal > candidateLines.length) {
+        lines.push(`  NEXT: graph_whereis(symbol="${symbol}") — every definition, unsampled`);
+      }
     }
     // The disambiguating step comes first here: on this path the useful next move
     // is to narrow the target, not to re-ask the same ambiguous question.

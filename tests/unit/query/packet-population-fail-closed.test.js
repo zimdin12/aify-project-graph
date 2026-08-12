@@ -44,7 +44,7 @@ afterEach(async () => {
 // is EMPTY — so an empty overlay is what makes packet fall through to graphConsequences at
 // :872. With ANY feature present (even an unrelated one) the cheap producer answers and
 // synthesizes its own `symbols_total`, and a producer-side mutation is invisible.
-async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false } = {}) {
+async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false, distinctFiles = false } = {}) {
   const repo = await mkdtemp(join(tmpdir(), 'apg-popclosed-'));
   await mkdir(join(repo, '.aify-graph'), { recursive: true });
   execFileSync('git', ['-C', repo, 'init', '-q'], { stdio: 'ignore' });
@@ -63,13 +63,24 @@ async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false } =
     }],
   }));
   const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
-  // One canonical key (one label, one file) so the rows clear BOTH ambiguity guards and
-  // reach the structured `matched` route — the canonical-collapse shape.
+  // Default: one canonical key (one label, ONE file) so the rows clear BOTH ambiguity guards
+  // and reach the structured `matched` route — the canonical-collapse shape.
+  //
+  // `distinctFiles`: many files, so the rows are GENUINELY ambiguous and short-circuit to the
+  // AMBIGUOUS string route instead. Mixed languages so the cross-language finding has something
+  // to find. This is the third branch, and no fixture reached it until ef-manager hit it on
+  // real C++.
   for (let i = 0; i < defs; i += 1) {
     db.run(
       `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, extra)
-       VALUES ($id, 'Class', 'GpuMaterial', 'engine/GpuMaterialPalette.h', $l, $e, 'cpp', 1, '{}')`,
-      { id: `n${i}`, l: 10 + i, e: 20 + i },
+       VALUES ($id, 'Class', 'GpuMaterial', $f, $l, $e, $lang, 1, '{}')`,
+      {
+        id: `n${i}`,
+        f: distinctFiles ? `engine/shaders/mirror_${i}.glsl` : 'engine/GpuMaterialPalette.h',
+        l: 10 + i,
+        e: 20 + i,
+        lang: distinctFiles && i > 0 ? 'glsl' : 'cpp',
+      },
     );
   }
   db.close();
@@ -155,6 +166,31 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
     // must NOT appear — otherwise this arm would pass whether or not the producer worked.
     expect(text, 'UNKNOWN here would mean the producer contract silently broke')
       .not.toMatch(/population UNKNOWN/);
+  }, 30_000);
+
+  it('★★★ THIRD ROUTE — the AMBIGUOUS branch must carry the population it is already reading', async () => {
+    // ⛔ ef-manager, on real C++ (echoes, no overlay): `GpuMaterial` printed FIVE candidates
+    // with no count, no truncation marker and no cross-language finding — while
+    // `graph_consequences`, the source of that very text, printed "16 concrete candidates
+    // found", "SHOWING 5 OF 16 — 11 omitted" and the DUPLICATE finding for the same symbol in
+    // the same repo. Eleven definitions silently absent, including the sole C++ declaration.
+    //
+    // ★ Third branch of one verb with the same cap-as-total defect. A fix applied per-route
+    // does not cover the other routes reading the same data — two branches got population and
+    // this one did not, and no fixture reached it. That is a route-coverage failure, not a
+    // C++-specific one: a JS fixture COULD have caught it if it had been aimed here.
+    //
+    // ⇒ Their construction method, which is the reusable part: a graph with NO overlay forces
+    // every symbol off the feature route. Here that is `features: []`.
+    repoRoot = await makeRepo({ defs: 16, noFeatures: true, distinctFiles: true });
+    const out = await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' });
+    const text = typeof out === 'string' ? out : JSON.stringify(out);
+
+    expect(text, 'this fixture must reach the AMBIGUOUS branch').toMatch(/AMBIGUOUS/);
+    expect(text, 'the producer-attested population must be carried through').toMatch(/showing \d+ of 16/);
+    expect(text, 'the omission must be stated, not left to be inferred').toMatch(/not listed here/);
+    // Hand-written negative: a bare CANDIDATES header is the defect ef-manager found.
+    expect(text, 'a bare candidate list implies the enumeration is complete').not.toMatch(/CANDIDATES:\n/);
   }, 30_000);
 
   it('★★ CHEAP-ROUTE CONSUMER 2 (feature branch / DEFINED IN) is wired to the SAME resolver', async () => {
