@@ -48,20 +48,71 @@ const git = (...a) => {
 // ⇒ I attributed a cause from a correlation I had not checked, in the same message where I
 // was reporting on the danger of unattributed claims. The digest field below is what makes
 // that checkable by anyone, including me.
+// ⛔ THE DIGEST USED TO SKIP SUBDIRECTORIES SILENTLY (`if (!st.isFile()) continue`), so two
+// materially different graph states could share one digest. graph-senior-dev-hermes's ruling,
+// taken over my first proposal of merely ANNOTATING the omission: annotating produces an
+// incompleteness receipt, NOT a graph identity. Cover the declared population recursively or
+// refuse to emit. Unreadable or special entries fail closed rather than being skipped.
 function graphIdentity() {
   const dir = join(REPO, '.aify-graph');
   if (!existsSync(dir)) return { present: false, reason: 'absent (gitignored; repo not indexed here)' };
   const h = createHash('sha256');
   const files = [];
-  for (const name of readdirSync(dir).sort()) {
-    const p = join(dir, name);
-    let st;
-    try { st = statSync(p); } catch { continue; }
-    if (!st.isFile()) continue;
-    files.push(name);
-    h.update(name).update(readFileSync(p));
-  }
+  const problems = [];
+  const walk = (abs, rel) => {
+    let entries;
+    try { entries = readdirSync(abs).sort(); }
+    catch (e) { problems.push(`${rel || '.'}: unreadable directory (${e.code})`); return; }
+    for (const name of entries) {
+      const childAbs = join(abs, name);
+      const childRel = rel ? `${rel}/${name}` : name;
+      let st;
+      try { st = statSync(childAbs); }
+      catch (e) { problems.push(`${childRel}: unstattable (${e.code})`); continue; }
+      if (st.isDirectory()) { h.update(`D:${childRel}`); walk(childAbs, childRel); continue; }
+      if (!st.isFile()) { problems.push(`${childRel}: not a regular file`); continue; }
+      try { h.update(`F:${childRel}`).update(readFileSync(childAbs)); files.push(childRel); }
+      catch (e) { problems.push(`${childRel}: unreadable (${e.code})`); }
+    }
+  };
+  walk(dir, '');
+  // A digest that could not read part of its declared population is not an identity.
+  if (problems.length) return { present: true, digest: null, files, incomplete: problems.slice(0, 10) };
   return { present: true, files, digest: h.digest('hex').slice(0, 16) };
+}
+
+// ⛔ THE OLD GUARD TESTED THE WRONG PROPERTY. It asked "is the tree dirty"
+// (`typeof trackedStatus !== 'string'`) when the claim it defends is "this count is
+// ATTRIBUTABLE TO A COMMIT". A non-git carrier set that field to the STRING
+// 'unknown (not a git repo?)', so the guard passed and the script emitted `commit: null`
+// and exited 0 — an unattributed receipt in a format that reads as rigorous.
+//
+// ⚠ My FIRST fix for that was also wrong. It chained `commit === null` → `tree === null` →
+// `typeof !== 'string'`, which a real work tree whose STATUS LOOKUP FAILS passes cleanly:
+// commit and tree resolve, and the status string still claims "not a git repo?" about a repo
+// that IS one. Root cause both times: `git()` collapses every failure to null, so "not a repo"
+// and "the status call failed" are indistinguishable at the call site.
+//
+// ⇒ The failure modes are classified HERE, where they are still distinct. Verified against
+// four arms — non-git dir; clean tree; dirty tree; and a real work tree with GIT_INDEX_FILE
+// pointed at a directory so `status` fails while `rev-parse --is-inside-work-tree` succeeds.
+// (`GIT_DIR` does NOT work for that arm: it breaks detection first, so the test silently
+// exercises the non-git case under the lookup-failure name.)
+function carrierValidity() {
+  if (git('rev-parse', '--is-inside-work-tree') !== 'true') {
+    return { state: 'not_git', detail: 'not a git working copy — nothing to attribute counts to' };
+  }
+  const commit = git('rev-parse', 'HEAD');
+  const tree = git('rev-parse', 'HEAD^{tree}');
+  const status = git('status', '--porcelain');
+  const missing = [['commit', commit], ['tree', tree], ['status', status]]
+    .filter(([, v]) => v === null).map(([k]) => k);
+  if (missing.length) {
+    return { state: 'lookup_failed', missing, detail: `inside a work tree but git could not report: ${missing.join(', ')}` };
+  }
+  const dirty = status.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (dirty.length) return { state: 'dirty', dirty: dirty.length, files: dirty.slice(0, 20) };
+  return { state: 'ok', commit, tree };
 }
 
 function vitestCarrier() {
@@ -78,16 +129,17 @@ function vitestCarrier() {
   };
 }
 
+const validity = carrierValidity();
+// ⚠ Resolved for DISPLAY in every state, and attributable in none but `ok`. My first version
+// populated these only from the `ok` result, so a dirty tree printed "commit null (tree
+// undefined)" — which reads as "this is not a git repo" about a repo that plainly is one.
+// That is the same confusion the old `'unknown (not a git repo?)'` string caused, reintroduced
+// by the fix for it. The STATE says whether the count is bound; these say what it was bound to.
 const carrier = {
-  commit: git('rev-parse', 'HEAD'),
-  tree: git('rev-parse', 'HEAD^{tree}'),
+  validity,
+  commit: validity.commit ?? git('rev-parse', 'HEAD'),
+  tree: validity.tree ?? git('rev-parse', 'HEAD^{tree}'),
   branch: git('rev-parse', '--abbrev-ref', 'HEAD'),
-  trackedStatus: (() => {
-    const s = git('status', '--porcelain');
-    if (s === null) return 'unknown (not a git repo?)';
-    const lines = s.split('\n').map((l) => l.trim()).filter(Boolean);
-    return lines.length === 0 ? 'clean' : { dirty: lines.length, files: lines.slice(0, 20) };
-  })(),
   aifyGraph: graphIdentity(),
   vitest: vitestCarrier(),
   platform: { os: process.platform, arch: process.arch, node: process.version },
@@ -134,17 +186,24 @@ if (process.argv.includes('--json')) {
   console.log('SUITE RECEIPT');
   if (!counts.parsed) console.log('  ⛔ SUMMARY LINES NOT FOUND — counts below are unparsed sentinels');
   console.log(`  counts        ${counts.passed} passed · ${counts.failed > 0 ? `${counts.failed} FAILED · ` : ''}${counts.skipped} skipped · ${counts.testFiles} files`);
-  console.log(`  commit        ${carrier.commit}  (tree ${carrier.tree?.slice(0, 12)})`);
-  console.log(`  tracked       ${typeof carrier.trackedStatus === 'string' ? carrier.trackedStatus : `DIRTY (${carrier.trackedStatus.dirty} files)`}`);
-  console.log(`  .aify-graph   ${carrier.aifyGraph.present ? `present, ${carrier.aifyGraph.files.length} files, digest ${carrier.aifyGraph.digest}` : carrier.aifyGraph.reason}`);
+  console.log(`  commit        ${carrier.commit ?? '(none — not a git working copy)'}  (tree ${carrier.tree?.slice(0, 12) ?? 'n/a'})`
+    + `${validity.state === 'ok' ? '' : '   ⚠ NOT the carrier of these counts — see `carrier` below'}`);
+  console.log(`  carrier       ${validity.state}${validity.detail ? ` — ${validity.detail}` : ''}${validity.dirty ? ` (${validity.dirty} files)` : ''}`);
+  console.log(`  .aify-graph   ${carrier.aifyGraph.present
+    ? (carrier.aifyGraph.digest
+      ? `present, ${carrier.aifyGraph.files.length} entries, digest ${carrier.aifyGraph.digest}`
+      : `present, ${carrier.aifyGraph.files.length} entries, DIGEST WITHHELD — ${carrier.aifyGraph.incomplete.join('; ')}`)
+    : carrier.aifyGraph.reason}`);
   console.log(`  vitest pool   ${carrier.vitest.pool}`);
   console.log(`  platform      ${carrier.platform.os}/${carrier.platform.arch} node ${carrier.platform.node}`);
 }
 
-// A dirty tree does not invalidate the run, but it does mean the count is NOT attributable
-// to the commit — so it is refused as a commit-bound receipt rather than quietly reported.
-if (typeof carrier.trackedStatus !== 'string') {
-  console.error('\n⚠ TREE IS DIRTY — this count is not attributable to the commit above.');
+// ONLY `ok` MAY EMIT. The run may be perfectly real in every other state — what fails is the
+// ATTRIBUTION, and a receipt whose attribution fails is worse than no receipt because it
+// launders an unbound number through a rigorous-looking format.
+if (validity.state !== 'ok') {
+  console.error(`\n⛔ NOT COMMIT-BOUND [${validity.state}]: ${validity.detail ?? `${validity.dirty} tracked files differ from the commit`}`);
+  console.error('   The counts above are real; their ATTRIBUTION is not. No commit-bound receipt emitted.');
   process.exit(1);
 }
 if (counts.failed > 0) process.exit(1);
