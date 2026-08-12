@@ -193,6 +193,30 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
     expect(text, 'a bare candidate list implies the enumeration is complete').not.toMatch(/CANDIDATES:\n/);
   }, 30_000);
 
+  it('★★★ FOURTH STATE — above the retrieval cap the population is a FLOOR, not a total', async () => {
+    // ⛔ ef-manager built the case both of us had recorded as untested: 60 definitions, above
+    // the 50-row retrieval cap. `graph_consequences` was exactly right — "AT LEAST 50 concrete
+    // candidates, identified from 50 of 60 matching rows — the full ambiguity population is NOT
+    // established (retrieval was capped before grouping)". The packet rendered `showing 5 of
+    // 50`: THE CAP AS THE POPULATION, when the truth is 60 and the sibling says so.
+    //
+    // ★ The three-state vocabulary was one state short. `of N` is the only wrong choice
+    // available here — 50 is real and useful, so it is not UNKNOWN, and it is not the total.
+    //
+    // ⚠ AND THIS IS WHY THE SHARED RENDERER WAS NOT ENOUGH — ef-manager's point, which the
+    // parity arm below CANNOT catch: a renderer handed the bare integer 50 prints "of 50" in
+    // every branch at once, and parity passes with both routes agreeing on the same wrong word.
+    // Exactness has to travel WITH the value. This arm is the one that fails if it does not.
+    repoRoot = await makeRepo({ defs: 60, noFeatures: true, distinctFiles: true });
+    const text = String(await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' }));
+
+    expect(text, 'a capped population must be rendered as a floor').toMatch(/AT LEAST/);
+    expect(text, 'the rows seen vs matched must be stated').toMatch(/matching rows/);
+    expect(text, 'the reader must be told grouping happened after the cap').toMatch(/FLOOR/);
+    // Hand-written negative: the exact wrong rendering ef-manager measured.
+    expect(text, 'the retrieval cap must never be printed as the total').not.toMatch(/showing \d+ of 50\b/);
+  }, 60_000);
+
   it('★★★ BRANCH PARITY — both routes emit the SAME disclosures, from one renderer', async () => {
     // ⛔ THE DIVERGENCE THIS EXISTS TO PREVENT. After the third per-branch fix, ef-manager
     // compared the two survivors and found a fourth: both branches printed the CROSS-LANGUAGE
