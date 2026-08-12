@@ -262,7 +262,10 @@ const receipt = {
   counts, carrier, generatedAt: new Date().toISOString(),
   runner: {
     argv: invocation.argv, shell: invocation.shell,
-    resolution: 'npx + shell:true — AMBIENT, not a pinned binary path',
+    // ⚠ NOT PINNED RUNNER CUSTODY, and it must not be described as such. This binds the
+    // OBSERVED package version and the command description — not an immutable executable path.
+    // `npx` + `shell:true` resolves through PATH and node_modules at run time.
+    resolution: 'npx + shell:true — AMBIENT resolution; observed version only, NOT pinned custody',
     vitestVersion: runnerVersion,
     status: child.status, signal: child.signal, spawnError: child.spawnError,
   },
@@ -302,6 +305,31 @@ if (intervalProblems.length) {
   console.error('\n⛔ ATTRIBUTION INTERVAL BROKEN — the carrier changed while the suite ran:');
   for (const p of intervalProblems) console.error(`   · ${p}`);
   console.error('   These counts cannot be attributed to the commit above. No receipt emitted.');
+  // ⚠ ENVIRONMENTAL APPLICABILITY LIMIT, stated where someone hitting it will read it.
+  //
+  // If the movement is `.aify-graph`, the usual cause is SQLite sidecars — `graph.sqlite-wal`
+  // and `-shm` — appearing because tests opened the graph database. This refusal is CORRECT
+  // and is not a bug to be tuned away:
+  //
+  // ★ `-wal` IS NOT MERELY A READ ARTIFACT. In WAL mode it can hold COMMITTED database pages
+  // that have not yet been checkpointed into `graph.sqlite`. Excluding it by name would let two
+  // semantically DIFFERENT committed graph states share one identity — and no test over
+  // filename presence could ever establish that a given WAL carried no committed state.
+  // graph-senior-dev-hermes's ruling, and the reason I did not know when I proposed excluding it.
+  //
+  // ⇒ Consequence, accepted rather than worked around: this receipt cannot presently bind a run
+  // whose database access changes the byte-total generated state. That is AVAILABILITY, not
+  // false authority — the mechanism refusing here is it working, not failing.
+  //
+  // The way out, if availability ever becomes necessary, is a NEW semantic graph-state identity
+  // (a coherent snapshot via the SQLite backup API or a governed checkpoint protocol), keeping
+  // this total byte-tree identity under its current name and claim. Not a narrowing of it.
+  if (intervalProblems.some((p) => p.includes('.aify-graph'))) {
+    console.error('\n   ENVIRONMENTAL LIMIT: `.aify-graph` moved because the suite opened the graph DB');
+    console.error('   (SQLite -wal/-shm). `-wal` can carry COMMITTED pages, so it is NOT excluded by');
+    console.error('   name — doing so could give different committed states the same identity.');
+    console.error('   Re-run with the database quiescent, or accept that this run is unbindable.');
+  }
   process.exit(1);
 }
 // A present generated state with no usable identity cannot back a commit-bound receipt.
