@@ -1,0 +1,172 @@
+// AN ABSENT POPULATION MUST NOT RENDER AS A MEASURED ONE.
+//
+// Both packet consumers used to read `matched?.symbols_total ?? symHits.length`. That `??`
+// conflates two states which must never look alike:
+//   1. a producer that MEASURED the population and found total === sample.length;
+//   2. a producer that omitted it, or does not know.
+//
+// ⛔ THIS IS NOT HYPOTHETICAL. While `symbols_total` was wrongly deleted from
+// graphConsequences (2026-08-12, restored same day at dfa198a), this fallback silently
+// substituted the sample for the population and printed "UNRANKED (3 matches)" on a repo with
+// NINE definitions. The packet tests stayed green throughout — the fallback did not merely
+// fail to catch the deletion, it ABSORBED it and manufactured a confident wrong number.
+//
+// graph-senior-dev-hermes's ruling, implemented here: `symHits.length` is a display count,
+// not a population authority. A total is usable only when producer-attested AND internally
+// consistent (>= the sample it accompanies); everything else is `unknown`. A boolean cannot
+// mint a count — `symbols_truncated === false` with no total is still unknown.
+//
+// ⚠ WHY THE MATRIX IS TESTED DIRECTLY: the producer now always supplies the field, so the
+// absent/null/invalid states are not reachable end-to-end without mutating production. Those
+// arms are asserted against the resolver itself; the two integration arms below prove each
+// CONSUMER is wired to it. Both layers are needed — the resolver being right does not prove
+// a call site uses it, which is the exact split that let one consumer stay broken for a day
+// after the other was "fixed".
+import { describe, it, expect, afterEach } from 'vitest';
+import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { graphPacket, resolvePopulation } from '../../../mcp/stdio/query/verbs/packet.js';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
+
+let repoRoot;
+afterEach(async () => {
+  if (repoRoot) { try { await rm(repoRoot, { recursive: true, force: true }); } catch { /* windows lock */ } }
+  repoRoot = undefined;
+});
+
+// `anchorSymbol` decides WHICH consumer is exercised: anchored -> the feature branch
+// (matchedViaSymbol / "DEFINED IN"), unanchored -> the symbol-pointer branch ("UNRANKED").
+//
+// ★ `noFeatures` IS THE DOOR TO THE EXPENSIVE ROUTE, and finding it took a surviving mutant.
+// `resolveFeatureForSymbolCheap` (packet.js:853) returns null when `functionality.features`
+// is EMPTY — so an empty overlay is what makes packet fall through to graphConsequences at
+// :872. With ANY feature present (even an unrelated one) the cheap producer answers and
+// synthesizes its own `symbols_total`, and a producer-side mutation is invisible.
+async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false } = {}) {
+  const repo = await mkdtemp(join(tmpdir(), 'apg-popclosed-'));
+  await mkdir(join(repo, '.aify-graph'), { recursive: true });
+  execFileSync('git', ['-C', repo, 'init', '-q'], { stdio: 'ignore' });
+  execFileSync('git', ['-C', repo, '-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-qm', 'i'], { stdio: 'ignore' });
+  const commit = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  await writeFile(join(repo, '.aify-graph', 'manifest.json'), JSON.stringify({
+    commit, indexedAt: new Date().toISOString(), nodes: 0, edges: 0,
+    schemaVersion: 4, extractorVersion: '0.1.0', status: 'ok',
+    dirtyFiles: [], dirtyEdges: [], dirtyEdgeCount: 0,
+  }));
+  await writeFile(join(repo, '.aify-graph', 'functionality.json'), JSON.stringify({
+    features: noFeatures ? [] : [{
+      id: anchorSymbol ? 'mat' : 'unrelated',
+      name: anchorSymbol ? 'mat' : 'unrelated',
+      anchors: { symbols: [anchorSymbol ? 'GpuMaterial' : 'somethingElse'], files: [] },
+    }],
+  }));
+  const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+  // One canonical key (one label, one file) so the rows clear BOTH ambiguity guards and
+  // reach the structured `matched` route — the canonical-collapse shape.
+  for (let i = 0; i < defs; i += 1) {
+    db.run(
+      `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, extra)
+       VALUES ($id, 'Class', 'GpuMaterial', 'engine/GpuMaterialPalette.h', $l, $e, 'cpp', 1, '{}')`,
+      { id: `n${i}`, l: 10 + i, e: 20 + i },
+    );
+  }
+  db.close();
+  return repo;
+}
+
+describe('an unattested population must render as UNKNOWN, never as the sample', () => {
+  // ---- the resolver matrix. Hand-written expectations, one row per state dev enumerated.
+  it('★★ RESOLVER — only a producer-attested, internally consistent total is usable', () => {
+    // attested, total === sample: a MEASURED equality, and it must stay distinguishable
+    // from an absent field that happens to produce the same number.
+    expect(resolvePopulation(3, 3)).toEqual({ attested: true, total: 3 });
+    // attested, total > sample
+    expect(resolvePopulation(9, 3)).toEqual({ attested: true, total: 9 });
+    // absent / null / undefined -> unknown, NEVER the sample length
+    expect(resolvePopulation(undefined, 3)).toEqual({ attested: false, total: null });
+    expect(resolvePopulation(null, 3)).toEqual({ attested: false, total: null });
+    // ⛔ CONTRADICTING total: smaller than the sample in hand is not a total, it is a
+    // contradiction — and a field must not be trusted merely for existing.
+    expect(resolvePopulation(2, 3)).toEqual({ attested: false, total: null });
+    // non-integer shapes must not slip through as truthy numbers
+    expect(resolvePopulation('9', 3)).toEqual({ attested: false, total: null });
+    expect(resolvePopulation(3.5, 3)).toEqual({ attested: false, total: null });
+    expect(resolvePopulation(NaN, 3)).toEqual({ attested: false, total: null });
+    // a zero-sample call is still answerable
+    expect(resolvePopulation(0, 0)).toEqual({ attested: true, total: 0 });
+  });
+
+  it('★★ A BOOLEAN CANNOT MINT A COUNT — truncated:false with no total is still unknown', () => {
+    // The tempting inference is "not truncated, therefore sample === population". It does
+    // not follow: the flag describes the sample, and no flag value supplies a number.
+    expect(resolvePopulation(undefined, 3).attested, 'truncated=false cannot imply a total').toBe(false);
+    expect(resolvePopulation(undefined, 3).total).toBeNull();
+  });
+
+  // ---- consumer wiring. The resolver being correct does not prove a call site uses it.
+  // ⛔ THESE TWO ARMS EXERCISE THE **CHEAP** PRODUCER, NOT graphConsequences — MEASURED.
+  //
+  // I wrote them believing they were end-to-end over the expensive route. They are not:
+  // `resolveFeatureForSymbolCheap` (packet.js:853) resolves any symbol the graph knows and
+  // SYNTHESIZES its own `symbols_total: cheap.locationsTotal` (:862, :868). graphConsequences
+  // is only reached at :872 when the cheap path found nothing.
+  //
+  // Proof they do not cover the producer: with `symbols_total` DELETED from consequences.js,
+  // all four cases in this file still passed. A surviving mutant — so these arms are
+  // discriminator-absent for the producer contract, whatever else they show.
+  //
+  // ⇒ They are kept because they DO pin the cheap route's rendering, which is a real public
+  // path. They are relabelled so nobody reads them as the expensive-route coverage that
+  // graph-senior-dev-hermes required ("include the real graphConsequences 9→3 producer route
+  // for at least one end-to-end arm"). That arm is OWED and is not in this file yet; whether
+  // the consequences→packet consumer route is reachable at all is the open question.
+  it('★★ CHEAP-ROUTE CONSUMER 1 (symbol-pointer / UNRANKED) reports the attested population, not the cap', async () => {
+    repoRoot = await makeRepo({ defs: 9, anchorSymbol: false });
+    const out = await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' });
+    const text = typeof out === 'string' ? out : JSON.stringify(out);
+
+    // 9 rows exist; the sample is capped at 3. The population must appear, and the sample
+    // must not be presented as the total.
+    expect(text, 'this fixture must reach the unranked branch').toMatch(/UNRANKED/);
+    expect(text, 'the attested population must be stated').toMatch(/showing 3 of 9/);
+    expect(text, 'the cap must never be rendered as the population').not.toMatch(/UNRANKED \(3 matches\)/);
+  }, 30_000);
+
+  it('★★★ END-TO-END OVER THE REAL graphConsequences PRODUCER — the arm the others could not be', async () => {
+    // ⇒ dev's required anti-target, and the ONLY arm here that covers the producer contract.
+    // Empty overlay -> cheap resolver returns null -> packet.js:872 calls graphConsequences,
+    // whose canonical-collapse route (9 rows, one key) returns matched.symbols_total = 9 with
+    // a 3-row sample.
+    //
+    // MEASURED both ways, because a passing assertion is not a discriminator:
+    //   fields present  -> "showing 3 of 9"
+    //   fields DELETED  -> "showing 3; total population UNKNOWN"   (no manufactured 9)
+    // The identical mutation against the cheap-route arms above leaves them green, which is
+    // exactly why this arm exists and why they were relabelled.
+    repoRoot = await makeRepo({ defs: 9, noFeatures: true });
+    const out = await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' });
+    const text = typeof out === 'string' ? out : JSON.stringify(out);
+
+    expect(text, 'the empty-overlay fixture must reach a population line').toMatch(/UNRANKED/);
+    expect(text, 'the producer-attested population must survive the round trip').toMatch(/showing 3 of 9/);
+    // Hand-written negative: with the producer supplying the field, the fail-closed wording
+    // must NOT appear — otherwise this arm would pass whether or not the producer worked.
+    expect(text, 'UNKNOWN here would mean the producer contract silently broke')
+      .not.toMatch(/population UNKNOWN/);
+  }, 30_000);
+
+  it('★★ CHEAP-ROUTE CONSUMER 2 (feature branch / DEFINED IN) is wired to the SAME resolver', async () => {
+    // A separate call site with its own cap. It kept the defect for a day after the other
+    // was fixed, which is why it gets its own arm rather than sharing one.
+    repoRoot = await makeRepo({ defs: 9, anchorSymbol: true });
+    const out = await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' });
+    const text = typeof out === 'string' ? out : JSON.stringify(out);
+
+    expect(text, 'this fixture must reach the feature branch').toMatch(/DEFINED IN/);
+    expect(text, 'the attested population must be stated here too').toMatch(/showing 3 of 9/);
+    expect(text, 'a bare "DEFINED IN:" would imply the list is complete')
+      .not.toMatch(/DEFINED IN \(the symbol you asked for, not the feature\):/);
+  }, 30_000);
+});

@@ -629,6 +629,31 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
   return enriched;
 }
 
+// ⛔ A SAMPLE LENGTH IS NOT A POPULATION, AND ABSENCE IS NOT ZERO-DIFFERENCE.
+//
+// Both consumers below used to read `matched?.symbols_total ?? symHits.length`. That `??`
+// conflates two states that must never render alike:
+//   1. a producer that MEASURED the population and found total === sample.length;
+//   2. a producer that omitted it, or does not know.
+// While `symbols_total` was (wrongly) deleted from graphConsequences, this fallback silently
+// substituted the sample for the population and printed "UNRANKED (3 matches)" on a repo with
+// NINE definitions. The tests did not merely miss the deletion — the fallback absorbed it and
+// manufactured a confident wrong number in its place.
+//
+// graph-senior-dev-hermes's ruling, which this implements: fail closed. `symHits.length` is a
+// display count, not a population authority. A total is usable ONLY when producer-attested and
+// internally consistent; anything else is `unknown`, and a boolean cannot mint a count.
+//
+// ★ ONE resolver, used by BOTH call sites deliberately. Two parallel fallbacks are how one
+// path gets repaired while the other stays fail-open — which is exactly what happened here
+// once already: I fixed the no-feature branch and the feature branch kept the bug for a day.
+export function resolvePopulation(total, sampleLength) {
+  // `>= sampleLength` because a total smaller than the sample we are holding is not a total,
+  // it is a contradiction — and a contradicting field must not be trusted merely for existing.
+  if (Number.isInteger(total) && total >= sampleLength) return { attested: true, total };
+  return { attested: false, total: null };
+}
+
 // FIX 3: build a compact pointer packet for a bare symbol that the graph knows
 // but which maps to no feature/task. Returns a markdown string, or null when
 // the symbol is genuinely unknown to the graph (caller then emits the hard
@@ -684,13 +709,21 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     // layer up: a capped list whose consumer could not tell it had been capped. The old
     // test here asserted the template's spelling and could never have seen the number in
     // it was wrong.
-    const symTotal = consequences.matched?.symbols_total ?? symHits.length;
-    if (symTotal > 1) {
+    const pop = resolvePopulation(consequences.matched?.symbols_total, symHits.length);
+    if (!pop.attested) {
+      // FAIL CLOSED. We do not know how many exist, so we say that rather than implying the
+      // sample is the population by silence. Disclosed at ANY sample size — with no attested
+      // total we cannot tell 1 definition from 100, and "1 match" would be a manufactured claim.
       lines.push(
-        symTotal > symHits.length
-          ? `  ⚠ UNRANKED, showing ${symHits.length} of ${symTotal} — order is arrival, not relevance. `
+        `  ⚠ UNRANKED — showing ${symHits.length}; total population UNKNOWN (not reported by `
+        + `graph_consequences). graph_whereis(symbol="${symbol}") ranks and counts them.`,
+      );
+    } else if (pop.total > 1) {
+      lines.push(
+        pop.total > symHits.length
+          ? `  ⚠ UNRANKED, showing ${symHits.length} of ${pop.total} — order is arrival, not relevance. `
             + `graph_whereis(symbol="${symbol}") ranks them; do not treat the first entry here as the definition.`
-          : `  ⚠ UNRANKED (${symTotal} matches) — order is arrival, not relevance. `
+          : `  ⚠ UNRANKED (${pop.total} matches) — order is arrival, not relevance. `
             + `graph_whereis(symbol="${symbol}") ranks them.`,
       );
     }
@@ -995,19 +1028,33 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       //
       // ★ I fixed the axis I was looking at and did not enumerate the axes I moved —
       // again. The test I wrote used a NO-FEATURE fixture, so it never ran this branch.
-      const total = symbolConsequences?.matched?.symbols_total ?? symHits.length;
+      // Same resolver as the pointer-packet branch above — deliberately, so a repair here
+      // cannot leave the other consumer fail-open (which is precisely the split that let this
+      // branch stay broken for a day after I "fixed" the other one).
+      const pop = resolvePopulation(symbolConsequences?.matched?.symbols_total, defLines.length);
+      const total = pop.total;
       const byLang = symbolConsequences?.matched?.symbols_by_language ?? [];
-      const sampled = total > defLines.length;
-      const header = sampled
-        ? `DEFINED IN (the symbol you asked for, not the feature) — showing ${defLines.length} of ${total}:`
-        : 'DEFINED IN (the symbol you asked for, not the feature):';
+      const sampled = pop.attested && total > defLines.length;
+      const header = !pop.attested
+        // FAIL CLOSED: state the sample and say the population is unknown. Never "showing 3"
+        // with the implication that 3 is all there is.
+        ? `DEFINED IN (the symbol you asked for, not the feature) — showing ${defLines.length}; `
+          + 'total population UNKNOWN (not reported by graph_consequences):'
+        : sampled
+          ? `DEFINED IN (the symbol you asked for, not the feature) — showing ${defLines.length} of ${total}:`
+          : 'DEFINED IN (the symbol you asked for, not the feature):';
       const extra = [];
       if (sampled && byLang.length) {
         // Repo-size-independent in a way the sample can never be: two lines say "1 C++
         // header and 15 shader mirrors" whatever the cap happens to be.
         extra.push(`  ALL ${total} BY LANGUAGE: ${byLang.map((b) => `${b.lang} ${b.count}`).join(' · ')}`);
       }
-      if (byLang.length > 1 && total > 1) {
+      // ⚠ NOT gated on `total` any more. It used to read `byLang.length > 1 && total > 1`;
+      // with fail-closed `total` becoming null when unattested, `null > 1` is false and this
+      // FINDING would have been silently suppressed exactly when the population is unknown.
+      // The finding does not depend on the population: >1 language in `symbols_by_language`
+      // already means >1 definition. Caught by re-reading my own diff, not by a test.
+      if (byLang.length > 1) {
         // ★ graph_consequences ALREADY calls this a finding — "CROSS-LANGUAGE DUPLICATE …
         // usually a FINDING rather than a disambiguation problem". Two verbs, one repo,
         // one symbol, opposite treatment: one named the hazard, this one truncated it in
@@ -1016,7 +1063,10 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
           + ' For a mirrored struct every copy must agree; this is usually a FINDING,'
           + ' not a disambiguation problem.');
       }
-      if (sampled) {
+      // Offered when the list is known-incomplete OR when completeness is unknown — the
+      // unknown case needs the remedy MORE, not less. Gating this on `sampled` alone would
+      // have withheld the way out precisely when the reader cannot tell what they are missing.
+      if (sampled || !pop.attested) {
         extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — every definition, unsampled`);
       }
       lines.splice(2, 0, header, ...defLines, ...extra);
