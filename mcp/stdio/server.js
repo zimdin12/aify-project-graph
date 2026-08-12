@@ -21,7 +21,7 @@ import { graphConsequences } from './query/verbs/consequences.js';
 import { graphExplainDiff } from './query/verbs/explain_diff.js';
 import { graphReport } from './query/verbs/report.js';
 import { graphPath } from './query/verbs/path.js';
-import { graphDashboard } from './query/verbs/dashboard.js';
+import { graphDashboard, stopAllDashboards } from './query/verbs/dashboard.js';
 import { graphSearch } from './query/verbs/search.js';
 import { graphFile } from './query/verbs/file.js';
 import { graphShader } from './query/verbs/shader.js';
@@ -1356,6 +1356,18 @@ rl.on('line', async (line) => {
 let shuttingDown = false;
 async function teardownSessions() {
   try { await shutdownAllSessions(); } catch { /* best-effort teardown */ }
+  // ⛔ AN HTTP LISTENER PINS THE LOOP HARDER THAN AN LSP CHILD, and it was never torn down.
+  //
+  // graph-senior-dev-hermes, consumer-visible probe: boot the server, call graph_dashboard
+  // (succeeds, real URL), close stdin, wait 5s — THE PROCESS DOES NOT EXIT. They had to
+  // kill it. I had added stopAllDashboards() and a test for it, and wired it to NOTHING:
+  // zero production consumers. The leak I correctly promoted from a test problem to a
+  // production one was still entirely present.
+  //
+  // ★ The comment above already states the principle for LSP children — "with no stdin
+  // close handling, live sessions kept the event loop alive". A listening socket is the
+  // same fact with more force. Writing the shutdown function is not wiring it.
+  try { await stopAllDashboards(); } catch { /* best-effort teardown */ }
 }
 async function gracefulExit(code = 0) {
   if (shuttingDown) return;

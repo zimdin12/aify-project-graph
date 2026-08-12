@@ -41,7 +41,10 @@ export async function graphDashboard({ repoRoot, port }) {
       warnings: freshness.warnings,
     };
   } catch (err) {
-    db.close();
+    // ⚠ THE CLEANUP MUST NOT REPLACE THE CAUSE. dev: `startDashboard` throwing
+    // "listen failed" followed by `db.close()` throwing delivered only "db close failed" —
+    // the caller was told about the janitor instead of the fire.
+    try { db.close(); } catch { /* the startup failure below is the one that matters */ }
     throw err;
   }
 }
@@ -60,28 +63,53 @@ export async function graphDashboard({ repoRoot, port }) {
 //
 // ⇒ A response assertion is not cleanup evidence. Tests snapshot this registry before
 // and after, on BOTH the succeeding and the failing path.
-export async function stopAllDashboards() {
+// ⚠ ONE SHARED IN-FLIGHT SHUTDOWN. dev: concurrent calls were not joinable — the first
+// cleared the registry before any close completed, so a second caller got 0 back while
+// live cleanup was still running and could believe teardown had finished. The registry is
+// now cleared only AFTER the work completes, and a second caller joins the first.
+let shutdownInFlight = null;
+
+export function stopAllDashboards() {
+  if (shutdownInFlight) return shutdownInFlight;
+  shutdownInFlight = doStopAllDashboards().finally(() => { shutdownInFlight = null; });
+  return shutdownInFlight;
+}
+
+// ⚠ A GLOBAL DEADLINE, not a per-entry one. The first version raced each entry against 2s
+// SERIALLY, so N stuck dashboards meant ~N×2s — on a host exit that is indistinguishable
+// from the hang this exists to prevent. One budget for the whole teardown.
+const SHUTDOWN_BUDGET_MS = 2000;
+
+async function doStopAllDashboards() {
   const entries = [...activeDashboards.values()];
-  activeDashboards.clear();
+  const deadline = Date.now() + SHUTDOWN_BUDGET_MS;
   for (const entry of entries) {
     // Close the server first so no request can arrive against a closed database.
     //
-    // ⚠ BOUNDED. `close(cb)` is only obliged to call back once every connection drains,
-    // and a server that never does would otherwise hang shutdown forever — trading a leak
-    // for a hang, which is worse because it is load-bearing on the exit path. Caught
-    // immediately: the first version of this deadlocked the test suite against a stub
-    // whose close() ignored its callback.
+    // ⚠ BOUNDED, and caught immediately: the first version deadlocked the whole suite
+    // against a stub whose close() ignored its callback. Trading a leak for a hang on the
+    // exit path is the worse trade.
     //
-    // ⇒ The DB close below is what actually frees the handle, so it must not be reachable
-    // only through a promise someone else controls.
+    // ⚠ BOTH CLOSE FORMS. node's http close(cb) calls back; some servers RETURN a promise
+    // and never invoke the callback. dev measured a promise settling in ~20ms while
+    // shutdown still waited the full ~2s callback timeout — so the returned value is
+    // assimilated too, and whichever completes first wins.
     if (entry.server) {
-      await Promise.race([
-        new Promise((resolve) => { try { entry.server.close(resolve); } catch { resolve(); } }),
-        new Promise((resolve) => { setTimeout(resolve, 2000).unref?.(); }),
-      ]);
+      const closed = new Promise((resolve) => {
+        try {
+          const maybe = entry.server.close(resolve);
+          if (maybe && typeof maybe.then === 'function') maybe.then(resolve, resolve);
+        } catch {
+          resolve(); // a synchronous throw must not skip the DB close below
+        }
+      });
+      const remaining = Math.max(0, deadline - Date.now());
+      await Promise.race([closed, new Promise((r) => { setTimeout(r, remaining).unref?.(); })]);
     }
+    // Always reached, even if the server refused to close — this is what frees the handle.
     try { entry.db?.close(); } catch { /* already closed */ }
   }
+  activeDashboards.clear();
   return entries.length;
 }
 

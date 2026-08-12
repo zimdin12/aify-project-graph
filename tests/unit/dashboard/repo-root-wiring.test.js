@@ -91,10 +91,17 @@ async function makeRepo() {
 // repetition left an `apg-dashroot-*` directory on Windows; 72 accumulated across their
 // probes. Linux hides it (an open file can be unlinked), which is worse, not better.
 //
-// ⚠ And the old teardown SWALLOWED the removal failure, so the leak could not surface
-// even as a noisy test. Now the removal error is captured and asserted below.
-let removalError;
-
+// ⚠⚠ MY FIRST REPAIR OF THIS WAS TEMPORALLY VACUOUS, and the ordering is the whole point.
+//
+// I recorded the removal failure into `removalError` inside afterEach, and asserted on it
+// from a TEST BODY — which runs BEFORE afterEach. The assertion could only ever observe the
+// initial `undefined`. graph-senior-dev-hermes replaced the teardown `rm()` with an
+// unconditional throw caught into that variable: 5/5 GREEN. Teardown was still silently
+// absorbing every failure.
+//
+// ⇒ Teardown must FAIL, not record. A cleanup error is reported by throwing out of
+// afterEach, where vitest attributes it to the file — not stored for an assertion that has
+// already run. Nothing here is allowed to swallow it.
 afterEach(async () => {
   started.length = 0;
   // Release the production registry FIRST — it owns the handle the fixture directory
@@ -102,11 +109,13 @@ afterEach(async () => {
   await stopAllDashboards();
   if (running) { await new Promise((r) => running.server.close(r)); running = undefined; }
   if (db) { try { db.close(); } catch { /* already closed */ } db = undefined; }
-  removalError = undefined;
-  if (repoRoot) {
-    try { await rm(repoRoot, { recursive: true, force: true }); } catch (e) { removalError = e; }
-  }
+  const target = repoRoot;
   repoRoot = undefined;
+  if (target) {
+    // No try/catch. If a handle is still held the removal throws, and that throw IS the
+    // report — on Windows it surfaces as EBUSY, which is precisely the leak symptom.
+    await rm(target, { recursive: true, force: true });
+  }
 });
 
 describe('the dashboard is wired to the repo it is inspecting', () => {
@@ -144,16 +153,19 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     repoRoot = undefined;
   }, 20_000);
 
-  it('★ teardown surfaces a removal failure instead of swallowing it', async () => {
-    // The guard on the guard. If afterEach silently ignores rm() failing, a re-leaked
-    // handle produces no signal at all — which is the state this file was in.
+  it('★★ a SECOND shutdown joins the first instead of racing it', async () => {
+    // dev's addendum: concurrent calls were not joinable. The first cleared the registry
+    // before any close completed, so the second returned 0 while live cleanup was still
+    // running — a caller could believe teardown had finished when it had not. Both calls
+    // must now describe the same completed work.
     repoRoot = await makeRepo();
     await graphDashboard({ repoRoot, port: 0 });
-    await stopAllDashboards();
+    expect(activeDashboardCount(), 'harness sanity: one dashboard must be registered').toBe(1);
 
-    await rm(repoRoot, { recursive: true, force: true });
-    repoRoot = undefined;
-    expect(removalError, 'a released handle must leave a removable directory').toBeUndefined();
+    const [a, b] = await Promise.all([stopAllDashboards(), stopAllDashboards()]);
+    expect(a, 'both callers see the same completed shutdown').toBe(1);
+    expect(b).toBe(1);
+    expect(activeDashboardCount(), 'and the registry is drained exactly once').toBe(0);
   }, 20_000);
 
   it('★★ an explicitly-rooted server serves THAT repo\'s bytes', async () => {
