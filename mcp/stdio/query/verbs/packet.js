@@ -664,7 +664,7 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 // correction. The CONDITION (a cross-language duplicate) is language-generic; naming
 // `R"(...)"` is C++/GLSL-specific and would be noise on a Python/TypeScript duplicate. The
 // general claim is what always holds; the example appears only where it applies.
-export function renderCandidateDisclosures({ shown, total, symbol, languages = [] }) {
+export function renderCandidateDisclosures({ shown, total, symbol, languages = [], exact = true }) {
   const out = [];
   const attested = Number.isInteger(total) && total >= shown;
   const langs = languages.map((l) => String(l).toLowerCase());
@@ -680,8 +680,21 @@ export function renderCandidateDisclosures({ shown, total, symbol, languages = [
         + ' grep the .cpp files near the declaration.'
         : ''));
   }
+  // ⛔ THE REFERRER'S PROMISE IS WHAT A READER USES TO DECIDE WHETHER TO CALL.
+  //
+  // This line used to read "every definition, unsampled". `graph_whereis` caps at limit=5, so
+  // on any symbol with more than five definitions that promise was false — and when I made
+  // whereis honest about its own cap, THIS FILE STILL MADE THE PROMISE. ef-manager: the new
+  // disclosure "documents an inaccuracy elsewhere instead of removing it", and the correction
+  // arrives only AFTER the call, and only if truncation happens to occur. **A disclosure that
+  // fires after the decision cannot recover the decision** — the same shape as the original
+  // silent DEFINED IN list: a true statement delivered too late to be used.
+  //
+  // ⇒ The packet knows the population at the moment it writes this line, so it emits the call
+  // that WOULD be unsampled. A false promise becomes an actionable one for one interpolation.
   if (attested && total > shown) {
-    out.push(`  NEXT: graph_whereis(symbol="${symbol}") — every definition, unsampled`);
+    out.push(`  NEXT: graph_whereis(symbol="${symbol}", limit=${total}) — every definition`
+      + (exact === false ? ' (population is a FLOOR; raise the limit if it still warns)' : ''));
   }
   return out;
 }
@@ -871,6 +884,9 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
         total: statedTotal,
         symbol,
         languages: langsFromText.length > 1 ? langsFromText : (crossLanguage ? ['cpp', 'other'] : []),
+        // The exactness travels WITH the value — ef-manager's correction to the shared
+        // renderer. A capped population must not be able to render as an exact one anywhere.
+        exact: !populationIsFloor,
       }));
     }
     // The disambiguating step comes first here: on this path the useful next move
@@ -1187,10 +1203,12 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
         symbol: matchedViaSymbol,
         languages: byLang.map((b) => b.lang),
       }));
-      // Still offered when completeness is UNKNOWN, which the shared renderer cannot know:
-      // the unknown case needs the remedy more, not less.
+      // Still offered when completeness is UNKNOWN — that case needs the remedy more, not less.
+      // ⚠ No `limit=` here and no "unsampled": with no population there is no number to pass,
+      // and promising an unsampled result from a verb that caps at 5 is the false promise this
+      // round removed. What is true unconditionally is that whereis reports its own cap.
       if (!pop.attested) {
-        extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — every definition, unsampled`);
+        extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — ranks them, and reports its own cap`);
       }
       lines.splice(2, 0, header, ...defLines, ...extra);
     }

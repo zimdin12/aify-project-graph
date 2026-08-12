@@ -36,8 +36,7 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
     const capped = population > hits.length;
     const capNotice = capped
       ? `\n⚠ SHOWING ${hits.length} OF ${population} — this verb caps at limit=${limit}. `
-        + `Re-run with limit=${population} for the full set; other verbs describe this one as `
-        + '"unsampled", which is true only when this line is absent.'
+        + `Re-run with limit=${population} for the full set.`
       : '';
     if (hits.length === 0) {
       // Suggest, do not redirect. This path was missed when did-you-mean landed on

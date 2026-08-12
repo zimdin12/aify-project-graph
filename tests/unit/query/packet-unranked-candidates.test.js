@@ -173,7 +173,17 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
       const text = asText(await graphPacket({ repoRoot, target: 'GpuMaterial' }));
 
       expect(text).toMatch(/CROSS-LANGUAGE DUPLICATE/);
-      expect(text, 'and points at the verb that lists them all').toMatch(/graph_whereis\(symbol="GpuMaterial"\)/);
+      // ⛔ THIS USED TO PIN THE BARE CALL, which was the false promise itself.
+      // `graph_whereis(symbol="X") — every definition, unsampled` pointed at a verb that caps
+      // at limit=5, so on this 16-definition fixture the "remedy" returned five. ef-manager
+      // found it by asking whether the thing the fix pointed AT could keep the promise the fix
+      // made — and the referrer kept promising it after whereis itself was made honest.
+      //
+      // ⇒ The packet knows the population when it writes the line, so it must emit the call
+      // that WOULD be complete. Asserting the bare form here would re-pin the defect.
+      expect(text, 'must point at a call that is actually unsampled, not a bare one')
+        .toMatch(/graph_whereis\(symbol="GpuMaterial", limit=16\)/);
+      expect(text, 'the discredited promise must not come back').not.toMatch(/every definition, unsampled/);
     }, 20_000);
 
     it('★ says none of that when the symbol is defined once', async () => {
