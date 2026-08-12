@@ -32,7 +32,10 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 const DEFS = 9;
 let repoRoot;
 
-async function makeRepo() {
+// `defs` overrides the definition count so the retrieval cap (50) can be crossed;
+// `sameIdentity` makes every row group to ONE canonical identity, which is how a capped
+// page can collapse and look unique while unseen rows remain.
+async function makeRepo({ defs = DEFS, sameIdentity = false } = {}) {
   const repo = await mkdtemp(join(tmpdir(), 'apg-symtotal-'));
   await mkdir(join(repo, '.aify-graph'), { recursive: true });
   execFileSync('git', ['-C', repo, 'init', '-q'], { stdio: 'ignore' });
@@ -50,11 +53,13 @@ async function makeRepo() {
     `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, extra)
      VALUES ('h', 'Class', 'GpuMaterial', 'engine/GpuMaterialPalette.h', 30, 60, 'cpp', 1, '{}')`,
   );
-  for (let i = 0; i < DEFS - 1; i += 1) {
+  for (let i = 0; i < defs - 1; i += 1) {
     db.run(
       `INSERT INTO nodes (id, type, label, file_path, start_line, end_line, language, confidence, extra)
        VALUES ($id, 'Class', 'GpuMaterial', $f, 10, 20, 'glsl', 1, '{}')`,
-      { id: `g${i}`, f: `engine/shaders/mirror_${i}.glsl` },
+      // sameIdentity: every row shares one file, so canonical grouping collapses the whole
+      // retrieved page to a single identity while unfetched rows still exist.
+      { id: `g${i}`, f: sameIdentity ? 'engine/GpuMaterialPalette.h' : `engine/shaders/mirror_${i}.glsl` },
     );
   }
   // A symbol with exactly one definition, so the `matched` route can be exercised too.
@@ -74,6 +79,43 @@ afterEach(async () => {
 const asText = (o) => (typeof o === 'string' ? o : JSON.stringify(o));
 
 describe('the expensive path states its candidate count where multiplicity happens', () => {
+  it('★★ ABOVE THE RETRIEVAL CAP it states uncertainty, not the cap', async () => {
+    // ⛔ dev's withheld population: 60 definitions produced
+    // "AMBIGUOUS MATCH … 50 concrete candidates found". `rows` is the LIMIT-50 page, so
+    // the grouping counted identities among the first fifty and reported it as the
+    // population — the cap-as-total defect reproduced ON THE PATH I MOVED THE CONTRACT
+    // ONTO after deleting the dead fields. Third instance of one class.
+    //
+    // ★ The repair is NOT a corrected number. Grouping is only possible over what was
+    // retrieved, so inventing a group count for rows nobody grouped would be the same lie
+    // pointing the other way. What is true is the uncertainty: at least G identities among
+    // 50 of 60 rows, population not established.
+    repoRoot = await makeRepo({ defs: 60 });
+    const text = asText(await graphConsequences({ repoRoot, target: 'GpuMaterial' }));
+
+    expect(text, 'the true row population must appear').toMatch(/of 60 matching rows/);
+    expect(text, 'and the count must be qualified, never presented as a total')
+      .toMatch(/AT LEAST \d+ concrete candidates/);
+    expect(text, 'the reader must be told the population is unknown')
+      .toMatch(/NOT established/);
+    expect(text, 'the retrieval limit must never surface as the finding')
+      .not.toMatch(/\b50 concrete candidates found/);
+  }, 30_000);
+
+  it('★★ a page that COLLAPSES to one identity is not proof of uniqueness', async () => {
+    // dev's sharper point. buildAmbiguousMatchMessage returns null when the retrieved rows
+    // resolve to a single identity, and everything downstream then treats the symbol as
+    // unambiguous. With retrieval CAPPED that is a statement about the 50 rows we looked
+    // at, not the 10 we never fetched — absence of contrary evidence read as evidence of
+    // absence, on the path that answers "what breaks if I change this".
+    repoRoot = await makeRepo({ defs: 60, sameIdentity: true });
+    const text = asText(await graphConsequences({ repoRoot, target: 'GpuMaterial' }));
+
+    expect(text, 'a collapsed but truncated page must refuse to claim uniqueness')
+      .toMatch(/AMBIGUOUS BY TRUNCATION/);
+    expect(text).toMatch(/uniqueness is NOT established/);
+  }, 30_000);
+
   it('★★ the AMBIGUOUS message carries the REAL number of definitions', async () => {
     // The actual contract. Nine definitions exist; the message must say nine — not a
     // display cap, and not a vague "multiple". This is the number a reader acts on and

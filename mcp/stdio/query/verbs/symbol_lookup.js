@@ -113,7 +113,22 @@ function candidateSortKey(a, b) {
   return (a.start_line ?? 0) - (b.start_line ?? 0);
 }
 
-export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
+// ⛔ THE COUNT IN THIS MESSAGE WAS THE RETRIEVAL LIMIT AGAIN — third instance of one class.
+//
+// graph-senior-dev-hermes, with 60 definitions: "AMBIGUOUS MATCH … 50 concrete candidates
+// found". `rows` is the page resolveSymbol returned, and that query ends LIMIT 50, so
+// `groups.size` counts identities among the FIRST FIFTY and reports it as the population.
+//
+// ★ This is the path I moved the contract ONTO after deleting the dead structured fields,
+// so the replacement reproduced the very defect it replaced. The class survives being
+// fixed because each fix lands one layer away from where the cap actually is.
+//
+// ⇒ `rowsTotal` is the uncapped COUNT of matching rows. Grouping is only possible over
+// what was retrieved, so the honest statement is NOT a corrected number — it is a stated
+// uncertainty: at least G identities among 50 of 60 rows, population not established.
+// Inventing a group count for rows nobody grouped would be the same lie in the other
+// direction.
+export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = null) {
   if (!symbol) return null;
 
   const concrete = preferConcrete(rows);
@@ -227,8 +242,17 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5) {
       + `Narrow with file= or a qualified name, or use graph_whereis(symbol="${symbol}") which ranks and does not cap the same way.`
     : '';
 
+  // Retrieval was capped, so the identities below were computed from a PAGE, not from the
+  // population. Say that, rather than presenting a page count as a total.
+  const retrievalCapped = rowsTotal != null && rowsTotal > rows.length;
+  const headline = retrievalCapped
+    ? `AMBIGUOUS MATCH for "${symbol}". AT LEAST ${groups.size} concrete candidates, `
+      + `identified from ${rows.length} of ${rowsTotal} matching rows — the full ambiguity `
+      + 'population is NOT established (retrieval was capped before grouping):'
+    : `AMBIGUOUS MATCH for "${symbol}". ${groups.size} concrete candidates found:`;
+
   return [
-    `AMBIGUOUS MATCH for "${symbol}". ${groups.size} concrete candidates found:`,
+    headline,
     ...candidates,
     truncationNote,
     retryHint,

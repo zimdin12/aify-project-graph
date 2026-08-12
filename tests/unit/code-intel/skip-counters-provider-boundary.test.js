@@ -44,12 +44,23 @@ function fakeProvider(session) {
     name: PROVIDER_SLOT,
     version: 'fake 1.0',
     async collect() {
+      // ⚠ PRODUCTION-SHAPED, not merely plausible. The first version omitted
+      // `collectionId` and `projectRoot`, so the import hit
+      // `NOT NULL constraint failed: code_intel_collections.project_root` and the verb
+      // returned status:"error" / importFailed:true — and the test string-matched the
+      // counters INSIDE that failed response and passed. Values appearing in an error
+      // envelope do not prove the journey completed. Same liveness class as the
+      // exact-anchor case, one layer up, in the test written to close a liveness gap.
       return {
         schemaVersion: '0.2',
+        collectionId: `ci-test-${session.positionGuessSkipped ?? 'na'}-${session.refsTruncatedSymbols ?? 'na'}`,
         status: 'ok',
         provider: PROVIDER_SLOT,
         providerVersion: 'fake 1.0 (test double)',
+        projectRoot: repoRoot,
         language: LANGUAGE,
+        repoCommit: 'abc1234',
+        createdAt: new Date().toISOString(),
         operations: { requested: ['references'] },
         records: [],
         session,
@@ -81,9 +92,25 @@ const asObj = (r) => (typeof r === 'string' ? JSON.parse(r) : r);
 // Runs the real verb against the fake provider and returns whatever it reports.
 async function collectWith(session) {
   registerProvider(PROVIDER_SLOT, fakeProvider(session));
-  return asObj(await graphCollectCodeIntel({
+  const res = asObj(await graphCollectCodeIntel({
     repoRoot, language: LANGUAGE, scope: 'all', operations: ['references'],
   }));
+
+  // ★★ SAME-CALL LIVENESS, and it is the reason this helper exists rather than each case
+  // calling the verb directly. Without these two lines every assertion below is satisfied
+  // by an ERROR response that happens to echo the counters back — which is exactly what
+  // was happening.
+  expect(res.status, `LIVENESS: the collection must have completed, got: ${JSON.stringify(res.errors ?? res.status)}`)
+    .toBe('ok');
+  expect(res.importFailed, 'LIVENESS: the import must not have failed').toBeFalsy();
+
+  // ⚠ IDENTITY, from dev's addendum: the fake originally claimed provider `pyright` while
+  // occupying the `cpp-clangd` slot and three cases stayed green. The slot, the envelope's
+  // own claim, and the public response must agree, or the test is describing a provider
+  // that never ran.
+  expect(res.provider, 'the reported provider must be the slot that was registered')
+    .toBe(PROVIDER_SLOT);
+  return res;
 }
 
 describe('the counters travel from the PROVIDER through the collect verb', () => {

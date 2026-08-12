@@ -276,16 +276,36 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // ⛔ Same upstream cap as packet: resolveSymbol returns at most 50 rows, so its
     // length is a retrieval limit and not the population. Reported as a total it is the
     // very defect symbols_total was added to remove.
-    // ⚠ `total` is deliberately NOT destructured any more — the only consumer was the
-    // dead symbols_total field below, and binding a value nothing reads is how a dead
-    // field survives a review by looking wired-up.
-    const { rows: allSymbolMatches } = resolveSymbolWithTotal(
-      db,
-      input,
-      "'Function','Method','Class','Interface','Type'",
-    );
-    const ambiguity = buildAmbiguousMatchMessage(input, allSymbolMatches);
+    // `total` is the UNCAPPED count of matching rows; `rows` is the page (LIMIT 50).
+    const { rows: allSymbolMatches, total: matchRowsTotal, truncated: matchRowsTruncated } =
+      resolveSymbolWithTotal(
+        db,
+        input,
+        "'Function','Method','Class','Interface','Type'",
+      );
+    const ambiguity = buildAmbiguousMatchMessage(input, allSymbolMatches, 5, matchRowsTotal);
     if (ambiguity) return ambiguity;
+
+    // ⛔ AND THE SUBTLER HALF: A COLLAPSED PAGE IS NOT PROOF OF UNIQUENESS.
+    //
+    // graph-senior-dev-hermes: "if retrieval is truncated and the first 50 collapse to one
+    // group, uniqueness is also not established — do not proceed down `matched` merely
+    // because unseen rows were not inspected."
+    //
+    // buildAmbiguousMatchMessage returns null when the retrieved rows resolve to a single
+    // identity, and everything below then treats the symbol as unambiguous. But when the
+    // retrieval was CAPPED, "one identity" is a statement about the fifty rows we looked
+    // at, not about the ten we never fetched. Falling through would produce a confident
+    // single-symbol answer built on an unexamined remainder — the fail-open shape this
+    // codebase keeps paying for: absence of contrary evidence read as evidence of absence.
+    if (matchRowsTruncated) {
+      return `AMBIGUOUS BY TRUNCATION for "${input}". ${allSymbolMatches.length} of `
+        + `${matchRowsTotal} matching rows were retrieved and they resolve to a single `
+        + 'identity — but the remaining rows were never fetched, so uniqueness is NOT '
+        + 'established and this is not a safe basis for a change decision. '
+        + `Narrow with file= or a qualified name, or use graph_whereis(symbol="${input}") `
+        + 'which ranks and does not cap the same way.';
+    }
     const symbolNodes = pickPrimarySymbol(allSymbolMatches);
     const referencedIn = allSymbolMatches
       .filter((n) => !symbolNodes.some((s) => s.id === n.id))
