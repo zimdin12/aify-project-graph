@@ -1047,7 +1047,18 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       if (sampled && byLang.length) {
         // Repo-size-independent in a way the sample can never be: two lines say "1 C++
         // header and 15 shader mirrors" whatever the cap happens to be.
-        extra.push(`  ALL ${total} BY LANGUAGE: ${byLang.map((b) => `${b.lang} ${b.count}`).join(' · ')}`);
+        // ⛔ "ALL" WAS A COMPLETENESS CLAIM THE EXTRACTOR CANNOT SUPPORT. ef-manager, on real
+        // C++: `LodChunkInstance` reported `ALL 4 BY LANGUAGE` and the true mirror count is 5.
+        // The fifth is GLSL embedded in a C++ RAW STRING LITERAL —
+        //   static const char* flatQuadVertSrc = R"( #version 450 struct LodChunkInstance {…} )"
+        // — which tree-sitter never parses as a symbol, no `*.glsl` grep finds, and the shader
+        // toolchain does not compile at build time. It is the MOST drift-prone copy of a
+        // std430-mirrored struct, and `ALL` told the reader the enumeration was complete.
+        //
+        // ★ Same shape as every cap-as-total defect in this repo, one verb over: the number is
+        // a FLOOR and the word said it was a total. PARSED is what the graph can actually
+        // attest, and it costs one word.
+        extra.push(`  PARSED ${total} BY LANGUAGE: ${byLang.map((b) => `${b.lang} ${b.count}`).join(' · ')}`);
       }
       // ⚠ NOT gated on `total` any more. It used to read `byLang.length > 1 && total > 1`;
       // with fail-closed `total` becoming null when unattested, `null > 1` is false and this
@@ -1059,9 +1070,16 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
         // usually a FINDING rather than a disambiguation problem". Two verbs, one repo,
         // one symbol, opposite treatment: one named the hazard, this one truncated it in
         // silence. Same sentence, same data, no new analysis required.
+        // ⚠ The floor caveat rides HERE rather than on every packet, because this is the exact
+        // condition where an unparsed mirror matters: a shader struct duplicated across
+        // languages is the thing that drifts. ef-manager's rule — a disclosure that fires
+        // conditionally carries information by appearing at all; one that fires always is
+        // wallpaper and readers stop seeing it.
         extra.push('  ★ CROSS-LANGUAGE DUPLICATE — defined in more than one language.'
           + ' For a mirrored struct every copy must agree; this is usually a FINDING,'
-          + ' not a disambiguation problem.');
+          + ' not a disambiguation problem.'
+          + ' ⚠ The count is a FLOOR: shader source embedded in C++ string literals'
+          + ' (R"(...)") is not parsed, so mirrors can exist that no grep of *.glsl finds.');
       }
       // Offered when the list is known-incomplete OR when completeness is unknown — the
       // unknown case needs the remedy MORE, not less. Gating this on `sampled` alone would

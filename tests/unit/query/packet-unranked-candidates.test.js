@@ -154,8 +154,15 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
       repoRoot = await mirrored();
       const text = asText(await graphPacket({ repoRoot, target: 'GpuMaterial' }));
 
-      // Two lines that communicate the ABI hazard completely and do not depend on the cap.
-      expect(text).toMatch(/ALL 16 BY LANGUAGE/);
+      // Two lines that communicate the ABI hazard and do not depend on the cap.
+      //
+      // ⛔ It said `ALL 16` until 2026-08-12. ef-manager, on real C++: `LodChunkInstance`
+      // reported `ALL 4` when the true mirror count is 5 — the fifth being GLSL inside a C++
+      // raw string literal, which tree-sitter never parses, no `*.glsl` grep finds, and the
+      // shader toolchain does not compile. `ALL` is a completeness claim the extractor cannot
+      // support; PARSED is what the graph can attest. The number is a FLOOR.
+      expect(text).toMatch(/PARSED 16 BY LANGUAGE/);
+      expect(text, 'the old completeness wording must not come back').not.toMatch(/ALL 16 BY LANGUAGE/);
       expect(text).toMatch(/glsl 15/);
       expect(text).toMatch(/cpp 1/);
     }, 20_000);
