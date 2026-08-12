@@ -173,5 +173,37 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
       .toContain(fixtureName);
     expect(collectReply, 'and must name the provider the registry actually selected')
       .toMatch(/cpp-clangd/);
+
+    // ⛔ REQUEST ECHO IS FORGEABLE, and dev said so: a lookalike receives the same request
+    // and can echo anything in it. What it cannot do is BEHAVE like the runner across
+    // calls. The real runner mints a fresh collectionId per collection
+    // (`ci-<ISO instant>-<random hex>`); dev's mutant returned a constant.
+    //
+    // ⇒ Two calls, two DIFFERENT ids, both in the runner's format. A handler returning a
+    // literal fails on uniqueness; one returning a hardcoded shape fails on format.
+    child = spawn(process.execPath, [serverPath], {
+      cwd: repoRoot, stdio: ['pipe', 'pipe', 'ignore'],
+      env: { ...process.env, APG_TELEMETRY_DIR: join(repoRoot, '.telemetry') },
+    });
+    rpc(child, 1, 'initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 't', version: '1' } });
+    await waitForReply(child, 1);
+
+    const ids = [];
+    for (const callId of [21, 22]) {
+      rpc(child, callId, 'tools/call', { name: 'graph_collect_code_intel', arguments: { repo: repoRoot, operations: ['references'] } });
+      const r = await waitForReply(child, callId);
+      const m = JSON.stringify(r).match(/ci-\d{4}-\d{2}-\d{2}T[\d-]+Z-[0-9a-f]{8}/);
+      expect(m, `collection id must be in the runner's minted format, got: ${JSON.stringify(r).slice(0, 160)}`)
+        .toBeTruthy();
+      ids.push(m[0]);
+    }
+    expect(ids[0], 'each collection is a NEW one — a constant is not a mint').not.toBe(ids[1]);
+    child.stdin.end();
+
+    // ⚠ THE RESIDUAL LIMIT, stated rather than papered over: a sufficiently determined
+    // lookalike could mint ids in this format too. On this fixture there is no compile DB,
+    // so the honest path persists nothing and there is no durable side effect to demand.
+    // Closing that fully needs a fixture where collect SUCCEEDS and writes a collection
+    // the test can read back — which needs a working clangd, which CI does not have.
   }, 120_000);
 });
