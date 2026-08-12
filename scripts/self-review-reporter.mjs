@@ -67,7 +67,14 @@ export default class SelfReviewReporter {
     const out = process.env.SELF_REVIEW_OUT;
     if (!out) return;
     writeFileSync(out, JSON.stringify({
-      schema: 'self-review-evidence/2',
+      schema: 'self-review-evidence/3',
+      // ⛔ OWNERSHIP NONCE. graph-senior-dev-hermes executed a command-route forgery: because
+      // `tests[]` flowed through `shell:true`, a crafted selector injected a SECOND process
+      // that wrote schema-valid evidence to SELF_REVIEW_OUT while the reporter's own bytes
+      // stayed correctly pinned. The gauge was intact and the EVIDENCE FILE was substituted.
+      // A per-invocation nonce the runner generates and verifies means a foreign writer must
+      // guess it. This is custody of the artifact, which pinning the producer never provided.
+      nonce: process.env.SELF_REVIEW_NONCE ?? null,
       cases,
       fileErrors,
       counts: {

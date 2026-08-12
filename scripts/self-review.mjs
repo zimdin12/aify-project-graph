@@ -50,7 +50,22 @@ if (!specPath) {
   process.exit(2);
 }
 
-const VERDICT = { SURVIVED: 'SURVIVED', CAUGHT: 'CAUGHT', INVALID: 'INVALID', APPARATUS: 'APPARATUS_ERROR' };
+// ⛔⛔ `CAUGHT` IS RETIRED. It is not renamed, not narrowed — REMOVED as a credit.
+//
+// Six independent forgeries were executed against v1–v5, by graph-senior-dev-hermes and by me.
+// EVERY ONE OF THEM FORGED A CATCH. Not one ever manufactured a survivor. Positive credit is
+// the forgeable direction, and each of my five patches rejected the exact construction shown
+// and left the class. When a fix has been refuted five times, the defect is the patching.
+//
+// dev's ruling, which this implements: the runner may retain case/message evidence for
+// DEBUGGING, but must not print a catch, a credit, a coverage numerator, or any positive
+// certification. A mutation tool that only reports holes cannot launder confidence.
+const VERDICT = {
+  SURVIVED: 'SURVIVED',                              // candidate hole; still not proof of one
+  FAILURE_OBSERVED: 'FAILURE_OBSERVED_UNATTRIBUTED', // diagnostic only, ZERO coverage credit
+  INVALID: 'INVALID',
+  APPARATUS: 'APPARATUS_ERROR',
+};
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 // ⚠ TWO HELPERS, AND THE DISTINCTION IS LOAD-BEARING. `git()` trims, which is right for
 // rev-parse/status and CATASTROPHIC for blob content: reusing it for `git show` stripped the
@@ -178,15 +193,41 @@ const reporterIntact = () => {
   catch { return false; }
 };
 
+// ⛔ NO SHELL. Dev's command-route forgery: `tests[]` flowed through `shell:true`, so one
+// crafted selector injected a second process that wrote schema-valid evidence to
+// SELF_REVIEW_OUT — reporter bytes still correctly pinned, gauge intact, ARTIFACT SUBSTITUTED.
+// Vitest is now invoked as a node script directly, so argv is never interpreted by a shell.
+const VITEST_CLI = join(REPO, 'node_modules', 'vitest', 'vitest.mjs');
+
+// Selectors are repo-relative test paths and nothing else. Anything that could be an option,
+// an absolute path, a traversal or a shell token is refused before it reaches argv.
+function selectorProblem(t) {
+  if (typeof t !== 'string' || !t.length) return 'not a non-empty string';
+  if (/[;&|`$(){}<>*?"'\\\n\r]/.test(t)) return 'contains shell/meta characters';
+  if (t.startsWith('-')) return 'looks like a CLI option';
+  if (t.includes('..')) return 'contains a path traversal';
+  if (/^[a-zA-Z]:/.test(t) || t.startsWith('/')) return 'is absolute; selectors must be repo-relative';
+  if (!existsSync(join(REPO, t))) return 'does not exist in the repository';
+  return null;
+}
+
 function runTests(tests, outFile) {
   if (!reporterIntact()) return { apparatus: 'evidence reporter bytes differ from HEAD before invocation' };
   // ⚠ `--retry=0` is evidence hygiene, not tuning. Measured: a case with `retry: 2` emits
   // THREE failure messages, so any message-population rule would be reasoning about attempts
   // it never preregistered. Retries are disabled and non-zero retry/repeat counts are refused.
-  const argv = ['vitest', 'run', '--retry=0', `--reporter=${REPORTER}`, ...tests];
+  for (const t of tests) {
+    const bad = selectorProblem(t);
+    if (bad) return { apparatus: `refused test selector ${JSON.stringify(t)} — ${bad}` };
+  }
+  // Artifact custody: the evidence file must not pre-exist, and must come back bearing the
+  // nonce only this invocation knows.
+  if (existsSync(outFile)) return { apparatus: `evidence path already exists before invocation: ${outFile}` };
+  const nonce = randomUUID();
+  const argv = [VITEST_CLI, 'run', '--retry=0', `--reporter=${REPORTER}`, ...tests];
   let exit = 0; let signal = null; let stdio = '';
   try {
-    stdio = execFileSync('npx', argv, { cwd: REPO, encoding: 'utf8', shell: true, stdio: 'pipe', env: { ...process.env, SELF_REVIEW_OUT: outFile } });
+    stdio = execFileSync(process.execPath, argv, { cwd: REPO, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, SELF_REVIEW_OUT: outFile, SELF_REVIEW_NONCE: nonce } });
   } catch (e) {
     if (e.code === 'ENOENT' || e.code === 'EACCES') return { apparatus: `spawn failed: ${e.code}` };
     if (e.signal) return { apparatus: `terminated by signal ${e.signal}` };
@@ -198,9 +239,10 @@ function runTests(tests, outFile) {
   catch (e) { return { apparatus: `evidence file unparseable: ${e.message}` }; }
   // SCHEMA PIN. An unsupported evidence shape is an APPARATUS failure, not a missing case —
   // otherwise a reporter change would silently degrade every arm to INVALID and read as data.
-  if (json.schema !== 'self-review-evidence/2' || !Array.isArray(json.cases) || !Array.isArray(json.fileErrors)) {
+  if (json.schema !== 'self-review-evidence/3' || !Array.isArray(json.cases) || !Array.isArray(json.fileErrors)) {
     return { apparatus: `evidence schema unsupported (got ${JSON.stringify(json.schema)})` };
   }
+  if (json.nonce !== nonce) return { apparatus: 'evidence file was not written by this invocation (nonce mismatch) — artifact substitution' };
   if (!reporterIntact()) return { apparatus: 'evidence reporter bytes changed DURING invocation' };
   return { exit, signal, json, stdio, argv: argv.join(' ') };
 }
@@ -224,17 +266,19 @@ function structuralFailure(json) {
   return null;
 }
 
-let credited = 0; let notCredited = 0; let halted = false;
-console.log(`self-review v5: ${spec.length} mutation(s)   run ${runId}\n`);
+let survived = 0; let observed = 0; let invalid = 0; let halted = false;
+console.log(`self-review v6: ${spec.length} mutation(s)   run ${runId}\n`);
 
 for (const [i, m] of spec.entries()) {
   if (halted) { console.log(`  ${String(m.name).padEnd(46)} — SKIPPED (halted by APPARATUS_ERROR)`); continue; }
   const arm = { index: i, name: m.name, file: m.file, case: m.case, expect: m.expect };
   const record = (verdict, why) => {
     arm.verdict = verdict; arm.why = why; manifest.arms.push(arm); writeManifest();
-    const mark = verdict === VERDICT.CAUGHT ? '' : verdict === VERDICT.SURVIVED ? '⚠ ' : '⛔ ';
+    const mark = verdict === VERDICT.SURVIVED ? '⚠ ' : verdict === VERDICT.FAILURE_OBSERVED ? '· ' : '⛔ ';
     console.log(`  ${String(m.name).padEnd(46)} ${mark}${verdict} — ${why}`);
-    if (verdict === VERDICT.CAUGHT) credited += 1; else notCredited += 1;
+    if (verdict === VERDICT.SURVIVED) survived += 1;
+    else if (verdict === VERDICT.FAILURE_OBSERVED) observed += 1;
+    else invalid += 1;
     if (verdict === VERDICT.APPARATUS) halted = true;
   };
 
@@ -330,7 +374,12 @@ for (const [i, m] of spec.entries()) {
         + (first ? ` — e.g. ${first.scope}: ${String(first.message).slice(0, 60)}` : ''));
       continue;
     }
-    record(VERDICT.CAUGHT, 'exact case transitioned pass→fail on the preregistered assertion');
+    // ⚠ THIS IS THE END OF THE ROAD FOR THIS ARM, AND IT IS NOT A CATCH. The exact case went
+    // pass→fail carrying the preregistered assertion, with one accountable message, no retries
+    // and no non-case errors. That is the strongest evidence this instrument can produce — and
+    // it is STILL not proof the body executed, because `expect()` inside `beforeEach` produces
+    // exactly this shape (measured). Reported as a diagnostic, credited as nothing.
+    record(VERDICT.FAILURE_OBSERVED, 'exact case failed on the preregistered assertion — DIAGNOSTIC ONLY, body execution unproven');
   } finally {
     // RULE 3 — restoration is not optional and not conditional on the path taken.
     const r = restoreAndVerify();
@@ -344,18 +393,25 @@ for (const [i, m] of spec.entries()) {
 }
 
 manifest.finishedAtIso = new Date().toISOString();
-manifest.credited = credited;
-manifest.notCredited = notCredited;
+manifest.survived = survived;
+manifest.failureObserved = observed;
+manifest.invalid = invalid;
 writeManifest();
 
 console.log(`\nrun custody: ${runDir}`);
-console.log(`CAUGHT (credited): ${credited}   not credited: ${notCredited}`);
-// ⚠ NOT DONE, stated rather than implied: mutations still run in THIS checkout, not in a
-// disposable per-arm worktree. A kill between mutate and restore leaves mutant bytes on disk;
-// the manifest records the arm but cannot rewrite history. That is dev's redesign item 7 and
-// it is open.
-if (notCredited > 0 || halted) {
-  console.error(`⛔ ${notCredited} arm(s) SURVIVED / INVALID / APPARATUS — findings, not coverage.`);
+console.log(`SURVIVED (candidate holes): ${survived}   FAILURE_OBSERVED (diagnostic, no credit): ${observed}   INVALID: ${invalid}`);
+console.log('\nTHIS TOOL CERTIFIES NOTHING. It reports candidate holes and diagnostics.');
+console.log('No output here is evidence that a guarantee EXISTS; SURVIVED is evidence one may be missing.');
+// ⚠ OPEN, stated rather than implied — none of these are closed and none should be read as
+// closed by a quiet run:
+//   · per-arm worktree isolation: mutations run in THIS checkout, so a hard kill between
+//     mutate and restore leaves mutant bytes on disk;
+//   · body-entry witness: `expect()` inside `beforeEach` produces the same evidence shape as a
+//     body assertion, so even FAILURE_OBSERVED does not prove the body ran;
+//   · single-occurrence anchor enforcement, expectFailures type validation, null commit/tree
+//     refusal before mutation, and per-arm APPARATUS_ERROR recording on `finally` restore.
+if (survived > 0 || invalid > 0 || halted) {
+  console.error(`\n⛔ ${survived} candidate hole(s), ${invalid} invalid arm(s) — read the manifest, not this line.`);
   process.exit(1);
 }
-console.log('✓ every mutation was caught by its exact preregistered witness.');
+console.log('\nNo candidate holes and no invalid arms in this spec. That is not coverage.');
