@@ -157,6 +157,27 @@ describe('graphIdentity refuses rather than reporting a partial identity', () =>
     expect(digestOf(a)).not.toBe(digestOf(b));
   });
 
+  it('★★ `entries` LISTS EXACTLY THE HASHED POPULATION — dev\'s collision proved these can disagree', () => {
+    // In the shipped collision the two trees had the SAME digest and DIFFERENT entries
+    // (['a'] vs ['a','b']). That is only visible if something checks correspondence, and
+    // nothing did: `entries` was informational and unbound. It is now asserted against an
+    // independent walk, so a digest that covers a different population than it reports is a
+    // failure rather than a curiosity.
+    const dir = fixture((d) => {
+      mkdirSync(join(d, 'sub', 'deep'), { recursive: true });
+      writeFileSync(join(d, 'sub', 'x.json'), '1');
+      writeFileSync(join(d, 'sub', 'deep', 'y.json'), '2');
+      mkdirSync(join(d, 'empty'));
+    });
+    const res = graphIdentity(dir);
+    // Hand-written, not read back from the implementation: exactly the entries this fixture
+    // creates, plus the two top-level files every fixture carries. Directories end in '/'.
+    expect([...res.entries].sort()).toEqual([
+      'brief.md', 'empty/', 'manifest.json', 'sub/', 'sub/deep/', 'sub/deep/y.json', 'sub/x.json',
+    ]);
+    expect(res.digest, 'a listed population must come with an identity').toMatch(/^[0-9a-f]{64}$/);
+  });
+
   it('★★ full SHA-256, not a truncation — an identity does not discard 192 bits for readability', () => {
     const d = fixture((x) => { mkdirSync(join(x, 'sub')); writeFileSync(join(x, 'sub', 'x.json'), 'v'); });
     expect(graphIdentity(d).digest).toMatch(/^[0-9a-f]{64}$/);
