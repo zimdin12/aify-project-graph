@@ -647,6 +647,45 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 // ★ ONE resolver, used by BOTH call sites deliberately. Two parallel fallbacks are how one
 // path gets repaired while the other stays fail-open — which is exactly what happened here
 // once already: I fixed the no-feature branch and the feature branch kept the bug for a day.
+// ★★ ONE RENDERER FOR CANDIDATE/DEFINITION LISTS, CONSUMED BY EVERY BRANCH.
+//
+// ef-manager, after the third per-branch fix: "I would stop patching branches. Three fixes to
+// three branches of one verb, and comparing the two survivors immediately surfaced a fourth
+// divergence." They were right, and the fourth was real — both branches printed the
+// CROSS-LANGUAGE DUPLICATE finding, only ONE carried the FLOOR caveat, on the same verb, same
+// symbol, same repo content. A disclosure added where someone was burned, not to its sibling.
+//
+// ⇒ The structural version closes the CLASS instead of the instances: population, omitted
+// count, duplicate finding, floor caveat and next-verb are assembled in one place, so a new
+// branch cannot be born missing them. That makes the next "third route" impossible rather than
+// findable.
+//
+// ⚠ The floor caveat's MECHANISM is gated on the languages actually present — also their
+// correction. The CONDITION (a cross-language duplicate) is language-generic; naming
+// `R"(...)"` is C++/GLSL-specific and would be noise on a Python/TypeScript duplicate. The
+// general claim is what always holds; the example appears only where it applies.
+export function renderCandidateDisclosures({ shown, total, symbol, languages = [] }) {
+  const out = [];
+  const attested = Number.isInteger(total) && total >= shown;
+  const langs = languages.map((l) => String(l).toLowerCase());
+  if (langs.length > 1) {
+    const embedsShaderText = langs.some((l) => l === 'cpp' || l === 'c++' || l === 'c');
+    out.push('  ★ CROSS-LANGUAGE DUPLICATE — defined in more than one language'
+      + ` (${langs.join(', ')}). For a mirrored struct every copy must agree; this is usually a`
+      + ' FINDING, not a disambiguation problem.'
+      + ' ⚠ The count is a FLOOR: source that is generated or embedded in another language is'
+      + ' not parsed, so mirrors can exist that no file-extension grep finds.'
+      + (embedsShaderText
+        ? ' In C++ that most often means shader text inside a raw string literal, R"(...)" —'
+        + ' grep the .cpp files near the declaration.'
+        : ''));
+  }
+  if (attested && total > shown) {
+    out.push(`  NEXT: graph_whereis(symbol="${symbol}") — every definition, unsampled`);
+  }
+  return out;
+}
+
 export function resolvePopulation(total, sampleLength) {
   // `>= sampleLength` because a total smaller than the sample we are holding is not a total,
   // it is a contradiction — and a contradicting field must not be trusted merely for existing.
@@ -795,12 +834,16 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
         ? `CANDIDATES — showing ${candidateLines.length} of ${statedTotal}${statedTotal > candidateLines.length ? ` (${statedTotal - candidateLines.length} not listed here)` : ''}:`
         : `CANDIDATES — showing ${candidateLines.length}; total population UNKNOWN (not stated by graph_consequences):`);
       lines.push(...candidateLines);
-      // The duplicate finding is a FINDING, not decoration — it was already computed and this
-      // branch was throwing it away.
-      if (crossLanguage) lines.push(`  ${crossLanguage.trim()}`);
-      if (attested && statedTotal > candidateLines.length) {
-        lines.push(`  NEXT: graph_whereis(symbol="${symbol}") — every definition, unsampled`);
-      }
+      // Disclosures come from the SHARED renderer, so this branch cannot drift from its
+      // sibling again. The languages are recovered from the consequences text this branch is
+      // already reading — the finding was computed upstream and was being discarded.
+      const langsFromText = crossLanguage?.match(/\(([a-z+, ]+)\)\s*\.?\s*$/)?.[1]?.split(',').map((s) => s.trim()) ?? [];
+      lines.push(...renderCandidateDisclosures({
+        shown: candidateLines.length,
+        total: statedTotal,
+        symbol,
+        languages: langsFromText.length > 1 ? langsFromText : (crossLanguage ? ['cpp', 'other'] : []),
+      }));
     }
     // The disambiguating step comes first here: on this path the useful next move
     // is to narrow the target, not to re-ask the same ambiguous question.
@@ -1106,16 +1149,19 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
         // languages is the thing that drifts. ef-manager's rule — a disclosure that fires
         // conditionally carries information by appearing at all; one that fires always is
         // wallpaper and readers stop seeing it.
-        extra.push('  ★ CROSS-LANGUAGE DUPLICATE — defined in more than one language.'
-          + ' For a mirrored struct every copy must agree; this is usually a FINDING,'
-          + ' not a disambiguation problem.'
-          + ' ⚠ The count is a FLOOR: shader source embedded in C++ string literals'
-          + ' (R"(...)") is not parsed, so mirrors can exist that no grep of *.glsl finds.');
       }
-      // Offered when the list is known-incomplete OR when completeness is unknown — the
-      // unknown case needs the remedy MORE, not less. Gating this on `sampled` alone would
-      // have withheld the way out precisely when the reader cannot tell what they are missing.
-      if (sampled || !pop.attested) {
+      // ⇒ BOTH branches now assemble their disclosures from renderCandidateDisclosures, which
+      // is why the FLOOR caveat can no longer exist on one and not the other — the divergence
+      // ef-manager found by comparing the two survivors of the previous round.
+      extra.push(...renderCandidateDisclosures({
+        shown: defLines.length,
+        total: pop.attested ? total : NaN,
+        symbol: matchedViaSymbol,
+        languages: byLang.map((b) => b.lang),
+      }));
+      // Still offered when completeness is UNKNOWN, which the shared renderer cannot know:
+      // the unknown case needs the remedy more, not less.
+      if (!pop.attested) {
         extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — every definition, unsampled`);
       }
       lines.splice(2, 0, header, ...defLines, ...extra);

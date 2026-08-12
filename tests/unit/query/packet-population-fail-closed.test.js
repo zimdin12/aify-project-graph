@@ -193,6 +193,30 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
     expect(text, 'a bare candidate list implies the enumeration is complete').not.toMatch(/CANDIDATES:\n/);
   }, 30_000);
 
+  it('★★★ BRANCH PARITY — both routes emit the SAME disclosures, from one renderer', async () => {
+    // ⛔ THE DIVERGENCE THIS EXISTS TO PREVENT. After the third per-branch fix, ef-manager
+    // compared the two survivors and found a fourth: both branches printed the CROSS-LANGUAGE
+    // DUPLICATE finding, and only ONE carried the FLOOR caveat — same verb, same symbol, same
+    // repo content. A disclosure added where someone was burned, not to its sibling.
+    //
+    // ★ Their prescription, and it is the right one: stop patching branches. One renderer
+    // consumed by every branch means a new branch cannot be BORN missing the disclosures —
+    // which closes the class instead of the instance and makes the next "third route"
+    // impossible rather than findable.
+    const feature = await makeRepo({ defs: 16, anchorSymbol: true, distinctFiles: true });
+    const featureText = String(await graphPacket({ repoRoot: feature, target: 'GpuMaterial', mode: 'orient' }));
+    await rm(feature, { recursive: true, force: true });
+
+    repoRoot = await makeRepo({ defs: 16, noFeatures: true, distinctFiles: true });
+    const ambiguousText = String(await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' }));
+
+    for (const [label, text] of [['feature route', featureText], ['ambiguous route', ambiguousText]]) {
+      expect(text, `${label}: cross-language duplicate must be reported`).toMatch(/CROSS-LANGUAGE DUPLICATE/);
+      expect(text, `${label}: the FLOOR caveat must not be branch-specific`).toMatch(/count is a FLOOR/);
+      expect(text, `${label}: unparsed-source mechanism must be named`).toMatch(/generated or embedded/);
+    }
+  }, 60_000);
+
   it('★★ CHEAP-ROUTE CONSUMER 2 (feature branch / DEFINED IN) is wired to the SAME resolver', async () => {
     // A separate call site with its own cap. It kept the defect for a day after the other
     // was fixed, which is why it gets its own arm rather than sharing one.
