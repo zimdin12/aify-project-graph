@@ -199,6 +199,40 @@ describe('★ no tracked source file contains a raw control byte', () => {
     // And the legitimate ones must NOT be flagged, or the gate is unusable on real files.
     expect([...rawControlBytes(Buffer.from('a\tb\r\nc', 'utf8')).keys()],
       'TAB/LF/CR are ordinary text').toEqual([]);
+
+    // ⛔ SELF-REVIEW SURVIVOR E4 — WIDENING THE ALLOWED SET. Adding vertical tab (0x0b) and
+    // form feed (0x0c) to ALLOWED_CONTROLS survived every case, because nothing asserted
+    // they are FORBIDDEN. Both make ripgrep treat a file as binary exactly as NUL does, so
+    // an allow-list that quietly grows re-opens the hole the gate exists to close.
+    expect([...rawControlBytes(Buffer.from([0x0b])).keys()], 'vertical tab must be caught')
+      .toEqual([0x0b]);
+    expect([...rawControlBytes(Buffer.from([0x0c])).keys()], 'form feed must be caught')
+      .toEqual([0x0c]);
+    expect([...rawControlBytes(Buffer.from([0x1b])).keys()], 'ESC must be caught')
+      .toEqual([0x1b]);
+  });
+
+  it('★★ the exemption MEMBERSHIP rule is equality, not containment', () => {
+    // ⛔ SELF-REVIEW SURVIVOR E7. Replacing the equality check with "every approved entry
+    // is present" survived, because both lists are empty and containment is trivially true
+    // of an empty set. That weakening would let BINARY_FILES grow entries the approved
+    // list never sanctioned — precisely the smuggling route.
+    //
+    // ⇒ The comparison is exercised on SYNTHETIC sets, so it is tested even while the real
+    // lists are empty. An assertion over two empty lists cannot distinguish a strict rule
+    // from a vacuous one.
+    const sameMembers = (actual, approved) =>
+      JSON.stringify([...actual].sort()) === JSON.stringify([...approved].sort());
+
+    expect(sameMembers(new Set(), []), 'empty matches empty').toBe(true);
+    expect(sameMembers(new Set(['a.png']), ['a.png']), 'identical sets match').toBe(true);
+    expect(sameMembers(new Set(['a.png', 'smuggled.js']), ['a.png']),
+      'an UNAPPROVED extra exemption must not pass').toBe(false);
+    expect(sameMembers(new Set(['a.png']), ['a.png', 'b.png']),
+      'a missing approved entry must not pass either').toBe(false);
+
+    // And the real lists must satisfy that same rule.
+    expect(sameMembers(BINARY_FILES, APPROVED_BINARY_EXEMPTIONS)).toBe(true);
   });
 
   it('★★ the RATCHET is discriminating — it admits only what is listed', () => {
@@ -273,6 +307,26 @@ describe('★ no tracked source file contains a raw control byte', () => {
     expect(binaryFormatOf(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])))
       .toBe('png');
     expect(binaryFormatOf(Buffer.from('SQLite format 3\0extra', 'binary'))).toBe('sqlite');
+
+    // ⛔ SELF-REVIEW SURVIVOR E1 — THE POLYGLOT. Matching the signature ANYWHERE instead of
+    // at offset 0 survived every case above, because none of them put a valid signature
+    // somewhere other than the start. A source file that merely CONTAINS PNG bytes would
+    // then be admitted as a PNG — and a file can be made to contain anything.
+    const polyglot = Buffer.concat([
+      Buffer.from('// a perfectly ordinary source file\n', 'utf8'),
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.from('\nexport default 1;\n', 'utf8'),
+    ]);
+    expect(binaryFormatOf(polyglot), 'a signature must be AT THE START, not merely present')
+      .toBeNull();
+
+    // ⛔ SELF-REVIEW SURVIVOR E2 — A TRUNCATED SIGNATURE. Shortening the PNG magic to two
+    // bytes also survived: nothing tested a NEAR MISS, so a weakened signature that
+    // matches far more files looked identical to a correct one.
+    expect(binaryFormatOf(Buffer.from([0x89, 0x50, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])),
+      'two matching bytes are not a PNG').toBeNull();
+    expect(binaryFormatOf(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a])),
+      'a signature one byte short is not a match').toBeNull();
 
     // And ordinary text is never admitted.
     expect(binaryFormatOf(Buffer.from('const a = 1;\n', 'utf8'))).toBeNull();
