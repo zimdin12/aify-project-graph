@@ -36,17 +36,31 @@ let startFailure = null;
 // failure to survive — dev's scenario was BOTH throwing, and a passing cleanup cannot
 // show whether the cause is preserved.
 let dbCloseFailure = null;
+// ⚠ COUNTS OPENS RATHER THAN FIRING ONCE, and the reason is a diagnosed self-review
+// finding. The first version was one-shot, and it was CONSUMED by an earlier
+// openExistingDb inside inspectReadFreshness (read_freshness.js:110) — so it was spent
+// before the startup-failure branch ever ran, and dev's D8 mutant survived a test that
+// looked like it covered it.
+//
+// ⇒ `dbCloseFailure = { error, skipOpens }` lets a case name WHICH db it means. Inside
+// graphDashboard the freshness check opens first and the verb's own db is second, so
+// skipOpens:1 targets the one whose close the startup-failure path performs.
+//
+// ★ A seam scoped to the module when the behaviour is scoped to one call site is how a
+// test ends up measuring the wrong thing while reading correctly.
+let dbOpenIndex = 0;
 vi.mock('../../../mcp/stdio/storage/db.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
     openExistingDb: (...a) => {
       const real = actual.openExistingDb(...a);
+      const mine = dbOpenIndex++;
       return new Proxy(real, {
         get(t, k) {
-          if (k === 'close' && dbCloseFailure) {
-            const e = dbCloseFailure; dbCloseFailure = null;
-            return () => { try { t.close(); } catch {} throw e; };
+          if (k === 'close' && dbCloseFailure && mine === (dbCloseFailure.skipOpens ?? 0)) {
+            const e = dbCloseFailure.error;
+            return () => { try { t.close(); } catch { /* still release it */ } throw e; };
           }
           const v = t[k];
           return typeof v === 'function' ? v.bind(t) : v;
@@ -149,6 +163,7 @@ afterEach(async () => {
   started.length = 0;
   startFailure = null;
   dbCloseFailure = null;
+  dbOpenIndex = 0;
   // Release the production registry FIRST — it owns the handle the fixture directory
   // depends on, and the real-server cases file entries there too.
   await stopAllDashboards();
@@ -363,7 +378,9 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     startFailure = new Error('listen failed');
     // ⚠ AND the cleanup fails too. dev's scenario was BOTH throwing; with a cleanup that
     // succeeds, removing the try/catch changes nothing and the mutation survives.
-    dbCloseFailure = new Error('db close failed');
+    // skipOpens:1 — the freshness check opens first; the verb's own db is the second,
+    // and its close is the one the startup-failure path performs.
+    dbCloseFailure = { error: new Error('db close failed'), skipOpens: 1 };
 
     await expect(graphDashboard({ repoRoot, port: 0 }), 'the startup cause must propagate')
       .rejects.toThrow(/listen failed/);

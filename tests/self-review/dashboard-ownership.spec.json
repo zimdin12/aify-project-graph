@@ -71,7 +71,6 @@
     "to": "    db.close();",
     "tests": [
       "tests/unit/dashboard/repo-root-wiring.test.js"
-    ],
-    "note": "OPEN FINDING (test-harness limitation, diagnosed). The dbCloseFailure seam is one-shot and is CONSUMED by an earlier openExistingDb inside inspectReadFreshness, so it is spent before the startup-failure path runs. The production fix (contain cleanup errors, preserve the startup cause) is in place and is dev-reported; it is the TEST that cannot reach it. Needs a seam scoped to the dashboard verb rather than the module."
+    ]
   }
 ]
