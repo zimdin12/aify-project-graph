@@ -32,6 +32,30 @@ let startDelay = null;
 let closeDelay = null;
 // Lets a case make startDashboard throw, to exercise the startup-failure cleanup path.
 let startFailure = null;
+// Lets a case make the DB's close() throw, so the startup-failure path has a cleanup
+// failure to survive — dev's scenario was BOTH throwing, and a passing cleanup cannot
+// show whether the cause is preserved.
+let dbCloseFailure = null;
+vi.mock('../../../mcp/stdio/storage/db.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    openExistingDb: (...a) => {
+      const real = actual.openExistingDb(...a);
+      return new Proxy(real, {
+        get(t, k) {
+          if (k === 'close' && dbCloseFailure) {
+            const e = dbCloseFailure; dbCloseFailure = null;
+            return () => { try { t.close(); } catch {} throw e; };
+          }
+          const v = t[k];
+          return typeof v === 'function' ? v.bind(t) : v;
+        },
+      });
+    },
+  };
+});
+
 vi.mock('../../../mcp/stdio/dashboard/server.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -124,6 +148,7 @@ async function makeRepo() {
 afterEach(async () => {
   started.length = 0;
   startFailure = null;
+  dbCloseFailure = null;
   // Release the production registry FIRST — it owns the handle the fixture directory
   // depends on, and the real-server cases file entries there too.
   await stopAllDashboards();
@@ -336,6 +361,9 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     // needs the fire, not the janitor.
     repoRoot = await makeRepo();
     startFailure = new Error('listen failed');
+    // ⚠ AND the cleanup fails too. dev's scenario was BOTH throwing; with a cleanup that
+    // succeeds, removing the try/catch changes nothing and the mutation survives.
+    dbCloseFailure = new Error('db close failed');
 
     await expect(graphDashboard({ repoRoot, port: 0 }), 'the startup cause must propagate')
       .rejects.toThrow(/listen failed/);

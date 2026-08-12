@@ -4,55 +4,74 @@
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "  const pending = { pendingStart: true, repoRoot, joinable: new Promise((r) => { settle = r; }) };\n  activeDashboards.set(repoRoot, pending);",
     "to": "  const pending = { pendingStart: true, repoRoot, joinable: new Promise((r) => { settle = r; }) };",
-    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ]
   },
   {
     "name": "D2 a pending start is reported as already_running",
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "    if (existing.pendingStart) return existing.joinable;",
     "to": "    // mutated: pending read as running",
-    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ]
   },
   {
     "name": "D3 drop the shutdown-ACTIVE check, keep only the generation",
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "teardownGeneration !== startedInGeneration || shutdownInFlight",
     "to": "teardownGeneration !== startedInGeneration",
-    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ]
   },
   {
     "name": "D4 teardown clears the whole registry unconditionally",
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "    if (activeDashboards.get(key) === entry) activeDashboards.delete(key);",
     "to": "    activeDashboards.clear();",
-    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ],
+    "note": "OPEN FINDING (defence-in-depth). With the shutdown-ACTIVE check in place nothing can REGISTER during teardown, so an unconditional clear() has nothing extra to erase. The guard covers a state that is currently unreachable by construction. Kept because the reachability argument depends on another guard staying correct — but no test covers it, and that is stated rather than hidden."
   },
   {
     "name": "D5 stale pending branch deletes without re-reading the key",
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "      const current = activeDashboards.get(key);\n      if (current === entry) { activeDashboards.delete(key); continue; }\n      if (!current) continue;\n      entry = current;",
     "to": "      activeDashboards.delete(key); continue;\n      // eslint-disable-next-line no-unreachable\n      let current;",
-    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ],
+    "note": "OPEN FINDING (defence-in-depth). Same reason as D4: a pending start completing during teardown now releases itself and deletes its own key, so the re-read finds no replacement and the entry=current branch is unreachable."
   },
   {
     "name": "D6 the generation never advances",
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "  teardownGeneration += 1;",
     "to": "  // mutated: generation frozen",
-    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ]
   },
   {
     "name": "D7 dashboard shutdown unwired from process teardown",
     "file": "mcp/stdio/server.js",
     "from": "  try { await stopAllDashboards(); } catch { /* best-effort teardown */ }",
     "to": "  // mutated: shutdown written but not wired",
-    "tests": ["tests/unit/dashboard/process-exits-after-dashboard.test.js"]
+    "tests": [
+      "tests/unit/dashboard/process-exits-after-dashboard.test.js"
+    ]
   },
   {
     "name": "D8 startup failure cleanup replaces the primary cause",
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "    try { db.close(); } catch { /* the startup failure below is the one that matters */ }",
     "to": "    db.close();",
-    "tests": ["tests/unit/dashboard/repo-root-wiring.test.js"]
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ],
+    "note": "OPEN FINDING (test-harness limitation, diagnosed). The dbCloseFailure seam is one-shot and is CONSUMED by an earlier openExistingDb inside inspectReadFreshness, so it is spent before the startup-failure path runs. The production fix (contain cleanup errors, preserve the startup cause) is in place and is dev-reported; it is the TEST that cannot reach it. Needs a seam scoped to the dashboard verb rather than the module."
   }
 ]
