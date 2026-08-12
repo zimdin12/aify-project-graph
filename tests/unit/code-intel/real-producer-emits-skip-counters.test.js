@@ -35,12 +35,12 @@ function realProviderWith(env) {
   });
 }
 
-async function collect(env) {
+async function collect(env, operations = ['symbols']) {
   const provider = realProviderWith(env);
   return provider.collect({
     projectRoot: fixtureRepo,
     files: ['src/main.cpp'],
-    operations: ['symbols'],
+    operations,
     budgetMs: 20_000,
   });
 }
@@ -55,6 +55,37 @@ describe('the REAL cpp-clangd provider produces the skip counters', () => {
     expect(env, 'harness sanity: the real provider must return an envelope').toBeTruthy();
     expect(sess.positionGuessSkipped, 'the producer must report what it could not place')
       .toBeGreaterThan(0);
+  }, 60_000);
+
+  it('★★ a symbol OVER the reference cap is counted by the producer', async () => {
+    // ⛔ THE SECOND COUNTER WAS PINNED ONLY BY A GREP THAT A COMMENT SATISFIED.
+    //
+    // dev mutated the real increment at cpp-clangd.js:615 to `+= 0` and left
+    // `// refsTruncatedSymbols += 1` as a source-shaped canary. Twenty tests stayed green,
+    // because NOTHING in the suite had ever produced a symbol with more than 2000
+    // references — the fake boundary supplied the value, and the source-contract test was
+    // satisfied by the comment.
+    //
+    // ⇒ Provider production is TWO rows, not one. Unplaceable-symbol skip was covered;
+    // over-cap truncation was not, and "the producer emits counters" was a claim about
+    // whichever counter I happened to provoke.
+    const env = await collect({ FAKE_LSP_MANY_REFS: '1' }, ['references']);
+
+    const sess = env?.session ?? {};
+    expect(env, 'harness sanity: the real provider must return an envelope').toBeTruthy();
+    expect(sess.refsTruncatedSymbols, 'a symbol over the per-symbol cap must be counted')
+      .toBeGreaterThan(0);
+  }, 60_000);
+
+  it('★★ and reports ZERO truncations when every symbol is under the cap', async () => {
+    // The discriminating half: without it, a provider that always reported a positive
+    // number would satisfy the case above.
+    const env = await collect({}, ['references']);
+
+    const sess = env?.session ?? {};
+    expect(env, 'harness sanity: the real provider must return an envelope').toBeTruthy();
+    expect(sess.refsTruncatedSymbols, 'nothing was truncated, and that is a measured fact')
+      .toBe(0);
   }, 60_000);
 
   it('★★ and reports ZERO when every identifier IS placeable — not null, not absent', async () => {

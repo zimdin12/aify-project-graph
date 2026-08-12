@@ -120,6 +120,20 @@ function handle(msg) {
       const uri = msg.params.textDocument.uri;
       // Return one ref in another file
       const otherUri = uri.replace('foo.cpp', 'bar.cpp');
+      // FAKE_LSP_MANY_REFS: more references than MAX_REFS_PER_SYMBOL (2000), so the real
+      // provider's per-symbol truncation actually fires and increments
+      // refsTruncatedSymbols. Added because graph-senior-dev-hermes mutated that increment
+      // to `+= 0` — leaving a `// refsTruncatedSymbols += 1` comment as a source-shaped
+      // canary — and 20/20 tests stayed green: nothing in the suite had ever provoked a
+      // symbol over the cap, so the counter's production was pinned only by a grep that a
+      // COMMENT satisfied.
+      if (process.env.FAKE_LSP_MANY_REFS === '1') {
+        const n = Number(process.env.FAKE_LSP_MANY_REFS_COUNT || 2050);
+        return reply(msg.id, Array.from({ length: n }, (_, i) => ({
+          uri: otherUri,
+          range: { start: { line: i, character: 2 }, end: { line: i, character: 5 } },
+        })));
+      }
       return reply(msg.id, [
         { uri: otherUri, range: { start: { line: 4, character: 2 }, end: { line: 4, character: 5 } } }
       ]);
