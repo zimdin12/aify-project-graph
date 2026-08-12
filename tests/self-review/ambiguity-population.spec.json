@@ -1,0 +1,44 @@
+[
+  {
+    "name": "F1 the true row total is never passed to the ambiguity message",
+    "file": "mcp/stdio/query/verbs/consequences.js",
+    "from": "buildAmbiguousMatchMessage(input, allSymbolMatches, 5, matchRowsTotal)",
+    "to": "buildAmbiguousMatchMessage(input, allSymbolMatches, 5)",
+    "tests": ["tests/unit/query/symbol-total-response-contract.test.js"]
+  },
+  {
+    "name": "F2 a capped retrieval reports its page count as the population",
+    "file": "mcp/stdio/query/verbs/symbol_lookup.js",
+    "from": "  const retrievalCapped = rowsTotal != null && rowsTotal > rows.length;",
+    "to": "  const retrievalCapped = false;",
+    "tests": ["tests/unit/query/symbol-total-response-contract.test.js"]
+  },
+  {
+    "name": "F3 uniqueness is claimed even when retrieval was truncated",
+    "file": "mcp/stdio/query/verbs/consequences.js",
+    "from": "    if (matchRowsTruncated) {",
+    "to": "    if (false) {",
+    "tests": ["tests/unit/query/symbol-total-response-contract.test.js"]
+  },
+  {
+    "name": "F4 resolveSymbolWithTotal returns the PAGE size as the total",
+    "file": "mcp/stdio/query/verbs/symbol_lookup.js",
+    "from": "    const total = db.get(countSql, params)?.n ?? rows.length;\n    return { rows, total, truncated: total > rows.length };",
+    "to": "    return { rows, total: rows.length, truncated: false };",
+    "tests": ["tests/unit/query/symbol-total-response-contract.test.js", "tests/unit/query/packet-unranked-candidates.test.js"]
+  },
+  {
+    "name": "F5 the COUNT is skipped whenever the page came back full",
+    "file": "mcp/stdio/query/verbs/symbol_lookup.js",
+    "from": "    if (rows.length < RESOLVE_LIMIT) return { rows, total: rows.length, truncated: false };",
+    "to": "    return { rows, total: rows.length, truncated: false };",
+    "tests": ["tests/unit/query/packet-unranked-candidates.test.js"]
+  },
+  {
+    "name": "F6 packet reports the retrieval cap as the definition total",
+    "file": "mcp/stdio/query/verbs/packet.js",
+    "from": "          locationsTotal: resolvedTotal,",
+    "to": "          locationsTotal: nodes.length,",
+    "tests": ["tests/unit/query/packet-unranked-candidates.test.js"]
+  }
+]
