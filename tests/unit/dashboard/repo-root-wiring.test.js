@@ -30,6 +30,8 @@ const started = [];
 let startDelay = null;
 // Lets a case hold a server close open, so a second start can land mid-teardown.
 let closeDelay = null;
+// Lets a case make startDashboard throw, to exercise the startup-failure cleanup path.
+let startFailure = null;
 vi.mock('../../../mcp/stdio/dashboard/server.js', async (importOriginal) => {
   const actual = await importOriginal();
   return {
@@ -37,6 +39,7 @@ vi.mock('../../../mcp/stdio/dashboard/server.js', async (importOriginal) => {
     startDashboard: async (args) => {
       started.push(args);
       if (startDelay) { const d = startDelay; startDelay = null; await d; }
+      if (startFailure) { const e = startFailure; startFailure = null; throw e; }
       // ⚠ The stub must honour the node http contract it is standing in for: close(cb)
       // INVOKES cb. The first version ignored it, and shutdown — which awaits that
       // callback — deadlocked the whole file. A stub that is unfaithful on the exact
@@ -44,7 +47,18 @@ vi.mock('../../../mcp/stdio/dashboard/server.js', async (importOriginal) => {
       return Promise.resolve({
         url: 'http://127.0.0.1:0',
         port: 0,
-        server: { close: (cb) => { const d = closeDelay; if (d) { d.then(() => { if (typeof cb === 'function') cb(); }); } else if (typeof cb === 'function') cb(); } },
+        // ⚠ ONE-SHOT. A persistent closeDelay also gates the close a RELEASING start
+        // performs on itself, which deadlocks the fixture — and that deadlock is what
+        // stopped me writing the schedule where a start COMPLETES while teardown is still
+        // running. Consuming the delay on first use lets exactly one close be held open.
+        server: {
+          close: (cb) => {
+            const d = closeDelay;
+            closeDelay = null;
+            if (d) { d.then(() => { if (typeof cb === 'function') cb(); }); }
+            else if (typeof cb === 'function') cb();
+          },
+        },
       });
     },
   };
@@ -109,6 +123,7 @@ async function makeRepo() {
 // already run. Nothing here is allowed to swallow it.
 afterEach(async () => {
   started.length = 0;
+  startFailure = null;
   // Release the production registry FIRST — it owns the handle the fixture directory
   // depends on, and the real-server cases file entries there too.
   await stopAllDashboards();
@@ -272,6 +287,60 @@ describe('the dashboard is wired to the repo it is inspecting', () => {
     expect(b?.url, 'the joiner must receive a usable url, never undefined').toBeTruthy();
     expect(b?.url, 'and it must be the SAME dashboard, not a second one').toBe(a.url);
     expect(started, 'exactly one start may occur per key').toHaveLength(1);
+  }, 20_000);
+
+  it('★★ a start COMPLETING while teardown is still running releases itself', async () => {
+    // ⛔ SELF-REVIEW SURVIVOR D3. My existing cases all let teardown FINISH before the
+    // racing start resumes, so the generation had already moved and the generation check
+    // alone caught them. Removing the shutdown-ACTIVE check survived every one of them.
+    //
+    // ⇒ This is the schedule that needs it: teardown is still closing (generation NOT yet
+    // advanced) when a new-key start completes. Without the active check it publishes into
+    // a registry whose snapshot cannot contain it, so nothing in that teardown will ever
+    // release it.
+    repoRoot = await makeRepo();
+    await graphDashboard({ repoRoot, port: 0 });
+
+    let releaseClose;
+    closeDelay = new Promise((r) => { releaseClose = r; });   // one-shot: holds A's close
+    const tearing = stopAllDashboards();
+
+    const second = await makeRepo();
+    try {
+      // B starts AND completes while teardown is parked. Its own close is not gated,
+      // because the delay was consumed by A.
+      const resultB = await graphDashboard({ repoRoot: second, port: 0 });
+
+      expect(resultB?.status, 'a start finishing mid-teardown must release itself')
+        .toBe('shutting_down');
+      // ⚠ A is STILL registered here — teardown is parked inside its close, which is
+      // correct. My first assertion demanded 0 and failed against working code: I was
+      // asserting the end state at a moment that is deliberately mid-flight. What matters
+      // is that B added NOTHING to the one entry already being released.
+      expect(activeDashboardCount(), 'B must not have registered; only A remains, mid-close')
+        .toBe(1);
+
+      releaseClose();
+      await tearing;
+      expect(activeDashboardCount(), 'teardown completes with nothing left').toBe(0);
+    } finally {
+      closeDelay = null;
+      await rm(second, { recursive: true, force: true });
+    }
+  }, 20_000);
+
+  it('★★ a startup failure reports the STARTUP cause, not the cleanup error', async () => {
+    // ⛔ SELF-REVIEW SURVIVOR D8 — dev reported this and I fixed it with no test at all,
+    // so the fix was carried by nothing. `startDashboard` throwing "listen failed"
+    // followed by a throwing db.close() must still surface the listen failure: the caller
+    // needs the fire, not the janitor.
+    repoRoot = await makeRepo();
+    startFailure = new Error('listen failed');
+
+    await expect(graphDashboard({ repoRoot, port: 0 }), 'the startup cause must propagate')
+      .rejects.toThrow(/listen failed/);
+    expect(activeDashboardCount(), 'and the reservation must not outlive the failed start')
+      .toBe(0);
   }, 20_000);
 
   it('★★ an explicitly-rooted server serves THAT repo\'s bytes', async () => {
