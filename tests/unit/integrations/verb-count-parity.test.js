@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { HIDDEN_FULL_TOOL_NAMES } from '../../../mcp/stdio/hidden-tools.js';
+import { TOOLS } from '../../../mcp/stdio/tools/schema.js';
 
 // Docs that state a verb count kept drifting from the profile sets in
 // server.js: the always-loaded session-start skill claimed a "default 16-verb
@@ -34,9 +35,16 @@ function actualCounts() {
   // server.js would start a stdio server inside the test process; that is a
   // known weakness, declared rather than hidden.
   const hidden = HIDDEN_FULL_TOOL_NAMES;
-  const all = [...new Set(
-    [...SERVER.matchAll(/^\s*name:\s*'([a-z_0-9]+)'/gm)].map(m => m[1]),
-  )];
+  // ★ NO LONGER SCRAPED. This used to regex `name:` out of server.js source, and the comment
+  // above called that "a known weakness, declared rather than hidden" — it then fired on the
+  // 2026-08-12 extraction of the TOOLS array into tools/schema.js, exactly as predicted, with
+  // the behaviour unchanged (tools/list payload digest byte-identical before and after).
+  //
+  // ⇒ The extraction REMOVES the weakness rather than relocating it: `tools/schema.js` is
+  // declarations plus imports and starts no server, so the real array can be imported. The
+  // test now reads the same object the server dispatches from, and a future move of that file
+  // is a resolution error at import time rather than a silent count of zero.
+  const all = [...new Set(TOOLS.map((t) => t.name))];
   return {
     total: all.length,
     full: all.filter(n => !hidden.has(n)).length,
