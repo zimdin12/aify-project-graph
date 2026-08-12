@@ -28,6 +28,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { graphIdentity as graphIdentityOf } from './graph-identity.mjs';
+import { parseSummaryLine } from './summary-grammar.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (...a) => {
@@ -118,14 +119,28 @@ const carrier = {
   platform: { os: process.platform, arch: process.arch, node: process.version },
 };
 
+// ⛔ THE CHILD'S TERMINAL STATE WAS THROWN AWAY. The old catch kept stdout/stderr and dropped
+// `e.status`, `e.signal` and spawn errors entirely, so success depended only on parsed counts —
+// meaning a runner that died, timed out, or exited nonzero while printing a zero-failure
+// summary could still produce a successful receipt. The process outcome is evidence; discarding
+// it and trusting its stdout is reading the report instead of the run.
 console.log('running the suite to bind counts to this carrier…\n');
+const invocation = { argv: ['vitest', 'run', '--reporter=basic'], shell: true };
 let raw = '';
+let child = { status: 0, signal: null, spawnError: null };
 try {
-  raw = execFileSync('npx', ['vitest', 'run', '--reporter=basic'], {
+  raw = execFileSync('npx', invocation.argv, {
     cwd: REPO, encoding: 'utf8', shell: true, maxBuffer: 64 * 1024 * 1024,
   });
 } catch (e) {
   raw = `${e.stdout || ''}${e.stderr || ''}`;
+  child = {
+    status: e.status ?? null,
+    signal: e.signal ?? null,
+    // ENOENT/EACCES or a signal are APPARATUS failures — the suite did not report, so there is
+    // nothing to attribute, and that is categorically different from "tests failed".
+    spawnError: (e.code === 'ENOENT' || e.code === 'EACCES' || e.signal) ? (e.signal ? `signal ${e.signal}` : e.code) : null,
+  };
 }
 
 // ⚠ ANCHORED TO THE SUMMARY LINES, and ANSI stripped first. My first version matched
@@ -154,20 +169,31 @@ if (carrier.aifyGraph.digest !== graphAfter.digest) {
   intervalProblems.push(`.aify-graph digest moved ${carrier.aifyGraph.digest} → ${graphAfter.digest} during the run (the suite mutated generated state)`);
 }
 
+// ⛔ `num()` RETURNED -1 FOR AN ABSENT CATEGORY, AND VITEST OMITS ZERO CATEGORIES.
+//
+// An ordinary all-green run prints `Test Files  240 passed (240)` with NO `failed` token, so
+// `failed` became -1 and the nonnegative gate I had just added REFUSED — my fix for
+// "unparseable output exits 0" made ORDINARY SUCCESS impossible to emit. graph-senior-dev-hermes
+// found it from the source and the summary shape; it had never fired here because every run
+// since had refused earlier, at the dirty-tree gate.
+//
+// ★ A missing optional category means ZERO only once the COMPLETE GRAMMAR is recognised.
+// Inferring it from a failed token match is the same shape as the original defect: absence
+// read as a value rather than as "the parse did not happen".
 const plain = raw.replace(/\x1b\[[0-9;]*m/g, '');
-const summaryOf = (label) => plain.split('\n').find((l) => new RegExp(`^\\s*${label}\\s`).test(l)) ?? '';
-const filesLine = summaryOf('Test Files');
-const testsLine = summaryOf('Tests');
-const num = (line, re) => Number(line.match(re)?.[1] ?? -1);
+const filesSummary = parseSummaryLine('Test Files', plain);
+const testsSummary = parseSummaryLine('Tests', plain);
 const counts = {
-  testFiles: num(filesLine, /(\d+) passed/),
-  testFilesFailed: num(filesLine, /(\d+) failed/),
-  passed: num(testsLine, /(\d+) passed/),
-  failed: num(testsLine, /(\d+) failed/),
-  skipped: num(testsLine, /(\d+) skipped/),
-  // If the summary lines were not found at all, every count above is -1 — say so rather
-  // than emit a receipt full of sentinels that read like real numbers.
-  parsed: Boolean(filesLine && testsLine),
+  testFiles: filesSummary.total ?? -1,
+  testFilesPassed: filesSummary.passed ?? -1,
+  testFilesFailed: filesSummary.failed ?? -1,
+  total: testsSummary.total ?? -1,
+  passed: testsSummary.passed ?? -1,
+  failed: testsSummary.failed ?? -1,
+  skipped: testsSummary.skipped ?? -1,
+  todo: testsSummary.todo ?? -1,
+  parsed: Boolean(filesSummary.recognised && testsSummary.recognised),
+  parseProblems: [filesSummary.reason, testsSummary.reason].filter(Boolean),
 };
 
 // ⛔ PARSE FAILURE WAS ONLY A WARNING, AND THE EXIT PATH LET IT THROUGH.
@@ -181,15 +207,18 @@ const counts = {
 // ⇒ Unparseable output is an APPARATUS failure, not a low-confidence result. Counts must also
 // be nonnegative integers and reconcile, because "two summary lines exist" was never the claim.
 const countProblems = [];
-if (!counts.parsed) countProblems.push('summary lines not found in reporter output');
+for (const r of counts.parseProblems) countProblems.push(r);
 for (const [k, v] of Object.entries(counts)) {
-  if (k === 'parsed') continue;
+  if (k === 'parsed' || k === 'parseProblems') continue;
   if (!Number.isInteger(v) || v < 0) countProblems.push(`${k} is ${JSON.stringify(v)} — not a nonnegative integer`);
 }
-if (counts.parsed && Number.isInteger(counts.testFiles) && Number.isInteger(counts.testFilesFailed)
-    && counts.testFilesFailed > 0 && counts.failed === 0) {
+if (counts.parsed && counts.testFilesFailed > 0 && counts.failed === 0) {
   countProblems.push(`${counts.testFilesFailed} test file(s) failed but 0 tests failed — counts do not reconcile`);
 }
+// The child's terminal state is part of the claim, not a detail of how it was obtained.
+const apparatusProblems = [];
+if (child.spawnError) apparatusProblems.push(`runner did not complete: ${child.spawnError}`);
+else if (child.status !== 0) apparatusProblems.push(`runner exited ${child.status} — a receipt requires exit 0 AS WELL AS reconciled counts`);
 
 const receipt = {
   counts, carrier, generatedAt: new Date().toISOString(),
@@ -201,8 +230,10 @@ if (process.argv.includes('--json')) {
   console.log(JSON.stringify(receipt, null, 2));
 } else {
   console.log('SUITE RECEIPT');
-  if (!counts.parsed) console.log('  ⛔ SUMMARY LINES NOT FOUND — counts below are unparsed sentinels');
-  console.log(`  counts        ${counts.passed} passed · ${counts.failed > 0 ? `${counts.failed} FAILED · ` : ''}${counts.skipped} skipped · ${counts.testFiles} files`);
+  if (!counts.parsed) console.log(`  ⛔ SUMMARY NOT RECOGNISED — ${counts.parseProblems.join('; ')}`);
+  console.log(`  counts        ${counts.passed} passed · ${counts.failed} failed · ${counts.skipped} skipped`
+    + `${counts.todo ? ` · ${counts.todo} todo` : ''} of ${counts.total} in ${counts.testFiles} files`);
+  console.log(`  runner        exit ${child.status}${child.signal ? ` signal ${child.signal}` : ''}`);
   console.log(`  commit        ${carrier.commit ?? '(none — not a git working copy)'}  (tree ${carrier.tree?.slice(0, 12) ?? 'n/a'})`
     + `${validity.state === 'ok' ? '' : '   ⚠ NOT the carrier of these counts — see `carrier` below'}`);
   console.log(`  carrier       ${validity.state}${validity.detail ? ` — ${validity.detail}` : ''}${validity.dirty ? ` (${validity.dirty} files)` : ''}`);
@@ -227,6 +258,12 @@ if (intervalProblems.length) {
   console.error('\n⛔ ATTRIBUTION INTERVAL BROKEN — the carrier changed while the suite ran:');
   for (const p of intervalProblems) console.error(`   · ${p}`);
   console.error('   These counts cannot be attributed to the commit above. No receipt emitted.');
+  process.exit(1);
+}
+// Apparatus first: if the runner did not complete, the counts describe nothing.
+if (apparatusProblems.length) {
+  console.error('\n⛔ APPARATUS — the suite run itself is not established:');
+  for (const p of apparatusProblems) console.error(`   · ${p}`);
   process.exit(1);
 }
 // Unreadable counts are an apparatus failure and must never exit 0 on a sentinel.
