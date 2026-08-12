@@ -304,7 +304,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         + 'identity — but the remaining rows were never fetched, so uniqueness is NOT '
         + 'established and this is not a safe basis for a change decision. '
         + `Narrow with file= or a qualified name, or use graph_whereis(symbol="${input}") `
-        + 'which ranks and does not cap the same way.';
+        + 'which does not cap the same way and reports its own limit.';
     }
     const symbolNodes = pickPrimarySymbol(allSymbolMatches);
     const referencedIn = allSymbolMatches

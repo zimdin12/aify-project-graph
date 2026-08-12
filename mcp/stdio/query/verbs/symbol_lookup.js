@@ -239,7 +239,7 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
     ? `  ⚠ SHOWING ${candidates.length} OF ${groups.size} — ${omitted} candidate(s) omitted. `
       + 'The definition you want may be among them: on a repo with shader or generated '
       + 'mirrors, the sole first-party declaration can fall outside this cap. '
-      + `Narrow with file= or a qualified name, or use graph_whereis(symbol="${symbol}") which ranks and does not cap the same way.`
+      + `Narrow with file= or a qualified name, or use graph_whereis(symbol="${symbol}") which does not cap the same way and reports its own limit.`
     : '';
 
   // Retrieval was capped, so the identities below were computed from a PAGE, not from the

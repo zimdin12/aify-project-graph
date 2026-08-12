@@ -768,15 +768,15 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       // total we cannot tell 1 definition from 100, and "1 match" would be a manufactured claim.
       lines.push(
         `  ⚠ UNRANKED — showing ${symHits.length}; total population UNKNOWN (not reported by `
-        + `graph_consequences). graph_whereis(symbol="${symbol}") ranks and counts them.`,
+        + `graph_consequences). graph_whereis(symbol="${symbol}") lists them and reports its own cap.`,
       );
     } else if (pop.total > 1) {
       lines.push(
         pop.total > symHits.length
           ? `  ⚠ UNRANKED, showing ${symHits.length} of ${pop.total} — order is arrival, not relevance. `
-            + `graph_whereis(symbol="${symbol}") ranks them; do not treat the first entry here as the definition.`
+            + `graph_whereis(symbol="${symbol}") lists them; NEITHER verb ranks — do not treat the first entry as the definition.`
           : `  ⚠ UNRANKED (${pop.total} matches) — order is arrival, not relevance. `
-            + `graph_whereis(symbol="${symbol}") ranks them.`,
+            + `graph_whereis(symbol="${symbol}") lists them and reports its own cap.`,
       );
     }
     if (fileHits.length) {
@@ -1208,7 +1208,7 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       // and promising an unsampled result from a verb that caps at 5 is the false promise this
       // round removed. What is true unconditionally is that whereis reports its own cap.
       if (!pop.attested) {
-        extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — ranks them, and reports its own cap`);
+        extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — lists them, and reports its own cap`);
       }
       lines.splice(2, 0, header, ...defLines, ...extra);
     }

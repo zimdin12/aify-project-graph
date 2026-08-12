@@ -18,6 +18,12 @@ import { isTaskOpen } from '../overlay/task-status.js';
 // Non-graph brief inputs live in artifacts.js so the renderers can be split out without a
 // cycle — see that file's header for why this slice had to come first.
 import { computeCoverage, openTasksByFeature, completedTaskCountsByFeature, openTasksWithoutFeatures } from './artifacts.js';
+// ⚠ RE-EXPORTED, because removing it was an API BREAK I hid from myself. At base this module
+// exported both `computeCoverage` and `generateBrief`; the artifacts slice moved the first and
+// I updated the test's import in the same commit — which masked the break rather than revealing
+// it. A structural change that alters a module's public surface is not structural.
+// graph-senior-dev-hermes: preserve the old named export or classify the change as breaking.
+export { computeCoverage } from './artifacts.js';
 // The five renderers live in render.js. generator.js orchestrates and hands each one a plain
 // data object; nothing flows back. See render.js's header for why artifacts.js had to move first.
 import { q, count, extractPaths, detectCanonicalEntries, subsystems, hubs, readFirst, testInventory, testAnchors, enrichFeaturesForPlanning, enrichRisksForPlanning, risks } from './graph-shape.js';
@@ -98,12 +104,47 @@ function extractExports(repoRoot, db) {
 
   // Strategy 1: MCP server tool arrays. Scan for `name: '...', handler: X` pairs.
   // Handles mcp/stdio/server.js with a TOOLS = [ { name, handler, ... }, ... ] shape.
+  // ⛔ THIS SCAN BROKE WHEN THE TOOLS ARRAY MOVED, AND THE REFACTOR CLAIMED NO BEHAVIOUR CHANGE.
+  //
+  // Slice c8cc8eb extracted all 42 declarations to mcp/stdio/tools/schema.js. This function
+  // scanned server.js only, found zero `{name, handler}` pairs, and generateBrief silently
+  // stopped emitting the EXPORTS section for THIS repo — losing every public verb name and
+  // starving extractPaths() of its input. tools/list stayed byte-identical, which is what I
+  // measured and proved; the brief is a different surface and I proved nothing about it.
+  //
+  // graph-senior-dev-hermes caught it with a differential against exact git blobs: pre-refactor
+  // server.js produced EXPORTS with `graph_status`; post-refactor produced neither. The unit
+  // test manufactures the OLD inline server shape, so 33 generator tests passed while the real
+  // architecture failed — a fixture pinning a shape the repo no longer has.
+  //
+  // ⇒ Discovery now FOLLOWS THE IMPORT rather than a hardcoded location list. A hardcoded
+  // `tools/schema.js` entry would work for this repo today and break for the next layout; the
+  // wiring is the thing that is actually true. Still pure source scanning — no target-repo code
+  // is executed.
   const mcpCandidates = ['mcp/stdio/server.js', 'src/server.js', 'server.js'];
+  const scanForVerbs = (text, rel) => [...text.matchAll(
+    /\{\s*name:\s*['"`]([a-z][a-z0-9_]*)['"`][\s\S]{0,400}?handler:\s*([A-Za-z_][A-Za-z0-9_]*)/g,
+  )].map((m) => ({ name: m[1], location: `${rel}:handler=${m[2]}` }));
+
   for (const rel of mcpCandidates) {
     const p = join(repoRoot, rel);
     if (!existsSync(p)) continue;
     try {
-      const text = readFileSync(p, 'utf8');
+      const serverText = readFileSync(p, 'utf8');
+      // Follow every relative import the server pulls a tool array from, one hop. The verbs
+      // live wherever the server says they live.
+      for (const m of serverText.matchAll(/import\s*\{[^}]*\bTOOLS\b[^}]*\}\s*from\s*['"](\.[^'"]+)['"]/g)) {
+        const schemaRel = join(rel, '..', m[1]).replace(/\\/g, '/');
+        const schemaAbs = join(repoRoot, schemaRel);
+        if (!existsSync(schemaAbs)) continue;
+        try {
+          for (const v of scanForVerbs(readFileSync(schemaAbs, 'utf8'), schemaRel)) {
+            add(v.name, v.location, 'mcp_verb');
+          }
+        } catch { /* unreadable schema module — fall through to the inline scan */ }
+      }
+      if (out.length) return out;
+      const text = serverText;
       // Match `name: 'foo',` ... `handler: bar` within a tight window (same object literal)
       const matches = [...text.matchAll(/\{\s*name:\s*['"`]([a-z][a-z0-9_]*)['"`][\s\S]{0,400}?handler:\s*([A-Za-z_][A-Za-z0-9_]*)/g)];
       for (const m of matches) {
