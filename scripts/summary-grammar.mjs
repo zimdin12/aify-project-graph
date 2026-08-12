@@ -16,7 +16,27 @@
 // helper was unfalsifiable because it could not be imported.
 const SUMMARY = /^\s*(Test Files|Tests)\s+(.+?)\s*\((\d+)\)\s*$/;
 
+// ⛔ CLOSED CATEGORY SETS, PER LABEL. The first version accepted any `[a-z]+`, summed it into
+// the reporter total, and returned it by spread — while suite-receipt projected only
+// passed/failed/skipped/todo. graph-senior-dev-hermes executed the consequence:
+//
+//   parseSummaryLine('Tests', ' Tests  1 bananas (1)')
+//     -> recognised:true, total:1, passed:0, failed:0, skipped:0, todo:0, bananas:1
+//
+// The grammar declared the line COMPLETE while the receipt could publish zero known outcomes
+// of a population of one. That is the same unknown-population laundering the grammar existed
+// to prevent, one layer in — an open vocabulary is not a grammar, it is a shape check.
+//
+// ⇒ A category outside the label's measured vocabulary means the reporter changed or the line
+// was misread. Either way it is REFUSED, not silently carried.
+const CATEGORIES = {
+  'Test Files': ['passed', 'failed', 'skipped'],
+  Tests: ['passed', 'failed', 'skipped', 'todo'],
+};
+
 export function parseSummaryLine(label, text) {
+  const allowed = CATEGORIES[label];
+  if (!allowed) return { recognised: false, reason: `unknown summary label ${JSON.stringify(label)}` };
   const line = String(text ?? '').split('\n').find((l) => {
     const m = SUMMARY.exec(l);
     return m && m[1] === label;
@@ -31,6 +51,9 @@ export function parseSummaryLine(label, text) {
     if (Object.prototype.hasOwnProperty.call(cats, m[2])) {
       return { recognised: false, reason: `duplicate category "${m[2]}" in "${label}"` };
     }
+    if (!allowed.includes(m[2])) {
+      return { recognised: false, reason: `unknown category "${m[2]}" for "${label}" — expected one of ${allowed.join('/')}` };
+    }
     cats[m[2]] = Number(m[1]);
   }
 
@@ -42,5 +65,14 @@ export function parseSummaryLine(label, text) {
   if (sum !== total) {
     return { recognised: false, reason: `"${label}" categories ${JSON.stringify(cats)} sum to ${sum}, reporter says ${total}` };
   }
-  return { recognised: true, line, total, passed: 0, failed: 0, skipped: 0, todo: 0, ...cats };
+  const out = { recognised: true, line, total, passed: 0, failed: 0, skipped: 0, todo: 0, ...cats };
+  // ★ THE PROJECTED FIELDS THEMSELVES MUST SUM TO THE TOTAL. Checking the parsed categories
+  // was not enough: what the consumer publishes is this projection, so the projection is what
+  // has to reconcile. Any future category that parses but is not projected fails here rather
+  // than quietly shrinking the reported population.
+  const projected = out.passed + out.failed + out.skipped + out.todo;
+  if (projected !== total) {
+    return { recognised: false, reason: `"${label}" projected fields sum to ${projected}, reporter says ${total}` };
+  }
+  return out;
 }

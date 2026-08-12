@@ -165,8 +165,32 @@ if ((validityAfter.tree ?? null) !== (validity.tree ?? null)) intervalProblems.p
 // Generated state has a stated temporal policy rather than an assumed one: for a suite that
 // does not mutate its carrier, pre must equal post. If that ever fails, the correct reading is
 // "this suite writes to .aify-graph", which is a finding — not something to normalise away.
-if (carrier.aifyGraph.digest !== graphAfter.digest) {
-  intervalProblems.push(`.aify-graph digest moved ${carrier.aifyGraph.digest} → ${graphAfter.digest} during the run (the suite mutated generated state)`);
+// ⛔ COMPARING DIGESTS ALONE CANNOT SEE A REFUSAL. `graphIdentity()` returns
+// `{present:true, digest:null, incomplete:[...]}` when the population is not fully readable —
+// and TWO such states both compare `null === null`, so a withheld identity passed the interval
+// check and nothing downstream required a usable one. The refusal was produced and never
+// consumed. Presence, coverage and population are compared too, and a present-but-withheld
+// identity refuses the receipt outright.
+if (carrier.aifyGraph.present !== graphAfter.present) {
+  intervalProblems.push(`.aify-graph presence changed ${carrier.aifyGraph.present} → ${graphAfter.present} during the run`);
+} else if (carrier.aifyGraph.present) {
+  if (carrier.aifyGraph.digest !== graphAfter.digest) {
+    intervalProblems.push(`.aify-graph digest moved during the run (the suite mutated generated state)`);
+  }
+  if (carrier.aifyGraph.coverage !== graphAfter.coverage) {
+    intervalProblems.push(`.aify-graph coverage changed ${carrier.aifyGraph.coverage} → ${graphAfter.coverage}`);
+  }
+  if ((carrier.aifyGraph.entries ?? []).length !== (graphAfter.entries ?? []).length) {
+    intervalProblems.push(`.aify-graph population moved ${(carrier.aifyGraph.entries ?? []).length} → ${(graphAfter.entries ?? []).length} entries`);
+  }
+}
+// A generated state that is PRESENT but whose identity was withheld cannot back a
+// commit-bound receipt. Typed ABSENCE is fine — that is a stated condition, not an unknown one.
+const identityProblems = [];
+for (const [when, g] of [['before', carrier.aifyGraph], ['after', graphAfter]]) {
+  if (g.present && g.digest === null) {
+    identityProblems.push(`.aify-graph identity WITHHELD ${when} the run — ${(g.incomplete ?? []).slice(0, 3).join('; ')}`);
+  }
 }
 
 // ⛔ `num()` RETURNED -1 FOR AN ABSENT CATEGORY, AND VITEST OMITS ZERO CATEGORIES.
@@ -220,8 +244,28 @@ const apparatusProblems = [];
 if (child.spawnError) apparatusProblems.push(`runner did not complete: ${child.spawnError}`);
 else if (child.status !== 0) apparatusProblems.push(`runner exited ${child.status} — a receipt requires exit 0 AS WELL AS reconciled counts`);
 
+// ⛔ I CLAIMED THE TERMINAL WAS BOUND AND THEN DID NOT PUT IT IN THE ARTIFACT. `child` and
+// `invocation` governed the exit code but appeared nowhere in the emitted receipt, so the thing
+// a reader receives retained no command, shell mode, status, signal or spawn outcome — the
+// claim lived in the code path, not in the evidence. dev's point, and it is the same
+// correction-lives-elsewhere shape as putting a fix in chat instead of in the file.
+//
+// ⚠ `npx` + `shell:true` is AMBIENT RESOLUTION, stated rather than hidden: the receipt records
+// the resolved runner version so a reader can see WHICH vitest produced these counts, but the
+// invocation itself is still resolved through the shell and PATH.
+const runnerVersion = (() => {
+  try { return JSON.parse(readFileSync(join(REPO, 'node_modules', 'vitest', 'package.json'), 'utf8')).version ?? null; }
+  catch { return null; }
+})();
+
 const receipt = {
   counts, carrier, generatedAt: new Date().toISOString(),
+  runner: {
+    argv: invocation.argv, shell: invocation.shell,
+    resolution: 'npx + shell:true — AMBIENT, not a pinned binary path',
+    vitestVersion: runnerVersion,
+    status: child.status, signal: child.signal, spawnError: child.spawnError,
+  },
   attributionInterval: { before: validity.state, after: validityAfter.state, problems: intervalProblems },
   countProblems,
 };
@@ -258,6 +302,13 @@ if (intervalProblems.length) {
   console.error('\n⛔ ATTRIBUTION INTERVAL BROKEN — the carrier changed while the suite ran:');
   for (const p of intervalProblems) console.error(`   · ${p}`);
   console.error('   These counts cannot be attributed to the commit above. No receipt emitted.');
+  process.exit(1);
+}
+// A present generated state with no usable identity cannot back a commit-bound receipt.
+if (identityProblems.length) {
+  console.error('\n⛔ GENERATED-STATE IDENTITY NOT ESTABLISHED:');
+  for (const p of identityProblems) console.error(`   · ${p}`);
+  console.error('   .aify-graph is present but could not be identified. No receipt emitted.');
   process.exit(1);
 }
 // Apparatus first: if the runner did not complete, the counts describe nothing.

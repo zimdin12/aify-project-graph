@@ -89,6 +89,28 @@ describe('an incompletely understood line is REFUSED, not partially believed', (
     }
   });
 
+  it('★★★ an UNKNOWN category refuses — the grammar must not certify a population it cannot name', () => {
+    // dev executed exactly this: ' Tests  1 bananas (1)' was recognised:true with total 1 and
+    // every KNOWN category 0, so the receipt could publish zero known outcomes of a population
+    // of one. An open vocabulary is a shape check, not a grammar.
+    const r = tests(' Tests  1 bananas (1)');
+    expect(r.recognised).toBe(false);
+    expect(r.reason).toMatch(/unknown category "bananas"/);
+  });
+
+  it('★★ a category valid for one label is refused on the other', () => {
+    // `todo` is a Tests category; Test Files has no such vocabulary. Accepting it there would
+    // mean the label was not really constraining anything.
+    expect(tests(' Tests  1 passed | 1 todo (2)').recognised).toBe(true);
+    const r = files(' Test Files  1 passed | 1 todo (2)');
+    expect(r.recognised).toBe(false);
+    expect(r.reason).toMatch(/unknown category "todo" for "Test Files"/);
+  });
+
+  it('★★ an unknown LABEL is refused rather than parsed generically', () => {
+    expect(parseSummaryLine('Snapshots', ' Snapshots  1 passed (1)').recognised).toBe(false);
+  });
+
   it('★★ duplicate category refuses rather than silently taking the last', () => {
     const r = tests(' Tests  1 passed | 2 passed (3)');
     expect(r.recognised).toBe(false);
