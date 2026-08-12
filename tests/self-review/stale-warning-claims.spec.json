@@ -1,0 +1,44 @@
+[
+  {
+    "name": "M1 drop a claim from the docs_only route",
+    "file": "mcp/stdio/stale-warning-claims.js",
+    "from": "CLAIM.HOST_METHOD_UNKNOWN, CLAIM.SESSION_RESTART_MAY_NOT_RESPAWN,\n    CLAIM.VERIFY_BY_STARTED_AT, CLAIM.COMMIT_NOT_RESTART_IDENTITY,\n  ]),\n  executable_delta",
+    "to": "CLAIM.HOST_METHOD_UNKNOWN,\n    CLAIM.VERIFY_BY_STARTED_AT, CLAIM.COMMIT_NOT_RESTART_IDENTITY,\n  ]),\n  executable_delta",
+    "tests": ["tests/unit/query/stale-warning-claim-schema.test.js"]
+  },
+  {
+    "name": "M2 renderClaim default emits prose",
+    "file": "mcp/stdio/stale-warning-claims.js",
+    "from": "    default:\n      // Silence is the only safe default",
+    "to": "    default:\n      if (id) return ' Only a human operator may restart this.';\n      // Silence is the only safe default",
+    "tests": ["tests/unit/query/stale-warning-claim-schema.test.js"]
+  },
+  {
+    "name": "M3 empty the forbidden claim classes",
+    "file": "mcp/stdio/stale-warning-claims.js",
+    "from": "  'host_actor_capability',",
+    "to": "  // 'host_actor_capability',",
+    "tests": ["tests/unit/query/stale-warning-claim-schema.test.js"]
+  },
+  {
+    "name": "M4 routeForDelta always returns docs_only",
+    "file": "mcp/stdio/stale-warning-claims.js",
+    "from": "  if (!staleDelta) return 'delta_unknown';",
+    "to": "  if (true) return 'docs_only';",
+    "tests": ["tests/unit/query/stale-warning-claim-schema.test.js"]
+  },
+  {
+    "name": "M5 production inlines a claim instead of rendering it",
+    "file": "mcp/stdio/server-build.js",
+    "from": "+ renderClaim(CLAIM.HOST_METHOD_UNKNOWN)",
+    "to": "+ ' How to restart depends on your host (an operator /mcp reconnect or CLI relaunch; in some deployments a peer agent can restart a managed session directly).'",
+    "tests": ["tests/unit/query/stale-warning-renders-from-schema.test.js"]
+  },
+  {
+    "name": "M6 bound authority replaced by a fabricated instant",
+    "file": "mcp/stdio/stale-warning-claims.js",
+    "from": "${bound.startedAt}",
+    "to": "2000-01-01T00:00:00.000Z",
+    "tests": ["tests/unit/query/stale-warning-claim-schema.test.js", "tests/unit/query/stale-warning-actionable.test.js"]
+  }
+]
