@@ -56,6 +56,34 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 // widening of an exclusion glob.
 const BINARY_FILES = new Set([]);
 
+// ⚠ THE RATCHET WAS UNTESTED, and I said so to dev before they could find it. An empty
+// allowlist that has never admitted anything is indistinguishable from one that admits
+// EVERYTHING — the exemption path had no control at all.
+//
+// ⇒ The scan is extracted so it can be driven over a SYNTHETIC population, which lets the
+// exemption and the failure paths be exercised without committing a binary to the repo
+// (which the gate would then have to exempt, making the test its own excuse).
+export function scanPopulation(files, readFile, allowlist = BINARY_FILES) {
+  const offenders = [];
+  const unreadable = [];
+  for (const rel of files) {
+    if (allowlist.has(rel)) continue;
+    let buf;
+    try {
+      buf = readFile(rel);
+    } catch (e) {
+      // NOT `continue`. A file we could not read is a file we did not check.
+      unreadable.push(`${rel} (${e.code || e.message})`);
+      continue;
+    }
+    const found = rawControlBytes(buf);
+    if (found.size > 0) {
+      offenders.push(`${rel} (${[...found.entries()].map(([b, n]) => `${hex(b)}x${n}`).join(' ')})`);
+    }
+  }
+  return { offenders, unreadable };
+}
+
 function trackedFiles() {
   const out = execFileSync('git', ['ls-files', '-z'], {
     cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
@@ -105,6 +133,38 @@ describe('★ no tracked source file contains a raw control byte', () => {
     // And the legitimate ones must NOT be flagged, or the gate is unusable on real files.
     expect([...rawControlBytes(Buffer.from('a\tb\r\nc', 'utf8')).keys()],
       'TAB/LF/CR are ordinary text').toEqual([]);
+  });
+
+  it('★★ the RATCHET is discriminating — it admits only what is listed', () => {
+    // Three properties the real scan cannot demonstrate on a repo that contains no
+    // binaries. Driven over a synthetic population so the exemption path is exercised
+    // without committing a binary that the gate would then have to exempt — a test whose
+    // fixture is its own excuse proves nothing.
+    const read = (rel) => {
+      if (rel === 'unreadable.bin') { const e = new Error('EACCES'); e.code = 'EACCES'; throw e; }
+      if (rel === 'clean.js') return Buffer.from('const a = 1;\n', 'utf8');
+      return Buffer.from([0x00, 0x08, 0x41]); // binary-looking: NUL, BS, 'A'
+    };
+    const files = ['clean.js', 'assets/logo.png', 'unreadable.bin'];
+
+    // 1. NOT listed → the control bytes are reported. An allowlist that admits by default
+    //    would silently pass here, which is the failure mode of every exclusion glob.
+    const strict = scanPopulation(files, read, new Set());
+    expect(strict.offenders.some((o) => o.startsWith('assets/logo.png')),
+      'an unlisted binary must be caught, not assumed').toBe(true);
+
+    // 2. LISTED → skipped, and ONLY it. The exemption must not widen to its neighbours.
+    const lenient = scanPopulation(files, read, new Set(['assets/logo.png']));
+    expect(lenient.offenders, 'a listed binary is exempt').toEqual([]);
+
+    // 3. UNREADABLE is a failure on BOTH runs — an exemption list is not a licence to stop
+    //    looking, and "could not read" may never mean "clean".
+    expect(strict.unreadable.length, 'unreadable must fail regardless of the allowlist').toBe(1);
+    expect(lenient.unreadable.length).toBe(1);
+
+    // 4. And a genuinely clean text file is never a false positive, or the gate is unusable.
+    expect(strict.offenders.some((o) => o.startsWith('clean.js')),
+      'clean text must not be flagged').toBe(false);
   });
 
   it('★★ EVERY tracked file is scanned — an unreadable one fails, it does not pass', () => {

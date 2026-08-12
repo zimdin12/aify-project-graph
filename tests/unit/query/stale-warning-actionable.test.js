@@ -183,6 +183,19 @@ describe('the stale warning is actionable by whoever reads it', () => {
       const at = rw.indexOf(APPROVED_RESTART_GUIDANCE);
       expect(rw.slice(at + APPROVED_RESTART_GUIDANCE.length), `[${route.name}] nothing may be inserted after the guidance`)
         .toMatch(/^ PROCESS STARTED: /);
+
+      // ⚠ THE OTHER SIDE. I reported this to dev as a known-open hole: pinning only the
+      // FOLLOWING boundary left an insertion point BEFORE the guidance, between it and
+      // whichever delta sentence the route produced. Closing it needs the set of approved
+      // predecessors, which is small and fixed — three, one per delta branch.
+      const APPROVED_PREDECESSORS = [
+        'a restart is not required for correctness.',
+        'RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.',
+      ];
+      const before = rw.slice(0, at);
+      expect(APPROVED_PREDECESSORS.some((p) => before.endsWith(p)),
+        `[${route.name}] nothing may be inserted BEFORE the guidance — ends with: `
+        + JSON.stringify(before.slice(-70))).toBe(true);
       expect(rw.endsWith('indistinguishable by commit alone.'),
         `[${route.name}] nothing may be appended after the final sentence`).toBe(true);
 
