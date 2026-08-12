@@ -270,13 +270,37 @@ describe('the stale warning is actionable by whoever reads it', () => {
       expect(w).toMatch(/delta includes 1 executable file/);
     });
 
+    // ⛔ THE CASE DIMENSION WAS UNPINNED. dev removed the `i` flag from the classifier and
+    // every lower-case row stayed 15/15 GREEN — an uppercase `.JS` delta would then have
+    // received the false reassurance. Production says case-insensitive, so both cases are
+    // tested per registry member rather than assumed from the flag.
+    it.each(EXECUTABLE_EXTENSIONS)('★★ a .%s in UPPER CASE also withdraws the reassurance', (ext) => {
+      diffFiles = ['docs/notes.md', `mcp/stdio/query/verbs/health.${ext.toUpperCase()}`];
+      _resetServerBuildCache();
+
+      expect(warning(), `a .${ext.toUpperCase()} is the same executable file as .${ext}`)
+        .not.toMatch(/BEHAVIOURALLY CURRENT/);
+    });
+
     it('★ a NON-member extension does not withdraw it — the rule discriminates', () => {
-      // Without this the table above is satisfied by a classifier that calls everything
+      // Without this the tables above are satisfied by a classifier that calls everything
       // executable, which would make the reassurance unreachable rather than correct.
       diffFiles = ['docs/notes.md', 'assets/logo.png', 'notes.txt'];
       _resetServerBuildCache();
 
       expect(warning(), 'a .png is not executable code')
+        .toMatch(/BEHAVIOURALLY CURRENT and a restart is not/);
+    });
+
+    it('★★ the extension must END the path — near-miss controls', () => {
+      // dev removed the `$` anchor and the file stayed 15/15 green. Without it `.js.map`
+      // (a sourcemap — data, not code) and `.js?query` classify as executable, and every
+      // sourcemap-only delta would wrongly demand a restart. The reassurance is only
+      // useful if it is also correct in the negative direction.
+      diffFiles = ['docs/notes.md', 'dist/bundle.js.map', 'docs/guide.json.txt'];
+      _resetServerBuildCache();
+
+      expect(warning(), 'a sourcemap is not executable code')
         .toMatch(/BEHAVIOURALLY CURRENT and a restart is not/);
     });
 

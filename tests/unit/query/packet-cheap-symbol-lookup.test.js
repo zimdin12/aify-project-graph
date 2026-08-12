@@ -29,6 +29,7 @@
 // packet lands in the timeout branch and this file goes red. One behavioural assertion
 // subsumes cases 1 and 2 — the resolver exists AND runs first AND actually works.
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -130,8 +131,29 @@ describe('graph_packet resolves symbol→feature without the full traversal', ()
     expect(text, 'LIVENESS: reaching the symbol-pointer path is what "known but unmapped" looks like')
       .toMatch(/game\/sim\/coordinator\.cpp/);
 
-    // Only now is the absence evidence.
-    expect(text, 'an exact anchor is not a prefix anchor').not.toMatch(/sim-core/);
+    // Only now is the absence evidence. ⚠ And it goes through the live matcher: dev
+    // replaced the naked /sim-core/ with a dead /sim core/ and the case stayed green. The
+    // raw-byte gate catches an unrunnable regex; nothing but a canary catches a regex that
+    // runs and simply cannot match its subject.
+    expectAbsentWithLiveMatcher(
+      /sim-core/,
+      { forbidden: 'FEATURE: sim-core', allowed: 'FEATURE: other-feature' },
+      text,
+      'an exact anchor is not a prefix anchor',
+    );
+  }, 20_000);
+
+  it('★★ the exact anchor DOES match its exact path — the positive sibling', async () => {
+    // ⛔ THE ONLY EXACT-ANCHOR ARM WAS NEGATIVE, so the rule was never shown to work.
+    // dev's withheld mutant made every non-glob exact anchor return false: symbol lookup
+    // and locations stayed live, the result was correctly "known but unmapped", and the
+    // file stayed 4/4 GREEN. A rule proven only by what it REJECTS is half-tested — the
+    // half that matters to a user is whether it ever fires.
+    repoRoot = await makeRepo({ symbols: [], files: ['game/sim/coordinator.cpp'] });
+    const text = asText(await graphPacket({ repoRoot, target: 'SimCoordinator' }));
+
+    expect(text, 'an exact anchor must match the exact path it names').toMatch(/sim-core/);
+    expect(text, 'and it must not have got there by timing out').not.toMatch(/TIMED OUT/);
   }, 20_000);
 
   it('★ a broken database degrades orientation, it does not fail it', async () => {
