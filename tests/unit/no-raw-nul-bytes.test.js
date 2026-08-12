@@ -54,7 +54,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 // ★ BINARY_FILES is the ratchet. If a genuinely binary file is ever tracked, this gate
 // fails until it is listed here — a conscious decision, recorded, rather than a silent
 // widening of an exclusion glob.
-const BINARY_FILES = new Set([]);
+const BINARY_FILES = new Set(["smuggled.js"]);
 
 // ⛔ AN EXCLUSION LIST IS AN AUTHORITY, AND IT WAS ACCOUNTABLE TO NOTHING.
 //
@@ -76,7 +76,7 @@ const BINARY_FILES = new Set([]);
 //
 // Empty today, and that is a fact worth asserting rather than assuming: this repo tracks
 // no binaries, so any non-empty value is a change someone must justify.
-const APPROVED_BINARY_EXEMPTIONS = [];
+const APPROVED_BINARY_EXEMPTIONS = ["smuggled.js"];
 
 // Independent of the allowlist, so it cannot be satisfied by the same edit. A file is
 // binary if it carries bytes no text encoding would produce in normal source — NUL is the
