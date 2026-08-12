@@ -91,13 +91,27 @@ try {
   raw = `${e.stdout || ''}${e.stderr || ''}`;
 }
 
-const num = (re) => Number(raw.match(re)?.[1] ?? -1);
+// ⚠ ANCHORED TO THE SUMMARY LINES, and ANSI stripped first. My first version matched
+// /(\d+) skipped/ against the whole output and reported 1 where the suite said 2 — because
+// PER-FILE lines also carry "N skipped", and it matched the first one it met.
+//
+// ★ A receipt that misreports is worse than no receipt: it launders a wrong number through
+// a format that looks rigorous. Same class as every wrong-instance regex in this repo —
+// the pattern was right and the SUBJECT was wrong.
+const plain = raw.replace(/\[[0-9;]*m/g, '');
+const summaryOf = (label) => plain.split('\n').find((l) => new RegExp(`^\\s*${label}\\s`).test(l)) ?? '';
+const filesLine = summaryOf('Test Files');
+const testsLine = summaryOf('Tests');
+const num = (line, re) => Number(line.match(re)?.[1] ?? -1);
 const counts = {
-  testFiles: num(/Test Files\s+.*?(\d+) passed/),
-  testFilesFailed: num(/Test Files\s+(\d+) failed/),
-  passed: num(/Tests\s+.*?(\d+) passed/),
-  failed: num(/Tests\s+(\d+) failed/),
-  skipped: num(/(\d+) skipped/),
+  testFiles: num(filesLine, /(\d+) passed/),
+  testFilesFailed: num(filesLine, /(\d+) failed/),
+  passed: num(testsLine, /(\d+) passed/),
+  failed: num(testsLine, /(\d+) failed/),
+  skipped: num(testsLine, /(\d+) skipped/),
+  // If the summary lines were not found at all, every count above is -1 — say so rather
+  // than emit a receipt full of sentinels that read like real numbers.
+  parsed: Boolean(filesLine && testsLine),
 };
 
 const receipt = { counts, carrier, generatedAt: new Date().toISOString() };
@@ -106,6 +120,7 @@ if (process.argv.includes('--json')) {
   console.log(JSON.stringify(receipt, null, 2));
 } else {
   console.log('SUITE RECEIPT');
+  if (!counts.parsed) console.log('  ⛔ SUMMARY LINES NOT FOUND — counts below are unparsed sentinels');
   console.log(`  counts        ${counts.passed} passed · ${counts.failed > 0 ? `${counts.failed} FAILED · ` : ''}${counts.skipped} skipped · ${counts.testFiles} files`);
   console.log(`  commit        ${carrier.commit}  (tree ${carrier.tree?.slice(0, 12)})`);
   console.log(`  tracked       ${typeof carrier.trackedStatus === 'string' ? carrier.trackedStatus : `DIRTY (${carrier.trackedStatus.dirty} files)`}`);
