@@ -137,6 +137,34 @@ function handle(msg) {
       });
     }
     case 'textDocument/documentSymbol': {
+      // FAKE_LSP_UNPLACEABLE: a NAMED symbol whose identifier does not appear in the
+      // source text — the exact condition `positionGuessSkipped` counts. The name is
+      // deliberately not anonymous, because the provider routes anonymous constructs to a
+      // DIFFERENT counter (isAnonymousSymbolName), and conflating those two is the defect
+      // that split was made to prevent.
+      //
+      // ⚠ Added so the REAL producer can be pinned. graph-senior-dev-hermes zeroed both
+      // counters immediately before the provider's returned envelope, left every increment
+      // site intact, and 14/14 tests stayed green — because every test in that journey
+      // FABRICATED the session instead of provoking it.
+      // ⚠ SymbolInformation shape (`location.range`), NOT DocumentSymbol. The provider
+      // only has to GUESS a column on this shape — DocumentSymbol carries selectionRange,
+      // which gives the identifier position directly and never sets posGuessed. My first
+      // version of this fixture returned the hierarchical shape and the counter stayed 0:
+      // the fixture reached the wrong branch, so the "unplaceable" case was measuring
+      // nothing. Found by the test failing, not by reading the fixture.
+      if (process.env.FAKE_LSP_UNPLACEABLE === '1') {
+        return reply(msg.id, [
+          {
+            name: 'NoSuchIdentifierInSource',
+            kind: 12,
+            location: {
+              uri: msg.params.textDocument.uri,
+              range: { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } },
+            },
+          },
+        ]);
+      }
       return reply(msg.id, [
         { name: 'foo', kind: 12, range: { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } }, selectionRange: { start: { line: 0, character: 5 }, end: { line: 0, character: 8 } } }
       ]);
