@@ -17,3 +17,6 @@ bench/dogfood-*.json
 bench/microbench-*.json
 _dash.mjs
 _rebuild.mjs
+
+# raw per-arm output from scripts/self-review.mjs — evidence carrier, regenerated per run
+.self-review-raw/

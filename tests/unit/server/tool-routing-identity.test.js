@@ -174,13 +174,48 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
     expect(collectReply, 'and must name the provider the registry actually selected')
       .toMatch(/cpp-clangd/);
 
-    // ⛔ REQUEST ECHO IS FORGEABLE, and dev said so: a lookalike receives the same request
-    // and can echo anything in it. What it cannot do is BEHAVE like the runner across
-    // calls. The real runner mints a fresh collectionId per collection
-    // (`ci-<ISO instant>-<random hex>`); dev's mutant returned a constant.
+    // ⛔ ABSENT-for-capability. THIS BLOCK PROVES TRANSPORT/OUTPUT CONFORMANCE ONLY.
     //
-    // ⇒ Two calls, two DIFFERENT ids, both in the runner's format. A handler returning a
-    // literal fails on uniqueness; one returning a hardcoded shape fails on format.
+    // It used to read: "a lookalike receives the same request and can echo anything in it.
+    // What it CANNOT do is BEHAVE like the runner across calls." That was false, and
+    // graph-senior-dev-hermes refuted it by execution on ccb1093/8d2e184: in an isolated
+    // detached worktree they replaced only the `graph_collect_code_intel` registry handler
+    // with an inline function that never called graphCollectCodeIntel, never called
+    // runCollection, never obtained a provider, and never imported or persisted anything —
+    // deriving projectRoot from the normalized request and minting two fresh format-shaped
+    // IDs from clock + random hex. The mutant parsed, the public RPC route was exercised,
+    // and this test stayed 1/1 GREEN.
+    //
+    // ★ WHAT IS ACTUALLY PROVED HERE: the public MCP name reaches SOME registered handler,
+    // normalized request data is available to it, and two responses can carry distinct
+    // format-shaped IDs.
+    // ⛔ WHAT IS NOT PROVED — none of it, despite what the assertion messages used to imply:
+    // registered-handler identity · graphCollectCodeIntel invocation · runCollection
+    // invocation · selected-provider invocation · provider-ORIGIN collection ID · successful
+    // collect/import · durable collection identity.
+    //
+    // A route that returns status:'error' on a no-compile-DB fixture cannot establish the
+    // successful collection route. Mint uniqueness is not a route authority; it is a
+    // forgeable response-shape property, and this row is excluded from coverage numerators.
+    //
+    // ⚠ AND THE OLD JUSTIFICATION WAS FACTUALLY WRONG. It closed with "which needs a working
+    // clangd, which CI does not have." MEASURED 2026-08-12: there is NO CI in this repo at
+    // all — no .github/workflows, no gitlab-ci, circle, azure, travis or drone config is
+    // tracked. The real constraint is that no supported language server is installed on the
+    // developer machine (clangd, typescript-language-server, pyright, pyright-langserver and
+    // tsserver all probe ABSENT). A gap excused by a constraint that does not exist is an
+    // unexamined gap wearing a reason.
+    //
+    // NAMED CLOSER (per dev, and capability admission must be MEASURED, not inferred — a
+    // binary merely existing is not closure): run a successful public graph_collect_code_intel
+    // call in a carrier with a real supported language server AND real project configuration;
+    // then read the imported collection back BY ID through an independent production consumer
+    // (code_intel_replay or the DB-facing path), binding collection ID, provider slot, project
+    // root, operation/record payload and request discriminator; require nonempty request-bound
+    // evidence and a nonzero record population; and mutate registry-handler binding, runner
+    // invocation, provider slot/object/envelope identity, import, and replay linkage
+    // INDEPENDENTLY. Record executable identity/version, compile-DB identity, and exact
+    // commit/tree with the result.
     child = spawn(process.execPath, [serverPath], {
       cwd: repoRoot, stdio: ['pipe', 'pipe', 'ignore'],
       env: { ...process.env, APG_TELEMETRY_DIR: join(repoRoot, '.telemetry') },
@@ -193,17 +228,22 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
       rpc(child, callId, 'tools/call', { name: 'graph_collect_code_intel', arguments: { repo: repoRoot, operations: ['references'] } });
       const r = await waitForReply(child, callId);
       const m = JSON.stringify(r).match(/ci-\d{4}-\d{2}-\d{2}T[\d-]+Z-[0-9a-f]{8}/);
-      expect(m, `collection id must be in the runner's minted format, got: ${JSON.stringify(r).slice(0, 160)}`)
+      // Message narrowed to the bounded property. It must NOT say "the runner's" — an inline
+      // lookalike produces this exact shape, so attributing it to the runner is the claim
+      // that was refuted.
+      expect(m, `response must carry an id of the documented FORMAT (transport conformance `
+        + `only — this does not identify the producer), got: ${JSON.stringify(r).slice(0, 160)}`)
         .toBeTruthy();
       ids.push(m[0]);
     }
-    expect(ids[0], 'each collection is a NEW one — a constant is not a mint').not.toBe(ids[1]);
+    expect(ids[0], 'the two responses carry DIFFERENT ids — per-process non-equality, which is '
+      + 'a response-shape property and not evidence of a real collection').not.toBe(ids[1]);
     child.stdin.end();
 
-    // ⚠ THE RESIDUAL LIMIT, stated rather than papered over: a sufficiently determined
-    // lookalike could mint ids in this format too. On this fixture there is no compile DB,
-    // so the honest path persists nothing and there is no durable side effect to demand.
-    // Closing that fully needs a fixture where collect SUCCEEDS and writes a collection
-    // the test can read back — which needs a working clangd, which CI does not have.
+    // ⇒ The limit above is no longer "residual". It was EXECUTED, and it is the whole
+    // verdict on this block. I had written it as a caveat under an assertion whose message
+    // still claimed the opposite — and a conceded limit in a trailing comment does not bound
+    // what an assertion's framing asserts. That framing was mine, and it is now deleted
+    // rather than annotated.
   }, 120_000);
 });
