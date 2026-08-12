@@ -27,6 +27,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { graphIdentity as graphIdentityOf } from './graph-identity.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const git = (...a) => {
@@ -48,32 +49,10 @@ const git = (...a) => {
 // ⇒ I attributed a cause from a correlation I had not checked, in the same message where I
 // was reporting on the danger of unattributed claims. The digest field below is what makes
 // that checkable by anyone, including me.
-// ⚠ KNOWN-INCOMPLETE, AND DELIBERATELY LEFT SO ON THIS CARRIER. This walk skips
-// subdirectories, so two graph states differing only in nested content share a digest. The
-// recursive replacement is a SEPARATE row on its own carrier, because its proof domain is
-// different from this file's commit-attribution matrix and it needs a differential fixture
-// (nested content change, nested rename, file↔dir type change, empty-dir policy, unreadable
-// entry, symlink handling, same-tree stability) that does not exist yet.
-//
-// ⇒ I originally shipped the recursive version bundled with `carrierValidity()` in one commit
-// — not intentionally, just because they share a file. graph-senior-dev-hermes: "same-file
-// proximity does not unify the proof domains", and bundling forces either over-crediting the
-// weaker row or withholding the stronger one. Split, and this row is the weaker one.
-function graphIdentity() {
-  const dir = join(REPO, '.aify-graph');
-  if (!existsSync(dir)) return { present: false, reason: 'absent (gitignored; repo not indexed here)' };
-  const h = createHash('sha256');
-  const files = [];
-  for (const name of readdirSync(dir).sort()) {
-    const p = join(dir, name);
-    let st;
-    try { st = statSync(p); } catch { continue; }
-    if (!st.isFile()) continue;
-    files.push(name);
-    h.update(name).update(readFileSync(p));
-  }
-  return { present: true, files, digest: h.digest('hex').slice(0, 16), coverage: 'TOP-LEVEL FILES ONLY — nested state not identified' };
-}
+// CARRIER 2: the recursive identity now lives in scripts/graph-identity.mjs, extracted so it
+// can be called — and therefore falsified — without running the whole suite on import. Its
+// differential matrix is tests/unit/graph-identity-differential.test.js.
+const graphIdentity = () => graphIdentityOf(join(REPO, '.aify-graph'));
 
 // ⛔ THE OLD GUARD TESTED THE WRONG PROPERTY. It asked "is the tree dirty"
 // (`typeof trackedStatus !== 'string'`) when the claim it defends is "this count is
@@ -229,7 +208,7 @@ if (process.argv.includes('--json')) {
   console.log(`  carrier       ${validity.state}${validity.detail ? ` — ${validity.detail}` : ''}${validity.dirty ? ` (${validity.dirty} files)` : ''}`);
   // Coverage is printed with the digest, so nobody reads it as whole-directory identity.
   console.log(`  .aify-graph   ${carrier.aifyGraph.present
-    ? `${carrier.aifyGraph.files.length} top-level files, digest ${carrier.aifyGraph.digest}  [${carrier.aifyGraph.coverage}]`
+    ? `${carrier.aifyGraph.entries.length} entries, digest ${carrier.aifyGraph.digest ?? "WITHHELD"}  [${carrier.aifyGraph.coverage}]`
     : carrier.aifyGraph.reason}`);
   console.log(`  vitest pool   ${carrier.vitest.pool}`);
   console.log(`  platform      ${carrier.platform.os}/${carrier.platform.arch} node ${carrier.platform.node}`);
