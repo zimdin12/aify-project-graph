@@ -81,10 +81,24 @@ for (const f of files) {
   try { pristine.set(f, gitRaw('show', `HEAD:${f}`)); }
   catch { console.error(`⛔ ${f} is not committed at HEAD — nothing immutable to restore from`); process.exit(2); }
 }
-const dirty = git('status', '--porcelain', '--', ...files).split('\n').map((l) => l.trim()).filter(Boolean);
-if (dirty.length) {
-  console.error('⛔ uncommitted changes in target files — commit or stash first, or this tool will destroy them:');
-  for (const d of dirty) console.error(`   ${d}`);
+// ⛔ THE CLEAN CHECK USED TO COVER ONLY THE MUTATION TARGETS, AND DEV MINTED A COMMIT-SHAPED
+// CAUGHT THROUGH THE HOLE. They left the production target pristine at HEAD, made an
+// UNCOMMITTED edit to the selected TEST file so its assertion fired on an arbitrary token,
+// then mutated a production comment to add that token. Verdict: CAUGHT, exit 0 — while the
+// manifest presented HEAD/tree identity and the decisive witness came from unbound bytes.
+//
+// ⇒ THE WHOLE TREE MUST BE CLEAN. Not the target files, not "target files plus the tests" —
+// enumerating the apparatus (tests, vitest config, setup files, transitive helpers, package
+// and lock, wrapper scripts) is a closure I cannot compute reliably, and every item I forgot
+// would be another authoring surface. Refusing an ambient working-tree superset outright is
+// the only version of this I can actually defend.
+const dirtyAll = git('status', '--porcelain').split('\n').map((l) => l.trim()).filter(Boolean);
+if (dirtyAll.length) {
+  console.error('⛔ WORKING TREE IS NOT CLEAN. Every verdict this tool emits is bound to a commit,');
+  console.error('   and uncommitted bytes anywhere — a test file, vitest config, a helper — can author');
+  console.error('   the witness that gets credited. Commit or stash first.');
+  for (const d of dirtyAll.slice(0, 20)) console.error(`   ${d}`);
+  if (dirtyAll.length > 20) console.error(`   … and ${dirtyAll.length - 20} more`);
   process.exit(2);
 }
 const baselineHash = new Map([...pristine].map(([f, s]) => [f, sha(s)]));
@@ -128,46 +142,56 @@ function restoreAndVerify() {
 // ── EXECUTION. Apparatus failures (spawn, signal, unparseable report) are TYPED, not folded
 // into test results. v2 collapsed ENOENT, signals and maxBuffer into the same classifier,
 // where some became INVALID by luck and none could become APPARATUS_ERROR.
+// ⛔ THE BUILT-IN JSON REPORTER CANNOT SEE THE DEFECT DEV FORGED WITH. Measured: one file,
+// one failing case, with and without an `afterAll` throw — the two reports are IDENTICAL in
+// every scalar field and the error text appears nowhere in either. `numFailedTestSuites` reads
+// 2 in BOTH, so it is not a discriminator (the nearby-negative control caught that before I
+// shipped it). We therefore emit our own evidence via scripts/self-review-reporter.mjs, which
+// carries the non-case error population — suite-level hook failures included.
+const REPORTER = './scripts/self-review-reporter.mjs';
 function runTests(tests, outFile) {
-  const argv = ['vitest', 'run', '--reporter=json', `--outputFile=${outFile}`, ...tests];
+  const argv = ['vitest', 'run', `--reporter=${REPORTER}`, ...tests];
   let exit = 0; let signal = null; let stdio = '';
   try {
-    stdio = execFileSync('npx', argv, { cwd: REPO, encoding: 'utf8', shell: true, stdio: 'pipe' });
+    stdio = execFileSync('npx', argv, { cwd: REPO, encoding: 'utf8', shell: true, stdio: 'pipe', env: { ...process.env, SELF_REVIEW_OUT: outFile } });
   } catch (e) {
     if (e.code === 'ENOENT' || e.code === 'EACCES') return { apparatus: `spawn failed: ${e.code}` };
     if (e.signal) return { apparatus: `terminated by signal ${e.signal}` };
     exit = e.status ?? 1; signal = e.signal ?? null; stdio = `${e.stdout || ''}${e.stderr || ''}`;
   }
-  if (!existsSync(outFile)) return { apparatus: 'vitest produced no JSON report' };
+  if (!existsSync(outFile)) return { apparatus: 'reporter produced no evidence file' };
   let json;
   try { json = JSON.parse(readFileSync(outFile, 'utf8')); }
-  catch (e) { return { apparatus: `JSON report unparseable: ${e.message}` }; }
+  catch (e) { return { apparatus: `evidence file unparseable: ${e.message}` }; }
+  // SCHEMA PIN. An unsupported evidence shape is an APPARATUS failure, not a missing case —
+  // otherwise a reporter change would silently degrade every arm to INVALID and read as data.
+  if (json.schema !== 'self-review-evidence/1' || !Array.isArray(json.cases) || !Array.isArray(json.fileErrors)) {
+    return { apparatus: `evidence schema unsupported (got ${JSON.stringify(json.schema)})` };
+  }
   return { exit, signal, json, stdio, argv: argv.join(' ') };
 }
 
 // Case identity comes from `fullName`, and must be UNIQUE. v2 matched substrings against the
 // whole verbose transcript, where a comment, a console line or a sibling prefix satisfied it.
 function findCases(json, needle) {
-  const all = (json.testResults || []).flatMap((f) => (f.assertionResults || []).map((a) => ({
-    fullName: a.fullName, status: a.status, messages: a.failureMessages || [], file: f.name,
-  })));
+  const all = json.cases;
   return { all, hits: all.filter((c) => c.fullName.includes(needle)) };
 }
 
 // Collection/setup failure is read from STRUCTURE — a file that failed while contributing no
 // case results — never from vocabulary. v2's regex list demoted a genuine CAUGHT because its
 // assertion message happened to contain "Unhandled error".
+// Collection/import failure now shows as ZERO cases plus a non-case error, both structural.
 function structuralFailure(json) {
-  for (const f of json.testResults || []) {
-    if (f.status === 'failed' && (f.assertionResults || []).length === 0) {
-      return `file "${f.name}" failed without producing any case results (collection/import/setup)`;
-    }
+  if (json.cases.length === 0) {
+    const e = json.fileErrors[0];
+    return e ? `no cases executed; ${e.scope} error: ${String(e.message).slice(0, 80)}` : 'no cases executed at all';
   }
   return null;
 }
 
 let credited = 0; let notCredited = 0; let halted = false;
-console.log(`self-review v3: ${spec.length} mutation(s)   run ${runId}\n`);
+console.log(`self-review v4: ${spec.length} mutation(s)   run ${runId}\n`);
 
 for (const [i, m] of spec.entries()) {
   if (halted) { console.log(`  ${String(m.name).padEnd(46)} — SKIPPED (halted by APPARATUS_ERROR)`); continue; }
@@ -195,7 +219,9 @@ for (const [i, m] of spec.entries()) {
     if (b.hits.length > 1) { record(VERDICT.INVALID, `named case "${m.case}" is AMBIGUOUS — matches ${b.hits.length} cases`); continue; }
     const identity = b.hits[0].fullName;   // exact identity carried forward
     arm.caseIdentity = identity;
-    if (b.hits[0].status !== 'passed') { record(VERDICT.INVALID, `named case was not PASSING before mutation (${b.hits[0].status})`); continue; }
+    if (b.hits[0].status !== 'pass') { record(VERDICT.INVALID, `named case was not PASSING before mutation (${b.hits[0].status})`); continue; }
+    // A baseline carrying ANY non-case error is not a clean baseline to measure against.
+    if (base.json.fileErrors.length) { record(VERDICT.INVALID, `baseline had ${base.json.fileErrors.length} non-case error(s) — not a clean measurement carrier`); continue; }
     if (base.exit !== 0) { record(VERDICT.INVALID, 'baseline run was not green'); continue; }
 
     // ── MUTATE
@@ -220,8 +246,8 @@ for (const [i, m] of spec.entries()) {
         : 'the named case did not execute under the mutant (discovery/selection changed)');
       continue;
     }
-    if (same.status === 'passed') { record(VERDICT.SURVIVED, 'the named case executed and still passed — the guarantee does not exist'); continue; }
-    if (same.status !== 'failed') { record(VERDICT.INVALID, `named case status was "${same.status}", not a failure`); continue; }
+    if (same.status === 'pass') { record(VERDICT.SURVIVED, 'the named case executed and still passed — the guarantee does not exist'); continue; }
+    if (same.status !== 'fail') { record(VERDICT.INVALID, `named case status was "${same.status}", not a failure`); continue; }
 
     // ── ATTRIBUTION: the expected witness must appear in THIS case's failureMessages.
     // v2 searched the whole transcript, so a case NAME or console line forged it.
@@ -230,10 +256,21 @@ for (const [i, m] of spec.entries()) {
       continue;
     }
     // ── POPULATION: unrelated sibling failures must not ride along on a credited catch.
-    const failed = after1.all.filter((c) => c.status === 'failed');
+    const failed = after1.all.filter((c) => c.status === 'fail');
     const wanted = m.expectFailures ?? 1;
     if (failed.length !== wanted) {
       record(VERDICT.INVALID, `expected ${wanted} failing case(s), observed ${failed.length} — population does not reconcile`);
+      continue;
+    }
+    // ⛔ THE NON-CASE ERROR POPULATION, which v3 did not reconcile at all. Dev credited a
+    // CAUGHT while an unrelated `afterAll` threw alongside the intended failure: the classifier
+    // counted failing CASES and never asked whether anything else had broken. Expected to be
+    // ZERO unless a spec deliberately preregisters otherwise.
+    const wantedErrors = m.expectNonCaseErrors ?? 0;
+    if (mut.json.fileErrors.length !== wantedErrors) {
+      const first = mut.json.fileErrors[0];
+      record(VERDICT.INVALID, `expected ${wantedErrors} non-case error(s), observed ${mut.json.fileErrors.length}`
+        + (first ? ` — e.g. ${first.scope}: ${String(first.message).slice(0, 60)}` : ''));
       continue;
     }
     record(VERDICT.CAUGHT, 'exact case transitioned pass→fail on the preregistered assertion');
