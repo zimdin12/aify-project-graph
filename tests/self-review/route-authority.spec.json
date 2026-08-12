@@ -4,48 +4,73 @@
     "file": "tests/helpers/route-authority.js",
     "from": "  assertConsumesResponse('invoked', invoked, response, route);",
     "to": "  // mutated: invoked binding unchecked",
-    "tests": ["tests/unit/helpers/route-authority.test.js"]
+    "tests": [
+      "tests/unit/helpers/route-authority.test.js"
+    ]
   },
   {
     "name": "G2 binding check dropped for the succeeded predicate",
     "file": "tests/helpers/route-authority.js",
     "from": "  assertConsumesResponse('succeeded', succeeded, response, route);",
     "to": "  // mutated: succeeded binding unchecked",
-    "tests": ["tests/unit/helpers/route-authority.test.js"]
+    "tests": [
+      "tests/unit/helpers/route-authority.test.js"
+    ]
   },
   {
     "name": "G3 the mismatch sentinel is made to satisfy every predicate",
     "file": "tests/helpers/route-authority.js",
     "from": "  result: undefined, error: undefined, status: '__sentinel__', provider: '__sentinel__',\n  schema_version: undefined, collectionId: undefined, importFailed: true,",
     "to": "  result: {}, error: undefined, status: 'ok', provider: 'cpp-clangd',\n  schema_version: '0.2', collectionId: 'x', importFailed: false, marker: 'real-response',",
-    "tests": ["tests/unit/helpers/route-authority.test.js"]
+    "tests": [
+      "tests/unit/helpers/route-authority.test.js"
+    ]
   },
   {
     "name": "G4 a throwing predicate is treated as a failure, not as discrimination",
     "file": "tests/helpers/route-authority.js",
     "from": "  } catch {\n    // Throwing on a foreign shape IS discrimination — it plainly read the argument.\n    return;\n  }",
     "to": "  } catch {\n    sentinelVerdict = true;\n  }",
-    "tests": ["tests/unit/helpers/route-authority.test.js"]
+    "tests": [
+      "tests/unit/helpers/route-authority.test.js"
+    ]
   },
   {
     "name": "G5 the cleanup dimension is never asserted even when supplied",
     "file": "tests/helpers/route-authority.js",
     "from": "  if (cleanedUp) {",
     "to": "  if (false) {",
-    "tests": ["tests/unit/helpers/route-authority.test.js"]
+    "tests": [
+      "tests/unit/helpers/route-authority.test.js"
+    ]
   },
   {
     "name": "G6 routing drops the repo-path identity discriminator",
     "file": "tests/unit/server/tool-routing-identity.test.js",
     "from": "    expect(collectReply, 'the response must reference the repo it was ASKED about — a '\n      + 'lookalike returning a constant cannot know this directory')\n      .toContain(fixtureName);",
     "to": "    // mutated: identity discriminator removed",
-    "tests": ["tests/unit/server/tool-routing-identity.test.js"]
+    "tests": [
+      "tests/unit/server/tool-routing-identity.test.js"
+    ],
+    "note": "OUT OF SCOPE (removes a TEST ASSERTION, like E7) — superseded by G8, which proves the discriminator carries weight via a mutant only IT can catch."
   },
   {
     "name": "G7 provider slot identity check removed from the runner",
     "file": "mcp/stdio/code-intel/runner.js",
     "from": "  if (provider.name && provider.name !== providerName) {",
     "to": "  if (false) {",
-    "tests": ["tests/unit/code-intel/skip-counters-provider-boundary.test.js"]
+    "tests": [
+      "tests/unit/code-intel/skip-counters-provider-boundary.test.js"
+    ]
+  },
+  {
+    "name": "G8 lookalike that MINTS correctly but knows no repo path",
+    "file": "mcp/stdio/server.js",
+    "from": "handler: graphCollectCodeIntel",
+    "to": "handler: async () => ({ schema_version: '0.2', status: 'ok', provider: 'cpp-clangd', collectionId: 'ci-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + Math.random().toString(16).slice(2, 10) })",
+    "tests": [
+      "tests/unit/server/tool-routing-identity.test.js"
+    ],
+    "note": "The discriminator-weight probe for G6: this lookalike defeats the mint-uniqueness check (fresh, correctly formatted ids each call) so ONLY the repo-path identity check can catch it."
   }
 ]
