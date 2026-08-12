@@ -32,10 +32,41 @@ import { readdirSync, lstatSync, readFileSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
+// ⛔ LENGTH-FRAMED, AND THE UNFRAMED VERSION WAS FORGEABLE — I shipped it and then broke it.
+//
+// v1 hashed `F:<path>\0` followed by RAW CONTENT with no length. Content could therefore
+// impersonate the next entry's header, and two materially different trees collided:
+//
+//   tree A: ONE file `a` whose content is the bytes  F:b\0hello
+//   tree B: TWO files — `a` empty, and `b` containing  hello
+//   both streams: F:a\0 F:b\0 hello        -> IDENTICAL sha256
+//
+// Measured, not reasoned: cea2c381e5076f12… for both. A separator alone cannot delimit a field
+// whose contents may contain the separator; only a LENGTH can. Every field is now prefixed
+// with its byte length, so the stream is unambiguously parseable and no content can forge a
+// boundary.
+//
+// ★ This was the surface I had just flagged to graph-senior-dev-hermes as "my own framing with
+// no test that a crafted filename cannot collide two trees" — and it turned out to be
+// exploitable through CONTENT rather than filename, which is not where I was looking.
+const framed = (h, kind, rel, content) => {
+  const relBuf = Buffer.from(rel, 'utf8');
+  const len = (n) => { const b = Buffer.alloc(8); b.writeBigUInt64BE(BigInt(n)); return b; };
+  h.update(kind);
+  h.update(len(relBuf.length));
+  h.update(relBuf);
+  if (content !== null) { h.update(len(content.length)); h.update(content); }
+};
+
 export function graphIdentity(dir) {
   if (!existsSync(dir)) return { present: false, reason: 'absent (gitignored; repo not indexed here)' };
 
   const h = createHash('sha256');
+  // DOMAIN + VERSION PREFIX, per dev. Without it this digest is a bare SHA-256 over an
+  // encoding with no name, so the same bytes hashed by any other scheme collide with it by
+  // construction, and a future framing change would silently produce values indistinguishable
+  // from today's. The prefix makes the encoding part of what is being attested.
+  h.update('aify-graph-identity/v2\0');
   const entries = [];
   const problems = [];
 
@@ -51,11 +82,11 @@ export function graphIdentity(dir) {
       catch (e) { problems.push(`${childRel}: unstattable (${e.code ?? e.message})`); continue; }
 
       if (st.isSymbolicLink()) { problems.push(`${childRel}: symbolic link — target may lie outside the declared population`); continue; }
-      if (st.isDirectory()) { h.update(`D:${childRel}\0`); entries.push(`${childRel}/`); walk(childAbs, childRel); continue; }
+      if (st.isDirectory()) { framed(h, 'D', childRel, null); entries.push(`${childRel}/`); walk(childAbs, childRel); continue; }
       if (!st.isFile()) { problems.push(`${childRel}: not a regular file (${st.isFIFO() ? 'fifo' : st.isSocket() ? 'socket' : 'special'})`); continue; }
 
       try {
-        h.update(`F:${childRel}\0`).update(readFileSync(childAbs));
+        framed(h, 'F', childRel, readFileSync(childAbs));
         entries.push(childRel);
       } catch (e) { problems.push(`${childRel}: unreadable (${e.code ?? e.message})`); }
     }

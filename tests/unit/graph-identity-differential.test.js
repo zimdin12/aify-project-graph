@@ -125,6 +125,38 @@ describe('graphIdentity refuses rather than reporting a partial identity', () =>
     expect(res.incomplete.join(' ')).toMatch(/symbolic link/);
   });
 
+  it('★★★ CONTENT CANNOT FORGE AN ENTRY BOUNDARY — the collision I shipped and then broke', () => {
+    // v1 hashed `F:<path>\0` then RAW CONTENT with no length, so content could impersonate the
+    // next entry's header. MEASURED collision, both cea2c381e5076f12…:
+    //   A: ONE file `a` whose content is the bytes  F:b\0hello
+    //   B: TWO files — `a` empty, `b` containing    hello
+    // A separator cannot delimit a field whose contents may contain the separator; only a
+    // LENGTH can.
+    //
+    // ⚠ WHAT THIS ARM DOES AND DOES NOT PIN, measured with scripts/self-review.mjs rather than
+    // assumed: it pins the CURRENT framing against the v1 attack as a whole. It does NOT
+    // independently constrain each length prefix — dropping only the CONTENT prefix, or only
+    // the PATH prefix, both left this test GREEN, because the payload is crafted for v1's
+    // fully-unframed stream and a half-framed stream no longer aligns with it. Constraining
+    // each prefix separately needs a payload crafted per mutation, which does not exist here.
+    //
+    // ⛔ ALSO: writing this test put a LITERAL NUL BYTE into the source — my `\0` became the
+    // byte itself, making the file binary to every text tool and violating this repo's own
+    // no-raw-control-bytes gate. Same class as the backspace that got into two files this
+    // morning. It is `\u0000` as SOURCE TEXT now; the runtime value is identical.
+    const a = fixture((d) => { writeFileSync(join(d, 'a'), 'F:b\u0000hello'); });
+    const b = fixture((d) => { writeFileSync(join(d, 'a'), ''); writeFileSync(join(d, 'b'), 'hello'); });
+    expect(digestOf(a), 'two materially different trees must not share an identity').not.toBe(digestOf(b));
+  });
+
+  it('★★ a PATH cannot forge a boundary either — same attack through the name', () => {
+    // The sibling of the above, closed by the same length prefix: a filename carrying the
+    // delimiter must not be able to imitate two entries.
+    const a = fixture((d) => { mkdirSync(join(d, 'x')); writeFileSync(join(d, 'x', 'y'), '1'); });
+    const b = fixture((d) => { writeFileSync(join(d, 'x_y'), '1'); });
+    expect(digestOf(a)).not.toBe(digestOf(b));
+  });
+
   it('★★ full SHA-256, not a truncation — an identity does not discard 192 bits for readability', () => {
     const d = fixture((x) => { mkdirSync(join(x, 'sub')); writeFileSync(join(x, 'sub', 'x.json'), 'v'); });
     expect(graphIdentity(d).digest).toMatch(/^[0-9a-f]{64}$/);
