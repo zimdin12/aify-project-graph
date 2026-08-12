@@ -20,6 +20,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawn } from 'node:child_process';
+import { expectRouteAuthority } from '../../helpers/route-authority.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 
 const serverPath = join(dirname(fileURLToPath(import.meta.url)), '../../../mcp/stdio/server.js');
@@ -110,10 +111,19 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
       const reply = await waitForReply(child, id);
       const text = JSON.stringify(reply);
 
-      // LIVENESS: an error reply would satisfy most negative checks trivially, so the
-      // call must have reached a handler at all before its identity means anything.
-      expect(text, `${route.tool}: the call must reach a handler`).not.toMatch(/"code":\s*-3260[12]/);
-      expect(text, `${route.tool}: must return its OWN output`).toMatch(route.mustMatch);
+      // ★★ ROUTE AUTHORITY, the four properties separately discriminated. An error reply
+      // satisfies most negative checks trivially, so "did not return the wrong verb's
+      // output" is worthless until invocation and success are established independently.
+      expectRouteAuthority({
+        route: route.tool,
+        response: reply,
+        invoked: (r) => r?.result != null || r?.error != null,
+        identity: () => route.mustMatch.test(text),
+        // JSON-RPC signals failure with `error`; a tool that ran and failed still returns
+        // a result, so both are checked.
+        succeeded: (r) => r?.error == null && !/"isError":\s*true/.test(JSON.stringify(r ?? {})),
+      });
+
       expect(text, `${route.tool}: must not return a different verb's output`)
         .not.toMatch(route.mustNotMatch);
     }

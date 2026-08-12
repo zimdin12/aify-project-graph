@@ -20,6 +20,7 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { expectRouteAuthority } from '../../helpers/route-authority.js';
 import { registerProvider } from '../../../mcp/stdio/code-intel/providers/index.js';
 import { graphCollectCodeIntel } from '../../../mcp/stdio/query/verbs/collect_code_intel.js';
 
@@ -96,20 +97,19 @@ async function collectWith(session) {
     repoRoot, language: LANGUAGE, scope: 'all', operations: ['references'],
   }));
 
-  // ★★ SAME-CALL LIVENESS, and it is the reason this helper exists rather than each case
-  // calling the verb directly. Without these two lines every assertion below is satisfied
-  // by an ERROR response that happens to echo the counters back — which is exactly what
-  // was happening.
-  expect(res.status, `LIVENESS: the collection must have completed, got: ${JSON.stringify(res.errors ?? res.status)}`)
-    .toBe('ok');
-  expect(res.importFailed, 'LIVENESS: the import must not have failed').toBeFalsy();
-
-  // ⚠ IDENTITY, from dev's addendum: the fake originally claimed provider `pyright` while
-  // occupying the `cpp-clangd` slot and three cases stayed green. The slot, the envelope's
-  // own claim, and the public response must agree, or the test is describing a provider
-  // that never ran.
-  expect(res.provider, 'the reported provider must be the slot that was registered')
-    .toBe(PROVIDER_SLOT);
+  // ★★ ROUTE AUTHORITY — the four properties dev separated out, each checked on its own
+  // so a failure says WHICH one is missing. This case is why the helper exists: it once
+  // asserted the counters inside a `status:"error"` envelope whose import had failed on a
+  // NOT NULL constraint, and passed. Being end-to-end did not save it.
+  expectRouteAuthority({
+    route: 'graph_collect_code_intel via the registered provider slot',
+    response: res,
+    invoked: (r) => r?.schema_version != null || r?.collectionId != null,
+    // dev's addendum: the fake originally claimed provider `pyright` while occupying the
+    // `cpp-clangd` slot and three cases stayed green.
+    identity: (r) => r?.provider === PROVIDER_SLOT,
+    succeeded: (r) => r?.status === 'ok' && !r?.importFailed,
+  });
   return res;
 }
 
