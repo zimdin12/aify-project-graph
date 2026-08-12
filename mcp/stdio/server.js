@@ -675,7 +675,7 @@ const TOOLS = [
 ];
 
 // 2026-04-26: every tool accepts an optional `repo` arg that overrides
-// the MCP server's process.cwd(). Handler at line 536 already routes it
+// the MCP server's process.cwd(). The `tools/call` handler already routes it
 // to repoRoot; we only need to declare it in JSON Schema so agents can
 // discover and pass it. Critical for sessions launched from a non-repo
 // cwd (home dir, scratch dir) where every live verb otherwise returns

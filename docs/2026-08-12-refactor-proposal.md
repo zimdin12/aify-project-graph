@@ -123,6 +123,34 @@ it is a pure combinator over already-computed results, so it belongs with orches
 belong beside the dispatcher. Extracting `tools/schema.js` alone takes `server.js` from
 1382 → ~760 and does not change a single code path.
 
+#### Verified 2026-08-12, not assumed
+
+- **Zero forward references.** Nothing in lines 62–682 calls `withFreshParam`,
+  `resolveToolset`, `selectListedTools`, `applyAllowlist`, `parseToolsAllowlist`,
+  `projectToShortDescription` or `defaultOutputMode`. (An initial grep flagged `...HEAD` —
+  those are `main...HEAD` inside description *strings*, a grep artefact, not a reference.)
+- **Zero runtime dependencies.** No `process.*`, no `readFileSync`, no `await`, no
+  closures. The single match was a *comment* mentioning `process.cwd()`. `TOOLS` is a pure
+  literal.
+- **Dependency direction is strictly one-way:** `TOOLS` → toolset resolution (5 reads) →
+  dispatch. Dispatch reads `ACTIVE_TOOLSET` (3), `ACTIVE_TOOLS` (2), `TOOLS_ALLOWLIST` (2),
+  `MUTATING_TOOLS` (1). Its single direct `TOOLS` reference is the alias
+  `const ACTIVE_TOOLS = TOOLS` on line 998 — in the boundary zone, and it becomes an import.
+
+⇒ This is the safest slice available in the repo: a pure data literal with no inbound or
+outbound coupling. If any slice can be done without risk, it is this one.
+
+#### ⚠ One hazard found while verifying
+
+`server.js:678` contains `// … Handler at line 536 already routes it`. **A line number in a
+comment is a reference that no tool checks and every move invalidates** — and this one is
+already wrong. It is the same class as the byte-offset test assertions converted earlier
+this week: an address that looks like a citation and silently stops pointing at anything.
+
+Only one instance exists across both target files (`generator.js` has none), so this is a
+one-line fix during the slice, not a workstream. **Replace it with the handler's name**,
+which survives a move.
+
 ⇒ And it has a second payoff: `tools/list` bills **every session**, ~80% of it schema. A
 dedicated module makes that cost visible and measurable instead of buried mid-file.
 
