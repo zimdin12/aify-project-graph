@@ -54,7 +54,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 // ★ BINARY_FILES is the ratchet. If a genuinely binary file is ever tracked, this gate
 // fails until it is listed here — a conscious decision, recorded, rather than a silent
 // widening of an exclusion glob.
-const BINARY_FILES = new Set(["smuggled.js"]);
+const BINARY_FILES = new Set([]);
 
 // ⛔ AN EXCLUSION LIST IS AN AUTHORITY, AND IT WAS ACCOUNTABLE TO NOTHING.
 //
@@ -76,20 +76,50 @@ const BINARY_FILES = new Set(["smuggled.js"]);
 //
 // Empty today, and that is a fact worth asserting rather than assuming: this repo tracks
 // no binaries, so any non-empty value is a change someone must justify.
-const APPROVED_BINARY_EXEMPTIONS = ["smuggled.js"];
+const APPROVED_BINARY_EXEMPTIONS = [];
 
-// Independent of the allowlist, so it cannot be satisfied by the same edit. A file is
-// binary if it carries bytes no text encoding would produce in normal source — NUL is the
-// canonical marker and is what ripgrep itself uses.
-function looksBinary(buf) {
-  if (buf.length === 0) return false;
-  const sample = buf.subarray(0, 8192);
-  let suspicious = 0;
-  for (const b of sample) {
-    if (b === 0x00) return true;
-    if (b < 0x09 || (b > 0x0d && b < 0x20) || b === 0x7f) suspicious += 1;
+// ⛔ THE DENSITY CLASSIFIER WAS CIRCULAR, AND THE CIRCULARITY IS THE ELEGANT PART.
+//
+// graph-senior-dev-hermes broke the previous version five ways, but one is the root:
+// adding an ordinary `smuggled.js` to both approved lists with an EARLY NUL stayed green
+// "because one NUL self-justifies binary". ⇒ THE CONTAMINATING BYTE WAS ALSO THE EVIDENCE
+// OF EXEMPTION ELIGIBILITY. The thing being detected was licensing its own concealment.
+//
+// Four more, all consequences of using a tunable heuristic as an authority:
+//   · threshold >0.3 → >0.5            green
+//   · >0.3 → >=0.3                     green
+//   · sample 8192 → 16                 green
+//   · scan limited to first 8192, NUL at byte 9000   green
+// A threshold and a sample window are parameters, and parameters can be moved by the same
+// patch that needs them moved.
+//
+// ⇒ ADMISSION NOW REQUIRES FORMAT MAGIC — a known file signature at a known offset. A
+// stray NUL anywhere does not make a file a PNG, so the contaminant can no longer vouch
+// for the container. There is no threshold to tune and no window to shrink, and the
+// evidence is positional rather than statistical.
+//
+// ⚠ This is deliberately CONSERVATIVE: a real binary format not listed here is refused
+// admission and the gate fails until someone adds its signature. Refusing to exempt is the
+// safe direction — it costs a commit, whereas wrongly exempting hides a carrier.
+const BINARY_MAGIC = [
+  { name: 'png', bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] },
+  { name: 'jpeg', bytes: [0xff, 0xd8, 0xff] },
+  { name: 'gif', bytes: [0x47, 0x49, 0x46, 0x38] },
+  { name: 'pdf', bytes: [0x25, 0x50, 0x44, 0x46] },
+  { name: 'zip/jar/docx', bytes: [0x50, 0x4b, 0x03, 0x04] },
+  { name: 'gzip', bytes: [0x1f, 0x8b] },
+  { name: 'sqlite', bytes: [0x53, 0x51, 0x4c, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6f, 0x72, 0x6d, 0x61, 0x74, 0x20, 0x33, 0x00] },
+  { name: 'elf', bytes: [0x7f, 0x45, 0x4c, 0x46] },
+  { name: 'wasm', bytes: [0x00, 0x61, 0x73, 0x6d] },
+  { name: 'ico', bytes: [0x00, 0x00, 0x01, 0x00] },
+];
+
+function binaryFormatOf(buf) {
+  for (const sig of BINARY_MAGIC) {
+    if (buf.length < sig.bytes.length) continue;
+    if (sig.bytes.every((b, i) => buf[i] === b)) return sig.name;
   }
-  return suspicious / sample.length > 0.3;
+  return null;
 }
 
 // ⚠ THE RATCHET WAS UNTESTED, and I said so to dev before they could find it. An empty
@@ -217,22 +247,53 @@ describe('★ no tracked source file contains a raw control byte', () => {
       } catch (e) {
         throw new Error(`exempt file is unreadable, so its exemption cannot be justified: ${rel} (${e.code})`);
       }
-      expect(looksBinary(buf), `${rel} is EXEMPTED as binary but does not look binary — `
-        + 'an exemption is a claim about content, and this one is false').toBe(true);
+      expect(binaryFormatOf(buf), `${rel} is EXEMPTED as binary but carries no known format `
+        + 'signature — an exemption is a claim about the container, and this one is unproven')
+        .toBeTruthy();
     }
   });
 
-  it('★★ the binary CLASSIFIER discriminates — it is not a rubber stamp', () => {
-    // Without this, `looksBinary` returning true for everything would satisfy the proof
-    // above for any smuggled text file, and the constraint would be decoration.
-    expect(looksBinary(Buffer.from('const a = 1;\nexport default a;\n', 'utf8')),
-      'ordinary source is not binary').toBe(false);
-    expect(looksBinary(Buffer.from('a\tb\r\nc — ünïcode\n', 'utf8')),
-      'tabs, CRLF and UTF-8 text are not binary').toBe(false);
-    expect(looksBinary(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x1a])),
-      'a PNG header is binary').toBe(true);
-    expect(looksBinary(Buffer.from([0x01, 0x02, 0x03, 0x04, 0x05, 0x06])),
-      'dense control bytes are binary').toBe(true);
+  it('★★ admission requires FORMAT MAGIC — a contaminant cannot vouch for its own container', () => {
+    // The circularity dev found: under a density rule, the very NUL being smuggled made
+    // the file "look binary" and so justified exempting it from the scan that would have
+    // caught it. Magic is positional, so a stray byte anywhere proves nothing.
+    const smuggled = Buffer.concat([
+      Buffer.from('const a = 1;\n', 'utf8'),
+      Buffer.from([0x00]),                       // the contaminant itself
+      Buffer.from('export default a;\n', 'utf8'),
+    ]);
+    expect(binaryFormatOf(smuggled), 'a NUL inside JavaScript does not make it a binary format')
+      .toBeNull();
+
+    // A leading NUL is likewise not a format — dev's early-NUL variant.
+    expect(binaryFormatOf(Buffer.concat([Buffer.from([0x00]), Buffer.from('let x=1', 'utf8')])),
+      'a leading NUL is not a signature').toBeNull();
+
+    // Real formats ARE admitted, or the rule is unusable rather than strict.
+    expect(binaryFormatOf(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00])))
+      .toBe('png');
+    expect(binaryFormatOf(Buffer.from('SQLite format 3\0extra', 'binary'))).toBe('sqlite');
+
+    // And ordinary text is never admitted.
+    expect(binaryFormatOf(Buffer.from('const a = 1;\n', 'utf8'))).toBeNull();
+    expect(binaryFormatOf(Buffer.from('a\tb\r\nc — ünïcode\n', 'utf8'))).toBeNull();
+  });
+
+  it('★★ the scan reads EVERY byte — late contamination cannot hide past a window', () => {
+    // dev restricted the scan to the first 8192 bytes and put a NUL at byte 9000: green.
+    // A window is a parameter, and a parameter can be moved by the patch that needs it
+    // moved. This pins the property instead: position must not matter.
+    const late = Buffer.concat([
+      Buffer.alloc(9000, 0x41),                 // 9000 harmless 'A'
+      Buffer.from([0x00]),                      // contaminant far past any plausible window
+      Buffer.alloc(100, 0x42),
+    ]);
+    expect([...rawControlBytes(late).keys()], 'a NUL at byte 9000 must still be found')
+      .toEqual([0x00]);
+
+    const veryLate = Buffer.concat([Buffer.alloc(200_000, 0x41), Buffer.from([0x08])]);
+    expect([...rawControlBytes(veryLate).keys()], 'and so must one at byte 200,000')
+      .toEqual([0x08]);
   });
 
   it('★★ EVERY tracked file is scanned — an unreadable one fails, it does not pass', () => {
