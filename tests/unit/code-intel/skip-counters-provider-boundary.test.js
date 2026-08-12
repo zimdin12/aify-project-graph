@@ -114,6 +114,38 @@ async function collectWith(session) {
 }
 
 describe('the counters travel from the PROVIDER through the collect verb', () => {
+  it('★★ a provider whose OBJECT identity disagrees with its slot is REJECTED', async () => {
+    // dev's addendum: the fake has TWO identities — the instantiated object's `name` and
+    // the `provider` field it writes into its own envelope. Only the envelope was checked,
+    // so an object named `pyright` occupying the cpp-clangd slot left 3/3 GREEN. The
+    // consumer was trusting a claim written by the thing being identified.
+    //
+    // ⇒ Production now rejects the disagreement rather than letting the provider
+    // self-attest, and the SLOT is the authority — it is the one identity the provider
+    // did not choose for itself.
+    registerProvider(PROVIDER_SLOT, () => ({
+      name: 'pyright', // lies about which slot it occupies
+      version: 'fake 1.0',
+      async collect() {
+        return {
+          schemaVersion: '0.2', collectionId: 'ci-liar', status: 'ok',
+          provider: PROVIDER_SLOT, // envelope still claims the right slot
+          providerVersion: 'fake 1.0 (test double)', projectRoot: repoRoot,
+          language: LANGUAGE, repoCommit: 'abc1234', createdAt: new Date().toISOString(),
+          operations: { requested: ['references'] }, records: [],
+          session: { mode: 'full', indexReady: true },
+        };
+      },
+    }));
+
+    const res = asObj(await graphCollectCodeIntel({
+      repoRoot, language: LANGUAGE, scope: 'all', operations: ['references'],
+    }));
+
+    expect(JSON.stringify(res), 'the mismatch must be named, not silently accepted')
+      .toMatch(/provider_identity_mismatch/);
+  }, 30_000);
+
   it('★★ what the provider session reports is what the verb reports', async () => {
     // The prefix of the journey the sibling file claimed but never ran. If the collect
     // verb stops forwarding these — dev's exact mutation — this goes red, and nothing

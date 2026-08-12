@@ -54,8 +54,36 @@ export async function runCollection(req) {
     });
   }
 
+  // ⛔ A PROVIDER MUST NOT SELF-ATTEST THE SLOT IT OCCUPIES.
+  //
+  // graph-senior-dev-hermes: a provider has TWO identities — the instantiated object's
+  // `name`, and the `provider` field it writes into its own envelope. Only the envelope
+  // was ever checked, so setting the object's name to `pyright` while the envelope still
+  // claimed `cpp-clangd` left the boundary suite 3/3 green. The consumer was trusting a
+  // claim written by the thing being identified.
+  //
+  // ⇒ The registry SLOT is the authority: it is what the caller asked for and the only
+  // identity the provider did not choose for itself. Disagreement is rejected here rather
+  // than passed downstream, because a mislabelled collection poisons everything that
+  // reads it later and there is no way to tell afterwards which provider actually ran.
+  if (provider.name && provider.name !== providerName) {
+    return errorCollection({
+      language, projectRoot: req.projectRoot,
+      code: 'provider_identity_mismatch',
+      message: `provider registered as '${providerName}' identifies itself as '${provider.name}'`,
+    });
+  }
+
   try {
     const envelope = await provider.collect(req);
+    // Same check on the envelope's own claim — the second of the two identities.
+    if (envelope && envelope.provider && envelope.provider !== providerName) {
+      return errorCollection({
+        language, projectRoot: req.projectRoot,
+        code: 'provider_identity_mismatch',
+        message: `provider '${providerName}' returned a collection claiming provider '${envelope.provider}'`,
+      });
+    }
     // Collapse duplicate records (clangd re-reports each ref once per including
     // TU) BEFORE the verb serializes the envelope to a temp file — a whole-repo
     // collect can otherwise produce millions of byte-identical records that

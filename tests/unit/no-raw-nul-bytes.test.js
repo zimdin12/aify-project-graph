@@ -56,6 +56,42 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 // widening of an exclusion glob.
 const BINARY_FILES = new Set([]);
 
+// ⛔ AN EXCLUSION LIST IS AN AUTHORITY, AND IT WAS ACCOUNTABLE TO NOTHING.
+//
+// graph-senior-dev-hermes: they added the TEXT source `mcp/stdio/server-build.js` to
+// BINARY_FILES, inserted two literal 0x08 bytes into it, and the gate stayed 2/2 GREEN.
+// So the whole tracked population was ENUMERATED but not SCANNED — any carrier could be
+// silently reclassified as binary and walk straight through.
+//
+// ★ I had declared the empty ratchet a "future risk". It was a live false-green: an
+// exemption path with no constraint does not become dangerous when it is used, it is
+// already dangerous while it is empty, because nothing stops the first use.
+//
+// ⇒ THREE INDEPENDENT CONSTRAINTS, because one is a preference and three are a rule:
+//   1. MEMBERSHIP — BINARY_FILES must equal this hand-approved list exactly. Adding an
+//      exemption requires two conscious edits, in different places.
+//   2. PROOF — every exemption must actually BE binary by an independent classifier.
+//      A text file cannot be smuggled in even if both lists are edited together.
+//   3. The exemption still does not suppress the READ; an unreadable exemption fails.
+//
+// Empty today, and that is a fact worth asserting rather than assuming: this repo tracks
+// no binaries, so any non-empty value is a change someone must justify.
+const APPROVED_BINARY_EXEMPTIONS = [];
+
+// Independent of the allowlist, so it cannot be satisfied by the same edit. A file is
+// binary if it carries bytes no text encoding would produce in normal source — NUL is the
+// canonical marker and is what ripgrep itself uses.
+function looksBinary(buf) {
+  if (buf.length === 0) return false;
+  const sample = buf.subarray(0, 8192);
+  let suspicious = 0;
+  for (const b of sample) {
+    if (b === 0x00) return true;
+    if (b < 0x09 || (b > 0x0d && b < 0x20) || b === 0x7f) suspicious += 1;
+  }
+  return suspicious / sample.length > 0.3;
+}
+
 // ⚠ THE RATCHET WAS UNTESTED, and I said so to dev before they could find it. An empty
 // allowlist that has never admitted anything is indistinguishable from one that admits
 // EVERYTHING — the exemption path had no control at all.
@@ -165,6 +201,38 @@ describe('★ no tracked source file contains a raw control byte', () => {
     // 4. And a genuinely clean text file is never a false positive, or the gate is unusable.
     expect(strict.offenders.some((o) => o.startsWith('clean.js')),
       'clean text must not be flagged').toBe(false);
+  });
+
+  it('★★ the EXEMPTION LIST is accountable — membership approved AND binariness proven', () => {
+    // dev's mutant: add a text source to BINARY_FILES, contaminate it, stay green. Both
+    // constraints below independently stop that, so editing one list is not enough and
+    // editing both is still not enough if the file is not really binary.
+    expect([...BINARY_FILES].sort(), 'every exemption must be on the hand-approved list')
+      .toEqual([...APPROVED_BINARY_EXEMPTIONS].sort());
+
+    for (const rel of BINARY_FILES) {
+      let buf;
+      try {
+        buf = readFileSync(join(repoRoot, rel));
+      } catch (e) {
+        throw new Error(`exempt file is unreadable, so its exemption cannot be justified: ${rel} (${e.code})`);
+      }
+      expect(looksBinary(buf), `${rel} is EXEMPTED as binary but does not look binary — `
+        + 'an exemption is a claim about content, and this one is false').toBe(true);
+    }
+  });
+
+  it('★★ the binary CLASSIFIER discriminates — it is not a rubber stamp', () => {
+    // Without this, `looksBinary` returning true for everything would satisfy the proof
+    // above for any smuggled text file, and the constraint would be decoration.
+    expect(looksBinary(Buffer.from('const a = 1;\nexport default a;\n', 'utf8')),
+      'ordinary source is not binary').toBe(false);
+    expect(looksBinary(Buffer.from('a\tb\r\nc — ünïcode\n', 'utf8')),
+      'tabs, CRLF and UTF-8 text are not binary').toBe(false);
+    expect(looksBinary(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x1a])),
+      'a PNG header is binary').toBe(true);
+    expect(looksBinary(Buffer.from([0x01, 0x02, 0x03, 0x04, 0x05, 0x06])),
+      'dense control bytes are binary').toBe(true);
   });
 
   it('★★ EVERY tracked file is scanned — an unreadable one fails, it does not pass', () => {
