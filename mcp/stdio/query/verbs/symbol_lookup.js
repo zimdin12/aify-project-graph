@@ -284,6 +284,36 @@ export function resolveSymbol(db, symbol, typesClause = null) {
 
 const RESOLVE_LIMIT = 50;
 
+// ⛔ AN EXACT TOTAL PAIRED WITH A SAMPLED COMPOSITION IS STILL A CAP REPORTED AS A FINDING.
+//
+// `resolveFeatureForSymbolCheap` had the UNCAPPED total (via the COUNT below) but computed its
+// language census from the 50-row page. graph-senior-dev-hermes's probe: 60 definitions, first
+// 50 C++ and last 10 GLSL, produced
+//     DEFINED IN ... showing 3 of 60
+//     PARSED 60 BY LANGUAGE: cpp 50
+// and NO CROSS-LANGUAGE DUPLICATE — the second language existed only beyond the retrieval page,
+// so its absence from the sample SUPPRESSED the finding. An exact denominator lending its
+// authority to a sampled numerator, and the suppression is worse than the wrong count.
+//
+// ⇒ This groups over the UNCAPPED predicate. It deliberately covers only the exact-label
+// predicate — the first and dominant path in resolveSymbolWithTotal. When the resolver settled
+// on a qname or by-name predicate instead, this returns null and the caller must label its
+// composition SAMPLED rather than silently reuse a census built from a different population.
+export function languageCensusExact(db, symbol, typesClause = null) {
+  if (!symbol) return null;
+  const typeFilter = typesClause ? `AND type IN (${typesClause})` : '';
+  try {
+    const rows = db.all(
+      `SELECT COALESCE(NULLIF(language, ''), 'unknown') AS lang, COUNT(*) AS n
+         FROM nodes WHERE label = $label ${typeFilter}
+        GROUP BY lang ORDER BY n DESC`,
+      { label: symbol },
+    );
+    if (!rows.length) return null;
+    return rows.map((r) => ({ lang: r.lang, count: r.n }));
+  } catch { return null; }
+}
+
 export function resolveSymbolWithTotal(db, symbol, typesClause = null) {
   if (!symbol) return { rows: [], total: 0, truncated: false };
   const typeFilter = typesClause ? `AND type IN (${typesClause})` : '';

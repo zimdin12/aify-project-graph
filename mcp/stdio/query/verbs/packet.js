@@ -20,7 +20,7 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
 import { getPacketTokenBudget } from '../response-budget.js';
 import { openExistingDb } from '../../storage/db.js';
-import { resolveSymbolWithTotal } from './symbol_lookup.js';
+import { resolveSymbolWithTotal, languageCensusExact } from './symbol_lookup.js';
 
 // Definitions grouped by language, over ALL nodes rather than the displayed slice.
 // Falls back to the file extension when the language column is empty, so a repo indexed
@@ -62,6 +62,11 @@ function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
     // Reporting nodes.length as the total was the same cap-as-total defect this whole
     // change exists to remove, one level upstream — caught by graph-senior-dev-hermes.
     const { rows: nodes, total: resolvedTotal } = resolveSymbolWithTotal(db, symbol);
+    // ⇒ UNCAPPED census where the exact-label predicate applies; null (=> SAMPLED) otherwise.
+    // An exact total must never lend its authority to a composition built from the page.
+    const exactCensus = languageCensusExact(db, symbol);
+    const censusIsExact = Boolean(exactCensus);
+    const census = exactCensus ?? countByLanguage(nodes);
     if (!nodes.length) return null;
 
     const matchedSymbols = new Set(nodes.map((n) => n.label).filter(Boolean));
@@ -90,14 +95,14 @@ function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
           // materialPalette[id] addresses the wrong entry for every material above 0. A
           // fixed cap treats N definitions as a list to SAMPLE; here N is a property of
           // the symbol and the property is the hazard.
-          locationsByLanguage: countByLanguage(nodes),
+          locationsByLanguage: census, locationsCensusExact: censusIsExact,
           locations: nodes.slice(0, 3).map((n) => ({
             file: n.file_path, line: n.start_line, type: n.type,
           })),
         };
       }
     }
-    return { feature: null, locationsTotal: resolvedTotal, locationsByLanguage: countByLanguage(nodes), locations: nodes.slice(0, 3).map((n) => ({
+    return { feature: null, locationsTotal: resolvedTotal, locationsByLanguage: census, locationsCensusExact: censusIsExact, locations: nodes.slice(0, 3).map((n) => ({
       file: n.file_path, line: n.start_line, type: n.type,
     })) };
   } catch {
@@ -779,6 +784,23 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
             + `graph_whereis(symbol="${symbol}") lists them and reports its own cap.`,
       );
     }
+    // ⛔ THE FOURTH ROUTE, AND MY "ONE RENDERER FOR EVERY BRANCH" CLAIM WAS FALSE.
+    //
+    // This object-form branch consumed `matched.symbols` and the total but never
+    // `matched.symbols_by_language`, and never called renderCandidateDisclosures(). dev's probe —
+    // an unanchored symbol with 1 C++ and 15 GLSL definitions — got the population warning and
+    // NO cross-language duplicate finding and NO floor caveat. The shared renderer closed the
+    // divergence between the branches I had already looked at; it could not close a branch I had
+    // never enumerated, and I asserted coverage over "every branch" without listing them.
+    //
+    // ⇒ Route identity, not just branch parity: this route now consumes the same renderer.
+    lines.push(...renderCandidateDisclosures({
+      shown: symHits.length,
+      total: pop.attested ? pop.total : NaN,
+      symbol,
+      languages: (consequences.matched?.symbols_by_language ?? []).map((b) => b.lang),
+      exact: consequences.matched?.symbols_census_exact !== false,
+    }));
     if (fileHits.length) {
       lines.push(renderListSection('ALSO IN', clampList(fileHits.map((f) => ({ file: f })), 6), (x) => x.file));
     }
@@ -977,13 +999,13 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
       // identically whichever route got here.
       symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
         label: parsed.value, type: l.type, file: l.file, line: l.line,
-      })), symbols_total: cheap.locationsTotal, symbols_by_language: cheap.locationsByLanguage, files: [] } };
+      })), symbols_total: cheap.locationsTotal, symbols_by_language: cheap.locationsByLanguage, symbols_census_exact: cheap.locationsCensusExact, files: [] } };
     } else if (cheap?.locations?.length) {
       // Known to the graph, anchored by no feature — the symbol-pointer packet's
       // case, reached without paying for the traversal.
       symbolConsequences = { matched: { symbols: cheap.locations.map((l) => ({
         label: parsed.value, type: l.type, file: l.file, line: l.line,
-      })), symbols_total: cheap.locationsTotal, symbols_by_language: cheap.locationsByLanguage, files: [] } };
+      })), symbols_total: cheap.locationsTotal, symbols_by_language: cheap.locationsByLanguage, symbols_census_exact: cheap.locationsCensusExact, files: [] } };
     }
   }
 

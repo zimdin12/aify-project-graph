@@ -44,7 +44,10 @@ afterEach(async () => {
 // is EMPTY — so an empty overlay is what makes packet fall through to graphConsequences at
 // :872. With ANY feature present (even an unrelated one) the cheap producer answers and
 // synthesizes its own `symbols_total`, and a producer-side mutation is invisible.
-async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false, distinctFiles = false } = {}) {
+// `secondLanguageAfter: N` puts a SECOND language only in rows past index N — so a census
+// computed from the 50-row retrieval page cannot see it, and one computed over the uncapped
+// predicate can. That difference is the whole point of the arm that uses it.
+async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false, distinctFiles = false, secondLanguageAfter = null } = {}) {
   const repo = await mkdtemp(join(tmpdir(), 'apg-popclosed-'));
   await mkdir(join(repo, '.aify-graph'), { recursive: true });
   execFileSync('git', ['-C', repo, 'init', '-q'], { stdio: 'ignore' });
@@ -76,10 +79,14 @@ async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false, di
        VALUES ($id, 'Class', 'GpuMaterial', $f, $l, $e, $lang, 1, '{}')`,
       {
         id: `n${i}`,
-        f: distinctFiles ? `engine/shaders/mirror_${i}.glsl` : 'engine/GpuMaterialPalette.h',
+        f: secondLanguageAfter !== null
+          ? (i < secondLanguageAfter ? `engine/cpp/m${i}.h` : `engine/shaders/m${i}.glsl`)
+          : (distinctFiles ? `engine/shaders/mirror_${i}.glsl` : 'engine/GpuMaterialPalette.h'),
         l: 10 + i,
         e: 20 + i,
-        lang: distinctFiles && i > 0 ? 'glsl' : 'cpp',
+        lang: secondLanguageAfter !== null
+          ? (i < secondLanguageAfter ? 'cpp' : 'glsl')
+          : (distinctFiles && i > 0 ? 'glsl' : 'cpp'),
       },
     );
   }
@@ -215,6 +222,41 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
     expect(text, 'the reader must be told grouping happened after the cap').toMatch(/FLOOR/);
     // Hand-written negative: the exact wrong rendering ef-manager measured.
     expect(text, 'the retrieval cap must never be printed as the total').not.toMatch(/showing \d+ of 50\b/);
+  }, 60_000);
+
+  it('★★★ A SECOND LANGUAGE BEYOND THE RETRIEVAL PAGE MUST STILL BE FOUND', async () => {
+    // ⛔ dev's probe: 60 definitions, the first 50 C++ and the last 10 GLSL, produced
+    //     DEFINED IN … showing 3 of 60
+    //     PARSED 60 BY LANGUAGE: cpp 50
+    // and NO CROSS-LANGUAGE DUPLICATE. An EXACT total (from a COUNT) lending its authority to a
+    // SAMPLED composition (from the 50-row page) — and the absence of the second language from
+    // that page SUPPRESSED the finding. The suppression is worse than the wrong count: a
+    // missing warning cannot be doubted.
+    //
+    // ⇒ The census is now grouped over the UNCAPPED predicate. This fixture puts the second
+    // language ONLY beyond the page, so a census built from the sample cannot see it.
+    repoRoot = await makeRepo({ defs: 60, anchorSymbol: true, secondLanguageAfter: 50 });
+    const text = String(await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' }));
+
+    expect(text, 'the uncapped total must still be reported').toMatch(/of 60/);
+    expect(text, 'the census must count the language that exists only past the page')
+      .toMatch(/glsl 10/);
+    expect(text, 'and the finding it enables must not be suppressed').toMatch(/CROSS-LANGUAGE DUPLICATE/);
+  }, 60_000);
+
+  it('★★★ ROUTE IDENTITY — the object-form symbol-pointer branch uses the shared renderer too', async () => {
+    // ⛔ My claim that one renderer is consumed by EVERY branch was false. This route —
+    // unanchored symbol, object-form consequences — read `matched.symbols` and the total but
+    // never `symbols_by_language`, and never called renderCandidateDisclosures(). dev's probe
+    // (1 C++ / 15 GLSL) got the population warning and NO duplicate finding, NO floor caveat.
+    //
+    // ★ Branch PARITY could not catch this: parity compares the branches you already listed.
+    // This asserts route IDENTITY — that this specific route reaches the renderer at all.
+    repoRoot = await makeRepo({ defs: 16, noFeatures: false, distinctFiles: true });
+    const text = String(await graphPacket({ repoRoot, target: 'GpuMaterial', mode: 'orient' }));
+
+    expect(text, 'the unanchored object route must reach the shared renderer').toMatch(/CROSS-LANGUAGE DUPLICATE/);
+    expect(text, 'including the floor caveat the renderer owns').toMatch(/count is a FLOOR/);
   }, 60_000);
 
   it('★★★ BRANCH PARITY — both routes emit the SAME disclosures, from one renderer', async () => {
