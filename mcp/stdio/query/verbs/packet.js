@@ -751,7 +751,12 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     // So the packet states what it is: an unranked sample, with a pointer to the
     // verb that ranks. Silence about truncation is the defect, not the truncation.
     const SHOWN = 6;
-    const locItems = symHits.slice(0, SHOWN).map((s) => ({
+    // ⚠ NOT pre-sliced any more. `clampList(locItems, SHOWN)` received a list ALREADY cut to
+    // SHOWN, so `truncated` was structurally always false and its "(N more)" branch could never
+    // fire — a safeguard that cannot execute, the same dead-instrument shape as an assertion
+    // that cannot fail. Found by enumerating every symbol-list emitter in this file rather than
+    // recalling them, after a FOURTH route turned up that I had never listed.
+    const locItems = symHits.map((s) => ({
       file: s.file, why: `${s.type || 'symbol'}${s.line ? ` @ line ${s.line}` : ''}`,
     }));
     lines.push(renderListSection('DEFINED IN', clampList(locItems, SHOWN), (x) => `${x.file} — ${x.why}`));
