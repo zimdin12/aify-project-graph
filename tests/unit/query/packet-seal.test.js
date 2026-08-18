@@ -36,8 +36,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   graphPacket, sealPacketOutput, renderCandidateDisclosures, withSealScope,
-  extractListBlocks, admitListBlock, SEAL_CAVEAT,
+  extractListBlocks, emitCandidateList, SEAL_CAVEAT,
 } from '../../../mcp/stdio/query/verbs/packet.js';
+import * as lists from '../../../mcp/stdio/query/verbs/packet-lists.js';
 
 const SRC = join(import.meta.dirname, '..', '..', '..', 'mcp', 'stdio', 'query', 'verbs', 'packet.js');
 const strict = process.env.APG_PACKET_SEAL_STRICT === '1';  // whole suite, via vitest.config.js
@@ -79,7 +80,7 @@ describe('the packet seal admits only lists the governed emitter built', () => {
         return t;
       }),
     ]);
-    expect(bad.admitted.size, 'the hand-built packet must own nothing').toBe(0);
+    expect(bad.admitted.size ?? bad.admitted.length, 'the hand-built packet must own nothing').toBe(0);
     if (strict) expect(() => sealPacketOutput(bad.out, bad.admitted)).toThrow(/PACKET SEAL/);
     else expect(sealPacketOutput(bad.out, bad.admitted)).toContain(SEAL_CAVEAT);
     // ⚠ THE HALF THAT CAUGHT MY OWN BUG. The first scoping fix nested scopes, so a real
@@ -104,18 +105,65 @@ describe('the packet seal admits only lists the governed emitter built', () => {
   it('★★★ a list the governed emitter built IS admitted', async () => {
     // The negative half. Without it the seal could be satisfied by refusing everything,
     // which would caveat every healthy packet — the failure mode of over-correcting.
-    await expectAccepted(async () => admitListBlock('DEFINED IN:\n- src/a.cpp — function @ line 3'),
-      'an emitter-built list must pass untouched');
+    await expectAccepted(async () => emitCandidateList({
+      rows: ['- src/a.cpp — function @ line 3'], symbol: 'Foo', statedTotal: 1,
+    }), 'an emitter-built list must pass untouched');
   });
 
   it('★★ a truncated copy of an admitted list still passes', async () => {
     // clampToBudget drops trailing rows AFTER admission, so exact-match alone would accuse
     // a packet for being shortened by its own budget clamp.
     await expectAccepted(async () => {
-      const full = 'DEFINED IN:\n- a.cpp\n- b.cpp\n- c.cpp';
-      admitListBlock(full);
-      return 'DEFINED IN:\n- a.cpp\n- b.cpp';
+      const full = emitCandidateList({ rows: ['- a.cpp', '- b.cpp', '- c.cpp'], symbol: 'X', statedTotal: 3 });
+      const head = full.split('\n')[0];
+      return `${head}\n- a.cpp\n- b.cpp`;
     }, 'a budget-clamped list is still the emitter\'s list');
+  });
+
+  it('★★★ dev\'s #1: there is no credential mint a route can call', () => {
+    // admitListBlock is GONE from packet.js, and admitBlock lives in packet-lists.js WITHOUT
+    // being exported — so no route in packet.js can name it. Not "should not call": cannot,
+    // because it is not in scope there. That is the difference between removing an
+    // affordance and removing the capability.
+    expect(lists.admitBlock, 'the admission primitive must not be exported').toBeUndefined();
+    expect(lists.emitGovernedList, 'the free-form emitter that defaulted disclosures=[] is gone')
+      .toBeUndefined();
+  });
+
+  it('★★★ dev\'s #1b: a candidate list CANNOT be emitted without a population statement', () => {
+    // Their probe was emitGovernedList({header:'CANDIDATES:', rows:[…]}) — a governed-looking
+    // list carrying zero disclosures, because `disclosures` was an omittable argument.
+    // emitCandidateList has no such argument: header AND disclosures are derived from the
+    // population facts, so even the unattested case states that it is unattested.
+    const unknown = emitCandidateList({ rows: ['- src/hidden.cpp:1'], symbol: 'X', statedTotal: undefined });
+    expect(unknown, 'an unattested population must SAY so, not fall silent').toMatch(/total population UNKNOWN/);
+    const floor = emitCandidateList({
+      rows: ['- a.cpp'], symbol: 'X', statedTotal: 50, populationIsFloor: true, rowsSeen: [null, '50', '60'],
+    });
+    expect(floor, 'a floor must render as a floor').toMatch(/AT LEAST 50/);
+    expect(floor).toMatch(/population is a FLOOR/);
+  });
+
+  it('★★★ dev\'s #2: a 145-character floor header is still a list', async () => {
+    // v4 capped the header at 80 chars — I had replaced a vocabulary of WORDS with an
+    // undocumented LENGTH, which production output already exceeded. extractListBlocks
+    // returned [] on the real floor header, so an unowned route using it fulfilled in strict
+    // mode. Same defect class as the word list, one layer down.
+    const real = 'CANDIDATES — showing 5 of AT LEAST 50 (grouped from 50 of 60 matching rows'
+      + ' — retrieval was capped BEFORE grouping, so the population is a FLOOR):';
+    expect(real.length, 'fixture must exceed the old 80-char cap or it proves nothing').toBeGreaterThan(80);
+    expect(extractListBlocks(`${real}\n- src/hidden.cpp:1`), 'the detector must SEE it').toHaveLength(1);
+    await expectRejected(async () => `${real}\n- src/hidden.cpp:1`, 'a long-header list must not slip through');
+  });
+
+  it('★★★ dev\'s #3: one receipt does not authorise two occurrences', async () => {
+    // Admissions were a Set, so membership answered "was a list like this ever built?".
+    // Provenance must answer "was THIS occurrence built?" — receipts are counted and consumed.
+    await expectRejected(async () => {
+      const block = emitCandidateList({ rows: ['- src/same.cpp:1'], symbol: 'X', statedTotal: 1 });
+      const listOnly = block.split('\n').slice(0, 2).join('\n');
+      return `${block}\n\n${listOnly}`;   // the second copy never issued a receipt
+    }, 'a duplicated list must not ride on the first copy\'s receipt');
   });
 
   it('★★ prose and non-list sections are not accused', async () => {
