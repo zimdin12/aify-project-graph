@@ -47,12 +47,31 @@ export const _disclosureRenderCount = () => disclosureRenderCount;
 // total. packet.js has carried the rule "the exactness must travel WITH the value" in a
 // comment since an earlier fix; modelling it as an integer beside a boolean is precisely not
 // doing that. Now the exactness IS the value.
-const POP = Symbol('population');
-export const exactly = (total) => Object.freeze({ [POP]: true, kind: 'exact', total });
+// ⛔ THE BRAND WAS AN ENUMERABLE SYMBOL, so `{...exactly(1), total: 0}` copied the brand and
+// replaced the number — a forged population that every check accepted. And nothing validated
+// the number at all: `exactly(0)` beside one row rendered "showing 1 of 0", a population
+// statement that is not internally possible. A tag that prevents confusion between KINDS and
+// permits an impossible VALUE is only half a type.
+//
+// ⇒ Membership lives in a private WeakSet, which a spread cannot copy, and the value is
+// checked where it is made.
+const POPULATIONS = new WeakSet();
+function population(value) {
+  Object.freeze(value);
+  POPULATIONS.add(value);
+  return value;
+}
+function checkTotal(total) {
+  if (!Number.isInteger(total) || total < 0) {
+    fail(`a population total must be a non-negative integer — got ${JSON.stringify(total)}`);
+  }
+  return total;
+}
+export const exactly = (total) => population({ kind: 'exact', total: checkTotal(total) });
 export const atLeast = (total, { rowsSeen = null } = {}) =>
-  Object.freeze({ [POP]: true, kind: 'floor', total, rowsSeen });
-export const unknownPopulation = () => Object.freeze({ [POP]: true, kind: 'unknown' });
-const isPopulation = (p) => Boolean(p && p[POP]);
+  population({ kind: 'floor', total: checkTotal(total), rowsSeen });
+export const unknownPopulation = () => population({ kind: 'unknown' });
+const isPopulation = (p) => POPULATIONS.has(p);
 
 // ── kinds ────────────────────────────────────────────────────────────────────────────────
 //
@@ -64,7 +83,10 @@ export const BOUNDED_KINDS = new Set([
 export const SYMBOL_KINDS = new Set(['DEFINED IN', 'ALSO IN']);
 
 // ── the occurrence ───────────────────────────────────────────────────────────────────────
-const TEXT = new WeakMap();   // occurrence -> rendered text. Module-private: no public toText.
+// occurrence -> { kind, header, rows, trailing }. Module-private: there is no public toText,
+// and the PARTS are kept rather than the finished string so the budget clamp can transform an
+// occurrence instead of rewriting text behind the seal's back.
+const PARTS = new WeakMap();
 
 class ListOccurrence {
   constructor(kind) {
@@ -97,14 +119,34 @@ function freezeRows(rows) {
 function mint(kind, header, rows, trailing = []) {
   if (String(header).includes('\n')) fail('a list header must be a single line');
   const occ = new ListOccurrence(kind);
-  TEXT.set(occ, [header, ...freezeRows(rows), ...trailing].join('\n'));
+  // The PARTS are kept rather than a finished string, so the budget clamp can transform an
+  // occurrence into a new one instead of rewriting text behind the seal's back — which is
+  // what made the clamp simultaneously unprovable and falsely accused.
+  PARTS.set(occ, Object.freeze({
+    kind, header, rows: freezeRows(rows), trailing: Object.freeze([...trailing]),
+  }));
   return occ;
+}
+
+function textOf(occ) {
+  const p = PARTS.get(occ);
+  return [p.header, ...p.rows, ...p.trailing].join('\n');
+}
+
+// ⚠ THE RECONCILABLE PART IS HEADER + ROWS, NOT THE WHOLE OCCURRENCE. Trailing disclosures and
+// notes are indented prose, so extractListBlocks stops before them — comparing a block against
+// the full text would refuse every occurrence that carries a disclosure, which is most of them.
+// Recording the block explicitly is the honest version of what the deleted prefix allowance was
+// silently approximating.
+function blockOf(occ) {
+  const p = PARTS.get(occ);
+  return [p.header, ...p.rows].join('\n');
 }
 
 // Test-only accessor. Named so it cannot be mistaken for API, and deliberately NOT the path
 // the serializer uses — a public renderer would be a way to obtain the text without consuming
 // the identity, which is half of what B1/B4 exploited.
-export const renderOccurrenceForTest = (occ) => TEXT.get(occ);
+export const renderOccurrenceForTest = (occ) => textOf(occ);
 
 // ── disclosures ──────────────────────────────────────────────────────────────────────────
 export function renderCandidateDisclosures({ shown, total, symbol, languages = [], exact = true }) {
@@ -138,6 +180,17 @@ export function clampList(items, cap) {
 
 // ── constructors ─────────────────────────────────────────────────────────────────────────
 
+// ⛔ "showing 1 of 0" IS NOT A SAMPLING DISCLOSURE, IT IS A CONTRADICTION — and it sealed
+// clean, because the tag was checked and the number never was. A population that cannot
+// contain the rows beneath it says nothing true about them.
+function requirePopulationCoversShown(label, shown, population) {
+  if (population.kind === 'unknown') return;
+  if (population.total < shown) {
+    fail(`${label} would claim a population of ${population.total} while showing ${shown} rows. `
+      + 'A total smaller than the sample cannot be a total.');
+  }
+}
+
 function populationHeader(label, shown, population) {
   switch (population.kind) {
     case 'unknown':
@@ -162,6 +215,7 @@ export function candidateList({ rows, symbol, population, languages = [] }) {
       + 'which is how a floor came to be rendered as exact.');
   }
   const shown = rows.length;
+  requirePopulationCoversShown('CANDIDATES', shown, population);
   const header = populationHeader('CANDIDATES', shown, population);
   const disclosures = renderCandidateDisclosures({
     shown,
@@ -268,7 +322,7 @@ export function renderPacketLines(entries) {
   for (const entry of entries) {
     if (!entry) continue;
     if (entry instanceof ListOccurrence) {
-      const text = TEXT.get(entry);
+      const text = textOf(entry);
       if (scope) {
         // ⛔ IDENTITY, NOT A COUNTER. `renderPacketLines([b, b])` used to emit b twice and
         // report two serializations — "consumes each exactly once" was a claim, not a
@@ -278,7 +332,7 @@ export function renderPacketLines(entries) {
             + 'if you mean to show a second list.');
         }
         scope.consumed.add(entry);
-        scope.emitted.push(text);
+        scope.emitted.push(blockOf(entry));
       }
       out.push(text);
       continue;
@@ -312,13 +366,98 @@ export function sealPacketOutput(text, scope) {
   const pool = scope && Array.isArray(scope.emitted) ? [...scope.emitted] : [];
   const unowned = [];
   for (const block of blocks) {
-    let i = pool.findIndex((e) => e === block);
-    if (i < 0) i = pool.findIndex((e) => e.startsWith(block));
+    // ⛔ EXACT MATCH ONLY. The prefix allowance was simultaneously too permissive and too
+    // weak, which is the clearest possible evidence that inferring a transform from text
+    // cannot work: it accepted an arbitrary truncation of a CANDIDATES list (header still
+    // claiming "showing 3 of 9" above one row — the clamp lie, recreated by the mechanism
+    // meant to permit clamping) while REFUSING a genuinely skeletonized bounded list,
+    // because skeletonization rewrites rows rather than dropping a suffix.
+    //
+    // ⇒ Both are closed by clamping the OCCURRENCE instead of the text: after
+    // clampOccurrences() the emitted text IS the final text, so nothing needs inferring.
+    const i = pool.indexOf(block);
     if (i < 0) unowned.push(block);
     else pool.splice(i, 1);
   }
   if (unowned.length === 0) return text;
   violation('a reader-facing list in the final packet does not correspond to any list the '
     + `governed emitter built: ${JSON.stringify(unowned[0].slice(0, 120))}`);
-  return `${text}\n${SEAL_CAVEAT}`;
+  return `${text}
+${SEAL_CAVEAT}`;
+}
+
+// ── budget clamping, on occurrences ──────────────────────────────────────────────────────
+//
+// ⛔ THE CLAMP USED TO RUN ON FINISHED TEXT, AFTER THE SEAL HAD VALIDATED IT. That put a
+// rewrite behind the guarantee, and every attempt to let it through by recognising the
+// rewritten text failed in one direction or the other. Clamping the OCCURRENCE keeps the
+// typed carrier all the way to serialization: a skeletonized list is a NEW occurrence with
+// its own rows, serialized once, reconciled exactly.
+//
+// ⚠ Only BOUNDED kinds are clampable. A candidate or symbol list states a population, and
+// rewriting its rows underneath that statement is precisely the lie this file exists to stop.
+const esTokens = (t) => Math.ceil(t.length / 4);
+
+function skeletonizeRows(rows) {
+  const groups = new Map();
+  for (const row of rows) {
+    const tok = row.slice(2).trim().split(/\s+—\s+|\s+/)[0] ?? '';
+    const slash = tok.lastIndexOf('/');
+    const key = slash > 0 ? tok.slice(0, slash) : `__solo__:${row}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(row);
+  }
+  if (![...groups].some(([k, v]) => !k.startsWith('__solo__:') && v.length >= 2)) return null;
+  const out = [];
+  for (const [key, members] of groups) {
+    if (key.startsWith('__solo__:') || members.length < 2) out.push(...members);
+    else out.push(`- ${members.length} more under ${key}/* (collapsed — over budget)`);
+  }
+  return out;
+}
+
+export function clampOccurrences(entries, budgetTokens, targetKind = null) {
+  // ⛔ MY FIRST VERSION OF THIS COULD NEVER REACH TIER 3. Each tier rewrote the entry list, so
+  // tier 2 replaced the occurrence with a plain string and tier 3 — which only transforms
+  // occurrences — then had nothing left to act on. A packet over budget after tier 2 simply
+  // stayed over budget. Found by probing the tiers directly rather than trusting that four
+  // tests passing meant the ladder worked.
+  //
+  // ⇒ Decide a LEVEL per kind, then materialise once. The tiers are a decision, not a
+  // sequence of destructive edits.
+  const order = ['RISKS', 'TESTS', 'CONTRACTS', 'READ FIRST'];
+  const levels = new Map(order.map((k) => [k, 0]));   // 0 full · 1 skeleton · 2 count · 3 drop
+  const kindOf = (e) => (e instanceof ListOccurrence ? PARTS.get(e).kind : null);
+  const clampable = (e) => {
+    const k = kindOf(e);
+    return k !== null && BOUNDED_KINDS.has(k) && k !== targetKind && levels.has(k);
+  };
+
+  const materialise = () => entries.map((e) => {
+    if (!clampable(e)) return e;
+    const p = PARTS.get(e);
+    switch (levels.get(p.kind)) {
+      case 1: {
+        const rows = skeletonizeRows(p.rows);
+        return rows ? mint(p.kind, p.header, rows, p.trailing) : e;
+      }
+      case 2: return `${p.kind}: ${p.rows.length} omitted (over budget)`;
+      case 3: return `(${p.kind} dropped — over budget)`;
+      default: return e;
+    }
+  });
+  const size = (list) => esTokens(list
+    .map((e) => (e instanceof ListOccurrence ? textOf(e) : String(e))).join('\n'));
+
+  let out = materialise();
+  if (!Number.isFinite(budgetTokens) || size(out) <= budgetTokens) return out;
+  for (const level of [1, 2, 3]) {
+    for (const kind of order) {
+      if (kind === targetKind) continue;   // the section containing the target is never trimmed
+      levels.set(kind, level);
+      out = materialise();
+      if (size(out) <= budgetTokens) return out;
+    }
+  }
+  return out;
 }

@@ -227,7 +227,16 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
       repoRoot = repo;
       const text = asText(await graphPacket({ repoRoot, target: 'GpuMaterial' }));
 
-      expect(text, 'nothing was sampled').not.toMatch(/showing \d+ of/);
+      // ⚠ WAS `not.toMatch(/showing \d+ of/)` — another phrase used as a proxy for a fact.
+      // The fact is "nothing was omitted"; the phrase is how the packet states a population,
+      // which it now does on every symbol list because a first-time reader could not tell
+      // whether one row meant one definition. Assert the NUMBERS: a population may be stated,
+      // it just must not claim more than it shows.
+      const stated = [...text.matchAll(/showing (\d+) of (?:AT LEAST )?(\d+)/g)];
+      for (const [full, n, m] of stated) {
+        expect(Number(m), `"${full}" claims omitted items when nothing was sampled`).toBe(Number(n));
+      }
+      expect(text, 'and nothing may say items were left out').not.toMatch(/not listed here|AT LEAST/);
       expect(text, 'and one definition is not a cross-language mirror').not.toMatch(/CROSS-LANGUAGE DUPLICATE/);
     }, 20_000);
   });

@@ -26,7 +26,7 @@ import { resolveSymbolWithTotal, languageCensusExact } from './symbol_lookup.js'
 import {
   clampList, boundedList, boundedListAll, candidateList, symbolList,
   exactly, atLeast, unknownPopulation, renderCandidateDisclosures,
-  withSealScope, sealPacketOutput, renderPacketLines,
+  withSealScope, sealPacketOutput, renderPacketLines, clampOccurrences,
 } from './packet-lists.js';
 
 // Re-exported: these were part of packet.js's surface before the extraction and existing
@@ -1183,9 +1183,12 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
     // The locations are already computed — symbolConsequences is what produced
     // the feature match in the first place.
     const symHits = symbolConsequences?.matched?.symbols ?? [];
+    // ⛔ THESE ROWS USED TO BEGIN WITH TWO SPACES, WHICH PUT THIS ENTIRE ROUTE OUTSIDE THE
+    // LIST GRAMMAR. Not only did the header state no population — the detector could not see
+    // the list at all, so nothing downstream could have noticed. Governed rows start "- ".
     const defLines = symHits.slice(0, 3)
       .filter((s) => s?.file)
-      .map((s) => `  ${s.file}${s.line ? `:${s.line}` : ''} — ${s.type || 'symbol'}`);
+      .map((s) => `- ${s.file}${s.line ? `:${s.line}` : ''} — ${s.type || 'symbol'}`);
     lines.splice(1, 0, `MATCHED VIA: symbol "${matchedViaSymbol}" → feature ${resolvedFeature.id}`);
     if (defLines.length) {
       // ⛔ THIS IS THE SECOND CAP, AND I FIXED THE OTHER ONE FIRST.
@@ -1206,14 +1209,16 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       const total = pop.total;
       const byLang = symbolConsequences?.matched?.symbols_by_language ?? [];
       const sampled = pop.attested && total > defLines.length;
-      const header = !pop.attested
-        // FAIL CLOSED: state the sample and say the population is unknown. Never "showing 3"
-        // with the implication that 3 is all there is.
-        ? `DEFINED IN (the symbol you asked for, not the feature) — showing ${defLines.length}; `
-          + 'total population UNKNOWN (not reported by graph_consequences):'
-        : sampled
-          ? `DEFINED IN (the symbol you asked for, not the feature) — showing ${defLines.length} of ${total}:`
-          : 'DEFINED IN (the symbol you asked for, not the feature):';
+      // ⛔ THE THIRD BRANCH HERE WAS THE DEFECT, AND I REPORTED THIS FINDING FIXED WITHOUT IT.
+      // When the population was attested and EQUAL to the shown count, the header was the bare
+      // `DEFINED IN (…):` with no population at all — exactly the "is one row all of them?"
+      // case a first-time reader could not answer. I converted buildSymbolPointerPacket, saw
+      // "showing 1 of 1" in real output, and called the finding fixed generally: one branch, a
+      // general claim, which is the fourth-route mistake for the third time.
+      //
+      // ⇒ The population is now a tagged value and the header comes from it, so there is no
+      // branch left in which it can be omitted.
+      const definedPopulation = pop.attested ? exactly(total) : unknownPopulation();
       const extra = [];
       if (sampled && byLang.length) {
         // Repo-size-independent in a way the sample can never be: two lines say "1 C++
@@ -1250,12 +1255,6 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       // ⇒ BOTH branches now assemble their disclosures from renderCandidateDisclosures, which
       // is why the FLOOR caveat can no longer exist on one and not the other — the divergence
       // ef-manager found by comparing the two survivors of the previous round.
-      extra.push(...renderCandidateDisclosures({
-        shown: defLines.length,
-        total: pop.attested ? total : NaN,
-        symbol: matchedViaSymbol,
-        languages: byLang.map((b) => b.lang),
-      }));
       // Still offered when completeness is UNKNOWN — that case needs the remedy more, not less.
       // ⚠ No `limit=` here and no "unsampled": with no population there is no number to pass,
       // and promising an unsampled result from a verb that caps at 5 is the false promise this
@@ -1263,7 +1262,19 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       if (!pop.attested) {
         extra.push(`  NEXT: graph_whereis(symbol="${matchedViaSymbol}") — lists them, and reports its own cap`);
       }
-      lines.splice(2, 0, header, ...defLines, ...extra);
+      // One typed occurrence carrying header, rows and every disclosure — not a header, a
+      // spread of rows and a spread of extras assembled at the call site, which is what let
+      // this route drift from its sibling for six iterations without anything noticing.
+      lines.splice(2, 0, symbolList(
+        'DEFINED IN',
+        defLines,
+        {
+          symbol: matchedViaSymbol,
+          population: definedPopulation,
+          languages: byLang.map((b) => b.lang),
+          notes: ['  (the symbol you asked for, not the feature)', ...extra],
+        },
+      ));
     }
   }
 
@@ -1346,11 +1357,16 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
   // the budget clamp so it's trimmed first if the packet is over budget.
   lines.push('NEXT: for the full call path between two symbols use graph_trace(from,to); for several symbols\' source in one read use graph_explore(symbols).');
 
-  const text = renderPacketLines(lines);
-  // READ FIRST holds the packet target's primary anchor files — it is the
-  // section "containing the target" and must never be dropped by the budget
-  // clamp (codegraph #564/#569).
-  return clampToBudget(text, opts.budget_tokens, 'READ FIRST:');
+  // ⛔ CLAMP FIRST, SERIALIZE SECOND. This used to serialize and then rewrite the finished
+  // text, which put a transform behind the guarantee: the seal validated a string the clamp
+  // then edited. Every attempt to let that through by RECOGNISING the rewritten text failed in
+  // one direction or the other — accepting an arbitrary truncation of a candidate list while
+  // refusing a genuinely skeletonized bounded one.
+  //
+  // ⇒ Clamping an OCCURRENCE produces a new occurrence, so the emitted text IS the final text
+  // and reconciliation is exact. READ FIRST holds the packet target's primary anchor files —
+  // it is the section "containing the target" and must never be dropped (codegraph #564/#569).
+  return renderPacketLines(clampOccurrences(lines, opts.budget_tokens, 'READ FIRST'));
 }
 
 

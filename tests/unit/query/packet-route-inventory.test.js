@@ -71,15 +71,23 @@ describe('packet.js: no symbol-listing FUNCTION omits the renderer entirely', ()
       .toEqual(expect.arrayContaining(['buildSymbolPointerPacket', 'graphPacketInner']));
   });
 
-  it('★ no listing function omits renderCandidateDisclosures ENTIRELY (weak, by construction)', () => {
-    // ⚠ THIS IS A FUNCTION-LEVEL CLAIM. It cannot discriminate sibling branches inside a
-    // function that calls the renderer somewhere — proven by execution, see the header.
-    // Kept because a wholly new listing function with no renderer mention at all is a real
-    // mistake worth catching early and for free.
+  it('★ no listing function builds a list outside the governed constructors (weak, by construction)', () => {
+    // ⚠ THIS IS A FUNCTION-LEVEL CLAIM and it stays weak on purpose: it cannot discriminate
+    // sibling branches inside a function that uses a constructor somewhere. That limit was
+    // proven by execution — see the header — and the real guarantee is the runtime one.
+    //
+    // ⚠ WHAT IT CHECKS CHANGED, and not to make anything pass. It used to require a mention of
+    // renderCandidateDisclosures, which was the right proxy when routes assembled their own
+    // headers and called the renderer directly. Routes now hand population FACTS to
+    // candidateList()/symbolList()/boundedList() and those call the renderer internally — so
+    // the old proxy flagged graphPacketInner precisely because it had stopped hand-assembling,
+    // which is the improvement. Checking for the constructors keeps the same intent pointed at
+    // the shape the code actually has.
+    const GOVERNED = /(candidateList|symbolList|boundedList|boundedListAll)\(/;
     const offenders = emitters
-      .filter((f) => !f.body.some((l) => isCode(l) && /renderCandidateDisclosures\(/.test(l)))
+      .filter((f) => !f.body.some((l) => isCode(l) && GOVERNED.test(l)))
       .map((f) => f.name);
-    expect(offenders, 'these functions list symbols and never mention the disclosure renderer')
+    expect(offenders, 'these functions list symbols without a governed list constructor')
       .toEqual([]);
   });
 });
