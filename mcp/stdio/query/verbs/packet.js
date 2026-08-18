@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 // graph_packet — single-call agent prompt packet for a task or feature.
 //
 // Architectural rule (locked in 2026-04-25 upgrade plan v2):
@@ -373,7 +374,11 @@ function renderListSection(label, capped, formatter) {
   const head = `${label}:`;
   const rows = capped.items.map((x) => `- ${formatter(x)}`);
   if (capped.truncated) rows.push(`- (${capped.total - capped.items.length} more — narrow target)`);
-  return [head, ...rows].join('\n');
+  // ★ THE GOVERNED EMITTER. Every list that reaches a reader through this function is
+  // registered as it is built, so the seal can recognise its own output instead of trusting
+  // a header word or an ambient call count. A route that assembles a list by hand produces
+  // text nobody admitted, which is exactly what the seal now looks for.
+  return admitListBlock([head, ...rows].join('\n'));
 }
 
 function buildFeaturePacket({ feature, brief, functionality, opts, snapshot }) {
@@ -686,11 +691,83 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 // boundary every route must pass through. This counter is the instrument: the seal compares
 // it either side of a call, so a route that emits a list without consulting the renderer is
 // caught by the fact that it never ran, no matter which branch produced it.
+// ⛔ THE FIRST VERSION OF THIS COUNTER WAS MODULE-GLOBAL, AND I DEFENDED IT WITH AN
+// ASSUMPTION I HAD NOT CHECKED: "not worth AsyncLocalStorage until a parallel caller
+// exists." A parallel caller already existed — the shipped server. mcp/stdio/server.js does
+// `rl.on('line', async (line) => ...)` with no queue, mutex or in-flight tracking anywhere,
+// and readline does not await an async listener before emitting the next line. Two
+// pipelined tool calls interleave by construction.
+//
+// ★ Deterministic repro of the hole, no async needed: call A (a disclosure-less route)
+// snapshots the count, call B renders, call A seals — A sees the count advanced and passes.
+// I ran exactly that and the seal let `CANDIDATES:\n- src/hidden.cpp:1` through untouched.
+// The "it can only ever produce a FALSE PASS" defence was true and worthless: a false pass
+// is the entire defect this seal exists to prevent.
+//
+// ⇒ Each graphPacket invocation gets its own scope, so a renderer call made by one packet
+// cannot satisfy another. The global counter is kept for observability only and is no
+// longer what the seal reads.
+const sealScope = new AsyncLocalStorage();
+
 let disclosureRenderCount = 0;
 export const _disclosureRenderCount = () => disclosureRenderCount;
 
+// Runs `fn` in a fresh seal scope and reports how many disclosure renders happened INSIDE
+// it. Exported because the seal's correctness is a property of the pairing, and a test that
+// cannot construct two overlapping scopes cannot check the thing that broke.
+export async function withSealScope(fn) {
+  // ⚠ REUSE AN ENCLOSING SCOPE RATHER THAN NESTING. A nested scope collects the admissions
+  // and the OUTER seal then sees an empty set and accuses its own healthy output. Found by
+  // running the concurrency probe with a real graphPacket inside the harness's scope: the
+  // bad packet was correctly caught and the GOOD one was falsely accused.
+  //
+  // ★ That is the failure direction that matters. A false accusation lands on a user's
+  // working answer and trains them to ignore the line — the same way an always-on warning
+  // stops being read. Sibling scopes are still separate, because AsyncLocalStorage gives
+  // concurrent async contexts their own store; only genuine nesting shares one.
+  const existing = sealScope.getStore();
+  if (existing) {
+    const out = await fn();
+    return { out, calls: existing.calls, admitted: existing.admitted };
+  }
+  const scope = { calls: 0, admitted: new Set() };
+  const out = await sealScope.run(scope, fn);
+  return { out, calls: scope.calls, admitted: scope.admitted };
+}
+
+// ⛔ COUNTING RENDERER CALLS WAS NOT ENOUGH, AND graph-senior-dev-hermes PROVED IT TWICE.
+// A route can call renderCandidateDisclosures() with unrelated arguments and then return a
+// bare list; the count says "consulted" and nothing binds that call to the list that left.
+// Their probe rendered {symbol:'Unrelated'} and returned a bare CANDIDATES list —
+// fulfilled, unchecked, in STRICT mode.
+//
+// ⇒ Admission is now by PRODUCED-TEXT IDENTITY. The governed emitter registers the exact
+// block it built; the seal requires every list-shaped block in the output to be one of
+// them. A dummy call launders nothing, because a call is no longer the credential — the
+// text is.
+export function admitListBlock(text) {
+  const scope = sealScope.getStore();
+  if (scope && typeof text === 'string' && text) scope.admitted.add(text);
+  return text;
+}
+
+// ★ ATOMIC EMISSION — header, rows and disclosures in one call, per dev's required shape.
+// The CANDIDATES branch used to push its header, then its rows, then its disclosures as
+// three separate statements. The output was correct, but nothing structurally connected
+// them: a fourth statement could add rows after the disclosures, or a new branch could copy
+// the first two and omit the third, exactly as the earlier routes did. Taking all three
+// together means a route cannot obtain a list without having produced its disclosures in
+// the same breath.
+export function emitGovernedList({ header, rows, disclosures = [] }) {
+  const block = [header, ...rows].join('\n');
+  admitListBlock(block);
+  return [block, ...disclosures].join('\n');
+}
+
 export function renderCandidateDisclosures({ shown, total, symbol, languages = [], exact = true }) {
   disclosureRenderCount += 1;
+  const scope = sealScope.getStore();
+  if (scope) scope.calls += 1;
   const out = [];
   const attested = Number.isInteger(total) && total >= shown;
   const langs = languages.map((l) => String(l).toLowerCase());
@@ -914,7 +991,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       // The header states what is SHOWN HERE against the producer-attested population — and
       // says UNKNOWN rather than guessing when the producer did not state one.
       const attested = Number.isInteger(statedTotal) && statedTotal >= candidateLines.length;
-      lines.push(!attested
+      const candidateHeader = (!attested
         ? `CANDIDATES — showing ${candidateLines.length}; total population UNKNOWN (not stated by graph_consequences):`
         : populationIsFloor
           // The fourth state. `at least`, plus the rows that were and were not examined, so the
@@ -922,19 +999,25 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
           ? `CANDIDATES — showing ${candidateLines.length} of AT LEAST ${statedTotal}`
             + `${rowsSeen ? ` (grouped from ${rowsSeen[1]} of ${rowsSeen[2]} matching rows — retrieval was capped BEFORE grouping, so the population is a FLOOR)` : ' (retrieval capped before grouping — population is a FLOOR)'}:`
           : `CANDIDATES — showing ${candidateLines.length} of ${statedTotal}${statedTotal > candidateLines.length ? ` (${statedTotal - candidateLines.length} not listed here)` : ''}:`);
-      lines.push(...candidateLines);
       // Disclosures come from the SHARED renderer, so this branch cannot drift from its
       // sibling again. The languages are recovered from the consequences text this branch is
       // already reading — the finding was computed upstream and was being discarded.
       const langsFromText = crossLanguage?.match(/\(([a-z+, ]+)\)\s*\.?\s*$/)?.[1]?.split(',').map((s) => s.trim()) ?? [];
-      lines.push(...renderCandidateDisclosures({
-        shown: candidateLines.length,
-        total: statedTotal,
-        symbol,
-        languages: langsFromText.length > 1 ? langsFromText : (crossLanguage ? ['cpp', 'other'] : []),
-        // The exactness travels WITH the value — ef-manager's correction to the shared
-        // renderer. A capped population must not be able to render as an exact one anywhere.
-        exact: !populationIsFloor,
+      // ⚠ ONE CALL, not three pushes. This branch is what the seal caught first: header,
+      // rows and disclosures were three independent statements, so the list carried no
+      // evidence of who built it and could not be told apart from a hand-assembled one.
+      lines.push(emitGovernedList({
+        header: candidateHeader,
+        rows: candidateLines,
+        disclosures: renderCandidateDisclosures({
+          shown: candidateLines.length,
+          total: statedTotal,
+          symbol,
+          languages: langsFromText.length > 1 ? langsFromText : (crossLanguage ? ['cpp', 'other'] : []),
+          // The exactness travels WITH the value — ef-manager's correction to the shared
+          // renderer. A capped population must not be able to render as an exact one anywhere.
+          exact: !populationIsFloor,
+        }),
       }));
     }
     // The disambiguating step comes first here: on this path the useful next move
@@ -1293,16 +1376,24 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
     });
     if (enrich.status === 'enriched') {
       lines.push(`LIVE: enriched (${enrich.elapsed_ms}ms)`);
+      // ⚠ THESE TWO WOULD HAVE FALSE-ACCUSED A REAL USER. They are list-shaped, they are
+      // built by hand, and NO TEST EXERCISES THEM — the live-enrichment path needs live=true.
+      // The suite was green with the seal on; a user calling graph_packet(live=true) would
+      // have got a POPULATION NOT DISCLOSED caveat stapled to a perfectly good packet.
+      //
+      // ★ That is the failure direction I said I cared about and had not checked for. A
+      // runtime check only sees executed routes, so "the suite is green" says nothing about
+      // the routes the suite never runs. Found by enumerating header-then-rows pushes
+      // statically instead of trusting the green — the same move that turned up the fourth
+      // disclosure route, applied to my own new mechanism.
       if (enrich.last_touched.length) {
-        lines.push('LAST TOUCHED:');
-        for (const c of enrich.last_touched) lines.push(`- ${c}`);
+        lines.push(emitGovernedList({ header: 'LAST TOUCHED:', rows: enrich.last_touched.map((c) => `- ${c}`) }));
       }
       if (enrich.co_consumer_files.length) {
-        lines.push('CO-CONSUMER FILES:');
-        for (const f of enrich.co_consumer_files) {
-          const path = typeof f === 'string' ? f : (f.file ?? JSON.stringify(f));
-          lines.push(`- ${path}`);
-        }
+        lines.push(emitGovernedList({
+          header: 'CO-CONSUMER FILES:',
+          rows: enrich.co_consumer_files.map((f) => `- ${typeof f === 'string' ? f : (f.file ?? JSON.stringify(f))}`),
+        }));
       }
     } else {
       lines.push(`LIVE: ${enrich.status} (${enrich.detail}; ${enrich.elapsed_ms}ms)`);
@@ -1347,7 +1438,29 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
 // A reader-facing LIST header. `UNRANKED` is deliberately NOT here: those lines ARE the
 // disclosure ("⚠ UNRANKED, showing 3 of 12"), not the thing being disclosed about. Anchored
 // to start-of-line because renderListSection emits headers at column 0.
-const LIST_HEADER = /(?:^|\n)(?:DEFINED IN|CANDIDATES)\b/;
+// ⛔ THE HEADER ALLOWLIST WAS A GUESS, AND IT WAS ALREADY WRONG IN THE SHIPPED FILE.
+// It was /(?:^|\n)(?:DEFINED IN|CANDIDATES)\b/. graph-senior-dev-hermes found packet.js
+// already emits a reader-facing matched-location list headed `ALSO IN:`, and demonstrated
+// that strict probes for `ALSO IN:`, `MATCHES:` and `LOCATIONS:` all passed unchanged. A
+// seal whose vocabulary is a list of words I happened to remember has the same defect as
+// the route inventory it replaced: it enumerates, and enumerations miss.
+//
+// ⇒ Detect the SHAPE instead. A reader-facing list is a header line ending in ':' followed
+// by at least one '- ' row. That needs no vocabulary and cannot be escaped by inventing a
+// new header word — which is precisely how the previous two versions were defeated.
+const LIST_BLOCK = /(?:^|\n)([^\n:]{1,80}:)\n((?:- [^\n]*(?:\n|$))+)/g;
+
+// Every list-shaped block in the text, as the exact string the reader will see.
+export function extractListBlocks(text) {
+  const out = [];
+  LIST_BLOCK.lastIndex = 0;
+  let m = LIST_BLOCK.exec(text);
+  while (m !== null) {
+    out.push(`${m[1]}\n${m[2].replace(/\n$/, '')}`);
+    m = LIST_BLOCK.exec(text);
+  }
+  return out;
+}
 
 export const SEAL_CAVEAT =
   '⚠ POPULATION NOT DISCLOSED — this candidate list came from a route that never consulted '
@@ -1370,20 +1483,27 @@ export const SEAL_CAVEAT =
 // only ever produce a FALSE PASS, never a false accusation appended to a user's packet.
 // (The skills already say not to call graph verbs in parallel.) An AsyncLocalStorage scope
 // would close it; it is not worth the machinery until a parallel caller exists.
-export function sealPacketOutput(text, disclosuresBefore) {
-  if (typeof text !== 'string' || !LIST_HEADER.test(text)) return text;
-  if (disclosureRenderCount > disclosuresBefore) return text;
+export function sealPacketOutput(text, admitted) {
+  if (typeof text !== 'string') return text;
+  const blocks = extractListBlocks(text);
+  if (blocks.length === 0) return text;
+  const owned = admitted instanceof Set ? admitted : new Set();
+  // A block counts as ours if the governed emitter built it, or if it is a PREFIX of
+  // something the emitter built — clampToBudget can drop trailing rows after admission, and
+  // a truncated copy of an admitted list is still an admitted list.
+  const unowned = blocks.filter((b) => !owned.has(b)
+    && ![...owned].some((a) => a.startsWith(b)));
+  if (unowned.length === 0) return text;
   if (process.env.APG_PACKET_SEAL_STRICT === '1') {
     throw new Error(
-      'PACKET SEAL: a candidate list was emitted without the shared disclosure renderer. '
-      + 'Some route in packet.js returns a symbol list on a path that never calls '
-      + 'renderCandidateDisclosures().',
+      'PACKET SEAL: a reader-facing list was emitted that the governed renderer did not '
+      + `build. Some route in packet.js assembles a list by hand. Unowned: ${JSON.stringify(unowned[0].slice(0, 120))}`,
     );
   }
   return `${text}\n${SEAL_CAVEAT}`;
 }
 
 export async function graphPacket(args) {
-  const before = disclosureRenderCount;
-  return sealPacketOutput(await graphPacketInner(args), before);
+  const { out, admitted } = await withSealScope(() => graphPacketInner(args));
+  return sealPacketOutput(out, admitted);
 }
