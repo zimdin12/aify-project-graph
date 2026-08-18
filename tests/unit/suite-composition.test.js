@@ -41,8 +41,19 @@ function allTestFiles(dir, out = []) {
 
 function classify(filePath) {
   const src = readFileSync(filePath, 'utf8');
+  // ⚠ A PATH HELD IN A CONST USED TO BE INVISIBLE HERE. Both patterns below require the
+  // implementation path to appear INSIDE the readFileSync call, so the ordinary way to
+  // write this —
+  //     const SRC = join(dirname, '..', 'mcp', 'stdio', 'query', 'verbs', 'packet.js');
+  //     readFileSync(SRC, 'utf8')
+  // — read implementation text while classifying as behavioural. Two files were sitting in
+  // that gap when it was found on 2026-08-18, one of them added the previous day by the
+  // author of this ratchet. A measurement that cannot see the thing it measures does not
+  // report zero honestly; it reports zero convincingly.
+  const implPathConst = /const\s+\w+\s*=\s*(?:join|resolve|fileURLToPath|new URL)\([^;]*(?:mcp|scripts|integrations)/.test(src);
   const readsImplText = /readFileSync\([^)]*(mcp|scripts|integrations)/.test(src)
-    || /readFileSync\(\s*join\([^)]*(mcp|scripts)/.test(src);
+    || /readFileSync\(\s*join\([^)]*(mcp|scripts)/.test(src)
+    || (implPathConst && /readFileSync\(/.test(src));
   // Static `from '…/mcp/…'` AND dynamic `await import('…/mcp/…')`. The dynamic form was
   // missed at first, so a genuine conversion (reindex-payload, 2026-08-11) stayed
   // classified as source-contract and the ratchet refused it credit. A measurement that
@@ -145,15 +156,36 @@ function classify(filePath) {
 // truncated, tracked dirt still reported when suppression fires — so "always emit" or
 // "always suppress" cannot satisfy them.
 const KNOWN_SOURCE_CONTRACT = new Set([
-  // ★★ EMPTY as of 2026-08-11. All eighteen source-contract tests are now behavioural.
-  // The last was degraded-split-persistence; the one before it, stale-warning-actionable,
-  // was the file that argued advisory prose needed no fixture — and it had broken twice
-  // that same day for reasons that were not behaviour changes.
+  // ★★ Was EMPTY as of 2026-08-11, when all eighteen source-contract tests had been made
+  // behavioural. The last was degraded-split-persistence; the one before it,
+  // stale-warning-actionable, was the file that argued advisory prose needed no fixture —
+  // and it had broken twice that same day for reasons that were not behaviour changes.
   //
-  // ⚠ Keep this set EMPTY. An addition here is a test that reads source instead of running
-  // it, and the ratchet exists so that choice has to be made deliberately rather than by
-  // reaching for readFileSync because a seam looked hard to build. Every one of the
-  // eighteen had a seam; four of them exposed live defects once the seam existed.
+  // ⚠ Keep this set SMALL and every entry argued. An addition here is a test that reads
+  // source instead of running it, and the ratchet exists so that choice has to be made
+  // deliberately rather than by reaching for readFileSync because a seam looked hard to
+  // build. Every one of the eighteen had a seam; four exposed live defects once it existed.
+  //
+  // ⛔ THE TWO ENTRIES BELOW WERE NOT A RELAPSE — THEY WERE ALWAYS HERE AND THE CLASSIFIER
+  // COULD NOT SEE THEM. Both hold the implementation path in a const, which every pattern
+  // in classify() missed until 2026-08-18. "Zero source-contract files" was true of what
+  // the measurement could see, not of the suite. Neither has a seam to build; both are
+  // arguing that the artifact under test IS text, which is the one case this list is for.
+  'unit/query/packet-route-inventory.test.js',
+  //   ↳ An INVENTORY cannot be behavioural by construction. Its whole purpose is to catch a
+  //     route NOBODY HAS WRITTEN A FIXTURE FOR — that is how the fourth graph_packet
+  //     disclosure route was missed, after I claimed "one renderer, every branch" having
+  //     enumerated three. A behavioural version can only exercise routes already known,
+  //     which is exactly the set that was already covered. Correctness of what the routes
+  //     EMIT is behavioural and lives in packet-population-fail-closed.test.js; this file
+  //     asserts only that the wiring exists, and says so in its own header.
+  'unit/integrations/skill-parity.test.js',
+  //   ↳ The artifact under test is markdown we SHIP. There is no code whose behaviour this
+  //     stands in for: the four SKILL.md trees are the product, and "these four files agree,
+  //     use LF, and contain no '' escape corruption" is a statement about bytes. The
+  //     body-parity half could be delegated to `scripts/sync-skills.mjs --check`, but the
+  //     CRLF, quote-corruption and orphan-file arms — each of which caught a real shipped
+  //     defect — have no runtime surface at all.
   // 'unit/query/response-budget.test.js' — reclassified 2026-08-11 when the classifier
   //   learned to see dynamic `await import()`. It was already running code; the
   //   heuristic could not see it. Not a conversion, a measurement fix.
