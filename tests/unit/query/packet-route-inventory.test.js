@@ -1,23 +1,36 @@
-// EVERY ROUTE THAT SHOWS A READER A SYMBOL LIST MUST REACH THE SHARED DISCLOSURE RENDERER.
+// EVERY FUNCTION THAT SHOWS A READER A SYMBOL LIST MENTIONS THE SHARED DISCLOSURE RENDERER.
 //
-// ⛔ WHY THIS FILE EXISTS. graph_packet had the same cap-as-total defect fixed in three separate
-// branches on 2026-08-12, and then graph-senior-dev-hermes found a FOURTH — the object-form
-// symbol-pointer branch, which consumed the population but never called
-// renderCandidateDisclosures(), so it emitted no cross-language finding and no floor caveat.
+// ⚠ READ THE TITLE AGAIN — IT SAYS *FUNCTION*, AND IT USED TO SAY *ROUTE*. THAT WAS FALSE.
 //
-// ★ I had claimed "one renderer, consumed by every branch". I had enumerated three. Branch
-// PARITY cannot catch that by construction: parity compares the routes you already named. Only
-// an inventory catches the route you forgot — and after the fourth, "a fifth might exist" was
-// not a claim I could leave standing on memory.
+// ⛔ This file previously claimed "NO route shows a symbol list without reaching
+// renderCandidateDisclosures()". graph-senior-dev-hermes falsified it by executing a
+// mutation: inside graphPacket,
 //
-// ⇒ So the enumeration is executable rather than remembered. This walks packet.js, finds every
-// top-level function that puts a symbol/candidate list in front of a reader, and requires it to
-// reach the renderer. A new branch added without disclosures fails HERE, at the point of being
-// written, instead of in the field N rounds later.
+//     if (mode === '__inventory_probe__') return 'CANDIDATES:\n- src/hidden.cpp:1';
 //
-// ⚠ Deliberately structural, not behavioural: it asserts the WIRING exists. It cannot tell you
-// the disclosures are correct — the fixtures in packet-population-fail-closed.test.js do that.
-// Stating the scope because a check that does not publish its own scope gets trusted past it.
+// a real reader-facing route returning a candidate list that never touches the renderer.
+// The route arm below returned PASS. I reproduced it before changing anything: it passes.
+//
+// ★ The cause is structural and not fixable here. This groups header emissions by TOP-LEVEL
+// FUNCTION and credits the function if the renderer appears anywhere inside it. graphPacket
+// is 396 lines and already calls the renderer, so any branch added to it inherits credit it
+// did not earn. Attributing a header to the code path that produced it is DATAFLOW; regex
+// over source cannot do it, and a test that claims otherwise is worse than no test because
+// it retires a doubt it has not earned. That is exactly what it did: I wrote "a fifth might
+// exist" was resting on memory, and replaced it with something resting on a false premise.
+//
+// ⇒ THE ROUTE-LEVEL GUARANTEE LIVES IN tests/unit/query/packet-seal.test.js AND IN THE SEAL
+// ITSELF (packet.js sealPacketOutput). Every route returns through graphPacket, so the seal
+// compares the renderer's call count either side of the call and catches any branch that
+// emitted a list without consulting it — including dev's, verified. The whole suite runs
+// with APG_PACKET_SEAL_STRICT=1, so touching such a route fails hard.
+//
+// ⇒ WHAT THIS FILE IS STILL WORTH: it is a cheap structural smoke test. A brand-new
+// top-level function that lists symbols and never mentions the renderer at all is caught
+// here at authoring time, before anyone has to execute it. That is a real but SMALL claim,
+// and the ★ OPEN OBLIGATION it leaves is explicit: this cannot see a disclosure-less branch
+// added inside a function that already calls the renderer. Do not read a green here as
+// coverage of that case.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -39,32 +52,34 @@ function bodyOf(idx) {
   return lines.slice(start);
 }
 
-// A reader-facing symbol list is announced by one of these headers. Comments do not count —
-// this file is full of prose about the headers.
 const HEADER = /(DEFINED IN|CANDIDATES|UNRANKED)/;
 const isCode = (l) => !/^\s*(\/\/|\*)/.test(l);
 
-describe('every packet route that lists symbols reaches the shared disclosure renderer', () => {
+describe('packet.js: no symbol-listing FUNCTION omits the renderer entirely', () => {
   const emitters = fns.map((_, i) => ({ name: fns[i].name, body: bodyOf(i) }))
     .filter((f) => f.body.some((l) => isCode(l) && HEADER.test(l)));
 
-  it('★★ the inventory is non-empty and finds the known routes (liveness)', () => {
-    // Without this the suite below passes vacuously if the header regex ever stops matching —
-    // a green result from a detector that found nothing to check.
+  it('★★ the inventory is non-empty and finds the known emitters (liveness)', () => {
+    // Without this the assertion below passes vacuously the moment the header regex or the
+    // declaration regex stops matching — a green from a detector that found nothing.
+    // ⚠ graphPacket is now graphPacketInner: the exported graphPacket is the thin sealing
+    // wrapper, and the body that emits lists is the inner one. A rename that silently
+    // dropped a known emitter from this list is the failure this arm is here to make loud.
     expect(emitters.length, 'no symbol-list emitters found — the detector is dead').toBeGreaterThan(0);
     const names = emitters.map((e) => e.name);
-    expect(names, 'the two known list-emitting routes must be in the inventory')
-      .toEqual(expect.arrayContaining(['buildSymbolPointerPacket', 'graphPacket']));
+    expect(names, 'the two known list-emitting functions must be in the inventory')
+      .toEqual(expect.arrayContaining(['buildSymbolPointerPacket', 'graphPacketInner']));
   });
 
-  it('★★★ NO route shows a symbol list without reaching renderCandidateDisclosures()', () => {
+  it('★ no listing function omits renderCandidateDisclosures ENTIRELY (weak, by construction)', () => {
+    // ⚠ THIS IS A FUNCTION-LEVEL CLAIM. It cannot discriminate sibling branches inside a
+    // function that calls the renderer somewhere — proven by execution, see the header.
+    // Kept because a wholly new listing function with no renderer mention at all is a real
+    // mistake worth catching early and for free.
     const offenders = emitters
       .filter((f) => !f.body.some((l) => isCode(l) && /renderCandidateDisclosures\(/.test(l)))
       .map((f) => f.name);
-    // Hand-written expectation: the empty set. If a new branch appears without disclosures it
-    // is named here by construction, which is the whole point — the fourth route was invisible
-    // precisely because nothing enumerated.
-    expect(offenders, 'these routes list symbols but emit no population/duplicate/floor disclosures')
+    expect(offenders, 'these functions list symbols and never mention the disclosure renderer')
       .toEqual([]);
   });
 });

@@ -39,5 +39,17 @@ export default defineConfig({
     // ⇒ Stated explicitly so the requirement travels with the repo rather than with my
     // installed version.
     pool: 'forks',
+    // ★★ THE WHOLE SUITE RUNS SEALED. In production a packet route that emits a candidate
+    // list without consulting the shared disclosure renderer gets a loud caveat appended —
+    // degrading a user's answer is better than crashing their call. Under test it THROWS,
+    // so any test that so much as touches such a route fails hard instead of quietly
+    // recording the caveat as expected output.
+    //
+    // ⇒ This is what makes the guarantee route-sensitive rather than function-sensitive.
+    // graph-senior-dev-hermes killed the source inventory by adding a disclosure-less branch
+    // INSIDE graphPacket — which the inventory passed, because that 396-line function calls
+    // the renderer elsewhere. Nothing pattern-matched over source can attribute a header to
+    // the path that produced it. Executing it can.
+    env: { APG_PACKET_SEAL_STRICT: '1' },
   },
 });

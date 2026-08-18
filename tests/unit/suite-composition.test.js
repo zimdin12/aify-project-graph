@@ -172,13 +172,18 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   // the measurement could see, not of the suite. Neither has a seam to build; both are
   // arguing that the artifact under test IS text, which is the one case this list is for.
   'unit/query/packet-route-inventory.test.js',
-  //   ↳ An INVENTORY cannot be behavioural by construction. Its whole purpose is to catch a
-  //     route NOBODY HAS WRITTEN A FIXTURE FOR — that is how the fourth graph_packet
-  //     disclosure route was missed, after I claimed "one renderer, every branch" having
-  //     enumerated three. A behavioural version can only exercise routes already known,
-  //     which is exactly the set that was already covered. Correctness of what the routes
-  //     EMIT is behavioural and lives in packet-population-fail-closed.test.js; this file
-  //     asserts only that the wiring exists, and says so in its own header.
+  //   ↳ ⚠ THE ARGUMENT THAT PUT THIS HERE WAS WRONG, AND THE ENTRY SURVIVES ON A SMALLER
+  //     ONE. It read: "an INVENTORY cannot be behavioural by construction — its purpose is
+  //     to catch a route nobody has written a fixture for." That defended a claim the file
+  //     could not keep. graph-senior-dev-hermes added a disclosure-less branch INSIDE
+  //     graphPacket and the route arm passed, because the check is function-level and that
+  //     function calls the renderer elsewhere. A source-contract test whose contract is
+  //     false is the worst case this list can hold: it retires a doubt it never earned.
+  //     ⇒ The route-level guarantee is now BEHAVIOURAL — packet-seal.test.js plus the seal
+  //     in packet.js, with the whole suite running APG_PACKET_SEAL_STRICT=1. What remains
+  //     here is a cheap authoring-time smoke test for a wholly new listing function that
+  //     never mentions the renderer, and its header now states that limit and the open
+  //     obligation instead of claiming coverage of the branch case.
   'unit/integrations/skill-parity.test.js',
   //   ↳ The artifact under test is markdown we SHIP. There is no code whose behaviour this
   //     stands in for: the four SKILL.md trees are the product, and "these four files agree,

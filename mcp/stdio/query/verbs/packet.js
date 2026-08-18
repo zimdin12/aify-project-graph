@@ -669,7 +669,28 @@ async function enrichLive({ repoRoot, target, kind, value, opts }) {
 // correction. The CONDITION (a cross-language duplicate) is language-generic; naming
 // `R"(...)"` is C++/GLSL-specific and would be noise on a Python/TypeScript duplicate. The
 // general claim is what always holds; the example appears only where it applies.
+// ⛔ THE ROUTE INVENTORY COULD NOT SEE A FIFTH ROUTE, AND graph-senior-dev-hermes PROVED IT
+// BY WRITING ONE. They inserted a branch inside graphPacket returning a bare
+// `CANDIDATES:\n- src/hidden.cpp:1` — a real reader-facing list that never touches the
+// renderer — and packet-route-inventory.test.js still passed 2/2.
+//
+// ★ The reason is structural, not a bug in the regex: that test groups header emissions by
+// TOP-LEVEL FUNCTION and passes the function if `renderCandidateDisclosures(` appears
+// anywhere inside it. graphPacket is 396 lines and already contains a renderer call, so
+// every new branch added to it inherits credit it did not earn. My claim — "NO route shows
+// a symbol list without reaching renderCandidateDisclosures()" — was true of functions and
+// false of routes, which is precisely the distinction the fourth route taught me.
+//
+// ⇒ A source inventory cannot fix this: attributing a header to the code path that reaches
+// it is dataflow, not pattern matching. So the guarantee moves to RUNTIME, at the one
+// boundary every route must pass through. This counter is the instrument: the seal compares
+// it either side of a call, so a route that emits a list without consulting the renderer is
+// caught by the fact that it never ran, no matter which branch produced it.
+let disclosureRenderCount = 0;
+export const _disclosureRenderCount = () => disclosureRenderCount;
+
 export function renderCandidateDisclosures({ shown, total, symbol, languages = [], exact = true }) {
+  disclosureRenderCount += 1;
   const out = [];
   const attested = Number.isInteger(total) && total >= shown;
   const langs = languages.map((l) => String(l).toLowerCase());
@@ -928,7 +949,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
 
 // ----- main -----
 
-export async function graphPacket({ repoRoot, target, mode = 'orient', budget = null, live = false, since = null, files = [], audited = false, analyze = false, analyzeMode = 'clang-tidy', analyzeTimeoutMs }) {
+async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = null, live = false, since = null, files = [], audited = false, analyze = false, analyzeMode = 'clang-tidy', analyzeTimeoutMs }) {
   if (!repoRoot) return 'ERROR: repoRoot parameter is required';
 
   // Verify mode short-circuit: post-edit decision packet, no target required.
@@ -1319,4 +1340,50 @@ export async function graphPacket({ repoRoot, target, mode = 'orient', budget = 
   // section "containing the target" and must never be dropped by the budget
   // clamp (codegraph #564/#569).
   return clampToBudget(text, opts.budget_tokens, 'READ FIRST:');
+}
+
+// ----- the seal -----
+
+// A reader-facing LIST header. `UNRANKED` is deliberately NOT here: those lines ARE the
+// disclosure ("⚠ UNRANKED, showing 3 of 12"), not the thing being disclosed about. Anchored
+// to start-of-line because renderListSection emits headers at column 0.
+const LIST_HEADER = /(?:^|\n)(?:DEFINED IN|CANDIDATES)\b/;
+
+export const SEAL_CAVEAT =
+  '⚠ POPULATION NOT DISCLOSED — this candidate list came from a route that never consulted '
+  + 'the shared disclosure renderer, so nothing above states how many matches exist. Treat the '
+  + 'list as a FLOOR, not a total, and re-run graph_whereis(symbol=..., limit=N) before '
+  + 'concluding anything about completeness. [packet seal]';
+
+// ⛔ THE FORCED DOOR. Every route in this file returns through graphPacket, so this is the
+// one place a symbol list cannot get past. If the output shows a list but the renderer never
+// executed during that call, the packet says so instead of shipping a silent sample — which
+// is the entire defect class this file has been chasing since the first cap-as-total fix.
+//
+// ⚠ WHAT IT DOES NOT DO, stated because a check trusted past its scope is how this started:
+// it only sees routes that actually RUN. It cannot tell you a disclosure-less route exists
+// somewhere unexecuted — no runtime check can. It replaces an inventory that claimed to
+// prove absence and could not, with an enforcement that proves nothing is emitted unchecked.
+//
+// ⚠ CONCURRENCY: the counter is module-global, so two overlapping graphPacket calls could
+// let one borrow the other's renderer call and pass. That direction is deliberate — it can
+// only ever produce a FALSE PASS, never a false accusation appended to a user's packet.
+// (The skills already say not to call graph verbs in parallel.) An AsyncLocalStorage scope
+// would close it; it is not worth the machinery until a parallel caller exists.
+export function sealPacketOutput(text, disclosuresBefore) {
+  if (typeof text !== 'string' || !LIST_HEADER.test(text)) return text;
+  if (disclosureRenderCount > disclosuresBefore) return text;
+  if (process.env.APG_PACKET_SEAL_STRICT === '1') {
+    throw new Error(
+      'PACKET SEAL: a candidate list was emitted without the shared disclosure renderer. '
+      + 'Some route in packet.js returns a symbol list on a path that never calls '
+      + 'renderCandidateDisclosures().',
+    );
+  }
+  return `${text}\n${SEAL_CAVEAT}`;
+}
+
+export async function graphPacket(args) {
+  const before = disclosureRenderCount;
+  return sealPacketOutput(await graphPacketInner(args), before);
 }
