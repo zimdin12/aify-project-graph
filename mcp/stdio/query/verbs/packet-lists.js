@@ -1,110 +1,122 @@
-// GOVERNED LIST EMISSION — the only way a reader-facing list can be built, and the seal that
-// enforces it.
+// GOVERNED LIST EMISSION — typed list occurrences carried to serialization.
 //
-// ⛔ THIS MODULE EXISTS BECAUSE PROVENANCE WAS SELF-ASSERTABLE. In packet.js the admission
-// primitive sat in the same lexical scope as every route, so any branch could mint its own
-// credential — graph-senior-dev-hermes did exactly that, twice: `admitListBlock('CANDIDATES:
-// …')` and `emitGovernedList({header, rows})` with the disclosures parameter simply omitted.
-// Both fulfilled in STRICT mode. Passing text through a registrar proves it was registered;
-// it proves nothing about whether the population was ever consulted.
+// ⛔ FIVE VERSIONS OF THIS GUARANTEE WERE WRONG, each broken by graph-senior-dev-hermes
+// EXECUTING a mutation. The sequence is worth keeping because the mistake never changed, only
+// its disguise:
 //
-// ⇒ Two changes, and they only work together:
-//   1. admitBlock is NOT exported. A packet.js route cannot reach it — not "should not", but
-//      cannot, because it is not in scope there. That is the difference between removing an
-//      affordance and removing the capability.
-//   2. The emitters DERIVE header, rows and disclosures from population facts, so the only
-//      way to obtain a credential is to compute the disclosure correctly. Minting and doing
-//      it right became the same act, and there is no `disclosures` argument left to omit.
+//   v1 grouped by FUNCTION      — a new branch inside graphPacket inherited credit.
+//   v2 counted renderer calls   — one packet borrowed a concurrent packet's count.
+//   v3 counted per-request      — a DUMMY call with unrelated arguments laundered a list.
+//   v4 registered TEXT          — the registrar was exported, so any route minted its own
+//                                 credential; and the "vocabulary-free" detector carried an
+//                                 undocumented 80-char header bound that production crossed.
+//   v5 hid the mint             — but `emitBoundedList(label, …)` took a FREE-FORM label, so
+//                                 a route spelled 'CANDIDATES' through the bounded surface
+//                                 and got candidate-shaped output with no population facts.
+//                                 Category laundering. Its greedy prefix receipts also
+//                                 FALSELY ACCUSED valid provenance when two admitted lists
+//                                 shared a prefix.
 //
-// ⚠ Honest residual: code INSIDE this module can still admit anything. The surface that can
-// do so is now ~40 lines that exist for no other purpose, instead of a 1400-line verb.
+// ★ Every version tried to recover ownership from TEXT after the fact — by counting calls
+// near it, by matching strings, by grammar. Text has no author. I preregistered that if v5
+// fell the conclusion was architectural rather than another patch, and it fell.
+//
+// ⇒ v6: a list is an OBJECT until the moment it is serialized. Ownership is object identity,
+// which cannot be forged, borrowed, spelled or prefix-matched. Serialization consumes each
+// object exactly once. No list grammar is an authority anywhere — the shape check survives
+// only to REJECT raw strings, never to grant credit.
+//
+// ⇒ And validation happens AT SERIALIZATION, before clampToBudget runs. That is what retires
+// dev's false-accusation finding outright: the clamp rewrites bounded sections, so any scheme
+// that re-identified blocks in the clamped text was always going to accuse a healthy packet
+// eventually.
 import { AsyncLocalStorage } from 'node:async_hooks';
-
-export function clampList(items, cap) {
-  if (!items || items.length === 0) return { items: [], total: 0, truncated: false };
-  return {
-    items: items.slice(0, cap),
-    total: items.length,
-    truncated: items.length > cap,
-  };
-}
-
-export function renderListSection(label, capped, formatter) {
-  // Always render the section header — even when empty — so agents can
-  // distinguish "broken packet" from "no data of this kind." Empty
-  // sections render as `LABEL: none`. Validation gate found that silent
-  // omission was confusing agents who treated absence as a packet bug.
-  if (capped.items.length === 0) return `${label}: none`;
-  const head = `${label}:`;
-  const rows = capped.items.map((x) => `- ${formatter(x)}`);
-  if (capped.truncated) rows.push(`- (${capped.total - capped.items.length} more — narrow target)`);
-  // ★ THE GOVERNED EMITTER. Every list that reaches a reader through this function is
-  // registered as it is built, so the seal can recognise its own output instead of trusting
-  // a header word or an ambient call count. A route that assembles a list by hand produces
-  // text nobody admitted, which is exactly what the seal now looks for.
-  return admitBlock([head, ...rows].join('\n'));
-}
 
 const sealScope = new AsyncLocalStorage();
 
 let disclosureRenderCount = 0;
 export const _disclosureRenderCount = () => disclosureRenderCount;
 
-// Runs `fn` in a fresh seal scope and reports how many disclosure renders happened INSIDE
-// it. Exported because the seal's correctness is a property of the pairing, and a test that
-// cannot construct two overlapping scopes cannot check the thing that broke.
+// ⛔ CLOSED SET, NOT A LABEL PARAMETER. v5's bounded emitter accepted any string, so
+// `emitBoundedList('CANDIDATES', […])` produced a candidate-looking list carrying no
+// population statement — dev ran it and strict graphPacket fulfilled. A free-form label IS a
+// credential oracle: it lets a caller choose the category its text will be read as.
+export const BOUNDED_KINDS = new Set([
+  'READ FIRST', 'CONTRACTS', 'TESTS', 'RISKS', 'DEFINED IN', 'ALSO IN',
+  'LAST TOUCHED', 'CO-CONSUMER FILES',
+]);
+
+// A list occurrence. Two of these with identical text are still two occurrences, which is why
+// duplicate output cannot ride on one receipt — there are no receipts left to ride on.
+class ListBlock {
+  constructor(kind, header, rows, trailing = []) {
+    this.kind = kind;
+    this.header = header;
+    this.rows = rows;
+    this.trailing = trailing;
+  }
+
+  toText() {
+    return [this.header, ...this.rows, ...this.trailing].join('\n');
+  }
+}
+
+export const isListBlock = (x) => x instanceof ListBlock;
+
 export async function withSealScope(fn) {
-  // ⚠ REUSE AN ENCLOSING SCOPE RATHER THAN NESTING. A nested scope collects the admissions
-  // and the OUTER seal then sees an empty set and accuses its own healthy output. Found by
-  // running the concurrency probe with a real graphPacket inside the harness's scope: the
-  // bad packet was correctly caught and the GOOD one was falsely accused.
-  //
-  // ★ That is the failure direction that matters. A false accusation lands on a user's
-  // working answer and trains them to ignore the line — the same way an always-on warning
-  // stops being read. Sibling scopes are still separate, because AsyncLocalStorage gives
-  // concurrent async contexts their own store; only genuine nesting shares one.
+  // ⚠ REUSE AN ENCLOSING SCOPE RATHER THAN NESTING. A nested scope collected the serializations
+  // and the OUTER check then saw none and accused its own healthy output. A false accusation
+  // lands on a working answer and trains readers to ignore the line.
   const existing = sealScope.getStore();
   if (existing) {
     const out = await fn();
-    return { out, calls: existing.calls, admitted: existing.admitted };
+    return { out, scope: existing };
   }
-  const scope = { calls: 0, admitted: new Map() };
+  const scope = { serialized: 0 };
   const out = await sealScope.run(scope, fn);
-  return { out, calls: scope.calls, admitted: scope.admitted };
+  return { out, scope };
 }
 
-// ⛔ COUNTING RENDERER CALLS WAS NOT ENOUGH, AND graph-senior-dev-hermes PROVED IT TWICE.
-// A route can call renderCandidateDisclosures() with unrelated arguments and then return a
-// bare list; the count says "consulted" and nothing binds that call to the list that left.
-// Their probe rendered {symbol:'Unrelated'} and returned a bare CANDIDATES list —
-// fulfilled, unchecked, in STRICT mode.
-//
-// ⇒ Admission is now by PRODUCED-TEXT IDENTITY. The governed emitter registers the exact
-// block it built; the seal requires every list-shaped block in the output to be one of
-// them. A dummy call launders nothing, because a call is no longer the credential — the
-// text is.
-function admitBlock(text) {
-  const scope = sealScope.getStore();
-  if (scope && typeof text === 'string' && text) {
-    scope.admitted.set(text, (scope.admitted.get(text) ?? 0) + 1);
+// ⛔ THE DISCLOSURE RENDERER. Not a credential — v3 proved a call proves nothing — but the
+// single place the population wording is decided, so two branches cannot drift apart.
+export function renderCandidateDisclosures({ shown, total, symbol, languages = [], exact = true }) {
+  disclosureRenderCount += 1;
+  const out = [];
+  const attested = Number.isInteger(total) && total >= shown;
+  const langs = languages.map((l) => String(l).toLowerCase());
+  if (langs.length > 1) {
+    const embedsShaderText = langs.some((l) => l === 'cpp' || l === 'c++' || l === 'c');
+    out.push('  ★ CROSS-LANGUAGE DUPLICATE — defined in more than one language'
+      + ` (${langs.join(', ')}). For a mirrored struct every copy must agree; this is usually a`
+      + ' FINDING, not a disambiguation problem.'
+      + ' ⚠ The count is a FLOOR: source that is generated or embedded in another language is'
+      + ' not parsed, so mirrors can exist that no file-extension grep finds.'
+      + (embedsShaderText
+        ? ' In C++ that most often means shader text inside a raw string literal, R"(...)" —'
+        + ' grep the .cpp files near the declaration.'
+        : ''));
   }
-  return text;
+  // ⛔ THE REFERRER'S PROMISE IS WHAT A READER USES TO DECIDE WHETHER TO CALL. This line used
+  // to read "every definition, unsampled" while graph_whereis capped at limit=5, so on any
+  // symbol with more than five definitions the promise was false. The packet knows the
+  // population as it writes this, so it emits the call that WOULD be unsampled.
+  if (attested && total > shown) {
+    out.push(`  NEXT: graph_whereis(symbol="${symbol}", limit=${total}) — every definition`
+      + (exact === false ? ' (population is a FLOOR; raise the limit if it still warns)' : ''));
+  }
+  return out;
 }
 
-// ⛔ v4's emitter WAS A CREDENTIAL MINT ANY ROUTE COULD CALL. It took a finished `header`
-// and `rows` and defaulted `disclosures = []`, so
-//     emitGovernedList({ header: 'CANDIDATES:', rows: ['- src/hidden.cpp:1'] })
-// certified a candidate list carrying no disclosures at all — dev ran exactly that and
-// strict graphPacket fulfilled. Passing text through a registrar proves it was registered.
-// It proves nothing about whether the population was ever consulted.
-//
-// ⇒ THE EMITTER NOW DERIVES EVERYTHING FROM THE POPULATION FACTS. A caller supplies rows and
-// what it knows about the population; header AND disclosures come out of that one set of
-// inputs. There is no longer a way to mint a credential without computing the disclosure,
-// because they are the same computation — and the header cannot contradict the lines beneath
-// it, which was a separate defect this file has been fixing one branch at a time since the
-// first cap-as-total report.
-export function emitCandidateList({
+export function clampList(items, cap) {
+  if (!items || items.length === 0) return { items: [], total: 0, truncated: false };
+  return { items: items.slice(0, cap), total: items.length, truncated: items.length > cap };
+}
+
+// ★ CANDIDATE LISTS DERIVE EVERYTHING FROM POPULATION FACTS. There is no `header` argument to
+// fake and no `disclosures` argument to omit — v4 had both, and dev's probe simply left the
+// disclosures off. Header and disclosures now come out of one set of inputs, so they cannot
+// contradict each other and obtaining the object IS computing the disclosure.
+export function candidateList({
   rows, symbol, statedTotal, populationIsFloor = false, rowsSeen = null, languages = [],
 }) {
   const shown = rows.length;
@@ -125,91 +137,36 @@ export function emitCandidateList({
     total: statedTotal,
     symbol,
     languages,
-    // The exactness travels WITH the value — ef-manager's correction to the shared renderer.
-    // A capped population must not be able to render as an exact one anywhere.
+    // Exactness travels WITH the value — a capped population must not render as an exact one.
     exact: !populationIsFloor,
   });
-  const block = [header, ...rows].join('\n');
-  admitBlock(block);
-  return [block, ...disclosures].join('\n');
+  return new ListBlock('CANDIDATES', header, rows, disclosures);
 }
 
-// Bounded lists with no population claim (READ FIRST, LAST TOUCHED, …). Their contract is
-// weaker and different — "these are the items, and truncation is stated" — so they get their
-// own entry point rather than borrowing the candidate one, which would let a caller obtain a
-// candidate-grade credential for a list that never had a population.
-export function emitBoundedList(label, items, formatter = (x) => x) {
-  return renderListSection(label, clampList(items, items.length), formatter);
-}
-
-export function renderCandidateDisclosures({ shown, total, symbol, languages = [], exact = true }) {
-  disclosureRenderCount += 1;
-  const scope = sealScope.getStore();
-  if (scope) scope.calls += 1;
-  const out = [];
-  const attested = Number.isInteger(total) && total >= shown;
-  const langs = languages.map((l) => String(l).toLowerCase());
-  if (langs.length > 1) {
-    const embedsShaderText = langs.some((l) => l === 'cpp' || l === 'c++' || l === 'c');
-    out.push('  ★ CROSS-LANGUAGE DUPLICATE — defined in more than one language'
-      + ` (${langs.join(', ')}). For a mirrored struct every copy must agree; this is usually a`
-      + ' FINDING, not a disambiguation problem.'
-      + ' ⚠ The count is a FLOOR: source that is generated or embedded in another language is'
-      + ' not parsed, so mirrors can exist that no file-extension grep finds.'
-      + (embedsShaderText
-        ? ' In C++ that most often means shader text inside a raw string literal, R"(...)" —'
-        + ' grep the .cpp files near the declaration.'
-        : ''));
+// Bounded lists make no population claim; their contract is "these are the items, and
+// truncation is stated". The KIND is checked against the closed set above, so this surface
+// cannot be used to obtain candidate-shaped output.
+export function boundedList(kind, capped, formatter = (x) => x) {
+  if (!BOUNDED_KINDS.has(kind)) {
+    throw new Error(`PACKET SEAL: "${kind}" is not a bounded list kind. Candidate lists must go `
+      + 'through candidateList() so their population is stated; a free-form label is a way to '
+      + 'obtain candidate authority without candidate facts.');
   }
-  // ⛔ THE REFERRER'S PROMISE IS WHAT A READER USES TO DECIDE WHETHER TO CALL.
-  //
-  // This line used to read "every definition, unsampled". `graph_whereis` caps at limit=5, so
-  // on any symbol with more than five definitions that promise was false — and when I made
-  // whereis honest about its own cap, THIS FILE STILL MADE THE PROMISE. ef-manager: the new
-  // disclosure "documents an inaccuracy elsewhere instead of removing it", and the correction
-  // arrives only AFTER the call, and only if truncation happens to occur. **A disclosure that
-  // fires after the decision cannot recover the decision** — the same shape as the original
-  // silent DEFINED IN list: a true statement delivered too late to be used.
-  //
-  // ⇒ The packet knows the population at the moment it writes this line, so it emits the call
-  // that WOULD be unsampled. A false promise becomes an actionable one for one interpolation.
-  if (attested && total > shown) {
-    out.push(`  NEXT: graph_whereis(symbol="${symbol}", limit=${total}) — every definition`
-      + (exact === false ? ' (population is a FLOOR; raise the limit if it still warns)' : ''));
-  }
-  return out;
+  // Always render the header — even when empty — so agents can distinguish "broken packet"
+  // from "no data of this kind". Empty sections render as `KIND: none`.
+  if (capped.items.length === 0) return `${kind}: none`;
+  const rows = capped.items.map((x) => `- ${formatter(x)}`);
+  if (capped.truncated) rows.push(`- (${capped.total - capped.items.length} more — narrow target)`);
+  return new ListBlock(kind, `${kind}:`, rows);
 }
 
-// ----- the seal -----
+// Convenience for lists that are complete as given.
+export function boundedListAll(kind, items, formatter = (x) => x) {
+  return boundedList(kind, clampList(items, items.length), formatter);
+}
 
-// A reader-facing LIST header. `UNRANKED` is deliberately NOT here: those lines ARE the
-// disclosure ("⚠ UNRANKED, showing 3 of 12"), not the thing being disclosed about. Anchored
-// to start-of-line because renderListSection emits headers at column 0.
-// ⛔ THE HEADER ALLOWLIST WAS A GUESS, AND IT WAS ALREADY WRONG IN THE SHIPPED FILE.
-// It was /(?:^|\n)(?:DEFINED IN|CANDIDATES)\b/. graph-senior-dev-hermes found packet.js
-// already emits a reader-facing matched-location list headed `ALSO IN:`, and demonstrated
-// that strict probes for `ALSO IN:`, `MATCHES:` and `LOCATIONS:` all passed unchanged. A
-// seal whose vocabulary is a list of words I happened to remember has the same defect as
-// the route inventory it replaced: it enumerates, and enumerations miss.
-//
-// ⇒ Detect the SHAPE instead. A reader-facing list is a header line ending in ':' followed
-// by at least one '- ' row. That needs no vocabulary and cannot be escaped by inventing a
-// new header word — which is precisely how the previous two versions were defeated.
-// ⛔ MY "NO VOCABULARY" CLAIM LASTED ONE ROUND. v4 matched `[^\n:]{1,80}:` — I had removed a
-// list of header WORDS and replaced it with an undocumented 80-CHARACTER limit, which is the
-// same defect wearing a number instead of a noun. graph-senior-dev-hermes measured the real
-// floor header at 145 characters:
-//
-//   CANDIDATES — showing 5 of AT LEAST 50 (grouped from 50 of 60 matching rows — retrieval
-//   was capped BEFORE grouping, so the population is a FLOOR):
-//
-// extractListBlocks returned [] on production output this file already emits, and an unowned
-// route using that header FULFILLED in strict mode. Not a hypothetical, and not the
-// unexecuted-route hole I had already acknowledged — an EXECUTED route the detector could
-// not see.
-//
-// ⇒ Line structure, no length bound, no word list: a header is any line ending in ':' that
-// is followed by at least one '- ' row.
+// The shape of a reader-facing list, used ONLY to reject raw strings. It is never an
+// authority: nothing is admitted because it matches, only refused because it does.
 export function extractListBlocks(text) {
   const lines = String(text).split('\n');
   const out = [];
@@ -225,52 +182,54 @@ export function extractListBlocks(text) {
 }
 
 export const SEAL_CAVEAT =
-  '⚠ POPULATION NOT DISCLOSED — this candidate list came from a route that never consulted '
-  + 'the shared disclosure renderer, so nothing above states how many matches exist. Treat the '
-  + 'list as a FLOOR, not a total, and re-run graph_whereis(symbol=..., limit=N) before '
+  '⚠ POPULATION NOT DISCLOSED — this candidate list came from a route that did not build it '
+  + 'through the governed list emitter, so nothing above states how many matches exist. Treat '
+  + 'the list as a FLOOR, not a total, and re-run graph_whereis(symbol=..., limit=N) before '
   + 'concluding anything about completeness. [packet seal]';
 
-// ⛔ THE FORCED DOOR. Every route in this file returns through graphPacket, so this is the
-// one place a symbol list cannot get past. If the output shows a list but the renderer never
-// executed during that call, the packet says so instead of shipping a silent sample — which
-// is the entire defect class this file has been chasing since the first cap-as-total fix.
-//
-// ⚠ WHAT IT DOES NOT DO, stated because a check trusted past its scope is how this started:
-// it only sees routes that actually RUN. It cannot tell you a disclosure-less route exists
-// somewhere unexecuted — no runtime check can. It replaces an inventory that claimed to
-// prove absence and could not, with an enforcement that proves nothing is emitted unchecked.
-//
-// ⚠ CONCURRENCY: the counter is module-global, so two overlapping graphPacket calls could
-// let one borrow the other's renderer call and pass. That direction is deliberate — it can
-// only ever produce a FALSE PASS, never a false accusation appended to a user's packet.
-// (The skills already say not to call graph verbs in parallel.) An AsyncLocalStorage scope
-// would close it; it is not worth the machinery until a parallel caller exists.
-export function sealPacketOutput(text, admitted) {
-  if (typeof text !== 'string') return text;
-  const blocks = extractListBlocks(text);
-  if (blocks.length === 0) return text;
-  // ⛔ ADMISSIONS WERE A Set, SO ONE RECEIPT AUTHORISED UNLIMITED COPIES. dev admitted one
-  // block and emitted it twice — the second copy ungoverned — and both satisfied
-  // `owned.has(b)`. Membership answers "was a list like this ever built?"; provenance has to
-  // answer "was THIS occurrence built?". So receipts are counted and CONSUMED one for one.
-  const receipts = new Map(admitted instanceof Map ? admitted : []);
-  const take = (block) => {
-    // Exact receipt first.
-    if ((receipts.get(block) ?? 0) > 0) { receipts.set(block, receipts.get(block) - 1); return true; }
-    // Otherwise a receipt whose block this is a PREFIX of — clampToBudget drops trailing
-    // rows after admission, and a budget-clamped list is still the emitter's list.
-    for (const [issued, n] of receipts) {
-      if (n > 0 && issued.startsWith(block)) { receipts.set(issued, n - 1); return true; }
+function violation(detail) {
+  if (process.env.APG_PACKET_SEAL_STRICT === '1') throw new Error(`PACKET SEAL: ${detail}`);
+  return false;
+}
+
+// ★★ SERIALIZATION IS THE ONLY PLACE A LIST BECOMES TEXT, AND THE ONLY PLACE OWNERSHIP IS
+// DECIDED. Each ListBlock is consumed exactly once here; a plain string entry that is
+// list-shaped was hand-assembled and is refused. This runs BEFORE clampToBudget, so the
+// clamp's rewriting of bounded sections can no longer be mistaken for a provenance failure —
+// which is precisely the false accusation greedy receipt matching produced in v5.
+export function renderPacketLines(entries) {
+  const scope = sealScope.getStore();
+  const out = [];
+  for (const entry of entries) {
+    if (!entry) continue;
+    if (entry instanceof ListBlock) {
+      if (scope) scope.serialized += 1;
+      out.push(entry.toText());
+      continue;
     }
-    return false;
-  };
-  const unowned = blocks.filter((b) => !take(b));
-  if (unowned.length === 0) return text;
-  if (process.env.APG_PACKET_SEAL_STRICT === '1') {
-    throw new Error(
-      'PACKET SEAL: a reader-facing list was emitted that the governed renderer did not '
-      + `build. Some route in packet.js assembles a list by hand. Unowned: ${JSON.stringify(unowned[0].slice(0, 120))}`,
-    );
+    const text = String(entry);
+    if (extractListBlocks(text).length > 0) {
+      violation('a hand-assembled list reached serialization. Build it with candidateList() '
+        + `or boundedList() instead: ${JSON.stringify(text.slice(0, 120))}`);
+      out.push(`${text}\n${SEAL_CAVEAT}`);
+      continue;
+    }
+    out.push(text);
   }
+  return out.join('\n');
+}
+
+// ⚠ BACKSTOP ONLY, for a route that returns text WITHOUT going through serialization — which
+// is exactly what every one of dev's probes did. If a packet shows a list and this scope never
+// serialized one, no governed list was ever built.
+//
+// ⚠ It cannot do more than that, and does not claim to. Once output is text, the author is
+// gone; that is the lesson five versions of this took to learn.
+export function sealPacketOutput(text, scope) {
+  if (typeof text !== 'string') return text;
+  if (extractListBlocks(text).length === 0) return text;
+  if (scope && scope.serialized > 0) return text;
+  violation('a packet returned a reader-facing list without building one. Some route bypasses '
+    + 'renderPacketLines() and assembles output by hand.');
   return `${text}\n${SEAL_CAVEAT}`;
 }

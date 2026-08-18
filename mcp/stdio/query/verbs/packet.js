@@ -24,15 +24,15 @@ import { resolveSymbolWithTotal, languageCensusExact } from './symbol_lookup.js'
 // The governed-list machinery lives in its own module so routes in THIS file cannot reach
 // the admission primitive. See packet-lists.js for why that had to stop being a choice.
 import {
-  clampList, renderListSection, emitBoundedList, emitCandidateList, renderCandidateDisclosures,
-  withSealScope, sealPacketOutput,
+  clampList, boundedList, boundedListAll, candidateList, renderCandidateDisclosures,
+  withSealScope, sealPacketOutput, renderPacketLines,
 } from './packet-lists.js';
 
 // Re-exported: these were part of packet.js's surface before the extraction and existing
 // importers (tests, and the seal's own fixtures) still name them here.
 export {
   renderCandidateDisclosures, extractListBlocks, sealPacketOutput, withSealScope, SEAL_CAVEAT,
-  emitCandidateList, _disclosureRenderCount,
+  candidateList, boundedList, boundedListAll, renderPacketLines, _disclosureRenderCount,
 } from './packet-lists.js';
 
 // Definitions grouped by language, over ALL nodes rather than the displayed slice.
@@ -364,9 +364,6 @@ function shortSha(s) {
 
 // ----- packet renderer -----
 
-function renderLines(out) {
-  return out.filter(Boolean).join('\n');
-}
 
 
 
@@ -385,10 +382,10 @@ function buildFeaturePacket({ feature, brief, functionality, opts, snapshot }) {
     `STATUS: overlay-defined (${feature.source || 'user'} source)`,
     `FEATURES: ${featureLabels.join(', ')}`,
     snapshot,
-    renderListSection('READ FIRST', readFirst, (x) => `${x.file} — ${x.why}`),
-    renderListSection('CONTRACTS', contracts, (x) => x),
-    renderListSection('TESTS', tests, (x) => x),
-    renderListSection('RISKS', risks, (x) => x),
+    boundedList('READ FIRST', readFirst, (x) => `${x.file} — ${x.why}`),
+    boundedList('CONTRACTS', contracts, (x) => x),
+    boundedList('TESTS', tests, (x) => x),
+    boundedList('RISKS', risks, (x) => x),
   ];
   return lines;
 }
@@ -425,10 +422,10 @@ function buildTaskPacket({ task, functionality, brief, opts, snapshot }) {
     `STATUS: ${status}${linkStrength ? ` (${linkStrength})` : ''}`,
     `FEATURES: ${featureIds.length ? featureIds.join(', ') : '(unlinked)'}`,
     snapshot,
-    renderListSection('READ FIRST', readFirst, (x) => `${x.file} — ${x.why}`),
-    renderListSection('CONTRACTS', contracts, (x) => x),
-    renderListSection('TESTS', tests, (x) => x),
-    renderListSection('RISKS', risks, (x) => x),
+    boundedList('READ FIRST', readFirst, (x) => `${x.file} — ${x.why}`),
+    boundedList('CONTRACTS', contracts, (x) => x),
+    boundedList('TESTS', tests, (x) => x),
+    boundedList('RISKS', risks, (x) => x),
   ];
   return lines;
 }
@@ -757,7 +754,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     const locItems = symHits.map((s) => ({
       file: s.file, why: `${s.type || 'symbol'}${s.line ? ` @ line ${s.line}` : ''}`,
     }));
-    lines.push(renderListSection('DEFINED IN', clampList(locItems, SHOWN), (x) => `${x.file} — ${x.why}`));
+    lines.push(boundedList('DEFINED IN', clampList(locItems, SHOWN), (x) => `${x.file} — ${x.why}`));
     // ★★ REPORT THE TRUE TOTAL, NOT THE CAP.
     //
     // `symHits` is `matched.symbols`, which upstream is `pickPrimarySymbol(...)` sliced to
@@ -805,10 +802,10 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       exact: consequences.matched?.symbols_census_exact !== false,
     }));
     if (fileHits.length) {
-      lines.push(renderListSection('ALSO IN', clampList(fileHits.map((f) => ({ file: f })), 6), (x) => x.file));
+      lines.push(boundedList('ALSO IN', clampList(fileHits.map((f) => ({ file: f })), 6), (x) => x.file));
     }
     lines.push(...readNext);
-    return renderLines(lines);
+    return renderPacketLines(lines);
   }
 
   if (typeof consequences === 'string') {
@@ -897,7 +894,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       // emitCandidateList derives header, rows and disclosures from that one set of inputs —
       // so a header cannot disagree with the disclosures beneath it, and "minting" a
       // credential is the same act as computing the disclosure correctly.
-      lines.push(emitCandidateList({
+      lines.push(candidateList({
         rows: candidateLines,
         symbol,
         statedTotal,
@@ -910,7 +907,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     // is to narrow the target, not to re-ask the same ambiguous question.
     lines.push(`NEXT: pick a candidate above, then graph_consequences(target="<file>:<symbol>") — resolves the feature the ambiguity hid`);
     lines.push(...readNext);
-    return renderLines(lines);
+    return renderPacketLines(lines);
   }
 
   return null;
@@ -1077,7 +1074,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
   // "not found" invites you to conclude the symbol does not exist, when in fact
   // it may map to several features and the tool simply ran out of time.
   if (!resolvedFeature && !resolvedTask && featureLookupTimedOut) {
-    return renderLines([
+    return renderPacketLines([
       `SYMBOL: ${parsed.value}`,
       'STATUS: feature lookup TIMED OUT — this is NOT "symbol not found"',
       snapshot,
@@ -1273,10 +1270,10 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       // statically instead of trusting the green — the same move that turned up the fourth
       // disclosure route, applied to my own new mechanism.
       if (enrich.last_touched.length) {
-        lines.push(emitBoundedList('LAST TOUCHED', enrich.last_touched));
+        lines.push(boundedListAll('LAST TOUCHED', enrich.last_touched));
       }
       if (enrich.co_consumer_files.length) {
-        lines.push(emitBoundedList('CO-CONSUMER FILES', enrich.co_consumer_files,
+        lines.push(boundedListAll('CO-CONSUMER FILES', enrich.co_consumer_files,
           (f) => (typeof f === 'string' ? f : (f.file ?? JSON.stringify(f)))));
       }
     } else {
@@ -1310,7 +1307,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
   // the budget clamp so it's trimmed first if the packet is over budget.
   lines.push('NEXT: for the full call path between two symbols use graph_trace(from,to); for several symbols\' source in one read use graph_explore(symbols).');
 
-  const text = renderLines(lines);
+  const text = renderPacketLines(lines);
   // READ FIRST holds the packet target's primary anchor files — it is the
   // section "containing the target" and must never be dropped by the budget
   // clamp (codegraph #564/#569).
@@ -1321,6 +1318,6 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
 
 
 export async function graphPacket(args) {
-  const { out, admitted } = await withSealScope(() => graphPacketInner(args));
-  return sealPacketOutput(out, admitted);
+  const { out, scope } = await withSealScope(() => graphPacketInner(args));
+  return sealPacketOutput(out, scope);
 }
