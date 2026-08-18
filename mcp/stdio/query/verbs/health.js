@@ -110,19 +110,36 @@ export function inspectStorage(db, dbPath, {
   const freeBytes = pageSize * freeCount;
   const freeRatio = pageCount > 0 ? freeCount / pageCount : 0;
   const mb = (n) => Math.round(n / 1048576);
+  const autoVacuum = h.pragma('auto_vacuum', { simple: true });
   const reclaimable = freeBytes >= minFreeBytes && freeRatio >= minFreeRatio;
+  // Both commands below take a REPO ROOT; pasting the .sqlite path just fails. Derived once
+  // — it was written twice, and two copies of a path transform is how one of them rots.
+  const repoRoot = dbPath.replace(/[\\/]\.aify-graph[\\/]graph\.sqlite$/, '');
   return {
     measured: true,
     fileMb: mb(fileBytes),
     contentMb: mb(fileBytes - freeBytes),
     freeMb: mb(freeBytes),
     freePercent: Math.round(freeRatio * 100),
-    autoVacuum: h.pragma('auto_vacuum', { simple: true }),
+    autoVacuum,
+    // ⛔ A COMPACTED LEGACY GRAPH LOOKS PERFECT AND IS STILL PRIMED TO REFILL.
+    // sand_castle after compaction: 36 MB, 0% free, reclaimable false — nothing to warn
+    // about on any size measure, while the file was still on auto_vacuum=NONE and would
+    // rebuild the same high-water mark over time. They spotted that themselves and asked;
+    // a diagnostic that needed the user to notice the latent half is not doing its job.
+    // Reported independently of `reclaimable` because the two are different questions:
+    // "is space wasted right now" vs "can this file ever give space back on its own".
+    canReclaimInPlace: autoVacuum === 2,
+    ...(autoVacuum === 2 ? {} : {
+      upgrade: `node scripts/compact-graph.mjs ${repoRoot} — converts this file to `
+        + 'incremental auto-vacuum so freed pages return by themselves. The mode cannot be '
+        + 'changed in place, and a bare VACUUM does NOT convert it.',
+    }),
     reclaimable,
     ...(reclaimable ? {
       note: `${mb(freeBytes)} MB of this ${mb(fileBytes)} MB file is free pages, not data. `
         + 'DELETE frees pages for reuse but does not shrink the file; nothing reclaims them automatically.',
-      remedy: `node scripts/compact-graph.mjs ${dbPath.replace(/[\\/]\.aify-graph[\\/]graph\.sqlite$/, '')}`,
+      remedy: `node scripts/compact-graph.mjs ${repoRoot}`,
     } : {}),
   };
 }

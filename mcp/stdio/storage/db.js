@@ -49,6 +49,33 @@ export function openDb(dbPath) {
   return wrapDb(db);
 }
 
+// ⛔ VACUUM ALONE DOES NOT CONVERT auto_vacuum, AND I TOLD A USER THAT IT DID.
+//
+// sand_castle ran the compaction and got exactly what was advertised on size — 2.87 GB to
+// 36.4 MB, content identical — then checked the mode and reported it STILL 0. They were
+// right, and my claim ("an existing database stays NONE until one full VACUUM") was wrong
+// in the half that mattered: the VACUUM is necessary but does nothing on its own.
+//
+// Measured on three fresh files, populated then emptied:
+//     VACUUM alone                       -> auto_vacuum 0   (unchanged)
+//     PRAGMA INCREMENTAL, then VACUUM    -> auto_vacuum 2   (persists on reopen)
+//
+// The pragma is inert on a populated database — it records an INTENT that the next VACUUM
+// on the SAME CONNECTION carries out. So a compaction that omits it reclaims the space and
+// leaves the file free to re-accumulate the identical high-water mark, which is the state
+// sand_castle was left in: symptom fixed, cause untouched.
+//
+// ⇒ Reclaiming and upgrading are one operation, so they live in one function. Returns the
+// resulting mode so a caller can report what actually happened rather than assume.
+export function vacuumWithIncrementalUpgrade(db) {
+  const h = typeof db?.pragma === 'function' ? db : db?.raw;
+  if (typeof h?.pragma !== 'function') return null;
+  try { h.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* not in WAL — fine */ }
+  h.pragma('auto_vacuum = INCREMENTAL');   // intent only; the VACUUM below applies it
+  h.exec('VACUUM');
+  return h.pragma('auto_vacuum', { simple: true });
+}
+
 export function openExistingDb(dbPath, { readonly = true } = {}) {
   if (!existsSync(dbPath)) {
     throw new Error(`graph DB does not exist: ${dbPath}`);

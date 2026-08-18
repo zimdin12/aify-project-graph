@@ -11,10 +11,12 @@
 // check that appears solely when unhappy cannot be told apart from one that is broken, and
 // "storage is fine" is not readable unless its basis is visible too.
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import Database from 'better-sqlite3';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { createSchema } from '../../../mcp/stdio/storage/schema.js';
 import {
   inspectStorage, STORAGE_RECLAIM_MIN_BYTES, STORAGE_RECLAIM_MIN_RATIO,
 } from '../../../mcp/stdio/query/verbs/health.js';
@@ -24,6 +26,22 @@ function withGraph(fn) {
   const dbPath = join(dir, '.aify-graph', 'graph.sqlite');
   const db = openDb(dbPath);
   try { return fn(db, dbPath); } finally { db.close(); rmSync(dir, { recursive: true, force: true }); }
+}
+
+// A graph in the shape every already-deployed file has: auto_vacuum=NONE. Built without
+// openDb(), which now produces the converted shape and so cannot represent the legacy case.
+function withLegacyGraph(fn) {
+  const dir = mkdtempSync(join(tmpdir(), 'apg-legacy-'));
+  const dbPath = join(dir, '.aify-graph', 'graph.sqlite');
+  mkdirSync(join(dir, '.aify-graph'), { recursive: true });
+  const raw = new Database(dbPath);
+  raw.pragma('journal_mode = WAL');
+  createSchema(raw);
+  const db = { raw, run: (sql) => raw.prepare(sql).run(), get: (sql) => raw.prepare(sql).get() };
+  try {
+    if (raw.pragma('auto_vacuum', { simple: true }) !== 0) throw new Error('fixture is not legacy');
+    return fn(db, dbPath);
+  } finally { raw.close(); rmSync(dir, { recursive: true, force: true }); }
 }
 
 function fill(db, rows) {
@@ -77,6 +95,32 @@ describe('graph_health reports the storage basis', () => {
       fill(db, 4000);
       db.run('DELETE FROM nodes');
       expect(inspectStorage(db, dbPath).reclaimable).toBe(false);
+    });
+  });
+
+  it('★★★ a graph that cannot reclaim in place says so even when it looks perfectly healthy', () => {
+    // The state sand_castle was left in after compaction: 36 MB, 0% free, reclaimable
+    // false — clean on every size measure, and still on auto_vacuum=NONE, so it would
+    // rebuild the same high-water mark. They had to notice that themselves. "Is space
+    // wasted right now" and "can this file ever give space back" are different questions
+    // and a clean answer to the first must not stand in for the second.
+    withLegacyGraph((db, dbPath) => {
+      const s = inspectStorage(db, dbPath);
+      expect(s.reclaimable, 'a freshly-vacuumed legacy graph has nothing to reclaim').toBe(false);
+      expect(s.canReclaimInPlace, 'auto_vacuum=NONE cannot return pages by itself').toBe(false);
+      expect(s.upgrade, 'the latent half must be stated, not left to be noticed').toMatch(/compact-graph\.mjs/);
+      expect(s.upgrade, 'must warn that a bare VACUUM is not enough').toMatch(/bare VACUUM does NOT convert/);
+      expect(s.upgrade, 'the command takes a repo root').not.toMatch(/graph\.sqlite/);
+    });
+  });
+
+  it('★★ a converted graph reports canReclaimInPlace and offers no upgrade', () => {
+    // The negative half: openDb() now produces INCREMENTAL, and those must not be nagged.
+    withGraph((db, dbPath) => {
+      const s = inspectStorage(db, dbPath);
+      expect(s.autoVacuum).toBe(2);
+      expect(s.canReclaimInPlace).toBe(true);
+      expect(s.upgrade).toBeUndefined();
     });
   });
 

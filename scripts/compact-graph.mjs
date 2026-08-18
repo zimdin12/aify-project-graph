@@ -20,7 +20,7 @@
 
 import { statSync, readdirSync, unlinkSync } from 'node:fs';
 import { join, basename } from 'node:path';
-import { openExistingDb } from '../mcp/stdio/storage/db.js';
+import { openExistingDb, vacuumWithIncrementalUpgrade } from '../mcp/stdio/storage/db.js';
 import { compactCodeIntelRecords } from '../mcp/stdio/ingest/code-intel/importer.js';
 
 const arg = process.argv[2];
@@ -44,10 +44,20 @@ try {
   console.log(`pruned: ${res.collectionsPruned} superseded collection(s), ${res.recordsPruned} record(s)`);
   console.log(`kept:   ${res.kept.join(', ') || '(none)'}`);
 
-  // Checkpoint the WAL then VACUUM so the file shrinks on disk.
-  try { db.run('PRAGMA wal_checkpoint(TRUNCATE)'); } catch { /* not in WAL — fine */ }
+  // Checkpoint the WAL, then VACUUM so the file shrinks on disk — AND convert the file to
+  // incremental auto-vacuum while we are here.
+  //
+  // ⛔ This script used to run a bare VACUUM. That reclaims the space and leaves the file
+  // on auto_vacuum=NONE, free to re-accumulate the same high-water mark: sand_castle came
+  // back 2.87 GB -> 36.4 MB with the mode still 0, and reported it. The pragma is inert on
+  // a populated database on its own — it records an intent the next VACUUM on the SAME
+  // CONNECTION carries out — so the two only work as a pair. Fixing the symptom while
+  // leaving the cause is the thing this repo keeps promising not to do.
   console.log('vacuuming…');
-  db.run('VACUUM');
+  const mode = vacuumWithIncrementalUpgrade(db);
+  // Report the mode rather than announcing success: the whole reason this defect reached a
+  // user is that the failed half was invisible.
+  console.log(`auto_vacuum: ${mode === 2 ? 'INCREMENTAL (this file can now reclaim in place)' : `${mode} — UPGRADE DID NOT TAKE`}`);
 
   const recordsAfter = db.get('SELECT COUNT(*) AS c FROM code_intel_records').c;
   console.log(`after:  ${sizeMB(dbPath)} MB · ${db.get('SELECT COUNT(*) AS c FROM code_intel_collections').c} collections · ${recordsAfter} records`);
