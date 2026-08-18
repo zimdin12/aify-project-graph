@@ -1,6 +1,21 @@
 // GOVERNED LIST EMISSION — opaque, immutable list occurrences reconciled one-to-one with the
 // final packet text.
 //
+// ★★ THE PUBLISHED CLAIM, NARROWED TO WHAT IS MECHANICALLY ENFORCED. For eight iterations the
+// promise was written as "no reader-facing list of symbols leaves graph_packet without stating
+// its population". That sentence is broader than any grammar can carry: `CANDIDATES:\n* x` is
+// reader-facing and is not detected, and no widening fixes the general case because "looks
+// like a list to a human" is not decidable. graph-senior-dev's instruction, which I asked for
+// and am taking:
+//
+//   ⇒ EVERY PACKET BLOCK CONSISTING OF A NONEMPTY HEADER LINE IMMEDIATELY FOLLOWED BY ONE OR
+//     MORE "- " ROWS IS RECONCILED ONE-TO-ONE WITH A TYPED OCCURRENCE THAT CARRIED ITS
+//     POPULATION FACTS.
+//
+// That is the promise. It covers the product's intended list format — every current symbol
+// route emits "- " rows — and it does NOT cover arbitrary human-readable list syntax. A
+// smaller true claim, published deliberately, after eight larger ones were each falsified.
+//
 // ⛔ SIX VERSIONS OF THIS GUARANTEE WERE WRONG BEFORE THIS ONE, each falsified by a reviewer
 // EXECUTING a counterexample rather than arguing:
 //
@@ -68,8 +83,35 @@ function checkTotal(total) {
   return total;
 }
 export const exactly = (total) => population({ kind: 'exact', total: checkTotal(total) });
+// ⛔ THE EXACTNESS TRAVELLED WITH THE VALUE; ITS EVIDENCE DID NOT. atLeast() froze the
+// population object and then ALIASED the caller's rowsSeen array, so a caller could mutate it
+// afterwards and change the rendered bytes while Object.isFrozen(population) was true. And
+// nothing checked the pair: ['60','50'] rendered "grouped from 60 of 50 matching rows", which
+// is not a disclosure, it is a contradiction — more rows examined than existed.
+//
+// ⇒ Validated, normalised, copied and frozen BEFORE membership is granted. packet.js supplies
+// regex captures, so numeric strings are the normal input and are accepted as such.
+function checkRowsSeen(rowsSeen) {
+  if (rowsSeen === null || rowsSeen === undefined) return null;
+  if (!Array.isArray(rowsSeen) || rowsSeen.length !== 2) {
+    fail('floor evidence must be exactly two values — [rows seen, rows matching]');
+  }
+  const [seen, matching] = rowsSeen.map((v) => {
+    const n = Number(v);
+    if (!Number.isInteger(n) || n < 0) {
+      fail(`floor evidence must be non-negative integers — got ${JSON.stringify(v)}`);
+    }
+    return n;
+  });
+  if (seen > matching) {
+    fail(`floor evidence claims ${seen} rows seen of ${matching} matching — more rows were `
+      + 'examined than existed, which cannot describe any retrieval.');
+  }
+  return Object.freeze([seen, matching]);
+}
+
 export const atLeast = (total, { rowsSeen = null } = {}) =>
-  population({ kind: 'floor', total: checkTotal(total), rowsSeen });
+  population({ kind: 'floor', total: checkTotal(total), rowsSeen: checkRowsSeen(rowsSeen) });
 export const unknownPopulation = () => population({ kind: 'unknown' });
 const isPopulation = (p) => POPULATIONS.has(p);
 
@@ -208,36 +250,29 @@ function populationHeader(label, shown, population) {
   }
 }
 
-export function candidateList({ rows, symbol, population, languages = [] }) {
+// ⛔ THE COVERAGE CHECK WAS ON candidateList AND NOT ON symbolList, so the repair I published
+// — "a total may not be smaller than the rows it covers" — was true for candidates and false
+// for DEFINED IN and ALSO IN. `symbolList('DEFINED IN', ['- a.js'], {population: exactly(0)})`
+// sealed clean as "showing 1 of 0". That is one branch fixed and a general claim made, for the
+// fourth time in this thread, inside the constructor pair I had just built to prevent it.
+//
+// ⇒ There is now ONE path. candidateList and symbolList are thin kind-checks over it, so a
+// future kind cannot be added AROUND the validation — only through it. A second call site
+// would have fixed the instance; a single path is what fixes the class.
+function populatedList(kind, rows, { symbol, population, languages = [], notes = [] }) {
   if (!isPopulation(population)) {
-    fail('candidateList requires a tagged population — exactly(n), atLeast(n) or '
-      + 'unknownPopulation(). A bare integer cannot say whether it is a total or a floor, '
-      + 'which is how a floor came to be rendered as exact.');
+    fail(`${kind} requires a tagged population — exactly(n), atLeast(n) or unknownPopulation(). `
+      + 'A bare integer cannot say whether it is a total or a floor, which is how a floor came '
+      + 'to be rendered as exact.');
   }
   const shown = rows.length;
-  requirePopulationCoversShown('CANDIDATES', shown, population);
-  const header = populationHeader('CANDIDATES', shown, population);
-  const disclosures = renderCandidateDisclosures({
-    shown,
-    total: population.kind === 'unknown' ? null : population.total,
-    symbol,
-    languages,
-    exact: population.kind === 'exact',
-  });
-  return mint('CANDIDATES', header, rows, disclosures);
-}
-
-// ⛔ DEFINED IN / ALSO IN. Previously bounded, therefore stating no population — and read as a
-// population by every reader anyway, including one who had never seen the code.
-export function symbolList(kind, rows, { symbol, population, languages = [], notes = [] }) {
-  if (!SYMBOL_KINDS.has(kind)) fail(`"${kind}" is not a symbol-list kind`);
-  if (!isPopulation(population)) fail(`${kind} requires a tagged population`);
-  // `notes` are caveats ABOUT the list that are not population claims — e.g. "order is
-  // arrival, not relevance". They ride inside the occurrence rather than being pushed
-  // alongside it, because adjacency is exactly what let the header say nothing.
-  return mint(kind, populationHeader(kind, rows.length, population), rows, [
+  requirePopulationCoversShown(kind, shown, population);
+  // `notes` are caveats ABOUT the list that are not population claims — e.g. "order is arrival,
+  // not relevance". They ride inside the occurrence rather than beside it, because adjacency is
+  // exactly what let a header say nothing while a nearby line carried the population.
+  return mint(kind, populationHeader(kind, shown, population), rows, [
     ...renderCandidateDisclosures({
-      shown: rows.length,
+      shown,
       total: population.kind === 'unknown' ? null : population.total,
       symbol,
       languages,
@@ -245,6 +280,17 @@ export function symbolList(kind, rows, { symbol, population, languages = [], not
     }),
     ...notes,
   ]);
+}
+
+export function candidateList({ rows, symbol, population, languages = [] }) {
+  return populatedList('CANDIDATES', rows, { symbol, population, languages });
+}
+
+// DEFINED IN / ALSO IN. Previously bounded, therefore stating no population — and read as a
+// population by every reader anyway, including one who had never seen the code.
+export function symbolList(kind, rows, opts) {
+  if (!SYMBOL_KINDS.has(kind)) fail(`"${kind}" is not a symbol-list kind`);
+  return populatedList(kind, rows, opts);
 }
 
 export function boundedList(kind, capped, formatter = (x) => x) {

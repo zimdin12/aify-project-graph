@@ -19,11 +19,20 @@
 // it retires a doubt it has not earned. That is exactly what it did: I wrote "a fifth might
 // exist" was resting on memory, and replaced it with something resting on a false premise.
 //
-// ⇒ THE ROUTE-LEVEL GUARANTEE LIVES IN tests/unit/query/packet-seal.test.js AND IN THE SEAL
-// ITSELF (packet.js sealPacketOutput). Every route returns through graphPacket, so the seal
-// compares the renderer's call count either side of the call and catches any branch that
-// emitted a list without consulting it — including dev's, verified. The whole suite runs
-// with APG_PACKET_SEAL_STRICT=1, so touching such a route fails hard.
+// ⇒ THE ROUTE-LEVEL GUARANTEE LIVES IN packet-lists.js AND ITS TESTS, not here.
+//
+// ⚠ THIS PARAGRAPH USED TO DESCRIBE A CALL-COUNT SEAL — "compares the renderer's call count
+// either side of the call" — which was several architectures ago and was itself falsified
+// twice. graph-senior-dev flagged the stale text as non-blocking, on the grounds that an
+// explanation nobody has re-read becomes an authority the next reviewer cites. They were
+// right; a comment that is wrong about the mechanism is worse than none, because it is
+// believed.
+//
+// The actual mechanism: a list is a TYPED OCCURRENCE built by candidateList() / symbolList() /
+// boundedList(); renderPacketLines() is the only place one becomes text and consumes each
+// identity exactly once; the budget clamp transforms occurrences BEFORE serialization; and the
+// final text is reconciled ONE-TO-ONE against what was emitted. The whole suite runs with
+// APG_PACKET_SEAL_STRICT=1, so a violation fails hard rather than appending a caveat.
 //
 // ⇒ WHAT THIS FILE IS STILL WORTH: it is a cheap structural smoke test. A brand-new
 // top-level function that lists symbols and never mentions the renderer at all is caught

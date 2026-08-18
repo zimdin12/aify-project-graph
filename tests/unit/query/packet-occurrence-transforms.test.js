@@ -141,3 +141,54 @@ describe('occurrence transforms and the routes that bypassed them', () => {
       .toBe(out);
   });
 });
+
+// ── round 9: graph-senior-dev's two remaining blockers ───────────────────────────────────
+//
+// ⛔ BLOCKER 1 IS THE RECURRING SHAPE, NOW INSIDE THE CONSTRUCTOR PAIR I JUST BUILT.
+// requirePopulationCoversShown was called by candidateList and NOT by symbolList, so the
+// repair I published — "a total may not be smaller than the rows it covers" — was true for
+// candidates and false for DEFINED IN / ALSO IN. One branch, general claim, for the fourth
+// time in this thread. The fix is not a second call site; it is a shared path that a sibling
+// CANNOT be added around, and this table is driven so that a future kind is covered by
+// construction rather than by my remembering.
+//
+// ⛔ BLOCKER 2 is B3 one layer in. The tagged population froze the object and then ALIASED the
+// caller's rowsSeen array: exactness travels with the value, its evidence did not. A caller
+// could mutate the array afterwards and change the rendered bytes while Object.isFrozen(p)
+// was true — and ['60','50'] rendered "grouped from 60 of 50 matching rows", which is not a
+// disclosure but a contradiction.
+describe('round 9 — population coverage and floor evidence', () => {
+  for (const kind of ['CANDIDATES', 'DEFINED IN', 'ALSO IN']) {
+    it(`★★★ B1: an impossible total is refused for ${kind}`, () => {
+      const build = () => (kind === 'CANDIDATES'
+        ? L.candidateList({ rows: ['- a.js'], symbol: 'X', population: L.exactly(0) })
+        : L.symbolList(kind, ['- a.js'], { symbol: 'X', population: L.exactly(0) }));
+      expect(build, `${kind} must not claim a population smaller than its rows`)
+        .toThrow(/PACKET SEAL/);
+    });
+  }
+
+  it('★★★ B2: impossible floor evidence is refused', () => {
+    // "grouped from 60 of 50" — more rows seen than existed.
+    expect(() => L.atLeast(1, { rowsSeen: ['60', '50'] })).toThrow(/rows|evidence|seen/i);
+    expect(() => L.atLeast(1, { rowsSeen: ['1'] })).toThrow(/rows|evidence|two/i);
+    expect(() => L.atLeast(1, { rowsSeen: ['-1', '50'] })).toThrow(/rows|evidence|integer/i);
+    expect(() => L.atLeast(1, { rowsSeen: ['x', '50'] })).toThrow(/rows|evidence|integer/i);
+    // The legitimate shape still works, and packet.js passes regex captures, i.e. strings.
+    expect(() => L.atLeast(9, { rowsSeen: ['50', '60'] })).not.toThrow();
+  });
+
+  it('★★★ B2: mutating the caller\'s array after atLeast cannot change the rendered bytes', () => {
+    const rowsSeen = ['1', '2'];
+    const p = L.atLeast(1, { rowsSeen });
+    const before = L.renderOccurrenceForTest(
+      L.candidateList({ rows: ['- a.js'], symbol: 'X', population: p }),
+    );
+    rowsSeen.splice(0, 2, '60', '50');
+    const after = L.renderOccurrenceForTest(
+      L.candidateList({ rows: ['- a.js'], symbol: 'X', population: p }),
+    );
+    expect(after, 'the evidence must be copied, not aliased').toBe(before);
+    expect(after, 'and must not carry the contradiction').not.toMatch(/from 60 of 50/);
+  });
+});
