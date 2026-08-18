@@ -759,9 +759,15 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
   // that does not state its basis: it costs the reader a call to find out it was never for them.
   const looksLikePath = /[\\/]/.test(symbol) || /\.[a-z0-9]{1,4}$/i.test(symbol);
   const readNext = [
-    `NEXT: graph_pull(node="${symbol}") — cross-layer context for this symbol`,
+    `NEXT: graph_pull(node="${symbol}") — cross-layer context for this ${looksLikePath ? 'file' : 'symbol'}`,
     `NEXT: graph_consequences(target="${symbol}") — "what breaks if I touch it"`,
-    `NEXT: graph_explore(symbols=["${symbol}"]) — verbatim source`,
+    // ⚠ Same defect as the clangd line, one verb over: graph_explore takes SYMBOLS, so a path
+    // in `symbols=[...]` is the wrong parameter for the wrong verb. Found while verifying the
+    // file-target fix, not reported — the field report named the class and this is another
+    // member of it.
+    looksLikePath
+      ? `NEXT: graph_file(path="${symbol}") — what this file contains`
+      : `NEXT: graph_explore(symbols=["${symbol}"]) — verbatim source`,
     // Offered only when the target is symbol-shaped AND a collection exists to query.
     ...(looksLikePath || !codeIntelAvailable
       ? []
@@ -772,8 +778,12 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     const symHits = consequences.matched?.symbols ?? [];
     const fileHits = consequences.matched?.files ?? [];
     if (symHits.length === 0 && fileHits.length === 0) return null;
-    lines.push(`SYMBOL: ${symbol}`);
-    lines.push('STATUS: known to graph; not mapped to a feature (symbol-context packet)');
+    // ⛔ A PATH IS NOT A SYMBOL, AND CALLING IT ONE STARTED THE CONTRADICTION. The field
+    // report saw "SYMBOL: <file>" / "DEFINED IN: none" / "ALSO IN: <the same file>" — three
+    // statements that cannot all be sensible together, reading as a bug in the tool. A file is
+    // not DEFINED anywhere; it IS somewhere.
+    lines.push(`${looksLikePath ? 'FILE' : 'SYMBOL'}: ${symbol}`);
+    lines.push(`STATUS: known to graph; not mapped to a feature (${looksLikePath ? 'file' : 'symbol'}-context packet)`);
     lines.push(snapshot);
     // ★ THIS LIST IS TRUNCATED AND UNRANKED — SAY BOTH.
     //
@@ -825,7 +835,9 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
       ? [`  ⚠ UNRANKED — order is arrival, not relevance. graph_whereis(symbol="${symbol}") `
         + 'lists them; NEITHER verb ranks — do not treat the first entry as the definition.']
       : [];
-    lines.push(symbolList(
+    // ⚠ Skipped for a path target: a file is not DEFINED anywhere, so "DEFINED IN: none" is
+    // an answer to a question that does not apply, and a reader takes it as a finding.
+    if (!looksLikePath) lines.push(symbolList(
       'DEFINED IN',
       definedRows.items.map((x) => `- ${x.file} — ${x.why}`),
       {
@@ -852,14 +864,17 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
       languages: (consequences.matched?.symbols_by_language ?? []).map((b) => b.lang),
       exact: consequences.matched?.symbols_census_exact !== false,
     }));
-    if (fileHits.length) {
+    if (fileHits.some((f) => String(f) !== String(symbol))) {
       // ALSO IN was bounded too, for the same reason and with the same consequence. Its
       // population IS known — fileHits.length — and it is shown capped at 6, so the header
       // now says which of those two numbers the reader is looking at.
-      const shownHits = fileHits.slice(0, 6);
+      // ⚠ The target itself is not a place the target "also" appears. Under a population it
+      // is also a wrong count, which is how a cosmetic oddity became a false number elsewhere.
+      const otherHits = fileHits.filter((f) => String(f) !== String(symbol));
+      const shownHits = otherHits.slice(0, 6);
       lines.push(symbolList('ALSO IN', shownHits.map((f) => `- ${f}`), {
         symbol,
-        population: exactly(fileHits.length),
+        population: exactly(otherHits.length),
       }));
     }
     lines.push(...readNext);
@@ -872,7 +887,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     if (/^NO MATCH/i.test(trimmed)) return null;
     // AMBIGUOUS MATCH (or any other informative string) → surface it verbatim
     // (it already lists the concrete candidate locations) plus the read-next.
-    lines.push(`SYMBOL: ${symbol}`);
+    lines.push(`${looksLikePath ? 'FILE' : 'SYMBOL'}: ${symbol}`);
     // ★ "NO FEATURE MAPPING" WAS NEVER ESTABLISHED ON THIS PATH.
     //
     // Found by ef-manager (2026-08-09) while reviewing the timeout fix, and it is

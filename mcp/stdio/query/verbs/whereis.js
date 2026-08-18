@@ -45,6 +45,32 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
       // skipped the one they did (ef-manager, 2026-07-31). Same "the fix reached
       // one path" shape this codebase keeps producing; the lesson is to enumerate
       // every emitter of a message rather than the ones that come to mind.
+      // ⛔ "NO MATCH" FOR A FILE THAT IS INDEXED IS A FALSE STATEMENT ABOUT THE REPOSITORY.
+      // ef-manager, in the field: graph_whereis on a real path said NO MATCH while graph_packet
+      // resolved the same node. Two verbs, one node, opposite answers on existence.
+      //
+      // ★ Declining is CORRECT — this verb answers "where is this SYMBOL defined", matching on
+      // `label` over declaration types, and a File node is neither a label match nor a
+      // declaration. The defect is what the refusal SAYS. "NO MATCH" is a claim about the repo;
+      // the true claim is about the QUESTION. A reader told no-match concludes the file is
+      // unindexed and goes hunting a problem that does not exist.
+      //
+      // ⚠ Narrow on purpose: this does NOT widen the verb to resolve paths. It checks whether
+      // the thing exists as a file and, if so, says which question it answered instead.
+      const asFile = db.get(
+        `SELECT file_path FROM nodes WHERE type IN ('File','Directory')
+           AND (file_path = $t OR file_path LIKE $suffix) LIMIT 1`,
+        { t: symbol, suffix: `%/${symbol}` },
+      );
+      if (asFile?.file_path) {
+        const base = `NOT A SYMBOL: "${symbol}" is a FILE in this graph (${asFile.file_path}), `
+          + 'and graph_whereis answers "where is this SYMBOL defined". The file exists — this '
+          + 'verb is the wrong question, not evidence of absence.\n'
+          + `NEXT: graph_packet(target="${asFile.file_path}") — orientation for a file\n`
+          + `NEXT: graph_pull(node="${asFile.file_path}") — cross-layer context for a file`;
+        const fileCaveat = staleNotFoundCaveat(freshness);
+        return fileCaveat ? `${base}\n${fileCaveat}` : base;
+      }
       const base = noMatchMessage(db, symbol);
       const caveat = staleNotFoundCaveat(freshness);
       return caveat ? `${base}\n${caveat}` : base;
