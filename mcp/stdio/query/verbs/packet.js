@@ -506,6 +506,23 @@ export function clampToBudget(text, budgetTokens, targetSection = null) {
   //   Tier-3 — drop the section entirely (last rail only).
   const lines = text.split('\n');
   // Priority order: trim the least-load-bearing sections first.
+  //
+  // ⛔ CLAMPABLE SECTIONS MUST BE BOUNDED KINDS ONLY, AND THAT IS NOW ENFORCED RATHER THAN
+  // ASSUMED. skeletonizeSection REWRITES a section's rows into directory summaries. Do that
+  // to a CANDIDATES block and its population line — "showing 3 of 9" — would go on describing
+  // a row set that no longer exists: a false population claim manufactured by the budget
+  // clamp, after the seal had already validated the packet. Nothing prevented it except this
+  // array happening not to list a candidate head.
+  //
+  // ⚠ The clamp runs AFTER serialization by design (validating before it is what retired the
+  // false-accusation class), so the seal cannot catch a clamp-introduced lie.
+  //
+  // ⇒ EVERY ENTRY BELOW MUST BE A BOUNDED KIND — one that makes no population claim. Enforced
+  // by tests/unit/query/packet-seal.test.js, which reads this array and checks each head
+  // against BOUNDED_KINDS. That test is the guard; I first wrote a runtime .filter() here too
+  // and removed it, because mutation showed deleting the filter alone changes nothing
+  // observable — it only ever mattered in combination with adding a candidate head, which the
+  // test already catches. A safeguard that cannot be falsified on its own is decoration.
   const sectionHeads = ['RISKS:', 'TESTS:', 'CONTRACTS:', 'READ FIRST:'];
   const isTarget = (head) => targetSection && head.startsWith(targetSection);
 

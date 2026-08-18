@@ -28,7 +28,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { graphPacket } from '../../../mcp/stdio/query/verbs/packet.js';
+import { graphPacket, clampToBudget } from '../../../mcp/stdio/query/verbs/packet.js';
 import * as L from '../../../mcp/stdio/query/verbs/packet-lists.js';
 
 const SRC = join(import.meta.dirname, '..', '..', '..', 'mcp', 'stdio', 'query', 'verbs', 'packet.js');
@@ -197,6 +197,36 @@ describe('governed list emission', () => {
       if (m && rowPush.test(src.slice(i + 1, i + 6).join(' '))) offenders.push(`${i + 1}: ${m[1]}`);
     });
     expect(offenders, 'build these with candidateList()/boundedList()').toEqual([]);
+  });
+
+  it('★★★ the budget clamp cannot rewrite a candidate list out from under its population line', async () => {
+    // ⚠ THE ONE HOLE THE SEAL STRUCTURALLY CANNOT COVER. Validation runs BEFORE clampToBudget
+    // — that is what retired the false-accusation class — so anything the clamp does
+    // afterwards is unseen. skeletonizeSection REWRITES a section's rows into directory
+    // summaries; do that to a CANDIDATES block and "showing 3 of 9" would go on describing
+    // rows that no longer exist. A false population claim manufactured by the budget clamp,
+    // which is the exact defect class this whole file exists to prevent, arriving through the
+    // one door the seal does not watch.
+    //
+    // Nothing prevented it except a hardcoded array happening not to list a candidate head.
+    // It is now filtered against BOUNDED_KINDS, and this pins both halves.
+    const { out } = await L.withSealScope(async () => L.renderPacketLines([
+      L.candidateList({ rows: ['- src/a.cpp', '- src/b.cpp', '- src/c.cpp'], symbol: 'Foo', statedTotal: 9 }),
+      L.boundedListAll('READ FIRST', ['dir/x.cpp', 'dir/y.cpp', 'dir/z.cpp', 'other/q.cpp']),
+    ]));
+    const clamped = clampToBudget(out, 20, null);
+    expect(clamped, 'the candidate rows must survive').toContain('- src/a.cpp');
+    expect(clamped, 'and its population line must still be true of them').toContain('showing 3 of 9');
+    // The negative half — the clamp must still actually clamp, or this passes by doing nothing.
+    expect(clamped, 'a bounded section SHOULD be clamped at this budget').not.toContain('- dir/x.cpp');
+
+    // And the guard itself: no clampable head may be a candidate category.
+    const src = readFileSync(SRC, 'utf8');
+    const heads = /const sectionHeads = \[([^\]]*)\]/.exec(src);
+    expect(heads, 'sectionHeads not found — the guard below proves nothing').not.toBeNull();
+    for (const h of heads[1].split(',').map((x) => x.trim().replace(/^['"]|['"]:?$/g, '').replace(/:$/, '')).filter(Boolean)) {
+      expect(L.BOUNDED_KINDS.has(h), `"${h}" is clampable but is not a bounded kind`).toBe(true);
+    }
   });
 
   it('★ non-string output passes through untouched', () => {
