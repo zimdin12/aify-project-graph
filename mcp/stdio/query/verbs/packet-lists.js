@@ -8,13 +8,21 @@
 // like a list to a human" is not decidable. graph-senior-dev's instruction, which I asked for
 // and am taking:
 //
-//   ⇒ EVERY PACKET BLOCK CONSISTING OF A NONEMPTY HEADER LINE IMMEDIATELY FOLLOWED BY ONE OR
-//     MORE "- " ROWS IS RECONCILED ONE-TO-ONE WITH A TYPED OCCURRENCE THAT CARRIED ITS
-//     POPULATION FACTS.
+//   1. Every packet block consisting of a nonempty non-row header immediately followed by one
+//      or more "- " rows is RECONCILED ONE-TO-ONE with a typed occurrence.
+//   2. Every CANDIDATES / DEFINED IN / ALSO IN occurrence carries a tagged exact / floor /
+//      unknown population, and every current symbol route emits that canonical format.
 //
-// That is the promise. It covers the product's intended list format — every current symbol
-// route emits "- " rows — and it does NOT cover arbitrary human-readable list syntax. A
-// smaller true claim, published deliberately, after eight larger ones were each falsified.
+// ⚠ IT IS TWO STATEMENTS, NOT ONE, AND THE REVIEWER CORRECTED HIS OWN WORDING TO SPLIT THEM.
+// The single-sentence version ended "...with a typed occurrence that carried its population
+// facts", which I published verbatim — and it is false for bounded kinds. `READ FIRST:\n- a.js`
+// is a governed, reconciled block that INTENTIONALLY carries no population, because it makes no
+// population claim. Collapsing the two made "typed" and "populated" sound like one property,
+// which would have counted the absence of a population as an unstated fact about it.
+//
+// It covers the product's intended list format — every current symbol route emits "- " rows —
+// and it does NOT cover arbitrary human-readable list syntax. A smaller true claim, published
+// deliberately, after eight larger ones were each falsified.
 //
 // ⛔ SIX VERSIONS OF THIS GUARANTEE WERE WRONG BEFORE THIS ONE, each falsified by a reviewer
 // EXECUTING a counterexample rather than arguing:
@@ -91,27 +99,47 @@ export const exactly = (total) => population({ kind: 'exact', total: checkTotal(
 //
 // ⇒ Validated, normalised, copied and frozen BEFORE membership is granted. packet.js supplies
 // regex captures, so numeric strings are the normal input and are accepted as such.
-function checkRowsSeen(rowsSeen) {
+// ⛔ THE WHOLE RELATION, NOT ITS ENDS. For a floor carrying evidence:
+//
+//        shown  <=  population floor  <=  rows seen  <=  matching rows
+//
+// populatedList enforced the FIRST inequality and this function enforced the LAST, and nothing
+// enforced the middle — so atLeast(100, {rowsSeen: [1, 2]}) rendered "showing 1 of AT LEAST 100
+// (grouped from 1 of 2 matching rows)". Grouping cannot produce more candidate groups than rows
+// examined; that retrieval never happened. Two correct guards either side of an unguarded step
+// is its own lesson: checking the ends of a chain is not checking the chain.
+//
+// ⚠ `Number(v)` also accepted '', ' ', null and true as "non-negative integers", because
+// Number('') is 0 and Number(true) is 1. The published wording said integers; only numeric
+// strings are intentionally supported, since packet.js supplies regex captures.
+function checkEvidenceValue(v) {
+  const ok = (typeof v === 'number' && Number.isInteger(v) && v >= 0)
+    || (typeof v === 'string' && /^\d+$/.test(v));
+  if (!ok) fail(`floor evidence must be non-negative integers — got ${JSON.stringify(v)}`);
+  return Number(v);
+}
+
+function checkRowsSeen(rowsSeen, total) {
   if (rowsSeen === null || rowsSeen === undefined) return null;
   if (!Array.isArray(rowsSeen) || rowsSeen.length !== 2) {
     fail('floor evidence must be exactly two values — [rows seen, rows matching]');
   }
-  const [seen, matching] = rowsSeen.map((v) => {
-    const n = Number(v);
-    if (!Number.isInteger(n) || n < 0) {
-      fail(`floor evidence must be non-negative integers — got ${JSON.stringify(v)}`);
-    }
-    return n;
-  });
+  const [seen, matching] = rowsSeen.map(checkEvidenceValue);
   if (seen > matching) {
     fail(`floor evidence claims ${seen} rows seen of ${matching} matching — more rows were `
       + 'examined than existed, which cannot describe any retrieval.');
   }
+  if (total > seen) {
+    fail(`a floor of ${total} cannot come from ${seen} rows examined — grouping cannot produce `
+      + 'more candidate groups than the rows it grouped.');
+  }
   return Object.freeze([seen, matching]);
 }
 
-export const atLeast = (total, { rowsSeen = null } = {}) =>
-  population({ kind: 'floor', total: checkTotal(total), rowsSeen: checkRowsSeen(rowsSeen) });
+export const atLeast = (total, { rowsSeen = null } = {}) => {
+  const checked = checkTotal(total);
+  return population({ kind: 'floor', total: checked, rowsSeen: checkRowsSeen(rowsSeen, checked) });
+};
 export const unknownPopulation = () => population({ kind: 'unknown' });
 const isPopulation = (p) => POPULATIONS.has(p);
 
@@ -401,10 +429,15 @@ export function renderPacketLines(entries) {
 // list and appending a hand-built one passed, because a non-empty count was read as ownership
 // of everything. Every block in the final text must now match a DISTINCT emitted occurrence.
 //
-// ⚠ Blocks may legitimately differ from what was emitted: clampToBudget rewrites bounded
-// sections after serialization. So a block matches if it equals an emitted text or is a
-// prefix of one — and each emitted text can satisfy at most ONE block, which is what stops a
-// single receipt covering duplicates.
+// ⚠ THIS PARAGRAPH USED TO DESCRIBE THE PREFIX ALLOWANCE — "a block matches if it equals an
+// emitted text or is a prefix of one" — sitting directly above the exact-match code that
+// replaced it. The reviewer flagged it as non-blocking for the right reason: an explanation
+// nobody re-reads becomes the authority the next reviewer cites, and this one contradicted the
+// implementation it introduced.
+//
+// Blocks no longer differ from what was emitted, because the budget clamp now transforms the
+// OCCURRENCE before serialization (clampOccurrences). The emitted text IS the final text, so
+// matching is exact and each emitted block satisfies at most one block in the output.
 export function sealPacketOutput(text, scope) {
   if (typeof text !== 'string') return text;
   const blocks = extractListBlocks(text);

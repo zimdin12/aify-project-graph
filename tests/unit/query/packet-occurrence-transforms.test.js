@@ -192,3 +192,34 @@ describe('round 9 — population coverage and floor evidence', () => {
     expect(after, 'and must not carry the contradiction').not.toMatch(/from 60 of 50/);
   });
 });
+
+// ── round 10: the last floor invariant ───────────────────────────────────────────────────
+//
+// ⛔ The full relation for a floor with evidence is:
+//        shown <= population floor <= rows seen <= matching rows
+// populatedList enforced the FIRST inequality and checkRowsSeen the LAST. Nothing enforced the
+// middle, so atLeast(100, {rowsSeen: [1, 2]}) rendered
+//   "showing 1 of AT LEAST 100 (grouped from 1 of 2 matching rows)"
+// — grouping cannot produce more candidate groups than rows examined. Two correct guards on
+// either side of an unguarded step is its own lesson: checking the ends of a chain is not
+// checking the chain.
+describe('round 10 — the floor must fit inside its own evidence', () => {
+  it('★★★ a floor larger than the rows it was grouped from is refused', () => {
+    expect(() => L.atLeast(100, { rowsSeen: [1, 2] }))
+      .toThrow(/PACKET SEAL/);
+    // Positive control: the ordinary case must still build, and packet.js supplies regex
+    // captures, so numeric strings are the normal input.
+    expect(() => L.atLeast(9, { rowsSeen: ['50', '60'] })).not.toThrow();
+    // Boundary: a floor exactly equal to the rows seen is possible (one group per row).
+    expect(() => L.atLeast(50, { rowsSeen: ['50', '60'] })).not.toThrow();
+  });
+
+  it('★★ evidence values must be integers, not merely Number()-coercible', () => {
+    // Number('') === 0 and Number(null) === 0 and Number(true) === 1, so the previous check
+    // accepted all three as "non-negative integers" while the published wording said integers.
+    for (const bad of [['', 2], [null, 2], [true, 2], ['1.5', 2], [' 1 ', 2]]) {
+      expect(() => L.atLeast(0, { rowsSeen: bad }), `${JSON.stringify(bad)} must not pass`)
+        .toThrow(/PACKET SEAL/);
+    }
+  });
+});
