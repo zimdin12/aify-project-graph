@@ -732,7 +732,46 @@ function pruneSupersededCollections(db, { provider, currentCollectionId }) {
     out.recordsPruned += c;
     out.collectionsPruned += 1;
   }
+  out.bytesReclaimed = reclaimFreedPages(db, out.recordsPruned);
   return out;
+}
+
+// ⛔ THE PRUNE ABOVE ALREADY WORKED, AND THE FILE STILL GREW. sand_castle went from 1.03M
+// records to 7,411 and stayed at 2.87 GB — 98.5% free pages — because DELETE hands pages
+// back to SQLite for REUSE, not to the filesystem. The instruction for the missing half
+// lived in a comment thirty lines below ("Caller is responsible for VACUUM afterward");
+// every caller was checked and none of them did it.
+//
+// ★ A duty assigned to "the caller" is not a safeguard, it is a hope. This is the same
+// shape as every fail-open default closed this month: the absence of anyone reclaiming was
+// read by the system as permission to grow.
+//
+// ⇒ Reclaiming belongs to the code that created the free pages. incremental_vacuum is
+// bounded work proportional to what was actually freed — unlike VACUUM, it does not
+// rewrite the file, so it is safe to run inside a live server call.
+//
+// ⚠ NO-OP ON auto_vacuum=NONE, which is every database created before openDb() began
+// setting INCREMENTAL. Those need one `node scripts/compact-graph.mjs <repo>`; that is
+// reported by graph_health.storage rather than left for someone to notice. Returns null
+// when nothing could be reclaimed so the caller can tell "reclaimed zero" from
+// "reclamation does not apply here" — an absence and a measured zero are different facts.
+export function reclaimFreedPages(db, recordsDeleted = 1) {
+  if (!recordsDeleted) return null;
+  try {
+    // This module is handed BOTH shapes — the wrapDb() facade and a bare better-sqlite3
+    // handle (schema.js branches on `db.prepare` for the same reason). Assuming one of them
+    // would make this a no-op on half the callers while still returning a number.
+    const h = typeof db?.pragma === 'function' ? db : db?.raw;
+    if (typeof h?.pragma !== 'function') return null;
+    if (h.pragma('auto_vacuum', { simple: true }) !== 2) return null;
+    const pageSize = h.pragma('page_size', { simple: true });
+    const before = h.pragma('freelist_count', { simple: true });
+    h.pragma('incremental_vacuum');
+    const after = h.pragma('freelist_count', { simple: true });
+    return Math.max(0, before - after) * pageSize;
+  } catch {
+    return null;   // never fail an import because housekeeping could not run
+  }
 }
 
 // One-shot maintenance: keep only the most recent collection per provider and

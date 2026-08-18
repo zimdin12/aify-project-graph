@@ -63,6 +63,70 @@ const serverBuild = serverBuildInfo;
 // shortcut over an untrustworthy graph is worse than no shortcut. Capped at 3 — a
 // list of ten suggestions is a list nobody reads, and the cost of being ignored is
 // paid by the good suggestions too.
+// ⛔ A GRAPH CAN BE 70x ITS OWN CONTENT AND NOTHING SAID SO.
+//
+// sc-manager reported sand_castle's graph.sqlite at 2.87 GB for 12,478 nodes / 49,229
+// edges and correctly refused to call it a diagnosis. Measured read-only: 689,127 of
+// 699,568 pages were FREE — 2.69 GB of empty space around ~41 MB of real content.
+//
+// Cause: the per-collect auto-prune DELETEs old code_intel collections (it had already
+// taken that graph from 1.03M rows to 7,411), `auto_vacuum` is 0/NONE, and DELETE frees
+// pages for REUSE without returning them to the OS. importer.js said "Caller is
+// responsible for VACUUM afterward". No caller was. A duty assigned to nobody is not a
+// safeguard, and the growth was completely silent — the one property that made a 2.87 GB
+// file survive for months.
+//
+// ⇒ So the ratio is REPORTED ALWAYS, not only when it trips. A reader must be able to see
+// the basis for "your storage is fine" as readily as the warning; a check that only speaks
+// up when it is unhappy cannot be distinguished from one that is broken.
+//
+// ⚠ The threshold below decides only whether a REMEDY is offered, never whether the
+// numbers appear. 25% is not measured from a population of repos — it is the point at
+// which VACUUM buys back something worth the minutes it costs, and the 50 MB floor stops
+// small graphs from being nagged about a few reclaimable megabytes. Stated because an
+// unexplained constant gets read as a finding.
+// Exported so the trip branch can be exercised without manufacturing 50 MB of waste in a
+// test, and so the shipped values can be pinned by name rather than re-typed as literals in
+// an assertion — which is how a threshold and its test drift apart while both look right.
+export const STORAGE_RECLAIM_MIN_BYTES = 52_428_800;   // 50 MB
+export const STORAGE_RECLAIM_MIN_RATIO = 0.25;
+
+export function inspectStorage(db, dbPath, {
+  minFreeBytes = STORAGE_RECLAIM_MIN_BYTES,
+  minFreeRatio = STORAGE_RECLAIM_MIN_RATIO,
+} = {}) {
+  // Both the wrapDb() facade and a bare better-sqlite3 handle reach this codebase's
+  // storage helpers; accept either rather than silently measuring nothing.
+  const h = typeof db?.pragma === 'function' ? db : db?.raw;
+  if (typeof h?.pragma !== 'function') return { measured: false, reason: 'no_db_handle' };
+  const pageSize = h.pragma('page_size', { simple: true });
+  const pageCount = h.pragma('page_count', { simple: true });
+  const freeCount = h.pragma('freelist_count', { simple: true });
+  if (!Number.isInteger(pageSize) || !Number.isInteger(pageCount) || !Number.isInteger(freeCount)) {
+    // Fail closed and say so, rather than reporting a ratio derived from a missing pragma.
+    return { measured: false, reason: 'pragma_unavailable' };
+  }
+  const fileBytes = pageSize * pageCount;
+  const freeBytes = pageSize * freeCount;
+  const freeRatio = pageCount > 0 ? freeCount / pageCount : 0;
+  const mb = (n) => Math.round(n / 1048576);
+  const reclaimable = freeBytes >= minFreeBytes && freeRatio >= minFreeRatio;
+  return {
+    measured: true,
+    fileMb: mb(fileBytes),
+    contentMb: mb(fileBytes - freeBytes),
+    freeMb: mb(freeBytes),
+    freePercent: Math.round(freeRatio * 100),
+    autoVacuum: h.pragma('auto_vacuum', { simple: true }),
+    reclaimable,
+    ...(reclaimable ? {
+      note: `${mb(freeBytes)} MB of this ${mb(fileBytes)} MB file is free pages, not data. `
+        + 'DELETE frees pages for reuse but does not shrink the file; nothing reclaims them automatically.',
+      remedy: `node scripts/compact-graph.mjs ${dbPath.replace(/[\\/]\.aify-graph[\\/]graph\.sqlite$/, '')}`,
+    } : {}),
+  };
+}
+
 export function buildNextActions(s) {
   const out = [];
 
@@ -255,6 +319,12 @@ export async function graphHealth({ repoRoot }) {
       }
     } finally { db.close(); }
   } catch { /* leave codeIntel as not-available */ }
+
+  let storage = { measured: false, reason: 'open_failed' };
+  try {
+    const db = openExistingDb(dbPath);
+    try { storage = inspectStorage(db, dbPath); } finally { db.close(); }
+  } catch { /* keep the stated reason — never report a size we could not read */ }
 
   const trust = computeTrustLevel(trustUnresolvedEdges);
 
@@ -1069,6 +1139,9 @@ export async function graphHealth({ repoRoot }) {
     trustUnresolvedEdges,
     ...(stalenessImpact ? { stalenessImpact } : {}),
     ...(trustBasis ? { trustBasis } : {}),
+    // Always present, trip or no trip — see inspectStorage() for why the quiet case is
+    // reported too.
+    storage,
     nodes,
     edges,
     // BOUNDED. These lists were emitted in full, and a 2804-file directory turned
