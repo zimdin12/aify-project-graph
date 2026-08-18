@@ -385,15 +385,18 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
     // Coarse cause breakdown so agents know WHICH verbs are most affected:
     // CALLS-heavy means cross-file call graphs are unreliable; IMPORTS-heavy
     // means third-party/external deps dominate. No speculative cause labels.
-    let suffix = '';
-    if (unresolvedBy?.byRelation) {
-      const top = Object.entries(unresolvedBy.byRelation)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 2)
-        .map(([rel, n]) => `${rel} ${n}`)
-        .join(', ');
-      if (top) suffix = ` (mostly ${top})`;
-    }
+    // ⛔ "MOSTLY" WAS FALSE, AND THE TWO NUMBERS BESIDE IT SAID SO. This printed
+    // "2150 unresolved edges (mostly CALLS 199, REFERENCES 196)" — 395 of 2150, which is 18%.
+    // ef-manager measured it worse in the field on echoes: 473 of 4392, 11%, with 3919 edges
+    // unnamed. Their words: at 11% it is not a rounding problem, it is backwards.
+    //
+    // ★ The quantifier was hardcoded while the numbers were computed, so it could never be
+    // right except by accident — the same defect as every capped list that called itself a
+    // total, in the artifact agents read FIRST to orient.
+    //
+    // ⇒ Say the share, and name the remainder rather than leaving it silent. "top 2 of 9" plus
+    // an explicit "others" is checkable by the reader against the numbers printed next to it.
+    const suffix = describeUnresolvedBreakdown(unresolvedBy?.byRelation);
     issues.push(`${snapshot.unresolvedEdges} unresolved edges${suffix}`);
     tip = 'prefer direct file reads for cross-file impact questions';
   }
@@ -598,4 +601,31 @@ export function generateBrief({ repoRoot }) {
   } finally {
     db.close();
   }
+}
+
+// ⛔ EXTRACTED SO IT CAN BE RUN, NOT READ. This computation lived inline in the brief builder,
+// which is why nothing ever executed it and why "(mostly …)" could print a hardcoded quantifier
+// over computed numbers for as long as it did. The repo has done this conversion before, for
+// the coverage denominator, for the same reason: a statistic whose failure mode IS a wrong
+// number must be tested by running it.
+//
+// ⛔ THE DEFECT: "2150 unresolved edges (mostly CALLS 199, REFERENCES 196)" — 395 of 2150 is
+// 18%. ef-manager measured 473 of 4392 on echoes: 11%, with 3919 edges unnamed. At 11%,
+// "mostly" is not a rounding problem, it is backwards.
+//
+// ⇒ State the share, and name the remainder. Both are checkable by a reader against the
+// figures printed beside them, which "mostly" never was.
+export function describeUnresolvedBreakdown(byRelation) {
+  if (!byRelation) return '';
+  const all = Object.entries(byRelation).sort((a, b) => b[1] - a[1]);
+  if (all.length === 0) return '';
+  const shown = all.slice(0, 2);
+  const shownSum = shown.reduce((sum, [, n]) => sum + n, 0);
+  const total = all.reduce((sum, [, n]) => sum + n, 0);
+  if (total <= 0) return '';
+  const pct = Math.round((shownSum / total) * 100);
+  const rest = total - shownSum;
+  return ` (top ${shown.length} of ${all.length} relations: `
+    + `${shown.map(([rel, n]) => `${rel} ${n}`).join(', ')} — ${pct}% of ${total}`
+    + `${rest > 0 ? `; ${rest} across ${all.length - shown.length} other relation(s)` : ''})`;
 }

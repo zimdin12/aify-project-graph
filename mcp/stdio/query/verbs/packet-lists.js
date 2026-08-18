@@ -293,18 +293,51 @@ function populatedList(kind, rows, { symbol, population, languages = [], notes =
       + 'A bare integer cannot say whether it is a total or a floor, which is how a floor came '
       + 'to be rendered as exact.');
   }
-  const shown = rows.length;
-  requirePopulationCoversShown(kind, shown, population);
+  // ⛔ FIELD REPORT: A DUPLICATE ROW IS NOW A FALSE POPULATION. ef-manager found a file
+  // reachable by two graph nodes listed twice, under a header the change had just taught to
+  // say "showing 2 of 2". Their framing is the one to keep: the change did not create the
+  // duplicate, it promoted it from ugly to FALSE — because the count is derived from row
+  // length. Stating a population raises the cost of every repeat in every list, so the
+  // deduplication belongs here, where the count is taken, not at each call site that might
+  // forget it.
+  //
+  // ⚠ Identity is the RENDERED ROW. Two distinct nodes that a reader cannot tell apart are one
+  // location to that reader, and the population is a statement to the reader.
+  const deduped = [...new Set(rows.map((r) => String(r)))];
+
+  // ⛔ AND AN EMPTY LIST IS A STATEMENT, NOT A HEADER. "DEFINED IN — showing 0 of 0:" is a
+  // header that promises rows and delivers empty space, which reads as truncation — the exact
+  // impression this arc exists to prevent. The bounded path already rendered "KIND: none"; the
+  // populated path grew a header-shaped hole instead when I gave it a population.
+  if (deduped.length === 0) {
+    return population.kind === 'unknown'
+      ? `${kind}: none retrieved; total population UNKNOWN (not reported by graph_consequences)`
+      : `${kind}: none`;
+  }
+
+  // ⚠ AND THE POPULATION HAS TO FOLLOW THE DEDUP, OR THE FIX INVENTS A DIFFERENT LIE. With
+  // three rows of which two are identical, a caller-supplied exactly(3) rendered
+  // "showing 2 of 3 (1 not listed here)" — but nothing was omitted; one was a repeat. That is
+  // a truncation claim manufactured by the deduplication.
+  //
+  // ⇒ Adjust ONLY when the total was evidently derived from the row count (total === rows
+  // before dedup). A total that already exceeded the rows is a genuine sample and is left
+  // exactly alone, because there the omitted items are real.
+  const shown = deduped.length;
+  const effective = (population.kind === 'exact' && population.total === rows.length && shown < rows.length)
+    ? exactly(shown)
+    : population;
+  requirePopulationCoversShown(kind, shown, effective);
   // `notes` are caveats ABOUT the list that are not population claims — e.g. "order is arrival,
   // not relevance". They ride inside the occurrence rather than beside it, because adjacency is
   // exactly what let a header say nothing while a nearby line carried the population.
-  return mint(kind, populationHeader(kind, shown, population), rows, [
+  return mint(kind, populationHeader(kind, shown, effective), deduped, [
     ...renderCandidateDisclosures({
       shown,
-      total: population.kind === 'unknown' ? null : population.total,
+      total: effective.kind === 'unknown' ? null : effective.total,
       symbol,
       languages,
-      exact: population.kind === 'exact',
+      exact: effective.kind === 'exact',
     }),
     ...notes,
   ]);

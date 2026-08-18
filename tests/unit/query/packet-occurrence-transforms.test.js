@@ -223,3 +223,46 @@ describe('round 10 — the floor must fit inside its own evidence', () => {
     }
   });
 });
+
+// ── field report (ef-manager, 2026-08-18, build f556625 CONFIRMED CURRENT) ────────────────
+//
+// The first field test of any of this work. Two findings are regressions MY change introduced,
+// which is the reason field testing exists and unit tests did not catch either.
+//
+// ⛔ A — "your change did not create the dup, it promoted it from ugly to FALSE". A file
+// reachable by two nodes rendered the same row twice. Before the population was stated that was
+// cosmetic; now the count is DERIVED FROM ROW LENGTH, so a duplicate is laundered into "there
+// are 2 definitions". Stating a population raises the cost of every duplicate in every list.
+//
+// ⛔ The zero case — "DEFINED IN — showing 0 of 0:" is a header that promises a list and
+// delivers empty space, which reads as truncation: the one thing this whole arc was about not
+// doing. The old "DEFINED IN: none" at least said none in words.
+describe('field report — duplicate rows and the empty list', () => {
+  it('★★★ identical rows are one location, and the population says so', () => {
+    const t = L.renderOccurrenceForTest(L.symbolList('ALSO IN', ['- a/x.h', '- a/x.h', '- b/y.h'], {
+      symbol: 'X', population: L.exactly(3),
+    }));
+    expect(t, 'the duplicate must not be listed twice').toBe(
+      ['ALSO IN — showing 2 of 2:', '- a/x.h', '- b/y.h'].join('\n'),
+    );
+  });
+
+  it('★★★ an empty list is a statement, not a header over empty space', () => {
+    // A header with no rows reads as truncation to a field reader.
+    const empty = L.symbolList('DEFINED IN', [], { symbol: 'X', population: L.exactly(0) });
+    expect(typeof empty, 'the zero case must not be a list occurrence at all').toBe('string');
+    expect(empty).toBe('DEFINED IN: none');
+    // And an empty list whose population is UNKNOWN must not imply it found everything.
+    const unknown = L.symbolList('DEFINED IN', [], { symbol: 'X', population: L.unknownPopulation() });
+    expect(unknown, 'absence with no attested population must say the population is unknown')
+      .toMatch(/none retrieved.*UNKNOWN/);
+  });
+
+  it('★★ deduping does not disturb a genuinely distinct list', () => {
+    // The negative half: identical-looking is not the same as identical.
+    const t = L.renderOccurrenceForTest(L.symbolList('DEFINED IN', ['- a.h:1 — File', '- a.h:2 — File'], {
+      symbol: 'X', population: L.exactly(2),
+    }));
+    expect(t).toMatch(/showing 2 of 2/);
+  });
+});
