@@ -58,8 +58,28 @@ export function editDistanceWithin(a, b, max) {
   return prev[b.length];
 }
 
+// ⛔ THE LEAF OF A FILE PATH WAS ITS EXTENSION, AND THE SUGGESTION SAID "same leaf name".
+//
+// Splitting on "::", "." and "->" is right for qualified SYMBOL names — the leaf of `Foo::bar`
+// is `bar`, which is what this was written for. Applied to a path it takes the last dot
+// segment, so the leaf of `engine/rendering/GpuMaterialPalette.h` is `h` and EVERY .h file in
+// the repo "shares a leaf name" with it. ef-manager hit exactly that in the field: three
+// unrelated headers suggested, each labelled with a basis that was not the basis.
+//
+// ★ Suggesting neighbours is fine; labelling the reason wrongly is not, because "same leaf
+// name" claims the tool found your identifier somewhere else, which is strong enough to act on.
+// Same defect as every other printed basis that did not match its computation this month — it
+// happened to be printing a reason rather than a number.
+//
+// ⇒ A path's leaf is its BASENAME. A bare filename is its own leaf. Only qualified-name
+// separators split, and a lone extension never becomes the thing being matched on.
 function leafOf(name) {
-  return String(name || '').split(/::|\.|->/).pop();
+  const s = String(name || '');
+  // Path-shaped: the leaf is the basename, extension included.
+  if (/[\\/]/.test(s)) return s.split(/[\\/]/).pop();
+  // Filename-shaped (single dot, short extension): the whole name is the leaf.
+  if (/^[^.]+\.[a-z0-9]{1,4}$/i.test(s)) return s;
+  return s.split(/::|\.|->/).pop();
 }
 
 export function rankSuggestions(query, rows) {

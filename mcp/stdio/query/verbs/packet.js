@@ -734,13 +734,38 @@ export function resolvePopulation(total, sampleLength) {
 // object (has matched.symbols / features_touching), or a human-readable string
 // (AMBIGUOUS MATCH / NO MATCH). We extract file/candidate locations from either
 // shape and steer the agent to the verbs that DO give symbol context.
-function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
+// Cheap existence check: is there ANY code-intel collection to query? Recommending a
+// compiler-backed verb on a repo that has never collected sends the reader to an empty answer.
+function hasCodeIntelCollection(repoRoot) {
+  try {
+    const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      return Boolean(db.get('SELECT 1 AS x FROM code_intel_collections LIMIT 1')?.x);
+    } finally { db.close(); }
+  } catch { return false; }
+}
+
+function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAvailable = false }) {
   const lines = [];
+  // ⛔ THE LAST LINE USED TO BE UNCONDITIONAL, AND IT WAS WRONG TWICE OVER ON A JS REPO.
+  // ef-manager, in the field: on a file-path target it emitted
+  //   NEXT: code_intel_hierarchy(symbol="mcp/stdio/query/verbs/packet.js", kind="callers")
+  //         — clangd call/override tree
+  // A C++ verb recommended for JavaScript, AND a file path in a parameter named `symbol`.
+  // It was also offered when graph_health had just reported no code-intel collection exists, so
+  // the verb had nothing to answer with.
+  //
+  // ★ Advice that is not conditioned on whether it applies is the same defect as a disclosure
+  // that does not state its basis: it costs the reader a call to find out it was never for them.
+  const looksLikePath = /[\\/]/.test(symbol) || /\.[a-z0-9]{1,4}$/i.test(symbol);
   const readNext = [
     `NEXT: graph_pull(node="${symbol}") — cross-layer context for this symbol`,
     `NEXT: graph_consequences(target="${symbol}") — "what breaks if I touch it"`,
     `NEXT: graph_explore(symbols=["${symbol}"]) — verbatim source`,
-    `NEXT: code_intel_hierarchy(symbol="${symbol}", kind="callers") — clangd call/override tree`,
+    // Offered only when the target is symbol-shaped AND a collection exists to query.
+    ...(looksLikePath || !codeIntelAvailable
+      ? []
+      : [`NEXT: code_intel_hierarchy(symbol="${symbol}", kind="callers") — compiler-backed call/override tree`]),
   ];
 
   if (consequences && typeof consequences === 'object') {
@@ -1102,6 +1127,10 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       symbol: parsed.value,
       consequences: symbolConsequences,
       snapshot,
+      // Threaded in rather than looked up inside: the packet builder is pure over its inputs,
+      // and a recommendation gated on a fact the builder cannot see is how the ungated line
+      // survived in the first place.
+      codeIntelAvailable: hasCodeIntelCollection(repoRoot),
     });
     if (symbolPacket) return symbolPacket;
   }
@@ -1136,18 +1165,37 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
     // declared-anchor fallback in assessOverlayBuild. Bare *symbol* targets
     // that genuinely resolve in the graph never reach here (handled above), so
     // this only fires for the overlay-routed shapes.
-    const overlayRouted = parsed.kind === 'feature' || parsed.kind === 'task' || !parsed.kind;
-    if (overlayRouted) {
-      const build = assessOverlayBuild(repoRoot, {
-        features: functionality?.features ?? [],
-        tasks: tasksArtifact?.tasks ?? [],
-      });
-      if (!build.built) {
-        return [overlayNotBuiltHint(build.reason), snapshot].join('\n');
-      }
+    // ⛔ `|| !parsed.kind` MADE THE ERROR BELOW UNREACHABLE, AND SENT EVERY TYPO TO BUILD AN
+    // OVERLAY. A bare unresolved token has no kind, so it was classed as overlay-routed and got
+    // "OVERLAY NOT BUILT" — byte-identical for `renderPacket` (a misspelling of a symbol that
+    // exists) and `ZZZ_definitely_not_a_symbol_12345`. The remedy offered was real; it was just
+    // not the reader's problem. Found in the first field test of this code (ef-manager).
+    //
+    // ★ The comment that used to sit here said "bare symbol targets that genuinely resolve
+    // never reach here". True — and the ones that do NOT resolve reach here, which is the
+    // entire population the error below was written for.
+    //
+    // ⚠ THE FIX IS NOT "SAY NOT FOUND INSTEAD". A bare token on an overlay-less repo is
+    // genuinely ambiguous: a misspelled symbol, or a feature id whose overlay was never built.
+    // Nothing here can distinguish them, so asserting either is the same defect in different
+    // words. An EXPLICIT feature:/task: target is not ambiguous and keeps the overlay hint.
+    const explicitlyOverlayRouted = parsed.kind === 'feature' || parsed.kind === 'task';
+    const build = assessOverlayBuild(repoRoot, {
+      features: functionality?.features ?? [],
+      tasks: tasksArtifact?.tasks ?? [],
+    });
+    if (explicitlyOverlayRouted && !build.built) {
+      return [overlayNotBuiltHint(build.reason), snapshot].join('\n');
     }
     return [
       `ERROR: target "${target}" not found as feature, task, or symbol mapping to a feature`,
+      ...(build.built
+        ? []
+        // Named as a possibility, not asserted as the cause — the reader knows which of the
+        // two they typed, and this tool does not.
+        : [`HINT: no feature overlay exists here, so if "${target}" is a FEATURE id it cannot`
+          + ' resolve — run /graph-build-functionality. If it was meant to be a symbol, it is'
+          + ' not in the graph under that name.']),
       `HINT: list features in .aify-graph/functionality.json or tasks in .aify-graph/tasks.json`,
       `HINT: try the explicit form 'feature:<id>' or 'task:<id>'`,
       `HINT: bare function/file targets need to map to a known feature via graph_consequences first`,

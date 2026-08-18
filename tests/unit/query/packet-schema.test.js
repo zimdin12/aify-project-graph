@@ -197,7 +197,17 @@ describe('graph_packet — schema invariants', () => {
     expect(out).not.toMatch(/^ERROR:/m);
     // Steers the agent to the symbol-context verbs.
     expect(out).toMatch(/graph_pull\(node="WorldBufferDomain"\)/);
-    expect(out).toMatch(/code_intel_hierarchy\(symbol="WorldBufferDomain"/);
+    // ⚠ THIS USED TO ASSERT code_intel_hierarchy UNCONDITIONALLY, which pinned a defect rather
+    // than a behaviour. ef-manager found in the field that the line was emitted for JavaScript
+    // symbols (it is a compiler-backed verb), for FILE PATHS in a parameter named `symbol`, and
+    // on repos where graph_health had just said no code-intel collection exists — so the verb
+    // had nothing to answer with. This fixture has no collection, so the honest output omits it.
+    expect(out, 'no code-intel collection here, so the compiler-backed verb must not be offered')
+      .not.toMatch(/code_intel_hierarchy/);
+    // The pointer packet must still route to symbol-context verbs — that is what it is FOR, and
+    // without this the assertion above is satisfied by a packet that offers nothing at all.
+    expect(out).toMatch(/graph_consequences\(target="WorldBufferDomain"/);
+    expect(out).toMatch(/graph_explore\(symbols=\["WorldBufferDomain"\]/);
   });
 
   it('bare symbol genuinely unknown → hard error (honest typo path)', async () => {
