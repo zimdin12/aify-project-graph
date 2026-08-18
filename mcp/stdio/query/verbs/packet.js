@@ -24,7 +24,8 @@ import { resolveSymbolWithTotal, languageCensusExact } from './symbol_lookup.js'
 // The governed-list machinery lives in its own module so routes in THIS file cannot reach
 // the admission primitive. See packet-lists.js for why that had to stop being a choice.
 import {
-  clampList, boundedList, boundedListAll, candidateList, renderCandidateDisclosures,
+  clampList, boundedList, boundedListAll, candidateList, symbolList,
+  exactly, atLeast, unknownPopulation, renderCandidateDisclosures,
   withSealScope, sealPacketOutput, renderPacketLines,
 } from './packet-lists.js';
 
@@ -32,7 +33,8 @@ import {
 // importers (tests, and the seal's own fixtures) still name them here.
 export {
   renderCandidateDisclosures, extractListBlocks, sealPacketOutput, withSealScope, SEAL_CAVEAT,
-  candidateList, boundedList, boundedListAll, renderPacketLines, _disclosureRenderCount,
+  candidateList, symbolList, boundedList, boundedListAll, renderPacketLines,
+  exactly, atLeast, unknownPopulation, _disclosureRenderCount,
 } from './packet-lists.js';
 
 // Definitions grouped by language, over ALL nodes rather than the displayed slice.
@@ -771,7 +773,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     const locItems = symHits.map((s) => ({
       file: s.file, why: `${s.type || 'symbol'}${s.line ? ` @ line ${s.line}` : ''}`,
     }));
-    lines.push(boundedList('DEFINED IN', clampList(locItems, SHOWN), (x) => `${x.file} — ${x.why}`));
+    const definedRows = clampList(locItems, SHOWN);
     // ★★ REPORT THE TRUE TOTAL, NOT THE CAP.
     //
     // `symHits` is `matched.symbols`, which upstream is `pickPrimarySymbol(...)` sliced to
@@ -784,23 +786,30 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
     // test here asserted the template's spelling and could never have seen the number in
     // it was wrong.
     const pop = resolvePopulation(consequences.matched?.symbols_total, symHits.length);
-    if (!pop.attested) {
-      // FAIL CLOSED. We do not know how many exist, so we say that rather than implying the
-      // sample is the population by silence. Disclosed at ANY sample size — with no attested
-      // total we cannot tell 1 definition from 100, and "1 match" would be a manufactured claim.
-      lines.push(
-        `  ⚠ UNRANKED — showing ${symHits.length}; total population UNKNOWN (not reported by `
-        + `graph_consequences). graph_whereis(symbol="${symbol}") lists them and reports its own cap.`,
-      );
-    } else if (pop.total > 1) {
-      lines.push(
-        pop.total > symHits.length
-          ? `  ⚠ UNRANKED, showing ${symHits.length} of ${pop.total} — order is arrival, not relevance. `
-            + `graph_whereis(symbol="${symbol}") lists them; NEITHER verb ranks — do not treat the first entry as the definition.`
-          : `  ⚠ UNRANKED (${pop.total} matches) — order is arrival, not relevance. `
-            + `graph_whereis(symbol="${symbol}") lists them and reports its own cap.`,
-      );
-    }
+    // ⛔ DEFINED IN USED TO BE A "BOUNDED" LIST — a kind that by definition states no
+    // population — while the population was disclosed on SEPARATE LINES pushed after it.
+    // graph-senior-dev, reading the output with no knowledge of the design, could not tell
+    // whether one row meant one definition, a sample, or a floor. I had flagged the same seam
+    // from the design side. Two independent routes to the same conclusion.
+    //
+    // ⇒ It is a symbol list now: the population is IN THE HEADER, derived from `pop`, and the
+    // ranking caveat rides inside the same occurrence instead of beside it. Adjacency was the
+    // defect — a reader does not owe the packet the assumption that a nearby line refers to
+    // the list above it.
+    const rankingNote = pop.attested && pop.total > 1
+      ? [`  ⚠ UNRANKED — order is arrival, not relevance. graph_whereis(symbol="${symbol}") `
+        + 'lists them; NEITHER verb ranks — do not treat the first entry as the definition.']
+      : [];
+    lines.push(symbolList(
+      'DEFINED IN',
+      definedRows.items.map((x) => `- ${x.file} — ${x.why}`),
+      {
+        symbol,
+        population: pop.attested ? exactly(pop.total) : unknownPopulation(),
+        languages: (consequences.matched?.symbols_by_language ?? []).map((b) => b.lang),
+        notes: rankingNote,
+      },
+    ));
     // ⛔ THE FOURTH ROUTE, AND MY "ONE RENDERER FOR EVERY BRANCH" CLAIM WAS FALSE.
     //
     // This object-form branch consumed `matched.symbols` and the total but never
@@ -819,7 +828,14 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       exact: consequences.matched?.symbols_census_exact !== false,
     }));
     if (fileHits.length) {
-      lines.push(boundedList('ALSO IN', clampList(fileHits.map((f) => ({ file: f })), 6), (x) => x.file));
+      // ALSO IN was bounded too, for the same reason and with the same consequence. Its
+      // population IS known — fileHits.length — and it is shown capped at 6, so the header
+      // now says which of those two numbers the reader is looking at.
+      const shownHits = fileHits.slice(0, 6);
+      lines.push(symbolList('ALSO IN', shownHits.map((f) => `- ${f}`), {
+        symbol,
+        population: exactly(fileHits.length),
+      }));
     }
     lines.push(...readNext);
     return renderPacketLines(lines);
@@ -911,12 +927,18 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot }) {
       // emitCandidateList derives header, rows and disclosures from that one set of inputs —
       // so a header cannot disagree with the disclosures beneath it, and "minting" a
       // credential is the same act as computing the disclosure correctly.
+      // ⚠ The population is now decided HERE, once, as a tagged value — not passed as an
+      // integer beside a boolean the constructor defaults to `exact`. That default is how a
+      // floor could render as a total if a caller forgot the flag.
+      const population = !(Number.isInteger(statedTotal) && statedTotal >= candidateLines.length)
+        ? unknownPopulation()
+        : populationIsFloor
+          ? atLeast(statedTotal, { rowsSeen: rowsSeen ? [rowsSeen[1], rowsSeen[2]] : null })
+          : exactly(statedTotal);
       lines.push(candidateList({
         rows: candidateLines,
         symbol,
-        statedTotal,
-        populationIsFloor,
-        rowsSeen,
+        population,
         languages: langsFromText.length > 1 ? langsFromText : (crossLanguage ? ['cpp', 'other'] : []),
       }));
     }

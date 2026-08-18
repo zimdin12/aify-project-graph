@@ -98,7 +98,23 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
     const text = asText(await graphPacket({ repoRoot, target: 'GpuMaterial' }));
 
     expect(text, 'ambiguity without truncation must still warn').toMatch(/UNRANKED/);
-    expect(text, 'and must not claim a truncation that did not happen').not.toMatch(/showing \d+ of \d+/i);
+
+    // ⚠ THIS ASSERTION WAS `not.toMatch(/showing \d+ of \d+/i)` AND IT WAS A PROXY, NOT THE
+    // PROPERTY. The intent — "do not claim a truncation that did not happen" — was tested by
+    // banning a PHRASE. Since DEFINED IN began stating its population (2026-08-18, after a
+    // first-time reader could not tell whether one row meant one definition or a sample), the
+    // honest equal case renders "showing 2 of 2" and the phrase ban fires on correct output.
+    //
+    // ⇒ Assert the NUMBERS instead. "showing N of M" is a truncation claim only when M > N,
+    // and that is checkable. This is strictly stronger than the phrase ban: a genuinely wrong
+    // count now fails, where before any count at all failed and a wrong one inside a differently
+    // worded sentence passed.
+    const shown = [...text.matchAll(/showing (\d+) of (?:AT LEAST )?(\d+)/gi)];
+    expect(shown.length, 'the population should be stated at all').toBeGreaterThan(0);
+    for (const [full, n, m] of shown) {
+      expect(Number(m), `"${full}" claims omitted items when nothing was omitted`).toBe(Number(n));
+    }
+    expect(text, 'and nothing may say items were left out').not.toMatch(/not listed here|more — narrow target|AT LEAST/);
   }, 20_000);
 
   // ★★ ADDED 2026-08-12 after ef-manager tested the fix on real echoes and found it did

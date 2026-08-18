@@ -54,7 +54,8 @@ describe('governed list emission', () => {
       .toThrow(/not a bounded list kind/);
     expect(() => L.boundedListAll('MATCHES', ['x'])).toThrow(/not a bounded list kind/);
     // A legitimate bounded kind still works — the negative half.
-    expect(L.boundedListAll('READ FIRST', ['a.cpp']).toText()).toMatch(/^READ FIRST:\n- a\.cpp$/);
+    expect(L.renderOccurrenceForTest(L.boundedListAll('READ FIRST', ['a.cpp'])))
+      .toMatch(/^READ FIRST:\n- a\.cpp$/);
   });
 
   it('★★★ dev v5 #2: two lists sharing a prefix are NOT falsely accused', async () => {
@@ -62,8 +63,8 @@ describe('governed list emission', () => {
     // sharing a prefix a valid output order made the seal reject a genuinely owned block.
     // Object identity has no matching step to be greedy about — the machinery is gone.
     await expectAccepted(async () => {
-      const A = L.candidateList({ rows: ['- same.cpp', '- A.cpp'], symbol: 'X', statedTotal: 2 });
-      const B = L.candidateList({ rows: ['- same.cpp', '- B.cpp'], symbol: 'X', statedTotal: 2 });
+      const A = L.candidateList({ rows: ['- same.cpp', '- A.cpp'], symbol: 'X', population: L.exactly(2) });
+      const B = L.candidateList({ rows: ['- same.cpp', '- B.cpp'], symbol: 'X', population: L.exactly(2) });
       return L.renderPacketLines([B, A]);
     }, 'valid provenance must never be refused');
   });
@@ -106,7 +107,7 @@ describe('governed list emission', () => {
         return t;
       }),
     ]);
-    expect(bad.scope.serialized, 'the hand-built packet must have serialized nothing').toBe(0);
+    expect(bad.scope.emitted.length, 'the hand-built packet must have serialized nothing').toBe(0);
     if (strict) expect(() => L.sealPacketOutput(bad.out, bad.scope)).toThrow(/PACKET SEAL/);
     else expect(L.sealPacketOutput(bad.out, bad.scope)).toContain(L.SEAL_CAVEAT);
     // ⚠ The half that caught a bug of my own: nested scopes once collected the count inward,
@@ -127,18 +128,18 @@ describe('governed list emission', () => {
       }
       return '';
     });
-    expect(scope.serialized, 'nothing legitimate was serialized').toBe(0);
+    expect(scope.emitted.length, 'nothing legitimate was serialized').toBe(0);
   });
 
   it('★★★ a candidate list CANNOT exist without a population statement', () => {
     // v4's emitter took an omittable `disclosures` argument and dev simply left it off.
     // candidateList has no such argument: header AND disclosures derive from the population
     // facts, so even the unattested case says that it is unattested.
-    expect(L.candidateList({ rows: ['- h.cpp'], symbol: 'X', statedTotal: undefined }).toText())
+    expect(L.renderOccurrenceForTest(L.candidateList({ rows: ['- h.cpp'], symbol: 'X', population: L.unknownPopulation() })))
       .toMatch(/total population UNKNOWN/);
-    const floor = L.candidateList({
-      rows: ['- a.cpp'], symbol: 'X', statedTotal: 50, populationIsFloor: true, rowsSeen: [null, '50', '60'],
-    }).toText();
+    const floor = L.renderOccurrenceForTest(L.candidateList({
+      rows: ['- a.cpp'], symbol: 'X', population: L.atLeast(50, { rowsSeen: ['50', '60'] }),
+    }));
     expect(floor).toMatch(/AT LEAST 50/);
     expect(floor).toMatch(/population is a FLOOR/);
   });
@@ -147,7 +148,7 @@ describe('governed list emission', () => {
     // v5 held admissions in a Set, so one receipt authorised unlimited copies. Objects have
     // no such collapse: each must be constructed and each is consumed once.
     await expectAccepted(async () => {
-      const mk = () => L.candidateList({ rows: ['- same.cpp'], symbol: 'X', statedTotal: 1 });
+      const mk = () => L.candidateList({ rows: ['- same.cpp'], symbol: 'X', population: L.exactly(1) });
       return L.renderPacketLines([mk(), mk()]);
     }, 'two genuinely built identical lists are both owned');
   });
@@ -211,7 +212,7 @@ describe('governed list emission', () => {
     // Nothing prevented it except a hardcoded array happening not to list a candidate head.
     // It is now filtered against BOUNDED_KINDS, and this pins both halves.
     const { out } = await L.withSealScope(async () => L.renderPacketLines([
-      L.candidateList({ rows: ['- src/a.cpp', '- src/b.cpp', '- src/c.cpp'], symbol: 'Foo', statedTotal: 9 }),
+      L.candidateList({ rows: ['- src/a.cpp', '- src/b.cpp', '- src/c.cpp'], symbol: 'Foo', population: L.exactly(9) }),
       L.boundedListAll('READ FIRST', ['dir/x.cpp', 'dir/y.cpp', 'dir/z.cpp', 'other/q.cpp']),
     ]));
     const clamped = clampToBudget(out, 20, null);
@@ -230,7 +231,7 @@ describe('governed list emission', () => {
   });
 
   it('★ non-string output passes through untouched', () => {
-    expect(L.sealPacketOutput(null, { serialized: 0 })).toBeNull();
-    expect(L.sealPacketOutput({ a: 1 }, { serialized: 0 })).toEqual({ a: 1 });
+    expect(L.sealPacketOutput(null, { emitted: [] })).toBeNull();
+    expect(L.sealPacketOutput({ a: 1 }, { emitted: [] })).toEqual({ a: 1 });
   });
 });
