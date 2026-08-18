@@ -158,14 +158,17 @@ When ranking impact or path output, treat `INFERRED` and especially `AMBIGUOUS` 
 - checking real code text, conditions, signatures, comments
 - any situation where trust is weak and the graph may be incomplete
 - **per-line granularity questions** — `graph_callers` is function-granular; if you need "which LINE called X," Grep wins by schema (measured on a C++ engine repo: graph collapses many in-function sites to one edge)
-- **symbols appearing in >10 files** — `graph_whereis` tends to lose to Grep here.
-  ⚠ **RE-MEASURE THIS ONE.** The stated reason used to be "the candidate set is too wide for
-  graph's exact-match advantage to kick in". Until 2026-08-12 `graph_whereis` **capped at
-  `limit=5` and said nothing about it**, so any bench at ">10 files" was comparing Grep against a
-  verb silently returning five — the observed loss may be the cap, not a property of exact match.
-  It now reports `SHOWING 5 OF 60 — re-run with limit=60`, and callers pass `limit=N` derived
-  from the real population. **The guidance may still hold; its stated cause no longer does, and
-  it has not been re-benched since the fix.**
+- **every place a symbol is *mentioned*** — call sites, comments, strings, docs. `graph_whereis`
+  returns **definitions** (exact label, declaration types only), so it answers a different
+  question **at any file count**. Schema difference, not a threshold.
+  ⛔ A **">10 files → Grep wins"** rule used to sit on this line. **Retired 2026-08-18 — deleted,
+  not softened.** Its stated cause was backwards (exact match is *most* selective on
+  high-occurrence symbols) and it thresholded on occurrences, which is not the quantity the verb
+  uses. Measured here: of 98 symbols occurring in >10 files, **88 are defined in ≤3 files**.
+  Full record + what it does *not* establish: `docs/whereis-threshold-retirement.md`.
+  ★ The case it was probably really about — symbols with *many definitions* — is now **disclosed
+  instead of silent**: if you see `⚠ SHOWING 5 OF 12`, re-run with `limit=12` before concluding
+  anything about completeness.
 
 **"Skip graph" ≠ "do less."** Audit-shaped tasks ("find every X") need **N targeted Grep + Read passes**, not one. 2026-04-27 AUDIT bench: a graph-allowed agent did 1 grep, missed 80% of hits. Single-grep audits are wrong by schema.
 
