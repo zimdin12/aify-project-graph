@@ -160,7 +160,15 @@ export function buildNextActions(s) {
     });
   } else if (!s.codeIntel?.available) {
     out.push({
-      why: 'no code-intel collection on this repo — caller/deletion answers will be heuristic only',
+      // ⛔ THIS NAMED A NARROWER CLASS THAN THE CONDITION AFFECTS. It used to read
+      // "caller/deletion answers will be heuristic only". The efficacy run's augmented arm hit
+      // the gap: it was asked for a definition COUNT, saw this line, and correctly noted that
+      // absence of code-intel undermines definition counts just as much — the graph layer is
+      // tree-sitter-derived either way — while the consequence text pointed only at callers and
+      // deletes. A reader checking whether this warning applies to THEIR question was told no.
+      why: 'no code-intel collection on this repo — every graph-derived answer here is '
+        + 'tree-sitter heuristic, not compiler-verified. That includes caller sets, deletion '
+        + 'safety AND definition counts/locations: none of them can be treated as exhaustive',
       do: 'graph_collect_code_intel({ scope: "all" }), or use code_intel_references for one bounded symbol',
     });
   }

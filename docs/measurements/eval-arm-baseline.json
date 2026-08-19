@@ -1,0 +1,85 @@
+{
+  "arm": "BASELINE",
+  "tools_permitted": "Read, Grep, Glob, shell — no graph_* / code_intel_* / .aify-graph",
+  "protocol_compliance": "self-reported: \"Bash grep/sed only (no graph_*/code_intel_* verbs)\". DECLARED, NOT TECHNICALLY ENFORCED — the arm could have called a graph verb and not said so. Recorded as a limit of this run rather than asserted as isolation.",
+  "adjudication": "mechanical set comparison vs reference frozen before either arm ran",
+  "reference_sha256": "0d1c07ab2b901981ad4052b2a5ec082426e29a87877d3b6a51f48d709c65bbfa",
+  "results": [
+    {
+      "id": "LOCATE-01",
+      "target": "lintTaskSchema",
+      "reference_count": 1,
+      "answered_count": 1,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-02",
+      "target": "graphSummary",
+      "reference_count": 1,
+      "answered_count": 1,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-03",
+      "target": "seededRandom",
+      "reference_count": 2,
+      "answered_count": 2,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-04",
+      "target": "estimateTokens",
+      "reference_count": 2,
+      "answered_count": 2,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-05",
+      "target": "detect",
+      "reference_count": 10,
+      "answered_count": 10,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-06",
+      "target": "enrich",
+      "reference_count": 10,
+      "answered_count": 10,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    }
+  ],
+  "summary": {
+    "floor_passed": 6,
+    "of": 6,
+    "false_locations": 0
+  },
+  "tool_calls_reported": 9,
+  "notes": [
+    "The arm surfaced a genuine ambiguity in the task contract: LOCATE-04 site report.js:119 is a BLOCK-SCOPED arrow inside a function body. The reference counts it; the arm counted it and flagged that a module-level-only reading would give 1. Both resolved it identically, so no quarantine was triggered — but the contract wording should have said which reading applies.",
+    "The arm correctly REJECTED packet.js:1366 `const enrich = await enrichLive(...)` as a binding to a call result rather than a function. That is the hardest distinction in the set."
+  ]
+}

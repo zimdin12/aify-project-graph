@@ -1,0 +1,99 @@
+{
+  "what": "Efficacy case series — LOCATE, paired result. 6 tasks, 2 arms, 1 run per cell.",
+  "carrier": {
+    "repo": "C:/Docker/aify-project-graph",
+    "commit": "cb8f6a8",
+    "reference_sha256": "0d1c07ab2b901981ad4052b2a5ec082426e29a87877d3b6a51f48d709c65bbfa",
+    "date": "2026-08-19"
+  },
+  "per_task": [
+    {
+      "id": "LOCATE-01",
+      "target": "lintTaskSchema",
+      "reference": 1,
+      "baseline": 1,
+      "augmented": 1,
+      "baseline_floor": true,
+      "augmented_floor": true
+    },
+    {
+      "id": "LOCATE-02",
+      "target": "graphSummary",
+      "reference": 1,
+      "baseline": 1,
+      "augmented": 1,
+      "baseline_floor": true,
+      "augmented_floor": true
+    },
+    {
+      "id": "LOCATE-03",
+      "target": "seededRandom",
+      "reference": 2,
+      "baseline": 2,
+      "augmented": 2,
+      "baseline_floor": true,
+      "augmented_floor": true
+    },
+    {
+      "id": "LOCATE-04",
+      "target": "estimateTokens",
+      "reference": 2,
+      "baseline": 2,
+      "augmented": 2,
+      "baseline_floor": true,
+      "augmented_floor": true
+    },
+    {
+      "id": "LOCATE-05",
+      "target": "detect",
+      "reference": 10,
+      "baseline": 10,
+      "augmented": 10,
+      "baseline_floor": true,
+      "augmented_floor": true
+    },
+    {
+      "id": "LOCATE-06",
+      "target": "enrich",
+      "reference": 10,
+      "baseline": 10,
+      "augmented": 10,
+      "baseline_floor": true,
+      "augmented_floor": true
+    }
+  ],
+  "quality": {
+    "baseline_passed": 6,
+    "augmented_passed": 6,
+    "verdict": "QUALITY TIE AT THE FLOOR — both arms satisfied every task contract exactly, including both traps."
+  },
+  "safety": {
+    "tool_honesty_gate": "PASS — no aify tool emitted a false proposition in this run",
+    "final_answer_safety_gate": "PASS — both arms",
+    "note": "A gap was reported (no exhaustiveness attestation) but a MISSING warrant is not a FALSE claim. The tool did not assert completeness it lacked; it asserted nothing."
+  },
+  "cost": {
+    "baseline_tool_calls": 9,
+    "augmented_tool_calls": 15,
+    "verdict": "AUGMENTED cost MORE calls for the same result on these tasks.",
+    "why_arm_reported": "the augmented arm verified every graph answer with an independent text sweep, because graph_whereis gave it no exhaustiveness warrant for a counting question"
+  },
+  "tokens": {
+    "measured": false,
+    "reason": "no admissible instrument — see design v3. Characters may not be compared BETWEEN arms."
+  },
+  "map_knowledge": {
+    "measured": false,
+    "reason": "ORIENT dropped from this run; no blinded rater pair"
+  },
+  "preregistered_rule_applied": "Rule 3: both arms pass the same essential contract -> quality tie at the floor; optional dimensions compared separately, and only then may cost be considered.",
+  "conclusion": "On these 6 LOCATE tasks, on this repo at cb8f6a8, in ONE run per cell: the bundle did NOT improve correctness and did NOT reduce work. Both arms were exactly right on all six, including both traps. The augmented arm spent 15 tool calls to the baseline's 9, because the graph verb could not license the completeness the question required — so it re-derived the answer with an independent text sweep anyway, paying for both.",
+  "not_established": [
+    "any rate or generalisation — 6 tasks, 1 repo, 1 run per cell, JS only",
+    "token cost",
+    "map/knowledge quality",
+    "C++/clangd behaviour — codeIntel was absent on this carrier",
+    "that a different task class (IMPACT, DELETE-SAFETY) would show the same"
+  ],
+  "the_finding_that_matters": "The augmented arm was not wrong; it was UNWARRANTED. graph_whereis computes the population (a COUNT over the same predicate was added on 2026-08-12) but only surfaces it when the result is CAPPED. When nothing is capped it says nothing, so \"10 rows\" and \"10 rows, and that is all of them\" are indistinguishable to the reader. That is the same defect class fixed in graph_packet all week — a population known to the code and not stated to the reader — left standing in the sibling verb. Enumerate every emitter, again."
+}

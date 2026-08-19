@@ -1,0 +1,95 @@
+{
+  "arm": "AUGMENTED",
+  "tools_permitted": "Read, Grep, Glob, shell + aify bundle (skill, briefs, graph_*/code_intel_*)",
+  "protocol_compliance": "full toolset permitted; arm reported using graph_whereis as primary and cross-checking every question with an independent text sweep",
+  "adjudication": "mechanical set comparison vs reference frozen before either arm ran",
+  "reference_sha256": "0d1c07ab2b901981ad4052b2a5ec082426e29a87877d3b6a51f48d709c65bbfa",
+  "results": [
+    {
+      "id": "LOCATE-01",
+      "target": "lintTaskSchema",
+      "reference_count": 1,
+      "answered_count": 1,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-02",
+      "target": "graphSummary",
+      "reference_count": 1,
+      "answered_count": 1,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-03",
+      "target": "seededRandom",
+      "reference_count": 2,
+      "answered_count": 2,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-04",
+      "target": "estimateTokens",
+      "reference_count": 2,
+      "answered_count": 2,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-05",
+      "target": "detect",
+      "reference_count": 10,
+      "answered_count": 10,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    },
+    {
+      "id": "LOCATE-06",
+      "target": "enrich",
+      "reference_count": 10,
+      "answered_count": 10,
+      "count_correct": true,
+      "missing_sites": [],
+      "extra_sites": [],
+      "floor_pass": true,
+      "false_location": false
+    }
+  ],
+  "summary": {
+    "floor_passed": 6,
+    "of": 6,
+    "false_locations": 0
+  },
+  "tool_calls_reported": 15,
+  "notes": [
+    "Rejected BOTH traps correctly: the destructured \"detect\" parameter with a default (resolve-clangd.js:169 and :210), and \"const enrich = await enrichLive(...)\" (packet.js:1366) which binds a CALL RESULT rather than a function. graph_whereis reported neither as a definition, so on accuracy it beat a naive textual match on both traps.",
+    "ARM-REPORTED TOOL GAP — counts against the tool, which is why the arm was asked for it: graph_whereis returned exactly 10 rows for limit=50 with NO truncation flag, NO total, and NO evidence banner. From the output alone the arm could not distinguish \"the true count is 10\" from \"a cap clipped the list at 10\". It reached an exact count only because an independent grep agreed. The arm's own words: the verb that answers \"where is X defined\" cannot itself license \"and that is all of them\".",
+    "ARM-REPORTED — graph_health nextActions says code-intel absence affects \"caller/deletion answers\". It equally undermines definition-COUNT answers, which is what was asked. The consequence text names a narrower class than the condition actually affects.",
+    "ARM-REPORTED, harness not product: ToolSearch \"select:\" with a non-existent tool name returned the valid subset without flagging the miss, so an agent can believe it loaded a verb it did not."
+  ],
+  "carrier_reported": {
+    "server_buildId": "cb8f6a8",
+    "server_startedAt": "2026-08-19T01:31:02.355Z",
+    "staleProcess": false,
+    "trust": "weak",
+    "codeIntel": "no_collection"
+  },
+  "repaired": "Notes re-authored after a shell consumed backticked code spans on first write."
+}

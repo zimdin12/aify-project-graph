@@ -34,10 +34,27 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
       { label: symbol },
     )?.n ?? hits.length;
     const capped = population > hits.length;
+    // ⛔ THE POPULATION WAS ONLY SPOKEN WHEN IT WAS BAD NEWS, AND THAT IS HALF A DISCLOSURE.
+    //
+    // Found by the first controlled efficacy run (2026-08-19). The augmented arm asked for every
+    // definition of `detect` with limit=50, got exactly 10 rows, and could not tell "the true
+    // count is 10" from "a cap clipped the list at 10" — because this verb said nothing at all
+    // when nothing was capped. Its words: the verb that answers "where is X defined" cannot
+    // itself license "and that is all of them". So it re-derived the whole answer with grep and
+    // spent 15 tool calls against the baseline arm's 9, for an identical correct answer.
+    //
+    // ★ The tool was not WRONG. It was UNWARRANTED — and an unwarranted correct answer costs the
+    // reader exactly as much as a wrong one, because they must go and check it either way. That
+    // is the efficacy case for disclosure, measured rather than argued.
+    //
+    // ⚠ The count is stated WITH ITS PREDICATE. This verb matches an exact label over declaration
+    // types, so "10 of 10" is a claim about that predicate and nothing wider; a count whose basis
+    // is unstated is simply the next version of this defect.
     const capNotice = capped
       ? `\n⚠ SHOWING ${hits.length} OF ${population} — this verb caps at limit=${limit}. `
         + `Re-run with limit=${population} for the full set.`
-      : '';
+      : `\n${hits.length} of ${population} — every node whose exact label is "${symbol}", `
+        + 'among declaration types. Nothing was truncated.';
     if (hits.length === 0) {
       // Suggest, do not redirect. This path was missed when did-you-mean landed on
       // callers/callees/impact/change_plan — and graph_whereis is the verb a field
