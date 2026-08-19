@@ -11,6 +11,24 @@
 // stability. The packet must remain useful even when LIVE enrichment
 // is skipped or times out — overlay-first value is the milestone.
 
+import {
+  DEFAULTS, CHAR_PER_TOKEN_EST, PACKET_MODES, MODE_OVERRIDES,
+  esTokens, resolvePacketBudget, normalizeMode, optionsForMode,
+  loadJsonSafe, readBrief, readFunctionality, readTasks, readManifest, hasCodeIntelCollection,
+  safeGitHead, safeDirtyCount, trustTier, snapshotLine, shortSha,
+  parseTarget, findFeature, findTask,
+} from './packet-input.js';
+import {
+  readFirstFromFeature, readFirstFromTask, contractsFromFeature, testsFromFeature,
+  risksForFeature, risksForTask, modeRisks, buildFeaturePacket, buildTaskPacket,
+} from './packet-overlay.js';
+
+// ⚠ COMPATIBILITY RE-EXPORT, per graph-senior-dev: "keep compatibility re-exports from
+// packet.js where existing callers import them." `resolvePacketBudget` was part of this
+// module's public surface before slice 1 and four tests import it from here. Moving a
+// declaration is a mechanical change; moving its PUBLIC NAME is an API change, and slice 1
+// is not allowed to be one.
+export { resolvePacketBudget } from './packet-input.js';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -127,310 +145,41 @@ function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
   }
 }
 
-// Section caps come first; the final token-estimate clamp is a safety
-// rail. Predictable shape → prompt-cache friendly.
-const DEFAULTS = {
-  features: 6,
-  read_first: 8,
-  contracts: 6,
-  tests: 6,
-  risks: 6,
-  budget_tokens: 800,
-};
 
-const CHAR_PER_TOKEN_EST = 4; // rough; matches our existing brief-budget heuristic
-const PACKET_MODES = new Set(['orient', 'plan', 'debug', 'review', 'audit', 'verify']);
 
-const MODE_OVERRIDES = {
-  orient: {},
-  plan: { read_first: 10, contracts: 8, tests: 8, risks: 8 },
-  debug: { read_first: 10, tests: 10, risks: 8 },
-  review: { read_first: 8, contracts: 8, tests: 10, risks: 10 },
-  audit: { read_first: 10, contracts: 10, tests: 10, risks: 12 },
-  verify: { read_first: 8, contracts: 4, tests: 8, risks: 8 },
-};
 
-function esTokens(s) { return Math.ceil((s || '').length / CHAR_PER_TOKEN_EST); }
 
-// Budget precedence: explicit arg > APG_PACKET_BUDGET env > repo-size tier.
-// Returns { budgetTokens, caps } where caps scales the list/section limits with
-// repo size (monotonic — never shrinks as the repo grows). A fixed budget
-// starves big repos: a god-file gets truncated and the agent re-Reads it.
-export function resolvePacketBudget({ explicit, env, nodeCount }) {
-  const tier = getPacketTokenBudget(nodeCount);
-  // Accept only positive finite numbers; trim env so a stray ' ' (which
-  // Number() coerces to 0) doesn't silently gut every packet.
-  const asPositive = (v) => {
-    if (v == null) return null;
-    const s = String(v).trim();
-    if (s === '') return null;
-    const n = Number(s);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-  const budgetTokens = asPositive(explicit) ?? asPositive(env) ?? tier.budgetTokens;
-  return { budgetTokens, caps: tier.caps };
-}
 
-function normalizeMode(mode) {
-  const value = typeof mode === 'string' ? mode.trim().toLowerCase() : 'orient';
-  return PACKET_MODES.has(value) ? value : 'orient';
-}
 
-function optionsForMode(mode, budgetTokens) {
-  return {
-    ...DEFAULTS,
-    ...(MODE_OVERRIDES[mode] ?? {}),
-    budget_tokens: budgetTokens,
-    mode,
-  };
-}
 
-function loadJsonSafe(path) {
-  try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
-}
 
-function readBrief(repoRoot) {
-  const path = join(repoRoot, '.aify-graph', 'brief.json');
-  return loadJsonSafe(path);
-}
 
-function readFunctionality(repoRoot) {
-  const path = join(repoRoot, '.aify-graph', 'functionality.json');
-  return loadJsonSafe(path);
-}
 
-function readTasks(repoRoot) {
-  const path = join(repoRoot, '.aify-graph', 'tasks.json');
-  return loadJsonSafe(path);
-}
 
-function readManifest(repoRoot) {
-  const path = join(repoRoot, '.aify-graph', 'manifest.json');
-  return loadJsonSafe(path);
-}
 
-function safeGitHead(repoRoot) {
-  try {
-    return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
-  } catch { return null; }
-}
 
-// SNAPSHOT `dirty=` is a TRUST number: it tells the agent whether the indexed
-// source can still be believed. It therefore counts tracked modifications only,
-// via the same shared helper the read-verb warning uses.
-//
-// This used to shell out to `git status --porcelain` and count every line —
-// untracked files and ignored-dir noise included. Field report: `dirty=592` on a
-// tree with zero tracked modifications, while the read-verb warning (correctly)
-// said nothing. The agent had two contradictory dirty counts for one tree and no
-// way to tell which was load-bearing, so the honest banner lost credibility to
-// the wrong one.
-function safeDirtyCount(repoRoot) {
-  try {
-    return getTrackedDirtyFilesSync(repoRoot).length;
-  } catch { return 0; }
-}
 
-function trustTier(unresolvedEdges) {
-  // Reuse the shared computeTrustLevel from health.js so packet's SNAPSHOT
-  // line never disagrees with graph_health on the same snapshot
-  // (validation-gate bug 2). Returns 'missing' when count is unknown.
-  if (unresolvedEdges == null) return 'missing';
-  return computeTrustLevel(unresolvedEdges);
-}
 
-// Parse `feature:<id>` / `feature/<id>` / `task:<id>` / `task/<id>` shapes.
-// Bare ids are auto-detected against the loaded overlay/tasks.
-function parseTarget(target) {
-  if (typeof target !== 'string' || !target) return { kind: 'unknown', value: target };
-  const m = target.match(/^(feature|task)[:/](.+)$/i);
-  if (m) return { kind: m[1].toLowerCase(), value: m[2].trim() };
-  return { kind: null, value: target };
-}
 
-function findFeature(functionality, value) {
-  const features = functionality?.features ?? [];
-  return features.find((f) => f.id === value)
-    || features.find((f) => (f.label || '').toLowerCase() === value.toLowerCase());
-}
 
-function findTask(tasksArtifact, value) {
-  const tasks = tasksArtifact?.tasks ?? [];
-  return tasks.find((t) => t.id === value);
-}
 
 // ----- enrichment helpers (overlay-first) -----
 
-function readFirstFromFeature(feature, briefFeatures) {
-  // Prefer the brief's enriched feature data (already has top callers /
-  // primary-file shape). Fall back to feature.anchors.files.
-  const enriched = (briefFeatures?.valid ?? []).find((v) => v.feature?.id === feature.id);
-  if (enriched) {
-    const items = [];
-    const primary = enriched.resolved?.files?.[0];
-    const sym = enriched.resolved?.symbols?.[0];
-    if (primary) items.push({ file: primary, why: sym ? `defines ${sym}` : 'feature primary file' });
-    for (const f of (enriched.resolved?.files || []).slice(1)) {
-      items.push({ file: f, why: 'feature anchor file' });
-    }
-    return items;
-  }
-  return (feature.anchors?.files || []).map((f) => ({ file: f, why: 'feature anchor (glob)' }));
-}
 
-function readFirstFromTask(task, functionality) {
-  const items = [];
-  // task.files_hint takes priority — agent-curated
-  for (const f of (task.files_hint || [])) {
-    items.push({ file: f, why: 'task files_hint' });
-  }
-  // then anchored files of each linked feature
-  for (const fid of (task.features || task.related_features || [])) {
-    const feature = functionality?.features?.find((x) => x.id === fid);
-    if (!feature) continue;
-    for (const f of (feature.anchors?.files || []).slice(0, 3)) {
-      items.push({ file: f, why: `feature ${fid} anchor` });
-    }
-  }
-  return items;
-}
 
-function contractsFromFeature(feature) {
-  const out = [];
-  for (const c of (feature.contracts || [])) out.push(c);
-  for (const d of (feature.anchors?.docs || [])) {
-    if (!out.includes(d)) out.push(d);
-  }
-  return out;
-}
 
-function testsFromFeature(feature) {
-  return (feature.tests || []).slice();
-}
 
-function risksForFeature(feature, brief) {
-  const risks = [];
-  // No explicit tests anchored
-  if (!(feature.tests || []).length && !(feature.anchors?.tests || []).length) {
-    risks.push('no curated test anchor — verify coverage');
-  }
-  // Broad anchor count (high-fan-in feature is harder to audit)
-  const fileCount = (feature.anchors?.files || []).length;
-  if (fileCount >= 5) risks.push(`broad file anchor (${fileCount} globs) — change blast radius wide`);
-  // Trust gate
-  const trust = trustTier(brief?.repo?.unresolved_edges ?? brief?.unresolved ?? null);
-  if (trust === 'weak') risks.push('graph trust=weak — verify in source before acting');
-  return risks;
-}
 
-function risksForTask(task, brief) {
-  const risks = [];
-  if (!(task.features || task.related_features || []).length) {
-    risks.push('task has no feature link — coverage unknown');
-  }
-  if ((task.status || '').toLowerCase().includes('block')) {
-    risks.push(`task status reads blocked: ${task.status}`);
-  }
-  const trust = trustTier(brief?.repo?.unresolved_edges ?? brief?.unresolved ?? null);
-  if (trust === 'weak') risks.push('graph trust=weak — verify in source before acting');
-  return risks;
-}
 
-function modeRisks(mode) {
-  if (mode === 'debug') return ['debug mode — verify dirty source, repro path, and adjacent tests first'];
-  if (mode === 'review') return ['review mode — do not approve from graph alone; verify diff, callers, and tests'];
-  if (mode === 'audit') return ['audit mode — check contracts, test anchors, task linkage, and stale snapshot risk'];
-  if (mode === 'plan') return ['plan mode — read contracts before editing and keep live graph calls surgical'];
-  return [];
-}
 
-function snapshotLine(brief, manifest, repoRoot) {
-  const indexed = manifest?.commit ?? brief?.graph_commit ?? '?';
-  const head = safeGitHead(repoRoot) ?? '?';
-  const dirty = safeDirtyCount(repoRoot);
-  // Use the SAME getUnresolvedCounts() health.js uses, which prefers
-  // trust-relevant count (manifest.trustDirtyEdgeCount) over the raw
-  // total. Without this, packet's SNAPSHOT trust line disagreed with
-  // graph_health on the same snapshot (final-bench bug 1).
-  const { trust: trustCount } = getUnresolvedCounts(manifest ?? {});
-  const trust = manifest ? trustTier(trustCount) : 'missing';
-  const stale = indexed !== '?' && head !== '?' && indexed !== head ? ' STALE' : '';
-  return `SNAPSHOT: indexed=${shortSha(indexed)} head=${shortSha(head)} dirty=${dirty} trust=${trust}${stale}`;
-}
 
-function shortSha(s) {
-  if (typeof s !== 'string') return '?';
-  return s === '?' ? '?' : s.slice(0, 7);
-}
 
 // ----- packet renderer -----
 
 
 
 
-function buildFeaturePacket({ feature, brief, functionality, opts, snapshot }) {
-  const featureLabels = [feature.id];
-  for (const dep of (feature.depends_on || []).slice(0, 3)) featureLabels.push(`dep:${dep}`);
 
-  const readFirst = clampList(readFirstFromFeature(feature, brief?.features), opts.read_first);
-  const contracts = clampList(contractsFromFeature(feature), opts.contracts);
-  const tests = clampList(testsFromFeature(feature), opts.tests);
-  const risks = clampList([...modeRisks(opts.mode), ...risksForFeature(feature, brief)], opts.risks);
-
-  const lines = [
-    `FEATURE: ${feature.label || feature.id}`,
-    `MODE: ${opts.mode}`,
-    `STATUS: overlay-defined (${feature.source || 'user'} source)`,
-    `FEATURES: ${featureLabels.join(', ')}`,
-    snapshot,
-    boundedList('READ FIRST', readFirst, (x) => `${x.file} — ${x.why}`),
-    boundedList('CONTRACTS', contracts, (x) => x),
-    boundedList('TESTS', tests, (x) => x),
-    boundedList('RISKS', risks, (x) => x),
-  ];
-  return lines;
-}
-
-function buildTaskPacket({ task, functionality, brief, opts, snapshot }) {
-  const featureIds = task.features || task.related_features || [];
-  const status = task.status || 'unknown';
-  const linkStrength = featureIds.length === 0
-    ? 'unlinked'
-    : (task.link_strength || (featureIds.length > 1 ? 'strong' : 'mixed'));
-
-  const readFirst = clampList(readFirstFromTask(task, functionality), opts.read_first);
-  // contracts: union of contracts from all linked features
-  const contractsSet = new Set();
-  for (const fid of featureIds) {
-    const f = functionality?.features?.find((x) => x.id === fid);
-    if (!f) continue;
-    for (const c of contractsFromFeature(f)) contractsSet.add(c);
-  }
-  const contracts = clampList([...contractsSet], opts.contracts);
-  // tests: union from features
-  const testsSet = new Set();
-  for (const fid of featureIds) {
-    const f = functionality?.features?.find((x) => x.id === fid);
-    if (!f) continue;
-    for (const t of testsFromFeature(f)) testsSet.add(t);
-  }
-  const tests = clampList([...testsSet], opts.tests);
-  const risks = clampList([...modeRisks(opts.mode), ...risksForTask(task, brief)], opts.risks);
-
-  const lines = [
-    `TASK: ${task.title || task.id}`,
-    `MODE: ${opts.mode}`,
-    `STATUS: ${status}${linkStrength ? ` (${linkStrength})` : ''}`,
-    `FEATURES: ${featureIds.length ? featureIds.join(', ') : '(unlinked)'}`,
-    snapshot,
-    boundedList('READ FIRST', readFirst, (x) => `${x.file} — ${x.why}`),
-    boundedList('CONTRACTS', contracts, (x) => x),
-    boundedList('TESTS', tests, (x) => x),
-    boundedList('RISKS', risks, (x) => x),
-  ];
-  return lines;
-}
 
 // Find the [start, end) line range of a section whose header is `head`
 // (e.g. "TESTS:"). The body is the run of `- ` list items (and blank lines)
@@ -725,25 +474,6 @@ export function resolvePopulation(total, sampleLength) {
   return { attested: false, total: null };
 }
 
-// FIX 3: build a compact pointer packet for a bare symbol that the graph knows
-// but which maps to no feature/task. Returns a markdown string, or null when
-// the symbol is genuinely unknown to the graph (caller then emits the hard
-// "not found" error — the honest outcome for a typo).
-//
-// `consequences` is whatever graph_consequences returned for the symbol: a rich
-// object (has matched.symbols / features_touching), or a human-readable string
-// (AMBIGUOUS MATCH / NO MATCH). We extract file/candidate locations from either
-// shape and steer the agent to the verbs that DO give symbol context.
-// Cheap existence check: is there ANY code-intel collection to query? Recommending a
-// compiler-backed verb on a repo that has never collected sends the reader to an empty answer.
-function hasCodeIntelCollection(repoRoot) {
-  try {
-    const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
-    try {
-      return Boolean(db.get('SELECT 1 AS x FROM code_intel_collections LIMIT 1')?.x);
-    } finally { db.close(); }
-  } catch { return false; }
-}
 
 function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAvailable = false }) {
   const lines = [];

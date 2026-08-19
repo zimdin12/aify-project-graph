@@ -141,21 +141,34 @@ export function auditFile(relPath, authorities) {
   };
 }
 
-const r = auditFile(PACKET, AUTHORITIES);
-const check = process.argv.includes('--check');
+// ⚠ SLICE 1 MOVED FOUR AUTHORITIES OUT OF THE FACADE. The ledger now audits three files rather
+// than one, and the assignment travelled WITH the declarations — an authority that quietly
+// re-pointed at whatever file its members ended up in would make any arrangement score 100%,
+// which is the failure this ledger exists to prevent.
+const FILES = {
+  'mcp/stdio/query/verbs/packet.js': pick(['packet:legacy-clamp', 'packet:live', 'packet:symbol-route', 'packet:facade']),
+  'mcp/stdio/query/verbs/packet-input.js': pick(['packet:input', 'packet:snapshot', 'packet:budget', 'packet:target']),
+  'mcp/stdio/query/verbs/packet-overlay.js': pick(['packet:overlay']),
+};
 
-console.log(`\n${r.file}`);
-console.log(`  lines ${r.lines}  (descriptive only — this number grants nothing)`);
-console.log(`  declarations assigned: ${r.assigned}/${r.total}`);
-console.log(`  authorities: ${Object.keys(AUTHORITIES).length}`);
-if (r.unassigned.length) console.log(`  ⛔ UNASSIGNED (${r.unassigned.length}): ${r.unassigned.join(', ')}`);
-if (r.duplicated.length) console.log(`  ⛔ DUPLICATED: ${r.duplicated.join(' | ')}`);
-if (r.phantom.length) console.log(`  ⛔ PHANTOM (assigned but absent): ${r.phantom.join(', ')}`);
-console.log(`  complete: ${r.complete}`);
-
-for (const [tag, spec] of Object.entries(AUTHORITIES)) {
-  console.log(`\n  ${tag}  (${spec.declarations.length})`);
-  console.log(`    ${spec.why}`);
+function pick(tags) {
+  return Object.fromEntries(tags.map((t) => [t, AUTHORITIES[t]]));
 }
 
-if (check && !r.complete) process.exit(1);
+let allComplete = true;
+for (const [file, authorities] of Object.entries(FILES)) {
+  const a = auditFile(file, authorities);
+  allComplete = allComplete && a.complete;
+  console.log(`\n${a.file}`);
+  console.log(`  lines ${a.lines}  (descriptive only — this number grants nothing)`);
+  console.log(`  declarations assigned: ${a.assigned}/${a.total}   authorities: ${Object.keys(authorities).length}`);
+  if (a.unassigned.length) console.log(`  ⛔ UNASSIGNED (${a.unassigned.length}): ${a.unassigned.join(', ')}`);
+  if (a.duplicated.length) console.log(`  ⛔ DUPLICATED: ${a.duplicated.join(' | ')}`);
+  if (a.phantom.length) console.log(`  ⛔ PHANTOM: ${a.phantom.join(', ')}`);
+  console.log(`  complete: ${a.complete}`);
+}
+console.log(`\nALL FILES COMPLETE: ${allComplete}`);
+if (process.argv.includes('--check') && !allComplete) process.exit(1);
+
+const r = auditFile(PACKET, pick(['packet:legacy-clamp', 'packet:live', 'packet:symbol-route', 'packet:facade']));
+// (per-file reporting happens above; the legacy single-file path is retired)
