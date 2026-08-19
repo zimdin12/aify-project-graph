@@ -105,7 +105,8 @@ describe('freshness orchestrator', () => {
     getDirtyFiles.mockResolvedValue([]);
     getChangedFiles.mockResolvedValue([]);
 
-    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const { ensureFresh, EXTRACTOR_VERSION, PARSER_BUNDLE_VERSION } =
+      await import('../../../mcp/stdio/freshness/orchestrator.js');
     const result = await ensureFresh({ repoRoot });
     expect(result.indexed).toBe(true);
 
@@ -118,9 +119,15 @@ describe('freshness orchestrator', () => {
     } finally {
       db.close();
     }
+    // ⚠ THIS USED TO PIN THE LITERAL '0.2.3', which proved only that I had copied the constant
+    // correctly — it went red on a routine version bump while the behaviour it names was intact,
+    // and it would have gone GREEN if the orchestrator had stopped refreshing the manifest at all
+    // as long as the number matched. The property is that the STALE value was replaced with the
+    // CURRENT one, so both halves are asserted, and the first does not depend on the constant.
     const manifest = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'manifest.json'), 'utf8'));
-    expect(manifest.extractorVersion).toBe('0.2.3');
-    expect(manifest.parserBundleVersion).toBe('2026.04.16');
+    expect(manifest.extractorVersion, 'the stale seeded version must not survive').not.toBe('0.0.1');
+    expect(manifest.extractorVersion).toBe(EXTRACTOR_VERSION);
+    expect(manifest.parserBundleVersion).toBe(PARSER_BUNDLE_VERSION);
   });
 
   it('ignores build-prefixed scratch trees during a full rebuild', async () => {

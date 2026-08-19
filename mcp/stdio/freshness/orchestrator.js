@@ -41,6 +41,7 @@ import { resynthesizeLspEdgesFromCollection } from '../ingest/code-intel/importe
 import { getLatestCollection } from '../code-intel/query.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
+import { detectDocLinks } from '../analysis/doc-links.js';
 
 // 0.2.0 (audit Wave 3): NodeNext .js→.ts import rewrite, arrow/function-expression
 // const symbols + TS enum/abstract-class, import-evidence-before-label resolver
@@ -51,9 +52,15 @@ import { detectMentions } from '../analysis/mentions.js';
 // 0.2.2: reverse-CONTAINS owner resolution prefers a type/namespace over a
 // same-named constructor Method (echoes Engine god-class).
 // 0.2.3: extract TS/JS class arrow-FIELDS (handleSubmit = () => {}) as methods.
+// 0.3.0 (doc foundation, Phase 1 slice 1): Document→File LINKS_TO edges, admitted only for an
+// authored Markdown link or a path-shaped inline-code span that resolves to exactly one indexed
+// file, and stored with the line it appears on. Minor bump rather than patch because it adds a
+// relation to the taxonomy. Bumping is what makes deployed graphs actually GAIN the edges — a
+// graph indexed under 0.2.3 would otherwise never re-derive documents that had not changed, and
+// the new layer would be missing on precisely the long-lived repos it was built for.
 // Bumping forces deployed graphs to re-extract/re-resolve once.
-const EXTRACTOR_VERSION = '0.2.3';
-const PARSER_BUNDLE_VERSION = '2026.04.16';
+export const EXTRACTOR_VERSION = '0.3.0';
+export const PARSER_BUNDLE_VERSION = '2026.04.16';
 // Plugin-emitted node types that the per-file extraction loop must NOT reap.
 // They're attributed to non-source files (a Route to routes/web.php, a
 // BuildTarget to CMakeLists.txt) that the loop would otherwise delete-then-not-
@@ -643,6 +650,24 @@ export async function ensureFresh({
 
       // Post-indexing analysis (skip on very large graphs to avoid OOM)
       const nodeCount0 = countNodes(db);
+
+      // ⭐ DOC→FILE LINKS RUN OUTSIDE THE 20k GATE, ON PURPOSE. The gate exists because
+      // detectMentions builds a map of every symbol label in the graph; doc-links indexes File
+      // nodes only, which are orders of magnitude fewer, and scans documents. Putting it under
+      // the same gate would make the doc layer VANISH SILENTLY on exactly the large repos where
+      // "where is the design doc?" is hardest to answer by hand — an absence produced by a
+      // resource guard and reported as if the repo had no doc links.
+      //
+      // ⚠ AND THE OUTCOME IS RECORDED RATHER THAN SWALLOWED. The catch below keeps a failure
+      // non-fatal, but a caught-and-forgotten failure is indistinguishable from a repo with no
+      // documents. The stats reach the manifest so the absence has a stated cause.
+      let docLinkResult = { added: 0, documents: 0, unresolved: 0, external: 0 };
+      try {
+        docLinkResult = await detectDocLinks(db, repoRoot);
+      } catch (err) {
+        docLinkResult = { added: 0, documents: 0, unresolved: 0, external: 0, failed: String(err?.message ?? err) };
+      }
+
       let communityResult = { communities: 0 };
       if (nodeCount0 <= 20000) {
         try {
@@ -698,6 +723,11 @@ export async function ensureFresh({
         // `dirtyEdgeCount` necessary next to `dirtyEdges` in the first place.
         skippedFileCount: skipped.length,
         skippedFiles: skipped.slice(0, 50),
+        // ⚠ `unresolved` IS A REPO-SHAPED PATH WE COULD NOT RESOLVE — a real gap, and the
+        // number worth acting on. `external` is a deliberate link out of the repo and is NOT a
+        // gap. They are reported separately because one figure covering both can only be read as
+        // the wrong one, and the wrong reading hides real misses inside expected noise.
+        docLinks: docLinkResult,
       };
       await writeManifest(graphDir, nextManifest);
       await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
@@ -762,6 +792,7 @@ export async function ensureFresh({
         // is the half a caller sees without being told to go look somewhere else.
         skippedFileCount: skipped.length,
         skippedFiles: skipped.slice(0, 50),
+        docLinks: docLinkResult,
         resumedFromPartial,
         trustSpineDropped,
         cosmeticSkipped: cosmeticSkippedFiles.length,

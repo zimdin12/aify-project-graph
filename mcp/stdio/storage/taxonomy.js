@@ -32,7 +32,7 @@
 //   Inheritance / dispatch:    EXTENDS, IMPLEMENTS, OVERRIDDEN_BY
 //   Module / file deps:        IMPORTS, INCLUDES, DEPENDS_ON, CONFIGURES
 //   Test linkage:              TESTS
-//   Docs:                      MENTIONS
+//   Docs:                      MENTIONS (doc→symbol, inferred), LINKS_TO (doc→file, authored)
 //   Shader bridge (L5):        LOADS_SHADER, DECLARES_BINDING
 //   Diagnostics (clangd):      HAS_DIAGNOSTIC
 //
@@ -107,7 +107,15 @@ export const RELATIONS = Object.freeze([
   // test linkage
   'TESTS',
   // docs
-  'MENTIONS',
+  //
+  // ⚠ TWO RELATIONS, DELIBERATELY NOT ONE. `LINKS_TO` is Document→File and records something the
+  // author WROTE — a Markdown link or a path in inline code, resolving to exactly one indexed
+  // file, with the line it appears on. `MENTIONS` is Document→Symbol and is an INFERENCE about
+  // prose. They must not share a name: a reader who cannot tell an authored pointer from a
+  // guessed one cannot weigh either, and the legacy extractor's edges are the reason that
+  // distinction is not theoretical (83.5% of its targets on this repo were lowercase English
+  // words; 63.1% on echoes — the rate tracks naming convention, not document quality).
+  'MENTIONS', 'LINKS_TO',
   // shader bridge (L5)
   'LOADS_SHADER', 'DECLARES_BINDING',
   // diagnostics
