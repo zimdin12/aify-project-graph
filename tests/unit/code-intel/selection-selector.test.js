@@ -222,19 +222,41 @@ describe('the cause vocabulary governs the emitters', () => {
       .toEqual([]);
   });
 
-  it('★★★ every enum value is reachable as a real refusal or explicitly reserved', () => {
-    // Guards the other direction: an enum that lists causes nothing can emit is a contract
-    // describing a product that does not exist.
-    const src = readFileSync(
-      fileURLToPath(new URL('../../../mcp/stdio/code-intel/selection-digest.js', import.meta.url)),
-      'utf8',
-    );
+  it('★★★ every non-reserved cause is BEHAVIOURALLY reachable — one input per refusal', () => {
+    // ⚠ THIS TEST USED TO BE LEXICAL: it grepped for `RECEIPT_CAUSES.X` anywhere in the source,
+    // INCLUDING COMMENTS. graph-senior-dev flagged that the wording claimed more than the
+    // mechanism did — a cause mentioned only in a comment would have counted as reachable. The
+    // causes really were emitted, so it never lied; it just could not have caught it if they
+    // were not. Same over-claiming shape as the frozen-body test title, one file over.
+    // ⇒ Drive each refusal with a real input and compare the OBSERVED set to the declared one,
+    // exactly. A new cause with no arm here fails; an arm producing a cause outside the enum
+    // fails; a declared cause nothing can emit fails.
     const RESERVED = new Set(['population_transport_unavailable']);
-    const used = new Set([...src.matchAll(/RECEIPT_CAUSES\.([A-Z_]+)/g)].map((m) => m[1]));
-    for (const [key, value] of Object.entries(RECEIPT_CAUSES)) {
-      if (RESERVED.has(value)) continue;
-      expect(used.has(key), `${value} is declared but never emitted`).toBe(true);
+    const arms = [
+      ['no_project_root', { projectRoot: '', entries: [] }],
+      ['no_entries', { projectRoot: repo, entries: 'not-an-array' }],
+      ['malformed_entry', { projectRoot: repo, entries: [entry('src/a.cpp', { file: '' })] }],
+      ['no_argument_vector', { projectRoot: repo, entries: [(() => {
+        const e = entry('src/a.cpp'); delete e.arguments; e.command = 'clang++ -c src/a.cpp'; return e;
+      })()] }],
+      ['entry_outside_project_root', { projectRoot: repo, entries: [entry('src/a.cpp', {
+        file: fwd(path.join(os.tmpdir(), 'apg-elsewhere.cpp')),
+      })] }],
+      ['compile_directory_outside_project_root', { projectRoot: repo, entries: [entry('src/a.cpp', {
+        directory: fwd(os.tmpdir()),
+      })] }],
+      ['main_file_unreadable', { projectRoot: repo, entries: [entry('src/never-written.cpp')] }],
+    ];
+    const observed = new Set();
+    for (const [expected, args] of arms) {
+      const r = selectedTuSetDigest(args);
+      expect(r.available, `arm for ${expected} must refuse`).toBe(false);
+      expect(r.cause, `arm for ${expected} produced ${r.cause}`).toBe(expected);
+      observed.add(r.cause);
     }
+    const declared = Object.values(RECEIPT_CAUSES).filter((c) => !RESERVED.has(c));
+    expect([...observed].sort(), 'the observed refusal set must equal the declared vocabulary')
+      .toEqual(declared.sort());
   });
 });
 

@@ -219,7 +219,12 @@ SURVIVED. This receipt **is** positive credit.
 3. **Concatenation collision** — rows whose unframed concatenations match (`ab|c` vs `a|bc`).
    Framed digest must differ.
 4. **Path alias** — `A.cpp`/`a.cpp`, `x/../y.cpp`, slash variants, Unicode composed/decomposed.
-   Reject collisions; never merge.
+   **Preserve distinct compile-entry rows; never merge or dedupe.** ⚠ This falsifier originally
+   read *"reject collisions"*, and that instruction is RETIRED along with the check it produced
+   (see the receipt-cause vocabulary above): rejecting was guarding an invariant the selector
+   cannot violate, since it never merges anything. Physical-file identity belongs to a separate
+   future population derived from resolved identity — **do not reintroduce an alias check from
+   this list.** `x/../y.cpp` and NFC convergence still normalize; case never does.
 5. **Mid-call restore** — query a dirty source containing a caller, restore bytes before receipt
    hashing. Before/after fingerprints must differ, or the active read carrier must be pinned.
 6. **Stale shard laundering** — preseed a clean old shard, make the current TU fail, observe
