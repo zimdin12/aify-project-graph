@@ -63,12 +63,12 @@ describe('exhaustive grant fails CLOSED on unproven coverage', () => {
     expect(e.precision, 'each returned location is compiler-resolved').toBe('compiler_resolved');
     expect(e.completeness, 'the SET is a floor — a separate dimension').toBe('floor');
 
-    // ⚠ DEFINITIONS ARE DELIBERATELY LEFT ALONE. The executed counterexample was about
-    // REFERENCES, and extending a finding to a surface nobody tested is the over-extension
-    // graph-senior-dev corrected me on earlier the same day. Flagged to them as an open
-    // question rather than silently changed here.
+    // ⚠ I LEFT DEFINITIONS GRANTING HERE AND WAS WRONG. Declining to extend a finding to an
+    // untested surface was the right instinct; the honest move was to ASK for the fixture,
+    // which is what happened — and it falsified definitions too, by a different mechanism.
+    // Absence of a counterexample is not evidence of soundness.
     const d = buildDefinitionsEvidence({ freshness: 'fresh', defCount: 1, coverage: proven });
-    expect(d.exhaustive).toBe(true);
+    expect(d.exhaustive, 'falsified for definitions too — see live-verbs.test.js').toBe(false);
   });
 
   // ---- The paths that ARE correct today (guard against regressing them) ----

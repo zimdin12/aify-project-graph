@@ -1,6 +1,6 @@
 ---
 name: cpp-inner-loop
-description: Use when working on C++ code — editing, deletion-safety, refactor blast-radius, build-error diagnosis. Bounded code_intel_* verbs return symbol-aware facts with an exhaustiveness contract — the only safe basis for "no callers" / "dead code" / "safe to delete" claims.
+description: Use when working on C++ code — editing, refactor blast-radius, build-error diagnosis. Bounded code_intel_* verbs return PRECISE compiler-resolved locations. NOT a basis for "no callers" / "dead code" / "safe to delete" — the exhaustiveness contract is currently unreachable (see the reachability section); use rg for absence claims.
 ---
 
 # cpp-inner-loop
@@ -16,7 +16,9 @@ The strongest value-add of this skill is **trustworthy absence claims** on C++ s
 - "Are there any callers past the indirection chain?"
 - "Is this interface still implemented anywhere?"
 
-These claims are dangerous because text search has no exhaustiveness guarantee — a single missed caller through a vtable, template instantiation, or include-graph fork causes a real bug. `code_intel_references` returns an `evidence` object; **only trust an empty refs list (or any "no callers" / "dead code" conclusion) when `evidence.exhaustive === true`.**
+These claims are dangerous because text search has no exhaustiveness guarantee — a single missed caller through a vtable, template instantiation, or include-graph fork causes a real bug.
+
+⛔ **AND THIS SKILL CANNOT CURRENTLY MAKE THEM.** The rule used to be "trust an empty refs list when `evidence.exhaustive === true`". That gate is withheld as of 2026-08-19 and, for the empty case, was never reachable at all. Read the next section before planning around any absence claim.
 
 ⛔ **AND AS OF 2026-08-19 THAT CONDITION IS NOT CURRENTLY REACHABLE. Read this before planning
 around it.**
@@ -58,7 +60,7 @@ it is currently the only sound method.**
     cause: null,              // cold_index|timeout|unsupported|definition_only|stale_index|unknown
     confidence: 'high',       // high|medium|low
     fallback: null,           // recovery instruction string when degraded
-    exhaustive: true,         // THE absence-claim gate
+    exhaustive: false,        // WITHHELD — cause: index_population_unattested (see below)
     warnings: [],             // human-readable caveats
     previouslyDegraded: null  // session recovered from a prior degraded state
   }
@@ -67,7 +69,7 @@ it is currently the only sound method.**
 
 If `evidence.exhaustive` is false, **do not** state "no callers" or "safe to delete." Read `evidence.cause` and `evidence.fallback` for the recovery action (pass `warmupFiles[]`, raise `waitForReadyMs`, fall back to grep, etc.). `previouslyDegraded` means the session was degraded earlier and may have under-reported in an earlier call — re-verify before acting.
 
-**Honest note (2026-05-22, real-clangd validation):** clangd running with `--background-index=false` (APG's default) does not emit readiness signals in many configurations, so `evidence.exhaustive === true` may NOT fire even when the answer is genuinely correct. The contract is most reliably enforceable in the **negative direction** (refuse confident absence claims when degraded). That refusal still prevents the most dangerous class of bug (confidently-wrong "dead code" report) — but expect to land on `evidence.degraded:true, cause:cold_index, exhaustive:false` more often than `exhaustive:true` on real repos today. Future work will surface real readiness via workspace-symbol round-trips or optional background-index for repos that can afford it.
+**Honest note — SUPERSEDED 2026-08-19.** The 2026-05-22 note said `exhaustive === true` may not fire even when an answer is correct, and that the contract is most reliably enforced in the NEGATIVE direction. That was right and is now stronger than it knew: the positive direction is not merely unreliable, it is **withheld**, because a file present in the compile DB can still fail to compile while background indexing reports idle — so "indexed" was never observed, only "selected". Expect `exhaustive:false` with cause `index_population_unattested` as the steady state. What you get instead is per-location precision, which is genuinely useful and separately reported.
 
 ## ⛔ CHECK REACHABILITY BEFORE YOU PLAN AROUND THIS LOOP
 

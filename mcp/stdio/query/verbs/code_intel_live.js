@@ -378,8 +378,49 @@ export function buildDefinitionsEvidence({ freshness, defCount, coverage }) {
         || 'compile-DB / project coverage could not be verified for this query — the definition set is a FLOOR, not a complete set'],
     };
   }
+  // ⛔⛔ FALSIFIED FOR DEFINITIONS TOO, executed against bd9034f and real clangd. I had left
+  // this granting on the grounds that the reference counterexample did not bound it;
+  // graph-senior-dev built the definition-specific one rather than let me guess:
+  //   include/api.h declares target(); src/definition.cpp holds the real out-of-line
+  //   definition; BOTH source paths are in compile_commands (2/2, ratio 1, censusFresh).
+  //   definition.cpp's DB command omits the include path -> rc 1, 'api.h' file not found.
+  //   Result: returned definitions = include/api.h:2 (the DECLARATION), not
+  //   src/definition.cpp:2, with exhaustive:true / cause:null / confidence:'high'.
+  //
+  // ⇒ Two separate defects in one result. The same unobserved index population loses a real
+  // definition — so a bad RENAME follows the way a bad delete followed the reference case. AND
+  // clangd's definition request can fall back to a DECLARATION while our field is called
+  // `definitions`, so even the returned location is not necessarily what the name promises.
+  //
+  // ★ THE LESSON IS ABOUT MY SCOPING, NOT THE CODE. Declining to extend a finding to an
+  // untested surface was the right instinct and the wrong outcome: the honest move was to ASK
+  // for the fixture, which is what happened, rather than to leave a grant standing on the
+  // absence of a counterexample. Absence of a counterexample is not evidence of soundness.
   if (freshness === 'fresh' && defCount > 0) {
-    return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings: [] };
+    return {
+      ready: true,
+      degraded: true,
+      cause: 'index_population_unattested',
+      confidence: 'medium',
+      exhaustive: false,
+      repositoryExhaustive: false,
+      resultScope: 'clangd_current_index',
+      indexPopulation: 'unattested',
+      completeness: 'floor',
+      // ⚠ NARROWER THAN THE REFERENCE WORDING, deliberately. The fixture proves the returned
+      // location is compiler-resolved but NOT necessarily a definition, so claiming
+      // `compiler_resolved` here would restate the defect as a guarantee.
+      precision: 'compiler_resolved_target',
+      resolutionKind: 'definition_or_declaration',
+      fallback: 'the returned target is compiler-resolved but may be a DECLARATION rather than '
+        + 'the definition, and out-of-line definitions in unindexed TUs are invisible — verify '
+        + 'with rg before a rename or an absence claim',
+      warnings: [
+        'the compile DB / project config selects which files may be indexed, not which were. A '
+        + 'file present in it can still fail to compile, and its out-of-line definition is then '
+        + 'invisible while the definition request silently falls back to a declaration.',
+      ],
+    };
   }
   if (freshness === 'stale') return { ready: false, degraded: true, cause: 'stale_index', confidence: 'low', exhaustive: false, fallback: 'wait_for_ready then retry', warnings: [] };
   if (freshness === 'timeout') return { ready: false, degraded: true, cause: 'timeout', confidence: 'low', exhaustive: false, fallback: 'raise waitForReadyMs / retry', warnings: [] };

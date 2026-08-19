@@ -145,13 +145,17 @@ describe('Plan #14 evidence contract — integration', () => {
     expect(Array.isArray(r.references)).toBe(true); // compat array still present
   });
 
-  it('definitions with fresh + def found → evidence.exhaustive=true', async () => {
+  it('definitions with fresh + def found → NOT exhaustive; ready, and precise about WHAT it resolved', async () => {
+    // ⛔ SUPERSEDED 2026-08-19 — see the buildDefinitionsEvidence unit case for the executed
+    // counterexample. `ready` still holds: the verb answered, and the answer is usable. What it
+    // no longer claims is that the set is complete or that the target is a definition.
     const repo = tmpRepo();
     const r = await codeIntelDefinitions({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, waitForReadyMs: 500, spawn: fakeProgressSpawn });
     expect(r.evidence).toBeDefined();
-    expect(r.evidence.exhaustive).toBe(true);
+    expect(r.evidence.exhaustive).toBe(false);
     expect(r.evidence.ready).toBe(true);
-    expect(r.evidence.cause).toBeNull();
+    expect(r.evidence.cause).toBe('index_population_unattested');
+    expect(r.evidence.resolutionKind).toBe('definition_or_declaration');
   });
 });
 
@@ -272,12 +276,21 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
 });
 
 describe('Plan #14 evidence contract — buildDefinitionsEvidence unit cases', () => {
-  it('fresh + defs + PROVEN coverage → exhaustive:true', () => {
-    // ⚠ DEFINITIONS DELIBERATELY UNCHANGED. The executed counterexample was about REFERENCES;
-    // extending it to a surface nobody tested is the over-extension graph-senior-dev corrected
-    // me on earlier the same day. Raised with them as an open question instead.
+  it('fresh + defs + PROVEN coverage → still NOT exhaustive; the target may be a declaration', () => {
+    // ⛔ SUPERSEDED 2026-08-19 by an EXECUTED definition-specific counterexample. Real
+    // definition in src/definition.cpp, declaration in include/api.h, BOTH source paths in
+    // compile_commands (2/2, ratio 1). definition.cpp's DB command omits the include path
+    // (rc 1). Result: the returned 'definition' was include/api.h:2 — the DECLARATION —
+    // with exhaustive:true / cause:null / confidence:'high'.
+    // ⇒ Two defects at once: the unobserved index population loses a real definition (a bad
+    // RENAME follows), and clangd's definition request can fall back to a declaration while
+    // our field is named `definitions`. Hence precision is the NARROWER
+    // 'compiler_resolved_target' here, never 'compiler_resolved'.
     const e = buildDefinitionsEvidence({ freshness: 'fresh', defCount: 1, coverage: { complete: true } });
-    expect(e.exhaustive).toBe(true);
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('index_population_unattested');
+    expect(e.precision, 'the fixture proves it is not necessarily a DEFINITION').toBe('compiler_resolved_target');
+    expect(e.resolutionKind).toBe('definition_or_declaration');
     expect(e.ready).toBe(true);
   });
 
