@@ -73,20 +73,27 @@ describe('the selection selector', () => {
     expect(r.cause).toBe('entry_outside_project_root');
   });
 
-  it('★★★ REFUSES a case-fold path alias rather than merging two members into one', () => {
-    // Falsifier 4. On a case-insensitive host both entries resolve to one file; merging them
-    // would silently halve the population while the digest still claimed completeness.
+  // ⚠ THIS TEST USED TO PERMIT EITHER BRANCH WITH if/else, so it asserted nothing and did not
+  // pin its own comment — graph-senior-dev caught that it would pass whichever way the code
+  // behaved. Now it branches on the HOST, which is a fact about the machine, not about the
+  // outcome, so exactly one expectation applies per platform.
+  const WIN = process.platform === 'win32';
+  it.runIf(WIN)('★★★ REFUSES a case-fold alias on a case-INSENSITIVE host', () => {
+    // Falsifier 4: both entries resolve to one file here, and merging them would silently halve
+    // the population while the digest still claimed to describe it.
     fs.writeFileSync(path.join(repo, 'src', 'A.cpp'), 'int a;\n');
-    const r = selectedTuSetDigest({
-      projectRoot: repo,
-      entries: [entry('src/a.cpp'), entry('src/A.cpp')],
-    });
-    if (r.available) {
-      // Case-SENSITIVE host: both are real, distinct files and both must appear.
-      expect(r.rows.map((m) => m.path).sort()).toEqual(['src/A.cpp', 'src/a.cpp']);
-    } else {
-      expect(r.cause).toBe('path_alias_collision');
-    }
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp'), entry('src/A.cpp')] });
+    expect(r.available).toBe(false);
+    expect(r.cause).toBe('path_alias_collision');
+  });
+
+  it.runIf(!WIN)('★★★ KEEPS both on a case-SENSITIVE host — they are two real files', () => {
+    // The mirror defect: folding unconditionally refused a legitimate pair on POSIX, an
+    // availability failure caused by a rule written for a correctness one.
+    fs.writeFileSync(path.join(repo, 'src', 'A.cpp'), 'int A;\n');
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp'), entry('src/A.cpp')] });
+    expect(r.available).toBe(true);
+    expect(r.rows.map((m) => m.path).sort()).toEqual(['src/A.cpp', 'src/a.cpp']);
   });
 
   it('★★★ a changed source byte changes the digest — the member is bound to content', () => {
@@ -103,5 +110,77 @@ describe('the selection selector', () => {
     const swapped = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp'), entry('src/a.cpp')] });
     expect(both.rows.length).toBe(swapped.rows.length);
     expect(swapped.digest, 'same count, different membership').not.toBe(both.digest);
+  });
+});
+
+describe('the selection body determines its own digest', () => {
+  it('★★★ a SAME-LENGTH content change changes the published body, not only the digest', () => {
+    // ⛔ graph-senior-dev's blocker 1, executed: 'int a;' -> 'int b;' (both 7 bytes) produced a
+    // BYTE-IDENTICAL body with a different digest, so a second agent could not recompute the
+    // advertised value from the body and had to possess the sender's mutable files. That defeats
+    // the only reason a self-contained receipt exists.
+    const before = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
+    fs.writeFileSync(path.join(repo, 'src', 'a.cpp'), 'int b;\n');
+    const after = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
+    expect(before.rows[0].mainFileBytes).toBe(after.rows[0].mainFileBytes);
+    expect(after.digest).not.toBe(before.digest);
+    expect(JSON.stringify(after.rows), 'the BODY must move when the digest moves')
+      .not.toBe(JSON.stringify(before.rows));
+  });
+
+  it('★★★ every member carries the file digest as hex, matching the codec bytes', () => {
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
+    // 'int a;\n' — the frozen value graph-senior-dev published with the golden vectors.
+    expect(r.rows[0].mainFileSha256)
+      .toBe('386593f1475dc210d45a5f3d4b6bb11c065fc6fe2e08ebdd00ab4cf3a0848744');
+  });
+
+  it('★★★ members publish in the DIGEST order, not the compile-DB array order', () => {
+    // Otherwise one multiset with one digest yields different content-addressed receipt IDs
+    // depending only on how the DB happened to be serialized.
+    const ab = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp'), entry('src/b.cpp')] });
+    const ba = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/b.cpp'), entry('src/a.cpp')] });
+    expect(ab.digest).toBe(ba.digest);
+    expect(JSON.stringify(ab.rows)).toBe(JSON.stringify(ba.rows));
+  });
+});
+
+describe('the selection body cannot be changed after the digest is fixed', () => {
+  it('★★★ mutating the caller argv array after the call does not change the body', () => {
+    // ⛔ Blocker 2, executed: the body exported the caller's own array, so flipping '-c' to
+    // '-O3' afterwards left a body describing a command the digest never covered.
+    const args = ['clang++', '-c', 'src/a.cpp'];
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp', { arguments: args })] });
+    expect(r.available).toBe(true);
+    args[1] = '-O3';
+    expect(r.rows[0].argv, 'the published member is a snapshot, not a live reference')
+      .toEqual(['clang++', '-c', 'src/a.cpp']);
+  });
+
+  it('★★★ REFUSES non-string arguments rather than coercing them', () => {
+    // The codec hashed '7' and '[object Object]' while the body exposed the number and the
+    // object — two descriptions of one entry from one call. clang rejects these outright.
+    const r = selectedTuSetDigest({
+      projectRoot: repo,
+      entries: [entry('src/a.cpp', { arguments: ['clang++', 7, { flag: 'x' }] })],
+    });
+    expect(r.available).toBe(false);
+    expect(r.cause).toBe('malformed_entry');
+  });
+
+  it('★★★ REFUSES a missing compile directory rather than inventing one', () => {
+    // ⛔ Blocker 3: it defaulted to the project root, so the receipt described a carrier clangd
+    // never accepted — its JSONCompilationDatabase treats a missing directory as an error.
+    const e = entry('src/a.cpp');
+    delete e.directory;
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [e] });
+    expect(r.available).toBe(false);
+    expect(r.cause).toBe('malformed_entry');
+  });
+
+  it('★★★ REFUSES an empty file field', () => {
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp', { file: '' })] });
+    expect(r.available).toBe(false);
+    expect(r.cause).toBe('malformed_entry');
   });
 });

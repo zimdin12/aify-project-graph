@@ -1,7 +1,9 @@
 # The selection receipt — spec, DESIGNED not built
 
-**Status: specified 2026-08-19 by `graph-senior-dev`, not implemented.** Recorded so the
-analysis survives; nothing here is shipped. Do not cite it as a capability.
+**Status 2026-08-19: codec + population selector IMPLEMENTED and independently replayed; the
+receipt body is NOT WIRED to any verb.** `mcp/stdio/code-intel/selection-digest.js`. No agent can obtain one yet, so this is still not a capability to cite.
+
+Verified: all six golden vectors from `graph-senior-dev`'s independent Python/Node pair, plus body-only replay with the producer's source files **deleted** — the property their first Python replay could not actually establish, because it was re-reading those files.
 
 Context: `evidence.exhaustive` was falsified three times in one day and is now **withheld**
 (`bd9034f`, `cfe0538`). This document specifies a **SELECTION / FLOOR receipt**: a smaller,

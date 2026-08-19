@@ -13,6 +13,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SERVER_INSTRUCTIONS } from '../../../mcp/stdio/server-instructions.js';
+import { RECEIPT_CAUSES } from '../../../mcp/stdio/code-intel/selection-digest.js';
 
 const MCP_ROOT = fileURLToPath(new URL('../../../mcp/stdio/', import.meta.url));
 
@@ -39,11 +40,20 @@ function allJsFiles(dir, out = []) {
 const RECEIPT_FILES = ['selection-digest.js'];
 const SPEC_DOC = fileURLToPath(new URL('../../../docs/2026-08-19-selection-receipt-spec.md', import.meta.url));
 
+// ⛔ THE HARVESTER WENT BLIND AND ONLY ITS OWN SELF-GUARD NOTICED. It matched the literal form
+// `cause: '...'`; refactoring the receipt refusals into a helper made it find ZERO causes, and
+// the "documents every cause" assertion would have passed vacuously over an empty set. A
+// checker that cannot see its population will eventually certify an empty one — the same shape
+// as every other instrument failure recorded in this repo.
+//
+// ⇒ Receipt causes now come from an EXPORTED ENUM, so the vocabulary is a value rather than a
+// syntax. Evidence causes still need the source scan (they are returned inline from a dozen
+// branches), but that scan keeps its non-vacuity guard.
 function emittedCauses({ receipt = false } = {}) {
+  if (receipt) return Object.values(RECEIPT_CAUSES).sort();
   const found = new Set();
   for (const file of allJsFiles(MCP_ROOT)) {
-    const isReceipt = RECEIPT_FILES.some((n) => file.endsWith(n));
-    if (isReceipt !== receipt) continue;
+    if (RECEIPT_FILES.some((n) => file.endsWith(n))) continue;
     const text = readFileSync(file, 'utf8');
     for (const m of text.matchAll(/cause:\s*'([a-z_]+)'/g)) found.add(m[1]);
   }

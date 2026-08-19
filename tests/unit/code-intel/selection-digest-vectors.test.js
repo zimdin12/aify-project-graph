@@ -104,6 +104,26 @@ describe('selected_tu_set_digest — metamorphic properties', () => {
       .toBe(aggregateRows([row(composed, ['clang++'], ASCII)]));
   });
 
+  const WIN = process.platform === 'win32';
+
+  it.runIf(!WIN)('★★★ a case-SIBLING tree is NOT inside the root (the executed WSL defect)', () => {
+    // ⛔ graph-senior-dev ran this under WSL against this checkout. `canonicalRelative`
+    // lowercased both sides on EVERY OS, so `/tmp/…/repo/src/x.cpp` was relabelled as
+    // `src/x.cpp` inside `/tmp/…/Repo` — two distinct POSIX trees. That is a FALSE SELECTION
+    // BODY: the receipt names a member that is not in the population it claims. Containment is
+    // now delegated to path.relative, which is host-native and byte-exact here.
+    expect(canonicalRelative('/tmp/apg/Repo', '/tmp/apg/repo/src/x.cpp')).toBeNull();
+    expect(canonicalRelative('/tmp/apg/Repo', '/tmp/apg/repo/build')).toBeNull();
+    expect(canonicalRelative('/tmp/apg/Repo', '/tmp/apg/Repo/src/x.cpp')).toBe('src/x.cpp');
+  });
+
+  it.runIf(WIN)('★★★ a same-root CASING difference IS the root (the mirror defect)', () => {
+    // The equality shortcut was case-SENSITIVE while the prefix test was case-INSENSITIVE, so
+    // ('C:/Repo','c:/repo') returned null instead of '.'. One host-native rule decides both now.
+    expect(canonicalRelative('C:/Repo', 'c:/repo')).toBe('.');
+    expect(canonicalRelative('C:/Repo', 'c:/repo/src/x.cpp')).toBe('src/x.cpp');
+  });
+
   it('★★★ canonicalRelative PRESERVES case and refuses escapes', () => {
     // Falsifier 4: `A.cpp` and `a.cpp` must stay distinct even on a case-insensitive host.
     const root = process.platform === 'win32' ? 'C:/repo' : '/repo';
