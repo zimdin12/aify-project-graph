@@ -58,6 +58,15 @@ Recall stayed ≈0.66 across **all four arms**. The paper's conclusion: *"no too
 agent find more true call sites — the missing third is an agent-thoroughness problem, not
 a retrieval one."*
 
+⛔ **PRECISION AND EXHAUSTIVENESS ARE ORTHOGONAL — do not let one become the other.**
+`graph-senior-dev`'s correction, 2026-08-19, and it is load-bearing: precision says every
+*returned* caller is real; `exhaustive` asserts that **none was omitted**, which is a recall
+claim. The ~0.66 recall above is evidence **against** promoting precision into a completeness
+attestation. Their P0 fixture had perfect precision and false exhaustiveness at the same time —
+the one returned caller was real, and a second real caller was absent. That is precisely the
+product risk, and it is why `exhaustive` now requires a fully covered, freshly measured
+population (`7a46e4c`).
+
 ⇒ **Our measurable claim is zero false callers plus a truthful statement of what was
 searched.** If we run the next experiment expecting to find more callers, we will get
 another null. Correctness-of-absence is the thing — and it is exactly what licenses

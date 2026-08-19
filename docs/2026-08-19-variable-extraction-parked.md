@@ -42,7 +42,17 @@ Nothing in it is padding; it is the cost of not shipping something that, in
 `graph-senior-dev`'s words, *"looks authoritative while either absorbing unrelated targets
 or remaining invisible to the safety verbs that matter."*
 
-**2. The payoff lands in a task class with no headroom.** See
+**2. The payoff is unproven, and the evidence I have does not bound it.**
+
+⚠ **CORRECTED 2026-08-19 by `graph-senior-dev`, and the correction matters.** I first wrote
+"the payoff class has no headroom". That over-extends the evidence: localization measurements
+bound the **edgeless LOCATION-only slice** and nothing more. **Reference precision is a
+different task class from symbol localization**, and my own new thesis says that is exactly
+where a semantic layer's advantage lives — so the combined node+reference design is *not*
+covered by those numbers. Record this reason as **payoff unproven / not a priority**, never as
+"no headroom", or the record launders localization evidence into reference and deletion tasks.
+
+What the evidence does say, for the location slice only. See
 `docs/2026-08-19-does-this-earn-its-keep.md`. Agent symbol-localization success with plain
 grep is measured at **100%**; graph/LSP arms cost **+6% to +118%** more tokens on that class;
 a graph condition **loses** to plain BM25 on keyword-findable tasks (88.9% vs 100%); perfect
