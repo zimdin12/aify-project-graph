@@ -80,12 +80,23 @@ Check the result: `brief.plan.md` should now have a FEATURES section with `open:
 Key verbs — invoke on demand, not all at session start:
 
 ```
-graph_report()                               # live orient fallback; prefer brief.agent.md first
+graph_impact(symbol="User")                  # blast radius            [listed by default]
+graph_whereis(symbol="get_db")               # exact definition sites  [listed by default]
+graph_consequences(target="get_db")          # what breaks if I change it  [listed]
+--- the rest are UNLISTED: callable only with --toolset=full ---
 graph_preflight(symbol="get_db")             # SAFE/REVIEW/CONFIRM before editing
 graph_path(symbol="handleRequest")           # execution trace
-graph_impact(symbol="User")                  # blast radius
 graph_file(path="src/auth/token.ts")         # whole-file digest
 ```
+
+⛔ **Listed ≠ callable.** The default `tools/list` profile is 17 names. A host that defers MCP
+tools behind a search step — managed Claude Code sessions included — can reach ONLY listed
+verbs; an unlisted one is not merely undocumented, it is unreachable, and a tool-search for it
+returns nothing. Start the server with `--toolset=full` if you need the long tail.
+
+⚠ `graph_report()` was listed here as the "live orient fallback". It is BOTH unlisted AND
+deprecated (`deprecation-probe.js` maps it to `brief.agent.md`), so the recommendation was
+unreachable and superseded at once. Read `.aify-graph/brief.agent.md` directly instead.
 
 Verb notes by profile:
 

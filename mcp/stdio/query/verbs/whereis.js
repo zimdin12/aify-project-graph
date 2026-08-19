@@ -59,10 +59,31 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
     const basis = `nodes in this graph whose exact label is "${symbol}", among declaration types`;
     const populationLine = (shown, mode) => {
       if (population === 0) return '';
+      // ⛔ THE SAME GLYPH, TWO DIFFERENT NUMERATORS, AND NO WAY OUT. ef-manager: compact's "2 of
+      // 5" counts rows LISTED, expand's "1 of 5" counts rows DETAILED — and the capped route's
+      // remedy ("re-run with limit=N") changes nothing here, because all N rows were already
+      // fetched and there is no call that expands match 2.
+      //
+      // ⇒ Disclose BOTH halves. What exists: compact lists the other N-1 with file:line, from a
+      // call the reader can actually make. What does not: their edges are unreachable. Naming
+      // only the first half would be the "advice not conditioned on whether it applies" defect
+      // again — the remedy is real for locations and absent for edges, and the sentence has to
+      // say which. ef-manager's test for whether this is a remedy rather than a restatement:
+      // does following it leave the reader knowing something they did not know? It does.
+      //
+      // ⚠ NOT building an `index` parameter to expand match 2. Nobody has asked for it,
+      // including the reviewer who found this; that is structure with no consumer load. An
+      // honest disclosure will produce the request if the need is real, and then there is a
+      // reason instead of a guess.
       if (mode === 'expand') {
+        if (population <= 1) return `
+${shown} of ${population} — ${basis}. Nothing was truncated.`;
         return `
-${shown} of ${population} — ${basis}. Expand mode details the FIRST match only`
-          + (capped ? `; re-run without expand, or with limit=${population}, for the whole set.` : '.');
+${shown} of ${population} — ${basis}. Expand mode details the FIRST match only; the other `
+          + `${population - 1} are listed with file:line by graph_whereis without expand`
+          + (capped ? ` (limit=${population} for the whole set)` : '')
+          + '.\n⚠ There is NO call that expands match 2 — incoming/outgoing edges are available '
+          + 'for the first match only, so an absence of edges here says nothing about the others.';
       }
       return capped
         ? `

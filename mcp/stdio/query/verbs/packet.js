@@ -779,7 +779,12 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     ...(looksLikePath || !codeIntelAvailable
       ? []
       : [`NEXT: code_intel_hierarchy(symbol="${symbol}", kind="callers") — compiler-backed call/override tree`]),
-  ];
+  // ⚠ ef-manager, 2026-08-19: "names a listed verb" and "adds information" are DIFFERENT
+  // assertions, and only the first was tested. My own correction produced a duplicate NEXT —
+  // I repointed a slot at graph_pull when graph_pull was already the first line — which reads
+  // as a bug in the tool and burns the slot. Deduping at the point of emission makes the state
+  // unconstructible instead of relying on the next reviewer noticing.
+  ].filter((line, i, all) => all.indexOf(line) === i);
 
   if (consequences && typeof consequences === 'object') {
     const symHits = consequences.matched?.symbols ?? [];

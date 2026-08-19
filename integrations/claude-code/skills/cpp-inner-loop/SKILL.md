@@ -41,6 +41,29 @@ If `evidence.exhaustive` is false, **do not** state "no callers" or "safe to del
 
 **Honest note (2026-05-22, real-clangd validation):** clangd running with `--background-index=false` (APG's default) does not emit readiness signals in many configurations, so `evidence.exhaustive === true` may NOT fire even when the answer is genuinely correct. The contract is most reliably enforceable in the **negative direction** (refuse confident absence claims when degraded). That refusal still prevents the most dangerous class of bug (confidently-wrong "dead code" report) — but expect to land on `evidence.degraded:true, cause:cold_index, exhaustive:false` more often than `exhaustive:true` on real repos today. Future work will surface real readiness via workspace-symbol round-trips or optional background-index for repos that can afford it.
 
+## ⛔ CHECK REACHABILITY BEFORE YOU PLAN AROUND THIS LOOP
+
+**Listed ≠ callable, and most of the verbs below are NOT listed.** The server's default
+`tools/list` profile is 17 names. This skill names 21 verbs, and **ten of them are outside that
+profile**: `code_intel_definitions`, `code_intel_symbols`, `code_intel_hover`,
+`code_intel_diagnostics`, `code_intel_replay`, `code_intel_analyze`, `graph_shader`,
+`graph_path`, `graph_neighbors`, `graph_change_plan`.
+
+In a host that defers MCP tools behind a search step — which includes managed Claude Code
+sessions — an unlisted verb is **not reachable at all**, not merely undocumented. A tool-search
+for one returns nothing. **The inner loop below cannot be executed past its first call in such a
+session**, and retrying is wasted work.
+
+⇒ Before planning around this loop: confirm the verbs you need are in your surface. If they are
+not, either start the server with `--toolset=full`, or use the listed alternatives —
+`code_intel_references` and `code_intel_hierarchy` are listed and carry the same `evidence`
+contract that makes an absence claim safe.
+
+⚠ This caveat existed in the parent skill (`integrations/*/skill/SKILL.md`, "Listed ≠ callable")
+and not here — found in the field by ef-manager, 2026-08-19, from a session where six of these
+verbs were confirmed unreachable by name. Same sibling-branch shape as every other fix in this
+repo that reached one path: a capability claim about X lives in files that are not X.
+
 ## The loop
 
 1. **Orient** when you don't know the symbol shape of a file:
