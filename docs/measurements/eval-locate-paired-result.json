@@ -1,5 +1,5 @@
 {
-  "what": "Efficacy case series — LOCATE, paired result. 6 tasks, 2 arms, 1 run per cell.",
+  "what": "EXPLORATORY PILOT — LOCATE. NOT the preregistered case series. Run against an open NO-RUN gate; deviations enumerated below.",
   "carrier": {
     "repo": "C:/Docker/aify-project-graph",
     "commit": "cb8f6a8",
@@ -68,15 +68,19 @@
     "verdict": "QUALITY TIE AT THE FLOOR — both arms satisfied every task contract exactly, including both traps."
   },
   "safety": {
-    "tool_honesty_gate": "PASS — no aify tool emitted a false proposition in this run",
-    "final_answer_safety_gate": "PASS — both arms",
-    "note": "A gap was reported (no exhaustiveness attestation) but a MISSING warrant is not a FALSE claim. The tool did not assert completeness it lacked; it asserted nothing."
+    "tool_honesty_gate": "NOT AUDITED — no atomic-claim extraction/adjudication sheet exists.",
+    "final_answer_safety_gate": "NOT AUDITED — same reason.",
+    "what_can_be_said": "No false claim was reported or identified in the retained summaries. That is an absence of observation, not an audited pass."
   },
   "cost": {
-    "baseline_tool_calls": 9,
-    "augmented_tool_calls": 15,
-    "verdict": "AUGMENTED cost MORE calls for the same result on these tasks.",
-    "why_arm_reported": "the augmented arm verified every graph answer with an independent text sweep, because graph_whereis gave it no exhaustiveness warrant for a counting question"
+    "baseline_tool_calls_self_reported": 9,
+    "augmented_tool_calls_self_reported": {
+      "run1": 15,
+      "run2": 21
+    },
+    "what_is_supported": "AUGMENTED made more SELF-REPORTED tool invocations than BASELINE in both trajectories.",
+    "what_is_NOT_supported": "that the bundle \"did not reduce work\" or \"cost more\". Calls are ONE proxy: tokens and wall-time were unmeasured, call complexity differs between a grep and a graph verb, and no raw logs support attribution.",
+    "causal_claim_downgraded": "that the extra calls happened BECAUSE whereis lacked a warrant is the ARM'S HYPOTHESIS, not identified causality. The shipped skill also tells agents to verify against source on weak-trust graphs, which predicts the same behaviour."
   },
   "tokens": {
     "measured": false,
@@ -86,8 +90,8 @@
     "measured": false,
     "reason": "ORIENT dropped from this run; no blinded rater pair"
   },
-  "preregistered_rule_applied": "Rule 3: both arms pass the same essential contract -> quality tie at the floor; optional dimensions compared separately, and only then may cost be considered.",
-  "conclusion": "On these 6 LOCATE tasks, on this repo at cb8f6a8, in ONE run per cell: the bundle did NOT improve correctness and did NOT reduce work. Both arms were exactly right on all six, including both traps. The augmented arm spent 15 tool calls to the baseline's 9, because the graph verb could not license the completeness the question required — so it re-derived the answer with an independent text sweep anyway, paying for both.",
+  "preregistered_rule_applied": "POST-HOC interpretation using rule 3 (both arms pass the same essential contract -> quality tie at the floor). It was not a preregistered application, because the preregistration was not complete when the arms ran.",
+  "conclusion": "On these six observed tasks: both arms matched the reference exactly, so there was NO OBSERVED CORRECTNESS ADVANTAGE either way, and the augmented arm made six to twelve more self-reported tool invocations across two trajectories. Nothing here supports a claim about work reduction, tokens, or efficacy in general.",
   "not_established": [
     "any rate or generalisation — 6 tasks, 1 repo, 1 run per cell, JS only",
     "token cost",
@@ -95,5 +99,49 @@
     "C++/clangd behaviour — codeIntel was absent on this carrier",
     "that a different task class (IMPACT, DELETE-SAFETY) would show the same"
   ],
-  "the_finding_that_matters": "The augmented arm was not wrong; it was UNWARRANTED. graph_whereis computes the population (a COUNT over the same predicate was added on 2026-08-12) but only surfaces it when the result is CAPPED. When nothing is capped it says nothing, so \"10 rows\" and \"10 rows, and that is all of them\" are indistinguishable to the reader. That is the same defect class fixed in graph_packet all week — a population known to the code and not stated to the reader — left standing in the sibling verb. Enumerate every emitter, again."
+  "the_finding_that_matters": "The augmented arm was not wrong; it was UNWARRANTED. graph_whereis computes the population (a COUNT over the same predicate was added on 2026-08-12) but only surfaces it when the result is CAPPED. When nothing is capped it says nothing, so \"10 rows\" and \"10 rows, and that is all of them\" are indistinguishable to the reader. That is the same defect class fixed in graph_packet all week — a population known to the code and not stated to the reader — left standing in the sibling verb. Enumerate every emitter, again.",
+  "runs": [
+    {
+      "run": 1,
+      "build": "cb8f6a8",
+      "baseline_tool_calls": 9,
+      "augmented_tool_calls": 15,
+      "quality": "both arms 6/6 exact, both traps rejected",
+      "finding": "graph_whereis stated no population when nothing was capped, so the augmented arm could not tell 10-of-10 from 10-clipped and re-derived the answer with grep."
+    },
+    {
+      "run": 2,
+      "build": "be027e7 (whereis attestation added; health consequence widened)",
+      "baseline_tool_calls": 9,
+      "augmented_tool_calls": 21,
+      "quality": "arm 6/6 exact, both traps rejected, AST-verified via the TypeScript compiler API",
+      "finding": "THE FIX AT THE VERB WORKED AND THE SAME COMMIT TOOK THE BENEFIT BACK. graph_whereis attested \"10 of 10 ... nothing was truncated\", while graph_health — widened in the same commit — said definition counts \"cannot be treated as exhaustive\". One surface of the same server licensed the claim, the other de-licensed it by name, both authoritative, nothing said which wins. The arm re-derived all six answers from a compiler API and paid for everything twice."
+    }
+  ],
+  "preregistered_prediction": {
+    "stated_before_run_2": "If the attestation works, a rational agent need not re-derive with grep, so augmented tool calls should fall toward the baseline's 9.",
+    "observed": "Augmented calls ROSE from 15 to 21.",
+    "verdict": "FALSIFIED.",
+    "why_it_was_wrong": "The prediction assumed the attestation was the only signal the agent would weigh. It was not: graph_health, run first and by instruction, contradicted it. I fixed an asymmetry and manufactured its mirror image in the same edit, then predicted the result of only the half I was looking at.",
+    "published_because": "A prediction stated in advance and then quietly dropped is worse than none. This one was wrong and the reason it was wrong is the finding."
+  },
+  "the_rule_this_produced": "An unwarranted DOUBT costs the reader exactly as much as an unwarranted CLAIM, because they go and check either way. Scope a doubt to its cause: code-intel absence governs cross-reference answers, not the local declaration table.",
+  "evidence_upgrade": "Run 2 verified all 16 definition sites with the TypeScript compiler API over 216 files — a referee that shares no parser with the graph. It agreed exactly with graph_whereis and with the tree-sitter reference set. That retires the shared-parser caveat recorded against the original reference: two independent front ends now agree.",
+  "still_not_established": [
+    "any rate or generalisation — 6 tasks, 1 repo, JS only, one run per cell",
+    "token cost — no admissible instrument",
+    "map/knowledge quality — ORIENT dropped",
+    "C++/clangd behaviour — no collection on this carrier",
+    "whether the run-3 build (health scoped) actually reduces calls: PREDICTION NOT YET MADE, and this time I will state it before the run and publish it whichever way it lands"
+  ],
+  "status": "EXPLORATORY PILOT / PROTOCOL DEVIATION",
+  "protocol_deviations": [
+    "RAN AGAINST AN EXPLICIT NO-RUN GATE. efficacy-task-manifest.json said status INCOMPLETE / not runnable; efficacy-eval-design.md required every appendix line filled before any arm ran. Five were open (IMPACT/DELETE-SAFETY tasks, ORIENT rubric, replicate schedule, token instrument, safety adjudication sheet).",
+    "SESSION GRANULARITY WRONG. v3 requires a fresh isolated session per task per arm. This used ONE session per arm across all six tasks, so within-arm carryover between tasks is possible and unmeasured.",
+    "ISOLATION SELF-REPORTED, NOT ENFORCED. The baseline arm was instructed not to use graph tools and reported compliance. Nothing technically prevented it.",
+    "NO RAW TRANSCRIPTS RETAINED. Only per-arm summaries and self-reported call totals exist. The earlier commit message said the artifacts contain both arms' tool logs; they contain the arms' PROSE ACCOUNTS of their tool logs, which is not the same thing.",
+    "NO REPLICATES. One trajectory per cell per build. Model variance is unmeasured."
+  ],
+  "the_finding_that_survives": "The pilot found a real product gap and that finding stands independently of the protocol problems: graph_whereis stated no population on three of its output routes, so a correct answer could not be relied upon. It is fixed and pinned. A defect found by an invalid experiment is still a defect.",
+  "population_scope_correction": "THE ATTESTATION ANSWERS A NARROWER QUESTION THAN THE TASK ASKED. \"N of N nodes in this graph, exact label, declaration types\" is not \"N definitions in the repository\". On a weak-trust graph with no code-intel collection, a rational agent must still verify source — so continued grep after the fix is NOT evidence the disclosure failed, and a DROP in calls might mean the agent over-trusted graph completeness rather than that efficacy improved. The planned run-3 inference is withdrawn as unsound; the two questions (graph-population vs repository-completeness) must be separated before either is measured."
 }

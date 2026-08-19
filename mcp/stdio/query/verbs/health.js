@@ -166,9 +166,29 @@ export function buildNextActions(s) {
       // absence of code-intel undermines definition counts just as much — the graph layer is
       // tree-sitter-derived either way — while the consequence text pointed only at callers and
       // deletes. A reader checking whether this warning applies to THEIR question was told no.
-      why: 'no code-intel collection on this repo — every graph-derived answer here is '
-        + 'tree-sitter heuristic, not compiler-verified. That includes caller sets, deletion '
-        + 'safety AND definition counts/locations: none of them can be treated as exhaustive',
+      // ⛔ THIS LINE HAS NOW BEEN WRONG IN BOTH DIRECTIONS, AND THE SECOND ONE WAS MINE.
+      //
+      // It first read "caller/deletion answers will be heuristic only" — too NARROW, so a reader
+      // asking about definition counts was told the warning did not apply (efficacy run 1). I
+      // widened it to say definition counts "cannot be treated as exhaustive" — too BROAD, and
+      // it then contradicted graph_whereis's own attestation on the same server. Run 2 on that
+      // build spent 21 tool calls against run 1's 15: one surface licensed the claim, the other
+      // de-licensed it, and the arm re-derived everything from a compiler API instead.
+      //
+      // ★ "An unwarranted DOUBT costs the reader exactly as much as an unwarranted claim,
+      // because they go and check either way." That is the arm's sentence, and it is the rule.
+      //
+      // ⇒ SCOPE THE DOUBT TO ITS CAUSE. Code-intel resolves CROSS-REFERENCES; without it caller
+      // sets, deletion safety and override/overload resolution are heuristic. A definition COUNT
+      // is a different question, settled by extraction over a fresh index — two independent
+      // parsers (tree-sitter, and the TypeScript compiler API) agreed with graph_whereis on all
+      // 16 sites across 6 symbols on a repo with no collection at all. What bounds a count is
+      // what the PARSER can see, so that limit is named as itself instead of folded in here.
+      why: 'no code-intel collection on this repo — CROSS-REFERENCE answers (caller sets, '
+        + 'deletion safety, override/overload resolution) are tree-sitter heuristic rather than '
+        + 'compiler-verified and must not be treated as exhaustive. Definition counts and '
+        + 'locations are a separate question: settled by extraction, and bounded by what the '
+        + 'parser can see — a computed or generated definition is invisible to it',
       do: 'graph_collect_code_intel({ scope: "all" }), or use code_intel_references for one bounded symbol',
     });
   }

@@ -11,50 +11,49 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const hits = db.all(
-      `SELECT * FROM nodes WHERE label = $label AND type IN (${SEARCH_TYPES.map(t => `'${t}'`).join(',')}) LIMIT $limit`,
-      { label: symbol, limit }
+    // ⛔ ROWS AND POPULATION WERE TWO INDEPENDENT AUTOCOMMIT SELECTS. Under WAL a concurrent
+    // write can commit between them — the server has no request queue and indexing runs out of
+    // process — so `hits` and `population` could describe DIFFERENT SNAPSHOTS and render an
+    // impossible "10 of 5", or misclassify the capped state. Bound now by one windowed query:
+    // the count travels with the rows it counts, from a single read.
+    //
+    // ⚠ The predicate is derived ONCE. Two SQL strings carrying the same filter is how the
+    // rows and the count drift apart later, which is the same defect one refactor away.
+    const TYPES = SEARCH_TYPES.map((t) => `'${t}'`).join(',');
+    const rows = db.all(
+      `SELECT *, count(*) OVER () AS __population
+         FROM nodes WHERE label = $label AND type IN (${TYPES}) LIMIT $limit`,
+      { label: symbol, limit },
     );
-    // ⛔ THIS VERB IS THE ESCAPE HATCH EVERY OTHER DISCLOSURE POINTS AT, AND IT WAS CAPPED AND
-    // SILENT. graph_packet and graph_consequences both end their truncation warnings with
-    // `graph_whereis(symbol="X") — every definition, unsampled`. It returns `LIMIT 5` by
-    // default with no total and no marker, so on a symbol with 60 definitions the remedy
-    // silently returned five and the promise was false.
-    //
-    // ★ ef-manager flagged it from the disclosure text alone — "worth checking whether
-    // graph_whereis, which both verbs point to as 'every definition, unsampled', actually is
-    // unsampled above 50 rows. If it caps too, the escape hatch has the same hole and every
-    // disclosure routes readers to it." It does, and it did.
-    //
-    // ⇒ Same cap-as-total defect as the three already fixed in graph_packet, in the verb those
-    // fixes send people to. A COUNT over the same predicate costs one query and turns a silent
-    // sample into a stated one.
-    const population = db.get(
-      `SELECT count(*) AS n FROM nodes WHERE label = $label AND type IN (${SEARCH_TYPES.map(t => `'${t}'`).join(',')})`,
-      { label: symbol },
-    )?.n ?? hits.length;
+    const hits = rows;
+    const population = rows.length > 0 ? rows[0].__population : 0;
     const capped = population > hits.length;
-    // ⛔ THE POPULATION WAS ONLY SPOKEN WHEN IT WAS BAD NEWS, AND THAT IS HALF A DISCLOSURE.
+
+    // ⛔ ONE RENDERER FOR EVERY ROUTE. There were three — capped compact, uncapped compact, and
+    // expand — with three different disclosures and, in the 1-of-1 expand case, none at all.
+    // The efficacy pilot found the silence in one route; I fixed that route and shipped it, and
+    // the reviewer immediately executed the other two. If the basis is load-bearing for one it
+    // is load-bearing for all, so there is now a single place that can say it.
     //
-    // Found by the first controlled efficacy run (2026-08-19). The augmented arm asked for every
-    // definition of `detect` with limit=50, got exactly 10 rows, and could not tell "the true
-    // count is 10" from "a cap clipped the list at 10" — because this verb said nothing at all
-    // when nothing was capped. Its words: the verb that answers "where is X defined" cannot
-    // itself license "and that is all of them". So it re-derived the whole answer with grep and
-    // spent 15 tool calls against the baseline arm's 9, for an identical correct answer.
-    //
-    // ★ The tool was not WRONG. It was UNWARRANTED — and an unwarranted correct answer costs the
-    // reader exactly as much as a wrong one, because they must go and check it either way. That
-    // is the efficacy case for disclosure, measured rather than argued.
-    //
-    // ⚠ The count is stated WITH ITS PREDICATE. This verb matches an exact label over declaration
-    // types, so "10 of 10" is a claim about that predicate and nothing wider; a count whose basis
-    // is unstated is simply the next version of this defect.
-    const capNotice = capped
-      ? `\n⚠ SHOWING ${hits.length} OF ${population} — this verb caps at limit=${limit}. `
-        + `Re-run with limit=${population} for the full set.`
-      : `\n${hits.length} of ${population} — every node whose exact label is "${symbol}", `
-        + 'among declaration types. Nothing was truncated.';
+    // ⚠ THE POPULATION IS THE GRAPH, NOT THE REPOSITORY. This counts indexed nodes whose exact
+    // label matches, among declaration types. A definition the extractor never saw is not in it.
+    // Saying "every definition" would be the cap-as-total defect wearing a bigger scope.
+    const basis = `nodes in this graph whose exact label is "${symbol}", among declaration types`;
+    const populationLine = (shown, mode) => {
+      if (population === 0) return '';
+      if (mode === 'expand') {
+        return `
+${shown} of ${population} — ${basis}. Expand mode details the FIRST match only`
+          + (capped ? `; re-run without expand, or with limit=${population}, for the whole set.` : '.');
+      }
+      return capped
+        ? `
+⚠ SHOWING ${shown} OF ${population} — ${basis}. This verb caps at limit=${limit}; `
+          + `re-run with limit=${population} for the full set.`
+        : `
+${shown} of ${population} — ${basis}. Nothing was truncated.`;
+    };
+
     if (hits.length === 0) {
       // Suggest, do not redirect. This path was missed when did-you-mean landed on
       // callers/callees/impact/change_plan — and graph_whereis is the verb a field
@@ -94,7 +93,10 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
     }
 
     if (!expand) {
-      return prefixReadWarnings(renderCompact({ nodes: hits, edges: [] }) + capNotice, freshness.warnings);
+      return prefixReadWarnings(
+        renderCompact({ nodes: hits, edges: [] }) + populationLine(hits.length, 'compact'),
+        freshness.warnings,
+      );
     }
 
     // Expand mode: include top 3 incoming + 3 outgoing edges (replaces graph_summary)
@@ -120,11 +122,14 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
     // This file's own comment thirty lines up records the lesson — "enumerate every emitter of
     // a message rather than the ones that come to mind" — and the first version of this very
     // fix patched only the compact branch.
-    const expandNotice = population > 1
-      ? `\n⚠ EXPANDED 1 OF ${population} definitions — expand mode details the FIRST match only. `
-        + 'Use expand=false to list them, or narrow the symbol.'
-      : '';
-    return prefixReadWarnings(renderCompact({ nodes: [n], edges }) + expandNotice, freshness.warnings);
+    // ⛔ AND THIS ROUTE SAID NOTHING AT ALL WHEN population === 1. The old notice was gated on
+    // `population > 1`, so the single-definition expand case — the commonest one — emitted no
+    // count and no basis. The reviewer executed exactly that and found the pilot's gap alive in
+    // a public mode, in the commit that claimed to have closed it.
+    return prefixReadWarnings(
+      renderCompact({ nodes: [n], edges }) + populationLine(1, 'expand'),
+      freshness.warnings,
+    );
   } finally {
     db.close();
   }
