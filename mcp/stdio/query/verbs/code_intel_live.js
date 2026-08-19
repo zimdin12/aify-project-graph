@@ -250,9 +250,56 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
       warnings,
     };
   }
-  // Exhaustive requires: ready (fresh), at least one callsite, and PROVEN coverage.
+  // ⛔⛔⛔ REMEDY 3 — MEMBERSHIP IS SELECTION, NOT SUCCESS. graph-senior-dev executed this on
+  // 7a46e4c, AFTER the coverage fix: two sources, both in compile_commands, ratio 1, census
+  // fresh — and one of them carried a compile command missing an include path, so clangd could
+  // not compile it. Its caller was absent from the result and the verb still returned
+  // exhaustive:true, cause:null, confidence:'high'.
+  //
+  // ★ Upstream mechanism, from clangd's own source: Background.cpp:331-345 logs `Indexed <TU>`
+  // and, on an uncompilable diagnostic, `Failed to compile <TU>, index may be incomplete` — but
+  // BackgroundQueue.cpp:43,49 increments `Completed` after EVERY task regardless of outcome. So
+  // `$/progress` draining to idle proves that all tasks TERMINATED, never that they succeeded.
+  // That is exactly why the `fresh` bit stayed green over a failed TU.
+  //
+  // ⇒ We can observe which TUs were SELECTED and cannot observe which were INDEXED. A
+  // completeness claim over an unobserved population is the 90%-threshold defect one layer in:
+  // there, a ratio stood in for coverage; here, membership stands in for success. The grant is
+  // WITHHELD until an attested index generation exists.
+  //
+  // ⚠ WHY THIS COSTS LESS THAN IT LOOKS. The grant only ever fired with callsiteCount > 0 —
+  // "here are N callers and that is all of them". The zero-caller shape that licenses a
+  // DELETION already returns definition_only/exhaustive:false and never had it. So this removes
+  // a claim proven false in exactly the case where it fired, and removes nothing from deletion
+  // safety, which never had the grant to begin with.
+  //
+  // ⚠ AND THE DIMENSIONS ARE SPLIT RATHER THAN COLLAPSED, which is dev's usability ruling: a
+  // refusal that returns nothing useful teaches agents to stop reading the field. Each returned
+  // location is still COMPILER-RESOLVED; it is the SET that is a floor. `repositoryExhaustive`
+  // stays a separate field from any scoped completeness, so a build-config-scoped answer can
+  // never be promoted into a repo-wide deletion licence by collapsing the two.
   if (freshness === 'fresh' && callsiteCount > 0) {
-    return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings };
+    warnings.push(
+      'the compile DB / project config selects which files the language server MAY index; it '
+      + 'does not report which it actually DID. A file present in it can still fail to compile '
+      + '(a missing include path is enough) and its callers are then invisible, while background '
+      + 'indexing still reports idle. Returned locations are compiler-resolved and precise; the '
+      + 'SET is a floor. Verify with rg before any "no callers / dead code / safe to delete" claim.',
+    );
+    return {
+      ready: true,
+      degraded: true,
+      cause: 'index_population_unattested',
+      confidence: 'medium',
+      exhaustive: false,
+      repositoryExhaustive: false,
+      resultScope: 'clangd_current_index',
+      indexPopulation: 'unattested',
+      completeness: 'floor',
+      precision: 'compiler_resolved',
+      fallback: 'each returned location is compiler-resolved; for absence, verify with rg',
+      warnings,
+    };
   }
   if (freshness === 'fresh' && callsiteCount === 0 && defCount > 0) {
     warnings.push('definition-only references are not safe evidence of no callers');
@@ -639,14 +686,26 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   // clears the sticky state. The FIRST clean recovery still carries
   // the marker so an agent can see "we just recovered" — prevents
   // silently bumping confidence on a quietly-recovered cold index.
+  // ⚠ A STANDING LIMITATION IS NOT AN INCIDENT, and conflating them broke this machinery the
+  // moment `index_population_unattested` landed. Sticky-degraded exists to track TRANSIENT
+  // degradations — a cold index, a stale one, a timeout — that a later good result can clear.
+  // The unattested-index cause is permanent until an attested generation exists, so treating it
+  // as an incident would (a) overwrite a real prior cause like `cold_index` so it never
+  // surfaces, and (b) pin the session degraded forever with a fact that is true of every call.
+  // Caught by the existing Step D test rather than by reading — the failing assertion was the
+  // prior cause going missing.
+  const STANDING_CAUSES = new Set(['index_population_unattested']);
   const priorSticky = session.referencesStickyDegraded;
-  if (evidence.degraded && evidence.cause) {
+  if (evidence.degraded && evidence.cause && !STANDING_CAUSES.has(evidence.cause)) {
     // `since` tracks the FIRST degrade in an unbroken degraded streak (so it can
     // measure how long the session has been degraded), not the most recent call.
     // Preserve it across same-streak calls; only refresh cause.
     const since = (priorSticky && priorSticky.since) ? priorSticky.since : Date.now();
     session.referencesStickyDegraded = { cause: evidence.cause, since };
-  } else if (evidence.ready && evidence.exhaustive) {
+  } else if (evidence.ready && (evidence.exhaustive || STANDING_CAUSES.has(evidence.cause))) {
+    // Recovery is judged on the TRANSIENT condition clearing. Requiring `exhaustive` here would
+    // mean no session can ever recover now that the grant is withheld by a standing cause —
+    // the same "unreachable field" trap as raising the coverage bar without a route back.
     if (priorSticky) {
       evidence.previouslyDegraded = priorSticky.cause;
       evidence.warnings = [

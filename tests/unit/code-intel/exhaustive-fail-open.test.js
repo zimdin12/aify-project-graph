@@ -45,12 +45,28 @@ describe('exhaustive grant fails CLOSED on unproven coverage', () => {
     expect(e.cause).toBe('coverage_unknown');
   });
 
-  it('PROVEN coverage still grants exhaustive (the fix must not over-correct)', () => {
+  // ⛔ SUPERSEDED 2026-08-19 BY AN EXECUTED COUNTEREXAMPLE, and rewritten rather than deleted so
+  // the reason survives. This asserted that PROVEN compile-DB coverage grants exhaustive:true.
+  // graph-senior-dev built two sources, BOTH in compile_commands (ratio 1, census fresh), one
+  // carrying a command with a missing include path so clangd could not compile it. Its caller
+  // was absent from the result and the verb still returned exhaustive:true / cause:null /
+  // confidence:'high'. Upstream: clangd's BackgroundQueue counts a task Completed regardless of
+  // outcome, so "indexing idle" never meant "indexing succeeded".
+  // ⇒ Membership in the DB is SELECTION, not SUCCESS. The grant is withheld until an attested
+  // index generation exists; what survives is per-location precision, which is a different
+  // dimension and is still reported.
+  it('PROVEN coverage no longer grants exhaustive — membership is not index success', () => {
     const e = buildReferencesEvidence({ ...freshWithCallsites, coverage: proven });
-    expect(e.exhaustive).toBe(true);
-    expect(e.degraded).toBe(false);
-    expect(e.confidence).toBe('high');
+    expect(e.exhaustive, 'the DB says which files MAY be indexed, not which were').toBe(false);
+    expect(e.cause).toBe('index_population_unattested');
+    // The fix must not over-correct into uselessness: what is still known is still reported.
+    expect(e.precision, 'each returned location is compiler-resolved').toBe('compiler_resolved');
+    expect(e.completeness, 'the SET is a floor — a separate dimension').toBe('floor');
 
+    // ⚠ DEFINITIONS ARE DELIBERATELY LEFT ALONE. The executed counterexample was about
+    // REFERENCES, and extending a finding to a surface nobody tested is the over-extension
+    // graph-senior-dev corrected me on earlier the same day. Flagged to them as an open
+    // question rather than silently changed here.
     const d = buildDefinitionsEvidence({ freshness: 'fresh', defCount: 1, coverage: proven });
     expect(d.exhaustive).toBe(true);
   });

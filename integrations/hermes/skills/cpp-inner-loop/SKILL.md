@@ -18,6 +18,34 @@ The strongest value-add of this skill is **trustworthy absence claims** on C++ s
 
 These claims are dangerous because text search has no exhaustiveness guarantee — a single missed caller through a vtable, template instantiation, or include-graph fork causes a real bug. `code_intel_references` returns an `evidence` object; **only trust an empty refs list (or any "no callers" / "dead code" conclusion) when `evidence.exhaustive === true`.**
 
+⛔ **AND AS OF 2026-08-19 THAT CONDITION IS NOT CURRENTLY REACHABLE. Read this before planning
+around it.**
+
+Two things were established by execution against real clangd, not by argument:
+
+1. **The empty case never had the grant anyway.** `callsiteCount === 0` returns
+   `definition_only` / `exhaustive:false`. So the flag could only ever certify *"here are N
+   callers and that is all of them"* — it could never certify *"there are none"*, which is the
+   exact shape a deletion needs. The advice above has been unreachable for its stated purpose
+   the whole time.
+2. **The non-empty grant was false too.** Two sources, both in `compile_commands.json`,
+   coverage ratio 1 — one carrying a command with a missing include path, so clangd could not
+   compile it. Its caller was absent from the result and the verb returned `exhaustive:true`,
+   `cause:null`, `confidence:'high'`. clangd's background queue counts a task *completed*
+   regardless of outcome, so "indexing idle" never meant "indexing succeeded".
+
+⇒ `exhaustive` is now **withheld** with cause `index_population_unattested` until an attested
+index generation exists. **What you still get, and should use:**
+
+- `precision: 'compiler_resolved'` — every returned location is real. Do not re-verify these.
+- `completeness: 'floor'` — the SET may be missing callers. Treat it as a lead set.
+- `indexPopulation: 'unattested'` — we observe which files the build system SELECTED for
+  indexing, never which the language server actually indexed.
+
+**So: use `code_intel_references` to find callers precisely, and NEVER as the basis for an
+absence claim. For "is this dead / safe to delete", verify with `rg` — that is not a fallback,
+it is currently the only sound method.**
+
 ```js
 // Plan #14 evidence contract on code_intel_references
 {

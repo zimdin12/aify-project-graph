@@ -124,15 +124,22 @@ describe('code_intel_hover (live)', () => {
 // results for any position, so it can't simulate empty/cold paths
 // without a more invasive fixture rebuild.
 describe('Plan #14 evidence contract — integration', () => {
-  it('references with fresh freshness + callsites → evidence.exhaustive=true + compat array preserved', async () => {
+  it('references with fresh freshness + callsites → NOT exhaustive (index unattested) + compat array preserved', async () => {
+    // ⛔ SUPERSEDED 2026-08-19. graph-senior-dev executed a fixture where BOTH sources were
+    // in compile_commands (ratio 1, census fresh) but one carried a command missing an
+    // include path, so clangd could not compile it; its caller was absent and the verb
+    // still returned exhaustive:true. clangd's BackgroundQueue counts a task Completed
+    // regardless of outcome, so "indexing idle" never meant "indexing succeeded".
+    // ⇒ Membership is SELECTION, not SUCCESS. Precision survives; completeness does not.
+
     const repo = tmpRepo();
     const r = await codeIntelReferences({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, waitForReadyMs: 500, spawn: fakeProgressSpawn });
     expect(r.evidence).toBeDefined();
-    expect(r.evidence.exhaustive).toBe(true);
+    expect(r.evidence.exhaustive).toBe(false);
     expect(r.evidence.ready).toBe(true);
-    expect(r.evidence.degraded).toBe(false);
-    expect(r.evidence.confidence).toBe('high');
-    expect(r.evidence.cause).toBeNull();
+    expect(r.evidence.degraded).toBe(true);
+    expect(r.evidence.confidence).toBe('medium');
+    expect(r.evidence.cause).toBe('index_population_unattested');
     expect(Array.isArray(r.referenceLocations)).toBe(true);
     expect(Array.isArray(r.definitionLocations)).toBe(true);
     expect(Array.isArray(r.references)).toBe(true); // compat array still present
@@ -149,15 +156,23 @@ describe('Plan #14 evidence contract — integration', () => {
 });
 
 describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', () => {
-  it('fresh + callsites + PROVEN coverage → exhaustive:true, ready:true, no cause', () => {
+  it('fresh + callsites + PROVEN coverage → still NOT exhaustive; membership is not index success', () => {
+    // ⛔ SUPERSEDED 2026-08-19. graph-senior-dev executed a fixture where BOTH sources were
+    // in compile_commands (ratio 1, census fresh) but one carried a command missing an
+    // include path, so clangd could not compile it; its caller was absent and the verb
+    // still returned exhaustive:true. clangd's BackgroundQueue counts a task Completed
+    // regardless of outcome, so "indexing idle" never meant "indexing succeeded".
+    // ⇒ Membership is SELECTION, not SUCCESS. Precision survives; completeness does not.
+
     // P0-2 (2026-07-26): proven coverage is now required. Previously this passed
     // with no coverage argument at all.
     const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1, coverage: { complete: true } });
-    expect(e.exhaustive).toBe(true);
+    expect(e.exhaustive).toBe(false);
     expect(e.ready).toBe(true);
-    expect(e.degraded).toBe(false);
-    expect(e.confidence).toBe('high');
-    expect(e.cause).toBeNull();
+    expect(e.degraded).toBe(true);
+    expect(e.confidence).toBe('medium');
+    expect(e.cause).toBe('index_population_unattested');
+    expect(e.precision, 'precision is a different dimension and survives').toBe('compiler_resolved');
   });
 
   it('fresh + callsites but INCOMPLETE compile-DB coverage → NOT exhaustive (false-exhaustive guard)', () => {
@@ -179,10 +194,17 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
     expect(e.warnings).not.toContain(e.fallback);
   });
 
-  it('fresh + callsites + COMPLETE coverage → exhaustive:true (coverage gate passes)', () => {
+  it('fresh + callsites + COMPLETE coverage → coverage gate passes but the index is unattested', () => {
+    // ⛔ SUPERSEDED 2026-08-19. graph-senior-dev executed a fixture where BOTH sources were
+    // in compile_commands (ratio 1, census fresh) but one carried a command missing an
+    // include path, so clangd could not compile it; its caller was absent and the verb
+    // still returned exhaustive:true. clangd's BackgroundQueue counts a task Completed
+    // regardless of outcome, so "indexing idle" never meant "indexing succeeded".
+    // ⇒ Membership is SELECTION, not SUCCESS. Precision survives; completeness does not.
+
     const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 3, defCount: 1, coverage: { complete: true } });
-    expect(e.exhaustive).toBe(true);
-    expect(e.cause).toBeNull();
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('index_population_unattested');
   });
 
   // REVERSED 2026-07-26 (P0-2). This test previously asserted that omitting
@@ -251,6 +273,9 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
 
 describe('Plan #14 evidence contract — buildDefinitionsEvidence unit cases', () => {
   it('fresh + defs + PROVEN coverage → exhaustive:true', () => {
+    // ⚠ DEFINITIONS DELIBERATELY UNCHANGED. The executed counterexample was about REFERENCES;
+    // extending it to a surface nobody tested is the over-extension graph-senior-dev corrected
+    // me on earlier the same day. Raised with them as an open question instead.
     const e = buildDefinitionsEvidence({ freshness: 'fresh', defCount: 1, coverage: { complete: true } });
     expect(e.exhaustive).toBe(true);
     expect(e.ready).toBe(true);

@@ -41,7 +41,17 @@ d('typescript-language-server (real) — live verbs', () => {
     expect(r.status).toBe('ok');
     const files = (r.referenceLocations || []).map((x) => x.file);
     expect(files).toContain('src/main.ts'); // cross-file caller found
-    expect(r.evidence.exhaustive).toBe(true); // tsconfig present → complete coverage
+    // ⛔ SUPERSEDED 2026-08-19. A tsconfig — like a compile DB — states which files the language
+    // server MAY index, not which it actually DID. graph-senior-dev executed the C++ instance:
+    // both sources in the DB, one uncompilable, its caller absent, exhaustive:true returned.
+    // The mechanism is not asserted for tsserver (nobody has executed it there); what IS true
+    // for both is that we do not OBSERVE per-file index success, so a completeness claim is
+    // over an unobserved population either way. Declining to claim is not the same as claiming
+    // a defect.
+    // ⇒ Precision is unaffected and still asserted above: the cross-file caller IS found.
+    expect(r.evidence.exhaustive, 'the index population is unattested for tsserver too').toBe(false);
+    expect(r.evidence.cause).toBe('index_population_unattested');
+    expect(r.evidence.precision, 'each returned location is still compiler-resolved').toBe('compiler_resolved');
   }, 30000);
 
   it('codeIntelHierarchy (callers) builds a call tree for a TS symbol', async () => {
