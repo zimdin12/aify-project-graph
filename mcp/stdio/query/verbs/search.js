@@ -84,7 +84,12 @@ function buildSearchFilters({ type, file, kind }) {
   return { clauses, params };
 }
 
-export async function graphSearch({ repoRoot, query, type, file, kind = 'code', limit = 20, fresh = false, mode = 'lexical', embedder = undefined }) {
+// ⚠ `kind` is destructured WITHOUT a default so the body can tell a caller-supplied 'code'
+// from the default one. With `kind = 'code'` in the signature that distinction is erased at the
+// boundary, and the zero-result message cannot attribute the narrowing to whoever caused it.
+export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, limit = 20, fresh = false, mode = 'lexical', embedder = undefined }) {
+  const kindSupplied = kindArg !== undefined && kindArg !== null && kindArg !== '';
+  const kind = kindSupplied ? kindArg : 'code';
   if (!query || query.trim().length === 0) {
     return 'QUERY_TOO_SHORT — provide at least 1 character';
   }
@@ -206,19 +211,38 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
       //     cause. An active filter is a CANDIDATE cause. Same class as every other basis in
       //     this repo that did not match its computation: the heading made a claim the item
       //     could not support.
+      // ⛔ AND MY FIX FOR THAT FLIPPED THE POLARITY RATHER THAN CORRECTING IT. `kind` carried a
+      // PARAMETER DEFAULT of 'code', so `kind && kind !== 'all'` was true on a bare call with no
+      // arguments — the commonest call there is — and the message blamed filters the caller
+      // never passed. Worse under the new heading: "May be narrowing" asserts a candidate cause,
+      // so the false claim was promoted from a clause to a hypothesis. ef-manager executed all
+      // three arms the same day.
+      //
+      // ⇒ CALLER-SUPPLIED vs VERB-DEFAULT, not a value test. Both narrow in SQL — the default
+      // really does exclude Document/Directory/Config/External — so neither may be silent, but
+      // they are DIFFERENT facts and only one of them is something the reader chose.
       const ruledOut = [];
       const mayNarrow = [];
       if (freshnessState && !freshnessState.stale) ruledOut.push('the index is fresh');
-      if (type || file || (kind && kind !== 'all')) {
+      if (type || file || (kindSupplied && kind !== 'all')) {
         mayNarrow.push('filters are active (type/file/kind) and may be excluding matches');
       }
+      // Attributed to the verb, with the widening move named. Suppressed when the caller already
+      // widened, because re-suggesting the setting they just passed is a remedy that cannot
+      // change the answer — the same non-terminating shape as the did-you-mean loop.
+      const defaultNarrowed = !type && !kindSupplied;
       const base = [
         `NO RESULTS for "${normalizedQuery}".`,
         ruledOut.length ? `Ruled out: ${ruledOut.join('; ')}.` : '',
         mayNarrow.length ? `May be narrowing: ${mayNarrow.join('; ')}.` : '',
+        defaultNarrowed
+          ? 'Note: this verb DEFAULTS to kind="code", which excludes Document/Directory/Config/External nodes — you did not set that.'
+          : '',
         // graph_find is not in the default profile, so naming it spent a round trip to
         // discover it was unreachable. graph_pull is the listed cross-layer verb.
-        `Next: graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or graph_pull for cross-layer context on a known node.`,
+        kind === 'all'
+          ? `Next: graph_pull for cross-layer context on a known node.`
+          : `Next: graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or graph_pull for cross-layer context on a known node.`,
       ].filter(Boolean).join(' ');
       const caveat = staleNotFoundCaveat(freshnessState);
       // prefixReadWarnings carries the semantic-degradation hint (and any

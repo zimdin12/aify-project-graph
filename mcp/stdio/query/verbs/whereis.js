@@ -3,7 +3,7 @@ import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { noMatchMessage } from '../did-you-mean.js';
-import { missScopeNote } from '../miss-scope.js';
+import { missScopeNote, emptyTypesAmong } from '../miss-scope.js';
 
 export const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
 
@@ -157,7 +157,18 @@ ${shown} of ${population} — ${basis}. Nothing was truncated.`;
       // ⚠ SEARCH_TYPES is PASSED, not re-listed: the sentence and the query must not be able
       // to drift apart. Two copies of a population is how a disclosure ends up describing a
       // search that no longer happens.
-      const base = noMatchMessage(db, symbol);
+      // ⛔ THE TOP LINE SENT THE READER TO A VERB THAT CANNOT ANSWER THE CASE JUST DIAGNOSED.
+      // When an empty declaration type explains the miss, graph_search is guaranteed to fail —
+      // it queries the same node table. ef-manager executed exactly that on echoes: the
+      // constant exists at CylindricalPosition.h:102, and the suggested search returned NO
+      // RESULTS. The correct next step is the source file, and it has to be the FIRST thing
+      // said, because the top line is the one that gets followed.
+      const emptyDeclTypes = emptyTypesAmong(db, SEARCH_TYPES);
+      const base = noMatchMessage(db, symbol, emptyDeclTypes.length > 0
+        ? { nextInstruction: 'READ THE SOURCE FILE (grep/Read) — see the scope note below: '
+            + 'declaration types are missing from this graph, and graph_search queries the same '
+            + 'node table, so it cannot find what was never indexed.' }
+        : undefined);
       const scope = missScopeNote(db, { types: SEARCH_TYPES, what: 'declaration types' });
       const caveat = staleNotFoundCaveat(freshness);
       return [base, scope, caveat].filter(Boolean).join('\n');

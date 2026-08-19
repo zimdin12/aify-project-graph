@@ -30,7 +30,15 @@ export function renderEvidenceLine(input) {
   parts.push(`provider=${input.provider}@${input.providerVersion}`);
   parts.push(`status=${input.status}`);
   if (input.operations) {
-    const opSummary = Object.entries(input.operations).map(([op, info]) =>
+    // ⛔ `_session` — internal importer metadata (importer.js:968), not an operation — was
+    // rendered as `_session=undefined` because it has no `status`. It shipped in every packet
+    // on a C++ repo and survived two rounds of fixes before ef-manager re-raised it.
+    // ⇒ Filter by SHAPE, not by name: a leading underscore marks internal state. A name list
+    // would need editing the next time the importer adds a key, which is exactly the
+    // enumeration failure this codebase keeps reproducing.
+    const opSummary = Object.entries(input.operations)
+      .filter(([op, info]) => !op.startsWith('_') && info && info.status !== undefined)
+      .map(([op, info]) =>
       `${op}=${info.status}${info.count != null ? `(${info.count})` : ''}${info.notCollectedFiles?.length ? `[notCollected:${info.notCollectedFiles.length}]` : ''}`
     ).join(' ');
     parts.push(opSummary);

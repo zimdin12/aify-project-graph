@@ -39,6 +39,33 @@ export function emptyTypesAmong(db, types) {
   }
 }
 
+// Types this verb does NOT search but which HAVE nodes here. ef-manager's point, and it is
+// symmetrical to the empty-type list: for a reader deciding "can this verb find my thing", a
+// present-but-excluded type is exactly as decisive as a declared-but-empty one — and unlike the
+// first it is currently invisible. On echoes that hides 183 `Symbol` nodes and 1 `BuildTest`.
+//
+// ⚠ SCOPED, because listing every excluded type would be noise rather than disclosure. These
+// are excluded from the report by construction: File/Directory/Document/Config are answered by
+// the path branch, Module is a file-level container, and External is a reference stub, not a
+// declaration. What survives is the genuinely surprising remainder — the kinds a reader could
+// reasonably expect a declaration lookup to cover and which it silently does not.
+const NOT_DECLARATION_SHAPED = new Set([
+  'File', 'Directory', 'Document', 'Config', 'Module', 'External', 'Repository',
+]);
+
+export function presentButUnsearched(db, types) {
+  if (!db || !Array.isArray(types)) return [];
+  try {
+    const searched = new Set(types);
+    return db.all('SELECT type, count(*) AS n FROM nodes GROUP BY type')
+      .filter((r) => !searched.has(r.type) && !NOT_DECLARATION_SHAPED.has(r.type) && r.n > 0)
+      .sort((a, b) => b.n - a.n)
+      .map((r) => `${r.type} (${r.n})`);
+  } catch {
+    return [];
+  }
+}
+
 // The note appended to a miss. `what` names the table in the reader's language ("declaration
 // types"), and is deliberately a caller argument: verbs search different populations, and one
 // shared sentence that fits none of them is how a generic warning gets ignored.
@@ -50,11 +77,25 @@ export function missScopeNote(db, { types, what = 'declaration types' } = {}) {
       + `Searched ${what}: ${types.join(', ')}.`,
   ];
   if (empty.length > 0) {
+    // ⛔ THE REMEDY NAMED A DOOR THAT CANNOT OPEN FOR THE CASE IT HAD JUST DIAGNOSED.
+    // ef-manager followed it: this line said "use graph_search", and graph_search reads the SAME
+    // node table — so a constant that is not a node cannot be found by a second verb that
+    // queries nodes. Confirmed live on echoes: kEquatorLatBandsPerShell exists at
+    // CylindricalPosition.h:102 and graph_search returns NO RESULTS.
+    // ⇒ When an empty type explains the miss, the source file is the ONLY thing that answers.
     lines.push(
       `⛔ ${empty.length} of those ${types.length} have NO nodes in this graph at all `
         + `(${empty.join(', ')}) — a symbol of those kinds cannot be found by this verb here, `
-        + 'whether or not it exists in the source. Read the file, or use graph_search, before '
-        + 'concluding it is absent.',
+        + 'whether or not it exists in the source. READ THE SOURCE FILE: graph_search queries '
+        + 'the same node table and cannot find what was never indexed.',
+    );
+  }
+  const unsearched = presentButUnsearched(db, types);
+  if (unsearched.length > 0) {
+    lines.push(
+      `⚠ And ${unsearched.length} populated type${unsearched.length === 1 ? ' is' : 's are'} `
+        + `NOT searched by this verb at all: ${unsearched.join(', ')}. Those nodes exist here and `
+        + 'this verb will never return them.',
     );
   }
   return lines.join('\n');

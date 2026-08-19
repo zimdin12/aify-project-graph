@@ -43,9 +43,20 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
          JOIN impact i ON e.to_id = i.from_id
          WHERE e.relation IN (${relFilter}) AND i.depth < $depth AND i.depth <= 10
        )
-       SELECT DISTINCT e.*, n.label AS from_label, n.type AS from_type,
+       -- DEDUPED PATHS, NOT EDGES. SELECT DISTINCT kept i.depth in the distinct key, so one
+       -- edge reachable by two paths OF DIFFERENT LENGTHS survived twice, and the confidence
+       -- line then counted it twice. ef-manager measured it in the field: five rows rendered,
+       -- two byte-identical, four distinct edges, "5 edges found".
+       -- Reproduced by depth: absent at depth=1, present at depth=3.
+       --
+       -- ⇒ GROUP BY the edge's own identity and keep the SHORTEST depth that reached it, which
+       -- is the meaningful one. Deduping HERE rather than after means the rows the reader sees
+       -- and the number describing them come from ONE operation, so they cannot drift apart —
+       -- the same conclusion as deleting the type list in the path probe rather than extending
+       -- it, and as deduping the packet NEXT lines at emission rather than testing for repeats.
+       SELECT e.*, n.label AS from_label, n.type AS from_type,
               n.file_path AS from_file, n.start_line AS from_line,
-              t.label AS to_label, i.depth
+              t.label AS to_label, MIN(i.depth) AS depth
        FROM impact i
        JOIN edges e
          ON e.from_id = i.from_id
@@ -53,6 +64,10 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
         AND e.relation IN (${relFilter})
        JOIN nodes n ON n.id = e.from_id
        LEFT JOIN nodes t ON t.id = e.to_id
+       -- The edges table has no surrogate id. Identity is the tuple, and source_file/line
+       -- are part of it ON PURPOSE: two genuine call sites to the same target are two
+       -- edges and must both survive. Only the path duplicate collapses.
+       GROUP BY e.from_id, e.to_id, e.relation, e.source_file, e.source_line
        LIMIT 100`,
       { ...params, depth }
     );
@@ -170,7 +185,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
         const parts = [
           `[${resultCount} edges found`,
           `trust=${trust}`,
-          `${occurrences} indexed nodes labeled "${symbol}"`,
+          `${occurrences} indexed node${occurrences === 1 ? '' : 's'} labeled "${symbol}"`,
           `${trustCount} unresolved CALLS edges may hide additional sites`,
         ];
         confidenceFooter = `\nCONFIDENCE: ${parts.join(' · ')}.\n  ⚠ Likely undercount on weak-trust graphs (C++ cross-file dispatch, PHP traits/Eloquent, dynamic dispatch).`

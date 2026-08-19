@@ -159,10 +159,18 @@ export function findSimilarSymbols(db, query) {
 
 // Render the miss WITH its suggestions. Falls back to the original wording when
 // nothing similar exists, so the message never gets worse.
-export function noMatchMessage(db, symbol, { verb = 'graph_search' } = {}) {
+// ⚠ `nextInstruction` lets the CALLER replace the trailing advice, because only the caller
+// knows whether the fallback verb can help. ef-manager followed this message's top line on a
+// miss that had already been diagnosed as "this declaration type has zero nodes" — and
+// graph_search reads the same node table, so it returned nothing and could not have done
+// otherwise. The message contained its own correction four lines down; the TOP line is the one
+// that gets followed.
+export function noMatchMessage(db, symbol, { verb = 'graph_search', nextInstruction } = {}) {
+  const wider = nextInstruction || `${verb}(query="${symbol}") for a wider search.`;
   const suggestions = findSimilarSymbols(db, symbol);
   if (suggestions.length === 0) {
-    return `NO MATCH for "${symbol}". Try ${verb}(query="${symbol}") to find similar names.`;
+    return `NO MATCH for "${symbol}". ${nextInstruction
+      || `Try ${verb}(query="${symbol}") to find similar names.`}`;
   }
   const lines = suggestions.map((s) => {
     const loc = s.file_path ? ` — ${s.file_path}${s.start_line ? `:${s.start_line}` : ''}` : '';
@@ -181,13 +189,12 @@ export function noMatchMessage(db, symbol, { verb = 'graph_search' } = {}) {
       `NO MATCH for "${symbol}" — but a node with this exact name IS in this graph, and this `
         + 'verb did not match it:',
       ...lines,
-      `Re-running with the same name returns this same answer. Read the site above, or `
-        + `${verb}(query="${symbol}") for a wider search.`,
+      `Re-running with the same name returns this same answer. Read the site above, or ${wider}`,
     ].join('\n');
   }
   return [
     `NO MATCH for "${symbol}". Did you mean:`,
     ...lines,
-    `Re-run with one of these, or ${verb}(query="${symbol}") for a wider search.`,
+    `Re-run with one of these, or ${wider}`,
   ].join('\n');
 }
