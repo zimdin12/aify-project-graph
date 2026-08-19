@@ -189,7 +189,15 @@ export function buildNextActions(s) {
         + 'compiler-verified and must not be treated as exhaustive. Definition counts and '
         + 'locations are a separate question: settled by extraction, and bounded by what the '
         + 'parser can see — a computed or generated definition is invisible to it',
-      do: 'graph_collect_code_intel({ scope: "all" }), or use code_intel_references for one bounded symbol',
+      // ⚠ THE ACTION HAS TO MATCH THE QUESTION THE READER ASKED. This offered only
+      // code_intel_references — a CALLER verb — while the efficacy pilot's arm was asking about
+      // definition locations and counts. A remedy pointed at the wrong question costs a call to
+      // discover it was not for you, which is the same defect as advice not conditioned on
+      // whether it applies (fixed in the packet's NEXT lines earlier the same day).
+      do: 'graph_collect_code_intel({ scope: "all" }) for the whole repo; or for ONE bounded '
+        + 'symbol use code_intel_definitions (where/how many it is defined) or '
+        + 'code_intel_references (who calls it / is it safe to delete) — read evidence.exhaustive '
+        + 'on either, since a collection merely existing does not make a result exhaustive',
     });
   }
 
