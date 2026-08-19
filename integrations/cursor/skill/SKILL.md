@@ -87,6 +87,24 @@ Two repos ran 20 and 130 commits stale with nobody noticing, because refreshing 
 
 ## Default pattern: MIXED mode (graph for orientation, Read/Grep for details)
 
+⚠ **EVERY EFFICACY NUMBER IN THIS SECTION WAS MEASURED IN APRIL 2026 AND THE TOOL HAS CHANGED
+UNDER IT.** Between 2026-08-12 and 2026-08-19 the verbs these benches measured were altered
+materially: `graph_whereis` stopped silently capping at `limit=5`, every symbol list in
+`graph_packet` began stating its population, a wrongly-recommended `code_intel_hierarchy` line
+was removed from most packets, and file-path targets stopped emitting a contradictory
+`DEFINED IN: none`. A percentage carries the shape of the output it was measured on.
+
+⇒ Treat the figures below as DATED POINT ESTIMATES, not current performance. They are kept, not
+deleted, because they are the only measurements that exist and the observations behind them may
+well still hold — but the basis has moved. Re-measurement is designed in
+`docs/efficacy-eval-design.md` and pre-registers what each outcome would mean.
+
+⚠ One thing HAS been measured on the new code (2026-08-19, this repo, 9 packets, `9626b30` vs
+`9da1ee9`): packet output got **11.3% SMALLER** (4720 → 4185 chars; ~1180 → ~1047 est. tokens at
+4 chars/token). Counter to expectation — the population statements ADD text, but removing a
+recommendation that did not apply removed more. ⚠ Nine packets on one repo is not a rate; the
+saving is a side effect of correctness, not an optimisation.
+
 Measured on the 2026-04-22 bench (9 agents × 3 variants × 3 task classes): **mixed mode beats pure graph-only by 8-19% tokens and matches no-graph on time, while producing the best DEBUG quality (32% fewer tokens, 33% less time than no-graph).** The winning shape is:
 
 - **Graph for ORIENTATION questions** — "what features touch this? what tasks are on those features? who last edited? what contracts are nearby? what sibling bugs are open?" Call `graph_consequences`, `graph_pull`, `graph_health`, read the relevant brief.
@@ -102,7 +120,7 @@ The failure mode to avoid: calling graph_find once, getting empty, giving up. Us
 3. **Read the `TRUST` line first — it gates which verbs are worth calling:**
    - `TRUST ok` → full verb suite earns its keep. `graph_impact`, `graph_whereis`, `graph_callers` are faster and cheaper than Grep-and-read on familiar territory.
    - `TRUST weak` → prefer **briefs + `graph_pull` + a single-term `graph_find` + Grep**. `graph_consequences` can still help on broader planning questions, but under weak trust it is advisory; `graph_pull` is usually the safer narrow live probe.
-   - This is empirically measured on a real C++ planning task: TRUST=weak bench showed `graph_whereis` redundant with Grep; briefs + one `graph_find` did the heavy lifting and the other verbs broke even or lost.
+   - ⚠ **RE-MEASURE.** The claim here was "TRUST=weak bench showed `graph_whereis` redundant with Grep". That is the SAME claim family as the `>10 files → Grep wins` rule retired on 2026-08-18 (`docs/whereis-threshold-retirement.md`), resting on the same April benches — and `graph_whereis` capped silently at `limit=5` until 2026-08-12, so any bench of it before that date was measuring the cap. **Deleting the sibling and leaving this one is the enumerate-every-emitter mistake this repo keeps making**; it is flagged rather than quietly dropped because the underlying observation may still be real. Pending `docs/efficacy-eval-design.md`.
 
 **Honest measurement (2026-04-27):** multi-run signal across apg dogfood + the 2026-04-26 A/B bench shows briefs + overlay reliably save **~15-20% wall-clock and tool calls** vs Grep-only on planning shapes. Live verbs are conditionally helpful — surgical use (≤3 per planning task) adds precision the brief can't give; over-calling tips net negative. Single-bench headlines (e.g. earlier `−17.3%` postfix4 / `−23.1%` pre-walkback) carry small-n caveats; treat them as point estimates, not confident deltas. Older 2026-04-20 cross-runtime context: Claude Code + Opus saw **−19% to −34% tokens and 1.5-2.9× wall-clock** on shell-accessible tasks; Codex + gpt-5.4 was roughly parity aggregate. Reach for live verbs only when you need precision the brief can't answer.
 
