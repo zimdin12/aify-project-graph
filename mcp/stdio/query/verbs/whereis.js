@@ -3,6 +3,7 @@ import { openExistingDb } from '../../storage/db.js';
 import { renderCompact } from '../renderer.js';
 import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { noMatchMessage } from '../did-you-mean.js';
+import { missScopeNote } from '../miss-scope.js';
 
 export const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
 
@@ -87,9 +88,24 @@ ${shown} of ${population} — ${basis}. Nothing was truncated.`;
         const fileCaveat = staleNotFoundCaveat(freshness);
         return fileCaveat ? `${base}\n${fileCaveat}` : base;
       }
+      // ⛔ THE MISS ROUTE MADE A CLAIM IT COULD NOT SUPPORT. `NO MATCH` reads as absence from
+      // the repository; what was actually searched is `label` over SEARCH_TYPES. Measured on
+      // this repo's own graph: no `Variable` node exists at all — tree-sitter emits none, and
+      // the only producer is the code-intel importer — so every module constant answers NO
+      // MATCH. `graph_whereis("SEARCH_TYPES")`, a constant declared in THIS FILE, was one.
+      //
+      // ⚠ BOTH MISS ROUTES GET IT. `noMatchMessage` returns suggestions OR the bare wording,
+      // and a fix applied to one branch while its sibling keeps the old behaviour is the most
+      // repeated defect in this codebase. The note is appended after the join, where there is
+      // one string left and no branch to miss.
+      //
+      // ⚠ SEARCH_TYPES is PASSED, not re-listed: the sentence and the query must not be able
+      // to drift apart. Two copies of a population is how a disclosure ends up describing a
+      // search that no longer happens.
       const base = noMatchMessage(db, symbol);
+      const scope = missScopeNote(db, { types: SEARCH_TYPES, what: 'declaration types' });
       const caveat = staleNotFoundCaveat(freshness);
-      return caveat ? `${base}\n${caveat}` : base;
+      return [base, scope, caveat].filter(Boolean).join('\n');
     }
 
     if (!expand) {

@@ -82,8 +82,14 @@ function leafOf(name) {
   return s.split(/::|\.|->/).pop();
 }
 
+// ⛔ `lower === q` MATCHED THE EXACT NAME AND THE CASE VARIANT WITH ONE BRANCH, and printed
+// the case-variant wording for both. Observed on this repo: `CODE_INTEL_SCHEMA_VERSION` came
+// back labelled "same name, different case" against a byte-identical label. Same class as the
+// `leafOf` defect above — a printed basis that is not the basis — and a stated reason is strong
+// enough to act on, so a wrong one is worse than none at all.
 export function rankSuggestions(query, rows) {
-  const q = String(query || '').toLowerCase();
+  const qRaw = String(query || '');
+  const q = qRaw.toLowerCase();
   const qLeaf = leafOf(q);
   // Typo budget scales with length: a 4-char name allows 1 edit, a 20-char name 3.
   // A fixed budget either misses real typos in long names or suggests nonsense for
@@ -97,7 +103,16 @@ export function rankSuggestions(query, rows) {
     const leaf = leafOf(lower);
     let rank = null;
     let why = '';
-    if (lower === q) { rank = 0; why = 'same name, different case'; }
+    if (label === qRaw) {
+      rank = 0;
+      // An External row with the exact name is not a spelling hint — it is the ANSWER to
+      // "does this exist": the name is referenced in this repo and no declaration was ever
+      // bound to it. Saying so is worth more than the suggestion it was pretending to be.
+      why = r.type === 'External'
+        ? 'exact name — referenced here, no declaration indexed'
+        : 'exact name — present, but not matched by this verb';
+    }
+    else if (lower === q) { rank = 0; why = 'same name, different case'; }
     else if (leaf === qLeaf) { rank = 1; why = 'same leaf name'; }
     else if (lower.startsWith(q)) { rank = 2; why = 'starts with your query'; }
     else if (lower.includes(q)) { rank = 3; why = 'contains your query'; }
@@ -153,6 +168,23 @@ export function noMatchMessage(db, symbol, { verb = 'graph_search' } = {}) {
     const loc = s.file_path ? ` — ${s.file_path}${s.start_line ? `:${s.start_line}` : ''}` : '';
     return `  ${s.label} (${String(s.type || '?').toLowerCase()})${loc}  [${s._why}]`;
   });
+  // ⛔ "RE-RUN WITH ONE OF THESE" OFFERED BACK THE STRING THE CALLER JUST PASSED, so the only
+  // action on offer reproduced this identical output forever. It happened whenever the sole
+  // candidate was an exact-name node the calling verb cannot return — an External stub, say,
+  // against a verb that matches declaration types.
+  //
+  // ★ Do not drop the row: it carries real information. Change what is CLAIMED about it. The
+  // remedy must be an action that can change the answer, which re-running is not.
+  const alternatives = suggestions.filter((s) => String(s.label) !== String(symbol));
+  if (alternatives.length === 0) {
+    return [
+      `NO MATCH for "${symbol}" — but a node with this exact name IS in this graph, and this `
+        + 'verb did not match it:',
+      ...lines,
+      `Re-running with the same name returns this same answer. Read the site above, or `
+        + `${verb}(query="${symbol}") for a wider search.`,
+    ].join('\n');
+  }
   return [
     `NO MATCH for "${symbol}". Did you mean:`,
     ...lines,
