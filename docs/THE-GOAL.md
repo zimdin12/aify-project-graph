@@ -94,13 +94,36 @@ dressing it up.
 
 ## The measured state of the foundation layer, 2026-08-19
 
-⛔ 72 Document nodes carry 2,304 `MENTIONS` edges into code, and **76% of those point at single
-lowercase English words** — `files`, `repo`, `tests`, `read`, `session`, `count`. The document
-said the word; we recorded an edge to the function. These are not a floor, they are **confidently
-wrong edges**, the same class removed from the code half — and the noise makes the true edges
-unrankable.
+⚠ **MY FIRST WRITE-UP OF THIS SAID "76% WRONG EDGES". BOTH HALVES WERE WRONG**, and both agents
+corrected it independently. The honest statement is below.
 
-⇒ The layer Steven names as the foundation is currently the least honest one in the product.
+**MEASURED, reproduced by `graph-senior-dev` and `ef-manager` on separate reads:** ~2,370 doc→code
+`MENTIONS` edges over 73 documents on APG, of which **83.5% have an all-lowercase-word target** —
+`files` (60), `file` (58), `repo` (56), `tests` (53), `read` (52).
+
+⛔ **"Lowercase-word target" is a TRIAGE PROXY, not a correctness label.** A document can genuinely
+refer to `read` or `query`. The measured claim is *"83.5% of edges were admitted by a rule that
+required no reference evidence"* — which is a statement about the **admission rule**, not about
+each edge. Publishing it as "83.5% wrong" would be the cap-as-total defect in our own diagnosis.
+What IS established from source: `mentions.js` admits every regex word collision, takes the first
+node when a label is ambiguous, and records line 0.
+
+⭐ **AND ONE REPO COULD NOT SHOW THE REAL SHAPE.** `ef-manager` ran the same census on echoes:
+**63.1%**, twenty points apart, same extractor. The rate tracks the **language's naming
+convention** — JavaScript names functions `exists`, `count`, `list`, `read`, so the namespace
+collides with English head-on; C++ leans CamelCase and `WorldBuffer` survives contact with prose.
+⇒ Any fix built on a global threshold or a hand-tuned stop-word list is right on one repo and
+wrong on the other. It has to be derived per-repo from the extracted namespace.
+
+⭐ **AND THE RANKING IS INVERTED.** On APG the noisiest term carries 60 edges; the genuinely
+doc-referenced code — `ensureFresh` (9), `openDb` (7), `clampToBudget` (5), `renderCompact` (4) —
+carries the fewest. **Frequency and value are inversely correlated in this relation.** Anything
+that surfaces "most-mentioned symbols" is a noise generator, and anything that truncates a
+mentions list by count drops the signal first.
+
+⇒ The layer Steven names as the foundation rests on an admission rule that requires no evidence.
+⚠ And `ef-manager`'s scope on it, which is the more useful fact: *"it cannot have cost me, because
+I never consumed it"* — in days of intensive field use, the doc layer has had **zero consumers**.
 
 ---
 

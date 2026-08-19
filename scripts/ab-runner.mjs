@@ -419,7 +419,10 @@ async function runCodexCell({ homeDir, task, repo, variant, repeat, model, reaso
   // docs/v0.3-hardening-plan.md:486 had said since v0.3 to sum per-turn usage. The error is
   // ONE-SIDED: reading one turn under-counts whichever arm took more turns, and arms do not
   // take equal turns — that is usually the thing under test. See scripts/lib/turn-usage.mjs.
-  const usageTurns = collectTurnUsage(stdoutLines);
+  const { usages: usageTurns, coverage: usageCoverage } = collectTurnUsage(stdoutLines);
+  // ⚠ No adapter has declared usageSemantics for this host yet, so a non-decreasing series
+  // refuses rather than guessing. Establish the contract against a provider-reported total on
+  // a frozen transcript, then pass { semantics } here.
   const usageReading = reconcileTurnUsage(usageTurns);
   // The raw series travels with the number so a reader can re-derive it, and `basis` says which
   // reading produced the total. `total: null` on an ambiguous series is deliberate.
@@ -471,6 +474,7 @@ async function runCodexCell({ homeDir, task, repo, variant, repeat, model, reaso
       turns: usageReading.series.length,
       series: usageReading.series,
       reason: usageReading.reason,
+      coverage: usageCoverage,
     },
     finalAnswer,
     answerEvaluation: evaluateAnswer(finalAnswer, repo.repoRoot, task.rubric),

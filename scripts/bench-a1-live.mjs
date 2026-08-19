@@ -315,13 +315,15 @@ function parseUsage(stdout) {
       }
     } catch {}
   }
-  const usageReading = reconcileTurnUsage(collectTurnUsage(lines));
+  const { usages: usageTurns, coverage: usageCoverage } = collectTurnUsage(lines);
+  const usageReading = reconcileTurnUsage(usageTurns);
   return {
     usage: turnUsage || fallbackUsage,
     usageBasis: usageReading.basis,
     usageTotal: usageReading.total,
     usageSeries: usageReading.series,
     usageReason: usageReading.reason,
+    usageCoverage,
     commands,
     mcpCalls,
   };
