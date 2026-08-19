@@ -17,7 +17,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import {
+import { buildStaleWarning,
   serverBuildInfo,
   staleProcessWarning,
   _resetServerBuildCache,
@@ -81,9 +81,20 @@ describe('server build identity', () => {
   });
 
   it('the stale warning names both commits and demands a restart', () => {
-    expect(buildSrc).toMatch(/SERVER IS RUNNING STALE CODE/);
-    expect(buildSrc).toMatch(/Answers come from \$\{LOADED_COMMIT\}/);
-    expect(buildSrc).toMatch(/RESTART the aify-project-graph MCP server/);
+    // ⚠ WAS THREE SOURCE GREPS, and one of them broke on a pure rename during the
+    // process-scope fix — a test that fails on a refactor and cannot fail on a behaviour
+    // change, which is the source-contract hazard KNOWN_SOURCE_CONTRACT exists to bound.
+    // The warning is now a pure function, so this CALLS it with a stale state.
+    const w = buildStaleWarning({
+      loadedCommit: 'aaa1111',
+      startedAt: '2026-08-19T00:00:00.000Z',
+      treeCommit: 'bbb2222',
+      staleDelta: { executable_files_changed: 2, files_changed: 2, sample: ['mcp/x.js'] },
+    });
+    expect(w).toMatch(/SERVER IS RUNNING STALE CODE/);
+    expect(w, 'both commits, so the reader can tell which bytes answered').toContain('aaa1111');
+    expect(w).toContain('bbb2222');
+    expect(w).toMatch(/RESTART the aify-project-graph MCP server/);
   });
 
   it('EVERY read verb carries the warning, not just graph_health', () => {

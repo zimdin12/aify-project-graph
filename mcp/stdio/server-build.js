@@ -254,65 +254,15 @@ export function serverBuildInfo() {
     ...(staleProcess ? {
       workingTreeCommit: treeCommit,
       ...(staleDelta ? { staleDelta } : {}),
-      staleWarning: `SERVER IS RUNNING STALE CODE: this process loaded ${LOADED_COMMIT} at ${PROCESS_STARTED_AT},`
-        + ` but the checkout is now ${treeCommit}. Answers come from ${LOADED_COMMIT}.`
-        + (staleDelta?.behaviourally_current
-          ? ` HOWEVER the delta is ${staleDelta.files_changed} non-executable file(s) only —`
-            + ` no ${EXECUTABLE_LIST} changed, so this process is BEHAVIOURALLY CURRENT and a restart is not`
-            + ' required for correctness.'
-          : staleDelta
-            ? ` The delta includes ${staleDelta.executable_files_changed} executable file(s)`
-              + `${staleDelta.sample.length ? ` (e.g. ${staleDelta.sample.join(', ')})` : ''} —`
-              + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'
-            : ' Delta could not be computed, so assume it matters:'
-              + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.')
-        // ⛔ THIS SENTENCE USED TO ASSERT A FALSE CAPABILITY CLAIM ABOUT THE HOST.
-        //
-        // It told the reader that an agent could not self-restart the server and to ask
-        // the operator. False in this deployment: a peer agent can restart a managed
-        // session through aify-comms, which respawns the worker and its MCP children.
-        // ef-manager read it, believed it, and asked the operator twice for something
-        // they could do in one call. It did not merely fail to help — it routed a capable
-        // reader away from the action available to them. (2026-08-11)
-        //
-        // ★★ THE GENERAL FORM, worth more than the fix: PROSE CAN CARRY FACTUAL CLAIMS,
-        // AND FACTS GO STALE. This string is pinned by stale-warning-actionable.test.js —
-        // the ONE source-contract test judged legitimate of eighteen, because advisory
-        // prose has no computation behind it. But a wording contract pins whatever
-        // assertions the wording carries and DEFENDS THEM AGAINST CORRECTION: that test
-        // would have gone red on this fix. Mutation cannot catch the class either — no
-        // mutation of code makes a false sentence false-er. Only a reader acting on wrong
-        // advice finds it, which is what happened.
-        //
-        // ⇒ So the fix is not better routing advice: it is to STOP ASSERTING A PROPERTY OF
-        // THE HOST. Whether the reader can restart this process depends on who is hosting
-        // it, and this server cannot know that. Only the invariant is stated — the PROCESS
-        // must cycle, and the timestamp below is how you know it did.
-        // ★★ RENDERED FROM THE CLAIM SCHEMA, not hand-assembled. Each fragment is one
-        // enumerable claim ID in stale-warning-claims.js, so adding an assertion to this
-        // warning means adding a claim — a visible act — rather than appending a sentence
-        // inside a template literal where nothing enumerates it.
-        //
-        // ⚠ Buys CHANGE VISIBILITY, not independent authorization: a contributor editing
-        // the schema and its test together still authorises themselves. Said plainly
-        // because overclaiming here would be the defect the warning exists to prevent.
-        + renderClaim(CLAIM.PROCESS_RESTART_REQUIRED)
-        + renderClaim(CLAIM.HOST_METHOD_UNKNOWN)
-        + renderClaim(CLAIM.SESSION_RESTART_MAY_NOT_RESPAWN)
-        // ★ AND GIVE THEM THE FIELD THAT ANSWERS "DID THE RESTART WORK".
-        //
-        // `commit` cannot answer it. After a failed restart it reads the same as
-        // after a successful restart that happened to load the same code — so a
-        // reader who checks `commit` retries the same action and re-reads the same
-        // hash. Measured: ef-manager's startedAt held at 15:37:34.353Z across seven
-        // hours, three commits and one restart attempt, which proved the process
-        // had never cycled. That is the discriminator, and I had told them to check
-        // the wrong field.
-        // The dynamic authority is BOUND rather than interpolated here, so a test can
-        // check that `startedAt` is the real process identity separately from checking
-        // that the sentence says the right thing. Those are two claims and were one.
-        + renderClaim(CLAIM.VERIFY_BY_STARTED_AT, { startedAt: PROCESS_STARTED_AT })
-        + renderClaim(CLAIM.COMMIT_NOT_RESTART_IDENTITY),
+      // ⛔ "THE CHECKOUT IS NOW X" READ AS REPO-SCOPED, AND THE DEFECT IS PROCESS-SCOPED.
+      // ef-manager, 2026-08-19, catching themselves mid-inference: "I assumed I could at least
+      // test on echoes, since echoes' checkout has not moved. It does not work that way: ONE MCP
+      // process serves both repos, so a stale process poisons every repo it answers for. The
+      // staleness field is scoped to the repo you ask about; the defect is scoped to the
+      // process." They reasoned to the wrong conclusion for a minute before checking — and the
+      // singular "the checkout" is the sentence that invited it.
+      // ⚠ The stale bytes are the SERVER'S. Which repo you ask about does not change them.
+      staleWarning: buildStaleWarning({ loadedCommit: LOADED_COMMIT, startedAt: PROCESS_STARTED_AT, treeCommit, staleDelta }),
     } : {}),
   };
   return { ..._immutable, ..._verdict };
@@ -321,6 +271,76 @@ export function serverBuildInfo() {
 // The one-line form for the shared read-verb warning channel. A stale process
 // makes EVERY answer potentially wrong, so this does not belong only in
 // graph_health — a reader who never calls health would never learn.
+// ⛔ EXTRACTED SO IT CAN BE TESTED BY CALLING IT, NOT BY GREPPING IT. My first test for the
+// process-scope fix asserted on the SOURCE TEXT of this module — the exact "gate on spelling
+// rather than behaviour" defect graph-senior-dev has caught in two of my instruments this week,
+// committed inside the fix for a scope defect. The suite-composition guard flagged it.
+// ⇒ A pure function of its inputs. The test constructs a stale state and reads the sentence.
+export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDelta }) {
+  return `SERVER IS RUNNING STALE CODE: this process loaded ${loadedCommit} at ${startedAt},`
+      + ` but the checkout is now ${treeCommit}. Answers come from ${loadedCommit}.`
+      + ' ⚠ THIS APPLIES TO EVERY REPO THIS PROCESS SERVES, not only the one you asked about:'
+      + ' the stale code belongs to the SERVER, so a second repo whose own checkout has not moved'
+      + ' still gets answers from it.'
+      + (staleDelta?.behaviourally_current
+        ? ` HOWEVER the delta is ${staleDelta.files_changed} non-executable file(s) only —`
+          + ` no ${EXECUTABLE_LIST} changed, so this process is BEHAVIOURALLY CURRENT and a restart is not`
+          + ' required for correctness.'
+        : staleDelta
+          ? ` The delta includes ${staleDelta.executable_files_changed} executable file(s)`
+            + `${staleDelta.sample.length ? ` (e.g. ${staleDelta.sample.join(', ')})` : ''} —`
+            + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.'
+          : ' Delta could not be computed, so assume it matters:'
+            + ' RESTART the aify-project-graph MCP server before trusting any behaviour attributed to the newer commit.')
+      // ⛔ THIS SENTENCE USED TO ASSERT A FALSE CAPABILITY CLAIM ABOUT THE HOST.
+      //
+      // It told the reader that an agent could not self-restart the server and to ask
+      // the operator. False in this deployment: a peer agent can restart a managed
+      // session through aify-comms, which respawns the worker and its MCP children.
+      // ef-manager read it, believed it, and asked the operator twice for something
+      // they could do in one call. It did not merely fail to help — it routed a capable
+      // reader away from the action available to them. (2026-08-11)
+      //
+      // ★★ THE GENERAL FORM, worth more than the fix: PROSE CAN CARRY FACTUAL CLAIMS,
+      // AND FACTS GO STALE. This string is pinned by stale-warning-actionable.test.js —
+      // the ONE source-contract test judged legitimate of eighteen, because advisory
+      // prose has no computation behind it. But a wording contract pins whatever
+      // assertions the wording carries and DEFENDS THEM AGAINST CORRECTION: that test
+      // would have gone red on this fix. Mutation cannot catch the class either — no
+      // mutation of code makes a false sentence false-er. Only a reader acting on wrong
+      // advice finds it, which is what happened.
+      //
+      // ⇒ So the fix is not better routing advice: it is to STOP ASSERTING A PROPERTY OF
+      // THE HOST. Whether the reader can restart this process depends on who is hosting
+      // it, and this server cannot know that. Only the invariant is stated — the PROCESS
+      // must cycle, and the timestamp below is how you know it did.
+      // ★★ RENDERED FROM THE CLAIM SCHEMA, not hand-assembled. Each fragment is one
+      // enumerable claim ID in stale-warning-claims.js, so adding an assertion to this
+      // warning means adding a claim — a visible act — rather than appending a sentence
+      // inside a template literal where nothing enumerates it.
+      //
+      // ⚠ Buys CHANGE VISIBILITY, not independent authorization: a contributor editing
+      // the schema and its test together still authorises themselves. Said plainly
+      // because overclaiming here would be the defect the warning exists to prevent.
+      + renderClaim(CLAIM.PROCESS_RESTART_REQUIRED)
+      + renderClaim(CLAIM.HOST_METHOD_UNKNOWN)
+      + renderClaim(CLAIM.SESSION_RESTART_MAY_NOT_RESPAWN)
+      // ★ AND GIVE THEM THE FIELD THAT ANSWERS "DID THE RESTART WORK".
+      //
+      // `commit` cannot answer it. After a failed restart it reads the same as
+      // after a successful restart that happened to load the same code — so a
+      // reader who checks `commit` retries the same action and re-reads the same
+      // hash. Measured: ef-manager's startedAt held at 15:37:34.353Z across seven
+      // hours, three commits and one restart attempt, which proved the process
+      // had never cycled. That is the discriminator, and I had told them to check
+      // the wrong field.
+      // The dynamic authority is BOUND rather than interpolated here, so a test can
+      // check that `startedAt` is the real process identity separately from checking
+      // that the sentence says the right thing. Those are two claims and were one.
+      + renderClaim(CLAIM.VERIFY_BY_STARTED_AT, { startedAt: PROCESS_STARTED_AT })
+      + renderClaim(CLAIM.COMMIT_NOT_RESTART_IDENTITY);
+}
+
 export function staleProcessWarning() {
   const b = serverBuildInfo();
   return b.staleProcess ? b.staleWarning : null;
