@@ -20,3 +20,4 @@ _rebuild.mjs
 
 # raw per-arm output from scripts/self-review.mjs — evidence carrier, regenerated per run
 .self-review-raw/
+.refactor-guard-baseline.json

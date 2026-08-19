@@ -22,6 +22,7 @@
 //   node scripts/authority-ledger.mjs --check    # exit 1 on unassigned/duplicated
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { topLevelDeclarations } from './lib/module-graph.mjs';
 import { fileURLToPath } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -32,7 +33,7 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 // declaration in none is the same defect from the other side.
 const PACKET = 'mcp/stdio/query/verbs/packet.js';
 
-const AUTHORITIES = {
+export const AUTHORITIES = {
   'packet:input': {
     // ⚠ `hasCodeIntelCollection` was MISSING from my first pre-registration and the ledger
     // caught it on its first run — 43/44. That is the whole reason the assignment is written
@@ -95,24 +96,16 @@ const AUTHORITIES = {
   },
 };
 
-// ── Extraction: top-level declarations, by shape rather than by a hand list ───────────────────
-//
-// ⚠ Deliberately anchored to column 0. A nested helper is not a top-level declaration and must
-// not inflate the denominator — a bigger denominator makes the same assignment look better.
-const DECL_RE = /^(?:export\s+)?(?:async\s+)?(?:function|class)\s+([A-Za-z_$][\w$]*)|^(?:export\s+)?const\s+([A-Za-z_$][\w$]*)\s*=/;
-
-export function topLevelDeclarations(source) {
-  const found = [];
-  for (const line of source.split('\n')) {
-    const m = DECL_RE.exec(line);
-    if (m) found.push(m[1] || m[2]);
-  }
-  return found;
-}
+// ⛔ THE PARSER WAS NARROWER THAN THE CLAIM IT ENFORCED. graph-senior-dev: "the published claim
+// says EVERY top-level declaration, while the regex only recognizes function/class/const and can
+// be evaded by `let`, `var`, destructuring, generator/default declarations." 44/44 happened to be
+// true for the shapes present; the enforcement claim was broader than its instrument, which is
+// the same defect as a coverage figure over a population the checker cannot see.
+// ⇒ TypeScript AST. See scripts/lib/module-graph.mjs.
 
 export function auditFile(relPath, authorities) {
   const source = readFileSync(join(REPO, relPath), 'utf8');
-  const declared = topLevelDeclarations(source);
+  const declared = topLevelDeclarations(source, relPath);
 
   const owner = new Map();
   const duplicated = [];
@@ -141,34 +134,39 @@ export function auditFile(relPath, authorities) {
   };
 }
 
-// ⚠ SLICE 1 MOVED FOUR AUTHORITIES OUT OF THE FACADE. The ledger now audits three files rather
-// than one, and the assignment travelled WITH the declarations — an authority that quietly
-// re-pointed at whatever file its members ended up in would make any arrangement score 100%,
-// which is the failure this ledger exists to prevent.
-const FILES = {
-  'mcp/stdio/query/verbs/packet.js': pick(['packet:legacy-clamp', 'packet:live', 'packet:symbol-route', 'packet:facade']),
-  'mcp/stdio/query/verbs/packet-input.js': pick(['packet:input', 'packet:snapshot', 'packet:budget', 'packet:target']),
-  'mcp/stdio/query/verbs/packet-overlay.js': pick(['packet:overlay']),
+// ⛔ THE SUITE DID NOT ENFORCE THIS DENOMINATOR, and dev proved it: they added an unassigned
+// export, the audit printed 9/10 and ALL FILES COMPLETE: false, and the vitest case still passed
+// 7/7 — because it asserted only `typeof auditFile === 'function'`. Importing a script that
+// PRINTS a failure is not an assertion.
+// ⇒ auditAll() is side-effect-free and returns a verdict. The CLI and the suite call the SAME
+// function, so a failure cannot print itself green.
+export const FILE_AUTHORITIES = {
+  'mcp/stdio/query/verbs/packet.js': ['packet:legacy-clamp', 'packet:live', 'packet:symbol-route', 'packet:facade'],
+  'mcp/stdio/query/verbs/packet-input.js': ['packet:input', 'packet:snapshot', 'packet:budget', 'packet:target'],
+  'mcp/stdio/query/verbs/packet-overlay.js': ['packet:overlay'],
 };
 
-function pick(tags) {
-  return Object.fromEntries(tags.map((t) => [t, AUTHORITIES[t]]));
+export function auditAll() {
+  const files = Object.entries(FILE_AUTHORITIES)
+    .map(([f, tags]) => auditFile(f, Object.fromEntries(tags.map((t) => [t, AUTHORITIES[t]]))));
+  return { files, complete: files.every((f) => f.complete) };
 }
 
-let allComplete = true;
-for (const [file, authorities] of Object.entries(FILES)) {
-  const a = auditFile(file, authorities);
-  allComplete = allComplete && a.complete;
-  console.log(`\n${a.file}`);
-  console.log(`  lines ${a.lines}  (descriptive only — this number grants nothing)`);
-  console.log(`  declarations assigned: ${a.assigned}/${a.total}   authorities: ${Object.keys(authorities).length}`);
-  if (a.unassigned.length) console.log(`  ⛔ UNASSIGNED (${a.unassigned.length}): ${a.unassigned.join(', ')}`);
-  if (a.duplicated.length) console.log(`  ⛔ DUPLICATED: ${a.duplicated.join(' | ')}`);
-  if (a.phantom.length) console.log(`  ⛔ PHANTOM: ${a.phantom.join(', ')}`);
-  console.log(`  complete: ${a.complete}`);
+// ── CLI ──────────────────────────────────────────────────────────────────────────────────────
+// Guarded: importing this module from a test runs nothing and exits nothing.
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const result = auditAll();
+  for (const a of result.files) {
+    console.log(`
+${a.file}`);
+    console.log(`  lines ${a.lines}  (descriptive only — this number grants nothing)`);
+    console.log(`  declarations assigned: ${a.assigned}/${a.total}`);
+    if (a.unassigned.length) console.log(`  ⛔ UNASSIGNED (${a.unassigned.length}): ${a.unassigned.join(', ')}`);
+    if (a.duplicated.length) console.log(`  ⛔ DUPLICATED: ${a.duplicated.join(' | ')}`);
+    if (a.phantom.length) console.log(`  ⛔ PHANTOM: ${a.phantom.join(', ')}`);
+    console.log(`  complete: ${a.complete}`);
+  }
+  console.log(`
+ALL FILES COMPLETE: ${result.complete}`);
+  if (process.argv.includes('--check') && !result.complete) process.exit(1);
 }
-console.log(`\nALL FILES COMPLETE: ${allComplete}`);
-if (process.argv.includes('--check') && !allComplete) process.exit(1);
-
-const r = auditFile(PACKET, pick(['packet:legacy-clamp', 'packet:live', 'packet:symbol-route', 'packet:facade']));
-// (per-file reporting happens above; the legacy single-file path is retired)

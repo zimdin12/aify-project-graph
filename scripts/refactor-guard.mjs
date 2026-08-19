@@ -24,7 +24,11 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-const ARTIFACT = join(REPO, '.aify-graph', 'refactor-guard-baseline.json');
+// ⛔ THE BASELINE LIVED UNDER .aify-graph AND REINDEXING DELETED IT. graph-senior-dev hit that
+// during review: "running focused tests/reindex removed refactor-guard-baseline.json, proving
+// the evidence cannot be rerun after the fact." Evidence stored inside the thing that
+// regenerates is not evidence.
+const ARTIFACT = join(REPO, '.refactor-guard-baseline.json');
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 
 // ── the carrier: everything the outputs depend on that is NOT the code under test ────────────
@@ -58,6 +62,27 @@ function carrier() {
 //
 // Explicit, not sampled. A sampled corpus makes a pass mean "the parts I happened to draw did
 // not change", which is a claim about the draw rather than about the code.
+// ⛔ 55/55 WAS A DENOMINATOR OVER INPUTS, NOT OVER THE MOVED ROUTES. graph-senior-dev made
+// `buildFeaturePacket` emit a marker string and the guard STILL reported 55 of 55 unchanged —
+// because this checkout has no functionality/tasks overlay, so no corpus cell ever reached the
+// moved feature or task builder. A false green on the core proof of the slice.
+//
+// ⇒ An immutable fixture repo with a real feature and a real task, and a ROUTES ledger whose
+// markers can only appear if the moved builder actually ran. `routes executed / routes declared`
+// is reported SEPARATELY from corpus entries, because more inputs is not more coverage.
+const FIXTURE = join(REPO, 'tests', 'fixtures', 'packet-routes');
+
+const ROUTES = [
+  { id: 'feature-body', repo: FIXTURE, target: 'feature:feat-terrain', mode: 'plan',
+    owner: 'packet-overlay.js::buildFeaturePacket', marker: 'ROUTE_MARKER_FEATURE' },
+  { id: 'feature-contracts', repo: FIXTURE, target: 'feature:feat-terrain', mode: 'audit',
+    owner: 'packet-overlay.js::contractsFromFeature', marker: 'CONTRACT_MARKER_A' },
+  { id: 'feature-tests', repo: FIXTURE, target: 'feature:feat-terrain', mode: 'review',
+    owner: 'packet-overlay.js::testsFromFeature', marker: 'TEST_MARKER_A' },
+  { id: 'task-body', repo: FIXTURE, target: 'task:CU-999', mode: 'plan',
+    owner: 'packet-overlay.js::buildTaskPacket', marker: 'ROUTE_MARKER_TASK' },
+];
+
 const MODES = ['orient', 'plan', 'debug', 'review', 'audit'];
 const TARGETS = [
   'graphPacket', 'clampToBudget', 'renderPacketLines', 'openExistingDb', 'graphWhereis',
@@ -68,6 +93,30 @@ const TARGETS = [
 async function runCorpus() {
   const { graphPacket } = await import('../mcp/stdio/query/verbs/packet.js');
   const results = [];
+
+  // Routes first, so a run that cannot reach the moved code fails loudly rather than reporting
+  // a large clean number over inputs that never touched it.
+  for (const r of ROUTES) {
+    const entry = { target: `${r.id}`, mode: r.mode, route: r.id, owner: r.owner };
+    try {
+      const out = await graphPacket({ repoRoot: r.repo, target: r.target, mode: r.mode });
+      const text = typeof out === 'string' ? out : JSON.stringify(out);
+      const { stable, excluded } = splitVolatile(text);
+      entry.outcome = 'ok';
+      entry.bytes = Buffer.byteLength(stable, 'utf8');
+      entry.sha256 = sha(stable);
+      entry.volatileLines = excluded.length;
+      entry.volatileShapeOk = excluded.every((l) => VOLATILE_LINE.test(l));
+      // The marker is the proof the OWNER ran. Without it the row is an input, not a route.
+      entry.routeExecuted = text.includes(r.marker);
+    } catch (err) {
+      entry.outcome = 'threw';
+      entry.error = String(err?.message || err).slice(0, 200);
+      entry.routeExecuted = false;
+    }
+    results.push(entry);
+  }
+
   for (const target of TARGETS) {
     for (const mode of MODES) {
       const entry = { target, mode };
@@ -136,7 +185,14 @@ async function main() {
   if (mode === 'baseline') {
     writeFileSync(ARTIFACT, JSON.stringify({ carrier: now, corpusSize: results.length, results }, null, 2));
     const threw = results.filter((r) => r.outcome === 'threw').length;
-    console.log(`baseline written: ${results.length} entries (${threw} threw), graph ${now.graphSha256?.slice(0, 12)}`);
+    const ran = results.filter((r) => r.route && r.routeExecuted).length;
+    console.log(`baseline written: ${results.length} entries (${threw} threw), `
+      + `routes executed ${ran}/${ROUTES.length}, graph ${now.graphSha256?.slice(0, 12)}`);
+    if (ran !== ROUTES.length) {
+      console.error(`REFUSED: ${ROUTES.length - ran} declared route(s) did not execute — a `
+        + 'baseline that cannot reach the moved code certifies nothing.');
+      process.exit(1);
+    }
     // A baseline where everything throws is not a baseline; it would make any later run "match".
     if (threw === results.length) {
       console.error('REFUSED: every corpus entry threw — this baseline can certify nothing');
@@ -199,9 +255,15 @@ async function main() {
     for (const c of changes) console.error(`  ${c}`);
     process.exit(1);
   }
+  const ran = results.filter((r) => r.route && r.routeExecuted).length;
+  if (ran !== ROUTES.length) {
+    console.error(`REFUSED: routes executed ${ran}/${ROUTES.length} — the comparison did not `
+      + 'reach the moved code, so an identical result proves nothing about it.');
+    process.exit(1);
+  }
   const threw = results.filter((r) => r.outcome === 'threw').length;
-  console.log(`unchanged: ${results.length} of ${results.length} corpus entries identical `
-    + `(${threw} throw in both baseline and now, which is itself pinned)`);
+  console.log(`unchanged: ${results.length} of ${results.length} corpus entries identical · `
+    + `routes executed ${ran}/${ROUTES.length} · ${threw} throw in both, which is itself pinned`);
 }
 
 main().catch((err) => { console.error('guard failed:', err); process.exit(2); });

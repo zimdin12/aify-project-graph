@@ -24,6 +24,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { auditAll } from '../../../scripts/authority-ledger.mjs';
+import { moduleSpecifiers, exportedNames } from '../../../scripts/lib/module-graph.mjs';
 
 const VERBS = fileURLToPath(new URL('../../../mcp/stdio/query/verbs/', import.meta.url));
 const read = (f) => readFileSync(join(VERBS, f), 'utf8');
@@ -59,14 +61,27 @@ describe('packet authority boundaries', () => {
     expect(src).toMatch(/sealPacketOutput\(/);
   });
 
-  it('★★★ no authority module imports the facade — that is the cycle', () => {
-    // Failure 2. packet.js may import its islands; an island may never import packet.js back.
+  it('★★★ no authority module DEPENDS ON the facade, in any form — that is the cycle', () => {
+    // ⛔ THIS GATE WAS QUOTE-SPECIFIC AND graph-senior-dev WALKED THROUGH IT. It matched
+    // /from\s+'\.\/packet\.js'/ — single quotes only — so this equally real cycle passed all
+    // seven boundary tests:
+    //     import { resolvePopulation } from "./packet.js";
+    // A gate on SYNTAX SPELLING is not a gate on module reachability, and one passing spelling
+    // does not prove the edge class. Same defect as every other instrument here that checked a
+    // shape instead of establishing the route.
+    // ⇒ AST now, covering static import (either quote), `export … from`, `export * from`, and
+    // dynamic import() — which violates "islands never depend on the facade" just as surely,
+    // even though it is not an eager ESM cycle.
     const offenders = [];
     for (const f of PACKET_MODULES()) {
       if (f === 'packet.js') continue;
-      if (/from\s+'\.\/packet\.js'/u.test(read(f))) offenders.push(f);
+      for (const dep of moduleSpecifiers(read(f), f)) {
+        if (/(^|\/)packet\.js$/u.test(dep.specifier)) {
+          offenders.push(`${f}:${dep.line} ${dep.form} ${dep.specifier}`);
+        }
+      }
     }
-    expect(offenders, 'an island importing its facade is a cycle and a partial-init hazard')
+    expect(offenders, 'an island depending on its facade is a cycle and a partial-init hazard')
       .toEqual([]);
   });
 
@@ -88,10 +103,41 @@ describe('packet authority boundaries', () => {
     expect(dupes, 'a second brand is a forgeable brand').toEqual([]);
   });
 
-  it('★★★ every declaration is owned by exactly one authority (the denominator)', async () => {
-    // The check `067e3ad` could not fail. Imported rather than shelled so a broken ledger is a
-    // red test rather than a silent skip.
-    const { auditFile } = await import('../../../scripts/authority-ledger.mjs');
-    expect(typeof auditFile).toBe('function');
+  it('★★★ every declaration is owned by exactly one authority — ASSERTED, not printed', () => {
+    // ⛔ THIS TEST USED TO ASSERT `typeof auditFile === 'function'`. dev added an unassigned
+    // export; the audit printed 9/10 and ALL FILES COMPLETE: false, and this still passed 7/7.
+    // Importing a script that PRINTS a failure is not an assertion — the check `067e3ad` could
+    // not fail, reproduced inside the test written to stop `067e3ad` happening again.
+    const result = auditAll();
+    const broken = result.files.filter((f) => !f.complete).map((f) => ({
+      file: f.file, unassigned: f.unassigned, duplicated: f.duplicated, phantom: f.phantom,
+    }));
+    expect(broken, 'a declaration owned by nobody, or by two authorities, breaks the denominator')
+      .toEqual([]);
+    expect(result.complete).toBe(true);
+  });
+
+  it('★★★ island exports are an EXACT allowlist — a new export is a reviewed event', () => {
+    // ⚠ dev's reachability finding: slice 1 exported all 31 declarations of the two islands,
+    // "much broader than the facade needs, and the boundary gate does not inventory it." Not an
+    // automatic tool entry, but a new API fact that arrived unreviewed. Pinned exactly, so
+    // widening the surface has to be a deliberate edit here.
+    const ALLOWED = {
+      'packet-input.js': [
+        'CHAR_PER_TOKEN_EST', 'DEFAULTS', 'MODE_OVERRIDES', 'PACKET_MODES', 'esTokens',
+        'findFeature', 'findTask', 'hasCodeIntelCollection', 'loadJsonSafe', 'normalizeMode',
+        'optionsForMode', 'parseTarget', 'readBrief', 'readFunctionality', 'readManifest',
+        'readTasks', 'resolvePacketBudget', 'safeDirtyCount', 'safeGitHead', 'shortSha',
+        'snapshotLine', 'trustTier',
+      ],
+      'packet-overlay.js': [
+        'buildFeaturePacket', 'buildTaskPacket', 'contractsFromFeature', 'modeRisks',
+        'readFirstFromFeature', 'readFirstFromTask', 'risksForFeature', 'risksForTask',
+        'testsFromFeature',
+      ],
+    };
+    for (const [file, allowed] of Object.entries(ALLOWED)) {
+      expect(exportedNames(read(file), file), `${file} export surface changed`).toEqual(allowed);
+    }
   });
 });
