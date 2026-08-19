@@ -25,10 +25,25 @@ function allJsFiles(dir, out = []) {
   return out;
 }
 
-// Causes the code can actually emit, harvested from `cause: '<literal>'`.
-function emittedCauses() {
+// ⚠ THERE ARE NOW TWO CLOSED VOCABULARIES SHARING THE KEY `cause`, and merging them was
+// wrong in both directions. EVIDENCE causes explain why a result set is incomplete and are
+// documented in the always-paid SERVER_INSTRUCTIONS, because an agent branches on them every
+// call. RECEIPT-AVAILABILITY causes explain why an audit receipt could not be emitted; they
+// belong to the selection-receipt contract and documenting them in the billed tier would spend
+// every session's budget on a surface most calls never touch.
+//
+// ⇒ Split by SOURCE FILE ownership, and keep the ratchet on BOTH — a new cause in either
+// vocabulary still has to be written down somewhere a reader can find it. Renaming the field to
+// dodge this guard would have been gaming it; leaving the strings undocumented would have been
+// the defect the guard exists to catch.
+const RECEIPT_FILES = ['selection-digest.js'];
+const SPEC_DOC = fileURLToPath(new URL('../../../docs/2026-08-19-selection-receipt-spec.md', import.meta.url));
+
+function emittedCauses({ receipt = false } = {}) {
   const found = new Set();
   for (const file of allJsFiles(MCP_ROOT)) {
+    const isReceipt = RECEIPT_FILES.some((n) => file.endsWith(n));
+    if (isReceipt !== receipt) continue;
     const text = readFileSync(file, 'utf8');
     for (const m of text.matchAll(/cause:\s*'([a-z_]+)'/g)) found.add(m[1]);
   }
@@ -48,6 +63,18 @@ describe('evidence cause vocabulary', () => {
     expect(
       undocumented,
       `undocumented evidence causes — agents key on these strings, so add them to server-instructions.js: ${undocumented.join(', ')}`,
+    ).toEqual([]);
+  });
+
+  it('documents EVERY receipt-availability cause in the selection-receipt spec', () => {
+    // Same ratchet, different home. These reach an agent as `receipt.status:'unavailable'`, so
+    // an undocumented one is still a string with no rule behind it.
+    const spec = readFileSync(SPEC_DOC, 'utf8');
+    const causes = emittedCauses({ receipt: true });
+    expect(causes.length, 'guards the harvester: the receipt module must emit causes').toBeGreaterThan(3);
+    expect(
+      causes.filter((c) => !spec.includes(c)),
+      'undocumented receipt causes — add them to docs/2026-08-19-selection-receipt-spec.md',
     ).toEqual([]);
   });
 

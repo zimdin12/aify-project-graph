@@ -4,8 +4,14 @@
 analysis survives; nothing here is shipped. Do not cite it as a capability.
 
 Context: `evidence.exhaustive` was falsified three times in one day and is now **withheld**
-(`bd9034f`, `cfe0538`). This document is remedy 4 — what would make a future positive
-claim *auditable* rather than *trusted*.
+(`bd9034f`, `cfe0538`). This document specifies a **SELECTION / FLOOR receipt**: a smaller,
+separate, TRUE claim about which population APG selected and which locations it exposed.
+
+⛔ **It does NOT make a future positive claim auditable, and must not be described as a step
+toward one.** I wrote that and retracted it; `graph-senior-dev` caught it standing in the
+opening after the body already said otherwise. The positive claim needs the ATTESTATION
+receipt — a separate remedy, a separate `receipt_kind`, and a population independent of its own
+observed successes.
 
 ---
 
@@ -155,6 +161,33 @@ For the shippable selection receipt: `attested_generation_id: null`, typed
 mtimes would be worse than leaving it absent.**
 
 ---
+
+## Receipt-availability causes — the closed vocabulary
+
+The receipt is emitted or it is REFUSED; it is never partial. Each refusal names one cause, and
+every one of them exists because the alternative was to silently shrink the population and keep
+calling it complete. A test (`tests/unit/query/cause-vocabulary.test.js`) fails if the code
+emits a cause not listed here.
+
+- `no_entries` — the selection was not an array; nothing to describe.
+- `malformed_entry` — an entry carried no `file`.
+- `no_argument_vector` — the entry has only a `command` string. A whitespace split is **not** an
+  argument vector (quoting, embedded spaces, response files), so hashing one would describe a
+  command nobody ran. ⚠ `compile-db.js:200` performs exactly that split for an unrelated
+  toolchain heuristic, which is fine there and disqualifying here.
+- `entry_outside_project_root` — the resolved main file escapes the project root.
+- `compile_directory_outside_project_root` — the compile `directory` is outside the root. The
+  spec's answer is a normalized absolute URI plus `portable:false`; **slice 1 refuses instead**,
+  rather than inventing a representation the independent verifier does not share.
+- `main_file_unreadable` — a selected main file could not be read. Unavailable, **never a
+  skipped row**: dropping it removes the member from numerator and denominator at once.
+- `path_alias_collision` — two entries case-fold to one path but differ in bytes. Refused rather
+  than merged (falsifier 4); merging halves the population while the digest still claims to
+  describe it.
+- `population_transport_unavailable` — the member body exceeds the transport budget. ⛔ Refuses
+  **the receipt only**, never the primary reference/definition answer, and never returns a
+  partial body with `population.complete:true` (falsifier 16). *(Reserved; the transport budget
+  is not wired in slice 1.)*
 
 ## Preregistered falsifiers — write these before the code
 

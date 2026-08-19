@@ -5,11 +5,11 @@ description: Use when working on C++ code — editing, refactor blast-radius, bu
 
 # cpp-inner-loop
 
-For C++ inner-loop work, prefer **bounded live verbs** over `graph_packet` or `graph_collect_code_intel`. They drive clangd live, no collect/import round-trip, and now carry a structured **evidence contract** that lets you separate trustworthy absence claims from cold/stale/degraded results.
+For C++ inner-loop work, prefer **bounded live verbs** over `graph_packet` or `graph_collect_code_intel`. They drive clangd live, no collect/import round-trip, and carry a structured **evidence contract**. ⚠ As of 2026-08-19 that contract works in the NEGATIVE direction only: it tells you when an answer is degraded, and it can no longer certify a complete set. Use these verbs for PRECISE locations, not for absence.
 
-## The load-bearing claim — and how to make it safely
+## The claim this skill USED to make, and what replaced it
 
-The strongest value-add of this skill is **trustworthy absence claims** on C++ symbols:
+This skill was written around **trustworthy absence claims** on C++ symbols:
 
 - "Is this method dead code?"
 - "What breaks if I delete this?"
@@ -86,8 +86,10 @@ session**, and retrying is wasted work.
 
 ⇒ Before planning around this loop: confirm the verbs you need are in your surface. If they are
 not, either start the server with `--toolset=full`, or use the listed alternatives —
-`code_intel_references` and `code_intel_hierarchy` are listed and carry the same `evidence`
-contract that makes an absence claim safe.
+`code_intel_references` and `code_intel_hierarchy` are listed. ⚠ They carry the same `evidence`
+contract — which, as of 2026-08-19, does NOT make an absence claim safe; nothing currently does
+except reading the source. They are listed alternatives for FINDING things, not for proving
+nothing is there.
 
 ⚠ This caveat existed in the parent skill (`integrations/*/skill/SKILL.md`, "Listed ≠ callable")
 and not here — found in the field by ef-manager, 2026-08-19, from a session where six of these
