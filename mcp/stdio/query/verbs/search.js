@@ -157,10 +157,32 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
         return prefixReadWarnings(rendered, freshnessWarnings);
       }
     }
+    // ⛔ THE RANKER ONLY EVER SAW AN ARBITRARY SAMPLE. This page had NO `ORDER BY`, so the 200
+    // rows were whatever storage order handed over, and the +1000 a code type earns below could
+    // only ever be awarded within that accident. `Module` and `File` nodes are not excluded by
+    // the kind='code' filter and there are ~1050 of them here, so they crowd Functions out.
+    //
+    // ★ MEASURED on this repo before the fix, with the SAME filter the verb applies: query "e"
+    // — 1577 code-typed matches, 138 inside the page, 1439 DISPLACED. Queries "a" and "s" are
+    // 1002 and 984. Roughly 91% of the results the ranker exists to promote were gone before it
+    // ran. (⚠ My first probe omitted the kind filter and measured a population this query never
+    // sees; the figures happened to survive re-measurement, but the first instrument was wrong.)
+    //
+    // ⇒ ORDER THE PAGE BY THE SCORER'S DOMINANT TERM. A larger cap would only move the
+    // boundary and keep the arbitrariness; making the SQL agree with the ranking is what
+    // establishes the route. Displacement WITHIN the code tier is still possible and is still
+    // disclosed by the candidate-cap note below — this narrows the defect, it does not remove
+    // it, and saying otherwise would trade a known limit for an unknown one.
+    const codeTypeList = [...CODE_TYPES].map((t) => `'${t}'`).join(',');
     const clauses = ['label LIKE $q', ...baseClauses];
     const params = { ...baseParams, q: `%${normalizedQuery}%`, limit: cappedLimit };
     const where = clauses.join(' AND ');
-    const hits = db.all(`SELECT * FROM nodes WHERE ${where} LIMIT ${SQL_CANDIDATE_CAP}`, params);
+    const hits = db.all(
+      `SELECT * FROM nodes WHERE ${where}
+        ORDER BY CASE WHEN type IN (${codeTypeList}) THEN 0 ELSE 1 END
+        LIMIT ${SQL_CANDIDATE_CAP}`,
+      params,
+    );
 
     if (hits.length === 0) {
       // ZERO-RESULT CAUSE HONESTY. This used to suggest "check graph_status() to
