@@ -214,6 +214,29 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
   // says licenses "no callers / dead code / safe to delete".
   //
   // `exhaustive:true` now requires POSITIVE proof. Silence is not proof.
+  // ⛔ DEFENCE IN DEPTH ON THE CENSUS CARRIER (P0, 2026-08-19). `complete` is computed upstream
+  // and already refuses a recalled census — but the site that ISSUES the grant must verify the
+  // carrier itself rather than trusting a boolean computed somewhere else. That is the
+  // difference between establishing the route and checking a different shape, which is the
+  // shape of nearly every defect found in this codebase this month.
+  //
+  // graph-senior-dev's second counterexample: the on-disk population census is TTL-cached, so a
+  // caller-bearing source added in-session left the denominator describing a repo that no
+  // longer existed, and exhaustive:true was re-issued over it.
+  if (freshness === 'fresh' && callsiteCount > 0 && coverage && coverage.censusFresh === false) {
+    warnings.push(
+      'the first-party source census backing this coverage figure was recalled from cache, not '
+      + 'measured during this call, so a source added since then is absent from the denominator. '
+      + 'The caller set is a FLOOR — verify with rg before any "no callers / dead code / safe to '
+      + 'delete" claim.',
+    );
+    return {
+      ready: true, degraded: true, cause: 'coverage_census_stale', confidence: 'medium',
+      exhaustive: false,
+      fallback: 'retry after the census TTL expires, or verify with rg before absence claims',
+      warnings,
+    };
+  }
   if (freshness === 'fresh' && callsiteCount > 0 && coverage?.complete !== true) {
     warnings.push(
       'compile-DB / project coverage could not be verified for this query, so the caller set is a FLOOR, '

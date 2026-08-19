@@ -883,12 +883,19 @@ function walkFirstPartySourcesOnDisk(projectRoot) {
 // denominator must not be frozen for the whole process lifetime (M7).
 const DISK_WALK_TTL_MS = 60_000;
 const _diskCountCache = new Map();
-function firstPartySourcesOnDisk(projectRoot, dbHash) {
+// ⛔ THE CACHE IS FINE; AUTHORISING A DELETION FROM IT IS NOT. graph-senior-dev executed the
+// consequence: add a caller-bearing source in-session, and within the TTL the denominator still
+// describes the repo as it was — so `exhaustive:true` was re-issued over a population that had
+// already changed. A recalled census may not license an irreversible claim, so freshness now
+// TRAVELS WITH the census instead of being knowable only here.
+function firstPartySourcesOnDisk(projectRoot, dbHash, { force = false } = {}) {
   const cached = _diskCountCache.get(projectRoot);
-  if (cached && cached.dbHash === dbHash && (Date.now() - cached.at) < DISK_WALK_TTL_MS) return cached;
+  if (!force && cached && cached.dbHash === dbHash && (Date.now() - cached.at) < DISK_WALK_TTL_MS) {
+    return { ...cached, censusFresh: false };
+  }
   const result = { dbHash, at: Date.now(), ...walkFirstPartySourcesOnDisk(projectRoot) };
   _diskCountCache.set(projectRoot, result);
-  return result;
+  return { ...result, censusFresh: true };
 }
 
 // Threshold for licensing an EXHAUSTIVE caller set.
@@ -964,7 +971,22 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   // H1: a bare `> 0` check let a DB exporting 1 of 500 sources claim full
   // coverage — the same silent-truncation shape as exporting none. Compare
   // against the sources actually on disk and require a real share.
-  const disk = firstPartySourcesOnDisk(projectRoot, prep.dbHash);
+  // ⛔ THE CACHE IS NOT THE DEFECT; AUTHORISING FROM IT IS. graph-senior-dev added a
+  // caller-bearing source in-session and, inside the 60s TTL, the denominator still described
+  // the old repo — so the grant was re-issued over a population that had already changed.
+  //
+  // ⚠ REFUSING ON ANY CACHED CENSUS WAS MY FIRST FIX AND IT WAS WRONG: every second query
+  // within the TTL would have withheld the flag, which does not make the tool honest, it makes
+  // the field unreachable — and an unreachable field gets loosened back by the next person.
+  //
+  // ⇒ Pay for the walk only where it can license something. Read the cache first; if the answer
+  // would be a GRANT, re-walk uncached and decide on that. The cost lands on the granting path
+  // alone, and a census that authorized a deletion was always measured, never recalled.
+  let disk = firstPartySourcesOnDisk(projectRoot, prep.dbHash);
+  if (disk.censusFresh === false && !disk.capped && disk.set.size > 0) {
+    const wouldGrant = firstPartyFileSet(projectRoot, prep).size >= disk.set.size;
+    if (wouldGrant) disk = firstPartySourcesOnDisk(projectRoot, prep.dbHash, { force: true });
+  }
   const diskSources = disk.set.size;
   // The ratio is |DB sources ∩ disk sources| / |disk sources| — an intersection
   // of the SAME kind of thing on both sides. Comparing a DB ENTRY count against a
@@ -983,6 +1005,25 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   const poorlyCovered = disk.capped
     ? true
     : (coverageRatio !== null && coverageRatio < MIN_FIRST_PARTY_COVERAGE);
+  // ⛔⛔ P0, 2026-08-19: A THRESHOLD MAY NOT GRANT A BOOLEAN NAMED "EXHAUSTIVE".
+  // graph-senior-dev executed it against real clangd: ten valid TUs, nine in the compile DB,
+  // ratio exactly 0.9 — so `poorlyCovered` was false, `complete` was true, and the verb
+  // returned exhaustive:true while omitting a caller that exists in the source. On a 1000-TU
+  // repo that is 100 caller-bearing TUs excluded with the flag still granted.
+  //
+  // ★ The comment above MIN_FIRST_PARTY_COVERAGE already conceded this — "A threshold does not
+  // make the remainder safe — it only bounds it" — and the code then converted the admitted
+  // residual risk into an unqualified boolean. Absence of a limit is not permission.
+  //
+  // ⚠ Yes, this makes the flag harder to reach, and the old comment's objection stands: a
+  // healthy repo legitimately excludes some sources from a build. That does not change the
+  // answer. The ONLY thing this field does is license an irreversible action, so an
+  // unreachable-but-true contract beats a reachable-but-false one. The route back to
+  // reachability is a DECLARED population, not a tolerance.
+  // ⚠ `poorlyCovered` is KEPT as the separate SEVERITY signal, so the harsher existing prose
+  // still fires only on genuinely bad coverage. It no longer decides the grant.
+  const fullyCovered = !disk.capped && coverageRatio === 1;
+  const censusRecalled = disk.censusFresh === false;
   const noFirstParty = firstPartyCount === 0;
 
   // File-aware gate (mirrors the 2026-06-12 tsCoverage hardening, which C++
@@ -1028,9 +1069,29 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
     reason = 'compile DB was built by a different (Linux/WSL) toolchain than the host clangd, so some TUs fail to compile and the index is silently PARTIAL — caller sets may miss real callers. Set APG_CLANGD_WSL=1 (run clangd under WSL against the native DB) for a trustworthy index, and verify with rg before any delete/rename';
   } else if (unityUnexpanded) {
     reason = 'compile DB is a CMake UNITY build whose per-source TUs are absent (aggregates not expanded on this host), so callers in unity-only sources are invisible to clangd — verify with rg before any delete/rename';
+  } else if (!fullyCovered && coverageRatio !== null) {
+    // Above the severity threshold but not complete: the shortfall is small, so the prose is
+    // proportionate — but the population is NAMED, because a withheld grant with no cause
+    // misdirects the remedy exactly as a false grant misdirects the decision.
+    const missing = Math.max(0, diskSources - coveredOnDisk);
+    reason = `the compile DB covers ${coveredOnDisk} of ~${diskSources} first-party sources `
+      + `(${Math.round(coverageRatio * 100)}%), leaving ~${missing} translation unit(s) unindexed. `
+      + `That is good coverage, but a caller in any excluded TU is INVISIBLE to clangd, so this `
+      + `caller set cannot be attested exhaustive — it is a FLOOR. Verify with rg before any `
+      + `"no callers / dead code / safe to delete" claim.`;
+  } else if (censusRecalled) {
+    reason = 'the first-party source census was recalled from cache rather than measured during '
+      + 'this call, so a source added since then would not appear in the denominator. Coverage '
+      + 'may be reported against a population the repository no longer has.';
   }
   return {
-    complete: !foreignBlocking && !unityUnexpanded && !noFirstParty && !poorlyCovered && !fileUncovered,
+    // `complete` is the AUTHORITY both code_intel_references and code_intel_hierarchy read to
+    // grant exhaustive. Tightened here rather than at each consumer so a third consumer cannot
+    // be added without it — the enumeration failure this codebase keeps reproducing.
+    complete: !foreignBlocking && !unityUnexpanded && !noFirstParty && !poorlyCovered
+      && !fileUncovered && fullyCovered && !censusRecalled,
+    fullyCovered,
+    censusFresh: disk.censusFresh !== false,
     reason,
     foreignToolchain: flags.foreignToolchain,
     unityUnexpanded,
