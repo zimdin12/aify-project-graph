@@ -1,101 +1,167 @@
-# Efficacy evaluation — design (pre-registered)
+# Efficacy evaluation — design v2 (pre-registered)
 
-**Status:** design, not run. Written before any measurement, so the result cannot be chosen
-after seeing it.
+**Status:** design, not run. v1 was reviewed by graph-senior-dev before any measurement and
+**failed review**. Everything below is the corrected version; v1's flaws are kept in place
+rather than deleted, because the point of a pre-registered design is that its history is
+visible.
 
-## The question Steven asked
-
-Not "did the fixes work" — that is defect testing and it is done. The question is:
+## The question
 
 > Is this still good for agents? Is it a good map and knowledge system? Does it improve
 > quality, and does it decrease token usage?
 
-Three separable claims, and they can come apart: a tool can improve quality while costing more
-tokens, or save tokens while being wrong, and "good map" is a third thing again.
+Three separable claims that can come apart, plus a fourth this project cares about more than
+any of them: **when the tool is incomplete, does it say so.**
 
-## Why this needs a pre-registered design
+## ⛔ Why v1 was withdrawn
 
-⛔ This project has already shipped one efficacy claim that could not survive contact with
-measurement: *"symbols appearing in >10 files — graph_whereis loses to Grep"*, retired
-2026-08-18 (`docs/whereis-threshold-retirement.md`) because its stated cause was backwards and
-its threshold measured the wrong quantity. It came from an A/B bench whose basis was never
-written down.
+The reviewer was asked to find the way the design produces a *confident wrong number*. They
+found four, and the first is fatal on its own:
 
-★ The failure mode is not a wrong number. It is a number whose **basis** is not recorded, so
-nobody can later tell what it measured. Everything below exists to make the basis recoverable.
+**1. The outcome table scored equal failure as help.** Worked counterexample, on paper:
 
-## Pre-registered outcomes
+| | correctness | false claims | chars |
+|---|---|---|---|
+| GRAPH | 0 of 6 | none | 100 |
+| CONTROL | 0 of 6 | none | 200 |
 
-Written before running. Each is a result I will publish whichever way it lands.
+v1's first row — *"≥ correctness AND fewer tokens → the tool helps"* — fires. **Nothing
+helped.** Both arms failed absolutely; one failed more tersely. There was no absolute quality
+floor anywhere in the design. A second contradiction sat in the prose: *"≥ correctness, MORE
+tokens → it buys quality at a cost"* — equality buys no quality. And `≥` over per-task
+yes/partial/no was undefined without a preregistered aggregation, so an average could hide
+DELETE-SAFETY losing while LOCATE won.
 
-| If we observe | Conclusion I will publish |
+**2. The arms were not one variable, and not the shipped product.** v1 compared graph-verbs
+against Grep — *substitution* — while the skill's actual recommendation is MIXED mode. It also
+denied the graph arm Grep/Glob artificially, and bundled at least three treatments (live verbs,
+static brief, skill guidance) into one arm.
+
+**3. Ground truth was the control arm's own method promoted to referee.** "Exhaustive grep +
+read, never revised" structurally rewards lexical answers and can rule a compiler-backed answer
+false. It is not exhaustive for overloads, macros, templates, generated bindings, reflection or
+string registration, build/config references, external ABI consumers, dynamic dispatch, or
+conditional compilation. And DELETE-SAFETY is *counterfactual* — no amount of grep establishes
+it. I had flagged this objection myself and could not see my way around it; the reviewer's
+answer is below and it is better than abandoning the task class.
+
+**4. `chars/4` cannot support a token claim.** It is the product's own budgeting heuristic, and
+the bias is *arm-correlated*: source code, structured graph output, and path-heavy prose have
+different real chars-per-token ratios. It also excluded skill, brief, system and tool-schema
+overhead, tool-call arguments, and the final answer — precisely the things the treatment adds.
+
+## Estimand — decided before running
+
+**Primary: product/bundle efficacy.** Not "graph verbs vs grep".
+
+- **BASELINE** — normal prompt, Read + Grep + Glob.
+- **AUGMENTED** — *identical* prompt and tools, PLUS the shipped skill, the static brief, and
+  the graph/code-intel tools.
+
+The variable is **"the installed aify bundle"**. Component attribution (brief-only vs
+live-verbs-only vs full) is a later, factorial question that a case series of this size cannot
+support, and will not be claimed.
+
+## Safety gate — absolute, not comparative
+
+Evaluated on its own, before any comparison, and it can fail the eval by itself:
+
+- `tool_false_claim` — the tool stated something untrue.
+- `final_answer_false_claim` — the agent's answer to the user was untrue.
+
+Recorded **separately**: a false tool statement the agent catches is a product-honesty failure
+but not the same efficacy outcome. "False" means an atomic factual proposition contradicted by
+adjudicated evidence. A **disclosed** unknown or stated limit is explicitly *not* a false claim
+— that is the product working as designed.
+
+## Outcome model
+
+1. **Absolute floor first.** "Helps" is not a legal conclusion unless AUGMENTED clears a
+   pre-declared absolute success bar. Equal failure plus fewer characters is published as
+   **"both arms failed; no efficacy conclusion"**.
+2. **Paired task-level results published in full.** No single aggregate verdict, and no
+   cross-task average may erase a safety regression.
+3. **Split conclusions, which may disagree:** quality delta · safety gate · measured token
+   delta · wall-time delta · map/orientation judgement.
+
+## Ground truth — versioned reference set, not a frozen oracle
+
+Freeze a **versioned reference set** plus an adjudication protocol, not an answer key:
+
+- If an arm surfaces evidence the reference set omitted, **quarantine that task**, adjudicate
+  independently from source/compiler/build evidence **while blinded to which arm surfaced it**,
+  version the truth set, and re-run.
+- Never force observed reality to lose because the preregistered oracle was wrong.
+
+**Task-specific authorities**, because one referee cannot serve four questions:
+
+| Task | Authority |
 |---|---|
-| Graph arm answers ≥ control correctness AND fewer tokens | The tool helps on these tasks; cost claim supported |
-| Graph arm ≥ correctness, MORE tokens | It buys quality at a cost; the cost claim is retired, not softened |
-| Graph arm < correctness | It does not help on these tasks, whatever it costs |
-| **Any FALSE claim in the graph arm** | ⛔ Overrides every other result. A confident wrong answer is worse than an expensive one, because the reader acts on it |
+| LOCATE | symbol contract + source declarations + independent compiler/LSP/AST evidence, with explicit inclusion rules for generated and preprocessed surfaces. ⚠ Never the graph's own imported clangd facts as sole referee |
+| IMPACT | specify the exact signature mutation, apply it in a disposable tree, **compile and test**. Observed breakage and inferred external risk reported separately |
+| DELETE-SAFETY | "safe to delete" is **not** derivable from zero grep hits. Score `known unsafe` or `no in-scope dependency found under surfaces X`. Deletion + build + tests + API/config/generated scans. External consumers remain unknown unless scope excludes them explicitly |
+| ORIENT | maintainer file lists are a *preference set*, not truth. Preregistered rubric — relevant anchors, relations, tasks, risks, false relations, actionable next step — rated blinded, ≥2 raters |
 
-⚠ That last row is the one that matters most for this product. Our stated promise is honesty
-about completeness, not completeness — so a *disclosed* gap is a pass and an *undisclosed* one
-is a failure regardless of token counts.
+## Token accounting
 
-## Design
+- Characters are reported **as characters**, never converted and called tokens.
+- A token claim requires counting the exact serialized messages and tool payloads actually
+  injected, with the evaluated model's tokenizer or provider usage telemetry.
+- Declare in advance whether the target is **context tokens, uncached billed tokens, or total
+  input+output**; report cached separately.
+- Include cold-start skill/brief/schema cost, and optionally an explicitly amortised multi-task
+  view. Count final answers.
+- `chars/4` survives only as an **internal budget estimate**, never as observed model tokens.
 
-**Arms.** Same tasks, same repo, same agent runtime, one variable:
-- **GRAPH** — graph_* / code_intel_* verbs allowed, plus Read.
-- **CONTROL** — Grep + Read + Glob only. No graph verbs.
+## Sampling and sessions
 
-**Carrier, recorded for every run** (a number without its carrier is the retired claim again):
-repo + commit, MCP `server.buildId` and `startedAt`, agent runtime and model, date, and whether
-the working tree was clean.
+- A **pre-registered case series**: "on these tasks, these repo commits". No rate, no
+  generalisation language, no confidence intervals from six points.
+- Freeze before any arm runs: exact tasks, expected answer schema, task-class counts,
+  difficulty and edge strata, stopping rule.
+- Preferred: an independent maintainer enumerates the eligible population, then deterministic
+  stratified sampling with a **published seed**.
+- Strata must include the mundane *and* the adversarial: found / not-found, unique /
+  multi-definition, weak / stale / fresh graph, code-intel present / absent, C++ overload /
+  macro / template, deletion safe / unsafe / unknown.
+- **Fresh isolated session per task per arm.** Identical model, runtime, settings, tool budget.
+  No cross-arm conversation or cache. Randomised, counterbalanced order. One agent doing both
+  arms carries the answer from the first into the second, and admitting non-blinding does not
+  remove that.
+- Carrier recorded per run — not just `server.buildId`: prompts, tool schemas/profile, skill and
+  brief hashes, graph DB/manifest commit, overlay hash, code-intel provenance and freshness,
+  model settings, OS, and arm order.
 
-⚠ `server.buildId` MUST be verified before the first task. A stale process answers from old
-code and the whole run measures nothing. This is not hypothetical: on 2026-08-18 the server ran
-`9626b30` for 19 hours against a checkout that had moved 18 executable files.
+## "Good map" is currently unmeasured
 
-**Tasks** — chosen so ground truth is independently establishable, and covering the four things
-the tool claims to do:
+One ORIENT file-overlap task does not test feature relations, task/owner knowledge, stale-map
+disclosure, path usefulness, or whether the map leads to a *correct plan*. Either the map gets
+explicit metrics and a rubric, or the published question narrows to locate/impact/delete
+assistance and says so.
 
-1. **LOCATE** — "Where is `<symbol>` defined, and how many definitions exist in this repo?"
-   Ground truth: exhaustive `git grep` for the declaration form, counted by hand.
-2. **IMPACT** — "If I change the signature of `<symbol>`, what must change with it?"
-   Ground truth: exhaustive grep for call sites, read to confirm each is a real call.
-3. **ORIENT** — "I am new to this repo. What do I read first to work on `<feature>`?"
-   Ground truth: the files a maintainer names, recorded BEFORE the run.
-4. **DELETE-SAFETY** — "Is `<symbol>` safe to delete?" — the highest-stakes claim the tool makes.
-   Ground truth: exhaustive grep + read.
+## What this design can support
 
-At least 6 tasks, at least 2 repos: one JS (this repo) and one large C++ (echoes), because the
-tool behaves differently where clangd data exists and the C++ case is where the field defects
-have consistently come from.
+A **smaller but defensible statement**: paired, task-level results on a named case series, with
+an absolute false-claim gate, real token accounting, and separated conclusions. It cannot
+support "the tool is good for agents" as a general claim, and will not be written that way.
 
-**Measures, per task per arm:**
-- `correct` — matches ground truth (yes / partial / no)
-- `false_claim` — did the arm state something untrue? (the overriding measure)
-- `disclosed` — where incomplete, did the output SAY it was incomplete?
-- `chars_in` — total characters of tool output consumed. Reported as characters, with an
-  estimated token count at 4 chars/token, and the divisor stated. Estimated, not counted.
-- `calls` — number of tool invocations
-- `wall_ms` — elapsed
+## ⚠ Correction to a number already published
 
-**Ground truth is established FIRST**, written down, and not revised after seeing either arm.
+`badeeb0` reported packet output at 4720 → 4185 characters (−11.3%) between `9626b30` and
+`9da1ee9`, and the skill repeats it. Reviewer's objections, accepted:
 
-## What this design cannot establish
-
-⚠ Stated now, so it cannot be quietly omitted later:
-- 6–12 tasks on 2 repos is not "the tool is good". It is evidence about these tasks on these
-  repos at this commit.
-- The arms are not blind. The same agent knows which arm it is in and may try harder in one.
-- Token estimates are `chars/4`, the same heuristic the product uses for budgeting. It is an
-  estimate and will be labelled as one.
-- One tester's judgement of "correct" on ORIENT is a judgement, not a measurement. Ground truth
-  recorded in advance reduces but does not remove that.
-- Results do not transfer to other runtimes, other repos, or other commits.
-
-## Roles
-
-- **graph-senior-dev** reviews this DESIGN before anything is run, specifically for ways the
-  measurement could produce a confident wrong number.
-- **ef-manager** runs it, from the user's seat, after verifying `server.buildId`.
-- I do not run it. I wrote the thing being measured, and every efficacy claim I have made about
-  my own work this session has needed a reviewer to falsify it.
+- The **basis was not recorded**. For the record: both arms called the same `repoRoot`
+  (`C:/Docker/aify-project-graph`) against the **same `.aify-graph` index and overlay**, with
+  only the plugin code differing — so the target corpus was held fixed. That is what makes the
+  comparison meaningful, and it belonged in the doc, not in my head.
+- The **pairing gate was wrong**. "At least 5 of 9 real packets" does not establish pairing —
+  five *different* successes per side would yield a plausible total. This run happened to be
+  9/9 on both sides with per-target deltas published, so the comparison is paired in fact; the
+  gate that permitted otherwise has been corrected to require all nine paired IDs.
+- It is a **character count, not a token measurement**, and the `~tokens` figure is a heuristic
+  restatement of the same number, not independent evidence.
+- The causal sentence — "removing a recommendation that did not apply removed more" — is
+  **not established by the aggregate**. It needs line-level paired decomposition. Downgraded to
+  a hypothesis.
+- The **+276 not-found packet** stays reported separately rather than disappearing into the
+  sum; it is the paired case that shows the cost of naming both possible causes.

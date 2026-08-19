@@ -99,11 +99,17 @@ deleted, because they are the only measurements that exist and the observations 
 well still hold — but the basis has moved. Re-measurement is designed in
 `docs/efficacy-eval-design.md` and pre-registers what each outcome would mean.
 
-⚠ One thing HAS been measured on the new code (2026-08-19, this repo, 9 packets, `9626b30` vs
-`9da1ee9`): packet output got **11.3% SMALLER** (4720 → 4185 chars; ~1180 → ~1047 est. tokens at
-4 chars/token). Counter to expectation — the population statements ADD text, but removing a
-recommendation that did not apply removed more. ⚠ Nine packets on one repo is not a rate; the
-saving is a side effect of correctness, not an optimisation.
+⚠ One narrow thing HAS been measured on the new code (2026-08-19): the same 9 packet calls, run
+against the SAME repo, index and overlay with only the plugin code differing (`9626b30` vs
+`9da1ee9`), produced **4720 → 4185 CHARACTERS**, 9/9 paired.
+⛔ That is a character count, not a token measurement, and it is **not** evidence about token
+usage — `chars/token` differs systematically between structured tool output, source code and
+prose, and this figure excludes skill, brief, schema, tool-argument and answer costs. Any
+"−11%" you may have seen quoted from it, including in this file, was a heuristic restatement of
+the same number rather than independent evidence. Why packets shrank is a HYPOTHESIS (removing
+a recommendation that did not apply removed more than the population statements added) and is
+not established by the aggregate. One packet GREW by 276 characters — the not-found path, where
+naming both possible causes instead of asserting one costs real bytes.
 
 Measured on the 2026-04-22 bench (9 agents × 3 variants × 3 task classes): **mixed mode beats pure graph-only by 8-19% tokens and matches no-graph on time, while producing the best DEBUG quality (32% fewer tokens, 33% less time than no-graph).** The winning shape is:
 
