@@ -1,0 +1,111 @@
+{
+  "what": "PAIRED CHARACTER COUNT of graph_packet output. NOT a token measurement and NOT an efficacy result.",
+  "measured_at": "2026-08-19",
+  "arms": {
+    "pre": {
+      "plugin_commit": "9626b3039de489f54191c9237c575308389b77d0"
+    },
+    "post": {
+      "plugin_commit": "55140423560c27a35f8c1be9bbdaba5c7bde9fb4"
+    }
+  },
+  "held_fixed": {
+    "target_repo": "C:/Docker/aify-project-graph",
+    "target_indexed_commit": "55140423560c27a35f8c1be9bbdaba5c7bde9fb4",
+    "target_schema_version": 4
+  },
+  "pairing": {
+    "required": "all 9 IDs on both sides",
+    "achieved": "9/9"
+  },
+  "rows": [
+    {
+      "id": "graphPacket|orient",
+      "pre": 526,
+      "post": 450,
+      "delta": -76
+    },
+    {
+      "id": "graphPacket|plan",
+      "pre": 526,
+      "post": 450,
+      "delta": -76
+    },
+    {
+      "id": "renderCandidateDisclosures|orient",
+      "pre": 606,
+      "post": 515,
+      "delta": -91
+    },
+    {
+      "id": "sealPacketOutput|orient",
+      "pre": 556,
+      "post": 475,
+      "delta": -81
+    },
+    {
+      "id": "clampList|orient",
+      "pre": 521,
+      "post": 447,
+      "delta": -74
+    },
+    {
+      "id": "openDb|orient",
+      "pre": 491,
+      "post": 420,
+      "delta": -71
+    },
+    {
+      "id": "graph_health|orient",
+      "pre": 308,
+      "post": 584,
+      "delta": 276
+    },
+    {
+      "id": "mcp/stdio/query/verbs/packet.js|orient",
+      "pre": 617,
+      "post": 438,
+      "delta": -179
+    },
+    {
+      "id": "mcp/stdio/storage/db.js|orient",
+      "pre": 569,
+      "post": 406,
+      "delta": -163
+    }
+  ],
+  "totals": {
+    "pre": 4720,
+    "post": 4185,
+    "delta": -535
+  },
+  "not_established": [
+    "token usage — chars/token differs by output composition and the bias is arm-correlated",
+    "why it shrank — the aggregate does not decompose; line-level attribution not done",
+    "any efficacy claim — this measures output size, not whether an agent answered better"
+  ],
+  "raw": {
+    "pre": {
+      "graphPacket|orient": "SYMBOL: graphPacket\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN:\n- mcp/stdio/query/verbs/packet.js — Function @ line 1438\nNEXT: graph_pull(node=\"graphPacket\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"graphPacket\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"graphPacket\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"graphPacket\", kind=\"callers\") — clangd call/override tree",
+      "graphPacket|plan": "SYMBOL: graphPacket\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN:\n- mcp/stdio/query/verbs/packet.js — Function @ line 1438\nNEXT: graph_pull(node=\"graphPacket\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"graphPacket\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"graphPacket\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"graphPacket\", kind=\"callers\") — clangd call/override tree",
+      "renderCandidateDisclosures|orient": "SYMBOL: renderCandidateDisclosures\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN:\n- mcp/stdio/query/verbs/packet-lists.js — Function @ line 222\nNEXT: graph_pull(node=\"renderCandidateDisclosures\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"renderCandidateDisclosures\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"renderCandidateDisclosures\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"renderCandidateDisclosures\", kind=\"callers\") — clangd call/override tree",
+      "sealPacketOutput|orient": "SYMBOL: sealPacketOutput\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN:\n- mcp/stdio/query/verbs/packet-lists.js — Function @ line 474\nNEXT: graph_pull(node=\"sealPacketOutput\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"sealPacketOutput\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"sealPacketOutput\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"sealPacketOutput\", kind=\"callers\") — clangd call/override tree",
+      "clampList|orient": "SYMBOL: clampList\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN:\n- mcp/stdio/query/verbs/packet-lists.js — Function @ line 246\nNEXT: graph_pull(node=\"clampList\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"clampList\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"clampList\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"clampList\", kind=\"callers\") — clangd call/override tree",
+      "openDb|orient": "SYMBOL: openDb\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN:\n- mcp/stdio/storage/db.js — Function @ line 18\nNEXT: graph_pull(node=\"openDb\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"openDb\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"openDb\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"openDb\", kind=\"callers\") — clangd call/override tree",
+      "graph_health|orient": "OVERLAY NOT BUILT: no usable feature/task anchors in .aify-graph (functionality.json missing) — run /graph-build-functionality (and /graph-build-tasks) to populate it.\nRaw-symbol queries (graph_search, code_intel_references) work without the overlay.\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak",
+      "mcp/stdio/query/verbs/packet.js|orient": "SYMBOL: mcp/stdio/query/verbs/packet.js\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN: none\nALSO IN:\n- mcp/stdio/query/verbs/packet.js\nNEXT: graph_pull(node=\"mcp/stdio/query/verbs/packet.js\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"mcp/stdio/query/verbs/packet.js\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"mcp/stdio/query/verbs/packet.js\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"mcp/stdio/query/verbs/packet.js\", kind=\"callers\") — clangd call/override tree",
+      "mcp/stdio/storage/db.js|orient": "SYMBOL: mcp/stdio/storage/db.js\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN: none\nALSO IN:\n- mcp/stdio/storage/db.js\nNEXT: graph_pull(node=\"mcp/stdio/storage/db.js\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"mcp/stdio/storage/db.js\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"mcp/stdio/storage/db.js\"]) — verbatim source\nNEXT: code_intel_hierarchy(symbol=\"mcp/stdio/storage/db.js\", kind=\"callers\") — clangd call/override tree"
+    },
+    "post": {
+      "graphPacket|orient": "SYMBOL: graphPacket\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN — showing 1 of 1:\n- mcp/stdio/query/verbs/packet.js — Function @ line 1438\nNEXT: graph_pull(node=\"graphPacket\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"graphPacket\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"graphPacket\"]) — verbatim source",
+      "graphPacket|plan": "SYMBOL: graphPacket\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN — showing 1 of 1:\n- mcp/stdio/query/verbs/packet.js — Function @ line 1438\nNEXT: graph_pull(node=\"graphPacket\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"graphPacket\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"graphPacket\"]) — verbatim source",
+      "renderCandidateDisclosures|orient": "SYMBOL: renderCandidateDisclosures\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN — showing 1 of 1:\n- mcp/stdio/query/verbs/packet-lists.js — Function @ line 222\nNEXT: graph_pull(node=\"renderCandidateDisclosures\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"renderCandidateDisclosures\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"renderCandidateDisclosures\"]) — verbatim source",
+      "sealPacketOutput|orient": "SYMBOL: sealPacketOutput\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN — showing 1 of 1:\n- mcp/stdio/query/verbs/packet-lists.js — Function @ line 474\nNEXT: graph_pull(node=\"sealPacketOutput\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"sealPacketOutput\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"sealPacketOutput\"]) — verbatim source",
+      "clampList|orient": "SYMBOL: clampList\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN — showing 1 of 1:\n- mcp/stdio/query/verbs/packet-lists.js — Function @ line 246\nNEXT: graph_pull(node=\"clampList\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"clampList\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"clampList\"]) — verbatim source",
+      "openDb|orient": "SYMBOL: openDb\nSTATUS: known to graph; not mapped to a feature (symbol-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nDEFINED IN — showing 1 of 1:\n- mcp/stdio/storage/db.js — Function @ line 18\nNEXT: graph_pull(node=\"openDb\") — cross-layer context for this symbol\nNEXT: graph_consequences(target=\"openDb\") — \"what breaks if I touch it\"\nNEXT: graph_explore(symbols=[\"openDb\"]) — verbatim source",
+      "graph_health|orient": "ERROR: target \"graph_health\" not found as feature, task, or symbol mapping to a feature\nHINT: no feature overlay exists here, so if \"graph_health\" is a FEATURE id it cannot resolve — run /graph-build-functionality. If it was meant to be a symbol, it is not in the graph under that name.\nHINT: list features in .aify-graph/functionality.json or tasks in .aify-graph/tasks.json\nHINT: try the explicit form 'feature:<id>' or 'task:<id>'\nHINT: bare function/file targets need to map to a known feature via graph_consequences first\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak",
+      "mcp/stdio/query/verbs/packet.js|orient": "FILE: mcp/stdio/query/verbs/packet.js\nSTATUS: known to graph; not mapped to a feature (file-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nNEXT: graph_pull(node=\"mcp/stdio/query/verbs/packet.js\") — cross-layer context for this file\nNEXT: graph_consequences(target=\"mcp/stdio/query/verbs/packet.js\") — \"what breaks if I touch it\"\nNEXT: graph_file(path=\"mcp/stdio/query/verbs/packet.js\") — what this file contains",
+      "mcp/stdio/storage/db.js|orient": "FILE: mcp/stdio/storage/db.js\nSTATUS: known to graph; not mapped to a feature (file-context packet)\nSNAPSHOT: indexed=5514042 head=5514042 dirty=0 trust=weak\nNEXT: graph_pull(node=\"mcp/stdio/storage/db.js\") — cross-layer context for this file\nNEXT: graph_consequences(target=\"mcp/stdio/storage/db.js\") — \"what breaks if I touch it\"\nNEXT: graph_file(path=\"mcp/stdio/storage/db.js\") — what this file contains"
+    }
+  }
+}
