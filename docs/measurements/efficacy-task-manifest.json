@@ -1,0 +1,344 @@
+{
+  "what": "Efficacy case series — FROZEN task manifest. Preregistered; no arm has been run.",
+  "frozen_at": "2026-08-19",
+  "status": "INCOMPLETE — see open_items. Not runnable until those are closed.",
+  "population": {
+    "size": 1272,
+    "sha256": "a21224adb81fde9d5878b6c917b8511159bbc63582a0fa922dd402d4fe615d85",
+    "seed": "apg-efficacy-2026-08-19",
+    "method": "stratified by multiplicity (unique/few/many), 2 each, FNV-1a seeded xorshift",
+    "discarded_draws": [
+      {
+        "reason": "population definition included tests/ helpers, which are not the target domain",
+        "corrected_on": "outcome-independent domain criterion, not observed performance",
+        "disclosed": true
+      }
+    ],
+    "language_scope": "javascript only — this repo is single-language. NO claim may be made about C++/clangd behaviour from this series; that requires the echoes carrier.",
+    "strata_covered": [
+      "few",
+      "javascript",
+      "many",
+      "multi-file",
+      "single-file",
+      "unique"
+    ],
+    "strata_absent": []
+  },
+  "reference_set": {
+    "authority": "tree-sitter parse of source files. Independent of the graph index AND of grep.",
+    "sha256": "0d1c07ab2b901981ad4052b2a5ec082426e29a87877d3b6a51f48d709c65bbfa",
+    "files_parsed": 216,
+    "known_limits": [
+      "dynamically constructed or re-exported names are invisible to a syntactic parse",
+      "generated files are counted as source if present on disk; none are excluded by name",
+      "JS only — no C++/TS surfaces in scope, so no claim transfers to those",
+      "a declaration is function/generator/method/class declaration, or a const bound directly to a function/arrow"
+    ],
+    "shared_dependency_caveat": "THE REFEREE SHARES A PARSER WITH ONE ARM. The graph indexer also uses tree-sitter, so this reference is independent of the graph INDEX STATE and QUERY PATH but NOT of tree-sitter parsing decisions. If tree-sitter misses a declaration, both miss it identically and the agreement below proves nothing about that case. A referee fully independent of both arms would need a different parser or a compiler front end."
+  },
+  "tasks": [
+    {
+      "id": "LOCATE-01",
+      "class": "LOCATE",
+      "prompt": "In this repository, where is the symbol \"lintTaskSchema\" defined, and how many definitions exist? List every definition site with file and line.",
+      "target": "lintTaskSchema",
+      "strata": {
+        "multiplicity": "unique",
+        "spread": "single-file",
+        "language": "javascript"
+      },
+      "reference_count": 1,
+      "reference_sites": [
+        {
+          "file": "mcp/stdio/overlay/quality.js",
+          "line": 57,
+          "kind": "function_declaration"
+        }
+      ],
+      "contract": {
+        "must": [
+          "every definition site in the reference set",
+          "the exact count (1)"
+        ],
+        "must_not": [
+          "any location not in the reference set, presented as a definition"
+        ],
+        "allowed_unknown": [
+          "an explicit incomplete/unknown answer PASSES the safety gate but FAILS the efficacy floor, because the question asked for a count"
+        ]
+      }
+    },
+    {
+      "id": "LOCATE-02",
+      "class": "LOCATE",
+      "prompt": "In this repository, where is the symbol \"graphSummary\" defined, and how many definitions exist? List every definition site with file and line.",
+      "target": "graphSummary",
+      "strata": {
+        "multiplicity": "unique",
+        "spread": "single-file",
+        "language": "javascript"
+      },
+      "reference_count": 1,
+      "reference_sites": [
+        {
+          "file": "mcp/stdio/query/verbs/summary.js",
+          "line": 5,
+          "kind": "function_declaration"
+        }
+      ],
+      "contract": {
+        "must": [
+          "every definition site in the reference set",
+          "the exact count (1)"
+        ],
+        "must_not": [
+          "any location not in the reference set, presented as a definition"
+        ],
+        "allowed_unknown": [
+          "an explicit incomplete/unknown answer PASSES the safety gate but FAILS the efficacy floor, because the question asked for a count"
+        ]
+      }
+    },
+    {
+      "id": "LOCATE-03",
+      "class": "LOCATE",
+      "prompt": "In this repository, where is the symbol \"seededRandom\" defined, and how many definitions exist? List every definition site with file and line.",
+      "target": "seededRandom",
+      "strata": {
+        "multiplicity": "few",
+        "spread": "multi-file",
+        "language": "javascript"
+      },
+      "reference_count": 2,
+      "reference_sites": [
+        {
+          "file": "mcp/stdio/analysis/communities.js",
+          "line": 121,
+          "kind": "function_declaration"
+        },
+        {
+          "file": "scripts/communities-bench.mjs",
+          "line": 141,
+          "kind": "function_declaration"
+        }
+      ],
+      "contract": {
+        "must": [
+          "every definition site in the reference set",
+          "the exact count (2)"
+        ],
+        "must_not": [
+          "any location not in the reference set, presented as a definition"
+        ],
+        "allowed_unknown": [
+          "an explicit incomplete/unknown answer PASSES the safety gate but FAILS the efficacy floor, because the question asked for a count"
+        ]
+      }
+    },
+    {
+      "id": "LOCATE-04",
+      "class": "LOCATE",
+      "prompt": "In this repository, where is the symbol \"estimateTokens\" defined, and how many definitions exist? List every definition site with file and line.",
+      "target": "estimateTokens",
+      "strata": {
+        "multiplicity": "few",
+        "spread": "multi-file",
+        "language": "javascript"
+      },
+      "reference_count": 2,
+      "reference_sites": [
+        {
+          "file": "mcp/stdio/query/budget.js",
+          "line": 3,
+          "kind": "function_declaration"
+        },
+        {
+          "file": "mcp/stdio/query/verbs/report.js",
+          "line": 119,
+          "kind": "variable_declarator:arrow_function"
+        }
+      ],
+      "contract": {
+        "must": [
+          "every definition site in the reference set",
+          "the exact count (2)"
+        ],
+        "must_not": [
+          "any location not in the reference set, presented as a definition"
+        ],
+        "allowed_unknown": [
+          "an explicit incomplete/unknown answer PASSES the safety gate but FAILS the efficacy floor, because the question asked for a count"
+        ]
+      }
+    },
+    {
+      "id": "LOCATE-05",
+      "class": "LOCATE",
+      "prompt": "In this repository, where is the symbol \"detect\" defined, and how many definitions exist? List every definition site with file and line.",
+      "target": "detect",
+      "strata": {
+        "multiplicity": "many",
+        "spread": "multi-file",
+        "language": "javascript"
+      },
+      "reference_count": 10,
+      "reference_sites": [
+        {
+          "file": "mcp/stdio/ingest/frameworks/cmake.js",
+          "line": 117,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/cpp_frameworks.js",
+          "line": 140,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/django.js",
+          "line": 108,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/laravel.js",
+          "line": 209,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/nestjs.js",
+          "line": 99,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/node_web.js",
+          "line": 90,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/python_web.js",
+          "line": 134,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/rails.js",
+          "line": 120,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/shader_bindings.js",
+          "line": 144,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/spring.js",
+          "line": 107,
+          "kind": "method_definition"
+        }
+      ],
+      "contract": {
+        "must": [
+          "every definition site in the reference set",
+          "the exact count (10)"
+        ],
+        "must_not": [
+          "any location not in the reference set, presented as a definition"
+        ],
+        "allowed_unknown": [
+          "an explicit incomplete/unknown answer PASSES the safety gate but FAILS the efficacy floor, because the question asked for a count"
+        ]
+      }
+    },
+    {
+      "id": "LOCATE-06",
+      "class": "LOCATE",
+      "prompt": "In this repository, where is the symbol \"enrich\" defined, and how many definitions exist? List every definition site with file and line.",
+      "target": "enrich",
+      "strata": {
+        "multiplicity": "many",
+        "spread": "multi-file",
+        "language": "javascript"
+      },
+      "reference_count": 10,
+      "reference_sites": [
+        {
+          "file": "mcp/stdio/ingest/frameworks/cmake.js",
+          "line": 123,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/cpp_frameworks.js",
+          "line": 144,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/django.js",
+          "line": 116,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/laravel.js",
+          "line": 218,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/nestjs.js",
+          "line": 109,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/node_web.js",
+          "line": 100,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/python_web.js",
+          "line": 142,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/rails.js",
+          "line": 127,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/shader_bindings.js",
+          "line": 150,
+          "kind": "method_definition"
+        },
+        {
+          "file": "mcp/stdio/ingest/frameworks/spring.js",
+          "line": 116,
+          "kind": "method_definition"
+        }
+      ],
+      "contract": {
+        "must": [
+          "every definition site in the reference set",
+          "the exact count (10)"
+        ],
+        "must_not": [
+          "any location not in the reference set, presented as a definition"
+        ],
+        "allowed_unknown": [
+          "an explicit incomplete/unknown answer PASSES the safety gate but FAILS the efficacy floor, because the question asked for a count"
+        ]
+      }
+    }
+  ],
+  "preliminary_observation": {
+    "what": "The graph index declaration counts equal the AST reference counts for all 6 drawn symbols.",
+    "what_it_is_not": "NOT an efficacy result. It says the underlying index is accurate for these 6 symbols; it says nothing about whether an agent using it answers better or cheaper.",
+    "weakened_by": "the shared_dependency_caveat above"
+  },
+  "open_items": [
+    "IMPACT / DELETE-SAFETY tasks not yet drawn — they need compile-and-test and deletion-and-build authorities, which this repo can support but which are not yet scripted",
+    "ORIENT DROPPED from this run: no blinded rater pair is available, so the published question narrows and makes NO claim about map/knowledge quality",
+    "TOKEN CLAIM DROPPED from this run: no admissible instrument exists here. comms_usage reports quota percentages, not per-run counts; no tokenizer for the evaluated model is installed; chars/4 was ruled inadmissible because its bias is arm-correlated. Characters may still be compared WITHIN an arm across versions, never BETWEEN arms.",
+    "replicate count and arm-order schedule not fixed",
+    "safety claim extraction sheet not written"
+  ],
+  "prompt_integrity": {
+    "every_prompt_names_its_target": true,
+    "repaired": "Initial write passed through a shell that consumed backticked segments, dropping the symbol name from every prompt. Detected by reading the artifact back rather than trusting the write. Re-authored without a shell in the path."
+  }
+}
