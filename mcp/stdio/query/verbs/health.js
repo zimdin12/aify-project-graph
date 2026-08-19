@@ -26,6 +26,7 @@ import { getLatestCollection } from '../../code-intel/query.js';
 import { prepareCompileDb } from '../../code-intel/compile-db.js';
 import { resolveClangCl } from '../../code-intel/resolve-clangd.js';
 import { refreshMechanismVerdict } from '../../freshness/refresh-verdict.js';
+import { SEARCH_TYPES } from './whereis.js';
 
 // Cap for file lists in the health response. The counts stay exact; only the
 // sample is bounded. See the dirtyFiles comment below for why this exists.
@@ -288,12 +289,14 @@ export async function graphHealth({ repoRoot }) {
 
   // Live counts agree with graph_status + graph_report
   let nodes = manifest?.nodes ?? 0;
+  let census = [];
   let edges = manifest?.edges ?? 0;
   try {
     const db = openExistingDb(dbPath);
     try {
       nodes = db.get('SELECT count(*) AS c FROM nodes').c;
       edges = db.get('SELECT count(*) AS c FROM edges').c;
+      census = db.all('SELECT type, count(*) AS c FROM nodes GROUP BY type ORDER BY c DESC');
     } finally {
       db.close();
     }
@@ -444,6 +447,46 @@ export async function graphHealth({ repoRoot }) {
   // process, which is when an agent is most likely to be making extra calls.
   if (_build.staleProcess) verdicts.push('⛔ STALE PROCESS — see server.staleWarning');
   verdicts.push(`nodes=${nodes} edges=${edges}`);
+
+  // ── POPULATION CENSUS ────────────────────────────────────────────────────────────────────
+  //
+  // ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
+  // rounds and it produced a finding every time — four dead declaration types, a 67%-unreachable
+  // share, and a repo where 183 `Symbol` nodes existed that whereis can never return. Their
+  // verdict on what this verb gave them instead: "nodes=4624 edges=15788 — two numbers that have
+  // never once told me anything actionable."
+  //
+  // ⚠ NOT A NEW VERB (dev's roadmap ruling) and NOT A RAW DUMP. The rule this project measured
+  // is that behaviour changes when a field CONTRADICTS the agent's confidence, never when it
+  // adds data. `nodes=4624` invites "it knows about 4624 things". The contradiction is the share
+  // of the graph the search verbs CANNOT return, and which declaration types are empty. The long
+  // tail is counted, not listed, because this verb is called at every session start.
+  if (census.length > 0) {
+    const TOP = 5;
+    const shown = census.slice(0, TOP).map((r) => `${r.type} ${r.c}`).join(' · ');
+    const tail = census.length - Math.min(TOP, census.length);
+    verdicts.push(`POPULATION: ${census.length} node types — ${shown}${tail > 0 ? ` · +${tail} more` : ''}`);
+
+    const searchable = new Set(SEARCH_TYPES);
+    const unreachable = census.filter((r) => !searchable.has(r.type)).reduce((a, r) => a + r.c, 0);
+    const totalNodes = census.reduce((a, r) => a + r.c, 0);
+    if (unreachable > 0 && totalNodes > 0) {
+      const pct = Math.round((unreachable / totalNodes) * 100);
+      verdicts.push(`⚠ ${unreachable} of ${totalNodes} nodes (${pct}%) are in types graph_whereis `
+        + 'cannot return — it matches declaration types only, so those are reachable via '
+        + 'graph_search(kind="all") or graph_packet, never by name lookup');
+    }
+
+    // Scoped to its cause, like every other disclosure here: a searched type with zero nodes
+    // cannot match, so asking about one is guaranteed to fail. When none is empty this says
+    // nothing, because a census that always warns is a census nobody reads.
+    const present = new Set(census.map((r) => r.type));
+    const emptyDecl = SEARCH_TYPES.filter((t) => !present.has(t));
+    if (emptyDecl.length > 0) {
+      verdicts.push(`⛔ ${emptyDecl.length} of ${SEARCH_TYPES.length} declaration types have zero `
+        + `nodes here (${emptyDecl.join(', ')}) — a symbol of those kinds cannot be found by name`);
+    }
+  }
 
   // Proactive foreign-toolchain warning (Sand Castle live finding 1). On win32 a
   // Linux/WSL-built compile DB makes clangd silently TRUNCATE caller sets — even
