@@ -8,6 +8,7 @@ import { dirname, join, resolve } from 'node:path';
 import readline from 'node:readline';
 
 import { AB_REPOS, AB_TASKS, GRAPH_TOOL_NAMES } from '../tests/ab/tasks.mjs';
+import { collectTurnUsage, reconcileTurnUsage } from './lib/turn-usage.mjs';
 
 const DEFAULT_MODEL = 'gpt-5.4';
 const DEFAULT_REASONING = 'medium';
@@ -414,15 +415,15 @@ async function runCodexCell({ homeDir, task, repo, variant, repeat, model, reaso
   const transcript = stdoutLines.join('\n');
   await writeFile(transcriptPath, `${transcript}\n`);
 
-  const turnCompletedLine = [...stdoutLines].reverse().find((line) => line.includes('"turn.completed"'));
-  let usage = null;
-  if (turnCompletedLine) {
-    try {
-      usage = JSON.parse(turnCompletedLine).usage ?? null;
-    } catch {
-      usage = null;
-    }
-  }
+  // ⛔ THIS TOOK THE LAST TURN AND CALLED IT THE RUN'S USAGE, while
+  // docs/v0.3-hardening-plan.md:486 had said since v0.3 to sum per-turn usage. The error is
+  // ONE-SIDED: reading one turn under-counts whichever arm took more turns, and arms do not
+  // take equal turns — that is usually the thing under test. See scripts/lib/turn-usage.mjs.
+  const usageTurns = collectTurnUsage(stdoutLines);
+  const usageReading = reconcileTurnUsage(usageTurns);
+  // The raw series travels with the number so a reader can re-derive it, and `basis` says which
+  // reading produced the total. `total: null` on an ambiguous series is deliberate.
+  const usage = usageTurns.length ? usageTurns[usageTurns.length - 1] : null;
 
   const finalAnswer = existsSync(lastMessagePath)
     ? (await readFile(lastMessagePath, 'utf8')).trim()
@@ -460,6 +461,17 @@ async function runCodexCell({ homeDir, task, repo, variant, repeat, model, reaso
           effective_tokens: Math.max((usage.input_tokens ?? 0) - (usage.cached_input_tokens ?? 0), 0) + (usage.output_tokens ?? 0),
         }
       : null,
+    // ⚠ THE READING TRAVELS WITH THE NUMBER. `usage` above is one turn's object, kept for the
+    // existing per-field shape; `usage_reading` says how many turns there were, which
+    // interpretation the SERIES supports, and the reconciled total. A null total on
+    // basis:'ambiguous' is a refusal, not a zero — do not coalesce it downstream.
+    usage_reading: {
+      basis: usageReading.basis,
+      total_tokens: usageReading.total,
+      turns: usageReading.series.length,
+      series: usageReading.series,
+      reason: usageReading.reason,
+    },
     finalAnswer,
     answerEvaluation: evaluateAnswer(finalAnswer, repo.repoRoot, task.rubric),
     tools: {

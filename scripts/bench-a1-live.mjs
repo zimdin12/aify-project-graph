@@ -15,6 +15,7 @@ import { mkdtemp, rm, writeFile, readFile, mkdir } from 'node:fs/promises';
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
+import { collectTurnUsage, reconcileTurnUsage } from './lib/turn-usage.mjs';
 
 const TASK_SHAPE = process.env.A1_TASK || 'orient';
 
@@ -305,13 +306,25 @@ function parseUsage(stdout) {
         if (j.item.type === 'command_execution') commands.push(j.item.command || j.item);
         if (j.item.type === 'mcp_tool_call') mcpCalls.push(`${j.item.server}.${j.item.tool}`);
       }
+      // Collected rather than overwritten: keeping the last event discarded every earlier
+      // turn. Reconciled below by scripts/lib/turn-usage.mjs, which decides cumulative-vs-
+      // per-turn from the series and refuses a total when the two cannot be told apart.
       if (j.type === 'turn.completed' && j.usage) turnUsage = j.usage;
       if (!turnUsage && j.type === 'token_count' && j.info && j.info.total_token_usage) {
         fallbackUsage = j.info.total_token_usage;
       }
     } catch {}
   }
-  return { usage: turnUsage || fallbackUsage, commands, mcpCalls };
+  const usageReading = reconcileTurnUsage(collectTurnUsage(lines));
+  return {
+    usage: turnUsage || fallbackUsage,
+    usageBasis: usageReading.basis,
+    usageTotal: usageReading.total,
+    usageSeries: usageReading.series,
+    usageReason: usageReading.reason,
+    commands,
+    mcpCalls,
+  };
 }
 
 function normalizePath(text) {
