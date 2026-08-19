@@ -18,6 +18,10 @@ const GENERATED_PENALTY = 2000;
 const SQL_CANDIDATE_CAP = 200;
 
 // Code-first ranking: agents want code symbols, not docs/dirs
+// The types the default kind='code' filter EXCLUDES, and therefore the ones an explicit
+// kind='all' was asked for. External is deliberately absent: it is an unresolved reference
+// stub, not a document someone is trying to find again.
+const WIDENED_TYPES = new Set(['Document', 'Config', 'Directory']);
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
 const STRUCTURE_TYPES = new Set(['File', 'Module', 'Entrypoint', 'Route', 'Schema']);
 // Document, Directory, Config are lowest priority
@@ -178,9 +182,31 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     // establishes the route. Displacement WITHIN the code tier is still possible and is still
     // disclosed by the candidate-cap note below — this narrows the defect, it does not remove
     // it, and saying otherwise would trade a known limit for an unknown one.
+    // ⛔ A MULTI-WORD QUERY COULD NEVER MATCH. The predicate was one LIKE over `label`, so
+    // "design doc" looked for a node literally named that — and no file is. Steven's case: an
+    // agent that had worked a project for two months asked where the game design doc was,
+    // because compaction erased that it existed. That is a DISCOVERY question, and grep cannot
+    // help you find something you do not know to search for.
+    //
+    // ⇒ Tokens are ANDed, and each may match the label OR the path, because "design doc" is
+    // satisfied by `docs/game-design.md` through both halves at once. A single-word query takes
+    // exactly the old path, so nothing that worked before changes.
     const codeTypeList = [...CODE_TYPES].map((t) => `'${t}'`).join(',');
-    const clauses = ['label LIKE $q', ...baseClauses];
-    const params = { ...baseParams, q: `%${normalizedQuery}%`, limit: cappedLimit };
+    const tokens = normalizedQuery.split(/\s+/u).filter(Boolean);
+    const params = { ...baseParams, limit: cappedLimit };
+    let matchClause;
+    if (tokens.length > 1) {
+      matchClause = tokens
+        .map((t, i) => {
+          params[`t${i}`] = `%${t}%`;
+          return `(label LIKE $t${i} OR file_path LIKE $t${i})`;
+        })
+        .join(' AND ');
+    } else {
+      matchClause = 'label LIKE $q';
+      params.q = `%${normalizedQuery}%`;
+    }
+    const clauses = [matchClause, ...baseClauses];
     const where = clauses.join(' AND ');
     const hits = db.all(
       `SELECT * FROM nodes WHERE ${where}
@@ -188,6 +214,37 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
         LIMIT ${SQL_CANDIDATE_CAP}`,
       params,
     );
+
+    // ⛔ `kind:"all"` IS THE CALLER EXPLICITLY ASKING FOR DOCS, AND THEY WERE UNREACHABLE.
+    // Measured on this repo: `graph_search("plan", kind:"all")` ranked the eleven docs/*plan*.md
+    // files 22nd through 32nd, behind every function, because code types earn +1000 in the
+    // scorer. At any ordinary limit the caller sees none of them. Including a thing and then
+    // ranking it below everything is inclusion the reader cannot reach — the same shape as a
+    // cap reported as a population.
+    //
+    // ⇒ When the caller widened DELIBERATELY, reserve part of the page for what they widened
+    // FOR. Not a re-rank: code still leads, and the non-code entries keep their own order. The
+    // guarantee is only that the widening is not cosmetic.
+    // ⚠ Deliberately does NOT fire on the default kind='code' — see the control test. A fix
+    // that inverted ordinary code search would trade one wrong ranking for another.
+    // ⚠ IT TAKES THE FULL RANKED LIST, NOT AN ALREADY-SLICED ONE. My first version reserved from
+    // `ranked.slice(0, limit)` — which is the very page the doc had already been pushed off, so
+    // it reserved space for nothing and the test still failed. A promotion that can only pick
+    // from the winners promotes nobody.
+    const reserveForWidened = (rankedList) => {
+      if (kind !== 'all') return rankedList.slice(0, limit);
+      // ⚠ PROMOTE WHAT THE WIDENING ADMITS, not merely "not code". My first version reserved for
+      // any non-CODE_TYPES node, and on a real query the slot went to a TEST FILE — which the
+      // default kind='code' already returns, so the reservation bought the caller nothing. The
+      // types `kind='code'` excludes are Document, Directory, Config and External; External is a
+      // reference stub rather than something anyone is looking for, so it is not promoted either.
+      const widened = rankedList.filter((n) => WIDENED_TYPES.has(n.type));
+      if (widened.length === 0) return rankedList.slice(0, limit);
+      const share = Math.max(1, Math.floor(limit / 3));
+      const promoted = new Set(widened.slice(0, share));
+      const rest = rankedList.filter((n) => !promoted.has(n));
+      return [...rest.slice(0, Math.max(0, limit - promoted.size)), ...promoted];
+    };
 
     if (hits.length === 0) {
       // ZERO-RESULT CAUSE HONESTY. This used to suggest "check graph_status() to
@@ -260,7 +317,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     const ranked = hits
       .map(n => ({ ...n, _score: scoreNode(n, normalizedQuery) }))
       .sort((a, b) => b._score - a._score);
-    const scored = ranked.slice(0, limit);
+    const scored = reserveForWidened(ranked);
     const dropped = ranked.length - scored.length;
 
     // The hint used to read `limit=${limit + 20}` regardless of how much was
