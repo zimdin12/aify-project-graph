@@ -24,11 +24,6 @@ import { join, isAbsolute, resolve as resolvePath, relative as relativePath, sep
 const DOMAIN_ROW = 'apg.compile-entry.v1';
 const DOMAIN_SET = 'apg.selected-tu-set.v1';
 
-// Slice 1 folds paths only where the host filesystem actually folds them. Folding on POSIX
-// refuses `A.cpp` and `a.cpp`, which are two real distinct files there — an availability defect
-// caused by a rule meant to prevent a correctness one.
-const HOST_IS_CASE_INSENSITIVE = process.platform === 'win32';
-
 const u64be = (n) => {
   const b = Buffer.alloc(8);
   b.writeBigUInt64BE(BigInt(n));
@@ -106,13 +101,13 @@ export function aggregateRows(rows) {
 // "guards the harvester" assertion is the only reason that was noticed rather than passing as a
 // clean run. A checker that cannot see its population will eventually certify an empty one.
 export const RECEIPT_CAUSES = Object.freeze({
+  NO_PROJECT_ROOT: 'no_project_root',
   NO_ENTRIES: 'no_entries',
   MALFORMED_ENTRY: 'malformed_entry',
   NO_ARGUMENT_VECTOR: 'no_argument_vector',
   ENTRY_OUTSIDE_PROJECT_ROOT: 'entry_outside_project_root',
   COMPILE_DIRECTORY_OUTSIDE_PROJECT_ROOT: 'compile_directory_outside_project_root',
   MAIN_FILE_UNREADABLE: 'main_file_unreadable',
-  PATH_ALIAS_COLLISION: 'path_alias_collision',
   // Reserved: the transport budget is not wired in slice 1. Listed so the vocabulary is the
   // contract rather than a description of whatever the code happens to emit today.
   POPULATION_TRANSPORT_UNAVAILABLE: 'population_transport_unavailable',
@@ -127,26 +122,37 @@ const refuse = (cause, detail) => ({ available: false, cause, detail });
 // population that still calls itself complete is the denominator laundering this whole exercise
 // exists to prevent.
 export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileSync }) {
-  if (!Array.isArray(entries)) return refuse('no_entries', 'entries must be an array');
+  // ⛔ RETIRED: A CASE-FOLD ALIAS REFUSAL. graph-senior-dev's ruling, and it removes code rather
+  // than adding it. The population here is explicitly a COMPILE-ENTRY MULTISET — two entries
+  // that spell one physical file differently are still two selected entries, and the selector
+  // never merges anything (byte-identical duplicates are already retained). So the check
+  // protected nothing and cost availability, while `process.platform === 'win32'` was a STAND-IN
+  // for a filesystem property: macOS commonly folds while `darwin` says false, and Windows
+  // supports per-directory case-sensitive trees. If a future attestation needs a unique
+  // physical-TU population, derive THAT as its own population from resolved identity; do not
+  // retrofit uniqueness into compile-entry selection.
+  if (typeof projectRoot !== 'string' || projectRoot === '') {
+    return refuse(RECEIPT_CAUSES.NO_PROJECT_ROOT, 'projectRoot must be a non-empty string');
+  }
+  if (!Array.isArray(entries)) return refuse(RECEIPT_CAUSES.NO_ENTRIES, 'entries must be an array');
 
   const pairs = [];
-  const seenFold = new Map();
 
   for (const entry of entries) {
-    if (!entry || typeof entry !== 'object') return refuse('malformed_entry', 'entry is not an object');
+    if (!entry || typeof entry !== 'object') return refuse(RECEIPT_CAUSES.MALFORMED_ENTRY, 'entry is not an object');
     if (typeof entry.file !== 'string' || entry.file === '') {
-      return refuse('malformed_entry', 'entry has no non-empty file');
+      return refuse(RECEIPT_CAUSES.MALFORMED_ENTRY, 'entry has no non-empty file');
     }
     // ⛔ A MISSING `directory` WAS SILENTLY DEFAULTED TO THE PROJECT ROOT, so the receipt
     // described a carrier clangd never accepted — its JSONCompilationDatabase treats a missing
     // directory as an error. Inventing the field is exactly the stand-in defect this project
     // keeps producing: a plausible value in place of an absent one.
     if (typeof entry.directory !== 'string' || entry.directory === '') {
-      return refuse('malformed_entry', `entry for ${entry.file} has no non-empty directory`);
+      return refuse(RECEIPT_CAUSES.MALFORMED_ENTRY, `entry for ${entry.file} has no non-empty directory`);
     }
     if (!Array.isArray(entry.arguments)) {
       return refuse(
-        'no_argument_vector',
+        RECEIPT_CAUSES.NO_ARGUMENT_VECTOR,
         `entry for ${entry.file} carries only a command string; a whitespace split is not an `
           + 'argument vector and must not be hashed as one',
       );
@@ -156,7 +162,7 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
     // descriptions of one entry, from one call. clang rejects non-string arguments outright, so
     // refusing is also the behaviour that matches the carrier.
     if (!entry.arguments.every((a) => typeof a === 'string')) {
-      return refuse('malformed_entry', `entry for ${entry.file} has a non-string argument`);
+      return refuse(RECEIPT_CAUSES.MALFORMED_ENTRY, `entry for ${entry.file} has a non-string argument`);
     }
     // ⚠ CLONED BEFORE USE. The body used to export the caller's own array, so mutating it after
     // the call changed the published member while the digest stayed bound to the original —
@@ -167,7 +173,7 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
     const abs = isAbsolute(entry.file) ? entry.file : join(entry.directory, entry.file);
     const relPath = canonicalRelative(projectRoot, abs);
     if (relPath === null) {
-      return refuse('entry_outside_project_root', `${entry.file} resolves outside ${projectRoot}`);
+      return refuse(RECEIPT_CAUSES.ENTRY_OUTSIDE_PROJECT_ROOT, `${entry.file} resolves outside ${projectRoot}`);
     }
     const relDir = canonicalRelative(projectRoot, entry.directory);
     if (relDir === null) {
@@ -176,23 +182,9 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
       // representation the independent verifier does not share would fail replay for a reason
       // that is not a defect.
       return refuse(
-        'compile_directory_outside_project_root',
+        RECEIPT_CAUSES.COMPILE_DIRECTORY_OUTSIDE_PROJECT_ROOT,
         `${entry.directory} is outside ${projectRoot}; slice 1 does not emit non-portable receipts`,
       );
-    }
-
-    // Fold ONLY where the host actually folds. On POSIX, `A.cpp` and `a.cpp` are two real files
-    // and refusing them would be an availability defect introduced by a correctness rule.
-    if (HOST_IS_CASE_INSENSITIVE) {
-      const fold = relPath.toLowerCase();
-      const prior = seenFold.get(fold);
-      if (prior !== undefined && prior !== relPath) {
-        return refuse(
-          'path_alias_collision',
-          `${prior} and ${relPath} case-fold equal on this host; merging them would hide a member`,
-        );
-      }
-      seenFold.set(fold, relPath);
     }
 
     let rawBytes;
@@ -200,7 +192,7 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
       rawBytes = readFile(abs);
     } catch {
       return refuse(
-        'main_file_unreadable',
+        RECEIPT_CAUSES.MAIN_FILE_UNREADABLE,
         `${relPath} could not be read; an unreadable file makes the digest unavailable, never a `
           + 'skipped row',
       );
@@ -231,9 +223,24 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
   // identity must not depend on input order.
   pairs.sort((a, b) => Buffer.compare(a.row, b.row));
 
-  return {
+  // ⛔ THE RETURNED BODY WAS STILL DIRECTLY MUTABLE AFTER THE DIGEST WAS FIXED. Removing the
+  // caller-input alias was not enough: graph-senior-dev executed `r.rows[0].argv[1] = '-O3'` and
+  // `r.rows[0].mainFileSha256 = '00…'` on the OUTPUT, and the digest stayed put while the body
+  // moved. It matters precisely because wiring is a later step — a caller receives this object,
+  // adds query/result/authority fields, then content-addresses the whole thing. An accidental
+  // mutation anywhere in that interval yields a self-contained receipt that is internally
+  // inconsistent, which is worse than one that is obviously incomplete.
+  //
+  // ⚠ And my test claiming "the selection body cannot be changed after the digest is fixed"
+  // proved only INPUT isolation. The title asserted more than the body did — the same
+  // over-claiming shape the whole receipt exists to prevent, inside its own test file.
+  const rows = Object.freeze(pairs.map((p) => {
+    Object.freeze(p.member.argv);
+    return Object.freeze(p.member);
+  }));
+  return Object.freeze({
     available: true,
     digest: aggregateRows(pairs.map((p) => p.row)),
-    rows: pairs.map((p) => p.member),
-  };
+    rows,
+  });
 }

@@ -168,8 +168,9 @@ mtimes would be worse than leaving it absent.**
 
 The receipt is emitted or it is REFUSED; it is never partial. Each refusal names one cause, and
 every one of them exists because the alternative was to silently shrink the population and keep
-calling it complete. A test (`tests/unit/query/cause-vocabulary.test.js`) fails if the code
-emits a cause not listed here.
+calling it complete. Two tests bind this list to reality: `cause-vocabulary.test.js` fails if a cause here is
+undocumented, and `selection-selector.test.js` fails if any refusal passes a string LITERAL
+rather than an enum member — so the vocabulary governs the emitters instead of describing them.
 
 - `no_entries` — the selection was not an array; nothing to describe.
 - `malformed_entry` — an entry carried no `file`.
@@ -183,9 +184,17 @@ emits a cause not listed here.
   rather than inventing a representation the independent verifier does not share.
 - `main_file_unreadable` — a selected main file could not be read. Unavailable, **never a
   skipped row**: dropping it removes the member from numerator and denominator at once.
-- `path_alias_collision` — two entries case-fold to one path but differ in bytes. Refused rather
-  than merged (falsifier 4); merging halves the population while the digest still claims to
-  describe it.
+- `no_project_root` — the population root is missing. A selection with no subject is not a
+  claim about anything.
+- ⛔ **RETIRED: `path_alias_collision`.** It refused two entries whose paths case-fold together.
+  `graph-senior-dev`'s ruling removes it: this population is a compile-entry **multiset**, two
+  entries spelling one physical file differently are still two selected entries, and the selector
+  never merges anything — so the check protected nothing and only cost availability. The
+  `process.platform === 'win32'` predicate behind it was a **stand-in** for a filesystem property
+  it does not track (macOS commonly folds while `darwin` says false; Windows supports
+  per-directory case-sensitive trees). If a future attestation needs a unique *physical-TU*
+  population, derive that as its own population from resolved identity — do not retrofit
+  uniqueness into compile-entry selection.
 - `population_transport_unavailable` — the member body exceeds the transport budget. ⛔ Refuses
   **the receipt only**, never the primary reference/definition answer, and never returns a
   partial body with `population.complete:true` (falsifier 16). *(Reserved; the transport budget

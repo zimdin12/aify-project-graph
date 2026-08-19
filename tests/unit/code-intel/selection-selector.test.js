@@ -13,7 +13,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { selectedTuSetDigest } from '../../../mcp/stdio/code-intel/selection-digest.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { selectedTuSetDigest, RECEIPT_CAUSES } from '../../../mcp/stdio/code-intel/selection-digest.js';
 
 let repo;
 const fwd = (p) => p.split(path.sep).join('/');
@@ -73,28 +75,14 @@ describe('the selection selector', () => {
     expect(r.cause).toBe('entry_outside_project_root');
   });
 
-  // ⚠ THIS TEST USED TO PERMIT EITHER BRANCH WITH if/else, so it asserted nothing and did not
-  // pin its own comment — graph-senior-dev caught that it would pass whichever way the code
-  // behaved. Now it branches on the HOST, which is a fact about the machine, not about the
-  // outcome, so exactly one expectation applies per platform.
-  const WIN = process.platform === 'win32';
-  it.runIf(WIN)('★★★ REFUSES a case-fold alias on a case-INSENSITIVE host', () => {
-    // Falsifier 4: both entries resolve to one file here, and merging them would silently halve
-    // the population while the digest still claimed to describe it.
-    fs.writeFileSync(path.join(repo, 'src', 'A.cpp'), 'int a;\n');
-    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp'), entry('src/A.cpp')] });
-    expect(r.available).toBe(false);
-    expect(r.cause).toBe('path_alias_collision');
-  });
-
-  it.runIf(!WIN)('★★★ KEEPS both on a case-SENSITIVE host — they are two real files', () => {
-    // The mirror defect: folding unconditionally refused a legitimate pair on POSIX, an
-    // availability failure caused by a rule written for a correctness one.
-    fs.writeFileSync(path.join(repo, 'src', 'A.cpp'), 'int A;\n');
-    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp'), entry('src/A.cpp')] });
-    expect(r.available).toBe(true);
-    expect(r.rows.map((m) => m.path).sort()).toEqual(['src/A.cpp', 'src/a.cpp']);
-  });
+  // ⛔ THE ALIAS TESTS ARE RETIRED WITH THE BEHAVIOUR THEY PINNED. graph-senior-dev's ruling:
+  // this population is a compile-entry MULTISET, two entries spelling one physical file
+  // differently are still two selected entries, and the selector never merges anything — so the
+  // refusal protected nothing and only cost availability. The `process.platform === 'win32'`
+  // predicate behind it was a STAND-IN for a filesystem property that is wrong on macOS (folds
+  // while `darwin` says false) and on case-sensitive Windows directories.
+  // ⇒ Removing a check is the right fix when the check was guarding an invariant nothing could
+  // violate. Recorded here so it is not re-proposed as a safety improvement.
 
   it('★★★ a changed source byte changes the digest — the member is bound to content', () => {
     const before = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
@@ -145,7 +133,7 @@ describe('the selection body determines its own digest', () => {
   });
 });
 
-describe('the selection body cannot be changed after the digest is fixed', () => {
+describe('the selection body is isolated from its caller and frozen after return', () => {
   it('★★★ mutating the caller argv array after the call does not change the body', () => {
     // ⛔ Blocker 2, executed: the body exported the caller's own array, so flipping '-c' to
     // '-O3' afterwards left a body describing a command the digest never covered.
@@ -182,5 +170,81 @@ describe('the selection body cannot be changed after the digest is fixed', () =>
     const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp', { file: '' })] });
     expect(r.available).toBe(false);
     expect(r.cause).toBe('malformed_entry');
+  });
+});
+
+describe('the RETURNED body cannot be mutated after the digest is fixed', () => {
+  // ⛔ graph-senior-dev executed this on the OUTPUT, not the input: `r.rows[0].argv[1]='-O3'`
+  // and `r.rows[0].mainFileSha256='00…'` both landed, leaving the digest fixed while the body
+  // moved. Input isolation was necessary and not sufficient, and my earlier test's TITLE claimed
+  // the property its body did not check.
+  //
+  // ⚠ It matters because wiring is a later step: a caller takes this object, adds
+  // query/result/authority fields, and content-addresses the whole thing. A mutation anywhere in
+  // that interval produces a self-contained receipt that is internally inconsistent — worse than
+  // one that is obviously incomplete.
+  it('★★★ argv is frozen', () => {
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
+    expect(() => { r.rows[0].argv[1] = '-O3'; }).toThrow();
+    expect(r.rows[0].argv).toEqual(['clang++', '-c', 'src/a.cpp']);
+  });
+
+  it('★★★ the member fields are frozen', () => {
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
+    const original = r.rows[0].mainFileSha256;
+    expect(() => { r.rows[0].mainFileSha256 = '0'.repeat(64); }).toThrow();
+    expect(r.rows[0].mainFileSha256).toBe(original);
+  });
+
+  it('★★★ the rows array and the result object are frozen', () => {
+    const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
+    expect(() => { r.rows.push({ path: 'phantom' }); }).toThrow();
+    expect(() => { r.digest = '0'.repeat(64); }).toThrow();
+    expect(r.rows.length).toBe(1);
+  });
+});
+
+describe('the cause vocabulary governs the emitters', () => {
+  // ⛔ THE ENUM WAS DOCUMENTARY, NOT OPERATIONAL. The docs ratchet read `Object.values(
+  // RECEIPT_CAUSES)` while every refusal still passed a string literal, so a future
+  // `refuse('new_undocumented_cause', …)` would ship in production while the test kept checking
+  // the unchanged enum and passing. The harvester stopped going empty and became DISCONNECTED
+  // from its emitter population instead — a checker certifying a vocabulary it does not govern.
+  // ⇒ Structural, not by inspection: a literal-string call to `refuse` fails here, so adding a
+  // cause forces an enum change, which the docs ratchet then sees.
+  it('★★★ no refusal passes a string literal — every cause comes from the enum', () => {
+    const src = readFileSync(
+      fileURLToPath(new URL('../../../mcp/stdio/code-intel/selection-digest.js', import.meta.url)),
+      'utf8',
+    );
+    const literals = [...src.matchAll(/refuse\(\s*'([^']+)'/g)].map((m) => m[1]);
+    expect(literals, 'use RECEIPT_CAUSES.X so the documented vocabulary governs what ships')
+      .toEqual([]);
+  });
+
+  it('★★★ every enum value is reachable as a real refusal or explicitly reserved', () => {
+    // Guards the other direction: an enum that lists causes nothing can emit is a contract
+    // describing a product that does not exist.
+    const src = readFileSync(
+      fileURLToPath(new URL('../../../mcp/stdio/code-intel/selection-digest.js', import.meta.url)),
+      'utf8',
+    );
+    const RESERVED = new Set(['population_transport_unavailable']);
+    const used = new Set([...src.matchAll(/RECEIPT_CAUSES\.([A-Z_]+)/g)].map((m) => m[1]));
+    for (const [key, value] of Object.entries(RECEIPT_CAUSES)) {
+      if (RESERVED.has(value)) continue;
+      expect(used.has(key), `${value} is declared but never emitted`).toBe(true);
+    }
+  });
+});
+
+describe('the selection requires the population root it is for', () => {
+  it('★★★ refuses an empty projectRoot even with an empty entry list', () => {
+    // Non-blocking hardening from graph-senior-dev: an empty selection could be issued with no
+    // project scope at all. The final receipt pins project/query separately, but a population
+    // without the root it describes is a claim with no subject.
+    const r = selectedTuSetDigest({ projectRoot: '', entries: [] });
+    expect(r.available).toBe(false);
+    expect(r.cause).toBe('no_project_root');
   });
 });
