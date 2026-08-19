@@ -1,0 +1,42 @@
+{
+  "features": [
+    {
+      "id": "feat-terrain",
+      "label": "ROUTE_MARKER_FEATURE",
+      "source": "user",
+      "depends_on": [
+        "feat-mesh"
+      ],
+      "anchors": {
+        "files": [
+          "src/terrain.js",
+          "src/mesh.js"
+        ],
+        "docs": [
+          "docs/terrain.md"
+        ]
+      },
+      "contracts": [
+        "CONTRACT_MARKER_A",
+        "CONTRACT_MARKER_B"
+      ],
+      "tests": [
+        "TEST_MARKER_A",
+        "TEST_MARKER_B",
+        "TEST_MARKER_C"
+      ],
+      "risks": [
+        "RISK_MARKER_A"
+      ]
+    },
+    {
+      "id": "feat-mesh",
+      "label": "mesh",
+      "anchors": {
+        "files": [
+          "src/mesh.js"
+        ]
+      }
+    }
+  ]
+}

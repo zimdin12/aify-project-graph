@@ -1,0 +1,12 @@
+{
+  "commit": "8d55f359dd4790300928ce3932c863f027a0eb56",
+  "indexedAt": "2026-08-19T00:00:00.000Z",
+  "nodes": 2,
+  "edges": 0,
+  "schemaVersion": 4,
+  "extractorVersion": "0.1.0",
+  "status": "ok",
+  "dirtyFiles": [],
+  "dirtyEdges": [],
+  "dirtyEdgeCount": 0
+}

@@ -21,3 +21,7 @@ _rebuild.mjs
 # raw per-arm output from scripts/self-review.mjs — evidence carrier, regenerated per run
 .self-review-raw/
 .refactor-guard-baseline.json
+tests/fixtures/packet-routes/.git/
+tests/fixtures/packet-routes/.aify-graph/graph.sqlite*
+!tests/fixtures/packet-routes/.aify-graph/
+!tests/fixtures/packet-routes/.aify-graph/*.json

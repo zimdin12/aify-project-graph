@@ -1,0 +1,21 @@
+{
+  "tasks": [
+    {
+      "id": "CU-999",
+      "title": "ROUTE_MARKER_TASK",
+      "status": "open",
+      "features": [
+        "feat-terrain"
+      ],
+      "anchors": {
+        "files": [
+          "src/terrain.js"
+        ]
+      },
+      "acceptance": [
+        "ACCEPT_MARKER_A",
+        "ACCEPT_MARKER_B"
+      ]
+    }
+  ]
+}

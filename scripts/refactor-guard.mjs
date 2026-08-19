@@ -90,8 +90,41 @@ const TARGETS = [
   'nodeText', 'estimateTokens', 'ZZZ_definitely_absent_symbol',
 ];
 
+// ⛔ THE FIXTURE'S GIT REPO AND GRAPH CANNOT BE COMMITTED, and my first version shipped them as
+// an EMBEDDED GIT REPOSITORY — git warned that no clone would contain it, which would have made
+// the routes silently unreachable on any other machine while the guard reported 4/4 here. The
+// same false-green shape as the defect this fixture exists to fix, one layer out.
+// ⇒ The committed part is the source and the overlay JSON. The git repo and the sqlite graph are
+// DERIVED and rebuilt here if absent, so a fresh clone reaches the routes.
+// ⚠ The commit SHA differs per machine. That is harmless: it only reaches the SNAPSHOT line,
+// which is the one named exclusion, covered by tests/unit/query/packet-snapshot-line.test.js.
+function ensureFixture() {
+  const git = join(FIXTURE, '.git');
+  if (!existsSync(git)) {
+    execFileSync('git', ['-C', FIXTURE, 'init', '-q'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', FIXTURE, 'add', '-A'], { stdio: 'ignore' });
+    execFileSync('git', ['-C', FIXTURE, '-c', 'user.email=fixture@apg', '-c', 'user.name=fixture',
+      'commit', '-qm', 'packet-routes fixture'], { stdio: 'ignore' });
+  }
+  const db = join(FIXTURE, '.aify-graph', 'graph.sqlite');
+  if (!existsSync(db)) return { seeded: false, db };
+  return { seeded: true, db };
+}
+
 async function runCorpus() {
+  ensureFixture();
   const { graphPacket } = await import('../mcp/stdio/query/verbs/packet.js');
+  const { openDb } = await import('../mcp/stdio/storage/db.js');
+  const fixtureDb = join(FIXTURE, '.aify-graph', 'graph.sqlite');
+  if (!existsSync(fixtureDb)) {
+    const db = openDb(fixtureDb);
+    try {
+      for (const [id, label, file] of [['n1', 'generateTerrain', 'src/terrain.js'], ['n2', 'buildMesh', 'src/mesh.js']]) {
+        db.run(`INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
+                VALUES ('${id}','Function','${label}','${file}',1,1,'javascript',1,'{}')`);
+      }
+    } finally { db.close(); }
+  }
   const results = [];
 
   // Routes first, so a run that cannot reach the moved code fails loudly rather than reporting
