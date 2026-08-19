@@ -10,7 +10,7 @@
 //
 //   node scripts/sync-skills.mjs           # write
 //   node scripts/sync-skills.mjs --check   # report drift, exit 1 (CI-friendly)
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -43,7 +43,15 @@ for (const rel of docs) {
   for (const runtime of TARGETS) {
     const path = join(INTEGRATIONS, runtime, rel);
     if (!existsSync(path)) {
-      drifted.push(`${runtime}/${rel} (MISSING)`);
+      // A NEW skill used to be reported and then skipped, so authoring one in the canonical
+      // tree shipped it to exactly one runtime until the parity test failed and someone did the
+      // mkdir by hand. Reporting a gap you are able to close is a checker doing half its job.
+      // In write mode, create it with the canonical frontmatter; --check still just reports.
+      drifted.push(`${runtime}/${rel} (CREATED)`);
+      if (!check) {
+        mkdirSync(dirname(path), { recursive: true });
+        writeFileSync(path, readFileSync(join(INTEGRATIONS, CANONICAL, rel), 'utf8'), 'utf8');
+      }
       continue;
     }
     const current = readFileSync(path, 'utf8');
