@@ -255,6 +255,17 @@ const SHORT_DESCRIPTIONS = new Map([
 
   ['graph_explain_diff', 'Explain an EXISTING change/diff (the reverse of graph_consequences). Keyed on a git range, NOT a symbol: range / staged=true / files[]; defaults to uncommitted working-tree changes. Returns CHANGED, AFFECTED 1-hop, LAYERS, RISK (a labeled heuristic score), TESTS, carrying the LSP-vs-heuristic trust banner. Use when triaging a PR or an already-made change.'],
 
+  // ⚠ THE TIER ASYMMETRY, ef-manager 2026-08-19. A SKILL is a file an agent CHOOSES to load; a
+  // tool description is what EVERY agent sees at selection time, unconditionally. The whereis
+  // scope work landed in the skill and left this tier saying "Exact symbol definition lookup.
+  // Prefer this for known names." — so an agent that reads only the schema had no way to know
+  // that NO MATCH means "not among the populated declaration types" rather than "not in this
+  // repo". Three separate field findings all cashed out as that one misreading.
+  //
+  // ⇒ Detail belongs in the skill, which is free until invoked. The DOUBT belongs here, which
+  // is billed every session, because it is what stops the answer being misread.
+  ['graph_whereis',     'Exact-label definition lookup over DECLARATION types, stating its population: "N of M" tells you whether you saw all of them. ★ A MISS IS NOT ABSENCE FROM THE REPOSITORY — it means no node carried that exact label among the declaration types THIS graph populated, and the miss names which of those types have zero nodes. Module constants are not extracted, so a `const` not bound to a function answers NO MATCH while existing in the source. Given a FILE PATH it says so and routes to graph_packet/graph_pull instead of implying the file is missing. limit must be 1 or more.'],
+
   ['graph_pull',        'Cross-layer pull for a node (file, feature, symbol, or task). Default layers code+functionality+tasks+activity; opt-in docs, relations, transitive. ★ In relations, recompile_surface answers "what must I rebuild": terminated:true means the walk ran out of includers, while truncated/depth_capped means the number is a FLOOR. imported_by is hop 1 only and is the WRONG answer when the includers are themselves headers.'],
 ]);
 

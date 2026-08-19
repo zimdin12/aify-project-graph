@@ -410,12 +410,25 @@ export const TOOLS = [
   {
     name: 'graph_whereis',
     handler: graphWhereis,
-    description: 'Exact symbol definition lookup. Prefer this for known names. Use expand=true for top incoming/outgoing edges.',
+    // The full-toolset tier sees this one; the default profile is served the SHORT_DESCRIPTIONS
+    // entry in server.js. Both must carry the scope — a caveat present in only one of two
+    // description tiers is the same sibling-branch defect as everywhere else in this codebase.
+    description: 'Exact symbol definition lookup by EXACT LABEL over declaration types, stating '
+      + 'its population ("N of M") so you can tell a complete answer from a truncated one. '
+      + '★ A MISS IS NOT ABSENCE FROM THE REPOSITORY: it means nothing carried that exact label '
+      + 'among the declaration types this graph populated, and the miss names which of those '
+      + 'types are empty here. Module constants are not extracted, so a `const` not bound to a '
+      + 'function answers NO MATCH while existing in the source. A FILE PATH is reported as a '
+      + 'path, not as a missing symbol. Use expand=true for top incoming/outgoing edges; limit '
+      + 'must be 1 or more.',
     schema: {
       type: 'object',
       properties: {
         symbol: { type: 'string', description: 'Exact symbol name.' },
-        limit: { type: 'integer', default: 5, description: 'Max matches.' },
+        // minimum:1 — a zero limit made the verb answer a real symbol with a miss (the
+        // population rides on the returned rows). Enforced in the handler too; the schema
+        // only binds clients that validate.
+        limit: { type: 'integer', default: 5, minimum: 1, description: 'Max matches (1 or more).' },
         expand: { type: 'boolean', default: false, description: 'Include top incoming/outgoing edges.' },
       },
       required: ['symbol'],

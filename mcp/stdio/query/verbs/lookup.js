@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { SEARCH_TYPES } from './whereis.js';
+import { missScopeNote } from '../miss-scope.js';
 
 function formatLocation(filePath, line) {
   return `${filePath}:${line ?? 0}`;
@@ -71,7 +72,12 @@ export async function graphLookup({ repoRoot, symbol, limit = 5 }) {
     }
 
     if (hits.length === 0) {
-      return `NO MATCH for "${symbol}".`;
+      // ⛔ THE FIX REACHED ONE PATH. `lookup` filters on the SAME SEARCH_TYPES as whereis (it
+      // imports the constant), so its miss carries exactly the same false implication — and it
+      // said even less, with no suggestions and no scope. Found by a reference-audit sweep, not
+      // by me, in the same session I wrote the note for the sibling verb.
+      const scope = missScopeNote(db, { types: SEARCH_TYPES, what: 'declaration types' });
+      return scope ? `NO MATCH for "${symbol}".\n${scope}` : `NO MATCH for "${symbol}".`;
     }
 
     return prefixReadWarnings(

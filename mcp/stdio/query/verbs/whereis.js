@@ -8,6 +8,23 @@ import { missScopeNote } from '../miss-scope.js';
 export const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
 
 export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false }) {
+  // ⛔ `limit: 0` ANSWERED A REAL SYMBOL WITH A MISS. graph-senior-dev executed it: the schema
+  // accepts any integer, `LIMIT 0` returns no rows, and the population — which by design rides
+  // ON the rows so that it cannot come from a second WAL snapshot — has nothing to ride on, so
+  // the count falls to 0 and the not-found branch runs. A negative limit is treated by SQLite
+  // as "no limit", which silently answers a different question again.
+  //
+  // ⇒ REFUSE RATHER THAN CLAMP. Clamping 0 up to 1 would answer a question nobody asked; a
+  // request for zero rows cannot support any claim about a population. And a second COUNT to
+  // rescue the zero case would put back the two-statement drift the window query removed.
+  // ⚠ Validated HERE, not only in the schema: direct callers and tests bypass the schema, and a
+  // guard that only exists at the boundary is not a guard on the function.
+  if (!Number.isInteger(limit) || limit < 1) {
+    return `INVALID REQUEST: limit must be an integer of 1 or more (got ${JSON.stringify(limit)}). `
+      + 'This verb reports how many matches exist alongside the ones it shows, and a request for '
+      + 'fewer than one row cannot establish that total. Nothing was searched — this is NOT a '
+      + 'statement about whether "' + symbol + '" exists.';
+  }
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_whereis' });
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
@@ -74,15 +91,32 @@ ${shown} of ${population} — ${basis}. Nothing was truncated.`;
       //
       // ⚠ Narrow on purpose: this does NOT widen the verb to resolve paths. It checks whether
       // the thing exists as a file and, if so, says which question it answered instead.
+      // ⛔ AND THIS PROBE THEN UNDER-ENUMERATED, three lines under the comment about
+      // under-enumerating. It listed `File` and `Directory`. This graph also holds 69
+      // `Document` and 54 `Config` nodes — 123 indexed files on disk — and ef-manager found
+      // every one of them still answering NO MATCH, reproduced on a second repo in another
+      // language. A hand-written type list is a rule, and a rule fails silently the next time
+      // someone adds a node type.
+      //
+      // ⇒ THE ENUMERATION IS DELETED RATHER THAN EXTENDED. "Is this path indexed" is answered
+      // by whether ANY node carries that `file_path`. There is no list left to fall behind, so
+      // a node type invented tomorrow is covered without an edit here.
+      //
+      // ⚠ It reports the TYPE it found rather than asserting "FILE", because the same query now
+      // answers for directories and documents too, and printing a kind that is not the kind is
+      // how every other false basis in this codebase got written.
       const asFile = db.get(
-        `SELECT file_path FROM nodes WHERE type IN ('File','Directory')
-           AND (file_path = $t OR file_path LIKE $suffix) LIMIT 1`,
+        `SELECT file_path, type FROM nodes
+           WHERE file_path <> '' AND (file_path = $t OR file_path LIKE $suffix) LIMIT 1`,
         { t: symbol, suffix: `%/${symbol}` },
       );
       if (asFile?.file_path) {
-        const base = `NOT A SYMBOL: "${symbol}" is a FILE in this graph (${asFile.file_path}), `
-          + 'and graph_whereis answers "where is this SYMBOL defined". The file exists — this '
-          + 'verb is the wrong question, not evidence of absence.\n'
+        const kind = String(asFile.type || 'node').toLowerCase();
+        const base = `NOT A SYMBOL: "${symbol}" is a PATH in this graph (${asFile.file_path}, `
+          + `indexed as ${kind}), and graph_whereis answers "where is this SYMBOL defined". `
+          + 'The path exists — this verb is the wrong question, not evidence of absence.\n'
+          + '⚠ graph_search matches on BASENAME, so re-running this path there returns nothing '
+          + 'at any kind. Use one of these instead:\n'
           + `NEXT: graph_packet(target="${asFile.file_path}") — orientation for a file\n`
           + `NEXT: graph_pull(node="${asFile.file_path}") — cross-layer context for a file`;
         const fileCaveat = staleNotFoundCaveat(freshness);

@@ -128,7 +128,16 @@ describe('a file-path target describes itself as a file', () => {
     repoRoot = await repoWithFile();
     const out = await graphPacket({ repoRoot, target: 'engine/rendering/GpuMaterialPalette.h' });
     expect(out).not.toMatch(/graph_explore\(symbols=\["engine/);
-    expect(out, 'and should point at the verb that does take a path').toMatch(/graph_file\(path=/);
+    // ⚠ THIS ASSERTION USED TO PIN `graph_file(path=`, AND THE PIN WAS ITSELF A DEFECT: that
+    // verb is not in the default tools/list profile, so the "correct" behaviour it enforced was
+    // to name a door most readers cannot open. A wording ratchet outlives the reason it was
+    // written for; what this test is FOR is that a path never lands in a symbols parameter and
+    // that the reader is not handed an unreachable or repeated suggestion.
+    const nexts = out.split('\n').filter((l) => l.startsWith('NEXT:'));
+    expect(new Set(nexts).size, 'a repeated NEXT line wastes the slot and reads as a tool bug')
+      .toBe(nexts.length);
+    expect(out, 'a path target must still be offered a verb that accepts a path')
+      .toMatch(/graph_pull\(node="engine/);
   }, 20_000);
 
   it('★★ a symbol target still gets graph_explore — the control', async () => {

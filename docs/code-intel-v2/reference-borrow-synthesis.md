@@ -1,7 +1,7 @@
 # Reference-Borrow Synthesis — making aify-project-graph better
 
 _Generated 2026-05-08 from holistic analysis of 4 reference projects under `reference/`._
-_Sources: agent-code-intel (LSP sibling, UNLICENSED/internal), codegraph (MIT), graphify (MIT), agent-understand-anything (MIT)._
+_Sources: agent-code-intel (LSP sibling, UNLICENSED/internal), codegraph (MIT), graphify (**Apache-2.0**), agent-understand-anything (MIT)._
 
 ## The headline: convergent evidence
 
@@ -59,7 +59,8 @@ Requirement: must run under **both** Hermes and Claude Code. agent-code-intel se
 - **Self-bundling bootstrap** (agent-code-intel `bin/bootstrap.js`) — M/L. "Just works" plugin install for both runtimes.
 
 ## Licensing
-- codegraph / graphify / understand-anything = **MIT** → may copy with attribution; but type shapes differ (TS/Python vs our JS+SQLite) so **reimplement heuristics**, don't copy files. `lru-cache.ts` is the only copy-verbatim candidate. Keep `ATTRIBUTION.md` updated.
+- codegraph / understand-anything = **MIT**; graphify = **Apache-2.0** (corrected 2026-08-19 from a wrong "MIT" record; Apache-2.0 adds notice/attribution obligations MIT does not)
+- all three → may copy with attribution; but type shapes differ (TS/Python vs our JS+SQLite) so **reimplement heuristics**, don't copy files. `lru-cache.ts` is the only copy-verbatim candidate. Keep `ATTRIBUTION.md` updated.
 - agent-code-intel = **UNLICENSED / private (BLEI-internal)** → **do NOT copy source**. Reimplement patterns only (we already do — "reference parity" comments).
 
 ## Recommended sequence

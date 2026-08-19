@@ -194,10 +194,21 @@ export function buildNextActions(s) {
       // definition locations and counts. A remedy pointed at the wrong question costs a call to
       // discover it was not for you, which is the same defect as advice not conditioned on
       // whether it applies (fixed in the packet's NEXT lines earlier the same day).
+      // ⛔ AND THEN IT NAMED A DOOR THE READER CANNOT OPEN. `code_intel_definitions` is not in
+      // the 17-name default tools/list profile; in a managed session, where tools are deferred
+      // behind a search step, it is not callable at all (ef-manager executed the lookup and got
+      // "No matching deferred tools found"). The comment above DEFAULT_TOOL_NAMES already
+      // records this exact failure — graph_index was ADDED to the profile because workers could
+      // not act on a warning naming a verb outside their surface — and I reproduced it anyway.
+      //
+      // ⇒ It was also inconsistent with the `why` directly above, which says definition counts
+      // are settled by EXTRACTION. So the remedy for the definition half is the extraction verb,
+      // `graph_whereis`: listed, callable, and the one that actually answers the question.
       do: 'graph_collect_code_intel({ scope: "all" }) for the whole repo; or for ONE bounded '
-        + 'symbol use code_intel_definitions (where/how many it is defined) or '
+        + 'symbol: graph_whereis (where/how many it is defined — extraction settles this, and it '
+        + 'now states which declaration types are unpopulated in this graph) or '
         + 'code_intel_references (who calls it / is it safe to delete) — read evidence.exhaustive '
-        + 'on either, since a collection merely existing does not make a result exhaustive',
+        + 'on the latter, since a collection merely existing does not make a result exhaustive',
     });
   }
 

@@ -312,9 +312,14 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       .map((n) => n.file_path)
       .filter(Boolean);
 
+    // ⛔ THE SIBLING OF THE whereis PATH PROBE, AND IT HAD THE IDENTICAL DEFECT: a hand-written
+    // `type IN ('File','Directory')` that misses the 69 Document and 54 Config nodes which are
+    // also real indexed files. I fixed whereis and did not grep for the shape, which is the
+    // under-enumeration this codebase keeps repeating. Keyed on carrying a file_path now, so
+    // there is no list to fall behind.
     const fileNodes = db.all(
       `SELECT id, label, type, file_path FROM nodes
-       WHERE type IN ('File','Directory') AND (file_path = $t OR file_path LIKE $p)
+       WHERE file_path <> '' AND (file_path = $t OR file_path LIKE $p)
        LIMIT 10`, { t: input, p: `%/${input}` });
     const matches = [...symbolNodes, ...fileNodes];
     if (matches.length === 0) {

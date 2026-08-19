@@ -86,7 +86,10 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'impact', db, repoRoot }); }
       catch { /* defensive */ }
       return prefixReadWarnings(
-        `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_status().` + line,
+        // `graph_status()` is not in the default tools/list profile, so this told most readers
+        // to call something they cannot reach. graph_health is the listed verb that answers
+        // "can I trust this", which is the actual question behind the suggestion.
+        `NO IMPACT — no edges found for "${symbol}". The symbol may have 0 callers, or the graph may be incomplete. Check graph_health().` + line,
         freshness.warnings,
       );
     }

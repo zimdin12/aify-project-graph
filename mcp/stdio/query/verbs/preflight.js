@@ -6,6 +6,11 @@ import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine } from '../lsp-evidence.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
+import { missScopeNote } from '../miss-scope.js';
+
+// The declaration types preflight resolves over. Named so the miss message can state the
+// population it actually searched instead of implying the repository.
+const PREFLIGHT_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Test'];
 
 /**
  * One-shot edit safety check. Combines whereis + callers + impact + tests + trust
@@ -18,8 +23,14 @@ export async function graphPreflight({ repoRoot, symbol }) {
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // 1. Find the symbol
-    const nodes = resolveSymbol(db, symbol, "'Function','Method','Class','Interface','Type','Test'");
-    if (nodes.length === 0) return `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+    // The population was written as a SQL string literal, so the miss message could not name
+    // what it had searched even in principle. One array, used for both.
+    const nodes = resolveSymbol(db, symbol, PREFLIGHT_TYPES.map((t) => `'${t}'`).join(','));
+    if (nodes.length === 0) {
+      const base = `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
+      const scope = missScopeNote(db, { types: PREFLIGHT_TYPES, what: 'declaration types' });
+      return scope ? `${base}\n${scope}` : base;
+    }
     const ambiguity = buildAmbiguousMatchMessage(symbol, nodes);
     if (ambiguity) return ambiguity;
     const node = selectBestRoot(nodes);

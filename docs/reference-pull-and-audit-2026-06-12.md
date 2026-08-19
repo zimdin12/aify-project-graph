@@ -10,7 +10,7 @@ reference-analysis agents + 4 Fable-5 codebase-scan agents, medium effort).
 |---|---|---|---|
 | agent-code-intel | UNLICENSED (pattern-only) | 8c31e79 → 6f0fc55 | Next/React FrameworkProvider, ESLint analyzer bridge, server-action/dynamic-import false-caller fixes, BOM/shebang directive sniffing |
 | codegraph | MIT | b026e64 → df6f4be | chained-call resolution (return-type based), class-instantiation edges, function-as-value capture, same-name monorepo disambiguation, **stdin error→shutdown**, default tool surface→4, Windows backslash paths, dynamic-dispatch boundary surfacing |
-| graphify | MIT (v8) | 0cf596a → 1bb30fc | **extractor-version cache invalidation**, default import/export symbol edges, tsconfig `extends` chains, Windows claude.cmd spawn + windowsHide, Claude CLI ≥2.1 JSON-array envelope |
+| graphify | **Apache-2.0** (corrected 2026-08-19 — this line said "MIT (v8)"; the repo ships LICENSE + NOTICE stating Apache-2.0, and retains LICENSE-MIT only for pre-relicensing contributions) | 0cf596a → 1bb30fc | **extractor-version cache invalidation**, default import/export symbol edges, tsconfig `extends` chains, Windows claude.cmd spawn + windowsHide, Claude CLI ≥2.1 JSON-array envelope |
 | agent-understand-anything | MIT | 26edf61 → 09ede19 | **NodeNext .js→.ts import rewrite**, bounded-parallel file I/O |
 
 ## 2. CONFIRMED BIG ISSUES (independently flagged by ≥2 agents → high confidence)

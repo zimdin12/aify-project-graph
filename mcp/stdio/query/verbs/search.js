@@ -174,13 +174,29 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
       // the results path and vanished on the empty path.
       //
       // Say what we KNOW and what we RULED OUT; never name an unverified cause.
+      // ⛔ TWO DEFECTS ef-manager EXECUTED, 2026-08-19, BY TAKING THIS MESSAGE'S OWN ADVICE.
+      //
+      // (a) `kind !== 'code'` counted `kind="all"` — the WIDEST setting, which excludes nothing
+      //     — as an active narrowing filter. So following the "Next:" line above produced a new
+      //     line blaming filters, and pointed away from the real cause. A cause that appears
+      //     BECAUSE the reader widened the search is worse than silence.
+      // (b) It was filed under "Ruled out", which is the list of things verified NOT to be the
+      //     cause. An active filter is a CANDIDATE cause. Same class as every other basis in
+      //     this repo that did not match its computation: the heading made a claim the item
+      //     could not support.
       const ruledOut = [];
+      const mayNarrow = [];
       if (freshnessState && !freshnessState.stale) ruledOut.push('the index is fresh');
-      if (type || file || kind !== 'code') ruledOut.push('filters are active (type/file/kind) and may be excluding matches');
+      if (type || file || (kind && kind !== 'all')) {
+        mayNarrow.push('filters are active (type/file/kind) and may be excluding matches');
+      }
       const base = [
         `NO RESULTS for "${normalizedQuery}".`,
         ruledOut.length ? `Ruled out: ${ruledOut.join('; ')}.` : '',
-        `Next: graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or graph_find for a broader cross-layer sweep.`,
+        mayNarrow.length ? `May be narrowing: ${mayNarrow.join('; ')}.` : '',
+        // graph_find is not in the default profile, so naming it spent a round trip to
+        // discover it was unreachable. graph_pull is the listed cross-layer verb.
+        `Next: graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or graph_pull for cross-layer context on a known node.`,
       ].filter(Boolean).join(' ');
       const caveat = staleNotFoundCaveat(freshnessState);
       // prefixReadWarnings carries the semantic-degradation hint (and any
@@ -220,7 +236,8 @@ export async function graphSearch({ repoRoot, query, type, file, kind = 'code', 
     // scored at all, so raising `limit` alone cannot reveal them.
     const sqlCapNote = hits.length >= SQL_CANDIDATE_CAP
       ? `\n⚠ candidate cap: matched at least ${SQL_CANDIDATE_CAP} nodes and only the first ${SQL_CANDIDATE_CAP} were ranked`
-        + ' — results are a FLOOR, not a complete match set. Narrow with type= / file=, or use graph_find for a broader sweep.'
+        + ' — results are a FLOOR, not a complete match set. Narrow with type= / file= to bring the'
+        + ' set under the cap.'
       : '';
     const shownNote = dropped > 0 || sqlCapNote
       ? `\nSHOWING ${scored.length} of ${hits.length}${hits.length >= SQL_CANDIDATE_CAP ? '+' : ''} matches.`

@@ -406,7 +406,10 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
     },
     sampleEdges: edgeSample, // ≤10 created LSP_VERIFIED CALLS edges (concrete evidence)
     recordCount: Array.isArray(result.records) ? result.records.length : 0,
-    note: 'Compact summary — raw records[] are imported to the DB, not returned. Query them with code_intel_replay or graph_pull (code_intel layer).',
+    // code_intel_replay is not in the default tools/list profile, so it was named at readers
+    // who could not call it. graph_pull is listed and reaches the same imported records.
+    note: 'Compact summary — raw records[] are imported to the DB, not returned. Query them with '
+      + 'graph_pull (code_intel layer); code_intel_replay also does, where the full toolset is enabled.',
     ...(errors.length ? { errors } : {}),
     ...(notes.length ? { notes } : {}),
   };

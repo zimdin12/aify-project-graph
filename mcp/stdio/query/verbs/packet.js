@@ -765,9 +765,16 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     // in `symbols=[...]` is the wrong parameter for the wrong verb. Found while verifying the
     // file-target fix, not reported — the field report named the class and this is another
     // member of it.
-    looksLikePath
-      ? `NEXT: graph_file(path="${symbol}") — what this file contains`
-      : `NEXT: graph_explore(symbols=["${symbol}"]) — verbatim source`,
+    // ⛔ AND THE REPLACEMENT FOR graph_file WAS A DUPLICATE. `graph_file` is not in the default
+    // profile, so it sent readers at a door they cannot open; my first correction pointed this
+    // slot at graph_pull, which is ALREADY the first line — two identical NEXTs, which reads as
+    // a bug in the tool and wastes the slot.
+    //
+    // ⇒ There is no listed verb that answers "what this file contains" beyond graph_pull, so
+    // for a path this line is DROPPED rather than filled. This block's own comment is the
+    // reason: advice not conditioned on whether it applies costs the reader a call to find out
+    // it was never for them, and an invented third suggestion is exactly that.
+    ...(looksLikePath ? [] : [`NEXT: graph_explore(symbols=["${symbol}"]) — verbatim source`]),
     // Offered only when the target is symbol-shaped AND a collection exists to query.
     ...(looksLikePath || !codeIntelAvailable
       ? []

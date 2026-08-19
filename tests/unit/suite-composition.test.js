@@ -171,6 +171,16 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   // in classify() missed until 2026-08-18. "Zero source-contract files" was true of what
   // the measurement could see, not of the suite. Neither has a seam to build; both are
   // arguing that the artifact under test IS text, which is the one case this list is for.
+  // ⚠ ADDED 2026-08-19, and the argument is the narrow one this list is for: THE ARTIFACT
+  //   UNDER TEST IS TEXT. The claim is "no remedy string in a default-profile verb names a
+  //   verb outside that profile", and its population is EVERY such string — including branches
+  //   that need a particular graph state to reach. A behavioural version would drive the misses
+  //   it can construct and silently pass on the ones it cannot, which is the false-completeness
+  //   this suite exists to refuse. It found SIX violations on its first run, five unreported.
+  // ⚠ NOT fully source-only in fact: the profile it checks against comes from the REAL server
+  //   over stdio, not from a copy of the constant, so a listing change is caught behaviourally.
+  //   The classifier cannot see that half; recording it here rather than arguing with it.
+  'unit/query/remedy-names-a-reachable-verb.test.js',
   'unit/query/packet-route-inventory.test.js',
   //   ↳ ⚠ THE ARGUMENT THAT PUT THIS HERE WAS WRONG, AND THE ENTRY SURVIVES ON A SMALLER
   //     ONE. It read: "an INVENTORY cannot be behavioural by construction — its purpose is
