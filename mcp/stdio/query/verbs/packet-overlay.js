@@ -11,7 +11,7 @@
 import { clampList, boundedList } from './packet-lists.js';
 import { trustTier } from './packet-input.js';
 
-export function readFirstFromFeature(feature, briefFeatures) {
+function readFirstFromFeature(feature, briefFeatures) {
   // Prefer the brief's enriched feature data (already has top callers /
   // primary-file shape). Fall back to feature.anchors.files.
   const enriched = (briefFeatures?.valid ?? []).find((v) => v.feature?.id === feature.id);
@@ -28,7 +28,7 @@ export function readFirstFromFeature(feature, briefFeatures) {
   return (feature.anchors?.files || []).map((f) => ({ file: f, why: 'feature anchor (glob)' }));
 }
 
-export function readFirstFromTask(task, functionality) {
+function readFirstFromTask(task, functionality) {
   const items = [];
   // task.files_hint takes priority — agent-curated
   for (const f of (task.files_hint || [])) {
@@ -45,7 +45,7 @@ export function readFirstFromTask(task, functionality) {
   return items;
 }
 
-export function contractsFromFeature(feature) {
+function contractsFromFeature(feature) {
   const out = [];
   for (const c of (feature.contracts || [])) out.push(c);
   for (const d of (feature.anchors?.docs || [])) {
@@ -54,11 +54,11 @@ export function contractsFromFeature(feature) {
   return out;
 }
 
-export function testsFromFeature(feature) {
+function testsFromFeature(feature) {
   return (feature.tests || []).slice();
 }
 
-export function risksForFeature(feature, brief) {
+function risksForFeature(feature, brief) {
   const risks = [];
   // No explicit tests anchored
   if (!(feature.tests || []).length && !(feature.anchors?.tests || []).length) {
@@ -73,7 +73,7 @@ export function risksForFeature(feature, brief) {
   return risks;
 }
 
-export function risksForTask(task, brief) {
+function risksForTask(task, brief) {
   const risks = [];
   if (!(task.features || task.related_features || []).length) {
     risks.push('task has no feature link — coverage unknown');
@@ -86,7 +86,7 @@ export function risksForTask(task, brief) {
   return risks;
 }
 
-export function modeRisks(mode) {
+function modeRisks(mode) {
   if (mode === 'debug') return ['debug mode — verify dirty source, repro path, and adjacent tests first'];
   if (mode === 'review') return ['review mode — do not approve from graph alone; verify diff, callers, and tests'];
   if (mode === 'audit') return ['audit mode — check contracts, test anchors, task linkage, and stale snapshot risk'];

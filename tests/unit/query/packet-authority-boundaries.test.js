@@ -34,14 +34,16 @@ const read = (f) => readFileSync(join(VERBS, f), 'utf8');
 const PACKET_MODULES = () => readdirSync(VERBS).filter((f) => /^packet(-[a-z]+)?\.js$/.test(f));
 
 describe('packet authority boundaries', () => {
-  it('★★★ exactly ONE module exports a tool entry — no unsealed escape', () => {
-    // Failure 1. The seal lives in the facade wrapper; any other module exporting something that
-    // renders a whole packet would be a public route around enforcement.
+  it('★★★ exactly ONE module exports a tool entry, in ANY declaration form', () => {
+    // ⛔ THIS GATE WAS DECLARATION-SPELLING BASED and dev walked through it: it matched only
+    // `export function graphPacket…`, so `export const graphPacketEscape = …` and
+    // `export { x as graphPacketEscape }` were invisible. Third time a gate of mine checked a
+    // shape instead of the thing it claims to govern.
+    // ⇒ AST export inventory, and EVERY graphPacket* name outside packet.js is forbidden.
     const entries = [];
     for (const f of PACKET_MODULES()) {
-      const src = read(f);
-      for (const m of src.matchAll(/^export\s+(?:async\s+)?function\s+(graphPacket\w*)/gmu)) {
-        entries.push(`${f}:${m[1]}`);
+      for (const name of exportedNames(read(f), f)) {
+        if (/^graphPacket/u.test(name)) entries.push(`${f}:${name}`);
       }
     }
     expect(entries, 'exactly one exported packet entry, and it must be the sealed wrapper')
@@ -122,20 +124,27 @@ describe('packet authority boundaries', () => {
     // "much broader than the facade needs, and the boundary gate does not inventory it." Not an
     // automatic tool entry, but a new API fact that arrived unreviewed. Pinned exactly, so
     // widening the surface has to be a deliberate edit here.
+    // ⚠ MINIMIZED, NOT MERELY PINNED. My first version allowlisted all 31 names that happened to
+    // become reachable — dev: "the requested fix was minimal cross-boundary surface PLUS an exact
+    // allowlist, not an allowlist around every name that happened to become reachable... otherwise
+    // 'export every moved helper, then allowlist it' becomes the Phase-0 pattern."
+    // Measured by AST: the facade referenced 15 of 31; 16 imports were never read. 31 -> 16.
     const ALLOWED = {
       'packet-input.js': [
-        'CHAR_PER_TOKEN_EST', 'DEFAULTS', 'MODE_OVERRIDES', 'PACKET_MODES', 'esTokens',
-        'findFeature', 'findTask', 'hasCodeIntelCollection', 'loadJsonSafe', 'normalizeMode',
+        'esTokens', 'findFeature', 'findTask', 'hasCodeIntelCollection', 'normalizeMode',
         'optionsForMode', 'parseTarget', 'readBrief', 'readFunctionality', 'readManifest',
-        'readTasks', 'resolvePacketBudget', 'safeDirtyCount', 'safeGitHead', 'shortSha',
-        'snapshotLine', 'trustTier',
+        'readTasks', 'resolvePacketBudget', 'snapshotLine', 'trustTier',
       ],
-      'packet-overlay.js': [
-        'buildFeaturePacket', 'buildTaskPacket', 'contractsFromFeature', 'modeRisks',
-        'readFirstFromFeature', 'readFirstFromTask', 'risksForFeature', 'risksForTask',
-        'testsFromFeature',
-      ],
+      'packet-overlay.js': ['buildFeaturePacket', 'buildTaskPacket'],
     };
+    // ⛔ POPULATION-COMPLETE. dev: "a newly created packet-symbol.js would be discovered by
+    // PACKET_MODULES() but absent from ALLOWED, so its exports would receive no exact check."
+    // An allowlist that does not cover its own population is an allowlist with a hole.
+    const SEPARATELY_GOVERNED = new Set(['packet.js', 'packet-lists.js', 'packet-budget.js',
+      'packet-evidence.js', 'packet-verify.js']);
+    const governed = PACKET_MODULES().filter((f) => !SEPARATELY_GOVERNED.has(f));
+    expect(governed.sort(), 'every island must have an exact export allowlist')
+      .toEqual(Object.keys(ALLOWED).sort());
     for (const [file, allowed] of Object.entries(ALLOWED)) {
       expect(exportedNames(read(file), file), `${file} export surface changed`).toEqual(allowed);
     }

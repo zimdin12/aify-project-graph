@@ -20,7 +20,7 @@ import { openExistingDb } from '../../storage/db.js';
 
 // Section caps come first; the final token-estimate clamp is a safety
 // rail. Predictable shape → prompt-cache friendly.
-export const DEFAULTS = {
+const DEFAULTS = {
   features: 6,
   read_first: 8,
   contracts: 6,
@@ -29,11 +29,11 @@ export const DEFAULTS = {
   budget_tokens: 800,
 };
 
-export const CHAR_PER_TOKEN_EST = 4; // rough; matches our existing brief-budget heuristic
+const CHAR_PER_TOKEN_EST = 4; // rough; matches our existing brief-budget heuristic
 
-export const PACKET_MODES = new Set(['orient', 'plan', 'debug', 'review', 'audit', 'verify']);
+const PACKET_MODES = new Set(['orient', 'plan', 'debug', 'review', 'audit', 'verify']);
 
-export const MODE_OVERRIDES = {
+const MODE_OVERRIDES = {
   orient: {},
   plan: { read_first: 10, contracts: 8, tests: 8, risks: 8 },
   debug: { read_first: 10, tests: 10, risks: 8 },
@@ -77,7 +77,7 @@ export function optionsForMode(mode, budgetTokens) {
   };
 }
 
-export function loadJsonSafe(path) {
+function loadJsonSafe(path) {
   try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
 }
 
@@ -121,7 +121,7 @@ export function hasCodeIntelCollection(repoRoot) {
   } catch { return false; }
 }
 
-export function safeGitHead(repoRoot) {
+function safeGitHead(repoRoot) {
   try {
     return execFileSync('git', ['-C', repoRoot, 'rev-parse', 'HEAD'],
       { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true }).trim();
@@ -138,7 +138,7 @@ export function safeGitHead(repoRoot) {
 // said nothing. The agent had two contradictory dirty counts for one tree and no
 // way to tell which was load-bearing, so the honest banner lost credibility to
 // the wrong one.
-export function safeDirtyCount(repoRoot) {
+function safeDirtyCount(repoRoot) {
   try {
     return getTrackedDirtyFilesSync(repoRoot).length;
   } catch { return 0; }
@@ -166,7 +166,7 @@ export function snapshotLine(brief, manifest, repoRoot) {
   return `SNAPSHOT: indexed=${shortSha(indexed)} head=${shortSha(head)} dirty=${dirty} trust=${trust}${stale}`;
 }
 
-export function shortSha(s) {
+function shortSha(s) {
   if (typeof s !== 'string') return '?';
   return s === '?' ? '?' : s.slice(0, 7);
 }

@@ -12,16 +12,16 @@
 // is skipped or times out — overlay-first value is the milestone.
 
 import {
-  DEFAULTS, CHAR_PER_TOKEN_EST, PACKET_MODES, MODE_OVERRIDES,
+  // ⚠ MINIMIZED, not allowlisted. graph-senior-dev on the first attempt: I pinned all 31
+  // accidental exports instead of reducing them — "otherwise 'export every moved helper, then
+  // allowlist it' becomes the Phase-0 pattern." Measured by AST: the facade referenced 15 of the
+  // 31; the other 16 were imports it never read, which preserve behaviour while obscuring
+  // whether ownership actually moved.
   esTokens, resolvePacketBudget, normalizeMode, optionsForMode,
-  loadJsonSafe, readBrief, readFunctionality, readTasks, readManifest, hasCodeIntelCollection,
-  safeGitHead, safeDirtyCount, trustTier, snapshotLine, shortSha,
-  parseTarget, findFeature, findTask,
+  readBrief, readFunctionality, readTasks, readManifest, hasCodeIntelCollection,
+  snapshotLine, parseTarget, findFeature, findTask,
 } from './packet-input.js';
-import {
-  readFirstFromFeature, readFirstFromTask, contractsFromFeature, testsFromFeature,
-  risksForFeature, risksForTask, modeRisks, buildFeaturePacket, buildTaskPacket,
-} from './packet-overlay.js';
+import { buildFeaturePacket, buildTaskPacket } from './packet-overlay.js';
 
 // ⚠ COMPATIBILITY RE-EXPORT, per graph-senior-dev: "keep compatibility re-exports from
 // packet.js where existing callers import them." `resolvePacketBudget` was part of this
