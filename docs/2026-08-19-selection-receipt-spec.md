@@ -87,8 +87,13 @@ H     = SHA-256
 1. Resolve `file` against the entry's `directory`, lexically.
 2. Require it inside the canonical project root for repository scope.
 3. Project-relative, `/` separators, no leading `/`, no `.` or `..`, NFC, **preserve case**.
-4. **Reject** duplicate normalized paths that case-fold equal on a case-insensitive host but
-   differ in bytes. **Never silently merge aliases.**
+4. ⛔ **RETIRED — this rule said "reject duplicate normalized paths that case-fold equal … never
+   silently merge aliases", and it contradicts the accepted implementation two sections down.**
+   `graph-senior-dev` caught it surviving the falsifier-4 correction: *"exactly the kind of second
+   authority from which the retired proxy will be reintroduced."* The population is a
+   compile-entry **multiset** — preserve the original spelling and every row, never merge or
+   dedupe. Physical-file identity belongs to a separate future population derived from resolved
+   identity. Case is never normalized; `x/../y.cpp` and NFC still are.
 5. Sort rows lexicographically **by their complete encoded row bytes**; retain duplicates
    (multiset semantics), so row count preserves multiplicity.
 

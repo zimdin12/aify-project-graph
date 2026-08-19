@@ -15,6 +15,7 @@ import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 import { openExistingDb } from '../../storage/db.js';
+import { createHash } from 'node:crypto';
 
 const HINTS = {
   language_unsupported: 'no live LSP session registered for this language; supported: cpp, typescript/javascript, python',
@@ -469,17 +470,54 @@ export async function openIfNeeded(session, file) {
       let text = '';
       try { text = fs.readFileSync(abs, 'utf8'); } catch { /* leave empty */ }
       const version = (prev?.version || 1) + 1;
-      try { await session.client.didChange(uri, text, version); } catch { /* best-effort */ }
-      session.openDocState.set(uri, { version, mtimeMs: cur.mtimeMs, size: cur.size });
+      // ⛔ THE FAILURE WAS SWALLOWED AND THE STATE UPDATED ANYWAY. graph-senior-dev, reading for
+      // the receipt's carrier binding: `didChange` threw, the catch dropped it, and the very
+      // next line recorded the new version/mtime/size as though the server had accepted it. So
+      // our record said "synced" while clangd still held the OLD text — and every answer after
+      // that was against text nobody could see was stale.
+      //
+      // ⇒ Record ONLY what was successfully sent, and remember the failure. `sentSha256` is the
+      // exact carrier: a hash of the bytes the server actually received, not of whatever is on
+      // disk when someone asks later. A post-hoc disk read is a LOOKALIKE, and binding a claim
+      // to a lookalike is the side-channel defect that made the first receipt replay pass.
+      let sent = false;
+      try {
+        await session.client.didChange(uri, text, version);
+        sent = true;
+      } catch (err) {
+        if (!session.docSyncFailures) session.docSyncFailures = new Map();
+        session.docSyncFailures.set(uri, String(err?.message || err));
+      }
+      if (sent) {
+        session.docSyncFailures?.delete(uri);
+        session.openDocState.set(uri, {
+          version,
+          mtimeMs: cur.mtimeMs,
+          size: cur.size,
+          sentSha256: createHash('sha256').update(text, 'utf8').digest('hex'),
+          sentBytes: Buffer.byteLength(text, 'utf8'),
+        });
+      }
     }
     return uri;
   }
 
   let text = '';
   try { text = fs.readFileSync(abs, 'utf8'); } catch { /* leave empty */ }
+  // Same rule on the open path: the state is written only after the send succeeds, and it
+  // carries the hash of the bytes that were sent. A throw here propagates (it always has), so
+  // there is no swallowed-failure branch to guard — but the carrier must still be recorded, or
+  // a receipt would have nothing truthful to bind to.
   await session.client.didOpen(uri, session.language, text);
   session.openedUris.add(uri);
-  session.openDocState.set(uri, { version: 1, mtimeMs: stat?.mtimeMs ?? 0, size: stat?.size ?? 0 });
+  session.docSyncFailures?.delete(uri);
+  session.openDocState.set(uri, {
+    version: 1,
+    mtimeMs: stat?.mtimeMs ?? 0,
+    size: stat?.size ?? 0,
+    sentSha256: createHash('sha256').update(text, 'utf8').digest('hex'),
+    sentBytes: Buffer.byteLength(text, 'utf8'),
+  });
   return uri;
 }
 

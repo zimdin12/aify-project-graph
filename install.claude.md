@@ -103,9 +103,14 @@ and it was falsified three times against real clangd. That flag is no longer iss
 Each shipped skill carries a marker like `<!-- APG-SAFETY-CONTRACT: 2026-08-19-exhaustive-withheld -->`
 near the top. If your installed copy lacks the current marker, re-run Step 3 to replace it.
 
-✅ A stale copy cannot make you unsafe, only wrong-footed: the withdrawn advice was conditional
-on a flag that is now never true, so the runtime refuses underneath it. Re-copy at your
-convenience; there is no urgent migration.
+✅ Against a CURRENT server, a stale copy leaves you wrong-footed rather than unsafe: the
+withdrawn advice was conditional on a flag a current server never issues, so the runtime refuses
+underneath it.
+
+⚠ **That qualifier is load-bearing — update BOTH.** An old skill paired with an old server, one
+that can still emit the withdrawn grant, retains the original danger in full. The marker records
+what the document was written against; it is not evidence that the running bytes are current.
+Pull the repo and restart the MCP server as well as re-copying the skills.
 
 ## Step 3 — install the skills
 

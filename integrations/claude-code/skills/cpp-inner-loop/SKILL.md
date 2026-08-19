@@ -15,11 +15,16 @@ tree, so an installed copy does NOT update when the server does, and older copie
 
 ⇒ If your copy lacks the marker above, re-copy `integrations/<runtime>/skills/` from the repo.
 
-✅ **A stale copy cannot make you unsafe, only wrong-footed** — and this is worth knowing rather
-than worrying about: the old advice was "trust an empty result WHEN the flag is true", and the
-flag is now never true, so the runtime refuses underneath the stale instruction. The cost is a
-wasted expectation, not a bad deletion. That is why this is a marker and a re-copy note rather
-than a mechanism that bills every session.
+✅ **Against a CURRENT server, a stale copy leaves you wrong-footed rather than unsafe** — the
+old advice was "trust an empty result WHEN the flag is true", and a current server never issues
+that flag, so the runtime refuses underneath the stale instruction. The cost is a wasted
+expectation, not a bad deletion. That is why this is a marker and a re-copy note rather than a
+mechanism that bills every session.
+
+⚠ **THE QUALIFIER IS LOAD-BEARING: that holds only if the SERVER is also current.** An old skill
+paired with an old server — one that can still emit the withdrawn grant — retains the original
+danger in full. This marker says what the DOCUMENT was written against; it is not evidence that
+the running bytes are current. **Update the server/plugin and re-copy the skills together.**
 
 For C++ inner-loop work, prefer **bounded live verbs** over `graph_packet` or `graph_collect_code_intel`. They drive clangd live, no collect/import round-trip, and carry a structured **evidence contract**. ⚠ As of 2026-08-19 that contract works in the NEGATIVE direction only: it tells you when an answer is degraded, and it can no longer certify a complete set. Use these verbs for PRECISE locations, not for absence.
 
