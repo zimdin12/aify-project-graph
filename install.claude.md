@@ -93,6 +93,20 @@ Options for multi-repo teams:
 - **Rely on static briefs.** The measured win (−36% tool calls on orient tasks) comes from the briefs, not the live verbs — for most work briefs alone are enough.
 - **Register multiple MCP instances.** Future option if live-verb cross-repo becomes common; not yet supported out of the box.
 
+## ⚠ Updating an existing install — safety contracts change
+
+Skills are installed by COPYING this tree, so an installed copy never updates when the server
+does. On 2026-08-19 the C++ skill's central safety claim was **withdrawn**: `evidence.exhaustive
+=== true` was documented as the safe basis for "no callers" / "dead code" / "safe to delete",
+and it was falsified three times against real clangd. That flag is no longer issued.
+
+Each shipped skill carries a marker like `<!-- APG-SAFETY-CONTRACT: 2026-08-19-exhaustive-withheld -->`
+near the top. If your installed copy lacks the current marker, re-run Step 3 to replace it.
+
+✅ A stale copy cannot make you unsafe, only wrong-footed: the withdrawn advice was conditional
+on a flag that is now never true, so the runtime refuses underneath it. Re-copy at your
+convenience; there is no urgent migration.
+
 ## Step 3 — install the skills
 
 Copy the whole skills tree dynamically so future skills are picked up without editing this doc.

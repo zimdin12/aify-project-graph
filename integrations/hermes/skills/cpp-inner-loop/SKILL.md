@@ -5,6 +5,22 @@ description: Use when working on C++ code — editing, refactor blast-radius, bu
 
 # cpp-inner-loop
 
+<!-- APG-SAFETY-CONTRACT: 2026-08-19-exhaustive-withheld -->
+
+⚠ **CHECK THIS FIRST IF YOU LOADED THIS SKILL FROM AN INSTALLED COPY.** The line above is the
+safety-contract revision this document was written against. Skills are installed by copying this
+tree, so an installed copy does NOT update when the server does, and older copies contain a
+**withdrawn** claim: that `evidence.exhaustive === true` is the safe basis for "no callers" /
+"dead code" / "safe to delete". It is not, and that flag is no longer issued at all.
+
+⇒ If your copy lacks the marker above, re-copy `integrations/<runtime>/skills/` from the repo.
+
+✅ **A stale copy cannot make you unsafe, only wrong-footed** — and this is worth knowing rather
+than worrying about: the old advice was "trust an empty result WHEN the flag is true", and the
+flag is now never true, so the runtime refuses underneath the stale instruction. The cost is a
+wasted expectation, not a bad deletion. That is why this is a marker and a re-copy note rather
+than a mechanism that bills every session.
+
 For C++ inner-loop work, prefer **bounded live verbs** over `graph_packet` or `graph_collect_code_intel`. They drive clangd live, no collect/import round-trip, and carry a structured **evidence contract**. ⚠ As of 2026-08-19 that contract works in the NEGATIVE direction only: it tells you when an answer is degraded, and it can no longer certify a complete set. Use these verbs for PRECISE locations, not for absence.
 
 ## The claim this skill USED to make, and what replaced it

@@ -180,6 +180,14 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   // ⚠ NOT fully source-only in fact: the profile it checks against comes from the REAL server
   //   over stdio, not from a copy of the constant, so a listing change is caught behaviourally.
   //   The classifier cannot see that half; recording it here rather than arguing with it.
+  // ⚠ ADDED 2026-08-19. The artifact under test IS TEXT — a marker inside shipped markdown that
+  //   lets an INSTALLED copy be recognised as stale by whoever reads it. There is no runtime
+  //   seam because the thing being asserted never executes: skills are copied to a user's
+  //   profile and read by an agent, not called. Building a behavioural harness here would mean
+  //   inventing an execution path the artifact does not have.
+  // ⚠ It also derives its runtime list from the directory rather than naming four, so a fifth
+  //   integration cannot ship unstamped just because nobody edited the test.
+  'unit/integrations/skill-safety-contract.test.js',
   'unit/query/remedy-names-a-reachable-verb.test.js',
   'unit/query/packet-route-inventory.test.js',
   //   ↳ ⚠ THE ARGUMENT THAT PUT THIS HERE WAS WRONG, AND THE ENTRY SURVIVES ON A SMALLER
