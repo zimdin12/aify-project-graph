@@ -541,6 +541,27 @@ export function collectionAuthority(envelope) {
   // collection holding no records observed nothing, however it described itself.
   const observedNothing = !Array.isArray(envelope?.records) || envelope.records.length === 0;
 
+  // ⛔⛔ A CONTINUATION IS NOT A REPLACEMENT — AND THIS ONE WAS FOUND BY READING THE PRUNE BEFORE
+  // RUNNING THE RECOVERY THROUGH IT, NOT BY LOSING THE DATA A SECOND TIME.
+  //
+  // `pruneSupersededCollections` deletes EVERY other collection from the same provider,
+  // unconditionally. A repo larger than `maxFiles` is collected as a resumed sequence of batches,
+  // each landing as its own collection — so:
+  //
+  //     batch 1   files   1-200   collection A
+  //     batch 2   files 201-400   collection B   prunes A   <- batch 1's records destroyed
+  //     batch 3   files 401-551   collection C   prunes B   <- batch 2's records destroyed
+  //
+  // The sequence converges to the coverage of its LAST batch while every field reports success,
+  // and the resume note says "the collection is COMPLETE". 551 files of work, 151 files of
+  // evidence. This repo never hit it only because collection stopped at the 200-file cap and the
+  // sequence was never continued.
+  //
+  // ⇒ Authority to supersede belongs to the run that STARTS a fresh pass. A run continuing a
+  // ledger is adding to the pass already in progress, and has no more right to delete its own
+  // earlier batches than a 0-file run had to delete the batch before it.
+  const isContinuation = Number(envelope?.session?.resumedFrom ?? 0) > 0;
+
   // ⚠ ONE REASON PER PREDICATE. A single shared string would name a condition that did not apply
   // to the caller reading it — the reason a run declined to prune is not always the reason it
   // declined to invalidate, and a message that says otherwise is worse than none.
@@ -551,7 +572,9 @@ export function collectionAuthority(envelope) {
   const pruneReason = sharedReason
     ?? (observedNothing
       ? 'the collection observed no records at all, so it re-observed nothing it could supersede'
-      : null);
+      : isContinuation
+        ? 'this run CONTINUES a resumed collection rather than starting one, so its earlier batches are siblings and not predecessors'
+        : null);
 
   return {
     declaredFileScope,
@@ -580,7 +603,7 @@ export function collectionAuthority(envelope) {
      * leaves an empty graph that only a 455-second re-collect can restore.
      */
     mayDestroyPriorEvidence:
-      succeeded && collectedReferences && !walkedNothing && !observedNothing,
+      succeeded && collectedReferences && !walkedNothing && !observedNothing && !isContinuation,
     /** Non-null whenever authority is withheld — reported, never silent. */
     invalidationReason: sharedReason,
     pruneReason,

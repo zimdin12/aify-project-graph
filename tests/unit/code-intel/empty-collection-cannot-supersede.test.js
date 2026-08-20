@@ -153,4 +153,64 @@ describe('a collection can only supersede what it had the authority to re-observ
     expect(stats.pruneSkipped, 'and it says which authority it lacked')
       .toMatch(/references operation/i);
   }, 30_000);
+  it('★★★ a RESUMED batch does not prune its own earlier batches', async () => {
+    // ⛔⛔ A MULTI-BATCH COLLECTION CONVERGED TO THE COVERAGE OF ITS LAST BATCH.
+    //
+    // `pruneSupersededCollections` deletes every OTHER collection from the provider,
+    // unconditionally. A repo larger than `maxFiles` is collected as a resumed sequence, each
+    // batch landing as its own collection, so batch 2 destroyed batch 1 and batch 3 destroyed
+    // batch 2 — while the resume note said "the collection is COMPLETE". 551 files of work, 151
+    // files of evidence, every field reporting success.
+    //
+    // Found by READING the prune before running the recovery through it. This repo had never hit
+    // it only because collection stopped at the 200-file cap and was never continued — which is
+    // exactly what I was about to do.
+    //
+    // ⇒ Authority to supersede belongs to the run that STARTS a pass. A continuation is adding to
+    // the pass in progress; its earlier batches are siblings, not predecessors.
+    const db = await graphWithCollection();
+    const before = recordCount(db);
+    expect(before).toBeGreaterThan(0);
+
+    const stats = importV02Collection({
+      schema_version: '0.2',
+      status: 'ok',
+      provider: 'ts-langserver',
+      providerVersion: '0.1.0',
+      projectRoot: dir,
+      collectionId: 'batch-2',
+      operations: { references: { status: 'ok', count: 1 } },
+      // The marker the collector already emits: this run picked up where another left off.
+      session: { filesProcessed: 200, filesTotal: 200, resumedFrom: 200, enumeratedTotal: 551, indexedCommit: 'eee' },
+      records: [
+        { kind: 'references', language: 'typescript', symbolId: 's9', qname: 'beta', file: 'src/c.ts', range: { start: { line: 3 }, end: { line: 3 } }, confidence: 1, result_state: 'found' },
+      ],
+    }, db);
+
+    expect(recordCount(db), 'batch 2 must ADD to batch 1, never replace it').toBeGreaterThan(before);
+    expect(stats.pruneSkipped, 'and it says it is a continuation').toMatch(/CONTINUES/);
+    db.close();
+  }, 30_000);
+
+  it('★★★ CONTROL: a run that STARTS a fresh pass still supersedes', async () => {
+    // ⛔ Without this, "never prune while resuming" is satisfied by never pruning at all, and the
+    // unbounded-growth defect the prune exists for walks straight back in — sand_castle reached
+    // 1.03M rows and 732MB across 13 runs.
+    const db = await graphWithCollection();
+    const stats = importV02Collection({
+      schema_version: '0.2',
+      status: 'ok',
+      provider: 'ts-langserver',
+      providerVersion: '0.1.0',
+      projectRoot: dir,
+      collectionId: 'fresh-pass',
+      operations: { references: { status: 'ok', count: 1 } },
+      session: { filesProcessed: 200, filesTotal: 200, resumedFrom: 0, indexedCommit: 'fff' },
+      records: [
+        { kind: 'references', language: 'typescript', symbolId: 's1', qname: 'alpha', file: 'src/b.ts', range: { start: { line: 9 }, end: { line: 9 } }, confidence: 1, result_state: 'found' },
+      ],
+    }, db);
+    expect(stats.collectionsPruned, 'a cold-start pass DOES supersede').toBeGreaterThan(0);
+    db.close();
+  }, 30_000);
 });
