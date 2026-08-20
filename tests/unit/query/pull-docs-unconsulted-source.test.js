@@ -137,7 +137,7 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
     // ⚠ WORDING UPDATED WITH THE NOUN FIX. "reference this file" was the defect: it covered
     // MENTIONS edges, which point at a SYMBOL and say nothing about the file being named.
     expect(out.docs_not_shown, 'the payload must name what it withheld and how to ask for it')
-      .toMatch(/1 document\(s\) relate to this file/);
+      .toMatch(/1 document relates to this file/);
     expect(out.docs_not_shown, 'and say which kind of relation it was').toMatch(/1 links to the file itself/);
     expect(out.docs_not_shown).toMatch(/layers:\["docs"\]/);
   }, 60_000);
@@ -224,6 +224,106 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
   });
 });
 
+describe('the disclosure sentence agrees with its own counts — PROPERTY, not instances', () => {
+  // ⛔ MY GRAMMAR FIX MATCHED A LIST OF THREE AND MISSED THE FOURTH CLAUSE IN THE SAME SENTENCE.
+  // ef-manager gave three examples — "1 do both", "1 only mention", "1 link" — and the leading
+  // clause "1 document(s) relate" was the fourth member of the same class, untouched.
+  //
+  // Their diagnosis is the reason this test is shaped the way it is: "a defect report enumerating
+  // instances invites an instance-shaped fix, so the report should name the property." An
+  // instance test would have caught the three they named and nothing else — including any fifth
+  // clause added later.
+  //
+  // ⇒ The sentence is GENERATED from the breakdown, so the property is testable rather than
+  // proofread: at n=1 no clause may carry a bare plural verb, over EVERY combination.
+  // ⛔ THIS ARRAY SHIPPED WITH LITERAL BACKSPACE BYTES AND THE TEST PASSED VACUOUSLY.
+  //
+  // The patterns were written as word-boundary regexes and arrived in the file carrying real
+  // U+0008 characters instead. Such a pattern can never match ordinary text, so
+  // `expect(bad.test(sentence)).toBe(false)` was trivially true for EVERY input. The property test
+  // built to prove the grammar was fixed proved nothing, and it was green.
+  //
+  // ⚠ Caught by `no-raw-nul-bytes.test.js` — a test written for an unrelated reason, scanning
+  // every tracked file for control bytes. Nothing in this file's own assertions could have found
+  // it, because a test whose patterns cannot match reports success.
+  //
+  // ⇒ Hence the POSITIVE CONTROL below: these patterns must be shown capable of firing on a
+  // sentence that is actually wrong, or their silence on the real sentences means nothing.
+  const PLURAL_VERBS = [
+    /\b1 documents? relate\b/,      // leading clause — the one that was missed
+    /\b1 link\b/, /\b1 only mention\b/, /\b1 do both\b/, /\b1 entries\b/,
+  ];
+
+  // Sentences that MUST trip each pattern. If one fails to match, that pattern is dead and the
+  // clause it guards is unguarded.
+  const KNOWN_BAD = [
+    '1 documents relate to this file.',
+    'x — of those, 1 link to the file itself.',
+    'x — of those, 1 only mention a symbol defined in it.',
+    'x — of those, 1 do both.',
+    'x, giving 1 entries.',
+  ];
+
+  const combos = [];
+  for (const linkOnly of [0, 1]) {
+    for (const mentionOnly of [0, 1]) {
+      for (const both of [0, 1]) {
+        const documents = linkOnly + mentionOnly + both;
+        if (documents === 0) continue;
+        for (const references of [documents, documents + 1]) {
+          combos.push({ documents, linkOnly, mentionOnly, both, references });
+        }
+      }
+    }
+  }
+
+  it('★★★ POSITIVE CONTROL — the plural-verb patterns can actually FIRE', () => {
+    // ⛔ THE REASON THIS EXISTS. The array above once shipped with literal U+0008 backspace bytes
+    // instead of word boundaries. Such a pattern matches nothing, so the property test below was
+    // trivially green for every input — a test built to prove the grammar was fixed, proving
+    // nothing, while passing. It was caught by an unrelated control-byte scanner, because nothing
+    // in this file could detect its own patterns being dead.
+    //
+    // ⇒ Each pattern is required to match a sentence that IS wrong. A guard that cannot fire is
+    // not a guard, and its silence carries no information.
+    for (let i = 0; i < PLURAL_VERBS.length; i++) {
+      expect(PLURAL_VERBS[i].test(KNOWN_BAD[i]),
+        `pattern ${PLURAL_VERBS[i]} is DEAD — it cannot match "${KNOWN_BAD[i]}"`).toBe(true);
+    }
+    expect(KNOWN_BAD.length, 'every pattern needs its own known-bad sentence')
+      .toBe(PLURAL_VERBS.length);
+  });
+
+  it('★★★ no clause carries a bare plural verb at n=1, over every combination', async () => {
+    const { docsNotShownSentenceForTest } = await import('../../../mcp/stdio/query/verbs/pull.js');
+    for (const b of combos) {
+      const sentence = docsNotShownSentenceForTest(b);
+      for (const bad of PLURAL_VERBS) {
+        expect(bad.test(sentence), `"${sentence}" — plural verb at n=1`).toBe(false);
+      }
+    }
+  });
+
+  it('★★★ ...and the parts still reconcile to the total in every one of them', async () => {
+    // ⚠ NEGATIVE CONTROL ON THE GRAMMAR FIX. Rewriting clause text is exactly the kind of change
+    // that can quietly drop a bucket from the sentence, and a grammar test alone would not notice.
+    const { docsNotShownSentenceForTest } = await import('../../../mcp/stdio/query/verbs/pull.js');
+    for (const b of combos) {
+      const sentence = docsNotShownSentenceForTest(b);
+      for (const [n, label] of [[b.linkOnly, 'link'], [b.mentionOnly, 'mention'], [b.both, 'both']]) {
+        if (n > 0) {
+          // ⚠ NOT a template-literal regex. `\b` inside a template literal is the BACKSPACE
+          // character, not a word boundary — so `new RegExp(\`\\b${n}\\b\`)` built a pattern
+          // matching backspace-N-backspace and failed on every real string. Invisible in the
+          // failure message, which printed as /1/.
+          expect(sentence.includes(String(n)), `${label}=${n} must appear in "${sentence}"`)
+            .toBe(true);
+        }
+      }
+    }
+  });
+});
+
 describe('graph_pull resolves nodes that EXIST — "unresolved" is not "no docs"', () => {
   // ⛔ ef-manager, census over the whole graph: 78 of 266 non-File doc-edge targets answered
   //     graph_pull("README.md") -> {"kind":"unresolved","value":"README.md"}
@@ -284,10 +384,14 @@ describe('graph_pull resolves nodes that EXIST — "unresolved" is not "no docs"
     const out = JSON.parse(await graphPull({
       repoRoot: repo, node: 'docs/design.md', layers: ['code'],
     }));
-    expect(out.layers.code.error, 'it must say what it checked, not claim absence')
-      .toMatch(/indexed as Document, not as a source File/);
-    expect(out.layers.code.error).not.toMatch(/^file not in graph$/);
-    expect(out.layers.code.indexed_as).toBe('Document');
+    // ⛔ AND THE KEY IS NO LONGER `error`. ef-manager: "This is not an error. It is a correct,
+    // complete answer to a question that does not apply to the node. The prose was fixed to stop
+    // asserting a failure; the field name still asserts one, and a consumer branching on the
+    // presence of `error` will treat 78 healthy nodes as 78 failures."
+    expect(out.layers.code.error, 'no key may invite a failure branch here').toBeUndefined();
+    expect(out.layers.code.absent_because.reason).toBe('indexed_as_other_type');
+    expect(out.layers.code.absent_because.indexed_as).toBe('Document');
+    expect(out.layers.code.absent_because.detail).toMatch(/not as a source File/);
   }, 60_000);
 
   it('★★★ a path that is genuinely absent still says so', async () => {
@@ -427,7 +531,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
       'the layer counts REFERENCES, and the disclosure must have said so')
       .toBe(b.references);
     expect(bare.docs_not_shown, 'both numbers named, so following the instruction cannot surprise')
-      .toMatch(/2 document\(s\)/);
+      .toMatch(/2 documents relate/);
   }, 60_000);
 });
 

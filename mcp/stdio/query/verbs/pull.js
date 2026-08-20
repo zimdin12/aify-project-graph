@@ -170,6 +170,10 @@ function docReferenceBreakdown(db, filePath) {
  * The sentence. Says only what the buckets support: a document that merely mentions a symbol has
  * NOT referenced the file, and saying so was the original defect.
  */
+// Exported under a test-only name so the sentence can be exercised over EVERY count combination
+// rather than through a repo fixture per case — the property test needs the generator, not a graph.
+export const docsNotShownSentenceForTest = (b) => docsNotShownSentence(b);
+
 function docsNotShownSentence(b) {
   // ⚠ EVERY NUMBER HERE COUNTS DOCUMENTS, AND THE SENTENCE SAYS SO EXPLICITLY. ef-manager
   // measured FOUR distinct denominators available on one file (packet.js: 13 documents, 20 raw
@@ -186,6 +190,15 @@ function docsNotShownSentence(b) {
   // on the SMALLEST cases — which are exactly the ones a reader meets when the answer is simplest
   // and easiest to check by hand. A sentence built so its structure can be trusted should not
   // stumble at the moment it is most checkable. (ef-manager, on CHECK 4 and CHECK 5.)
+  // ⚠ THE LEADING CLAUSE WAS THE FOURTH MEMBER OF THIS CLASS AND I WALKED PAST IT. ef-manager
+  // named three examples — "1 do both", "1 only mention", "1 link" — and my fix matched the LIST
+  // instead of the class the list was drawn from. Their diagnosis, which is the transferable
+  // part: "a defect report enumerating instances invites an instance-shaped fix, so the report
+  // should name the property." Same failure they had made hours earlier, asserting a dangerous
+  // instruction was unique while a second copy sat 340 lines below in different phrasing.
+  //
+  // ⇒ ONE helper for every count-carrying clause in this sentence, leading clause included, and a
+  // property test over all n=1 combinations rather than a fourth instance fix.
   const v = (n, singular, plural) => `${n} ${n === 1 ? singular : plural}`;
   const parts = [];
   if (b.linkOnly) parts.push(v(b.linkOnly, 'links to the file itself', 'link to the file itself'));
@@ -206,8 +219,10 @@ function docsNotShownSentence(b) {
   // a correct design resting on an undocumented property of the extractor, which is the same
   // shape as a guard that passes because its input is missing. The dependency is named here and
   // pinned by test, so whoever adds those line numbers finds out at the right moment.
-  const refs = b.references === b.documents ? '' : `, giving ${b.references} entries`;
-  return `${b.documents} document(s) relate to this file — of those, ${parts.join(', ')}${refs}.`
+  const refs = b.references === b.documents ? ''
+    : `, giving ${v(b.references, 'entry', 'entries')}`;
+  return `${v(b.documents, 'document relates', 'documents relate')} to this file`
+    + ` — of those, ${parts.join(', ')}${refs}.`
     + ' Not in the default layers: pass layers:["docs"] to see them, with the line each'
     + ' reference is on.';
 }
@@ -784,13 +799,39 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
       const indexedAs = db.get(
         `SELECT type FROM nodes WHERE type IN (${FILE_LEVEL_SQL_LIST}) AND file_path = $p LIMIT 1`,
         { p: filePath });
+      // ⛔ THE KEY WAS `error`, AND THE KEY CONTRADICTED ITS OWN CONTENT. ef-manager: "This is not
+      // an error. It is a correct, complete answer to a question that does not apply to the node.
+      // The prose was fixed to stop asserting a failure; the field name still asserts one, and a
+      // consumer branching on the presence of `error` — which is exactly what a field called
+      // `error` invites — will treat 78 healthy nodes as 78 failures."
+      //
+      // I spent the night on fields whose name and content disagree and then shipped one, inside
+      // the fix for one. And it is the same insight as refusing to file the legacy text clamp
+      // under packet-lists.js: a name that merges two things lets the weaker one inherit the
+      // stronger one's authority.
+      //
+      // ⇒ `absent_because` separates the ANSWER from the REASON it is empty, which is the shape
+      // the receipt work already settled on for exactly this question one verb over. Machine-
+      // readable `reason` so a consumer never parses English, and no key that invites a failure
+      // branch.
       out.layers.code = indexedAs
         ? {
-          error: `no code symbols here — this path is indexed as ${indexedAs.type}, not as a source File`,
+          symbols: null,
+          absent_because: {
+            reason: 'indexed_as_other_type',
+            indexed_as: indexedAs.type,
+            detail: `this path is indexed as ${indexedAs.type}, not as a source File, so it has no code symbols`,
+          },
           path: filePath,
-          indexed_as: indexedAs.type,
         }
-        : { error: 'file not in graph', path: filePath };
+        : {
+          symbols: null,
+          absent_because: {
+            reason: 'not_in_graph',
+            detail: 'no node of any file-level type exists at this path',
+          },
+          path: filePath,
+        };
     } else {
       const symbolsRaw = db.all(
         `SELECT label, type, start_line FROM nodes
