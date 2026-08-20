@@ -100,3 +100,50 @@ measuring. Ten evidence commits landed today.
 ⇒ **`docs/evidence/` is apparatus and must be excluded from the grading population**, pre-registered
 here before the extractor exists. Left in, a rule would score test fixtures as authored directives
 and the failure would present as a working rule.
+
+## The full form enumeration, with the apparatus exclusion applied
+
+Excluding `docs/evidence/` moves the population 44 forms / 68 instances -> **40 forms / 64
+instances**, which sizes my contamination at 4 instances. Everything below is the clean set.
+
+    40 distinct forms · 64 instances · 6 multi-target
+
+### ⛔ Structural cases beyond the two-step already discussed
+
+    "**Read `AGENTS.md` first.** Then your role file. Then `docs/now.md` (live state). Then …"
+      THREE-STEP CHAIN. Worse than two-step for one-target-per-sentence, and the later steps
+      name documents the first sentence does not.
+
+    "**Before picking any lane, read `docs/now.md` (live state), then `docs/contracts/…` + …"
+      CONDITIONAL ordering. The precedence is scoped to an activity, not global. A relation with
+      no condition slot would assert this as an unconditional entry point.
+
+    "- `AGENTS.md` — root agent guide (read first)."
+      REVERSE ORDER. Target first, directive as a parenthetical suffix. Any left-to-right
+      verb-then-target matcher misses it.
+
+    "This project uses a shared `AGENTS.md` as the entry point for all teammates."
+      NO READ VERB AT ALL. "entry point" carries the whole meaning.
+
+    "| ↳ implementation plan: [docs/plan/…](…)"      table row, no verb, x3
+    "…hubs, read-first, tests."                      "read-first" as a NOUN — false-positive class
+
+### ⚠ The tail is not all directives, and that caps precision
+
+Of the 40 forms, a substantial share are NOT authored directives at all. Present in the tail:
+
+    · session/status log lines that merely contain a `.md` and an order word, e.g. a commit
+      summary listing shas, and a night-run results banner
+    · PROSE ABOUT directives — "the session-start skill tells every agent to read
+      brief.agent.md first" — describing one, not issuing one (your own observation, confirmed
+      here in the clean set)
+    · spec pointers carrying an order word — "**Spec:** `…design.md` — read this before starting"
+      which IS arguably a directive, but targets a spec rather than an entry point
+
+⛔ I am NOT converting that into a precision estimate. Deciding which of 40 forms is a genuine
+authored ordering instruction is exactly the adjudication the grade exists to perform, and a
+number I produced by eyeballing it would be an ungraded opinion wearing a decimal point. What
+this establishes is that the false-positive CLASSES are present in the population, not their rate.
+
+⇒ If it helps, the clean 40-form list is reproducible from this file's method and I will grade
+the full population properly against the extractor when it arrives.
