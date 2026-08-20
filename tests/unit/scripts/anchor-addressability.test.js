@@ -18,28 +18,18 @@
 // ⚠ AND IT DOES NOT MEAN SELF-REVIEW RAN. A green run here says the specs can still find their
 // sites. It says nothing about whether anybody executed them.
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 // ⛔ THE PRODUCTION RESOLVER, not a second interpretation. A test-side occurrence counter would be
 // a different opinion about what "the site" means, and the one that governs mutation would be the
 // one nobody tested.
 import { resolveAnchor, applyAnchor, ANCHOR_REASON } from '../../../scripts/lib/anchor.mjs';
+import * as SPECS from '../../helpers/self-review-specs.js';
+const { declaredSpecs } = SPECS;
 
-const REPO = fileURLToPath(new URL('../../../', import.meta.url));
-const SPEC_DIR = join(REPO, 'tests', 'self-review');
-
-/** Every declared spec entry, derived PHYSICALLY from the directory — no maintained filename list. */
-function declaredSpecs() {
-  const out = [];
-  for (const file of readdirSync(SPEC_DIR)) {
-    if (!file.endsWith('.json')) continue;
-    for (const entry of JSON.parse(readFileSync(join(SPEC_DIR, file), 'utf8'))) {
-      out.push({ spec: file, ...entry });
-    }
-  }
-  return out;
-}
+// ⛔ SHARED DERIVATION. This gate and the migration ledger must agree on what the directory
+// contains; when they each held their own opinion, adding the ledger file broke this one.
+const { REPO } = SPECS;
 
 describe('every declared self-review anchor is ADDRESSABLE', () => {
   it('★★★ the population is real and derived from disk', () => {
