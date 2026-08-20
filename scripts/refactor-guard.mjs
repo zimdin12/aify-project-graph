@@ -18,14 +18,14 @@
 //   node scripts/refactor-guard.mjs --baseline   # before a slice
 //   node scripts/refactor-guard.mjs --verify     # after; exits 1 on any drift
 import { createHash } from 'node:crypto';
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, statSync, renameSync, unlinkSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 // The carrier predicate lives in its own module because a check inside a CLI whose main()
 // runs on import cannot be called by a test — and this one was wrong for weeks.
 import { carrierMovement } from './lib/carrier.mjs';
-import { guardVerdict, VERDICT, REFUSAL } from './lib/guard-verdict.mjs';
+import { guardVerdict, baselineVerdict, VERDICT, REFUSAL } from './lib/guard-verdict.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 // ⛔ THE BASELINE LIVED UNDER .aify-graph AND REINDEXING DELETED IT. graph-senior-dev hit that
@@ -275,6 +275,61 @@ function splitVolatile(text) {
 
 const describe = (r) => `${r.target} [${r.mode}]`;
 
+// ⛔ ONE PRINTER FOR BOTH MODES. Each refusal names a DIFFERENT remedy — collapsing them would
+// tell a reader to re-baseline into the same non-determinism that just bit them. Derived from the
+// reason value rather than duplicated per call site, so a new reason cannot fall through to a
+// message about something else.
+const REFUSAL_HEADLINE = {
+  [REFUSAL.CARRIER_MIDRUN]: 'REFUSED: the carrier moved DURING the corpus run, so no output can be attributed.',
+  [REFUSAL.CARRIER_DRIFT]: 'REFUSED: the carrier moved, so this comparison cannot attribute anything to the code.',
+  [REFUSAL.CORPUS_MEMBERSHIP]: 'REFUSED: the corpus is a different population, so an identical count proves nothing.',
+  [REFUSAL.DUPLICATE_KEYS]: 'REFUSED: duplicate corpus keys — one entry cannot stand in for another.',
+  [REFUSAL.ROUTES_UNREACHED]: 'REFUSED: declared routes did not each execute exactly once, so a clean result does not cover them.',
+  [REFUSAL.ALL_THREW]: 'REFUSED: every corpus entry threw — this baseline can certify nothing.',
+};
+
+const REFUSAL_REMEDY = {
+  [REFUSAL.CARRIER_MIDRUN]: '  Nothing here is evidence about the code. Re-run on a settled graph.',
+  [REFUSAL.CARRIER_DRIFT]: '  Re-baseline on the current graph, then slice.',
+};
+
+/**
+ * Write the baseline, or refuse and make sure nothing usable is left behind.
+ *
+ * ⛔ EXPORTED BECAUSE THESE ARE THE SIDE EFFECTS THAT MATTER AND THEY WERE ONLY EVER INFERRED.
+ * The artifact used to be written BEFORE validation, so a refused baseline stayed on disk and a
+ * later verify could consume it. A test that cannot execute the write and the removal is trusting
+ * the ordering it just read.
+ *
+ * @returns {boolean} true if a baseline was published
+ */
+export function publishBaseline({ decision, artifactPath, carrier: carrierSample, results, onMessage = () => {} }) {
+  if (decision.verdict !== VERDICT.PASS) {
+    // ⛔ THE STALE ARTIFACT GOES. Leaving the PREVIOUS baseline after a refused attempt is worse
+    // than leaving nothing: the next verify would silently compare against a population nobody
+    // chose, with no indication that the attempt to replace it had failed.
+    if (existsSync(artifactPath)) {
+      unlinkSync(artifactPath);
+      onMessage('  the previous baseline was REMOVED — a refused attempt must not leave a usable '
+        + 'artifact behind. Re-baseline once the corpus is sound.');
+    }
+    return false;
+  }
+  // Temp + atomic rename, so a crash mid-write cannot leave a truncated artifact that still parses.
+  const tmp = `${artifactPath}.tmp`;
+  writeFileSync(tmp, JSON.stringify({ carrier: carrierSample, corpusSize: results.length, results }, null, 2));
+  renameSync(tmp, artifactPath);
+  return true;
+}
+
+export function printRefusal(decision) {
+  // A reason with no headline must not print an empty line and exit; say so loudly instead.
+  console.error(REFUSAL_HEADLINE[decision.reason]
+    ?? `REFUSED: unmapped reason "${decision.reason}" — the guard cannot explain itself, which is itself a defect.`);
+  for (const d of decision.detail) console.error(`  ${d}`);
+  if (REFUSAL_REMEDY[decision.reason]) console.error(REFUSAL_REMEDY[decision.reason]);
+}
+
 async function main() {
   const mode = process.argv.includes('--verify') ? 'verify'
     : process.argv.includes('--baseline') ? 'baseline' : null;
@@ -307,31 +362,27 @@ async function main() {
   const results = await runCorpus();
   const after = carrier();
 
-  const moved = carrierMovement(before, after);
-  if (moved.length) {
-    console.error('REFUSED: the carrier moved DURING the corpus run, so no output can be attributed.');
-    for (const k of moved) console.error(`  ${k}: ${before[k]} -> ${after[k]} (mid-run)`);
-    console.error('  Nothing here is evidence about the code. Re-run on a settled graph.');
-    process.exit(1);
-  }
   const now = before;
+  const routeIds = ROUTES.map((r) => r.id);
 
   if (mode === 'baseline') {
-    writeFileSync(ARTIFACT, JSON.stringify({ carrier: now, corpusSize: results.length, results }, null, 2));
+    // ⛔⛔ THE ARTIFACT USED TO BE WRITTEN BEFORE THESE CHECKS RAN. `writeFileSync` came first, then
+    // the route-coverage and all-threw refusals. A REFUSED baseline therefore stayed on disk and
+    // could be consumed by a later verify — the refusal printed, and the bad artifact survived to
+    // certify something. graph-senior-dev: a refused baseline must never masquerade as an attempt.
+    const decision = baselineVerdict({ before, after, results, routeIds });
+    const published = publishBaseline({
+      decision, artifactPath: ARTIFACT, carrier: now, results, onMessage: (m) => console.error(m),
+    });
+    if (!published) {
+      printRefusal(decision);
+      process.exit(1);
+    }
+
     const threw = results.filter((r) => r.outcome === 'threw').length;
-    const ran = results.filter((r) => r.route && r.routeExecuted).length;
     console.log(`baseline written: ${results.length} entries (${threw} threw), `
-      + `routes executed ${ran}/${ROUTES.length}, graph ${now.graphSha256?.slice(0, 12)}`);
-    if (ran !== ROUTES.length) {
-      console.error(`REFUSED: ${ROUTES.length - ran} declared route(s) did not execute — a `
-        + 'baseline that cannot reach the moved code certifies nothing.');
-      process.exit(1);
-    }
-    // A baseline where everything throws is not a baseline; it would make any later run "match".
-    if (threw === results.length) {
-      console.error('REFUSED: every corpus entry threw — this baseline can certify nothing');
-      process.exit(1);
-    }
+      + `routes executed ${routeIds.length}/${routeIds.length} by identity, `
+      + `graph ${now.graphSha256?.slice(0, 12)}`);
     return;
   }
 
@@ -346,26 +397,10 @@ async function main() {
   //
   // ⚠ `workingTreeDirty` is recorded but deliberately NOT a refusal condition: it changes on
   // every edit of the work being guarded, and its only leak into output is the excluded line.
-  const decision = guardVerdict({
-    baseline: base, before, after, results, routeCount: ROUTES.length,
-  });
+  const decision = guardVerdict({ baseline: base, before, after, results, routeIds });
 
   if (decision.verdict === VERDICT.REFUSE) {
-    const headline = decision.reason === REFUSAL.CARRIER_MIDRUN
-      ? 'REFUSED: the carrier moved DURING the corpus run, so no output can be attributed.'
-      : decision.reason === REFUSAL.CARRIER_DRIFT
-        ? 'REFUSED: the carrier moved, so this comparison cannot attribute anything to the code.'
-        : decision.reason === REFUSAL.CORPUS_SIZE
-          ? 'REFUSED: corpus size changed; the comparison would be over different populations.'
-          : 'REFUSED: the comparison did not reach the moved code, so an identical result proves '
-            + 'nothing about it.';
-    console.error(headline);
-    for (const d of decision.detail) console.error(`  ${d}`);
-    if (decision.reason === REFUSAL.CARRIER_MIDRUN) {
-      console.error('  Nothing here is evidence about the code. Re-run on a settled graph.');
-    } else if (decision.reason === REFUSAL.CARRIER_DRIFT) {
-      console.error('  Re-baseline on the current graph, then slice.');
-    }
+    printRefusal(decision);
     process.exit(1);
   }
 

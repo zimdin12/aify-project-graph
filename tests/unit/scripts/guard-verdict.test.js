@@ -8,7 +8,8 @@
 // ⇒ `guardVerdict` takes a context object and returns a verdict object, so every branch that
 // decides whether a run may attribute its outputs is reachable from here.
 import { describe, it, expect } from 'vitest';
-import { guardVerdict, VERDICT, REFUSAL } from '../../../scripts/lib/guard-verdict.mjs';
+import { guardVerdict, baselineVerdict, corpusKey, membershipDiff, duplicateKeys, routeCoverage, VERDICT, REFUSAL }
+  from '../../../scripts/lib/guard-verdict.mjs';
 
 const CARRIER = { graphSha256: 'aaa', indexedCommit: 'c0ffee', nodes: 100, edges: 200 };
 
@@ -30,7 +31,7 @@ const ctx = (over = {}) => {
     baseline: { carrier: { ...CARRIER }, corpusSize: BASELINE_SIZE, results: [entry()] },
     before: { ...CARRIER },
     after: { ...CARRIER },
-    routeCount: 1,
+    routeIds: ['feature-body'],
     ...over,
     results,
   };
@@ -62,7 +63,12 @@ describe('guardVerdict — PASS, FAIL and REFUSE are all reachable', () => {
     expect(guardVerdict(ctx({ results: [entry({ outcome: 'threw', error: 'boom' })] })).verdict).toBe(VERDICT.FAIL);
     expect(guardVerdict(ctx({ results: [entry({ volatileLines: 2 })] })).verdict).toBe(VERDICT.FAIL);
     expect(guardVerdict(ctx({ results: [entry({ volatileShapeOk: false })] })).verdict).toBe(VERDICT.FAIL);
-    expect(guardVerdict(ctx({ results: [entry({ target: 'brandNew' })] })).detail[0]).toMatch(/NEW entry absent/);
+    // ⇒ A NEW ENTRY IS NO LONGER A "BEHAVIOUR CHANGE" — it is a different POPULATION, and the
+    // membership refusal now catches it first. That reclassification is the point of this slice:
+    // reporting a changed corpus as a code change is a false accusation.
+    const newEntry = guardVerdict(ctx({ results: [entry({ target: 'brandNew', route: 'feature-body' })] }));
+    expect(newEntry.verdict).toBe(VERDICT.REFUSE);
+    expect(newEntry.reason).toBe(REFUSAL.CORPUS_MEMBERSHIP);
   });
 
   it('★★★ REFUSE on mid-run movement, and it is checked BEFORE outputs are compared', () => {
@@ -106,9 +112,10 @@ describe('guardVerdict — PASS, FAIL and REFUSE are all reachable', () => {
   });
 
   it('★★★ REFUSE when the corpus population changed', () => {
-    const d = guardVerdict(ctx({ results: [entry(), entry({ target: 'second' })] }));
+    const d = guardVerdict(ctx({ results: [entry(), entry({ target: 'second', route: 'r2' })],
+      routeIds: ['feature-body', 'r2'] }));
     expect(d.verdict).toBe(VERDICT.REFUSE);
-    expect(d.reason).toBe(REFUSAL.CORPUS_SIZE);
+    expect(d.reason).toBe(REFUSAL.CORPUS_MEMBERSHIP);
   });
 
   it('★★★ an identical output that never reached the route REFUSES — it does not PASS', () => {
@@ -128,5 +135,131 @@ describe('guardVerdict — PASS, FAIL and REFUSE are all reachable', () => {
       results: [entry({ sha256: 'CHANGED' })],
     }));
     expect(d.reason, 'mid-run movement outranks drift, size and output').toBe(REFUSAL.CARRIER_MIDRUN);
+  });
+});
+
+// ⛔⛔ THE COUNT WAS NOT THE POPULATION.
+//
+// graph-senior-dev executed this through the shipped `guardVerdict`:
+//
+//     baseline [A, B]  corpusSize 2   ->   current [A, A]  length 2   =>  PASS "2 of 2 identical"
+//
+// `B` disappeared, `A` was duplicated, and the guard certified it. The Map collapsed the duplicate
+// key, the lookup found baseline `A` twice, the size stayed 2 and the aggregate route count stayed
+// 2. ⇒ **The same sample-as-population defect this project has spent days removing from verbs,
+// sitting at the guard's own corpus boundary.**
+describe('the two compared populations must actually be the same population', () => {
+  const C = { graphSha256: 'aaa', indexedCommit: 'c0', nodes: 1, edges: 2 };
+  const row = (t, over = {}) => ({
+    target: t, mode: 'plan', outcome: 'ok', sha256: `h${t}`, bytes: 10,
+    volatileLines: 1, volatileShapeOk: true, route: `r${t}`, routeExecuted: true, ...over,
+  });
+  const verify = (baseRows, curRows, routeIds) => guardVerdict({
+    baseline: { carrier: { ...C }, corpusSize: baseRows.length, results: baseRows },
+    before: { ...C }, after: { ...C },
+    results: curRows,
+    routeIds: routeIds ?? baseRows.map((r) => r.route),
+  });
+
+  it('★★★ POSITIVE CONTROL: the same population still PASSES', () => {
+    // Without this every assertion below is satisfied by a function that refuses everything.
+    expect(verify([row('A'), row('B')], [row('A'), row('B')]).verdict).toBe(VERDICT.PASS);
+  });
+
+  it('★★★ THE WITNESS: [A,B] -> [A,A] is REFUSED, not certified', () => {
+    const d = verify([row('A'), row('B')], [row('A'), row('A')]);
+    expect(d.verdict, 'same length, different population').toBe(VERDICT.REFUSE);
+    // Duplicate detection fires first — one entry cannot stand in for another.
+    expect([REFUSAL.DUPLICATE_KEYS, REFUSAL.CORPUS_MEMBERSHIP]).toContain(d.reason);
+  });
+
+  it('★★★ a missing key and an extra key are both refusals, named separately', () => {
+    const missing = verify([row('A'), row('B')], [row('A')], ['rA', 'rB']);
+    expect(missing.reason, 'B vanished').toBe(REFUSAL.ROUTES_UNREACHED);
+
+    const extra = verify([row('A')], [row('A'), row('C')], ['rA', 'rC']);
+    expect(extra.verdict).toBe(VERDICT.REFUSE);
+    expect(extra.detail.join('|')).toMatch(/not in the baseline/);
+  });
+
+  it('★★★ REORDERING alone is NOT a refusal — order carries no meaning', () => {
+    // ⚠ Requiring identical order would refuse valid runs. What must hold is that every key
+    // present once on one side is present once on the other.
+    expect(verify([row('A'), row('B')], [row('B'), row('A')]).verdict).toBe(VERDICT.PASS);
+  });
+
+  it('★★★ a duplicate in the STORED BASELINE disqualifies it too', () => {
+    const d = verify([row('A'), row('A')], [row('A'), row('A')], ['rA']);
+    expect(d.verdict, 'a baseline that cannot address its own rows certifies nothing')
+      .toBe(VERDICT.REFUSE);
+    expect(d.reason).toBe(REFUSAL.DUPLICATE_KEYS);
+  });
+
+  it('★★★ ROUTE IDENTITY, not route count — one route twice while another never ran', () => {
+    // ⛔ THE AGGREGATE HID THE HOLE. Two declared routes, two `routeExecuted` rows, count 2/2 —
+    // and `rB` never executed at all.
+    const cov = routeCoverage([row('A'), row('A', { target: 'A2' })], ['rA', 'rB']);
+    expect(cov.missing, 'rB declared and never reached').toEqual(['rB']);
+    expect(cov.duplicated.join(''), 'rA counted twice').toMatch(/rA x2/);
+
+    const d = verify([row('A'), row('B')], [row('A'), row('A', { target: 'A2' })], ['rA', 'rB']);
+    expect(d.verdict).toBe(VERDICT.REFUSE);
+  });
+
+  it('★★★ an UNDECLARED route that executed is also refused', () => {
+    // A route nobody declared appearing in the results means the corpus and the ledger disagree.
+    expect(routeCoverage([row('A'), row('Z')], ['rA']).undeclared).toEqual(['rZ']);
+  });
+
+  it('★★★ the canonical key is ONE definition, and it includes route identity', () => {
+    // ⛔ The comparison, the duplicate check and the output lookup must agree on what "the same
+    // entry" means, or a row can be identical under one and distinct under another.
+    expect(corpusKey(row('A'))).toBe('A [plan] <rA>');
+    expect(corpusKey({ target: 'x', mode: 'audit' }), 'route is optional, not invented').toBe('x [audit]');
+    expect(corpusKey(row('A'))).not.toBe(corpusKey(row('A', { route: 'other' })));
+  });
+
+  it('★★★ CONTROL: membershipDiff and duplicateKeys can each say NO and YES', () => {
+    expect(membershipDiff([row('A')], [row('A')])).toEqual({ missing: [], extra: [] });
+    expect(membershipDiff([row('A'), row('B')], [row('A')]).missing.join()).toMatch(/B/);
+    expect(duplicateKeys([row('A'), row('B')]), 'no duplicates in a clean set').toEqual([]);
+    expect(duplicateKeys([row('A'), row('A')]).join()).toMatch(/x2/);
+  });
+});
+
+// ⛔ A REFUSED BASELINE MUST NOT BE PUBLISHED, and the artifact used to be written BEFORE these
+// checks ran — so a refused baseline stayed on disk and a later verify could consume it.
+describe('baselineVerdict — what may be published', () => {
+  const C = { graphSha256: 'aaa', indexedCommit: 'c0', nodes: 1, edges: 2 };
+  const row = (t, over = {}) => ({
+    target: t, mode: 'plan', outcome: 'ok', sha256: `h${t}`, bytes: 10,
+    volatileLines: 1, volatileShapeOk: true, route: `r${t}`, routeExecuted: true, ...over,
+  });
+  const base = (results, routeIds) => baselineVerdict({
+    before: { ...C }, after: { ...C }, results, routeIds: routeIds ?? results.map((r) => r.route),
+  });
+
+  it('★★★ POSITIVE CONTROL: a sound baseline publishes', () => {
+    expect(base([row('A'), row('B')]).verdict).toBe(VERDICT.PASS);
+  });
+
+  it('★★★ a declared route that never executed REFUSES', () => {
+    expect(base([row('A')], ['rA', 'rB']).reason).toBe(REFUSAL.ROUTES_UNREACHED);
+  });
+
+  it('★★★ an all-threw baseline REFUSES — it would make any later run "match"', () => {
+    const d = base([row('A', { outcome: 'threw' }), row('B', { outcome: 'threw' })]);
+    expect(d.reason).toBe(REFUSAL.ALL_THREW);
+  });
+
+  it('★★★ duplicate keys REFUSE at baseline time, not only at verify', () => {
+    expect(base([row('A'), row('A')], ['rA']).reason).toBe(REFUSAL.DUPLICATE_KEYS);
+  });
+
+  it('★★★ a carrier that moved mid-run REFUSES before anything is judged sound', () => {
+    const d = baselineVerdict({
+      before: { ...C }, after: { ...C, nodes: 99 }, results: [row('A')], routeIds: ['rA'],
+    });
+    expect(d.reason).toBe(REFUSAL.CARRIER_MIDRUN);
   });
 });
