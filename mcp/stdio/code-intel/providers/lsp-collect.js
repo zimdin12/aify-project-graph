@@ -89,6 +89,30 @@ function positionFor(sym, projectRoot, rel, loadSourceLines) {
 const DEFAULT_COLLECT_BUDGET_MS = 60000;
 const DEFAULT_MAX_FILES = 200;
 
+// ⛔ THE WALK BOUND IS NOT THE BATCH BOUND, AND CONFLATING THEM MADE RESUME A TREADMILL.
+//
+// `maxFiles` was passed to the ENUMERATOR, so the walk stopped at the first 200 files and the
+// resume ledger was then subtracted from that truncated list. Once those 200 were collected, every
+// later call enumerated the same 200, found nothing pending, and returned:
+//
+//     "nothing left to collect — all 200 enumerated file(s) are already recorded for this
+//      configuration. The collection is COMPLETE; re-running is a no-op."
+//
+// Measured on this repo at dc26d13, by a loop written specifically to avoid being fooled:
+//
+//     first-party ts/js files    554
+//     files with any records     210
+//     files NEVER collected      352      <- and the run said CONVERGED
+//
+// ⇒ Resume could never advance past the cap. The 200 in `files_processed 200 / files_eligible 579`
+// was never a choice the run made; it is the ceiling, reported as a total for the fifth time in
+// this codebase — and this time my own recovery script believed it.
+//
+// So the walk gets its own ceiling, the ledger split happens over the WHOLE enumeration, and
+// `maxFiles` caps the BATCH that is taken from what remains. Hitting the walk ceiling still marks
+// the collection partial; it is a bound on one directory traversal, not on the corpus.
+const ENUMERATION_CEILING = 20000;
+
 // Shared with the clangd provider: a hub symbol's reference set is capped, and the
 // cap is always reported on the record so a capped set reads as a FLOOR.
 const MAX_REFS_PER_SYMBOL = 2000;
@@ -126,10 +150,15 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   let ledger = null;
   let resumedFrom = 0;
   let enumeratedTotal = null;
+  // Files this pass still owes AFTER the batch this call will process. Zero is convergence;
+  // anything else is why the caller must come back.
+  let batchRemainder = 0;
   if (req.files && req.files.length > 0) {
     files = req.files;
   } else if (req.scope === 'all' || req.scope === 'changed') {
-    const e = enumerateFiles(projectRoot, { maxFiles });
+    // Walk the whole corpus (up to the ceiling). The batch cap is applied further down, AFTER the
+    // ledger has removed what previous batches already covered.
+    const e = enumerateFiles(projectRoot, { maxFiles: ENUMERATION_CEILING });
     files = e.files; enumStats = e.stats;
     // REAL RESUME, same as the clangd path. Without this a budget-limited TS or
     // Python collection restarted at file 0 on every call — a warm redo, not a
@@ -149,7 +178,17 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       resumedFrom = split.alreadyCollected.length;
       enumeratedTotal = files.length;
       files = split.remaining;
+    } else {
+      enumeratedTotal = files.length;
     }
+    // ⚠ THE BATCH CAP, APPLIED HERE AND NOWHERE EARLIER. `remaining` is what this pass still owes;
+    // taking the first `maxFiles` of it is a batch, and the leftover is what makes the next call
+    // productive instead of a no-op.
+    if (files.length > maxFiles) {
+      batchRemainder = files.length - maxFiles;
+      files = files.slice(0, maxFiles);
+    }
+    enumStats = { ...enumStats, batch_cap: maxFiles, batch_remainder: batchRemainder };
   } else {
     return { ...envelopeBase, session: session0, operations: {}, status: 'ok',
       notes: [{ code: 'no_files', message: `no files to collect: pass files[] or scope=all/changed (scope was ${req.scope || 'unset'})` }],
@@ -177,7 +216,9 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
         filesProcessed: 0,
         filesTotal: 0,
         remaining: 0,
-        complete: true,
+        // ⚠ NOT an unconditional `true`. If the WALK hit its ceiling there are files this pass was
+        // never shown, and "nothing pending" describes the list rather than the repository.
+        complete: !(enumStats && enumStats.truncated),
         resumedFrom,
         enumeratedTotal,
         resumeLedger: ledger ? 'active' : 'not_used',
@@ -353,16 +394,21 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   // report status:'ok'/indexReady and have downstream trust banners treat a
   // partial index as a complete one.
   const enumTruncated = Boolean(enumStats && enumStats.truncated && !(req.files && req.files.length > 0));
-  const incomplete = budgetExhausted || enumTruncated;
+  // A batch that left work behind is partial in exactly the sense callers care about: come back.
+  const batchIncomplete = batchRemainder > 0;
+  const incomplete = budgetExhausted || enumTruncated || batchIncomplete;
   if (incomplete) {
     const reason = budgetExhausted
       ? `budget_exhausted_${filesProcessed}_of_${files.length}_files`
-      : `enumeration_truncated_at_${enumStats.after_filter}_of_${enumStats.total}_files_cap_${enumStats.max_files}`;
+      : enumTruncated
+        ? `enumeration_truncated_at_${enumStats.after_filter}_of_${enumStats.total}_files_cap_${enumStats.max_files}`
+        : `batch_capped_${files.length}_of_${files.length + batchRemainder}_pending_files`;
     for (const op of Object.keys(operations)) { if (operations[op].status === 'ok') { operations[op].status = 'partial'; operations[op].reason = reason; } }
   }
   const status = incomplete ? 'partial' : 'ok';
   const notes = [];
   if (budgetExhausted) notes.push({ code: 'budget_exhausted', message: `partial: ${filesProcessed}/${files.length} files within ${budgetMs}ms — run graph_collect_code_intel again to continue.` });
+  if (batchIncomplete) notes.push({ code: 'batch_capped', message: `partial: this batch took ${files.length} of ${files.length + batchRemainder} pending files (maxFiles=${maxFiles}) — run graph_collect_code_intel again to continue. Coverage so far is a FLOOR.` });
   if (enumTruncated) notes.push({ code: 'enumeration_truncated', message: `partial: enumeration capped at ${enumStats.after_filter}/${enumStats.total} files (max_files=${enumStats.max_files}) — raise maxFiles or pass an explicit files[] for full coverage. Caller sets are a FLOOR.` });
 
   // Persist the resume point BEFORE assembling the envelope, so a caller who kills
@@ -386,6 +432,9 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       // Resume state — resumedFrom climbing toward enumeratedTotal is the
       // convergence signal; filesProcessed resets every call and cannot show it.
       resumedFrom, enumeratedTotal, resumeLedger: ledger ? 'active' : 'not_used',
+      // What this pass still owes after this call. The convergence signal, stated rather than
+      // inferred from `filesProcessed === 0` — which is what a capped walk made unreliable.
+      remaining: batchRemainder,
       enumeration: enumStats,
     },
     operations,

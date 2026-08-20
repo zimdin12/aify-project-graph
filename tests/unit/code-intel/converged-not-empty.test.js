@@ -16,6 +16,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const src = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '../../../mcp/stdio/code-intel/providers/lsp-collect.js'),
@@ -44,13 +45,30 @@ describe('converged collection is distinguishable from an empty one', () => {
     }
   });
 
-  it('marks complete:true — the caller should not need another call to learn it', () => {
-    // Scope to the early-return block rather than a fixed character window: the
-    // explanatory comment above it is long by design, and a window-based assertion
-    // would break on any edit to prose rather than to behaviour.
+  it('marks completeness CONDITIONALLY — an unconditional true was a lie over a capped walk', () => {
+    // ⛔ THIS ASSERTION USED TO READ `expect(early).toMatch(/complete: true/)` AND IT WAS WRONG.
+    //
+    // The caller should not need another call to learn it converged — that part still holds. But
+    // `complete: true` was emitted unconditionally, including when the WALK had been truncated,
+    // so "nothing pending" described the enumerated list and read as a statement about the repo.
+    // Measured at dc26d13: 210 of 554 files collected, and the run reported CONVERGED.
+    //
+    // ⚠ The test moving with the code is the hazard here, so the assertion is written against the
+    // PROPERTY rather than the new literal: completeness must be derived from truncation, and an
+    // unconditional true must not come back.
     const block = src.slice(src.indexOf('if (files.length === 0)'));
     const early = block.slice(0, block.indexOf('const budgetMs'));
-    expect(early).toMatch(/complete: true/);
+    expect(early, 'completeness is derived from whether the walk saw everything')
+      .toMatch(/complete: !\(enumStats/);
+    // ⚠ Through the live matcher, not a bare `not.toMatch`. A negative assertion passes when the
+    // thing is absent AND when the instrument is broken, and those look identical. The canaries
+    // prove this pattern can fire and that it discriminates before the prohibition is trusted.
+    expectAbsentWithLiveMatcher(
+      /complete: true/,
+      { forbidden: 'complete: true,', allowed: 'complete: !(enumStats && enumStats.truncated),' },
+      early,
+      'an unconditional completion claim must not return',
+    );
   });
 
   it('offers the escape hatch for a forced re-collect', () => {
