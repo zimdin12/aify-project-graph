@@ -109,6 +109,42 @@ describe('server toolset selection', () => {
     expect(byName.graph_packet).toBe(true);
   });
 
+  it('★★★ graph_census is CALLABLE through the real server, not just listed', async () => {
+    // ⛔ LISTED IS NOT CALLABLE, AND THIS REPO HAS SHIPPED THAT GAP. A warning once named
+    // `code_intel_definitions`, which was not in the default profile and therefore not reachable
+    // in a managed session at all — ef-manager executed the lookup and got "No matching deferred
+    // tools found". A verb in the manifest that errors on invocation is worse than an absent one,
+    // because the reader spends a call discovering it.
+    //
+    // So this goes through the SAME stdio server the host talks to, rather than importing the
+    // handler. The handler has unit tests; what those cannot cover is the wiring between the
+    // schema entry and the function.
+    const lines = await runRpcSequence([
+      { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_census', arguments: { repo } } },
+    ]);
+    const res = lines.find((l) => l.id === 2);
+    expect(res, 'the server must answer the call at all').toBeTruthy();
+    expect(res.error, `graph_census errored: ${JSON.stringify(res.error)}`).toBeUndefined();
+
+    // ⚠ ASSERT THE VERB'S OWN SHAPE, NOT AN INDEXED GRAPH. `runRpcSequence` writes every message
+    // before reading any reply, so the server may answer them concurrently — an `graph_index`
+    // step ahead of this one is NOT ordered before it, and my first version of this test failed
+    // for exactly that reason while reporting it as a wiring bug.
+    //
+    // `indexed: false` with a summary is a CORRECT answer and proves the same thing the drift keys
+    // would: the schema entry reaches the function and the function returns its own contract. The
+    // drift computation is unit-tested against a graph it controls.
+    const text = res.result?.content?.map((c) => c.text).join('') ?? '';
+    expect(text, 'the reply must be the census own shape').toMatch(/"indexed":\s*(true|false)/);
+    if (/"indexed":\s*true/.test(text)) {
+      expect(text, 'an indexed graph must carry the drift').toContain('declared_but_empty');
+    } else {
+      expect(text, 'and an unindexed one must say so rather than reporting zeros')
+        .toContain('No graph at');
+    }
+  }, 60_000);
+
   it('lists the focused ~15-verb default set when no toolset is given (P4-1)', async () => {
     const tools = extractTools(await runToolRpc());
     const names = tools.map(tool => tool.name).sort();
