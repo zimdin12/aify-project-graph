@@ -462,6 +462,93 @@ function findEnclosingCaller(rows, refLine) {
   return best;
 }
 
+/**
+ * What a collection is ENTITLED TO DESTROY. Pure: envelope in, decision out.
+ *
+ * ⛔ THIS FUNCTION EXISTS BECAUSE THE ANSWER WAS COMPUTED IN ONE PLACE AND NEEDED IN TWO.
+ *
+ * The edge-invalidation site derived `completeCollection && !walkedNothing` after two separate
+ * field reports. Six hundred lines later the record-prune site asked the same question and
+ * answered it with `status === 'ok'` alone. On 2026-08-20 a resumed collection that walked ZERO
+ * files therefore did BOTH of these at once, correctly and catastrophically:
+ *
+ *     edges   preserved  — the guarded site declined, exactly as designed
+ *     records DELETED    — the unguarded site pruned 62,066 rows on the real repo
+ *
+ * ⇒ The spine survived and every piece of evidence underneath it did not, which is worse than
+ * losing both: the salvage path re-synthesizes edges FROM `code_intel_records`, so the next full
+ * rebuild would have dropped 4,487 edges with nothing left to restore them from.
+ *
+ * ★ Two guards derived from one rule will diverge; the second author cannot see the first one's
+ * reasoning from 600 lines away. So the rule is a function, and neither caller gets to restate it.
+ *
+ * AUTHORITY IS NOT SUCCESS. `status: ok` says the run did what it was asked. It says nothing
+ * about whether what it was asked COVERS WHAT IT IS ABOUT TO DELETE.
+ */
+export function collectionAuthority(envelope) {
+  const refsOp = envelope?.operations?.references;
+  const collectedReferences = Boolean(refsOp) && refsOp.status !== 'not_collected';
+  const succeeded = envelope?.status === 'ok';
+
+  const scope = envelope?.session?.scope;
+  const declaredFileScope = scope?.kind === 'files' && Array.isArray(scope.files);
+  const scopedFiles = declaredFileScope
+    ? scope.files.map((f) => String(f).replace(/\\/g, '/'))
+    : null;
+  // EMPTY SCOPE MEANS ZERO AUTHORITY, NOT UNLIMITED AUTHORITY.
+  const walkedNothing = declaredFileScope && scopedFiles.length === 0;
+  // ⚠ AND `walkedNothing` DOES NOT COVER THE CASE THAT ACTUALLY FIRED. The 0-file run declared no
+  // file scope at all (`scope.kind` absent), so it read as repo-wide — maximum authority from a run
+  // that examined nothing. The records are the only witness that survives every scope shape: a
+  // collection holding no records observed nothing, however it described itself.
+  const observedNothing = !Array.isArray(envelope?.records) || envelope.records.length === 0;
+
+  // ⚠ ONE REASON PER PREDICATE. A single shared string would name a condition that did not apply
+  // to the caller reading it — the reason a run declined to prune is not always the reason it
+  // declined to invalidate, and a message that says otherwise is worse than none.
+  const sharedReason = !succeeded ? 'the collection did not report status ok'
+    : !collectedReferences ? 'the collection did not include the references operation, so it has no authority over CALLS edges'
+      : walkedNothing ? 'the collection declared a file scope of zero files, so it walked nothing'
+        : null;
+  const pruneReason = sharedReason
+    ?? (observedNothing
+      ? 'the collection observed no records at all, so it re-observed nothing it could supersede'
+      : null);
+
+  return {
+    declaredFileScope,
+    scopedFiles,
+    /**
+     * May invalidate prior LSP edges WITHIN ITS SCOPE.
+     *
+     * ⚠ Deliberately does NOT require records. A references run that asked and got zero answers is
+     * evidence of absence for the edges it asked about — "the guard must not over-correct into
+     * never pruning", as `scoped-collect-invalidation.test.js` puts it. I collapsed this into the
+     * predicate below and three of those tests went red inside a minute, which is the whole reason
+     * they exist.
+     */
+    mayInvalidateEdges: succeeded && collectedReferences && !walkedNothing,
+
+    /**
+     * May DELETE a prior collection's rows outright.
+     *
+     * ⚠ THE EXTRA CONDITION IS THE POINT, AND THE ASYMMETRY IS NOW DELIBERATE RATHER THAN
+     * ACCIDENTAL. Invalidation is scoped by callee and limited to one edge class, so a narrow
+     * observation destroys narrowly. The prune is neither: it drops EVERY record of the superseded
+     * collection — symbols, diagnostics and references alike — and puts nothing in their place. A
+     * repo-wide references run returning zero records is a broken toolchain far more often than an
+     * empty repository, and the cost of being wrong is asymmetric: too cautious leaves duplicate
+     * rows that `compactCodeIntelRecords` reclaims without asserting anything, too permissive
+     * leaves an empty graph that only a 455-second re-collect can restore.
+     */
+    mayDestroyPriorEvidence:
+      succeeded && collectedReferences && !walkedNothing && !observedNothing,
+    /** Non-null whenever authority is withheld — reported, never silent. */
+    invalidationReason: sharedReason,
+    pruneReason,
+  };
+}
+
 // Synthesize CALLS edges from a v0.2 collection's references onto the graph.
 // Runs inside the importV02Collection transaction (alongside the side-table
 // writes). Returns { edgesCreated, nodesCreated, edgesInvalidated }.
@@ -504,11 +591,12 @@ function synthesizeLspEdges(envelope, db, stats) {
   // NOTE this was latent and masked: the same call previously failed on a full
   // disk, so the import aborted and the spine survived by accident. Freeing the
   // disk unmasked it.
-  const refsOp = envelope.operations?.references;
-  const collectedReferences = Boolean(refsOp) && refsOp.status !== 'not_collected';
-  const completeCollection = envelope.status === 'ok' && collectedReferences;
-  if (envelope.status === 'ok' && !collectedReferences) {
-    out.invalidationSkipped = 'collection did not include the references operation, so it has no authority over CALLS edges — existing [lsp✓] edges preserved';
+  // ⇒ NOT RE-DERIVED HERE. The identical question is asked by the record prune in
+  // `importV02Collection`, and when each site answered it for itself the two answers drifted apart
+  // and cost 62,066 records. See `collectionAuthority`.
+  const authority = collectionAuthority(envelope);
+  if (envelope.status === 'ok' && authority.invalidationReason) {
+    out.invalidationSkipped = `${authority.invalidationReason} — existing [lsp✓] edges preserved`;
   }
 
   // SECOND HALF OF THE SAME DEFECT. The references-operation gate above stops a
@@ -521,11 +609,7 @@ function synthesizeLspEdges(envelope, db, stats) {
   // queried `references` for symbols DEFINED IN the scoped files, and those
   // references legitimately come back from anywhere in the tree. So the edges it
   // re-observed are the ones whose `to_id` is a symbol defined in scope.
-  const scope = envelope.session?.scope;
-  const declaredFileScope = scope?.kind === 'files' && Array.isArray(scope.files);
-  const scopedFiles = declaredFileScope
-    ? scope.files.map((f) => String(f).replace(/\\/g, '/'))
-    : null;
+  const { declaredFileScope, scopedFiles } = authority;
 
   // EMPTY SCOPE MEANS ZERO AUTHORITY, NOT UNLIMITED AUTHORITY.
   //
@@ -538,10 +622,6 @@ function synthesizeLspEdges(envelope, db, stats) {
   // holds no records, so it deleted every clangd edge in the graph and recreated
   // nothing. Caught by the regression test written for the resume/invalidation
   // interaction — 4 verified edges to 0 on a converged repo.
-  const walkedNothing = declaredFileScope && scopedFiles.length === 0;
-  if (walkedNothing) {
-    out.invalidationSkipped = 'collection walked no files (already converged), so it has authority over nothing — existing [lsp✓] edges preserved';
-  }
   // Build the scope predicate once. Empty string = unrestricted (repo-wide run).
   let scopeClause = '';
   let scopeParams = {};
@@ -552,7 +632,7 @@ function synthesizeLspEdges(envelope, db, stats) {
     out.invalidationScopedTo = scopedFiles.length;
   }
 
-  if (completeCollection && !walkedNothing) {
+  if (authority.mayInvalidateEdges) {
     // (a) restore promoted (stashed) edges to their heuristic origin.
     const promoted = db.all(
       `SELECT from_id, to_id, relation, extractor FROM edges
@@ -1113,13 +1193,45 @@ export function importV02Collection(envelope, db) {
     // Prune superseded same-provider collections' side-table records on a
     // COMPLETE collect (keeps the table from growing unbounded across runs and
     // stops stale evidence from resurfacing). Partial collects don't prune.
-    if (envelope.status === 'ok') {
+    // ⛔⛔ THIS DESTROYED 62,066 RECORDS ON THIS REPO, LIVE, AND THE GUARD WAS `status === 'ok'`.
+    //
+    // Reproduced 2026-08-20: a full `scope:"all"` collection ran 455s, processed 200 files and
+    // stored 62,066 records. The resume run immediately after found the ledger already drained,
+    // did nothing, and returned `status: "ok"` with ZERO files and ZERO records in 0 seconds —
+    // which is CORRECT, it succeeded at what it was asked. It then pruned every prior collection
+    // from the same provider.
+    //
+    //     before   1 collection · 200 files · 62,066 records
+    //     after    1 collection ·   0 files ·      0 records
+    //
+    // ⚠ AND THE IDENTICAL DEFECT IS DOCUMENTED AS FIXED 600 LINES ABOVE, IN THIS FILE:
+    //
+    //   "DATA-LOSS FIX (field report, HIGH). This was `envelope.status === 'ok'`, so a one-file
+    //    collect requesting ONLY symbols+diagnostics returned ok — it did succeed at what it was
+    //    asked — and was therefore treated as a globally authoritative snapshot. It then deleted
+    //    EVERY LSP_VERIFIED edge in the repo: 5961 verified edges -> 0"
+    //
+    // That fix was applied to EDGE INVALIDATION and not to RECORD PRUNING — the same condition,
+    // the same file, the same authority question, one function apart. A defect report naming one
+    // instance gets an instance-shaped fix, and this is the third time tonight that shape has
+    // produced a live defect.
+    //
+    // ⇒ AUTHORITY IS NOT SUCCESS. A run only supersedes what it had the authority to re-observe,
+    // and a run that observed NOTHING has authority over nothing. `status: ok` says the run did
+    // what it was asked; it says nothing about whether what it was asked covers what it is about
+    // to delete.
+    const authority = collectionAuthority(envelope);
+    if (authority.mayDestroyPriorEvidence) {
       const pruned = pruneSupersededCollections(db, {
         provider: envelope.provider,
         currentCollectionId: envelope.collectionId,
       });
       stats.collectionsPruned = pruned.collectionsPruned;
       stats.recordsPruned = pruned.recordsPruned;
+    } else if (envelope.status === 'ok') {
+      // Reported, never silent: a run that declined to prune must SAY so, or `collectionsPruned: 0`
+      // is indistinguishable from "there was nothing to prune".
+      stats.pruneSkipped = `${authority.pruneReason} — existing collections and their evidence preserved`;
     }
 
     // L2a: synthesize real graph edges (provenance LSP_VERIFIED) from the
