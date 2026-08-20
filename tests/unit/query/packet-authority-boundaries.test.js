@@ -342,6 +342,10 @@ describe('packet authority boundaries', () => {
     // Measured by AST: the facade referenced 15 of 31; 16 imports were never read. 31 -> 16.
     const ALLOWED = {
       'packet-input.js': [
+        // ⚠ CHAR_PER_TOKEN_EST is a DELIBERATE addition to this surface, not an extraction
+        // residue. packet-lists.js held its own literal `4`; sharing the constant is the whole
+        // point of the export, and the allowlist records it as a decision someone made.
+        'CHAR_PER_TOKEN_EST',
         'esTokens', 'findFeature', 'findTask', 'hasCodeIntelCollection', 'normalizeMode',
         'optionsForMode', 'parseTarget', 'readBrief', 'readFunctionality', 'readManifest',
         'readTasks', 'resolvePacketBudget', 'snapshotLine', 'trustTier',

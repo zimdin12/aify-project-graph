@@ -57,6 +57,9 @@
 //      A first-time reader reached that conclusion from the output alone before reading any of
 //      this code, which is the strongest evidence the old classification had.
 import { AsyncLocalStorage } from 'node:async_hooks';
+// One definition of the token-estimation heuristic. This file used to write the 4 as a
+// literal, so a rename of the named constant could not reach it.
+import { CHAR_PER_TOKEN_EST } from './packet-input.js';
 
 const sealScope = new AsyncLocalStorage();
 
@@ -508,7 +511,10 @@ ${SEAL_CAVEAT}`;
 //
 // ⚠ Only BOUNDED kinds are clampable. A candidate or symbol list states a population, and
 // rewriting its rows underneath that statement is precisely the lie this file exists to stop.
-const esTokens = (t) => Math.ceil(t.length / 4);
+// ⚠ NOT null-safe, and deliberately left that way — packet-input's `esTokens` tolerates null
+// and this one does not. Only the CONSTANT is shared; unifying the bodies would change what
+// this does on null input.
+const esTokens = (t) => Math.ceil(t.length / CHAR_PER_TOKEN_EST);
 
 function skeletonizeRows(rows) {
   const groups = new Map();
