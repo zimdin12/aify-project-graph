@@ -238,6 +238,44 @@ export function importCodeIntelRecords(db, inputRecords) {
 
 const LSP_PROVENANCE = 'LSP_VERIFIED';
 
+/**
+ * ⛔ THE EXTRACTOR STRING IS NOT A LABEL. IT IS AN AUTHORITY BOUNDARY.
+ *
+ * It was written as `cpp-clangd#${dbHash8}` — hardcoded, `envelope.provider` never consulted —
+ * and the invalidation identifies the edges it may DELETE by `extractor LIKE 'cpp-clangd#%'`. So
+ * every provider wrote the same string and every provider's invalidation matched every other
+ * provider's edges. Measured on this repo at 67bfffe:
+ *
+ *     cpp-clangd#                                 -> typescript callees   2282
+ *     cpp-clangd#|was:EXTRACTED::javascript::0.9  -> javascript callees   1299
+ *     cpp-clangd#                                 -> javascript callees    906
+ *     anything pointing at a C++ callee                                      0
+ *
+ * 100% of a JavaScript repo's trust spine attributed to a C++ compiler front-end. Not observed
+ * firing here — this repo runs one provider, so there is nothing to cross — but on a mixed repo a
+ * C++ collect invalidates TypeScript edges and vice versa, each believing it is scoped to its own
+ * output. The prune is provider-scoped; the invalidation only looked it.
+ *
+ * ★ Fourth instance in one session of a value that READS as a label doing duty as an authority
+ * boundary: `status: ok`, the edges-only ledger witness, `walkedNothing`, and this string.
+ */
+const LEGACY_UNATTRIBUTED_EXTRACTOR = 'cpp-clangd#';
+const NO_HASH_MARKER = 'nohash';
+
+/**
+ * The extractor identifying edges a given collection synthesized.
+ *
+ * ⚠ THE HASH IS NEVER EMPTY, and that is load-bearing rather than tidiness. A clangd run without
+ * a compile DB would otherwise produce exactly `cpp-clangd#`, colliding with the legacy string
+ * below and making the two indistinguishable. With the marker, a bare `cpp-clangd#` is PROVABLY
+ * pre-fix data — a derived discriminator, not a guess about who wrote it.
+ */
+export function lspExtractorFor(envelope) {
+  const provider = String(envelope?.provider || 'unknown-provider');
+  const raw = String(envelope?.session?.compileDbHash ?? envelope?.session?.freshnessValue ?? '');
+  return `${provider}#${raw.slice(0, 8) || NO_HASH_MARKER}`;
+}
+
 // C1 fix — promote-then-drop data-loss guard.
 //
 // Before: promoting a pre-existing tree-sitter EXTRACTED / heuristic INFERRED
@@ -332,7 +370,7 @@ function upsertLspEdge(db, edge) {
     source_line: edge.source_line ?? 0,
     confidence: edge.confidence ?? 1.0,
     provenance: LSP_PROVENANCE,
-    extractor: edge.extractor ?? 'cpp-clangd',
+    extractor: edge.extractor ?? 'unknown-provider#unset',
   };
   upsertEdge(db, params);
   // upsertEdge uses INSERT OR IGNORE and only self-overrides for CODE_INTEL,
@@ -652,17 +690,46 @@ function synthesizeLspEdges(envelope, db, stats) {
         },
       );
     }
-    // (b) delete only synthesizer-created edges (clean cpp-clangd#% extractor).
+    // (b) delete only synthesizer-created edges THIS PROVIDER is entitled to remove.
+    //
+    // ⛔ RENAMING THE LABEL WITHOUT THIS CLAUSE ORPHANS EVERY EDGE ALREADY IN THE GRAPH —
+    // ef-manager flagged it before it shipped. Existing rows read `cpp-clangd#` whoever wrote
+    // them; a predicate of `LIKE 'ts-langserver#%'` matches none of them, so a ts re-collect
+    // would not remove the stale ts edges it wrote yesterday. The symptom is edges that never
+    // refresh, which nothing errors on.
+    //
+    // ⇒ So legacy rows stay claimable, but ONLY by a collection that actually observed their
+    // language. That is derived from the records in hand, not assumed from the provider name,
+    // and it keeps a C++ collect from adopting mislabelled TypeScript edges the way the old
+    // predicate did. Nothing is deleted to make the migration work.
+    const observedLanguages = [...new Set(records.map((r) => r.language).filter(Boolean))];
+    const langParams = Object.fromEntries(observedLanguages.map((l, i) => [`ol${i}`, l]));
+    const legacyClause = observedLanguages.length > 0
+      ? ` OR (extractor = $legacy AND to_id IN (SELECT id FROM nodes WHERE language IN (${
+        observedLanguages.map((_, i) => `$ol${i}`).join(',')}))) `
+      : '';
+    // ⚠ The prefix match deliberately EXCLUDES the bare legacy string: `lspExtractorFor` never
+    // emits an empty hash, so `cpp-clangd#` exactly cannot be a current clangd label and must go
+    // through the language check like any other unattributed row.
+    const ownEdges = `(extractor LIKE $prefix AND extractor <> $legacy)${legacyClause}`;
+    const invalidationParams = {
+      p: LSP_PROVENANCE,
+      stash: `%${STASH_SEP}%`,
+      prefix: `${String(envelope.provider || 'unknown-provider')}#%`,
+      legacy: LEGACY_UNATTRIBUTED_EXTRACTOR,
+      ...langParams,
+      ...scopeParams,
+    };
     const invalidated = db.get(
       `SELECT count(*) AS c FROM edges
-        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash${scopeClause}`,
-      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%`, ...scopeParams },
+        WHERE provenance = $p AND (${ownEdges}) AND extractor NOT LIKE $stash${scopeClause}`,
+      invalidationParams,
     );
     out.edgesInvalidated = invalidated?.c ?? 0;
     db.run(
       `DELETE FROM edges
-        WHERE provenance = $p AND extractor LIKE 'cpp-clangd#%' AND extractor NOT LIKE $stash${scopeClause}`,
-      { p: LSP_PROVENANCE, stash: `%${STASH_SEP}%`, ...scopeParams },
+        WHERE provenance = $p AND (${ownEdges}) AND extractor NOT LIKE $stash${scopeClause}`,
+      invalidationParams,
     );
     // Cheap orphan-node cleanup: drop prior LSP-synthesized symbol nodes that no
     // longer have any edge (real tree-sitter / file nodes are untouched).
@@ -727,8 +794,7 @@ function synthesizeLspEdges(envelope, db, stats) {
   }
   const enclosingIndex = buildEnclosingIndex(db, refFiles);
 
-  const dbHash8 = String(envelope.session?.compileDbHash ?? '').slice(0, 8);
-  const extractor = `cpp-clangd#${dbHash8}`;
+  const extractor = lspExtractorFor(envelope);
   const seen = new Set();
 
   // 5. references → CALLS edges.
