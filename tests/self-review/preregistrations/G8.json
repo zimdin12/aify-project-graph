@@ -1,0 +1,50 @@
+{
+  "specId": "G8 lookalike that MINTS correctly but knows no repo path",
+  "spec": "route-authority.spec.json",
+  "ledgerStateBefore": "legacy_unruled",
+  "referee": {
+    "identity": "graph-senior-dev",
+    "proposalThreadMessageId": "1787264935906-d36cd491",
+    "revisionResponseMessageId": "1787265001594-d1a338ce",
+    "disposition": "REVISE -> revised wording below is the referee's own text; final identity check pending before any mutant run"
+  },
+  "carrier": {
+    "commit": "bdb4990af99fe50112e6aacb99f9866d317d4339",
+    "tree": "16c0fcbd876d373ce97b3f8bb88c5381651f0774",
+    "target": "mcp/stdio/tools/schema.js",
+    "anchorResolution": {
+      "state": "unique",
+      "index": 22963,
+      "resolver": "scripts/lib/anchor.mjs"
+    }
+  },
+  "guarantee": "For the specific G8 forgery -- a registered constant handler that satisfies invocation/success, collection response shape, provider shape, and fresh mint formatting but does not derive request-bound repository identity -- the routing test's repo-path discriminator rejects the response. This proves that discriminator is load-bearing against this forgery; it does not prove graphCollectCodeIntel, runner, provider, import, or replay identity.",
+  "withdrawnClaim": "The wire name reaches graphCollectCodeIntel itself. NOT CLAIMED. tool-routing-identity.test.js:177-228 expressly withdraws it: graph-senior-dev-hermes refuted it by execution with a request-derived lookalike that never called graphCollectCodeIntel. I read those lines, quoted the refutation to the referee, and then wrote the withdrawn claim into my own guarantee anyway. It is recorded here so it cannot reappear.",
+  "knownSurvivingVariant": "A smarter lookalike that derives projectRoot from the normalized request DEFEATS the repo-path discriminator and is known to survive. G8's mutation is deliberately NOT strengthened to that variant: it is a limitation and a negative result, not a predicted-red witness. Referee ruling.",
+  "case": "★★ every probed name returns that verb's own output, not another's",
+  "testFile": "tests/unit/server/tool-routing-identity.test.js",
+  "expect": "the response must reference the repo it was ASKED about",
+  "predictions": {
+    "baseline": "PASS, exit 0, the single case green on the exact carrier",
+    "mutant": "exit 1; that exact case FAILS with exactly ONE reported failure; the message contains the expect predicate"
+  },
+  "antiTargets": [
+    "any earlier failure invalidates the prediction: server spawn, fixture setup, or RPC round-trip",
+    "expectRouteAuthority invoked / identity / succeeded",
+    "the mustNotMatch /trustLevel/ assertion",
+    "any other assertion inside the ROUTES loop",
+    "an unused-import error from graphCollectCodeIntel becoming unreferenced at schema.js:50",
+    "a beforeEach/afterEach throw",
+    "a JSON-escaping failure on path separators (a PRIOR instrument bug the test already fixed)",
+    "generic snapshot drift, or a nonzero exit with no attributable message"
+  ],
+  "downstreamAssertionsUnexecuted": "The /cpp-clangd/ provider assertion and the mint-uniqueness assertions sit AFTER the expected failing assertion. Vitest stops the case at the first throw, so they will be UNEXECUTED -- not observed passing. My earlier packet claimed 'the provider assertion is NOT the failing one' as evidence from the run; that was wrong. An unexecuted assertion yields no verdict. Their satisfaction by the constant literal is SOURCE REASONING ONLY and carries no runtime weight.",
+  "restorationCarrier": "detached disposable worktree at the approved commit; node_modules by recorded junction; spec held outside the tree; restore verified by hash; worktree disposed",
+  "claimCeiling": "v3_failure_observed_unattributed",
+  "claimCeilingReason": "Body attribution is open -- a beforeEach throw occupies the same slot as a body assertion -- AND the broader handler-identity guarantee is known unproved. v3_witnessed is unreachable from this run whatever it shows.",
+  "mutation": {
+    "from": "handler: graphCollectCodeIntel",
+    "toDescription": "a registered constant async handler returning schema_version '0.2', status 'ok', provider 'cpp-clangd', and a freshly minted correctly-formatted collectionId; it never calls graphCollectCodeIntel and cannot know the fixture directory name",
+    "strengtheningForbidden": true
+  }
+}
