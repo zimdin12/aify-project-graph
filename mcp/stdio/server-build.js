@@ -190,6 +190,18 @@ export function newestSourceMtime(dir = SOURCE_DIR) {
 
 const LOADED_SOURCE_MTIME = newestSourceMtime();
 
+// ⛔ A ONE-DIRECTIONAL TEST SEAM, AND IT EXISTS BECAUSE THE DEFECT WAS IN THE CONSUMER.
+//
+// ef-manager's finding was NOT that `sourceChangedSinceLoad` mishandled null — it handled it
+// correctly and said so in a comment. The defect was that `staleProcess` and
+// `staleProcessWarning()` turned that null into silence. Testing the message function alone would
+// re-test the half that was already right, which is the mistake that produced the defect.
+//
+// So the scan-failure state has to be reachable in a test. This seam can only FORCE FAILURE — it
+// cannot force a clean result — because a seam that can manufacture "healthy" is a way to make a
+// guard pass, and this file has spent the week learning what those cost.
+const FORCE_SCAN_FAILURE = process.env.APG_TEST_FORCE_SOURCE_SCAN_FAIL === '1';
+
 /**
  * Has the server's own source changed since this process read it?
  *
@@ -198,6 +210,7 @@ const LOADED_SOURCE_MTIME = newestSourceMtime();
  * it fails in the reassuring direction every time.
  */
 export function sourceChangedSinceLoad(now = newestSourceMtime(), loaded = LOADED_SOURCE_MTIME) {
+  if (FORCE_SCAN_FAILURE) return null;
   if (loaded == null || now == null) return null;
   return now > loaded;
 }
@@ -498,9 +511,48 @@ export function formatBuildId(commit, dirtyCount) {
   return dirtyCount > 0 ? `${commit}+${dirtyCount}dirty` : `${commit}`;
 }
 
+// ⛔ SEVENTH TWO-STATE COLLAPSE, IN THE COMMIT THAT FIXED THE SIXTH, THIRTY LINES APART.
+//
+// `newestSourceMtime` returns null on a failed scan and `sourceChangedSinceLoad` returns null for
+// CANNOT ANSWER — both correct, both commented, both in the function immediately above. Then this
+// consumer had TWO OUTCOMES FOR THREE INPUTS:
+//
+//     case              sourceEdited   staleProcess   warning
+//     edited            true           true           SHOWN
+//     unchanged         false          false          SILENT
+//     SCAN FAILED       null           false          SILENT   <- indistinguishable from unchanged
+//
+// ef-manager ran the null path rather than reading it, and quoted my own comment back: "a scan that
+// failed must not report 'unchanged' — that is the collapse this repo has now found six times, and
+// it fails in the reassuring direction every time." The FUNCTION honoured it. The two places anyone
+// actually reads did not.
+//
+// ⚠ AND THE TRIGGER IS NOT EXOTIC. `walk` propagates failure upward, so ONE unreadable file or
+// directory anywhere under mcp/stdio/ returns null and the whole signal switches off silently — a
+// locked file, an antivirus hold, a permissions change on one subdirectory. On Windows that is a
+// weekday.
+//
+// ⇒ THE FIX IS A THIRD MESSAGE, NOT A THIRD FIELD. `staleSignals` already carries the state, but a
+// caller has to know to look for it; the WARNING is what every existing consumer reads. So there
+// are now three outputs for three inputs, and the third one says what it does not know.
+export function cannotVerifySourceWarning() {
+  return 'CANNOT VERIFY THIS BUILD: the server could not read its own source tree, so it cannot'
+    + ' tell you whether the code it is running still matches what is on disk. This is NOT a'
+    + ' clean result — it is the absence of one. A commit-level check may still be reporting'
+    + ' "current" while an uncommitted edit sits unread.'
+    + ' ⚠ THIS APPLIES TO EVERY REPO THIS PROCESS SERVES, because the unverified code belongs to'
+    + ' the SERVER. Restart the aify-project-graph MCP server if you are about to attribute any'
+    + ' behaviour to a specific build.';
+}
+
 export function staleProcessWarning() {
   const b = serverBuildInfo();
-  return b.staleProcess ? b.staleWarning : null;
+  if (b.staleProcess) return b.staleWarning;
+  // ⛔ THREE OUTPUTS FOR THREE INPUTS. `=== null` rather than a falsy test, because `false` here
+  // means CHECKED AND UNCHANGED and must stay silent — collapsing those two would trade a silent
+  // failure for a permanent false alarm, which is the other way to make a warning useless.
+  if (b.staleSignals?.sourceEdited === null) return cannotVerifySourceWarning();
+  return null;
 }
 
 // Test seam: force the next call to re-derive instead of waiting out the TTL.

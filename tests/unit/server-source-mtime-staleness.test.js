@@ -13,12 +13,12 @@
 // ⇒ The process now fingerprints its own source at load and re-checks it. mtime, not content: a
 // hash of every module would be exact and cost a full read of the tree on every cache miss, and
 // the question is only "did anything change since I read it".
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { mkdtemp, rm, mkdir, writeFile, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  newestSourceMtime, sourceChangedSinceLoad, buildStaleWarning,
+  newestSourceMtime, sourceChangedSinceLoad, buildStaleWarning, cannotVerifySourceWarning,
 } from '../../mcp/stdio/server-build.js';
 
 let dir;
@@ -87,6 +87,83 @@ describe('the server notices its own source changing under it', () => {
     // and comparing it would silently narrow the population being checked.
     const root = await sourceTree();
     expect(newestSourceMtime(join(root, 'nope'))).toBeNull();
+  }, 20_000);
+
+  it('★★★ THREE OUTPUTS FOR THREE INPUTS — cannot-verify is not silence', async () => {
+    // ⛔ SEVENTH TWO-STATE COLLAPSE, IN THE COMMIT THAT FIXED THE SIXTH, THIRTY LINES APART.
+    //
+    // `newestSourceMtime` returns null on a failed scan and `sourceChangedSinceLoad` returns null
+    // for CANNOT ANSWER — both correct, both commented. Then the CONSUMER had two outcomes for
+    // three inputs: `staleProcess = commitMoved || sourceEdited === true` makes null false, and
+    // `staleProcessWarning()` returned null for it. Scan-failed and unchanged were the same
+    // observable.
+    //
+    // ef-manager ran the null path rather than reading it, and quoted my own comment back at me:
+    // the function honoured the rule, the two places anyone reads did not.
+    //
+    // ⚠ AND THE TRIGGER IS A WEEKDAY ON WINDOWS: `walk` propagates failure upward, so ONE
+    // unreadable file anywhere under mcp/stdio/ switches the whole signal off.
+    const msg = cannotVerifySourceWarning();
+    expect(msg, 'it must say it does not know, not imply a clean result')
+      .toContain('CANNOT VERIFY');
+    expect(msg, 'and say explicitly that absence of a result is not a result')
+      .toContain('NOT a clean result');
+    expect(msg, 'and carry the same blast radius as the stale warning')
+      .toContain('EVERY REPO THIS PROCESS SERVES');
+
+    // ⛔ AND IT MUST BE DISTINGUISHABLE FROM BOTH NEIGHBOURS, or the third state is decoration.
+    const stale = buildStaleWarning({
+      loadedCommit: 'abc1234', startedAt: 'T', treeCommit: 'abc1234',
+      staleDelta: null, commitMoved: false, sourceEdited: true,
+    });
+    expect(msg).not.toBe(stale);
+    expect(msg).not.toBeNull();
+  });
+
+  it('★★★ THE CONSUMER emits cannot-verify — not just the message function', async () => {
+    // ⛔ THIS IS THE ASSERTION THAT WOULD HAVE CAUGHT THE DEFECT, AND THE ONE ABOVE IS NOT.
+    //
+    // The message function was already correct. `sourceChangedSinceLoad` returned null and said so
+    // in a comment. The defect lived in `staleProcess` and `staleProcessWarning()`, which turned
+    // that null into silence — so a test of the message alone re-tests the half that was right,
+    // which is precisely the mistake that produced the defect.
+    //
+    // The scan-failure state is reached through a ONE-DIRECTIONAL seam: it can force failure and
+    // cannot force a clean result, because a seam that can manufacture "healthy" is a way to make
+    // a guard pass.
+    const saved = process.env.APG_TEST_FORCE_SOURCE_SCAN_FAIL;
+    try {
+      process.env.APG_TEST_FORCE_SOURCE_SCAN_FAIL = '1';
+      vi.resetModules();
+      const m = await import('../../mcp/stdio/server-build.js');
+      m._resetServerBuildCache();
+      const info = m.serverBuildInfo();
+
+      expect(info.staleSignals.sourceEdited, 'the third state survives into the signals')
+        .toBeNull();
+      // ⚠ And staleProcess stays FALSE, deliberately: cannot-verify is not "stale". Conflating
+      // them would make every unreadable file a restart demand.
+      expect(info.staleProcess, 'unknown is not the same claim as stale').toBe(false);
+      // ⛔ THE LINE THAT MATTERS. Before the fix this was null — indistinguishable from a clean,
+      // checked, unchanged build.
+      const w = m.staleProcessWarning();
+      expect(w, 'a failed scan must not read as silence').not.toBeNull();
+      expect(w).toContain('CANNOT VERIFY');
+    } finally {
+      if (saved === undefined) delete process.env.APG_TEST_FORCE_SOURCE_SCAN_FAIL;
+      else process.env.APG_TEST_FORCE_SOURCE_SCAN_FAIL = saved;
+      vi.resetModules();
+    }
+  }, 20_000);
+
+  it('★★★ CHECKED-AND-UNCHANGED stays silent — the other way to break a warning', async () => {
+    // The control on the fix. Collapsing `false` into the cannot-verify branch would trade a
+    // silent failure for a PERMANENT FALSE ALARM, and a warning that always fires is discarded
+    // just as completely as one that never does. `=== null` rather than a falsy test.
+    const root = await sourceTree();
+    const loaded = newestSourceMtime(root);
+    expect(sourceChangedSinceLoad(newestSourceMtime(root), loaded),
+      'checked, and genuinely unchanged').toBe(false);
   }, 20_000);
 
   it('★★★ the warning DESCRIBES THE SIGNAL THAT FIRED, not the other one', async () => {
