@@ -8,7 +8,7 @@
     "attributedWitnesses": 0,
     "note": "Immutable migration baseline. 0 of 35 pre-v3 declarations are runnable: none carry the mandatory case/expect witness fields. Do NOT rewrite history by calling a pre-v3 declaration runnable."
   },
-  "legacyCeiling": 34,
+  "legacyCeiling": 32,
   "entries": {
     "F1 the true row total is never passed to the ambiguity message": {
       "spec": "ambiguity-population.spec.json",
@@ -72,8 +72,8 @@
     },
     "E7 exemption membership check accepts any superset": {
       "spec": "byte-gate.spec.json",
-      "state": "legacy_unruled",
-      "reason": "pre-v3 declaration; predates mandatory case/expect. Not runnable, no witness claim."
+      "state": "retired_obsolete",
+      "reason": "Structurally undefendable, not an open defect. The mutation WEAKENS the exemption assertion itself -- toEqual(exact set) becomes toContain(each approved), which accepts a superset -- and that assertion is the only thing that could detect the weakening. A spec whose hostile mutation targets its own sole defence cannot produce a preregistered RED, so it can never earn a witness. Retired on ruling, not on experiment. Self-declared OUT OF SCOPE in its own note; verified structurally 2026-08-21."
     },
     "D1 reserve ownership AFTER the await, not before": {
       "spec": "dashboard-ownership.spec.json",
@@ -142,8 +142,8 @@
     },
     "G6 routing drops the repo-path identity discriminator": {
       "spec": "route-authority.spec.json",
-      "state": "legacy_unruled",
-      "reason": "pre-v3 declaration; predates mandatory case/expect. Not runnable, no witness claim."
+      "state": "retired_obsolete",
+      "reason": "Structurally undefendable AND superseded. The mutation DELETES the repo-path assertion outright (the replacement is a comment), and a test cannot fail on an assertion it no longer contains. Superseded by G8, which proves the same discriminator carries weight using a mutant only that discriminator can catch -- production-side, and now closed at 35317a4 as v3_failure_observed_unattributed. Self-declared OUT OF SCOPE in its own note; verified structurally 2026-08-21."
     },
     "G7 provider slot identity check removed from the runner": {
       "spec": "route-authority.spec.json",
