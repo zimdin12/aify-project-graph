@@ -138,7 +138,7 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
     // MENTIONS edges, which point at a SYMBOL and say nothing about the file being named.
     expect(out.docs_not_shown, 'the payload must name what it withheld and how to ask for it')
       .toMatch(/1 document\(s\) relate to this file/);
-    expect(out.docs_not_shown, 'and say which kind of relation it was').toMatch(/1 link to the file itself/);
+    expect(out.docs_not_shown, 'and say which kind of relation it was').toMatch(/1 links to the file itself/);
     expect(out.docs_not_shown).toMatch(/layers:\["docs"\]/);
   }, 60_000);
 
@@ -224,6 +224,83 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
   });
 });
 
+describe('graph_pull resolves nodes that EXIST — "unresolved" is not "no docs"', () => {
+  // ⛔ ef-manager, census over the whole graph: 78 of 266 non-File doc-edge targets answered
+  //     graph_pull("README.md") -> {"kind":"unresolved","value":"README.md"}
+  // for a Document node with FIVE documents pointing at it. `.mcp.json` had nine.
+  //
+  // The breakdown was Document 37 · Config 24 · Directory 16 · Entrypoint 1 = 78 — exactly
+  // FILE_LEVEL_TYPES minus File. `detectNodeKind` matched `type = 'File'` only.
+  //
+  // ⚠ THIS IS THE SAME ASSUMPTION THAT COST doc-links.js ALL 68 OF ITS MARKDOWN LINKS THIS
+  // MORNING. I fixed it there, wrote the constant, commented the trap, and left it standing in a
+  // resolver two hundred lines from the file I was editing. The constant now lives in the
+  // registry so a second consumer inherits the fix rather than repeating the bug.
+  //
+  // "Unresolved" is not "no docs": it says THE NODE DOES NOT EXIST, which ends a search instead
+  // of redirecting it.
+  it('★★★ a Document node resolves — not "unresolved"', async () => {
+    await repoWithAuthoredLink();
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'docs/design.md' }));
+    expect(out.node.kind, 'a Document is in the graph and must resolve').toBe('file');
+    expect(out.node.kind).not.toBe('unresolved');
+  }, 60_000);
+
+  it('★★★ a bare DIRECTORY name resolves — the residue the first fix left', async () => {
+    // ⚠ Widening the type list took the population from 78 unresolvable to 6, NOT to 0. The six
+    // survivors were bare top-level directory names (`docs`, `mcp`, `tests`, ...) which fail a
+    // SECOND gate: `looksFileish` needs a slash or a known extension. Fixed as a last resort
+    // AFTER the symbol lookup, so a directory named `docs` cannot outrank a symbol named `docs`.
+    await repoWithAuthoredLink();
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    db.run(`INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
+            VALUES ('dir1','Directory','docs','docs',0,0,'',1,'{}')`);
+    db.close();
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'docs' }));
+    expect(out.node.kind).toBe('file');
+  }, 60_000);
+
+  it('★★★ a SYMBOL still outranks a same-named path — precedence preserved', async () => {
+    // ⚠ THE CONTROL THAT KEEPS THE FIX HONEST. The fallback runs only after the symbol lookup has
+    // already failed. Putting it earlier — or widening `looksFileish` — would let a Directory
+    // named `generateTerrain` shadow the FUNCTION of that name, trading one wrong answer for
+    // another and breaking every existing symbol pull.
+    await repoWithAuthoredLink();
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    db.run(`INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
+            VALUES ('dir2','Directory','generateTerrain','generateTerrain',0,0,'',1,'{}')`);
+    db.close();
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'generateTerrain' }));
+    expect(out.node.kind, 'the symbol must still win').toBe('symbol');
+  }, 60_000);
+
+  it('★★★ the code layer no longer asserts absence about a node that is present', async () => {
+    // ⛔ THE SECOND SITE, and ef-manager scoped it correctly: fixing the resolver alone IS enough
+    // to surface the docs disclosure, because this gate fails soft. But those same nodes would
+    // then be told "file not in graph" about a file that IS in the graph — the identical false
+    // claim one layer down, on exactly the population just fixed. It is the ASSERTION, not the
+    // emptiness, that ends a search.
+    await repoWithAuthoredLink();
+    const out = JSON.parse(await graphPull({
+      repoRoot: repo, node: 'docs/design.md', layers: ['code'],
+    }));
+    expect(out.layers.code.error, 'it must say what it checked, not claim absence')
+      .toMatch(/indexed as Document, not as a source File/);
+    expect(out.layers.code.error).not.toMatch(/^file not in graph$/);
+    expect(out.layers.code.indexed_as).toBe('Document');
+  }, 60_000);
+
+  it('★★★ a path that is genuinely absent still says so', async () => {
+    // NEGATIVE CONTROL. Softening the message must not make it impossible to report a real
+    // absence — otherwise the fix trades a false claim for an unfalsifiable one.
+    await repoWithAuthoredLink();
+    const out = JSON.parse(await graphPull({
+      repoRoot: repo, node: 'src/terrain.js', layers: ['code'],
+    }));
+    expect(out.layers.code.error, 'a real File resolves and has no error at all').toBeUndefined();
+  }, 60_000);
+});
+
 describe('docs_not_shown — the noun, and the denominator', () => {
   // ⛔ ef-manager, from the user's seat: "12 document(s) reference this file." MENTIONS is
   // Document→SYMBOL; LINKS_TO is Document→FILE. The count mixed both and attached the result to
@@ -269,9 +346,9 @@ describe('docs_not_shown — the noun, and the denominator', () => {
     db.close();
 
     const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
-    expect(out.docs_not_shown).toMatch(/1 only mention a symbol defined in it/);
+    expect(out.docs_not_shown).toMatch(/1 only mentions a symbol defined in it/);
     expect(out.docs_not_shown, 'nothing links to this file, so nothing may say it does')
-      .not.toMatch(/link to the file itself/);
+      .not.toMatch(/links? to the file itself/);
   }, 60_000);
 
   it('★★★ NEGATIVE CONTROL — a link-only file stays correct after the fix', async () => {
@@ -281,9 +358,9 @@ describe('docs_not_shown — the noun, and the denominator', () => {
     // the two rows truncated past the display limit.
     await repoWithAuthoredLink();
     const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
-    expect(out.docs_not_shown).toMatch(/1 link to the file itself/);
-    expect(out.docs_not_shown).not.toMatch(/mention a symbol/);
-    expect(out.docs_not_shown).not.toMatch(/do both/);
+    expect(out.docs_not_shown).toMatch(/1 links to the file itself/);
+    expect(out.docs_not_shown).not.toMatch(/mentions? a symbol/);
+    expect(out.docs_not_shown).not.toMatch(/does both|do both/);
   }, 60_000);
 
   it('★★★ the SILENCE of the entries figure depends on MENTIONS having no line — pinned', async () => {

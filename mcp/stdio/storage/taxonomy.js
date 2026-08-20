@@ -164,6 +164,27 @@ export const BRIDGE_FAMILY = Object.freeze(['LOADS_SHADER', 'DECLARES_BINDING'])
 // missing row — it is a confident empty answer that terminates the reader's search.
 export const DOC_FAMILY = Object.freeze(['MENTIONS', 'LINKS_TO']);
 
+// ⛔ THE NODE TYPES THAT REPRESENT A WHOLE FILE — and "file-level" is NOT `type = 'File'`.
+//
+// That assumption has now cost two separate features. In `analysis/doc-links.js` it meant 0 of 68
+// authored Markdown links resolved, because every `.md` path is a `Document` node and never a
+// `File` node. In `query/verbs/pull.js::detectNodeKind` it meant `graph_pull("README.md")`
+// answered `kind: "unresolved"` — the node does not exist — about a node that exists with five
+// documents pointing at it. Measured over the whole population: 78 of 266 non-File doc-edge
+// targets were unresolvable, and the breakdown is exactly this list minus File
+// (Document 37 · Config 24 · Directory 16 · Entrypoint 1).
+//
+// I fixed it in doc-links, wrote the list there with a comment naming the trap, and left the same
+// assumption in a resolver two hundred lines from the file I was editing. So it lives in the
+// registry now, where a second consumer inherits the fix instead of repeating the bug.
+//
+// ⚠ THE ORDER IS PRECEDENCE, NOT PRESENTATION. Paths carry more than one of these — six in this
+// repo are both `Entrypoint` and `File` — so a consumer resolving a path must break the tie by a
+// declared rule. First match wins; `File` is the canonical whole-file node. A map that kept
+// whatever row it saw first would resolve those by SQL row order, which is the legacy
+// first-wins defect one level up and invisible because both ids are plausible.
+export const FILE_LEVEL_TYPES = Object.freeze(['File', 'Document', 'Config', 'Entrypoint', 'Directory']);
+
 // Provenance-mix call family — the exact set whose EXTRACTED/INFERRED/
 // CODE_INTEL/LSP_VERIFIED split is the analytics trust signal. (Was
 // analytics.js CALL_FAMILY_RELATIONS.) Kept distinct from CALL_FAMILY because it

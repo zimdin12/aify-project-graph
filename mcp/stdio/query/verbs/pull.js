@@ -68,7 +68,11 @@ import { getDirtyFiles } from '../../freshness/git.js';
 import { assessOverlayBuild, loadTasksArtifact, overlayNotBuiltHint, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
-import { CALL_FAMILY, DOC_FAMILY } from '../../storage/taxonomy.js';
+import { CALL_FAMILY, DOC_FAMILY, FILE_LEVEL_TYPES } from '../../storage/taxonomy.js';
+
+// Registry-composed, like PULL_TOUCH_SQL_LIST. Spelling these out here would be the third copy
+// of a list whose first two copies disagreed.
+const FILE_LEVEL_SQL_LIST = FILE_LEVEL_TYPES.map((t) => `'${t}'`).join(', ');
 
 // "Who touches this symbol" set for pull's relation rollups: the call family
 // plus type-use. Composed from the registry rather than re-declared (review R2).
@@ -178,10 +182,15 @@ function docsNotShownSentence(b) {
   // link-only, mention-only, or both. The word "documents" leads the clause so the parts inherit
   // it, and the target-symbol count is NOT printed: it answers a different question, and a
   // sentence carrying four numbers teaches the reader to skip all four.
+  // ⚠ SUBJECT-VERB AT n=1. "1 do both" / "1 only mention" read as machine output, and they surface
+  // on the SMALLEST cases — which are exactly the ones a reader meets when the answer is simplest
+  // and easiest to check by hand. A sentence built so its structure can be trusted should not
+  // stumble at the moment it is most checkable. (ef-manager, on CHECK 4 and CHECK 5.)
+  const v = (n, singular, plural) => `${n} ${n === 1 ? singular : plural}`;
   const parts = [];
-  if (b.linkOnly) parts.push(`${b.linkOnly} link to the file itself`);
-  if (b.mentionOnly) parts.push(`${b.mentionOnly} only mention a symbol defined in it`);
-  if (b.both) parts.push(`${b.both} do both`);
+  if (b.linkOnly) parts.push(v(b.linkOnly, 'links to the file itself', 'link to the file itself'));
+  if (b.mentionOnly) parts.push(v(b.mentionOnly, 'only mentions a symbol defined in it', 'only mention a symbol defined in it'));
+  if (b.both) parts.push(v(b.both, 'does both', 'do both'));
   // The second number is what the docs layer will HAND BACK, so following the instruction cannot
   // surprise. Printed only when it differs, so it means something when it appears.
   //
@@ -327,9 +336,28 @@ function detectNodeKind(db, node) {
   // string doesn't shadow a real symbol lookup.
   const looksFileish = /\//.test(node) || /\.(js|ts|py|php|cpp|h|go|rs|rb|java|md|json)$/i.test(node);
   if (looksFileish) {
+    // ⛔ `type = 'File'` HERE MEANT graph_pull ANSWERED "unresolved" ABOUT NODES THAT EXIST.
+    // Measured over the whole population, not sampled: 78 of 266 non-File doc-edge targets were
+    // unresolvable — Document 37, Config 24, Directory 16, Entrypoint 1, which is exactly
+    // FILE_LEVEL_TYPES minus File. `graph_pull("README.md")` returned
+    // `{"kind":"unresolved","value":"README.md"}` for a Document node with five documents
+    // pointing at it, and `.mcp.json` with nine.
+    //
+    // ⚠ "Unresolved" is not "no docs". It tells an agent THE NODE DOES NOT EXIST — a confident
+    // empty answer, which ends a search rather than redirecting it. Same class as the absence
+    // defect this whole arc started from, one route over.
+    //
+    // ⇒ This is the SAME assumption that cost `analysis/doc-links.js` all 68 of its authored
+    // Markdown links this morning. I fixed it there, wrote the list, commented the trap — and left
+    // it standing in a resolver two hundred lines from the file I was editing. The list now lives
+    // in the registry so the second consumer inherits the fix.
     const fileHit = db.get(
-      `SELECT file_path FROM nodes WHERE type = 'File' AND file_path = $p LIMIT 1`, { p: node });
-    if (fileHit) return { kind: 'file', value: node };
+      `SELECT file_path, type FROM nodes WHERE type IN (${FILE_LEVEL_SQL_LIST}) AND file_path = $p
+        ORDER BY CASE type ${FILE_LEVEL_TYPES.map((t, i) => `WHEN '${t}' THEN ${i}`).join(' ')} END
+        LIMIT 1`, { p: node });
+    // The declared precedence breaks ties rather than SQL row order — six paths in this repo are
+    // both Entrypoint and File, and picking by row order is the legacy first-wins bug one level up.
+    if (fileHit) return { kind: 'file', value: node, nodeType: fileHit.type };
   }
   // Symbol lookup
   const sym = db.get(
@@ -337,6 +365,24 @@ function detectNodeKind(db, node) {
      WHERE label = $node AND type IN ('Function','Method','Class','Interface','Type')
      LIMIT 1`, { node });
   if (sym) return { kind: 'symbol', value: sym };
+
+  // ⛔ LAST RESORT, AND IT CLOSES THE RESIDUE THE FIRST FIX LEFT. Widening the type list above
+  // took the unresolvable doc-edge targets from 78 to 6 — not to 0. The remaining six were all
+  // bare top-level directory names: `docs`, `mcp`, `tests`, `scripts`, `.agents`, `reference`.
+  // They failed a SECOND gate: `looksFileish` requires a slash or a known extension, so a bare
+  // directory name never reaches the path lookup at all.
+  //
+  // ⚠ AND THE FIX GOES HERE RATHER THAN IN `looksFileish`, deliberately. That heuristic exists so
+  // "a path-shaped string does not shadow a real symbol lookup" — widening it would let a
+  // DIRECTORY named `docs` outrank a SYMBOL named `docs`, trading one wrong answer for another.
+  // Running it after the symbol lookup has already failed preserves that precedence and costs one
+  // indexed query on the path that was about to return "unknown" anyway.
+  const pathHit = db.get(
+    `SELECT file_path, type FROM nodes WHERE type IN (${FILE_LEVEL_SQL_LIST}) AND file_path = $p
+      ORDER BY CASE type ${FILE_LEVEL_TYPES.map((t, i) => `WHEN '${t}' THEN ${i}`).join(' ')} END
+      LIMIT 1`, { p: node });
+  if (pathHit) return { kind: 'file', value: node, nodeType: pathHit.type };
+
   return { kind: 'unknown', value: node };
 }
 
@@ -725,7 +771,26 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     const fileNode = db.get(
       `SELECT id, label, file_path FROM nodes WHERE type = 'File' AND file_path = $p LIMIT 1`, { p: filePath });
     if (!fileNode) {
-      out.layers.code = { error: 'file not in graph', path: filePath };
+      // ⛔ THIS SENTENCE ASSERTED ABSENCE FROM THE GRAPH, and for the 78 nodes the resolver above
+      // now admits it would have been FALSE — a Document or Config node is in the graph, it simply
+      // has no `File`-typed row. ef-manager scoped it correctly: fixing the resolver alone is
+      // sufficient for the disclosure, because this gate fails SOFT and the other layers still
+      // run. But it would then announce "file not in graph" about a file that is in the graph, on
+      // exactly the population being fixed — and it is the assertion, not the emptiness, that ends
+      // a search.
+      //
+      // ⇒ Say what was actually checked. Same scoping correction already applied in this file to
+      // `orphan`, to the trust-spine banner, and to `stale`.
+      const indexedAs = db.get(
+        `SELECT type FROM nodes WHERE type IN (${FILE_LEVEL_SQL_LIST}) AND file_path = $p LIMIT 1`,
+        { p: filePath });
+      out.layers.code = indexedAs
+        ? {
+          error: `no code symbols here — this path is indexed as ${indexedAs.type}, not as a source File`,
+          path: filePath,
+          indexed_as: indexedAs.type,
+        }
+        : { error: 'file not in graph', path: filePath };
     } else {
       const symbolsRaw = db.all(
         `SELECT label, type, start_line FROM nodes

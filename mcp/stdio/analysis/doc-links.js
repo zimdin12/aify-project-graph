@@ -44,6 +44,7 @@
 // symbol edges under their own extractor tags in later slices.
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { FILE_LEVEL_TYPES as FILE_LEVEL_TYPES_REGISTRY } from '../storage/taxonomy.js';
 
 // Every rule that can admit an edge here, with the confidence it carries. Frozen so a caller
 // cannot widen the vocabulary at runtime — the reader must be able to enumerate what could have
@@ -135,7 +136,11 @@ const dirOf = (filePath) => {
 // carry both `Entrypoint` and `File`. A `Map` that keeps whatever it saw first would resolve those
 // by row order — which is precisely the legacy extractor's first-wins bug, one level up, and it
 // would have been invisible. `File` is the canonical whole-file node and wins.
-const FILE_LEVEL_PRECEDENCE = Object.freeze(['File', 'Document', 'Config', 'Entrypoint', 'Directory']);
+// ⇒ MOVED TO THE REGISTRY. It was declared here first, and then `pull.js::detectNodeKind` was
+// found making the identical `type = 'File'` assumption — 78 of 266 doc-edge targets answering
+// "unresolved" about nodes that exist. A constant that two consumers need is a registry entry,
+// not a local one, or the second consumer repeats the bug the first one fixed.
+const FILE_LEVEL_PRECEDENCE = FILE_LEVEL_TYPES_REGISTRY;
 const PRECEDENCE = new Map(FILE_LEVEL_PRECEDENCE.map((t, i) => [t, i]));
 
 export const FILE_LEVEL_TYPES = FILE_LEVEL_PRECEDENCE;
