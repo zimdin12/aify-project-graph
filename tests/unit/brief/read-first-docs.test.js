@@ -58,7 +58,7 @@ describe('the brief picks orienting documents by evidence, not by name', () => {
     expect(docs.length, 'a document that references code is an orienting document').toBe(1);
     expect(docs[0].file).toBe('ORIENTATION-FOR-NEWCOMERS.md');
     expect(docs[0].why, 'and the why carries its evidence, not a claim about its kind')
-      .toMatch(/2 code location\(s\) referenced/);
+      .toMatch(/2 repository file\(s\) referenced/);
     db.close();
   }, 30_000);
 
@@ -121,15 +121,29 @@ describe('the brief picks orienting documents by evidence, not by name', () => {
     db.close();
   }, 30_000);
 
-  it('★★★ doc→doc links alone do not qualify a document as orienting', async () => {
-    // A document that only points at other documents describes no code, and the query says so by
-    // joining on the target's type. Without this the index page of a doc tree outranks everything.
+  it('★★★ REVERSED: a doc index other documents point AT is eligible with no code refs', async () => {
+    // ⛔⛔ THIS TEST USED TO ASSERT THE OPPOSITE, AND IT PINNED A DEFECT.
+    //
+    // It read "doc→doc links alone do not qualify a document as orienting", and it passed because
+    // the candidate query joined from the candidate to a NON-Document target — so a document could
+    // not be a candidate unless it referenced code. graph-senior-dev executed the consequence:
+    //
+    //     other.md LINKS_TO docs/index.md, and the index has no outgoing code edge
+    //     -> result: [{"file":"other.md","why":"root-level document; ... position, not evidence"}]
+    //
+    // The inbound-linked index was ABSENT and the unrelated source document won on root position,
+    // which directly contradicts "which documents the DOCUMENTS treat as the entry point".
+    //
+    // ★ I wrote the test, it agreed with the code, and the agreement was the bug. A test written
+    // from the implementation cannot catch the implementation — it can only lock it in.
     const db = await graph();
     db.node('idx', 'Document', 'docs/index.md');
-    db.node('x', 'Document', 'docs/x.md');
-    db.link('idx', 'x');
+    db.node('other', 'Document', 'other.md');
+    db.link('other', 'idx');                    // the index is pointed AT and references no code
+
     const docs = docsOf(db);
-    expect(docs.map((d) => d.file), 'falls through to the position fallback').not.toContain('docs/index.md');
+    expect(docs.map((d) => d.file), 'inbound authority alone is evidence').toContain('docs/index.md');
+    expect(docs[0].file, 'and it outranks the document that merely links to it').toBe('docs/index.md');
     db.close();
   }, 30_000);
 });
@@ -160,7 +174,7 @@ describe('recency decides when no document is treated as canonical', () => {
 
     const withRecency = readFirst(db, 6, { docRecency }).filter((r) => r.kind === 'doc');
     expect(withRecency[0].file, 'recently changed beats larger-but-stale').toBe('README.md');
-    expect(withRecency[0].why).toMatch(/last changed 2026-08-20/);
+    expect(withRecency[0].why).toMatch(/last edited 2026-08-20/);
 
     // ⛔ THE CONTROL THAT PROVES RECENCY IS DOING THE WORK. Without it the ordering INVERTS — so
     // this pair shows the signal changes the answer, rather than agreeing with one already correct.
@@ -197,6 +211,113 @@ describe('recency decides when no document is treated as canonical', () => {
     db.link('d', 'c');
     const docs = readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
     expect(docs[0].why).toMatch(/evidence of relevance, not of accuracy/);
+    db.close();
+  }, 30_000);
+});
+
+// ⛔ THE HOSTILE WITNESSES graph-senior-dev EXECUTED AGAINST 900b7bb, kept as tests so the two
+// defects cannot return quietly.
+describe('the ranking sees the whole population and only its own authority', () => {
+  it('★★★ recency ranks EVERY candidate, not a pre-truncated sample', async () => {
+    // ⛔ The first version took `LIMIT 12` in SQL ordered by inbound/degree, then applied recency in
+    // JS — so recency was the second key over the top-12-by-a-different-order, not over documents.
+    // Dev's fixture, reproduced: 13 documents, all inbound 0, degree descending, and the NEWEST
+    // holding the LOWEST degree so it falls outside any degree-ordered window.
+    const db = await graph();
+    const docRecency = new Map();
+    for (let i = 0; i < 13; i += 1) {
+      const f = `docs/d${String(i).padStart(2, '0')}.md`;
+      db.node(`d${i}`, 'Document', f);
+      for (let j = 0; j < 13 - i; j += 1) {          // degree 13 down to 1
+        db.node(`c${i}_${j}`, 'File', `src/c${i}_${j}.js`);
+        db.link(`d${i}`, `c${i}_${j}`);
+      }
+      docRecency.set(f, i === 12 ? '2099-01-01' : '2000-01-01');
+    }
+    const docs = readFirst(db, 6, { docRecency }).filter((r) => r.kind === 'doc');
+    expect(docs[0].file, 'the newest document must reach the sort at all').toBe('docs/d12.md');
+    db.close();
+  }, 30_000);
+
+  it('★★★ legacy MENTIONS are REPORTED but never ranked on', async () => {
+    // ⚠ The counts used to include every relation from any Document source, so the retiring legacy
+    // MENTIONS population influenced ranking silently — 532 authored LINKS_TO against 99 legacy
+    // MENTIONS on this repo, combined under one label. Two authorities under one number is how a
+    // figure stops meaning anything.
+    const db = await graph();
+    db.node('linked', 'Document', 'linked.md');
+    db.node('mentioner', 'Document', 'mentioner.md');
+    db.node('c1', 'File', 'src/a.js');
+    db.link('linked', 'c1');                                   // ONE authored link
+    for (let i = 0; i < 20; i += 1) {                          // TWENTY legacy mentions
+      db.node(`s${i}`, 'Function', 'src/a.js');
+      db.run(`INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
+              VALUES ('mentioner','s${i}','MENTIONS','x',1,1,'EXTRACTED','doc_ref:qualified')`);
+    }
+    const docs = readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
+    expect(docs[0].file, 'one authored link outranks twenty mentions').toBe('linked.md');
+    expect(docs.map((d) => d.file), 'a mentions-only document is not a candidate')
+      .not.toContain('mentioner.md');
+    db.close();
+  }, 30_000);
+
+  it('★★★ a non-authored LINKS_TO edge does not confer authority', async () => {
+    // Extractor-scoped: only `doc_link:*` edges are this ranking's evidence. Another producer's
+    // LINKS_TO is not ours to read as an authored link — the same boundary the extractor-ownership
+    // gate enforces for DELETEs.
+    const db = await graph();
+    db.node('a', 'Document', 'a.md');
+    db.node('c1', 'File', 'src/a.js');
+    db.run(`INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
+            VALUES ('a','c1','LINKS_TO','x',1,1,'EXTRACTED','some-other-producer')`);
+    const docs = readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
+    expect(docs[0].why, 'falls through to the positional basis').toMatch(/position, not evidence/);
+    db.close();
+  }, 30_000);
+
+  it('★★★ equal-length paths break lexically, so the brief stays byte-deterministic', async () => {
+    // `a.file.length - b.file.length` returns 0 for equal-length paths and leaves order dependent
+    // on SQLite row order — the same graph would render two different briefs.
+    const db = await graph();
+    db.node('z', 'Document', 'docs/zzz.md');
+    db.node('a', 'Document', 'docs/aaa.md');
+    db.node('c1', 'File', 'src/a.js');
+    db.link('z', 'c1'); db.link('a', 'c1');
+    const first = readFirst(db, 6, {}).filter((r) => r.kind === 'doc').map((d) => d.file);
+    const second = readFirst(db, 6, {}).filter((r) => r.kind === 'doc').map((d) => d.file);
+    expect(first, 'ties resolve lexically').toEqual(['docs/aaa.md', 'docs/zzz.md']);
+    expect(second, 'and repeatably').toEqual(first);
+    db.close();
+  }, 30_000);
+
+  it('★★★ a stale top answer DISCLOSES how much of the corpus is newer', async () => {
+    // ⛔ ef-manager field-tested the ranking on echoes_of_the_fallen, whose CLAUDE.md line 3 says
+    // verbatim "Read AGENTS.md first" — so the answer is written down, not judged:
+    //
+    //     rank 1  docs/contracts/worldbuffer-authority.md   2026-04-27
+    //     AGENTS.md                                         NOT IN TOP 12 · 2026-08-19
+    //
+    // Inbound selects the most-CITED document; "read first" wants the one that ORIENTS you, and in
+    // a contract-heavy repo those are different genres. Frozen contracts accrue citations while
+    // never being edited, so inbound rank and staleness correlate POSITIVELY.
+    //
+    // ⇒ I have no graded replacement, so the remedy is DISCLOSURE rather than a silent re-sort on a
+    // signal I cannot defend. The reader applies the correction the ranking cannot.
+    const db = await graph();
+    db.node('old', 'Document', 'contract.md');
+    db.node('c1', 'File', 'src/a.js');
+    db.link('old', 'c1');
+    for (let i = 0; i < 4; i += 1) {                 // four citers, so `contract.md` ranks first
+      db.node(`n${i}`, 'Document', `newer${i}.md`);
+      db.link(`n${i}`, 'old');
+      db.link(`n${i}`, 'c1');
+    }
+    const docRecency = new Map([['contract.md', '2026-01-01']]);
+    for (let i = 0; i < 4; i += 1) docRecency.set(`newer${i}.md`, '2026-08-01');
+
+    const docs = readFirst(db, 6, { docRecency }).filter((r) => r.kind === 'doc');
+    expect(docs[0].file, 'the most-cited document still leads — the evidence is real').toBe('contract.md');
+    expect(docs[0].why, 'and it says how much of the corpus is newer').toMatch(/4 of these documents are newer/);
     db.close();
   }, 30_000);
 });

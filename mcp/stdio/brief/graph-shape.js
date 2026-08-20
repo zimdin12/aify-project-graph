@@ -17,6 +17,7 @@
 
 import { join } from 'node:path';
 import { buildPaths } from '../query/verbs/path.js';
+import { edgeClass } from '../storage/edge-classes.js';
 
 // Module constants moved with the functions that read them — a constant is as much a
 // dependency as a call, and the extraction planner only enumerated imports and functions.
@@ -271,49 +272,40 @@ export function readFirst(db, limit = 6, opts = {}) {
   // changelog, and there is no derived staleness signal for documents in this graph. The `why`
   // carries the evidence so a reader can judge it instead of trusting the ordering.
   let docBasis = 'links';
+  // ⛔ CANDIDATE POPULATION IS EVERY DOCUMENT. The first version joined from the candidate to a
+  // non-Document target, so a document could not be a candidate unless it referenced code — which
+  // excluded exactly the docs index that other documents point AT. graph-senior-dev executed it:
+  // `other.md` LINKS_TO `docs/index.md`, and the index was absent while the unrelated source won on
+  // root position. My own test "doc→doc links alone do not qualify" had PINNED that exclusion.
   //
-  // ⚠ TWO SIGNALS, BECAUSE ONE OF THEM RANKED A SUPERSEDED PLAN ABOVE THE README. Ordering by code
-  // references alone put `docs/superpowers/plans/2026-04-16-...-v1.md` (36 refs) first and README
-  // (27) second — honest about what each describes, and bad orientation advice. High outbound
-  // degree means "describes a lot of code", never "describes the code as it is now".
-  //
-  //   inbound doc->doc links   which documents the DOCUMENTS THEMSELVES treat as canonical
-  //                            README 7 · code-intel-v2-status 6 · install.claude 5
-  //   outbound code refs       how much of the system it actually describes
-  //
-  // Primary sort is the first, tiebreak is the second. No weights — a weighted sum would be an
-  // invented constant standing in for a judgement nobody made, and the two questions are ordered,
-  // not commensurable.
+  // ⚠ RELATION AND EXTRACTOR SCOPED. The counts used to include every relation from any Document
+  // source, so the retiring legacy `MENTIONS` population influenced ranking silently — 532 authored
+  // LINKS_TO against 99 legacy MENTIONS on this repo, combined under one label. Mentions are
+  // REPORTED, never ranked on: two authorities under one number is how a figure stops meaning
+  // anything.
+  // ⚠ FROM THE LEDGER, NOT A LITERAL. Embedding `doc_link:%` here made this file a second holder
+  // of a prefix that scopes a DELETE elsewhere, and the ownership gate turned red on it — correctly,
+  // because that gate cannot tell a reader from a writer and my own rule for it was "if a reader
+  // needs the label, import the constant". Third time today one of these gates has caught its
+  // author, which is the only evidence that they are refusals rather than reminders.
+  const DOC_LINK = edgeClass('doc_link');
+  const LINK = `e.relation = '${DOC_LINK.relation}' AND e.extractor LIKE '${DOC_LINK.extractor}%'`;
   let docs = q(db,
     `SELECT n.label, n.file_path AS file,
-            (SELECT count(*) FROM edges e2 JOIN nodes s ON s.id = e2.from_id
-              WHERE e2.to_id = n.id AND s.type = 'Document') AS inbound,
-            count(e.to_id) AS deg
-       FROM nodes n JOIN edges e ON e.from_id = n.id
-       JOIN nodes t ON t.id = e.to_id
-      WHERE n.type = 'Document' AND t.type != 'Document'
-      GROUP BY n.id
-      HAVING deg > 0
-      ORDER BY inbound DESC, deg DESC, length(n.file_path) ASC
-      LIMIT 12`);
-  // ⛔ THREE ORDERED SIGNALS, RANKED HERE RATHER THAN IN SQL, so all three are visible in one place
-  // and none of them is a weight. ef-manager's point: inbound links are the strongest CANONICALITY
-  // signal but collapse to zero on a repo whose documents do not cross-link — and there the
-  // superseded-plan problem returns, because coverage alone put a four-month-old v1 plan (36 code
-  // refs) above README (27).
-  //
-  //   1. inbound doc->doc links   which documents the DOCUMENTS treat as the entry point
-  //   2. last commit date         the one property a document's own content cannot fake
-  //   3. outbound code refs       how much of the system it describes
-  //
-  // ⚠ UNKNOWN RECENCY SORTS LAST, NOT OLDEST. A document git cannot date (untracked, or no git at
-  // all) has no recency evidence, and treating "cannot tell" as "ancient" would be a two-state
-  // collapse — the failure this repo found eight times in one session.
-  //
-  // ⚠ AND THE LIMIT, WHICH THIS RANKING DOES NOT CLOSE: degree means "describes a lot of code",
-  // recency means "was edited recently". NEITHER MEANS "IS ACCURATE". A document can be current and
-  // wrong; this session found three comments that were prominent, adjacent and false. This ranks by
-  // evidence of RELEVANCE, never by evidence of TRUTH.
+            (SELECT count(*) FROM edges e JOIN nodes s ON s.id = e.from_id
+              WHERE e.to_id = n.id AND s.type = 'Document' AND ${LINK}) AS inbound,
+            (SELECT count(*) FROM edges e JOIN nodes t ON t.id = e.to_id
+              WHERE e.from_id = n.id AND t.type != 'Document' AND ${LINK}) AS deg,
+            (SELECT count(*) FROM edges e
+              WHERE e.from_id = n.id AND e.relation = 'MENTIONS') AS mentions
+       FROM nodes n WHERE n.type = 'Document'`)
+    .filter((d) => d.inbound > 0 || d.deg > 0);
+
+  // ⛔ NO PRE-TRUNCATION. The first version took `LIMIT 12` in SQL ordered by inbound, then applied
+  // recency in JS — so recency ranked the top-12-by-a-different-order, not the population.
+  // graph-senior-dev executed that too: 13 documents, all inbound 0, the NEWEST holding the lowest
+  // degree, and it never entered the sort. At 155 rows there is nothing to justify a cap; if scale
+  // ever demands one it must preserve complete tie groups and be disclosed as a cap.
   const recencyOf = (file) => {
     const v = docRecency instanceof Map ? docRecency.get(file) : docRecency?.[file];
     return typeof v === 'string' ? v : null;
@@ -323,25 +315,63 @@ export function readFirst(db, limit = 6, opts = {}) {
     const ra = recencyOf(a.file);
     const rb = recencyOf(b.file);
     if (ra !== rb) {
-      if (ra == null) return 1;
+      if (ra == null) return 1;          // UNKNOWN sorts last, never as "oldest"
       if (rb == null) return -1;
       return rb.localeCompare(ra);
     }
     if (b.deg !== a.deg) return b.deg - a.deg;
-    return a.file.length - b.file.length;
+    // Lexical, not length: equal-length paths otherwise fall back to SQLite row order and the
+    // brief stops being byte-deterministic for the same graph.
+    return a.file.localeCompare(b.file);
   });
-  docs = docs.slice(0, 2);
+
+  // ⛔⛔ THE RANKING IS UNGRADED AND ON ITS ONLY GROUND-TRUTH CORPUS IT IS WRONG. ef-manager field-
+  // tested it on `echoes_of_the_fallen`, whose CLAUDE.md line 3 says verbatim "Read AGENTS.md
+  // first" — so the answer is written down rather than judged:
+  //
+  //     rank 1   docs/contracts/worldbuffer-authority.md     last commit 2026-04-27
+  //     rank 2   docs/contracts/configuration-authority.md   last commit 2026-04-27
+  //     AGENTS.md                                            NOT IN TOP 12 · committed 2026-08-19
+  //
+  // ⇒ INBOUND SELECTS THE MOST-CITED DOCUMENT, AND "READ FIRST" WANTS THE ONE THAT ORIENTS YOU. In
+  // a contract-heavy repo those are different genres: a contract is cited by everything and read
+  // when you need the contract. Worse, frozen contracts accrue citations while never being edited,
+  // so inbound rank and staleness correlate POSITIVELY — the ranking is pulled toward old documents
+  // by construction, and recency cannot correct it because inbound is a strict primary sort.
+  //
+  // ★ Same shape as the resolution-rate signal ef-manager refuted earlier: a metric that tracks
+  // GENRE, read as currency. Neither of us could see it from inside one repo.
+  //
+  // ⇒ SO THE REMEDY HERE IS DISCLOSURE, NOT RE-SORTING. The inbound evidence is real and I have no
+  // graded replacement; silently re-ranking on a signal I cannot defend would be swapping an
+  // unmeasured order for another. The `why` states what the evidence IS and how much of the corpus
+  // is newer, and the reader applies the correction the ranking cannot safely apply for them.
+  // ⚠ SNAPSHOT THE FULL CANDIDATE SET BEFORE SLICING. `newerThan` closed over `docs`, which is
+  // reassigned to the two survivors below — so the disclosure counted "how many of the TWO shown
+  // are newer" while claiming to describe the corpus. Caught by its own test expecting 4 and
+  // getting nothing. The same population error the whole ranking is about, committed inside the
+  // sentence that discloses it.
+  const population = docs.slice();
+  const known = population.map((d) => recencyOf(d.file)).filter(Boolean).sort();
+  const median = known.length ? known[Math.floor(known.length / 2)] : null;
+  const newerThan = (date) => (date ? population.filter((d) => {
+    const r = recencyOf(d.file);
+    return r && r > date;
+  }).length : 0);
+
   if (docs.length === 0) {
-    // ⚠ THREE STATES, NOT TWO. "No document references code" is a different answer from "here are
-    // the orienting documents", and collapsing it into an empty section loses the distinction a
-    // reader needs — an empty section reads as "this repo has no docs" when it may mean the doc
-    // layer has never been built. Fall back to root-level documents and SAY the basis changed.
+    // ⚠ THREE STATES, NOT TWO. "No document carries an indexed authored link" is a different answer
+    // from "here are the orienting documents", and an empty section collapses them — it reads as
+    // "this repo has no docs" when it may mean the doc layer was never built.
     docBasis = 'position';
     docs = q(db,
-      `SELECT label, file_path AS file, 0 AS deg FROM nodes
+      `SELECT label, file_path AS file, 0 AS inbound, 0 AS deg, 0 AS mentions FROM nodes
         WHERE type = 'Document' AND file_path NOT LIKE '%/%'
-        ORDER BY length(file_path) ASC LIMIT 2`);
+        ORDER BY length(file_path) ASC, file_path ASC LIMIT 2`);
+  } else {
+    docs = docs.slice(0, 2);
   }
+
   const files = q(db,
     `SELECT n.label, n.file_path AS file, count(e.from_id) AS deg
      FROM nodes n JOIN edges e ON e.to_id = n.id OR e.from_id = n.id
@@ -357,15 +387,27 @@ export function readFirst(db, limit = 6, opts = {}) {
     out.push({ file, why, kind });
   };
 
-  // The `why` carries its own evidence. "architecture doc" was a claim about the document's KIND
-  // that nothing in the graph supported — it was true of the allowlist's intent and of no row it
-  // ever returned.
+  // ⚠ THE `why` STATES THE EVIDENCE AND DECLINES THE ONTOLOGY CLAIM. graph-senior-dev's wording:
+  // this is INDEXED AUTHORED DOC LINKS — route authority — not a claim that a document is canonical
+  // or accurate. "architecture doc" was a claim about KIND that nothing in the graph supported.
   for (const d of docs) {
-    push(d.file, docBasis === 'links'
-      ? `${d.inbound} document(s) link here, ${d.deg} code location(s) referenced`
-        + `${recencyOf(d.file) ? `, last changed ${recencyOf(d.file)}` : ''}`
-        + ' — evidence of relevance, not of accuracy'
-      : 'root-level document; no document in this graph references code, so this is position, not evidence',
+    if (docBasis !== 'links') {
+      push(d.file, 'root-level document; no document carries an indexed authored link, so this is '
+        + 'position, not evidence', 'doc');
+      continue;
+    }
+    const rec = recencyOf(d.file);
+    const newer = median && rec && rec < median ? newerThan(rec) : 0;
+    push(d.file,
+      `${d.inbound} document(s) link here (indexed authored doc links), `
+      + `${d.deg} repository file(s) referenced`
+      + (d.mentions > 0 ? `, ${d.mentions} symbol mention(s)` : '')
+      + (rec ? `, last edited ${rec}` : ', edit date UNKNOWN')
+      // ⇒ ef-manager's disclosure: on their ground-truth corpus the top two answers were four
+      // months older than the entry point the repo itself names. The reader gets the correction
+      // the ranking cannot safely apply.
+      + (newer > 0 ? ` — ⚠ ${newer} of these documents are newer` : '')
+      + ' — evidence of relevance, not of accuracy',
     'doc');
   }
 

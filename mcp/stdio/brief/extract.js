@@ -149,22 +149,44 @@ export function detectFromPackageJson(repoRoot) {
 export function documentRecency(repoRoot, paths = []) {
   const out = new Map();
   if (!Array.isArray(paths) || paths.length === 0) return out;
-  try {
-    const raw = execFileSync('git',
-      ['-C', repoRoot, 'log', '--pretty=format:%cs', '--name-only', '--', ...paths],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, maxBuffer: 32 * 1024 * 1024 });
-    let date = null;
-    // ⚠ `String.fromCharCode(10)` rather than a backslash escape. Three times tonight this shell
-    // stripped a backslash out of a heredoc — twice producing a file that PARSED and once one that
-    // did not — so anything needing an escape is written without one where that is possible.
-    for (const line of raw.split(String.fromCharCode(10))) {
-      const t = line.trim();
-      if (!t) continue;
-      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) { date = t; continue; }
-      // git log walks newest-first, so the FIRST date a path appears under is its last commit.
-      if (date && !out.has(t)) out.set(t, date);
+  // ⛔ BOUNDED BATCHES AND NUL-DELIMITED OUTPUT, both flagged by graph-senior-dev before this
+  // shipped. Passing every path as argv exceeds the command-line limit on a doc-heavy repo, and
+  // the failure mode is the worst available: ONE oversized call throws, the catch returns an empty
+  // map, and EVERY document silently becomes UNKNOWN — the ranking loses a whole signal and says
+  // nothing. Batching means a failure costs one batch, and the rest still carry dates.
+  //
+  // ⚠ Line-splitting was also unsafe: git quotes paths containing spaces, non-ASCII or newlines
+  // unless told otherwise. `-z` makes every record NUL-terminated, so a path is whatever lies
+  // between two NULs regardless of what characters it holds.
+  //
+  // ⚠ The `@` sentinel makes the record TYPE unambiguous rather than inferred from shape. Without
+  // it a file named `2026-04-16` would parse as a date and silently re-date every path after it.
+  // A path named exactly `@YYYY-MM-DD` would still collide; that is the residual and it is stated
+  // rather than assumed away.
+  const BATCH = 150;
+  for (let i = 0; i < paths.length; i += BATCH) {
+    const batch = paths.slice(i, i + BATCH);
+    try {
+      const raw = execFileSync('git',
+        ['-C', repoRoot, 'log', '--format=@%cs', '--name-only', '-z', '--', ...batch],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
+      let date = null;
+      // ⚠ TRIMMED, AND THIS IS NOT COSMETIC. git writes a newline AFTER the NUL that terminates a
+      // record, so splitting on NUL alone yields path tokens with a leading newline. The map still
+      // FILLS — 189 entries for 156 input paths, every key subtly wrong — so a check of "did we get
+      // dates?" passes while every lookup misses. A populated wrong answer is the shape that
+      // survives review; an empty one would have been caught immediately.
+      for (const record of raw.split('\0')) {
+        const rec = record.trim();
+        if (!rec) continue;
+        if (/^@\d{4}-\d{2}-\d{2}$/.test(rec)) { date = rec.slice(1); continue; }
+        // git log walks newest-first, so the FIRST date a path appears under is its last commit.
+        if (date && !out.has(rec)) out.set(rec, date);
+      }
+    } catch {
+      // One batch failing leaves its paths absent — UNKNOWN, never "old". The other batches stand.
     }
-  } catch { /* not a git repo, or a path that never existed — absent means UNKNOWN, never "old" */ }
+  }
   return out;
 }
 
