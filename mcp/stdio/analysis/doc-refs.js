@@ -257,6 +257,32 @@ export function scanQualifiedReferences(content) {
 // path the same way rule 1 does. Without it, a scoping path written as a link is invisible here.
 const MD_LINK_TARGET = /\[[^\]\n]*\]\(\s*([^()\s]+?)(?:\s+["'][^"']*["'])?\s*\)/g;
 
+// Words that introduce a declaration rather than naming one. A span headed by any of these is
+// still naming the identifier that follows — `export function autoReindexEnabled(env)` names
+// `autoReindexEnabled`. Kept deliberately short and syntactic: these are keywords in the languages
+// this repo indexes, not a list of words that seemed unimportant.
+const DECLARATION_KEYWORDS = new Set([
+  'export', 'default', 'function', 'const', 'let', 'var', 'async', 'await',
+  'class', 'struct', 'enum', 'interface', 'type', 'def', 'fn', 'public', 'private',
+  'protected', 'static', 'inline', 'template', 'typename', 'namespace', 'return',
+]);
+
+/**
+ * Is `index` the position of the token this code span NAMES?
+ *
+ * A span names one thing and the thing is at its head, skipping declaration keywords. Returns
+ * false when there is no span, so a caller cannot get a true answer from a missing one.
+ */
+export function isSpanHead(line, span, index) {
+  if (!span) return false;
+  const text = String(line).slice(span.start, span.end);
+  for (const m of text.matchAll(BARE_WORD)) {
+    if (DECLARATION_KEYWORDS.has(m[0])) continue;
+    return span.start + m.index === index;
+  }
+  return false;
+}
+
 // Bare identifier tokens. Deliberately permissive — the file scope, not the token shape, is what
 // makes this rule safe, which is the entire difference between rule 4 and rule 3.
 const BARE_WORD = /[A-Za-z_$][\w$]*/g;
@@ -350,6 +376,32 @@ export function scanPathScopedReferences(content, docPath, pathIndex, symbolsByF
       // ⇒ The floor did not tell me what to change. It told me to look, and looking found an
       // inconsistency I should have seen when writing it.
       if (!inside(wm.index, codeSpans)) continue;
+
+      // ⛔ THE TOKEN MUST BE WHAT ITS SPAN NAMES, NOT MERELY A WORD INSIDE IT.
+      //
+      // `` `npm rebuild better-sqlite3` `` is a marked span holding a SHELL COMMAND, and it
+      // produced an edge to a function called `rebuild` — the surviving false positive from the
+      // first grade. A code span names ONE thing, and the thing is at its head.
+      //
+      // ⚠ NAIVE HEAD-POSITION DROPS A TRUE POSITIVE, and ef-manager measured it before I applied
+      // the version I had proposed:
+      //
+      //     `npm rebuild better-sqlite3`               head `npm`      -> the FP, correctly dropped
+      //     `export function autoReindexEnabled(env)`  head `export`   -> A REAL REFERENCE, dropped
+      //
+      // "A module-level helper keeps it testable: `export function autoReindexEnabled(env)` in a
+      // small `mcp/stdio/freshness/auto-reindex.js`" is as clear a reference as this corpus holds,
+      // and the head of its span is a keyword. So the head is the first identifier that is not a
+      // DECLARATION KEYWORD — which still kills `npm rebuild …`, because `npm` is an ordinary
+      // identifier sitting in head position.
+      //
+      // ⛔ THIS IS THE THIRD CHANGE TO RULE 4 AFTER GRADING IT, AND THE PRECISION FIGURE IS
+      // THEREFORE NO LONGER INDEPENDENT. 32/33 = 0.970 at 420147b was measured by two graders on
+      // code neither of them had tuned. Whatever this scores on the same corpus is a fit to data
+      // that shaped it. The honest claim is narrower: the ONE known false-positive mechanism is
+      // closed, and precision must be re-measured somewhere this corpus did not reach.
+      const span = codeSpans.find((r) => wm.index >= r.start && wm.index < r.end);
+      if (!isSpanHead(line, span, wm.index)) continue;
 
       const owners = [];
       for (const scope of scopes) {

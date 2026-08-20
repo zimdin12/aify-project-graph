@@ -25,7 +25,7 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
-import { detectDocRefs, buildSymbolIndex, shapeOf } from '../../../mcp/stdio/analysis/doc-refs.js';
+import { detectDocRefs, buildSymbolIndex, shapeOf, isSpanHead } from '../../../mcp/stdio/analysis/doc-refs.js';
 
 let repo;
 afterEach(async () => {
@@ -616,6 +616,63 @@ describe('doc → symbol references, rule 4 (path-scoped)', () => {
     const db = await scopedFixture('```js\nSee `src/client.js` and `hover`.\n```');
     await detectDocRefs(db, repo);
     expect(scoped(db)).toEqual([]);
+    db.close();
+  }, 20_000);
+});
+
+describe('a code span names ONE thing, and the thing is at its head', () => {
+  const spanOf = (line) => {
+    const m = [...line.matchAll(/`([^`\n]+)`/g)][0];
+    return { start: m.index, end: m.index + m[0].length };
+  };
+
+  it('★★★ a word that is not what its span names is refused', () => {
+    // ⛔ THE SURVIVING FALSE POSITIVE FROM RULE 4's FIRST GRADE. `npm rebuild better-sqlite3` is a
+    // marked span holding a SHELL COMMAND, and it produced an edge to a function called `rebuild`.
+    // A code span names one thing; a word buried inside a command is not it.
+    const line = 'Recovery: `npm rebuild better-sqlite3` (single command).';
+    expect(isSpanHead(line, spanOf(line), line.indexOf('rebuild'))).toBe(false);
+    expect(isSpanHead(line, spanOf(line), line.indexOf('npm')), 'the head is npm').toBe(true);
+  });
+
+  it('★★★ DECLARATION KEYWORDS are skipped — naive head position drops a real reference', () => {
+    // ⛔ THE VERSION I PROPOSED WOULD HAVE DROPPED A TRUE POSITIVE, and ef-manager measured that
+    // before I applied it rather than after:
+    //
+    //     `npm rebuild better-sqlite3`               head `npm`     -> the FP, correctly dropped
+    //     `export function autoReindexEnabled(env)`  head `export`  -> A REAL REFERENCE, dropped
+    //
+    // So the head is the first identifier that is not a declaration keyword. That still kills
+    // `npm rebuild …`, because `npm` is an ordinary identifier sitting in head position — the
+    // keyword list is syntactic, not a list of words that seemed unimportant.
+    const line = 'A module-level helper keeps it testable: `export function autoReindexEnabled(env)` in a file.';
+    expect(isSpanHead(line, spanOf(line), line.indexOf('autoReindexEnabled'))).toBe(true);
+    expect(isSpanHead(line, spanOf(line), line.indexOf('export')), 'a keyword is never the name')
+      .toBe(false);
+  });
+
+  it('★★★ a missing span answers false — a guard cannot pass on absent input', () => {
+    // Guards fail closed. Returning true for "no span" would let every unmarked token through the
+    // one check that is supposed to require marking.
+    expect(isSpanHead('anything', null, 0)).toBe(false);
+    expect(isSpanHead('anything', undefined, 0)).toBe(false);
+  });
+
+  it('★★★ end to end: the shell-command span emits nothing, the declaration span emits', async () => {
+    // ⚠ The unit assertions above test the predicate. This tests that the predicate is actually
+    // WIRED — a live helper with no call site is the defect this repo spent the night on.
+    const db = await fixture(
+      'In `src/client.js`: `npm hover better-sqlite3` and `export function references(x)`.', [
+        ['c1', 'Method', 'hover', 'src/client.js', '{"qname":"LspClient.hover"}'],
+        ['c2', 'Method', 'references', 'src/client.js', '{"qname":"LspClient.references"}'],
+        ['fc', 'File', 'client.js', 'src/client.js', '{}'],
+      ]);
+    await detectDocRefs(db, repo);
+    const targets = db.all(
+      `SELECT t.label FROM edges e JOIN nodes t ON t.id = e.to_id
+       WHERE e.extractor = 'doc_ref:path-scoped'`).map((r) => r.label);
+    expect(targets, 'hover is buried in a command; references heads a declaration')
+      .toEqual(['references']);
     db.close();
   }, 20_000);
 });
