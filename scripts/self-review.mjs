@@ -38,6 +38,9 @@
 //     means "nothing was tested".
 //  3. VERIFY THE RESTORE BY HASH, in a `finally`, before anything else runs.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+// ⛔ ONE anchor authority, shared with the suite-time inventory that gates it. A second
+// interpretation in a test would be a different opinion about what 'the site' means.
+import { applyAnchor } from './lib/anchor.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { join, dirname } from 'node:path';
@@ -303,10 +306,20 @@ for (const [i, m] of spec.entries()) {
     if (base.exit !== 0) { record(VERDICT.INVALID, 'baseline run was not green'); continue; }
 
     // ── MUTATE
+    // ⛔ RESOLVE, THEN MUTATE — they used to be one `String.replace` call. With a string argument
+    // it replaces only the FIRST occurrence, so a DUPLICATED anchor mutated one site, satisfied
+    // `after !== before`, and let the arm attribute a red test to a site nobody chose. Absent
+    // failed closed; ambiguous did not fail at all. This was listed under OPEN in this file's own
+    // header as "single-occurrence anchor enforcement" and is now closed.
     const before = readFileSync(join(REPO, m.file), 'utf8');
-    const after = before.replace(m.from, m.to);
-    if (after === before) { record(VERDICT.INVALID, 'anchor missing — nothing was mutated'); continue; }
-    arm.mutation = { preSha256: sha(before), postSha256: sha(after) };
+    const applied = applyAnchor(before, m.from, m.to);
+    if (!applied.applied) {
+      const where = applied.occurrences ? ` at offsets ${applied.occurrences.join(', ')}` : '';
+      record(VERDICT.INVALID, `${applied.reason}: anchor resolved as ${applied.state}${where} — nothing was mutated`);
+      continue;
+    }
+    const after = applied.after;
+    arm.mutation = { preSha256: sha(before), postSha256: sha(after), anchorOffset: applied.index };
     writeFileSync(join(REPO, m.file), after);
 
     const mutFile = join(runDir, `arm-${i}-mutant.json`);
@@ -408,8 +421,11 @@ console.log('No output here is evidence that a guarantee EXISTS; SURVIVED is evi
 //     mutate and restore leaves mutant bytes on disk;
 //   · body-entry witness: `expect()` inside `beforeEach` produces the same evidence shape as a
 //     body assertion, so even FAILURE_OBSERVED does not prove the body ran;
-//   · single-occurrence anchor enforcement, expectFailures type validation, null commit/tree
-//     refusal before mutation, and per-arm APPARATUS_ERROR recording on `finally` restore.
+//   · expectFailures type validation, null commit/tree refusal before mutation, and per-arm
+//     APPARATUS_ERROR recording on `finally` restore.
+// ⇒ CLOSED, and only this one: single-occurrence anchor enforcement now lives in
+// `scripts/lib/anchor.mjs` — absent and ambiguous are distinct INVALID reasons and neither
+// mutates a byte. The remaining items above are still OPEN and are not closed by that.
 if (survived > 0 || invalid > 0 || halted) {
   console.error(`\n⛔ ${survived} candidate hole(s), ${invalid} invalid arm(s) — read the manifest, not this line.`);
   process.exit(1);

@@ -36,8 +36,9 @@
   },
   {
     "name": "F6 packet reports the retrieval cap as the definition total",
-    "file": "mcp/stdio/query/verbs/packet.js",
+    "file": "mcp/stdio/query/verbs/packet-symbol.js",
     "from": "          locationsTotal: resolvedTotal,",
+    "ruling": "2026-08-21: anchor was ABSENT because Phase 0 slice 2 moved the symbol-route data helpers out of packet.js into packet-symbol.js (5163101). The declaration, the hostile mutation (report the retrieval cap as the population) and the predicted failure are unchanged, so this is a FILE repair, not a retarget to convenient nearby prose. Verified unique in the new file.",
     "to": "          locationsTotal: nodes.length,",
     "tests": ["tests/unit/query/packet-unranked-candidates.test.js"]
   }
