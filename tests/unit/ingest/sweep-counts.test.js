@@ -207,6 +207,18 @@ describe('a directory is a node because it CONTAINS something', () => {
     // under reference/, 1,046 files exposed by a walker default, two doc links resolving into it.
     // An excluded tree that still has nodes is a HALF-EXCLUSION, and every layer that walks the
     // graph rediscovers it.
+    //
+    // ⚠ AND NAME THE NOUN. Commit a92a66a's body says "NON-DIRECTORY NODES UNCHANGED AT 222" as its
+    // evidence for "nothing lost". 222 is the count of non-Directory nodes IN sweepFilesystem's OWN
+    // RETURN VALUE — Config 61 + Document 154 + Entrypoint 7. It is NOT a repo-wide figure: the
+    // graph holds 4,390 non-Directory nodes, because plain source files are declined by the sweep
+    // (`not_a_special_kind`) and their File/Function nodes come from the language extractors.
+    //
+    // ef-manager could not reconcile 222 against any population they could name, and said so rather
+    // than assuming it was wrong. They were right: the FIELD was correct and the NOUN was too broad,
+    // which is the defect this repo has spent the night on in every other layer. The repo-wide
+    // support for the same conclusion is 4945 - 4601 = 344 nodes removed against 357 Directory nodes
+    // removed — confined to Directory nodes, from figures anyone can identify.
     repo = await mkdtemp(join(tmpdir(), 'apg-lazydir-'));
     await mkdir(join(repo, 'kept'), { recursive: true });
     await mkdir(join(repo, 'empty', 'deeper'), { recursive: true });
