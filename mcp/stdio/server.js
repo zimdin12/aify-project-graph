@@ -197,12 +197,26 @@ const DEFAULT_TOOL_NAMES = new Set([
 //   graph_dashboard  2026-06 field report — agents hand-rolled a server launcher when it was
 //                    unlisted.
 //
-// ⚠ AND ef-manager'S OWN PRINCIPLE APPLIES TO THEIR OWN RECOMMENDATION. They refused to advise on
-// seven other verbs because "zero calls is evidence I was not doing the work they serve. Do NOT
+// ⚠ A SUPPORTING ARGUMENT, WITH ITS PROVENANCE STATED EXACTLY.
+//
+// `docs/2026-08-19-roadmap.md:208-212` (introduced by afbc4ad) records ef-manager refusing to
+// advise on seven other verbs: "zero calls is evidence I was not doing the work they serve. Do NOT
 // let me be the reason those get cut — a drop decision on my numbers alone would be the
 // consumer-enumeration mistake again." Their calls on graph_index and graph_dashboard are also
-// zero, for the same reason: a reviewer grading precision never needs to re-index or open a
-// dashboard. The caveat they wrote for the seven covers these two as well.
+// zero, for the same reason — a reviewer grading precision never re-indexes or opens a dashboard —
+// so the caveat covers these two unchanged.
+//
+// ⛔ THAT LINE IS A TRANSCRIPTION, NOT THE ORIGINAL MESSAGE, AND ef-manager COULD NOT CONFIRM IT.
+// Asked to verify, they said their session had been compacted and the quote was not in the context
+// they carry: "I will not confirm reasoning I cannot see just because it sounds like mine and the
+// conclusion is one I agree with." Pinned to a commit is not the same as verified against a
+// primary source — a committed transcription is immutable and still only as good as whoever
+// transcribed it, which was me.
+//
+// ⇒ SO THE DECISION DOES NOT REST ON IT. The load-bearing evidence is the two field reports above,
+// which are records of observed HARM rather than of anyone's opinion. If the quote were withdrawn
+// entirely, `graph_index` and `graph_dashboard` still stay on absence-harm and this comment loses
+// a corroborating argument, not its basis.
 //
 // ⇒ So two of the four are dropped on absence of counter-evidence, and two are KEPT on presence
 // of it. Reversing a field-driven decision on usage data alone is how a fix gets undone by someone
