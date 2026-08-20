@@ -25,6 +25,58 @@ import { join } from 'node:path';
 import { computeCoverage, openTasksByFeature, completedTaskCountsByFeature, openTasksWithoutFeatures } from './artifacts.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs, taskLinkStrength, taskLinkStrengthCounts } from '../overlay/quality.js';
 
+/**
+ * What the graph holds about documents, as ONE typed answer every surface renders.
+ *
+ * ⛔ THE FIRST VERSION OF THIS STATE SHIPPED ON ONE SURFACE AND NAMED CAUSES IT COULD NOT ESTABLISH.
+ * graph-senior-dev executed the same input through every renderer:
+ *
+ *     full markdown  state emitted        agent brief   SILENT
+ *     onboard brief  SILENT               JSON          SILENT (no count, no state)
+ *
+ * The compact artifacts agents read FIRST were silent in exactly the field state that motivated the
+ * fix. A typed state on one of four surfaces is not a typed state.
+ *
+ * ⛔⛔ AND THE WORDING CONTRADICTED ITSELF. It said "not a statement about the repository" and then
+ * called zero Document nodes an INGESTION gap and prescribed re-indexing — inferring a cause from
+ * graph absence, which is the exact thing the sentence beside it forbids. A genuinely
+ * document-free repository produces the identical input.
+ *
+ * ⚠ And the field evidence makes it worse, not better: in the repo that motivated this, README,
+ * CLAUDE and AGENTS all PASS the historical `isDocument()` predicate, so "re-index and it is fixed"
+ * is not established there either. Re-indexing may reproduce zero.
+ *
+ * ⇒ SO THE STATES NAME WHAT WAS OBSERVED AND NOTHING ELSE. `graph_empty` says the graph holds no
+ * Document nodes. It does NOT say the repository has none, and it does not prescribe a remedy for a
+ * mechanism nobody has established. `ingestion_gap` would need a SECOND carrier proving
+ * repository_document_count > 0 while indexed_document_count === 0 for the same tree — a tracked-doc
+ * census or a sweep input receipt. There is no such carrier, so there is no such state.
+ *
+ * ⚠ Likewise `indexed_without_link_candidates` does not say the link layer is absent. Zero
+ * candidates is consistent with documents that genuinely contain no authored repository links, an
+ * extractor that never ran, one that ran and produced zero, and edges purged since. The carrier
+ * holds the result population, not producer liveness.
+ */
+export function documentEvidence(readFirstArr = [], documentCount = null) {
+  const linked = readFirstArr.filter((r) => r.kind === 'doc').length;
+  const state = linked > 0 ? 'candidates_present'
+    : documentCount == null ? 'unknown'
+      : documentCount === 0 ? 'graph_empty'
+        : 'indexed_without_link_candidates';
+  return { indexed_document_count: documentCount, linked_candidate_count: linked, state };
+}
+
+/** The one bounded line the compact surfaces render. Null when there is nothing to disclose. */
+export function documentEvidenceLine(ev) {
+  if (ev.state === 'graph_empty') {
+    return 'DOCS: graph holds 0 Document nodes — repository presence and cause NOT established';
+  }
+  if (ev.state === 'indexed_without_link_candidates') {
+    return `DOCS: ${ev.indexed_document_count} indexed, 0 with indexed authored-link evidence`;
+  }
+  return null;
+}
+
 export function renderMarkdown(data) {
   const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth, architectureLayers = [], documentCount = null } = data;
   const lines = [];
@@ -104,6 +156,7 @@ export function renderMarkdown(data) {
   // heading from silently restoring the withdrawn claim over the documents.
   const readSources = readFirstArr.filter((r) => r.kind !== 'doc');
   const docCandidates = readFirstArr.filter((r) => r.kind === 'doc');
+  const docEvidence = documentEvidence(readFirstArr, documentCount);
   if (readSources.length) {
     lines.push('## Read first');
     for (const r of readSources) lines.push(`- \`${r.file}\` — ${r.why}`);
@@ -115,21 +168,21 @@ export function renderMarkdown(data) {
       + 'was derived from this repo.');
     for (const r of docCandidates) lines.push(`- \`${r.file}\` — ${r.why}`);
     lines.push('');
-  } else if (documentCount === 0) {
-    // ⛔ THREE STATES, AND THIS IS THE ONE THAT WAS MISSING. An empty section read as "this repo
-    // has no documents" when the actual state was "this graph holds none" — a repo with AGENTS.md,
-    // CLAUDE.md and README.md on disk and ZERO Document nodes in 15,628. The two want opposite
-    // actions: one is nothing to do, the other is go index them.
+  } else if (docEvidence.state === 'graph_empty') {
+    // ⛔ CAUSE-NEUTRAL. This used to call zero Document nodes an INGESTION gap and prescribe a
+    // re-index — inferring a cause from graph absence, in the same breath as saying not to. A
+    // document-free repository produces the identical input.
     lines.push('## Linked document candidates');
-    lines.push('NONE — this graph holds no Document nodes at all. That is an INGESTION gap, not a '
-      + 'statement about the repository: documents may exist on disk and never have been indexed. '
-      + 'Re-index before reading this section as evidence of anything.');
+    lines.push('NONE — this graph contains 0 Document nodes. Repository document presence and the '
+      + 'omission mechanism are NOT established here. Inspect the ingest corpus before treating '
+      + 'document absence as repository absence.');
     lines.push('');
-  } else if (documentCount > 0) {
+  } else if (docEvidence.state === 'indexed_without_link_candidates') {
     lines.push('## Linked document candidates');
-    lines.push(`NONE of the ${documentCount} indexed document(s) carries an indexed authored link `
-      + 'or sits at the repository root, so there is nothing to rank — the documents are here, the '
-      + 'link layer is not.');
+    lines.push(`NONE — ${documentCount} document(s) indexed, 0 with indexed authored-link evidence. `
+      + 'That is consistent with documents containing no authored repository links, with an '
+      + 'extractor that never ran, and with edges purged since; this carrier holds the result '
+      + 'population, not producer liveness.');
     lines.push('');
   }
 
@@ -312,6 +365,11 @@ export function renderAgentMarkdown(data) {
   if (docCands.length) {
     lines.push('DOCS (link prominence, not a read order):');
     for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
+  } else {
+    // ⚠ ONE BOUNDED LINE, NOT SILENCE. These are the artifacts an agent reads FIRST, and they were
+    // the ones saying nothing in the field state that motivated the whole fix.
+    const line = documentEvidenceLine(documentEvidence(readFirstArr, data.documentCount ?? null));
+    if (line) lines.push(line);
   }
   if (tests.length) {
     const shown = tests.slice(0, 3);
@@ -405,6 +463,11 @@ export function renderOnboardAgentMarkdown(data) {
   if (docCands.length) {
     lines.push('DOCS (link prominence, not a read order):');
     for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
+  } else {
+    // ⚠ ONE BOUNDED LINE, NOT SILENCE. These are the artifacts an agent reads FIRST, and they were
+    // the ones saying nothing in the field state that motivated the whole fix.
+    const line = documentEvidenceLine(documentEvidence(readFirstArr, data.documentCount ?? null));
+    if (line) lines.push(line);
   }
   if (health.issues.length) {
     const tip = health.tip ? ` → ${health.tip}` : '';
@@ -615,6 +678,11 @@ export function renderJson(data, repoRoot) {
     // claim this commit withdrew.
     read_first: readFirstArr.filter((r) => r.kind !== 'doc'),
     linked_document_candidates: readFirstArr.filter((r) => r.kind === 'doc'),
+    // ⛔ COUNTS AND STATE TRAVEL TOGETHER, or `linked_document_candidates: []` is unreadable: it
+    // means the same thing for a graph with 0 Document nodes and for one with 42 that carry no
+    // authored links, and those are different situations. The payload used to carry the empty array
+    // and neither number.
+    document_evidence: documentEvidence(readFirstArr, data.documentCount ?? null),
     tests,
     // The anchors are a SAMPLE. Programmatic consumers need the denominator and
     // the per-extension breakdown to know which suite the sample came from.

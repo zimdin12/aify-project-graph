@@ -38,14 +38,20 @@ const section = (md) => {
 };
 
 describe('the doc section distinguishes its three states', () => {
-  it('★★★ ZERO Document nodes says INGESTION GAP, not "no documents"', async () => {
-    // ⛔ The lc-api state. The graph holds none; the repo may be full of them.
+  it('★★★ ZERO Document nodes reports the OBSERVATION and names no cause', async () => {
+    // ⛔⛔ THIS TEST USED TO ASSERT `/INGESTION gap/` AND IT WAS PINNING A DEFECT — the second time
+    // today one of my tests certified the thing a reviewer then removed.
+    //
+    // The renderer knows the GRAPH holds zero Document nodes. It does not know whether the
+    // REPOSITORY holds any: a document-free repo produces the identical input. Calling that an
+    // ingestion gap and prescribing a re-index infers a cause from absence, in the same breath as
+    // a sentence saying not to — and ef-manager's field evidence killed the remedy too, since the
+    // motivating repo's three root documents PASS the historical predicate.
     const md = renderMarkdown(baseData({ documentCount: 0 }));
     const s = section(md);
     expect(s, 'the section must appear at all — silence is the defect').toBeTruthy();
-    expect(s).toMatch(/INGESTION gap/i);
-    expect(s, 'and it must refuse to make a claim about the repository')
-      .toMatch(/not a statement about the repository/i);
+    expect(s, 'states what was observed').toMatch(/contains 0 Document nodes/);
+    expect(s, 'and that the cause is not established').toMatch(/NOT established/);
   }, 20_000);
 
   it('★★★ documents present but none linked says so, and names the count', async () => {
@@ -53,8 +59,12 @@ describe('the doc section distinguishes its three states', () => {
     // built. A reader who sees "no documents" here goes and re-indexes something that is fine.
     const md = renderMarkdown(baseData({ documentCount: 42 }));
     const s = section(md);
-    expect(s).toMatch(/NONE of the 42 indexed document/);
-    expect(s, 'names which layer is missing').toMatch(/link layer is not/i);
+    expect(s).toMatch(/42 document\(s\) indexed, 0 with indexed authored-link evidence/);
+    // ⚠ AND IT NAMES NO PRODUCER. This used to assert "the link layer is not" — a claim about an
+    // extractor the renderer cannot see. Zero candidates is equally consistent with documents that
+    // genuinely carry no authored links, an extractor that never ran, one that produced zero, and
+    // edges purged since.
+    expect(s, 'lists the alternatives instead of picking one').toMatch(/result population, not producer liveness/);
   }, 20_000);
 
   it('★★★ candidates present render them and make no ingestion claim', async () => {
