@@ -73,7 +73,13 @@ async function repoWithAuthoredLink() {
   // resolved file — the negative one passing vacuously, in exactly the way that hides best.
   // The liveness assertion added to that test is what surfaced it.
   add('f2', 'File', 'mesh.js', 'src/mesh.js');
+  // Three documents so every bucket has an occupant: one links only, one mentions only, one both.
+  add('d-link', 'Document', 'links.md', 'docs/links.md');
+  add('d-mention', 'Document', 'mentions.md', 'docs/mentions.md');
+  add('d-both', 'Document', 'both.md', 'docs/both.md');
   add('s2', 'Function', 'buildMesh', 'src/mesh.js');
+  // A SECOND symbol in terrain.js — this is what makes rows exceed documents.
+  add('s3', 'Function', 'shadeTerrain', 'src/terrain.js');
   db.run(
     `INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
      VALUES ('d1','f1','LINKS_TO','docs/design.md',1,0.95,'INFERRED','doc_link:markdown')`);
@@ -128,8 +134,11 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
     const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
     expect(out.layers.docs, 'defaults are unchanged — this is a disclosure, not a new default')
       .toBeUndefined();
+    // ⚠ WORDING UPDATED WITH THE NOUN FIX. "reference this file" was the defect: it covered
+    // MENTIONS edges, which point at a SYMBOL and say nothing about the file being named.
     expect(out.docs_not_shown, 'the payload must name what it withheld and how to ask for it')
-      .toMatch(/1 document\(s\) reference this file/);
+      .toMatch(/1 document\(s\) relate to this file/);
+    expect(out.docs_not_shown, 'and say which kind of relation it was').toMatch(/1 link to the file itself/);
     expect(out.docs_not_shown).toMatch(/layers:\["docs"\]/);
   }, 60_000);
 
@@ -213,6 +222,136 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
     expect(DOC_FAMILY).toContain('MENTIONS');
     expect(DOC_FAMILY).toContain('LINKS_TO');
   });
+});
+
+describe('docs_not_shown — the noun, and the denominator', () => {
+  // ⛔ ef-manager, from the user's seat: "12 document(s) reference this file." MENTIONS is
+  // Document→SYMBOL; LINKS_TO is Document→FILE. The count mixed both and attached the result to
+  // the noun "this file". Proven on dedup-records.js — one document, CHANGELOG.md, which never
+  // names that file; it names the SYMBOL dedupCollectionRecords.
+  //
+  // Blast radius over 350 files with doc edges: 83 (24%) sentences 100% wrong, 101 (29%) partly,
+  // 166 (47%) correct. So more than half overstated.
+  const plant = (db, from, to, relation, line) => db.run(
+    `INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
+     VALUES ('${from}','${to}','${relation}','x',${line},0.9,'INFERRED','t')`);
+
+  it('★★★ the three buckets RECONCILE to the total — a two-way split overshoots', async () => {
+    // ⛔ THE PROPERTY THAT FAILED. My proposed fix rendered "N link, M mention", and those sets
+    // INTERSECT: scripts/refactor-oracle.mjs is total 53, linking 1, mentioning 53 — so 1 + 53 =
+    // 54 against a total of 53. It would have fixed a noun error by shipping an arithmetic one,
+    // and looked MORE authoritative for carrying structure.
+    await repoWithAuthoredLink();
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    plant(db, 'd-link', 'f1', 'LINKS_TO', 1);
+    plant(db, 'd-mention', 's1', 'MENTIONS', 0);
+    plant(db, 'd-both', 'f1', 'LINKS_TO', 2);
+    plant(db, 'd-both', 's1', 'MENTIONS', 0);
+    db.close();
+
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const b = out.docs_not_shown_breakdown;
+    expect(b.linkOnly + b.mentionOnly + b.both, 'parts must reconcile to the whole')
+      .toBe(b.documents);
+    expect(b.linkOnly).toBe(2);      // d1 (from the base fixture) and d-link
+    expect(b.mentionOnly).toBe(1);
+    expect(b.both).toBe(1);
+    expect(b.documents).toBe(4);
+  }, 60_000);
+
+  it('★★★ a MENTION-only document is not described as referencing the file', async () => {
+    // The dedup-records.js case in miniature: the only document mentions a SYMBOL and never names
+    // the file. The old sentence called that "1 document(s) reference this file".
+    await repoWithAuthoredLink();
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    db.run("DELETE FROM edges WHERE relation = 'LINKS_TO'");
+    plant(db, 'd-mention', 's1', 'MENTIONS', 0);
+    db.close();
+
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    expect(out.docs_not_shown).toMatch(/1 only mention a symbol defined in it/);
+    expect(out.docs_not_shown, 'nothing links to this file, so nothing may say it does')
+      .not.toMatch(/link to the file itself/);
+  }, 60_000);
+
+  it('★★★ NEGATIVE CONTROL — a link-only file stays correct after the fix', async () => {
+    // ⚠ ef-manager: "A fix that makes the 83 right and quietly breaks the 166 that were already
+    // right is a worse build, and only a negative control catches it." server-instructions.js is
+    // their real-world instance — 12 documents, all LINKS_TO, zero MENTIONS, verified including
+    // the two rows truncated past the display limit.
+    await repoWithAuthoredLink();
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    expect(out.docs_not_shown).toMatch(/1 link to the file itself/);
+    expect(out.docs_not_shown).not.toMatch(/mention a symbol/);
+    expect(out.docs_not_shown).not.toMatch(/do both/);
+  }, 60_000);
+
+  it('★★★ the SILENCE of the entries figure depends on MENTIONS having no line — pinned', async () => {
+    // ⛔ ef-manager cross-tabbed all 350 files with doc edges and found that 16 of the 19 where
+    // documents == layer-rows agree BY CONSTRUCTION, not by coincidence: MENTIONS edges carry no
+    // source_line (2527 of 2527 are zero; LINKS_TO is 477 of 477 non-zero). With the fourth field
+    // of the layer tuple constant, a mention-only file collapses to one row per document as a
+    // THEOREM.
+    //
+    // So "print the entries figure only when it differs" is silent on those files because of an
+    // undocumented property of the extractor. If MENTIONS ever gains line numbers — plausible,
+    // since LINKS_TO already has them — the field wakes up on sixteen files at once and nothing
+    // in the code says why.
+    //
+    // This is that dependency made executable: give two MENTIONS edges DIFFERENT lines and the
+    // figure must appear. A correct design resting on an undeclared invariant is the same shape
+    // as a guard that passes because its input is missing.
+    await repoWithAuthoredLink();
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    db.run("DELETE FROM edges WHERE relation = 'LINKS_TO'");
+    plant(db, 'd-mention', 's1', 'MENTIONS', 11);
+    plant(db, 'd-mention', 's3', 'MENTIONS', 22);   // same doc, DIFFERENT lines -> no collapse
+    db.close();
+
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const b = out.docs_not_shown_breakdown;
+    expect(b.documents, 'one document').toBe(1);
+    expect(b.references, 'two rows, because the lines differ').toBe(2);
+    expect(out.docs_not_shown, 'the figure must surface the moment the invariant stops holding')
+      .toMatch(/giving 2 entries/);
+  }, 60_000);
+
+  it('★★★ the disclosed count and the docs layer do not contradict each other', async () => {
+    // ⛔ THE SECOND DEFECT, and the worse one: docEdgeCountForFile counted DISTINCT DOCUMENTS
+    // while the docs layer returns DISTINCT edge ROWS, and both surfaced as `total`. Measured on
+    // the real repo: packet.js disclosed 13, the layer returned 18. An agent told "13 documents",
+    // who then passes layers:["docs"] EXACTLY AS THE SENTENCE INSTRUCTS, is handed 18 under a
+    // field also called total. The instruction walked the reader into the contradiction.
+    await repoWithAuthoredLink();
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    // ⛔ MY FIRST VERSION OF THIS TEST WAS IMPOSSIBLE, and the schema said so:
+    //   UNIQUE constraint failed: edges.from_id, edges.to_id, edges.relation
+    // I had assumed one document linking to a file on three lines meant three rows. It cannot:
+    // that tuple is UNIQUE, so it is ONE edge. My mental model of the divergence was wrong and
+    // the database corrected it — the rows/documents gap comes from a document touching several
+    // SYMBOLS in the same file, each a distinct `to_id`, all matching `s.file_path = $p`.
+    plant(db, 'd-both', 's1', 'MENTIONS', 0);
+    plant(db, 'd-both', 's3', 'MENTIONS', 0);   // 2 symbols in ONE file -> 2 rows, 1 document
+    db.close();
+
+    const bare = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const withDocs = JSON.parse(await graphPull({
+      repoRoot: repo, node: 'src/terrain.js', layers: ['docs'],
+    }));
+    const b = bare.docs_not_shown_breakdown;
+    expect(b.documents, 'd1 (links) and d-both (mentions two symbols)').toBe(2);
+    // ⚠ TWO, NOT THREE — and my expectation of 3 was the third wrong model in this one test.
+    // The layer's SELECT DISTINCT omits the target symbol, so d-both's two MENTIONS (to different
+    // symbols, both on line 0) collapse into ONE row. One link row + one collapsed mention row.
+    // The number the disclosure promises is the number the layer hands back, which is the only
+    // property that matters here.
+    expect(b.references, 'what the layer will actually return').toBe(2);
+    expect(withDocs.layers.docs.total,
+      'the layer counts REFERENCES, and the disclosure must have said so')
+      .toBe(b.references);
+    expect(bare.docs_not_shown, 'both numbers named, so following the instruction cannot surprise')
+      .toMatch(/2 document\(s\)/);
+  }, 60_000);
 });
 
 describe('assessCoverage — the receipt learns that unconsulted is not untruncated', () => {

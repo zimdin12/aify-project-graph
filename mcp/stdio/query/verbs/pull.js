@@ -89,15 +89,118 @@ const PULL_DOC_SQL_LIST = DOC_FAMILY.map((r) => `'${r}'`).join(', ');
 
 // How many documents point at this file, regardless of whether the caller asked for them.
 // Cheap (indexed on relation), and it is the number that makes the disclosure below possible.
-function docEdgeCountForFile(db, filePath) {
+/**
+ * ⛔ "N DOCUMENT(S) REFERENCE THIS FILE" WAS TWO DEFECTS IN ONE SENTENCE.
+ *
+ * DEFECT 1 — THE NOUN. `MENTIONS` is Document→SYMBOL; `LINKS_TO` is Document→FILE. Both are in
+ * `DOC_FAMILY` and both join on `s.file_path`, so the count mixed them and then attached the
+ * result to the noun "this file". ef-manager proved it on `dedup-records.js`: one document,
+ * `CHANGELOG.md`, which never names that file — it names the SYMBOL `dedupCollectionRecords`.
+ * The edge is real; the noun was invented.
+ *
+ * Measured blast radius over the 350 files carrying at least one doc edge (their query, FLOOR
+ * quality — it re-implements the shape of ours, cross-checked exact on two files against this
+ * verb's own output):
+ *
+ *     83 (24%)  sentence 100% WRONG — zero LINKS_TO, every counted reference is a symbol mention
+ *    101 (29%)  sentence PARTLY wrong — both kinds present
+ *    166 (47%)  sentence CORRECT — LINKS_TO only
+ *
+ * ⚠ AND THE OBVIOUS FIX HAS AN OVERLAP DEFECT, which ef-manager caught in the gap between my
+ * describing it and my writing it. The two sets are NOT disjoint — a document can link to a file
+ * AND mention a symbol in it. `scripts/refactor-oracle.mjs`: total 53, linking 1, mentioning 53.
+ * A two-bucket split renders 1 + 53 = 54 against a total of 53, and it would look MORE
+ * authoritative than the sentence it replaced because it now carries structure.
+ *
+ * ⇒ THREE buckets, and the parts reconcile to the total by construction. The invariant is
+ * asserted in the test because it is exactly the property that failed.
+ *
+ * DEFECT 2 — THE DENOMINATOR. The old count was `COUNT(DISTINCT d.id)` (DOCUMENTS) while the docs
+ * layer returns DISTINCT edge rows (REFERENCES), and both surfaced as `total`. Measured:
+ * `packet.js` disclosed 13 and the layer returned 18; `importer.js` 41 against 44. An agent told
+ * "13 document(s)", who then passes `layers:["docs"]` EXACTLY AS THE SENTENCE INSTRUCTS, is
+ * handed 18 under a field also called `total`. The instruction led the reader into the
+ * contradiction. Both numbers are now reported, named for what they count.
+ */
+function docReferenceBreakdown(db, filePath) {
+  const empty = { documents: 0, references: 0, linkOnly: 0, mentionOnly: 0, both: 0 };
   try {
-    return db.all(
-      `SELECT COUNT(DISTINCT d.id) AS c
-         FROM edges e
-         JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
-         JOIN nodes s ON s.id = e.to_id AND s.file_path = $p
-        WHERE e.relation IN (${PULL_DOC_SQL_LIST})`, { p: filePath })[0]?.c ?? 0;
-  } catch { return 0; }
+    // One row per DOCUMENT, carrying which kinds of edge it has and how many rows it contributes.
+    // Classifying per document is what makes the three buckets disjoint — the overlap defect comes
+    // from counting the two relations separately and adding them.
+    // ⚠ THE PROJECTION MATCHES THE DOCS LAYER'S, EXACTLY, and that is the whole point of this
+    // helper. There turned out to be THREE candidate denominators here, not two:
+    //   · DOCUMENTS                              — what the old sentence counted
+    //   · EDGE ROWS                              — what I assumed the layer counted
+    //   · DISTINCT (document, relation, line)    — what the layer ACTUALLY returns, because its
+    //                                              SELECT DISTINCT omits the target symbol
+    // So two mentions of DIFFERENT symbols on the same line collapse to one row in the layer. A
+    // disclosure counting edge rows would promise 3 and the layer would hand back 2 — the same
+    // contradiction as before, one denominator over.
+    // ⇒ Count what the reader will be given. The inner DISTINCT mirrors the layer's projection.
+    const rows = db.all(
+      `SELECT doc,
+              SUM(CASE WHEN relation = 'LINKS_TO' THEN 1 ELSE 0 END) AS links,
+              SUM(CASE WHEN relation = 'MENTIONS' THEN 1 ELSE 0 END) AS mentions,
+              COUNT(*) AS refs
+         FROM (SELECT DISTINCT d.id AS doc, d.label, d.file_path, e.relation, e.source_line
+                 FROM edges e
+                 JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
+                 JOIN nodes s ON s.id = e.to_id AND s.file_path = $p
+                WHERE e.relation IN (${PULL_DOC_SQL_LIST}))
+        GROUP BY doc`, { p: filePath });
+    const out = { ...empty, documents: rows.length };
+    for (const r of rows) {
+      out.references += Number(r.refs) || 0;
+      const hasLink = Number(r.links) > 0;
+      const hasMention = Number(r.mentions) > 0;
+      if (hasLink && hasMention) out.both += 1;
+      else if (hasLink) out.linkOnly += 1;
+      else out.mentionOnly += 1;
+    }
+    return out;
+  } catch { return empty; }
+}
+
+/**
+ * The sentence. Says only what the buckets support: a document that merely mentions a symbol has
+ * NOT referenced the file, and saying so was the original defect.
+ */
+function docsNotShownSentence(b) {
+  // ⚠ EVERY NUMBER HERE COUNTS DOCUMENTS, AND THE SENTENCE SAYS SO EXPLICITLY. ef-manager
+  // measured FOUR distinct denominators available on one file (packet.js: 13 documents, 20 raw
+  // edge rows, 18 layer rows, 4 target symbols) and warned that a reader seeing "mention a symbol
+  // defined in it" will most likely read the number beside it as HOW MANY SYMBOLS. On packet.js
+  // that reading is 4, not 18.
+  //
+  // ⇒ Chosen deliberately, not by default: the buckets count DOCUMENTS, because that is the only
+  // scope on which the three parts can reconcile to the whole — a document is what can be
+  // link-only, mention-only, or both. The word "documents" leads the clause so the parts inherit
+  // it, and the target-symbol count is NOT printed: it answers a different question, and a
+  // sentence carrying four numbers teaches the reader to skip all four.
+  const parts = [];
+  if (b.linkOnly) parts.push(`${b.linkOnly} link to the file itself`);
+  if (b.mentionOnly) parts.push(`${b.mentionOnly} only mention a symbol defined in it`);
+  if (b.both) parts.push(`${b.both} do both`);
+  // The second number is what the docs layer will HAND BACK, so following the instruction cannot
+  // surprise. Printed only when it differs, so it means something when it appears.
+  //
+  // ⚠ THAT SILENCE IS LOAD-BEARING ON AN INVARIANT NOBODY DECLARED, and ef-manager found it by
+  // cross-tabbing all 350 files with doc edges: MENTIONS edges carry NO source_line — 2527 of
+  // 2527, zero exceptions, against LINKS_TO's 477 of 477 non-zero. So for a mention-only file the
+  // layer tuple (label, path, relation, line) collapses to one row per document BY CONSTRUCTION,
+  // and `documents === references` is a theorem rather than an accident. Sixteen of the nineteen
+  // files where the two agree agree for that reason.
+  //
+  // ⇒ If MENTIONS ever gains line numbers — a plausible improvement, since LINKS_TO already has
+  // them — those files stop collapsing and this field wakes up on sixteen files at once. That is
+  // a correct design resting on an undocumented property of the extractor, which is the same
+  // shape as a guard that passes because its input is missing. The dependency is named here and
+  // pinned by test, so whoever adds those line numbers finds out at the right moment.
+  const refs = b.references === b.documents ? '' : `, giving ${b.references} entries`;
+  return `${b.documents} document(s) relate to this file — of those, ${parts.join(', ')}${refs}.`
+    + ' Not in the default layers: pass layers:["docs"] to see them, with the line each'
+    + ' reference is on.';
 }
 
 // A TRUE ZERO AND A BROKEN ZERO WERE SHAPE-IDENTICAL, and ef-manager caught it inside the fix for
@@ -721,9 +824,12 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     // for a layer most callers do not want, while a pointer costs nothing when there is nothing
     // to point at and names the exact argument when there is. Same shape as the
     // recompile_surface truncation disclosure already in this file.
-    const n = docEdgeCountForFile(db, filePath);
-    if (n > 0) {
-      out.docs_not_shown = `${n} document(s) reference this file. Not in the default layers — pass layers:["docs"] to see them, with the line each reference is on.`;
+    const breakdown = docReferenceBreakdown(db, filePath);
+    if (breakdown.documents > 0) {
+      out.docs_not_shown = docsNotShownSentence(breakdown);
+      // The structure beside the sentence, so a consumer never has to parse prose to get the
+      // split — and so the reconciliation is checkable without a regex.
+      out.docs_not_shown_breakdown = breakdown;
     }
   }
 
