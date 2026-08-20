@@ -119,6 +119,34 @@ describe('packet authority boundaries', () => {
     expect(result.complete).toBe(true);
   });
 
+  it('★★★ the compat re-export is the SAME FUNCTION OBJECT, not an equivalent one', async () => {
+    // dev, ruling on slice 2: "Move the definition with that authority and compatibility-
+    // re-export it from packet.js; pin that the old name resolves to the same function object."
+    //
+    // ⚠ IDENTITY, NOT BEHAVIOUR. A re-export that wrapped or re-implemented the function would
+    // satisfy every behavioural test in this repo and still break any caller that compares
+    // identities — and the failure would surface far from here, as a mysterious inequality.
+    const facade = await import('../../../mcp/stdio/query/verbs/packet.js');
+    const island = await import('../../../mcp/stdio/query/verbs/packet-symbol.js');
+    expect(facade.resolvePopulation, 'the old name must resolve to the moved definition')
+      .toBe(island.resolvePopulation);
+  });
+
+  it('★★★ the serializer-returning route did NOT become reachable', () => {
+    // ⛔ dev pre-registered this as the most likely failure of the whole phase: "an unsealed
+    // escape introduced for testability — an extracted renderer gets exported, tests begin
+    // calling it directly, and its string output bypasses withSealScope/sealPacketOutput."
+    //
+    // `buildSymbolPointerPacket` returns a serialized string via renderPacketLines, so it stays
+    // private in the facade. This asserts the negative directly rather than trusting that the
+    // allowlist above happens to omit it — an allowlist proves what IS exported; this proves the
+    // one name that must never be.
+    for (const f of PACKET_MODULES()) {
+      expect(exportedNames(read(f), f), `${f} must not export the unsealed renderer`)
+        .not.toContain('buildSymbolPointerPacket');
+    }
+  });
+
   it('★★★ island exports are an EXACT allowlist — a new export is a reviewed event', () => {
     // ⚠ dev's reachability finding: slice 1 exported all 31 declarations of the two islands,
     // "much broader than the facade needs, and the boundary gate does not inventory it." Not an
@@ -136,6 +164,18 @@ describe('packet authority boundaries', () => {
         'readTasks', 'resolvePacketBudget', 'snapshotLine', 'trustTier',
       ],
       'packet-overlay.js': ['buildFeaturePacket', 'buildTaskPacket'],
+      // ⭐ PRE-REGISTERED BEFORE THE FILE EXISTED, which is dev's explicit instruction for slice 2:
+      // "Pre-register packet-symbol.js's exact allowed surface before adding it." Writing the
+      // allowlist first makes the surface a decision; writing it after makes it a description of
+      // whatever the extraction happened to leave reachable, which is how slice 1 ended up
+      // exporting all 31 of its declarations.
+      //
+      // ⚠ THREE NAMES, AND buildSymbolPointerPacket IS NOT ONE OF THEM. dev ruled option (1):
+      // that function returns a SERIALIZED string via renderPacketLines, so deep-importing it
+      // would create the unsealed-renderer escape they pre-registered as the most likely failure
+      // of this whole phase — an extracted renderer gets exported, tests call it directly, and its
+      // output bypasses withSealScope/sealPacketOutput. It stays private in packet.js.
+      'packet-symbol.js': ['countByLanguage', 'resolveFeatureForSymbolCheap', 'resolvePopulation'],
     };
     // ⛔ POPULATION-COMPLETE. dev: "a newly created packet-symbol.js would be discovered by
     // PACKET_MODULES() but absent from ALLOWED, so its exports would receive no exact check."

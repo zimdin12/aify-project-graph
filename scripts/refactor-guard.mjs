@@ -81,6 +81,54 @@ const ROUTES = [
     owner: 'packet-overlay.js::testsFromFeature', marker: 'TEST_MARKER_A' },
   { id: 'task-body', repo: FIXTURE, target: 'task:CU-999', mode: 'plan',
     owner: 'packet-overlay.js::buildTaskPacket', marker: 'ROUTE_MARKER_TASK' },
+  // ⛔ SLICE 2 REPRODUCED BLOCKER 1 BEFORE IT SHIPPED. The guard reported "59 of 59 identical ·
+  // routes executed 4/4" while TWO OF THE THREE declarations slice 2 moved were never executed by
+  // the corpus. I proved it the way dev proved it against slice 1 — mutate the moved function and
+  // watch the guard: `resolvePopulation` turned 25 cells red, `countByLanguage` and
+  // `resolveFeatureForSymbolCheap` turned nothing red at all.
+  //
+  // The mechanism, and it is not subtle once measured: `resolveFeatureForSymbolCheap` returns
+  // null on its FIRST line when there is no functionality overlay, and THIS REPO HAS NO
+  // functionality.json. So all 55 live-repo cells exit that function immediately, and
+  // `countByLanguage` — which is only ever called from inside it — cannot run at all. A corpus of
+  // 55 bare-symbol inputs against a repo with no overlay is 55 inputs and zero coverage of the
+  // cheap path.
+  //
+  // ⇒ A bare-symbol route against the FIXTURE, which does have features. The marker is a LANGUAGE
+  // string: the fixture graph carries a second definition of `generateTerrain` in
+  // `src/terrain.glsl` with language `ROUTEMARKERLANG`, so that token can only reach the output
+  // through countByLanguage's census — which only runs inside resolveFeatureForSymbolCheap, which
+  // only produces a feature at all when the cheap path resolves. One marker, three declarations,
+  // and it cannot be satisfied by any of them individually.
+  { id: 'symbol-cheap-census', repo: FIXTURE, target: 'generateTerrain', mode: 'plan',
+    owner: 'packet-symbol.js::countByLanguage + resolveFeatureForSymbolCheap',
+    // ⚠ LOWERCASE, because the renderer lowercases language names on the way out. The guard
+    // REFUSED on the uppercase spelling — "a baseline that cannot reach the moved code certifies
+    // nothing" — and it was right to: the marker as written did not appear in the output, so the
+    // route was unproven even though it was in fact running. Reading the rendered text rather
+    // than assuming the marker survived is what found the transform.
+    marker: 'routemarkerlang' },
+  // ⛔ AND THE ROUTE ABOVE STILL DID NOT REACH `countByLanguage` — 2/3, not 3/3. Mutating it left
+  // the guard green even with the symbol route running, because the census has TWO producers:
+  //
+  //     const census = exactCensus ?? countByLanguage(nodes);
+  //
+  // `languageCensusExact` answers whenever the query matched by EXACT LABEL, which every
+  // plain-symbol lookup does — so `countByLanguage` is the FALLBACK and a bare-symbol route can
+  // never execute it. Reaching it needs a resolution path where the matched node's label differs
+  // from the string that was asked for.
+  //
+  // ⇒ A QUALIFIED symbol. `Terrain::qualifiedMarker` resolves through the qname index onto nodes
+  // labelled `qualifiedMarker`, so the exact-label census finds nothing, returns null, and the
+  // fallback runs. Two fixture nodes share that qname in different languages so the cross-language
+  // line renders and carries the marker.
+  //
+  // ⚠ THE LESSON IS NOT "ADD A ROUTE". It is that a declaration can be moved, live, imported and
+  // covered by a passing corpus while never running — and that only mutating it says so. Route
+  // count and executed-declaration count are different denominators and this slice needed both.
+  { id: 'symbol-qualified-census-fallback', repo: FIXTURE, target: 'Terrain::qualifiedMarker',
+    mode: 'plan', owner: 'packet-symbol.js::countByLanguage (fallback census path)',
+    marker: 'censusmarkerlang' },
 ];
 
 const MODES = ['orient', 'plan', 'debug', 'review', 'audit'];
@@ -119,9 +167,28 @@ async function runCorpus() {
   if (!existsSync(fixtureDb)) {
     const db = openDb(fixtureDb);
     try {
-      for (const [id, label, file] of [['n1', 'generateTerrain', 'src/terrain.js'], ['n2', 'buildMesh', 'src/mesh.js']]) {
+      // ⛔ THE SEED IS THE ONLY COMMITTED FORM OF THIS GRAPH — `.aify-graph/` is gitignored, so
+      // every node a route depends on must be created HERE or that route is unreachable on any
+      // machine but mine. I hand-edited the sqlite first and `git add` refused the file, which is
+      // the only reason I noticed: the guard would have kept reporting 6/6 locally while refusing
+      // on a fresh clone. Fail-closed, but broken for everyone else.
+      //
+      // `language` and `extra` are per-node because the last two routes turn on exactly those
+      // fields: a distinct language proves countByLanguage's census reached the output, and a
+      // shared qname is what forces resolution down the non-exact path where that census is the
+      // FALLBACK rather than the exact one.
+      const SEED = [
+        ['n1', 'generateTerrain', 'src/terrain.js', 'javascript', '{}'],
+        ['n2', 'buildMesh', 'src/mesh.js', 'javascript', '{}'],
+        // second definition of generateTerrain -> cross-language census renders (route 5)
+        ['n3', 'generateTerrain', 'src/terrain.glsl', 'routemarkerlang', '{}'],
+        // shared qname, two languages -> qualified lookup, exact census null, fallback runs (route 6)
+        ['n4', 'qualifiedMarker', 'src/terrain.js', 'censusmarkerlang', '{"qname":"Terrain.qualifiedMarker"}'],
+        ['n5', 'qualifiedMarker', 'src/mesh.js', 'javascript', '{"qname":"Terrain.qualifiedMarker"}'],
+      ];
+      for (const [id, label, file, lang, extra] of SEED) {
         db.run(`INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
-                VALUES ('${id}','Function','${label}','${file}',1,1,'javascript',1,'{}')`);
+                VALUES ('${id}','Function','${label}','${file}',1,1,'${lang}',1,'${extra}')`);
       }
     } finally { db.close(); }
   }

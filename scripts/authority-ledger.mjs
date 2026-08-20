@@ -82,12 +82,19 @@ export const AUTHORITIES = {
     declarations: ['LIVE_BUDGET_MS', 'withTimeout', 'enrichLive'],
   },
   'packet:symbol-route': {
-    why: 'the symbol/pointer route — exact/floor/unknown population branches, file-vs-symbol '
-      + 'behaviour. dev: the first high-value falsifier and most repeated route defects',
-    declarations: [
-      'countByLanguage', 'resolveFeatureForSymbolCheap', 'buildSymbolPointerPacket',
-      'resolvePopulation',
-    ],
+    why: 'the symbol-route DATA helpers — population attestation and the cheap symbol->feature '
+      + 'resolution. dev: the first high-value falsifier and most repeated route defects',
+    declarations: ['countByLanguage', 'resolveFeatureForSymbolCheap', 'resolvePopulation'],
+  },
+  'packet:symbol-route-facade': {
+    // ⛔ SPLIT FROM THE AUTHORITY ABOVE, deliberately. `buildSymbolPointerPacket` returns a
+    // SERIALIZED string via renderPacketLines, so it cannot leave the facade without creating the
+    // unsealed-renderer escape dev pre-registered. Its authority is therefore rendering, not
+    // symbol resolution, and the ledger says so rather than leaving it filed with the data
+    // helpers it happens to call.
+    why: 'renders the symbol pointer packet. Stays in packet.js because its output is serialized '
+      + 'and must pass the facade seal — dev ruling, slice 2 option (1)',
+    declarations: ['buildSymbolPointerPacket'],
   },
   'packet:facade': {
     why: 'orchestration and the ONLY exported tool entry. dev: withSealScope + sealPacketOutput '
@@ -141,7 +148,8 @@ export function auditFile(relPath, authorities) {
 // ⇒ auditAll() is side-effect-free and returns a verdict. The CLI and the suite call the SAME
 // function, so a failure cannot print itself green.
 export const FILE_AUTHORITIES = {
-  'mcp/stdio/query/verbs/packet.js': ['packet:legacy-clamp', 'packet:live', 'packet:symbol-route', 'packet:facade'],
+  'mcp/stdio/query/verbs/packet.js': ['packet:legacy-clamp', 'packet:live', 'packet:symbol-route-facade', 'packet:facade'],
+  'mcp/stdio/query/verbs/packet-symbol.js': ['packet:symbol-route'],
   'mcp/stdio/query/verbs/packet-input.js': ['packet:input', 'packet:snapshot', 'packet:budget', 'packet:target'],
   'mcp/stdio/query/verbs/packet-overlay.js': ['packet:overlay'],
 };
