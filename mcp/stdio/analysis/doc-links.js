@@ -84,6 +84,11 @@ export const DOC_LINK_RULES = Object.freeze({
   // REPOSITORY rather than of the writing — so it gets the same treatment: its own tag, its own
   // confidence, and dev's floor enforced against it separately.
   // (`doc_link:inline-basename` was here. Graded 0.708 and deleted — see resolveDocPath.)
+  // TIER 3. A written path that is a unique SUFFIX of exactly one indexed path, on a segment
+  // boundary: `code-intel/coverage.js` -> `mcp/stdio/code-intel/coverage.js`. Below an exact
+  // anchoring because the author wrote a fragment; well above a bare basename because the fragment
+  // carries directory context, which is the thing whose absence made the basename tier 0.708.
+  'doc_link:path-suffix': 0.8,
 });
 
 const EXTRACTOR_PREFIX = 'doc_link:';
@@ -269,6 +274,41 @@ export function resolveDocPath(written, docPath, index) {
   // allowlist's "skip trivial command docs" (0 of 80) and rule 4's flagship example (1 edge of 3).
   // When a rule's justification names a case, COUNT THAT CASE: a justification with zero instances
   // is not weak, it is a different rule than the one documented.
+
+  // ── TIER 3: A UNIQUE PATH SUFFIX ─────────────────────────────────────────────────────────────
+  //
+  // ⭐ THIS IS NOT THE DELETED TIER UNDER A NEW NAME, AND THE DIFFERENCE IS THE WHOLE ARGUMENT.
+  //
+  // Tier 2 resolved a BARE BASENAME — `compile_commands.json` — which names a KIND of file and
+  // meant, in 35 of its 120 edges, the reader's own build artifact. It graded 0.708 and went.
+  //
+  // A PARTIAL PATH is different in kind, not degree: `code-intel/coverage.js` carries DIRECTORY
+  // CONTEXT. The author wrote where the file sits, not just what it is called, and that context is
+  // exactly what `compile_commands.json` lacked. Same relationship as rule 2 to rule 3 in the
+  // symbol layer — a qualifier is evidence, and an unqualified name is not.
+  //
+  // MEASURED over this corpus before the tier was written:
+  //
+  //     exact (tier 1)                        674
+  //     partial, resolving UNIQUELY            66   <- this tier
+  //     partial, AMBIGUOUS                     12   <- refused; `skill/SKILL.md` has 4 candidates
+  //     bare basename                        1484   <- the deleted tier's population
+  //
+  // ⛔ THE MATCH IS ON A PATH-SEGMENT BOUNDARY, NEVER A SUBSTRING. `intel/coverage.js` must not
+  // match `code-intel/coverage.js`: that is a substring, and matching it would resolve a path the
+  // author did not write. The suffix must begin where a segment begins.
+  //
+  // ⚠ AND IT IS TAGGED SEPARATELY, because the lesson from tier 2 is that a rule which cannot be
+  // isolated cannot be measured, and a floor cannot be enforced against a rule you cannot isolate.
+  if (cleaned.includes('/')) {
+    const needle = `/${rootRel}`;
+    const suffixHits = [];
+    for (const p of index.byPath.keys()) {
+      if (p === rootRel || p.endsWith(needle)) suffixHits.push(p);
+      if (suffixHits.length > 1) break;
+    }
+    if (suffixHits.length === 1) return { id: index.byPath.get(suffixHits[0]).id, tier: 3 };
+  }
   return null;
 }
 
@@ -426,7 +466,11 @@ export async function detectDocLinks(db, repoRoot) {
       // resolved by basename is still a basename resolution; calling it `doc_link:markdown`
       // because of how it was written would put 0.95 on a 0.6 claim. The SPAN says how the author
       // wrote it; the TIER says how confidently we found it, and the weaker of the two governs.
-      const rule = verdict.tier === 2 ? 'doc_link:inline-basename' : ref.rule;
+      // ⛔ THE TIER DECIDES THE TAG. Tier 2 is gone, so the only weakening here is tier 3 — a
+      // partial path, which is a different claim from an exact anchoring however the span was
+      // written. A markdown link resolved by suffix is still a suffix resolution, and calling it
+      // `doc_link:markdown` because of how it was TYPED would put 0.95 on a 0.8 claim.
+      const rule = verdict.tier === 3 ? 'doc_link:path-suffix' : ref.rule;
       if (!best.has(verdict.id)) best.set(verdict.id, { ...ref, rule });
     }
 

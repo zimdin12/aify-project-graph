@@ -441,3 +441,99 @@ describe('doc → file links', () => {
     db.close();
   }, 20_000);
 });
+
+// TIER 3 — A UNIQUE PATH SUFFIX. NOT THE DELETED TIER UNDER A NEW NAME.
+//
+// ⛔ Tier 2 resolved a BARE BASENAME. `compile_commands.json` names a KIND of file, and in 35 of
+// its 120 edges it meant the READER'S build artifact while resolving to our test fixture. It
+// graded 0.708 and was deleted.
+//
+// ⭐ A PARTIAL PATH IS DIFFERENT IN KIND, NOT DEGREE. `code-intel/coverage.js` carries DIRECTORY
+// CONTEXT — the author wrote where the file sits, not just what it is called — and that context is
+// exactly what the basename lacked. Same relationship as rule 2 to rule 3 in the symbol layer: a
+// qualifier is evidence, an unqualified name is not.
+//
+// MEASURED over this corpus before the tier was written:
+//   exact 674 · partial UNIQUE 66 · partial AMBIGUOUS 12 · bare basename 1484 (the deleted tier)
+//
+// A/B on the real corpus, tier 3 on vs off:
+//   LINKS_TO            471 -> 533
+//   rule-4 MENTIONS      19 ->  32   (a partial path could not scope a line before)
+//   -> compile_commands.json  1 ->  1   <- THE CONTROL: the FP class is not reintroduced
+describe('tier 3 resolves a unique path suffix, on segment boundaries only', () => {
+  async function repoWithNestedFile() {
+    const repo = await mkdtemp(join(tmpdir(), 'apg-suffix-'));
+    await mkdir(join(repo, 'docs'), { recursive: true });
+    await writeFile(join(repo, 'docs', 'design.md'),
+      'See `code-intel/coverage.js` and `intel/coverage.js` and `helper.js`.\n');
+    const db = openDb(join(repo, 'graph.sqlite'));
+    const add = (id, type, label, file) => db.run(
+      `INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
+       VALUES ('${id}','${type}','${label}','${file}',1,1,'js_ts',1,'{}')`);
+    add('d1', 'Document', 'design.md', 'docs/design.md');
+    add('f1', 'File', 'coverage.js', 'mcp/stdio/code-intel/coverage.js');
+    add('f2', 'File', 'helper.js', 'src/deep/nested/helper.js');
+    return { repo, db };
+  }
+
+  it('★★★ a multi-segment suffix resolves to the one path that ends with it', async () => {
+    const { repo, db } = await repoWithNestedFile();
+    await detectDocLinks(db, repo);
+    const rows = db.all(
+      `SELECT e.extractor, t.file_path FROM edges e JOIN nodes t ON t.id = e.to_id
+       WHERE e.relation = 'LINKS_TO'`);
+    const cov = rows.find((r) => r.file_path === 'mcp/stdio/code-intel/coverage.js');
+    expect(cov, '`code-intel/coverage.js` must resolve').toBeTruthy();
+    expect(cov.extractor, 'tagged as its own tier, not as an exact path')
+      .toBe('doc_link:path-suffix');
+    db.close();
+    await rm(repo, { recursive: true, force: true });
+  }, 20_000);
+
+  it('★★★ a SUBSTRING that is not a segment boundary does NOT resolve', async () => {
+    // ⛔ `intel/coverage.js` is a substring of `code-intel/coverage.js` and is NOT a path suffix.
+    // Matching it would resolve a path the author did not write — the whole difference between a
+    // suffix match and a `LIKE '%...%'`. Both spans are on the same line, so a rule that resolved
+    // either would resolve both, and the fixture would not be able to tell them apart.
+    const { repo, db } = await repoWithNestedFile();
+    await detectDocLinks(db, repo);
+    const edges = db.all(
+      `SELECT COUNT(*) c FROM edges e JOIN nodes t ON t.id = e.to_id
+       WHERE e.relation = 'LINKS_TO' AND t.file_path = 'mcp/stdio/code-intel/coverage.js'`)[0].c;
+    expect(edges, 'exactly one edge — from the real suffix, not from the substring too').toBe(1);
+    db.close();
+    await rm(repo, { recursive: true, force: true });
+  }, 20_000);
+
+  it('★★★ a BARE basename still does not resolve — the deleted tier stays deleted', async () => {
+    // The regression guard on the 0.708 rule. `helper.js` is unique in this graph and would have
+    // resolved under tier 2. Tier 3 requires a slash, so it does not, and adding a suffix tier must
+    // not quietly restore the tier that was graded out.
+    const { repo, db } = await repoWithNestedFile();
+    await detectDocLinks(db, repo);
+    const edges = db.all(
+      `SELECT COUNT(*) c FROM edges e JOIN nodes t ON t.id = e.to_id
+       WHERE e.relation = 'LINKS_TO' AND t.file_path = 'src/deep/nested/helper.js'`)[0].c;
+    expect(edges, 'a bare name carries no directory context and stays unresolved').toBe(0);
+    db.close();
+    await rm(repo, { recursive: true, force: true });
+  }, 20_000);
+
+  it('★★★ an AMBIGUOUS suffix resolves to nothing rather than picking one', async () => {
+    const repo = await mkdtemp(join(tmpdir(), 'apg-suffix-amb-'));
+    await mkdir(join(repo, 'docs'), { recursive: true });
+    await writeFile(join(repo, 'docs', 'design.md'), 'See `skill/SKILL.md`.\n');
+    const db = openDb(join(repo, 'graph.sqlite'));
+    const add = (id, type, label, file) => db.run(
+      `INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
+       VALUES ('${id}','${type}','${label}','${file}',1,1,'md',1,'{}')`);
+    add('d1', 'Document', 'design.md', 'docs/design.md');
+    add('a1', 'Document', 'SKILL.md', 'integrations/claude-code/skill/SKILL.md');
+    add('a2', 'Document', 'SKILL.md', 'integrations/codex/skill/SKILL.md');
+    await detectDocLinks(db, repo);
+    expect(db.all("SELECT COUNT(*) c FROM edges WHERE relation = 'LINKS_TO'")[0].c,
+      'two candidates is not one candidate').toBe(0);
+    db.close();
+    await rm(repo, { recursive: true, force: true });
+  }, 20_000);
+});
