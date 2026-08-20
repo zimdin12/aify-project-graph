@@ -27,6 +27,7 @@ import { prepareCompileDb } from '../../code-intel/compile-db.js';
 import { resolveClangCl } from '../../code-intel/resolve-clangd.js';
 import { refreshMechanismVerdict } from '../../freshness/refresh-verdict.js';
 import { SEARCH_TYPES } from './whereis.js';
+import { eligibleFileCount, coveredFileCount, LANGUAGE_FILE_EXTENSIONS } from './collect_code_intel.js';
 
 // Cap for file lists in the health response. The counts stay exact; only the
 // sample is bounded. See the dirtyFiles comment below for why this exists.
@@ -397,14 +398,59 @@ export async function graphHealth({ repoRoot }) {
           // ⛔ SCOPE, BECAUSE A COLLECTION EXISTING IS NOT A COLLECTION COVERING ANYTHING.
           // Three states, and `unknown` must never read as `complete`: a collection stored
           // before these columns existed returns null, and null is not evidence of coverage.
-          coverage: {
-            filesProcessed: latest.filesProcessed ?? null,
-            filesInScope: latest.filesInScope ?? null,
-            filesEligible: latest.filesEligible ?? null,
-            complete: (latest.filesEligible == null || latest.filesProcessed == null)
-              ? null
-              : latest.filesProcessed >= latest.filesEligible,
-          },
+          // ⛔ THE DENOMINATOR IS A PROPERTY OF THE CORPUS NOW, NOT OF THE COLLECTION — and
+          // storing it froze a moving number. ef-manager caught this an hour after the fix that
+          // corrected it: `eligibleFileCount` was repaired (594 -> 556) and the STORED row still
+          // read 593, because the fix reaches rows written AFTER it and health reads the row.
+          //
+          // ⇒ "A fix is not a rebuild", landing on the artifact corrected an hour earlier. So the
+          // ratio is computed against a LIVE count and the stored value is kept beside it as what
+          // was true when the collection ran. `filesProcessed` genuinely belongs to the collection;
+          // eligibility never did.
+          //
+          // ⚠ Live count NULL on failure, never 0, and the stored value is the fallback — a
+          // denominator we cannot establish is UNKNOWN, and `complete` stays null so health warns
+          // rather than asserting coverage over a number it could not compute.
+          coverage: (() => {
+            const liveEligible = eligibleFileCount(db, {
+              exts: LANGUAGE_FILE_EXTENSIONS[latest.language] ?? [],
+              repoRoot,
+            });
+            const eligible = liveEligible ?? latest.filesEligible ?? null;
+            // ⛔ AND THE NUMERATOR HAD THE SAME PROBLEM, INTRODUCED BY MY OWN PRUNE GUARDS.
+            // `latest.filesProcessed` was a fair proxy while the prune left exactly ONE collection
+            // standing — latest WAS everything. Once a continuation and a file-scoped run were both
+            // correctly forbidden from superseding, collections accumulated (8 here) and "latest"
+            // became the last thing that ran rather than the sum of what is known:
+            //
+            //     reported     3 of 557     the 3-file targeted collect, which is the latest
+            //     actual     553 of 557     across every live collection
+            //
+            // A true statement about a collection read as a statement about the repository — the
+            // same noun error as `filesTotal` being the scope's denominator, three commits after
+            // fixing the denominator half of this very ratio.
+            const covered = coveredFileCount(db, {
+              exts: LANGUAGE_FILE_EXTENSIONS[latest.language] ?? [],
+              repoRoot,
+            });
+            const processed = covered ?? latest.filesProcessed ?? null;
+            return {
+              filesProcessed: processed,
+              // Kept and named, because "this run did 3" and "the repo has 553" are different
+              // facts and a reader chasing a partial collection needs the first one.
+              filesProcessedLatestCollection: latest.filesProcessed ?? null,
+              filesProcessedSource: covered != null ? 'all_live_collections' : 'latest_collection',
+              filesInScope: latest.filesInScope ?? null,
+              filesEligible: eligible,
+              // Both, always. A single number cannot say whether the corpus grew since the
+              // collection or the collection under-covered it, and those want different actions.
+              filesEligibleAtCollection: latest.filesEligible ?? null,
+              filesEligibleSource: liveEligible != null ? 'measured_now' : 'stored_at_collection',
+              complete: (eligible == null || processed == null)
+                ? null
+                : processed >= eligible,
+            };
+          })(),
           operations: latest.operations,
           // The coverage figure below is a FLOOR, not a rate. These say how much
           // was never asked, so a reader does not mistake declined work for absent

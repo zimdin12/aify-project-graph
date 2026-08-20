@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
-import { ensureCodeIntelCollectionsTable } from '../../../mcp/stdio/storage/schema.js';
+import { ensureCodeIntelCollectionsTable, ensureCodeIntelRecordsTable } from '../../../mcp/stdio/storage/schema.js';
 
 let repo;
 afterEach(async () => {
@@ -45,10 +45,33 @@ async function repoWithCollection(coverage) {
   }));
   const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
   ensureCodeIntelCollectionsTable(db);
-  const node = (id) => db.run(
+  const node = (id, file) => db.run(
     `INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
-     VALUES ('${id}','Function','f${id}','src/${id}.ts',1,1,'typescript',1,'{}')`);
-  node('a'); node('b');
+     VALUES ($id,'Function',$id,$f,1,1,'typescript',1,'{}')`, { id, f: file });
+  node('a', 'src/a.ts'); node('b', 'src/b.ts');
+  // ⛔ THE FIXTURE NOW BUILDS THE POPULATION IT CLAIMS, AND THAT IS THE FIX RATHER THAN THE COST.
+  //
+  // It used to insert TWO file nodes and store `files_eligible: 484`. Health read the stored number
+  // and agreed, so the test passed against a graph that contradicted its own denominator. Once
+  // health began MEASURING eligibility instead of trusting the row, the live answer was 2 — correct
+  // about the graph, and fatal to a fixture asserting 484.
+  //
+  // ⇒ A fixture that states a number the artifact does not contain can only ever test that the
+  // number was echoed back. Building the files makes the ratio real.
+  if (coverage.eligible != null) {
+    for (let i = 0; i < coverage.eligible - 2; i += 1) node(`e${i}`, `src/gen/e${i}.ts`);
+  }
+  // Records are what `coveredFileCount` counts — the numerator is now measured across every live
+  // collection rather than taken from the latest one's `files_processed`.
+  ensureCodeIntelRecordsTable(db);
+  for (let i = 0; i < (coverage.processed ?? 0); i += 1) {
+    const f = i === 0 ? 'src/a.ts' : i === 1 ? 'src/b.ts' : `src/gen/e${i - 2}.ts`;
+    db.run(
+      `INSERT INTO code_intel_records (collection_id,kind,language,symbol_id,qname,file,raw)
+       VALUES ('c1','references','typescript',$s,$q,$f,'{}')`,
+      { s: `s${i}`, q: `q${i}`, f },
+    );
+  }
   // ⚠ An lsp-verified edge, so the "no [lsp✓] edges" branch cannot be what fires. Without this
   // the test would pass against a completely different condition.
   db.run(
@@ -115,6 +138,13 @@ describe('health reports what a collection COVERS, not that one exists', () => {
     const h = await graphHealth({ repoRoot: repo });
     expect(h.codeIntel.coverage.filesInScope, 'what the run set out to do').toBe(3);
     expect(h.codeIntel.coverage.filesEligible, 'what the claim is about').toBe(484);
+    // ⚠ And it says WHERE each half came from. A denominator measured now and one frozen at
+    // collection time answer different questions, and a reader cannot tell them apart from the
+    // number alone — the stored row on this repo read 593 while the live count said 557.
+    expect(h.codeIntel.coverage.filesEligibleSource).toBe('measured_now');
+    expect(h.codeIntel.coverage.filesProcessedSource).toBe('all_live_collections');
+    expect(h.codeIntel.coverage.filesProcessedLatestCollection, 'the per-collection fact survives')
+      .toBe(3);
     expect(h.codeIntel.coverage.filesInScope).not.toBe(h.codeIntel.coverage.filesEligible);
   }, 30_000);
 });

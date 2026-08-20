@@ -166,7 +166,7 @@ const MIN_COLLECT_BUDGET_MS = 5000;
 // ~7,200/file. Set well clear of both so it fires on the class, not on outliers.
 // Which file extensions a provider's language can collect. Used ONLY to size the eligible
 // denominator for a coverage claim — not to select files, which the provider owns.
-const LANGUAGE_FILE_EXTENSIONS = Object.freeze({
+export const LANGUAGE_FILE_EXTENSIONS = Object.freeze({
   typescript: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
   javascript: ['.js', '.jsx', '.mjs', '.cjs'],
   python: ['.py'],
@@ -214,6 +214,42 @@ export function eligibleFileCount(db, { exts, repoRoot }) {
       `SELECT DISTINCT file_path AS f FROM nodes WHERE file_path != '' AND (${clauses})`,
       params,
     ).map((r) => r.f).filter((f) => !pathContainsIgnoredDir(f, ignored)).length;
+    return n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How many DISTINCT in-corpus files hold code-intel evidence right now — the numerator, counted
+ * across every live collection.
+ *
+ * ⛔ HEALTH USED `latest.filesProcessed`, AND MY OWN PRUNE GUARDS BROKE THAT. It was a fair proxy
+ * while the prune left exactly one collection standing: latest WAS everything. Once a continuation
+ * and a file-scoped run were both correctly forbidden from superseding, collections accumulated —
+ * 8 on this repo — and "the latest collection" became the last thing that ran rather than the sum
+ * of what is known.
+ *
+ *     health said        3 of 557        the 3-file targeted collect, which is the latest
+ *     actually covered   554 of 556      across all live collections
+ *
+ * A true statement about a collection, read as a statement about the repository. The same noun
+ * error as `filesTotal` being the scope's denominator — and this time I introduced it, three
+ * commits after fixing the denominator half of the same ratio.
+ *
+ * ⚠ Restricted to the corpus for the same reason the denominator is: resolution targets in
+ * `node_modules` hold records and are not part of the population the claim is about. Counting them
+ * in the numerator but not the denominator would push coverage ABOVE 100%.
+ */
+export function coveredFileCount(db, { exts, repoRoot }) {
+  try {
+    if (!Array.isArray(exts) || exts.length === 0) return null;
+    const ignored = loadEffectiveIgnoredDirs(repoRoot);
+    const n = db.all(
+      "SELECT DISTINCT file AS f FROM code_intel_records WHERE file IS NOT NULL AND file != ''",
+    ).map((r) => r.f)
+      .filter((f) => exts.some((e) => f.toLowerCase().endsWith(e)))
+      .filter((f) => !pathContainsIgnoredDir(f, ignored)).length;
     return n > 0 ? n : null;
   } catch {
     return null;
