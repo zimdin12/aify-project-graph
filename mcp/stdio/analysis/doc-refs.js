@@ -57,6 +57,18 @@ export const DOC_REF_RULES = Object.freeze({
   // Lower than rule 2 because the name is unqualified: uniqueness in this graph is what stands in
   // for the qualifier, and uniqueness is a property of the repository rather than of the writing.
   'doc_ref:shaped': 0.8,
+  // RULE 4. A bare symbol name sharing a LINE with a path that resolves to the file declaring it.
+  //
+  // ⭐ RANKED ABOVE `shaped` AND BELOW `qualified`, DELIBERATELY. Rule 3's uniqueness is a property
+  // of the whole repository — the same sentence in a repo with two `trust` functions emits nothing
+  // — whereas rule 4's scope is written IN THE DOCUMENT by the author, which is the same kind of
+  // evidence rule 2 has. It sits below `qualified` only because the name itself is bare, so the
+  // association between path and word is co-occurrence rather than syntax.
+  //
+  // ⚠ THE ORDER IS LOAD-BEARING, NOT DECORATIVE. When more than one rule reaches the same symbol
+  // in the same document, the STRONGEST tag wins — see `offer()`. Before this constant existed the
+  // winner was whichever loop ran first, which is precedence by accident of control flow.
+  'doc_ref:path-scoped': 0.85,
 });
 
 // ⛔ THE SHAPES ARE THE EVIDENCE, AND EACH ONE IS A CLAIM THE AUTHOR MADE ABOUT THE TOKEN.
@@ -241,6 +253,112 @@ export function scanQualifiedReferences(content) {
   return found;
 }
 
+// A Markdown link target, so rule 4 sees `[the client](mcp/stdio/code-intel/lsp-client.js)` as a
+// path the same way rule 1 does. Without it, a scoping path written as a link is invisible here.
+const MD_LINK_TARGET = /\[[^\]\n]*\]\(\s*([^()\s]+?)(?:\s+["'][^"']*["'])?\s*\)/g;
+
+// Bare identifier tokens. Deliberately permissive — the file scope, not the token shape, is what
+// makes this rule safe, which is the entire difference between rule 4 and rule 3.
+const BARE_WORD = /[A-Za-z_$][\w$]*/g;
+
+/** label -> [ids] for the symbols declared in each file. */
+export function buildSymbolsByFile(symbolNodes) {
+  const byFile = new Map();
+  for (const n of symbolNodes) {
+    if (FILE_LEVEL.has(n.type) || n.type === 'External' || n.type === 'Module') continue;
+    if (!n.file_path || !n.label) continue;
+    if (!byFile.has(n.file_path)) byFile.set(n.file_path, new Map());
+    const m = byFile.get(n.file_path);
+    if (!m.has(n.label)) m.set(n.label, []);
+    m.get(n.label).push(n.id);
+  }
+  return byFile;
+}
+
+/**
+ * Every bare symbol name that shares a LINE with a path resolving to the file that declares it.
+ *
+ * ⛔ AMBIGUITY IS REFUSED WITHIN THE SCOPE, NOT ACROSS THE GRAPH. Two symbols named `build` in the
+ * same scoped file is a genuine ambiguity and emits nothing. Two symbols named `build` in
+ * DIFFERENT files is not ambiguous here at all — that is precisely what the path resolved.
+ */
+export function scanPathScopedReferences(content, docPath, pathIndex, symbolsByFile) {
+  const out = [];
+  const lines = String(content).split(/\r?\n/);
+  const pathOf = new Map();
+  for (const [p, v] of pathIndex.byPath) pathOf.set(v.id, p);
+
+  let fenced = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; continue; }
+    if (fenced) continue;
+
+    // Spans that scope, and the exact character ranges they occupy — the ranges matter, see below.
+    const written = [];
+    for (const m of line.matchAll(MD_LINK_TARGET)) {
+      written.push({ text: m[1], start: m.index, end: m.index + m[0].length });
+    }
+    const codeSpans = [];
+    for (const m of line.matchAll(INLINE_CODE)) {
+      codeSpans.push({ start: m.index, end: m.index + m[0].length });
+      written.push({ text: m[1].trim(), start: m.index, end: m.index + m[0].length });
+    }
+
+    // ⚠ ONLY FILES THAT DECLARE SYMBOLS SCOPE ANYTHING. A line naming `docs/design.md` scopes
+    // nothing, and letting it through would make every word on that line a candidate against an
+    // empty map — harmless, but it would inflate the denominator with lines that never had a chance.
+    const scopes = new Set();
+    const scopingRanges = [];
+    for (const w of written) {
+      const id = resolveDocPath(w.text, docPath, pathIndex);
+      const p = id ? pathOf.get(id) : null;
+      if (p && symbolsByFile.has(p)) { scopes.add(p); scopingRanges.push(w); }
+    }
+    if (scopes.size === 0) continue;
+
+    const inside = (idx, ranges) => ranges.some((r) => idx >= r.start && idx < r.end);
+
+    for (const wm of line.matchAll(BARE_WORD)) {
+      // ⛔ A WORD INSIDE THE SCOPING PATH IS NOT A REFERENCE TO A SYMBOL. `- \`tests/unit/query/
+      // pull-code-intel.test.js\`` produced an edge to a function named `pull`, because the
+      // bare-word scanner matched a fragment of the very path that did the scoping. The rule was
+      // reading its own input as evidence — a self-reference, and the target was a real function,
+      // so nothing about the edge looked wrong.
+      if (inside(wm.index, scopingRanges)) continue;
+
+      // ⛔ THE WORD MUST BE AUTHOR-MARKED, AND ADDING THIS AFTER A FAILING GRADE IS DISCLOSED.
+      //
+      // I graded all 45 edges of the first version and counted 4 false positives — 0.911, BELOW
+      // dev's 0.95 floor. Three were the same mechanism: an ENGLISH word on a line that also
+      // carried a path.
+      //
+      //     "`bin/apg.js` — main CLI entry"          -> the function `main`
+      //     "90 diagnostics dominated by the cascade" -> the method `diagnostics`
+      //     "`npm rebuild better-sqlite3`"            -> a function `rebuild`
+      //
+      // ⚠ CHANGING A RULE AFTER SEEING IT FAIL IS HOW A FLOOR GETS TUNED INTO MEANINGLESSNESS, so
+      // the justification has to stand WITHOUT the score. It does: rules 2 and 3 BOTH require the
+      // author to have marked the token as code, and rule 4 requiring marking-plus-scope is the
+      // consistent design. The version I graded was the inconsistent one — it was the only rule
+      // admitting unmarked prose, which is the exact door the legacy extractor left open.
+      //
+      // ⇒ The floor did not tell me what to change. It told me to look, and looking found an
+      // inconsistency I should have seen when writing it.
+      if (!inside(wm.index, codeSpans)) continue;
+
+      const owners = [];
+      for (const scope of scopes) {
+        const ids = symbolsByFile.get(scope)?.get(wm[0]);
+        if (ids) owners.push(...ids);
+      }
+      const uniq = [...new Set(owners)];
+      if (uniq.length === 1) out.push({ id: uniq[0], word: wm[0], line: i + 1 });
+    }
+  }
+  return out;
+}
+
 // ── Entry point ──────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -312,6 +430,9 @@ export async function detectDocRefs(db, repoRoot) {
     resolutionIndex.get(n.label).push(n.id);
   }
 
+  const symbolsByFile = buildSymbolsByFile(db.all(
+    "SELECT id, type, label, file_path FROM nodes WHERE label != '' AND file_path != ''"));
+
   const symbolIndex = buildSymbolIndex(db.all(
     "SELECT id, type, extra FROM nodes WHERE extra LIKE '%\"qname\"%'"));
   const types = FILE_LEVEL_TYPES.map((t) => `'${t}'`).join(', ');
@@ -334,8 +455,19 @@ export async function detectDocRefs(db, repoRoot) {
       continue;                                     // unreadable document — nothing to claim
     }
 
-    const seen = new Set();                         // one edge per (document, symbol) pair
-    let emitted = 0;
+    // ⛔ CANDIDATES ARE COLLECTED, THEN THE STRONGEST RULE WINS. This was two inline INSERTs, so
+    // whichever rule's loop reached a symbol first got the tag — precedence as an artifact of
+    // control flow rather than a decision. With three rules of different evidential strength
+    // pointing at the same symbol that is not survivable: the tag is the ONLY thing telling a
+    // reader how much to trust the edge, and "whichever ran first" is not a reason.
+    //
+    // Keyed by symbol id, one edge per (document, symbol), strongest rule retained.
+    const candidates = new Map();
+    const offer = (symbolId, rule, line) => {
+      const held = candidates.get(symbolId);
+      if (held && DOC_REF_RULES[held.rule] >= DOC_REF_RULES[rule]) return;
+      candidates.set(symbolId, { rule, line });
+    };
 
     for (const ref of scanQualifiedReferences(content)) {
       const note = (bucket) => misses.push({
@@ -368,15 +500,7 @@ export async function detectDocRefs(db, repoRoot) {
         // the same label means the name is shared with something outside this repository, and a
         // document writing it is at least as likely to mean that.
         if ((nameOwners.get(shaped.name) ?? 0) > 1) { note('shaped_ambiguous'); continue; }
-        if (seen.has(hits[0])) continue;
-        seen.add(hits[0]);
-        db.run(
-          `INSERT OR IGNORE INTO edges
-             (from_id, to_id, relation, source_file, source_line, confidence, provenance, extractor)
-           VALUES ('${doc.id}', '${hits[0]}', 'MENTIONS', '${doc.file_path}', ${ref.line},
-                   ${DOC_REF_RULES['doc_ref:shaped']}, 'INFERRED', 'doc_ref:shaped')`);
-        added++;
-        emitted++;
+        offer(hits[0], 'doc_ref:shaped', ref.line);
         continue;
       }
 
@@ -420,8 +544,10 @@ export async function detectDocRefs(db, repoRoot) {
         // one more time — the fourth tonight, and the first where the mechanism I was
         // repairing recurred inside the repair.
         const base = String(ref.written).split('/').pop();
-        const candidates = pathIndex.bySuffix.get(base);
-        if (candidates && new Set(candidates).size > 1) { note('ambiguous_path'); continue; }
+        // ⚠ NOT `candidates` — that name now belongs to the per-document edge map above, and
+        // shadowing it here would have silently discarded every collected edge for this document.
+        const pathCandidates = pathIndex.bySuffix.get(base);
+        if (pathCandidates && new Set(pathCandidates).size > 1) { note('ambiguous_path'); continue; }
         // ⚠ WHAT SURVIVES HERE IS NOT "THE DOC CORPUS HOLE", AND THE HEADLINE NUMBER IS
         // WRONG BY 3.4x IF READ THAT WAY. ef-manager hand-graded all 230 pre-split:
         //
@@ -432,10 +558,15 @@ export async function detectDocRefs(db, repoRoot) {
         //     43  (19%)  no such file anywhere — references to ANOTHER repository, prose
         //                examples like `A.cpp`, and `mentions.js`, which was deleted tonight.
         //     28  (12%)  ambiguous — split out above.
-        //     60  (26%)  the genuine hole: install.claude.md, install.codex.md,
-        //                install.hermes.md, ATTRIBUTION.md, and files under reference/ —
-        //                which is NOT denylisted (345 graph nodes carry a reference/ path),
-        //                so those are an inconsistency rather than a design choice.
+        //     11  ( 5%)  gitignored (reference/) — also the corpus working
+        //     49  (24%)  genuine, and it is EIGHT DISTINCT FILES, not 49 problems:
+        //                the six install.*.md, ATTRIBUTION.md, and SKILL.md
+        //
+        // ⚠ AN EARLIER VERSION OF THIS COMMENT SAID reference/ WAS NOT DENYLISTED, on the
+        // strength of 345 graph nodes carrying that path. ef-manager retracted it: 342 of
+        // those are Directory nodes and ZERO are Files, so the tree was walked and nothing
+        // was extracted. `.gitignore:12` excludes it. A real number attached to an invented
+        // noun — kept here because the corrected figure is a quarter of the headline.
         //
         // Splitting the first two properly means asking the sweep whether it WOULD admit the
         // path, not re-deriving its rules here — a second copy of an admission policy is the
@@ -447,18 +578,43 @@ export async function detectDocRefs(db, repoRoot) {
 
       const { id, reason } = resolveSymbolChain(ref.written, symbolIndex);
       if (!id) { note(reason); continue; }
-      if (seen.has(id)) continue;
-      seen.add(id);
+      offer(id, 'doc_ref:qualified', ref.line);
+    }
 
+    // ── RULE 4 — THE PATH IS THE QUALIFIER ────────────────────────────────────────────────────
+    //
+    // Rules 2 and 3 both need the TOKEN to carry its own evidence: a `::` or a `()`. Rule 4 needs
+    // neither, because the author wrote the FILE alongside the name, and a file scope disambiguates
+    // a bare word far better than any shape can.
+    //
+    //     "`mcp/stdio/code-intel/lsp-client.js` — `diagnostics`, `references`, `hover`"
+    //
+    // `references` and `hover` are ordinary English words. Rule 3 refuses them and should. Scoped
+    // to that file they are three unambiguous methods, and they are exactly the references the
+    // other rules structurally cannot reach.
+    //
+    // ⚠ THE SPAN IS ONE LINE, WHICH IS NARROWER THAN dev SPECIFIED. dev allowed "link, sentence,
+    // list item, fenced example" and was explicit that WHOLE-DOCUMENT co-occurrence is too weak.
+    // A line is checkable, gives an honest `source_line`, and covers list items and most sentences.
+    // Sentences wrapped across lines are a disclosed recall miss, not an oversight.
+    //
+    // ⚠ FENCES STAY EXCLUDED even though dev listed them, and that is a DEFERRAL rather than a
+    // ruling: the exclusion is measured load-bearing elsewhere (0 of 480 rule-1 edges came from
+    // inside a fence, and every hand-graded recall miss was inside one). Admitting them here needs
+    // its own measurement, and I would rather owe recall than spend precision I cannot yet grade.
+    for (const scoped of scanPathScopedReferences(content, doc.file_path, pathIndex, symbolsByFile)) {
+      offer(scoped.id, 'doc_ref:path-scoped', scoped.line);
+    }
+
+    for (const [symbolId, { rule, line }] of candidates) {
       db.run(
         `INSERT OR IGNORE INTO edges
            (from_id, to_id, relation, source_file, source_line, confidence, provenance, extractor)
-         VALUES ('${doc.id}', '${id}', 'MENTIONS', '${doc.file_path}', ${ref.line},
-                 ${DOC_REF_RULES['doc_ref:qualified']}, 'INFERRED', 'doc_ref:qualified')`);
+         VALUES ('${doc.id}', '${symbolId}', 'MENTIONS', '${doc.file_path}', ${line},
+                 ${DOC_REF_RULES[rule]}, 'INFERRED', '${rule}')`);
       added++;
-      emitted++;
     }
-    if (emitted > 0) documentsWithRefs++;
+    if (candidates.size > 0) documentsWithRefs++;
   }
 
   const tally = (bucket) => misses.filter((m) => m.bucket === bucket).length;

@@ -516,3 +516,106 @@ describe('uniqueness names the population it is unique within', () => {
     db.close();
   }, 20_000);
 });
+
+// RULE 4 — THE PATH IS THE QUALIFIER.
+//
+// Rules 2 and 3 both require the TOKEN to carry its own evidence: a `::` or a `()`. Rule 4 requires
+// neither, because the author wrote the FILE alongside the name, and a file scope disambiguates a
+// bare word far better than any token shape can.
+//
+// ★ IT REACHES REFERENCES THE OTHER RULES STRUCTURALLY CANNOT. Measured on this repo:
+// `diagnostics`, `references` and `hover` all appear on one line beside
+// `mcp/stdio/code-intel/lsp-client.js`. They are ordinary English words; rule 3 refuses them and
+// should. Scoped to that file they are three unambiguous methods.
+describe('doc → symbol references, rule 4 (path-scoped)', () => {
+  const scoped = (db) => db.all(
+    `SELECT e.*, t.label AS target FROM edges e JOIN nodes t ON t.id = e.to_id
+     WHERE e.extractor = 'doc_ref:path-scoped'`);
+
+  async function scopedFixture(body) {
+    return fixture(body, [
+      // Two ordinary English words that are also methods of one file.
+      ['c1', 'Method', 'hover', 'src/client.js', '{"qname":"LspClient.hover"}'],
+      ['c2', 'Method', 'references', 'src/client.js', '{"qname":"LspClient.references"}'],
+      // The file node the path must resolve to.
+      ['fc', 'File', 'client.js', 'src/client.js', '{}'],
+      // A same-named method in a DIFFERENT file — not ambiguous once the path has scoped us.
+      ['o1', 'Method', 'hover', 'src/other.js', '{"qname":"Other.hover"}'],
+      ['fo', 'File', 'other.js', 'src/other.js', '{}'],
+    ]);
+  }
+
+  it('★★★ a bare word beside its declaring file resolves — no shape required', async () => {
+    const db = await scopedFixture('See `src/client.js` for `hover` and `references`.');
+    await detectDocRefs(db, repo);
+    expect(scoped(db).map((r) => r.target).sort()).toEqual(['hover', 'references']);
+    db.close();
+  }, 20_000);
+
+  it('★★★ the SAME words without the path emit nothing — the path is the whole evidence', async () => {
+    // ⛔ THE NEGATIVE CONTROL, AND IT IS THE ONE THAT MATTERS. `hover` and `references` are English
+    // words; if they resolved without the scoping path this rule would be the legacy extractor
+    // wearing a new tag. Removing ONLY the path must remove the edges.
+    const db = await scopedFixture('The client supports `hover` and `references` today.');
+    await detectDocRefs(db, repo);
+    expect(scoped(db), 'a bare word with nothing scoping it is prose').toEqual([]);
+    db.close();
+  }, 20_000);
+
+  it('★★★ a word declared in a DIFFERENT file is not scoped by this path', async () => {
+    // `hover` exists in both src/client.js and src/other.js. Naming one file must reach one
+    // symbol — the point of scoping is that repository-wide ambiguity stops mattering.
+    const db = await scopedFixture('See `src/other.js` and its `hover`.');
+    await detectDocRefs(db, repo);
+    const rows = scoped(db);
+    expect(rows.length).toBe(1);
+    expect(rows[0].to_id, 'the one declared in the file the author named').toBe('o1');
+    db.close();
+  }, 20_000);
+
+  it('★★★ the scope is a LINE, not the document', async () => {
+    // ⛔ dev was explicit that whole-document co-occurrence is too weak. A path in the first
+    // paragraph must not scope a word four paragraphs later, or the rule degenerates into
+    // "this document mentions this file, therefore every word in it is a reference".
+    const db = await scopedFixture([
+      'See `src/client.js` for the transport.',
+      '',
+      'Unrelated paragraph about `hover` in general.',
+    ].join('\n'));
+    await detectDocRefs(db, repo);
+    expect(scoped(db), 'a different line is a different span').toEqual([]);
+    db.close();
+  }, 20_000);
+
+  it('★★★ a Markdown LINK scopes as well as inline code', async () => {
+    // Rule 1 admits both spellings, so rule 4 must see both or a path written as a link is
+    // invisible here for no reason a reader could predict.
+    const db = await scopedFixture('See [the client](src/client.js) and its `hover`.');
+    await detectDocRefs(db, repo);
+    expect(scoped(db).map((r) => r.target)).toEqual(['hover']);
+    db.close();
+  }, 20_000);
+
+  it('★★★ the STRONGEST rule wins when two reach the same symbol', async () => {
+    // ⛔ PRECEDENCE WAS AN ARTIFACT OF CONTROL FLOW BEFORE THIS. Both emits were inline, so
+    // whichever loop reached a symbol first got the tag. The extractor tag is the ONLY thing
+    // telling a reader how much to trust an edge, and "whichever ran first" is not a reason.
+    //
+    // Here `hover()` is invocation-shaped (rule 3, 0.80) AND sits beside its declaring file
+    // (rule 4, 0.85). One edge, tagged with the stronger rule.
+    const db = await scopedFixture('In `src/other.js`, call `hover()` first.');
+    await detectDocRefs(db, repo);
+    const rows = db.all(
+      "SELECT extractor, to_id FROM edges WHERE relation = 'MENTIONS'");
+    expect(rows.length, 'one edge per (document, symbol), not one per rule').toBe(1);
+    expect(rows[0].extractor, 'path-scoped outranks shaped').toBe('doc_ref:path-scoped');
+    db.close();
+  }, 20_000);
+
+  it('★★★ a fenced line does not scope', async () => {
+    const db = await scopedFixture('```js\nSee `src/client.js` and `hover`.\n```');
+    await detectDocRefs(db, repo);
+    expect(scoped(db)).toEqual([]);
+    db.close();
+  }, 20_000);
+});
