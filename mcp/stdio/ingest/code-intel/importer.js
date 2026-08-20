@@ -574,7 +574,9 @@ export function collectionAuthority(envelope) {
       ? 'the collection observed no records at all, so it re-observed nothing it could supersede'
       : isContinuation
         ? 'this run CONTINUES a resumed collection rather than starting one, so its earlier batches are siblings and not predecessors'
-        : null);
+        : declaredFileScope
+          ? 'this run declared a FILE SCOPE, so it re-observed those files and nothing else — it cannot supersede a collection that covered the repository'
+          : null);
 
   return {
     declaredFileScope,
@@ -602,8 +604,24 @@ export function collectionAuthority(envelope) {
      * rows that `compactCodeIntelRecords` reclaims without asserting anything, too permissive
      * leaves an empty graph that only a 455-second re-collect can restore.
      */
-    mayDestroyPriorEvidence:
-      succeeded && collectedReferences && !walkedNothing && !observedNothing && !isContinuation,
+    /**
+     * ⛔⛔ `declaredFileScope` IS IN HERE AND NOT IN `mayInvalidateEdges`, AND THE DIFFERENCE IS
+     * THE WHOLE POINT.
+     *
+     * Edge invalidation is SCOPED — the importer restricts its DELETE to callees defined in the
+     * scoped files, so a 3-file run removes 3 files' worth of edges. The prune has no scope at
+     * all: it deletes whole collections. So the same run that may legitimately refresh 3 files of
+     * edges would, under one predicate, delete a 554-file collection.
+     *
+     * Caught before running it, one command from the recovery. `graph_collect_code_intel` with
+     * `files: [...]` sets `resumedFrom = 0`, reports ok, collects references and holds records —
+     * every existing condition satisfied — and 166,992 records would have gone to keep 3 files.
+     *
+     * ⇒ Only a run that swept the REPOSITORY may declare a prior collection superseded. Everything
+     * narrower re-observed a slice and speaks for a slice.
+     */
+    mayDestroyPriorEvidence: succeeded && collectedReferences && !walkedNothing
+      && !observedNothing && !isContinuation && !declaredFileScope,
     /** Non-null whenever authority is withheld — reported, never silent. */
     invalidationReason: sharedReason,
     pruneReason,

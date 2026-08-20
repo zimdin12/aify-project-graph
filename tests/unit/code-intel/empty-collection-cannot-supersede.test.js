@@ -213,4 +213,67 @@ describe('a collection can only supersede what it had the authority to re-observ
     expect(stats.collectionsPruned, 'a cold-start pass DOES supersede').toBeGreaterThan(0);
     db.close();
   }, 30_000);
+  it('★★★ a FILE-SCOPED run does not supersede a repo-wide collection', async () => {
+    // ⛔⛔ CAUGHT ONE COMMAND BEFORE RUNNING IT, DURING THE RECOVERY THIS FILE EXISTS FOR.
+    //
+    // Three files out of 556 were still uncollected — two test files and a script created minutes
+    // earlier. The obvious next step is `graph_collect_code_intel({ files: [those three] })`, and
+    // that run satisfies every condition the prune had left: resumedFrom 0 (an explicit files[]
+    // request uses no ledger), status ok, references collected, records present. It would have
+    // deleted 166,992 records to keep three files.
+    //
+    // ⇒ Edge invalidation is SCOPED — the importer restricts its DELETE to callees in the scoped
+    // files. The prune has no scope at all; it deletes whole collections. The same run may
+    // legitimately refresh three files of edges and must never supersede a 554-file collection.
+    const db = await graphWithCollection();
+    const before = recordCount(db);
+    expect(before).toBeGreaterThan(0);
+
+    const stats = importV02Collection({
+      schema_version: '0.2',
+      status: 'ok',
+      provider: 'ts-langserver',
+      providerVersion: '0.1.0',
+      projectRoot: dir,
+      collectionId: 'three-files',
+      operations: { references: { status: 'ok', count: 1 } },
+      session: {
+        filesProcessed: 3, filesTotal: 3, resumedFrom: 0, indexedCommit: 'ggg',
+        scope: { kind: 'files', files: ['src/x.ts', 'src/y.ts', 'src/z.ts'] },
+      },
+      records: [
+        { kind: 'references', language: 'typescript', symbolId: 's7', qname: 'gamma', file: 'src/x.ts', range: { start: { line: 2 }, end: { line: 2 } }, confidence: 1, result_state: 'found' },
+      ],
+    }, db);
+
+    expect(recordCount(db), 'three files cannot speak for the repository').toBeGreaterThanOrEqual(before);
+    expect(stats.collectionsPruned ?? 0, 'nothing superseded').toBe(0);
+    expect(stats.pruneSkipped, 'and it names the scope it actually had').toMatch(/FILE SCOPE/);
+    db.close();
+  }, 30_000);
+
+  it('★★★ CONTROL: a REPO-scoped cold sweep still supersedes', async () => {
+    // ⛔ Without this the guard is satisfied by never pruning at all. A run that swept the whole
+    // repository IS entitled to declare the previous sweep superseded — that is the operation's
+    // entire purpose, and the unbounded growth it prevents is real (1.03M rows, 732MB, 13 runs).
+    const db = await graphWithCollection();
+    const stats = importV02Collection({
+      schema_version: '0.2',
+      status: 'ok',
+      provider: 'ts-langserver',
+      providerVersion: '0.1.0',
+      projectRoot: dir,
+      collectionId: 'repo-sweep',
+      operations: { references: { status: 'ok', count: 1 } },
+      session: {
+        filesProcessed: 554, filesTotal: 554, resumedFrom: 0, indexedCommit: 'hhh',
+        scope: { kind: 'repo' },
+      },
+      records: [
+        { kind: 'references', language: 'typescript', symbolId: 's1', qname: 'alpha', file: 'src/b.ts', range: { start: { line: 4 }, end: { line: 4 } }, confidence: 1, result_state: 'found' },
+      ],
+    }, db);
+    expect(stats.collectionsPruned, 'a full sweep DOES supersede').toBeGreaterThan(0);
+    db.close();
+  }, 30_000);
 });
