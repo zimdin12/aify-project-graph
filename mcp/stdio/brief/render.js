@@ -104,11 +104,26 @@ export function documentEvidence(readFirstArr = [], documentCount = null, candid
         : documentCount == null ? 'unknown'
           : documentCount === 0 ? 'graph_empty'
             : 'indexed_without_link_candidates';
+  // ⛔⛔ THE RAW VALUE DOES NOT SURVIVE `JSON.stringify`, SO CARRYING IT IN THE NUMERIC FIELD WAS A
+  // RECEIPT THE ARTIFACT NEVER HELD. graph-senior-dev round-tripped it:
+  //
+  //     JSON.parse(JSON.stringify({ v: NaN }))       -> { v: null }
+  //     JSON.parse(JSON.stringify({ v: Infinity }))  -> { v: null }
+  //
+  // A supplied NaN became indistinguishable from ABSENT in `brief.json` — the exact distinction the
+  // `inconsistent` state exists to preserve. My test asserted on the in-memory object, BEFORE the
+  // destructive codec, so it pinned a property the published artifact does not have.
+  //
+  // ⇒ The numeric field stays numeric-or-null and the malformed input travels in a JSON-SAFE
+  // diagnostic. A string never goes into a count field either: `'3'` is not the number 3, and
+  // writing it there would launder the defect into a plausible value.
+  const malformedDiagnostic = totalMalformed
+    ? { type: typeof candidateTotal, repr: String(candidateTotal) }
+    : null;
   return {
     indexed_document_count: documentCount,
-    // ⚠ The RAW supplied value travels when it is malformed, so the contradiction is auditable
-    // rather than replaced by a plausible number.
-    linked_candidate_count: totalMalformed ? candidateTotal : linked,
+    linked_candidate_count: totalMalformed ? null : linked,
+    ...(malformedDiagnostic ? { invalid_linked_candidate_count: malformedDiagnostic } : {}),
     // ⚠ Both numbers, always. "showing 2 of 89" is only sayable if the artifact carries both, and a
     // cap nobody can see is a cap reported as a total one layer up.
     shown_candidate_count: shown,
@@ -119,8 +134,13 @@ export function documentEvidence(readFirstArr = [], documentCount = null, candid
 /** The one bounded line the compact surfaces render. Null when there is nothing to disclose. */
 export function documentEvidenceLine(ev) {
   if (ev.state === 'inconsistent') {
+    // The text surface uses the same JSON-safe representation, so the two artifacts cannot disagree
+    // about what was wrong.
+    const linked = ev.invalid_linked_candidate_count
+      ? `${ev.invalid_linked_candidate_count.repr} (${ev.invalid_linked_candidate_count.type})`
+      : String(ev.linked_candidate_count);
     return `DOCS: evidence INCONSISTENT — ${ev.indexed_document_count} indexed, `
-      + `${ev.linked_candidate_count} linked candidate(s); these counts cannot both be true`;
+      + `${linked} linked candidate(s); these counts cannot both be true`;
   }
   if (ev.state === 'candidates_present' && ev.linked_candidate_count > ev.shown_candidate_count) {
     return `DOCS: showing ${ev.shown_candidate_count} of ${ev.linked_candidate_count} linked candidates`;
@@ -217,7 +237,9 @@ export function renderMarkdown(data) {
   const DOC_KINDS = new Set(['doc', 'doc-position']);
   const readSources = readFirstArr.filter((r) => !DOC_KINDS.has(r.kind));
   const docCandidates = readFirstArr.filter((r) => r.kind === 'doc');
-  const positional = readFirstArr.filter((r) => r.kind === 'doc-position');
+  // ⚠ READ FROM ITS OWN FIELD. Filtering a kind out of the mixed array was presentation separation
+  // over a shared accumulator — the row had already competed for dedupe and limit by then.
+  const positional = data.positionalDocumentFallback ?? [];
   const docEvidence = documentEvidence(readFirstArr, documentCount, data.documentCandidateCount ?? null);
   if (readSources.length) {
     lines.push('## Read first');
@@ -227,8 +249,12 @@ export function renderMarkdown(data) {
   if (docEvidence.state === 'inconsistent') {
     // ⚠ Fails closed and LOUD. A contradiction is not a candidate list with a caveat.
     lines.push('## Linked document candidates');
+    const badLinked = docEvidence.invalid_linked_candidate_count
+      ? `${docEvidence.invalid_linked_candidate_count.repr} `
+        + `(${docEvidence.invalid_linked_candidate_count.type})`
+      : String(docEvidence.linked_candidate_count);
     lines.push(`EVIDENCE INCONSISTENT — ${docEvidence.indexed_document_count} document(s) indexed `
-      + `and ${docEvidence.linked_candidate_count} linked candidate(s) reported; these counts cannot `
+      + `and ${badLinked} linked candidate(s) reported; these counts cannot `
       + 'both be true, so neither is presented as evidence.');
     lines.push('');
   } else if (docCandidates.length) {
@@ -265,7 +291,10 @@ export function renderMarkdown(data) {
     lines.push('## Root document fallback');
     lines.push('Position, NOT evidence — no document in this graph carries an indexed authored '
       + 'link, so these are root-level documents listed by path.');
-    for (const r of positional) lines.push(`- \`${r.file}\` — ${r.why}`);
+    for (const r of positional) {
+      lines.push(`- \`${r.file}\` — root-level document; no document carries an indexed authored `
+        + 'link, so this is position, not evidence');
+    }
     lines.push('');
   }
 
@@ -773,7 +802,12 @@ export function renderJson(data, repoRoot) {
     linked_document_candidates: readFirstArr.filter((r) => r.kind === 'doc'),
     // ⚠ ITS OWN KEY, excluded from `read_first`, from `linked_document_candidates`, and from every
     // linked count. A consumer asking for link evidence must not be handed position.
-    positional_document_fallback: readFirstArr.filter((r) => r.kind === 'doc-position'),
+    positional_document_fallback: (data.positionalDocumentFallback ?? []).map((r) => ({
+      file: r.file,
+      why: 'root-level document; no document carries an indexed authored link, so this is '
+        + 'position, not evidence',
+      kind: 'doc-position',
+    })),
     // ⛔ COUNTS AND STATE TRAVEL TOGETHER, or `linked_document_candidates: []` is unreadable: it
     // means the same thing for a graph with 0 Document nodes and for one with 42 that carry no
     // authored links, and those are different situations. The payload used to carry the empty array

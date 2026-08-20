@@ -453,14 +453,18 @@ export function readFirst(db, limit = 6, opts = {}) {
   // ⚠ THE `why` STATES THE EVIDENCE AND DECLINES THE ONTOLOGY CLAIM. graph-senior-dev's wording:
   // this is INDEXED AUTHORED DOC LINKS — route authority — not a claim that a document is canonical
   // or accurate. "architecture doc" was a claim about KIND that nothing in the graph supported.
-  // ⚠ DIFFERENT KIND, NOT A DIFFERENT `why`. Positional entries used to be pushed as `kind: 'doc'`
-  // with wording that disclaimed them — so every consumer counting `kind === 'doc'` counted them as
-  // link evidence and only a human reading the sentence could tell. The distinction is now in the
-  // data, where a count can see it.
-  for (const d of (candidates.positionalFallback ?? [])) {
-    push(d.file, 'root-level document; no document carries an indexed authored link, so this is '
-      + 'position, not evidence', 'doc-position');
-  }
+  // ⛔⛔ POSITIONAL ROWS ARE NOT PUSHED HERE AT ALL, AND THE REASON IS CUSTODY, NOT PRESENTATION.
+  //
+  // They used to enter this accumulator and its `seen` dedupe before exports and source rows.
+  // graph-senior-dev executed the overlap: one root `AGENTS.md` with no links, and an
+  // export-backed source fact for the SAME path. The positional row claimed `seen` first and the
+  // export fact was silently discarded — the WEAKER authority erasing the STRONGER one, with the
+  // renderer's later re-split by kind unable to recover it because the row no longer existed.
+  //
+  // ⚠ Splitting by kind at RENDER time is presentation separation. This is producer separation: the
+  // positional population never enters the mixed array, so it cannot consume the shared dedupe or
+  // the global limit. `linkedDocumentCandidates()` returns it and the generator carries it as its
+  // own field.
   for (const d of docs) {
     const rec = recencyOf(d.file);
     const newer = median && rec && rec < median ? newerThan(rec) : 0;

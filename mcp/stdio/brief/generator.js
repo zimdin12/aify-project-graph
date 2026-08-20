@@ -541,6 +541,10 @@ export function generateBrief({ repoRoot }) {
       readFirstArr,
       documentCount,
       documentCandidateCount,
+      // ⚠ ITS OWN FIELD, from the already-computed candidate result. It never enters `readFirstArr`,
+      // so it cannot consume that array's dedupe or its limit — a positional row was erasing an
+      // export-backed source fact for the same path by claiming `seen` first.
+      positionalDocumentFallback: documentCandidates.positionalFallback ?? [],
       tests,
       testInv,
       risksArr,

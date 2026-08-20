@@ -287,11 +287,15 @@ describe('the typed state carries a population, not a rendered sample', () => {
 //
 // ⇒ One producer was mixing two populations under one name. They are different evidence and now
 // travel in different fields, so a consumer counting link evidence cannot be handed position.
-const POS = { file: 'AGENTS.md', why: 'root-level document; ... position, not evidence', kind: 'doc-position' };
+// ⚠ Positional rows travel in their OWN data field now, never inside `readFirstArr`.
+const POS = { file: 'AGENTS.md' };
 
 describe('positional fallback is a separate population from linked evidence', () => {
   it('★★★ positional entries are NOT linked candidates and NOT read-first sources', () => {
-    const d = { ...data(), readFirstArr: [SRC, POS], documentCount: 2, documentCandidateCount: 0 };
+    const d = {
+      ...data(), readFirstArr: [SRC], positionalDocumentFallback: [POS],
+      documentCount: 2, documentCandidateCount: 0,
+    };
     const j = renderJson(d, '/repo');
     expect(j.linked_document_candidates, 'not link evidence').toEqual([]);
     expect(j.positional_document_fallback.map((r) => r.file), 'its own carrier').toEqual(['AGENTS.md']);
@@ -301,7 +305,10 @@ describe('positional fallback is a separate population from linked evidence', ()
   });
 
   it('★★★ shown-linked is 0 when only positional entries exist', () => {
-    const d = { ...data(), readFirstArr: [POS, POS], documentCount: 2, documentCandidateCount: 0 };
+    const d = {
+      ...data(), readFirstArr: [], positionalDocumentFallback: [POS, POS],
+      documentCount: 2, documentCandidateCount: 0,
+    };
     const ev = renderJson(d, '/repo').document_evidence;
     expect(ev.shown_candidate_count, 'positional rows are not a linked sample').toBe(0);
     expect(ev.linked_candidate_count).toBe(0);
@@ -309,7 +316,10 @@ describe('positional fallback is a separate population from linked evidence', ()
   });
 
   it('★★★ positional entries render under their OWN heading, not the link one', () => {
-    const d = { ...data(), readFirstArr: [POS], documentCount: 2, documentCandidateCount: 0 };
+    const d = {
+      ...data(), readFirstArr: [], positionalDocumentFallback: [POS],
+      documentCount: 2, documentCandidateCount: 0,
+    };
     const md = renderMarkdown(d);
     const pos = between(md, '## Root document fallback', String.fromCharCode(10) + '## ');
     expect(pos, 'a distinct heading is what stops the claim travelling').toMatch(/AGENTS\.md/);
@@ -334,15 +344,24 @@ describe('malformed and contradictory totals fail closed', () => {
     { name: 'fractional total', total: 1.5 },
     { name: 'string total', total: '3' },
     { name: 'NaN total', total: NaN },
+    // ⚠ Infinity has the same JSON behaviour as NaN and would have had the same false receipt.
+    { name: 'Infinity total', total: Infinity },
   ];
   for (const v of VECTORS) {
     it(`★★★ ${v.name} is INCONSISTENT and carries its raw value`, () => {
       const d = { ...data(), readFirstArr: [], documentCount: 42, documentCandidateCount: v.total };
-      const ev = renderJson(d, '/repo').document_evidence;
+      // ⛔⛔ THROUGH THE ACTUAL CODEC. This asserted on the in-memory object, and `brief.json` is
+      // produced with JSON.stringify: `JSON.parse(JSON.stringify({v: NaN}))` is `{v: null}`. So a
+      // supplied NaN became indistinguishable from ABSENT in the published artifact — the exact
+      // distinction `inconsistent` exists to preserve — while the test pinned a property the
+      // artifact never had. A gate that runs before a destructive codec certifies the wrong object.
+      const artifact = JSON.parse(JSON.stringify(renderJson(d, '/repo')));
+      const ev = artifact.document_evidence;
       expect(ev.state).toBe('inconsistent');
-      // ⚠ The raw value travels so the contradiction is auditable rather than replaced by a
-      // plausible number — which is exactly what the old fallback did.
-      expect(String(ev.linked_candidate_count)).toBe(String(v.total));
+      // The numeric field stays numeric-or-null; the malformed input travels JSON-safe beside it.
+      expect(ev.linked_candidate_count, 'never a string or a NaN in a count field').toBeNull();
+      expect(ev.invalid_linked_candidate_count.repr).toBe(String(v.total));
+      expect(ev.invalid_linked_candidate_count.type).toBe(typeof v.total);
     });
   }
 
@@ -364,5 +383,51 @@ describe('malformed and contradictory totals fail closed', () => {
   it('★★★ an ABSENT total with no shown items is UNKNOWN, not a confident zero', () => {
     const d = { ...data(), readFirstArr: [], documentCount: 5, documentCandidateCount: null };
     expect(renderJson(d, '/repo').document_evidence.state).toBe('unknown');
+  });
+});
+
+// ⛔ THE WEAKER AUTHORITY WAS ERASING THE STRONGER ONE.
+//
+// Positional rows used to be pushed into `readFirst`'s accumulator and its `seen` dedupe BEFORE
+// exports and source rows. graph-senior-dev executed the overlap: one root `AGENTS.md` with no
+// links, plus an export-backed source fact for the SAME path. The positional row claimed `seen`
+// first and the export fact was silently discarded — and the renderer's later re-split by kind
+// could not recover it, because the row no longer existed.
+//
+// ⇒ Splitting by kind at RENDER time is presentation separation. This is PRODUCER separation: the
+// positional population never enters the mixed array, so it cannot consume that array's dedupe or
+// its limit.
+describe('positional custody is separate from the source accumulator', () => {
+  const EXPORT_BACKED = { file: 'AGENTS.md', why: 'backs an EXPORTS entry', kind: 'export' };
+  const POSITIONAL = [{ file: 'AGENTS.md' }];
+
+  it('★★★ one path can be BOTH positional and export-backed — neither erases the other', () => {
+    const d = {
+      ...data(),
+      readFirstArr: [EXPORT_BACKED],
+      positionalDocumentFallback: POSITIONAL,
+      documentCount: 1,
+      documentCandidateCount: 0,
+    };
+    const j = renderJson(d, '/repo');
+    expect(j.read_first.map((r) => r.file), 'the stronger source fact survives').toEqual(['AGENTS.md']);
+    expect(j.positional_document_fallback.map((r) => r.file), 'and position is reported separately')
+      .toEqual(['AGENTS.md']);
+    expect(j.linked_document_candidates, 'neither is link evidence').toEqual([]);
+  });
+
+  it('★★★ positional rows cannot consume the source population or its cap', () => {
+    // They are not in `readFirstArr` at all, so a shrinking source limit cannot be spent on them.
+    const d = {
+      ...data(),
+      readFirstArr: [SRC],
+      positionalDocumentFallback: [{ file: 'a.md' }, { file: 'b.md' }, { file: 'c.md' }],
+      documentCount: 3,
+      documentCandidateCount: 0,
+    };
+    const j = renderJson(d, '/repo');
+    expect(j.read_first.map((r) => r.file)).toEqual(['src/server.js']);
+    expect(j.positional_document_fallback).toHaveLength(3);
+    expect(j.document_evidence.shown_candidate_count, 'positional rows are not a linked sample').toBe(0);
   });
 });

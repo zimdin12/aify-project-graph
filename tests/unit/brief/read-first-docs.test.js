@@ -18,7 +18,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { mkdtemp, rm, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readFirst } from '../../../mcp/stdio/brief/graph-shape.js';
+import { readFirst, linkedDocumentCandidates } from '../../../mcp/stdio/brief/graph-shape.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 
 let root;
@@ -45,7 +45,10 @@ const docsOf = (db) => readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
 // ⚠ POSITIONAL ENTRIES ARE A DIFFERENT KIND NOW. They used to be pushed as `kind: 'doc'` carrying
 // disclaiming prose, so every consumer counting doc-evidence counted them and only a human reading
 // the sentence could tell. The distinction lives in the data; these tests read it from there.
-const positionalOf = (db) => readFirst(db, 6, {}).filter((r) => r.kind === 'doc-position');
+// ⚠ READ FROM THE PRODUCER, NOT FROM `readFirst`. Positional rows no longer enter that accumulator
+// at all — they were claiming its `seen` dedupe ahead of stronger export-backed source facts for the
+// same path, and erasing them.
+const positionalOf = (db) => linkedDocumentCandidates(db, {}).positionalFallback;
 
 describe('the brief picks orienting documents by evidence, not by name', () => {
   it('★★★ a document matching NO expected name is returned — that IS the defect', async () => {
@@ -121,8 +124,9 @@ describe('the brief picks orienting documents by evidence, not by name', () => {
     expect(docsOf(db), 'nothing qualifies as LINK evidence').toEqual([]);
     const pos = positionalOf(db);
     expect(pos.map((d) => d.file), 'root-level only, in its own carrier').toEqual(['README.md']);
-    expect(pos[0].why, 'and it refuses to present position as evidence')
-      .toMatch(/position, not evidence/);
+    // ⚠ The disclaimer now lives at the render surface, with the heading that carries it — the
+    // producer returns the rows and the renderer states what they are NOT.
+    expect(pos, 'the producer hands back rows, not prose').toHaveLength(1);
     db.close();
   }, 30_000);
 
@@ -276,8 +280,8 @@ describe('the ranking sees the whole population and only its own authority', () 
     db.run(`INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
             VALUES ('a','c1','LINKS_TO','x',1,1,'EXTRACTED','some-other-producer')`);
     expect(docsOf(db), 'a foreign extractor confers no link evidence').toEqual([]);
-    expect(positionalOf(db)[0].why, 'falls through to the positional carrier')
-      .toMatch(/position, not evidence/);
+    expect(positionalOf(db).map((d) => d.file), 'falls through to the positional carrier')
+      .toEqual(['a.md']);
     db.close();
   }, 30_000);
 
