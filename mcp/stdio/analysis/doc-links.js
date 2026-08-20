@@ -83,7 +83,7 @@ export const DOC_LINK_RULES = Object.freeze({
   // corpus is small. That is the same defect as rule 3's uniqueness being a property of the
   // REPOSITORY rather than of the writing — so it gets the same treatment: its own tag, its own
   // confidence, and dev's floor enforced against it separately.
-  'doc_link:inline-basename': 0.6,
+  // (`doc_link:inline-basename` was here. Graded 0.708 and deleted — see resolveDocPath.)
 });
 
 const EXTRACTOR_PREFIX = 'doc_link:';
@@ -221,17 +221,55 @@ export function resolveDocPath(written, docPath, index) {
   if (candidates.size === 1) return { id: [...candidates][0], tier: 1 };
   if (candidates.size > 1) return null;             // two anchorings, two files — refuse
 
-  const base = (rootRel ?? cleaned).split('/').pop();
-  const bySuffix = index.bySuffix.get(base);
-  // ⚠ Only bare basenames fall to tier 2. `src/deleted-yesterday.js` failing tier 1 means that
-  // exact path is not indexed; letting it match any file with that basename anywhere would be
-  // resolving a path the author did not write.
-  if (!bySuffix || cleaned.includes('/')) return null;
-  if (bySuffix.length !== 1) return null;
-  // ⚠ TIER 2 IS REPORTED AS TIER 2. The caller decides what a basename match is worth; this
-  // function's job is to resolve and to say HOW. Returning the two tiers as one value is what let
-  // a much weaker rule ship under a stronger rule's confidence for a day.
-  return { id: bySuffix[0], tier: 2 };
+  // ⛔ TIER 2 IS DELETED. GRADED 85/120 = 0.708, AND dev's GATE IS "DELETED, NOT RESCUED".
+  //
+  // It resolved a BARE BASENAME whenever exactly one indexed file carried it. Split out under its
+  // own tag at 91f24cd so it could be measured at all, then graded at full population by
+  // ef-manager, independently reaching the same 85 I had estimated.
+  //
+  // ⛔ ALL 35 FALSE POSITIVES WERE ONE FILENAME: `compile_commands.json`, resolving to
+  // `tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json`. Every occurrence meant the
+  // generic build artifact in the READER'S repository —
+  //
+  //     "requires clangd + a `compile_commands.json`"          <- an indefinite article
+  //     "WSL/Linux-built `compile_commands.json` has Linux include paths"
+  //
+  // — and not one referred to the fixture. The name resolved "uniquely" because this repo happens
+  // to contain exactly one file called that, and it is a test fixture.
+  //
+  // ⚠ THE MECHANICAL RESCUE WAS TESTED AND REFUTED, which is why this is a deletion and not a
+  // narrowing. Hypothesis: tier 2 fires when no anchor hit, so a line carrying some OTHER full
+  // path should correlate with correctness. Measured:
+  //
+  //                          line carries a full path   no path on the line
+  //     graded CORRECT (85)            17                       68
+  //     graded WRONG   (35)             3                       32
+  //
+  // 20% against 9%, both dominated by "no anchor". Requiring a co-occurring path would drop 68
+  // correct edges to kill 32 wrong ones. What actually separates them is SEMANTIC — is the name
+  // owned by this project, or is it an ecosystem convention — and no property of the line can see
+  // that. `compile_commands.json`, `package.json`, `Dockerfile` mean the concept wherever they
+  // appear; `packet-budget.js` means our file.
+  //
+  // ⛔ AND THE ONE PROXY THAT WOULD WORK IS CORPUS-FITTED: refusing to resolve a bare basename into
+  // `tests/fixtures/` gives 84/84 on this repo and fails on the first repository whose only
+  // `compile_commands.json` is a real one. Same trap as calibrating the doc allowlist on one repo.
+  // Named and refused rather than shipped.
+  //
+  // ⚠ THE COST IS 85 CORRECT EDGES, 15.5% OF THE LINKS_TO LAYER, and they are not marginal:
+  // server-instructions.js, packet.js, health.js, source-bundle.js, eleven test files. That belongs
+  // beside the deletion, not underneath it. A rule wrong 29% of the time is worse than absent
+  // because the reader cannot tell which third — but "delete" and "lose 85 real references" are
+  // the same act. The loss is recoverable by documentation practice: an author who writes the exact
+  // path gets a tier-1 resolution, which is the strongest edge this layer emits.
+  //
+  // ⭐ AND ITS OWN DOCSTRING JUSTIFICATION HAD ZERO INSTANCES. Tier 2 existed "for
+  // `[helper](helper.js)` where neither anchoring hit" — measured: 0 authored links used it, 205
+  // inline-code spans did. Third stated rationale tonight with no members, after the doc
+  // allowlist's "skip trivial command docs" (0 of 80) and rule 4's flagship example (1 edge of 3).
+  // When a rule's justification names a case, COUNT THAT CASE: a justification with zero instances
+  // is not weak, it is a different rule than the one documented.
+  return null;
 }
 
 /**

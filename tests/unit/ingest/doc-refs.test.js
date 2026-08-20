@@ -263,7 +263,13 @@ describe('miss buckets name the reason, not the rule that refused', () => {
     ]);
     const stats = await detectDocRefs(db, repo);
     const buckets = stats.misses.map((m) => m.bucket);
-    expect(buckets, 'one candidate resolves').toContain('is_a_path');
+    // ⛔ THIS ASSERTED `is_a_path` UNTIL RULE 1's TIER 2 WAS DELETED. A bare basename no longer
+    // RESOLVES — tier 2 graded 0.708 and went — so `server.js` is not claimed by rule 1 any more.
+    // What matters is that it is not reported as MISSING: the file is indexed, unambiguous and
+    // findable, and only the bare-name shortcut to it is gone.
+    expect(buckets, 'the author wrote a name, not a path').toContain('basename_only');
+    expect(buckets, 'the file is indexed — calling it absent would be false')
+      .not.toContain('path_not_indexed');
     expect(buckets).not.toContain('ambiguous_path');
     db.close();
   }, 20_000);

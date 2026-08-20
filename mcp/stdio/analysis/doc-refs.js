@@ -434,7 +434,7 @@ export async function detectDocRefs(db, repoRoot) {
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
   const empty = {
     added: 0, documents: 0, documentsWithRefs: 0,
-    unqualified: 0, shapedNoSymbol: 0, shapedAmbiguous: 0,
+    unqualified: 0, shapedNoSymbol: 0, shapedAmbiguous: 0, basenameOnly: 0,
     noSuchSymbol: 0, pathNotIndexed: 0, ambiguousPath: 0, ambiguousSymbol: 0,
     isAPath: 0, fencedExample: 0, misses: [],
   };
@@ -604,6 +604,19 @@ export async function detectDocRefs(db, repoRoot) {
         // shadowing it here would have silently discarded every collected edge for this document.
         const pathCandidates = pathIndex.bySuffix.get(base);
         if (pathCandidates && new Set(pathCandidates).size > 1) { note('ambiguous_path'); continue; }
+        // ⛔ FIFTH INSTANCE OF THE LYING BUCKET, AND THIS TIME I CAUSED IT.
+        //
+        // Deleting rule 1's tier 2 means a bare basename no longer resolves at all. So
+        // `mcp/stdio/server.js` written as `` `server.js` `` — indexed, unambiguous, findable —
+        // started landing in `path_not_indexed`, which is FALSE about the file and false about the
+        // corpus. Removing a resolution path silently re-pointed a miss bucket at a population it
+        // was never about.
+        //
+        // ⚠ A test caught it within seconds, and only because that test asserts the POSITIVE case:
+        // "a basename indexed EXACTLY ONCE is claimed by rule 1, not bucketed at all". Without the
+        // positive control the deletion would have looked clean and quietly inflated the corpus
+        // hole by every bare filename in the corpus.
+        if (pathCandidates && pathCandidates.length > 0) { note('basename_only'); continue; }
         // ⚠ WHAT SURVIVES HERE IS NOT "THE DOC CORPUS HOLE", AND THE HEADLINE NUMBER IS
         // WRONG BY 3.4x IF READ THAT WAY. ef-manager hand-graded all 230 pre-split:
         //
@@ -707,6 +720,7 @@ export async function detectDocRefs(db, repoRoot) {
     shapedAmbiguous: tally('shaped_ambiguous'),
     noSuchSymbol: tally('no_such_symbol'),
     pathNotIndexed: tally('path_not_indexed'),
+    basenameOnly: tally('basename_only'),
     ambiguousPath: tally('ambiguous_path'),
     ambiguousSymbol: tally('ambiguous_symbol'),
     isAPath: tally('is_a_path'),
