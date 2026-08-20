@@ -409,3 +409,58 @@ describe('doc → symbol references, rule 3 (shaped + unique)', () => {
     db.close();
   }, 20_000);
 });
+
+describe('the recoverable-source-span invariant', () => {
+  it('★★★ EVERY emitted edge cites a line that actually contains its target', async () => {
+    // ⛔ THIS IS A DIFFERENT PROPERTY FROM PRECISION AND IT IS INVISIBLE TO A PRECISION COUNT.
+    //
+    // dev's invariant for the whole layer is "a recoverable source span and a deterministic
+    // resolution path to exactly one node". Precision grading checks the SECOND half — does this
+    // edge point at the right symbol. Nothing in it checks the FIRST: an edge could resolve
+    // perfectly and cite a line the token does not appear on, and every grader reading
+    // doc:line -> symbol would score it correct because they judge the resolution.
+    //
+    // ef-manager ran it as a one-off over the 71 live edges (0 of 71 missing) while grading rule
+    // 3, and it is exactly the check that would catch an off-by-one in the scanner, a fence
+    // toggle drifting the line counter, or a re-scan on stale content. Every one of those breaks
+    // the promise the layer exists to make while leaving the resolution untouched.
+    //
+    // ⚠ THE LEGACY EXTRACTOR FAILED THIS ON ALL 2,533 EDGES — source_line hardcoded to 0 — and no
+    // amount of precision grading would have surfaced it, because the targets were the thing
+    // being judged.
+    const body = [
+      'The entry point is `Terrain::generate` today.',
+      '',
+      'It calls `compute()` and then `helper()`.',
+      '',
+      '```md',
+      'Not this one: `compute()`',
+      '```',
+      '',
+      'Finally see `LspClient` for the transport.',
+    ].join('\n');
+
+    const db = await fixture(body, [
+      ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
+      ['h1', 'Function', 'helper', 'src/h.cpp', '{"qname":"helper"}'],
+      ['l1', 'Class', 'LspClient', 'src/l.cpp', '{"qname":"LspClient"}'],
+    ]);
+    await detectDocRefs(db, repo);
+
+    const lines = body.split('\n');
+    const edges = refs(db);
+
+    // Positive control: the invariant is vacuous over an empty set, and an extractor that emits
+    // nothing satisfies it perfectly.
+    expect(edges.length, 'the fixture must produce edges, or the loop below proves nothing')
+      .toBeGreaterThanOrEqual(4);
+
+    for (const e of edges) {
+      const text = lines[e.source_line - 1];
+      expect(text, `edge cites line ${e.source_line}, which is past the end of the document`)
+        .toBeTruthy();
+      expect(text, `edge -> ${e.target} cites a line not containing it: ${JSON.stringify(text)}`)
+        .toContain(e.target);
+    }
+  }, 20_000);
+});
