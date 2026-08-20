@@ -10,42 +10,27 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { nodeLspSpawn } from '../node-bin.js';
 import { collectViaLsp } from './lsp-collect.js';
+import { enumerateFirstPartyFiles } from '../enumerate-first-party.js';
 
 const PROVIDER_NAME = 'ts-langserver';
 const PROVIDER_VERSION = '0.1.0';
 
 const EXTS = new Set(['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs']);
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'out', 'coverage', '.git', '.next', '.cache', 'vendor']);
 
 export function tsSpawnFor(projectRoot) {
   return nodeLspSpawn({ pkgName: 'typescript-language-server', binName: 'typescript-language-server', args: ['--stdio'], projectRoot });
 }
 
-// Recursive first-party walk, skipping vendored / build output dirs.
+// First-party walk. The exclusion set is DERIVED from the repo's own configuration by
+// `enumerateFirstPartyFiles`; the hardcoded SKIP_DIRS that used to live here never mentioned
+// `reference/` and put 1,196 nodes inside a gitignored tree. See that module's header.
 function enumerateTsFiles(projectRoot, { maxFiles = 200 } = {}) {
-  const files = [];
-  let scanned = 0;
-  let truncated = false;
-  const walk = (dir) => {
-    if (files.length >= maxFiles) { truncated = true; return; }
-    let entries = [];
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
-    for (const ent of entries) {
-      if (files.length >= maxFiles) { truncated = true; return; }
-      if (ent.isDirectory()) {
-        if (SKIP_DIRS.has(ent.name) || ent.name.startsWith('.')) continue;
-        walk(path.join(dir, ent.name));
-      } else if (ent.isFile()) {
-        const ext = path.extname(ent.name).toLowerCase();
-        if (!EXTS.has(ext)) continue;
-        if (ent.name.endsWith('.d.ts')) continue; // declaration-only, no callsites
-        scanned += 1;
-        files.push(path.relative(projectRoot, path.join(dir, ent.name)).replace(/\\/g, '/'));
-      }
-    }
-  };
-  walk(projectRoot);
-  return { files, stats: { total: scanned, after_filter: files.length, truncated, max_files: maxFiles } };
+  return enumerateFirstPartyFiles(projectRoot, {
+    exts: EXTS,
+    maxFiles,
+    // Declaration-only files have no callsites to collect.
+    skipFile: (name) => name.endsWith('.d.ts'),
+  });
 }
 
 function tsconfigFreshness(projectRoot) {
