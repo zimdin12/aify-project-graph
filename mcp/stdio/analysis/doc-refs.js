@@ -276,11 +276,40 @@ export async function detectDocRefs(db, repoRoot) {
   // ⚠ Stated because it CHANGES AMBIGUITY, not just ranking: a label matching one Function and
   // one External is unique under this rule and ambiguous without it. That is a judgement about
   // what a node type means, and it belongs in the open where someone can disagree with it.
-  const labelIndex = new Map();
+  // ⛔ TWO POPULATIONS, BECAUSE "UNIQUE" AND "UNIQUE AMONG WHAT" ARE DIFFERENT QUESTIONS.
+  //
+  // These were one index, and the filter above ran BEFORE the uniqueness test. So `hits.length > 1`
+  // meant "more than one non-External, non-Module, non-file-level node" while reading as "more
+  // than one node in the graph" — a POPULATION STATEMENT HIDING INSIDE A BOOLEAN.
+  //
+  // ef-manager found it as two false positives on echoes_of_the_fallen. `vec3` has two nodes:
+  //
+  //     Class      engine/voxel/SimplexNoise.h:46   a PRIVATE NESTED STRUCT in a noise class
+  //     External   (no file)                        the glm/GLSL type the author actually meant
+  //
+  // The External candidate was filtered out before the ambiguity test ran, so a name with two
+  // owners passed as unique and both documents got an edge to a private struct they were not
+  // talking about.
+  //
+  // ⇒ The filter is RIGHT for resolution — you must not point an edge at an External stub, which
+  // has no file and no span — and WRONG for ambiguity, because an External node carrying your
+  // label is precisely the evidence that the name is not yours alone. Same index, opposite needs.
+  //
+  //     resolutionIndex   what an edge may point AT
+  //     nameOwners        how many nodes claim the name, at all
+  //
+  // Admission needs BOTH: exactly one admissible target AND no other claimant.
+  //
+  // ⚠ MEASURED BEFORE ADOPTING, because a stricter rule that silently halves the layer is not an
+  // improvement: 0 of this repo's 71 shaped edges are refused by the stricter test. It costs
+  // nothing here and removes two known false positives there.
+  const resolutionIndex = new Map();
+  const nameOwners = new Map();
   for (const n of db.all("SELECT id, type, label FROM nodes WHERE label != ''")) {
+    nameOwners.set(n.label, (nameOwners.get(n.label) ?? 0) + 1);
     if (FILE_LEVEL.has(n.type) || n.type === 'External' || n.type === 'Module') continue;
-    if (!labelIndex.has(n.label)) labelIndex.set(n.label, []);
-    labelIndex.get(n.label).push(n.id);
+    if (!resolutionIndex.has(n.label)) resolutionIndex.set(n.label, []);
+    resolutionIndex.get(n.label).push(n.id);
   }
 
   const symbolIndex = buildSymbolIndex(db.all(
@@ -332,9 +361,13 @@ export async function detectDocRefs(db, repoRoot) {
       if (!ref.qualified) {
         const shaped = shapeOf(ref.written);
         if (!shaped) { note('unqualified'); continue; }
-        const hits = [...new Set(labelIndex.get(shaped.name) ?? [])];
+        const hits = [...new Set(resolutionIndex.get(shaped.name) ?? [])];
         if (hits.length === 0) { note('shaped_no_symbol'); continue; }
         if (hits.length > 1) { note('shaped_ambiguous'); continue; }
+        // One admissible target, but is it the only claimant? An External or Module node carrying
+        // the same label means the name is shared with something outside this repository, and a
+        // document writing it is at least as likely to mean that.
+        if ((nameOwners.get(shaped.name) ?? 0) > 1) { note('shaped_ambiguous'); continue; }
         if (seen.has(hits[0])) continue;
         seen.add(hits[0]);
         db.run(

@@ -464,3 +464,55 @@ describe('the recoverable-source-span invariant', () => {
     }
   }, 20_000);
 });
+
+describe('uniqueness names the population it is unique within', () => {
+  it('★★★ an EXTERNAL node sharing the label makes the name ambiguous, not unique', async () => {
+    // ⛔ "UNIQUE" WAS A POPULATION STATEMENT HIDING INSIDE A BOOLEAN.
+    //
+    // The label filter ran BEFORE the uniqueness test, so `hits.length > 1` meant "more than one
+    // non-External, non-Module, non-file-level node" while reading as "more than one node in the
+    // graph". A name with two owners passed as unique because one owner was removed first.
+    //
+    // ef-manager found it as two false positives on echoes_of_the_fallen. `vec3` has a Class node
+    // — a PRIVATE NESTED STRUCT inside an unrelated noise header — and an External node for the
+    // glm/GLSL type the authors actually meant. The External one was filtered out, so both
+    // documents got an edge to the private struct.
+    //
+    // ⇒ The filter is right for RESOLUTION (an edge must not point at an External stub, which has
+    // no file and no span) and wrong for AMBIGUITY DETECTION (an External node carrying your label
+    // is exactly the evidence that the name is not yours alone). Same index, opposite needs.
+    const db = await fixture('The gravity vector is `vec3(0,-1,0)`.', [
+      ['v1', 'Class', 'vec3', 'src/noise.h', '{"qname":"SimplexNoise.vec3"}'],
+      ['v2', 'External', 'vec3', '', '{}'],
+    ]);
+    const stats = await detectDocRefs(db, repo);
+    expect(refs(db), 'two owners is not one owner').toEqual([]);
+    expect(stats.misses.map((m) => m.bucket)).toContain('shaped_ambiguous');
+    db.close();
+  }, 20_000);
+
+  it('★★★ the SAME reference resolves when nothing else claims the name', async () => {
+    // The negative control, and it is doing real work: without it, a rule that refused everything
+    // would satisfy the test above perfectly. Removing ONLY the External node must flip the answer.
+    const db = await fixture('The gravity vector is `vec3(0,-1,0)`.', [
+      ['v1', 'Class', 'vec3', 'src/noise.h', '{"qname":"SimplexNoise.vec3"}'],
+    ]);
+    await detectDocRefs(db, repo);
+    expect(refs(db).map((r) => r.target), 'sole claimant, so it resolves').toEqual(['vec3']);
+    db.close();
+  }, 20_000);
+
+  it('★★★ an External stub is still never the TARGET of an edge', async () => {
+    // The other half of the split: External is counted for ambiguity but remains inadmissible as
+    // a destination. If it were admissible, this would emit an edge to a node with no file and no
+    // line — breaking the recoverable-source-span invariant from the other direction.
+    const db = await fixture('See `parseJson()` for details.', [
+      ['e1', 'External', 'parseJson', '', '{}'],
+    ]);
+    const stats = await detectDocRefs(db, repo);
+    expect(refs(db)).toEqual([]);
+    expect(stats.misses.map((m) => m.bucket), 'no admissible target at all')
+      .toContain('shaped_no_symbol');
+    db.close();
+  }, 20_000);
+});
