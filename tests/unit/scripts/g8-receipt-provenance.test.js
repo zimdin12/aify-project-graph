@@ -13,6 +13,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { REPO } from '../../helpers/self-review-specs.js';
 import { validateV3Spec } from '../../../scripts/lib/spec-schema.mjs';
@@ -20,6 +21,12 @@ import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const SR = join(REPO, 'tests', 'self-review');
 const RECEIPT = join(SR, 'receipts', 'G8');
+const BIN_PATH = 'tests/self-review/receipts/G8/g8-run.spec.bin';
+const JSON_PATH = 'tests/self-review/receipts/G8/g8-run.spec.json';
+
+/** The preimage as GIT holds it — the bytes any other machine receives. */
+const committedPreimage = () =>
+  execFileSync('git', ['show', `HEAD:${BIN_PATH}`], { cwd: REPO, encoding: 'utf8', maxBuffer: 1 << 20 });
 
 /** The hash frozen in the run manifest, before the preimage was committed. */
 const FROZEN_SHA = 'f810cb5014d001267dc24a5d6da13a88a7eef74cb99ab720ba965df0d8bcab3b';
@@ -28,11 +35,39 @@ const read = (p) => readFileSync(p, 'utf8');
 const sha = (b) => createHash('sha256').update(b).digest('hex');
 
 describe('the G8 receipt preimage is the exact input the run consumed', () => {
-  it('★★★ the committed spec hashes to the value frozen in the manifest', () => {
-    // ⛔ THE ADMISSIBILITY TEST. Anything else — a near-equivalent, a re-serialisation, a file with
-    // different whitespace — is a DIFFERENT experiment wearing the same name.
-    const bytes = readFileSync(join(RECEIPT, 'g8-run.spec.json'));
-    expect(sha(bytes)).toBe(FROZEN_SHA);
+  it('★★★ the COMMITTED GIT OBJECT hashes to the value frozen in the manifest', () => {
+    // ⛔⛔ THE WORKING TREE IS NOT THE EVIDENCE. My first attempt hashed the file on disk and
+    // passed — while the committed blob was a DIFFERENT 630-byte LF normalisation
+    // (805c18f2…) of the 642-byte CRLF bytes the run consumed (f810cb50…). `git status` stayed
+    // clean because the clean filter treats the two forms as equivalent, so every check in my
+    // checkout agreed with me and a fresh clone would have failed them.
+    //
+    // ⇒ **Git object identity is not the original byte content when a clean filter is in play.**
+    // The payload is committed under a `-text` attribute and adjudicated through `git show`, which
+    // is what any other machine will receive.
+    const committed = execFileSync('git', ['show', `HEAD:${BIN_PATH}`], {
+      cwd: REPO, encoding: 'buffer', maxBuffer: 1 << 20,
+    });
+    expect(committed.length, 'the exact byte length the run consumed').toBe(642);
+    expect(sha(committed), 'the immutable object IS the preimage').toBe(FROZEN_SHA);
+  });
+
+  it('★★★ the -text attribute is actually in force for that path', () => {
+    // A `.gitattributes` rule that does not match the path is decoration. Asked of git rather than
+    // read out of the file, because what matters is the attribute git RESOLVES.
+    const attr = execFileSync('git', ['check-attr', 'text', '--', BIN_PATH], { cwd: REPO, encoding: 'utf8' });
+    expect(attr, 'text must be explicitly unset, or git will normalise on checkout').toMatch(/text: unset/);
+  });
+
+  it('★★★ CONTROL: the normalised .json copy does NOT hash to the frozen value', () => {
+    // ⛔ THE NEAR-EQUIVALENT, PINNED AS THE THING WE REJECT. Keeping the readable copy is useful;
+    // letting it stand in for the preimage is the defect. This asserts they are different objects
+    // so nobody can later delete the .bin and point provenance at the .json.
+    const normalised = execFileSync('git', ['show', `HEAD:${JSON_PATH}`], {
+      cwd: REPO, encoding: 'buffer', maxBuffer: 1 << 20,
+    });
+    expect(sha(normalised), 'the text-filtered copy is a different object').not.toBe(FROZEN_SHA);
+    expect(normalised.length, 'shorter by exactly the CR bytes').toBe(630);
   });
 
   it('★★★ the manifest names that same hash — the receipt is self-consistent', () => {
@@ -44,7 +79,7 @@ describe('the G8 receipt preimage is the exact input the run consumed', () => {
     // Hand-transcribing the mutation would let a typo become the experiment. These four fields must
     // be byte-equal to the declaration; if anyone edits G8, this reddens and the receipt's
     // provenance is visibly broken rather than silently stale.
-    const [preimage] = JSON.parse(read(join(RECEIPT, 'g8-run.spec.json')));
+    const [preimage] = JSON.parse(committedPreimage());
     const [declared] = JSON.parse(read(join(SR, 'route-authority-G8.spec.json')));
     for (const field of ['name', 'file', 'from', 'to']) {
       expect(preimage[field], `${field} must equal the declaration`).toEqual(declared[field]);
@@ -56,7 +91,7 @@ describe('the G8 receipt preimage is the exact input the run consumed', () => {
     // ⛔ THE RULE THE WHOLE PROTOCOL EXISTS FOR. My earlier W1 probe read its predicate out of the
     // failure it was meant to predict. Binding these to the committed preregistration makes that
     // impossible to repeat without the test going red.
-    const [preimage] = JSON.parse(read(join(RECEIPT, 'g8-run.spec.json')));
+    const [preimage] = JSON.parse(committedPreimage());
     const prereg = JSON.parse(read(join(SR, 'preregistrations', 'G8.json')));
     expect(preimage.case).toBe(prereg.case);
     expect(preimage.expect).toBe(prereg.expect);
@@ -80,10 +115,10 @@ describe('the G8 receipt preimage is the exact input the run consumed', () => {
 
   it('★★★ CONTROL: the hash check can FAIL — a changed byte changes the hash', () => {
     // Without this, "the hashes match" is satisfied by a comparison that always agrees.
-    const bytes = read(join(RECEIPT, 'g8-run.spec.json'));
+    const bytes = committedPreimage();
     // `not.toBe` on a hash is not a matcher-absence assertion — a changed byte provably changes
     // the digest, and the positive half is asserted above.
-    expect(sha(`${bytes} `), 'one appended space is a different file').not.toBe(FROZEN_SHA);
+    expect(sha(`${bytes} `), 'one appended byte is a different object').not.toBe(FROZEN_SHA);
   });
 });
 
