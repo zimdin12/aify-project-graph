@@ -57,75 +57,64 @@ import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFe
  * extractor that never ran, one that ran and produced zero, and edges purged since. The carrier
  * holds the result population, not producer liveness.
  */
+/**
+ * One count, normalized once — value or diagnostic, never both, never a lie.
+ *
+ * ⛔⛔ THE FIRST CODEC FIX COVERED THE SITE THE WITNESS NAMED AND NOT THE CLASS. A malformed
+ * CANDIDATE total got a JSON-safe `{type, repr}` diagnostic; the malformed INDEXED count did not,
+ * and it crosses the same serializer. graph-senior-dev executed the wire artifact:
+ *
+ *     NaN       -> indexed_document_count: null    indistinguishable from ABSENT
+ *     Infinity  -> indexed_document_count: null    same
+ *     1.5       -> indexed_document_count: 1.5     violates numeric-or-null
+ *     '3'       -> indexed_document_count: "3"     a STRING in a count field
+ *
+ * ★ An instance-shaped fix for a class-shaped defect — the exact pattern that cost this repo 62,066
+ * records earlier today, when a documented guard was applied to edge invalidation and not to the
+ * record prune 600 lines away. I had the general lesson written down and still repaired one site.
+ *
+ * ⇒ So both counts go through THIS function and neither caller restates the rule. A count is a
+ * non-negative integer or null; anything else travels as a diagnostic that survives JSON.
+ */
+export function normalizeCount(raw) {
+  if (raw == null) return { value: null, invalid: null };
+  if (Number.isInteger(raw) && raw >= 0) return { value: raw, invalid: null };
+  // `String(NaN)` is 'NaN' and `String(Infinity)` is 'Infinity' — both survive serialization, which
+  // the raw values do not.
+  return { value: null, invalid: { type: typeof raw, repr: String(raw) } };
+}
+
 export function documentEvidence(readFirstArr = [], documentCount = null, candidateTotal = null) {
   const shown = readFirstArr.filter((r) => r.kind === 'doc').length;
-  // ⛔ THE TOTAL IS THE POPULATION, NOT THE RENDERED SAMPLE. `linked_candidate_count` used to be
-  // `readFirstArr.filter(...).length` — and `readFirst` slices to two before returning, so it
-  // reported 2 for a population of 89. A cap presented as a denominator, inside the typed state
-  // built to stop exactly that. Falls back to the rendered count only when no total was supplied,
-  // which is the pre-wiring path and is why the fallback is explicit rather than silent.
-  // ⛔ FALLBACK ONLY ON TRUE ABSENCE. This read `Number.isInteger(t) ? t : shown`, so a supplied
-  // total of 1.5, '3' or NaN was REPLACED BY THE SAMPLE before the validator saw it — and came back
-  // as a confident `indexed_without_link_candidates`. The check could not detect a malformed total
-  // because the malformed total never reached it. graph-senior-dev executed all three.
-  //
-  // ⚠ AND A MISSING TOTAL IS NOT ZERO AND NOT THE SAMPLE. Under schema v2 an absent total is
-  // UNKNOWN: `shown > 0` still proves candidates exist, with the total left null, because inferring
-  // the population from what was rendered is the exact defect this carrier was built to remove.
-  const totalSupplied = candidateTotal != null;
-  const totalMalformed = totalSupplied && (!Number.isInteger(candidateTotal) || candidateTotal < 0);
-  const linked = totalSupplied && !totalMalformed ? candidateTotal : null;
 
-  // ⛔⛔ CONTRADICTORY COUNTS ARE NOT A NORMAL STATE. graph-senior-dev serialized three impossible
-  // combinations through the old function and every one came back as a confident answer:
-  //
-  //     indexed 0, candidates 1   -> candidates_present
-  //     indexed 1, candidates 2   -> candidates_present
-  //     indexed -1               -> indexed_without_link_candidates
-  //
-  // A generated artifact that publishes a contradiction as a fact is worse than one that publishes
-  // nothing: a consumer has no way to know it is holding an impossible pair.
-  //
-  // ⚠ AND `inconsistent` IS NOT `unknown`. Observed inconsistency is not absence — collapsing them
-  // would be the two-state collapse this file has already been corrected for twice. The raw counts
-  // travel WITH the state so the contradiction is auditable rather than merely flagged.
-  const badInt = (v) => v != null && (!Number.isInteger(v) || v < 0);
-  const inconsistent = totalMalformed
-    || badInt(documentCount)
-    || (Number.isInteger(documentCount) && Number.isInteger(linked) && linked > documentCount)
-    // ⛔ SHOWN CANNOT EXCEED THE POPULATION IT WAS DRAWN FROM. The positional fallback produced
-    // exactly this — 2 shown against a linked total of 0 — and the artifact rendered both numbers
-    // beside a heading claiming link prominence.
-    || (Number.isInteger(linked) && shown > linked);
+  // ⚠ SYMMETRIC. Both inputs are normalized by the same rule before anything compares them, so a
+  // comparison can never run against a string, a fraction or a NaN.
+  const indexed = normalizeCount(documentCount);
+  const linked = normalizeCount(candidateTotal);
+
+  // ⛔ CONTRADICTIONS, and a malformed input is one of them. Observed inconsistency is not absence:
+  // collapsing them to `unknown` would be the two-state collapse this file has been corrected for
+  // repeatedly. The raw values travel as diagnostics so the contradiction is auditable.
+  const inconsistent = Boolean(indexed.invalid) || Boolean(linked.invalid)
+    || (indexed.value != null && linked.value != null && linked.value > indexed.value)
+    // Shown cannot exceed the population it was drawn from — this is what the positional fallback
+    // produced: 2 shown against a linked total of 0.
+    || (linked.value != null && shown > linked.value);
 
   const state = inconsistent ? 'inconsistent'
-    : (linked != null ? linked > 0 : shown > 0) ? 'candidates_present'
-      : linked == null ? 'unknown'
-        : documentCount == null ? 'unknown'
-          : documentCount === 0 ? 'graph_empty'
+    : (linked.value != null ? linked.value > 0 : shown > 0) ? 'candidates_present'
+      : linked.value == null ? 'unknown'
+        : indexed.value == null ? 'unknown'
+          : indexed.value === 0 ? 'graph_empty'
             : 'indexed_without_link_candidates';
-  // ⛔⛔ THE RAW VALUE DOES NOT SURVIVE `JSON.stringify`, SO CARRYING IT IN THE NUMERIC FIELD WAS A
-  // RECEIPT THE ARTIFACT NEVER HELD. graph-senior-dev round-tripped it:
-  //
-  //     JSON.parse(JSON.stringify({ v: NaN }))       -> { v: null }
-  //     JSON.parse(JSON.stringify({ v: Infinity }))  -> { v: null }
-  //
-  // A supplied NaN became indistinguishable from ABSENT in `brief.json` — the exact distinction the
-  // `inconsistent` state exists to preserve. My test asserted on the in-memory object, BEFORE the
-  // destructive codec, so it pinned a property the published artifact does not have.
-  //
-  // ⇒ The numeric field stays numeric-or-null and the malformed input travels in a JSON-SAFE
-  // diagnostic. A string never goes into a count field either: `'3'` is not the number 3, and
-  // writing it there would launder the defect into a plausible value.
-  const malformedDiagnostic = totalMalformed
-    ? { type: typeof candidateTotal, repr: String(candidateTotal) }
-    : null;
+
   return {
-    indexed_document_count: documentCount,
-    linked_candidate_count: totalMalformed ? null : linked,
-    ...(malformedDiagnostic ? { invalid_linked_candidate_count: malformedDiagnostic } : {}),
-    // ⚠ Both numbers, always. "showing 2 of 89" is only sayable if the artifact carries both, and a
-    // cap nobody can see is a cap reported as a total one layer up.
+    indexed_document_count: indexed.value,
+    linked_candidate_count: linked.value,
+    // ⚠ Present ONLY when malformed, so a consumer can distinguish "absent" from "given, and wrong".
+    ...(indexed.invalid ? { invalid_indexed_document_count: indexed.invalid } : {}),
+    ...(linked.invalid ? { invalid_linked_candidate_count: linked.invalid } : {}),
+    // Both, always. "showing 2 of 89" is only sayable if the artifact carries both.
     shown_candidate_count: shown,
     state,
   };
@@ -136,11 +125,14 @@ export function documentEvidenceLine(ev) {
   if (ev.state === 'inconsistent') {
     // The text surface uses the same JSON-safe representation, so the two artifacts cannot disagree
     // about what was wrong.
-    const linked = ev.invalid_linked_candidate_count
-      ? `${ev.invalid_linked_candidate_count.repr} (${ev.invalid_linked_candidate_count.type})`
-      : String(ev.linked_candidate_count);
-    return `DOCS: evidence INCONSISTENT — ${ev.indexed_document_count} indexed, `
-      + `${linked} linked candidate(s); these counts cannot both be true`;
+    // ⚠ BOTH counts use the same representation, so the text and JSON artifacts cannot disagree
+    // about which value was wrong — and a malformed INDEXED count is no longer rendered as the
+    // bare `null` that absence also produces.
+    const show = (value, invalid) => (invalid ? `${invalid.repr} (${invalid.type})` : String(value));
+    return 'DOCS: evidence INCONSISTENT — '
+      + `${show(ev.indexed_document_count, ev.invalid_indexed_document_count)} indexed, `
+      + `${show(ev.linked_candidate_count, ev.invalid_linked_candidate_count)} linked candidate(s); `
+      + 'these counts cannot both be true';
   }
   if (ev.state === 'candidates_present' && ev.linked_candidate_count > ev.shown_candidate_count) {
     return `DOCS: showing ${ev.shown_candidate_count} of ${ev.linked_candidate_count} linked candidates`;
@@ -249,13 +241,13 @@ export function renderMarkdown(data) {
   if (docEvidence.state === 'inconsistent') {
     // ⚠ Fails closed and LOUD. A contradiction is not a candidate list with a caveat.
     lines.push('## Linked document candidates');
-    const badLinked = docEvidence.invalid_linked_candidate_count
-      ? `${docEvidence.invalid_linked_candidate_count.repr} `
-        + `(${docEvidence.invalid_linked_candidate_count.type})`
-      : String(docEvidence.linked_candidate_count);
-    lines.push(`EVIDENCE INCONSISTENT — ${docEvidence.indexed_document_count} document(s) indexed `
-      + `and ${badLinked} linked candidate(s) reported; these counts cannot `
-      + 'both be true, so neither is presented as evidence.');
+    const show = (value, invalid) => (invalid ? `${invalid.repr} (${invalid.type})` : String(value));
+    lines.push('EVIDENCE INCONSISTENT — '
+      + `${show(docEvidence.indexed_document_count, docEvidence.invalid_indexed_document_count)} `
+      + 'document(s) indexed and '
+      + `${show(docEvidence.linked_candidate_count, docEvidence.invalid_linked_candidate_count)} `
+      + 'linked candidate(s) reported; these counts cannot both be true, so neither is presented '
+      + 'as evidence.');
     lines.push('');
   } else if (docCandidates.length) {
     lines.push('## Linked document candidates');

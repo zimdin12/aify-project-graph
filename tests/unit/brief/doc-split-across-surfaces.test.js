@@ -269,10 +269,17 @@ describe('the typed state carries a population, not a rendered sample', () => {
       const d = { ...data(), readFirstArr: [], documentCount: c.documentCount, documentCandidateCount: c.total };
       const ev = renderJson(d, '/repo').document_evidence;
       expect(ev.state, 'observed inconsistency is not absence').toBe('inconsistent');
-      // ⚠ NOT collapsed to `unknown`, and the raw counts travel WITH it so the contradiction is
-      // auditable rather than merely flagged.
-      expect(ev.indexed_document_count).toBe(c.documentCount);
-      expect(ev.linked_candidate_count).toBe(c.total);
+      // ⚠ NOT collapsed to `unknown`. The values travel WITH the state so the contradiction is
+      // auditable — but a count field is non-negative-integer-or-null, so a NEGATIVE input travels
+      // as a diagnostic rather than sitting in the numeric field. This assertion used to demand
+      // `-1` in `indexed_document_count`, which the contract now forbids: it was asserting the
+      // shape the normalizer exists to prevent.
+      const idx = ev.invalid_indexed_document_count
+        ? Number(ev.invalid_indexed_document_count.repr) : ev.indexed_document_count;
+      const lnk = ev.invalid_linked_candidate_count
+        ? Number(ev.invalid_linked_candidate_count.repr) : ev.linked_candidate_count;
+      expect(idx, 'the indexed value is recoverable either way').toBe(c.documentCount);
+      expect(lnk, 'and so is the candidate value').toBe(c.total);
       expect(renderMarkdown(d), 'the text surface says so too').toMatch(/EVIDENCE INCONSISTENT/);
       expect(renderAgentMarkdown(d)).toMatch(/DOCS: evidence INCONSISTENT/);
     });
@@ -429,5 +436,68 @@ describe('positional custody is separate from the source accumulator', () => {
     expect(j.read_first.map((r) => r.file)).toEqual(['src/server.js']);
     expect(j.positional_document_fallback).toHaveLength(3);
     expect(j.document_evidence.shown_candidate_count, 'positional rows are not a linked sample').toBe(0);
+  });
+});
+
+// ⛔ THE FIRST CODEC FIX COVERED THE SITE THE WITNESS NAMED, NOT THE CLASS.
+//
+// A malformed CANDIDATE total got a JSON-safe diagnostic. The malformed INDEXED count did not, and
+// it crosses the same serializer. graph-senior-dev executed the wire artifact:
+//
+//     NaN      -> indexed_document_count: null    indistinguishable from ABSENT
+//     Infinity -> indexed_document_count: null    same
+//     1.5      -> indexed_document_count: 1.5     violates numeric-or-null
+//     '3'      -> indexed_document_count: "3"     a STRING in a count field
+//
+// ★ An instance-shaped fix for a class-shaped defect — the pattern that cost 62,066 records earlier
+// today, when a documented guard reached edge invalidation and not the record prune 600 lines away.
+// I had the general lesson written down and still repaired one site.
+describe('BOTH counts cross the codec identically', () => {
+  const MALFORMED = [
+    { name: 'NaN', value: NaN },
+    { name: 'Infinity', value: Infinity },
+    { name: 'fractional', value: 1.5 },
+    { name: 'string', value: '3' },
+  ];
+
+  for (const m of MALFORMED) {
+    it(`★★★ malformed INDEXED count (${m.name}) survives JSON as a diagnostic`, () => {
+      const d = { ...data(), readFirstArr: [], documentCount: m.value, documentCandidateCount: 0 };
+      const wire = JSON.parse(JSON.stringify(renderJson(d, '/repo')));
+      const ev = wire.document_evidence;
+      expect(ev.state).toBe('inconsistent');
+      expect(ev.indexed_document_count, 'numeric-or-null, never a string or a fraction').toBeNull();
+      expect(ev.invalid_indexed_document_count.repr).toBe(String(m.value));
+      expect(ev.invalid_indexed_document_count.type).toBe(typeof m.value);
+    });
+  }
+
+  it('★★★ BOTH malformed — neither diagnostic erases the other', () => {
+    const d = { ...data(), readFirstArr: [], documentCount: NaN, documentCandidateCount: '3' };
+    const ev = JSON.parse(JSON.stringify(renderJson(d, '/repo'))).document_evidence;
+    expect(ev.invalid_indexed_document_count).toEqual({ type: 'number', repr: 'NaN' });
+    expect(ev.invalid_linked_candidate_count).toEqual({ type: 'string', repr: '3' });
+    expect(ev.indexed_document_count).toBeNull();
+    expect(ev.linked_candidate_count).toBeNull();
+  });
+
+  it('★★★ CONTROL: valid counts carry NO diagnostic and are unchanged by the codec', () => {
+    // ⛔ Without this, "always emit a diagnostic" passes every assertion above and every artifact
+    // reports itself inconsistent — the permanent-warning failure this repo has already shipped
+    // once, in a health check that warned on every repo.
+    const d = { ...data(), readFirstArr: [DOC], documentCount: 160, documentCandidateCount: 89 };
+    const ev = JSON.parse(JSON.stringify(renderJson(d, '/repo'))).document_evidence;
+    expect(ev.state).toBe('candidates_present');
+    expect(ev.indexed_document_count).toBe(160);
+    expect(ev.linked_candidate_count).toBe(89);
+    expect(ev.invalid_indexed_document_count).toBeUndefined();
+    expect(ev.invalid_linked_candidate_count).toBeUndefined();
+  });
+
+  it('★★★ the text surface shows WHICH value was wrong, for either count', () => {
+    // A malformed indexed count used to render as a bare `null` — which absence also produces.
+    const d = { ...data(), readFirstArr: [], documentCount: NaN, documentCandidateCount: 0 };
+    expect(renderMarkdown(d)).toMatch(/NaN \(number\) document\(s\) indexed/);
+    expect(renderAgentMarkdown(d)).toMatch(/NaN \(number\) indexed/);
   });
 });
