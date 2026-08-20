@@ -64,7 +64,17 @@ export function documentEvidence(readFirstArr = [], documentCount = null, candid
   // reported 2 for a population of 89. A cap presented as a denominator, inside the typed state
   // built to stop exactly that. Falls back to the rendered count only when no total was supplied,
   // which is the pre-wiring path and is why the fallback is explicit rather than silent.
-  const linked = Number.isInteger(candidateTotal) ? candidateTotal : shown;
+  // ⛔ FALLBACK ONLY ON TRUE ABSENCE. This read `Number.isInteger(t) ? t : shown`, so a supplied
+  // total of 1.5, '3' or NaN was REPLACED BY THE SAMPLE before the validator saw it — and came back
+  // as a confident `indexed_without_link_candidates`. The check could not detect a malformed total
+  // because the malformed total never reached it. graph-senior-dev executed all three.
+  //
+  // ⚠ AND A MISSING TOTAL IS NOT ZERO AND NOT THE SAMPLE. Under schema v2 an absent total is
+  // UNKNOWN: `shown > 0` still proves candidates exist, with the total left null, because inferring
+  // the population from what was rendered is the exact defect this carrier was built to remove.
+  const totalSupplied = candidateTotal != null;
+  const totalMalformed = totalSupplied && (!Number.isInteger(candidateTotal) || candidateTotal < 0);
+  const linked = totalSupplied && !totalMalformed ? candidateTotal : null;
 
   // ⛔⛔ CONTRADICTORY COUNTS ARE NOT A NORMAL STATE. graph-senior-dev serialized three impossible
   // combinations through the old function and every one came back as a confident answer:
@@ -80,17 +90,25 @@ export function documentEvidence(readFirstArr = [], documentCount = null, candid
   // would be the two-state collapse this file has already been corrected for twice. The raw counts
   // travel WITH the state so the contradiction is auditable rather than merely flagged.
   const badInt = (v) => v != null && (!Number.isInteger(v) || v < 0);
-  const inconsistent = badInt(documentCount) || badInt(linked)
-    || (Number.isInteger(documentCount) && Number.isInteger(linked) && linked > documentCount);
+  const inconsistent = totalMalformed
+    || badInt(documentCount)
+    || (Number.isInteger(documentCount) && Number.isInteger(linked) && linked > documentCount)
+    // ⛔ SHOWN CANNOT EXCEED THE POPULATION IT WAS DRAWN FROM. The positional fallback produced
+    // exactly this — 2 shown against a linked total of 0 — and the artifact rendered both numbers
+    // beside a heading claiming link prominence.
+    || (Number.isInteger(linked) && shown > linked);
 
   const state = inconsistent ? 'inconsistent'
-    : linked > 0 ? 'candidates_present'
-      : documentCount == null ? 'unknown'
-        : documentCount === 0 ? 'graph_empty'
-          : 'indexed_without_link_candidates';
+    : (linked != null ? linked > 0 : shown > 0) ? 'candidates_present'
+      : linked == null ? 'unknown'
+        : documentCount == null ? 'unknown'
+          : documentCount === 0 ? 'graph_empty'
+            : 'indexed_without_link_candidates';
   return {
     indexed_document_count: documentCount,
-    linked_candidate_count: linked,
+    // ⚠ The RAW supplied value travels when it is malformed, so the contradiction is auditable
+    // rather than replaced by a plausible number.
+    linked_candidate_count: totalMalformed ? candidateTotal : linked,
     // ⚠ Both numbers, always. "showing 2 of 89" is only sayable if the artifact carries both, and a
     // cap nobody can see is a cap reported as a total one layer up.
     shown_candidate_count: shown,
@@ -193,8 +211,13 @@ export function renderMarkdown(data) {
   // ⚠ THE SOURCE ENTRIES KEEP THE CLAIM: they come from exports, feature anchors and source degree,
   // which this grade did not test and did not fail. Splitting the sections is what stops a shared
   // heading from silently restoring the withdrawn claim over the documents.
-  const readSources = readFirstArr.filter((r) => r.kind !== 'doc');
+  // ⚠ `kind !== 'doc'` WOULD NOW SWEEP `doc-position` INTO THE SOURCE-EVIDENCE SIDE. A new kind
+  // added beside an inequality lands in whichever bucket the inequality does not name, which is how
+  // a category silently joins a population it was created to leave.
+  const DOC_KINDS = new Set(['doc', 'doc-position']);
+  const readSources = readFirstArr.filter((r) => !DOC_KINDS.has(r.kind));
   const docCandidates = readFirstArr.filter((r) => r.kind === 'doc');
+  const positional = readFirstArr.filter((r) => r.kind === 'doc-position');
   const docEvidence = documentEvidence(readFirstArr, documentCount, data.documentCandidateCount ?? null);
   if (readSources.length) {
     lines.push('## Read first');
@@ -232,6 +255,17 @@ export function renderMarkdown(data) {
       + 'That is consistent with documents containing no authored repository links, with an '
       + 'extractor that never ran, and with edges purged since; this carrier holds the result '
       + 'population, not producer liveness.');
+    lines.push('');
+  }
+
+  if (positional.length) {
+    // ⛔ ITS OWN HEADING. These entries came back under "Linked document candidates" while carrying
+    // `why` text saying they are position — so the heading claimed link evidence for rows that
+    // disclaimed it, in the same section. A distinct heading is what stops the claim travelling.
+    lines.push('## Root document fallback');
+    lines.push('Position, NOT evidence — no document in this graph carries an indexed authored '
+      + 'link, so these are root-level documents listed by path.');
+    for (const r of positional) lines.push(`- \`${r.file}\` — ${r.why}`);
     lines.push('');
   }
 
@@ -405,7 +439,8 @@ export function renderAgentMarkdown(data) {
   }
   // Same split in the compact renderings. One heading over both restores the withdrawn claim by
   // omission — see the note on the markdown renderer above.
-  const readSrc = readFirstArr.filter((r) => r.kind !== 'doc');
+  const DOC_KINDS_C = new Set(['doc', 'doc-position']);
+  const readSrc = readFirstArr.filter((r) => !DOC_KINDS_C.has(r.kind));
   const docCands = readFirstArr.filter((r) => r.kind === 'doc');
   if (readSrc.length) {
     lines.push('READ:');
@@ -507,7 +542,8 @@ export function renderOnboardAgentMarkdown(data) {
   }
   // Same split in the compact renderings. One heading over both restores the withdrawn claim by
   // omission — see the note on the markdown renderer above.
-  const readSrc = readFirstArr.filter((r) => r.kind !== 'doc');
+  const DOC_KINDS_C = new Set(['doc', 'doc-position']);
+  const readSrc = readFirstArr.filter((r) => !DOC_KINDS_C.has(r.kind));
   const docCands = readFirstArr.filter((r) => r.kind === 'doc');
   if (readSrc.length) {
     lines.push('READ:');
@@ -733,8 +769,11 @@ export function renderJson(data, repoRoot) {
     // Split in the payload too: `read_first` is source evidence, document candidates are named
     // for what ranks them. A consumer reading `kind:"doc"` out of `read_first` would inherit the
     // claim this commit withdrew.
-    read_first: readFirstArr.filter((r) => r.kind !== 'doc'),
+    read_first: readFirstArr.filter((r) => !['doc', 'doc-position'].includes(r.kind)),
     linked_document_candidates: readFirstArr.filter((r) => r.kind === 'doc'),
+    // ⚠ ITS OWN KEY, excluded from `read_first`, from `linked_document_candidates`, and from every
+    // linked count. A consumer asking for link evidence must not be handed position.
+    positional_document_fallback: readFirstArr.filter((r) => r.kind === 'doc-position'),
     // ⛔ COUNTS AND STATE TRAVEL TOGETHER, or `linked_document_candidates: []` is unreadable: it
     // means the same thing for a graph with 0 Document nodes and for one with 42 that carry no
     // authored links, and those are different situations. The payload used to carry the empty array

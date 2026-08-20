@@ -47,7 +47,7 @@ describe('the doc section distinguishes its three states', () => {
     // ingestion gap and prescribing a re-index infers a cause from absence, in the same breath as
     // a sentence saying not to — and ef-manager's field evidence killed the remedy too, since the
     // motivating repo's three root documents PASS the historical predicate.
-    const md = renderMarkdown(baseData({ documentCount: 0 }));
+    const md = renderMarkdown(baseData({ documentCount: 0, documentCandidateCount: 0 }));
     const s = section(md);
     expect(s, 'the section must appear at all — silence is the defect').toBeTruthy();
     expect(s, 'states what was observed').toMatch(/contains 0 Document nodes/);
@@ -57,7 +57,7 @@ describe('the doc section distinguishes its three states', () => {
   it('★★★ documents present but none linked says so, and names the count', async () => {
     // A different answer with a different action: the documents are indexed, the LINK layer is not
     // built. A reader who sees "no documents" here goes and re-indexes something that is fine.
-    const md = renderMarkdown(baseData({ documentCount: 42 }));
+    const md = renderMarkdown(baseData({ documentCount: 42, documentCandidateCount: 0 }));
     const s = section(md);
     expect(s).toMatch(/42 document\(s\) indexed, 0 with indexed authored-link evidence/);
     // ⚠ AND IT NAMES NO PRODUCER. This used to assert "the link layer is not" — a claim about an
@@ -73,6 +73,7 @@ describe('the doc section distinguishes its three states', () => {
     // already shipped once.
     const md = renderMarkdown(baseData({
       documentCount: 42,
+      documentCandidateCount: 1,
       readFirstArr: [{ file: 'README.md', why: '7 document(s) link here', kind: 'doc' }],
     }));
     const s = section(md);
@@ -101,6 +102,7 @@ describe('the doc section distinguishes its three states', () => {
     // and a shared section would restore the claim by omission.
     const md = renderMarkdown(baseData({
       documentCount: 3,
+      documentCandidateCount: 1,
       readFirstArr: [
         { file: 'src/server.js', why: '160 connections', kind: 'high-degree' },
         { file: 'README.md', why: '7 document(s) link here', kind: 'doc' },

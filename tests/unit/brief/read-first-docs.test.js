@@ -42,6 +42,10 @@ async function graph() {
 }
 
 const docsOf = (db) => readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
+// ⚠ POSITIONAL ENTRIES ARE A DIFFERENT KIND NOW. They used to be pushed as `kind: 'doc'` carrying
+// disclaiming prose, so every consumer counting doc-evidence counted them and only a human reading
+// the sentence could tell. The distinction lives in the data; these tests read it from there.
+const positionalOf = (db) => readFirst(db, 6, {}).filter((r) => r.kind === 'doc-position');
 
 describe('the brief picks orienting documents by evidence, not by name', () => {
   it('★★★ a document matching NO expected name is returned — that IS the defect', async () => {
@@ -114,9 +118,10 @@ describe('the brief picks orienting documents by evidence, not by name', () => {
     db.node('b', 'Document', 'docs/deep/buried.md');
     db.node('c1', 'File', 'src/a.js');          // code exists; nothing links to it
 
-    const docs = docsOf(db);
-    expect(docs.map((d) => d.file), 'root-level only').toEqual(['README.md']);
-    expect(docs[0].why, 'and it refuses to present position as evidence')
+    expect(docsOf(db), 'nothing qualifies as LINK evidence').toEqual([]);
+    const pos = positionalOf(db);
+    expect(pos.map((d) => d.file), 'root-level only, in its own carrier').toEqual(['README.md']);
+    expect(pos[0].why, 'and it refuses to present position as evidence')
       .toMatch(/position, not evidence/);
     db.close();
   }, 30_000);
@@ -270,8 +275,9 @@ describe('the ranking sees the whole population and only its own authority', () 
     db.node('c1', 'File', 'src/a.js');
     db.run(`INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
             VALUES ('a','c1','LINKS_TO','x',1,1,'EXTRACTED','some-other-producer')`);
-    const docs = readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
-    expect(docs[0].why, 'falls through to the positional basis').toMatch(/position, not evidence/);
+    expect(docsOf(db), 'a foreign extractor confers no link evidence').toEqual([]);
+    expect(positionalOf(db)[0].why, 'falls through to the positional carrier')
+      .toMatch(/position, not evidence/);
     db.close();
   }, 30_000);
 

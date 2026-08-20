@@ -141,27 +141,32 @@ describe('the document/source split holds on every public surface', () => {
 //
 // ⇒ This matrix is the denominator: every state through every surface, in the harness that already
 // exists rather than a fifth one-surface test.
+// ⚠ EVERY CASE NOW SUPPLIES A TOTAL, and that is the contract rather than test bookkeeping. An
+// absent total is UNKNOWN — the carrier no longer infers the population from the rendered sample,
+// so a state can only be asserted when someone actually counted.
 const STATES = [
-  { name: 'graph_empty', documentCount: 0, arr: [] },
-  { name: 'indexed_without_link_candidates', documentCount: 42, arr: [] },
-  { name: 'candidates_present', documentCount: 42, arr: [DOC] },
-  { name: 'unknown', documentCount: null, arr: [] },
+  { name: 'graph_empty', documentCount: 0, total: 0, arr: [] },
+  { name: 'indexed_without_link_candidates', documentCount: 42, total: 0, arr: [] },
+  { name: 'candidates_present', documentCount: 42, total: 1, arr: [DOC] },
+  { name: 'unknown', documentCount: null, total: null, arr: [] },
 ];
 
 describe('the document-evidence state is typed, cross-surface and cause-neutral', () => {
   for (const st of STATES) {
     it(`★★★ ${st.name} — JSON carries counts AND state together`, () => {
-      const j = renderJson({ ...data(), documentCount: st.documentCount, readFirstArr: st.arr }, '/repo');
+      const j = renderJson({
+        ...data(), documentCount: st.documentCount, documentCandidateCount: st.total, readFirstArr: st.arr,
+      }, '/repo');
       expect(j.document_evidence.state).toBe(st.name);
       expect(j.document_evidence.indexed_document_count).toBe(st.documentCount);
-      expect(j.document_evidence.linked_candidate_count).toBe(st.arr.length);
+      expect(j.document_evidence.linked_candidate_count).toBe(st.total);
     });
   }
 
   it('★★★ the compact surfaces are NOT silent on the two empty states', () => {
     // These are the artifacts read first, and silence there is what made the field case invisible.
     for (const documentCount of [0, 42]) {
-      const d = { ...data(), documentCount, readFirstArr: [] };
+      const d = { ...data(), documentCount, documentCandidateCount: 0, readFirstArr: [] };
       expect(renderAgentMarkdown(d), `agent brief, count=${documentCount}`).toMatch(/^DOCS:/m);
       expect(renderOnboardAgentMarkdown(d), `onboard, count=${documentCount}`).toMatch(/^DOCS:/m);
     }
@@ -171,7 +176,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
     // ⛔ The renderer knows the graph holds zero Document nodes. It does not know whether the
     // REPOSITORY holds any, and it has no carrier for the omission mechanism. Naming either would
     // be inferring a cause from absence — the thing the sentence beside it forbids.
-    const md = renderMarkdown({ ...data(), documentCount: 0, readFirstArr: [] });
+    const md = renderMarkdown({ ...data(), documentCount: 0, documentCandidateCount: 0, readFirstArr: [] });
     const sect = between(md, '## Linked document candidates', String.fromCharCode(10) + '## ');
     expect(sect, 'says what it observed').toMatch(/contains 0 Document nodes/);
     expect(sect, 'and says the cause is not established').toMatch(/NOT established/);
@@ -187,7 +192,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
     // Zero candidates is consistent with documents that genuinely carry no authored links, an
     // extractor that never ran, one that ran and produced zero, and edges purged since. This
     // carrier holds the result population, not producer liveness.
-    const md = renderMarkdown({ ...data(), documentCount: 42, readFirstArr: [] });
+    const md = renderMarkdown({ ...data(), documentCount: 42, documentCandidateCount: 0, readFirstArr: [] });
     const sect = between(md, '## Linked document candidates', String.fromCharCode(10) + '## ');
     expect(sect).toMatch(/42 document\(s\) indexed, 0 with indexed authored-link evidence/);
     expectAbsentWithLiveMatcher(
@@ -201,7 +206,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
   it('★★★ UNKNOWN is consistent across surfaces — omitted in text, explicit in JSON', () => {
     // ⚠ Never guessed. A renderer with no count cannot tell the two empty states apart, so the text
     // surfaces say nothing and the payload says `unknown` rather than either of them.
-    const d = { ...data(), documentCount: null, readFirstArr: [] };
+    const d = { ...data(), documentCount: null, documentCandidateCount: null, readFirstArr: [] };
     expectAbsentWithLiveMatcher(
       /## Linked document candidates/,
       { forbidden: '## Linked document candidates', allowed: '## Read first' },
@@ -272,4 +277,92 @@ describe('the typed state carries a population, not a rendered sample', () => {
       expect(renderAgentMarkdown(d)).toMatch(/DOCS: evidence INCONSISTENT/);
     });
   }
+});
+
+// ⛔ THE POSITIONAL FALLBACK TRAVELLED AS LINK EVIDENCE, and the artifact contradicted itself.
+//
+// graph-senior-dev built a graph with two root Documents and zero edges. One artifact then said
+// 0 linked candidates, 2 SHOWN candidates, and "Ranked by link prominence" — beside two entries
+// whose own `why` read "position, not evidence". Three mutually exclusive statements in one section.
+//
+// ⇒ One producer was mixing two populations under one name. They are different evidence and now
+// travel in different fields, so a consumer counting link evidence cannot be handed position.
+const POS = { file: 'AGENTS.md', why: 'root-level document; ... position, not evidence', kind: 'doc-position' };
+
+describe('positional fallback is a separate population from linked evidence', () => {
+  it('★★★ positional entries are NOT linked candidates and NOT read-first sources', () => {
+    const d = { ...data(), readFirstArr: [SRC, POS], documentCount: 2, documentCandidateCount: 0 };
+    const j = renderJson(d, '/repo');
+    expect(j.linked_document_candidates, 'not link evidence').toEqual([]);
+    expect(j.positional_document_fallback.map((r) => r.file), 'its own carrier').toEqual(['AGENTS.md']);
+    // ⚠ `read_first` filtered on `kind !== 'doc'`, so a NEW doc kind fell into the source side. A
+    // category added beside an inequality lands in whichever bucket the inequality does not name.
+    expect(j.read_first.map((r) => r.file), 'and never the source side').toEqual(['src/server.js']);
+  });
+
+  it('★★★ shown-linked is 0 when only positional entries exist', () => {
+    const d = { ...data(), readFirstArr: [POS, POS], documentCount: 2, documentCandidateCount: 0 };
+    const ev = renderJson(d, '/repo').document_evidence;
+    expect(ev.shown_candidate_count, 'positional rows are not a linked sample').toBe(0);
+    expect(ev.linked_candidate_count).toBe(0);
+    expect(ev.state).toBe('indexed_without_link_candidates');
+  });
+
+  it('★★★ positional entries render under their OWN heading, not the link one', () => {
+    const d = { ...data(), readFirstArr: [POS], documentCount: 2, documentCandidateCount: 0 };
+    const md = renderMarkdown(d);
+    const pos = between(md, '## Root document fallback', String.fromCharCode(10) + '## ');
+    expect(pos, 'a distinct heading is what stops the claim travelling').toMatch(/AGENTS\.md/);
+    expect(pos).toMatch(/Position, NOT evidence/);
+    const linked = between(md, '## Linked document candidates', String.fromCharCode(10) + '## ');
+    expectAbsentWithLiveMatcher(
+      /AGENTS\.md/,
+      { forbidden: '- `AGENTS.md` — root-level document', allowed: '- `src/server.js` — 160 connections' },
+      linked ?? '',
+      'a positional row must not appear under a link-prominence heading',
+    );
+  });
+});
+
+// ⛔ A SUPPLIED-BUT-INVALID TOTAL WAS REPLACED BY THE SAMPLE BEFORE THE VALIDATOR SAW IT.
+//
+// `Number.isInteger(t) ? t : shown` meant 1.5, '3' and NaN all became the rendered count and came
+// back as a confident `indexed_without_link_candidates`. The check could not detect a malformed
+// total because the malformed total never reached it.
+describe('malformed and contradictory totals fail closed', () => {
+  const VECTORS = [
+    { name: 'fractional total', total: 1.5 },
+    { name: 'string total', total: '3' },
+    { name: 'NaN total', total: NaN },
+  ];
+  for (const v of VECTORS) {
+    it(`★★★ ${v.name} is INCONSISTENT and carries its raw value`, () => {
+      const d = { ...data(), readFirstArr: [], documentCount: 42, documentCandidateCount: v.total };
+      const ev = renderJson(d, '/repo').document_evidence;
+      expect(ev.state).toBe('inconsistent');
+      // ⚠ The raw value travels so the contradiction is auditable rather than replaced by a
+      // plausible number — which is exactly what the old fallback did.
+      expect(String(ev.linked_candidate_count)).toBe(String(v.total));
+    });
+  }
+
+  it('★★★ shown exceeding the linked total is INCONSISTENT', () => {
+    const d = { ...data(), readFirstArr: [DOC, DOC], documentCount: 5, documentCandidateCount: 1 };
+    expect(renderJson(d, '/repo').document_evidence.state).toBe('inconsistent');
+  });
+
+  it('★★★ an ABSENT total with shown items is candidates_present, total UNKNOWN', () => {
+    // ⛔ Never sample-as-total. The population is unknown; that the sample is non-empty still proves
+    // candidates exist, and those are two different facts.
+    const d = { ...data(), readFirstArr: [DOC, DOC], documentCount: 5, documentCandidateCount: null };
+    const ev = renderJson(d, '/repo').document_evidence;
+    expect(ev.state).toBe('candidates_present');
+    expect(ev.linked_candidate_count, 'not inferred from the sample').toBeNull();
+    expect(ev.shown_candidate_count).toBe(2);
+  });
+
+  it('★★★ an ABSENT total with no shown items is UNKNOWN, not a confident zero', () => {
+    const d = { ...data(), readFirstArr: [], documentCount: 5, documentCandidateCount: null };
+    expect(renderJson(d, '/repo').document_evidence.state).toBe('unknown');
+  });
 });

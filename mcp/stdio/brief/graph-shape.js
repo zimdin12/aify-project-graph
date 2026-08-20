@@ -354,15 +354,21 @@ export function linkedDocumentCandidates(db, opts = {}) {
     return r && r > date;
   }).length : 0);
 
+  // ⛔⛔ THE POSITIONAL FALLBACK IS A SEPARATE POPULATION AND USED TO TRAVEL IN `items`.
+  //
+  // graph-senior-dev built a graph with two root Documents and zero edges. One artifact then said:
+  // 0 linked candidates, 2 shown candidates, "ranked by link prominence" — beside two entries whose
+  // own `why` said "position, not evidence". Three statements, mutually exclusive, same section.
+  //
+  // ⇒ The producer was mixing authored-link candidates with root-position fallbacks under one name.
+  // They are different evidence and they now travel in different fields; a consumer that wants only
+  // link evidence can no longer be handed position by accident.
+  let positionalFallback = [];
   if (docs.length === 0) {
-    // ⚠ THREE STATES, NOT TWO. "No document carries an indexed authored link" is a different answer
-    // from "here are the linked candidates", and an empty section collapses them — it reads as
-    // "this repo has no docs" when it may mean the doc layer was never built.
     docBasis = 'position';
-    // A positional fallback has no linked candidates by construction; the total is the truth
-    // about the LINKED population, not about what was rendered instead.
     total = 0;
-    docs = q(db,
+    docs = [];
+    positionalFallback = q(db,
       `SELECT label, file_path AS file, 0 AS inbound, 0 AS deg, 0 AS mentions FROM nodes
         WHERE type = 'Document' AND file_path NOT LIKE '%/%'
         ORDER BY length(file_path) ASC, file_path ASC LIMIT 2`);
@@ -377,7 +383,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
   // ⚠ `population` is the full sorted candidate list, returned because the staleness disclosure
   // must count the CORPUS of candidates, not the two rendered. That disclosure already had this bug
   // once — it closed over the sliced array and reported "how many of the TWO shown are newer".
-  return { items: docs, total, basis: docBasis, population };
+  return { items: docs, total, basis: docBasis, population, positionalFallback };
 }
 
 export function readFirst(db, limit = 6, opts = {}) {
@@ -447,12 +453,15 @@ export function readFirst(db, limit = 6, opts = {}) {
   // ⚠ THE `why` STATES THE EVIDENCE AND DECLINES THE ONTOLOGY CLAIM. graph-senior-dev's wording:
   // this is INDEXED AUTHORED DOC LINKS — route authority — not a claim that a document is canonical
   // or accurate. "architecture doc" was a claim about KIND that nothing in the graph supported.
+  // ⚠ DIFFERENT KIND, NOT A DIFFERENT `why`. Positional entries used to be pushed as `kind: 'doc'`
+  // with wording that disclaimed them — so every consumer counting `kind === 'doc'` counted them as
+  // link evidence and only a human reading the sentence could tell. The distinction is now in the
+  // data, where a count can see it.
+  for (const d of (candidates.positionalFallback ?? [])) {
+    push(d.file, 'root-level document; no document carries an indexed authored link, so this is '
+      + 'position, not evidence', 'doc-position');
+  }
   for (const d of docs) {
-    if (docBasis !== 'links') {
-      push(d.file, 'root-level document; no document carries an indexed authored link, so this is '
-        + 'position, not evidence', 'doc');
-      continue;
-    }
     const rec = recencyOf(d.file);
     const newer = median && rec && rec < median ? newerThan(rec) : 0;
     push(d.file,
