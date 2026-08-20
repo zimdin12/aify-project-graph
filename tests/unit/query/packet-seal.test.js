@@ -32,6 +32,8 @@ import { graphPacket, clampToBudget } from '../../../mcp/stdio/query/verbs/packe
 import * as L from '../../../mcp/stdio/query/verbs/packet-lists.js';
 
 const SRC = join(import.meta.dirname, '..', '..', '..', 'mcp', 'stdio', 'query', 'verbs', 'packet.js');
+// The legacy TEXT clamp moved out in slice 4; the guard below inspects where it lives now.
+const CLAMP_SRC = join(import.meta.dirname, '..', '..', '..', 'mcp', 'stdio', 'query', 'verbs', 'packet-text-budget.js');
 const strict = process.env.APG_PACKET_SEAL_STRICT === '1';  // whole suite, via vitest.config.js
 
 async function expectRefused(fn, why) {
@@ -222,7 +224,11 @@ describe('governed list emission', () => {
     expect(clamped, 'a bounded section SHOULD be clamped at this budget').not.toContain('- dir/x.cpp');
 
     // And the guard itself: no clampable head may be a candidate category.
-    const src = readFileSync(SRC, 'utf8');
+    // ⚠ READS THE MODULE THAT OWNS THE CODE, not the facade it used to live in. Slice 4 moved
+    // `clampToBudget` to packet-text-budget.js and this assertion went RED — because its own
+    // liveness guard below refused to run over an empty match rather than passing vacuously. A
+    // source-inspecting test whose pointer goes stale usually just stops testing; this one said so.
+    const src = readFileSync(CLAMP_SRC, 'utf8');
     const heads = /const sectionHeads = \[([^\]]*)\]/.exec(src);
     expect(heads, 'sectionHeads not found — the guard below proves nothing').not.toBeNull();
     for (const h of heads[1].split(',').map((x) => x.trim().replace(/^['"]|['"]:?$/g, '').replace(/:$/, '')).filter(Boolean)) {

@@ -148,7 +148,8 @@ export function auditFile(relPath, authorities) {
 // ⇒ auditAll() is side-effect-free and returns a verdict. The CLI and the suite call the SAME
 // function, so a failure cannot print itself green.
 export const FILE_AUTHORITIES = {
-  'mcp/stdio/query/verbs/packet.js': ['packet:legacy-clamp', 'packet:symbol-route-facade', 'packet:facade'],
+  'mcp/stdio/query/verbs/packet.js': ['packet:symbol-route-facade', 'packet:facade'],
+  'mcp/stdio/query/verbs/packet-text-budget.js': ['packet:legacy-clamp'],
   'mcp/stdio/query/verbs/packet-live.js': ['packet:live'],
   'mcp/stdio/query/verbs/packet-symbol.js': ['packet:symbol-route'],
   'mcp/stdio/query/verbs/packet-input.js': ['packet:input', 'packet:snapshot', 'packet:budget', 'packet:target'],
