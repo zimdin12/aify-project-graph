@@ -17,9 +17,19 @@
 // producer was written with double quotes. A fix for a defect that had not yet fired is still a
 // fix, but it is not a save, and reporting it as one would inflate the day's ledger.
 //
-// ⚠ WHAT THIS STILL CANNOT SEE: a computed value. `type: detectedType` is invisible to any literal
-// inventory. That limit is MEASURED rather than asserted — the computed sites are counted, and the
-// runtime census (`present_but_undeclared`) is the complement that covers them on real repos.
+// ⛔⛔ AND THEN ROUND 2: I BOUND A FALSE POPULATION INSIDE THE FIX FOR FALSE POPULATIONS.
+// Having replaced the regex, I asserted "5 computed sites" as a MEASURED number. It counted
+// explicit `type: <expr>` only — and two live node constructors use SHORTHAND (`generic.js:243`,
+// `sweep.js:46`, both returning a node). True minimum: 7.
+//
+// ⇒ Twice in two rounds I enumerated the forms I could think of and the language had one more.
+// **Enumerating syntax is the losing move.** The walk now partitions by NODE KIND, so a form I did
+// not think of shows up as a gap rather than a silent zero.
+//
+// ⚠ WHAT THIS STILL CANNOT SEE: the VALUE a computed site produces. `type: detectedType` and
+// `{ type }` are both unknowable from syntax. That limit is MEASURED, not asserted — the computed
+// sites are counted over the whole population, and the runtime census (`present_but_undeclared`)
+// is the complement that covers what they actually emit on real repos.
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -28,6 +38,7 @@ import { NODE_TYPES } from '../../../mcp/stdio/storage/taxonomy.js';
 import {
   emittedTypeLiterals,
   computedTypeSites,
+  typeSites,
   inventoryEmittedTypes,
   undeclaredTypes,
 } from '../../../scripts/lib/emitted-node-types.mjs';
@@ -110,13 +121,54 @@ describe('producers emit only declared node types', () => {
       .toEqual(['UndeclaredType (emitted by synthetic.js:1)']);
   });
 
-  it('★★★ the computed sites are COUNTED, so the stated limitation cannot quietly lapse', () => {
-    // ⚠ A prose caveat decays; a number moves. If a producer adds a computed `type:`, this changes
-    // and forces a look at whether the runtime census still covers what the inventory cannot see.
-    // `generic.js` is named because it is the known instance the limitation was written from.
+  it('★★★ SHORTHAND `{ type }` is an emission — the form that made my "measured 5" false', () => {
+    // ⛔⛔ THE SECOND FALSE POPULATION, ASSERTED INSIDE THE FIX FOR FALSE POPULATIONS. I bound
+    // `computed.length === 5` as a measured number. It counted explicit `type: <expr>` only, and
+    // TWO live node constructors use shorthand — `generic.js:243` and `sweep.js:46`, both of which
+    // return a node. The true minimum was 7.
+    //
+    // ⇒ Same shape as the quote bug one round earlier: I enumerated the forms I could think of,
+    // and the language had one more. The walk now partitions by NODE KIND, so an unlisted spelling
+    // is a visible gap rather than a silent zero.
+    const shorthand = computedTypeSites('const type = kind; const n = { type };');
+    expect(shorthand.map((c) => c.form), 'shorthand is seen, and labelled as shorthand')
+      .toEqual(['shorthand']);
+
+    const explicit = computedTypeSites('const n = { type: kind };');
+    expect(explicit.map((c) => c.form), 'and the explicit form still reports as a property')
+      .toEqual(['property']);
+
+    // A shorthand carries no resolvable value, so it must never be counted as literal coverage.
+    expect(emittedTypeLiterals('const type = kind; const n = { type };'),
+      'shorthand is computed, never literal').toEqual([]);
+  });
+
+  it('★★★ the computed sites are COUNTED over the WHOLE population, not the part I enumerated', () => {
+    // ⚠ A prose caveat decays; a number moves. But a number only moves honestly if it covers the
+    // same population the claim does — which is exactly what the "5" got wrong.
     const { computed } = inventory();
-    expect(computed.length, 'computed type: sites the literal inventory cannot resolve').toBe(5);
-    expect(computed.map((c) => c.file).join('|')).toMatch(/generic\.js/);
+    expect(computed.length, 'explicit property sites AND shorthand emissions').toBe(7);
+
+    // Both omitted files must be represented, or the count could be right by accident while the
+    // walk still missed a whole form.
+    const files = computed.map((c) => c.file.replace(/\\/g, '/'));
+    expect(files.join('|'), 'the shorthand emission in generic.js').toMatch(/generic\.js/);
+    expect(files.join('|'), 'the shorthand emission in sweep.js').toMatch(/sweep\.js/);
+    expect(computed.filter((c) => c.form === 'shorthand').length, 'both shorthand sites').toBe(2);
+  });
+
+  it('★★★ FAIL CLOSED: an unparseable producer REFUSES rather than shrinking the population', () => {
+    // ⛔ `ts.createSourceFile` never throws — given wreckage it returns whatever it could build.
+    // Measured on this source: 3 parse diagnostics, and the pre-fix helper returned a result from
+    // the wreckage. That is the failure this repo keeps paying for: an unreadable input yields a
+    // SMALLER inventory and a GREEN gate.
+    const malformed = 'const n = { type: ;;; oops(((';
+    expect(() => typeSites(malformed, 'broken.js'), 'refuses the partial tree').toThrow(/refusing to inventory broken\.js/);
+    expect(() => typeSites(malformed, 'broken.js'), 'and says why, not just that').toThrow(/UNKNOWN coverage, not zero/);
+
+    // ⛔ CONTROL: the refusal must be caused by the diagnostics, not by throwing on everything.
+    // Without this, a helper that always threw would satisfy the assertions above.
+    expect(() => typeSites('const n = { type: kind };', 'fine.js')).not.toThrow();
   });
 
   it('★★★ the population claim is scoped to the trees actually walked', () => {
