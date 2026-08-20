@@ -1,0 +1,11 @@
+# ⛔ THE PREIMAGE IS BYTES, NOT TEXT.
+#
+# The exact one-arm spec the G8 mutant consumed is 642 bytes with CRLF line endings and
+# hashes to f810cb50... Committed as a text file, git's clean filter normalised it to 630
+# bytes LF (805c18f2...), and `git status` stayed clean because the filter treats the two
+# forms as equivalent. The commit therefore held a NEAR-EQUIVALENT of the evidence while
+# every check in this checkout passed -- and a fresh clone would have failed them.
+#
+# ⇒ Git object identity is not the original byte content when a clean filter is in play.
+# This path is marked -text so the recorded bytes are the consumed bytes, anywhere.
+g8-run.spec.bin -text
