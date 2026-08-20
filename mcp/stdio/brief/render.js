@@ -84,6 +84,27 @@ export function normalizeCount(raw) {
   return { value: null, invalid: { type: typeof raw, repr: String(raw) } };
 }
 
+/**
+ * THE canonical document view-model. Built ONCE, in the generator, before any renderer runs.
+ *
+ * ⛔ EVERY SURFACE USED TO RECONSTRUCT THIS FROM LOOSE SCALARS AND A MIXED ARRAY — filtering
+ * `readFirstArr` by `kind` and calling `documentEvidence()` itself. Four surfaces reconstructing the
+ * same state from the same raw parts is four chances to reconstruct it differently, and they did:
+ * one surface of four carried the state, two counts crossed the codec differently, and a new kind
+ * fell into whichever bucket an inequality did not name.
+ *
+ * ⇒ Renderers now consume this object. They present; they do not derive.
+ */
+export function buildDocumentView({ linkedCandidates, positionalFallback = [], documentCount = null } = {}) {
+  const items = linkedCandidates?.items ?? [];
+  const total = linkedCandidates?.total ?? null;
+  return {
+    evidence: documentEvidence(items, documentCount, total),
+    linkedCandidates: { items, total },
+    positionalFallback,
+  };
+}
+
 export function documentEvidence(readFirstArr = [], documentCount = null, candidateTotal = null) {
   const shown = readFirstArr.filter((r) => r.kind === 'doc').length;
 
@@ -226,13 +247,18 @@ export function renderMarkdown(data) {
   // ⚠ `kind !== 'doc'` WOULD NOW SWEEP `doc-position` INTO THE SOURCE-EVIDENCE SIDE. A new kind
   // added beside an inequality lands in whichever bucket the inequality does not name, which is how
   // a category silently joins a population it was created to leave.
-  const DOC_KINDS = new Set(['doc', 'doc-position']);
-  const readSources = readFirstArr.filter((r) => !DOC_KINDS.has(r.kind));
-  const docCandidates = readFirstArr.filter((r) => r.kind === 'doc');
-  // ⚠ READ FROM ITS OWN FIELD. Filtering a kind out of the mixed array was presentation separation
-  // over a shared accumulator — the row had already competed for dedupe and limit by then.
-  const positional = data.positionalDocumentFallback ?? [];
-  const docEvidence = documentEvidence(readFirstArr, documentCount, data.documentCandidateCount ?? null);
+  // ⇒ CONSUMED, NOT DERIVED. `readFirstArr` is source evidence only now; documents arrive through
+  // the canonical view built once in the generator. A renderer that reconstructs state from raw
+  // parts is a renderer that can reconstruct it differently from its siblings — which is what four
+  // surfaces reconstructing it four ways actually did.
+  const view = data.documentView ?? buildDocumentView({
+    linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
+    documentCount,
+  });
+  const readSources = readFirstArr;
+  const docCandidates = view.linkedCandidates.items;
+  const positional = view.positionalFallback ?? [];
+  const docEvidence = view.evidence;
   if (readSources.length) {
     lines.push('## Read first');
     for (const r of readSources) lines.push(`- \`${r.file}\` — ${r.why}`);
@@ -460,9 +486,12 @@ export function renderAgentMarkdown(data) {
   }
   // Same split in the compact renderings. One heading over both restores the withdrawn claim by
   // omission — see the note on the markdown renderer above.
-  const DOC_KINDS_C = new Set(['doc', 'doc-position']);
-  const readSrc = readFirstArr.filter((r) => !DOC_KINDS_C.has(r.kind));
-  const docCands = readFirstArr.filter((r) => r.kind === 'doc');
+  const viewC = data.documentView ?? buildDocumentView({
+    linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
+    documentCount: data.documentCount ?? null,
+  });
+  const readSrc = readFirstArr;
+  const docCands = viewC.linkedCandidates.items;
   if (readSrc.length) {
     lines.push('READ:');
     for (const r of readSrc.slice(0, 4)) lines.push(`  ${r.file}`);
@@ -470,14 +499,12 @@ export function renderAgentMarkdown(data) {
   if (docCands.length) {
     lines.push('DOCS (link prominence, not a read order):');
     for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
-    const capLine = documentEvidenceLine(documentEvidence(
-      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
+    const capLine = documentEvidenceLine(viewC.evidence);
     if (capLine) lines.push(`  ${capLine.replace(/^DOCS: /, '')}`);
   } else {
     // ⚠ ONE BOUNDED LINE, NOT SILENCE. These are the artifacts an agent reads FIRST, and they were
     // the ones saying nothing in the field state that motivated the whole fix.
-    const line = documentEvidenceLine(documentEvidence(
-      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
+    const line = documentEvidenceLine(viewC.evidence);
     if (line) lines.push(line);
   }
   if (tests.length) {
@@ -563,9 +590,12 @@ export function renderOnboardAgentMarkdown(data) {
   }
   // Same split in the compact renderings. One heading over both restores the withdrawn claim by
   // omission — see the note on the markdown renderer above.
-  const DOC_KINDS_C = new Set(['doc', 'doc-position']);
-  const readSrc = readFirstArr.filter((r) => !DOC_KINDS_C.has(r.kind));
-  const docCands = readFirstArr.filter((r) => r.kind === 'doc');
+  const viewC = data.documentView ?? buildDocumentView({
+    linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
+    documentCount: data.documentCount ?? null,
+  });
+  const readSrc = readFirstArr;
+  const docCands = viewC.linkedCandidates.items;
   if (readSrc.length) {
     lines.push('READ:');
     for (const r of readSrc.slice(0, 4)) lines.push(`  ${r.file}`);
@@ -573,14 +603,12 @@ export function renderOnboardAgentMarkdown(data) {
   if (docCands.length) {
     lines.push('DOCS (link prominence, not a read order):');
     for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
-    const capLine = documentEvidenceLine(documentEvidence(
-      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
+    const capLine = documentEvidenceLine(viewC.evidence);
     if (capLine) lines.push(`  ${capLine.replace(/^DOCS: /, '')}`);
   } else {
     // ⚠ ONE BOUNDED LINE, NOT SILENCE. These are the artifacts an agent reads FIRST, and they were
     // the ones saying nothing in the field state that motivated the whole fix.
-    const line = documentEvidenceLine(documentEvidence(
-      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
+    const line = documentEvidenceLine(viewC.evidence);
     if (line) lines.push(line);
   }
   if (health.issues.length) {
@@ -790,11 +818,11 @@ export function renderJson(data, repoRoot) {
     // Split in the payload too: `read_first` is source evidence, document candidates are named
     // for what ranks them. A consumer reading `kind:"doc"` out of `read_first` would inherit the
     // claim this commit withdrew.
-    read_first: readFirstArr.filter((r) => !['doc', 'doc-position'].includes(r.kind)),
-    linked_document_candidates: readFirstArr.filter((r) => r.kind === 'doc'),
+    read_first: readFirstArr,
+    linked_document_candidates: (data.documentView?.linkedCandidates.items ?? []),
     // ⚠ ITS OWN KEY, excluded from `read_first`, from `linked_document_candidates`, and from every
     // linked count. A consumer asking for link evidence must not be handed position.
-    positional_document_fallback: (data.positionalDocumentFallback ?? []).map((r) => ({
+    positional_document_fallback: (data.documentView?.positionalFallback ?? []).map((r) => ({
       file: r.file,
       why: 'root-level document; no document carries an indexed authored link, so this is '
         + 'position, not evidence',
@@ -804,9 +832,10 @@ export function renderJson(data, repoRoot) {
     // means the same thing for a graph with 0 Document nodes and for one with 42 that carry no
     // authored links, and those are different situations. The payload used to carry the empty array
     // and neither number.
-    document_evidence: documentEvidence(
-      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null,
-    ),
+    document_evidence: (data.documentView ?? buildDocumentView({
+      linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
+      documentCount: data.documentCount ?? null,
+    })).evidence,
     tests,
     // The anchors are a SAMPLE. Programmatic consumers need the denominator and
     // the per-extension breakdown to know which suite the sample came from.

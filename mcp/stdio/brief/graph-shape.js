@@ -383,7 +383,28 @@ export function linkedDocumentCandidates(db, opts = {}) {
   // ⚠ `population` is the full sorted candidate list, returned because the staleness disclosure
   // must count the CORPUS of candidates, not the two rendered. That disclosure already had this bug
   // once — it closed over the sliced array and reported "how many of the TWO shown are newer".
-  return { items: docs, total, basis: docBasis, population, positionalFallback };
+  // ⛔ THE PRODUCER BUILDS THE RENDERED ROWS. They used to be assembled inside `readFirst`, which
+  // meant the linked population had to pass through a MIXED accumulator to acquire its `why` — and
+  // that accumulator's `seen` dedupe let a linked row erase an export-backed source fact for the
+  // same path. graph-senior-dev executed it: `AGENTS.md` linked AND export-backed returned only the
+  // linked row. Same custody defect as the positional fallback, one category over.
+  // ⚠ Reuses the `recencyOf` / `median` / `newerThan` already computed above over the FULL
+  // population — the disclosure counts linked candidates, not the two rendered.
+  const items = docs.map((d) => {
+    const rec = recencyOf(d.file);
+    const newer = median && rec && rec < median ? newerThan(rec) : 0;
+    return {
+      file: d.file,
+      kind: 'doc',
+      why: `${d.inbound} document(s) link here (indexed authored doc links), `
+        + `${d.deg} repository file(s) referenced`
+        + (d.mentions > 0 ? `, ${d.mentions} symbol mention(s)` : '')
+        + (rec ? `, last edited ${rec}` : ', edit date UNKNOWN')
+        + (newer > 0 ? ` — ⚠ ${newer} linked candidate(s) are newer` : '')
+        + ' — evidence of relevance, not of accuracy',
+    };
+  });
+  return { items, total, basis: docBasis, population, positionalFallback };
 }
 
 export function readFirst(db, limit = 6, opts = {}) {
@@ -418,23 +439,6 @@ export function readFirst(db, limit = 6, opts = {}) {
   // code", NOT "describes the code as it is now". A superseded plan can outrank a current
   // changelog, and there is no derived staleness signal for documents in this graph. The `why`
   // carries the evidence so a reader can judge it instead of trusting the ordering.
-  // ⚠ The population is computed ONCE. The generator passes it in so the same query does not run
-  // twice, and so the renderer and this ranking cannot disagree about how many candidates exist.
-  const candidates = opts.documentCandidates ?? linkedDocumentCandidates(db, { docRecency });
-  const docBasis = candidates.basis;
-  const docs = candidates.items;
-  const recencyOf = (file) => {
-    const v = docRecency instanceof Map ? docRecency.get(file) : docRecency?.[file];
-    return typeof v === 'string' ? v : null;
-  };
-  const population = candidates.population ?? [];
-  const known = population.map((d) => recencyOf(d.file)).filter(Boolean).sort();
-  const median = known.length ? known[Math.floor(known.length / 2)] : null;
-  const newerThan = (date) => (date ? population.filter((d) => {
-    const r = recencyOf(d.file);
-    return r && r > date;
-  }).length : 0);
-
   const files = q(db,
     `SELECT n.label, n.file_path AS file, count(e.from_id) AS deg
      FROM nodes n JOIN edges e ON e.to_id = n.id OR e.from_id = n.id
@@ -450,41 +454,21 @@ export function readFirst(db, limit = 6, opts = {}) {
     out.push({ file, why, kind });
   };
 
-  // ⚠ THE `why` STATES THE EVIDENCE AND DECLINES THE ONTOLOGY CLAIM. graph-senior-dev's wording:
-  // this is INDEXED AUTHORED DOC LINKS — route authority — not a claim that a document is canonical
-  // or accurate. "architecture doc" was a claim about KIND that nothing in the graph supported.
-  // ⛔⛔ POSITIONAL ROWS ARE NOT PUSHED HERE AT ALL, AND THE REASON IS CUSTODY, NOT PRESENTATION.
+  // ⛔⛔ SOURCE EVIDENCE ONLY. Linked documents and positional fallbacks are NOT pushed here.
   //
-  // They used to enter this accumulator and its `seen` dedupe before exports and source rows.
-  // graph-senior-dev executed the overlap: one root `AGENTS.md` with no links, and an
-  // export-backed source fact for the SAME path. The positional row claimed `seen` first and the
-  // export fact was silently discarded — the WEAKER authority erasing the STRONGER one, with the
-  // renderer's later re-split by kind unable to recover it because the row no longer existed.
+  // This array was serving five jobs at once — a ranked linked-document sample, a source read-order
+  // sample, a dedupe authority across unrelated evidence, a shared cap, and the input renderers
+  // reconstructed document state from. Those populations have different membership, ordering, caps
+  // and claims, and a `kind` tag does not make a mixed accumulator typed.
   //
-  // ⚠ Splitting by kind at RENDER time is presentation separation. This is producer separation: the
-  // positional population never enters the mixed array, so it cannot consume the shared dedupe or
-  // the global limit. `linkedDocumentCandidates()` returns it and the generator carries it as its
-  // own field.
-  for (const d of docs) {
-    const rec = recencyOf(d.file);
-    const newer = median && rec && rec < median ? newerThan(rec) : 0;
-    push(d.file,
-      `${d.inbound} document(s) link here (indexed authored doc links), `
-      + `${d.deg} repository file(s) referenced`
-      + (d.mentions > 0 ? `, ${d.mentions} symbol mention(s)` : '')
-      + (rec ? `, last edited ${rec}` : ', edit date UNKNOWN')
-      // ⇒ ef-manager's disclosure: on their ground-truth corpus the top two answers were four
-      // months older than the entry point the repo itself names. The reader gets the correction
-      // the ranking cannot safely apply.
-      // ⚠ NAMED PRECISELY: this counts LINKED CANDIDATES, not every Document node. Calling it
-      // corpus-wide would be the population error the whole ranking is about — and it cannot
-      // correct for an entry document excluded from candidacy in the first place, which is exactly
-      // what happened to AGENTS.md on the graded corpora.
-      + (newer > 0 ? ` — ⚠ ${newer} linked candidate(s) are newer` : '')
-      + ' — evidence of relevance, not of accuracy',
-    'doc');
-  }
-
+  // ⇒ It generated a REVISE round every time someone looked at a different corner of it: linked vs
+  // source mixing, position vs linked mixing, weak evidence erasing strong through `seen`, caps
+  // becoming denominators, renderer samples becoming producer state. Each local fix closed one
+  // projection while the shared custody produced the next sibling.
+  //
+  // graph-senior-dev's ruling, and the reason this is a deletion rather than a feature: document
+  // carriers own their own populations end to end, and this function owns exports, feature anchors
+  // and source degree.
   // EXPORTS-backed files: parse "<file>:<line>" or "<file> → handler" forms
   for (const ex of (exportsArr || [])) {
     const m = String(ex.location || '').match(/^([^:→]+?)(?::|\s→|$)/);

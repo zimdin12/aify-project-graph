@@ -41,7 +41,11 @@ async function graph() {
   return db;
 }
 
-const docsOf = (db) => readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
+// ⇒ READ FROM THE PRODUCER THAT OWNS DOCUMENTS. `readFirst` is SOURCE evidence only now — exports,
+// feature anchors and source degree. Linked documents never enter its accumulator, because that
+// accumulator's `seen` dedupe let a linked row erase an export-backed source fact for the same
+// path, exactly as the positional rows did one category earlier.
+const docsOf = (db, opts = {}) => linkedDocumentCandidates(db, opts).items;
 // ⚠ POSITIONAL ENTRIES ARE A DIFFERENT KIND NOW. They used to be pushed as `kind: 'doc'` carrying
 // disclaiming prose, so every consumer counting doc-evidence counted them and only a human reading
 // the sentence could tell. The distinction lives in the data; these tests read it from there.
@@ -181,13 +185,13 @@ describe('recency decides when no document is treated as canonical', () => {
     // ⚠ NOBODY links to either — inbound is 0 for both, which is the case that defeats signal 1.
     const docRecency = new Map([['README.md', '2026-08-20'], ['docs/plans/old-v1.md', '2026-04-16']]);
 
-    const withRecency = readFirst(db, 6, { docRecency }).filter((r) => r.kind === 'doc');
+    const withRecency = docsOf(db, { docRecency });
     expect(withRecency[0].file, 'recently changed beats larger-but-stale').toBe('README.md');
     expect(withRecency[0].why).toMatch(/last edited 2026-08-20/);
 
     // ⛔ THE CONTROL THAT PROVES RECENCY IS DOING THE WORK. Without it the ordering INVERTS — so
     // this pair shows the signal changes the answer, rather than agreeing with one already correct.
-    const without = readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
+    const without = docsOf(db);
     expect(without[0].file, 'without recency, raw coverage wins and the stale plan leads')
       .toBe('docs/plans/old-v1.md');
     db.close();
@@ -204,8 +208,7 @@ describe('recency decides when no document is treated as canonical', () => {
     db.link('dated', 'c1');
     db.link('undated', 'c1'); db.link('undated', 'c2');   // undated describes MORE code
 
-    const docs = readFirst(db, 6, { docRecency: new Map([['dated.md', '2020-01-01']]) })
-      .filter((r) => r.kind === 'doc');
+    const docs = docsOf(db, { docRecency: new Map([['dated.md', '2020-01-01']]) });
     expect(docs[0].file, 'a dated document outranks an undated one even when older').toBe('dated.md');
     expect(docs.map((d) => d.file), 'and the undated one is kept, not dropped').toContain('undated.md');
     db.close();
@@ -218,7 +221,7 @@ describe('recency decides when no document is treated as canonical', () => {
     db.node('d', 'Document', 'X.md');
     db.node('c', 'File', 'src/a.js');
     db.link('d', 'c');
-    const docs = readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
+    const docs = docsOf(db);
     expect(docs[0].why).toMatch(/evidence of relevance, not of accuracy/);
     db.close();
   }, 30_000);
@@ -243,7 +246,7 @@ describe('the ranking sees the whole population and only its own authority', () 
       }
       docRecency.set(f, i === 12 ? '2099-01-01' : '2000-01-01');
     }
-    const docs = readFirst(db, 6, { docRecency }).filter((r) => r.kind === 'doc');
+    const docs = docsOf(db, { docRecency });
     expect(docs[0].file, 'the newest document must reach the sort at all').toBe('docs/d12.md');
     db.close();
   }, 30_000);
@@ -263,7 +266,7 @@ describe('the ranking sees the whole population and only its own authority', () 
       db.run(`INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
               VALUES ('mentioner','s${i}','MENTIONS','x',1,1,'EXTRACTED','doc_ref:qualified')`);
     }
-    const docs = readFirst(db, 6, {}).filter((r) => r.kind === 'doc');
+    const docs = docsOf(db);
     expect(docs[0].file, 'one authored link outranks twenty mentions').toBe('linked.md');
     expect(docs.map((d) => d.file), 'a mentions-only document is not a candidate')
       .not.toContain('mentioner.md');
@@ -293,8 +296,8 @@ describe('the ranking sees the whole population and only its own authority', () 
     db.node('a', 'Document', 'docs/aaa.md');
     db.node('c1', 'File', 'src/a.js');
     db.link('z', 'c1'); db.link('a', 'c1');
-    const first = readFirst(db, 6, {}).filter((r) => r.kind === 'doc').map((d) => d.file);
-    const second = readFirst(db, 6, {}).filter((r) => r.kind === 'doc').map((d) => d.file);
+    const first = docsOf(db).map((d) => d.file);
+    const second = docsOf(db).map((d) => d.file);
     expect(first, 'ties resolve lexically').toEqual(['docs/aaa.md', 'docs/zzz.md']);
     expect(second, 'and repeatably').toEqual(first);
     db.close();
@@ -325,7 +328,7 @@ describe('the ranking sees the whole population and only its own authority', () 
     const docRecency = new Map([['contract.md', '2026-01-01']]);
     for (let i = 0; i < 4; i += 1) docRecency.set(`newer${i}.md`, '2026-08-01');
 
-    const docs = readFirst(db, 6, { docRecency }).filter((r) => r.kind === 'doc');
+    const docs = docsOf(db, { docRecency });
     expect(docs[0].file, 'the most-cited document still leads — the evidence is real').toBe('contract.md');
     expect(docs[0].why, 'and it names the population it counted')
       .toMatch(/4 linked candidate\(s\) are newer/);

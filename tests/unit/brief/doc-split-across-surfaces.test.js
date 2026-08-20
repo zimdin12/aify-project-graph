@@ -15,9 +15,22 @@
 // meanings. `brief_schema_version: 2` is that receipt, and it is asserted here.
 import { describe, it, expect } from 'vitest';
 import {
-  renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderJson,
+  renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderJson, buildDocumentView,
 } from '../../../mcp/stdio/brief/render.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
+
+// ⇒ DOCUMENTS ARRIVE THROUGH THE CANONICAL VIEW, NOT THROUGH `readFirstArr`. That array is source
+// evidence only now — its `seen` dedupe was letting a linked document erase an export-backed source
+// fact for the same path, the same custody defect the positional rows had one category earlier.
+const view = (items = [], total = null, positional = [], documentCount = null) => ({
+  documentView: buildDocumentView({
+    linkedCandidates: { items, total },
+    positionalFallback: positional,
+    documentCount,
+  }),
+  documentCount,
+  documentCandidateCount: total,
+});
 
 // ⚠ Every prohibition here goes through the live matcher rather than a bare `not.toMatch`. A
 // negative assertion passes when the thing is absent AND when the pattern is broken, and those look
@@ -42,8 +55,8 @@ const data = () => ({
   entries: [],
   subs: [],
   hubsArr: [],
-  readFirstArr: [SRC, DOC],
-  documentCount: 3,
+  readFirstArr: [SRC],
+  ...view([DOC], 1, [], 3),
   tests: [],
   risksArr: [],
   recent: [],
@@ -109,7 +122,7 @@ describe('the document/source split holds on every public surface', () => {
     // ⛔ Without this, a renderer that dropped documents entirely would pass every assertion above —
     // "not under READ" is satisfied perfectly by "nowhere at all". The split must MOVE them, and
     // the read side must be genuinely absent rather than holding an empty heading.
-    const d = { ...data(), readFirstArr: [DOC] };
+    const d = { ...data(), readFirstArr: [], ...view([DOC], 1, [], 3) };
     const md = renderMarkdown(d);
     expectAbsentWithLiveMatcher(
       /## Read first/,
@@ -155,7 +168,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
   for (const st of STATES) {
     it(`★★★ ${st.name} — JSON carries counts AND state together`, () => {
       const j = renderJson({
-        ...data(), documentCount: st.documentCount, documentCandidateCount: st.total, readFirstArr: st.arr,
+        ...data(), readFirstArr: [], ...view(st.arr, st.total, [], st.documentCount),
       }, '/repo');
       expect(j.document_evidence.state).toBe(st.name);
       expect(j.document_evidence.indexed_document_count).toBe(st.documentCount);
@@ -166,7 +179,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
   it('★★★ the compact surfaces are NOT silent on the two empty states', () => {
     // These are the artifacts read first, and silence there is what made the field case invisible.
     for (const documentCount of [0, 42]) {
-      const d = { ...data(), documentCount, documentCandidateCount: 0, readFirstArr: [] };
+      const d = { ...data(), readFirstArr: [], ...view([], 0, [], documentCount) };
       expect(renderAgentMarkdown(d), `agent brief, count=${documentCount}`).toMatch(/^DOCS:/m);
       expect(renderOnboardAgentMarkdown(d), `onboard, count=${documentCount}`).toMatch(/^DOCS:/m);
     }
@@ -176,7 +189,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
     // ⛔ The renderer knows the graph holds zero Document nodes. It does not know whether the
     // REPOSITORY holds any, and it has no carrier for the omission mechanism. Naming either would
     // be inferring a cause from absence — the thing the sentence beside it forbids.
-    const md = renderMarkdown({ ...data(), documentCount: 0, documentCandidateCount: 0, readFirstArr: [] });
+    const md = renderMarkdown({ ...data(), readFirstArr: [], ...view([], 0, [], 0) });
     const sect = between(md, '## Linked document candidates', String.fromCharCode(10) + '## ');
     expect(sect, 'says what it observed').toMatch(/contains 0 Document nodes/);
     expect(sect, 'and says the cause is not established').toMatch(/NOT established/);
@@ -192,7 +205,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
     // Zero candidates is consistent with documents that genuinely carry no authored links, an
     // extractor that never ran, one that ran and produced zero, and edges purged since. This
     // carrier holds the result population, not producer liveness.
-    const md = renderMarkdown({ ...data(), documentCount: 42, documentCandidateCount: 0, readFirstArr: [] });
+    const md = renderMarkdown({ ...data(), readFirstArr: [], ...view([], 0, [], 42) });
     const sect = between(md, '## Linked document candidates', String.fromCharCode(10) + '## ');
     expect(sect).toMatch(/42 document\(s\) indexed, 0 with indexed authored-link evidence/);
     expectAbsentWithLiveMatcher(
@@ -206,7 +219,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
   it('★★★ UNKNOWN is consistent across surfaces — omitted in text, explicit in JSON', () => {
     // ⚠ Never guessed. A renderer with no count cannot tell the two empty states apart, so the text
     // surfaces say nothing and the payload says `unknown` rather than either of them.
-    const d = { ...data(), documentCount: null, documentCandidateCount: null, readFirstArr: [] };
+    const d = { ...data(), readFirstArr: [], ...view([], null, [], null) };
     expectAbsentWithLiveMatcher(
       /## Linked document candidates/,
       { forbidden: '## Linked document candidates', allowed: '## Read first' },
@@ -231,7 +244,7 @@ describe('the typed state carries a population, not a rendered sample', () => {
     //
     // ★ A cap presented as a denominator — inside the typed state built to remove exactly that
     // defect, and the third time today. The first two were in code I inherited; this one I wrote.
-    const d = { ...data(), readFirstArr: [SRC, DOC, DOC], documentCount: 10, documentCandidateCount: 3 };
+    const d = { ...data(), readFirstArr: [SRC], ...view([DOC, DOC], 3, [], 10) };
     const ev = renderJson(d, '/repo').document_evidence;
     expect(ev.linked_candidate_count, 'the population').toBe(3);
     expect(ev.shown_candidate_count, 'and the sample, separately').toBe(2);
@@ -243,7 +256,7 @@ describe('the typed state carries a population, not a rendered sample', () => {
     // ⚠ documentCount MUST exceed the candidate total or the invariant fires — my first version of
     // this fixture said 10 documents with 89 candidates and the new `inconsistent` state caught it.
     // The check earned its place on the test written to exercise a different property.
-    const d = { ...data(), readFirstArr: [DOC, DOC], documentCount: 160, documentCandidateCount: 89 };
+    const d = { ...data(), readFirstArr: [], ...view([DOC, DOC], 89, [], 160) };
     expect(renderMarkdown(d)).toMatch(/Showing 2 of 89/);
     expect(renderAgentMarkdown(d)).toMatch(/showing 2 of 89 linked candidates/i);
   });
@@ -251,7 +264,7 @@ describe('the typed state carries a population, not a rendered sample', () => {
   it('★★★ candidates_present is derived from the POPULATION, not the rendered array', () => {
     // ⚠ If the display slice were filtered downstream, the artifact reported
     // `indexed_without_link_candidates` while candidates existed. The state follows the evidence.
-    const d = { ...data(), readFirstArr: [SRC], documentCount: 10, documentCandidateCount: 7 };
+    const d = { ...data(), readFirstArr: [SRC], ...view([], 7, [], 10) };
     expect(renderJson(d, '/repo').document_evidence.state).toBe('candidates_present');
   });
 
@@ -266,7 +279,7 @@ describe('the typed state carries a population, not a rendered sample', () => {
       // `indexed_without_link_candidates`. A generated artifact publishing a contradiction as a fact
       // is worse than one publishing nothing — a consumer cannot tell it is holding an impossible
       // pair.
-      const d = { ...data(), readFirstArr: [], documentCount: c.documentCount, documentCandidateCount: c.total };
+      const d = { ...data(), readFirstArr: [], ...view([], c.total, [], c.documentCount) };
       const ev = renderJson(d, '/repo').document_evidence;
       expect(ev.state, 'observed inconsistency is not absence').toBe('inconsistent');
       // ⚠ NOT collapsed to `unknown`. The values travel WITH the state so the contradiction is
@@ -299,10 +312,7 @@ const POS = { file: 'AGENTS.md' };
 
 describe('positional fallback is a separate population from linked evidence', () => {
   it('★★★ positional entries are NOT linked candidates and NOT read-first sources', () => {
-    const d = {
-      ...data(), readFirstArr: [SRC], positionalDocumentFallback: [POS],
-      documentCount: 2, documentCandidateCount: 0,
-    };
+    const d = { ...data(), readFirstArr: [SRC], ...view([], 0, [POS], 2) };
     const j = renderJson(d, '/repo');
     expect(j.linked_document_candidates, 'not link evidence').toEqual([]);
     expect(j.positional_document_fallback.map((r) => r.file), 'its own carrier').toEqual(['AGENTS.md']);
@@ -312,10 +322,7 @@ describe('positional fallback is a separate population from linked evidence', ()
   });
 
   it('★★★ shown-linked is 0 when only positional entries exist', () => {
-    const d = {
-      ...data(), readFirstArr: [], positionalDocumentFallback: [POS, POS],
-      documentCount: 2, documentCandidateCount: 0,
-    };
+    const d = { ...data(), readFirstArr: [], ...view([], 0, [POS, POS], 2) };
     const ev = renderJson(d, '/repo').document_evidence;
     expect(ev.shown_candidate_count, 'positional rows are not a linked sample').toBe(0);
     expect(ev.linked_candidate_count).toBe(0);
@@ -323,10 +330,7 @@ describe('positional fallback is a separate population from linked evidence', ()
   });
 
   it('★★★ positional entries render under their OWN heading, not the link one', () => {
-    const d = {
-      ...data(), readFirstArr: [], positionalDocumentFallback: [POS],
-      documentCount: 2, documentCandidateCount: 0,
-    };
+    const d = { ...data(), readFirstArr: [], ...view([], 0, [POS], 2) };
     const md = renderMarkdown(d);
     const pos = between(md, '## Root document fallback', String.fromCharCode(10) + '## ');
     expect(pos, 'a distinct heading is what stops the claim travelling').toMatch(/AGENTS\.md/);
@@ -356,7 +360,7 @@ describe('malformed and contradictory totals fail closed', () => {
   ];
   for (const v of VECTORS) {
     it(`★★★ ${v.name} is INCONSISTENT and carries its raw value`, () => {
-      const d = { ...data(), readFirstArr: [], documentCount: 42, documentCandidateCount: v.total };
+      const d = { ...data(), readFirstArr: [], ...view([], v.total, [], 42) };
       // ⛔⛔ THROUGH THE ACTUAL CODEC. This asserted on the in-memory object, and `brief.json` is
       // produced with JSON.stringify: `JSON.parse(JSON.stringify({v: NaN}))` is `{v: null}`. So a
       // supplied NaN became indistinguishable from ABSENT in the published artifact — the exact
@@ -373,14 +377,14 @@ describe('malformed and contradictory totals fail closed', () => {
   }
 
   it('★★★ shown exceeding the linked total is INCONSISTENT', () => {
-    const d = { ...data(), readFirstArr: [DOC, DOC], documentCount: 5, documentCandidateCount: 1 };
+    const d = { ...data(), readFirstArr: [], ...view([DOC, DOC], 1, [], 5) };
     expect(renderJson(d, '/repo').document_evidence.state).toBe('inconsistent');
   });
 
   it('★★★ an ABSENT total with shown items is candidates_present, total UNKNOWN', () => {
     // ⛔ Never sample-as-total. The population is unknown; that the sample is non-empty still proves
     // candidates exist, and those are two different facts.
-    const d = { ...data(), readFirstArr: [DOC, DOC], documentCount: 5, documentCandidateCount: null };
+    const d = { ...data(), readFirstArr: [], ...view([DOC, DOC], null, [], 5) };
     const ev = renderJson(d, '/repo').document_evidence;
     expect(ev.state).toBe('candidates_present');
     expect(ev.linked_candidate_count, 'not inferred from the sample').toBeNull();
@@ -388,7 +392,7 @@ describe('malformed and contradictory totals fail closed', () => {
   });
 
   it('★★★ an ABSENT total with no shown items is UNKNOWN, not a confident zero', () => {
-    const d = { ...data(), readFirstArr: [], documentCount: 5, documentCandidateCount: null };
+    const d = { ...data(), readFirstArr: [], ...view([], null, [], 5) };
     expect(renderJson(d, '/repo').document_evidence.state).toBe('unknown');
   });
 });
@@ -409,13 +413,7 @@ describe('positional custody is separate from the source accumulator', () => {
   const POSITIONAL = [{ file: 'AGENTS.md' }];
 
   it('★★★ one path can be BOTH positional and export-backed — neither erases the other', () => {
-    const d = {
-      ...data(),
-      readFirstArr: [EXPORT_BACKED],
-      positionalDocumentFallback: POSITIONAL,
-      documentCount: 1,
-      documentCandidateCount: 0,
-    };
+    const d = { ...data(), readFirstArr: [EXPORT_BACKED], ...view([], 0, POSITIONAL, 1) };
     const j = renderJson(d, '/repo');
     expect(j.read_first.map((r) => r.file), 'the stronger source fact survives').toEqual(['AGENTS.md']);
     expect(j.positional_document_fallback.map((r) => r.file), 'and position is reported separately')
@@ -426,11 +424,8 @@ describe('positional custody is separate from the source accumulator', () => {
   it('★★★ positional rows cannot consume the source population or its cap', () => {
     // They are not in `readFirstArr` at all, so a shrinking source limit cannot be spent on them.
     const d = {
-      ...data(),
-      readFirstArr: [SRC],
-      positionalDocumentFallback: [{ file: 'a.md' }, { file: 'b.md' }, { file: 'c.md' }],
-      documentCount: 3,
-      documentCandidateCount: 0,
+      ...data(), readFirstArr: [SRC],
+      ...view([], 0, [{ file: 'a.md' }, { file: 'b.md' }, { file: 'c.md' }], 3),
     };
     const j = renderJson(d, '/repo');
     expect(j.read_first.map((r) => r.file)).toEqual(['src/server.js']);
@@ -462,7 +457,7 @@ describe('BOTH counts cross the codec identically', () => {
 
   for (const m of MALFORMED) {
     it(`★★★ malformed INDEXED count (${m.name}) survives JSON as a diagnostic`, () => {
-      const d = { ...data(), readFirstArr: [], documentCount: m.value, documentCandidateCount: 0 };
+      const d = { ...data(), readFirstArr: [], ...view([], 0, [], m.value) };
       const wire = JSON.parse(JSON.stringify(renderJson(d, '/repo')));
       const ev = wire.document_evidence;
       expect(ev.state).toBe('inconsistent');
@@ -473,7 +468,7 @@ describe('BOTH counts cross the codec identically', () => {
   }
 
   it('★★★ BOTH malformed — neither diagnostic erases the other', () => {
-    const d = { ...data(), readFirstArr: [], documentCount: NaN, documentCandidateCount: '3' };
+    const d = { ...data(), readFirstArr: [], ...view([], '3', [], NaN) };
     const ev = JSON.parse(JSON.stringify(renderJson(d, '/repo'))).document_evidence;
     expect(ev.invalid_indexed_document_count).toEqual({ type: 'number', repr: 'NaN' });
     expect(ev.invalid_linked_candidate_count).toEqual({ type: 'string', repr: '3' });
@@ -485,7 +480,7 @@ describe('BOTH counts cross the codec identically', () => {
     // ⛔ Without this, "always emit a diagnostic" passes every assertion above and every artifact
     // reports itself inconsistent — the permanent-warning failure this repo has already shipped
     // once, in a health check that warned on every repo.
-    const d = { ...data(), readFirstArr: [DOC], documentCount: 160, documentCandidateCount: 89 };
+    const d = { ...data(), readFirstArr: [], ...view([DOC], 89, [], 160) };
     const ev = JSON.parse(JSON.stringify(renderJson(d, '/repo'))).document_evidence;
     expect(ev.state).toBe('candidates_present');
     expect(ev.indexed_document_count).toBe(160);
@@ -496,7 +491,7 @@ describe('BOTH counts cross the codec identically', () => {
 
   it('★★★ the text surface shows WHICH value was wrong, for either count', () => {
     // A malformed indexed count used to render as a bare `null` — which absence also produces.
-    const d = { ...data(), readFirstArr: [], documentCount: NaN, documentCandidateCount: 0 };
+    const d = { ...data(), readFirstArr: [], ...view([], 0, [], NaN) };
     expect(renderMarkdown(d)).toMatch(/NaN \(number\) document\(s\) indexed/);
     expect(renderAgentMarkdown(d)).toMatch(/NaN \(number\) indexed/);
   });

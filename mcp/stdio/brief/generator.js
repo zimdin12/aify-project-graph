@@ -28,7 +28,7 @@ export { computeCoverage } from './artifacts.js';
 // data object; nothing flows back. See render.js's header for why artifacts.js had to move first.
 import { q, count, extractPaths, detectCanonicalEntries, subsystems, hubs, readFirst, linkedDocumentCandidates, testInventory, testAnchors, enrichFeaturesForPlanning, enrichRisksForPlanning, risks } from './graph-shape.js';
 import { extractTooling, detectFromPackageJson, documentRecency, recentActivity, recentActivityWithFiles, summarizeUnresolvedFromManifest } from './extract.js';
-import { renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderPlanAgentMarkdown, renderJson } from './render.js';
+import { buildDocumentView, renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderPlanAgentMarkdown, renderJson } from './render.js';
 import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
 import { getDirtyFilesSync } from '../freshness/git.js';
@@ -463,7 +463,6 @@ export function generateBrief({ repoRoot }) {
     const documentCandidates = linkedDocumentCandidates(db, { docRecency });
     const readFirstArr = readFirst(db, 6, {
       docRecency,
-      documentCandidates,
       exports,
       overlayHealth,
       primaryExt: primaryLangExt(snapshot),
@@ -533,6 +532,11 @@ export function generateBrief({ repoRoot }) {
     // "this graph was never given any". Those want opposite actions from a reader.
     const documentCount = q(db, "SELECT COUNT(*) AS c FROM nodes WHERE type = 'Document'")[0]?.c ?? 0;
     const documentCandidateCount = documentCandidates.total;
+    const documentView = buildDocumentView({
+      linkedCandidates: documentCandidates,
+      positionalFallback: documentCandidates.positionalFallback ?? [],
+      documentCount,
+    });
     const data = {
       snapshot,
       entries,
@@ -541,10 +545,9 @@ export function generateBrief({ repoRoot }) {
       readFirstArr,
       documentCount,
       documentCandidateCount,
-      // ⚠ ITS OWN FIELD, from the already-computed candidate result. It never enters `readFirstArr`,
-      // so it cannot consume that array's dedupe or its limit — a positional row was erasing an
-      // export-backed source fact for the same path by claiming `seen` first.
-      positionalDocumentFallback: documentCandidates.positionalFallback ?? [],
+      // ⇒ ONE CANONICAL MODEL, built here and consumed by every surface. Renderers no longer filter
+      // a mixed array by kind or re-derive the evidence from loose scalars.
+      documentView,
       tests,
       testInv,
       risksArr,
