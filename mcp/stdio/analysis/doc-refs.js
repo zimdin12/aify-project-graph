@@ -45,6 +45,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildIndex, resolveDocPath, FILE_LEVEL_TYPES } from './doc-links.js';
+import { edgeClass, ownedEdgesPredicate } from '../storage/edge-classes.js';
 
 // Every rule that can admit an edge here, with the confidence it carries. Frozen so a caller
 // cannot widen the vocabulary at runtime — a reader must be able to enumerate what could have
@@ -135,7 +136,10 @@ const EXTRACTOR_PREFIX = 'doc_ref:';
 // clears its own tag; this one additionally clears its PREDECESSOR's, because a retired rule's
 // edges survive every subsequent run otherwise and no amount of tightening the admission rule
 // removes them. dev: "INSERT OR IGNORE alone will preserve the poison forever."
-export const RETIRED_EXTRACTORS = Object.freeze(['mentions']);
+// ⇒ THE LEDGER OWNS THIS, NOT THIS FILE. Re-exported for callers that already import it from
+// here; the value lives in `storage/edge-classes.js` beside the deletion rule that consumes it,
+// because a retired label and the delete that retires it are one fact in two places otherwise.
+export const RETIRED_EXTRACTORS = Object.freeze(edgeClass('doc_ref').retiredExtractors);
 
 const INLINE_CODE = /`([^`\n]+)`/g;
 
@@ -426,10 +430,12 @@ export async function detectDocRefs(db, repoRoot) {
   // anything: if the corpus is empty, or every document is unreadable, the legacy edges must
   // STILL be gone. Making the delete conditional on success would leave the poison in place in
   // exactly the runs where nothing else was there to notice it.
-  for (const tag of RETIRED_EXTRACTORS) {
-    db.run(`DELETE FROM edges WHERE relation = 'MENTIONS' AND extractor = '${tag}'`);
-  }
-  db.run(`DELETE FROM edges WHERE relation = 'MENTIONS' AND extractor LIKE '${EXTRACTOR_PREFIX}%'`);
+  // ⇒ ONE PREDICATE, FROM THE LEDGER, COVERING BOTH THE LIVE PREFIX AND THE RETIRED LABELS. This
+  // was three statements restating the same ownership rule in two shapes. A deletion rule written
+  // twice differs in one of the two places eventually — which is how the record prune and the edge
+  // invalidation drifted 600 lines apart and cost 62,066 records on 2026-08-20.
+  const owned = ownedEdgesPredicate('doc_ref');
+  db.run(`DELETE FROM edges WHERE ${owned.sql}`, owned.params);
 
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
   const empty = {

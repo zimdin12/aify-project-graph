@@ -29,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { detectDocLinks } from '../../mcp/stdio/analysis/doc-links.js';
+import { EDGE_CLASSES, ownedEdgesPredicate } from '../../mcp/stdio/storage/edge-classes.js';
 import { openDb } from '../../mcp/stdio/storage/db.js';
 
 const MCP = fileURLToPath(new URL('../../mcp', import.meta.url));
@@ -57,12 +58,19 @@ const filesContaining = (needle) => walk(MCP)
   .filter((f) => strip(readFileSync(f, 'utf8')).includes(needle))
   .map(rel);
 
-// prefix -> the single module entitled to write it, and therefore to delete by it.
-const OWNED_PREFIXES = {
-  'doc_link:': 'mcp/stdio/analysis/doc-links.js',
-  'doc_ref:': 'mcp/stdio/analysis/doc-refs.js',
-  'virtual-overrides': 'mcp/stdio/ingest/frameworks/virtual_overrides.js',
-};
+// ⛔ DERIVED FROM THE LEDGER, NOT RESTATED HERE. The first version of this file hardcoded the
+// prefix→owner map — a fourth copy of a list, in the test written to stop lists being copied. A
+// class added to `EDGE_CLASSES` without an owner is now caught here automatically; one added to a
+// hardcoded map is caught by nobody, because nobody edits a map they did not know existed.
+//
+// The per-provider LSP class is excluded from the STATIC scan: its extractor is built at runtime
+// from `envelope.provider`, so there is no literal to grep for. Its ownership is enforced instead
+// by `extractor-is-an-authority-boundary.test.js`, which runs the invalidation across providers.
+const OWNED_PREFIXES = Object.fromEntries(
+  EDGE_CLASSES
+    .filter((c) => !c.extractor.includes('<provider>'))
+    .map((c) => [c.extractor, c.producer]),
+);
 
 describe('an extractor prefix used to scope a DELETE has exactly one writer', () => {
   it('★★★ THE INSTRUMENT WORKS — it finds a string that really is in several modules', () => {
@@ -77,7 +85,11 @@ describe('an extractor prefix used to scope a DELETE has exactly one writer', ()
 
   for (const [prefix, owner] of Object.entries(OWNED_PREFIXES)) {
     it(`★★★ only ${owner} writes "${prefix}"`, () => {
-      const hits = filesContaining(prefix);
+      // ⚠ The LEDGER is where the label is DECLARED; holding it there is the fix, not a violation.
+      // The owner may also hold it to CONSTRUCT edge extractors. Anyone else writing it is the
+      // cpp-clangd# situation returning.
+      const LEDGER = 'mcp/stdio/storage/edge-classes.js';
+      const hits = filesContaining(prefix).filter((f) => f !== LEDGER);
       // Positive control per prefix: the owner must actually be found, or "no other file has it"
       // is true of a prefix nobody has.
       expect(hits, `the owner of "${prefix}" must contain it`).toContain(owner);
@@ -134,4 +146,51 @@ describe('the DELETE itself spares edges it did not produce', () => {
       'CONTROL: its OWN stale edge IS removed, or the delete does nothing at all').toBe(0);
     db.close();
   }, 30_000);
+});
+
+// ⚠ THE LEDGER IS ONLY WORTH HAVING IF IT IS COMPLETE. An entry missing its deletion trigger is
+// the state every one of the eight defects was found in — a class whose "who may delete this?"
+// had never been written down anywhere.
+describe('every edge class carries its full lifecycle', () => {
+  const REQUIRED = ['id', 'producer', 'relation', 'provenance', 'extractor', 'population',
+    'admission', 'freshnessTrigger', 'deletionTrigger', 'consumer'];
+
+  it('★★★ no class ships with a blank lifecycle field', () => {
+    expect(EDGE_CLASSES.length, 'the ledger is not empty').toBeGreaterThan(3);
+    const gaps = [];
+    for (const c of EDGE_CLASSES) {
+      for (const f of REQUIRED) {
+        if (typeof c[f] !== 'string' || c[f].trim() === '') gaps.push(`${c.id}.${f}`);
+      }
+    }
+    expect(gaps, 'add the missing lifecycle answers to storage/edge-classes.js').toEqual([]);
+  });
+
+  it('★★★ a per-provider class REFUSES to build a predicate without a provider', () => {
+    // ⛔ FAILS CLOSED, and the open direction is the original defect. Omitting the provider would
+    // produce the prefix `#`, which matches every provider's edges — precisely the state where a
+    // C++ collect was entitled to delete TypeScript evidence.
+    expect(() => ownedEdgesPredicate('lsp_verified')).toThrow(/per-provider/);
+    const p = ownedEdgesPredicate('lsp_verified', { provider: 'ts-langserver' });
+    expect(Object.values(p.params)).toContain('ts-langserver#%');
+    // CONTROL: the predicate is real SQL with bound params, not a string that happens to exist.
+    expect(p.sql).toMatch(/relation = \$ecRelation/);
+  });
+
+  it('★★★ the predicate covers retired labels the producer still owns', () => {
+    // A row nobody writes any more still needs an owner, or it is undeletable by construction.
+    const p = ownedEdgesPredicate('doc_ref');
+    expect(Object.values(p.params), 'the pre-prefix label is still claimable').toContain('mentions');
+    expect(Object.values(p.params), 'alongside the live prefix').toContain('doc_ref:%');
+  });
+
+  it('★★★ two classes never share a relation AND an extractor', () => {
+    // The collision that makes any prefix-scoped DELETE reach another producer's rows.
+    const seen = new Set();
+    for (const c of EDGE_CLASSES) {
+      const key = `${c.relation}|${c.extractor}`;
+      expect(seen.has(key), `${c.id} collides with an earlier class on ${key}`).toBe(false);
+      seen.add(key);
+    }
+  });
 });

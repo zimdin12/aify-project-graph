@@ -45,6 +45,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { FILE_LEVEL_TYPES as FILE_LEVEL_TYPES_REGISTRY } from '../storage/taxonomy.js';
+import { ownedEdgesPredicate } from '../storage/edge-classes.js';
 
 // Every rule that can admit an edge here, with the confidence it carries. Frozen so a caller
 // cannot widen the vocabulary at runtime — the reader must be able to enumerate what could have
@@ -410,7 +411,10 @@ export function scanDocReferences(content) {
  * `doc_link:` prefix, so it never touches another extractor's edges.
  */
 export async function detectDocLinks(db, repoRoot) {
-  db.run(`DELETE FROM edges WHERE relation = 'LINKS_TO' AND extractor LIKE '${EXTRACTOR_PREFIX}%'`);
+  // The deletion rule comes from the edge-class ledger, which is also where this class's
+  // population, admission rule and freshness trigger are stated. See storage/edge-classes.js.
+  const owned = ownedEdgesPredicate('doc_link');
+  db.run(`DELETE FROM edges WHERE ${owned.sql}`, owned.params);
 
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
   const empty = {
