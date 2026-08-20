@@ -19,12 +19,13 @@
 //   node scripts/refactor-guard.mjs --verify     # after; exits 1 on any drift
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 // The carrier predicate lives in its own module because a check inside a CLI whose main()
 // runs on import cannot be called by a test — and this one was wrong for weeks.
-import { CARRIER_KEYS, carrierMovement } from './lib/carrier.mjs';
+import { carrierMovement } from './lib/carrier.mjs';
+import { guardVerdict, VERDICT, REFUSAL } from './lib/guard-verdict.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 // ⛔ THE BASELINE LIVED UNDER .aify-graph AND REINDEXING DELETED IT. graph-senior-dev hit that
@@ -340,63 +341,51 @@ async function main() {
   }
   const base = JSON.parse(readFileSync(ARTIFACT, 'utf8'));
 
-  // ⛔ THE REFUSAL COMES FIRST. Comparing outputs across a moved graph is comparing two
-  // populations and calling the difference a code change.
-  const drifted = [];
+  // ⛔ EVERY REFUSAL IS EVALUATED BEFORE ANY OUTPUT IS COMPARED, and the decision lives in
+  // lib/guard-verdict.mjs so a test can execute it. This function now only PRINTS the verdict.
+  //
   // ⚠ `workingTreeDirty` is recorded but deliberately NOT a refusal condition: it changes on
-  // every edit of the work being guarded, and its only leak into output is the excluded line
-  // above. The GRAPH is a refusal condition, because it is the population every verb answers
-  // from and a moved graph makes the comparison meaningless.
-  for (const k of CARRIER_KEYS) {
-    if (base.carrier[k] !== now.carrier?.[k] && base.carrier[k] !== now[k]) {
-      drifted.push(`${k}: baseline ${base.carrier[k]} -> now ${now[k]}`);
+  // every edit of the work being guarded, and its only leak into output is the excluded line.
+  const decision = guardVerdict({
+    baseline: base, before, after, results, routeCount: ROUTES.length,
+  });
+
+  if (decision.verdict === VERDICT.REFUSE) {
+    const headline = decision.reason === REFUSAL.CARRIER_MIDRUN
+      ? 'REFUSED: the carrier moved DURING the corpus run, so no output can be attributed.'
+      : decision.reason === REFUSAL.CARRIER_DRIFT
+        ? 'REFUSED: the carrier moved, so this comparison cannot attribute anything to the code.'
+        : decision.reason === REFUSAL.CORPUS_SIZE
+          ? 'REFUSED: corpus size changed; the comparison would be over different populations.'
+          : 'REFUSED: the comparison did not reach the moved code, so an identical result proves '
+            + 'nothing about it.';
+    console.error(headline);
+    for (const d of decision.detail) console.error(`  ${d}`);
+    if (decision.reason === REFUSAL.CARRIER_MIDRUN) {
+      console.error('  Nothing here is evidence about the code. Re-run on a settled graph.');
+    } else if (decision.reason === REFUSAL.CARRIER_DRIFT) {
+      console.error('  Re-baseline on the current graph, then slice.');
     }
-  }
-  if (drifted.length) {
-    console.error('REFUSED: the carrier moved, so this comparison cannot attribute anything to the code.');
-    for (const d of drifted) console.error(`  ${d}`);
-    console.error('  Re-baseline on the current graph, then slice.');
     process.exit(1);
   }
 
-  if (base.corpusSize !== results.length) {
-    console.error(`REFUSED: corpus size changed (${base.corpusSize} -> ${results.length}); the`
-      + ' comparison would be over different populations.');
+  if (decision.verdict === VERDICT.FAIL) {
+    console.error(`BEHAVIOUR CHANGED on ${decision.detail.length} of ${results.length} corpus entries:`);
+    for (const c of decision.detail) console.error(`  ${c}`);
     process.exit(1);
   }
 
-  const byKey = new Map(base.results.map((r) => [describe(r), r]));
-  const changes = [];
-  for (const r of results) {
-    const b = byKey.get(describe(r));
-    if (!b) { changes.push(`${describe(r)}: NEW entry absent from baseline`); continue; }
-    if (b.outcome !== r.outcome) {
-      changes.push(`${describe(r)}: outcome ${b.outcome} -> ${r.outcome}${r.error ? ` (${r.error})` : ''}`);
-    } else if (r.outcome === 'ok' && b.sha256 !== r.sha256) {
-      changes.push(`${describe(r)}: output changed (${b.bytes} -> ${r.bytes} stable bytes)`);
-    } else if (r.outcome === 'ok' && b.volatileLines !== r.volatileLines) {
-      // The excluded line disappearing is a behaviour change that the exclusion would otherwise
-      // hide. Pinned separately, because an exclusion with no invariant is a blind spot.
-      changes.push(`${describe(r)}: snapshot line count changed (${b.volatileLines} -> ${r.volatileLines})`);
-    } else if (r.outcome === 'ok' && !r.volatileShapeOk) {
-      changes.push(`${describe(r)}: snapshot line no longer matches its pinned shape`);
-    }
-  }
-
-  if (changes.length) {
-    console.error(`BEHAVIOUR CHANGED on ${changes.length} of ${results.length} corpus entries:`);
-    for (const c of changes) console.error(`  ${c}`);
-    process.exit(1);
-  }
-  const ran = results.filter((r) => r.route && r.routeExecuted).length;
-  if (ran !== ROUTES.length) {
-    console.error(`REFUSED: routes executed ${ran}/${ROUTES.length} — the comparison did not `
-      + 'reach the moved code, so an identical result proves nothing about it.');
-    process.exit(1);
-  }
   const threw = results.filter((r) => r.outcome === 'threw').length;
   console.log(`unchanged: ${results.length} of ${results.length} corpus entries identical · `
-    + `routes executed ${ran}/${ROUTES.length} · ${threw} throw in both, which is itself pinned`);
+    + `routes executed ${ROUTES.length}/${ROUTES.length} · ${threw} throw in both, which is itself pinned`);
 }
 
-main().catch((err) => { console.error('guard failed:', err); process.exit(2); });
+// ⛔ MAIN RUNS ONLY WHEN THIS FILE IS THE ENTRY POINT. It used to run at import, so importing
+// the module from a test executed the whole 61-entry corpus and then exited the process — which
+// is precisely why the decision it contained went untested and shipped a false accusation.
+// Same defect `authority-ledger.mjs` already fixed; taken here on graph-senior-dev's ruling.
+const invokedDirectly = process.argv[1]
+  && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
+if (invokedDirectly) {
+  main().catch((err) => { console.error('guard failed:', err); process.exit(2); });
+}

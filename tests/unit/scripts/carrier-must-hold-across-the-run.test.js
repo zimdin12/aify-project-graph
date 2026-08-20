@@ -122,6 +122,7 @@ describe('the guard samples the carrier on both sides of the run', () => {
   it('★★★ the key list has exactly one definition', () => {
     const inline = GUARD.split("['graphSha256', 'indexedCommit', 'nodes', 'edges']").length - 1;
     expect(inline, 'the literal list lives in lib/carrier.mjs, not here').toBe(0);
-    expect(GUARD, 'and the guard imports it').toMatch(/import \{ CARRIER_KEYS, carrierMovement \}/);
+    expect(GUARD, 'and the guard imports the shared predicate').toMatch(/from '\.\/lib\/carrier\.mjs'/);
+    expect(GUARD, 'and the extracted decision').toMatch(/from '\.\/lib\/guard-verdict\.mjs'/);
   });
 });
