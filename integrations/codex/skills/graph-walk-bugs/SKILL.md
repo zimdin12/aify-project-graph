@@ -3,9 +3,27 @@ name: graph-walk-bugs
 description: Use when the user wants engine-out bug fixing — walk features in dependency order (roots first, leaves last), surface open bug-like tasks per feature, and work through them so root fixes propagate before side-feature fixes. Produces a walk plan; user or agent iterates.
 ---
 
-# graph-walk-bugs
+# Fix bugs in an order that does not waste the work
 
-Walk `.aify-graph/functionality.json` features in **weighted topological order** (engine-out, with load-weighting within tiers), filter `.aify-graph/tasks.json` for bug-like tasks per feature, emit a flat walk plan with depth markers + inclusion reasons + optional prep context.
+A pile of open bugs has no natural order, so people take them in the order they were filed —
+and then fix a leaf whose behaviour changes the moment somebody fixes the thing it depends on.
+The work was real; it just has to be redone.
+
+★ THE ORDER IS THE VALUE HERE, NOT THE LIST. Roots first, so that by the time you reach a
+dependent feature the thing underneath it has stopped moving. Weighted within a tier, so the
+feature carrying more of the load goes first. That order is derivable from the feature graph and
+from nothing else — a tracker cannot produce it, because it does not know which feature sits
+under which.
+
+Concretely: walk `functionality.json` in weighted topological order (engine-out, load-weighted
+within tiers), filter `tasks.json` for bug-like tasks per feature, and emit a flat plan with depth
+markers, inclusion reasons and optional prep context.
+
+⛔ **AND THE PLAN IS ONLY AS COMPLETE AS THE OVERLAY.** A feature with no `depends_on` edges is not
+a root — it is a feature nobody recorded edges for, and it will sort to the top and look like the
+place to start. Same for a bug that never made it into `tasks.json`: it does not appear, and the
+walk reads as if that feature is clean. Both preconditions below exist for that reason, and both
+should stop you rather than degrade quietly.
 
 ## When to run
 

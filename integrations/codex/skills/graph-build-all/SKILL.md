@@ -3,7 +3,14 @@ name: graph-build-all
 description: Use when the user says "generate project graphs", "build graph for this repo", "rebuild everything", "index this repo from scratch", or opens a new repo that has no `.aify-graph/` directory yet. Runs the full build in one pass — graph index, all five briefs, and a proposed functionality.json. Partial-build skills exist for narrower jobs (see below).
 ---
 
-# graph-build-all
+# Starting from nothing — the whole set, once
+
+A repo with no `.aify-graph/` cannot answer anything, and the pieces depend on each other: the
+briefs are derived from the graph, the feature map is proposed against the graph, the tasks are
+linked to the feature map. Doing them out of order means doing several of them twice.
+
+This runs the whole chain in dependency order, once. Use it on a repo that has never been indexed,
+or after a change large enough that everything downstream is stale anyway.
 
 Build (or rebuild) the complete graph + brief + overlay set for a repo in one go. This is the skill that answers "just get me set up" without six manual commands.
 
