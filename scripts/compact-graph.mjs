@@ -13,10 +13,21 @@
 // LSP-verified edges synthesized from the latest collection) is untouched.
 //
 // It also REPORTS leftover on-disk collection envelopes (`code-intel-*.json`).
-// Measured on sand_castle: ~450 MB of them, including one 353 MB file, beside an
-// 864 MB graph.sqlite. These are inputs that were already imported into the DB,
-// so they are dead weight once a collection is stored — but they are the user's
-// files, so this only DELETES them when you pass --delete-envelopes.
+// These are inputs already imported into the DB, so they are dead weight once a
+// collection is stored — but they are the user's files, so this only DELETES
+// them when you pass --delete-envelopes.
+//
+// ⚠ THE JUSTIFICATION FOR THAT DESTRUCTIVE FLAG IS MEASURED AT RUN TIME, NOT QUOTED FROM A
+// COMMENT. This header used to read "Measured on sand_castle: ~450 MB of them, including one
+// 353 MB file, beside an 864 MB graph.sqlite". By 2026-08-20 that repo had NO envelopes left at
+// all and a 1.07 GB graph — someone had cleaned them in between (ef-manager, checking the claim
+// rather than believing it). So a reader deciding whether to pass a flag that DELETES THEIR FILES
+// was being sold it by a number that no longer held.
+//
+// A measured claim in a header ages exactly like a citation. The figures above are gone rather
+// than updated, because updating them just restarts the clock; the script prints the actual
+// footprint it found before it offers to remove anything, so the case for deleting is made from
+// what is true at the moment of the decision.
 
 import { statSync, readdirSync, unlinkSync } from 'node:fs';
 import { join, basename } from 'node:path';
