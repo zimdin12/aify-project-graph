@@ -8,7 +8,7 @@
     "attributedWitnesses": 0,
     "note": "Immutable migration baseline. 0 of 35 pre-v3 declarations are runnable: none carry the mandatory case/expect witness fields. Do NOT rewrite history by calling a pre-v3 declaration runnable."
   },
-  "legacyCeiling": 35,
+  "legacyCeiling": 34,
   "entries": {
     "F1 the true row total is never passed to the ambiguity message": {
       "spec": "ambiguity-population.spec.json",
@@ -151,9 +151,9 @@
       "reason": "pre-v3 declaration; predates mandatory case/expect. Not runnable, no witness claim."
     },
     "G8 lookalike that MINTS correctly but knows no repo path": {
-      "spec": "route-authority.spec.json",
-      "state": "legacy_unruled",
-      "reason": "pre-v3 declaration; predates mandatory case/expect. Not runnable, no witness claim."
+      "spec": "route-authority-G8.spec.json",
+      "state": "v3_failure_observed_unattributed",
+      "reason": "Physically extracted into its own v3-loadable file so the normal spec-path invocation loads it without an external construction step. Preregistration tests/self-review/preregistrations/G8.json, referee graph-senior-dev, approval 1787266025666-e83bb59d. Receipt tests/self-review/receipts/G8/. BOUNDED CLAIM: the repo-path discriminator rejects this constant forgery. NOT handler/runner/provider/import/replay identity -- that claim is expressly withdrawn by the test's own source. Ceiling is failure_observed_unattributed: body attribution is open."
     },
     "M1 drop a claim from the docs_only route": {
       "spec": "stale-warning-claims.spec.json",

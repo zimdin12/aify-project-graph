@@ -1,0 +1,13 @@
+[
+  {
+    "name": "G8 lookalike that MINTS correctly but knows no repo path",
+    "file": "mcp/stdio/tools/schema.js",
+    "from": "handler: graphCollectCodeIntel",
+    "to": "handler: async () => ({ schema_version: '0.2', status: 'ok', provider: 'cpp-clangd', collectionId: 'ci-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + Math.random().toString(16).slice(2, 10) })",
+    "tests": [
+      "tests/unit/server/tool-routing-identity.test.js"
+    ],
+    "case": "\u2605\u2605 every probed name returns that verb's own output, not another's",
+    "expect": "the response must reference the repo it was ASKED about"
+  }
+]

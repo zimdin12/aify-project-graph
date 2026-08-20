@@ -41,6 +41,9 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node
 // ⛔ ONE anchor authority, shared with the suite-time inventory that gates it. A second
 // interpretation in a test would be a different opinion about what 'the site' means.
 import { applyAnchor } from './lib/anchor.mjs';
+// ⛔ The loadability contract is a callable function: 0 of 35 specs were unloadable for
+// nine days because nothing could ask the question without launching the apparatus.
+import { validateV3Spec } from './lib/spec-schema.mjs';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { join, dirname } from 'node:path';
@@ -84,13 +87,10 @@ const spec = JSON.parse(specRaw);
 
 // ── SPEC VALIDATION. `case` and `expect` were optional in v2 and dev credited a CAUGHT with
 // no assertion authority at all. Required now, before any mutation runs.
-for (const [i, m] of spec.entries()) {
-  for (const k of ['name', 'file', 'from', 'to', 'tests', 'case', 'expect']) {
-    if (!m[k] || (Array.isArray(m[k]) && !m[k].length)) {
-      console.error(`⛔ spec[${i}] "${m.name || '?'}" is missing required field "${k}" — a witness is not optional`);
-      process.exit(2);
-    }
-  }
+const validation = validateV3Spec(spec);
+if (!validation.loadable) {
+  for (const p of validation.problems) console.error(`⛔ ${p} — a witness is not optional`);
+  process.exit(2);
 }
 
 // ⛔ THE GAUGE MUST NOT BE IN THE SUBJECT POPULATION. Dev mutated ONLY the evidence reporter

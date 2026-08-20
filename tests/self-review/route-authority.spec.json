@@ -62,16 +62,5 @@
     "tests": [
       "tests/unit/code-intel/skip-counters-provider-boundary.test.js"
     ]
-  },
-  {
-    "name": "G8 lookalike that MINTS correctly but knows no repo path",
-    "file": "mcp/stdio/tools/schema.js",
-    "from": "handler: graphCollectCodeIntel",
-    "ruling": "2026-08-21: anchor was ABSENT because the tool table moved from server.js to mcp/stdio/tools/schema.js; server.js now contains zero handler: rows. The lookalike still defeats mint-uniqueness and can still only be caught by the repo-path identity check, so the witness remains semantically valid. FILE repair only. Verified unique in the new file.",
-    "to": "handler: async () => ({ schema_version: '0.2', status: 'ok', provider: 'cpp-clangd', collectionId: 'ci-' + new Date().toISOString().replace(/[:.]/g, '-') + '-' + Math.random().toString(16).slice(2, 10) })",
-    "tests": [
-      "tests/unit/server/tool-routing-identity.test.js"
-    ],
-    "note": "The discriminator-weight probe for G6: this lookalike defeats the mint-uniqueness check (fresh, correctly formatted ids each call) so ONLY the repo-path identity check can catch it."
   }
 ]

@@ -58,6 +58,9 @@ describe('the witness migration ledger accounts for every declared spec', () => 
     expect(frozenAt.commit).toBe('b21632346780e34ebbce6f30b9fba8006d5ee21d');
     expect(frozenAt.tree).toBe('6a90fe3e559e9009a1e59a18c90f6328837bc815');
     expect(frozenAt).toMatchObject({ declared: 35, addressable: 35, v3Runnable: 0, attributedWitnesses: 0 });
+    // ⚠ The FROZEN numbers describe b216323 and do not move as specs are promoted. They are the
+    // record of what was true when the corpus was first counted, not a live tally.
+    expect(frozenAt.v3Runnable, 'frozen, not live').toBe(0);
   });
 
   it('★★★ every derived ID appears EXACTLY ONCE in the ledger', () => {
@@ -115,22 +118,47 @@ describe('the witness migration ledger accounts for every declared spec', () => 
     }
   });
 
-  it('★★★ the reported ladder is DERIVED from the ledger, never asserted beside it', () => {
-    // ⛔ THE WHOLE POINT. Each rung is counted separately so no single number can stand in for
-    // progress. "migrated" is not a rung.
+  it('★★★ the EXCLUSIVE state ledger sums to the declared population', () => {
+    // ⛔⛔ I REPORTED A LADDER THAT COUNTED G8 TWICE AND SUMMED TO 36. I wrote
+    // "1 runnable · 1 failure_observed_unattributed" for a single spec in a single state.
+    // graph-senior-dev caught it: the five states are EXCLUSIVE, so they must sum to the
+    // population and nothing else. A ladder that double-counts inflates progress by construction.
     const entries = Object.values(ledger().entries);
     const count = (s) => entries.filter((v) => v.state === s).length;
-    const ladder = {
-      declared: entries.length,
-      legacy: count('legacy_unruled'),
-      retired: count('retired_obsolete'),
-      runnable: count('v3_runnable_unwitnessed') + count('v3_failure_observed_unattributed') + count('v3_witnessed'),
-      failureObservedUnattributed: count('v3_failure_observed_unattributed'),
+    const exclusive = {
+      legacy_unruled: count('legacy_unruled'),
+      retired_obsolete: count('retired_obsolete'),
+      v3_runnable_unwitnessed: count('v3_runnable_unwitnessed'),
+      v3_failure_observed_unattributed: count('v3_failure_observed_unattributed'),
+      v3_witnessed: count('v3_witnessed'),
+    };
+    const sum = Object.values(exclusive).reduce((a, b) => a + b, 0);
+    expect(sum, 'the exclusive states must account for every declaration exactly once')
+      .toBe(entries.length);
+
+    expect(exclusive).toEqual({
+      legacy_unruled: 34,
+      retired_obsolete: 0,
+      v3_runnable_unwitnessed: 0,
+      v3_failure_observed_unattributed: 1,
+      v3_witnessed: 0,
+    });
+  });
+
+  it('★★★ the CUMULATIVE capability view is labelled cumulative and never sums to the population', () => {
+    // ⚠ SEPARATE FROM THE LADDER ABOVE, ON PURPOSE. "How many are schema-runnable" is a rollup
+    // across three exclusive states; presenting it beside them invites exactly the double count
+    // I made. It answers a different question and is labelled as doing so.
+    const entries = Object.values(ledger().entries);
+    const count = (s) => entries.filter((v) => v.state === s).length;
+    const cumulative = {
+      schemaRunnable: count('v3_runnable_unwitnessed') + count('v3_failure_observed_unattributed') + count('v3_witnessed'),
+      failureObservedOrBetter: count('v3_failure_observed_unattributed') + count('v3_witnessed'),
       witnessed: count('v3_witnessed'),
     };
-    // The frozen truth, until a slice earns a change and updates this line with its receipt.
-    expect(ladder).toEqual({
-      declared: 35, legacy: 35, retired: 0, runnable: 0, failureObservedUnattributed: 0, witnessed: 0,
-    });
+    expect(cumulative).toEqual({ schemaRunnable: 1, failureObservedOrBetter: 1, witnessed: 0 });
+    // Monotone by construction: each rollup contains the next.
+    expect(cumulative.schemaRunnable).toBeGreaterThanOrEqual(cumulative.failureObservedOrBetter);
+    expect(cumulative.failureObservedOrBetter).toBeGreaterThanOrEqual(cumulative.witnessed);
   });
 });
