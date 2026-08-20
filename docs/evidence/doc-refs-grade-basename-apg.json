@@ -1,0 +1,1013 @@
+{
+  "schema": "apg/doc-ref-grade/v1",
+  "rule": "doc_link:inline-basename",
+  "repo": "aify-project-graph",
+  "graded_at_commit": "8280567",
+  "note": "BELOW FLOOR. Rule DELETED at 0bd5b94 on this grade. All 35 false positives share one target: an ecosystem-standard build-artifact filename resolved to a test fixture. Deleting cost 85 correct edges — recorded here so the loss is not invisible.",
+  "graded_by": "ef-manager",
+  "graded_at": "2026-08-20",
+  "method": "FULL POPULATION, graded from the document prose rather than from the resolved edge. Not sampled.",
+  "population": 120,
+  "correct": 85,
+  "false_positives": 35,
+  "precision": 0.7083,
+  "floor": 0.95,
+  "verdict": "BELOW FLOOR",
+  "edges": [
+    {
+      "written_basename": "backlog.md",
+      "target": "docs/archive/backlog.md",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/FINAL-analysis-2026-04-20.md",
+      "line": 240,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "functionality.sample.laravel.json",
+      "target": "docs/examples/functionality.sample.laravel.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.codex.md",
+      "line": 125,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "known-limitations.md",
+      "target": "docs/known-limitations.md",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 314,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "code-intel-collection.v0.2.schema.json",
+      "target": "docs/schemas/code-intel-collection.v0.2.schema.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+      "line": 8,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "code-intel-record.v0.2.schema.json",
+      "target": "docs/schemas/code-intel-record.v0.2.schema.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+      "line": 8,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "artifacts.js",
+      "target": "mcp/stdio/brief/artifacts.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-12-refactor-proposal.md",
+      "line": 349,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "generator.js",
+      "target": "mcp/stdio/brief/generator.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/archive/backlog.md",
+      "line": 17,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "graph-shape.js",
+      "target": "mcp/stdio/brief/graph-shape.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-12-refactor-proposal.md",
+      "line": 225,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "compile-db.js",
+      "target": "mcp/stdio/code-intel/compile-db.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-next-plan.md",
+      "line": 24,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "compile-db.js",
+      "target": "mcp/stdio/code-intel/compile-db.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-status.md",
+      "line": 71,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "coverage.js",
+      "target": "mcp/stdio/code-intel/coverage.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-status.md",
+      "line": 49,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "identifier-position.js",
+      "target": "mcp/stdio/code-intel/identifier-position.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/v0.3-hardening-plan.md",
+      "line": 149,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "live.js",
+      "target": "mcp/stdio/code-intel/live.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2/master-plan.md",
+      "line": 45,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "live.js",
+      "target": "mcp/stdio/code-intel/live.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/reference-pull-and-audit-2026-06-12.md",
+      "line": 34,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "live.js",
+      "target": "mcp/stdio/code-intel/live.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "line": 11,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "lsp-client.js",
+      "target": "mcp/stdio/code-intel/lsp-client.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-status.md",
+      "line": 72,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "node-bin.js",
+      "target": "mcp/stdio/code-intel/node-bin.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-status.md",
+      "line": 49,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "cpp-clangd.js",
+      "target": "mcp/stdio/code-intel/providers/cpp-clangd.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "line": 46,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "index.html",
+      "target": "mcp/stdio/dashboard/static/index.html",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "line": 83,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "deprecation-probe.js",
+      "target": "mcp/stdio/deprecation-probe.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "AGENTS.md",
+      "line": 98,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "git.js",
+      "target": "mcp/stdio/freshness/git.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/reference-pull-and-audit-2026-06-12.md",
+      "line": 70,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "unresolved-categorization.js",
+      "target": "mcp/stdio/freshness/unresolved-categorization.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-next-plan.md",
+      "line": 70,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "importer.js",
+      "target": "mcp/stdio/ingest/code-intel/importer.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2/holistic-review.md",
+      "line": 6,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "laravel.js",
+      "target": "mcp/stdio/ingest/frameworks/laravel.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-10-one-plan.md",
+      "line": 917,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "javascript.js",
+      "target": "mcp/stdio/ingest/languages/javascript.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-10-one-plan.md",
+      "line": 1237,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "typescript.js",
+      "target": "mcp/stdio/ingest/languages/typescript.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "line": 33,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "preflight-native.js",
+      "target": "mcp/stdio/preflight-native.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+      "line": 96,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "dynamic-boundaries.js",
+      "target": "mcp/stdio/query/dynamic-boundaries.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "README.md",
+      "line": 157,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "dynamic-boundaries.js",
+      "target": "mcp/stdio/query/dynamic-boundaries.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/v0.3-hardening-plan.md",
+      "line": 404,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "lsp-evidence.js",
+      "target": "mcp/stdio/query/lsp-evidence.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "line": 311,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "response-budget.js",
+      "target": "mcp/stdio/query/response-budget.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "line": 83,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "source-bundle.js",
+      "target": "mcp/stdio/query/source-bundle.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-10-one-plan.md",
+      "line": 333,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "source-bundle.js",
+      "target": "mcp/stdio/query/source-bundle.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-status.md",
+      "line": 34,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "source-bundle.js",
+      "target": "mcp/stdio/query/source-bundle.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "line": 7,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "change_plan.js",
+      "target": "mcp/stdio/query/verbs/change_plan.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/FINAL-analysis-2026-04-20.md",
+      "line": 224,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "change_plan.js",
+      "target": "mcp/stdio/query/verbs/change_plan.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "line": 16,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "code_intel_hierarchy.js",
+      "target": "mcp/stdio/query/verbs/code_intel_hierarchy.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "code_intel_live.js",
+      "target": "mcp/stdio/query/verbs/code_intel_live.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "line": 46,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "code_intel_live.js",
+      "target": "mcp/stdio/query/verbs/code_intel_live.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "consequences.js",
+      "target": "mcp/stdio/query/verbs/consequences.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-10-one-plan.md",
+      "line": 80,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "consequences.js",
+      "target": "mcp/stdio/query/verbs/consequences.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-12-refactor-proposal.md",
+      "line": 58,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "health.js",
+      "target": "mcp/stdio/query/verbs/health.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 472,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "health.js",
+      "target": "mcp/stdio/query/verbs/health.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-12-refactor-proposal.md",
+      "line": 76,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "onboard.js",
+      "target": "mcp/stdio/query/verbs/onboard.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/FINAL-analysis-2026-04-20.md",
+      "line": 224,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "onboard.js",
+      "target": "mcp/stdio/query/verbs/onboard.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "line": 16,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet-budget.js",
+      "target": "mcp/stdio/query/verbs/packet-budget.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "line": 151,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet-budget.js",
+      "target": "mcp/stdio/query/verbs/packet-budget.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md",
+      "line": 94,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet-budget.js",
+      "target": "mcp/stdio/query/verbs/packet-budget.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "line": 31,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet.js",
+      "target": "mcp/stdio/query/verbs/packet.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-12-refactor-proposal.md",
+      "line": 60,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet.js",
+      "target": "mcp/stdio/query/verbs/packet.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-19-roadmap.md",
+      "line": 225,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet.js",
+      "target": "mcp/stdio/query/verbs/packet.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/THE-GOAL.md",
+      "line": 134,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet.js",
+      "target": "mcp/stdio/query/verbs/packet.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-next-plan.md",
+      "line": 77,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "packet.js",
+      "target": "mcp/stdio/query/verbs/packet.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+      "line": 10,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "preflight.js",
+      "target": "mcp/stdio/query/verbs/preflight.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "line": 16,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "read_freshness.js",
+      "target": "mcp/stdio/query/verbs/read_freshness.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "line": 7,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "read_freshness.js",
+      "target": "mcp/stdio/query/verbs/read_freshness.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "line": 44,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "whereis.js",
+      "target": "mcp/stdio/query/verbs/whereis.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "line": 16,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-10-one-plan.md",
+      "line": 1033,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/archive/README.md",
+      "line": 10,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-next-plan.md",
+      "line": 126,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-status.md",
+      "line": 35,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "line": 7,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 77,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "line": 47,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.js",
+      "target": "mcp/stdio/server-instructions.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/v0.3-hardening-plan.md",
+      "line": 468,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "bench-ab.mjs",
+      "target": "scripts/bench-ab.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "README.md",
+      "line": 11,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "bench-rebuild.mjs",
+      "target": "scripts/bench-rebuild.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "README.md",
+      "line": 302,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "compact-graph.mjs",
+      "target": "scripts/compact-graph.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/v0.3-hardening-plan.md",
+      "line": 15,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "graph-brief.mjs",
+      "target": "scripts/graph-brief.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 877,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "graph-brief.mjs",
+      "target": "scripts/graph-brief.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/known-limitations.md",
+      "line": 167,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "graph-brief.mjs",
+      "target": "scripts/graph-brief.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.codex.md",
+      "line": 125,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "init-project-mcp.mjs",
+      "target": "scripts/init-project-mcp.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 335,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "install-graph-hook.mjs",
+      "target": "scripts/install-graph-hook.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 314,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "self-review.mjs",
+      "target": "scripts/self-review.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-19-selection-receipt-spec.md",
+      "line": 217,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 292,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "README.md",
+      "line": 7,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-19-selection-receipt-spec.md",
+      "line": 120,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/code-intel-v2-next-plan.md",
+      "line": 25,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md",
+      "line": 22,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-05-09-graph-senior-dev-merge-plan-draft.md",
+      "line": 252,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-05-09-next-gen-code-intel-bridge-superplan.md",
+      "line": 291,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-05-09-superplan-completion-summary.md",
+      "line": 63,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.claude.md",
+      "line": 139,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.codex.md",
+      "line": 126,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.cursor.md",
+      "line": 148,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.hermes.md",
+      "line": 168,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.opencode.md",
+      "line": 108,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "install.pi.md",
+      "line": 5,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/claude-code/skill/SKILL.md",
+      "line": 137,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/claude-code/skills/cpp-inner-loop/SKILL.md",
+      "line": 54,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/claude-code/skills/graph-build-all/SKILL.md",
+      "line": 97,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/claude-code/skills/graph-guide/SKILL.md",
+      "line": 231,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/claude-code/skills/safe-to-delete/SKILL.md",
+      "line": 56,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/codex/skill/SKILL.md",
+      "line": 137,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/codex/skills/cpp-inner-loop/SKILL.md",
+      "line": 54,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/codex/skills/graph-build-all/SKILL.md",
+      "line": 97,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/codex/skills/graph-guide/SKILL.md",
+      "line": 231,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/codex/skills/safe-to-delete/SKILL.md",
+      "line": 56,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/cursor/skill/SKILL.md",
+      "line": 137,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/cursor/skills/cpp-inner-loop/SKILL.md",
+      "line": 54,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/cursor/skills/graph-build-all/SKILL.md",
+      "line": 97,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/cursor/skills/graph-guide/SKILL.md",
+      "line": 231,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/cursor/skills/safe-to-delete/SKILL.md",
+      "line": 56,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/hermes/skill/SKILL.md",
+      "line": 137,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/hermes/skills/cpp-inner-loop/SKILL.md",
+      "line": 54,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/hermes/skills/graph-build-all/SKILL.md",
+      "line": 97,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/hermes/skills/graph-guide/SKILL.md",
+      "line": 231,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "integrations/hermes/skills/safe-to-delete/SKILL.md",
+      "line": 56,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "compile_commands.json",
+      "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
+      "extractor": "doc_link:inline-basename",
+      "doc": "tests/fixtures/code-intel/orphaned-ledger-sand-castle-2026-08-20.md",
+      "line": 20,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"
+    },
+    {
+      "written_basename": "fake-lsp-server.mjs",
+      "target": "tests/fixtures/code-intel/lsp/fake-lsp-server.mjs",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+      "line": 70,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "cpp-clangd-real.test.js",
+      "target": "tests/integration/code-intel/cpp-clangd-real.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+      "line": 71,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "selection-selector.test.js",
+      "target": "tests/unit/code-intel/selection-selector.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-19-selection-receipt-spec.md",
+      "line": 177,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "importer.test.js",
+      "target": "tests/unit/ingest/code-intel/importer.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+      "line": 1005,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "cpp-frameworks.test.js",
+      "target": "tests/unit/ingest/cpp-frameworks.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 637,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "frameworks.test.js",
+      "target": "tests/unit/ingest/frameworks.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 636,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "skill-parity.test.js",
+      "target": "tests/unit/integrations/skill-parity.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/v0.3-hardening-plan.md",
+      "line": 468,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "cause-vocabulary.test.js",
+      "target": "tests/unit/query/cause-vocabulary.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/2026-08-19-selection-receipt-spec.md",
+      "line": 176,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "class-qualified-lookup.test.js",
+      "target": "tests/unit/query/class-qualified-lookup.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 620,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "provenance-surface-pull-path.test.js",
+      "target": "tests/unit/query/provenance-surface-pull-path.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "CHANGELOG.md",
+      "line": 656,
+      "verdict": "CORRECT"
+    },
+    {
+      "written_basename": "server-instructions.test.js",
+      "target": "tests/unit/server-instructions.test.js",
+      "extractor": "doc_link:inline-basename",
+      "doc": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+      "line": 862,
+      "verdict": "CORRECT"
+    }
+  ]
+}

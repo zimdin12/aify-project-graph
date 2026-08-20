@@ -1,0 +1,283 @@
+{
+  "schema": "apg/doc-ref-grade/v1",
+  "rule": "doc_ref:path-scoped",
+  "repo": "aify-project-graph",
+  "graded_at_commit": "420147b",
+  "note": "Graded BEFORE the head-identifier fix (8280567), which removed the single false positive. Neither grader had tuned the code at this commit.",
+  "graded_by": "ef-manager",
+  "graded_at": "2026-08-20",
+  "method": "FULL POPULATION, graded from the document prose rather than from the resolved edge. Not sampled.",
+  "population": 33,
+  "correct": 32,
+  "false_positives": 1,
+  "precision": 0.9697,
+  "floor": 0.95,
+  "verdict": "CLEARS FLOOR",
+  "edges": [
+    {
+      "doc": "CHANGELOG.md",
+      "line": 335,
+      "symbol": "mergeSessionStartHook",
+      "target": "scripts/init-project-mcp.mjs",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/code-intel-v2-status.md",
+      "line": 72,
+      "symbol": "references",
+      "target": "mcp/stdio/code-intel/lsp-client.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/code-intel-v2/holistic-review.md",
+      "line": 6,
+      "symbol": "upsertLspEdge",
+      "target": "mcp/stdio/ingest/code-intel/importer.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "line": 30,
+      "symbol": "getGitCandidateFiles",
+      "target": "mcp/stdio/ingest/git-candidates.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "line": 33,
+      "symbol": "normalizeImportSource",
+      "target": "mcp/stdio/ingest/languages/typescript.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/code-intel-v2/test-round-2026-05-31.md",
+      "line": 58,
+      "symbol": "buildAbsenceTrustLine",
+      "target": "mcp/stdio/query/lsp-evidence.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+      "line": 2542,
+      "symbol": "ensureFresh",
+      "target": "mcp/stdio/freshness/orchestrator.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "line": 10,
+      "symbol": "getCodeIntelEvidenceForSymbol",
+      "target": "mcp/stdio/code-intel/query.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "line": 10,
+      "symbol": "getCodeIntelDiagnosticsForFiles",
+      "target": "mcp/stdio/code-intel/query.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "line": 191,
+      "symbol": "importV02Collection",
+      "target": "mcp/stdio/ingest/code-intel/importer.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 49,
+      "symbol": "classifyArchetype",
+      "target": "mcp/stdio/intelligence/archetypes.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 56,
+      "symbol": "computeOverview",
+      "target": "mcp/stdio/intelligence/analytics.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 71,
+      "symbol": "graphTour",
+      "target": "mcp/stdio/query/verbs/tour.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 89,
+      "symbol": "rankBySimilarity",
+      "target": "mcp/stdio/intelligence/embeddings.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 89,
+      "symbol": "embedderFromEnv",
+      "target": "mcp/stdio/intelligence/embeddings.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 89,
+      "symbol": "cosineSimilarity",
+      "target": "mcp/stdio/intelligence/embeddings.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 89,
+      "symbol": "composeSemanticText",
+      "target": "mcp/stdio/intelligence/embeddings.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 89,
+      "symbol": "embedTexts",
+      "target": "mcp/stdio/intelligence/embeddings.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "line": 94,
+      "symbol": "buildEmbeddings",
+      "target": "mcp/stdio/intelligence/embeddings.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+      "line": 25,
+      "symbol": "aifyBlock",
+      "target": "scripts/install-graph-hook.mjs",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+      "line": 25,
+      "symbol": "installGraphHook",
+      "target": "scripts/install-graph-hook.mjs",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+      "line": 96,
+      "symbol": "rebuild",
+      "target": "mcp/stdio/preflight-native.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "FALSE_POSITIVE",
+      "reason": "the marked span is a SHELL COMMAND: `npm rebuild better-sqlite3`"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "line": 22,
+      "symbol": "buildTrustLine",
+      "target": "mcp/stdio/query/lsp-evidence.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "line": 22,
+      "symbol": "buildAbsenceTrustLine",
+      "target": "mcp/stdio/query/lsp-evidence.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "line": 23,
+      "symbol": "inspectReadFreshness",
+      "target": "mcp/stdio/query/verbs/read_freshness.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "line": 31,
+      "symbol": "getSourceBundleBudget",
+      "target": "mcp/stdio/query/source-bundle.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "line": 31,
+      "symbol": "assertMonotonicTiers",
+      "target": "mcp/stdio/query/source-bundle.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "line": 12,
+      "symbol": "ensureFresh",
+      "target": "mcp/stdio/freshness/orchestrator.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "line": 39,
+      "symbol": "autoReindexEnabled",
+      "target": "mcp/stdio/freshness/auto-reindex.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "line": 44,
+      "symbol": "commitsBehindHead",
+      "target": "mcp/stdio/query/verbs/read_freshness.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "line": 18,
+      "symbol": "computeOverview",
+      "target": "mcp/stdio/intelligence/analytics.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "line": 20,
+      "symbol": "graphSearch",
+      "target": "mcp/stdio/query/verbs/search.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    },
+    {
+      "doc": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "line": 35,
+      "symbol": "graphTour",
+      "target": "mcp/stdio/query/verbs/tour.js",
+      "extractor": "doc_ref:path-scoped",
+      "verdict": "CORRECT"
+    }
+  ]
+}

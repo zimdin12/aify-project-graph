@@ -1,0 +1,861 @@
+{
+  "schema": "apg/doc-ref-grade/v1",
+  "rule": "doc_ref:shaped + doc_ref:qualified",
+  "repo": "echoes_of_the_fallen",
+  "graded_at_commit": "d3e4add",
+  "note": "Run against a COPY of the echoes graph; that repo was never written to. The two vec3 FPs were killed by df775b7 → shaped 90/91, confirmed by set-diff (2 removed, 0 added).",
+  "graded_by": "ef-manager",
+  "graded_at": "2026-08-20",
+  "method": "FULL POPULATION, graded from the document prose rather than from the resolved edge. Not sampled.",
+  "population": 105,
+  "correct": 102,
+  "false_positives": 3,
+  "precision": 0.9714,
+  "floor": 0.95,
+  "verdict": "CLEARS FLOOR",
+  "edges": [
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "PushConstants",
+      "target": "engine/voxel/GpuSimFramework.h",
+      "doc": "docs/architecture/structural-vs-timing-rule.md",
+      "line": 116,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "localUpFromCore",
+      "target": "engine/voxel/BodyMath.h",
+      "doc": "docs/contracts/coordinate-spaces.md",
+      "line": 49,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "getModifiedThisFrame",
+      "target": "engine/voxel/ChunkManager.h",
+      "doc": "docs/contracts/modified-this-frame.md",
+      "line": 5,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "coordinateFrame",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/reference-frame-selection.md",
+      "line": 57,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "localUpFromCore",
+      "target": "engine/voxel/BodyMath.h",
+      "doc": "docs/contracts/reference-frame-selection.md",
+      "line": 137,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "effectiveVoxelSize",
+      "target": "engine/core/Engine.h",
+      "doc": "docs/contracts/voxel-base-unit.md",
+      "line": 175,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "effectiveVoxelSize",
+      "target": "engine/core/Engine.h",
+      "doc": "docs/contracts/worldbuffer-authority.md",
+      "line": 147,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "all",
+      "target": "engine/data/BiomeRegistry.h",
+      "doc": "docs/now.md",
+      "line": 190,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "effectiveVoxelSize",
+      "target": "engine/core/Engine.h",
+      "doc": "docs/now.md",
+      "line": 287,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "all",
+      "target": "engine/data/BiomeRegistry.h",
+      "doc": "docs/operations/biomes-data-driven.md",
+      "line": 24,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "info",
+      "target": "engine/core/Logger.h",
+      "doc": "docs/operations/testing.md",
+      "line": 666,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:qualified",
+      "symbol": "info",
+      "target": "engine/core/Logger.h",
+      "doc": "docs/operations/testing/log-cheatsheet.md",
+      "line": 10,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "getDevice",
+      "target": "engine/rendering/VulkanContext.h",
+      "doc": "CLAUDE.md",
+      "line": 27,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "illustrative prose: \"0-byte files with names like `getDevice()`\""
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "setMaxDispatchesPerTick",
+      "target": "engine/voxel/GpuSimFramework.h",
+      "doc": "docs/architecture/configuration-arc-plumbing-pattern.md",
+      "line": 67,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "WeatherSystem",
+      "target": "engine/core/WeatherSystem.h",
+      "doc": "docs/architecture/configuration-arc-plumbing-pattern.md",
+      "line": 97,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimCoordinator",
+      "target": "engine/voxel/sim/SimCoordinator.h",
+      "doc": "docs/architecture/overview.md",
+      "line": 13,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "JfaPushConstants",
+      "target": "engine/voxel/GpuStructuralStress.h",
+      "doc": "docs/architecture/structural-vs-timing-rule.md",
+      "line": 116,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ChunkPos",
+      "target": "engine/voxel/Chunk.h",
+      "doc": "docs/architecture/voxel-storage-survey.md",
+      "line": 25,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "localUpFromCore",
+      "target": "engine/voxel/BodyMath.h",
+      "doc": "docs/contracts/README.md",
+      "line": 115,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "getAtmosphereSimulator",
+      "target": "engine/core/Engine.h",
+      "doc": "docs/contracts/atmosphere-gameplay-truth.md",
+      "line": 96,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "isPcasSimulated",
+      "target": "engine/voxel/Voxel.h",
+      "doc": "docs/contracts/chunk-flags.md",
+      "line": 22,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SaveManager",
+      "target": "engine/data/SaveManager.h",
+      "doc": "docs/contracts/coordinate-spaces.md",
+      "line": 52,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "vec3",
+      "target": "engine/voxel/SimplexNoise.h",
+      "doc": "docs/contracts/coordinate-spaces.md",
+      "line": 82,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "means glm/GLSL vec3; resolved to a PRIVATE nested struct in SimplexNoise.h"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BodyAuthority",
+      "target": "engine/voxel/BodyAuthority.h",
+      "doc": "docs/contracts/coordinate-spaces.md",
+      "line": 107,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "buildCoordinatorKeysFromChunkSet",
+      "target": "engine/core/Engine_chunks.cpp",
+      "doc": "docs/contracts/modified-this-frame.md",
+      "line": 61,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "setChunkFlags",
+      "target": "engine/voxel/WorldBuffer.h",
+      "doc": "docs/contracts/pcas-wake.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "DomainChunkKey",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/pcas-wake.md",
+      "line": 14,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "getModifiedThisFrame",
+      "target": "engine/voxel/ChunkManager.h",
+      "doc": "docs/contracts/pcas-wake.md",
+      "line": 19,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "isPcasSimulated",
+      "target": "engine/voxel/Voxel.h",
+      "doc": "docs/contracts/pcas-wake.md",
+      "line": 43,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BodyAuthority",
+      "target": "engine/voxel/BodyAuthority.h",
+      "doc": "docs/contracts/reference-frame-selection.md",
+      "line": 134,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellRecord",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/contracts/reference-frame-selection.md",
+      "line": 161,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellSet",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/contracts/reference-frame-selection.md",
+      "line": 162,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ActivationRecord",
+      "target": "engine/voxel/sim/SimCoordinator.h",
+      "doc": "docs/contracts/sim-active-set.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "DomainChunkKey",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-active-set.md",
+      "line": 30,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimDomainChannel",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-active-set.md",
+      "line": 31,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimExecutionState",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-active-set.md",
+      "line": 32,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimCoordinator",
+      "target": "engine/voxel/sim/SimCoordinator.h",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimExecutionState",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "DomainWakeHint",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 22,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "DomainSummaryState",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 22,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimDomainId",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 23,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimDomainChannel",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 42,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "fastForwardHook",
+      "target": "engine/voxel/sim/WorldBufferDomain.cpp",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 68,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "DomainFrame",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/contracts/sim-domain-lifecycle.md",
+      "line": 110,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BodyAuthority",
+      "target": "engine/voxel/BodyAuthority.h",
+      "doc": "docs/contracts/voxel-base-unit.md",
+      "line": 106,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ChunkMapEntry",
+      "target": "engine/voxel/WorldBuffer.h",
+      "doc": "docs/contracts/worldbuffer-authority.md",
+      "line": 28,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SaveManager",
+      "target": "engine/data/SaveManager.h",
+      "doc": "docs/contracts/worldbuffer-authority.md",
+      "line": 85,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BodyAuthority",
+      "target": "engine/voxel/BodyAuthority.h",
+      "doc": "docs/contracts/worldbuffer-authority.md",
+      "line": 147,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "GetBufferImageUsage",
+      "target": "engine/thirdparty/vk_mem_alloc.h",
+      "doc": "docs/lessons/windows-shutdown-race-pattern.md",
+      "line": 44,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "VmaAllocatorCreateInfo",
+      "target": "engine/thirdparty/vk_mem_alloc.h",
+      "doc": "docs/lessons/windows-shutdown-race-pattern.md",
+      "line": 108,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "EngineConfig",
+      "target": "engine/core/Engine.h",
+      "doc": "docs/operations/audits/configuration-authority-gap.md",
+      "line": 32,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SubstrateScheme",
+      "target": "engine/voxel/CylindricalPosition.h",
+      "doc": "docs/operations/audits/cylindrical-b2-implementation-arc.md",
+      "line": 29,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "TerrainConfig",
+      "target": "engine/voxel/TerrainConfig.h",
+      "doc": "docs/operations/audits/cylindrical-b2-implementation-arc.md",
+      "line": 45,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "CylindricalPositionId",
+      "target": "engine/voxel/CylindricalPosition.h",
+      "doc": "docs/operations/audits/cylindrical-b2-implementation-arc.md",
+      "line": 68,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SphericalChunkPos",
+      "target": "engine/voxel/Chunk.h",
+      "doc": "docs/operations/audits/cylindrical-b2-implementation-arc.md",
+      "line": 116,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SphericalChunkPosHash",
+      "target": "engine/voxel/Chunk.h",
+      "doc": "docs/operations/audits/cylindrical-b2-implementation-arc.md",
+      "line": 238,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ChunkPos",
+      "target": "engine/voxel/Chunk.h",
+      "doc": "docs/operations/audits/cylindrical-family-mechanism-critique-deep-code-review.md",
+      "line": 47,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "GpuVertex",
+      "target": "engine/voxel/shaders/gpu_mesh_gen.comp.glsl",
+      "doc": "docs/operations/audits/cylindrical-family-mechanism-critique-deep-code-review.md",
+      "line": 75,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "checkAndReadCached",
+      "target": "engine/voxel/shaders/spatial_hash.glsl",
+      "doc": "docs/operations/audits/cylindrical-family-mechanism-critique-deep-code-review.md",
+      "line": 93,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BodyAuthority",
+      "target": "engine/voxel/BodyAuthority.h",
+      "doc": "docs/operations/audits/lod-multi-planet-bubble-feasibility.md",
+      "line": 30,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "makeMat",
+      "target": "engine/data/MaterialRegistry.cpp",
+      "doc": "docs/operations/audits/materials-systematic-extraction-strategy.md",
+      "line": 40,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "perVoxelLocalUp",
+      "target": "engine/voxel/shaders/worldbuf.glsl",
+      "doc": "docs/operations/audits/render-cluster-substrate-arc-closure.md",
+      "line": 71,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellNativeAddress",
+      "target": "engine/voxel/OctahedralPosition.h",
+      "doc": "docs/operations/audits/shell-native-address-scheme-aware-type-strategy.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "CylindricalShellAddress",
+      "target": "engine/voxel/CylindricalPosition.h",
+      "doc": "docs/operations/audits/shell-native-address-scheme-aware-type-strategy.md",
+      "line": 12,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "vec3",
+      "target": "engine/voxel/SimplexNoise.h",
+      "doc": "docs/operations/audits/sim-cluster-substrate-arc-closure.md",
+      "line": 65,
+      "verdict": "FALSE_POSITIVE",
+      "reason": "same — `vec3(0,-1,0)` is glm, not the private struct"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "MenuSettings",
+      "target": "engine/core/MenuRenderer.h",
+      "doc": "docs/operations/audits/sim-distance-layer-collapse-strategy.md",
+      "line": 61,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "perVoxelLocalUp",
+      "target": "engine/voxel/shaders/worldbuf.glsl",
+      "doc": "docs/operations/audits/sim-shader-scheme-invariance-verification.md",
+      "line": 30,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "radialGravityDir",
+      "target": "engine/voxel/shaders/worldbuf.glsl",
+      "doc": "docs/operations/audits/sim-shader-scheme-invariance-verification.md",
+      "line": 31,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "radialToLatLon",
+      "target": "engine/voxel/shaders/worldbuf.glsl",
+      "doc": "docs/operations/audits/sim-shader-scheme-invariance-verification.md",
+      "line": 33,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "latLonToRadial",
+      "target": "engine/voxel/shaders/worldbuf.glsl",
+      "doc": "docs/operations/audits/sim-shader-scheme-invariance-verification.md",
+      "line": 34,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SubstrateScheme",
+      "target": "engine/voxel/CylindricalPosition.h",
+      "doc": "docs/operations/audits/sim-shader-scheme-invariance-verification.md",
+      "line": 127,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellNativeAddress",
+      "target": "engine/voxel/OctahedralPosition.h",
+      "doc": "docs/operations/audits/sim-shader-scheme-invariance-verification.md",
+      "line": 139,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "setSkipTerrainGen",
+      "target": "engine/voxel/ChunkManager.h",
+      "doc": "docs/operations/audits/terrain-compute-retirement.md",
+      "line": 58,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "MenuSettings",
+      "target": "engine/core/MenuRenderer.h",
+      "doc": "docs/operations/audits/user-config-layer-strategy.md",
+      "line": 37,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BiomeDef",
+      "target": "engine/data/BiomeRegistry.h",
+      "doc": "docs/operations/biomes-data-driven.md",
+      "line": 57,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "TesseractMCP",
+      "target": "tools/mcp/CMakeLists.txt",
+      "doc": "docs/operations/build.md",
+      "line": 43,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "makeMat",
+      "target": "engine/data/MaterialRegistry.cpp",
+      "doc": "docs/operations/materials-data-driven.md",
+      "line": 83,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "TerrainConfig",
+      "target": "engine/voxel/TerrainConfig.h",
+      "doc": "docs/operations/testing.md",
+      "line": 177,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "GameSession",
+      "target": "test_tcp.py",
+      "doc": "docs/operations/testing.md",
+      "line": 524,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "markUnderground",
+      "target": "engine/voxel/LodCascadeBuffer.h",
+      "doc": "docs/operations/testing/bug-80-lod-generation.md",
+      "line": 74,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "computeShiftedChunkYForTerrainBand",
+      "target": "engine/voxel/ChunkStreamingUtils.h",
+      "doc": "docs/operations/testing/discriminator-pattern.md",
+      "line": 193,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "makeProofPlanetTerrainConfig",
+      "target": "engine/voxel/TerrainConfig.h",
+      "doc": "docs/operations/testing/shell-world-topology-acceptance.md",
+      "line": 11,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "TerrainConfig",
+      "target": "engine/voxel/TerrainConfig.h",
+      "doc": "docs/operations/testing/shell-world-topology-acceptance.md",
+      "line": 16,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "useFiniteShellAtmosphere",
+      "target": "engine/voxel/shaders/atmo.comp.glsl",
+      "doc": "docs/operations/testing/shell-world-topology-acceptance.md",
+      "line": 115,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BodyAuthority",
+      "target": "engine/voxel/BodyAuthority.h",
+      "doc": "docs/operations/visual-gate-pre-compute-pixel-delta.md",
+      "line": 64,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "setChunkFlags",
+      "target": "engine/voxel/WorldBuffer.h",
+      "doc": "docs/roadmap/bench-findings-for-tech-lead.md",
+      "line": 46,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "computeShiftedChunkYForTerrainBand",
+      "target": "engine/voxel/ChunkStreamingUtils.h",
+      "doc": "docs/roadmap/bench-findings-for-tech-lead.md",
+      "line": 91,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "isChunkVisible",
+      "target": "engine/rendering/LodMeshRenderer.h",
+      "doc": "docs/roadmap/bench-findings-for-tech-lead.md",
+      "line": 110,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SharcParameters",
+      "target": "engine/rendering/shaders/sharc/SharcCommon.h",
+      "doc": "docs/roadmap/bench-findings-for-tech-lead.md",
+      "line": 117,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "NeighborLink",
+      "target": "engine/voxel/sim/ISimDomain.h",
+      "doc": "docs/roadmap/bench-findings-for-tech-lead.md",
+      "line": 142,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SimCoordinator",
+      "target": "engine/voxel/sim/SimCoordinator.h",
+      "doc": "docs/roadmap/future-plans.md",
+      "line": 82,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "BodyAuthority",
+      "target": "engine/voxel/BodyAuthority.h",
+      "doc": "docs/specs/M3-recursive-lod.md",
+      "line": 47,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "localUpFromCore",
+      "target": "engine/voxel/BodyMath.h",
+      "doc": "docs/specs/M3-recursive-lod.md",
+      "line": 86,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "localUpFromCore",
+      "target": "engine/voxel/BodyMath.h",
+      "doc": "docs/specs/radial-voxel-grid-topology.md",
+      "line": 225,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellRecord",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/specs/shell-implementation-slice-plan-q5a.md",
+      "line": 59,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellSet",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/specs/shell-implementation-slice-plan-q5a.md",
+      "line": 59,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "DayNightCycle",
+      "target": "engine/core/DayNightCycle.h",
+      "doc": "docs/specs/shell-implementation-slice-plan-q5a.md",
+      "line": 189,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellRecord",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/specs/shell-implementation-slice-plan.md",
+      "line": 35,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellSet",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/specs/shell-implementation-slice-plan.md",
+      "line": 35,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "localUpFromCore",
+      "target": "engine/voxel/BodyMath.h",
+      "doc": "docs/specs/shell-native-sim-shader-inventory.md",
+      "line": 69,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SaveManager",
+      "target": "engine/data/SaveManager.h",
+      "doc": "docs/specs/shell-propagation-algorithm.md",
+      "line": 186,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellSet",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/specs/shell-propagation-algorithm.md",
+      "line": 267,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellRecord",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/specs/shell-propagation-algorithm.md",
+      "line": 310,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "ShellRecord",
+      "target": "engine/voxel/ShellRecord.h",
+      "doc": "docs/specs/shell-subdivision-storage.md",
+      "line": 16,
+      "verdict": "CORRECT"
+    },
+    {
+      "extractor": "doc_ref:shaped",
+      "symbol": "SaveManager",
+      "target": "engine/data/SaveManager.h",
+      "doc": "docs/specs/shell-subdivision-storage.md",
+      "line": 91,
+      "verdict": "CORRECT"
+    }
+  ]
+}
