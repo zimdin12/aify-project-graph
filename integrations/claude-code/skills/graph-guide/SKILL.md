@@ -31,7 +31,7 @@ usable? index behind HEAD? trust spine populated? — and nothing else derives t
 
 `nextActions` is a ranked list of at most 3 concrete next calls, computed from THIS
 repo's measured state, and it is empty on a healthy repo. It exists because a field
-tester used 2 verbs out of 17 and never found `graph_packet` on a repo where
+tester used 2 verbs out of 15 and never found `graph_packet` on a repo where
 orientation was literally his problem: documentation does not pull you toward the
 right verb, a suggestion at the moment of use does. Trust problems are ranked above
 orientation shortcuts, because a shortcut over an untrustworthy graph is worse than

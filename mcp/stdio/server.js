@@ -157,8 +157,17 @@ const DEFAULT_TOOL_NAMES = new Set([
   'graph_impact',
   'graph_trace',
   'graph_explore',
-  'graph_explain_diff',
-  'graph_digest',
+  // ⛔ `graph_explain_diff` AND `graph_digest` WERE DROPPED FROM THIS LISTING (Phase 3c).
+  //
+  // ef-manager's usage across the whole review arc: FIVE of seventeen verbs ever called —
+  // graph_health (every round, "highest-value call in the set"), graph_whereis, graph_search,
+  // graph_packet, graph_impact (once, found a bug).
+  //
+  // ★ THE DATUM THEY SAID TO ACT ON IS NOT THE ZERO COUNTS. It is where they went INSTEAD: three
+  // times they had a real question, had the full verb list in front of them, and went to raw
+  // sqlite. Each produced a finding. "Presence did not steer me wrong; it steered me NOWHERE."
+  // A listed verb that never gets picked is not neutral — it is schema billed on every session
+  // (tools/list is always-paid, and most of it is schema) for salience that is not working.
   'graph_search',
   'graph_whereis',
   'graph_health',
@@ -175,6 +184,29 @@ const DEFAULT_TOOL_NAMES = new Set([
   // unlisted (2026-06 field report).
   'graph_dashboard',
 ]);
+
+// ⛔ I REFUSED TO DROP `graph_index` AND `graph_dashboard`, WHICH PHASE 3c ALSO LISTED.
+//
+// ef-manager's argument is that "three of them are things a human runs, not an agent mid-task",
+// and their call counts support it. But BOTH of those verbs are in this set BECAUSE OF RECORDED
+// HARM WHEN THEY WERE ABSENT, and a usage count does not address absence-harm evidence:
+//
+//   graph_index      2026-06-01 Sand Castle A/B — a stale graph is WORSE than none for managed
+//                    workers who got the read verbs but not this one. They could not act on the
+//                    "run graph_index" staleness warning because it was not in their surface.
+//   graph_dashboard  2026-06 field report — agents hand-rolled a server launcher when it was
+//                    unlisted.
+//
+// ⚠ AND ef-manager'S OWN PRINCIPLE APPLIES TO THEIR OWN RECOMMENDATION. They refused to advise on
+// seven other verbs because "zero calls is evidence I was not doing the work they serve. Do NOT
+// let me be the reason those get cut — a drop decision on my numbers alone would be the
+// consumer-enumeration mistake again." Their calls on graph_index and graph_dashboard are also
+// zero, for the same reason: a reviewer grading precision never needs to re-index or open a
+// dashboard. The caveat they wrote for the seven covers these two as well.
+//
+// ⇒ So two of the four are dropped on absence of counter-evidence, and two are KEPT on presence
+// of it. Reversing a field-driven decision on usage data alone is how a fix gets undone by someone
+// who never saw the failure it prevented.
 
 // Full profile still keeps EVERY verb callable by name, but the tools/list
 // surface hides the redundant + long-tail verbs so the listed set reads as ONE

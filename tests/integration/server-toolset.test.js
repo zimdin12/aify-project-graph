@@ -74,8 +74,6 @@ const DEFAULT_LISTED = [
   'graph_collect_code_intel',
   'graph_consequences',
   'graph_dashboard',
-  'graph_digest',
-  'graph_explain_diff',
   'graph_explore',
   'graph_health',
   'graph_impact',
@@ -115,10 +113,32 @@ describe('server toolset selection', () => {
     const names = tools.map(tool => tool.name).sort();
     // The default surface is EXACTLY the focused intent set — not the full API.
     expect(names).toEqual(DEFAULT_LISTED);
-    expect(names.length).toBe(17);
-    // graph_index must be listed so managed workers can self-refresh a stale
-    // graph (2026-06-01 Sand Castle A/B field-report fix).
-    expect(names).toContain('graph_index');
+    // ⛔ 17 -> 15. `graph_digest` and `graph_explain_diff` were dropped from the DEFAULT LISTING
+    // in Phase 3c. Both remain CALLABLE via tools/call; gating is listing only.
+    //
+    // ef-manager's usage across the whole review arc was FIVE of seventeen verbs, and the datum
+    // that mattered was not the zero counts but where they went instead: three times they had a
+    // real question, had the full list in front of them, and went to raw sqlite. "Presence did not
+    // steer me wrong; it steered me NOWHERE." A listed verb nobody picks is schema billed on every
+    // session for salience that is not working.
+    expect(names.length).toBe(15);
+    // ⛔ graph_index AND graph_dashboard WERE ALSO ON PHASE 3c's DROP LIST AND ARE DELIBERATELY
+    // KEPT. Both are in the default set because of RECORDED HARM WHEN ABSENT, and a usage count
+    // does not address absence-harm evidence:
+    //
+    //   graph_index      2026-06-01 Sand Castle A/B — a stale graph is WORSE than none for managed
+    //                    workers who got the read verbs but not this one; they could not act on
+    //                    the "run graph_index" staleness warning because it was not in their surface
+    //   graph_dashboard  2026-06 field report — agents hand-rolled a server launcher without it
+    //
+    // ⚠ And ef-manager's own caveat covers them: "zero calls is evidence I was not doing the work
+    // they serve... a drop decision on my numbers alone would be the consumer-enumeration mistake
+    // again." A reviewer grading precision never needs to re-index or open a dashboard.
+    expect(names, 'kept on recorded absence-harm, not on usage').toContain('graph_index');
+    expect(names, 'kept on recorded absence-harm, not on usage').toContain('graph_dashboard');
+    // And the two that were dropped stay CALLABLE — gating is listing only.
+    expect(names).not.toContain('graph_digest');
+    expect(names).not.toContain('graph_explain_diff');
 
     // Verbs that are full-listed but NOT in the focused default must be absent
     // from the default listing (still callable — proven in a later test).
