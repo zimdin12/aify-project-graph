@@ -21,6 +21,7 @@
 // ⚠ "If the gates do not go red, the gates are not ready." These are written to fail on the
 // mistake, not to describe the current arrangement.
 import { describe, it, expect } from 'vitest';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -212,8 +213,22 @@ describe('packet authority boundaries', () => {
   });
 
   it('★★★ graphPacketInner is NOT exported — the seal cannot be bypassed by importing it', () => {
-    expect(read('packet.js'), 'exporting the inner route makes the wrapper optional')
-      .not.toMatch(/^export\s+(?:async\s+)?function\s+graphPacketInner/mu);
+    // ⚠ CONTROLLED. This guards the seal boundary — if the pattern ever dies, the assertion
+    // passes forever and the one thing standing between a caller and an unsealed route is a
+    // regex nobody has run. The control proves it fires on the exact text it forbids.
+    // ⚠ USES THE HELPER THAT ALREADY EXISTED. I built a second one — weaker, one canary — before
+    // ef-manager found `live-matcher.js`, landed 0d97826 on 2026-08-12 with TWO canaries and a
+    // lastIndex-safe clone. The mechanism was never missing; ADOPTION was: 3 call sites against
+    // 158 bare `not.toMatch` in eight days.
+    expectAbsentWithLiveMatcher(
+      /^export\s+(?:async\s+)?function\s+graphPacketInner/mu,
+      {
+        forbidden: 'export async function graphPacketInner({ repoRoot }) {',
+        allowed: 'export async function graphPacket({ repoRoot }) {',
+      },
+      read('packet.js'),
+      'exporting the inner route makes the seal wrapper optional',
+    );
   });
 
   it('★★★ the exported entry still wraps the inner call in the seal scope', () => {

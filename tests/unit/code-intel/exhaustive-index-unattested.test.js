@@ -33,6 +33,7 @@
 // downgraded by the fail-closed gate. This does not extend a clangd finding to tsserver —
 // the same discipline graph-senior-dev applied to my localization/reference over-extension.
 import { describe, it, expect } from 'vitest';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { buildReferencesEvidence } from '../../../mcp/stdio/query/verbs/code_intel_live.js';
 
 // Exactly the coverage object dev's fixture produced: fully covered, freshly measured.
@@ -93,6 +94,13 @@ describe('the exhaustive grant under an unattested index', () => {
       coverage: { ...perfectCoverage, complete: false, fullyCovered: false, coverageRatio: 0.5, poorlyCovered: true, reason: 'the compile DB covers 1 of ~2 first-party sources' },
     });
     expect(ev.exhaustive).toBe(false);
-    expect(String(ev.cause), 'coverage is the nearer cause here').not.toMatch(/unattested/i);
+    // ⚠ CONTROLLED — this pins WHICH cause is reported for a withheld exhaustive claim, and a
+    // dead pattern would let any cause through while looking green.
+    expectAbsentWithLiveMatcher(
+      /unattested/i,
+      { forbidden: 'index_population_unattested', allowed: 'coverage_incomplete' },
+      String(ev.cause),
+      'coverage is the nearer cause here',
+    );
   });
 });

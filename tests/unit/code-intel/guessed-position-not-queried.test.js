@@ -19,6 +19,7 @@
 // against a 100s budget. Capped, and the cap is REPORTED so a capped set reads as
 // a floor rather than a complete answer.
 import { describe, it, expect } from 'vitest';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,6 +71,16 @@ describe('guessed positions are not queried for relations', () => {
   it('counts only KEPT references in the operation total', () => {
     // Counting all of them would report coverage the records do not contain.
     expect(src).toMatch(/operations\.references\.count \+= kept\.length/);
-    expect(src).not.toMatch(/operations\.references\.count \+= refs\.length/);
+    // ⚠ CONTROLLED — this forbids counting references that were never queried, which is the
+    // defect the whole file exists for. A silent pass here restores it.
+    expectAbsentWithLiveMatcher(
+      /operations\.references\.count \+= refs\.length/,
+      {
+        forbidden: 'operations.references.count += refs.length;',
+        allowed: 'operations.references.count += queried.length;',
+      },
+      src,
+      'a reference count must not include positions that were never asked',
+    );
   });
 });
