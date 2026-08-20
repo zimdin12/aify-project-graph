@@ -124,6 +124,50 @@ export function detectFromPackageJson(repoRoot) {
   }
   return out;
 }
+// ---------- document recency, for ranking what to read first ----------
+//
+// ⛔ ef-manager REFUTED THE SIGNAL I WOULD HAVE REACHED FOR FIRST, with data, before proposing this
+// one. Their hypothesis was that a stale document's references fail to resolve, so resolution rate
+// should separate current from stale using misses already recorded per document. Measured:
+//
+//     README.md                     47 edges · 122 misses ·  28%  · last commit 2026-08-20
+//     plans/2026-04-16-...-v1.md    43 edges ·  67 misses ·  39%  · last commit 2026-04-16
+//     plans/2026-05-09-code-intel   19 edges ·   3 misses ·  86%  · last commit 2026-05-09
+//
+// ⇒ IT ANTI-CORRELATES. Four-month-old plans resolve at 65-86%; documents updated this month at
+// 28-29%. Resolution rate is a GENRE signal, not a currency one — a plan is nearly all code
+// references so it resolves, while a README is prose about commands, config keys and external
+// projects, spans that were never going to resolve. It measures "what fraction of this document is
+// code references" and reads as "how much of this document is still true".
+//
+// ★ The signal that survives is the one thing about a document its own content cannot fake: when
+// someone last touched it.
+//
+// ONE git call for every path, not one per document — 155 documents here.
+// ⚠ Fixed output for a fixed HEAD, matching this file's cache discipline: dates come from history,
+// not from the clock, so regenerating the brief without moving HEAD produces identical output.
+export function documentRecency(repoRoot, paths = []) {
+  const out = new Map();
+  if (!Array.isArray(paths) || paths.length === 0) return out;
+  try {
+    const raw = execFileSync('git',
+      ['-C', repoRoot, 'log', '--pretty=format:%cs', '--name-only', '--', ...paths],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, maxBuffer: 32 * 1024 * 1024 });
+    let date = null;
+    // ⚠ `String.fromCharCode(10)` rather than a backslash escape. Three times tonight this shell
+    // stripped a backslash out of a heredoc — twice producing a file that PARSED and once one that
+    // did not — so anything needing an escape is written without one where that is possible.
+    for (const line of raw.split(String.fromCharCode(10))) {
+      const t = line.trim();
+      if (!t) continue;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(t)) { date = t; continue; }
+      // git log walks newest-first, so the FIRST date a path appears under is its last commit.
+      if (date && !out.has(t)) out.set(t, date);
+    }
+  } catch { /* not a git repo, or a path that never existed — absent means UNKNOWN, never "old" */ }
+  return out;
+}
+
 // ---------- L3 lite: recent-activity from git log (A1 item #9) ----------
 //
 // Cache-discipline: use fixed commit count (not --since=30.days) so the same

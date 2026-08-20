@@ -27,7 +27,7 @@ export { computeCoverage } from './artifacts.js';
 // The five renderers live in render.js. generator.js orchestrates and hands each one a plain
 // data object; nothing flows back. See render.js's header for why artifacts.js had to move first.
 import { q, count, extractPaths, detectCanonicalEntries, subsystems, hubs, readFirst, testInventory, testAnchors, enrichFeaturesForPlanning, enrichRisksForPlanning, risks } from './graph-shape.js';
-import { extractTooling, detectFromPackageJson, recentActivity, recentActivityWithFiles, summarizeUnresolvedFromManifest } from './extract.js';
+import { extractTooling, detectFromPackageJson, documentRecency, recentActivity, recentActivityWithFiles, summarizeUnresolvedFromManifest } from './extract.js';
 import { renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderPlanAgentMarkdown, renderJson } from './render.js';
 import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
@@ -451,7 +451,13 @@ export function generateBrief({ repoRoot }) {
     // PATHS: pre-computed execution traces from top EXPORTS. Async because
     // it dynamically imports the path verb (avoids cycle since path.js
     // imports openDb/ensureFresh which generator.js also uses).
+    // Document recency is computed ONCE for every document path and handed in, rather than looked
+    // up inside the ranking — `graph-shape.js` reads the database and must not shell out per row.
+    const docPaths = q(db, "SELECT file_path AS f FROM nodes WHERE type = 'Document' AND file_path != ''")
+      .map((r) => r.f);
+    const docRecency = documentRecency(repoRoot, docPaths);
     const readFirstArr = readFirst(db, 6, {
+      docRecency,
       exports,
       overlayHealth,
       primaryExt: primaryLangExt(snapshot),

@@ -249,12 +249,99 @@ export function readFirst(db, limit = 6, opts = {}) {
   //   2. Files that back an EXPORTS entry (if passed in)
   //   3. Files with anchored feature overlays (if passed in)
   //   4. High-degree source files as fallback, filtered by dominant language
-  const { exports: exportsArr = [], overlayHealth, primaryExt = null } = opts;
+  const { exports: exportsArr = [], overlayHealth, primaryExt = null, docRecency = null } = opts;
 
-  const docs = q(db,
-    `SELECT label, file_path AS file FROM nodes
-     WHERE type = 'Document' AND label IN ('ARCHITECTURE.md','DESIGN.md','DEVELOPMENT.md')
-     LIMIT 2`);
+  // ⛔ THIS WAS A THREE-NAME ALLOWLIST AND IT MATCHED NOTHING. Measured on this repo:
+  //
+  //     Document nodes                                                     155
+  //     matching ARCHITECTURE.md / DESIGN.md / DEVELOPMENT.md                0
+  //     negative control (a name nobody has)                                 0
+  //
+  // So the doc section of the brief an agent reads FIRST was empty, and had been for the life of
+  // the repo. The recorded figure was 0 of 74; the doc-corpus fix doubled the population the
+  // allowlist fails to match without changing the outcome, because the outcome was never about
+  // how many documents exist.
+  //
+  // ⇒ DERIVED, NOT NAMED. A document that points at a lot of code is what an orienting document
+  // looks like, and doc→code edges measure exactly that — README.md carries 47 here, CHANGELOG 32.
+  // No document is excluded for having an unexpected name; that is the whole defect.
+  //
+  // ⚠ AND THE HONEST LIMIT, STATED RATHER THAN IMPLIED: outbound degree means "describes a lot of
+  // code", NOT "describes the code as it is now". A superseded plan can outrank a current
+  // changelog, and there is no derived staleness signal for documents in this graph. The `why`
+  // carries the evidence so a reader can judge it instead of trusting the ordering.
+  let docBasis = 'links';
+  //
+  // ⚠ TWO SIGNALS, BECAUSE ONE OF THEM RANKED A SUPERSEDED PLAN ABOVE THE README. Ordering by code
+  // references alone put `docs/superpowers/plans/2026-04-16-...-v1.md` (36 refs) first and README
+  // (27) second — honest about what each describes, and bad orientation advice. High outbound
+  // degree means "describes a lot of code", never "describes the code as it is now".
+  //
+  //   inbound doc->doc links   which documents the DOCUMENTS THEMSELVES treat as canonical
+  //                            README 7 · code-intel-v2-status 6 · install.claude 5
+  //   outbound code refs       how much of the system it actually describes
+  //
+  // Primary sort is the first, tiebreak is the second. No weights — a weighted sum would be an
+  // invented constant standing in for a judgement nobody made, and the two questions are ordered,
+  // not commensurable.
+  let docs = q(db,
+    `SELECT n.label, n.file_path AS file,
+            (SELECT count(*) FROM edges e2 JOIN nodes s ON s.id = e2.from_id
+              WHERE e2.to_id = n.id AND s.type = 'Document') AS inbound,
+            count(e.to_id) AS deg
+       FROM nodes n JOIN edges e ON e.from_id = n.id
+       JOIN nodes t ON t.id = e.to_id
+      WHERE n.type = 'Document' AND t.type != 'Document'
+      GROUP BY n.id
+      HAVING deg > 0
+      ORDER BY inbound DESC, deg DESC, length(n.file_path) ASC
+      LIMIT 12`);
+  // ⛔ THREE ORDERED SIGNALS, RANKED HERE RATHER THAN IN SQL, so all three are visible in one place
+  // and none of them is a weight. ef-manager's point: inbound links are the strongest CANONICALITY
+  // signal but collapse to zero on a repo whose documents do not cross-link — and there the
+  // superseded-plan problem returns, because coverage alone put a four-month-old v1 plan (36 code
+  // refs) above README (27).
+  //
+  //   1. inbound doc->doc links   which documents the DOCUMENTS treat as the entry point
+  //   2. last commit date         the one property a document's own content cannot fake
+  //   3. outbound code refs       how much of the system it describes
+  //
+  // ⚠ UNKNOWN RECENCY SORTS LAST, NOT OLDEST. A document git cannot date (untracked, or no git at
+  // all) has no recency evidence, and treating "cannot tell" as "ancient" would be a two-state
+  // collapse — the failure this repo found eight times in one session.
+  //
+  // ⚠ AND THE LIMIT, WHICH THIS RANKING DOES NOT CLOSE: degree means "describes a lot of code",
+  // recency means "was edited recently". NEITHER MEANS "IS ACCURATE". A document can be current and
+  // wrong; this session found three comments that were prominent, adjacent and false. This ranks by
+  // evidence of RELEVANCE, never by evidence of TRUTH.
+  const recencyOf = (file) => {
+    const v = docRecency instanceof Map ? docRecency.get(file) : docRecency?.[file];
+    return typeof v === 'string' ? v : null;
+  };
+  docs.sort((a, b) => {
+    if (b.inbound !== a.inbound) return b.inbound - a.inbound;
+    const ra = recencyOf(a.file);
+    const rb = recencyOf(b.file);
+    if (ra !== rb) {
+      if (ra == null) return 1;
+      if (rb == null) return -1;
+      return rb.localeCompare(ra);
+    }
+    if (b.deg !== a.deg) return b.deg - a.deg;
+    return a.file.length - b.file.length;
+  });
+  docs = docs.slice(0, 2);
+  if (docs.length === 0) {
+    // ⚠ THREE STATES, NOT TWO. "No document references code" is a different answer from "here are
+    // the orienting documents", and collapsing it into an empty section loses the distinction a
+    // reader needs — an empty section reads as "this repo has no docs" when it may mean the doc
+    // layer has never been built. Fall back to root-level documents and SAY the basis changed.
+    docBasis = 'position';
+    docs = q(db,
+      `SELECT label, file_path AS file, 0 AS deg FROM nodes
+        WHERE type = 'Document' AND file_path NOT LIKE '%/%'
+        ORDER BY length(file_path) ASC LIMIT 2`);
+  }
   const files = q(db,
     `SELECT n.label, n.file_path AS file, count(e.from_id) AS deg
      FROM nodes n JOIN edges e ON e.to_id = n.id OR e.from_id = n.id
@@ -270,7 +357,17 @@ export function readFirst(db, limit = 6, opts = {}) {
     out.push({ file, why, kind });
   };
 
-  for (const d of docs) push(d.file, 'architecture doc', 'doc');
+  // The `why` carries its own evidence. "architecture doc" was a claim about the document's KIND
+  // that nothing in the graph supported — it was true of the allowlist's intent and of no row it
+  // ever returned.
+  for (const d of docs) {
+    push(d.file, docBasis === 'links'
+      ? `${d.inbound} document(s) link here, ${d.deg} code location(s) referenced`
+        + `${recencyOf(d.file) ? `, last changed ${recencyOf(d.file)}` : ''}`
+        + ' — evidence of relevance, not of accuracy'
+      : 'root-level document; no document in this graph references code, so this is position, not evidence',
+    'doc');
+  }
 
   // EXPORTS-backed files: parse "<file>:<line>" or "<file> → handler" forms
   for (const ex of (exportsArr || [])) {
