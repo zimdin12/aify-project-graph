@@ -59,3 +59,30 @@ The first probe grepped `manifest.json` for `.md` and returned 0 — but its pos
 properly showed why: the manifest is a dirty-tracking record (`dirtyFiles: 0`, 34 path-like
 strings against 15,628 nodes), not a file inventory. It cannot testify about enumeration
 coverage either way, and no claim here rests on it.
+
+## Follow-up: does CURRENT code produce Document nodes for this repo? YES
+
+Run without writing anything. `sweepFilesystem({ repoRoot })` is the producer of Document nodes
+and returns them; it does not open or modify a graph. lc-api's existing `.aify-graph` was left
+exactly as found — no re-index, no overwrite.
+
+    aify-project-graph  POSITIVE CONTROL   Document=159   root: AGENTS.md, README.md, CHANGELOG.md, …
+    lc-api              THE QUESTION       Document=10    root: AGENTS.md, CLAUDE.md, README.md
+
+    lc-api counts: seen 2166 · admitted {Config:197, Document:10, Entrypoint:4, Schema:381, Route:6}
+                   declined {ignore_rule:0, git_excluded:0, over_size_cap:2, unreadable:0,
+                             not_a_special_kind:1566} · prunedDirs 5
+
+⇒ All three root documents are admitted by today's sweep. **The live surface is clean and the
+artifact is merely old.** The defect existed on 2026-04-20 and has since been closed by something
+other than `ec45281`, which this evidence already showed would have admitted them anyway.
+
+⚠ Scope, stated rather than implied: this exercises the SWEEP STAGE, which is where Document
+nodes are created — not a full index end to end, and no graph was written. It establishes that
+current code admits these documents. It does not establish that every later stage persists them.
+
+⛔ What closed it between April and now is NOT identified and is not guessed. The mechanism that
+dropped root markdown in the April vintage remains unnamed; this only shows it is no longer
+reproducible on current code for this repo.
+
+Cost note: the lc-api sweep took 32.7s against 0.6s for aify-project-graph.
