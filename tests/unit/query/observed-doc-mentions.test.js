@@ -1,9 +1,19 @@
-// A DOCUMENT THAT MENTIONS THE SYMBOL IS AN OBSERVED FACT. THE OVERLAY'S GUESS IS NOT.
+// A DOC MENTION IS TWO FACTS, AND THE FIELD USED TO REPORT ONLY THE STRONGER ONE.
 //
-// `contracts_potentially_affected` comes from the curated overlay and is INFERRED — only
-// as complete as whoever last curated it. `documents_mentioning` comes from MENTIONS
-// edges in the graph and is OBSERVED. Conflating them is how an empty inferred list gets
-// read as "no documents govern this".
+// The span EXISTS in the document — observed, and the edge stores the line so anyone can open
+// it. The span REFERS TO THIS NODE — inferred, because a resolution rule ran. The field label
+// was hardcoded `observed`, which reported the first half and dropped the second.
+//
+// Under the legacy extractor that was flatly false: a document containing the word "read" was
+// labelled an OBSERVED reference to the function `read`. dev's ruling for the replacement is
+// explicit — `provenance: INFERRED`, "the occurrence is observed; the identity mapping is
+// inferred" — so the label is now DERIVED from the edges rather than asserted.
+//
+// ⚠ THE SPLIT THAT MATTERED STILL HOLDS, and it is why this file exists.
+// `contracts_potentially_affected` comes from the curated overlay and is INFERRED — only as
+// complete as whoever last curated it. Conflating the two is how an empty inferred list gets
+// read as "no documents govern this". The two fields still disagree; the difference is that
+// one of them now earns its label instead of claiming it.
 //
 // ★ ef-manager's best finding of 2026-08-10 depended on exactly this split: an OBSERVED
 // field refuting an INFERRED one inside a single payload. That is impossible if both
@@ -37,11 +47,20 @@ function node(db, n) {
     { start_line: 1, end_line: 1, ...n },
   );
 }
+// ⛔ THE PROVENANCE IS A PARAMETER, AND IT USED TO BE THE STRING 'EXTRACTED'.
+//
+// Production MENTIONS edges are INFERRED — dev's ruling: "the occurrence is observed; the
+// identity mapping is inferred". This fixture asserted a shape production never emits, and the
+// assertion below that the field is labelled `observed` PASSED because of it.
+//
+// That is the same defect that hid the doc-link layer for a day: a fixture inventing `File` nodes
+// for `.md` paths while the indexer only ever made `Document` nodes, so 0 of 68 links resolved
+// under a green suite. A fixture that does not mirror the producer tests the fixture.
 function edge(db, e) {
   db.run(
     `INSERT INTO edges (from_id, to_id, relation, source_file, source_line, confidence, provenance, extractor)
-     VALUES ($from_id, $to_id, $relation, $source_file, $source_line, 1, 'EXTRACTED', 'test')`,
-    { source_file: 'x', source_line: 1, ...e },
+     VALUES ($from_id, $to_id, $relation, $source_file, $source_line, 1, $provenance, 'test')`,
+    { source_file: 'x', source_line: 1, provenance: 'INFERRED', ...e },
   );
 }
 
@@ -104,7 +123,7 @@ afterEach(async () => {
   if (repoRoot) { try { await rm(repoRoot, { recursive: true, force: true }); } catch { /* windows lock */ } }
 });
 
-describe('documents_mentioning is observed, and ranked by distinct nodes', () => {
+describe('documents_mentioning takes the provenance of its edges, and ranks by distinct nodes', () => {
   it('★★ ranks by how many symbols a document actually mentions', async () => {
     const res = await graphConsequences({ repoRoot, target: 'targetSymbol' });
     const docs = res.documents_mentioning;
@@ -123,12 +142,65 @@ describe('documents_mentioning is observed, and ranked by distinct nodes', () =>
     expect(deepAt, 'the document mentioning more of this file must rank first').toBeLessThan(shallowAt);
   });
 
-  it('★★ is labelled OBSERVED, and the overlay-derived field is not', async () => {
+  it('★★ carries the provenance OF ITS EDGES, and still differs from the overlay field', async () => {
     // The split ef-manager's best finding depended on: an observed field refuting an
-    // inferred one inside one payload is impossible if both carry the same label.
+    // inferred one inside one payload is impossible if both carry the same label. That
+    // split survives — these two still disagree — but the label is now earned rather than
+    // asserted.
     const res = await graphConsequences({ repoRoot, target: 'targetSymbol' });
 
-    expect(res.field_provenance?.documents_mentioning).toBe('observed');
+    expect(res.field_provenance?.documents_mentioning,
+      'derived from the edges: production MENTIONS edges are INFERRED').toBe('inferred');
     expect(res.field_provenance?.contracts_potentially_affected).toBe('inferred');
+  });
+
+  it('★★★ an OBSERVED doc edge produces an OBSERVED label — the derivation runs both ways',
+    async () => {
+      // ⛔ WITHOUT THIS, THE PREVIOUS TEST ONLY PROVES I SWAPPED ONE HARDCODED STRING FOR
+      // ANOTHER. `documents_mentioning: 'observed'` was a constant; replacing it with a
+      // constant `'inferred'` would satisfy every assertion above and be exactly as wrong
+      // the moment a curated overlay emits a doc edge.
+      //
+      // So this feeds the OTHER input and demands the other answer. It is the negative
+      // control on a derivation: a rule that cannot produce both outcomes is not deriving
+      // anything, it is a literal with extra steps.
+      const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+      db.run("UPDATE edges SET provenance = 'EXTRACTED' WHERE relation = 'MENTIONS'");
+      db.close();
+
+      const res = await graphConsequences({ repoRoot, target: 'targetSymbol' });
+      expect(res.field_provenance?.documents_mentioning,
+        'the label follows the edges, in both directions').toBe('observed');
+    });
+
+  it('★★★ a document mentioning ONE symbol is no longer dropped', async () => {
+    // ⛔ THE FLOOR OF 3 WAS CALIBRATED ON AN EXTRACTOR THAT NO LONGER EXISTS. It suppressed
+    // the legacy rule's long tail of word collisions — a document containing "read" got an
+    // edge to the function `read`, so one mention meant nothing. Rule 2 requires the author
+    // to have marked the span as code AND written it qualified AND for it to resolve to
+    // exactly one node, so ONE reference now clears a higher bar than three collisions did.
+    //
+    // ★ AND THE STALE FLOOR FAILED IN THE REASSURING DIRECTION. Rule 2 emits 1 edge on this
+    // repo; under a floor of 3, every caller would have received `documents_mentioning: []`
+    // and read it as "no document governs this". The omission note only fires when
+    // something was omitted, so nothing would have said otherwise.
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    node(db, { id: 'thin', type: 'Document', label: 'thin.md', file_path: 'docs/thin.md' });
+    edge(db, { from_id: 'thin', to_id: 'target', relation: 'MENTIONS' });
+    db.close();
+
+    const res = await graphConsequences({ repoRoot, target: 'targetSymbol' });
+    const paths = res.documents_mentioning.map((d) => d.file);
+    expect(paths, 'a single qualified reference is a real reference').toContain('docs/thin.md');
+  });
+
+  it('★★★ the internal provenance carrier never reaches the caller', async () => {
+    // It exists only to derive the field label. Shipping it would invite a consumer to
+    // branch on an undocumented field that the contract does not promise.
+    const res = await graphConsequences({ repoRoot, target: 'targetSymbol' });
+    for (const d of res.documents_mentioning) {
+      expect(Object.keys(d), 'edge_provenance is a carrier, not part of the contract')
+        .not.toContain('edge_provenance');
+    }
   });
 });

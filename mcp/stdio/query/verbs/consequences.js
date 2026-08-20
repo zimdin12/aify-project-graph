@@ -490,7 +490,8 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         // measure — the binding contract names the type AND its methods, a
         // passing reference names it once. On the case that motivated this,
         // that separates worldbuffer-authority.md (8) from the field (≤3).
-        `SELECT d.label, d.file_path, COUNT(DISTINCT n.id) AS mention_count
+        `SELECT d.label, d.file_path, COUNT(DISTINCT n.id) AS mention_count,
+                GROUP_CONCAT(DISTINCT e.provenance) AS edge_provenance
            FROM edges e
            JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
            JOIN nodes n ON n.id = e.to_id
@@ -529,19 +530,37 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         label: d.label,
         file: d.file_path,
         distinct_nodes_mentioned: d.mention_count,
+        // Carried, not displayed: the field-level label below is derived from these.
+        edge_provenance: String(d.edge_provenance || '').split(',').filter(Boolean),
       }));
 
-    // ★ A ONE- OR TWO-NODE MENTION IS NOISE, BUT DROPPING IT SILENTLY IS WORSE.
+    // ⛔ THE FLOOR WAS A REMEDY FOR A DEFECT THAT HAS NOW BEEN DELETED.
     //
-    // Measured (ef-manager, 2026-08-09): 14 entries, 10 of them with ≤2 distinct
-    // nodes mentioned — a long tail of documents that happen to name one symbol,
-    // in a response the reader was skimming for two fields.
+    // It was calibrated on the legacy `mentions` extractor (ef-manager, 2026-08-09: 14
+    // entries, 10 of them with ≤2 distinct nodes) — a long tail of documents that happened
+    // to contain a WORD equal to a symbol label. A doc naming one symbol was almost always
+    // a collision, so requiring three was a cheap proxy for "this is a real reference".
     //
-    // So the tail is filtered, and the filtering ANNOUNCES ITSELF. A quietly
-    // shortened list is indistinguishable from a short one, which is the defect
-    // this codebase keeps finding in itself; a reader who needs the tail has to be
-    // able to see that it existed and how to get it back.
-    const DOC_MENTION_FLOOR = 3;
+    // That extractor is gone. Rule 2 admits a reference only when the author marked it as
+    // code AND wrote it qualified AND it resolved to exactly one node, so a document with
+    // ONE such reference has already cleared a far higher bar than three collisions ever
+    // did. Keeping the floor would suppress genuine references to protect against noise
+    // that can no longer be produced.
+    //
+    // ★ AND KEEPING IT WOULD HAVE EMPTIED THE FIELD SILENTLY. Rule 2 emits 1 edge on this
+    // repo. Under a floor of 3 every caller would get `documents_mentioning: []` — an
+    // absence produced by a retired threshold and read as "no document governs this". The
+    // note only fires when something was omitted, so nothing would have said so.
+    //
+    // ⚠ THE GENERAL RULE, and this is the second instance of it in one hour: CHANGING WHAT
+    // A NUMBER MEASURES INVALIDATES EVERY THRESHOLD DERIVED FROM IT. The other was a
+    // ratchet baseline of 157 left standing after its counter started reporting 154. A
+    // threshold carries its calibration silently, and the stale one always fails in the
+    // reassuring direction — green gate, empty list.
+    //
+    // The tail mechanism itself stays: it is what makes filtering announce itself, and a
+    // quietly shortened list is indistinguishable from a short one.
+    const DOC_MENTION_FLOOR = 1;
     const docsStrong = documentsMentioning.filter((d) => (d.distinct_nodes_mentioned ?? 0) >= DOC_MENTION_FLOOR);
     const docsWeakCount = documentsMentioning.length - docsStrong.length;
     const documentsMentioningNote = docsWeakCount > 0
@@ -1039,7 +1058,10 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       spec_docs: specDocs,
       // Observed counterpart to the two fields above: docs whose TEXT names this
       // target, ranked by how often. Curation misses; 22 mentions does not.
-      documents_mentioning: docsStrong,
+      // edge_provenance is an INTERNAL carrier for the field label below — stripped here so
+      // it never reaches a caller. A field that exists only to derive another field is not
+      // part of the contract, and shipping it would invite someone to branch on it.
+      documents_mentioning: docsStrong.map(({ edge_provenance, ...d }) => d),
       ...(documentsMentioningNote ? { documents_mentioning_note: documentsMentioningNote } : {}),
       features_touching: features,
       // ★ WHY THE OVERLAY FIELDS ARE EMPTY — unmapped is not unaffected.
@@ -1142,7 +1164,27 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         co_consumer_files: 'inferred',   // via shared feature anchors — the differentiated win, and unverifiable by text
         features_touching: 'inferred',
         contracts_potentially_affected: 'inferred',
-        documents_mentioning: 'observed',   // MENTIONS edges from document text — catches what curation missed
+        // ⛔ THIS WAS HARDCODED 'observed' AND IT COLLAPSED TWO DIFFERENT CLAIMS.
+        //
+        // A doc mention is two facts, not one: the SPAN EXISTS in the document (observed,
+        // and we store the line so anyone can open it), and the span REFERS TO THIS NODE
+        // (inferred — a resolution rule ran). Labelling the field `observed` reported the
+        // stronger half and dropped the weaker, which is the same two-state collapse this
+        // codebase keeps finding in itself.
+        //
+        // Under the legacy extractor it was flatly false: a document containing the word
+        // "read" was labelled an OBSERVED reference to the function `read`. dev's ruling
+        // for the replacement is explicit — `provenance: INFERRED`, "the occurrence is
+        // observed; the identity mapping is inferred".
+        //
+        // ⇒ So it is DERIVED FROM THE EDGES THAT PRODUCED IT, never asserted here. If a
+        // curated overlay ever emits an OBSERVED doc edge, the label follows it without
+        // anyone remembering to update a constant.
+        documents_mentioning: weakestOf(
+          docsStrong.flatMap((d) => (d.edge_provenance ?? []).map(
+            (p) => (String(p).toUpperCase() === 'INFERRED' ? 'inferred' : 'observed'),
+          )),
+        ),
         open_tasks_on_those_features: 'inferred',
         // Only a real import EDGE is observed. A text match is a hint, not structure —
         // it was labelled `observed` on the strength of `vec3` appearing in a test.
@@ -1233,7 +1275,16 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         reported_context: { overlay_age_days: overlayAgeDays },
         claims: [
           ...contracts.map((c) => ({ field: 'contracts_potentially_affected', value: c, provenance: 'inferred', basis: 'feature.contracts overlay anchor', source_age_days: overlayAgeDays })),
-          ...documentsMentioning.map((d) => ({ field: 'documents_mentioning', value: d.file, provenance: 'observed', basis: `MENTIONS edge, ${d.distinct_nodes_mentioned} distinct nodes` })),
+          // Per-claim provenance is derived from THIS document's own edges, so one
+          // curated doc edge is not downgraded by an inferred one elsewhere in the list.
+          ...documentsMentioning.map((d) => ({
+            field: 'documents_mentioning',
+            value: d.file,
+            provenance: weakestOf((d.edge_provenance ?? []).map(
+              (p) => (String(p).toUpperCase() === 'INFERRED' ? 'inferred' : 'observed'),
+            )),
+            basis: `MENTIONS edge, ${d.distinct_nodes_mentioned} distinct nodes`,
+          })),
           ...coConsumerFiles.items.map((f) => ({ field: 'co_consumer_files', value: typeof f === 'string' ? f : f.file ?? f, provenance: 'inferred', basis: 'shared feature anchor', source_age_days: overlayAgeDays })),
         ],
         floor: {

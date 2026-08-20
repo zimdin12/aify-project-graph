@@ -229,3 +229,58 @@ describe('doc → symbol references, rule 2 (qualified + marked)', () => {
     db.close();
   }, 20_000);
 });
+
+describe('miss buckets name the reason, not the rule that refused', () => {
+  it('★★★ an AMBIGUOUS basename is not reported as an unindexed path', async () => {
+    // ⛔ FOURTH LYING BUCKET, AND IT WAS INSIDE THE SPLIT BUILT TO STOP BUCKETS LYING.
+    //
+    // ef-manager graded `path_not_indexed = 228` on this repo: 28 of them were bare basenames
+    // whose file IS in the graph at two or more paths — `server.js`, `render.js`, `extract.js`,
+    // `schema.js`. rule 1 correctly refuses an ambiguous basename rather than picking one, but
+    // its refusal and its no-such-file both return null, so ambiguity had nowhere to go.
+    //
+    // A refusal is not an absence. This is the same collapse as a guard that declines to answer
+    // sharing an exit code with a guard that found a fault.
+    const db = await fixture('See `server.js` for the entry point.\n', [
+      ['p1', 'File', 'server.js', 'mcp/stdio/server.js', '{}'],
+      ['p2', 'File', 'server.js', 'mcp/stdio/dashboard/server.js', '{}'],
+    ]);
+    const stats = await detectDocRefs(db, repo);
+    const buckets = stats.misses.map((m) => m.bucket);
+    expect(buckets, 'the file IS indexed — twice').toContain('ambiguous_path');
+    expect(buckets, 'so it is emphatically not missing from the corpus')
+      .not.toContain('path_not_indexed');
+    expect(refs(db), 'and it still emits nothing — ambiguity refuses').toEqual([]);
+    db.close();
+  }, 20_000);
+
+  it('★★★ a basename indexed EXACTLY ONCE is claimed by rule 1, not bucketed at all', async () => {
+    // The positive control on the ambiguity check: with one candidate the path resolves, so it
+    // must land in `is_a_path` rather than in either failure bucket. Without this, a check that
+    // called everything ambiguous would look identical.
+    const db = await fixture('See `server.js` for the entry point.\n', [
+      ['p1', 'File', 'server.js', 'mcp/stdio/server.js', '{}'],
+    ]);
+    const stats = await detectDocRefs(db, repo);
+    const buckets = stats.misses.map((m) => m.bucket);
+    expect(buckets, 'one candidate resolves').toContain('is_a_path');
+    expect(buckets).not.toContain('ambiguous_path');
+    db.close();
+  }, 20_000);
+
+  it('★★★ a basename indexed NOWHERE is still reported as an unindexed path', async () => {
+    // The negative control. The bucket must keep its original meaning for the case it was
+    // built for, or the split has moved the lie rather than removed it.
+    // ⚠ NO HYPHEN. My first attempt used `nowhere-at-all.md` and it landed in `unqualified`,
+    // because the chain grammar is built from identifier segments and the word-character class
+    // excludes the hyphen. So a hyphenated filename never reaches the path buckets at all —
+    // correct, since it is not an identifier chain, but it made this control test the wrong
+    // branch and pass for a reason unrelated to what it claims.
+    const db = await fixture('See `nowhere.md` for details.\n');
+    const stats = await detectDocRefs(db, repo);
+    const buckets = stats.misses.map((m) => m.bucket);
+    expect(buckets).toContain('path_not_indexed');
+    expect(buckets).not.toContain('ambiguous_path');
+    db.close();
+  }, 20_000);
+});

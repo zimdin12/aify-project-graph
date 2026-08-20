@@ -197,7 +197,7 @@ export async function detectDocRefs(db, repoRoot) {
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
   const empty = {
     added: 0, documents: 0, documentsWithRefs: 0,
-    unqualified: 0, noSuchSymbol: 0, pathNotIndexed: 0, ambiguousSymbol: 0,
+    unqualified: 0, noSuchSymbol: 0, pathNotIndexed: 0, ambiguousPath: 0, ambiguousSymbol: 0,
     isAPath: 0, fencedExample: 0, misses: [],
   };
   if (docs.length === 0) return empty;
@@ -257,7 +257,48 @@ export async function detectDocRefs(db, repoRoot) {
       // ★ AND THE SPLIT TURNS A LIE INTO A MEASUREMENT. `pathNotIndexed` counts authored
       // references to files the corpus never admitted, which is the doc corpus hole measured by
       // an instrument that was not built to measure it.
-      if (HAS_FILE_EXTENSION.test(ref.written)) { note('path_not_indexed'); continue; }
+      if (HAS_FILE_EXTENSION.test(ref.written)) {
+        // ⛔ FOURTH LYING BUCKET, INSIDE THE SPLIT BUILT TO STOP BUCKETS LYING.
+        //
+        // ef-manager graded the 228 and found 28 of them were bare basenames whose file IS
+        // in the graph, at two or more paths: `server.js` is both mcp/stdio/server.js and
+        // mcp/stdio/dashboard/server.js; likewise render.js, extract.js, schema.js. rule 1
+        // correctly REFUSES an ambiguous basename rather than picking one — but its refusal
+        // and its no-such-file are the same `null`, so the ambiguity had nowhere to go and
+        // landed in a bucket that says the path is not indexed. That is false about the file
+        // and false about the corpus.
+        //
+        // ⚠ This is my own diagnosis reproducing inside my own fix, twenty minutes after I
+        // wrote it: "a miss bucket named for the rule that refused, rather than for the
+        // reason it refused, absorbs every cause the author did not think of." A refusal and
+        // an absence are not the same answer, and collapsing them is the two-state collapse
+        // one more time — the fourth tonight, and the first where the mechanism I was
+        // repairing recurred inside the repair.
+        const base = String(ref.written).split('/').pop();
+        const candidates = pathIndex.bySuffix.get(base);
+        if (candidates && new Set(candidates).size > 1) { note('ambiguous_path'); continue; }
+        // ⚠ WHAT SURVIVES HERE IS NOT "THE DOC CORPUS HOLE", AND THE HEADLINE NUMBER IS
+        // WRONG BY 3.4x IF READ THAT WAY. ef-manager hand-graded all 230 pre-split:
+        //
+        //     99  (43%)  DELIBERATELY EXCLUDED — .aify-graph/brief.*.md, functionality.json,
+        //                tasks.json, fixture graphs under tests/fixtures/. The graph's own
+        //                output. A graph indexing its own briefs would be pathological, so
+        //                these are the corpus working, not a hole in it.
+        //     43  (19%)  no such file anywhere — references to ANOTHER repository, prose
+        //                examples like `A.cpp`, and `mentions.js`, which was deleted tonight.
+        //     28  (12%)  ambiguous — split out above.
+        //     60  (26%)  the genuine hole: install.claude.md, install.codex.md,
+        //                install.hermes.md, ATTRIBUTION.md, and files under reference/ —
+        //                which is NOT denylisted (345 graph nodes carry a reference/ path),
+        //                so those are an inconsistency rather than a design choice.
+        //
+        // Splitting the first two properly means asking the sweep whether it WOULD admit the
+        // path, not re-deriving its rules here — a second copy of an admission policy is the
+        // defect this file exists to fix. Left as one bucket with its composition stated, so
+        // nobody reads 202 as 202 missing documents.
+        note('path_not_indexed');
+        continue;
+      }
 
       const { id, reason } = resolveSymbolChain(ref.written, symbolIndex);
       if (!id) { note(reason); continue; }
@@ -283,6 +324,7 @@ export async function detectDocRefs(db, repoRoot) {
     unqualified: tally('unqualified'),
     noSuchSymbol: tally('no_such_symbol'),
     pathNotIndexed: tally('path_not_indexed'),
+    ambiguousPath: tally('ambiguous_path'),
     ambiguousSymbol: tally('ambiguous_symbol'),
     isAPath: tally('is_a_path'),
     fencedExample: tally('fenced_example'),
