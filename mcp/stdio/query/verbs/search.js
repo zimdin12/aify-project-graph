@@ -194,16 +194,42 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     const codeTypeList = [...CODE_TYPES].map((t) => `'${t}'`).join(',');
     const tokens = normalizedQuery.split(/\s+/u).filter(Boolean);
     const params = { ...baseParams, limit: cappedLimit };
+    // ⛔ THE DOCUMENT'S OWN TITLE WAS EXTRACTED, STORED, AND NEVER QUERIED.
+    //
+    // `sweep.js` pulls a `title` off every text document — its first heading — and writes it into
+    // `extra`. All 154 Document nodes on this repo carry one. Nothing searched it.
+    //
+    // MEASURED: 76 of 154 titles (49%) contain a word that appears NOWHERE in the filename or
+    // path. `AGENTS.md` is titled "Agent install guide"; `2026-08-12-refactor-proposal.md` is
+    // "two files, verified seams". Before this clause:
+    //
+    //     graph_search("install guide", kind:"all")        0 hits
+    //     graph_search("verified seams", kind:"all")       0 hits
+    //     graph_search("collect findings widely")          0 hits
+    //     graph_search("attribution")                      3 hits  <- the control: name matching works
+    //
+    // ⭐ AND THAT IS PRECISELY THE CASE THE INDEX HAS TO WIN. The roadmap is explicit that the
+    // competitor on discovery is not grep, it is `ls docs/` — which finds anything whose NAME
+    // carries the topic, costs nothing, and needs no index. "Can it find game-design.md" is a test
+    // `ls` also passes. The only query where an index earns its keep is TOPIC -> DOCUMENT WHERE
+    // THE FILENAME DOES NOT CONTAIN THE TOPIC, and that is exactly the query that returned zero.
+    //
+    // ⚠ TITLE ONLY, NOT SUMMARY, AND THE RESTRAINT IS DELIBERATE. Every node also carries a
+    // `summary` — the second non-empty line, which is arbitrary prose. A title is the author
+    // naming the document; a summary is whatever sentence happened to be there. Adding it would
+    // widen recall by an unmeasured amount at an unmeasured precision cost, and this repo has
+    // spent the night deleting rules that were admitted without a measurement.
+    const TITLE = "json_extract(extra, '$.title')";
     let matchClause;
     if (tokens.length > 1) {
       matchClause = tokens
         .map((t, i) => {
           params[`t${i}`] = `%${t}%`;
-          return `(label LIKE $t${i} OR file_path LIKE $t${i})`;
+          return `(label LIKE $t${i} OR file_path LIKE $t${i} OR ${TITLE} LIKE $t${i})`;
         })
         .join(' AND ');
     } else {
-      matchClause = 'label LIKE $q';
+      matchClause = `(label LIKE $q OR ${TITLE} LIKE $q)`;
       params.q = `%${normalizedQuery}%`;
     }
     const clauses = [matchClause, ...baseClauses];
