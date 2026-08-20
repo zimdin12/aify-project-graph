@@ -1,0 +1,21 @@
+{
+  "schema": "self-review-evidence/3",
+  "nonce": "e07a39b2-e8ca-4eef-9294-bd406b31dfb7",
+  "cases": [
+    {
+      "fullName": "tests/unit/server/tool-routing-identity.test.js the MCP registry routes each tool NAME to its own verb ★★ every probed name returns that verb's own output, not another's",
+      "name": "★★ every probed name returns that verb's own output, not another's",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    }
+  ],
+  "fileErrors": [],
+  "counts": {
+    "cases": 1,
+    "failedCases": 0,
+    "nonCaseErrors": 0
+  }
+}

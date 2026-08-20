@@ -1,0 +1,25 @@
+{
+  "schema": "self-review-evidence/3",
+  "nonce": "46dc88a6-bb0c-44e4-aebe-ff9b2b29e2d4",
+  "cases": [
+    {
+      "fullName": "tests/unit/server/tool-routing-identity.test.js the MCP registry routes each tool NAME to its own verb ★★ every probed name returns that verb's own output, not another's",
+      "name": "★★ every probed name returns that verb's own output, not another's",
+      "status": "fail",
+      "messages": [
+        "the response must reference the repo it was ASKED about — a lookalike returning a constant cannot know this directory: expected '{\"jsonrpc\":\"2.0\",\"id\":12,\"result\":{\"c…' to contain 'apg-routing-K4dwGy'"
+      ],
+      "errorTypes": [
+        "AssertionError"
+      ],
+      "retryCount": 0,
+      "repeatCount": 0
+    }
+  ],
+  "fileErrors": [],
+  "counts": {
+    "cases": 1,
+    "failedCases": 1,
+    "nonCaseErrors": 0
+  }
+}
