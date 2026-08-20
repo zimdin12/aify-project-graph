@@ -136,7 +136,11 @@ describe('health reports what a collection COVERS, not that one exists', () => {
     // confused, is what makes the ratio checkable rather than assertable.
     await repoWithCollection({ processed: 3, inScope: 3, eligible: 484 });
     const h = await graphHealth({ repoRoot: repo });
-    expect(h.codeIntel.coverage.filesInScope, 'what the run set out to do').toBe(3);
+    // ⚠ THE NAME CARRIES THE POPULATION. `filesInScope` sat beside a repo-wide `filesEligible`
+    // with nothing saying it belonged to the latest collection, so the obvious ratio was 553/3.
+    expect(h.codeIntel.coverage.filesInScopeLatestCollection, 'what THAT run set out to do').toBe(3);
+    expect(h.codeIntel.coverage.filesInScope, 'the unqualified name is gone, not merely deprecated')
+      .toBeUndefined();
     expect(h.codeIntel.coverage.filesEligible, 'what the claim is about').toBe(484);
     // ⚠ And it says WHERE each half came from. A denominator measured now and one frozen at
     // collection time answer different questions, and a reader cannot tell them apart from the
@@ -145,6 +149,25 @@ describe('health reports what a collection COVERS, not that one exists', () => {
     expect(h.codeIntel.coverage.filesProcessedSource).toBe('all_live_collections');
     expect(h.codeIntel.coverage.filesProcessedLatestCollection, 'the per-collection fact survives')
       .toBe(3);
-    expect(h.codeIntel.coverage.filesInScope).not.toBe(h.codeIntel.coverage.filesEligible);
+    expect(h.codeIntel.coverage.filesInScopeLatestCollection)
+      .not.toBe(h.codeIntel.coverage.filesEligible);
+    // ⛔ EVERY POPULATION FIELD IN THIS BLOCK NAMES ITS POPULATION — derived, so a field added
+    // later without one turns this red rather than quietly joining three populations under one
+    // set of names. `filesInScope` was exactly that: the latest collection's scope sitting beside
+    // a repo-wide `filesEligible`, so the obvious ratio a reader computes is 553/3.
+    const cov = h.codeIntel.coverage;
+    const populationFields = Object.keys(cov)
+      .filter((k) => /^files/.test(k))
+      // A `*Source` key IS the annotation, not a population needing one.
+      .filter((k) => !/Source$/.test(k));
+    const unnamed = populationFields.filter((k) => !(
+      /LatestCollection$/.test(k) || /AtCollection$/.test(k) || `${k}Source` in cov
+    ));
+    expect(unnamed,
+      'each of these must end in LatestCollection/AtCollection or carry a companion *Source key')
+      .toEqual([]);
+    // ⚠ POSITIVE CONTROL: the rule is only meaningful if it inspects a non-empty set, and an
+    // empty `populationFields` would satisfy the assertion above for the wrong reason.
+    expect(populationFields.length, 'the check actually looked at fields').toBeGreaterThan(2);
   }, 30_000);
 });

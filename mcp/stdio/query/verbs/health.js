@@ -440,7 +440,17 @@ export async function graphHealth({ repoRoot }) {
               // facts and a reader chasing a partial collection needs the first one.
               filesProcessedLatestCollection: latest.filesProcessed ?? null,
               filesProcessedSource: covered != null ? 'all_live_collections' : 'latest_collection',
-              filesInScope: latest.filesInScope ?? null,
+              // ⚠ RENAMED, NOT ANNOTATED. ef-manager: three populations now live in five fields —
+              // all-live-collections (553), latest-collection (3, twice) and the corpus (557) — and
+              // `filesInScope` was the only one not saying which. It is the LATEST collection's
+              // scope sitting immediately above a repo-wide `filesEligible`, so the obvious ratio a
+              // reader computes is 553/3.
+              //
+              // ⇒ The name carries it rather than a companion field, because a `Source` string is
+              // something a reader has to look up and a suffix is something they cannot miss. Same
+              // fix I had just shipped for the other two fields, applied to the third — it was two
+              // out of three, which is how a rule ends up half-applied inside its own commit.
+              filesInScopeLatestCollection: latest.filesInScope ?? null,
               filesEligible: eligible,
               // Both, always. A single number cannot say whether the corpus grew since the
               // collection or the collection under-covered it, and those want different actions.
