@@ -13,7 +13,7 @@
 // confirm `server.commit` via graph_health BEFORE testing a fix — and the field
 // answered about the filesystem. He then tested code that was never loaded. His
 // summary: it converts "I should check" into "I checked".
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -121,7 +121,7 @@ describe('server build identity', () => {
     expect(new Date(a.startedAt).getTime()).toBeLessThanOrEqual(Date.now());
   });
 
-  it('reports the RUNNING commit as `commit`, the tree separately, and does not cry stale when they agree', () => {
+  it('reports the RUNNING commit as `commit`, the tree separately, and does not cry stale when they agree', async () => {
     // Swapping these would leave the field lying, just differently.
     _resetServerBuildCache();
     const info = serverBuildInfo();
@@ -136,8 +136,37 @@ describe('server build identity', () => {
     expect(Object.hasOwn(info, 'staleProcess')).toBe(true);
     expect(info.workingTreeCommit).toBeUndefined();
     expect(staleProcessWarning()).toBeNull();
-    expect(buildSrc).toMatch(/workingTreeCommit: treeCommit/);
-    expect(buildSrc).toMatch(/const staleProcess = Boolean\(LOADED_COMMIT && treeCommit && LOADED_COMMIT !== treeCommit\)/);
+    // ⛔ THESE TWO WERE SOURCE GREPS AND ONE BROKE ON A PURE RENAME — the second time in this
+    // file. The comment on the very next test already records the lesson: "a test that fails on a
+    // refactor and cannot fail on a behaviour change". It was applied to the sibling and these two
+    // were left behind, so the fix did not generalise past the instance that prompted it.
+    //
+    // ⇒ Behavioural now, through the `APG_TEST_FORCE_LOADED_COMMIT` seam: force a loaded commit
+    // that cannot match the real tree, and require the verdict to change SHAPE. `workingTreeCommit`
+    // must appear only when stale — its absence on the happy path is asserted above, and an
+    // implementation that always emitted it would pass one of those and fail the other.
+    const saved = process.env.APG_TEST_FORCE_LOADED_COMMIT;
+    try {
+      process.env.APG_TEST_FORCE_LOADED_COMMIT = '0000000';
+      vi.resetModules();
+      // ⚠ A QUERY-STRING CACHE-BUST FAILS UNDER VITE ("Unknown variable dynamic import"). The
+      // module registry is reset instead, which is the supported way to re-evaluate module-scope
+      // constants — and LOADED_COMMIT is read at module scope, which is the whole point of the seam.
+      const forced = await import('../../../mcp/stdio/server-build.js');
+      forced._resetServerBuildCache();
+      const stale = forced.serverBuildInfo();
+      expect(stale.staleProcess, 'a loaded commit that is not the tree commit is stale').toBe(true);
+      expect(stale.workingTreeCommit, 'and the TREE commit appears, named as the tree')
+        .toBeTruthy();
+      expect(stale.workingTreeCommit, 'and it is not the loaded one — the two are different fields')
+        .not.toBe('0000000');
+      expect(stale.commit, 'while `commit` keeps reporting what is RUNNING').toBe('0000000');
+      expect(forced.staleProcessWarning(), 'and the warning is now emitted').toBeTruthy();
+    } finally {
+      if (saved === undefined) delete process.env.APG_TEST_FORCE_LOADED_COMMIT;
+      else process.env.APG_TEST_FORCE_LOADED_COMMIT = saved;
+      vi.resetModules();
+    }
   });
 
   it('the stale warning names both commits and demands a restart', () => {

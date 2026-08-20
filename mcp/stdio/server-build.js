@@ -19,7 +19,7 @@
 // diagnostic verb: if the process is stale, every answer it gives is suspect.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CLAIM, renderClaim } from './stale-warning-claims.js';
@@ -142,6 +142,66 @@ const LOADED_DIRTY_FILES = (() => {
   return out.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => l.replace(/^\S+\s+/, ''));
 })();
 
+// ⛔ A COMMIT COMPARISON CANNOT SEE AN UNCOMMITTED EDIT, AND THAT IS THE COMMON CASE.
+//
+// `staleProcess` above is `LOADED_COMMIT !== treeCommit`. It fires when someone pulls or commits.
+// It is SILENT while a developer edits a server file and has not committed — which is what
+// developing looks like, for hours at a time, and is the state this process spends most of its
+// life in during active work.
+//
+// Measured consequence: three of ef-manager's last four review rounds opened blocked on a stale
+// process, and the failure mode is not that the warning was wrong — it is that there was no
+// warning, because HEAD had not moved.
+//
+// ⇒ So the process also fingerprints ITS OWN SOURCE at load and re-checks it. mtime, not content:
+// a hash of every module would be exact and would cost a full read of the tree on a cache miss,
+// and the question here is only "did anything change since I read it", for which the coarser
+// signal is sufficient and cheap.
+//
+// ⚠ THE TWO SIGNALS ARE INDEPENDENT AND BOTH ARE KEPT. A commit delta says a RESTART WOULD LOAD
+// DIFFERENT CODE; an mtime delta says THE FILES I READ HAVE CHANGED. Either can be true without
+// the other — a `git checkout` of an identical tree bumps mtimes without changing HEAD, and a
+// fetch+reset changes HEAD without necessarily touching every file. Reporting one as the other is
+// the substitution this file already got wrong once, when the working DIRECTORY stood in for the
+// running BUILD.
+const SOURCE_DIR = join(SERVER_ROOT, 'mcp', 'stdio');
+
+/**
+ * The newest mtime under the server's own source tree, or null if it cannot be read.
+ *
+ * ⛔ RETURNS null ON FAILURE, NEVER 0. A zero would compare as "older than everything" and make a
+ * broken scan look like a pristine tree — a guard passing because its input is missing.
+ */
+export function newestSourceMtime(dir = SOURCE_DIR) {
+  let newest = 0;
+  const walk = (d) => {
+    let entries;
+    try { entries = readdirSync(d, { withFileTypes: true }); } catch { return false; }
+    for (const e of entries) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) { if (!walk(p)) return false; continue; }
+      if (!e.name.endsWith('.js')) continue;
+      try { newest = Math.max(newest, statSync(p).mtimeMs); } catch { return false; }
+    }
+    return true;
+  };
+  return walk(dir) && newest > 0 ? newest : null;
+}
+
+const LOADED_SOURCE_MTIME = newestSourceMtime();
+
+/**
+ * Has the server's own source changed since this process read it?
+ *
+ * Three states, never two: `true` changed, `false` unchanged, `null` CANNOT ANSWER. A scan that
+ * failed must not report "unchanged" — that is the collapse this repo has now found six times, and
+ * it fails in the reassuring direction every time.
+ */
+export function sourceChangedSinceLoad(now = newestSourceMtime(), loaded = LOADED_SOURCE_MTIME) {
+  if (loaded == null || now == null) return null;
+  return now > loaded;
+}
+
 const LOADED_VERSION = (() => {
   try {
     return JSON.parse(readFileSync(join(SERVER_ROOT, 'package.json'), 'utf8')).version ?? null;
@@ -190,7 +250,16 @@ export function serverBuildInfo() {
   // Read the tree NOW and compare. A difference means this process is stale: the
   // reported commit is what is RUNNING; the tree is what a restart would load.
   const treeCommit = gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
-  const staleProcess = Boolean(LOADED_COMMIT && treeCommit && LOADED_COMMIT !== treeCommit);
+  const commitMoved = Boolean(LOADED_COMMIT && treeCommit && LOADED_COMMIT !== treeCommit);
+  // ⛔ THE SECOND SIGNAL, AND IT COVERS THE STATE THE FIRST ONE IS BLIND TO. `commitMoved` needs
+  // someone to have committed. `sourceEdited` fires the moment a server file is written, which is
+  // what active development looks like for hours at a time and is when a stale process does the
+  // most damage — every answer comes from code the developer has already changed and believes they
+  // are testing.
+  const sourceEdited = sourceChangedSinceLoad();
+  // ⚠ `null` from the mtime scan means CANNOT ANSWER and must not read as "not stale". `=== true`
+  // rather than a truthiness test, so an unreadable tree cannot quietly clear the flag.
+  const staleProcess = commitMoved || sourceEdited === true;
   // ★ COMMIT IDENTITY STOOD IN FOR BEHAVIOURAL DIFFERENCE.
   //
   // staleProcess says RESTART whether the delta is a guard that prevents data loss
@@ -204,7 +273,7 @@ export function serverBuildInfo() {
   // a one-command path to known, which is the session's own lesson — a fail-closed
   // default is a prompt to go measure, not a resting state.
   let staleDelta = null;
-  if (staleProcess) {
+  if (commitMoved) {
     const changed = gitAt(SERVER_ROOT, ['diff', '--name-only', `${LOADED_COMMIT}..${treeCommit}`]);
     if (changed != null) {
       const files = changed.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
@@ -233,6 +302,10 @@ export function serverBuildInfo() {
     // to the field we are trying to replace. So there is exactly one name for the thing,
     // present in both states: `323641d` clean, `4615ed1+2dirty` when not.
     buildId: formatBuildId(LOADED_COMMIT, loadedDirtyCount),
+    // ⚠ REPORTED SEPARATELY, because they answer different questions. `commitMoved` means A
+    // RESTART WOULD LOAD DIFFERENT CODE. `sourceEdited` means THE FILES I READ HAVE CHANGED, with
+    // no commit behind them. `null` on the second is CANNOT ANSWER, never "no".
+    staleSignals: { commitMoved, sourceEdited },
     ...(loadedDirtyCount ? {
       loadedDirtyFiles: LOADED_DIRTY_FILES.slice(0, 20),
       loadedDirtyNote: `⚠ This process loaded ${loadedDirtyCount} UNCOMMITTED file(s), so it is running code that`
@@ -264,7 +337,7 @@ export function serverBuildInfo() {
       // process." They reasoned to the wrong conclusion for a minute before checking — and the
       // singular "the checkout" is the sentence that invited it.
       // ⚠ The stale bytes are the SERVER'S. Which repo you ask about does not change them.
-      staleWarning: buildStaleWarning({ loadedCommit: LOADED_COMMIT, startedAt: PROCESS_STARTED_AT, treeCommit, staleDelta }),
+      staleWarning: buildStaleWarning({ loadedCommit: LOADED_COMMIT, startedAt: PROCESS_STARTED_AT, treeCommit, staleDelta, commitMoved, sourceEdited: sourceEdited === true }),
     } : {}),
   };
   return { ..._immutable, ..._verdict };
@@ -278,7 +351,22 @@ export function serverBuildInfo() {
 // rather than behaviour" defect graph-senior-dev has caught in two of my instruments this week,
 // committed inside the fix for a scope defect. The suite-composition guard flagged it.
 // ⇒ A pure function of its inputs. The test constructs a stale state and reads the sentence.
-export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDelta }) {
+export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDelta, commitMoved = true, sourceEdited = false }) {
+  // ⛔ THE MESSAGE MUST DESCRIBE THE SIGNAL THAT ACTUALLY FIRED. The sentence below says "the
+  // checkout is now <treeCommit>" — which is FALSE when HEAD never moved and only a file was
+  // edited, because then treeCommit === loadedCommit and the reader is told two identical shas
+  // differ. A warning that misdescribes its own trigger teaches people to distrust it, and this
+  // file has already shipped one field whose name contradicted its content.
+  if (!commitMoved) {
+    return `SERVER IS RUNNING STALE CODE: this process loaded its source at ${startedAt},`
+      + ' and files under mcp/stdio/ have been MODIFIED SINCE — with no commit, so'
+      + ` HEAD is still ${loadedCommit} and a commit comparison cannot see this.`
+      + ' Answers come from the code as it was read at startup, not as it is on disk now.'
+      + ' ⚠ THIS APPLIES TO EVERY REPO THIS PROCESS SERVES: the stale code belongs to the SERVER,'
+      + ' so a second repo whose own checkout has not moved still gets answers from it.'
+      + ' RESTART the aify-project-graph MCP server before attributing any behaviour to the'
+      + ' edited code.';
+  }
   return `SERVER IS RUNNING STALE CODE: this process loaded ${loadedCommit} at ${startedAt},`
       + ` but the checkout is now ${treeCommit}. Answers come from ${loadedCommit}.`
       + ' ⚠ THIS APPLIES TO EVERY REPO THIS PROCESS SERVES, not only the one you asked about:'

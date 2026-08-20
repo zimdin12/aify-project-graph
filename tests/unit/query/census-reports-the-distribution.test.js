@@ -75,6 +75,34 @@ describe('the census reports the distribution and the drift', () => {
     db.close();
   }, 20_000);
 
+  it('★★★ an undeclared RELATION and an undeclared PROVENANCE are surfaced too', async () => {
+    // ⛔ ONE OF THE THREE DIRECTIONS WAS EXERCISED AND TWO WERE NOT. ef-manager measured the live
+    // census: `present_but_undeclared` is EMPTY for node types, relations AND provenance on the
+    // only corpus it has run against. My fixture covered the node-type direction with a
+    // `Wormhole`; the relation and provenance directions had no fixture and no field instance —
+    // a branch nobody has watched execute, in the verb whose whole justification is that
+    // one-directional listings hide things.
+    //
+    // ⚠ SAME STANDING AS THE snake_case SHAPE AT 0/1170, and the same remedy: "this corpus cannot
+    // exercise it" and "this branch works" are different claims, so the fixture makes the second
+    // one. `edges.provenance` has no CHECK constraint, so an undeclared value is writable — which
+    // is exactly why the check has to exist.
+    const db = await fixture();
+    db.run(
+      `INSERT INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
+       VALUES ('b','c','TELEPORTS_TO','src/b.js',1,1,'HEARSAY','javascript')`);
+    const c = buildCensus(db);
+
+    expect(c.vocabulary_drift.relations.present_but_undeclared,
+      'a relation the taxonomy does not declare').toContain('TELEPORTS_TO');
+    expect(c.vocabulary_drift.provenance.present_but_undeclared,
+      'a provenance value no consumer has a case for').toContain('HEARSAY');
+    expect(c.edges_by_relation.find((r) => r.key === 'TELEPORTS_TO')?.undeclared,
+      'and flagged in the distribution, not blended in').toBe(true);
+    expect(c.edges_by_provenance.find((r) => r.key === 'HEARSAY')?.undeclared).toBe(true);
+    db.close();
+  }, 20_000);
+
   it('★★★ the totals RECONCILE against the distribution', async () => {
     // A total that does not equal the sum of its parts means a row was filtered from one and not
     // the other — which is how a census stops being one. This is the same reconciliation the sweep
