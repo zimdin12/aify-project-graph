@@ -284,3 +284,118 @@ describe('miss buckets name the reason, not the rule that refused', () => {
     db.close();
   }, 20_000);
 });
+
+// RULE 3 — THE SHAPE IS THE EVIDENCE.
+//
+// Rule 2 needs a qualifier. Most references in real documents do not have one: people write
+// `computeTrustLevel()`, not `health.computeTrustLevel()`. Rule 3 admits an unqualified span when
+// the author put a SHAPE on it — call parentheses, CamelCase humps, an underscore — and the bare
+// label resolves to exactly one symbol.
+//
+// ⚠ IT IS WEAKER THAN RULE 2 AND TAGGED SEPARATELY. Uniqueness is a property of the REPOSITORY,
+// not of the writing: the same sentence in a repo with two `trust` functions emits nothing. Rule
+// 2's evidence travels with the document; rule 3's is half in the graph.
+describe('doc → symbol references, rule 3 (shaped + unique)', () => {
+  const shaped = (db) => db.all(
+    `SELECT e.*, t.label AS target FROM edges e JOIN nodes t ON t.id = e.to_id
+     WHERE e.extractor = 'doc_ref:shaped'`);
+
+  it('★★★ an INVOCATION-shaped span resolves by bare label', async () => {
+    const db = await fixture('Call `compute()` at startup.\n', [
+      ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
+    ]);
+    await detectDocRefs(db, repo);
+    expect(shaped(db).length).toBe(1);
+    expect(shaped(db)[0].target).toBe('compute');
+    expect(shaped(db)[0].source_line).toBe(1);
+    db.close();
+  }, 20_000);
+
+  it('★★★ THE PARENTHESES ARE THE WHOLE DIFFERENCE — `read` vs `read()`', async () => {
+    // ⛔ This is the line between rule 3 and the extractor it replaced. The legacy rule admitted
+    // `read` because a function was called that; rule 3 admits `read()` because somebody wrote a
+    // call. Same word, same graph, different claim by the author.
+    const bare = await fixture('You should `read` the file first.\n');
+    await detectDocRefs(bare, repo);
+    expect(shaped(bare), 'the English word emits nothing').toEqual([]);
+    bare.close();
+
+    const called = await fixture('The helper `read()` opens it.\n');
+    await detectDocRefs(called, repo);
+    expect(shaped(called).length, 'the written call emits an edge').toBe(1);
+    called.close();
+  }, 40_000);
+
+  it('★★★ CamelCase needs TWO humps — `Graph` is a word, `LspClient` is a type', async () => {
+    // ⚠ A single hump is an ordinary English word with a capital, and screaming case (`README`,
+    // `TODO`) is not a type at all. Both are excluded by the shape, not by a dictionary.
+    const db = await fixture('See `Graph` and `README` and `LspClient`.\n', [
+      ['g1', 'Class', 'Graph', 'src/g.cpp', '{"qname":"Graph"}'],
+      ['r1', 'Class', 'README', 'src/r.cpp', '{"qname":"README"}'],
+      ['l1', 'Class', 'LspClient', 'src/l.cpp', '{"qname":"LspClient"}'],
+    ]);
+    await detectDocRefs(db, repo);
+    expect(shaped(db).map((r) => r.target), 'only the two-hump type is a reference')
+      .toEqual(['LspClient']);
+    db.close();
+  }, 20_000);
+
+  it('★★★ snake_case fires — measured 0 of 1170 HERE, and that is the naming convention', async () => {
+    // ⛔ THIS TEST EXISTS BECAUSE THE RULE CANNOT BE EXERCISED BY THIS REPOSITORY. Measured on
+    // aify-project-graph: 1,170 snake_case candidate spans, ZERO resolving to a symbol — every
+    // one is an MCP tool name like `graph_packet` or a config key, because this is a JavaScript
+    // codebase and JavaScript does not name functions that way.
+    //
+    // ⚠ AND THAT IS EXACTLY WHY THE SHAPE STAYS. Deleting it on a 0/1170 yield would be
+    // calibrating a rule on one repository's naming convention — the error ef-manager measured
+    // when the legacy extractor scored 83.9% here and 63.1% on echoes from identical code. A
+    // shape is not a threshold: snake_case is the convention in C, Python and Rust, and the rule
+    // will fire there. What a 0 yield DOES mean is that this repo cannot test it, so the fixture
+    // must.
+    const db = await fixture('Call `render_frame()` and `voxel_count` here.\n', [
+      ['s1', 'Function', 'render_frame', 'src/r.c', '{"qname":"render_frame"}'],
+      ['s2', 'Function', 'voxel_count', 'src/v.c', '{"qname":"voxel_count"}'],
+    ]);
+    await detectDocRefs(db, repo);
+    expect(shaped(db).map((r) => r.target).sort(), 'both shapes admit')
+      .toEqual(['render_frame', 'voxel_count']);
+    db.close();
+  }, 20_000);
+
+  it('★★★ an AMBIGUOUS bare label emits nothing — uniqueness is the qualifier', async () => {
+    const db = await fixture('Call `build()`.\n', [
+      ['b1', 'Function', 'build', 'src/a.cpp', '{"qname":"a.build"}'],
+      ['b2', 'Function', 'build', 'src/b.cpp', '{"qname":"b.build"}'],
+    ]);
+    const stats = await detectDocRefs(db, repo);
+    expect(shaped(db)).toEqual([]);
+    expect(stats.misses.map((m) => m.bucket)).toContain('shaped_ambiguous');
+    db.close();
+  }, 20_000);
+
+  it('★★★ rule 3 edges are tagged SEPARATELY from rule 2, and carry lower confidence', async () => {
+    // ⛔ ONE TAG FOR TWO STRENGTHS IS THE DEFECT THAT KILLED THE LEGACY EXTRACTOR. A reader
+    // pulling MENTIONS must be able to tell an in-document qualifier from a graph-wide uniqueness
+    // claim, or the weaker inherits the stronger one's authority.
+    const db = await fixture('Both `Terrain::generate` and `compute()` here.\n', [
+      ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
+    ]);
+    await detectDocRefs(db, repo);
+    const byTag = Object.fromEntries(db.all(
+      "SELECT extractor, confidence FROM edges WHERE relation = 'MENTIONS'")
+      .map((r) => [r.extractor, r.confidence]));
+    expect(Object.keys(byTag).sort()).toEqual(['doc_ref:qualified', 'doc_ref:shaped']);
+    expect(byTag['doc_ref:shaped'], 'weaker rule, lower confidence, visibly')
+      .toBeLessThan(byTag['doc_ref:qualified']);
+    db.close();
+  }, 20_000);
+
+  it('★★★ a fenced shaped span is still excluded', async () => {
+    const db = await fixture('```js\nCall `compute()` here.\n```\n', [
+      ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
+    ]);
+    await detectDocRefs(db, repo);
+    expect(shaped(db)).toEqual([]);
+    db.close();
+  }, 20_000);
+});

@@ -52,7 +52,34 @@ import { buildIndex, resolveDocPath, FILE_LEVEL_TYPES } from './doc-links.js';
 export const DOC_REF_RULES = Object.freeze({
   // A qualified reference inside an author-marked code span, resolving to exactly one symbol.
   'doc_ref:qualified': 0.9,
+  // RULE 3. An author-marked span whose SHAPE is a program element — a call with parentheses, a
+  // CamelCase type, a snake_case identifier — resolving to exactly one symbol by bare label.
+  // Lower than rule 2 because the name is unqualified: uniqueness in this graph is what stands in
+  // for the qualifier, and uniqueness is a property of the repository rather than of the writing.
+  'doc_ref:shaped': 0.8,
 });
+
+// ⛔ THE SHAPES ARE THE EVIDENCE, AND EACH ONE IS A CLAIM THE AUTHOR MADE ABOUT THE TOKEN.
+//
+// `read` in backticks is the English word in monospace. `read()` is someone writing a call. That
+// difference is the whole rule: the parentheses, the CamelCase humps and the underscore are all
+// marks a writer puts on a token to say "this is a program element", and none of them appear on
+// prose by accident.
+//
+// ⚠ CamelCase requires TWO humps deliberately. `README` and `TODO` are screaming case, and a
+// single-hump `Graph` is a perfectly ordinary English word with a capital.
+const INVOCATION = /^([A-Za-z_$][\w$]*)\(\s*(?:\.\.\.|[^)]*)?\)$/;
+const TYPE_SHAPED = /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+$/;
+const SNAKE_CASE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
+
+/** The shape that admitted a span, or null. Pure: a token in, a label out. */
+export function shapeOf(raw) {
+  const inv = INVOCATION.exec(raw);
+  if (inv) return { name: inv[1], shape: 'invocation' };
+  if (TYPE_SHAPED.test(raw)) return { name: raw, shape: 'type' };
+  if (SNAKE_CASE.test(raw)) return { name: raw, shape: 'snake' };
+  return null;
+}
 
 const EXTRACTOR_PREFIX = 'doc_ref:';
 
@@ -197,10 +224,28 @@ export async function detectDocRefs(db, repoRoot) {
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
   const empty = {
     added: 0, documents: 0, documentsWithRefs: 0,
-    unqualified: 0, noSuchSymbol: 0, pathNotIndexed: 0, ambiguousPath: 0, ambiguousSymbol: 0,
+    unqualified: 0, shapedNoSymbol: 0, shapedAmbiguous: 0,
+    noSuchSymbol: 0, pathNotIndexed: 0, ambiguousPath: 0, ambiguousSymbol: 0,
     isAPath: 0, fencedExample: 0, misses: [],
   };
   if (docs.length === 0) return empty;
+
+  // ⛔ EXTERNAL AND MODULE NODES ARE NOT CANDIDATES, AND THIS IS NOT A TIE-BREAK.
+  //
+  // An `External` node is a stub for a symbol defined outside this repository — the import site,
+  // not a definition. A document in this repo writing `computeTrustLevel()` means the function
+  // this repo defines. Where both exist they are usually the SAME symbol seen from two sides, so
+  // including the stub would turn a real reference into an "ambiguous" refusal.
+  //
+  // ⚠ Stated because it CHANGES AMBIGUITY, not just ranking: a label matching one Function and
+  // one External is unique under this rule and ambiguous without it. That is a judgement about
+  // what a node type means, and it belongs in the open where someone can disagree with it.
+  const labelIndex = new Map();
+  for (const n of db.all("SELECT id, type, label FROM nodes WHERE label != ''")) {
+    if (FILE_LEVEL.has(n.type) || n.type === 'External' || n.type === 'Module') continue;
+    if (!labelIndex.has(n.label)) labelIndex.set(n.label, []);
+    labelIndex.get(n.label).push(n.id);
+  }
 
   const symbolIndex = buildSymbolIndex(db.all(
     "SELECT id, type, extra FROM nodes WHERE extra LIKE '%\"qname\"%'"));
@@ -233,7 +278,38 @@ export async function detectDocRefs(db, repoRoot) {
       });
 
       if (ref.fenced) { note('fenced_example'); continue; }
-      if (!ref.qualified) { note('unqualified'); continue; }
+
+      // ── RULE 3 ────────────────────────────────────────────────────────────────────────────
+      //
+      // An unqualified span is not automatically prose. `read` is the English word in monospace;
+      // `read()` is someone writing a call. The shape is the evidence, and the bare label must
+      // still resolve to exactly ONE symbol — uniqueness standing in for the qualifier rule 2
+      // demands.
+      //
+      // ⚠ THIS IS A WEAKER RULE THAN 2 AND IT IS TAGGED SEPARATELY FOR THAT REASON. Uniqueness is
+      // a property of the REPOSITORY, not of the writing: the same sentence in a repo with two
+      // `trust` functions would emit nothing. Rule 2's evidence is in the document and travels
+      // with it; rule 3's is half in the graph. Filing both under one extractor tag would let the
+      // weaker inherit the stronger one's authority, which is the objection that kept the legacy
+      // clamp out of packet-lists.js and the reason `mentions` had to be deleted rather than
+      // narrowed.
+      if (!ref.qualified) {
+        const shaped = shapeOf(ref.written);
+        if (!shaped) { note('unqualified'); continue; }
+        const hits = [...new Set(labelIndex.get(shaped.name) ?? [])];
+        if (hits.length === 0) { note('shaped_no_symbol'); continue; }
+        if (hits.length > 1) { note('shaped_ambiguous'); continue; }
+        if (seen.has(hits[0])) continue;
+        seen.add(hits[0]);
+        db.run(
+          `INSERT OR IGNORE INTO edges
+             (from_id, to_id, relation, source_file, source_line, confidence, provenance, extractor)
+           VALUES ('${doc.id}', '${hits[0]}', 'MENTIONS', '${doc.file_path}', ${ref.line},
+                   ${DOC_REF_RULES['doc_ref:shaped']}, 'INFERRED', 'doc_ref:shaped')`);
+        added++;
+        emitted++;
+        continue;
+      }
 
       // ⛔ RULE 1 GETS FIRST REFUSAL, so the two layers are disjoint BY CONSTRUCTION rather than
       // by the accident of their patterns not overlapping. `README.md` is a qualified-looking
@@ -322,6 +398,8 @@ export async function detectDocRefs(db, repoRoot) {
     documents: docs.length,
     documentsWithRefs,
     unqualified: tally('unqualified'),
+    shapedNoSymbol: tally('shaped_no_symbol'),
+    shapedAmbiguous: tally('shaped_ambiguous'),
     noSuchSymbol: tally('no_such_symbol'),
     pathNotIndexed: tally('path_not_indexed'),
     ambiguousPath: tally('ambiguous_path'),
