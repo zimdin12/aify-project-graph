@@ -8,7 +8,7 @@ import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
 import { buildClangdSpawn } from '../resolve-clangd.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
-import { readLedger, writeLedger, pendingFiles } from '../collect-ledger.js';
+import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness, collectionComplete } from '../collect-ledger.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
 // can take well over the default 10s before the first query resolves.
@@ -235,7 +235,10 @@ export function createCppClangdProvider({ spawn } = {}) {
         // converging. Explicit files[] deliberately does NOT consult the ledger:
         // that is the caller stating what they want.
         if (req.resume !== false) {
-          ledger = readLedger(projectRoot, dbHash);
+          // ⛔ THE WITNESS IS THE GRAPH, NOT THE COMPILE DB. A ledger claiming prior coverage
+          // while the graph holds no verified evidence has been ORPHANED by a rebuild, and
+          // honouring it made `graph_collect_code_intel` a permanent no-op that reported success.
+          ledger = readLedger(projectRoot, dbHash, graphEvidenceWitness(projectRoot));
           const split = pendingFiles(files, ledger);
           resumedFrom = split.alreadyCollected.length;
           if (resumedFrom > 0 && process.env.APG_VERBOSE_CODE_INTEL) {
@@ -817,7 +820,15 @@ export function createCppClangdProvider({ spawn } = {}) {
             // count reaching zero on a subsequent call.
             filesTotal,
             remaining: Math.max(0, filesTotal - filesProcessed),
-            complete: !budgetExhausted && filesProcessed >= filesTotal,
+            // Completion is TWO facts: nothing remained of what we were handed, AND we were
+            // handed everything there was. `truncated` says enumeration stopped early, and a run
+            // that processed all 200 of a capped 267 is not complete however tidy its tallies.
+            ...(() => {
+              const c = collectionComplete({
+                budgetExhausted, filesProcessed, filesTotal, enumerationTruncated: truncated,
+              });
+              return { complete: c.complete, ...(c.reason ? { incompleteReason: c.reason } : {}) };
+            })(),
             // RESUME STATE, reported so "run again to continue" is checkable
             // rather than taken on faith. resumedFrom counts files a prior run
             // already covered under this same compile-DB hash; enumeratedTotal is

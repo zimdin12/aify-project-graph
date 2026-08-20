@@ -15,7 +15,7 @@ import { LspClient } from '../lsp-client.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
-import { readLedger, writeLedger, pendingFiles } from '../collect-ledger.js';
+import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness } from '../collect-ledger.js';
 
 function realpath(p) {
   try { return fs.realpathSync.native(p); } catch { return p; }
@@ -142,7 +142,9 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
     // compile-DB hash, which is this backend's equivalent notion of "the
     // configuration this coverage was gathered under".
     if (req.resume !== false) {
-      ledger = readLedger(projectRoot, freshnessValue || freshnessBasis);
+      // Same orphaning hazard as the clangd backend: a graph rebuild deletes the evidence and
+      // leaves this ledger's claims about it intact, in a file that lives outside the database.
+      ledger = readLedger(projectRoot, freshnessValue || freshnessBasis, graphEvidenceWitness(projectRoot));
       const split = pendingFiles(files, ledger);
       resumedFrom = split.alreadyCollected.length;
       enumeratedTotal = files.length;
