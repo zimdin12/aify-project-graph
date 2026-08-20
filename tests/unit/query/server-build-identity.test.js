@@ -34,7 +34,16 @@ describe('server build identity', () => {
     // these read the tree at first-call time, which is a fact about the
     // filesystem rather than about the running build.
     expect(buildSrc).toMatch(/^const PROCESS_STARTED_AT = new Date\(\)\.toISOString\(\);/m);
-    expect(buildSrc).toMatch(/^const LOADED_COMMIT = gitAt\(/m);
+    // ⚠ PINS THE PROPERTY THIS TEST NAMES, NOT THE RIGHT-HAND SIDE. It used to require
+    // `const LOADED_COMMIT = gitAt(`, and a behaviour-PRESERVING change turned it red: adding a
+    // one-directional test seam in front of the git call kept the capture at module load — which
+    // is the entire defect this test exists for — while changing the spelling of the expression.
+    //
+    // That is the "gate on spelling rather than behaviour" failure this repo has now caught in
+    // four separate instruments. Anchoring at column 0 still proves the thing that matters: the
+    // value is bound once at module scope and cannot have migrated into the accessor, where it
+    // would read the filesystem at first-call time instead of describing the running build.
+    expect(buildSrc).toMatch(/^const LOADED_COMMIT =/m);
 
     const accessor = buildSrc.slice(buildSrc.indexOf('export function serverBuildInfo()'));
     expect(accessor).not.toMatch(/startedAt: new Date\(\)/);

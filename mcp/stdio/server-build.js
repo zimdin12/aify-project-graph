@@ -85,7 +85,14 @@ export const RESTART_GUIDANCE =
 export const EXECUTABLE_EXTENSIONS = ['js', 'mjs', 'cjs', 'ts', 'json'];
 const EXECUTABLE_RE = new RegExp(`\\.(${EXECUTABLE_EXTENSIONS.join('|')})$`, 'i');
 const EXECUTABLE_LIST = EXECUTABLE_EXTENSIONS.map((e) => `.${e}`).join('/');
-const LOADED_COMMIT = gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
+// ⚠ THE SEAM IS ONE-DIRECTIONAL BY CONSTRUCTION, and that is the whole reason it is allowed to
+// exist in production code. Overriding the LOADED commit can only make this process claim to be
+// OLDER than it is — it manufactures staleness, it can never conceal it. A seam that could hide
+// a real stale process would be a way to switch off the guard; this one is a way to switch it on.
+// Needed because the wiring below has to be proven against a REAL spawned server, and a real
+// server cannot be made stale without moving the checkout underneath it mid-test.
+const LOADED_COMMIT = process.env.APG_TEST_FORCE_LOADED_COMMIT
+  || gitAt(SERVER_ROOT, ['rev-parse', '--short', 'HEAD']);
 
 // ★ CAPTURED AT LOAD, BESIDE THE COMMIT — NOT READ FROM DISK PER QUERY.
 //

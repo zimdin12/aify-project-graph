@@ -667,9 +667,46 @@ rl.on('line', async (line) => {
           // best-effort — never block a verb on staleness detection
         }
       }
+      // ⛔ THE PROCESS-STALENESS CHANNEL WAS BUILT AND NEVER WIRED.
+      //
+      // `server-build.js` says of `staleProcessWarning()`: "A stale process makes EVERY answer
+      // potentially wrong, so this does not belong only in graph_health — a reader who never
+      // calls health would never learn." That is the intent. The effect was ONE consumer,
+      // `read_freshness.js`. Every other verb said nothing, so an agent that opened a round with
+      // graph_search or graph_packet got answers from old code with no signal at all — which is
+      // why three of ef-manager's last four rounds opened blocked on it, and why they asked for
+      // this three times.
+      //
+      // ⚠ NOTE THE TWO DIFFERENT STALENESSES. `stalenessWarning` above is the GRAPH lagging HEAD
+      // — a data fact, per repo. This is the PROCESS running code from an older commit — a code
+      // fact, and it applies to every repo this process serves. They are independent: either can
+      // be true without the other, and conflating them is what made the first one's presence
+      // feel like coverage.
+      //
+      // ⇒ Wired at the single choke point every verb returns through, so coverage is DERIVED
+      // rather than a list of verbs somebody has to remember to extend.
+      let processStaleWarning = null;
+      try {
+        const { staleProcessWarning } = await import('./server-build.js');
+        // ⛔ NO VERB IS EXEMPT, INCLUDING graph_health — I tried to exempt it on the grounds that
+        // it carries the full serverBuild block already, and the test caught that the grounds are
+        // false: on a repo with NO GRAPH, health returns early with a three-field summary and
+        // never reaches that block. So the one verb I had excused is the one that goes silent
+        // exactly when somebody is diagnosing an unindexed repo.
+        //
+        // ⇒ The duplicate sentence on health's normal path is the cheaper mistake by a wide
+        // margin. An exemption is a list of things somebody decided did not need the check, and
+        // this file has spent the week learning what those cost.
+        processStaleWarning = staleProcessWarning();
+      } catch { /* best-effort — never block a verb on build introspection */ }
+
       // P5-5: fold the worktree notice into the same warning channel as the
       // staleness warning so read verbs surface it without a new field shape.
       const notices = [];
+      // FIRST, because it invalidates the reading of everything under it: if the code that
+      // produced this answer is not the code the reader thinks they are testing, the graph's
+      // freshness is the less important of the two facts.
+      if (processStaleWarning) notices.push(processStaleWarning);
       if (worktreeNotice) notices.push(worktreeNotice);
       if (stalenessWarning) notices.push(stalenessWarning);
       let text;
