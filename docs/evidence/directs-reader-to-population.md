@@ -147,3 +147,44 @@ this establishes is that the false-positive CLASSES are present in the populatio
 
 ⇒ If it helps, the clean 40-form list is reproducible from this file's method and I will grade
 the full population properly against the extractor when it arrives.
+
+## Refusal classes, mapped to real corpus instances
+
+Recorded here because these are facts about DOCUMENTS, not about any extractor. They stay true if
+the rule is redesigned, and they stay true if it is abandoned. The corpus example for each is real
+and drawn from the apparatus-excluded population above.
+
+    class                        real instance                                            why refuse
+    conditional_scope            "Before picking any lane, read `docs/now.md`, then …"    precedence is scoped to an
+                                 "Read `docs/setup.md` before running the migration."      ACTIVITY; asserting it as an
+                                                                                           entry point is a WRONG answer
+    multi_step_ordering          "Read `AGENTS.md` first. Then your role file. Then       a one-target relation cannot
+                                  `docs/now.md` (live state). Then …"                      represent a sequence
+    generated_artifact_target    "(read `brief.agent.md` first; use `graph_onboard` …)"    target is produced by the tool,
+                                                                                           not an indexable document
+    reported_speech              "the session-start skill tells every agent to read        describing a directive is not
+                                  `brief.agent.md` first"                                  issuing one
+    noun_usage                   "… entry points, subsystems, hubs, read-first, tests."    "read-first" is a noun here
+    quotation                    evidence files quoting another repo's directive          reporting, not issuing —
+                                                                                           instanced by this measurement
+    negated                      "Do not read `OLD.md` first."                            reverses the instruction
+    ambiguous_multiple_targets   several targets, no expressed order                      no basis to pick one
+
+### ⇒ The ordering among these is by HARM, not by frequency
+
+`conditional_scope` is not the most common class and it is the most important one. Its failure
+mode is a WRONG entry point rather than an absent one, and a brief that names the wrong first
+document is worse than a brief that names none — the reader has no signal that they were misrouted.
+`multi_step_ordering` is louder in the corpus and fails safe by comparison: it drops a real
+directive, which is a disclosed recall cost when the refusal is counted.
+
+⚠ A refusal class that is COUNTED is a disclosed recall cost. A refusal class that is SILENT is a
+wrong recall number. One case in the prototype fell out as "matched no form" rather than "refused",
+which emits the same nothing and reports a different thing.
+
+### Known miss, deliberately not pursued
+
+    "This project uses a shared `AGENTS.md` as the entry point for all teammates."
+
+No read verb; "entry point" carries the meaning. Reaching for that phrase starts finding entry
+points in prose ABOUT entry points, which is `reported_speech` one level less detectable.
