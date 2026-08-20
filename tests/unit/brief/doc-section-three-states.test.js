@@ -12,7 +12,8 @@
 // "documents exist but none reference code" and never asked what happens when there are no
 // documents at all — the third state was invisible from inside a repo that has 155 of them.
 import { describe, it, expect } from 'vitest';
-import { renderMarkdown, buildDocumentView } from '../../../mcp/stdio/brief/render.js';
+import { renderMarkdown } from '../../../mcp/stdio/brief/render.js';
+import { buildDocumentView } from '../../../mcp/stdio/brief/document-view.js';
 
 // ⇒ Documents arrive through the canonical view; `readFirstArr` is source evidence only.
 const view = (items = [], total = null, documentCount = null) => ({
@@ -36,6 +37,7 @@ const baseData = (over = {}) => ({
   recent: [],
   health: { level: 'ok', issues: [] },
   overlayHealth: null,
+  ...view([], null, null),
   ...over,
 });
 
@@ -99,7 +101,10 @@ describe('the doc section distinguishes its three states', () => {
     // ⚠ A renderer given no count cannot tell the two apart, and inventing either would be the
     // collapse this file exists to prevent. `documentCount` defaults to null — three states, and
     // the third is "cannot answer".
-    const md = renderMarkdown(baseData());
+    // ⚠ A view with UNKNOWN counts, not an ABSENT view. Those are different failures now: absent
+    // means the caller never built the model and the renderer refuses; unknown means the model was
+    // built and could not establish a count. The old fixture conflated them by omitting the view.
+    const md = renderMarkdown(baseData({ ...view([], null, null) }));
     expect(section(md), 'no count, no claim').toBeNull();
   }, 20_000);
 

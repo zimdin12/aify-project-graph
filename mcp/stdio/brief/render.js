@@ -24,6 +24,7 @@
 import { join } from 'node:path';
 import { computeCoverage, openTasksByFeature, completedTaskCountsByFeature, openTasksWithoutFeatures } from './artifacts.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs, taskLinkStrength, taskLinkStrengthCounts } from '../overlay/quality.js';
+import { documentEvidence, buildDocumentView } from './document-view.js';
 
 /**
  * What the graph holds about documents, as ONE typed answer every surface renders.
@@ -57,91 +58,35 @@ import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFe
  * extractor that never ran, one that ran and produced zero, and edges purged since. The carrier
  * holds the result population, not producer liveness.
  */
-/**
- * One count, normalized once — value or diagnostic, never both, never a lie.
- *
- * ⛔⛔ THE FIRST CODEC FIX COVERED THE SITE THE WITNESS NAMED AND NOT THE CLASS. A malformed
- * CANDIDATE total got a JSON-safe `{type, repr}` diagnostic; the malformed INDEXED count did not,
- * and it crosses the same serializer. graph-senior-dev executed the wire artifact:
- *
- *     NaN       -> indexed_document_count: null    indistinguishable from ABSENT
- *     Infinity  -> indexed_document_count: null    same
- *     1.5       -> indexed_document_count: 1.5     violates numeric-or-null
- *     '3'       -> indexed_document_count: "3"     a STRING in a count field
- *
- * ★ An instance-shaped fix for a class-shaped defect — the exact pattern that cost this repo 62,066
- * records earlier today, when a documented guard was applied to edge invalidation and not to the
- * record prune 600 lines away. I had the general lesson written down and still repaired one site.
- *
- * ⇒ So both counts go through THIS function and neither caller restates the rule. A count is a
- * non-negative integer or null; anything else travels as a diagnostic that survives JSON.
- */
-export function normalizeCount(raw) {
-  if (raw == null) return { value: null, invalid: null };
-  if (Number.isInteger(raw) && raw >= 0) return { value: raw, invalid: null };
-  // `String(NaN)` is 'NaN' and `String(Infinity)` is 'Infinity' — both survive serialization, which
-  // the raw values do not.
-  return { value: null, invalid: { type: typeof raw, repr: String(raw) } };
-}
 
-/**
- * THE canonical document view-model. Built ONCE, in the generator, before any renderer runs.
- *
- * ⛔ EVERY SURFACE USED TO RECONSTRUCT THIS FROM LOOSE SCALARS AND A MIXED ARRAY — filtering
- * `readFirstArr` by `kind` and calling `documentEvidence()` itself. Four surfaces reconstructing the
- * same state from the same raw parts is four chances to reconstruct it differently, and they did:
- * one surface of four carried the state, two counts crossed the codec differently, and a new kind
- * fell into whichever bucket an inequality did not name.
- *
- * ⇒ Renderers now consume this object. They present; they do not derive.
- */
-export function buildDocumentView({ linkedCandidates, positionalFallback = [], documentCount = null } = {}) {
-  const items = linkedCandidates?.items ?? [];
-  const total = linkedCandidates?.total ?? null;
-  return {
-    evidence: documentEvidence(items, documentCount, total),
-    linkedCandidates: { items, total },
-    positionalFallback,
-  };
-}
-
-export function documentEvidence(readFirstArr = [], documentCount = null, candidateTotal = null) {
-  const shown = readFirstArr.filter((r) => r.kind === 'doc').length;
-
-  // ⚠ SYMMETRIC. Both inputs are normalized by the same rule before anything compares them, so a
-  // comparison can never run against a string, a fraction or a NaN.
-  const indexed = normalizeCount(documentCount);
-  const linked = normalizeCount(candidateTotal);
-
-  // ⛔ CONTRADICTIONS, and a malformed input is one of them. Observed inconsistency is not absence:
-  // collapsing them to `unknown` would be the two-state collapse this file has been corrected for
-  // repeatedly. The raw values travel as diagnostics so the contradiction is auditable.
-  const inconsistent = Boolean(indexed.invalid) || Boolean(linked.invalid)
-    || (indexed.value != null && linked.value != null && linked.value > indexed.value)
-    // Shown cannot exceed the population it was drawn from — this is what the positional fallback
-    // produced: 2 shown against a linked total of 0.
-    || (linked.value != null && shown > linked.value);
-
-  const state = inconsistent ? 'inconsistent'
-    : (linked.value != null ? linked.value > 0 : shown > 0) ? 'candidates_present'
-      : linked.value == null ? 'unknown'
-        : indexed.value == null ? 'unknown'
-          : indexed.value === 0 ? 'graph_empty'
-            : 'indexed_without_link_candidates';
-
-  return {
-    indexed_document_count: indexed.value,
-    linked_candidate_count: linked.value,
-    // ⚠ Present ONLY when malformed, so a consumer can distinguish "absent" from "given, and wrong".
-    ...(indexed.invalid ? { invalid_indexed_document_count: indexed.invalid } : {}),
-    ...(linked.invalid ? { invalid_linked_candidate_count: linked.invalid } : {}),
-    // Both, always. "showing 2 of 89" is only sayable if the artifact carries both.
-    shown_candidate_count: shown,
-    state,
-  };
-}
 
 /** The one bounded line the compact surfaces render. Null when there is nothing to disclose. */
+/**
+ * ⛔ FAIL CLOSED ON A MISSING VIEW. Every document renderer used to rebuild one from loose scalars:
+ *
+ *     const view = data.documentView ?? buildDocumentView({ ...documentCandidateCount... });
+ *
+ * That preserved the OLD authority beside the canonical model. It cannot reconstruct linked items
+ * or positional rows, and it emitted confident counts anyway — so graph-senior-dev executed it and
+ * got the four-way disagreement back:
+ *
+ *     full markdown  SILENT (no items, so the section fell through)
+ *     agent/onboard  "DOCS: showing 0 of 5 linked candidates"
+ *     JSON           state=candidates_present, total=5, shown=0, items=[]
+ *
+ * ⇒ A compatibility path that reconstructs a lossy second carrier is the defect it was written to
+ * fix, wearing a `??`. These renderers have exactly one caller — the generator — so there is nobody
+ * to be compatible with, and the invariant is enforced physically instead of advised in a comment.
+ */
+function requireDocumentView(data, surface) {
+  const view = data.documentView;
+  if (!view || !view.evidence || !view.linkedCandidates) {
+    throw new Error(`${surface}: documentView is required. Build it once with buildDocumentView() `
+      + 'in the generator — a renderer must not derive document state from loose counts.');
+  }
+  return view;
+}
+
 export function documentEvidenceLine(ev) {
   if (ev.state === 'inconsistent') {
     // The text surface uses the same JSON-safe representation, so the two artifacts cannot disagree
@@ -251,10 +196,7 @@ export function renderMarkdown(data) {
   // the canonical view built once in the generator. A renderer that reconstructs state from raw
   // parts is a renderer that can reconstruct it differently from its siblings — which is what four
   // surfaces reconstructing it four ways actually did.
-  const view = data.documentView ?? buildDocumentView({
-    linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
-    documentCount,
-  });
+  const view = requireDocumentView(data, 'renderMarkdown');
   const readSources = readFirstArr;
   const docCandidates = view.linkedCandidates.items;
   const positional = view.positionalFallback ?? [];
@@ -486,10 +428,7 @@ export function renderAgentMarkdown(data) {
   }
   // Same split in the compact renderings. One heading over both restores the withdrawn claim by
   // omission — see the note on the markdown renderer above.
-  const viewC = data.documentView ?? buildDocumentView({
-    linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
-    documentCount: data.documentCount ?? null,
-  });
+  const viewC = requireDocumentView(data, 'compact');
   const readSrc = readFirstArr;
   const docCands = viewC.linkedCandidates.items;
   if (readSrc.length) {
@@ -590,10 +529,7 @@ export function renderOnboardAgentMarkdown(data) {
   }
   // Same split in the compact renderings. One heading over both restores the withdrawn claim by
   // omission — see the note on the markdown renderer above.
-  const viewC = data.documentView ?? buildDocumentView({
-    linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
-    documentCount: data.documentCount ?? null,
-  });
+  const viewC = requireDocumentView(data, 'compact');
   const readSrc = readFirstArr;
   const docCands = viewC.linkedCandidates.items;
   if (readSrc.length) {
@@ -819,10 +755,10 @@ export function renderJson(data, repoRoot) {
     // for what ranks them. A consumer reading `kind:"doc"` out of `read_first` would inherit the
     // claim this commit withdrew.
     read_first: readFirstArr,
-    linked_document_candidates: (data.documentView?.linkedCandidates.items ?? []),
+    linked_document_candidates: requireDocumentView(data, 'renderJson').linkedCandidates.items,
     // ⚠ ITS OWN KEY, excluded from `read_first`, from `linked_document_candidates`, and from every
     // linked count. A consumer asking for link evidence must not be handed position.
-    positional_document_fallback: (data.documentView?.positionalFallback ?? []).map((r) => ({
+    positional_document_fallback: (requireDocumentView(data, 'renderJson').positionalFallback ?? []).map((r) => ({
       file: r.file,
       why: 'root-level document; no document carries an indexed authored link, so this is '
         + 'position, not evidence',
@@ -832,10 +768,7 @@ export function renderJson(data, repoRoot) {
     // means the same thing for a graph with 0 Document nodes and for one with 42 that carry no
     // authored links, and those are different situations. The payload used to carry the empty array
     // and neither number.
-    document_evidence: (data.documentView ?? buildDocumentView({
-      linkedCandidates: { items: [], total: data.documentCandidateCount ?? null },
-      documentCount: data.documentCount ?? null,
-    })).evidence,
+    document_evidence: requireDocumentView(data, 'renderJson').evidence,
     tests,
     // The anchors are a SAMPLE. Programmatic consumers need the denominator and
     // the per-extension breakdown to know which suite the sample came from.

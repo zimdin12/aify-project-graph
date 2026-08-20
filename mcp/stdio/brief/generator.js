@@ -28,7 +28,8 @@ export { computeCoverage } from './artifacts.js';
 // data object; nothing flows back. See render.js's header for why artifacts.js had to move first.
 import { q, count, extractPaths, detectCanonicalEntries, subsystems, hubs, readFirst, linkedDocumentCandidates, testInventory, testAnchors, enrichFeaturesForPlanning, enrichRisksForPlanning, risks } from './graph-shape.js';
 import { extractTooling, detectFromPackageJson, documentRecency, recentActivity, recentActivityWithFiles, summarizeUnresolvedFromManifest } from './extract.js';
-import { buildDocumentView, renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderPlanAgentMarkdown, renderJson } from './render.js';
+import { buildDocumentView } from './document-view.js';
+import { renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderPlanAgentMarkdown, renderJson } from './render.js';
 import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
 import { getDirtyFilesSync } from '../freshness/git.js';
@@ -543,10 +544,10 @@ export function generateBrief({ repoRoot }) {
       subs,
       hubsArr,
       readFirstArr,
-      documentCount,
-      documentCandidateCount,
-      // ⇒ ONE CANONICAL MODEL, built here and consumed by every surface. Renderers no longer filter
-      // a mixed array by kind or re-derive the evidence from loose scalars.
+      // ⇒ ONE CANONICAL MODEL, and the loose scalars are GONE from the render data. Leaving them
+      // beside the view kept a second authority available to any renderer that reached for it — and
+      // one did, through a `??` fallback that rebuilt a lossy carrier. One authority physically,
+      // not by convention.
       documentView,
       tests,
       testInv,

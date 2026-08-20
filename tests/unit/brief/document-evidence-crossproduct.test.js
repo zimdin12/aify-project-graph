@@ -23,11 +23,32 @@
 import { describe, it, expect } from 'vitest';
 import * as renderModule from '../../../mcp/stdio/brief/render.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
+import { buildDocumentView } from '../../../mcp/stdio/brief/document-view.js';
+
+// ⛔⛔ THIS FIXTURE USED TO SUPPLY LOOSE `documentCount` / `documentCandidateCount` AND NO VIEW —
+// so every coordinate it enumerated ran through the renderers' compatibility fallback, not through
+// the carrier `generateBrief` actually uses. graph-senior-dev: "the gate enumerates the right
+// dimensions over the wrong carrier."
+//
+// ★ That is why 79 tests were green while the fallback produced a four-way disagreement. A
+// cross-product is only as good as the carrier it crosses, and I built the axes carefully and
+// pointed them at the obsolete path.
+//
+// ⇒ Every coordinate now constructs a CANONICAL view through `buildDocumentView()` and hands the
+// SAME view to every surface.
 
 // ⚠ DERIVED, NOT LISTED. Every exported `render*` function that returns a brief artifact.
 const ALL_SURFACES = Object.entries(renderModule)
   .filter(([name, v]) => /^render/.test(name) && typeof v === 'function')
   .map(([name, fn]) => ({ name, fn }));
+
+const viewOf = ({ items = [], total = null, positional = [], documentCount = null } = {}) => (
+  buildDocumentView({
+    linkedCandidates: { items, total },
+    positionalFallback: positional,
+    documentCount,
+  })
+);
 
 const baseData = (over = {}) => ({
   snapshot: {
@@ -54,6 +75,7 @@ const baseData = (over = {}) => ({
   exports: [],
   manifestIndexedAt: '2026-08-20T00:00:00Z',
   manifestCommit: 'abc1234',
+  documentView: viewOf(),
   ...over,
 });
 
@@ -74,7 +96,7 @@ const asTextRaw = (surface, data) => {
 const asText = (surface, data) => asTextRaw(surface, data);
 
 const DOC_SURFACES = ALL_SURFACES.filter((surface) => {
-  const withDocs = asTextRaw(surface, baseData({ documentCount: 42, documentCandidateCount: 0 }));
+  const withDocs = asTextRaw(surface, baseData({ documentView: viewOf({ documentCount: 42, total: 0 }) }));
   const without = asTextRaw(surface, baseData());
   return withDocs !== without;
 });
@@ -99,7 +121,7 @@ describe('the document-evidence carrier holds across its whole space', () => {
   for (const field of COUNT_FIELDS) {
     for (const bad of MALFORMED) {
       it(`★★★ no surface leaks a malformed ${field} (${String(bad)}) into its output`, () => {
-        const data = baseData({ [field]: bad });
+        const data = baseData({ documentView: viewOf({ [field === 'documentCount' ? 'documentCount' : 'total']: bad }) });
         for (const surface of DOC_SURFACES) {
           const text = asText(surface, data);
           // ⚠ The malformed value may appear inside a `{type, repr}` diagnostic — that is the
@@ -126,7 +148,7 @@ describe('the document-evidence carrier holds across its whole space', () => {
         // ⛔ THROUGH THE REAL CODEC. NaN and Infinity serialize to `null`, which is exactly what an
         // absent count also produces — so an in-memory assertion certifies a property the published
         // artifact does not have.
-        const withBad = JSON.parse(JSON.stringify(renderModule.renderJson(baseData({ [field]: bad }), '/repo')));
+        const withBad = JSON.parse(JSON.stringify(renderModule.renderJson(baseData({ documentView: viewOf({ [field === 'documentCount' ? 'documentCount' : 'total']: bad }) }), '/repo')));
         const absent = JSON.parse(JSON.stringify(renderModule.renderJson(baseData(), '/repo')));
         expect(withBad.document_evidence.state).toBe('inconsistent');
         expect(absent.document_evidence.state, 'absence is not inconsistency').not.toBe('inconsistent');
@@ -140,12 +162,16 @@ describe('the document-evidence carrier holds across its whole space', () => {
     // ⛔ Round 3 was exactly this: the typed state reached the full markdown brief and none of the
     // compact artifacts an agent reads first. A per-state check on one surface cannot see it.
     const STATES = [
-      { name: 'graph_empty', documentCount: 0, documentCandidateCount: 0 },
-      { name: 'indexed_without_link_candidates', documentCount: 42, documentCandidateCount: 0 },
+      { name: 'graph_empty', view: viewOf({ documentCount: 0, total: 0 }) },
+      { name: 'indexed_without_link_candidates', view: viewOf({ documentCount: 42, total: 0 }) },
+      // ⛔ ADDED ON dev's INSTRUCTION, and it is the coordinate the old loop was missing: the state
+      // loop covered only the two EMPTY states, which is exactly why full-markdown silence on
+      // total=5/items=[] escaped every one of these gates.
+      { name: 'candidates_present', view: viewOf({ items: [{ file: 'a.md', kind: 'doc', why: 'w' }], total: 5, documentCount: 10 }) },
     ];
     for (const st of STATES) {
       for (const surface of DOC_SURFACES) {
-        const text = asText(surface, baseData(st));
+        const text = asText(surface, baseData({ documentView: st.view }));
         expect(text.length, `${surface.name} produced nothing for ${st.name}`).toBeGreaterThan(0);
         expect(text, `${surface.name} is silent on ${st.name}`).toMatch(/DOCS|document/i);
       }
@@ -156,9 +182,9 @@ describe('the document-evidence carrier holds across its whole space', () => {
     // Without this, "always emit a diagnostic" passes every assertion above and every artifact
     // reports itself broken — the permanent-warning failure this repo has shipped once already.
     const data = baseData({
-      documentCount: 160,
-      documentCandidateCount: 89,
-      readFirstArr: [{ file: 'README.md', why: 'w', kind: 'doc' }],
+      documentView: viewOf({
+        items: [{ file: 'README.md', why: 'w', kind: 'doc' }], total: 89, documentCount: 160,
+      }),
     });
     for (const surface of DOC_SURFACES) {
       expectAbsentWithLiveMatcher(
@@ -168,5 +194,70 @@ describe('the document-evidence carrier holds across its whole space', () => {
         `${surface.name} invented a problem`,
       );
     }
+  });
+});
+
+// ⛔ THE MISSING-VIEW WITNESS. Renderers used to rebuild a lossy second model from loose scalars
+// when `documentView` was absent — a compatibility path with no consumer to be compatible with,
+// which reintroduced the four-way disagreement it was written to fix:
+//
+//     full markdown  SILENT (no items, so the section fell through)
+//     agent/onboard  "DOCS: showing 0 of 5 linked candidates"
+//     JSON           state=candidates_present, total=5, shown=0, items=[]
+//
+// ⇒ Fail closed. A partial artifact published under a confident state is worse than no artifact.
+describe('a document surface refuses to render without the canonical view', () => {
+  const bare = () => {
+    const d = baseData();
+    delete d.documentView;
+    return d;
+  };
+
+  for (const surface of DOC_SURFACES) {
+    it(`★★★ ${surface.name} throws rather than reconstructing state`, () => {
+      expect(() => surface.fn(bare(), '/repo')).toThrow(/documentView is required/);
+    });
+  }
+
+  it('★★★ CONTROL: the same data WITH a view renders normally', () => {
+    // Without this, "always throw" passes every assertion above and the brief never renders.
+    for (const surface of DOC_SURFACES) {
+      expect(() => surface.fn(baseData(), '/repo'), `${surface.name} must still work`).not.toThrow();
+    }
+  });
+
+  it('★★★ the loose scalars are GONE from the render contract', () => {
+    // ⚠ Physical, not conventional: passing the old fields cannot influence any surface, because
+    // nothing reads them. A second authority left lying beside the canonical one is a second
+    // authority something will eventually reach for — one renderer already did.
+    const withScalars = baseData({ documentCount: 999, documentCandidateCount: 999 });
+    for (const surface of DOC_SURFACES) {
+      expect(asText(surface, withScalars), `${surface.name} still reads a loose count`)
+        .toBe(asText(surface, baseData()));
+    }
+  });
+});
+
+// ⛔ CUSTODY, NOT A TAG. `documentEvidence` derived `shown` from `items.filter(r => r.kind==='doc')`
+// inside the canonical builder — a mixed-array habit surviving the extraction. `items` IS the
+// linked carrier; membership was settled when the producer built it.
+describe('the shown count follows custody, not a redundant tag', () => {
+  it('★★★ an item with no kind still counts as shown', () => {
+    const view = viewOf({ items: [{ file: 'a.md', why: 'w' }], total: 1, documentCount: 3 });
+    expect(view.evidence.shown_candidate_count, 'the carrier is the type').toBe(1);
+    expect(view.evidence.state).toBe('candidates_present');
+  });
+
+  it('★★★ a mutated kind cannot produce "showing 0 of 1" beside a rendered row', () => {
+    const view = viewOf({ items: [{ file: 'a.md', why: 'w', kind: 'mutated' }], total: 1, documentCount: 3 });
+    const md = renderModule.renderMarkdown(baseData({ documentView: view }));
+    expect(view.evidence.shown_candidate_count).toBe(1);
+    expect(md, 'the row renders').toMatch(/a\.md/);
+    expectAbsentWithLiveMatcher(
+      /Showing 0 of 1/,
+      { forbidden: 'Showing 0 of 1.', allowed: 'Showing 1 of 2.' },
+      md,
+      'the population must not disagree with itself',
+    );
   });
 });

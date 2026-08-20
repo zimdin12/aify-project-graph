@@ -15,8 +15,9 @@
 // meanings. `brief_schema_version: 2` is that receipt, and it is asserted here.
 import { describe, it, expect } from 'vitest';
 import {
-  renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderJson, buildDocumentView,
+  renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderJson,
 } from '../../../mcp/stdio/brief/render.js';
+import { buildDocumentView } from '../../../mcp/stdio/brief/document-view.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 // ⇒ DOCUMENTS ARRIVE THROUGH THE CANONICAL VIEW, NOT THROUGH `readFirstArr`. That array is source
