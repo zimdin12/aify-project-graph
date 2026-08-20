@@ -3,9 +3,25 @@ name: graph-build-functionality
 description: Use when the user wants to build or refresh the feature/functionality map for the repo. Produces or updates `.aify-graph/functionality.json` from the graph, docs, directory structure, and commit vocabulary. Preserve user edits and always show a diff before writing. Typical runtime ~30-60s (LLM proposal + user review). For full rebuild including code+briefs, use `/graph-build-all`.
 ---
 
-# graph-build-functionality
+# What is this repo FOR? — the layer the code cannot answer
 
-Create or refresh `.aify-graph/functionality.json`, the human-curated feature map for the repo.
+The graph knows every function and every call. It does not know that eleven of them are "checkout"
+and that checkout is the thing that must not break. Nobody can derive that from the code, because it
+is a claim about intent.
+
+★ THIS FILE IS THE ONLY PLACE THAT CLAIM LIVES, and its entire value is that a HUMAN decided what
+is in it. That is also its whole fragility: an invented feature is indistinguishable from a curated
+one the moment it is written, and every consumer downstream treats both as somebody's decision.
+
+So propose, show, and let the user cut. Refine what is there rather than replacing it — an existing
+entry is user truth, however thin it looks.
+
+**When this is not the job:**
+
+- **one feature changed** → `/graph-feature-edit`. A full refresh to add one entry rewrites
+  decisions nobody asked you to revisit
+- **the code moved and the map did not** → `/graph-anchor-drift`. That is repair against a diff,
+  and it has an evidence standard this does not
 
 ## Inputs, in order
 

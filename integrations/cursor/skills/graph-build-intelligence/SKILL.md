@@ -3,9 +3,21 @@ name: graph-build-intelligence
 description: Opt-in intelligence layer for `.aify-graph/` — LLM-derived per-file semantic summaries + architectural layer assignment. Produces semantic.files.json + architecture.json that briefs and the visual dashboard consume. Use when the user wants richer-than-structural briefs or a layer-colored dashboard. Distinct from `/graph-build-all` (which only does structural extract) — this skill costs LLM credits and should be invoked deliberately.
 ---
 
-# graph-build-intelligence
+# The graph knows the shape and not the meaning
 
-This is the intelligence layer of APG. It runs a two-phase LLM pipeline over the existing structural graph and produces two overlay files that other systems read:
+You can already ask what calls what. You cannot ask "which parts of this repo are about rendering",
+because nothing in the structure carries that. This adds enough meaning to answer it.
+
+⛔ AND IT ADDS RICHNESS, NEVER AUTHORITY. Everything here is LLM-derived, which means it is a
+plausible reading of the code rather than a fact about it. The structural graph, the briefs and the
+hand-authored `functionality.json` win on ANY conflict — not as a courtesy, but because they are
+the only ones with a human or a parser behind them.
+
+⚠ Treat a confident-sounding summary of a file you have not opened as a hypothesis. It is the one
+layer here whose errors read exactly like its successes.
+
+It runs a two-phase LLM pipeline over the existing structural graph and produces two overlay files
+that other systems read:
 
 - `.aify-graph/semantic.files.json` — per-file plain-language summary, tags, complexity, nodeType, entryPoint
 - `.aify-graph/architecture.json` — 3-10 logical layers + per-file assignment with confidence + reason

@@ -3,9 +3,16 @@ name: graph-dashboard
 description: Use when the user says "open the graph dashboard", "show me the graph visually", "I want to see the feature layout", or asks for a visual view of the project graph. Launches the interactive 2D multi-layer dashboard (code + features + tasks + docs + cross-layer edges). Works in lean and full profile.
 ---
 
-# graph-dashboard
+# When the answer is a shape, not a list
 
-Open the interactive visual dashboard for the current repo's graph.
+Most graph questions have a text answer and the verbs give it faster. A few do not: "why is this
+tangled", "what does this cluster actually contain", "are these two subsystems as separate as we
+claim". Those are questions about STRUCTURE, and a list of edges is the wrong instrument for them.
+
+⚠ **This is a human's tool.** It opens a browser, and an agent mid-task almost never wants one —
+if you are answering a question, `graph_search`, `graph_packet` or `graph_consequences` will be
+faster and quotable. Reach for this when a PERSON needs to look at the shape, or when a text answer
+has failed twice and you suspect the structure is the problem.
 
 ## What it is
 

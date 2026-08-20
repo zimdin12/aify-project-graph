@@ -3,9 +3,21 @@ name: graph-build-tasks
 description: Use when the user wants to import or sync tasks into `.aify-graph/tasks.json`. Source-agnostic — ClickUp, Asana, Linear, Jira, GitHub Issues, or plaintext. Maps tasks to existing features and keeps evidence for every attribution. Typical runtime ~10-60s depending on tracker API speed + task count.
 ---
 
-# graph-build-tasks
+# Is anything already in flight on this?
 
-Link external tasks to the repo’s feature map and write `.aify-graph/tasks.json`.
+Someone is about to change a feature. The question they cannot answer from the code is whether
+somebody else is already working on it — that lives in a tracker, and the tracker does not know
+about files.
+
+This joins the two, so "what is in flight on checkout" becomes answerable.
+
+⛔ AND THE ANSWER IS ONLY AS COMPLETE AS THE SYNC. `tasks.json` answers by listing what is
+RECORDED, so an unsynced tracker produces "nothing in flight" — which is a clean, confident, wrong
+answer, and indistinguishable from a genuinely quiet feature. Say when the sync last ran; it is the
+difference between an absence and an ignorance.
+
+**When this is not the job:** one task changed → `/graph-task-edit`. A full sync to fix one status
+is a job you will repeat tomorrow.
 
 ## Preconditions
 

@@ -3,9 +3,22 @@ name: graph-build-briefs
 description: "Use when the user wants to regenerate the brief files (`.aify-graph/brief.{md,agent.md,onboard.md,plan.md,json}`) and unresolved categorization WITHOUT re-indexing the code graph or proposing functionality changes. Common case: user hand-edited `functionality.json` or `tasks.json` and wants briefs to reflect the change. Also fine after a `graph_index(force=true)` when you want fresh briefs immediately."
 ---
 
-# graph-build-briefs
+# You changed the overlay and the briefs still say the old thing
 
-Regenerate all five briefs and `.aify-graph/unresolved-categorization.json` from the existing code graph + overlay files. No re-indexing, no functionality proposal. Fast (2-5 seconds on most repos).
+The briefs are DERIVED. Nothing recomputes them when you edit `functionality.json` or
+`tasks.json` by hand, so the file you just corrected and the summary every agent actually reads
+now disagree — and the summary wins, because it is the thing that gets read.
+
+★ THAT IS THE FAILURE THIS PREVENTS, AND IT IS SILENT. A brief regenerated from a stale overlay is
+not wrong in any way that shows; it is simply describing the repo as it was before your edit. No
+error, no warning, and the next reader trusts it.
+
+Takes 2-5 seconds. No re-indexing, no functionality proposal — it reads what is already there and
+recomputes what is derived from it.
+
+**When this is not the job:** the CODE changed, not the overlay → `graph_index`, because the briefs
+are downstream of a graph that is itself now stale. And if you are unsure which moved, `graph_health`
+answers it in one call.
 
 ## When this skill is right
 
