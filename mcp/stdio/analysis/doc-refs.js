@@ -70,14 +70,50 @@ export const DOC_REF_RULES = Object.freeze({
 // single-hump `Graph` is a perfectly ordinary English word with a capital.
 const INVOCATION = /^([A-Za-z_$][\w$]*)\(\s*(?:\.\.\.|[^)]*)?\)$/;
 const TYPE_SHAPED = /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+$/;
-const SNAKE_CASE = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/;
 
-/** The shape that admitted a span, or null. Pure: a token in, a label out. */
+// ⛔ THE BARE snake_case SHAPE WAS DELETED, AND THE EVIDENCE IS CROSS-REPO.
+//
+// It shipped alongside these two and never fired:
+//
+//     aify-project-graph (JavaScript)   1170 candidates -> 0 resolved
+//     echoes_of_the_fallen (C++)         270 candidates -> 0 resolved
+//
+// I kept it at 0/1170 on the grounds that deleting a shape on one repository's evidence would be
+// calibrating on that repository's NAMING CONVENTION — the error that made the legacy extractor
+// score 83.9% here and 63.1% on echoes from identical code. So ef-manager ran the second repo,
+// expecting (as I predicted on the record) that a C++ codebase would rescue it.
+//
+// ⚠ THE SECOND REPO DID NOT RESCUE IT. IT CONVICTED IT. Same zero, and the sample says why:
+// `comms_send` x26, `comms_share` x12, `comms_dispatch` x10, `query_voxel` x8, `get_perf` x7.
+// MCP TOOL NAMES AND CONFIG KEYS — snake_case by ECOSYSTEM convention, in both corpora,
+// regardless of the host language. My prediction was refuted on its main axis.
+//
+// ★ AND THE STRUCTURAL REASON IS THAT INVOCATION ALREADY SUBSUMES THE CASE WORTH HAVING.
+// A snake_case FUNCTION written the way people write functions is an invocation:
+//
+//     `render_frame()`  -> invocation, name render_frame     ✓ still admitted
+//     `render_frame`    -> was the bare snake shape          ✗ no longer admitted
+//
+// So the bare shape only ever caught snake_case written WITHOUT parentheses, which is exactly the
+// population with zero evidence for and a named failure mode against. dev's gate is explicit:
+// "a rule below the floor is deleted, not rescued by ranking."
+//
+// ⚠ THIS COSTS RECALL AND I AM NAMING IT RATHER THAN BURYING IT: a Python or Rust document
+// writing `parse_config` in prose, meaning the function, is now a miss. Recall is disclosed as a
+// floor by design. What is not acceptable is emitting an edge to a FUNCTION because a document
+// named a TOOL that shares its spelling — which is what this shape would do first on any repo
+// where an MCP tool is implemented by a same-named function.
+
+/**
+ * The shape that admitted a span, or null. Pure: a token in, a label out.
+ *
+ * Order matters: `render_frame()` must be read as an invocation, not as a snake token with
+ * punctuation, because the parentheses are the stronger evidence of the two.
+ */
 export function shapeOf(raw) {
   const inv = INVOCATION.exec(raw);
   if (inv) return { name: inv[1], shape: 'invocation' };
   if (TYPE_SHAPED.test(raw)) return { name: raw, shape: 'type' };
-  if (SNAKE_CASE.test(raw)) return { name: raw, shape: 'snake' };
   return null;
 }
 

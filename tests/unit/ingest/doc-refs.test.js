@@ -25,7 +25,7 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
-import { detectDocRefs, buildSymbolIndex } from '../../../mcp/stdio/analysis/doc-refs.js';
+import { detectDocRefs, buildSymbolIndex, shapeOf } from '../../../mcp/stdio/analysis/doc-refs.js';
 
 let repo;
 afterEach(async () => {
@@ -340,27 +340,37 @@ describe('doc → symbol references, rule 3 (shaped + unique)', () => {
     db.close();
   }, 20_000);
 
-  it('★★★ snake_case fires — measured 0 of 1170 HERE, and that is the naming convention', async () => {
-    // ⛔ THIS TEST EXISTS BECAUSE THE RULE CANNOT BE EXERCISED BY THIS REPOSITORY. Measured on
-    // aify-project-graph: 1,170 snake_case candidate spans, ZERO resolving to a symbol — every
-    // one is an MCP tool name like `graph_packet` or a config key, because this is a JavaScript
-    // codebase and JavaScript does not name functions that way.
+  it('★★★ snake_case is caught BY THE INVOCATION SHAPE, and the bare shape is deleted', async () => {
+    // ⛔ THE BARE snake_case SHAPE SHIPPED AND NEVER FIRED. 1170 candidates on this repo, 270 on
+    // echoes_of_the_fallen, ZERO resolved on either. I held it at 0/1170 because deleting a shape
+    // on one repository's evidence would be calibrating on that repository's naming convention —
+    // and then predicted, on the record, that a C++ repo would rescue it.
     //
-    // ⚠ AND THAT IS EXACTLY WHY THE SHAPE STAYS. Deleting it on a 0/1170 yield would be
-    // calibrating a rule on one repository's naming convention — the error ef-manager measured
-    // when the legacy extractor scored 83.9% here and 63.1% on echoes from identical code. A
-    // shape is not a threshold: snake_case is the convention in C, Python and Rust, and the rule
-    // will fire there. What a 0 yield DOES mean is that this repo cannot test it, so the fixture
-    // must.
-    const db = await fixture('Call `render_frame()` and `voxel_count` here.\n', [
+    // ⚠ THE SECOND REPO CONVICTED IT INSTEAD. Same zero, and the sample says why: `comms_send`
+    // x26, `comms_share` x12, `query_voxel` x8 — MCP TOOL NAMES AND CONFIG KEYS, snake_case by
+    // ECOSYSTEM convention in both corpora regardless of host language.
+    //
+    // ★ And the case worth having was never the bare shape's: a snake_case function written the
+    // way people write functions is an INVOCATION. That is what this test now pins.
+    const db = await fixture('Call `render_frame()`; the tool is `voxel_count`.', [
       ['s1', 'Function', 'render_frame', 'src/r.c', '{"qname":"render_frame"}'],
       ['s2', 'Function', 'voxel_count', 'src/v.c', '{"qname":"voxel_count"}'],
     ]);
     await detectDocRefs(db, repo);
-    expect(shaped(db).map((r) => r.target).sort(), 'both shapes admit')
-      .toEqual(['render_frame', 'voxel_count']);
+    expect(shaped(db).map((r) => r.target),
+      'the call admits; the bare token does not, even though both symbols exist')
+      .toEqual(['render_frame']);
     db.close();
   }, 20_000);
+
+  it('★★★ shapeOf reads parentheses as the stronger evidence, not as punctuation', async () => {
+    // The ordering control. If TYPE/snake were tested before INVOCATION, `render_frame()` would
+    // have been read as something else and the subsumption above would be an accident of regex
+    // order rather than a stated rule.
+    expect(shapeOf('render_frame()')).toEqual({ name: 'render_frame', shape: 'invocation' });
+    expect(shapeOf('render_frame'), 'no parens, no shape — deliberately').toBeNull();
+    expect(shapeOf('LspClient')).toEqual({ name: 'LspClient', shape: 'type' });
+  });
 
   it('★★★ an AMBIGUOUS bare label emits nothing — uniqueness is the qualifier', async () => {
     const db = await fixture('Call `build()`.\n', [
