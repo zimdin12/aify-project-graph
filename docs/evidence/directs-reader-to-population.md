@@ -66,3 +66,37 @@ It does not implement or grade the rule, and it does not propose the extraction.
 that the population exists, that it exists in this repo, that one available corpus is genuinely
 empty under the tighter reading, and that the count is highly sensitive to a definition choice
 that has not been made yet.
+
+## Phrasing diversity — "Read X first" is 38%, not the whole population
+
+    DISTINCT FORMS  44        across 68 instances
+    "Read <T> first."         26 of 68 = 38%
+    forms occurring ONCE      38
+
+    x16  Read `AGENTS.md` first.                                  the monoculture, one repo
+    x 2  Read CLAUDE.md first, then find your role below          TWO-STEP ORDERING
+    x 1  (read `brief.agent.md` first; use `graph_onboard` …)     parenthetical, mid-sentence
+    x 3  | ↳ implementation plan: [docs/plan/…](…)                table row, NO VERB
+    x 1  **`brief.onboard.md`** — … read-first, tests             "read-first" as a noun
+
+A matcher tuned to the dominant form scores 38% and misses 38 singletons. The two-step case is
+structural rather than lexical: "Read CLAUDE.md first, THEN find your role" is a sequence, and a
+relation carrying one target per sentence cannot represent it.
+
+## ⛔ This repo's population is contaminated by the apparatus, and the apparatus is mine
+
+Three directive-looking lines in this repo live in files written today while measuring this:
+
+    docs/evidence/read-first-docs-second-corpus-echoes.md
+    docs/evidence/directs-reader-to-population.md
+      PRESENT  "Read `AGENTS.md` first."               -> true
+      input  "Read `AGENTS.md` first. It contains the full project guide."
+      … line 3, verbatim: **"Read `AGENTS.md` first."**
+
+Those are control strings and quotations of ANOTHER repo's directive. They are the quotation
+hostile-witness — predicted before anyone had seen an instance, then created here by the act of
+measuring. Ten evidence commits landed today.
+
+⇒ **`docs/evidence/` is apparatus and must be excluded from the grading population**, pre-registered
+here before the extractor exists. Left in, a rule would score test fixtures as authored directives
+and the failure would present as a working rule.
