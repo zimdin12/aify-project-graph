@@ -74,23 +74,55 @@ function containsEdge(fromNode, toNode) {
   };
 }
 
-// Only capture meaningful docs — skip trivial command docs, sparc modes, etc.
-const MEANINGFUL_DOC_NAMES = new Set([
-  'readme', 'changelog', 'architecture', 'contributing', 'migration',
-  'decisions', 'claude', 'agents', 'api', 'guide', 'overview', 'design',
-]);
-
+// ⛔ THE TWELVE-WORD ALLOWLIST IS DELETED. A DOCUMENT IS A DOCUMENT BY EXTENSION.
+//
+// What was here: admit if the basename starts with "readme", OR the name-without-extension is one
+// of twelve English words, OR the directory path contains the substring "doc". Everything else
+// was silently not a Document, and therefore not a node, and therefore invisible to every doc
+// query in the product.
+//
+// MEASURED, on tracked markdown that survives the ignore layer:
+//
+//     aify-project-graph   151 tracked · 71 admitted · 80 REFUSED   (53.0%)
+//     echoes_of_the_fallen 122 tracked · 103 admitted · 19 REFUSED  (15.6%)
+//
+// ⚠ AND NOT ONE OF THE 80 IS WHAT THE RULE WAS BUILT TO EXCLUDE. The comment it replaces said
+// "skip trivial command docs, sparc modes, etc." A scan of all 80 for command/sparc/mode/template
+// directories returns ZERO. What it actually refuses is the product's own documentation:
+//
+//     ATTRIBUTION.md · install.{claude,codex,cursor,hermes,opencode,pi}.md
+//     integrations/*/skill/SKILL.md and 70 more SKILL.md files
+//
+// The SKILL.md files are the prose that tells an agent how to use this product, excluded because
+// "skill" is not one of twelve words and `integrations/claude-code/skill/` does not contain the
+// substring "doc".
+//
+// ⛔ AND THE ALLOWLIST DOES NOT EVEN OBEY ITSELF. `nameNoExt` strips only the LAST extension:
+//
+//     install.claude.md      -> "install.claude"   REFUSED, while `claude` IS on the list
+//     AGENTS.MANAGER.md      -> "agents.manager"   REFUSED, while `agents` IS on the list
+//
+// ef-manager found the second on echoes, which adopted `NAME.QUALIFIER.md` independently for its
+// most role-specific documents. Two repos, two conventions, one parsing accident: ANY
+// `NAME.QUALIFIER.md` defeats the list even when NAME is on it.
+//
+// ★ THE DECIDING ARGUMENT IS NOT THE RATE, IT IS THAT THIS IS A SECOND EXCLUSION POLICY.
+// This codebase has ONE exclusion mechanism — .gitignore, .aifyignore and IGNORED_DIRS, resolved
+// by `loadEffectiveIgnoredDirs` — and it runs BEFORE this function. A filename-shaped second
+// policy layered on top is the same defect as framework plugins walking with their own ignore
+// list, fixed hours ago in `_plugin_utils.js`, and the same membership-by-name mechanism inverted
+// out of the packet governed set before that. Three instances, one shape: a gate whose population
+// is defined by names is left silently by choosing a name.
+//
+// ⇒ Exclusion belongs to the ignore layer. This function answers only "is this a document", and
+// the honest answer is the extension. If a repo genuinely wants its command templates out, that
+// is `.aifyignore`, which is reviewable, per-repo, and already exists.
+//
+// ⚠ THE COST IS NODE COUNT, AND IT IS BOUNDED AND MEASURED: this repo 71 -> 151 documents, echoes
+// 103 -> 122. Not a flood, because the ignore layer has already pruned the trees where markdown
+// multiplies.
 function isDocument(relPath) {
-  const base = basename(relPath).toLowerCase();
-  const nameNoExt = base.replace(/\.[^.]+$/, '');
-  if (!DOCUMENT_EXTENSIONS.has(extname(relPath).toLowerCase())) return false;
-  // Must be a meaningful doc name OR in a docs/ directory OR be a README
-  if (base.startsWith('readme')) return true;
-  if (MEANINGFUL_DOC_NAMES.has(nameNoExt)) return true;
-  const dir = dirname(relPath).toLowerCase();
-  if (dir.includes('docs') || dir.includes('doc')) return true;
-  // Skip random .md files in deep command/config directories
-  return false;
+  return DOCUMENT_EXTENSIONS.has(extname(relPath).toLowerCase());
 }
 
 function isConfig(relPath) {
@@ -215,7 +247,15 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
       // conflation that made `unresolved` unreadable in the doc layer this morning, and it would
       // have shipped a number nobody could act on.
       not_a_special_kind: 0,          // expected: source, images — another path owns these
-      text_not_admitted_as_document: 0, // ⭐ THE GAP: .md/.rst/.txt that isDocument() refused
+      // ⛔ `text_not_admitted_as_document` IS RETIRED, NOT SET TO ZERO. It counted .md/.rst/.txt
+      // that reached `isDocument()` and were refused — the 52.7% hole. `isDocument` is now exactly
+      // the extension test, so the branch that incremented it was provably unreachable.
+      //
+      // ⚠ A KEY THAT CAN NEVER BE NON-ZERO IS WORSE THAN A MISSING ONE. It reads as a check still
+      // running and finding nothing, which is precisely the inference an always-present zero is
+      // supposed to license — so leaving it would have inverted the reason it was published in the
+      // first place. The positive statement replaces it: every DOCUMENT_EXTENSION file that
+      // survives the ignore layer becomes a Document, asserted in sweep-counts.test.js.
     },
   };
 
@@ -232,9 +272,33 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
   // when we have git's answer. .aifyignore/.aifyinclude still apply.
   if (gitCandidates && repoRoot) {
     ignoredDirs = loadEffectiveIgnoredDirs(repoRoot, { skipGitignore: true });
+  } else if (repoRoot) {
+    // ⛔ WITHOUT GIT'S ANSWER, NOTHING ELSE WAS CONSULTING .gitignore AT ALL.
+    //
+    // The branch above skips the manual .gitignore parser deliberately and correctly — git's own
+    // candidate list is stricter and handles `!pattern` re-includes the parser drops. But when
+    // there are NO candidates (a non-git checkout, or git unavailable), `ignoredDirs` kept its
+    // default of the bare `IGNORED_DIRS` constant, so `.gitignore` was consulted by NOBODY on that
+    // path.
+    //
+    // Measured on this repo with candidates suppressed: 742 Document nodes, 580 of them under
+    // `reference/`, which `.gitignore:12` excludes — while `declined.ignore_rule` reported 1.
+    //
+    // ⚠ THE TWELVE-WORD DOC ALLOWLIST WAS MASKING IT. Almost every one of those 580 failed the
+    // name test, so they never became nodes and the leak never showed. Deleting the allowlist in
+    // this same commit is what made it visible — a latent defect surfaced by removing the thing
+    // that was accidentally suppressing it, which is the honest order to find it in and the worst
+    // order to ship it in.
+    //
+    // ★ IDENTICAL DEFAULT, IDENTICAL DEFECT, SECOND FILE TONIGHT. `walkFiles` in
+    // `frameworks/_plugin_utils.js` defaulted to the same bare constant and leaked 1,046 files
+    // past the same `.gitignore`. Two walkers, one fail-open default, and in both cases the strict
+    // resolver was already written and simply not the default.
+    ignoredDirs = loadEffectiveIgnoredDirs(repoRoot);
   }
   const nodes = [];
   const edges = [];
+  const prunedDirs = [];
   const directories = new Map();
 
   const rootNode = makeNode({
@@ -272,6 +336,14 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
     const entries = await readdir(absPath, { withFileTypes: true });
     for (const entry of entries) {
       if (entry.isDirectory() && isIgnoredDirName(entry.name, ignoredDirs)) {
+        // ⚠ A PRUNED SUBTREE LEFT NO TRACE AT ALL, WHICH IS THE ONE THING THIS FILE EXISTS TO
+        // STOP. `seen` deliberately counts files, and folding a subtree into it would make the
+        // denominator mean two things — so the number here is DIRECTORIES, kept in its own field
+        // and never summed with the file outcomes. `reference/` on this repo is one prune hiding
+        // 580 documents; without this the sweep reports a corpus with no hint that a whole tree
+        // was never enumerated, and the only way to find out is to measure from outside, which is
+        // exactly how the 52.7% was found in the first place.
+        prunedDirs.push(relPath === '.' ? entry.name : `${relPath}/${entry.name}`);
         continue;
       }
 
@@ -363,12 +435,6 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
         nodes.push(node);
         edges.push(containsEdge(parentNode, node));
         counts.admitted[node.type] = (counts.admitted[node.type] ?? 0) + 1;
-      } else if (DOCUMENT_EXTENSIONS.has(extname(entryRelPath).toLowerCase())) {
-        // ⭐ THE GAP. A text document that reached `isDocument()` and was refused — not a readme,
-        // not one of the 12 allowlisted names, not under a directory whose name contains "doc".
-        // 79 of this repo's 150 tracked markdown files land here. Nothing downstream will pick
-        // them up: this was their only chance to become a node.
-        counts.declined.text_not_admitted_as_document++;
       } else {
         // Expected. A `.js` file is declined here because the main extractor owns it, and
         // counting that as a loss would bury the line above in four times its own volume.
@@ -381,5 +447,11 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
   // Published even when nothing was declined. A field that appears only when something is wrong
   // cannot be told apart from a build that never had the check — which is the inference a field
   // user correctly drew from a missing `staleProcess` key on 2026-08-07.
+  // ⚠ DIRECTORIES, NOT FILES, AND KEPT OUT OF THE FILE ARITHMETIC ON PURPOSE. `seen` counts
+  // candidate files and the admitted/declined buckets must sum to it exactly; a pruned subtree was
+  // never enumerated, so folding it in would make the denominator mean two things. It is published
+  // beside them because a corpus that silently omits a whole tree is how the 52.7% stayed hidden.
+  counts.prunedDirs = prunedDirs.length;
+  counts.prunedDirSample = prunedDirs.slice(0, 25);
   return { nodes, edges, counts };
 }

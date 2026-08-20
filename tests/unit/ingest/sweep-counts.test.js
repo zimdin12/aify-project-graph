@@ -52,21 +52,43 @@ describe('the sweep publishes what it declined, not only what it admitted', () =
       .toBe(counts.seen);
   }, 30_000);
 
-  it('★★★ a markdown file that is not a Document is COUNTED as declined', async () => {
-    // The 52.7% made visible from inside. `SKILL.md` and `install.claude.md` fail all three
-    // clauses of isDocument — not a readme, not in the 12-word list, not under a "doc" directory.
-    // The rule is unchanged here; what changes is that its output is now a number.
+  it('★★★ EVERY text document becomes a node — the 52.7% hole, closed', async () => {
+    // ⛔ THIS TEST USED TO ASSERT THE HOLE. It expected `admitted.Document` to be 2 and
+    // `declined.text_not_admitted_as_document` to be 3, because `SKILL.md`, `install.claude.md`
+    // and `src.txt` all failed the twelve-word allowlist. Making the loss VISIBLE was the right
+    // first move and this is the second: the allowlist is deleted, so all five are nodes.
+    //
+    // ⚠ THE COUNTER IS RETIRED RATHER THAN ASSERTED AT ZERO. `isDocument` is now exactly the
+    // extension test, so nothing can reach the branch that incremented it. A key that can never be
+    // non-zero reads as a check still running and finding nothing — which inverts the reason
+    // always-present zeros were published at all.
+    //
+    // ⇒ So the negative counter is replaced by a POSITIVE statement, which is strictly more
+    // informative: every text file that survives the ignore layer is a Document.
     await fixture();
     const { counts } = await sweepFilesystem({ repoRoot: repo, gitCandidates: null });
-    expect(counts.admitted.Document, 'README.md and docs/design.md').toBe(2);
-    expect(counts.declined.text_not_admitted_as_document, 'SKILL.md, install.claude.md, src.txt')
-      .toBe(3);
-    // ⚠ THE SPLIT IS THE POINT. A single bucket measured 649 on the real repo, most of them .js
-    // files the sweep is SUPPOSED to decline because the main extractor owns them. An expected
-    // outcome and a real hole under one name is unreadable, and it would have buried the number
-    // that matters under four times its own volume.
+    expect(counts.admitted.Document,
+      'README.md, docs/design.md, SKILL.md, install.claude.md, src.txt').toBe(5);
+    expect(counts.declined.text_not_admitted_as_document,
+      'the bucket is retired, not zeroed — a permanent zero is a check that is not running')
+      .toBeUndefined();
     expect(counts.declined.not_a_special_kind, 'package.json is admitted, so nothing here')
       .toBe(0);
+  }, 30_000);
+
+  it('★★★ install.claude.md and SKILL.md specifically — the two the allowlist named', async () => {
+    // ⛔ NAMED RATHER THAN COUNTED, because a count of 5 is satisfied by any five files and these
+    // two are the ones the defect was about. `install.claude.md` is the sharpest instance: the
+    // allowlist CONTAINED `claude` and refused the file anyway, because `nameNoExt` stripped only
+    // the last extension and produced "install.claude". ef-manager found the same parsing accident
+    // on echoes, where `AGENTS.md` is admitted and `AGENTS.MANAGER.md` is not.
+    await fixture();
+    const { nodes } = await sweepFilesystem({ repoRoot: repo, gitCandidates: null });
+    const docs = nodes.filter((n) => n.type === 'Document').map((n) => n.file_path);
+    expect(docs, 'a NAME.QUALIFIER.md file defeated the list even when NAME was on it')
+      .toContain('install.claude.md');
+    expect(docs, 'the prose that tells an agent how to use the product')
+      .toContain('skills/thing/SKILL.md');
   }, 30_000);
 
   it('★★★ counts are published even when NOTHING was declined', async () => {
@@ -77,7 +99,7 @@ describe('the sweep publishes what it declined, not only what it admitted', () =
     await writeFile(join(repo, 'README.md'), '# only an admitted file\n');
     const { counts } = await sweepFilesystem({ repoRoot: repo, gitCandidates: null });
     expect(counts, 'the shape exists regardless of outcome').toBeTruthy();
-    expect(counts.declined.text_not_admitted_as_document).toBe(0);
+    expect(counts.declined.text_not_admitted_as_document, 'retired').toBeUndefined();
     expect(counts.declined.not_a_special_kind).toBe(0);
     expect(counts.declined.over_size_cap).toBe(0);
     expect(counts.admitted.Document).toBe(1);
@@ -95,5 +117,74 @@ describe('the sweep publishes what it declined, not only what it admitted', () =
     const { counts } = await sweepFilesystem({ repoRoot: repo, gitCandidates: null });
     expect(counts.declined.over_size_cap, 'a silent upstream drop is now a number').toBe(1);
     expect(total(counts.admitted) + total(counts.declined)).toBe(counts.seen);
+  }, 30_000);
+});
+
+describe('the sweep consults .gitignore even when git gives no candidate list', () => {
+  it('★★★ a gitignored tree is NOT swept when there are no git candidates', async () => {
+    // ⛔ SECOND FILE TONIGHT WITH THE SAME FAIL-OPEN DEFAULT.
+    //
+    // `sweepFilesystem` takes `ignoredDirs = IGNORED_DIRS` — the bare built-in constant. When git
+    // DOES give a candidate list, the code re-resolves the ignore set deliberately WITHOUT the
+    // manual .gitignore parser, because git's own answer is stricter and handles the `!pattern`
+    // re-includes the parser drops. Correct.
+    //
+    // But when there are NO candidates — a non-git checkout, or git unavailable — `ignoredDirs`
+    // kept the default and `.gitignore` was consulted by NOBODY.
+    //
+    // Measured on the real repo with candidates suppressed: 742 Document nodes, 580 of them under
+    // a `.gitignore`d `reference/`, while `declined.ignore_rule` reported 1.
+    //
+    // ⚠ AND THE TWELVE-WORD DOC ALLOWLIST HAD BEEN MASKING IT. Almost all 580 failed the name
+    // test, so they never became nodes and the leak never showed. Deleting the allowlist is what
+    // surfaced it — a latent defect revealed by removing what accidentally suppressed it.
+    //
+    // ★ `walkFiles` in frameworks/_plugin_utils.js had the identical default and leaked 1,046
+    // files past the identical `.gitignore`. In both cases the strict resolver was already written
+    // and simply was not the default.
+    repo = await mkdtemp(join(tmpdir(), 'apg-sweepignore-'));
+    await mkdir(join(repo, 'borrowed', 'nested'), { recursive: true });
+    await writeFile(join(repo, '.gitignore'), 'borrowed/\n');
+    await writeFile(join(repo, 'README.md'), '# mine\n');
+    await writeFile(join(repo, 'borrowed', 'nested', 'THIRDPARTY.md'), '# not mine\n');
+
+    // gitCandidates: null is the no-git path — the one that had no ignore policy at all.
+    const { nodes, counts } = await sweepFilesystem({ repoRoot: repo, gitCandidates: null });
+    const docs = nodes.filter((n) => n.type === 'Document').map((n) => n.file_path);
+
+    expect(docs, 'the first-party document must be swept, or this proves nothing')
+      .toContain('README.md');
+    expect(docs.join(' '), 'the gitignored tree must not be').not.toContain('THIRDPARTY.md');
+    // ⚠ THE PRUNE IS COUNTED AS A DIRECTORY, NOT AS FILES, AND THAT DISTINCTION IS THE FIRST
+    // THING THIS TEST TAUGHT ME. My first assertion here demanded `declined.ignore_rule > 0` and
+    // got 0 — because a pruned subtree is never enumerated, so its files never become candidates
+    // and never reach any file bucket. `seen` must keep meaning "candidate files" or the
+    // reconciliation above stops meaning anything.
+    //
+    // ⛔ BUT A PRUNE THAT LEAVES NO TRACE IS THE ORIGINAL DEFECT WEARING A DIFFERENT HAT. On the
+    // real repo, ONE prune hides 580 documents. So it gets its own field, outside the file
+    // arithmetic, because a corpus that silently omits a whole tree is how the 52.7% stayed
+    // hidden in the first place.
+    expect(counts.prunedDirs, 'the subtree is recorded as pruned').toBeGreaterThan(0);
+    expect(counts.prunedDirSample.join(' '), 'and it is NAMED, so a reader can check it')
+      .toContain('borrowed');
+  }, 30_000);
+
+  it('★★★ with the tree NOT gitignored, the same document IS swept', async () => {
+    // The negative control. Without it, a sweep that pruned `borrowed/` for an unrelated reason —
+    // a built-in name, a depth limit — would satisfy the test above while .gitignore did no work.
+    // `borrowed` is deliberately a name the built-in IGNORED_DIRS has never heard of; my first
+    // version of this fixture used `vendor/`, which IS built in, and would have passed either way.
+    repo = await mkdtemp(join(tmpdir(), 'apg-sweepnoignore-'));
+    await mkdir(join(repo, 'borrowed', 'nested'), { recursive: true });
+    await writeFile(join(repo, '.gitignore'), '# nothing ignored here\n');
+    await writeFile(join(repo, 'README.md'), '# mine\n');
+    await writeFile(join(repo, 'borrowed', 'nested', 'THIRDPARTY.md'), '# not mine\n');
+
+    const { nodes } = await sweepFilesystem({ repoRoot: repo, gitCandidates: null });
+    const docs = nodes.filter((n) => n.type === 'Document').map((n) => n.file_path);
+
+    expect(docs.join(' '), 'changing ONLY the .gitignore must change the answer')
+      .toContain('THIRDPARTY.md');
   }, 30_000);
 });

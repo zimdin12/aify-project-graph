@@ -147,9 +147,11 @@ describe('doc→file links survive a real index', () => {
     // with `git ls-files` because the sweep published nothing; a defect only detectable from
     // outside the system is a defect that waits for someone to go looking.
     //
-    // `SKILL.md` here is the real shape: it fails all three clauses of isDocument — not a readme,
-    // not one of the 12 allowlisted names, not under a directory containing "doc". This test does
-    // not change that rule. It asserts that declining is now COUNTED rather than silent.
+    // `SKILL.md` was the real shape of the hole: it failed all three clauses of the old
+    // isDocument — not a readme, not one of twelve allowlisted names, not under a directory
+    // containing "doc". This test made the loss COUNTED rather than silent; the allowlist has
+    // since been deleted, so it now asserts the other end — SKILL.md is a node, end to end,
+    // through a real index rather than a unit fixture.
     await mkdir(join(repoRoot, 'skills'), { recursive: true });
     await writeFile(join(repoRoot, 'skills', 'SKILL.md'), '# a skill nobody can find\n');
     await writeFile(join(repoRoot, 'docs', 'design.md'), '# design\n');
@@ -163,9 +165,22 @@ describe('doc→file links survive a real index', () => {
     expect(sum(sweepCounts.admitted) + sum(sweepCounts.declined),
       'every candidate has exactly one outcome, or a category is unrecorded')
       .toBe(sweepCounts.seen);
-    expect(sweepCounts.declined.text_not_admitted_as_document,
-      'SKILL.md reached isDocument() and was refused — this was its only chance to become a node')
-      .toBeGreaterThan(0);
+    // ⛔ THIS ASSERTED THE HOLE AND NOW ASSERTS ITS CLOSURE. The counter is RETIRED, not zeroed:
+    // `isDocument` is exactly the extension test, so nothing can reach the branch that
+    // incremented it, and a key that can never be non-zero reads as a check still running.
+    expect(sweepCounts.declined.text_not_admitted_as_document, 'retired with the defect')
+      .toBeUndefined();
+    // The positive statement, through a REAL index — the unit test covers the sweep in isolation,
+    // this covers the whole path from git to manifest.
+    //
+    // ⚠ EXACTLY 2, AND THE NUMBER DISCRIMINATES. This fixture writes two text documents:
+    // `docs/design.md`, which the old allowlist admitted via the "doc" directory clause, and
+    // `skills/SKILL.md`, which it refused. Before the allowlist was deleted this was 1. A
+    // `toBeGreaterThanOrEqual` would have passed on either value, which is why my first version of
+    // this assertion was wrong in both directions at once — I guessed 3 from a README the fixture
+    // does not create, and picked a comparison that could not have told me.
+    expect(sweepCounts.admitted.Document,
+      'docs/design.md AND skills/SKILL.md — it was 1 while the allowlist stood').toBe(2);
   }, 60_000);
 
   it('★★★ a bare filename in prose still produces nothing after a full index', async () => {
