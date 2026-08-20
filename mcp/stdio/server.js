@@ -171,6 +171,22 @@ const DEFAULT_TOOL_NAMES = new Set([
   'graph_search',
   'graph_whereis',
   'graph_health',
+  // ⭐ LISTED, AND THE LISTING COST IS EARNED BY EVIDENCE THE DROPPED VERBS DID NOT HAVE.
+  //
+  // I cut this surface from 17 to 15 four commits ago on the grounds that a listed verb nobody
+  // picks is schema billed every session for salience that is not working. Adding one back needs
+  // the opposite evidence, and this is the only verb in the product that has it:
+  //
+  //   ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
+  //   review rounds — because nothing exposed it — and it produced a finding EVERY time: four dead
+  //   declaration types, the 67%-unreachable figure, and echoes' 183 `Symbol` + 1 `BuildTest` nodes
+  //   that graph_whereis silently cannot return.
+  //
+  // Three uses, three findings, from someone who used five of seventeen verbs. That is a stronger
+  // adoption record than anything currently on this list, and the roadmap's bar for a new verb —
+  // "until the discovery journey cannot be expressed without one" — is met by the fact that the
+  // journey WAS expressed without one, three times, in raw sqlite.
+  'graph_census',
   'graph_collect_code_intel',
   'code_intel_references',
   'code_intel_hierarchy',

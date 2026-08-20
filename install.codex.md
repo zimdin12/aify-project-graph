@@ -55,7 +55,7 @@ codex mcp add aify-project-graph \
   -- node --max-old-space-size=8192 "$CLONE_PATH/mcp/stdio/server.js" --toolset=lean
 ```
 
-Drop `--toolset=lean` if the user wants the full surface (31 verbs listed in `tools/list`; not recommended on Codex).
+Drop `--toolset=lean` if the user wants the full surface (32 verbs listed in `tools/list`; not recommended on Codex).
 
 `--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.
 

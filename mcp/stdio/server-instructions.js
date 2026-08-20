@@ -11,7 +11,7 @@
 // single source of truth — imported by the initialize handler.
 export const SERVER_INSTRUCTIONS = `aify-project-graph — symbol-aware code intelligence for this repo.
 
-TOOL SURFACE: tools/list shows a FOCUSED default (15 verbs). Long-tail verbs named
+TOOL SURFACE: tools/list shows a FOCUSED default (16 verbs). Long-tail verbs named
 below (graph_onboard, graph_shader, graph_callees, graph_overview, …) are callable
 only where a host allows calling an UNLISTED tool. In a managed session that defers
 MCP tools behind a search step, they are NOT reachable — the deferred index holds

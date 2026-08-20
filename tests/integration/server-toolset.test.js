@@ -71,6 +71,7 @@ const DEFAULT_LISTED = [
   'code_intel_hierarchy',
   'code_intel_references',
   'graph_callers',
+  'graph_census',
   'graph_collect_code_intel',
   'graph_consequences',
   'graph_dashboard',
@@ -121,7 +122,17 @@ describe('server toolset selection', () => {
     // real question, had the full list in front of them, and went to raw sqlite. "Presence did not
     // steer me wrong; it steered me NOWHERE." A listed verb nobody picks is schema billed on every
     // session for salience that is not working.
-    expect(names.length).toBe(15);
+    // ⭐ 15 -> 16: `graph_census` ADDED, and the listing cost is earned by evidence the two dropped
+    // verbs did not have. ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type`
+    // in THREE separate review rounds — because nothing exposed it — and it produced a finding
+    // EVERY time: four dead declaration types, the 67%-unreachable figure, and echoes' 183
+    // `Symbol` + 1 `BuildTest` nodes that graph_whereis silently cannot return.
+    //
+    // Three uses, three findings, from someone who used five of seventeen verbs. That is the
+    // OPPOSITE evidence from the one that justified the cut: a verb nobody picks is schema billed
+    // for salience that is not working; a verb picked three times with a hit rate of 1.000 is the
+    // cheapest thing on this list.
+    expect(names.length).toBe(16);
     // ⛔ graph_index AND graph_dashboard WERE ALSO ON PHASE 3c's DROP LIST AND ARE DELIBERATELY
     // KEPT. Both are in the default set because of RECORDED HARM WHEN ABSENT, and a usage count
     // does not address absence-harm evidence:
@@ -225,7 +236,7 @@ describe('server toolset selection', () => {
 
     // The trimmed listed set is 31 verbs (42 registered − 11 hidden);
     // graph_tour (2026-06-01) is full-listed like graph_onboard.
-    expect(names.length).toBe(31);
+    expect(names.length).toBe(32);   // +graph_census
     expect(names).toContain('graph_tour');
   });
 

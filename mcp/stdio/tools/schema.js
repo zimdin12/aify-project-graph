@@ -29,6 +29,7 @@ import { graphModuleTree } from '../query/verbs/module_tree.js';
 import { graphImpact } from '../query/verbs/impact.js';
 import { graphSummary } from '../query/verbs/summary.js';
 import { graphHealth } from '../query/verbs/health.js';
+import { graphCensus } from '../query/verbs/census.js';
 import { graphConsequences } from '../query/verbs/consequences.js';
 import { graphExplainDiff } from '../query/verbs/explain_diff.js';
 import { graphReport } from '../query/verbs/report.js';
@@ -100,6 +101,12 @@ export const TOOLS = [
     name: 'graph_health',
     handler: graphHealth,
     description: 'FIRST CALL of any session: "can I trust what this graph is about to tell me?" Replaces graph_status + graph_index + brief parsing. Reports trust level, staleness (indexed commit vs HEAD), unresolved-edge counts WITH the rule that filtered them (trustBasis), code-intel coverage over an explicitly NAMED denominator (lspVerifiedPctDenominator — edges no backend can check and edges git does not track are excluded from both sides), and up to 3 ranked next actions — EMPTY on a healthy repo, which is what makes a populated list mean something. Also reports which BUILD is answering (server.commit) and whether it is behaviourally stale. SCOPE: a weak/empty-spine verdict constrains GRAPH-backed verbs only — the live code_intel_* verbs query the language server directly. For a delete decision read evidence.exhaustive on code_intel_references, not this summary.',
+    schema: { type: 'object', properties: {}, additionalProperties: false },
+  },
+  {
+    name: 'graph_census',
+    handler: graphCensus,
+    description: 'THE DISTRIBUTION BEHIND THE TOTALS graph_health REPORTS — node types, edge relations, provenance and extractors, each with its count INCLUDING the zeros. ★ THE VALUE IS THE TWO-WAY DRIFT, not the counts: `declared_but_empty` names every type or relation the code CAN emit and never has (a dead branch, or a rule whose population is zero), and `present_but_undeclared` names values in the database the taxonomy does not know about, which a consumer switching on them has no case for. Use when an answer looks thin and you cannot tell whether the graph lacks the data or the query lacks the type — a whereis that returns nothing for a node type with 0 rows is a different problem from one with 4,000. Also the only view that shows which EXTRACTORS currently hold edges, so a retired producer still owning rows is visible. Does NOT refresh: it reports the snapshot as it stands, which is the point; call graph_health to learn whether that snapshot is stale.',
     schema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
