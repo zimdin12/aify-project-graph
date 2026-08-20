@@ -639,20 +639,44 @@ export async function detectDocRefs(db, repoRoot) {
 
     // ── RULE 4 — THE PATH IS THE QUALIFIER ────────────────────────────────────────────────────
     //
-    // Rules 2 and 3 both need the TOKEN to carry its own evidence: a `::` or a `()`. Rule 4 needs
-    // neither, because the author wrote the FILE alongside the name, and a file scope disambiguates
-    // a bare word far better than any shape can.
+    // Rules 2 and 3 both need the TOKEN to carry a SHAPE: a `::`, or parentheses, or CamelCase
+    // humps. Rule 4 needs no shape, because the author wrote the FILE alongside the name and a file
+    // scope disambiguates better than any shape can.
     //
-    //     "`mcp/stdio/code-intel/lsp-client.js` — `diagnostics`, `references`, `hover`"
+    //     "`export function autoReindexEnabled(env)` in a small `mcp/stdio/freshness/auto-reindex.js`"
     //
-    // `references` and `hover` are ordinary English words. Rule 3 refuses them and should. Scoped
-    // to that file they are three unambiguous methods, and they are exactly the references the
-    // other rules structurally cannot reach.
+    // `autoReindexEnabled` has no parentheses of its own and no second CamelCase hump in the place
+    // rule 3 looks; scoped to the file that declares it, it is unambiguous. That is the population
+    // rule 4 actually serves: MARKED BUT UNSHAPED identifiers beside a path — `buildEmbeddings`,
+    // `inspectReadFreshness`, `aifyBlock`.
+    //
+    // ⛔ THIS PARAGRAPH USED TO DESCRIBE A DIFFERENT RULE, AND THE CORRECTION IS THE POINT.
+    //
+    // It argued the rule with `diagnostics`, `references` and `hover` — ordinary English words
+    // beside `lsp-client.js` — as references only a scope could reach. Then the first grade failed
+    // at 0.911 and I added a requirement that the token be inside an author-marked code span,
+    // which excludes exactly those bare words. ef-manager measured the result: `hover` 0 edges,
+    // `diagnostics` 0 edges, `references` 1 edge justified by a MARKED occurrence elsewhere on its
+    // line. The flagship example in this comment produced one edge of three, and that one did not
+    // need the rule as argued.
+    //
+    // ⚠ SO THE COMMENT SURVIVED THE RULE IT DESCRIBED. It read as verified, described a capability
+    // the code no longer had, and nothing could catch it but checking the prose against the yield —
+    // the same class as a dead assertion, one layer up. I also claimed in commit 8280567's body
+    // that this was already fixed. It was not; that sentence was false when written, and this
+    // commit is the correction rather than a silent tidy-up.
     //
     // ⚠ THE SPAN IS ONE LINE, WHICH IS NARROWER THAN dev SPECIFIED. dev allowed "link, sentence,
     // list item, fenced example" and was explicit that WHOLE-DOCUMENT co-occurrence is too weak.
     // A line is checkable, gives an honest `source_line`, and covers list items and most sentences.
     // Sentences wrapped across lines are a disclosed recall miss, not an oversight.
+    //
+    // ⚠ AND MY EVIDENCE THAT "A LINE IS A PARAGRAPH" IS RETRACTED. I cited a graded edge with ~855
+    // characters between the scoping path and the word. ef-manager found that figure was measured
+    // with `indexOf`, which returns the FIRST occurrence of a token — and the edge in question had
+    // two, bare prose at column 1298 and a marked span at 1724. Every scope-distance number for a
+    // repeated token was measured against the wrong occurrence. The concern may still be real; the
+    // measurement is not, so the number is gone rather than quietly kept.
     //
     // ⚠ FENCES STAY EXCLUDED even though dev listed them, and that is a DEFERRAL rather than a
     // ruling: the exclusion is measured load-bearing elsewhere (0 of 480 rule-1 edges came from
