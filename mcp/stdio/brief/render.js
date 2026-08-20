@@ -113,7 +113,11 @@ export function documentEvidenceLine(ev) {
 }
 
 export function renderMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth, architectureLayers = [], documentCount = null } = data;
+  // ⚠ `documentCount` IS NOT DESTRUCTURED. The generator stopped supplying it, and one branch below
+  // still read it — so production printed "NONE — null document(s) indexed" while the canonical view
+  // held 42. One authority is not physical while any reachable branch can still consult the deleted
+  // scalar.
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth, architectureLayers = [] } = data;
   const lines = [];
   lines.push('# Project Brief');
   lines.push('');
@@ -237,7 +241,8 @@ export function renderMarkdown(data) {
     lines.push('');
   } else if (docEvidence.state === 'indexed_without_link_candidates') {
     lines.push('## Linked document candidates');
-    lines.push(`NONE — ${documentCount} document(s) indexed, 0 with indexed authored-link evidence. `
+    lines.push(`NONE — ${docEvidence.indexed_document_count} document(s) indexed, `
+      + '0 with indexed authored-link evidence. '
       + 'That is consistent with documents containing no authored repository links, with an '
       + 'extractor that never ran, and with edges purged since; this carrier holds the result '
       + 'population, not producer liveness.');

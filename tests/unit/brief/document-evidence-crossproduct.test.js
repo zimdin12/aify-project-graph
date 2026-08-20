@@ -162,18 +162,61 @@ describe('the document-evidence carrier holds across its whole space', () => {
     // ⛔ Round 3 was exactly this: the typed state reached the full markdown brief and none of the
     // compact artifacts an agent reads first. A per-state check on one surface cannot see it.
     const STATES = [
-      { name: 'graph_empty', view: viewOf({ documentCount: 0, total: 0 }) },
-      { name: 'indexed_without_link_candidates', view: viewOf({ documentCount: 42, total: 0 }) },
+      {
+        name: 'graph_empty',
+        view: viewOf({ documentCount: 0, total: 0 }),
+        text: /0 Document nodes|graph holds 0/,   // this state's value IS zero, stated in prose
+        json: (ev) => expect(ev.indexed_document_count).toBe(0),
+      },
+      // ⇒ THE VALUE, not the shape. This is the coordinate that printed `null` in production.
+      {
+        name: 'indexed_without_link_candidates',
+        view: viewOf({ documentCount: 42, total: 0 }),
+        // ⚠ THE VALUE, NOT ONE SURFACE'S SENTENCE. Markdown says "42 document(s) indexed"; the
+        // compact surfaces say "DOCS: 42 indexed". Pinning a phrase would test the prose of
+        // whichever renderer I happened to look at, and the claim is that the CANONICAL COUNT
+        // reaches every surface — so the receipt is the number, and the `null` prohibition below
+        // covers the failure mode that actually shipped.
+        text: /(^|[^0-9])42([^0-9]|$)/,
+        json: (ev) => expect(ev.indexed_document_count).toBe(42),
+      },
       // ⛔ ADDED ON dev's INSTRUCTION, and it is the coordinate the old loop was missing: the state
       // loop covered only the two EMPTY states, which is exactly why full-markdown silence on
       // total=5/items=[] escaped every one of these gates.
-      { name: 'candidates_present', view: viewOf({ items: [{ file: 'a.md', kind: 'doc', why: 'w' }], total: 5, documentCount: 10 }) },
+      {
+        name: 'candidates_present',
+        view: viewOf({ items: [{ file: 'a.md', kind: 'doc', why: 'w' }], total: 5, documentCount: 10 }),
+        text: /a\.md|of 5/,
+        json: (ev) => { expect(ev.linked_candidate_count).toBe(5); expect(ev.shown_candidate_count).toBe(1); },
+      },
     ];
     for (const st of STATES) {
       for (const surface of DOC_SURFACES) {
         const text = asText(surface, baseData({ documentView: st.view }));
         expect(text.length, `${surface.name} produced nothing for ${st.name}`).toBeGreaterThan(0);
-        expect(text, `${surface.name} is silent on ${st.name}`).toMatch(/DOCS|document/i);
+        // ⛔⛔ A STATE-SPECIFIC RECEIPT, NOT `/DOCS|document/i`. That generic match proved
+        // NON-SILENCE and not AGREEMENT — so "NONE — null document(s) indexed" satisfied it while
+        // the canonical view held 42, and 100 focused tests stayed green over a production surface
+        // printing `null`. A matcher that any wrong answer also satisfies is not a check.
+        //
+        // ⚠ AND THE RECEIPT DIFFERS BY SURFACE TYPE. JSON carries structured fields, not prose, so
+        // asserting a sentence against it would be asserting the wrong contract — the exact
+        // "measured something adjacent to the thing claimed" shape, one level down.
+        if (surface.name === 'renderJson') {
+          st.json(JSON.parse(text).document_evidence);
+        } else {
+          expect(text, `${surface.name} disagrees with the canonical state on ${st.name}`)
+            .toMatch(st.text);
+          // ⚠ TEXT SURFACES ONLY. `null` is a legitimate JSON value — a prohibition on it there
+          // fires on unrelated absent fields, which is a false positive rather than a finding. In
+          // PROSE a rendered `null` means a scalar leaked, which is the defect that shipped.
+          expectAbsentWithLiveMatcher(
+            /null/,
+            { forbidden: 'NONE — null document(s) indexed', allowed: 'NONE — 42 document(s) indexed' },
+            text,
+            `${surface.name} rendered a null where a canonical count belongs on ${st.name}`,
+          );
+        }
       }
     }
   });
@@ -226,15 +269,30 @@ describe('a document surface refuses to render without the canonical view', () =
     }
   });
 
-  it('★★★ the loose scalars are GONE from the render contract', () => {
-    // ⚠ Physical, not conventional: passing the old fields cannot influence any surface, because
-    // nothing reads them. A second authority left lying beside the canonical one is a second
-    // authority something will eventually reach for — one renderer already did.
-    const withScalars = baseData({ documentCount: 999, documentCandidateCount: 999 });
+  it('★★★ the loose scalars are GONE — checked on a route that REACHES the branch', () => {
+    // ⛔⛔ MY FIRST VERSION OF THIS CONTROL WAS INERT. It used the default `unknown` view, and in
+    // that state the branch consuming `documentCount` is never reached — so injecting 999 could not
+    // change the output even though a reachable branch still read the scalar. **A control that
+    // exercises a route the defect does not lie on cannot fail.**
+    //
+    // ⇒ `indexed_without_link_candidates` is the state whose branch printed the scalar. The canonical
+    // count must appear and the injected one must not.
+    const canonical = viewOf({ documentCount: 42, total: 0 });
     for (const surface of DOC_SURFACES) {
-      expect(asText(surface, withScalars), `${surface.name} still reads a loose count`)
-        .toBe(asText(surface, baseData()));
+      const clean = asText(surface, baseData({ documentView: canonical }));
+      const injected = asText(surface, baseData({ documentView: canonical, documentCount: 999, documentCandidateCount: 999 }));
+      expect(injected, `${surface.name} still reads a loose count`).toBe(clean);
+      expectAbsentWithLiveMatcher(
+        /999/,
+        { forbidden: 'NONE — 999 document(s) indexed', allowed: 'NONE — 42 document(s) indexed' },
+        injected,
+        `${surface.name} leaked the injected scalar`,
+      );
     }
+    // ⚠ POSITIVE CONTROL on the route itself: the branch must actually be reached, or the assertions
+    // above are inert again for a new reason.
+    const md = asText(DOC_SURFACES.find((s) => s.name === 'renderMarkdown'), baseData({ documentView: canonical }));
+    expect(md, 'the affected branch was reached and printed the canonical value').toMatch(/42 document\(s\) indexed/);
   });
 });
 
