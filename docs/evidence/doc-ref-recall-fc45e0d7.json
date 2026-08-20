@@ -1,0 +1,1831 @@
+{
+  "what": "Stratified sample of REFUSED spans, for a recall FLOOR. Verdicts are NOT filled in.",
+  "how_to_grade": [
+    "For each sample entry set `is_a_missed_reference` to true or false: does `source_text` contain",
+    "a genuine reference to a symbol in THIS repository that the doc-ref layer should have admitted?",
+    "A generic filename, a shell command, a placeholder like `foo()`, an external library and a",
+    "sentence that merely uses a word are all FALSE. Give a `reason` for every TRUE — an unexplained",
+    "miss cannot be acted on.",
+    "",
+    "THE ARITHMETIC, so nobody averages the strata:",
+    "  per stratum   missed_estimate = population * (true_count / sample_size)",
+    "  overall       estimated_missed = SUM(missed_estimate) over strata where counts_toward_recall",
+    "  recall_floor  = admitted / (admitted + estimated_missed)",
+    "",
+    "It is a FLOOR, not a rate: it counts only misses this layer SAW and refused. A reference no",
+    "rule produced a candidate span for is invisible to this sample and is not in the denominator."
+  ],
+  "pins": {
+    "commit": "fc45e0d7c307bcb670c8bdf3578c23f0313b2362",
+    "graph_sha256_16": "84aae8bc0a247a2b",
+    "per_bucket": 25
+  },
+  "totals": {
+    "admitted": 82,
+    "refused_total": 11999,
+    "refused_counting_toward_recall": 11351,
+    "refused_excluded_as_other_layer": 648,
+    "excluded_buckets": [
+      "is_a_path",
+      "ambiguous_path",
+      "basename_only",
+      "path_not_indexed"
+    ]
+  },
+  "strata": [
+    {
+      "bucket": "unqualified",
+      "population": 9949,
+      "counts_toward_recall": true,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "line": 7,
+          "written": "graph_report",
+          "source_text": "A local MCP server that indexes the user's current repo into a SQLite-backed code graph and exposes high-intent query verbs (`graph_report`, `graph_whereis`, `graph_callers`, `graph_impact`, etc.). Compact NODE/EDGE output with `file:line` citations. No server, no container, client-side only.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "CHANGELOG.md",
+          "line": 362,
+          "written": "code_intel_collections",
+          "source_text": "- **`graph_collect_code_intel` no longer leaks the entire side-table on every run.** Each collect appended a full set of `code_intel_records` and prior collections were never pruned, so the table grew without bound — sand_castle hit **1.03M rows / 13 collections / 900 MB** for a 6.3k-node graph. Worse, `getCodeIntelEvidenceForSymbol`/`getCodeIntelDiagnosticsForFiles` query across ALL collections, so stale evidence/diagnostics from superseded runs resurfaced. A COMPLETE collect now prunes prior same-provider collections (partial collects don't; other backends untouched). Also hardened: records are stamped with the **envelope's** collectionId (authoritative) so the side-table can't drift from `code_intel_collections`.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/2026-08-10-one-plan.md",
+          "line": 558,
+          "written": "graph_pull",
+          "source_text": "| `graph_pull` | 910 | 608 | ⚠ orphan **vs** mapped | ~~1.50×~~ not comparable |",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/2026-08-19-does-this-earn-its-keep.md",
+          "line": 146,
+          "written": "_shards",
+          "source_text": "Expect the objection *\"this is `_shards` for code\"*, because it substantially is. **Our",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/archive/backlog.md",
+          "line": 87,
+          "written": "PASSES_THROUGH",
+          "source_text": "- Emit `PASSES_THROUGH` (new relation) edges: `Route → middleware_handle_method` for each middleware listed in the route's group.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/code-intel-v2/test-round-2026-05-31.md",
+          "line": 51,
+          "written": "complete_in_flight_screenshot",
+          "source_text": "**Positive path works:** `complete_in_flight_screenshot` (sand_castle, has an intra-TU LSP caller) renders correctly:",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/code-intel-v2-status.md",
+          "line": 62,
+          "written": "initialize",
+          "source_text": "- **MCP `initialize` server-instructions playbook** (`mcp/stdio/server-instructions.js`) — intent-routed trust-spine guidance injected into the host system prompt once/session; reaches Hermes + Claude identically.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/integrations/code-intel-provider-contract.md",
+          "line": 44,
+          "written": "file_mtime",
+          "source_text": "`session.freshnessBasis` ∈ {`git_commit`, `file_mtime`, `compile_db_hash`, `unknown`} and `session.freshnessValue` together describe what the provider's freshness is anchored to. Plan #3 (graph merge + freshness) consumes these to render `code_intel=fresh|stale|partial` in briefs and packets.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-25-upgrade-plan.md",
+          "line": 27,
+          "written": "graph_consequences",
+          "source_text": "If `graph_packet` ever needs new SQL semantics, that's a signal to stop and rethink. We do not create a second truth surface that drifts from `graph_pull` / `graph_consequences` / brief logic.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+          "line": 724,
+          "written": "grep -n \"rank\\|score\\|sort\" mcp/stdio/query/verbs/change_plan.js | head",
+          "source_text": "Run: `grep -n \"rank\\|score\\|sort\" mcp/stdio/query/verbs/change_plan.js | head`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 405,
+          "written": "mcp/stdio/freshness/refresh-breadcrumb.js",
+          "source_text": "- Create: `mcp/stdio/freshness/refresh-breadcrumb.js`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-09-next-gen-code-intel-bridge-superplan.md",
+          "line": 162,
+          "written": "projectRoot",
+          "source_text": "**Path normalization rule:** every path emitted in the response, JSONL records, or error fields is **repo-relative and forward-slash normalized** against `projectRoot`. This rule is enforced on the provider side, not the consumer side. Cross-platform (Windows/WSL/Linux) consistency is a v1 acceptance criterion.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+          "line": 12,
+          "written": "manifest.commit !== HEAD",
+          "source_text": "- The freshness *engine* (`ensureFresh` in `mcp/stdio/freshness/orchestrator.js`) is robust + incremental (detects HEAD movement via `manifest.commit !== HEAD` → diffs changed files; cosmetic/structural tiers; partial-resume). `graph_index` is a thin wrapper over it.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "line": 72,
+          "written": "af75407",
+          "source_text": "sc-manager asked the right question — *was `af75407` in place when the 24% was",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "install.codex.md",
+          "line": 60,
+          "written": "--max-old-space-size=8192",
+          "source_text": "`--max-old-space-size=8192` gives Node an 8 GB heap. On 8 GB RAM machines, use `4096`.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "line": 148,
+          "written": "[lsp✓]",
+          "source_text": "- `code_intel_hierarchy(symbol, kind=\"callers\"|\"callees\"|\"supertypes\"|\"subtypes\")` — call + type hierarchy via clangd. The trustworthy **transitive** path (who-calls-transitively, virtual overrides). Per-node `[lsp✓]` only when the index is ready; otherwise `lsp-partial`. For a `base*->virt()` callsite use call hierarchy on the virtual (or hierarchy on the owning class) plus static `OVERRIDDEN_BY` edges to see runtime overrides. A cold clangd no longer false-reports \"no root\" — the verb waits for the file's first parse then retries; if it still says \"index/AST not confirmed ready\", that's a retry signal (re-run after warmup), NOT \"this symbol has no hierarchy\".",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md",
+          "line": 136,
+          "written": "tests/...",
+          "source_text": "1. **Path prefixes.** `src/api/...`, `src/service/...`, `tests/...` strongly hint at intent.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/claude-code/skills/safe-to-delete/SKILL.md",
+          "line": 50,
+          "written": "cause",
+          "source_text": "4. **An empty result is not an answer yet.** Read the `cause` on the evidence object and say",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/codex/skills/graph-build-all/SKILL.md",
+          "line": 80,
+          "written": "depends_on",
+          "source_text": "- `depends_on`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/codex/skills/graph-guide/SKILL.md",
+          "line": 119,
+          "written": "risk_flags",
+          "source_text": "of absence.** Derived fields (`risk_flags`) inherit the weakest provenance of their",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/cursor/skills/cpp-inner-loop/SKILL.md",
+          "line": 136,
+          "written": "evidence.exhaustive === true",
+          "source_text": "   - Only `evidence.exhaustive === true` lets you make absence claims. `referenceLocations[]` gives callsites without the declaration mixed in.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/cursor/skills/graph-build-tasks/SKILL.md",
+          "line": 42,
+          "written": "path:",
+          "source_text": "- `strong` — direct code/tracker binding (`tag:`, `commit:`, `branch:`, `path:`)",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/hermes/skill/SKILL.md",
+          "line": 156,
+          "written": "task:CU-123",
+          "source_text": "- `graph_pull(node=\"X\")` — cross-layer pull (code + features + tasks + activity). For overlay targets, prefer explicit forms like `feature:terrain-generation`, `feature/terrain-generation`, `task:CU-123`, or `task/CU-123`.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-intelligence/prompts/file-summarizer.md",
+          "line": 66,
+          "written": "\"Contains a function called handleRequest that takes a Request object and returns a Response object.\"",
+          "source_text": "- Bad: `\"Contains a function called handleRequest that takes a Request object and returns a Response object.\"` (describes shape, not purpose)",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        },
+        {
+          "document": "README.md",
+          "line": 11,
+          "written": "bench-ab.mjs",
+          "source_text": "**Measurement caveat:** the single-fixture A/B (`docs/dogfood/ab-2026-05-12-bounded-vs-collect.{txt,json}`) shows ~1.1× time, ~76% byte reduction — the **byte reduction is mechanically real**, the wall-clock parity is a fixture artifact (the demo bypasses production cold-server waits to measure tool-surface latency). On real clangd, bounded verbs pay a real first-call cold-warmup cost; subsequent calls in-session are fast. The agent-code-intel reference repo ran a 9-task T1-T9 A/B and validated empirically that this class of tool is \"load-bearing on multi-level absence claims, marginal on grep-solvable cases\" — APG's equivalent 6-task cpp microbench (Plan #14 Step C; harness at `scripts/code-intel-microbench.mjs`, task spec at `bench/cpp-microbench.tasks.json`) passed **6/6** on Sand Castle against real clangd 18.1.3 on 2026-05-23 (verified by graph-senior-dev). Per-task agent-productivity Δ via an LLM-driven `bench-ab.mjs` A/B remains pending: harness shipped + dry-run-tested, but real run needs a host with `claude` CLI + spend approval.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool name, response/config field, shell command, flag, commit sha, path prefix or an English phrase in backticks — none names a symbol in this repository"
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_no_symbol",
+      "population": 602,
+      "counts_toward_recall": true,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "line": 43,
+          "written": "graph_health()",
+          "source_text": "**Verify** — on first session after restart: `graph_health()` should return a trust/indexing summary. If no graph exists yet, call `graph_index(force=true)` or run the `graph-build-all` skill. If the tool is not found, the MCP didn't register (rerun the relevant install-doc step).",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "AGENTS.md",
+          "line": 224,
+          "written": "graph_index()",
+          "source_text": "- **First-time index on a huge repo.** If 4 agents all hit an un-indexed repo simultaneously, one wins the lock and builds; the others wait up to ~3 minutes. On very large repos (10-minute first-index), the losers may time out. Mitigation: have one agent run `graph_index()` explicitly before fanning out the team.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "docs/2026-08-19-roadmap.md",
+          "line": 66,
+          "written": "WorldBuffer",
+          "source_text": "and `WorldBuffer` survives contact with prose.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "docs/code-intel-v2-next-plan.md",
+          "line": 74,
+          "written": "require()",
+          "source_text": "| P3-1 ✅ DONE | **IMPORTS: extension-probe + tsconfig path-aliases + `require()` pass** — shipped `fee3309` (`ingest/import-resolution.js`): extension-probe against the git fileset, tsconfig/jsconfig path aliases (nearest-enclosing, JSONC-tolerant, load-bearing leading-`./` strip), require() CJS pass. Additive (zero regression). | [SYN]W3 | S→M | understand-anything `extract-import-map.mjs`. |",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "docs/known-limitations.md",
+          "line": 206,
+          "written": "graph_index(force=true)",
+          "source_text": "`graph_index(force=true)`, or the automatic one-time rebuild after an",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "docs/superpowers/specs/2026-04-16-aify-project-graph-design.md",
+          "line": 383,
+          "written": "graph_index(force=true)",
+          "source_text": "   - **manifest missing / corrupt / schema_version mismatch** → fall back to full rebuild via `graph_index(force=true)`.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "docs/superpowers/specs/2026-08-10-contradiction-surface-design.md",
+          "line": 631,
+          "written": "GpuMaterial",
+          "source_text": "which after `GpuMaterial` and `WorldBuffer` is a live failure mode.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "install.hermes.md",
+          "line": 262,
+          "written": "graph_index(force=true)",
+          "source_text": "- **Graph seems stale** → `graph_index(force=true)` for a full rebuild.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "line": 86,
+          "written": "graph_index(force=true)",
+          "source_text": "**AFTER A FULL REBUILD, RE-COLLECT.** `graph_index(force=true)` (and any rebuild from a schema/extractor bump) DELETES the `[lsp✓]` trust spine. It is restored automatically only while the stored collection's commit still equals HEAD; once HEAD has moved it cannot be — re-stamping shifted line numbers as \"verified\" would be a lie. Measured on a real repo: a reindex left **0 verified edges of 17544 CALLS**, so every caller answer silently became heuristic-only and nothing could attest exhaustiveness. When `graph_index` returns `trustSpineDropped` / `nextAction`, or `graph_health` says **\"trust spine EMPTY\"**, run `graph_collect_code_intel` before trusting any \"no callers / safe to delete\" claim.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "line": 241,
+          "written": "graph_preflight(symbol=\"X\")",
+          "source_text": "- call `graph_preflight(symbol=\"X\")`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/claude-code/skills/cpp-inner-loop/SKILL.md",
+          "line": 231,
+          "written": "code_intel_replay({collectionId:\"latest\", symbol:\"Foo::bar\", kind:\"references\"})",
+          "source_text": "2. Subagent later calls `code_intel_replay({collectionId:\"latest\", symbol:\"Foo::bar\", kind:\"references\"})` — reads the imported rows. No clangd, no LSP client started.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-guide/SKILL.md",
+          "line": 59,
+          "written": "graph_pull(node=\"...\")",
+          "source_text": "- narrow cross-layer context: `graph_pull(node=\"...\")`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/codex/skill/SKILL.md",
+          "line": 136,
+          "written": "graph_packet(target=\"X\", mode=\"orient|plan|debug|review|audit|verify\")",
+          "source_text": "- `graph_packet(target=\"X\", mode=\"orient|plan|debug|review|audit|verify\")` — **one-shot agent prompt packet (cheap+coarse)**. For `feature:<id>` / `task:<id>` targets, reads overlay+brief JSON directly with no freshness rebuild. Bare symbols may use one budgeted lookup to map symbol→feature and print `MATCHED VIA: ...`. Returns ~500-900 tokens: MODE / STATUS / FEATURES / SNAPSHOT / READ FIRST / CONTRACTS / TESTS / RISKS / LIVE. Reach for this first when the task is scoped to a feature or task; pick `mode` by workflow. **`mode=\"verify\"`** is a post-edit decision packet: pass `files:[...]` (and optional `audited:true`) to get diagnostics on touched files + freshness verdict + `SOURCE_REQUIRED` when audited code changes. Pass `analyze:true` to fold bounded `clang-tidy` / compile-command evidence into the same packet. No target needed for verify.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/codex/skill/SKILL.md",
+          "line": 250,
+          "written": "graph_pull(node=\"path/to/file.ext\", layers=[\"code\",\"functionality\",\"tasks\",\"relations\"])",
+          "source_text": "| Delete a file | breaks callers, orphans features/tasks/tests | `graph_pull(node=\"path/to/file.ext\", layers=[\"code\",\"functionality\",\"tasks\",\"relations\"])` | every symbol defined here + callers + features anchored + tasks referencing |",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/codex/skills/cpp-inner-loop/SKILL.md",
+          "line": 237,
+          "written": "graph_packet({mode:\"plan\"|\"orient\"|\"review\"|\"audit\"})",
+          "source_text": "- Whole-task planning / orientation / feature review → use `graph_packet({mode:\"plan\"|\"orient\"|\"review\"|\"audit\"})`.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/codex/skills/graph-guide/SKILL.md",
+          "line": 60,
+          "written": "graph_change_plan(symbol=\"...\")",
+          "source_text": "- change plan: `graph_change_plan(symbol=\"...\")`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/cursor/skill/SKILL.md",
+          "line": 137,
+          "written": "graph_collect_code_intel(language=\"cpp\", scope=\"all|changed|files\", files=[...])",
+          "source_text": "- `graph_collect_code_intel(language=\"cpp\", scope=\"all|changed|files\", files=[...])` — public action verb to run a real code-intel collection (e.g. clangd over `compile_commands.json`). Imports the v0.2 collection into the local graph so subsequent `graph_health.codeIntel`, `graph_pull(layers:[\"code_intel\"])`, `graph_change_plan`, and `graph_packet({mode:\"verify\"})` see compiler-backed evidence. Never auto-runs; explicit only.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/cursor/skill/SKILL.md",
+          "line": 251,
+          "written": "graph_impact(symbol=\"X\")",
+          "source_text": "| Rename or move a symbol | breaks every caller | `graph_impact(symbol=\"X\")` | blast radius ranked by depth + confidence |",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/cursor/skills/graph-build-all/SKILL.md",
+          "line": 14,
+          "written": "graph_index(force=true)",
+          "source_text": "- Source code changed, want fresh code graph only? → call `graph_index(force=true)` via MCP (~100ms-5s if incremental, 5s-3min if full rebuild)",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/cursor/skills/graph-guide/SKILL.md",
+          "line": 61,
+          "written": "graph_consequences(target=\"...\")",
+          "source_text": "- broad blast radius: `graph_consequences(target=\"...\")`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/hermes/skill/SKILL.md",
+          "line": 137,
+          "written": "graph_pull(layers:[\"code_intel\"])",
+          "source_text": "- `graph_collect_code_intel(language=\"cpp\", scope=\"all|changed|files\", files=[...])` — public action verb to run a real code-intel collection (e.g. clangd over `compile_commands.json`). Imports the v0.2 collection into the local graph so subsequent `graph_health.codeIntel`, `graph_pull(layers:[\"code_intel\"])`, `graph_change_plan`, and `graph_packet({mode:\"verify\"})` see compiler-backed evidence. Never auto-runs; explicit only.",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/hermes/skill/SKILL.md",
+          "line": 252,
+          "written": "graph_impact(symbol=\"handler\")",
+          "source_text": "| Remove a route or endpoint | breaks API consumers, framework hooks | `graph_impact(symbol=\"handler\")` + grep route table | consumers + framework wiring |",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-all/SKILL.md",
+          "line": 23,
+          "written": "graph_health()",
+          "source_text": "Do this before the first `graph_health()` / `graph_index()` call. If you skip",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "integrations/hermes/skills/graph-guide/SKILL.md",
+          "line": 62,
+          "written": "graph_path(symbol=\"...\")",
+          "source_text": "- execution trace: `graph_path(symbol=\"...\")`",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        },
+        {
+          "document": "README.md",
+          "line": 415,
+          "written": "graph_onboard(path=\".\")",
+          "source_text": "| `graph_onboard(path=\".\")` / `graph_report()` | Legacy compatibility orientation — *callable, hidden from list* | Live fallback when briefs are missing/stale |",
+          "is_a_missed_reference": false,
+          "reason": "MCP tool INVOCATION (graph_index(force=true), graph_pull(node=\"...\")) or a symbol belonging to another repository (WorldBuffer, GpuMaterial)"
+        }
+      ]
+    },
+    {
+      "bucket": "fenced_example",
+      "population": 416,
+      "counts_toward_recall": true,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "line": 72,
+          "written": "tests",
+          "source_text": "# add feature-level `tests` arrays on repos with monolithic/shared test files",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+          "line": 91,
+          "written": "brief.plan.md",
+          "source_text": "Typical size: `brief.agent.md` 200-400 tokens; `brief.plan.md` 300-600 tokens",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 1053,
+          "written": "class:${filePath}:${name}",
+          "source_text": "      const id = `class:${filePath}:${name}`;",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 1490,
+          "written": "to_id",
+          "source_text": " * has `to_qname` into a concrete `to_id` referring to an existing node.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 2889,
+          "written": "top_k=${top_k + 20}",
+          "source_text": "    return renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 20}` });",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3394,
+          "written": "graph_module_tree(path=\"src/foo\", depth=2)",
+          "source_text": "| \"What's in this directory?\" | `graph_module_tree(path=\"src/foo\", depth=2)` |",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3424,
+          "written": "graph_report()",
+          "source_text": "- Treat `graph_report()` as authoritative when `graph_status().dirtyFiles` is non-empty.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3506,
+          "written": "aify-comms-debug",
+          "source_text": "- **`AbsolutePathBuf deserialized without a base path`:** This error belongs to `aify-comms`, not this project. Consult `aify-comms-debug` skill.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "line": 274,
+          "written": "apg code-intel doctor <language>",
+          "source_text": "  wrapper_failed: 'apg code-intel wrapper exited non-zero; run `apg code-intel doctor <language>` for details',",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "line": 997,
+          "written": "${PROVIDER_NAME}@${PROVIDER_VERSION}",
+          "source_text": "                    confidence: 'high', provenance: `${PROVIDER_NAME}@${PROVIDER_VERSION}`,",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "line": 1446,
+          "written": "apg code-intel",
+          "source_text": "`aify-code-intel` is a thin PATH shim that forwards to `apg code-intel` for hosts that need a top-level executable (e.g. Claude `.lsp.json`, Pi `.pi-lsp.json`).",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1175,
+          "written": "c:@F@sample_${file.replace(/[^a-z0-9]/gi, '_')}#",
+          "source_text": "        symbolId: `c:@F@sample_${file.replace(/[^a-z0-9]/gi, '_')}#`,",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1249,
+          "written": "operations",
+          "source_text": "Required envelope fields: `schema_version`, `collectionId`, `provider`, `providerVersion`, `projectRoot`, `session`, `operations`, `status`, `records`.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1255,
+          "written": "collectionId",
+          "source_text": "Every record carries `collectionId` so imported facts trace back to the provider run that produced them. `symbolId` is the provider-stable identifier (e.g., a clangd USR). `qname` includes the disambiguating signature where the language requires it (`ns::foo(int)` rather than `ns::foo`). `language` is required so multi-language consumers can dispatch by record.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1265,
+          "written": "count",
+          "source_text": "**Per-operation `operations.<op>.status`:** `ok | partial | not_collected | unsupported`. `partial` carries `count` and `notCollectedFiles[]`. `not_collected` carries `reason`. `unsupported` indicates the provider does not support the operation for the requested language.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1271,
+          "written": "not_found_after_retry",
+          "source_text": "Records carry `result_state` ∈ {`found`, `not_found_after_retry`, `not_collected`}. Consumers must distinguish all three; \"no records returned\" is not equivalent to any single state. Symbol-aware reference queries that come back empty on a capable target trigger one warm-and-retry pass before being persisted as `not_found_after_retry`. Empty results on a non-capable target persist as `not_collected` with a `reason`.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1279,
+          "written": "git_commit",
+          "source_text": "`session.freshnessBasis` ∈ {`git_commit`, `file_mtime`, `compile_db_hash`, `unknown`} and `session.freshnessValue` together describe what the provider's freshness is anchored to. Plan #3 (graph merge + freshness) consumes these to render `code_intel=fresh|stale|partial` in briefs and packets.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1312,
+          "written": "projectRoot",
+          "source_text": "| code-intel | 0.2 | 2026-05-09 | adds `collectionId`, `projectRoot`, `symbolId`/`qname`/`signature`/`container`, categorical `confidence`, `result_state`, collection envelope with per-operation status, repo-relative path enforcement |",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+          "line": 326,
+          "written": "status=${input.status}",
+          "source_text": "  parts.push(`status=${input.status}`);",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+          "line": 261,
+          "written": "symbol: defs=${block.symbol.summary.definitions} refs=${block.symbol.summary.references} hovers=${block.symbol.summary.hovers} (${formatProvenanceTag({ kind: 'reference', confidence: 'high', provenance:",
+          "source_text": "    lines.push(`  symbol: defs=${block.symbol.summary.definitions} refs=${block.symbol.summary.references} hovers=${block.symbol.summary.hovers} (${formatProvenanceTag({ kind: 'reference', confidence: 'high', provenance: `${block.provider}@${block.providerVersion}` })})`);",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+          "line": 359,
+          "written": "(+${overflow} more)",
+          "source_text": "  const list = shown.join(', ') + (overflow > 0 ? ` (+${overflow} more)` : '');",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-graph-freshness-self-heal.md",
+          "line": 401,
+          "written": "scripts/install-graph-hook.mjs",
+          "source_text": "  `scripts/install-graph-hook.mjs` installs a post-commit reindex hook. Addresses the sc-manager",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 318,
+          "written": "${result?.nodes ?? '?'}N/${result?.edges ?? '?'}E in ${reindexMs}ms;",
+          "source_text": "  log(`${result?.nodes ?? '?'}N/${result?.edges ?? '?'}E in ${reindexMs}ms; `",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 904,
+          "written": "${doc} tells the reader to install the refresh hooks",
+          "source_text": "    it(`${doc} tells the reader to install the refresh hooks`, () => {",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 999,
+          "written": "unconfigured",
+          "source_text": "- If a response says \"graph stale\", run graph_index first. Check graph_health.refreshMechanism: `unconfigured` means no hook refreshes this repo (install-graph-hook.mjs); `degraded` means the mechanism is installed but failing, so staleness will RECUR until fixed.",
+          "is_a_missed_reference": false,
+          "reason": "template literal, envelope field name, shell command or path inside a code block"
+        }
+      ]
+    },
+    {
+      "bucket": "path_not_indexed",
+      "population": 414,
+      "counts_toward_recall": false,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "line": 34,
+          "written": "opencode.json",
+          "source_text": "| OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "line": 134,
+          "written": "hook.log",
+          "source_text": "  `.aify-graph/last-refresh.json` plus an appended `hook.log`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-19-selection-receipt-spec.md",
+          "line": 226,
+          "written": "a.cpp",
+          "source_text": "4. **Path alias** — `A.cpp`/`a.cpp`, `x/../y.cpp`, slash variants, Unicode composed/decomposed.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/archive/backlog.md",
+          "line": 24,
+          "written": "functionality.json",
+          "source_text": "**Scope**: add 4 new task shapes that leverage what ONLY the brief has (`functionality.json` overlays):",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/code-intel-v2-next-plan.md",
+          "line": 64,
+          "written": "functionality.json",
+          "source_text": "| P2-10 | **Overlay repair** — sand_castle `functionality.json` anchors broken (0/9) → `graph_packet` degraded there. Re-anchor / regenerate. | [MP] | S | |",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/dogfood/ab-results-2026-04-20-cross-tester.md",
+          "line": 310,
+          "written": "functionality.json",
+          "source_text": "- \"Brief is non-regressing\" → upgraded to \"Brief gains quality on overlay-dependent tasks where `functionality.json` is populated\"",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-25-upgrade-plan.md",
+          "line": 179,
+          "written": "brief.agent.md",
+          "source_text": "- [ ] Brief `SNAPSHOT:` line in `brief.agent.md` (already in packet via SNAPSHOT field; this duplicates for brief-only fallback path)",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 369,
+          "written": "hook.log",
+          "source_text": "Expected: `brief.agent.md`, `graph.sqlite` and `hook.log` all present, and a log",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-08-10-contradiction-surface-design.md",
+          "line": 571,
+          "written": "test_main.cpp",
+          "source_text": "= 0, and `tests/` contains only `CMakeLists.txt` and `test_main.cpp`, so there is",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "line": 21,
+          "written": "brief.plan.md",
+          "source_text": "- For change-planning: read `brief.plan.md` (has `open:` / `tests:` / `load:` per feature)",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-build-all/SKILL.md",
+          "line": 93,
+          "written": "brief.plan.md",
+          "source_text": "Now `brief.plan.md` has a FEATURES section with `open:` / `tests:` / `load:` per feature. This is what makes plan briefs worth using.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md",
+          "line": 159,
+          "written": "architecture.json",
+          "source_text": "You are NOT a software architecture reviewer — your job is descriptive, not prescriptive. If the codebase has poor layering, your output should reflect what it currently is, not what it should be. The `architecture.json` is a map of the existing code; refactoring suggestions belong elsewhere.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-guide/SKILL.md",
+          "line": 191,
+          "written": "brief.plan.md",
+          "source_text": "1. read `brief.agent.md` or `brief.plan.md`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/codex/skill/SKILL.md",
+          "line": 139,
+          "written": "tsconfig.json",
+          "source_text": "**Languages (2026-06-02): the `code_intel_*` verbs + `graph_collect_code_intel` now drive a real language server for C++ (clangd), TypeScript/JavaScript (typescript-language-server), and Python (pyright).** Language is **inferred from the file extension** — you don't pass `language`. The servers are bundled with the plugin (no host/LSP setup). Honesty differs per language: C++ gated on compile-DB coverage; TS exhaustive only when the queried file is **inside its nearest `tsconfig.json`/`jsconfig.json` project** (a root tsconfig merely existing is not enough — out-of-scope files return `partial_tsconfig_scope`); **Python is never provably exhaustive** (duck typing / `getattr` / dynamic dispatch) so its references/hierarchy return `evidence.exhaustive=false` — a FLOOR, verify with rg before any delete/rename.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/codex/skills/graph-build-all/SKILL.md",
+          "line": 134,
+          "written": "brief.plan.md",
+          "source_text": "- \"If `brief.plan.md` still says the overlay is thin, enrich `tests[]`, `anchors.docs`, `depends_on`, `related_to`, and task-link evidence before expecting the map to dominate.\"",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/codex/skills/graph-build-intelligence/SKILL.md",
+          "line": 13,
+          "written": "functionality.json",
+          "source_text": "These overlays are **additive**. They do not replace the structural graph, the briefs, or the hand-authored `functionality.json` taxonomy — those still win on any conflict. The intelligence layer adds richness, not authority.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/codex/skills/graph-guide/SKILL.md",
+          "line": 245,
+          "written": "tasks.json",
+          "source_text": "- do not skip brief regeneration after changing `functionality.json` or `tasks.json`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/cursor/skill/SKILL.md",
+          "line": 217,
+          "written": "functionality.json",
+          "source_text": "- **Mine the overlay links before planning.** When planning a feature X, don't stop at the brief — open `functionality.json` (or `brief.json.features`) and read `X.contracts[]` doc-by-doc, skim related `brief.json.features.valid[].tasks[]` for X (shipped so you don't re-parse `tasks.json`), and check `X.depends_on` + `X.related_to`. The graph stores these links; plans routinely ignore them. That's a skill-prompt failure, not a tool limitation.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/cursor/skills/graph-build-briefs/SKILL.md",
+          "line": 3,
+          "written": "tasks.json",
+          "source_text": "description: \"Use when the user wants to regenerate the brief files (`.aify-graph/brief.{md,agent.md,onboard.md,plan.md,json}`) and unresolved categorization WITHOUT re-indexing the code graph or proposing functionality changes. Common case: user hand-edited `functionality.json` or `tasks.json` and wants briefs to reflect the change. Also fine after a `graph_index(force=true)` when you want fresh briefs immediately.\"",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/cursor/skills/graph-build-intelligence/SKILL.md",
+          "line": 73,
+          "written": "functionality.json",
+          "source_text": "- Tags must be supplemental, not contradictory. If `functionality.json` exists and says a file belongs to feature `freshness-tracking`, don't tag it `something-else-major`. Mirror the feature id when natural.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/cursor/skills/graph-task-edit/SKILL.md",
+          "line": 34,
+          "written": "brief.plan.md",
+          "source_text": "8. **Rebuild briefs.** Run `node <CLONE_PATH>/scripts/graph-brief.mjs <REPO_ROOT>` as an explicit final step. Report new `brief.plan.md` size + per-feature task line changes.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/hermes/skill/SKILL.md",
+          "line": 218,
+          "written": "brief.plan.md",
+          "source_text": "- **Use explicit `tests[]` in functionality.json when inference is weak.** On repos with one shared test entrypoint (for example a single `tests/test_main.cpp`), automatic test attribution is often too weak. Put `tests: [\"tests/test_main.cpp\"]` on the relevant features so `brief.plan.md` stops pretending there is no test anchor.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-briefs/SKILL.md",
+          "line": 37,
+          "written": "brief.agent.md",
+          "source_text": "Output should show five file sizes, one unresolved-category summary line, and `wrote to <TARGET_REPO>/.aify-graph/`. Typical size (post-2026-04-21 Phase 1+3): `brief.agent.md` 300-1100 tokens (TOOLING / COVERS / EXPORTS / INTERNAL_HUBS / PATHS sections — PATHS adds 200-400 tokens when EXPORTS resolve to traceable handlers); `brief.plan.md` 300-600 tokens when functionality.json is populated, ~70 tokens when empty. If `brief.agent.md` exceeds ~1200 tokens the repo likely has an unusually large public API surface (many MCP verbs or routes) — inspect EXPORTS + PATHS sections.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-intelligence/SKILL.md",
+          "line": 124,
+          "written": "architecture.json",
+          "source_text": "- Color-grouping nodes by `architecture.json` layer.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/hermes/skills/graph-task-edit/SKILL.md",
+          "line": 69,
+          "written": "tasks.json",
+          "source_text": "- Don't silently regenerate `tasks.json` from tracker on edit — that's what `/graph-build-tasks` is for.",
+          "is_a_missed_reference": null,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "bucket": "no_such_symbol",
+      "population": 369,
+      "counts_toward_recall": true,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "line": 136,
+          "written": "graph_health.codeIntel",
+          "source_text": "Or via MCP: `graph_collect_code_intel({language:\"cpp\", scope:\"all\"})`. After import, evidence flows into `graph_health.codeIntel`, `graph_pull(layers:[\"code_intel\"])`, `graph_change_plan` ranking (`provenance: 'CODE_INTEL' | 'EXTRACTED'`), and `graph_packet` EVIDENCE blocks in every mode.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "CHANGELOG.md",
+          "line": 455,
+          "written": "feature.anchors.files",
+          "source_text": "  `feature.anchors.files` globs from outside the feature) — fixes",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "CHANGELOG.md",
+          "line": 700,
+          "written": "manifest.indexedAt",
+          "source_text": "  when `brief.json.graph_indexed_at` diverges from `manifest.indexedAt`.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/2026-08-10-one-plan.md",
+          "line": 1042,
+          "written": "receipt.floor_cause",
+          "source_text": "| `receipt.floor_cause` | ⚠ marginal | `receipt` named as a parameter; `floor_cause` itself unnamed |",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/2026-08-19-roadmap.md",
+          "line": 34,
+          "written": "turn.completed",
+          "source_text": "Both A/B harnesses read one `turn.completed` out of N. **One-sided**: under-counts whichever arm",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/archive/backlog.md",
+          "line": 123,
+          "written": "refs.usesTypes",
+          "source_text": "**Scope**: extend python.js `refs.usesTypes` rules.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/code-intel-v2/ab-results.md",
+          "line": 97,
+          "written": "GPU::applyCombinedFluidStep",
+          "source_text": "| T3 hallucination guard | **PASS** | `graph_find` 0/0/0/0, `graph_whereis` NO MATCH on fake `GPU::applyCombinedFluidStep`. |",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/code-intel-v2-status.md",
+          "line": 34,
+          "written": "manifest.nodes",
+          "source_text": "- **Adaptive packet sizing.** `graph_packet` budget + read-first cap are now repo-size-aware (`mcp/stdio/query/response-budget.js` → monotonic tiers keyed on `manifest.nodes`; precedence arg > `APG_PACKET_BUDGET` > tier). Kills god-file truncation on big repos. `graph_explore`/`graph_trace` were already adaptive (`source-bundle.js` line tiers).",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/known-limitations.md",
+          "line": 36,
+          "written": "manifest.indexedAt",
+          "source_text": "**Workaround.** As of 2026-04-22 `graph_health` checks `brief.json.graph_indexed_at` against `manifest.indexedAt` and adds `brief-stale: regenerate with graph-brief.mjs` to its summary string + a `briefStaleVsManifest: true` structured field when they diverge. Run `node scripts/graph-brief.mjs <repo>` to bring the brief back in sync.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+          "line": 857,
+          "written": "graph_health.codeIntel",
+          "source_text": "- Imported v0.2 collections create rows in `code_intel_collections`, surfaced as `graph_health.codeIntel`.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+          "line": 28,
+          "written": "graph_health.codeIntel",
+          "source_text": "| #3 | Graph merge + freshness (M3+M3.5) | `plan-3-graph-merge-complete` | `code_intel_collections` table, render/query helpers, `graph_health.codeIntel`, `graph_pull` `code_intel` layer, `graph_change_plan` provenance ranking |",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "line": 56,
+          "written": "server.commit",
+          "source_text": "cause the same way a stale number does. `server.commit` was untrustworthy for a",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "line": 640,
+          "written": "message.usage",
+          "source_text": "codegraph methodology note, sum per-turn assistant `message.usage`; `result.usage`",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "line": 217,
+          "written": "brief.json.features",
+          "source_text": "- **Mine the overlay links before planning.** When planning a feature X, don't stop at the brief — open `functionality.json` (or `brief.json.features`) and read `X.contracts[]` doc-by-doc, skim related `brief.json.features.valid[].tasks[]` for X (shipped so you don't re-parse `tasks.json`), and check `X.depends_on` + `X.related_to`. The graph stores these links; plans routinely ignore them. That's a skill-prompt failure, not a tool limitation.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/claude-code/skills/cpp-inner-loop/SKILL.md",
+          "line": 233,
+          "written": "codeIntel.collectedAt",
+          "source_text": "Replay records carry `provenance: \"CODE_INTEL_REPLAY\"` (vs `clangd@live` for live verbs). Replayed evidence is only as fresh as the last collection. Run `graph_health` first to see `codeIntel.collectedAt`; if stale, ask the parent to re-collect. Note: replay doesn't carry the Plan #14 evidence contract — collected rows are point-in-time facts; absence claims still need a live `code_intel_references` round-trip against fresh state.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md",
+          "line": 72,
+          "written": "semanticFiles.files",
+          "source_text": "4. Every path in `semanticFiles.files` MUST have an entry in `assignments` (no orphans).",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/codex/skill/SKILL.md",
+          "line": 76,
+          "written": "graph_health.refreshMechanism",
+          "source_text": "**`graph_health.refreshMechanism` says whether anything is keeping this graph current.** Read it once at session start; it is the difference between \"the graph is behind\" and \"the graph will STAY behind\":",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/codex/skills/cpp-inner-loop/SKILL.md",
+          "line": 205,
+          "written": "evidence.exhaustive",
+          "source_text": "- **A trust-spine-empty verdict from `graph_health` scopes to GRAPH-backed answers only** (graph_callers, graph_impact, graph_pull, graph_consequences). It does NOT constrain the live verbs — they query the language server directly. For a delete decision read `evidence.exhaustive` on `code_intel_references`, not the health summary.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/codex/skills/graph-build-functionality/SKILL.md",
+          "line": 41,
+          "written": "anchors.files",
+          "source_text": "- Prefer globs for `anchors.files` instead of listing every file.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/codex/skills/graph-walk-bugs/SKILL.md",
+          "line": 57,
+          "written": "task.status",
+          "source_text": "- `task.status` in `[bug, broken, regression]` or matches `only-status` arg",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/cursor/skills/cpp-inner-loop/SKILL.md",
+          "line": 190,
+          "written": "index.resumedFrom",
+          "source_text": "again — it CONTINUES rather than repeating.** Watch `index.resumedFrom` climb toward",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/cursor/skills/graph-build-all/SKILL.md",
+          "line": 79,
+          "written": "anchors.docs",
+          "source_text": "- `anchors.docs`",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/cursor/skills/graph-guide/SKILL.md",
+          "line": 216,
+          "written": "anchors.docs",
+          "source_text": "- add `anchors.docs`",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/hermes/skills/cpp-inner-loop/SKILL.md",
+          "line": 91,
+          "written": "evidence.cause",
+          "source_text": "If `evidence.exhaustive` is false, **do not** state \"no callers\" or \"safe to delete.\" Read `evidence.cause` and `evidence.fallback` for the recovery action (pass `warmupFiles[]`, raise `waitForReadyMs`, fall back to grep, etc.). `previouslyDegraded` means the session was degraded earlier and may have under-reported in an earlier call — re-verify before acting.",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-all/SKILL.md",
+          "line": 62,
+          "written": "artifacts.briefs",
+          "source_text": "brief file is missing, if `artifacts.briefs` reported an error, or after later",
+          "is_a_missed_reference": false,
+          "reason": "a response/config FIELD PATH (manifest.indexedAt, evidence.exhaustive, anchors.docs) — dotted, but not a symbol"
+        }
+      ]
+    },
+    {
+      "bucket": "basename_only",
+      "population": 133,
+      "counts_toward_recall": false,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "CHANGELOG.md",
+          "line": 292,
+          "written": "compile_commands.json",
+          "source_text": "- **codex and cursor were missing the compile-DB coverage gate entirely.** The main `skill/SKILL.md` for those two runtimes never received the Windows-first trust guidance that landed in claude-code and hermes — the paragraph explaining that a foreign/unity `compile_commands.json` makes the clangd index silently PARTIAL, that this returns `exhaustive:false` with `cause:\"partial_compile_db_coverage\"`, and that such a result must NOT be read as \"no callers / safe to delete\". Agents on those two runtimes were reading a skill that omitted the core absence-claim safety rule. Also missing: the cold-clangd retry guidance (\"index/AST not confirmed ready\" is a retry signal, not \"no hierarchy\"). Both propagated.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-10-one-plan.md",
+          "line": 80,
+          "written": "consequences.js",
+          "source_text": "✅ **Resolved from source history instead.** `consequences.js` carries two field reports —",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 60,
+          "written": "consequences.js",
+          "source_text": "> `generator.js` 1965, `consequences.js` 1323, `packet.js` 1154.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 122,
+          "written": "health.js",
+          "source_text": "- `health.js` — 3 exports, so \"one verb doing one job\" is imprecise; but the reason actually",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 295,
+          "written": "generator.js",
+          "source_text": "zero `line N` citations remain in `mcp/stdio/server.js`, and `generator.js` never had any.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-19-roadmap.md",
+          "line": 231,
+          "written": "packet.js",
+          "source_text": "defect underneath: `packet.js` at 1453 carries the packet-list guarantee that took **ten",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/code-intel-v2/master-plan.md",
+          "line": 45,
+          "written": "live.js",
+          "source_text": "- clangd spawn upgrade (`providers/cpp-clangd.js`, `live.js`): `--background-index=true` (+ `--background-index-priority=normal`), `-j`, `--pch-storage=memory`, `--compile-commands-dir`, `--query-driver` for the games' compilers; parameterize timeout (cold up to ~60s), wire provider `maxRequestMs` into the client.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/code-intel-v2-next-plan.md",
+          "line": 77,
+          "written": "packet.js",
+          "source_text": "| P3-4 ✅ DONE | **`packet.js` skeletonize-before-drop** — shipped `fee3309`: collapse dir-prefix-shared list items + keep header+count before dropping tail; never drops the `target` READ-FIRST section. | [SYN]W7 | S→M | codegraph adaptive sizing. |",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+          "line": 16,
+          "written": "whereis.js",
+          "source_text": "- `change_plan.js` + `onboard.js` + `preflight.js` computeDecision export + `whereis.js` SEARCH_TYPES export all landed (`c39ee14`). Before this, origin/main was broken since `761595d`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/reference-pull-and-audit-2026-06-12.md",
+          "line": 70,
+          "written": "git.js",
+          "source_text": "- `git.js` diff failure returns `[]` (indistinguishable from \"no changes\"), then the noop",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md",
+          "line": 219,
+          "written": "compile_commands.json",
+          "source_text": "  `clangd` and `compile_commands.json` are present.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1005,
+          "written": "importer.test.js",
+          "source_text": "Expected: PASS — including pre-existing `importer.test.js` and `schema.test.js` from `d7bf17a`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+          "line": 71,
+          "written": "tour.js",
+          "source_text": "- [ ] Implement `tour.js` `graphTour({repoRoot, steps=8, focus=null})`:",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 194,
+          "written": "reindex.mjs",
+          "source_text": "runs `reindex.mjs` alone produces a fresh graph, stale briefs, and a refresh",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-09-graph-senior-dev-merge-plan-draft.md",
+          "line": 306,
+          "written": "compile_commands.json",
+          "source_text": "- project setup wizard detects `compile_commands.json`;",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+          "line": 53,
+          "written": "packet.js",
+          "source_text": "- `nodeCount` comes from `manifest.json` `nodes` (already read by `packet.js` as `manifest` — **zero extra cost, no db open**).",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+          "line": 63,
+          "written": "tour.js",
+          "source_text": "- `computeOverview` gains one additive field; `graphSearch` one optional param; one new verb file `tour.js`. No new dispatch paths beyond registering `graph_tour`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "install.claude.md",
+          "line": 153,
+          "written": "compile_commands.json",
+          "source_text": "The C++ repo needs a `compile_commands.json` (project root or `build/`) for cross-TU references. **Windows note:** a `compile_commands.json` built under WSL/Linux carries Linux include/sysroot paths; references and hierarchy stay trustworthy, but full-quality **diagnostics/hover need clangd run under WSL** against the Linux DB (see `docs/code-intel-v2-status.md` known-issue P0-3).",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "install.cursor.md",
+          "line": 148,
+          "written": "compile_commands.json",
+          "source_text": "> Then reference `/path/to/your/repo/.aify-graph/brief.agent.md` in your Cursor session prompt. Optional for C++ repos with `compile_commands.json`: run the code-intel import described in the README for `CODE_INTEL` provenance facts.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "install.pi.md",
+          "line": 5,
+          "written": "compile_commands.json",
+          "source_text": "This install keeps the base APG runtime small: Node, SQLite native module, tree-sitter parsers, static briefs, and the lean MCP surface. C++ code-intel is optional and only runs when `compile_commands.json` and `clangd` are available.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "line": 154,
+          "written": "compile_commands.json",
+          "source_text": "**Compile-DB coverage gate (read the evidence, not just the result).** ⛔ **SUPERSEDED 2026-08-19: they do not attest an exhaustive caller set at all, and the sentence below described a condition we never verified.** The compile DB says which TUs clangd MAY index; it never reports which it DID. A TU present in the DB can still fail to compile — a missing include path is enough — while background indexing reports idle, so `exhaustive` is now withheld with cause `index_population_unattested`. Returned locations remain compiler-resolved and precise; the SET is a floor, and absence claims need rg. The toolchain/unity guidance below is still correct as far as it goes: When the `compile_commands.json` was built by a *different* toolchain than the host clangd (e.g. a Linux/WSL DB with `/mnt/c` paths run against Windows clangd) or is a CMake **unity/jumbo** build, the index is silently PARTIAL — some real callers are invisible. These verbs now detect that and return `evidence.degraded:true, cause:\"partial_compile_db_coverage\", exhaustive:false` with an \"verify with rg before delete/rename\" fallback **instead of a false `exhaustive:true`**. When you see that cause: do NOT treat the result as \"no callers / dead code / safe to delete\" — cross-check with Grep. To make the index actually complete, generate a NATIVE Windows compile DB so host clangd matches it. MSBuild does NOT emit `compile_commands.json`, so configure a Ninja+clang-cl build purely for the DB: `cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON` — APG auto-discovers `build-win-clangd/`. `APG_CLANGD_WSL=1` (clangd under WSL against a Linux DB) is the fallback if a WSL build is still around.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/claude-code/skills/safe-to-delete/SKILL.md",
+          "line": 56,
+          "written": "compile_commands.json",
+          "source_text": "   - For C++, check whether the file is even in `compile_commands.json`. If it is not, the",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/codex/skills/cpp-inner-loop/SKILL.md",
+          "line": 245,
+          "written": "compile_commands.json",
+          "source_text": "- A `compile_commands.json` at the project root (or `build/`) so clangd resolves cross-TU references. Bounded verbs *will* run without it, but cross-TU references will degrade to `cause:cold_index` (auto-prewarm only sees on-disk siblings).",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/cursor/skill/SKILL.md",
+          "line": 154,
+          "written": "compile_commands.json",
+          "source_text": "**Compile-DB coverage gate (read the evidence, not just the result).** ⛔ **SUPERSEDED 2026-08-19: they do not attest an exhaustive caller set at all, and the sentence below described a condition we never verified.** The compile DB says which TUs clangd MAY index; it never reports which it DID. A TU present in the DB can still fail to compile — a missing include path is enough — while background indexing reports idle, so `exhaustive` is now withheld with cause `index_population_unattested`. Returned locations remain compiler-resolved and precise; the SET is a floor, and absence claims need rg. The toolchain/unity guidance below is still correct as far as it goes: When the `compile_commands.json` was built by a *different* toolchain than the host clangd (e.g. a Linux/WSL DB with `/mnt/c` paths run against Windows clangd) or is a CMake **unity/jumbo** build, the index is silently PARTIAL — some real callers are invisible. These verbs now detect that and return `evidence.degraded:true, cause:\"partial_compile_db_coverage\", exhaustive:false` with an \"verify with rg before delete/rename\" fallback **instead of a false `exhaustive:true`**. When you see that cause: do NOT treat the result as \"no callers / dead code / safe to delete\" — cross-check with Grep. To make the index actually complete, generate a NATIVE Windows compile DB so host clangd matches it. MSBuild does NOT emit `compile_commands.json`, so configure a Ninja+clang-cl build purely for the DB: `cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON` — APG auto-discovers `build-win-clangd/`. `APG_CLANGD_WSL=1` (clangd under WSL against a Linux DB) is the fallback if a WSL build is still around.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "integrations/cursor/skills/graph-guide/SKILL.md",
+          "line": 231,
+          "written": "compile_commands.json",
+          "source_text": "Legacy C++-only manual path (when a C++ repo has `compile_commands.json` and you want the raw scripts):",
+          "is_a_missed_reference": null,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "bucket": "is_a_path",
+      "population": 72,
+      "counts_toward_recall": false,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "line": 23,
+          "written": "install.claude.md",
+          "source_text": "- **Claude Code (native Windows / macOS / Linux)** → [`install.claude.md`](install.claude.md)",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "AGENTS.md",
+          "line": 25,
+          "written": "install.opencode.md",
+          "source_text": "- **OpenCode** → [`install.opencode.md`](install.opencode.md)",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "AGENTS.md",
+          "line": 41,
+          "written": "install.codex.md",
+          "source_text": "**Skills** — the install doc copies the whole `integrations/<runtime>/skill{,s}/` tree with a directory loop, so new skills are picked up without updating these docs. **Both Claude Code and Codex support skills natively**: Claude Code loads from `~/.claude/skills/`, Codex from `~/.codex/skills/` (see `install.codex.md` Step 3). OpenCode doesn't load skill files today; MCP tool descriptions are self-documenting there.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "line": 303,
+          "written": "install.hermes.md",
+          "source_text": "- **`install.hermes.md` documented the wrong config entirely.** The JSON-patch fallback wrote `~/.config/hermes/hermes.json` → `mcpServers`. Hermes actually reads **`$HERMES_HOME/config.yaml`** (default `~/.hermes/config.yaml`) under a top-level **`mcp_servers`** key — YAML, not JSON. Anyone following the fallback produced a file Hermes never reads. Corrected in `install.hermes.md`, `README.md`, and the marketplace `runtime_configs` metadata.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "line": 303,
+          "written": "README.md",
+          "source_text": "- **`install.hermes.md` documented the wrong config entirely.** The JSON-patch fallback wrote `~/.config/hermes/hermes.json` → `mcpServers`. Hermes actually reads **`$HERMES_HOME/config.yaml`** (default `~/.hermes/config.yaml`) under a top-level **`mcp_servers`** key — YAML, not JSON. Anyone following the fallback produced a file Hermes never reads. Corrected in `install.hermes.md`, `README.md`, and the marketplace `runtime_configs` metadata.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/code-intel-v2/reference-borrow-synthesis.md",
+          "line": 63,
+          "written": "ATTRIBUTION.md",
+          "source_text": "- all three → may copy with attribution; but type shapes differ (TS/Python vs our JS+SQLite) so **reimplement heuristics**, don't copy files. `lru-cache.ts` is the only copy-verbatim candidate. Keep `ATTRIBUTION.md` updated.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/code-intel-v2-status.md",
+          "line": 4,
+          "written": "CHANGELOG.md",
+          "source_text": "> reference-borrow rounds. For the CURRENT state read `CHANGELOG.md` and",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/install-and-launch-scope.md",
+          "line": 46,
+          "written": "AGENTS.md",
+          "source_text": "1. **Docs:** a short \"Install scopes\" section in `AGENTS.md` / README making",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 100,
+          "written": "vitest.config.js",
+          "source_text": "- Create: `package.json`, `vitest.config.js`, `.gitignore`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 142,
+          "written": "vitest.config.js",
+          "source_text": "- [ ] **Step 3: Create `vitest.config.js`**",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3443,
+          "written": "install.claude.md",
+          "source_text": "`install.claude.md`:",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3522,
+          "written": "install.opencode.md",
+          "source_text": "- Create: `install.codex.md`, `install.opencode.md`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3526,
+          "written": "install.claude.md",
+          "source_text": "`install.codex.md` is identical in substance to `install.claude.md` except step 2 uses Codex's MCP config format (`~/.codex/mcp.json` or equivalent). `install.opencode.md` is the same pattern for OpenCode.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3528,
+          "written": "install.claude.md",
+          "source_text": "If the exact config format differs, document the OpenCode-specific shape. Otherwise point back to `install.claude.md` for the conceptual steps.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3544,
+          "written": "README.md",
+          "source_text": "- Create: `README.md`, `LICENSE` (MIT), `ATTRIBUTION.md`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3549,
+          "written": "README.md",
+          "source_text": "`README.md`:",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "line": 3646,
+          "written": "install.opencode.md",
+          "source_text": "**Placeholder scan:** One intentional TODO in Task 29 (`install.opencode.md` config path unknown for OpenCode). The plan explicitly marks this and tells the implementer to either confirm the path or leave a clearly-flagged `# TODO` in the installed doc — not a silent placeholder.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md",
+          "line": 238,
+          "written": "README.md",
+          "source_text": "- Add a compatibility matrix to `README.md`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "line": 43,
+          "written": "package.json",
+          "source_text": "- `package.json` — add `bin` entries for `apg` and `aify-code-intel`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "line": 109,
+          "written": "package.json",
+          "source_text": "- [ ] **Step 3: Add bin entries to `package.json`**",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 39,
+          "written": "package.json",
+          "source_text": "- `package.json` — add `ajv` dependency if not present (verify in Task 1).",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 876,
+          "written": "README.md",
+          "source_text": "- Modify: `README.md` (the numbered install procedure, currently steps 1–5 around line 325)",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 877,
+          "written": "install.codex.md",
+          "source_text": "- Modify: `install.hermes.md`, `install.codex.md`, `install.cursor.md`, `install.opencode.md`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 877,
+          "written": "install.opencode.md",
+          "source_text": "- Modify: `install.hermes.md`, `install.codex.md`, `install.cursor.md`, `install.opencode.md`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 980,
+          "written": "install.hermes.md",
+          "source_text": "Append to `install.hermes.md`, `install.codex.md`, `install.cursor.md`, `install.opencode.md` after their skills step:",
+          "is_a_missed_reference": null,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "bucket": "ambiguous_path",
+      "population": 29,
+      "counts_toward_recall": false,
+      "sample_size": 25,
+      "sample": [
+        {
+          "document": "docs/2026-08-10-one-plan.md",
+          "line": 1033,
+          "written": "server.js",
+          "source_text": "Run over `server.js` (all 17 schemas) and `server-instructions.js`. **Reproduced",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-10-state-of-the-service.md",
+          "line": 231,
+          "written": "server.js",
+          "source_text": "- a contract test grepped `server.js` instead of the **served bytes** — it could",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 57,
+          "written": "server.js",
+          "source_text": "> and by the time I audited this document its own numbers had drifted: `server.js` had grown",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 59,
+          "written": "server.js",
+          "source_text": "> gained 57. Re-measured at **`40c7e91`**: `server.js` 1394 total, `TOOLS` spans **62–675**,",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 69,
+          "written": "server.js",
+          "source_text": "> **Two ambiguous referents, both corrected below:** `server.js` is `mcp/stdio/server.js` —",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 162,
+          "written": "render.js",
+          "source_text": "puts `computeCoverage` in `generator.js` and the renderers in `render.js` — but `generator.js`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 163,
+          "written": "render.js",
+          "source_text": "must import `render.js` to call them, and `render.js` would import `computeCoverage` back. In",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 163,
+          "written": "render.js",
+          "source_text": "must import `render.js` to call them, and `render.js` would import `computeCoverage` back. In",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 254,
+          "written": "server.js",
+          "source_text": "belong beside the dispatcher. Extracting `tools/schema.js` alone takes `server.js` from",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 277,
+          "written": "server.js",
+          "source_text": "  implementation, and `server.js` then imports it back. That is arguably the better",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 321,
+          "written": "extract.js",
+          "source_text": "3. Then `extract.js` / `structure.js`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 322,
+          "written": "server.js",
+          "source_text": "4. `server.js` dispatch/toolset split last — highest coupling to the protocol layer.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 337,
+          "written": "server.js",
+          "source_text": "⇒ **Extracting `TOOLS` from `server.js` changes no brief artefact at all.** The brief oracle",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 349,
+          "written": "extract.js",
+          "source_text": "| 3. `extract.js` / `graph-shape.js` / `artifacts.js` | brief artefacts | `scripts/refactor-oracle.mjs` |",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "line": 350,
+          "written": "server.js",
+          "source_text": "| 4. `server.js` dispatch/toolset | routing and tool surface | `toolsurface-oracle` **plus** `tests/unit/server/tool-routing-identity.test.js` (name → handler, proven against a forged lookalike) |",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/code-intel-v2/reference-borrow-synthesis.md",
+          "line": 49,
+          "written": "server.js",
+          "source_text": "Requirement: must run under **both** Hermes and Claude Code. agent-code-intel serves MCP + Pi + CLI from one `executeToolCore(name,args,runtime)` + thin per-host shims. Our `code_intel_live.js` verbs already export in this shape; need (a) one runtime-neutral dispatcher, (b) a Hermes shim alongside the Claude-Code MCP `server.js` registration, keeping arg/return schema identical. Pair with agent-code-intel's `resolveServer` chain so the LSP path has no PATH assumptions across runtimes.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/schema-versions.md",
+          "line": 38,
+          "written": "schema.js",
+          "source_text": "- the storage layer evolved between early hardening passes, but the durable on-branch schema history visible in `schema.js` jumps from `v1` to `v3`",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 54,
+          "written": "schema.js",
+          "source_text": "If ajv is not present, the existing `schema.js` is doing manual validation. v0.2 introduces enough structure (collection envelopes, status taxonomy) that a real JSON Schema validator pays for itself.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "line": 1005,
+          "written": "schema.test.js",
+          "source_text": "Expected: PASS — including pre-existing `importer.test.js` and `schema.test.js` from `d7bf17a`.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+          "line": 8,
+          "written": "render.js",
+          "source_text": "- Single new helper module `mcp/stdio/query/verbs/packet-evidence.js` builds the EVIDENCE block from the current snapshot: pulls `getLatestCollection()`, `getCodeIntelEvidenceForSymbol()`, and `getCodeIntelDiagnosticsForFiles()`. Returns a structured payload that is then rendered via the helpers from Plan #3 (`render.js`).",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-graph-freshness-self-heal.md",
+          "line": 7,
+          "written": "server.js",
+          "source_text": "**Architecture:** Reuse the existing central staleness gate (`server.js` dispatch) + `ensureFresh` engine. Add an opt-in `APG_AUTO_REINDEX` self-heal before the handler, list `graph_index`, sharpen the warning, add a FRESHNESS instruction, and ship an optional git post-commit hook installer.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-graph-freshness-self-heal.md",
+          "line": 118,
+          "written": "server.js",
+          "source_text": "- [ ] **Step 3: Implement the gate edit** in `server.js`:",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-04-16-aify-project-graph-design.md",
+          "line": 171,
+          "written": "composer.json",
+          "source_text": "Pluggable per-framework enrichers run after base extraction. Plugins detect their framework (e.g. `composer.json` with `laravel/framework`) and add framework-aware edges at lower confidence (0.6-0.8). v1 ships the plugin interface + a **Laravel routes plugin** that parses `routes/*.php` to create Route → Controller INVOKES edges.",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+          "line": 30,
+          "written": "server.js",
+          "source_text": "### Component A — Opt-in auto-reindex at the central gate (`server.js`)",
+          "is_a_missed_reference": null,
+          "reason": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+          "line": 43,
+          "written": "server.js",
+          "source_text": "- **Add `graph_index` to `DEFAULT_TOOL_NAMES`** (`server.js`) so workers can act on the warning. (It stays a normal verb; this only lists it.)",
+          "is_a_missed_reference": null,
+          "reason": null
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_ambiguous",
+      "population": 15,
+      "counts_toward_recall": true,
+      "sample_size": 15,
+      "sample": [
+        {
+          "document": "docs/reference-pull-and-audit-2026-06-12.md",
+          "line": 23,
+          "written": "send()",
+          "source_text": "leaks language-server children on every host exit. A `send()` to a dead stdout pipe is an",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+          "line": 89,
+          "written": "embedTexts(texts)",
+          "source_text": "- [ ] Implement `embeddings.js`: `cosineSimilarity(a,b)`, `rankBySimilarity(q, items, k)` (items `{id,vec,...}` → sorted by similarity desc, top-k, attach `similarity`), `embedderFromEnv()` (returns `null` if no `APG_EMBED_ENDPOINT`, else an async `embedTexts(texts)` POSTing OpenAI-compatible `/v1/embeddings`), `composeSemanticText(node, overlay)`.",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+          "line": 112,
+          "written": "embedTexts(texts)",
+          "source_text": "- Type consistency: `classifyArchetype`→`{id,name,score,confidence}` used in A2/B1; `rankBySimilarity` items `{id,vec}` consistent C1/C2; `embedTexts(texts)` signature consistent.",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+          "line": 10,
+          "written": "computeCoverage({ language, projectRoot, env })",
+          "source_text": "- **0.3** `code-intel/coverage.js`: `computeCoverage({ language, projectRoot, env })` dispatcher. cpp→`computeCompileDbCoverage` (unchanged), typescript→tsconfig strategy, python→dynamic caveat. Unit-test each verdict.",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+          "line": 12,
+          "written": "computeCoverage({language,...})",
+          "source_text": "- **0.5** Verbs (`code_intel_live.js`, `code_intel_hierarchy.js`): infer language from file ext when caller didn't pass one; call `computeCoverage({language,...})` instead of `computeCompileDbCoverage`. cpp behavior unchanged (regression-tested by existing suite).",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+          "line": 18,
+          "written": "collect()",
+          "source_text": "- **1.3** `providers/ts-langserver.js`: spawnFor via `resolveNodeBin('typescript-language-server')` + `--stdio`; glob enumerate `.ts/.tsx/.js/.jsx` (skip node_modules/dist/build); freshnessBasis tsconfig hash or mtime; `collect()` via lsp-collect. Register `typescript: 'ts-langserver'`.",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+          "line": 25,
+          "written": "collect()",
+          "source_text": "- **2.2** `providers/pyright.js`: spawnFor via `resolveNodeBin('pyright-langserver')` + `--stdio`; glob `.py` (skip venv/.venv/site-packages/__pycache__); freshnessBasis mtime; `collect()` via lsp-collect. Register `python: 'pyright'`.",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 557,
+          "written": "log()",
+          "source_text": "**(b)** Add after the `log()` helper:",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 575,
+          "written": "log(...)",
+          "source_text": "In the `try`, after the `log(...)` call:",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "line": 580,
+          "written": "log(...)",
+          "source_text": "In the `catch`, after the `log(...)` call:",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+          "line": 50,
+          "written": "embedTexts(texts, opts)",
+          "source_text": "- `embedTexts(texts, opts)` calls an **OpenAI-compatible** `/v1/embeddings` endpoint configured by env: `APG_EMBED_ENDPOINT` (e.g. `http://localhost:11434/v1/embeddings` for Ollama, or OpenAI/Voyage), `APG_EMBED_MODEL`, `APG_EMBED_API_KEY` (optional for local). No bundled model — keeps the tool build-free; works with whatever the team already runs.",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+          "line": 45,
+          "written": "computeCoverage({ language, projectRoot, env })",
+          "source_text": "A `computeCoverage({ language, projectRoot, env })` dispatcher routes to the strategy; the verbs call it instead of `computeCompileDbCoverage` directly (cpp behavior byte-identical).",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "line": 150,
+          "written": "stableId([type, filePath, qname])",
+          "source_text": "| 3 | Overload-set merging fabricates self-recursion | **DISCLOSED** (2721f36) — identity is `stableId([type, filePath, qname])` with no signature, so overloads collapse. Splitting identity is a graph-wide ID migration touching `structural_fp` stability → **still open**. Meanwhile the node records `overloads`, the resolver downgrades a self-edge on a merged node to `AMBIGUOUS`, and `graph_callees` says \"may be a different overload\" instead of \"recursive\" |",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "line": 432,
+          "written": "stableId([type, filePath, qname])",
+          "source_text": "   Why this is not small: `qname` feeds `stableId([type, filePath, qname])`, so any",
+          "is_a_missed_reference": true,
+          "reason": "a real reference to a real function; refused because two or more symbols carry the label. The refusal is correct behaviour AND a recall loss — both are true."
+        },
+        {
+          "document": "README.md",
+          "line": 624,
+          "written": "handle()",
+          "source_text": "- **Inherited framework entrypoints outside the repo**: some middleware classes override template hooks like `handleRequest()` but inherit the public `handle()` entrypoint from a base class outside the indexed tree. Those hops may still surface as honest `External` boundaries unless an in-repo ancestor defines the entrypoint.",
+          "is_a_missed_reference": false,
+          "reason": "names something outside this repository"
+        }
+      ]
+    }
+  ],
+  "graded_by": "graph-tech-lead",
+  "grade_note": "FIRST-PARTY GRADE. The rule author graded their own recall; treat as a self-report pending independent reproduction."
+}
