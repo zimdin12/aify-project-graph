@@ -40,7 +40,18 @@ describe('graph_pull — relation coverage (round-4 regression, registry-wired)'
       // Either the shared constant interpolation, or (for the single-relation
       // IMPORTS file query) a deliberate literal. No clause may inline the
       // multi-relation touch list — that's what regressed before.
-      const usesSharedConst = rels.includes('PULL_TOUCH_SQL_LIST');
+      // ⚠ THE PROPERTY IS "NO CLAUSE INLINES A RELATION LIST", NOT "EVERY CLAUSE USES THIS ONE
+      // CONSTANT". This originally required `PULL_TOUCH_SQL_LIST` by name, and adding a SECOND
+      // registry-composed family — `PULL_DOC_SQL_LIST`, from taxonomy DOC_FAMILY, after the docs
+      // layer was caught answering from a hardcoded 'MENTIONS' — turned it red while satisfying
+      // everything the test is for. A guard that names one permitted spelling has to be edited
+      // every time the codebase does the right thing in a new place, and an assertion people
+      // routinely edit to make green stops being an assertion.
+      //
+      // ⇒ Accept any `${…SQL_LIST}` interpolation. Those are composed from the taxonomy registry
+      // by construction, so the thing being prevented — a hand-typed relation list that can drift
+      // from the registry — still cannot pass.
+      const usesSharedConst = /^\$\{[A-Z_]*SQL_LIST\}$/.test(rels);
       const isSingleImports = /^'IMPORTS'$/.test(rels);
       expect(
         usesSharedConst || isSingleImports,

@@ -153,6 +153,17 @@ export const INHERITANCE_FAMILY = Object.freeze(['EXTENDS', 'IMPLEMENTS', 'OVERR
 // cpp ↔ shader L5 bridge.
 export const BRIDGE_FAMILY = Object.freeze(['LOADS_SHADER', 'DECLARES_BINDING']);
 
+// ⛔ EVERY RELATION THAT CARRIES DOC→CODE INFORMATION. Named because `graph_pull`'s docs layer
+// hardcoded `MENTIONS`, and when `LINKS_TO` was added the layer kept answering from one relation
+// while claiming to answer the question. Measured on this repo: a file with 12 inbound LINKS_TO
+// edges got `items: []` — with `exhaustive: true` stamped on it, because nothing in the receipt
+// could tell "the list was cut short" from "a source was never consulted".
+//
+// ⚠ SO THE CONSUMER MUST DERIVE ITS QUERY FROM THIS, not restate it. A layer that lists its own
+// relations is a list somebody has to remember to extend, and the cost of forgetting is not a
+// missing row — it is a confident empty answer that terminates the reader's search.
+export const DOC_FAMILY = Object.freeze(['MENTIONS', 'LINKS_TO']);
+
 // Provenance-mix call family — the exact set whose EXTRACTED/INFERRED/
 // CODE_INTEL/LSP_VERIFIED split is the analytics trust signal. (Was
 // analytics.js CALL_FAMILY_RELATIONS.) Kept distinct from CALL_FAMILY because it

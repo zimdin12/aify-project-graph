@@ -68,7 +68,7 @@ import { getDirtyFiles } from '../../freshness/git.js';
 import { assessOverlayBuild, loadTasksArtifact, overlayNotBuiltHint, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
-import { CALL_FAMILY } from '../../storage/taxonomy.js';
+import { CALL_FAMILY, DOC_FAMILY } from '../../storage/taxonomy.js';
 
 // "Who touches this symbol" set for pull's relation rollups: the call family
 // plus type-use. Composed from the registry rather than re-declared (review R2).
@@ -77,6 +77,33 @@ import { CALL_FAMILY } from '../../storage/taxonomy.js';
 // OVERRIDDEN_BY) — pull.relations is a compact DIRECT-neighbor view.
 const PULL_TOUCH_RELATIONS = [...CALL_FAMILY, 'USES_TYPE'];
 const PULL_TOUCH_SQL_LIST = PULL_TOUCH_RELATIONS.map((r) => `'${r}'`).join(', ');
+
+// ⛔ THE DOCS LAYER ANSWERED FROM ONE RELATION AND CLAIMED TO ANSWER THE QUESTION.
+// It hardcoded `MENTIONS`. When `LINKS_TO` was added the layer kept querying the old set, so a
+// file with 12 inbound authored doc links returned `items: []` — and the receipt stamped
+// `exhaustive: true` on that empty set, because nothing could distinguish "the list was cut
+// short" from "a source was never consulted".
+// ⇒ Derived from the registry, like the touch list above. Adding a doc relation to the taxonomy
+// now reaches this query without anyone remembering to come here.
+const PULL_DOC_SQL_LIST = DOC_FAMILY.map((r) => `'${r}'`).join(', ');
+
+// Which relations do Documents ACTUALLY emit in this graph? Cheap (indexed on relation), and the
+// only honest denominator for "did the docs layer ask everywhere it should have". Compared
+// against DOC_FAMILY by the receipt: a relation present here and absent there is an unasked
+// question, and an unasked question must not be reported as an absence.
+function docRelationsPresent(db) {
+  try {
+    return db.all(
+      `SELECT DISTINCT e.relation AS relation
+         FROM edges e JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'`,
+    ).map((r) => r.relation).sort();
+  } catch {
+    // ⚠ FAIL CLOSED. If we cannot establish what the graph holds, we cannot prove the layer
+    // consulted all of it — so declare a sentinel the family will never contain, which refuses
+    // the exhaustive claim and names the reason rather than defaulting to complete.
+    return ['<doc relations could not be enumerated>'];
+  }
+}
 
 // Layer inventory:
 //   code          — file/symbol neighborhood (files, symbols, callers)
@@ -613,16 +640,26 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
   }
 
   if (layers.has('docs')) {
-    // Docs that MENTION any symbol defined in this file.
+    // Documents that point at this file — either by MENTIONING a symbol defined in it, or by
+    // LINKING TO the file itself. The `s.file_path = $p` join covers both shapes already: a
+    // symbol node and the file-level node both carry the path. Only the relation set was wrong.
+    //
+    // The relation is carried through so a reader can weigh an authored link differently from an
+    // inferred prose mention — they are different evidence and were being reported as one.
     const docs = db.all(
-      `SELECT DISTINCT d.label, d.file_path
+      `SELECT DISTINCT d.label, d.file_path, e.relation, e.source_line
        FROM edges e
        JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
        JOIN nodes s ON s.id = e.to_id AND s.file_path = $p
-       WHERE e.relation = 'MENTIONS'
+       WHERE e.relation IN (${PULL_DOC_SQL_LIST})
        LIMIT 20`, { p: filePath });
     out.layers.docs = capped(
-      docs.map(d => ({ label: d.label, file: d.file_path })),
+      docs.map(d => ({
+        label: d.label,
+        file: d.file_path,
+        via: d.relation,
+        ...(d.source_line ? { line: d.source_line } : {}),
+      })),
       10
     );
   }
@@ -653,7 +690,15 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     ...(rel?.recompile_surface?.byDepth ?? []).flatMap((d) => d.files.map((f) => ({
       field: 'recompile_surface', value: f, provenance: 'observed', basis: `IMPORTS closure, hop ${d.depth}`,
     }))),
-    ...(docsLayer.items ?? []).map((d) => ({ field: 'docs', value: d.file ?? d.label, provenance: 'observed', basis: 'MENTIONS edge' })),
+    // ⚠ The basis names the RELATION THAT PRODUCED THIS ROW, not a relation somebody assumed.
+    // It said 'MENTIONS edge' for every row, which would now be false for the authored links and
+    // was the kind of hardcoded provenance string that survives a query change unnoticed.
+    ...(docsLayer.items ?? []).map((d) => ({
+      field: 'docs',
+      value: d.file ?? d.label,
+      provenance: 'observed',
+      basis: `${d.via ?? 'doc'} edge${d.line ? ` @${d.line}` : ''}`,
+    })),
   ];
   const surface = rel?.recompile_surface;
   out.receipt = receiptFor(buildReceipt({
@@ -682,6 +727,21 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
           : surface?.depth_capped
             ? 'recompile surface hit the depth cap with includers still unexplored — closure is a floor'
             : 'relations layer not requested, so no closure was computed',
+      // ⛔ THE DOC LAYER'S COMPLETENESS DEPENDS ON RELATIONS, AND THE RECEIPT COULD NOT SEE THAT.
+      // `assessTruncation` proves a list was not cut short; it cannot prove the list was built by
+      // asking every source. Declaring the family here means that adding a doc relation to the
+      // taxonomy WITHOUT wiring it into the query above turns this receipt non-exhaustive, with
+      // the unasked relation named — rather than certifying an empty answer.
+      // ⚠ `declared` COMES FROM THE GRAPH, NOT FROM THE SAME CONSTANT THE QUERY USED.
+      // My first version declared DOC_FAMILY on both sides, which is a tautology wearing the
+      // shape of a check: two reads of one source cannot disagree. What can disagree is the
+      // family against REALITY — the relations documents actually emit in this graph. If an
+      // extractor starts producing a doc-sourced relation the family does not know about, the
+      // layer is silently incomplete and this is the only thing that would notice. It is exactly
+      // the failure that happened: LINKS_TO existed in the graph before the layer knew of it.
+      coverage: layers.has('docs')
+        ? { declared: docRelationsPresent(db), consulted: [...DOC_FAMILY] }
+        : undefined,
       not_checked: [
         'includers reachable only through a build system rather than a source include',
         ...(surface?.truncated || surface?.depth_capped ? ['files beyond the traversal cap'] : []),

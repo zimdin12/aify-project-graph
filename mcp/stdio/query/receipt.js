@@ -147,6 +147,38 @@ const MAX_CLAIMS = 40;
  * @param {Array<[string, any]>} namedLists - [fieldName, list] pairs feeding the claim
  * @returns {{ proven: boolean, unknown: string[], truncated: string[] }}
  */
+/**
+ * ⛔ TRUNCATION IS NOT COVERAGE, AND `assessTruncation` COULD NOT TELL THE DIFFERENCE.
+ *
+ * ef-manager, field-testing the doc layer: `graph_pull(docs)` returned `items: []` with
+ * `exhaustive: true` for a file carrying 12 inbound authored doc links. The list was not
+ * truncated — it was never populated, because the layer queried one of the two relations that
+ * carry doc→code information. An empty list from a source nobody consulted is `truncated: false`
+ * and therefore "proven", so the completeness machinery certified an absence it had not checked.
+ *
+ * That is the same bug GENERATOR the truncation fix was written to close, one category over:
+ * the default direction of failure pointed at claiming completeness. Every relation added in
+ * future inherits a receipt that certifies its absence until somebody remembers this function.
+ *
+ * ⚠ Their framing, which is the design: "make the default unproven, so a new source has to opt IN
+ * to being certifiable. A completeness flag that defaults to true is the same shape as a guard
+ * that passes when its input is missing."
+ *
+ * ⇒ A caller declaring `exhaustive: true` over a DERIVED family must show that it consulted every
+ * member. A declared-but-unconsulted source refuses the claim and names itself in the cause, so
+ * the reader learns WHICH question went unasked rather than being told there was no answer.
+ *
+ * @param {object} o
+ * @param {string[]} o.declared  - every source the claim's completeness depends on
+ * @param {string[]} o.consulted - the sources actually queried to build it
+ * @returns {{ proven: boolean, unconsulted: string[] }}
+ */
+export function assessCoverage({ declared = [], consulted = [] } = {}) {
+  const seen = new Set(consulted);
+  const unconsulted = declared.filter((d) => !seen.has(d));
+  return { proven: unconsulted.length === 0, unconsulted };
+}
+
 export function assessTruncation(namedLists = []) {
   const unknown = [];
   const truncated = [];
@@ -218,10 +250,18 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
     floor: (() => {
       const declared = floor.exhaustive === true;
       const t = assessTruncation(floor.sources ?? []);
-      if (declared && !t.proven) {
+      // Coverage is assessed beside truncation and reported in the SAME cause, because a reader
+      // handed "exhaustive: false" needs to know which of the two it was: a list that stopped
+      // early is a floor they can raise by asking for more, while a source nobody queried is a
+      // question that was never put.
+      const c = assessCoverage(floor.coverage);
+      if (declared && (!t.proven || !c.proven)) {
         const why = [
           t.unknown.length ? `truncation state unknown for ${t.unknown.join(', ')}` : null,
           t.truncated.length ? `${t.truncated.join(', ')} was truncated` : null,
+          c.unconsulted.length
+            ? `${c.unconsulted.join(', ')} was NEVER CONSULTED — an empty result from an unasked source is not an absence`
+            : null,
         ].filter(Boolean).join('; ');
         return {
           exhaustive: false,
