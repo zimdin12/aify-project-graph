@@ -1027,11 +1027,13 @@ export function importV02Collection(envelope, db) {
        (collection_id, provider, provider_version, project_root, language, status,
         freshness_basis, freshness_value, compile_db_hash, indexed_commit,
         operations_json, collected_at, errors_json,
-        mode, index_ready, index_wait_ms, refs_found, refs_not_found, refs_degraded, refs_clean_not_found)
+        mode, index_ready, index_wait_ms, refs_found, refs_not_found, refs_degraded, refs_clean_not_found,
+        files_processed, files_in_scope, files_eligible)
      VALUES (@collection_id, @provider, @provider_version, @project_root, @language, @status,
              @freshness_basis, @freshness_value, @compile_db_hash, @indexed_commit,
              @operations_json, @collected_at, @errors_json,
-             @mode, @index_ready, @index_wait_ms, @refs_found, @refs_not_found, @refs_degraded, @refs_clean_not_found)`,
+             @mode, @index_ready, @index_wait_ms, @refs_found, @refs_not_found, @refs_degraded, @refs_clean_not_found,
+             @files_processed, @files_in_scope, @files_eligible)`,
     {
       collection_id: envelope.collectionId,
       provider: envelope.provider,
@@ -1049,6 +1051,21 @@ export function importV02Collection(envelope, db) {
       mode: sess.mode ?? null,
       index_ready: indexReady == null ? null : (indexReady ? 1 : 0),
       index_wait_ms: sess.indexWaitMs ?? null,
+      // ⛔ SCOPE, PERSISTED — WITHOUT IT A 3-FILE COLLECTION IS A 484-FILE COLLECTION.
+      //
+      // The session carries filesProcessed/filesTotal and NEITHER was stored, so every consumer
+      // saw only `status: ok` and concluded a collection exists. graph_health's one code-intel
+      // warning went silent on a run covering 0.6% of the repo.
+      //
+      // ⚠ `filesTotal` IS THE SCOPE'S DENOMINATOR, NOT THE REPO'S — a `scope:"files"` run with
+      // three paths reports 3 of 3, which reads as complete. It is stored as `files_in_scope`
+      // rather than as a total, so the name cannot be mistaken for the population a coverage
+      // claim is about. `files_eligible` is that population and is the only one that makes
+      // "coverage" mean anything; null when the provider did not enumerate it, never 0 — a zero
+      // would make any ratio computed from it look like total coverage.
+      files_processed: sess.filesProcessed ?? null,
+      files_in_scope: sess.filesTotal ?? null,
+      files_eligible: sess.filesEligible ?? null,
       refs_found: sess.refsFoundSymbols ?? null,
       refs_not_found: sess.refsNotFoundSymbols ?? null,
       // ★ DERIVE FROM THE RECORDS WHEN THE SESSION COUNTER IS ABSENT.

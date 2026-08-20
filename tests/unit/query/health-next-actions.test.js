@@ -16,6 +16,20 @@
 import { describe, it, expect } from 'vitest';
 import { buildNextActions } from '../../../mcp/stdio/query/verbs/health.js';
 
+// ⚠ FIXTURES GAINED `coverage` WHEN "HEALTHY" GAINED A REQUIREMENT.
+//
+// These built `codeIntel: { available: true, lspVerifiedEdges: 900 }` and asserted silence. That
+// stopped being a healthy state: a collection that does not record HOW MUCH of the repo it covered
+// has UNKNOWN coverage, and unknown is not clean. The first real collection on this repo covered
+// 3 files of 484 and produced `nextActions: []`, because "a collection exists" was the whole test.
+//
+// ⛔ AND THE ALTERNATIVE WAS WORSE. Treating an unrecorded coverage as complete is the two-state
+// collapse — and it is not a permanent alarm either, because re-collecting resolves it. A warning
+// that can be answered is a warning; one that cannot is noise.
+const COMPLETE_COVERAGE = Object.freeze({
+  filesProcessed: 484, filesInScope: 484, filesEligible: 484, complete: true,
+});
+
 describe('health next-action routing', () => {
   it('puts TRUST before orientation — a shortcut over an untrustworthy graph is worse than none', () => {
     const actions = buildNextActions({
@@ -40,7 +54,7 @@ describe('health next-action routing', () => {
     // Measured state still deserves an action — but the action the measurement
     // implies. A 96-day-old overlay means REGENERATE, not consume.
     const actions = buildNextActions({
-      codeIntel: { available: true, lspVerifiedEdges: 1507 },
+      codeIntel: { available: true, lspVerifiedEdges: 1507, coverage: COMPLETE_COVERAGE },
       overlayQuality: { featureCount: 16 },
       artifactAges: { functionality: 96 },
       stale: false,
@@ -59,7 +73,7 @@ describe('health next-action routing', () => {
     // is a stronger statement than a populated one, because it is what makes a
     // populated one mean something.
     const actions = buildNextActions({
-      codeIntel: { available: true, lspVerifiedEdges: 1507 },
+      codeIntel: { available: true, lspVerifiedEdges: 1507, coverage: COMPLETE_COVERAGE },
       overlayQuality: { featureCount: 16 },
       artifactAges: { functionality: 2 },
       stale: false,
@@ -113,7 +127,7 @@ describe('health next-action routing', () => {
   it('says nothing when there is nothing worth saying', () => {
     // Silence on a healthy repo is the whole reason the suggestions stay credible.
     const actions = buildNextActions({
-      codeIntel: { available: true, lspVerifiedEdges: 900 },
+      codeIntel: { available: true, lspVerifiedEdges: 900, coverage: COMPLETE_COVERAGE },
       overlayQuality: { featureCount: 0 },
       artifactAges: {},
       stale: false,

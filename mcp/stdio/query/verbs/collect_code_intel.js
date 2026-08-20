@@ -163,6 +163,15 @@ const MIN_COLLECT_BUDGET_MS = 5000;
 // Records-per-file above which a collection looks like a per-symbol blowup rather
 // than a big repo. Healthy C++ measures ~50-150/file; the 2026-07-30 explosion hit
 // ~7,200/file. Set well clear of both so it fires on the class, not on outliers.
+// Which file extensions a provider's language can collect. Used ONLY to size the eligible
+// denominator for a coverage claim — not to select files, which the provider owns.
+const LANGUAGE_FILE_EXTENSIONS = Object.freeze({
+  typescript: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
+  javascript: ['.js', '.jsx', '.mjs', '.cjs'],
+  python: ['.py'],
+  cpp: ['.cpp', '.cc', '.cxx', '.h', '.hpp'],
+});
+
 const RECORDS_PER_FILE_ANOMALY = 1000;
 
 export function splitCollectBudget(budgetMs) {
@@ -279,6 +288,32 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
           hint: 'check index.positionGuessSkipped and index.refsTruncatedSymbols in this response;'
             + ' a high guess count means symbols were queried at positions that could not be placed, so the references may belong to the wrong symbols.',
         };
+      }
+      // ⛔ THE DENOMINATOR A COVERAGE CLAIM IS ABOUT, ATTACHED BEFORE IMPORT.
+      //
+      // `session.filesTotal` is the SCOPE's total — a `scope:"files"` run with three paths
+      // reports 3 of 3, which reads as 100%. Nothing recorded how many files the provider COULD
+      // have collected, so a 3-file run and a 484-file run were indistinguishable once stored,
+      // and graph_health concluded "a collection exists, therefore nothing to warn about".
+      //
+      // Counted from the GRAPH rather than from the filesystem: the eligible population is the
+      // files this provider's language actually has nodes for, which is the same population a
+      // caller's question is about. Null on failure, NEVER 0 — a zero denominator would make any
+      // ratio computed from it read as total coverage, which is the failure this exists to stop.
+      result.session = result.session || {};
+      if (result.session.filesEligible == null) {
+        try {
+          const exts = LANGUAGE_FILE_EXTENSIONS[language] ?? [];
+          if (exts.length > 0) {
+            const clauses = exts.map((_, i) => `file_path LIKE $e${i}`).join(' OR ');
+            const params = Object.fromEntries(exts.map((e, i) => [`e${i}`, `%${e}`]));
+            const n = db.all(
+              `SELECT COUNT(DISTINCT file_path) AS c FROM nodes WHERE file_path != '' AND (${clauses})`,
+              params,
+            )[0]?.c;
+            result.session.filesEligible = Number.isFinite(n) && n > 0 ? n : null;
+          }
+        } catch { result.session.filesEligible = null; }
       }
       importStats = importV02Collection(result, db);
       edgeSample = sampleLspEdges(db, { cap: 10 });

@@ -49,6 +49,13 @@ export function getLatestCollection(db, opts = {}) {
     freshnessValue: row.freshness_value,
     compileDbHash: row.compile_db_hash,
     indexedCommit: row.indexed_commit,
+    // ⛔ SCOPE. Column first, `operations._session` as the fallback for graphs written by the new
+    // importer before the columns existed — the same pattern as indexReady above. NULL stays NULL:
+    // a collection that did not record its coverage has UNKNOWN coverage, and unknown must not be
+    // resolvable to a number a consumer can compute a ratio from.
+    filesProcessed: row.files_processed ?? sess.filesProcessed ?? null,
+    filesInScope: row.files_in_scope ?? sess.filesTotal ?? null,
+    filesEligible: row.files_eligible ?? sess.filesEligible ?? null,
     operations,
     collectedAt: row.collected_at,
     importedAt: row.imported_at,

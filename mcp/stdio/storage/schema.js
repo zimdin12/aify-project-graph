@@ -196,6 +196,31 @@ const CODE_INTEL_COLLECTIONS_EXTRA_COLS = [
   // not-found results were definition_only and ZERO were clean absences.
   { name: 'refs_degraded', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_degraded INTEGER" },
   { name: 'refs_clean_not_found', ddl: "ALTER TABLE code_intel_collections ADD COLUMN refs_clean_not_found INTEGER" },
+  // ⛔ A SCOPED COLLECTION WAS INDISTINGUISHABLE FROM A COMPLETE ONE ONCE STORED.
+  //
+  // Found by running the first collection this repo has ever had. It covered THREE files, and:
+  //
+  //   the response said        filesProcessed 3 · filesTotal 3      -> reads as 100%
+  //   the stored row said      status ok, mode null                 -> no scope at all
+  //   graph_health then said   nextActions: []                      -> its ONLY code-intel
+  //                                                                    warning went silent
+  //
+  // `filesTotal` was the SCOPE's denominator, not the repo's. 3 of 3 is complete; 3 of 484 is
+  // 0.6%. Same defect as every other denominator this repo has shipped — a ratio computed over
+  // the population the code happened to look at rather than the population the claim is about.
+  //
+  // ⚠ AND NOTHING PERSISTED EITHER NUMBER, so no consumer could have told the difference even if
+  // it wanted to. The health check concluded "a collection exists, therefore nothing to warn
+  // about", which is true about the row and false about the repo.
+  //
+  // ⇒ Three numbers, so a reader can compute the ratio the claim is actually about:
+  //   files_processed  what this run actually collected
+  //   files_in_scope   what this run SET OUT to collect — equal to processed on a clean run
+  //   files_eligible   how many files in the repo the provider COULD collect. Only this one
+  //                    makes "coverage" mean anything, and it was never recorded.
+  { name: 'files_processed', ddl: "ALTER TABLE code_intel_collections ADD COLUMN files_processed INTEGER" },
+  { name: 'files_in_scope', ddl: "ALTER TABLE code_intel_collections ADD COLUMN files_in_scope INTEGER" },
+  { name: 'files_eligible', ddl: "ALTER TABLE code_intel_collections ADD COLUMN files_eligible INTEGER" },
 ];
 
 export function ensureCodeIntelCollectionsTable(db) {

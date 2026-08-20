@@ -159,6 +159,35 @@ export function buildNextActions(s) {
       why: 'no [lsp✓] edges — graph-backed caller answers here are heuristic and cannot attest exhaustiveness',
       do: 'graph_collect_code_intel({ scope: "all" }) to build the trust spine (live verbs are unaffected)',
     });
+  } else if (s.codeIntel?.available && s.codeIntel.coverage?.complete !== true) {
+    // ⛔ THIS BRANCH DID NOT EXIST, AND ITS ABSENCE SILENCED THE ONLY CODE-INTEL WARNING.
+    //
+    // Found by running the first collection this repo has ever had. It covered THREE files of
+    // 484. Afterwards `available` was true and `lspVerifiedEdges` was 68, so BOTH existing
+    // branches were satisfied and `nextActions` went EMPTY — which this verb documents as
+    // meaning a healthy repo, and is the property that makes a populated list worth reading.
+    //
+    // The collection response had said `filesProcessed 3 · filesTotal 3`. That is 100%, because
+    // filesTotal was the SCOPE's denominator rather than the repo's. 3 of 3 is complete; 3 of
+    // 484 is 0.6%.
+    //
+    // ⚠ AND `complete !== true` IS DELIBERATE, NOT `=== false`. Three states: complete,
+    // incomplete, and UNKNOWN — a collection stored before the coverage columns existed reports
+    // null, and null must warn. An unknown coverage is not a clean one, and this repo has found
+    // that same collapse seven times tonight in other places.
+    const cov = s.codeIntel.coverage ?? {};
+    const known = cov.filesProcessed != null && cov.filesEligible != null;
+    out.push({
+      why: known
+        ? `the code-intel collection covers ${cov.filesProcessed} of ${cov.filesEligible} eligible `
+          + 'file(s), so [lsp✓] evidence exists for part of the repo only — a symbol outside that '
+          + 'set gets heuristic answers with no signal saying so'
+        : 'the code-intel collection does not record how much of the repo it covered, so its '
+          + 'coverage is UNKNOWN rather than complete — treat [lsp✓] absence as uninformative '
+          + 'until a scoped collection records its own scope',
+      do: 'graph_collect_code_intel({ scope: "all" }) to cover the repo; per-symbol, read '
+        + 'evidence.exhaustive on code_intel_references rather than inferring from this summary',
+    });
   } else if (!s.codeIntel?.available) {
     out.push({
       // ⛔ THIS NAMED A NARROWER CLASS THAN THE CONDITION AFFECTS. It used to read
@@ -365,6 +394,17 @@ export async function graphHealth({ repoRoot }) {
           compileDbHash: latest.compileDbHash,
           indexedCommit: latest.indexedCommit,
           collectedAt: latest.collectedAt,
+          // ⛔ SCOPE, BECAUSE A COLLECTION EXISTING IS NOT A COLLECTION COVERING ANYTHING.
+          // Three states, and `unknown` must never read as `complete`: a collection stored
+          // before these columns existed returns null, and null is not evidence of coverage.
+          coverage: {
+            filesProcessed: latest.filesProcessed ?? null,
+            filesInScope: latest.filesInScope ?? null,
+            filesEligible: latest.filesEligible ?? null,
+            complete: (latest.filesEligible == null || latest.filesProcessed == null)
+              ? null
+              : latest.filesProcessed >= latest.filesEligible,
+          },
           operations: latest.operations,
           // The coverage figure below is a FLOOR, not a rate. These say how much
           // was never asked, so a reader does not mistake declined work for absent
