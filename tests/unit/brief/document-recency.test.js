@@ -77,6 +77,37 @@ describe('documentRecency survives real paths and real corpus sizes', () => {
   // REASONED, not covered — and a reader deciding whether to remove it should know that the tests
   // will not stop them.
 
+  it('★★★ a filename with a LEADING SPACE keeps its byte — dev executed this against a8f1337', async () => {
+    // ⛔⛔ THE WITNESS THAT KILLED `.trim()`. I removed git's structural newline with a blunt trim,
+    // which also removed leading and trailing whitespace BELONGING TO THE FILENAME.
+    // graph-senior-dev committed a tracked file named exactly ` leading.md` and ran the function:
+    //
+    //     asked   [" leading.md"]
+    //     keys    ["leading.md"]      <- an unrequested key
+    //     missing [" leading.md"]     <- the requested path, UNKNOWN
+    //
+    // ★ The map filled with a wrong key while the real path went undated — the exact class the
+    // "ONLY paths asked about" assertion below claims to prevent. That test passed throughout,
+    // because it used friendly names. A contract asserted only over easy inputs is a contract
+    // asserted nowhere.
+    const paths = [' leading.md', 'trailing .md', 'plain.md'];
+    await repoWith(paths);
+    const m = documentRecency(repo, paths);
+    expect([...m.keys()].sort(), 'every byte of the name survives the transport').toEqual(paths.slice().sort());
+    expect(m.get(' leading.md'), 'the leading space is part of the name').toBeTruthy();
+  }, 60_000);
+
+  it('★★★ a decoded key nobody asked for is REFUSED, not stored', async () => {
+    // ⛔ THE EXECUTABLE MEANING of "only paths asked about" — a population guard in the parser, not
+    // an assertion over friendly fixtures. Both transport bugs presented the same way: a filled map
+    // that looked like success. A key nobody requested is a parse failure wearing a result.
+    const all = ['docs/asked.md', 'docs/not-asked.md'];
+    await repoWith(all);
+    const m = documentRecency(repo, ['docs/asked.md']);
+    expect([...m.keys()], 'the sibling touched by the same commit is not adopted')
+      .toEqual(['docs/asked.md']);
+  }, 60_000);
+
   it('★★★ the map contains ONLY paths that were asked about', async () => {
     // ⛔ THE ASSERTION THAT CAUGHT THE NEWLINE BUG, and a size check alone would not have: the map
     // held MORE keys than inputs. "It returned data" is not "it returned the right data".

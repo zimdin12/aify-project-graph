@@ -163,6 +163,10 @@ export function documentRecency(repoRoot, paths = []) {
   // it a file named `2026-04-16` would parse as a date and silently re-date every path after it.
   // A path named exactly `@YYYY-MM-DD` would still collide; that is the residual and it is stated
   // rather than assumed away.
+  // The requested population, so a decoded key that nobody asked for can be refused rather than
+  // stored. git reports every path a matching commit touched; the pathspec narrows that, but a
+  // parser bug does not respect a pathspec.
+  const requested = new Set(paths);
   const BATCH = 150;
   for (let i = 0; i < paths.length; i += BATCH) {
     const batch = paths.slice(i, i + BATCH);
@@ -171,17 +175,36 @@ export function documentRecency(repoRoot, paths = []) {
         ['-C', repoRoot, 'log', '--format=@%cs', '--name-only', '-z', '--', ...batch],
         { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
       let date = null;
-      // ⚠ TRIMMED, AND THIS IS NOT COSMETIC. git writes a newline AFTER the NUL that terminates a
-      // record, so splitting on NUL alone yields path tokens with a leading newline. The map still
-      // FILLS — 189 entries for 156 input paths, every key subtly wrong — so a check of "did we get
-      // dates?" passes while every lookup misses. A populated wrong answer is the shape that
-      // survives review; an empty one would have been caught immediately.
+      // ⛔⛔ `.trim()` WAS HERE AND IT DESTROYED PATH BYTES. It removed git's structural newline and
+      // also any leading or trailing whitespace belonging to the FILENAME. graph-senior-dev
+      // committed a tracked file named exactly ` leading.md` and called this function with it:
+      //
+      //     asked   [" leading.md"]
+      //     keys    ["leading.md"]        <- an unrequested key
+      //     missing [" leading.md"]       <- the requested path, UNKNOWN
+      //
+      // The map filled with a wrong key while the real path went undated — the exact class the
+      // "ONLY paths asked about" assertion claims to prevent, which my own test missed because it
+      // used friendly names. A blunt fix for a structural problem destroys real data at the edges.
+      //
+      // ⇒ PARSE THE PROTOCOL, DO NOT SCRUB IT. Measured byte shape of `--format=@%cs --name-only -z`:
+      //
+      //     @2026-08-20 NUL \n  leading.md NUL a.md NUL d/c.md NUL @2026-08-19 NUL \n ...
+      //
+      // git emits EXACTLY ONE newline after the date record's NUL, prefixing the first path of that
+      // commit. Nothing else is structural, so exactly that one byte is consumed and every other
+      // byte belongs to the filename — including a leading space, tab or newline.
+      let afterDate = false;
       for (const record of raw.split('\0')) {
-        const rec = record.trim();
+        let rec = record;
+        if (afterDate && rec.startsWith('\n')) rec = rec.slice(1);  // the one structural byte
+        afterDate = false;
         if (!rec) continue;
-        if (/^@\d{4}-\d{2}-\d{2}$/.test(rec)) { date = rec.slice(1); continue; }
-        // git log walks newest-first, so the FIRST date a path appears under is its last commit.
-        if (date && !out.has(rec)) out.set(rec, date);
+        if (/^@\d{4}-\d{2}-\d{2}$/.test(rec)) { date = rec.slice(1); afterDate = true; continue; }
+        // ⛔ AND THE POPULATION GUARD IS THE EXECUTABLE FORM OF "ONLY PATHS ASKED ABOUT". A decoded
+        // key that nobody requested is a parse failure wearing a result, and it is how both
+        // transport bugs presented — a filled map that looked like success.
+        if (date && requested.has(rec) && !out.has(rec)) out.set(rec, date);
       }
     } catch {
       // One batch failing leaves its paths absent — UNKNOWN, never "old". The other batches stand.

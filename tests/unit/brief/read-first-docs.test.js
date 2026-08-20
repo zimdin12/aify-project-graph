@@ -317,7 +317,8 @@ describe('the ranking sees the whole population and only its own authority', () 
 
     const docs = readFirst(db, 6, { docRecency }).filter((r) => r.kind === 'doc');
     expect(docs[0].file, 'the most-cited document still leads — the evidence is real').toBe('contract.md');
-    expect(docs[0].why, 'and it says how much of the corpus is newer').toMatch(/4 of these documents are newer/);
+    expect(docs[0].why, 'and it names the population it counted')
+      .toMatch(/4 linked candidate\(s\) are newer/);
     db.close();
   }, 30_000);
 });

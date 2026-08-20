@@ -79,9 +79,41 @@ export function renderMarkdown(data) {
     lines.push('');
   }
 
-  if (readFirstArr.length) {
+  // ⛔ THE DOCUMENT ENTRIES NO LONGER CLAIM READ ORDER — A WITHDRAWAL, NOT A RENAME.
+  //
+  // I pre-registered the abandon rule before any number existed: if a repo's own stated entry point
+  // falls outside the top 2 on a majority of ground-truth corpora, the feature is WITHDRAWN rather
+  // than tuned. ef-manager graded it, pre-registration committed at 6beb00c BEFORE the run and
+  // results at 7ca476e:
+  //
+  //     ordering                     echoes   sand_castle   passed
+  //     inbound-primary (SHIPPED)     FAIL       FAIL        0 of 2
+  //     recency-primary               PASS       FAIL        1 of 2
+  //     outbound-primary              FAIL       FAIL        0 of 2
+  //
+  // 0 of 2. `echoes` states "Read AGENTS.md first" in CLAUDE.md line 3; the ranking returned two
+  // four-month-old contracts and AGENTS.md ranked 9 of 99.
+  //
+  // ⇒ graph-senior-dev ruled the same independently: "a warning beside a wrong answer is not a
+  // corrected answer." Disclosure does not rescue a known-wrong recommendation occupying the
+  // privileged first position. The measurements are real and stay, under a name that says what they
+  // are — link prominence, not a reading order.
+  //
+  // ⚠ THE SOURCE ENTRIES KEEP THE CLAIM: they come from exports, feature anchors and source degree,
+  // which this grade did not test and did not fail. Splitting the sections is what stops a shared
+  // heading from silently restoring the withdrawn claim over the documents.
+  const readSources = readFirstArr.filter((r) => r.kind !== 'doc');
+  const docCandidates = readFirstArr.filter((r) => r.kind === 'doc');
+  if (readSources.length) {
     lines.push('## Read first');
-    for (const r of readFirstArr) lines.push(`- \`${r.file}\` — ${r.why}`);
+    for (const r of readSources) lines.push(`- \`${r.file}\` — ${r.why}`);
+    lines.push('');
+  }
+  if (docCandidates.length) {
+    lines.push('## Linked document candidates');
+    lines.push('Ranked by link prominence, NOT a reading order — no explicit read-order directive '
+      + 'was derived from this repo.');
+    for (const r of docCandidates) lines.push(`- \`${r.file}\` — ${r.why}`);
     lines.push('');
   }
 
@@ -253,9 +285,17 @@ export function renderAgentMarkdown(data) {
       lines.push(`  (PATHS HIDDEN: ${pathsHiddenCount} vendor/type-name nodes filtered — set GRAPH_PATHS_NOISE_DEBUG=1 to inspect)`);
     }
   }
-  if (readFirstArr.length) {
+  // Same split in the compact renderings. One heading over both restores the withdrawn claim by
+  // omission — see the note on the markdown renderer above.
+  const readSrc = readFirstArr.filter((r) => r.kind !== 'doc');
+  const docCands = readFirstArr.filter((r) => r.kind === 'doc');
+  if (readSrc.length) {
     lines.push('READ:');
-    for (const r of readFirstArr.slice(0, 4)) lines.push(`  ${r.file}`);
+    for (const r of readSrc.slice(0, 4)) lines.push(`  ${r.file}`);
+  }
+  if (docCands.length) {
+    lines.push('DOCS (link prominence, not a read order):');
+    for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
   }
   if (tests.length) {
     const shown = tests.slice(0, 3);
@@ -338,9 +378,17 @@ export function renderOnboardAgentMarkdown(data) {
       lines.push(`  [${h.role}] ${h.label} ${h.file}:${h.line}`);
     }
   }
-  if (readFirstArr.length) {
+  // Same split in the compact renderings. One heading over both restores the withdrawn claim by
+  // omission — see the note on the markdown renderer above.
+  const readSrc = readFirstArr.filter((r) => r.kind !== 'doc');
+  const docCands = readFirstArr.filter((r) => r.kind === 'doc');
+  if (readSrc.length) {
     lines.push('READ:');
-    for (const r of readFirstArr.slice(0, 4)) lines.push(`  ${r.file}`);
+    for (const r of readSrc.slice(0, 4)) lines.push(`  ${r.file}`);
+  }
+  if (docCands.length) {
+    lines.push('DOCS (link prominence, not a read order):');
+    for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
   }
   if (health.issues.length) {
     const tip = health.tip ? ` → ${health.tip}` : '';
@@ -532,7 +580,11 @@ export function renderJson(data, repoRoot) {
     entrypoints: entries,
     subsystems: subs,
     hubs: hubsArr.map(h => ({ label: h.label, type: h.type, role: h.role, file: h.file, line: h.line, fan_in: h.fan_in })),
-    read_first: readFirstArr,
+    // Split in the payload too: `read_first` is source evidence, document candidates are named
+    // for what ranks them. A consumer reading `kind:"doc"` out of `read_first` would inherit the
+    // claim this commit withdrew.
+    read_first: readFirstArr.filter((r) => r.kind !== 'doc'),
+    linked_document_candidates: readFirstArr.filter((r) => r.kind === 'doc'),
     tests,
     // The anchors are a SAMPLE. Programmatic consumers need the denominator and
     // the per-extension breakdown to know which suite the sample came from.

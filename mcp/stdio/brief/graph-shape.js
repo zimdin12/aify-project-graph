@@ -406,7 +406,11 @@ export function readFirst(db, limit = 6, opts = {}) {
       // ⇒ ef-manager's disclosure: on their ground-truth corpus the top two answers were four
       // months older than the entry point the repo itself names. The reader gets the correction
       // the ranking cannot safely apply.
-      + (newer > 0 ? ` — ⚠ ${newer} of these documents are newer` : '')
+      // ⚠ NAMED PRECISELY: this counts LINKED CANDIDATES, not every Document node. Calling it
+      // corpus-wide would be the population error the whole ranking is about — and it cannot
+      // correct for an entry document excluded from candidacy in the first place, which is exactly
+      // what happened to AGENTS.md on the graded corpora.
+      + (newer > 0 ? ` — ⚠ ${newer} linked candidate(s) are newer` : '')
       + ' — evidence of relevance, not of accuracy',
     'doc');
   }
