@@ -176,6 +176,16 @@ describe('packet authority boundaries', () => {
       // of this whole phase — an extracted renderer gets exported, tests call it directly, and its
       // output bypasses withSealScope/sealPacketOutput. It stays private in packet.js.
       'packet-symbol.js': ['countByLanguage', 'resolveFeatureForSymbolCheap', 'resolvePopulation'],
+      // ⭐ SLICE 3, PRE-REGISTERED BEFORE THE FILE EXISTED — same discipline as slice 2.
+      //
+      // ⚠ ALL THREE CROSS THE BOUNDARY, and that is a measured fact rather than a convenience:
+      // `withTimeout` and `LIVE_BUDGET_MS` are used by the CHEAP SYMBOL PATH that stays in
+      // packet.js (the budgeted symbol→feature lookup and the message that explains its budget),
+      // not only by `enrichLive`. Keeping them private would have forced either a duplicate
+      // constant — a second source of truth for a budget — or the facade importing its own
+      // island's internals. Exporting the minimum that genuinely crosses is the rule; here the
+      // minimum is three.
+      'packet-live.js': ['LIVE_BUDGET_MS', 'enrichLive', 'withTimeout'],
     };
     // ⛔ POPULATION-COMPLETE. dev: "a newly created packet-symbol.js would be discovered by
     // PACKET_MODULES() but absent from ALLOWED, so its exports would receive no exact check."
