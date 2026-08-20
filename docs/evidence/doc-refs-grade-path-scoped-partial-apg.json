@@ -1,0 +1,171 @@
+{
+  "what": "Grade of the 13 rule-4 edges that became reachable when tier 3 made partial paths resolvable. Rule 4's 0.970 was measured at 420147b on the spans reachable under the OLD resolver; these 13 arrived under the new one and that number never covered them.",
+  "how_to_grade": [
+    "For each entry read `source_text` and decide whether it refers to `target_label` at `target_file`.",
+    "These are the PARTIAL-PATH-scoped subset: the line names a path that is a suffix of the target,",
+    "not the full repo path. Identified by property, not by the author’s say-so: of 32 path-scoped",
+    "edges, 19 carry the full path on the line and 13 do not. 19 + 13 = 32."
+  ],
+  "pins": {
+    "commit": "b8dfc25",
+    "reverified_at": "021649f",
+    "population_stable": "32 path-scoped / 19 exact / 13 partial — identical across two forced rebuilds",
+    "repo": "aify-project-graph"
+  },
+  "graded_by": "ef-manager",
+  "graded_at": "2026-08-20",
+  "method": "FULL POPULATION, all 13, graded from the document prose. The grader wrote neither the rule nor the resolver.",
+  "population": 13,
+  "correct": 13,
+  "false_positives": 0,
+  "precision": 1,
+  "floor": 0.95,
+  "verdict": "CLEARS FLOOR",
+  "caveat": "n=13. One correct population is not a precision floor for the rule as a whole; rule 4 now has 33 edges graded across two commits by one outside party (32 at 420147b, these 13 at b8dfc25), not a single measurement.",
+  "note_refuted": "One suspicion raised and refuted during grading: `getChangedFiles` and `getChangedFilesSync` both resolve to freshness/git.js from the same line, which looked like a substring match. A standalone-token test showed both appear as independent tokens. Not a word-boundary defect.",
+  "edges": [
+    {
+      "source_file": "docs/code-intel-v2-next-plan.md",
+      "source_line": 99,
+      "target_label": "readJsonCapped",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/util/json.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "| P5-1 ✅ DONE | **Pre-parse JSON size cap** on `.aify-graph/*.json` before `JSON.parse` — shipped `18b5bff` (`util/json.js` `readJsonCapped`, 64MiB default / `APG_JSON_MAX_BYTES`, stat-checks before parse; routed overlay/manifest/categorization reads). _SSRF kit deferred — no fetch path lives yet._ | [MISS]#8 | S |",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "source_line": 33,
+      "target_label": "normalizeImportSource",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/languages/javascript.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "Fixes the **87 IMPORTS**. Two sub-bugs in `normalizeImportSource` (identical in `languages/javascript.js` + `typescript.js`):",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-graph-freshness-self-heal.md",
+      "source_line": 73,
+      "target_label": "commitsBehindHead",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/read_freshness.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "**Integration facts (verified):** dispatch calls `const result = await tool.handler(normalized)` at ~1060, then computes `stalenessWarning` (manifest.commit !== head) at ~1070-1085 and prepends `WARNING:`/`_warnings`. `commitsBehindHead(repoRoot, indexed, head)` is exported from `query/verbs/read_freshness.js`.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 8,
+      "target_label": "resolveNodeBin",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/node-bin.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **0.1** `code-intel/node-bin.js`: `resolveNodeBin(name, projectRoot)` → project `node_modules/.bin` → plugin root `node_modules/.bin` → PATH. Unit test the order.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "target_label": "getBackend",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "target_label": "inferLanguage",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "target_label": "cppSpawnFor",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 10,
+      "target_label": "computeCoverage",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/coverage.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **0.3** `code-intel/coverage.js`: `computeCoverage({ language, projectRoot, env })` dispatcher. cpp→`computeCompileDbCoverage` (unchanged), typescript→tsconfig strategy, python→dynamic caveat. Unit-test each verdict.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 18,
+      "target_label": "collect",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/providers/ts-langserver.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **1.3** `providers/ts-langserver.js`: spawnFor via `resolveNodeBin('typescript-language-server')` + `--stdio`; glob enumerate `.ts/.tsx/.js/.jsx` (skip node_modules/dist/build); freshnessBasis tsconfig hash or mtime; `collect()` via lsp-collect. Register `typescript: 'ts-langserver'`.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 25,
+      "target_label": "collect",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/providers/pyright.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **2.2** `providers/pyright.js`: spawnFor via `resolveNodeBin('pyright-langserver')` + `--stdio`; glob `.py` (skip venv/.venv/site-packages/__pycache__); freshnessBasis mtime; `collect()` via lsp-collect. Register `python: 'pyright'`.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+      "source_line": 104,
+      "target_label": "getChangedFilesSync",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/git.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **`since:<git-ref>` derivation polish.** **DONE 2026-05-18 (`ce8807b`).** Extracted `getChangedFilesSync` into `freshness/git.js`; verify and the async `getChangedFiles` wrapper now share it (identical trim/blank/backslash→slash normalization). Also fixed a real Windows backslash path gap the ad-hoc verify copy had.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+      "source_line": 104,
+      "target_label": "getChangedFiles",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/git.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "- **`since:<git-ref>` derivation polish.** **DONE 2026-05-18 (`ce8807b`).** Extracted `getChangedFilesSync` into `freshness/git.js`; verify and the async `getChangedFiles` wrapper now share it (identical trim/blank/backslash→slash normalization). Also fixed a real Windows backslash path gap the ad-hoc verify copy had.",
+      "verdict": "correct"
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+      "source_line": 14,
+      "target_label": "LspClient",
+      "target_type": "Class",
+      "target_file": "mcp/stdio/code-intel/lsp-client.js",
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "source_text": "The `LspClient` (`code-intel/lsp-client.js`) is a **generic, capability-aware LSP JSON-RPC client** — not clangd-specific. Only the *session resolver* (`getLiveSession`, `if (language === 'cpp')`), the *collection provider registry* (`PROVIDER_BY_LANGUAGE = { cpp }`), and the *exhaustiveness gate* (`computeCompileDbCoverage`) are C++-bound.",
+      "verdict": "correct"
+    }
+  ]
+}
