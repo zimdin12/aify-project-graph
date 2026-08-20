@@ -97,8 +97,10 @@ export function readLedger(projectRoot, dbHash, graphWitness) {
  * costs a re-collect while trusting it costs a silent permanent no-op. Those are not symmetric.
  */
 export function ledgerEvidenceSurvives(graphWitness) {
-  if (!graphWitness || typeof graphWitness.verifiedEdges !== 'number') return false;
-  return graphWitness.verifiedEdges > 0;
+  if (!graphWitness) return false;
+  if (typeof graphWitness.verifiedEdges !== 'number') return false;
+  if (typeof graphWitness.intelRecords !== 'number') return false;
+  return graphWitness.verifiedEdges > 0 && graphWitness.intelRecords > 0;
 }
 
 /**
@@ -113,6 +115,27 @@ export function ledgerEvidenceSurvives(graphWitness) {
  * collection was indexed at <old> but HEAD is <new>, so its evidence cannot be re-stamped as
  * verified". So a row-presence check would have passed while the edges were gone, which is the
  * same mistake one level over: checking a neighbouring artifact instead of the thing claimed.
+ *
+ * ⛔⛔ AND THE PARAGRAPH ABOVE PICKED THE WRONG NEIGHBOUR ANYWAY. It reasons carefully about one
+ * adjacent artifact, rejects it, and settles on a second adjacent artifact — EDGES — when the
+ * ledger's claim is "I COLLECTED THESE FILES", whose direct product is `code_intel_records`.
+ * Edges are synthesized downstream, and the two are destroyed by different accidents:
+ *
+ *     graph_index(force=true)    edges DIE      records survive   <- the incident above
+ *     a 0-file collection prune  edges survive  records DIE       <- 2026-08-20, 62,066 rows
+ *
+ * On the second one, this repo went to zero records with 4,487 edges still standing. The witness
+ * saw 4487 > 0, upheld a ledger claiming 200 collected files, and `collect --scope all` returned
+ * `status=ok records=0` in 0.152 SECONDS — a fixed point. Not degraded: STUCK, with the recovery
+ * path itself reporting success. The surviving edges vouched for the deleted records.
+ *
+ * ⇒ So the witness observes BOTH artifacts and the ledger stands only while BOTH are present. A
+ * claim is orphaned when ANY evidence it produced is gone; requiring one of two is how a guard
+ * written for one accident sails through the next.
+ *
+ * ⚠ KNOWN COST, stated rather than discovered later: a collection that legitimately yields zero
+ * verified edges — a corpus with no resolvable cross-file calls — will re-collect every run. That
+ * is a repeated cost, never a wrong answer, and it is the direction this guard has always chosen.
  */
 export function graphEvidenceWitness(projectRoot) {
   let db = null;
@@ -121,7 +144,11 @@ export function graphEvidenceWitness(projectRoot) {
     if (!fs.existsSync(dbPath)) return null;
     db = openExistingDb(dbPath, { readonly: true });
     const row = db.all("SELECT COUNT(*) AS c FROM edges WHERE provenance = 'LSP_VERIFIED'")[0];
-    return { verifiedEdges: Number(row?.c ?? 0) };
+    // ⚠ The records table may predate this column set or not exist at all on an old graph. A
+    // throw here returns null, which `ledgerEvidenceSurvives` reads as "cannot confirm" — the
+    // fail-closed direction, and the same one this function has always taken.
+    const rec = db.all('SELECT COUNT(*) AS c FROM code_intel_records')[0];
+    return { verifiedEdges: Number(row?.c ?? 0), intelRecords: Number(rec?.c ?? 0) };
   } catch {
     return null;
   } finally {

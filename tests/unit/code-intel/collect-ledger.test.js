@@ -28,7 +28,18 @@ import {
 // The right repair is to state the precondition these tests were always assuming — a healthy
 // graph — not to relax the guard so the old calls keep working. Orphaning itself is covered by
 // `collect-ledger-orphaned.test.js`, which is where a missing or zero witness belongs.
-const EVIDENCE_PRESENT = { verifiedEdges: 1 };
+//
+// ⇒ AND IT HAPPENED AGAIN, TO THIS CONSTANT, ON 2026-08-20. The witness now observes BOTH
+// artifacts a collection produces, because the first incident destroyed EDGES and kept records
+// while the second destroyed RECORDS and kept edges — a one-of-two witness is defeated by
+// whichever accident spares its chosen artifact. This constant carried only `verifiedEdges`, so
+// it became a half-witness, failed closed, and broke the same two tests a second time.
+//
+// ★ The repair is the same one the paragraph above already argued for, and the temptation is the
+// same: `ledgerEvidenceSurvives` could have been made to accept a witness missing `intelRecords`
+// and every call here would have kept working. That is precisely how a guard written for one
+// accident sails through the next, so the precondition is restated instead.
+const EVIDENCE_PRESENT = { verifiedEdges: 1, intelRecords: 1 };
 
 describe('collect ledger', () => {
   let root;

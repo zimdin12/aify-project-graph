@@ -32,6 +32,7 @@ import {
   readLedger, writeLedger, ledgerEvidenceSurvives, graphEvidenceWitness, collectionComplete,
 } from '../../../mcp/stdio/code-intel/collect-ledger.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { ensureCodeIntelRecordsTable } from '../../../mcp/stdio/storage/schema.js';
 
 let root;
 afterEach(async () => {
@@ -40,7 +41,7 @@ afterEach(async () => {
 });
 
 // A project whose ledger claims 200 collected files, with a graph holding whatever the case needs.
-async function projectWithLedger({ verifiedEdges }) {
+async function projectWithLedger({ verifiedEdges, intelRecords = 3 }) {
   root = await mkdtemp(join(tmpdir(), 'apg-ledger-'));
   await mkdir(join(root, '.aify-graph', 'code-intel'), { recursive: true });
   const db = openDb(join(root, '.aify-graph', 'graph.sqlite'));
@@ -57,6 +58,13 @@ async function projectWithLedger({ verifiedEdges }) {
   db.run(
     `INSERT OR IGNORE INTO edges (from_id,to_id,relation,source_file,source_line,confidence,provenance,extractor)
      VALUES ('b','a','CALLS','src/a.cpp',1,1,'EXTRACTED','tree-sitter')`);
+  // The OTHER artifact a collection produces, and the one the ledger's claim is actually about.
+  ensureCodeIntelRecordsTable(db);
+  for (let i = 0; i < intelRecords; i++) {
+    db.run(
+      `INSERT INTO code_intel_records (collection_id,kind,language,symbol_id,qname,file,raw)
+       VALUES ('c1','references','cpp','s${i}','q${i}','src/a.cpp','{}')`);
+  }
   db.close();
 
   writeLedger(root, { dbHash: 'HASH1', collected: new Set(['src/a.cpp', 'src/b.cpp']) }, '2026-08-20T00:00:00Z');
@@ -88,14 +96,37 @@ describe('a ledger whose evidence was destroyed must not claim coverage', () => 
     expect(readLedger(root, 'DIFFERENT', graphEvidenceWitness(root)).collected.size).toBe(0);
   }, 30_000);
 
-  it('★★★ an ABSENT witness fails closed', () => {
+  it('★★★ ORPHANED THE OTHER WAY: edges survive, RECORDS are gone', async () => {
+    // ⛔⛔ THIS REPO, 2026-08-20, MEASURED — NOT A HYPOTHETICAL. A 0-file collection pruned
+    // 62,066 records while the edge-invalidation guard correctly spared 4,487 edges. The witness
+    // counted only edges, saw 4487 > 0, and upheld a ledger claiming 200 collected files.
+    //
+    //     node bin/apg.js code-intel collect typescript --scope all
+    //     status=ok provider=ts-langserver records=0        real 0m0.152s
+    //
+    // A FIXED POINT: the documented recovery from an empty graph returns success in 150ms and
+    // recovers nothing. The surviving edges vouched for the deleted records.
+    //
+    // ★ The guard above was written for an accident that destroys EDGES and keeps records. This
+    // is the same accident mirrored, and one-of-two evidence let it straight through.
+    await projectWithLedger({ verifiedEdges: 5, intelRecords: 0 });
+    const ledger = readLedger(root, 'HASH1', graphEvidenceWitness(root));
+    expect(ledger.collected.size, 'edges cannot vouch for records they no longer come from').toBe(0);
+  }, 30_000);
+
+  it('★★★ an ABSENT or PARTIAL witness fails closed', () => {
     // "Could not check" must never resolve to "still valid". Resetting costs a re-collect;
     // trusting costs a silent permanent no-op that reports success. Not symmetric.
     expect(ledgerEvidenceSurvives(null)).toBe(false);
     expect(ledgerEvidenceSurvives({})).toBe(false);
-    expect(ledgerEvidenceSurvives({ verifiedEdges: 'lots' })).toBe(false);
-    expect(ledgerEvidenceSurvives({ verifiedEdges: 0 })).toBe(false);
-    expect(ledgerEvidenceSurvives({ verifiedEdges: 1 })).toBe(true);
+    expect(ledgerEvidenceSurvives({ verifiedEdges: 'lots', intelRecords: 1 })).toBe(false);
+    expect(ledgerEvidenceSurvives({ verifiedEdges: 0, intelRecords: 1 })).toBe(false);
+    // ⚠ A witness carrying only the OLD field is not a passing witness. A stale caller that
+    // reports half the evidence must not be read as reporting all of it — that is how the
+    // original guard would have survived this change untouched and still been wrong.
+    expect(ledgerEvidenceSurvives({ verifiedEdges: 1 })).toBe(false);
+    expect(ledgerEvidenceSurvives({ verifiedEdges: 1, intelRecords: 0 })).toBe(false);
+    expect(ledgerEvidenceSurvives({ verifiedEdges: 1, intelRecords: 1 })).toBe(true);
   });
 
   it('★★★ a missing graph yields no witness rather than throwing', async () => {
