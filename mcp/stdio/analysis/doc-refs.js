@@ -311,8 +311,12 @@ export function scanPathScopedReferences(content, docPath, pathIndex, symbolsByF
     const scopes = new Set();
     const scopingRanges = [];
     for (const w of written) {
-      const id = resolveDocPath(w.text, docPath, pathIndex);
-      const p = id ? pathOf.get(id) : null;
+      // resolveDocPath now reports its TIER as well as its id, because a bare-basename match and
+      // an exact-path match are different claims. Rule 4 accepts both: the scope only has to name
+      // a real file, and a wrong scope produces no edge rather than a wrong one — the bare word
+      // simply will not be declared in it.
+      const hit = resolveDocPath(w.text, docPath, pathIndex);
+      const p = hit ? pathOf.get(hit.id) : null;
       if (p && symbolsByFile.has(p)) { scopes.add(p); scopingRanges.push(w); }
     }
     if (scopes.size === 0) continue;

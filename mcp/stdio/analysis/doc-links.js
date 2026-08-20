@@ -56,6 +56,34 @@ export const DOC_LINK_RULES = Object.freeze({
   // Inline code containing something path-shaped. Weaker than a link — the author marked it as
   // code but did not make it a pointer — yet still an explicit path, not a prose collision.
   'doc_link:inline-path': 0.85,
+  // ⛔ TIER 2 IS A DIFFERENT RULE AND IT SHIPPED UNDER TIER 1'S TAG.
+  //
+  // Tier 1 resolves an EXACT path — anchored at the repo root or at the document's own directory.
+  // Tier 2 resolves a BARE BASENAME when exactly one indexed file happens to carry it. Those are
+  // not the same claim, and folding them under one tag let the weaker one inherit 0.85.
+  //
+  // MEASURED on this repo:
+  //
+  //     tier 1, exact path              734
+  //     tier 2 via an authored LINK       0   <- the population tier 2 was BUILT for
+  //     tier 2 via INLINE CODE          205
+  //
+  // ⚠ THE JUSTIFICATION IN ITS OWN DOCSTRING HAS ZERO INSTANCES. Tier 2 exists "for
+  // `[helper](helper.js)` where neither anchoring hit" — and not one authored link in this corpus
+  // uses it. It fires 205 times for a case it was not designed for.
+  //
+  // ★ AND ONE THIRD OF THAT IS A SINGLE FALSE-POSITIVE CLASS. ef-manager graded the newly-admitted
+  // SKILL.md edges and found 27 pointing at `tests/fixtures/code-intel/cpp-fixture-repo/
+  // compile_commands.json`, from lines like "when a C++ repo has `compile_commands.json`". A
+  // GENERIC FILENAME — a build-system convention naming a file in the READER'S repo — resolved to
+  // the one file in this corpus that happens to bear the name, which is a test fixture. 65
+  // occurrences of that basename alone.
+  //
+  // The reference is real and the target is wrong, and it resolves "uniquely" only because the
+  // corpus is small. That is the same defect as rule 3's uniqueness being a property of the
+  // REPOSITORY rather than of the writing — so it gets the same treatment: its own tag, its own
+  // confidence, and dev's floor enforced against it separately.
+  'doc_link:inline-basename': 0.6,
 });
 
 const EXTRACTOR_PREFIX = 'doc_link:';
@@ -190,7 +218,7 @@ export function resolveDocPath(written, docPath, index) {
   if (rootRel && index.byPath.has(rootRel)) candidates.add(index.byPath.get(rootRel).id);
   const docRel = normalize(join(dirOf(docPath), cleaned).replace(/\\/g, '/'));
   if (docRel && index.byPath.has(docRel)) candidates.add(index.byPath.get(docRel).id);
-  if (candidates.size === 1) return [...candidates][0];
+  if (candidates.size === 1) return { id: [...candidates][0], tier: 1 };
   if (candidates.size > 1) return null;             // two anchorings, two files — refuse
 
   const base = (rootRel ?? cleaned).split('/').pop();
@@ -199,7 +227,11 @@ export function resolveDocPath(written, docPath, index) {
   // exact path is not indexed; letting it match any file with that basename anywhere would be
   // resolving a path the author did not write.
   if (!bySuffix || cleaned.includes('/')) return null;
-  return bySuffix.length === 1 ? bySuffix[0] : null;
+  if (bySuffix.length !== 1) return null;
+  // ⚠ TIER 2 IS REPORTED AS TIER 2. The caller decides what a basename match is worth; this
+  // function's job is to resolve and to say HOW. Returning the two tiers as one value is what let
+  // a much weaker rule ship under a stronger rule's confidence for a day.
+  return { id: bySuffix[0], tier: 2 };
 }
 
 /**
@@ -226,8 +258,8 @@ export function classifyTarget(written, docPath, index) {
   // Before resolution, not inside it: a span naming no segment must never reach the anchoring
   // step, because that step is what turns "nothing" into "the document's own directory".
   if (namesNoSegment(cleaned)) return { kind: 'unresolved', reason: 'not_a_file_reference' };
-  const id = resolveDocPath(cleaned, docPath, index);
-  if (id) return { kind: 'resolved', id };
+  const hit = resolveDocPath(cleaned, docPath, index);
+  if (hit) return { kind: 'resolved', id: hit.id, tier: hit.tier };
 
   // ⛔ MY OWN COUNTER REPRODUCED THE DEFECT IT WAS BUILT TO FIX. Having just split `external` out
   // of `unresolved` on the grounds that one number covering two causes can only be read as the
@@ -352,7 +384,12 @@ export async function detectDocLinks(db, repoRoot) {
       if (verdict.kind === 'external') { note('external'); continue; }
       if (verdict.kind === 'unresolved') { note(verdict.reason); continue; }
       if (verdict.id === doc.id) continue;          // a document does not link to itself
-      if (!best.has(verdict.id)) best.set(verdict.id, ref);
+      // ⛔ THE TIER DECIDES THE TAG, NOT THE SPAN THAT CARRIED IT. A markdown link that only
+      // resolved by basename is still a basename resolution; calling it `doc_link:markdown`
+      // because of how it was written would put 0.95 on a 0.6 claim. The SPAN says how the author
+      // wrote it; the TIER says how confidently we found it, and the weaker of the two governs.
+      const rule = verdict.tier === 2 ? 'doc_link:inline-basename' : ref.rule;
+      if (!best.has(verdict.id)) best.set(verdict.id, { ...ref, rule });
     }
 
     if (best.size > 0) documentsWithLinks++;
