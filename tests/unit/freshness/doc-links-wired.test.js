@@ -110,6 +110,64 @@ describe('doc→file links survive a real index', () => {
     expect(rows).toEqual([{ src: 'docs/design.md', dst: 'docs/architecture.md', line: 3 }]);
   }, 60_000);
 
+  it('★★★ the full miss ledger reaches disk, and the manifest carries a CAPPED sample beside an UNCAPPED count', async () => {
+    // ⛔ ef-manager could not grade the miss buckets because only counts were published. A count
+    // nobody can open is unfalsifiable from outside: 707 `noSuchPath` could be 707 genuine stale
+    // references or 707 mis-bucketed prose tokens and the figure reads the same.
+    //
+    // ⚠ AND THE LEDGER MUST NOT ENTER THE MANIFEST. Every verb reads the manifest on every call;
+    // ~1,200 records would make all of them pay for a diagnostic almost none of them want. The
+    // sample is capped and the TOTAL is not, so the cap can never make the loss look smaller than
+    // it is — the same contract `dirtyEdges`/`dirtyEdgeCount` already carries.
+    await writeFile(join(repoRoot, 'src', 'terrain.js'), 'export function generateTerrain() { return 1; }\n');
+    await writeFile(join(repoRoot, 'docs', 'design.md'),
+      '# Design\n\nSee [gone](src/deleted-last-week.js) and run `npm run build`.\n');
+    commitAll();
+
+    await ensureFresh({ repoRoot });
+
+    const { docLinks } = await readManifest();
+    expect(docLinks.missCount, 'the uncapped total').toBeGreaterThan(0);
+    expect(docLinks.missSample.length).toBeLessThanOrEqual(25);
+    expect(docLinks.missLedger).toBe('.aify-graph/doc-link-misses.json');
+
+    const sidecar = JSON.parse(await readFile(join(repoRoot, '.aify-graph', 'doc-link-misses.json'), 'utf8'));
+    expect(sidecar.total, 'the sidecar total agrees with the manifest count').toBe(docLinks.missCount);
+    expect(sidecar.misses.length).toBe(sidecar.total);
+
+    const dead = sidecar.misses.find((m) => m.written === 'src/deleted-last-week.js');
+    expect(dead, 'the span the author actually wrote').toBeTruthy();
+    expect(dead.bucket).toBe('no_such_path');
+    expect(dead.line, 'openable at that line in that document').toBe(3);
+    expect(dead.doc).toBe('docs/design.md');
+  }, 60_000);
+
+  it('★★★ the manifest states the CORPUS the sweep saw and what it declined', async () => {
+    // ⭐ THE NUMBER THAT MADE THE 52.7% MEASURABLE FROM INSIDE. ef-manager found the Document hole
+    // with `git ls-files` because the sweep published nothing; a defect only detectable from
+    // outside the system is a defect that waits for someone to go looking.
+    //
+    // `SKILL.md` here is the real shape: it fails all three clauses of isDocument — not a readme,
+    // not one of the 12 allowlisted names, not under a directory containing "doc". This test does
+    // not change that rule. It asserts that declining is now COUNTED rather than silent.
+    await mkdir(join(repoRoot, 'skills'), { recursive: true });
+    await writeFile(join(repoRoot, 'skills', 'SKILL.md'), '# a skill nobody can find\n');
+    await writeFile(join(repoRoot, 'docs', 'design.md'), '# design\n');
+    commitAll();
+
+    await ensureFresh({ repoRoot });
+
+    const { sweepCounts } = await readManifest();
+    expect(sweepCounts, 'the index must state its own corpus').toBeTruthy();
+    const sum = (o) => Object.values(o).reduce((a, b) => a + b, 0);
+    expect(sum(sweepCounts.admitted) + sum(sweepCounts.declined),
+      'every candidate has exactly one outcome, or a category is unrecorded')
+      .toBe(sweepCounts.seen);
+    expect(sweepCounts.declined.text_not_admitted_as_document,
+      'SKILL.md reached isDocument() and was refused — this was its only chance to become a node')
+      .toBeGreaterThan(0);
+  }, 60_000);
+
   it('★★★ a bare filename in prose still produces nothing after a full index', async () => {
     // The end-to-end version of the rule that matters most. The legacy extractor would have
     // emitted an edge for every one of these words; the whole point of the rebuild is that an

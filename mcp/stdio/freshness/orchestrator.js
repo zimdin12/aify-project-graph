@@ -42,6 +42,7 @@ import { getLatestCollection } from '../code-intel/query.js';
 import { detectCommunities } from '../analysis/communities.js';
 import { detectMentions } from '../analysis/mentions.js';
 import { detectDocLinks } from '../analysis/doc-links.js';
+import { writeDocLinkMissSidecar } from './doc-link-miss-sidecar.js';
 
 // 0.2.0 (audit Wave 3): NodeNext .js→.ts import rewrite, arrow/function-expression
 // const symbols + TS enum/abstract-class, import-evidence-before-label resolver
@@ -661,11 +662,23 @@ export async function ensureFresh({
       // ⚠ AND THE OUTCOME IS RECORDED RATHER THAN SWALLOWED. The catch below keeps a failure
       // non-fatal, but a caught-and-forgotten failure is indistinguishable from a repo with no
       // documents. The stats reach the manifest so the absence has a stated cause.
-      let docLinkResult = { added: 0, documents: 0, unresolved: 0, external: 0 };
+      let docLinkResult = { added: 0, documents: 0 };
       try {
-        docLinkResult = await detectDocLinks(db, repoRoot);
+        const r = await detectDocLinks(db, repoRoot);
+        // ⛔ THE FULL LEDGER NEVER ENTERS THE MANIFEST. ~1,200 miss records on this repo would
+        // balloon a file that every verb reads on every call — the same reason `dirtyEdges` is
+        // capped with an UNCAPPED count beside it. Full list to a sidecar, a small sample and the
+        // true total to the manifest, so the cap can never make the loss look smaller than it is.
+        const { misses, ...counts } = r;
+        await writeDocLinkMissSidecar(graphDir, misses);
+        docLinkResult = {
+          ...counts,
+          missCount: misses.length,
+          missSample: misses.slice(0, 25),
+          missLedger: '.aify-graph/doc-link-misses.json',
+        };
       } catch (err) {
-        docLinkResult = { added: 0, documents: 0, unresolved: 0, external: 0, failed: String(err?.message ?? err) };
+        docLinkResult = { added: 0, documents: 0, failed: String(err?.message ?? err) };
       }
 
       let communityResult = { communities: 0 };
@@ -723,6 +736,16 @@ export async function ensureFresh({
         // `dirtyEdgeCount` necessary next to `dirtyEdges` in the first place.
         skippedFileCount: skipped.length,
         skippedFiles: skipped.slice(0, 50),
+        // ⭐ THE CORPUS DENOMINATOR, FROM THE CODE THAT OWNS THE DECISION.
+        // ef-manager measured 52.7% of this repo's markdown never becoming a Document node — by
+        // running `git ls-files` from OUTSIDE, because the sweep published no number. Their
+        // caveat is why this comes from here rather than from their instrument: the sweep's
+        // candidate set is git candidates layered over the ignore parser, minus binary and minus
+        // the size cap, which is NOT the same set as `git ls-files`. Two instruments disagreeing
+        // by an unattributable amount is how a measurement becomes an argument.
+        // `seen` is the input, so `admitted` + `declined` reconcile against it or the gap is a
+        // finding in its own right.
+        sweepCounts: special.counts ?? null,
         // ⚠ `unresolved` IS A REPO-SHAPED PATH WE COULD NOT RESOLVE — a real gap, and the
         // number worth acting on. `external` is a deliberate link out of the repo and is NOT a
         // gap. They are reported separately because one figure covering both can only be read as
@@ -792,6 +815,7 @@ export async function ensureFresh({
         // is the half a caller sees without being told to go look somewhere else.
         skippedFileCount: skipped.length,
         skippedFiles: skipped.slice(0, 50),
+        sweepCounts: special.counts ?? null,
         docLinks: docLinkResult,
         resumedFromPartial,
         trustSpineDropped,

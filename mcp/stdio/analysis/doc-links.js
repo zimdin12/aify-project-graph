@@ -300,7 +300,7 @@ export async function detectDocLinks(db, repoRoot) {
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
   const empty = {
     added: 0, documents: 0, documentsWithLinks: 0,
-    external: 0, noSuchPath: 0, notAFileReference: 0, fencedExample: 0,
+    external: 0, noSuchPath: 0, notAFileReference: 0, fencedExample: 0, misses: [],
   };
   if (docs.length === 0) return empty;
 
@@ -308,11 +308,18 @@ export async function detectDocLinks(db, repoRoot) {
   const index = buildIndex(db.all(
     `SELECT id, type, file_path FROM nodes WHERE type IN (${types}) AND file_path != ''`));
   let added = 0;
-  let external = 0;
-  let noSuchPath = 0;
-  let notAFileReference = 0;
-  let fencedExample = 0;
   let documentsWithLinks = 0;
+
+  // ⛔ A COUNT IS UNFALSIFIABLE FROM OUTSIDE, and ef-manager was blocked by exactly that: "the
+  // manifest stores counts and not the misses themselves — I can see how many landed in each,
+  // never which." 707 `noSuchPath` could be 707 genuine stale references or 707 mis-bucketed
+  // prose tokens, and the number reads identically either way.
+  //
+  // ⚠ AND THE COUNTERS ARE DERIVED FROM THIS LIST RATHER THAN INCREMENTED BESIDE IT. Two tallies
+  // maintained in parallel can drift, and then a grader who audits a sample is certifying a
+  // number those records do not add up to — a receipt for a claim nobody made. One pass, one
+  // list, counts computed from it at the end.
+  const misses = [];
 
   for (const doc of docs) {
     let content;
@@ -328,15 +335,17 @@ export async function detectDocLinks(db, repoRoot) {
     // occurrence explicitly makes the recorded span reproducible.
     const best = new Map();
     for (const ref of scanDocReferences(content)) {
-      // The exclusion is unchanged — a fenced span never becomes an edge. It is now COUNTED
+      // Every outcome that is not an edge lands in the ledger with the span, the line and the
+      // rule that produced it — so a reader can open the document at that line and grade it.
+      const note = (bucket) => {
+        misses.push({ doc: doc.file_path, written: ref.written, line: ref.line, rule: ref.rule, bucket });
+      };
+      // The exclusion is unchanged — a fenced span never becomes an edge. It is now RECORDED
       // rather than dropped before anything could see it.
-      if (ref.fenced) { fencedExample++; continue; }
+      if (ref.fenced) { note('fenced_example'); continue; }
       const verdict = classifyTarget(ref.written, doc.file_path, index);
-      if (verdict.kind === 'external') { external++; continue; }
-      if (verdict.kind === 'unresolved') {
-        if (verdict.reason === 'no_such_path') noSuchPath++; else notAFileReference++;
-        continue;
-      }
+      if (verdict.kind === 'external') { note('external'); continue; }
+      if (verdict.kind === 'unresolved') { note(verdict.reason); continue; }
       if (verdict.id === doc.id) continue;          // a document does not link to itself
       if (!best.has(verdict.id)) best.set(verdict.id, ref);
     }
@@ -373,8 +382,18 @@ export async function detectDocLinks(db, repoRoot) {
   // edge count. The THIRD term — how much markdown never became a node — is not knowable from
   // this module, which only ever sees nodes. It belongs to the sweep, and until the corpus fix
   // lands this ratio must not be quoted as repository coverage.
+  const tally = (bucket) => misses.reduce((n, m) => n + (m.bucket === bucket ? 1 : 0), 0);
   return {
-    added, documents: docs.length, documentsWithLinks,
-    external, noSuchPath, notAFileReference, fencedExample,
+    added,
+    documents: docs.length,
+    documentsWithLinks,
+    // Derived from `misses`, never incremented alongside it. See the note where `misses` is
+    // declared: parallel tallies drift, and a drifted count turns a graded sample into a
+    // certification of the wrong number.
+    external: tally('external'),
+    noSuchPath: tally('no_such_path'),
+    notAFileReference: tally('not_a_file_reference'),
+    fencedExample: tally('fenced_example'),
+    misses,
   };
 }

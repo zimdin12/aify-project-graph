@@ -186,6 +186,39 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
   // hosts. Caller may pre-resolve and pass `gitCandidates` directly (e.g.
   // for tests or when caching). `.aifyignore`/`.aifyinclude` still apply
   // on top via ignoredDirs.
+  // ⛔ EVERY CLASSIFICATION THIS SWEEP DECLINES WAS INVISIBLE. There was no counts object
+  // anywhere in this function and the return carried two fields, so nothing downstream could ask
+  // what had been dropped — not for Documents, and not for Route/Schema/Config/Entrypoint either.
+  // ef-manager measured the Document hole from OUTSIDE with `git ls-files` (52.7% of this repo's
+  // markdown is not a node, 1.4% on sand_castle) because there was no number inside to read.
+  // If any other kind is under-admitting the same way, the first evidence would again arrive
+  // from someone measuring us from the outside.
+  //
+  // ⚠ `seen` IS THE INPUT, and it is emitted because ef-manager asked for it by name: "publish
+  // the input, and the outcomes sum to it or the sum is itself a finding." Without the
+  // denominator a reader reconciling their own file count against ours finds a discrepancy and
+  // has nowhere to attribute it — the candidate set here is git candidates, layered over the
+  // ignore parser, minus binary and minus the size cap, and it is NOT the same set as
+  // `git ls-files`.
+  const counts = {
+    seen: 0,
+    admitted: {},
+    declined: {
+      ignore_rule: 0,
+      git_excluded: 0,
+      over_size_cap: 0,
+      unreadable: 0,
+      // ⚠ SPLIT BEFORE SHIPPING, because the single bucket had the defect it was built to expose.
+      // Measured on this repo the first time it ran: 649 `not_a_known_kind` — and most of those
+      // are `.js` files, which the sweep is SUPPOSED to decline because the main extractor owns
+      // them. An expected outcome and a real hole reported under one name is exactly the
+      // conflation that made `unresolved` unreadable in the doc layer this morning, and it would
+      // have shipped a number nobody could act on.
+      not_a_special_kind: 0,          // expected: source, images — another path owns these
+      text_not_admitted_as_document: 0, // ⭐ THE GAP: .md/.rst/.txt that isDocument() refused
+    },
+  };
+
   const gitCandidates = providedCandidates !== undefined
     ? providedCandidates
     : getGitCandidateFiles(repoRoot);
@@ -248,6 +281,9 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
         : `${relPath}/${entry.name}`;
 
       if (pathContainsIgnoredDir(entryRelPath, ignoredDirs)) {
+        // Only FILES are counted — a skipped directory is not a candidate, it is a whole subtree
+        // that was never enumerated, and folding it in would make `seen` mean two things.
+        if (!entry.isDirectory()) { counts.seen++; counts.declined.ignore_rule++; }
         continue;
       }
 
@@ -260,7 +296,9 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
       // Plan #17 F: skip files git considers ignored (per .gitignore +
       // global excludes). The git candidate set is null for non-git
       // repos, in which case every file remains a candidate.
+      counts.seen++;
       if (!isGitCandidate(entryRelPath, gitCandidates)) {
+        counts.declined.git_excluded++;
         continue;
       }
 
@@ -270,9 +308,15 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
       let content;
       try {
         const fileStat = await fsStat(entryAbsPath);
-        if (fileStat.size > 500_000) continue;
+        // ⚠ ef-manager checked whether this cap is live: 0 files over 500KB across APG, echoes
+        // and sand_castle, largest markdown 181,537 B. NOT firing anywhere today — and counted
+        // anyway, because it sits UPSTREAM of every classifier, so a file dropped here is
+        // invisible even to a fix that counts classifier rejections. sand_castle's largest doc is
+        // within 3x of the cap and transcript-heavy corpora are exactly what we index next.
+        if (fileStat.size > 500_000) { counts.declined.over_size_cap++; continue; }
         content = await readFile(entryAbsPath, 'utf8');
       } catch {
+        counts.declined.unreadable++;
         continue; // Skip unreadable or non-UTF8 files
       }
 
@@ -318,10 +362,24 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
       if (node) {
         nodes.push(node);
         edges.push(containsEdge(parentNode, node));
+        counts.admitted[node.type] = (counts.admitted[node.type] ?? 0) + 1;
+      } else if (DOCUMENT_EXTENSIONS.has(extname(entryRelPath).toLowerCase())) {
+        // ⭐ THE GAP. A text document that reached `isDocument()` and was refused — not a readme,
+        // not one of the 12 allowlisted names, not under a directory whose name contains "doc".
+        // 79 of this repo's 150 tracked markdown files land here. Nothing downstream will pick
+        // them up: this was their only chance to become a node.
+        counts.declined.text_not_admitted_as_document++;
+      } else {
+        // Expected. A `.js` file is declined here because the main extractor owns it, and
+        // counting that as a loss would bury the line above in four times its own volume.
+        counts.declined.not_a_special_kind++;
       }
     }
   }
 
   await visit(toPosixPath(repoRoot));
-  return { nodes, edges };
+  // Published even when nothing was declined. A field that appears only when something is wrong
+  // cannot be told apart from a build that never had the check — which is the inference a field
+  // user correctly drew from a missing `staleProcess` key on 2026-08-07.
+  return { nodes, edges, counts };
 }

@@ -238,6 +238,58 @@ describe('doc → file links', () => {
     }
   }, 30_000);
 
+  it('★★★ every miss is RECORDED, not just counted', async () => {
+    // ⛔ ef-manager, blocked: "I could not falsify the split between the two miss buckets, because
+    // the manifest stores counts and not the misses themselves — I can see how many landed in
+    // each, never which."
+    //
+    // A count is unfalsifiable from outside. 707 `noSuchPath` on this repo could be 707 genuine
+    // stale references or 707 mis-bucketed prose tokens and the number reads identically. The
+    // ledger is what makes the categories gradeable by someone who is not me.
+    const db = await fixture([
+      'See [gone](src/deleted-yesterday.js).',           // noSuchPath
+      'Call the `tools/call` endpoint.',                  // notAFileReference
+      'Spec at [x](https://example.com/a.js).',           // external
+      '',
+      '```md',
+      'See [ex](src/terrain.js).',                        // fencedExample
+      '```',
+      '',
+    ].join('\n'));
+    const stats = await detectDocLinks(db, repo);
+
+    const buckets = stats.misses.map((m) => m.bucket).sort();
+    expect(buckets).toEqual(['external', 'fenced_example', 'no_such_path', 'not_a_file_reference']);
+
+    const gone = stats.misses.find((m) => m.bucket === 'no_such_path');
+    expect(gone.written, 'the span exactly as the author wrote it').toBe('src/deleted-yesterday.js');
+    expect(gone.doc).toBe('docs/design.md');
+    expect(gone.line, 'a line the grader can open the document to').toBe(1);
+    expect(gone.rule).toBe('doc_link:markdown');
+    db.close();
+  }, 20_000);
+
+  it('★★★ the COUNTS and the RECORDS cannot disagree', async () => {
+    // ⚠ THE POINT OF SHIPPING BOTH. If the counters were incremented independently of the ledger
+    // they could drift, and a grader auditing 30 sampled records would be certifying a number
+    // those records do not add up to — a receipt for the wrong claim. They are derived from one
+    // pass over one list, and this is what holds them to it.
+    const db = await fixture([
+      'See [a](src/gone-1.js) and [b](src/gone-2.js).',
+      'Run `npm run build` then `tools/call`.',
+      'Spec [s](https://example.com/x.js).',
+    ].join('\n'));
+    const stats = await detectDocLinks(db, repo);
+    const tally = (b) => stats.misses.filter((m) => m.bucket === b).length;
+    expect(tally('no_such_path')).toBe(stats.noSuchPath);
+    expect(tally('not_a_file_reference')).toBe(stats.notAFileReference);
+    expect(tally('external')).toBe(stats.external);
+    expect(tally('fenced_example')).toBe(stats.fencedExample);
+    expect(stats.misses.length, 'no miss belongs to no bucket')
+      .toBe(stats.noSuchPath + stats.notAFileReference + stats.external + stats.fencedExample);
+    db.close();
+  }, 20_000);
+
   it('★★★ a doc→DOC link resolves — the case the real graph could not do', async () => {
     // ⭐ THE HIGHEST-VALUE EDGE IN THE WHOLE FEATURE, and the first implementation could not
     // produce a single one. Documents are `Document` nodes, never `File` nodes, and the index
