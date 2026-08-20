@@ -3,9 +3,27 @@ name: graph-task-edit
 description: Use when the user wants to surgically add/edit/remove/link/unlink/rename a single task in `.aify-graph/tasks.json` — not a full sync from a tracker. Examples "add a local task for refactor", "link CU-123 to feature auth", "remove T-local-42", "edit CU-200 status=done". Validates feature references, shows a diff, confirms before writing, then rebuilds briefs as part of the same transaction.
 ---
 
-# graph-task-edit
+# A task moved, and the map still says otherwise
 
-Surgical mutation of `.aify-graph/tasks.json`. For full refresh/sync from external trackers use `/graph-build-tasks`.
+Something changed about one task — it closed, it picked up a second feature, its status no longer
+matches the tracker. You want the overlay to say so without touching anything else.
+
+★ THE COST OF GETTING THIS WRONG IS AN ABSENCE, NOT AN ERROR. `tasks.json` is what answers "is
+anything in flight on this?" — and it answers by listing what is RECORDED. A task whose `features`
+list points at a renamed feature is not an error; it simply stops appearing under that feature, and
+the feature then reports no work in progress. The reader sees a clean answer and changes the code.
+
+So a task edit is a claim about what is true RIGHT NOW in a system the reader will trust without
+checking. Show the diff, wait, and never quietly drop a reference.
+
+**When this is not the job:**
+
+- **The tracker is the source of truth and has moved on** → `/graph-build-tasks`. Hand-editing
+  individual tasks to match a tracker is a sync you will have to do again tomorrow.
+- **You want the task to exist because it should** → it should exist in the TRACKER first. A task
+  recorded only here is invisible to everyone not reading this repo's overlay.
+- **The feature it points at is the thing that is wrong** → `/graph-feature-edit`, and do that
+  first: repointing a task at a feature you are about to rename means doing both twice.
 
 ## Sub-actions
 

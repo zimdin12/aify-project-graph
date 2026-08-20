@@ -3,9 +3,28 @@ name: graph-feature-edit
 description: Use when the user wants to surgically add/edit/remove/link/unlink/rename/merge a single feature in `.aify-graph/functionality.json` — not a full refresh. Examples "add a feature for caching", "link auth depends_on sessions", "rename auth-old to authentication", "merge old-billing into billing". Validates anchors, shows a diff, confirms before writing, then rebuilds briefs as part of the same transaction.
 ---
 
-# graph-feature-edit
+# You learned something about a feature. Record it without breaking everyone else.
 
-Surgical mutation of `.aify-graph/functionality.json` — one feature at a time. For full-map proposal/refresh use `/graph-build-functionality`; for drift repair after code moves use `/graph-anchor-drift`.
+One feature changed — it gained a file, it depends on something it did not before, it turned out
+to be two features. You want the map to say so.
+
+★ THE HARD PART IS NOT THE EDIT. It is that a feature id is a REFERENCE HELD ELSEWHERE: by other
+features' `depends_on`, by tasks' `features: []`, by anything that reads the overlay. Rename or
+merge carelessly and those references do not error — they stop matching, silently, and the feature
+they pointed at reads as gone. That is the same false-absence failure a stale anchor produces, with
+a different cause.
+
+So every action below validates the references it touches BEFORE writing, shows the diff, and waits.
+
+**When this is not the job:**
+
+- **The whole map is wrong or missing** → `/graph-build-functionality`. Editing one feature at a
+  time into existence is slower and produces a map with no coherent shape.
+- **The code moved and the map did not** → `/graph-anchor-drift`. That is repair against a diff,
+  not a decision, and it has a different evidence standard.
+- **You are not sure the feature should exist** → do not add it here. An invented feature is
+  indistinguishable from a curated one once written, and the overlay's entire value is that a human
+  decided what is in it.
 
 ## Sub-actions
 
