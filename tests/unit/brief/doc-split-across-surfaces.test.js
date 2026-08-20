@@ -217,3 +217,59 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
     expect(renderJson(d, '/repo').document_evidence.state).toBe('unknown');
   });
 });
+
+// ⛔ TWO CONTRACT ATTACKS graph-senior-dev EXECUTED AGAINST 2de7fc4, kept as witnesses.
+describe('the typed state carries a population, not a rendered sample', () => {
+  it('★★★ JSON reports the candidate TOTAL, not the two that were rendered', () => {
+    // ⛔ `linked_candidate_count` was `readFirstArr.filter(kind==="doc").length`, and `readFirst`
+    // slices to two before returning. Measured on the real graph: population 89, reported 2.
+    //
+    // ★ A cap presented as a denominator — inside the typed state built to remove exactly that
+    // defect, and the third time today. The first two were in code I inherited; this one I wrote.
+    const d = { ...data(), readFirstArr: [SRC, DOC, DOC], documentCount: 10, documentCandidateCount: 3 };
+    const ev = renderJson(d, '/repo').document_evidence;
+    expect(ev.linked_candidate_count, 'the population').toBe(3);
+    expect(ev.shown_candidate_count, 'and the sample, separately').toBe(2);
+    expect(ev.state).toBe('candidates_present');
+  });
+
+  it('★★★ a capped list DISCLOSES the cap on the text surfaces', () => {
+    // A cap nobody can see is a cap reported as a total one layer up.
+    // ⚠ documentCount MUST exceed the candidate total or the invariant fires — my first version of
+    // this fixture said 10 documents with 89 candidates and the new `inconsistent` state caught it.
+    // The check earned its place on the test written to exercise a different property.
+    const d = { ...data(), readFirstArr: [DOC, DOC], documentCount: 160, documentCandidateCount: 89 };
+    expect(renderMarkdown(d)).toMatch(/Showing 2 of 89/);
+    expect(renderAgentMarkdown(d)).toMatch(/showing 2 of 89 linked candidates/i);
+  });
+
+  it('★★★ candidates_present is derived from the POPULATION, not the rendered array', () => {
+    // ⚠ If the display slice were filtered downstream, the artifact reported
+    // `indexed_without_link_candidates` while candidates existed. The state follows the evidence.
+    const d = { ...data(), readFirstArr: [SRC], documentCount: 10, documentCandidateCount: 7 };
+    expect(renderJson(d, '/repo').document_evidence.state).toBe('candidates_present');
+  });
+
+  const IMPOSSIBLE = [
+    { name: 'zero indexed but a candidate exists', documentCount: 0, total: 1 },
+    { name: 'more candidates than documents', documentCount: 1, total: 2 },
+    { name: 'a negative count', documentCount: -1, total: 0 },
+  ];
+  for (const c of IMPOSSIBLE) {
+    it(`★★★ INCONSISTENT: ${c.name} — never serialized as a normal state`, () => {
+      // ⛔ All three came back as confident answers before this: two as `candidates_present`, one as
+      // `indexed_without_link_candidates`. A generated artifact publishing a contradiction as a fact
+      // is worse than one publishing nothing — a consumer cannot tell it is holding an impossible
+      // pair.
+      const d = { ...data(), readFirstArr: [], documentCount: c.documentCount, documentCandidateCount: c.total };
+      const ev = renderJson(d, '/repo').document_evidence;
+      expect(ev.state, 'observed inconsistency is not absence').toBe('inconsistent');
+      // ⚠ NOT collapsed to `unknown`, and the raw counts travel WITH it so the contradiction is
+      // auditable rather than merely flagged.
+      expect(ev.indexed_document_count).toBe(c.documentCount);
+      expect(ev.linked_candidate_count).toBe(c.total);
+      expect(renderMarkdown(d), 'the text surface says so too').toMatch(/EVIDENCE INCONSISTENT/);
+      expect(renderAgentMarkdown(d)).toMatch(/DOCS: evidence INCONSISTENT/);
+    });
+  }
+});

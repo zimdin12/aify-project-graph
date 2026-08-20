@@ -57,17 +57,56 @@ import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFe
  * extractor that never ran, one that ran and produced zero, and edges purged since. The carrier
  * holds the result population, not producer liveness.
  */
-export function documentEvidence(readFirstArr = [], documentCount = null) {
-  const linked = readFirstArr.filter((r) => r.kind === 'doc').length;
-  const state = linked > 0 ? 'candidates_present'
-    : documentCount == null ? 'unknown'
-      : documentCount === 0 ? 'graph_empty'
-        : 'indexed_without_link_candidates';
-  return { indexed_document_count: documentCount, linked_candidate_count: linked, state };
+export function documentEvidence(readFirstArr = [], documentCount = null, candidateTotal = null) {
+  const shown = readFirstArr.filter((r) => r.kind === 'doc').length;
+  // ⛔ THE TOTAL IS THE POPULATION, NOT THE RENDERED SAMPLE. `linked_candidate_count` used to be
+  // `readFirstArr.filter(...).length` — and `readFirst` slices to two before returning, so it
+  // reported 2 for a population of 89. A cap presented as a denominator, inside the typed state
+  // built to stop exactly that. Falls back to the rendered count only when no total was supplied,
+  // which is the pre-wiring path and is why the fallback is explicit rather than silent.
+  const linked = Number.isInteger(candidateTotal) ? candidateTotal : shown;
+
+  // ⛔⛔ CONTRADICTORY COUNTS ARE NOT A NORMAL STATE. graph-senior-dev serialized three impossible
+  // combinations through the old function and every one came back as a confident answer:
+  //
+  //     indexed 0, candidates 1   -> candidates_present
+  //     indexed 1, candidates 2   -> candidates_present
+  //     indexed -1               -> indexed_without_link_candidates
+  //
+  // A generated artifact that publishes a contradiction as a fact is worse than one that publishes
+  // nothing: a consumer has no way to know it is holding an impossible pair.
+  //
+  // ⚠ AND `inconsistent` IS NOT `unknown`. Observed inconsistency is not absence — collapsing them
+  // would be the two-state collapse this file has already been corrected for twice. The raw counts
+  // travel WITH the state so the contradiction is auditable rather than merely flagged.
+  const badInt = (v) => v != null && (!Number.isInteger(v) || v < 0);
+  const inconsistent = badInt(documentCount) || badInt(linked)
+    || (Number.isInteger(documentCount) && Number.isInteger(linked) && linked > documentCount);
+
+  const state = inconsistent ? 'inconsistent'
+    : linked > 0 ? 'candidates_present'
+      : documentCount == null ? 'unknown'
+        : documentCount === 0 ? 'graph_empty'
+          : 'indexed_without_link_candidates';
+  return {
+    indexed_document_count: documentCount,
+    linked_candidate_count: linked,
+    // ⚠ Both numbers, always. "showing 2 of 89" is only sayable if the artifact carries both, and a
+    // cap nobody can see is a cap reported as a total one layer up.
+    shown_candidate_count: shown,
+    state,
+  };
 }
 
 /** The one bounded line the compact surfaces render. Null when there is nothing to disclose. */
 export function documentEvidenceLine(ev) {
+  if (ev.state === 'inconsistent') {
+    return `DOCS: evidence INCONSISTENT — ${ev.indexed_document_count} indexed, `
+      + `${ev.linked_candidate_count} linked candidate(s); these counts cannot both be true`;
+  }
+  if (ev.state === 'candidates_present' && ev.linked_candidate_count > ev.shown_candidate_count) {
+    return `DOCS: showing ${ev.shown_candidate_count} of ${ev.linked_candidate_count} linked candidates`;
+  }
   if (ev.state === 'graph_empty') {
     return 'DOCS: graph holds 0 Document nodes — repository presence and cause NOT established';
   }
@@ -156,16 +195,26 @@ export function renderMarkdown(data) {
   // heading from silently restoring the withdrawn claim over the documents.
   const readSources = readFirstArr.filter((r) => r.kind !== 'doc');
   const docCandidates = readFirstArr.filter((r) => r.kind === 'doc');
-  const docEvidence = documentEvidence(readFirstArr, documentCount);
+  const docEvidence = documentEvidence(readFirstArr, documentCount, data.documentCandidateCount ?? null);
   if (readSources.length) {
     lines.push('## Read first');
     for (const r of readSources) lines.push(`- \`${r.file}\` — ${r.why}`);
     lines.push('');
   }
-  if (docCandidates.length) {
+  if (docEvidence.state === 'inconsistent') {
+    // ⚠ Fails closed and LOUD. A contradiction is not a candidate list with a caveat.
     lines.push('## Linked document candidates');
+    lines.push(`EVIDENCE INCONSISTENT — ${docEvidence.indexed_document_count} document(s) indexed `
+      + `and ${docEvidence.linked_candidate_count} linked candidate(s) reported; these counts cannot `
+      + 'both be true, so neither is presented as evidence.');
+    lines.push('');
+  } else if (docCandidates.length) {
+    lines.push('## Linked document candidates');
+    const cap = docEvidence.linked_candidate_count > docEvidence.shown_candidate_count
+      ? ` Showing ${docEvidence.shown_candidate_count} of ${docEvidence.linked_candidate_count}.`
+      : '';
     lines.push('Ranked by link prominence, NOT a reading order — no explicit read-order directive '
-      + 'was derived from this repo.');
+      + `was derived from this repo.${cap}`);
     for (const r of docCandidates) lines.push(`- \`${r.file}\` — ${r.why}`);
     lines.push('');
   } else if (docEvidence.state === 'graph_empty') {
@@ -365,10 +414,14 @@ export function renderAgentMarkdown(data) {
   if (docCands.length) {
     lines.push('DOCS (link prominence, not a read order):');
     for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
+    const capLine = documentEvidenceLine(documentEvidence(
+      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
+    if (capLine) lines.push(`  ${capLine.replace(/^DOCS: /, '')}`);
   } else {
     // ⚠ ONE BOUNDED LINE, NOT SILENCE. These are the artifacts an agent reads FIRST, and they were
     // the ones saying nothing in the field state that motivated the whole fix.
-    const line = documentEvidenceLine(documentEvidence(readFirstArr, data.documentCount ?? null));
+    const line = documentEvidenceLine(documentEvidence(
+      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
     if (line) lines.push(line);
   }
   if (tests.length) {
@@ -463,10 +516,14 @@ export function renderOnboardAgentMarkdown(data) {
   if (docCands.length) {
     lines.push('DOCS (link prominence, not a read order):');
     for (const r of docCands.slice(0, 2)) lines.push(`  ${r.file}`);
+    const capLine = documentEvidenceLine(documentEvidence(
+      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
+    if (capLine) lines.push(`  ${capLine.replace(/^DOCS: /, '')}`);
   } else {
     // ⚠ ONE BOUNDED LINE, NOT SILENCE. These are the artifacts an agent reads FIRST, and they were
     // the ones saying nothing in the field state that motivated the whole fix.
-    const line = documentEvidenceLine(documentEvidence(readFirstArr, data.documentCount ?? null));
+    const line = documentEvidenceLine(documentEvidence(
+      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null));
     if (line) lines.push(line);
   }
   if (health.issues.length) {
@@ -682,7 +739,9 @@ export function renderJson(data, repoRoot) {
     // means the same thing for a graph with 0 Document nodes and for one with 42 that carry no
     // authored links, and those are different situations. The payload used to carry the empty array
     // and neither number.
-    document_evidence: documentEvidence(readFirstArr, data.documentCount ?? null),
+    document_evidence: documentEvidence(
+      readFirstArr, data.documentCount ?? null, data.documentCandidateCount ?? null,
+    ),
     tests,
     // The anchors are a SAMPLE. Programmatic consumers need the denominator and
     // the per-extension breakdown to know which suite the sample came from.

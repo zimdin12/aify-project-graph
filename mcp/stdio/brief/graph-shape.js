@@ -244,38 +244,28 @@ export function hubs(db, limit = 5) {
     .slice(0, limit)
     .map(r => ({ ...r, role: classifyRole(r.label, r.file, r.type) }));
 }
-export function readFirst(db, limit = 6, opts = {}) {
-  // Non-obvious "read first" targets. Priority order:
-  //   1. Linked document candidates (link prominence — NOT a read order; see the note below)
-  //   2. Files that back an EXPORTS entry (if passed in)
-  //   3. Files with anchored feature overlays (if passed in)
-  //   4. High-degree source files as fallback, filtered by dominant language
-  const { exports: exportsArr = [], overlayHealth, primaryExt = null, docRecency = null } = opts;
-
-  // ⛔ THIS WAS A THREE-NAME ALLOWLIST AND IT MATCHED NOTHING. Measured on this repo:
-  //
-  //     Document nodes                                                     155
-  //     matching ARCHITECTURE.md / DESIGN.md / DEVELOPMENT.md                0
-  //     negative control (a name nobody has)                                 0
-  //
-  // So the doc section of the brief an agent reads FIRST was empty, and had been for the life of
-  // the repo. The recorded figure was 0 of 74; the doc-corpus fix doubled the population the
-  // allowlist fails to match without changing the outcome, because the outcome was never about
-  // how many documents exist.
-  //
-  // ⇒ DERIVED, NOT NAMED. No document is excluded for having an unexpected name; that is the whole
-  // defect this replaced.
-  //
-  // ⚠ THIS COMMENT USED TO CALL THE RESULT "an orienting document" AND THAT CLAIM IS WITHDRAWN.
-  // Link prominence measures how much of the system a document REFERENCES and how often other
-  // documents cite it. On the only corpora with stated ground truth, that ranked contracts above the
-  // file the repo itself names as its entry point — 0 of 2. What the numbers measure is real; what
-  // they were said to mean was not.
-  //
-  // ⚠ AND THE HONEST LIMIT, STATED RATHER THAN IMPLIED: outbound degree means "describes a lot of
-  // code", NOT "describes the code as it is now". A superseded plan can outrank a current
-  // changelog, and there is no derived staleness signal for documents in this graph. The `why`
-  // carries the evidence so a reader can judge it instead of trusting the ordering.
+/**
+ * The linked-document candidate population AND the sample rendered from it.
+ *
+ * ⛔ ONE PRODUCER OWNS MEMBERSHIP AND DENOMINATOR. This was inline in `readFirst`, which slices to
+ * two before returning — so anything counting the returned array was counting a RENDERED SAMPLE.
+ * `document_evidence.linked_candidate_count` reported 2 against a real population of 88.
+ *
+ * ⇒ That is the cap-reported-as-a-total defect, committed inside the typed state whose purpose is
+ * to stop it. The same shape as `filesTotal` being the scope's denominator and as the enumeration
+ * ceiling reported as convergence — the third time today, and the first where I built it into the
+ * remedy rather than finding it in old code.
+ *
+ * ⚠ It also means the STATE was derived from rendering rather than evidence: if the display slice
+ * were filtered downstream the artifact would report `indexed_without_link_candidates` while
+ * candidates existed.
+ *
+ * @returns {{items: Array, total: number, basis: string}} `total` is the population; `items` is
+ *   what a caller should render. A consumer that wants the cap disclosed compares the two.
+ */
+export function linkedDocumentCandidates(db, opts = {}) {
+  const { docRecency = null } = opts;
+  let total = 0;
   let docBasis = 'links';
   // ⛔ CANDIDATE POPULATION IS EVERY DOCUMENT. The first version joined from the candidate to a
   // non-Document target, so a document could not be a candidate unless it referenced code — which
@@ -369,13 +359,75 @@ export function readFirst(db, limit = 6, opts = {}) {
     // from "here are the linked candidates", and an empty section collapses them — it reads as
     // "this repo has no docs" when it may mean the doc layer was never built.
     docBasis = 'position';
+    // A positional fallback has no linked candidates by construction; the total is the truth
+    // about the LINKED population, not about what was rendered instead.
+    total = 0;
     docs = q(db,
       `SELECT label, file_path AS file, 0 AS inbound, 0 AS deg, 0 AS mentions FROM nodes
         WHERE type = 'Document' AND file_path NOT LIKE '%/%'
         ORDER BY length(file_path) ASC, file_path ASC LIMIT 2`);
   } else {
+    // ⛔ THE TOTAL IS CAPTURED BEFORE THE SLICE. It used to be counted AFTER, from the
+    // RENDERED array, so `linked_candidate_count` reported 2 for a population of 88 — a cap
+    // reported as a total, in the typed state built to remove exactly that. graph-senior-dev
+    // measured it on this graph.
+    total = docs.length;
     docs = docs.slice(0, 2);
   }
+  // ⚠ `population` is the full sorted candidate list, returned because the staleness disclosure
+  // must count the CORPUS of candidates, not the two rendered. That disclosure already had this bug
+  // once — it closed over the sliced array and reported "how many of the TWO shown are newer".
+  return { items: docs, total, basis: docBasis, population };
+}
+
+export function readFirst(db, limit = 6, opts = {}) {
+  // Non-obvious "read first" targets. Priority order:
+  //   1. Linked document candidates (link prominence — NOT a read order; see the note below)
+  //   2. Files that back an EXPORTS entry (if passed in)
+  //   3. Files with anchored feature overlays (if passed in)
+  //   4. High-degree source files as fallback, filtered by dominant language
+  const { exports: exportsArr = [], overlayHealth, primaryExt = null, docRecency = null } = opts;
+
+  // ⛔ THIS WAS A THREE-NAME ALLOWLIST AND IT MATCHED NOTHING. Measured on this repo:
+  //
+  //     Document nodes                                                     155
+  //     matching ARCHITECTURE.md / DESIGN.md / DEVELOPMENT.md                0
+  //     negative control (a name nobody has)                                 0
+  //
+  // So the doc section of the brief an agent reads FIRST was empty, and had been for the life of
+  // the repo. The recorded figure was 0 of 74; the doc-corpus fix doubled the population the
+  // allowlist fails to match without changing the outcome, because the outcome was never about
+  // how many documents exist.
+  //
+  // ⇒ DERIVED, NOT NAMED. No document is excluded for having an unexpected name; that is the whole
+  // defect this replaced.
+  //
+  // ⚠ THIS COMMENT USED TO CALL THE RESULT "an orienting document" AND THAT CLAIM IS WITHDRAWN.
+  // Link prominence measures how much of the system a document REFERENCES and how often other
+  // documents cite it. On the only corpora with stated ground truth, that ranked contracts above the
+  // file the repo itself names as its entry point — 0 of 2. What the numbers measure is real; what
+  // they were said to mean was not.
+  //
+  // ⚠ AND THE HONEST LIMIT, STATED RATHER THAN IMPLIED: outbound degree means "describes a lot of
+  // code", NOT "describes the code as it is now". A superseded plan can outrank a current
+  // changelog, and there is no derived staleness signal for documents in this graph. The `why`
+  // carries the evidence so a reader can judge it instead of trusting the ordering.
+  // ⚠ The population is computed ONCE. The generator passes it in so the same query does not run
+  // twice, and so the renderer and this ranking cannot disagree about how many candidates exist.
+  const candidates = opts.documentCandidates ?? linkedDocumentCandidates(db, { docRecency });
+  const docBasis = candidates.basis;
+  const docs = candidates.items;
+  const recencyOf = (file) => {
+    const v = docRecency instanceof Map ? docRecency.get(file) : docRecency?.[file];
+    return typeof v === 'string' ? v : null;
+  };
+  const population = candidates.population ?? [];
+  const known = population.map((d) => recencyOf(d.file)).filter(Boolean).sort();
+  const median = known.length ? known[Math.floor(known.length / 2)] : null;
+  const newerThan = (date) => (date ? population.filter((d) => {
+    const r = recencyOf(d.file);
+    return r && r > date;
+  }).length : 0);
 
   const files = q(db,
     `SELECT n.label, n.file_path AS file, count(e.from_id) AS deg

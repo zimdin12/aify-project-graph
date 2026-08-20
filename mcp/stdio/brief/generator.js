@@ -26,7 +26,7 @@ import { computeCoverage, openTasksByFeature, completedTaskCountsByFeature, open
 export { computeCoverage } from './artifacts.js';
 // The five renderers live in render.js. generator.js orchestrates and hands each one a plain
 // data object; nothing flows back. See render.js's header for why artifacts.js had to move first.
-import { q, count, extractPaths, detectCanonicalEntries, subsystems, hubs, readFirst, testInventory, testAnchors, enrichFeaturesForPlanning, enrichRisksForPlanning, risks } from './graph-shape.js';
+import { q, count, extractPaths, detectCanonicalEntries, subsystems, hubs, readFirst, linkedDocumentCandidates, testInventory, testAnchors, enrichFeaturesForPlanning, enrichRisksForPlanning, risks } from './graph-shape.js';
 import { extractTooling, detectFromPackageJson, documentRecency, recentActivity, recentActivityWithFiles, summarizeUnresolvedFromManifest } from './extract.js';
 import { renderMarkdown, renderAgentMarkdown, renderOnboardAgentMarkdown, renderPlanAgentMarkdown, renderJson } from './render.js';
 import { openDb } from '../storage/db.js';
@@ -456,8 +456,14 @@ export function generateBrief({ repoRoot }) {
     const docPaths = q(db, "SELECT file_path AS f FROM nodes WHERE type = 'Document' AND file_path != ''")
       .map((r) => r.f);
     const docRecency = documentRecency(repoRoot, docPaths);
+    // ⛔ COMPUTED ONCE, BY THE ONE PRODUCER THAT OWNS MEMBERSHIP. The candidate SQL is not
+    // duplicated here: `readFirst` receives the same population the renderer is told the size of,
+    // so the ranking and the disclosed denominator cannot disagree. Before this, anything counting
+    // the returned array counted a RENDERED SAMPLE — 2 against a real population of 89.
+    const documentCandidates = linkedDocumentCandidates(db, { docRecency });
     const readFirstArr = readFirst(db, 6, {
       docRecency,
+      documentCandidates,
       exports,
       overlayHealth,
       primaryExt: primaryLangExt(snapshot),
@@ -526,6 +532,7 @@ export function generateBrief({ repoRoot }) {
     // ⇒ The count travels with the candidates so the renderer can tell "this repo has no docs" from
     // "this graph was never given any". Those want opposite actions from a reader.
     const documentCount = q(db, "SELECT COUNT(*) AS c FROM nodes WHERE type = 'Document'")[0]?.c ?? 0;
+    const documentCandidateCount = documentCandidates.total;
     const data = {
       snapshot,
       entries,
@@ -533,6 +540,7 @@ export function generateBrief({ repoRoot }) {
       hubsArr,
       readFirstArr,
       documentCount,
+      documentCandidateCount,
       tests,
       testInv,
       risksArr,
