@@ -96,6 +96,28 @@ function buildDeferredPartialResumeResult({ db, manifest, commit }) {
   };
 }
 
+// Line splitter for git plumbing output. Built from a character code so the pattern never has
+// to survive a shell heredoc — five separate 0x08 incidents this session came from exactly that.
+import { execFileSync } from 'node:child_process';
+
+/**
+ * Which of a collection's files still have valid evidence after HEAD moved.
+ *
+ * ⛔ FAILS CLOSED ON AN UNKNOWN CHANGE SET. `changedFiles` of null means the diff could not be
+ * computed, and an unknown change set is NOT an empty one — returning everything there would
+ * re-stamp evidence as compiler-verified on the strength of a failed command. Empty set, and the
+ * caller reports `unavailable_diff_failed_closed` rather than salvaging silently.
+ *
+ * @param {string[]} collectionFiles  files the collection holds records for
+ * @param {Set<string>|null} changedFiles  files git says changed between the two commits
+ */
+export function salvageableFiles(collectionFiles, changedFiles) {
+  if (!changedFiles) return new Set();
+  return new Set((collectionFiles ?? []).filter((f) => f && !changedFiles.has(f)));
+}
+
+const NEWLINE_RE = new RegExp(String.fromCharCode(92) + 'r?' + String.fromCharCode(92) + 'n');
+
 export async function ensureFresh({
   repoRoot: repoRootArg,
   graphDir: graphDirArg,
@@ -624,6 +646,62 @@ export async function ensureFresh({
             if (r.edgesCreated > 0) {
               console.warn(`[aify-project-graph] restored ${r.edgesCreated} LSP-verified edge(s) from commit-current collection ${latest.collectionId} (rebuild preserved the trust spine)`);
             }
+          } else if (latest && latest.indexedCommit) {
+            // ⛔ ALL-OR-NOTHING DROPPED EVIDENCE THAT WAS STILL TRUE.
+            //
+            // The gate above is right about WHY — line numbers from an older commit can resolve
+            // onto shifted code — and wrong about the GRANULARITY. A record is stale only if ITS
+            // OWN file changed. On a repo that commits often, requiring HEAD to equal the
+            // collection's commit means the spine dies on the next commit, every time, which is
+            // why LSP_VERIFIED read 0 here for the life of the repo while collections had
+            // genuinely run. That zero was produced by the workflow, not by an omission.
+            //
+            // ⇒ Salvage per file: restore evidence for files git says did not change between the
+            // collection's commit and HEAD, drop the rest. More honest than dropping everything,
+            // because dropping true evidence is also a wrong answer — it just fails in the
+            // direction that looks careful.
+            //
+            // ⚠ FAILS CLOSED. If the diff cannot be computed we do NOT salvage: an unknown change
+            // set is not an empty one, and guessing here re-stamps evidence as compiler-verified.
+            let changed = null;
+            try {
+              const out = execFileSync('git', ['-C', repoRoot, 'diff', '--name-only',
+                `${latest.indexedCommit}..${commit}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+              changed = new Set(out.split(NEWLINE_RE).map((l) => l.trim()).filter(Boolean));
+            } catch { changed = null; }
+
+            let salvaged = null;
+            if (changed) {
+              const files = db.all(
+                'SELECT DISTINCT file FROM code_intel_records WHERE collection_id = $cid',
+                { cid: latest.collectionId },
+              ).map((r) => r.file).filter(Boolean);
+              const unchanged = salvageableFiles(files, changed);
+              if (unchanged.size > 0) {
+                salvaged = resynthesizeLspEdgesFromCollection(db, {
+                  collectionId: latest.collectionId, onlyFiles: unchanged,
+                });
+                if (salvaged.edgesCreated > 0) {
+                  console.warn(`[aify-project-graph] salvaged ${salvaged.edgesCreated} LSP-verified edge(s) from `
+                    + `${unchanged.size} of ${files.length} file(s) unchanged since ${String(latest.indexedCommit).slice(0, 7)}; `
+                    + `evidence for ${files.length - unchanged.size} changed file(s) was NOT re-stamped`);
+                }
+              }
+            }
+            trustSpineDropped = {
+              collectionId: latest.collectionId,
+              collectedAt: latest.collectedAt ?? null,
+              indexedCommit: latest.indexedCommit ?? null,
+              currentCommit: commit,
+              // ⚠ PARTIAL, and named as such. A salvage that reported "restored" would let a
+              // reader infer the spine is whole; one that reported nothing would hide that most
+              // of it survived. Both numbers, always.
+              salvagedEdges: salvaged?.edgesCreated ?? 0,
+              salvageBasis: changed ? 'per_file_diff' : 'unavailable_diff_failed_closed',
+              hint: salvaged?.edgesCreated
+                ? 'evidence for files that changed since the collection was NOT re-stamped — run graph_collect_code_intel to cover them; until then those symbols are heuristic-only'
+                : 'run graph_collect_code_intel to rebuild the [lsp✓] trust spine — until then caller sets are heuristic-only and cannot attest exhaustiveness',
+            };
           } else if (latest) {
             // The honesty gate correctly refused to re-stamp stale evidence — but
             // refusing SILENTLY is how a repo ends up running at 0% trust spine

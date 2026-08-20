@@ -854,7 +854,14 @@ export function compactCodeIntelRecords(db) {
 // moved since collection, line numbers would resolve wrong and we'd be stamping
 // stale evidence as LSP_VERIFIED. The orchestrator therefore invokes this ONLY
 // when the collection's indexedCommit equals the current HEAD (code unchanged).
-export function resynthesizeLspEdgesFromCollection(db, { collectionId } = {}) {
+/**
+ * Re-stamp LSP-verified edges from a stored collection after a rebuild wiped them.
+ *
+ * @param {Set<string>|null} opts.onlyFiles  when given, ONLY records whose location file is in
+ *   this set are restored. Used to salvage a collection whose commit has moved: evidence for a
+ *   file that did not change is still valid; evidence for one that did is not.
+ */
+export function resynthesizeLspEdgesFromCollection(db, { collectionId, onlyFiles = null } = {}) {
   const empty = { edgesCreated: 0, nodesCreated: 0, edgesInvalidated: 0, records: 0 };
   if (!collectionId) return empty;
   ensureCodeIntelCollectionsTable(db);
@@ -870,7 +877,18 @@ export function resynthesizeLspEdgesFromCollection(db, { collectionId } = {}) {
     { cid: collectionId },
   );
   if (rows.length === 0) return empty;
-  const records = rows.map((r) => {
+  // ⛔ PER-FILE SALVAGE. The gate that calls this used to be all-or-nothing on the whole
+  // collection: if HEAD moved at all, every edge was dropped. On a repo that commits often that
+  // is not a rare event — it is the steady state, and it is why LSP_VERIFIED read 0 here for the
+  // life of the repo while collections had genuinely run.
+  //
+  // A record's line numbers are stale only if ITS OWN file changed. Filtering by the record's
+  // location file keeps exactly the evidence that is still true and drops exactly the evidence
+  // that is not — which is more honest than dropping all of it, not less.
+  const kept = onlyFiles ? rows.filter((r) => onlyFiles.has(r.file)) : rows;
+  const droppedStale = rows.length - kept.length;
+  if (kept.length === 0) return { ...empty, records: 0, droppedStale };
+  const records = kept.map((r) => {
     let raw = {};
     try { raw = JSON.parse(r.raw); } catch { /* ignore */ }
     return {
@@ -895,7 +913,9 @@ export function resynthesizeLspEdgesFromCollection(db, { collectionId } = {}) {
   // Batch the synthesis (hundreds of thousands of edge upserts on a real repo).
   const run = db.transaction(() => synthesizeLspEdges(envelope, db, stats));
   run();
-  return { ...stats, records: records.length };
+  // `droppedStale` is reported, never silent: a salvage that quietly restored half the evidence
+  // would look identical to one that restored all of it.
+  return { ...stats, records: records.length, droppedStale };
 }
 
 function makeRecordInserter(db, collectionId) {
