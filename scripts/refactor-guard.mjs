@@ -22,6 +22,9 @@ import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+// The carrier predicate lives in its own module because a check inside a CLI whose main()
+// runs on import cannot be called by a test — and this one was wrong for weeks.
+import { CARRIER_KEYS, carrierMovement } from './lib/carrier.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 // ⛔ THE BASELINE LIVED UNDER .aify-graph AND REINDEXING DELETED IT. graph-senior-dev hit that
@@ -279,8 +282,38 @@ async function main() {
     process.exit(2);
   }
 
-  const now = carrier();
+  // ⛔⛔ THE CARRIER IS READ BEFORE **AND AFTER** THE CORPUS RUNS, AND BOTH MUST AGREE.
+  //
+  // Observed 2026-08-21 on a BYTE-IDENTICAL working tree (`git status --porcelain` empty,
+  // packet.js verified identical by `diff -q`): this script reported **"BEHAVIOUR CHANGED on 7 of
+  // 61 corpus entries"** and did NOT refuse. No code had changed at all.
+  //
+  // Cause: the old order was `carrier()` then `await runCorpus()`. The carrier was sampled once,
+  // BEFORE 61 route executions that take real time. `APG_AUTO_REINDEX` self-heals the graph on MCP
+  // dispatch, so a reindex can land DURING the corpus run — the outputs then come from the new
+  // graph while the recorded carrier still matches the baseline. The refusal cannot fire, and the
+  // difference is attributed to the code.
+  //
+  // ⇒ **A false FAIL is worse than the refusal it replaced.** A refusal says "cannot attribute";
+  // this said "your code changed behaviour" about code that did not exist yet in any changed form.
+  // It is the failure mode this whole script exists to prevent, inside the script itself.
+  //
+  // ⇒ THE FIX IS THE REVIEW-LEASE PROTOCOL APPLIED TO AN INSTRUMENT. graph-senior-dev binds a
+  // receipt by recording HEAD and status before a run, re-reading both after, and binding only if
+  // the identity matched at BOTH ends. A single sample cannot detect movement during the window it
+  // is supposed to certify — the second read is what makes the first one evidence.
+  const before = carrier();
   const results = await runCorpus();
+  const after = carrier();
+
+  const moved = carrierMovement(before, after);
+  if (moved.length) {
+    console.error('REFUSED: the carrier moved DURING the corpus run, so no output can be attributed.');
+    for (const k of moved) console.error(`  ${k}: ${before[k]} -> ${after[k]} (mid-run)`);
+    console.error('  Nothing here is evidence about the code. Re-run on a settled graph.');
+    process.exit(1);
+  }
+  const now = before;
 
   if (mode === 'baseline') {
     writeFileSync(ARTIFACT, JSON.stringify({ carrier: now, corpusSize: results.length, results }, null, 2));
@@ -314,7 +347,7 @@ async function main() {
   // every edit of the work being guarded, and its only leak into output is the excluded line
   // above. The GRAPH is a refusal condition, because it is the population every verb answers
   // from and a moved graph makes the comparison meaningless.
-  for (const k of ['graphSha256', 'indexedCommit', 'nodes', 'edges']) {
+  for (const k of CARRIER_KEYS) {
     if (base.carrier[k] !== now.carrier?.[k] && base.carrier[k] !== now[k]) {
       drifted.push(`${k}: baseline ${base.carrier[k]} -> now ${now[k]}`);
     }
