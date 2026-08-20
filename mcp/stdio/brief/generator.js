@@ -518,12 +518,21 @@ export function generateBrief({ repoRoot }) {
     const intelligence = loadIntelligenceOverlays({ repoRoot, functionalityJson: overlay });
     const architectureLayers = summarizeArchitectureLayers(intelligence.architecture);
 
+    // ⛔ AN EMPTY DOC SECTION MEANT TWO DIFFERENT THINGS AND SAID NEITHER. ef-manager found a repo
+    // with 15,628 nodes, 50,527 edges and ZERO Document nodes, whose AGENTS.md, CLAUDE.md and
+    // README.md all exist on disk. The section rendered empty — indistinguishable from a repo that
+    // genuinely has no documents, when the real state was that the doc layer never ingested any.
+    //
+    // ⇒ The count travels with the candidates so the renderer can tell "this repo has no docs" from
+    // "this graph was never given any". Those want opposite actions from a reader.
+    const documentCount = q(db, "SELECT COUNT(*) AS c FROM nodes WHERE type = 'Document'")[0]?.c ?? 0;
     const data = {
       snapshot,
       entries,
       subs,
       hubsArr,
       readFirstArr,
+      documentCount,
       tests,
       testInv,
       risksArr,

@@ -124,7 +124,12 @@ export function detectFromPackageJson(repoRoot) {
   }
   return out;
 }
-// ---------- document recency, for ranking what to read first ----------
+// ---------- document recency, for ranking LINKED DOCUMENT CANDIDATES ----------
+//
+// ⚠ THIS HEADING USED TO SAY "for ranking what to read first" AND THAT CLAIM IS WITHDRAWN. The
+// ranking failed 0 of 2 ground-truth corpora and the output no longer asserts a read order (see
+// 310fc64). Prose that still instructs the next maintainer to restore it is how a withdrawn claim
+// comes back — graph-senior-dev flagged exactly this while approving the withdrawal.
 //
 // ⛔ ef-manager REFUTED THE SIGNAL I WOULD HAVE REACHED FOR FIRST, with data, before proposing this
 // one. Their hypothesis was that a stale document's references fail to resolve, so resolution rate

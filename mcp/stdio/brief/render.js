@@ -26,7 +26,7 @@ import { computeCoverage, openTasksByFeature, completedTaskCountsByFeature, open
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs, taskLinkStrength, taskLinkStrengthCounts } from '../overlay/quality.js';
 
 export function renderMarkdown(data) {
-  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth, architectureLayers = [] } = data;
+  const { snapshot, entries, subs, hubsArr, readFirstArr, tests, risksArr, recent, health, overlayHealth, architectureLayers = [], documentCount = null } = data;
   const lines = [];
   lines.push('# Project Brief');
   lines.push('');
@@ -114,6 +114,22 @@ export function renderMarkdown(data) {
     lines.push('Ranked by link prominence, NOT a reading order — no explicit read-order directive '
       + 'was derived from this repo.');
     for (const r of docCandidates) lines.push(`- \`${r.file}\` — ${r.why}`);
+    lines.push('');
+  } else if (documentCount === 0) {
+    // ⛔ THREE STATES, AND THIS IS THE ONE THAT WAS MISSING. An empty section read as "this repo
+    // has no documents" when the actual state was "this graph holds none" — a repo with AGENTS.md,
+    // CLAUDE.md and README.md on disk and ZERO Document nodes in 15,628. The two want opposite
+    // actions: one is nothing to do, the other is go index them.
+    lines.push('## Linked document candidates');
+    lines.push('NONE — this graph holds no Document nodes at all. That is an INGESTION gap, not a '
+      + 'statement about the repository: documents may exist on disk and never have been indexed. '
+      + 'Re-index before reading this section as evidence of anything.');
+    lines.push('');
+  } else if (documentCount > 0) {
+    lines.push('## Linked document candidates');
+    lines.push(`NONE of the ${documentCount} indexed document(s) carries an indexed authored link `
+      + 'or sits at the repository root, so there is nothing to rank — the documents are here, the '
+      + 'link layer is not.');
     lines.push('');
   }
 
@@ -561,6 +577,20 @@ export function renderJson(data, repoRoot) {
   // (rendered) and have to be recomputed from tasks.json by any consumer."
   const tasksByFeature = openTasksByFeature(tasksArtifact);
   return {
+    // ⛔ A VERSION, BECAUSE `read_first` CHANGED POPULATION SILENTLY. graph-senior-dev's required
+    // receipt for an intentional break: document entries left `read_first` for
+    // `linked_document_candidates`, and without a discriminator a programmatic consumer cannot tell
+    // "no documents were recommended" from "the producer changed the contract". Those are the same
+    // bytes and opposite meanings.
+    //
+    //   v1  read_first mixed source entries and document entries
+    //   v2  read_first is SOURCE-ONLY; linked_document_candidates carries documents, which are
+    //       ranked by link prominence and make no read-order claim (see 310fc64 — the claim was
+    //       withdrawn after an independent grade failed 0 of 2 ground-truth corpora)
+    //
+    // ⚠ First version this payload has ever carried, so v1 is retroactive: a consumer that sees no
+    // `brief_schema_version` is reading v1 and should treat `read_first` as mixed.
+    brief_schema_version: 2,
     // We intentionally use manifest.indexedAt (already emitted) rather than a
     // fresh Date.now() for graph_indexed_at: adding wall-clock on every
     // render would defeat the content-hash-guarded cache that keeps brief

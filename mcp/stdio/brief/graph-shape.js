@@ -246,7 +246,7 @@ export function hubs(db, limit = 5) {
 }
 export function readFirst(db, limit = 6, opts = {}) {
   // Non-obvious "read first" targets. Priority order:
-  //   1. Architecture docs
+  //   1. Linked document candidates (link prominence — NOT a read order; see the note below)
   //   2. Files that back an EXPORTS entry (if passed in)
   //   3. Files with anchored feature overlays (if passed in)
   //   4. High-degree source files as fallback, filtered by dominant language
@@ -263,9 +263,14 @@ export function readFirst(db, limit = 6, opts = {}) {
   // allowlist fails to match without changing the outcome, because the outcome was never about
   // how many documents exist.
   //
-  // ⇒ DERIVED, NOT NAMED. A document that points at a lot of code is what an orienting document
-  // looks like, and doc→code edges measure exactly that — README.md carries 47 here, CHANGELOG 32.
-  // No document is excluded for having an unexpected name; that is the whole defect.
+  // ⇒ DERIVED, NOT NAMED. No document is excluded for having an unexpected name; that is the whole
+  // defect this replaced.
+  //
+  // ⚠ THIS COMMENT USED TO CALL THE RESULT "an orienting document" AND THAT CLAIM IS WITHDRAWN.
+  // Link prominence measures how much of the system a document REFERENCES and how often other
+  // documents cite it. On the only corpora with stated ground truth, that ranked contracts above the
+  // file the repo itself names as its entry point — 0 of 2. What the numbers measure is real; what
+  // they were said to mean was not.
   //
   // ⚠ AND THE HONEST LIMIT, STATED RATHER THAN IMPLIED: outbound degree means "describes a lot of
   // code", NOT "describes the code as it is now". A superseded plan can outrank a current
@@ -361,7 +366,7 @@ export function readFirst(db, limit = 6, opts = {}) {
 
   if (docs.length === 0) {
     // ⚠ THREE STATES, NOT TWO. "No document carries an indexed authored link" is a different answer
-    // from "here are the orienting documents", and an empty section collapses them — it reads as
+    // from "here are the linked candidates", and an empty section collapses them — it reads as
     // "this repo has no docs" when it may mean the doc layer was never built.
     docBasis = 'position';
     docs = q(db,
