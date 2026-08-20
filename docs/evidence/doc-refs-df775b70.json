@@ -1,0 +1,1669 @@
+{
+  "what": "Frozen doc-ref population for per-rule precision grading. Verdicts are NOT filled in.",
+  "how_to_grade": [
+    "For each entry in `admitted`, read `source_text` — the sentence the author actually wrote —",
+    "and decide whether it refers to `target_label` at `target_file`. Set verdict to \"correct\" or",
+    "\"false_positive\". Grade the PROSE, not the resolution: reading the target first is grading",
+    "the answer key. Precision is computed PER `extractor`, because dev set the floor per rule and",
+    "an aggregate can clear 0.95 while a rule inside it sits at 0.6.",
+    "For each entry in `refused`, decide whether the layer SHOULD have admitted it. That is the",
+    "recall question, and it is the one a precision number cannot answer."
+  ],
+  "pins": {
+    "commit": "df775b704bc71d3b81326f20e6e22b0ea9bb6413",
+    "dirty_files": 1,
+    "graph_sha256_16": "8bd7e8d39fc69fcf",
+    "repo": "aify-project-graph",
+    "rules": {
+      "doc_ref:qualified": 0.9,
+      "doc_ref:shaped": 0.8
+    }
+  },
+  "totals": {
+    "documents": 74,
+    "documents_with_refs": 26,
+    "admitted": 72,
+    "admitted_by_rule": {
+      "doc_ref:shaped": 71,
+      "doc_ref:qualified": 1
+    },
+    "refused_total": 6964,
+    "span_invariant_violations": 0
+  },
+  "admitted": [
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 363,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "compactCodeIntelRecords",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/code-intel/importer.js",
+      "source_text": "- **New `scripts/compact-graph.mjs <repo>`** + exported `compactCodeIntelRecords(db)`: one-shot maintenance that keeps the latest collection per provider, prunes the rest, and VACUUMs to reclaim disk on graphs that bloated before the auto-prune. Pruning is answer-preserving (only the latest collection is ever read). Ran it on sand_castle: 900 MB → 661 MB, 13 collections → 1, integrity ok, graph (nodes/edges) untouched. Regression tests cover auto-prune (complete vs partial vs cross-provider) and the compaction helper. Suite 1215 green.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 482,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "computeTrustLevel",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/health.js",
+      "source_text": "   `getUnresolvedCounts()` + `computeTrustLevel()`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 482,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getUnresolvedCounts",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/unresolved-metrics.js",
+      "source_text": "   `getUnresolvedCounts()` + `computeTrustLevel()`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 507,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "pathContainsIgnoredDir",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/ignored-dirs.js",
+      "source_text": "- **Ignore-path basename bug** (`27f4d86`). `pathContainsIgnoredDir()`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-10-state-of-the-service.md",
+      "source_line": 50,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "cosineSimilarity",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "  `cosineSimilarity(a, b)` in `intelligence/embeddings.js:10`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-12-refactor-proposal.md",
+      "source_line": 170,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "trust",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/generator.js",
+      "source_text": "or the text `trust=` inside a template string — **`trust()` is never called from render**, so",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-12-refactor-proposal.md",
+      "source_line": 219,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "enrichFeaturesForPlanning",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/graph-shape.js",
+      "source_text": "- The crosser this document names: `enrichFeaturesForPlanning(db, validFeatures)` — db + overlay.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-12-refactor-proposal.md",
+      "source_line": 220,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "entryPoints",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/generator.js",
+      "source_text": "- The crosser it misses: **`entryPoints(db, repoRoot, limit)`** — db + filesystem; it calls",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-12-refactor-proposal.md",
+      "source_line": 221,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detectFromPackageJson",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/extract.js",
+      "source_text": "  `detectFromPackageJson(repoRoot)` and genuinely reads outside the graph. The table above",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-12-refactor-proposal.md",
+      "source_line": 355,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "hubs",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/graph-shape.js",
+      "source_text": "the brief one reds on `hubs(5 → 4)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-19-roadmap.md",
+      "source_line": 109,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "graphWhereis",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/whereis.js",
+      "source_text": "   `graphWhereis(...)`, `SomeType`, `snake_case_symbol`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-19-variable-extraction-parked.md",
+      "source_line": 125,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "matchRule",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/extractors/generic.js",
+      "source_text": "`generic.matchRule()` uses `rules.find` and calls that ONE rule; turning it into",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/a-stand-in-where-the-real-thing-was-available.md",
+      "source_line": 475,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "openReceiptBody",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/receipt.js",
+      "source_text": "- **Forced doors.** `openReceiptBody(head, body)` is the only way to read claims,",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/archive/backlog.md",
+      "source_line": 10,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extractExports",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/generator.js",
+      "source_text": "**Problem**: generic route detection in `extractExports()` catches `Route::apiResource(...)` declarations but misses Laravel's middleware-alias resolution and controller method chains. lc-api was the weakest repo in both testers' bench runs (dev saw orient regression, search at parity) — framework-aware brief sections would close the gap. Dev's fresh single-tester analysis promoted this from \"architectural nice-to-have\" to P1 post-launch: *\"framework-aware brief generation is justified by my lc-api results, not just taste\"*.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2-next-plan.md",
+      "source_line": 41,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "fileStructuralFingerprint",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/fingerprint.js",
+      "source_text": "| P1-6 ✅ DONE | **Structural-vs-cosmetic change fingerprint → tiered rebuild** (SKIP/PARTIAL/FULL). Shipped `a665e99`: `fileStructuralFingerprint()` hashes the body-INSENSITIVE shape (symbol sigs/members/decorators + the complete outgoing ref-target set). Body-only edit → COSMETIC → zero re-resolution. Pairs with the incremental watcher. | [MISS]#3 | M | understand-anything `fingerprint.ts`+`change-classifier.ts`. Turns 30s incrementals into 200ms on big game repos. |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "source_line": 34,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getGitCandidateFiles",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/git-candidates.js",
+      "source_text": "1. **No extension probing** — emits `dir/foo`, but File node is `dir/foo.js`; `findByFilePathSuffix` never matches. Port `probeWithExtensions` + ladder `['.ts','.tsx','.js','.jsx','.mjs','.cjs','/index.ts',...]` against our existing `getGitCandidateFiles()` Set.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2/test-round-2026-05-31.md",
+      "source_line": 58,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "buildAbsenceTrustLine",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/lsp-evidence.js",
+      "source_text": "**Root cause (read in source):** `mcp/stdio/query/lsp-evidence.js` → `buildAbsenceTrustLine()` (lines 87-115). It calls `getLatestCollection(db)` and, if `collection.indexReady===true` and not stale-vs-HEAD, unconditionally returns *\"lsp-verified-exhaustive … TRUSTWORTHY absence.\"* It never verifies (a) that THIS symbol was resolved by clangd, or (b) that caller-side TUs were in the collection. Empty ≠ exhaustive.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2/test-round-2026-05-31.md",
+      "source_line": 58,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getLatestCollection",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "**Root cause (read in source):** `mcp/stdio/query/lsp-evidence.js` → `buildAbsenceTrustLine()` (lines 87-115). It calls `getLatestCollection(db)` and, if `collection.indexReady===true` and not stale-vs-HEAD, unconditionally returns *\"lsp-verified-exhaustive … TRUSTWORTHY absence.\"* It never verifies (a) that THIS symbol was resolved by clangd, or (b) that caller-side TUs were in the collection. Empty ≠ exhaustive.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "source_line": 20,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extractTooling",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/extract.js",
+      "source_text": "- `extractTooling()` (lines 74-185) — manifest-parsing: package.json, requirements.txt, pyproject.toml (both Poetry + PEP-621), Cargo.toml, go.mod, composer.json",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "source_line": 21,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extractExports",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/generator.js",
+      "source_text": "- `extractExports()` (lines 187-297) — 5-strategy universal detection (MCP / Laravel / Express / Python __init__ / graph fallback)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "source_line": 22,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "briefCoverage",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/generator.js",
+      "source_text": "- `briefCoverage()` (lines 299-314) — single-line \"what this brief covers\"",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "source_line": 23,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "primaryLangExt",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/generator.js",
+      "source_text": "- `primaryLangExt()` (lines 498-515) — dominant-language detection for READ dedup",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "source_line": 24,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "readFirst",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/graph-shape.js",
+      "source_text": "- `readFirst()` overhauled (lines 517-605) — priority: docs → EXPORTS-backed → feature-anchored → graph fan-out, with language filtering",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "source_line": 25,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "subsystems",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/graph-shape.js",
+      "source_text": "- `subsystems()` refactored (lines 404-460) — composite rank (file_count + edge_count/5), filters 0-file parents, excludes thirdparty/deps/external",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+      "source_line": 28,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "generateBrief",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/brief/generator.js",
+      "source_text": "All five helpers are deterministic, pull data from files/manifests/graph (no LLM), and integrate cleanly into `generateBrief()`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/known-limitations.md",
+      "source_line": 11,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "foo",
+      "target_type": "Function",
+      "target_file": "tests/fixtures/code-intel/cpp-fixture-repo/src/foo.cpp",
+      "source_text": "function `foo()` calls `X` three times on three different lines, you get",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+      "source_line": 797,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "importCodeIntel",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/code-intel/importer.js",
+      "source_text": "Identify the main public entry. The plan assumes a function like `importCodeIntel(filepath, db, options)` that reads JSONL line-by-line. v0.2 introduces single-file JSON envelopes, so the importer needs to dispatch by file shape.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 10,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getCodeIntelDiagnosticsForFiles",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "- A new shared module `mcp/stdio/code-intel/query.js` exposes `getCodeIntelEvidenceForSymbol(db, symbolKey)` and `getCodeIntelDiagnosticsForFiles(db, files)` so verbs and the future `verify` mode (Plan #4) consume one canonical helper.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 10,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getCodeIntelEvidenceForSymbol",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "- A new shared module `mcp/stdio/code-intel/query.js` exposes `getCodeIntelEvidenceForSymbol(db, symbolKey)` and `getCodeIntelDiagnosticsForFiles(db, files)` so verbs and the future `verify` mode (Plan #4) consume one canonical helper.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 121,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ensureCodeIntelCollectionsTable",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/storage/schema.js",
+      "source_text": "Wire `ensureCodeIntelCollectionsTable(db)` into the existing migrations entry point alongside `ensureCodeIntelRecordsTable` (added in Plan #1).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 191,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "importV02Collection",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/code-intel/importer.js",
+      "source_text": "In `mcp/stdio/ingest/code-intel/importer.js`, inside `importV02Collection(envelope, db, options)` (added in Plan #1), insert before the records loop:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 796,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "changePlan",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/change_plan.js",
+      "source_text": "Inside `changePlan(...)`, before/around the existing affected-files compute:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+      "source_line": 8,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getCodeIntelDiagnosticsForFiles",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "- Single new helper module `mcp/stdio/query/verbs/packet-evidence.js` builds the EVIDENCE block from the current snapshot: pulls `getLatestCollection()`, `getCodeIntelEvidenceForSymbol()`, and `getCodeIntelDiagnosticsForFiles()`. Returns a structured payload that is then rendered via the helpers from Plan #3 (`render.js`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+      "source_line": 8,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getCodeIntelEvidenceForSymbol",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "- Single new helper module `mcp/stdio/query/verbs/packet-evidence.js` builds the EVIDENCE block from the current snapshot: pulls `getLatestCollection()`, `getCodeIntelEvidenceForSymbol()`, and `getCodeIntelDiagnosticsForFiles()`. Returns a structured payload that is then rendered via the helpers from Plan #3 (`render.js`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+      "source_line": 8,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getLatestCollection",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "- Single new helper module `mcp/stdio/query/verbs/packet-evidence.js` builds the EVIDENCE block from the current snapshot: pulls `getLatestCollection()`, `getCodeIntelEvidenceForSymbol()`, and `getCodeIntelDiagnosticsForFiles()`. Returns a structured payload that is then rendered via the helpers from Plan #3 (`render.js`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "source_line": 151,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "clampToBudget",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/packet-text-budget.js",
+      "source_text": "**Integration facts (verified):** `graphPacket({ repoRoot, target, mode='orient', budget = DEFAULTS.budget_tokens, ... })` reads `const manifest = readManifest(repoRoot)` and renders via `clampToBudget(text, budgetTokens, ...)`. `manifest.json` carries `nodes`. `packet-budget.js` exports `DEFAULT_CAPS` used for list ranking.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "source_line": 151,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "graphPacket",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/packet.js",
+      "source_text": "**Integration facts (verified):** `graphPacket({ repoRoot, target, mode='orient', budget = DEFAULTS.budget_tokens, ... })` reads `const manifest = readManifest(repoRoot)` and renders via `clampToBudget(text, budgetTokens, ...)`. `manifest.json` carries `nodes`. `packet-budget.js` exports `DEFAULT_CAPS` used for list ranking.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "source_line": 219,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "rankAndCap",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/packet-budget.js",
+      "source_text": "  4. Replace downstream uses of the old fixed budget with `budgetTokens` (the value passed to `clampToBudget`), and where the packet ranks/caps lists with `DEFAULT_CAPS`, prefer `caps` (e.g. `rankAndCap(items, caps.evidence_records)`). Keep `DEFAULT_CAPS` as the fallback for any path not threaded with `caps`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+      "source_line": 418,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "stalenessBanner",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/staleness-banner.js",
+      "source_text": "- **Type consistency:** `getPacketTokenBudget`/`assertMonotonicPacketTiers`/`PACKET_TIERS` (Task 1) used verbatim in Tasks 2 & 5; `resolvePacketBudget` shape `{budgetTokens, caps}` consistent across Task 2; `stalenessBanner(files, {max})` consistent in Task 4.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-graph-freshness-self-heal.md",
+      "source_line": 73,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "commitsBehindHead",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/read_freshness.js",
+      "source_text": "**Integration facts (verified):** dispatch calls `const result = await tool.handler(normalized)` at ~1060, then computes `stalenessWarning` (manifest.commit !== head) at ~1070-1085 and prepends `WARNING:`/`_warnings`. `commitsBehindHead(repoRoot, indexed, head)` is exported from `query/verbs/read_freshness.js`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 49,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "classifyArchetype",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/archetypes.js",
+      "source_text": "- [ ] Implement `archetypes.js`: `ARCHETYPES` table (id,name,keywords[]) for rendering, physics, simulation, audio, input, ai, networking, assets, ecs, math, ui, serialization, scripting, shaders, memory, concurrency, core, tooling, tests. `classifyArchetype(samples)`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 58,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "computeOverview",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/analytics.js",
+      "source_text": "- [ ] Test (RED): build a seeded graph with a physics-ish cluster; `computeOverview(db)` clusters carry `.archetype` and the physics cluster's `label` reflects it; an architecture-overlay layer name still wins when passed.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 70,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "graphTour",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/tour.js",
+      "source_text": "- [ ] Test (RED): seeded multi-archetype graph → `graphTour({repoRoot})` returns markdown containing an ordered list (`1.`…), an entrypoints step first, an archetype name from Phase A, and a `graph_packet` suggestion; `steps:3` caps to 3 region steps; `focus:'physics'` narrows.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 88,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "embedderFromEnv",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- [ ] Test (RED): `cosineSimilarity([1,0],[1,0])===1`; `cosineSimilarity([1,0],[0,1])===0`; `rankBySimilarity([1,0], [{id:'a',vec:[1,0]},{id:'b',vec:[0,1]}], 2)` → `a` first. `embedderFromEnv()` returns null when `APG_EMBED_ENDPOINT` unset.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 88,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "rankBySimilarity",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- [ ] Test (RED): `cosineSimilarity([1,0],[1,0])===1`; `cosineSimilarity([1,0],[0,1])===0`; `rankBySimilarity([1,0], [{id:'a',vec:[1,0]},{id:'b',vec:[0,1]}], 2)` → `a` first. `embedderFromEnv()` returns null when `APG_EMBED_ENDPOINT` unset.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 89,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "composeSemanticText",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- [ ] Implement `embeddings.js`: `cosineSimilarity(a,b)`, `rankBySimilarity(q, items, k)` (items `{id,vec,...}` → sorted by similarity desc, top-k, attach `similarity`), `embedderFromEnv()` (returns `null` if no `APG_EMBED_ENDPOINT`, else an async `embedTexts(texts)` POSTing OpenAI-compatible `/v1/embeddings`), `composeSemanticText(node, overlay)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 89,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "cosineSimilarity",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- [ ] Implement `embeddings.js`: `cosineSimilarity(a,b)`, `rankBySimilarity(q, items, k)` (items `{id,vec,...}` → sorted by similarity desc, top-k, attach `similarity`), `embedderFromEnv()` (returns `null` if no `APG_EMBED_ENDPOINT`, else an async `embedTexts(texts)` POSTing OpenAI-compatible `/v1/embeddings`), `composeSemanticText(node, overlay)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 96,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "buildEmbeddings",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- [ ] Test (RED) with a FAKE embedder (text→deterministic small vector, e.g. bag-of-chars buckets): `buildEmbeddings({db,repoRoot,embedder:fake})` writes `embeddings.json`; `graphSearch({repoRoot, query:'gravity force', mode:'semantic', embedder:fake})` ranks the gravity symbol first. With no embeddings file → result includes a lexical fallback + a hint string.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 96,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "graphSearch",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/search.js",
+      "source_text": "- [ ] Test (RED) with a FAKE embedder (text→deterministic small vector, e.g. bag-of-chars buckets): `buildEmbeddings({db,repoRoot,embedder:fake})` writes `embeddings.json`; `graphSearch({repoRoot, query:'gravity force', mode:'semantic', embedder:fake})` ranks the gravity symbol first. With no embeddings file → result includes a lexical fallback + a hint string.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 8,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "resolveNodeBin",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/node-bin.js",
+      "source_text": "- **0.1** `code-intel/node-bin.js`: `resolveNodeBin(name, projectRoot)` → project `node_modules/.bin` → plugin root `node_modules/.bin` → PATH. Unit test the order.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getBackend",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "inferLanguage",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-16-aify-project-graph-design.md",
+      "source_line": 400,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "hash",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/code-intel/importer.js",
+      "source_text": "- **`structural_fp`** = `hash(qualified_name + signature + decorators + parent_class + node_type)`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+      "source_line": 76,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "foo",
+      "target_type": "Function",
+      "target_file": "tests/fixtures/code-intel/cpp-fixture-repo/src/foo.cpp",
+      "source_text": "Real-clangd bounded path on linux (separate run): **225ms wall-clock** for the 3-verb bounded-vs-collect comparison (diagnostics + refs + hover) and **232ms** for all 5 bounded verbs (adds defs + symbols) against a temp C++ repo. Symbol-aware refs returned **2 hits** for `foo(int)` (both in `src/bar.cpp`) where `rg foo` returned **9 hits including unrelated `Noise::foo`**. Quality win confirmed.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 21,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "clampToBudget",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/packet-text-budget.js",
+      "source_text": "- `graph_packet` (`mcp/stdio/query/verbs/packet.js`) — already the flagship one-shot \"everything about X\" verb, in `DEFAULT_TOOL_NAMES`, with `mode` (orient/plan/debug/review/audit/verify). **Budget is a STATIC `budget_tokens: 800`** clamped by `clampToBudget(text, budgetTokens, targetSection)` — this is the gap.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 31,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "assertMonotonicTiers",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/source-bundle.js",
+      "source_text": "**What already exists (discovered during planning).** `mcp/stdio/query/source-bundle.js` ALREADY implements adaptive, monotonic, repo-size tiers (`getSourceBundleBudget(nodeCount)` → `{perBlockLines, totalLines, maxBlocks}`, `assertMonotonicTiers()`), and `graph_explore` + `graph_trace` already use it. **So those verbs are done.** The isolated gap is **`graph_packet`**, which clamps to a STATIC `budget_tokens: 800` (in `graphPacket(...)` default + `clampToBudget`) and uses STATIC list caps (`packet-budget.js` `DEFAULT_CAPS`) regardless of repo size.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 31,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getSourceBundleBudget",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/source-bundle.js",
+      "source_text": "**What already exists (discovered during planning).** `mcp/stdio/query/source-bundle.js` ALREADY implements adaptive, monotonic, repo-size tiers (`getSourceBundleBudget(nodeCount)` → `{perBlockLines, totalLines, maxBlocks}`, `assertMonotonicTiers()`), and `graph_explore` + `graph_trace` already use it. **So those verbs are done.** The isolated gap is **`graph_packet`**, which clamps to a STATIC `budget_tokens: 800` (in `graphPacket(...)` default + `clampToBudget`) and uses STATIC list caps (`packet-budget.js` `DEFAULT_CAPS`) regardless of repo size.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 31,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "graphPacket",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/packet.js",
+      "source_text": "**What already exists (discovered during planning).** `mcp/stdio/query/source-bundle.js` ALREADY implements adaptive, monotonic, repo-size tiers (`getSourceBundleBudget(nodeCount)` → `{perBlockLines, totalLines, maxBlocks}`, `assertMonotonicTiers()`), and `graph_explore` + `graph_trace` already use it. **So those verbs are done.** The isolated gap is **`graph_packet`**, which clamps to a STATIC `budget_tokens: 800` (in `graphPacket(...)` default + `clampToBudget`) and uses STATIC list caps (`packet-budget.js` `DEFAULT_CAPS`) regardless of repo size.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 60,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "assertMonotonicPacketTiers",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/response-budget.js",
+      "source_text": "**Invariant tests** (Component-1 acceptance): every cap axis (incl. `budgetTokens`) is non-decreasing across tiers; tier boundaries resolve to the expected tier (799→tiny, 800→small, 40001→huge); `assertMonotonicPacketTiers()` throws on a deliberately-regressed tier table.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "source_line": 44,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "commitsBehindHead",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/read_freshness.js",
+      "source_text": "- **Enrich the existing staleness warning** with the commit count and the self-heal hint. Reuse `commitsBehindHead(repoRoot, manifest.commit, head)` from `read_freshness.js`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "source_line": 56,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "autoReindexEnabled",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/auto-reindex.js",
+      "source_text": "- `auto-reindex.js`: pure `autoReindexEnabled(env)` predicate — unit-testable, no IO.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 18,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "computeOverview",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/analytics.js",
+      "source_text": "- `mcp/stdio/intelligence/analytics.js` `computeOverview(db, {topSymbols, architecture})` clusters by `community_id` → architecture layer → directory, producing `{cluster, label, node_count, top_symbols, edges_to}`. The community `label` is generic today. **Archetypes plug in here** → improves `graph_overview`, `graph_digest`, and the dashboard `/api/overview` (the \"by community\" Map) in one place.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 20,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "graphSearch",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/search.js",
+      "source_text": "- `mcp/stdio/query/verbs/search.js` `graphSearch({repoRoot, query, type, file, kind, limit, fresh})` — lexical/FTS. **Semantic mode plugs in here** (`mode` param).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 35,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "graphTour",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/tour.js",
+      "source_text": "**Verb:** `mcp/stdio/query/verbs/tour.js` `graphTour({ repoRoot, steps = 8, focus = null })` → markdown (narrative verb).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 51,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "embedderFromEnv",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- `embedderFromEnv()` returns a configured embedder or `null` (unconfigured → graceful degrade). For tests, the embedder is a parameter (deterministic fake), so no network in CI.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 52,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "cosineSimilarity",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- `cosineSimilarity(a, b)` + `rankBySimilarity(queryVec, items, k)` — pure, unit-tested.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 52,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "rankBySimilarity",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "- `cosineSimilarity(a, b)` + `rankBySimilarity(queryVec, items, k)` — pure, unit-tested.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 54,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "buildEmbeddings",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "**Build step:** `buildEmbeddings({ db, repoRoot, embedder })` → for each first-party symbol, compose `semanticText` = `label + kind + signature + file path + (overlay summary/tags if present)`, embed in batches, write `.aify-graph/embeddings.json` = `{ model, dim, built_at, vectors: [{ id, label, file_path, vec }] }`. Opt-in (costs compute/API) — exposed via a `/graph-build-embeddings` skill flow (sibling to `graph-build-intelligence`). Skipped automatically when no embedder configured.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+      "source_line": 14,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LspClient",
+      "target_type": "Class",
+      "target_file": "mcp/stdio/code-intel/lsp-client.js",
+      "source_text": "The `LspClient` (`code-intel/lsp-client.js`) is a **generic, capability-aware LSP JSON-RPC client** — not clangd-specific. Only the *session resolver* (`getLiveSession`, `if (language === 'cpp')`), the *collection provider registry* (`PROVIDER_BY_LANGUAGE = { cpp }`), and the *exhaustiveness gate* (`computeCompileDbCoverage`) are C++-bound.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+      "source_line": 37,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "resolveNodeBin",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/node-bin.js",
+      "source_text": "- A `resolveNodeBin(name, projectRoot)` util resolves a binary: project `node_modules/.bin` → plugin `node_modules/.bin` → PATH.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/v0.3-hardening-plan.md",
+      "source_line": 154,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getTrackedDirtyFilesSync",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/git.js",
+      "source_text": "| 7 | `graph_packet` reports `dirty=592` | **DONE** (9447919) — packet had its own raw porcelain count; all trust-bearing dirty counts now route through `getTrackedDirtyFilesSync()` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/v0.3-hardening-plan.md",
+      "source_line": 329,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "renderCompact",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/renderer.js",
+      "source_text": "(default **20**), then `:172` calls `renderCompact({ nodes: scored, edges: [] })` — with",
+      "label_on_cited_line": true,
+      "verdict": null
+    }
+  ],
+  "refused": [
+    {
+      "bucket": "unqualified",
+      "total": 5833,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "graph_report",
+          "line": 7,
+          "bucket": "unqualified",
+          "source_text": "A local MCP server that indexes the user's current repo into a SQLite-backed code graph and exposes high-intent query verbs (`graph_report`, `graph_whereis`, `graph_callers`, `graph_impact`, etc.). Compact NODE/EDGE output with `file:line` citations. No server, no container, client-side only.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "430b9bb",
+          "line": 544,
+          "bucket": "unqualified",
+          "source_text": "- **SIGNALS honesty caveat** (`430b9bb`). `graph_change_plan` SIGNALS",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-10-state-of-the-service.md",
+          "written": "tests_adjacent",
+          "line": 183,
+          "bucket": "unqualified",
+          "source_text": "| `tests_adjacent` | 293 tok | the only field that has ever actively misled a user |",
+          "verdict": null
+        },
+        {
+          "document": "docs/a-stand-in-where-the-real-thing-was-available.md",
+          "written": "health.js:765",
+          "line": 243,
+          "bucket": "unqualified",
+          "source_text": "⚠ **`health.js:765` is a true positive for the pattern and a false positive for the",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2/test-round-2026-05-31.md",
+          "written": "language:'cpp'",
+          "line": 38,
+          "bucket": "unqualified",
+          "source_text": "*Rough edge (Low/Med):* `language` is **required with no default**, while every other `code_intel_*` verb defaults `language:'cpp'`. Omitting it returns a terse `{\"code\":\"language_unsupported\",\"message\":\"language required\"}`. Inconsistent and easy to trip on.",
+          "verdict": null
+        },
+        {
+          "document": "docs/dogfood/ab-results-2026-04-19-a2-cross-repo.md",
+          "written": "ab-results-2026-04-18-freeze-validation-self.md",
+          "line": 21,
+          "bucket": "unqualified",
+          "source_text": "  `ab-results-2026-04-18-freeze-validation-self.md` for the rubric fix history)",
+          "verdict": null
+        },
+        {
+          "document": "docs/reference-pull-and-audit-2026-06-12.md",
+          "written": "fd03f31",
+          "line": 94,
+          "bucket": "unqualified",
+          "source_text": "6. Chained-call resolution via return types (codegraph `fd03f31`+`48d4654`) — TS/Py ceiling. L.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "npx vitest run tests/unit/ingest/code-intel/v02.test.js",
+          "line": 775,
+          "bucket": "unqualified",
+          "source_text": "Run: `npx vitest run tests/unit/ingest/code-intel/v02.test.js`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "string[]",
+          "line": 30,
+          "bucket": "unqualified",
+          "source_text": "- Produces: `installGraphHook(targetRepoRoot?: string, reindexPath?: string) => string[]` — **note the return type changes from `string` to `string[]`** (one path per installed hook). `AIFY_HOOK_MARKER` and `AIFY_HOOKS` (a `string[]` of the four hook names) are exported.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-09-next-gen-code-intel-bridge-superplan.md",
+          "written": "unavailable",
+          "line": 265,
+          "bucket": "unqualified",
+          "source_text": "**Acceptance:** `verify` mode fixture tests cover (a) clean edit + fresh provider, (b) edit + stale provider (must surface stale warning), (c) edit + provider unavailable (must surface explicit unavailable + tree-sitter-only output), (d) edit touching audited code (must surface `SOURCE_REQUIRED`), and (e) edit + **partial** provider state — must render the partial status distinctly without collapsing it into either `unavailable` or `trusted`. Required surface text shape: `CODE_INTEL partial: diagnostics collected, references not_collected for N files`. At least one fixture exercises an untracked/new file via the `files[]` argument before a clean git ref exists.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+          "written": "computeCompileDbCoverage",
+          "line": 14,
+          "bucket": "unqualified",
+          "source_text": "The `LspClient` (`code-intel/lsp-client.js`) is a **generic, capability-aware LSP JSON-RPC client** — not clangd-specific. Only the *session resolver* (`getLiveSession`, `if (language === 'cpp')`), the *collection provider registry* (`PROVIDER_BY_LANGUAGE = { cpp }`), and the *exhaustiveness gate* (`computeCompileDbCoverage`) are C++-bound.",
+          "verdict": null
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "written": "links === 0",
+          "line": 565,
+          "bucket": "unqualified",
+          "source_text": "2. **Orphan marking in the legend** — a node with `links === 0` renders with a red",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "path_not_indexed",
+      "total": 202,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "install.claude.md",
+          "line": 23,
+          "bucket": "path_not_indexed",
+          "source_text": "- **Claude Code (native Windows / macOS / Linux)** → [`install.claude.md`](install.claude.md)",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "brief.agent.md",
+          "line": 130,
+          "bucket": "path_not_indexed",
+          "source_text": "  the session-start skill tells every agent to read `brief.agent.md` first, that",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-19-roadmap.md",
+          "written": "MEMORY.md",
+          "line": 144,
+          "bucket": "path_not_indexed",
+          "source_text": "> THE-GOAL describes** — `MEMORY.md`, ~120 one-line pointers to documents, maintained by hand",
+          "verdict": null
+        },
+        {
+          "document": "docs/archive/a3-hot-layer.md",
+          "written": "brief.plan.md",
+          "line": 163,
+          "bucket": "path_not_indexed",
+          "source_text": "- `brief.plan.md` for a dirty repo surfaces hot files before generic recent activity",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2-next-plan.md",
+          "written": "serve.py",
+          "line": 63,
+          "bucket": "path_not_indexed",
+          "source_text": "| P2-9 ✅ DONE | **Expose analytics as VERBS + a digest** (ends the island): `graph_overview` (cluster map), `graph_hotspots` (god nodes), `graph_communities`/`graph_layers`, `graph_cycles`, and a `graph_digest` / `/api/digest` token-budgeted text summary (layers, hotspots, shader-binding counts, provenance %, tightest cycles, community bridges). | [DASH]§4 | M | graphify `serve.py` resources + `_subgraph_to_text`. One verb gives an agent the dashboard's whole analytic value in ~1–2k tokens. |",
+          "verdict": null
+        },
+        {
+          "document": "docs/dogfood/ab-results-2026-04-20-cross-tester.md",
+          "written": "functionality.json",
+          "line": 310,
+          "bucket": "path_not_indexed",
+          "source_text": "- \"Brief is non-regressing\" → upgraded to \"Brief gains quality on overlay-dependent tasks where `functionality.json` is populated\"",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "install.codex.md",
+          "line": 3522,
+          "bucket": "path_not_indexed",
+          "source_text": "- Create: `install.codex.md`, `install.opencode.md`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md",
+          "written": "install.pi.md",
+          "line": 237,
+          "bucket": "path_not_indexed",
+          "source_text": "- Add `install.pi.md` for low-resource Linux / ARM installs.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "install.opencode.md",
+          "line": 877,
+          "bucket": "path_not_indexed",
+          "source_text": "- Modify: `install.hermes.md`, `install.codex.md`, `install.cursor.md`, `install.opencode.md`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+          "written": "embeddings.json",
+          "line": 57,
+          "bucket": "path_not_indexed",
+          "source_text": "- `mode:'semantic'`: load `embeddings.json`; if missing OR no embedder → **fall back to lexical + a one-line hint** (\"semantic search needs embeddings — run /graph-build-embeddings with APG_EMBED_* configured\"). Else embed the query, cosine-rank, return top-k with `similarity` scores, rendered like lexical results.",
+          "verdict": null
+        },
+        {
+          "document": "README.md",
+          "written": "tsconfig.json",
+          "line": 7,
+          "bucket": "path_not_indexed",
+          "source_text": "**Bounded `code_intel_*` verbs (C++, TypeScript/JS, Python) — load-bearing on REFUSING confidently-wrong absence claims.** Top-level MCP tools (`code_intel_diagnostics/references/definitions/hover/symbols/hierarchy/analyze`) drive a real language server live — clangd / typescript-language-server / pyright, auto-selected by file extension, **bundled with the plugin (no host LSP config)** — no collect/import round-trip. Per-language honesty: C++ gated on compile-DB coverage, TS exhaustive with a `tsconfig.json`, **Python never provably exhaustive** (dynamic dispatch → a verified floor). After Plan #14 (2026-05-21) they carry a structured **evidence contract**: `code_intel_references` returns `evidence: {ready, degraded, cause, confidence, fallback, exhaustive, warnings[]}`. Absence claims (\"no callers\", \"dead code\", \"safe to delete\") are only safe when `evidence.exhaustive === true`; otherwise the agent MUST refuse the claim or fall back per `evidence.fallback`. Degraded causes (`cold_index|timeout|definition_only|stale_index|unsupported|unknown`) name what went wrong; cold sessions auto-prewarm a bounded ≤15-file set (same-dir + `compile_commands.json` siblings only); sticky degraded state per session warns when the index quietly recovered after an earlier under-report.",
+          "verdict": null
+        },
+        {
+          "document": "README.md",
+          "written": "functionality.json",
+          "line": 302,
+          "bucket": "path_not_indexed",
+          "source_text": "Rebuilds all five briefs + reads `functionality.json` + `tasks.json` if present. User-curated files (`functionality.json`, `tasks.json`) are preserved across full graph rebuilds (`bench-rebuild.mjs`).",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_no_symbol",
+      "total": 188,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "graph_health()",
+          "line": 43,
+          "bucket": "shaped_no_symbol",
+          "source_text": "**Verify** — on first session after restart: `graph_health()` should return a trust/indexing summary. If no graph exists yet, call `graph_index(force=true)` or run the `graph-build-all` skill. If the tool is not found, the MCP didn't register (rerun the relevant install-doc step).",
+          "verdict": null
+        },
+        {
+          "document": "AGENTS.md",
+          "written": "code_intel_analyze(files=[...], mode='clang-tidy'|'compile')",
+          "line": 119,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- `code_intel_analyze(files=[...], mode='clang-tidy'|'compile')` — bounded analyzer/build evidence for explicit files; uses `clang-tidy` or compile-command syntax checks and reports provenance `CLANG_TIDY` / `BUILD`",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "BuildTest",
+          "line": 338,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- **CMake build graph (P1 #3).** A new framework plugin (`ingest/frameworks/cmake.js`) parses `CMakeLists.txt` / `*.cmake` and emits a build graph the structural extractor never had: `BuildTarget` nodes (`add_executable`/`add_library`, with kind + captured sources), `BuildTest` nodes (`add_test`), `LINKS` edges (`target_link_libraries` between known targets), and `RUNS` edges (`add_test … COMMAND <target>`). So \"what links X / what test runs Y / what does target Z depend on\" finally resolves on a C++ repo. Wired into the framework-plugin pass; `BuildTarget`/`BuildTest` joined `SPECIAL_TYPES` and the edges carry `source_file=''` so the per-file extraction loop (which processes the non-source CMakeLists.txt) can't reap them. Validated end-to-end on echoes (6 targets, 1 test, real link graph `EchoesOfTheFallen→TesseractEngine→{imgui_lib,lua_static}`). NOT gated on an EXTRACTOR_VERSION bump — existing graphs pick it up on their next full/forced reindex, so an actively-used graph isn't force-rebuilt out from under its trust spine.",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-19-roadmap.md",
+          "written": "SomeType",
+          "line": 109,
+          "bucket": "shaped_no_symbol",
+          "source_text": "   `graphWhereis(...)`, `SomeType`, `snake_case_symbol`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2/test-round-2026-05-31.md",
+          "written": "SimCoordinator",
+          "line": 74,
+          "bucket": "shaped_no_symbol",
+          "source_text": "*Rough edge (Low):* `SimCoordinator` resolved to a **forward declaration** (`class SimCoordinator;` Engine.h:51) instead of the class def in SimCoordinator.h — resolution picks first match, not the definition.",
+          "verdict": null
+        },
+        {
+          "document": "docs/dogfood/ab-2026-04-20-reanalysis.md",
+          "written": "graph_dashboard()",
+          "line": 85,
+          "bucket": "shaped_no_symbol",
+          "source_text": "**Recommendation**: manual smoke test before launch (run `graph_dashboard()`, open URL, verify all 4 layers render, filter panel works, clicking nodes doesn't throw). ~5 min. Dev's 4 dashboard UX items address interaction enhancement, not rendering correctness.",
+          "verdict": null
+        },
+        {
+          "document": "docs/schema-versions.md",
+          "written": "graph_status()",
+          "line": 3,
+          "bucket": "shaped_no_symbol",
+          "source_text": "This page explains the `schemaVersion` reported by `graph_status()`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md",
+          "written": "graph_packet(mode=\"orient|plan|debug|review|audit\")",
+          "line": 329,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Add `graph_packet(mode=\"orient|plan|debug|review|audit\")`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-09-next-gen-code-intel-bridge-superplan.md",
+          "written": "graph_packet({mode:\"plan\", task:\"refactor X\"})",
+          "line": 58,
+          "bucket": "shaped_no_symbol",
+          "source_text": "1. `graph_packet({mode:\"plan\", task:\"refactor X\"})` returns a packet with: change-anchored summary, `READ FIRST` files ranked by code-intel ref-count and recency, `EVIDENCE:` block listing definitions, top references with caller files, hover/signature for the focal symbol, recent diagnostics for changed files, and a `TRUST:` line that separates graph trust from code-intel freshness.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-08-10-contradiction-surface-design.md",
+          "written": "WorldBuffer",
+          "line": 631,
+          "bucket": "shaped_no_symbol",
+          "source_text": "which after `GpuMaterial` and `WorldBuffer` is a live failure mode.",
+          "verdict": null
+        },
+        {
+          "document": "README.md",
+          "written": "graph_cycles()",
+          "line": 412,
+          "bucket": "shaped_no_symbol",
+          "source_text": "| `graph_cycles()` | Tightest import/include cycles — *callable, hidden from list* | C++ header-tangle detection |",
+          "verdict": null
+        },
+        {
+          "document": "README.md",
+          "written": "code_intel_references(file,line,col)",
+          "line": 443,
+          "bucket": "shaped_no_symbol",
+          "source_text": "| `code_intel_references(file,line,col)` | Symbol-aware refs via clangd, NOT text search. Carries the `evidence` exhaustiveness contract | Trustworthy \"no callers\" / deletion-safety |",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "fenced_example",
+      "total": 407,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "tests",
+          "line": 72,
+          "bucket": "fenced_example",
+          "source_text": "# add feature-level `tests` arrays on repos with monolithic/shared test files",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "${parentClass}.${name}",
+          "line": 1107,
+          "bucket": "fenced_example",
+          "source_text": "  const qname = isMethod ? `${parentClass}.${name}` : name;",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "MATCH (n) WHERE n.label = $label RETURN n LIMIT 1",
+          "line": 3167,
+          "bucket": "fenced_example",
+          "source_text": "      `MATCH (n) WHERE n.label = $label RETURN n LIMIT 1`, { label: node }",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "~/.claude/skills/aify-project-graph/",
+          "line": 3482,
+          "bucket": "fenced_example",
+          "source_text": "   - `~/.claude/skills/aify-project-graph/` (global, all projects)",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "written": "LSP request '${method}' timed out after ${this.timeoutMs}ms",
+          "line": 626,
+          "bucket": "fenced_example",
+          "source_text": "        reject(new Error(`LSP request '${method}' timed out after ${this.timeoutMs}ms`));",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "code-intel v0.2 validation failed: ${validation.errors.join('; ')}",
+          "line": 905,
+          "bucket": "fenced_example",
+          "source_text": "      throw new Error(`code-intel v0.2 validation failed: ${validation.errors.join('; ')}`);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "diagnostic",
+          "line": 1251,
+          "bucket": "fenced_example",
+          "source_text": "Required record fields: `schema_version`, `collectionId`, `kind`, `language`. `definition`, `reference`, and `call` records additionally require `symbolId` and `qname`. `diagnostic` records additionally require `file`, `severity`, and `message`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "result_state",
+          "line": 1271,
+          "bucket": "fenced_example",
+          "source_text": "Records carry `result_state` ∈ {`found`, `not_found_after_retry`, `not_collected`}. Consumers must distinguish all three; \"no records returned\" is not equivalent to any single state. Symbol-aware reference queries that come back empty on a capable target trigger one warm-and-retry pass before being persisted as `not_found_after_retry`. Empty results on a non-capable target persist as `not_collected` with a `reason`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "projectRoot",
+          "line": 1312,
+          "bucket": "fenced_example",
+          "source_text": "| code-intel | 0.2 | 2026-05-09 | adds `collectionId`, `projectRoot`, `symbolId`/`qname`/`signature`/`container`, categorical `confidence`, `result_state`, collection envelope with per-operation status, repo-relative path enforcement |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+          "written": "ref state: ${formatThreeStateRefs({ state: block.symbol.references[0]?.result_state || 'found', count: block.symbol.references.length, providerStatus: block.status })}",
+          "line": 263,
+          "bucket": "fenced_example",
+          "source_text": "      lines.push(`  ref state: ${formatThreeStateRefs({ state: block.symbol.references[0]?.result_state || 'found', count: block.symbol.references.length, providerStatus: block.status })}`);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "${hook} single block",
+          "line": 70,
+          "bucket": "fenced_example",
+          "source_text": "    expect(body.split(AIFY_HOOK_MARKER).length - 1, `${hook} single block`).toBe(2);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "post-checkout",
+          "line": 973,
+          "bucket": "fenced_example",
+          "source_text": "   Installs 4 refresh hooks — `post-commit`, `post-merge`, `post-checkout`, `post-rewrite` — each running a backgrounded incremental reindex when HEAD moves. Without this, keeping the graph current is nobody's job: two repos measured 2026-08-07 had drifted 20 and 130 commits behind with nobody aware. `graph_health` reports `refreshMechanism.state` so you can tell whether it is actually running.",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "no_such_symbol",
+      "total": 176,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "graph_health.codeIntel",
+          "line": 136,
+          "bucket": "no_such_symbol",
+          "source_text": "Or via MCP: `graph_collect_code_intel({language:\"cpp\", scope:\"all\"})`. After import, evidence flows into `graph_health.codeIntel`, `graph_pull(layers:[\"code_intel\"])`, `graph_change_plan` ranking (`provenance: 'CODE_INTEL' | 'EXTRACTED'`), and `graph_packet` EVIDENCE blocks in every mode.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "Class::method",
+          "line": 616,
+          "bucket": "no_such_symbol",
+          "source_text": "  fixes NO-MATCH on `Class::method`, `A::B::method`, `Module.Class.method`",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "manifest.dirtyEdgeCount",
+          "line": 822,
+          "bucket": "no_such_symbol",
+          "source_text": "- **Brief TRUST count reads `manifest.dirtyEdgeCount`** instead of",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-10-scan-plan.md",
+          "written": "server.startedAt",
+          "line": 142,
+          "bucket": "no_such_symbol",
+          "source_text": "  process; check `server.startedAt`, not `server.commit` — a failed restart and a",
+          "verdict": null
+        },
+        {
+          "document": "docs/a-stand-in-where-the-real-thing-was-available.md",
+          "written": "feature.contracts",
+          "line": 63,
+          "bucket": "no_such_symbol",
+          "source_text": "`graph_consequences` selected contracts purely from `feature.contracts`, a curated",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2/ab-results.md",
+          "written": "gpu.is_valid",
+          "line": 62,
+          "bucket": "no_such_symbol",
+          "source_text": "| `is_valid()` callers | **97 textual hits in GPU.cpp alone** + many in ImGuiRender/main on *other* types (`window.`, `replay_recorder.`, `descriptor_pool`) — no type info | 16 lsp✓ edges, type-resolved to `GPU::is_valid`; `gpu.is_valid()` kept, `window.is_valid()` dropped | **tool** (grep needs manual eyeballing of every hit) |",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2-next-plan.md",
+          "written": "platform_toolsets.cli",
+          "line": 28,
+          "bucket": "no_such_symbol",
+          "source_text": "| P0-6 ✅ DONE | **Hermes installer toolset gotcha** — Hermes CLI profiles filter MCP tools by `platform_toolsets.cli`; a server in `mcp_servers` alone connects but its tools are INVISIBLE in CLI sessions. Add `aify-project-graph` to the toolset list, not just `mcp_servers`. Verify our current Hermes install actually exposes the tools in a CLI profile. | [UX]C7 | S | codegraph `installer/targets/hermes.ts`. Our tester reached tools, but confirm under CLI profiles. |",
+          "verdict": null
+        },
+        {
+          "document": "docs/integrations/code-intel-provider-contract.md",
+          "written": "session.freshnessValue",
+          "line": 44,
+          "bucket": "no_such_symbol",
+          "source_text": "`session.freshnessBasis` ∈ {`git_commit`, `file_mtime`, `compile_db_hash`, `unknown`} and `session.freshnessValue` together describe what the provider's freshness is anchored to. Plan #3 (graph merge + freshness) consumes these to render `code_intel=fresh|stale|partial` in briefs and packets.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+          "written": "result.codeIntel",
+          "line": 563,
+          "bucket": "no_such_symbol",
+          "source_text": "Expected: FAIL — `result.codeIntel` is undefined.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+          "written": "graph_health.codeIntel",
+          "line": 28,
+          "bucket": "no_such_symbol",
+          "source_text": "| #3 | Graph merge + freshness (M3+M3.5) | `plan-3-graph-merge-complete` | `code_intel_collections` table, render/query helpers, `graph_health.codeIntel`, `graph_pull` `code_intel` layer, `graph_change_plan` provenance ranking |",
+          "verdict": null
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "written": "session.positionGuesses",
+          "line": 149,
+          "bucket": "no_such_symbol",
+          "source_text": "| 2 | Resolve symbols to the IDENTIFIER position | **DONE** (af75407) — `declLine.indexOf(leafName)` matched the first SUBSTRING, so `Builder Builder::build()` sent every request to the return TYPE. One expression, three logged symptoms: hierarchy zero-results, type refs as `CALLS [lsp✓]`, cross-verb line disagreement. TS/Python collector had its own copy; both share `identifier-position.js` now. Unlocatable identifiers count in `session.positionGuesses` instead of being queried at col 0 and reported as ground truth |",
+          "verdict": null
+        },
+        {
+          "document": "README.md",
+          "written": "evidence.fallback",
+          "line": 7,
+          "bucket": "no_such_symbol",
+          "source_text": "**Bounded `code_intel_*` verbs (C++, TypeScript/JS, Python) — load-bearing on REFUSING confidently-wrong absence claims.** Top-level MCP tools (`code_intel_diagnostics/references/definitions/hover/symbols/hierarchy/analyze`) drive a real language server live — clangd / typescript-language-server / pyright, auto-selected by file extension, **bundled with the plugin (no host LSP config)** — no collect/import round-trip. Per-language honesty: C++ gated on compile-DB coverage, TS exhaustive with a `tsconfig.json`, **Python never provably exhaustive** (dynamic dispatch → a verified floor). After Plan #14 (2026-05-21) they carry a structured **evidence contract**: `code_intel_references` returns `evidence: {ready, degraded, cause, confidence, fallback, exhaustive, warnings[]}`. Absence claims (\"no callers\", \"dead code\", \"safe to delete\") are only safe when `evidence.exhaustive === true`; otherwise the agent MUST refuse the claim or fall back per `evidence.fallback`. Degraded causes (`cold_index|timeout|definition_only|stale_index|unsupported|unknown`) name what went wrong; cold sessions auto-prewarm a bounded ≤15-file set (same-dir + `compile_commands.json` siblings only); sticky degraded state per session warns when the index quietly recovered after an earlier under-report.",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "is_a_path",
+      "total": 115,
+      "sample": [
+        {
+          "document": "CHANGELOG.md",
+          "written": "package.json",
+          "line": 13,
+          "bucket": "is_a_path",
+          "source_text": "verify it.** `server.version` was read from `package.json` on disk at query time, so it",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "consequences.js",
+          "line": 58,
+          "bucket": "is_a_path",
+          "source_text": "> 12 lines, the `TOOLS` array ended 7 lines earlier than stated, and `consequences.js` had",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "generator.js",
+          "line": 162,
+          "bucket": "is_a_path",
+          "source_text": "puts `computeCoverage` in `generator.js` and the renderers in `render.js` — but `generator.js`",
+          "verdict": null
+        },
+        {
+          "document": "docs/archive/backlog.md",
+          "written": "generator.js",
+          "line": 17,
+          "bucket": "is_a_path",
+          "source_text": "- Add contributor hook in `generator.js` so other frameworks (Express, FastAPI, Django, Rails, NestJS) can plug in the same way",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2-next-plan.md",
+          "written": "compile_commands.json",
+          "line": 25,
+          "bucket": "is_a_path",
+          "source_text": "| P0-3 ✅ DONE | **Windows clangd sysroot/includes** — WSL/Linux-built `compile_commands.json` has Linux include/sysroot paths absent on Windows → bogus diagnostics/hover. **Shipped opt-in `APG_CLANGD_WSL`** (`b7c15c7`): runs clangd UNDER WSL against the ORIGINAL Linux DB, file URIs round-trip host↔WSL at the LSP boundary (`hostToWsl`/`wslToHost`). Verified on echoes `Engine.cpp` (90 bogus → 15 real diagnostics; stdlib resolves). `auto` mode engages only on a foreign DB. | [KI] | M | refs/hierarchy stay trustworthy where fresh/exhaustive; this now also unlocks diagnostics/hover quality. Caveat: full-DB cold-index latency under WSL is the same caveat the Windows path carries. |",
+          "verdict": null
+        },
+        {
+          "document": "docs/dogfood/FINAL-analysis-2026-04-20.md",
+          "written": "onboard.js",
+          "line": 224,
+          "bucket": "is_a_path",
+          "source_text": "| `c39ee14` | main-unbreaker: committed missing `change_plan.js` + `onboard.js` + `.npmrc` (fresh clones were broken since 2026-04-19) |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "walker.js",
+          "line": 860,
+          "bucket": "is_a_path",
+          "source_text": "If the package ships a native `.node` binding instead of `.wasm`, the walker needs to use the native `tree-sitter` package instead of `web-tree-sitter`. In that case, swap `walker.js` to:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md",
+          "written": "compile_commands.json",
+          "line": 433,
+          "bucket": "is_a_path",
+          "source_text": "   Index Sand Castle from `compile_commands.json`, emit code-intel JSONL, and",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+          "written": "read_freshness.js",
+          "line": 7,
+          "bucket": "is_a_path",
+          "source_text": "**Architecture:** Layer on existing machinery. `graph_explore`/`graph_trace` already use monotonic repo-size tiers (`source-bundle.js`); add a sibling TOKEN-budget tier helper for `graph_packet` (the one static-`800` gap), tightening `server-instructions.js` (content only), and standardize a staleness banner reusing `read_freshness.js`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "reindex.mjs",
+          "line": 544,
+          "bucket": "is_a_path",
+          "source_text": "⚠ **Do NOT replace the file.** Task 1b made `reindex.mjs` refresh briefs and the",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-09-next-gen-code-intel-bridge-superplan.md",
+          "written": "compile_commands.json",
+          "line": 328,
+          "bucket": "is_a_path",
+          "source_text": "**Change:** APG tracks per-snapshot: repo commit indexed by APG, commit/file state collected by code-intel, `compile_commands.json` hash/time, provider version, dirty files included/excluded, stale reason. `graph_health` reports both axes.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-08-07-graph-freshness-design.md",
+          "written": "README.md",
+          "line": 141,
+          "bucket": "is_a_path",
+          "source_text": "step in `README.md` and every `install.*.md`, and `graph_health` names the exact",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "ambiguous_path",
+      "total": 28,
+      "sample": [
+        {
+          "document": "docs/2026-08-10-one-plan.md",
+          "written": "server.js",
+          "line": 1033,
+          "bucket": "ambiguous_path",
+          "source_text": "Run over `server.js` (all 17 schemas) and `server-instructions.js`. **Reproduced",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "server.js",
+          "line": 59,
+          "bucket": "ambiguous_path",
+          "source_text": "> gained 57. Re-measured at **`40c7e91`**: `server.js` 1394 total, `TOOLS` spans **62–675**,",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "render.js",
+          "line": 163,
+          "bucket": "ambiguous_path",
+          "source_text": "must import `render.js` to call them, and `render.js` would import `computeCoverage` back. In",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "server.js",
+          "line": 277,
+          "bucket": "ambiguous_path",
+          "source_text": "  implementation, and `server.js` then imports it back. That is arguably the better",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "server.js",
+          "line": 337,
+          "bucket": "ambiguous_path",
+          "source_text": "⇒ **Extracting `TOOLS` from `server.js` changes no brief artefact at all.** The brief oracle",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2/reference-borrow-synthesis.md",
+          "written": "server.js",
+          "line": 49,
+          "bucket": "ambiguous_path",
+          "source_text": "Requirement: must run under **both** Hermes and Claude Code. agent-code-intel serves MCP + Pi + CLI from one `executeToolCore(name,args,runtime)` + thin per-host shims. Our `code_intel_live.js` verbs already export in this shape; need (a) one runtime-neutral dispatcher, (b) a Hermes shim alongside the Claude-Code MCP `server.js` registration, keeping arg/return schema identical. Pair with agent-code-intel's `resolveServer` chain so the LSP path has no PATH assumptions across runtimes.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "schema.test.js",
+          "line": 1005,
+          "bucket": "ambiguous_path",
+          "source_text": "Expected: PASS — including pre-existing `importer.test.js` and `schema.test.js` from `d7bf17a`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-graph-freshness-self-heal.md",
+          "written": "server.js",
+          "line": 118,
+          "bucket": "ambiguous_path",
+          "source_text": "- [ ] **Step 3: Implement the gate edit** in `server.js`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+          "written": "server.js",
+          "line": 43,
+          "bucket": "ambiguous_path",
+          "source_text": "- **Add `graph_index` to `DEFAULT_TOOL_NAMES`** (`server.js`) so workers can act on the warning. (It stays a normal verb; this only lists it.)",
+          "verdict": null
+        },
+        {
+          "document": "docs/THE-GOAL.md",
+          "written": "server.js",
+          "line": 143,
+          "bucket": "ambiguous_path",
+          "source_text": "is the one a future session will trust. `packet.js` is now **1453** — larger than `server.js`",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_ambiguous",
+      "total": 15,
+      "sample": [
+        {
+          "document": "docs/reference-pull-and-audit-2026-06-12.md",
+          "written": "send()",
+          "line": 23,
+          "bucket": "shaped_ambiguous",
+          "source_text": "leaks language-server children on every host exit. A `send()` to a dead stdout pipe is an",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+          "written": "embedTexts(texts)",
+          "line": 112,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- Type consistency: `classifyArchetype`→`{id,name,score,confidence}` used in A2/B1; `rankBySimilarity` items `{id,vec}` consistent C1/C2; `embedTexts(texts)` signature consistent.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+          "written": "computeCoverage({language,...})",
+          "line": 12,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- **0.5** Verbs (`code_intel_live.js`, `code_intel_hierarchy.js`): infer language from file ext when caller didn't pass one; call `computeCoverage({language,...})` instead of `computeCompileDbCoverage`. cpp behavior unchanged (regression-tested by existing suite).",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+          "written": "collect()",
+          "line": 25,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- **2.2** `providers/pyright.js`: spawnFor via `resolveNodeBin('pyright-langserver')` + `--stdio`; glob `.py` (skip venv/.venv/site-packages/__pycache__); freshnessBasis mtime; `collect()` via lsp-collect. Register `python: 'pyright'`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "log(...)",
+          "line": 575,
+          "bucket": "shaped_ambiguous",
+          "source_text": "In the `try`, after the `log(...)` call:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+          "written": "embedTexts(texts, opts)",
+          "line": 50,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- `embedTexts(texts, opts)` calls an **OpenAI-compatible** `/v1/embeddings` endpoint configured by env: `APG_EMBED_ENDPOINT` (e.g. `http://localhost:11434/v1/embeddings` for Ollama, or OpenAI/Voyage), `APG_EMBED_MODEL`, `APG_EMBED_API_KEY` (optional for local). No bundled model — keeps the tool build-free; works with whatever the team already runs.",
+          "verdict": null
+        },
+        {
+          "document": "docs/v0.3-hardening-plan.md",
+          "written": "stableId([type, filePath, qname])",
+          "line": 150,
+          "bucket": "shaped_ambiguous",
+          "source_text": "| 3 | Overload-set merging fabricates self-recursion | **DISCLOSED** (2721f36) — identity is `stableId([type, filePath, qname])` with no signature, so overloads collapse. Splitting identity is a graph-wide ID migration touching `structural_fp` stability → **still open**. Meanwhile the node records `overloads`, the resolver downgrades a self-edge on a merged node to `AMBIGUOUS`, and `graph_callees` says \"may be a different overload\" instead of \"recursive\" |",
+          "verdict": null
+        },
+        {
+          "document": "README.md",
+          "written": "handle()",
+          "line": 624,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- **Inherited framework entrypoints outside the repo**: some middleware classes override template hooks like `handleRequest()` but inherit the public `handle()` entrypoint from a base class outside the indexed tree. Those hops may still surface as honest `External` boundaries unless an in-repo ancestor defines the entrypoint.",
+          "verdict": null
+        }
+      ]
+    }
+  ]
+}
