@@ -113,4 +113,51 @@ describe('collectViaLsp — enumeration truncation → partial', () => {
     expect(sawMaxFiles, 'the walk must not be bounded by the batch size').not.toBe(2);
     expect(sawMaxFiles, 'it gets the corpus-scale ceiling instead').toBeGreaterThan(1000);
   });
+  // ⛔⛔ THE SPINE COLLAPSED BATCH BY BATCH BECAUSE THIS FIELD DID NOT EXIST.
+  //
+  // This provider emitted no `session.scope`, so every collection read as repo-wide and the
+  // importer's invalidation was unscoped. Measured at 869cf41, one line per batch of ONE run:
+  //
+  //     batch 1   processed 200   lspEdges 22200
+  //     batch 2   processed 154   lspEdges 10053   <- batch 1's edges deleted
+  //     batch 3   processed   1   lspEdges   814   <- batch 2's edges deleted
+  //
+  // 166,992 records across 554 files, and 814 edges left standing on them. Every batch was
+  // honest, reported ok, and destroyed its predecessor's work.
+  //
+  // ★ The cpp provider has carried the reasoning in a comment since e341de0 — "Claiming repo-wide
+  // authority there would make the importer invalidate every clangd edge." One file away, correct,
+  // and never re-derived here.
+  it('★★★ a SLICE declares file scope — it walked some files, not the repo', async () => {
+    await writeFile(path.join(repo, 'a.ts'), 'export function a() {}\n');
+    const enumerateFiles = () => ({
+      files: ['a.ts', 'b.ts', 'c.ts'],
+      stats: { total: 3, after_filter: 3, truncated: false, max_files: 20000 },
+    });
+    const out = await collectViaLsp({
+      req: { projectRoot: repo, scope: 'all', operations: ['symbols'], maxFiles: 1, resume: false },
+      language: 'typescript', providerName: 'ts-langserver', providerVersion: 'test',
+      spawnFor, enumerateFiles, freshnessBasis: 'tsconfig_hash', freshnessValue: 'x',
+    });
+    expect(out.session.scope?.kind, 'a capped batch is a slice, not the repo').toBe('files');
+    expect(out.session.scope.files, 'and it names exactly what it walked').toEqual(['a.ts']);
+  });
+
+  it('★★★ CONTROL: a cold full sweep IS repo-wide, or invalidation can never clean up', async () => {
+    // ⛔ Without this, "always declare file scope" passes and nothing may ever invalidate
+    // repo-wide — stale edges for deleted symbols would accumulate forever. The two failure
+    // directions are not symmetric but both are real, and only a run that walked everything in one
+    // go has the authority the unscoped delete assumes.
+    await writeFile(path.join(repo, 'a.ts'), 'export function a() {}\n');
+    const enumerateFiles = () => ({
+      files: ['a.ts'],
+      stats: { total: 1, after_filter: 1, truncated: false, max_files: 20000 },
+    });
+    const out = await collectViaLsp({
+      req: { projectRoot: repo, scope: 'all', operations: ['symbols'], maxFiles: 200, resume: false },
+      language: 'typescript', providerName: 'ts-langserver', providerVersion: 'test',
+      spawnFor, enumerateFiles, freshnessBasis: 'tsconfig_hash', freshnessValue: 'x',
+    });
+    expect(out.session.scope?.kind).toBe('repo');
+  });
 });

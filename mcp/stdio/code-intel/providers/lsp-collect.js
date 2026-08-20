@@ -435,6 +435,33 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       // What this pass still owes after this call. The convergence signal, stated rather than
       // inferred from `filesProcessed === 0` — which is what a capped walk made unreliable.
       remaining: batchRemainder,
+      // ⛔⛔ SCOPE OF AUTHORITY — THIS FIELD WAS ABSENT AND IT COST THE SPINE TWICE IN ONE NIGHT.
+      //
+      // This provider emitted NO `scope` at all, so every collection read as repo-wide. The
+      // importer's invalidation is unscoped without it, and a batch that walked 154 files deleted
+      // the LSP edges for all 554. Measured at 869cf41, one line per batch of the same run:
+      //
+      //     batch 1   processed 200   lspEdges 22200
+      //     batch 2   processed 154   lspEdges 10053   <- batch 1's edges gone
+      //     batch 3   processed   1   lspEdges   814   <- batch 2's edges gone
+      //
+      // 166,992 records across 554 files, and 814 edges standing on them. Each batch was honest,
+      // succeeded, and destroyed its predecessor's work.
+      //
+      // ★ AND THE CPP PROVIDER HAS SAID SO IN A COMMENT SINCE e341de0: "Claiming repo-wide
+      // authority there would make the importer invalidate every clangd edge." The reasoning was
+      // written down, correct, and one file away — the same shape as this file's own note that
+      // the resume fix "reached only one of three backends". A second backend is a second place
+      // the rule has to be re-derived, and it was not.
+      //
+      // Authority is what this call actually WALKED. A run is a slice whenever it resumed, left a
+      // remainder, or covered less than it enumerated; only a cold full sweep is repo-wide.
+      scope: (Boolean(req.files && req.files.length > 0)
+        || resumedFrom > 0
+        || batchRemainder > 0
+        || (enumeratedTotal != null && files.length < enumeratedTotal))
+        ? { kind: 'files', files }
+        : { kind: 'repo' },
       enumeration: enumStats,
     },
     operations,
