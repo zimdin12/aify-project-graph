@@ -125,18 +125,51 @@ function searchTasks(tasks, query, limit) {
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
+// ⛔ THE TITLE FIX REACHED ONE OF TWO VERBS. `graph_search` learned to query a document's own
+// title in c35836a, with the measurement in its comment. `graph_find` is a SEPARATELY REGISTERED
+// tool with its own doc search, and it still matched label and path only — so the same repo
+// answered the same question two different ways depending on which verb you reached for:
+//
+//     query                  graph_search(kind:"all")   graph_find(layers:["docs"])
+//     "install guide"        finds a document           finds one (by FILENAME, coincidentally)
+//     "triage"               finds a document           NOTHING
+//     "findings register"    finds a document           NOTHING
+//
+// Re-measured here, not taken from the other comment: 75 of 155 documents (48%) carry a title word
+// that appears nowhere in their path. `AGENTS.md` is titled "Agent install guide";
+// `2026-08-10-scan-plan.md` is "Scan plan — collect findings widely, then triage them together".
+//
+// ⭐ AND THAT IS THE QUERY THE INDEX EXISTS TO WIN. The competitor on discovery is `ls docs/`, not
+// grep — it finds anything whose NAME carries the topic, costs nothing and needs no index. The only
+// query where an index earns its keep is TOPIC → DOCUMENT WHOSE FILENAME LACKS THE TOPIC, which is
+// exactly the query this function returned nothing for.
+//
+// ⚠ TITLE ONLY, NOT SUMMARY — the same restraint `search.js` reasoned its way to, adopted rather
+// than re-decided. A title is the author naming the document; a summary is the second non-empty
+// line, whatever sentence happened to be there. Widening to it would buy unmeasured recall at an
+// unmeasured precision cost.
+const DOC_TITLE = "json_extract(extra, '$.title')";
+
 function searchDocs(db, query, limit) {
   const hits = db.all(
-    `SELECT label, file_path FROM nodes
+    `SELECT label, file_path, ${DOC_TITLE} AS title FROM nodes
      WHERE type IN ('Document', 'Schema')
-       AND (label LIKE $pattern OR file_path LIKE $pattern)
+       AND (label LIKE $pattern OR file_path LIKE $pattern OR ${DOC_TITLE} LIKE $pattern)
      LIMIT 50`, { pattern: `%${query}%` });
   return hits.map(h => ({
     layer: 'docs',
     kind: 'document',
     label: h.label,
     file: h.file_path,
-    score: scoreTextMatch(h.label, query) + scoreTextMatch(h.file_path, query) * 0.5,
+    // ⚠ The title is RETURNED, not just matched on. A hit whose filename does not contain the
+    // query looks like a false positive to the caller unless they can see what matched — and this
+    // clause exists precisely to return documents whose names do not carry the topic.
+    ...(h.title ? { title: h.title } : {}),
+    // Weighted below label, above path: the author naming the document is stronger evidence than
+    // a path fragment and weaker than the filename itself, which is usually the name they chose.
+    score: scoreTextMatch(h.label, query)
+      + scoreTextMatch(h.title || '', query) * 0.75
+      + scoreTextMatch(h.file_path, query) * 0.5,
   })).sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
