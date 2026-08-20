@@ -12,10 +12,20 @@
 // that happens to hold, and a property nobody watches is one commit away from being a property
 // that used to hold.
 //
-// ⛔ AND THE DATABASE DOES NOT ENFORCE IT. `PRAGMA foreign_keys` is 0, so an edge whose endpoint is
-// deleted is not rejected — it is silently kept. The graph currently has ZERO orphaned edges in
-// either direction, and that cleanliness comes entirely from the extractors doing a full
-// delete-and-rebuild. Nothing structural holds it.
+// ⛔ AND THE DATABASE DOES NOT ENFORCE IT — BUT SAY THAT PRECISELY, BECAUSE THE OBVIOUS PHRASING IS
+// WRONG. "PRAGMA foreign_keys is 0" is a claim about a CONNECTION, not about the file: the pragma is
+// session state and is not stored. ef-manager measured 1 on a bare better-sqlite3 handle and on the
+// read path, and nearly filed a contradiction before finding that `storage/db.js` sets
+// `foreign_keys = OFF` inside `openDb` — which is the only path that WRITES edges, and does it
+// deliberately because an edge may reference a not-yet-inserted node.
+//
+// So: on the INGEST connection, an edge whose endpoint is deleted is not rejected. The graph has
+// ZERO orphans in either direction today, and that cleanliness comes entirely from the indexer
+// rebuilding. Nothing structural holds it, and these tests are the only thing that would notice if
+// that stopped.
+//
+// ⚠ A pragma is session state, not a stored setting — same family as "an artifact is not an event".
+// The next person to check will read a different connection and get 1.
 //
 // This tests the END TO END path — real index, real deletion, real re-index — because the unit
 // behaviour ("the extractor clears its tag") is not the claim. The claim is that a document
@@ -100,9 +110,10 @@ describe('a document leaving the repo takes its edges with it', () => {
 
   it('★★★ deleting the TARGET of a doc edge orphans nothing either', async () => {
     // The other direction, and the one nothing else covers. A document survives; the FILE it
-    // points at is deleted. `PRAGMA foreign_keys` is 0, so the database will not reject an edge
-    // whose endpoint vanished — the only thing preventing an orphan is that the extractor rebuilds
-    // from scratch and the target no longer resolves.
+    // points at is deleted. The INGEST connection runs with `foreign_keys = OFF` (storage/db.js,
+    // deliberately — an edge may reference a not-yet-inserted node), so nothing rejects an edge
+    // whose endpoint vanished. The only thing preventing an orphan is that the indexer rebuilds
+    // and the target no longer resolves.
     await writeFile(join(repoRoot, 'src', 'terrain.js'),
       'export function generateTerrain() { return 1; }\n');
     await writeFile(join(repoRoot, 'docs', 'design.md'),

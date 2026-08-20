@@ -188,3 +188,66 @@ describe('the sweep consults .gitignore even when git gives no candidate list', 
       .toContain('THIRDPARTY.md');
   }, 30_000);
 });
+
+describe('a directory is a node because it CONTAINS something', () => {
+  it('★★★ a directory with nothing admissible gets NO node, and one with content does', async () => {
+    // ⛔ 343 OF 568 DIRECTORY NODES DESCRIBED A TREE THE GRAPH EXTRACTS NOTHING FROM.
+    //
+    // The walk called `ensureDirectory` eagerly on every directory it entered — before knowing
+    // whether anything inside would be admitted. On the normal path `ignoredDirs` is resolved with
+    // `skipGitignore: true`, which is CORRECT (git's candidate list is authoritative for files and
+    // handles the `!pattern` re-includes the manual parser drops) — but it means a `.gitignore`d
+    // directory is not pruned from the walk. So the walk descended into `reference/`, minted a node
+    // per directory, and then declined every file inside as `git_excluded`.
+    //
+    // Measured: 568 Directory nodes, 343 under `reference/`, ZERO Files there. 60% of the graph's
+    // directory structure was a tree with no content.
+    //
+    // ⚠ AND IT SURFACED THREE TIMES FROM THREE DIRECTIONS before anyone traced it — node types
+    // under reference/, 1,046 files exposed by a walker default, two doc links resolving into it.
+    // An excluded tree that still has nodes is a HALF-EXCLUSION, and every layer that walks the
+    // graph rediscovers it.
+    repo = await mkdtemp(join(tmpdir(), 'apg-lazydir-'));
+    await mkdir(join(repo, 'kept'), { recursive: true });
+    await mkdir(join(repo, 'empty', 'deeper'), { recursive: true });
+    await writeFile(join(repo, 'kept', 'README.md'), '# kept\n');
+    // A file that exists on disk and is NOT a git candidate — the shape `reference/` has.
+    await writeFile(join(repo, 'empty', 'deeper', 'vendored.md'), '# not ours\n');
+
+    const tracked = new Set(['kept/README.md']);
+    const { nodes } = await sweepFilesystem({ repoRoot: repo, gitCandidates: tracked });
+    const dirs = nodes.filter((n) => n.type === 'Directory').map((n) => n.file_path);
+
+    // ⛔ THE POSITIVE HALF FIRST. A sweep that created NO directory nodes at all would satisfy the
+    // exclusion assertion perfectly, and "no phantom directories" is trivially true of a walker
+    // that produces nothing.
+    expect(dirs, 'a directory holding an admitted file is still a node').toContain('kept');
+    expect(dirs, 'and the root is always present').toContain('.');
+
+    expect(dirs, 'a directory whose only file was excluded is not structure worth recording')
+      .not.toContain('empty');
+    expect(dirs, 'nor is its child').not.toContain('empty/deeper');
+  }, 30_000);
+
+  it('★★★ the parent chain of an admitted file is created in full', async () => {
+    // The control on laziness. Creating directories only when a file is admitted must still create
+    // EVERY ancestor — a deep file whose grandparent is missing would leave the CONTAINS chain
+    // broken, which is a worse defect than the phantom nodes this replaced.
+    repo = await mkdtemp(join(tmpdir(), 'apg-lazydir-deep-'));
+    await mkdir(join(repo, 'a', 'b', 'c'), { recursive: true });
+    await writeFile(join(repo, 'a', 'b', 'c', 'README.md'), '# deep\n');
+
+    const { nodes, edges } = await sweepFilesystem({
+      repoRoot: repo, gitCandidates: new Set(['a/b/c/README.md']),
+    });
+    const dirs = nodes.filter((n) => n.type === 'Directory').map((n) => n.file_path);
+    for (const expected of ['.', 'a', 'a/b', 'a/b/c']) {
+      expect(dirs, `the chain must be unbroken at ${expected}`).toContain(expected);
+    }
+    // And the chain must be LINKED, not merely present.
+    const contains = edges.filter((e) => e.relation === 'CONTAINS').map((e) => `${e.from_path}>${e.to_path}`);
+    expect(contains).toContain('.>a');
+    expect(contains).toContain('a>a/b');
+    expect(contains).toContain('a/b>a/b/c');
+  }, 30_000);
+});

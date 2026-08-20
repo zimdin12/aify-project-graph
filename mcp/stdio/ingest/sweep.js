@@ -360,7 +360,26 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
       }
 
       if (entry.isDirectory()) {
-        await ensureDirectory(entryRelPath);
+        // ⛔ A DIRECTORY IS A NODE BECAUSE IT CONTAINS SOMETHING, NOT BECAUSE IT EXISTS ON DISK.
+        //
+        // This used to call `ensureDirectory(entryRelPath)` here — eagerly, before knowing whether
+        // anything inside would be admitted. On the normal path `ignoredDirs` is resolved with
+        // `skipGitignore: true` (correct: git's candidate list is authoritative for FILES and
+        // handles `!pattern` re-includes the manual parser drops), so a `.gitignore`d directory is
+        // NOT pruned from the walk. The walk descended, minted a node per directory, and then
+        // declined every file inside as `git_excluded`.
+        //
+        // MEASURED on this repo: 568 Directory nodes of which 343 are under `reference/` — 60% of
+        // the graph's directory structure describing a tree it extracts NOTHING from. Zero Files,
+        // zero Functions, 343 directories.
+        //
+        // ⚠ AND IT SURFACED THREE TIMES FROM THREE DIRECTIONS before anyone traced it: ef-manager
+        // counting node TYPES under reference/, a walker default exposing 1,046 files there, and
+        // two doc links resolving INTO it. An excluded tree that still has nodes is a
+        // HALF-EXCLUSION, and every layer that walks the graph rediscovers it.
+        //
+        // ⇒ Directories are created lazily by the file branch below, which walks the parent chain
+        // when a file is ADMITTED. A directory containing nothing admissible gets no node.
         await visit(entryAbsPath, entryRelPath);
         continue;
       }
