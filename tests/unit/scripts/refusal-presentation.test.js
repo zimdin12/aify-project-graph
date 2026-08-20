@@ -14,6 +14,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { printRefusal } from '../../../scripts/refactor-guard.mjs';
 import { REFUSAL } from '../../../scripts/lib/guard-verdict.mjs';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 /** Capture what a refusal actually writes, in order. */
 function captured(decision) {
@@ -36,7 +37,10 @@ describe('every refusal reason explains itself', () => {
     for (const reason of reasons) {
       const lines = captured({ reason, detail: [] });
       expect(lines[0], `${reason} must have a headline`).toMatch(/^REFUSED: /);
-      expect(lines[0], `${reason} must not print an unmapped fallback`).not.toMatch(/unmapped reason/);
+      expectAbsentWithLiveMatcher(
+        /unmapped reason/,
+        { forbidden: 'REFUSED: unmapped reason "x"', allowed: 'REFUSED: the carrier moved' },
+        lines[0], `${reason} must not print an unmapped fallback`);
     }
   });
 
@@ -59,8 +63,10 @@ describe('every refusal reason explains itself', () => {
 
     // And they must not be interchangeable.
     expect(midRun).not.toBe(drift);
-    expect(drift, 'drift must NOT tell the reader to wait for a settled graph')
-      .not.toMatch(/Re-run on a settled graph/);
+    expectAbsentWithLiveMatcher(
+      /Re-run on a settled graph/,
+      { forbidden: '  Nothing here is evidence. Re-run on a settled graph.', allowed: '  Re-baseline on the current graph, then slice.' },
+      drift, 'drift must NOT tell the reader to wait for a settled graph');
   });
 
   it('★★★ reasons WITHOUT a remedy print exactly two kinds of line, and no blank third', () => {
@@ -78,7 +84,10 @@ describe('every refusal reason explains itself', () => {
     const lines = captured({ reason: 'reason_nobody_mapped', detail: [] });
     expect(lines[0]).toMatch(/unmapped reason "reason_nobody_mapped"/);
     expect(lines[0]).toMatch(/the guard cannot explain itself/);
-    expect(lines[0], 'never a bare undefined').not.toMatch(/undefined/);
+    expectAbsentWithLiveMatcher(
+      /undefined/,
+      { forbidden: 'REFUSED: undefined', allowed: 'REFUSED: unmapped reason "x"' },
+      lines[0], 'never a bare undefined');
   });
 
   it('★★★ CONTROL: the capture actually captures — an empty result would pass everything', () => {
