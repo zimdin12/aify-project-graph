@@ -27,6 +27,7 @@ import { createTsLangServerProvider } from '../../code-intel/providers/ts-langse
 import { createPyrightProvider } from '../../code-intel/providers/pyright.js';
 import { openDb, openExistingDb } from '../../storage/db.js';
 import { importV02Collection } from '../../ingest/code-intel/importer.js';
+import { loadEffectiveIgnoredDirs, pathContainsIgnoredDir } from '../../ingest/ignored-dirs.js';
 
 // FIX 2 (test-round-2026-05-31): `language` used to be required-with-no-default,
 // inconsistent with every other code_intel_* verb (which default to 'cpp').
@@ -182,6 +183,43 @@ export function splitCollectBudget(budgetMs) {
   return { collectBudgetMs: collect, importReserveMs: total - collect };
 }
 
+/**
+ * How many files a coverage claim is ABOUT — the denominator, counted from the graph and then
+ * narrowed to the corpus.
+ *
+ * ⛔ IT USED TO BE `COUNT(DISTINCT file_path)` OVER EVERY NODE WITH A MATCHING EXTENSION, so it
+ * counted files the corpus EXCLUDES. ef-manager flagged `files_eligible: 579` for this and I
+ * replied it would resolve as a side effect of fixing the collector's enumeration. That reply was
+ * WRONG: the enumerator decides what to WALK, this counts what is already in `nodes`, and the two
+ * populations are reached by different routes.
+ *
+ * ⚠ The surviving route is RESOLUTION, not enumeration. A language server resolves a first-party
+ * reference to a declaration in `node_modules/typescript/lib/lib.es5.d.ts`, and the record names
+ * where the declaration actually is. Those nodes are honest — you cannot describe a reference to
+ * `Array.prototype.map` without naming the file that declares it — but they are NOT part of the
+ * population the claim is about.
+ *
+ * ⚠ NULL ON FAILURE OR EMPTY, NEVER 0. A zero denominator makes any ratio read as total coverage,
+ * which is the failure this number exists to prevent.
+ */
+export function eligibleFileCount(db, { exts, repoRoot }) {
+  try {
+    if (!Array.isArray(exts) || exts.length === 0) return null;
+    const clauses = exts.map((_, i) => `file_path LIKE $e${i}`).join(' OR ');
+    const params = Object.fromEntries(exts.map((e, i) => [`e${i}`, `%${e}`]));
+    // The same derived exclusion the sweep and the collector use, so "is this file in the corpus"
+    // keeps having ONE answer rather than a third opinion here.
+    const ignored = loadEffectiveIgnoredDirs(repoRoot);
+    const n = db.all(
+      `SELECT DISTINCT file_path AS f FROM nodes WHERE file_path != '' AND (${clauses})`,
+      params,
+    ).map((r) => r.f).filter((f) => !pathContainsIgnoredDir(f, ignored)).length;
+    return n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function graphCollectCodeIntel({ repoRoot, language, scope = 'changed', files, since, operations, budgetMs }) {
   if (!repoRoot) return { schema_version: '0.2', status: 'error', errors: [{ code: 'invalid_request', message: 'repoRoot is required' }], records: [] };
 
@@ -305,13 +343,23 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
         try {
           const exts = LANGUAGE_FILE_EXTENSIONS[language] ?? [];
           if (exts.length > 0) {
-            const clauses = exts.map((_, i) => `file_path LIKE $e${i}`).join(' OR ');
-            const params = Object.fromEntries(exts.map((e, i) => [`e${i}`, `%${e}`]));
-            const n = db.all(
-              `SELECT COUNT(DISTINCT file_path) AS c FROM nodes WHERE file_path != '' AND (${clauses})`,
-              params,
-            )[0]?.c;
-            result.session.filesEligible = Number.isFinite(n) && n > 0 ? n : null;
+            // ⛔ COUNTED FROM THE GRAPH, SO IT COUNTS WHAT THE GRAPH HOLDS — INCLUDING FILES THE
+            // CORPUS EXCLUDES. ef-manager flagged `files_eligible: 579` as counting excluded
+            // trees, and I replied it would resolve as a side effect of fixing the collector's
+            // enumeration. IT DID NOT, AND THAT REPLY WAS WRONG: the enumerator decides what to
+            // WALK, this query counts what is already in `nodes`, and the two populations are
+            // reached by different routes.
+            //
+            // ⚠ The route that survives is RESOLUTION, not enumeration: a language server resolves
+            // a first-party reference to a declaration in `node_modules/typescript/lib/lib.es5.d.ts`
+            // and the record names where the declaration actually is. Those nodes are honest — you
+            // cannot describe a reference to `Array.prototype.map` without naming the file that
+            // declares it — but they are NOT part of the population a coverage claim is about, and
+            // counting them makes the denominator quietly wrong in the safe-looking direction.
+            //
+            // Same derived exclusion the sweep and the collector use, so "is this file in the
+            // corpus" keeps having ONE answer.
+            result.session.filesEligible = eligibleFileCount(db, { exts, repoRoot });
           }
         } catch { result.session.filesEligible = null; }
       }
