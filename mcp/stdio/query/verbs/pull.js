@@ -87,6 +87,47 @@ const PULL_TOUCH_SQL_LIST = PULL_TOUCH_RELATIONS.map((r) => `'${r}'`).join(', ')
 // now reaches this query without anyone remembering to come here.
 const PULL_DOC_SQL_LIST = DOC_FAMILY.map((r) => `'${r}'`).join(', ');
 
+// How many documents point at this file, regardless of whether the caller asked for them.
+// Cheap (indexed on relation), and it is the number that makes the disclosure below possible.
+function docEdgeCountForFile(db, filePath) {
+  try {
+    return db.all(
+      `SELECT COUNT(DISTINCT d.id) AS c
+         FROM edges e
+         JOIN nodes d ON d.id = e.from_id AND d.type = 'Document'
+         JOIN nodes s ON s.id = e.to_id AND s.file_path = $p
+        WHERE e.relation IN (${PULL_DOC_SQL_LIST})`, { p: filePath })[0]?.c ?? 0;
+  } catch { return 0; }
+}
+
+// A TRUE ZERO AND A BROKEN ZERO WERE SHAPE-IDENTICAL, and ef-manager caught it inside the fix for
+// the original bug: "the morning bug returned items:[] + exhaustive:true over 12 real edges. The
+// true zero I used as a control returns items:[] + exhaustive:true. You fixed the data; you did
+// not make the failure distinguishable from the success."
+//
+// The receipt's coverage check does NOT close it. If doc-link extraction breaks, the graph holds
+// no LINKS_TO at all, so the relations-present set shrinks to match what was consulted and the
+// claim is proven complete over a corpus that quietly lost a source.
+//
+// The positive control, applied to ourselves: an empty answer states whether the INSTRUMENT can
+// currently produce a non-empty one anywhere. "No document links to this file" and "no document
+// links to ANY file, though this repo has documents" are different facts, and only the first is
+// about the file that was asked about.
+function docLayerAbsenceCause(db) {
+  try {
+    const docs = db.all("SELECT COUNT(*) AS c FROM nodes WHERE type = 'Document'")[0]?.c ?? 0;
+    if (docs === 0) {
+      return 'this graph holds no Document nodes at all, so the absence is about the INDEX rather than about this file';
+    }
+    const anyEdge = db.all(
+      `SELECT COUNT(*) AS c FROM edges WHERE relation IN (${PULL_DOC_SQL_LIST})`)[0]?.c ?? 0;
+    if (anyEdge === 0) {
+      return `this graph holds ${docs} document(s) and ZERO doc edges of any kind — extraction produced nothing repo-wide, so this absence is SUSPECT rather than observed`;
+    }
+    return null;
+  } catch { return null; }
+}
+
 // Which relations do Documents ACTUALLY emit in this graph? Cheap (indexed on relation), and the
 // only honest denominator for "did the docs layer ask everywhere it should have". Compared
 // against DOC_FAMILY by the receipt: a relation present here and absent there is an unasked
@@ -662,6 +703,28 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
       })),
       10
     );
+    // An empty result says WHY when the reason is about the index rather than about this file.
+    // Silent on the ordinary case, so the note carries information when it appears.
+    if (docs.length === 0) {
+      const cause = docLayerAbsenceCause(db);
+      if (cause) out.layers.docs.absence_cause = cause;
+    }
+  } else {
+    // REACHABLE-BY-ARGUMENT IS NOT REACHABLE. ef-manager re-ran the fixed call with `layers`
+    // omitted — what an agent gets who reaches for the right verb without knowing the layer
+    // names — and the defaults (code/functionality/tasks/activity) do not include docs. The
+    // response carried zero documents and nothing in it named a docs layer or hinted one existed.
+    // So an agent who reaches CORRECTLY still got the same nothing as before the fix, now from a
+    // call returning exhaustive:false without saying what it left out.
+    //
+    // Disclose rather than change the default: adding docs to the defaults makes every pull pay
+    // for a layer most callers do not want, while a pointer costs nothing when there is nothing
+    // to point at and names the exact argument when there is. Same shape as the
+    // recompile_surface truncation disclosure already in this file.
+    const n = docEdgeCountForFile(db, filePath);
+    if (n > 0) {
+      out.docs_not_shown = `${n} document(s) reference this file. Not in the default layers — pass layers:["docs"] to see them, with the line each reference is on.`;
+    }
   }
 
   if (layers.has('relations')) {
