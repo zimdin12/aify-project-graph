@@ -40,7 +40,7 @@ import { synthesizeVirtualOverrides } from '../ingest/frameworks/virtual_overrid
 import { resynthesizeLspEdgesFromCollection } from '../ingest/code-intel/importer.js';
 import { getLatestCollection } from '../code-intel/query.js';
 import { detectCommunities } from '../analysis/communities.js';
-import { detectMentions } from '../analysis/mentions.js';
+import { detectDocRefs } from '../analysis/doc-refs.js';
 import { detectDocLinks } from '../analysis/doc-links.js';
 import { writeDocLinkMissSidecar } from './doc-link-miss-sidecar.js';
 
@@ -681,17 +681,36 @@ export async function ensureFresh({
         docLinkResult = { added: 0, documents: 0, failed: String(err?.message ?? err) };
       }
 
+      // ⭐ DOC->SYMBOL REFERENCES ALSO RUN OUTSIDE THE 20k GATE, AND THE REASON IS THE DELETE.
+      //
+      // The legacy `mentions` extractor ran INSIDE the gate. Rule 2 replaces it, and its first act
+      // is to remove every edge that extractor ever wrote. If that retirement stayed gated, a repo
+      // over 20k nodes would keep its 2,533 line-0 word-collision edges FOREVER: the rule that
+      // would delete them is the rule that never runs there. A cleanup conditioned on the same
+      // resource limit as the thing it cleans up is not a cleanup.
+      //
+      // The cost objection that justified the gate does not transfer. detectMentions built a map
+      // of every symbol label in the graph; buildSymbolIndex is capped at MAX_CHAIN_SEGMENTS
+      // suffixes per symbol, so it is O(symbols) with a small constant.
+      let docRefResult = { added: 0, documents: 0 };
+      try {
+        const r = await detectDocRefs(db, repoRoot);
+        const { misses, ...counts } = r;
+        docRefResult = {
+          ...counts,
+          missCount: misses.length,
+          missSample: misses.slice(0, 25),
+        };
+      } catch (err) {
+        docRefResult = { added: 0, documents: 0, failed: String(err?.message ?? err) };
+      }
+
       let communityResult = { communities: 0 };
       if (nodeCount0 <= 20000) {
         try {
           communityResult = detectCommunities(db);
         } catch (err) {
           // Community detection failed (OOM on large graphs) — non-fatal
-        }
-        try {
-          await detectMentions(db, repoRoot);
-        } catch (err) {
-          // Mentions detection failed — non-fatal
         }
       }
 
@@ -751,6 +770,7 @@ export async function ensureFresh({
         // gap. They are reported separately because one figure covering both can only be read as
         // the wrong one, and the wrong reading hides real misses inside expected noise.
         docLinks: docLinkResult,
+        docRefs: docRefResult,
       };
       await writeManifest(graphDir, nextManifest);
       await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
@@ -817,6 +837,7 @@ export async function ensureFresh({
         skippedFiles: skipped.slice(0, 50),
         sweepCounts: special.counts ?? null,
         docLinks: docLinkResult,
+        docRefs: docRefResult,
         resumedFromPartial,
         trustSpineDropped,
         cosmeticSkipped: cosmeticSkippedFiles.length,
