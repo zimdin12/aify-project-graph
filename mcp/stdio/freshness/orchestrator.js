@@ -66,7 +66,13 @@ export const PARSER_BUNDLE_VERSION = '2026.04.16';
 // They're attributed to non-source files (a Route to routes/web.php, a
 // BuildTarget to CMakeLists.txt) that the loop would otherwise delete-then-not-
 // re-extract; clearSpecialNodes rebuilds the whole set each full index instead.
-const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema', 'ShaderBinding', 'BuildTarget', 'BuildTest'];
+// ⚠ EXPORTED so a gate can observe the RUNTIME OBJECT rather than a regex approximation of this
+// line's spelling. graph-senior-dev: a source parse is intentionally weaker than structural
+// ownership — a rename makes the parse vacuous and the test goes quietly green.
+//
+// These are the FILE-INDEPENDENT node types: a per-file delete must not touch them (they are not
+// owned by any one file), and a full clear must remove them (nothing else will).
+export const SPECIAL_TYPES = ['Directory', 'Document', 'Config', 'Route', 'Entrypoint', 'Schema', 'ShaderBinding', 'BuildTarget', 'BuildTest'];
 const EXTRACTION_CHUNK_SIZE = 500;
 
 // TTL cache: skip git checks if the graph was confirmed fresh within the last 5 seconds

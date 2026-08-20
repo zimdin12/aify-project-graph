@@ -1,4 +1,4 @@
-// ⛔ A TYPE LIST THAT GOVERNS BEHAVIOUR MUST NAME ONLY DECLARED TYPES.
+// ⛔ TWO GOVERNED CONSUMER LISTS MUST NAME ONLY DECLARED TYPES.
 //
 // `BuildTarget` and `BuildTest` are produced by `ingest/frameworks/cmake.js`, documented in
 // `server-instructions.js`, and named in the freshness orchestrator's `SPECIAL_TYPES` — the list
@@ -13,44 +13,38 @@
 // no check between them, which is the shape this repo has spent a day removing — a rule maintained
 // in N places is a rule that will disagree with itself in one of them.
 //
-// ★ AND THE GATE IS THE GENERALISATION, not the fix. Every list that constrains behaviour by type
-// name is checked against the declared vocabulary here, so the NEXT one to drift fails rather than
-// producing a quiet false signal on somebody else's repo.
+// ⛔⛔ THE CLAIM LIMIT, STATED BECAUSE I OVER-CLAIMED IT ONCE. This file proves that TWO ENUMERATED
+// CONSUMER LISTS are subsets of the declared vocabulary. It does NOT prove that every node type a
+// producer can emit is declared: a future extractor emitting a type absent from both lists leaves
+// this gate GREEN until a runtime census sees it on somebody's repo.
+//
+// ⇒ graph-senior-dev's ruling, and they were right to refuse the wider wording — "every behavioural
+// type list" is a claim about a population this file never enumerates. The wider guarantee needs a
+// PRODUCER-EMISSION INVENTORY checked against NODE_TYPES, which is a different instrument and is
+// not built here.
 import { describe, it, expect } from 'vitest';
 import { NODE_TYPES } from '../../../mcp/stdio/storage/taxonomy.js';
 import { SEARCH_TYPES } from '../../../mcp/stdio/query/verbs/whereis.js';
 
-// The freshness orchestrator's list is module-private, so it is read from source rather than
-// imported. ⚠ That is a weaker instrument than an import and it is stated: a rename would make this
-// arm silently vacuous, which is why the parse asserts it found something.
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+// ⚠ IMPORTED, NOT PARSED. The first version read `SPECIAL_TYPES` out of the orchestrator's SOURCE
+// with a regex, because the list was module-private. graph-senior-dev: "a source parse is
+// intentionally weaker than structural ownership" — a rename makes the parse vacuous and the arm
+// goes quietly green. The list is now exported and this observes the runtime object.
+import { SPECIAL_TYPES } from '../../../mcp/stdio/freshness/orchestrator.js';
 
-const ORCHESTRATOR = fileURLToPath(
-  new URL('../../../mcp/stdio/freshness/orchestrator.js', import.meta.url),
-);
-
-function specialTypesFromSource() {
-  const src = readFileSync(ORCHESTRATOR, 'utf8');
-  const m = src.match(/const SPECIAL_TYPES = \[([^\]]+)\]/);
-  if (!m) return null;
-  return m[1].split(',').map((s) => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
-}
-
-describe('every behavioural type list is a subset of the declared vocabulary', () => {
-  it('★★★ the parse works — a null here would make the next assertion vacuous', () => {
+describe('the two governed consumer lists are subsets of the declared vocabulary', () => {
+  it('★★★ the list is real and non-empty — an empty one makes the next assertion vacuous', () => {
     // ⛔ POSITIVE CONTROL FIRST. "No undeclared types" is trivially true of a list that failed to
     // parse, and this repo has shipped that exact wrong-zero more than once today.
-    const special = specialTypesFromSource();
-    expect(special, 'SPECIAL_TYPES could not be read — the check below would prove nothing')
-      .toBeTruthy();
+    const special = SPECIAL_TYPES;
+    expect(special, 'SPECIAL_TYPES must be a real array, not a parse result').toBeInstanceOf(Array);
     expect(special.length, 'and it is non-empty').toBeGreaterThan(3);
     expect(special, 'sanity: it contains a type we know is there').toContain('Directory');
   });
 
   it('★★★ SPECIAL_TYPES names only declared node types', () => {
     // This is the arm that was RED before `BuildTarget`/`BuildTest` were declared.
-    const undeclared = specialTypesFromSource().filter((t) => !NODE_TYPES.includes(t));
+    const undeclared = SPECIAL_TYPES.filter((t) => !NODE_TYPES.includes(t));
     expect(undeclared, 'a type governing destruction must exist in the declared vocabulary')
       .toEqual([]);
   });
