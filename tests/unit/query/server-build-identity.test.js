@@ -20,6 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { buildStaleWarning,
   serverBuildInfo,
   staleProcessWarning,
+  formatBuildId,
+  classifyStaleDelta,
   _resetServerBuildCache,
 } from '../../../mcp/stdio/server-build.js';
 
@@ -29,6 +31,55 @@ const freshnessSrc = readFileSync(join(here, '../../../mcp/stdio/query/verbs/rea
 const healthSrc = readFileSync(join(here, '../../../mcp/stdio/query/verbs/health.js'), 'utf8');
 
 describe('server build identity', () => {
+  it('★★★ a DIRTY load cannot be certified behaviourally current', () => {
+    // ⛔ ef-manager walked the reachable path, which is the loop I ran all night:
+    //   1. process loads at X with an uncommitted experimental edit  -> buildId X+1dirty
+    //   2. the experiment is judged wrong and DISCARDED              -> git checkout -- file
+    //   3. an unrelated docs-only change is committed as Y
+    //   4. diff X..Y has zero executables                            -> behaviourally_current TRUE
+    // The process is then running a file that exists in no commit and was deliberately thrown
+    // away, while the field an agent consults to decide about restarting says it is current.
+    const dirty = classifyStaleDelta({ changedFiles: ['README.md'], loadedDirtyCount: 1 });
+    expect(dirty.behaviourally_current, 'a dirty load matches no commit, so this has no answer')
+      .toBeNull();
+    expect(dirty.basis, 'and the reader is told why the diff cannot settle it').toMatch(/FLOOR/);
+  });
+
+  it('★★★ ...and an UNKNOWABLE dirty state is treated the same way', () => {
+    // `git status` failing is not evidence of cleanliness. Same fail-closed direction as the
+    // bare-buildId fix directly below.
+    expect(classifyStaleDelta({ changedFiles: ['README.md'], loadedDirtyCount: null })
+      .behaviourally_current).toBeNull();
+  });
+
+  it('★★★ ...but a CLEAN load still gets a real verdict, both ways', () => {
+    // ⚠ THE NEGATIVE CONTROL. Without it, returning null unconditionally would pass both cases
+    // above and destroy the field's usefulness — every stale process would demand a restart it
+    // may not need, which is the graded verdict ef-manager called "the best thing in this build".
+    expect(classifyStaleDelta({ changedFiles: ['README.md'], loadedDirtyCount: 0 })
+      .behaviourally_current, 'docs-only delta on a clean load').toBe(true);
+    expect(classifyStaleDelta({ changedFiles: ['mcp/stdio/x.js'], loadedDirtyCount: 0 })
+      .behaviourally_current, 'executable delta on a clean load').toBe(false);
+    expect(classifyStaleDelta({ changedFiles: ['README.md'], loadedDirtyCount: 0 }).basis,
+      'a clean load carries no floor disclaimer').toBeUndefined();
+  });
+
+  it('★★★ a bare buildId means VERIFIED CLEAN, never "could not tell"', () => {
+    // ⛔ `loadedDirtyCount` is null when `git status` failed and 0 when the tree was genuinely
+    // clean. Both were falsy, so both produced the bare commit — and the reassuring reading is
+    // the one every reader takes. Someone quoting `e18a739` as the build under test could not
+    // know whether that identity had been verified or was merely unavailable.
+    //
+    // Found while checking a claim that turned out to be wrong: ef-manager proposed buildId
+    // should carry the dirt, which it already did. Reading the code to confirm that showed the
+    // null branch collapsing into the clean branch one line below.
+    expect(formatBuildId('abc1234', 0), 'clean is the bare commit').toBe('abc1234');
+    expect(formatBuildId('abc1234', 2), 'known dirt is counted').toBe('abc1234+2dirty');
+    expect(formatBuildId('abc1234', null), 'unknown must NOT impersonate clean')
+      .toBe('abc1234+dirt-unknown');
+    expect(formatBuildId('abc1234', undefined)).toBe('abc1234+dirt-unknown');
+  });
+
   it('captures commit and start time at MODULE LOAD, not inside the accessor', () => {
     // Structural, deliberately: this is the whole defect. Inside the accessor
     // these read the tree at first-call time, which is a fact about the

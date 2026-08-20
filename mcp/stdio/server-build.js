@@ -208,13 +208,10 @@ export function serverBuildInfo() {
     const changed = gitAt(SERVER_ROOT, ['diff', '--name-only', `${LOADED_COMMIT}..${treeCommit}`]);
     if (changed != null) {
       const files = changed.split(/\r?\n/).map((f) => f.trim()).filter(Boolean);
-      const executable = files.filter((f) => EXECUTABLE_RE.test(f));
-      staleDelta = {
-        files_changed: files.length,
-        executable_files_changed: executable.length,
-        behaviourally_current: executable.length === 0,
-        sample: executable.slice(0, 5),
-      };
+      staleDelta = classifyStaleDelta({
+        changedFiles: files,
+        loadedDirtyCount: LOADED_DIRTY_FILES == null ? null : LOADED_DIRTY_FILES.length,
+      });
     }
   }
   const loadedDirtyCount = LOADED_DIRTY_FILES == null ? null : LOADED_DIRTY_FILES.length;
@@ -235,9 +232,7 @@ export function serverBuildInfo() {
     // A missing identifier means nothing — it is just missing, and the reader falls back
     // to the field we are trying to replace. So there is exactly one name for the thing,
     // present in both states: `323641d` clean, `4615ed1+2dirty` when not.
-    buildId: loadedDirtyCount
-      ? `${LOADED_COMMIT}+${loadedDirtyCount}dirty`
-      : LOADED_COMMIT,
+    buildId: formatBuildId(LOADED_COMMIT, loadedDirtyCount),
     ...(loadedDirtyCount ? {
       loadedDirtyFiles: LOADED_DIRTY_FILES.slice(0, 20),
       loadedDirtyNote: `⚠ This process loaded ${loadedDirtyCount} UNCOMMITTED file(s), so it is running code that`
@@ -289,7 +284,11 @@ export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDe
       + ' ⚠ THIS APPLIES TO EVERY REPO THIS PROCESS SERVES, not only the one you asked about:'
       + ' the stale code belongs to the SERVER, so a second repo whose own checkout has not moved'
       + ' still gets answers from it.'
-      + (staleDelta?.behaviourally_current
+      + (staleDelta?.basis
+        ? ' ⚠ AND THIS PROCESS LOADED UNCOMMITTED CHANGES, so it matches no commit and the delta'
+          + ' below is a FLOOR: a commit-to-commit diff cannot see what it is actually running.'
+          + ' RESTART from a clean tree before attributing behaviour to any commit.'
+        : staleDelta?.behaviourally_current
         ? ` HOWEVER the delta is ${staleDelta.files_changed} non-executable file(s) only —`
           + ` no ${EXECUTABLE_LIST} changed, so this process is BEHAVIOURALLY CURRENT and a restart is not`
           + ' required for correctness.'
@@ -346,6 +345,69 @@ export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDe
       // that the sentence says the right thing. Those are two claims and were one.
       + renderClaim(CLAIM.VERIFY_BY_STARTED_AT, { startedAt: PROCESS_STARTED_AT })
       + renderClaim(CLAIM.COMMIT_NOT_RESTART_IDENTITY);
+}
+
+/**
+ * ⛔ A BARE buildId MEANT "CLEAN" *OR* "COULD NOT TELL", AND THEY READ IDENTICALLY.
+ *
+ * `loadedDirtyCount` is `null` when `git status` failed and `0` when the tree was genuinely
+ * clean. Both are falsy, so both produced the bare commit — and the reassuring one is the reading
+ * everybody takes. A reader quoting `e18a739` as the build under test cannot know whether that
+ * identity was verified or merely unavailable.
+ *
+ * Found while checking a DIFFERENT claim: ef-manager proposed that buildId should carry the dirt,
+ * which it already did. Reading the code to confirm that showed the null branch collapsing into
+ * the clean branch one line below. The suggestion was already implemented; the defect beside it
+ * was not.
+ *
+ * ⇒ Three states, three strings. `abc1234` is verified clean, `abc1234+2dirty` is known dirty,
+ * `abc1234+dirt-unknown` is the state that used to impersonate clean.
+ */
+/**
+ * ⛔ `behaviourally_current` COULD GRANT TRUE OVER A LOAD THAT MATCHES NO COMMIT.
+ *
+ * It was computed purely commit-to-commit — `git diff LOADED_COMMIT..treeCommit` — and never
+ * consulted what this process actually loaded. ef-manager walked the reachable path, which is the
+ * loop I have been running all night:
+ *
+ *   1. process loads at X with an uncommitted experimental edit  -> buildId `X+1dirty` (honest)
+ *   2. the experiment is judged wrong and DISCARDED               -> git checkout -- <file>
+ *   3. an unrelated docs-only change is committed as Y
+ *   4. diff X..Y contains zero executables                        -> behaviourally_current TRUE
+ *
+ * The process is then running an experimental file that exists in no commit and was deliberately
+ * thrown away, while the field an agent consults to decide whether to restart says it is current.
+ * Same shape as the bare-buildId defect one field over: the state that cannot be distinguished is
+ * the reassuring one, and the reassuring reading is the one everybody takes.
+ *
+ * ⇒ A DIRTY LOAD IS NOT ANY COMMIT, so no commit-to-commit diff can certify it. `null` rather
+ * than `false`: it is not "we checked and it differs", it is "this question has no answer for
+ * this process". Null is also falsy, so a consumer treating it as a boolean fails CLOSED.
+ *
+ * ⚠ And `files_changed` becomes a FLOOR under a dirty load — the diff cannot see the uncommitted
+ * files — so it carries the same kind of disclosure this codebase already puts on `truncated`
+ * and `terminated`.
+ */
+export function classifyStaleDelta({ changedFiles = [], loadedDirtyCount }) {
+  const executable = changedFiles.filter((f) => EXECUTABLE_RE.test(f));
+  const dirtyLoad = loadedDirtyCount == null || loadedDirtyCount > 0;
+  return {
+    files_changed: changedFiles.length,
+    executable_files_changed: executable.length,
+    behaviourally_current: dirtyLoad ? null : executable.length === 0,
+    sample: executable.slice(0, 5),
+    ...(dirtyLoad ? {
+      basis: 'FLOOR — this process loaded uncommitted changes (or their state could not be'
+        + ' determined), so it corresponds to no commit and a commit-to-commit diff cannot'
+        + ' describe what it is running. Restart from a clean tree before attributing behaviour'
+        + ' to any commit.',
+    } : {}),
+  };
+}
+
+export function formatBuildId(commit, dirtyCount) {
+  if (dirtyCount == null) return `${commit}+dirt-unknown`;
+  return dirtyCount > 0 ? `${commit}+${dirtyCount}dirty` : `${commit}`;
 }
 
 export function staleProcessWarning() {
