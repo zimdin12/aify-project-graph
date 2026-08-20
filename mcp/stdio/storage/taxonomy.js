@@ -89,7 +89,21 @@ export const NODE_TYPES = Object.freeze([
   'Function', 'Method', 'Class', 'Interface', 'Type', 'Variable',
   'Symbol', 'Test', 'External',
   // framework / code-intel
-  'ShaderBinding',
+  //
+  // ⛔ `BuildTarget` / `BuildTest` WERE MISSING, AND THEY ARE SHIPPED. `ingest/frameworks/cmake.js`
+  // produces both, and `server-instructions.js` tells agents to reach them — "what build target
+  // builds / links / tests X → graph_callers/graph_neighbors on the BuildTarget/BuildTest node".
+  //
+  // ⇒ So on every CMake repo the census reported them as `present_but_undeclared` — a DRIFT SIGNAL
+  // for a legitimate, documented, shipped node type. A false alarm in the instrument built to
+  // detect unknown values reaching consumers, which is worse than a missing alarm: it teaches the
+  // reader to discount the one report that would matter.
+  //
+  // ⚠ THE COST OF DECLARING THEM IS ACCEPTED AND SMALL. They now join `declared_but_empty` on
+  // non-CMake repos — exactly as Route, Schema, Interface, Repository, Type and Variable already do
+  // on this one. That list is informational by design; `present_but_undeclared` is the half that
+  // means something is wrong.
+  'ShaderBinding', 'BuildTarget', 'BuildTest',
 ]);
 
 // ── Relations (every relation actually used in the graph) ────────────────────
