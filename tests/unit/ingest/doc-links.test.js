@@ -143,6 +143,101 @@ describe('doc → file links', () => {
     db.close();
   }, 20_000);
 
+  it('★★★ a span that names NO path segment resolves to nothing — the slash bug', async () => {
+    // ⛔ FIELD-FOUND BY ef-manager ON THE REAL GRAPH, and my shape test was innocent of it.
+    // `.` and `..` were explicitly rejected — and that guard turns out to be dead, because
+    // neither has an extension or a separator so neither was ever a candidate. The span that got
+    // through is `` `/` ``: it IS path-shaped (it contains a separator), it normalises to
+    // nothing, and then the document-relative anchoring joins nothing onto the document's own
+    // directory. So `docs/x.md` writing `` `/` `` produced an edge to `docs`.
+    //
+    // ⚠ THE REASON THIS MATTERS MORE THAN THREE BAD EDGES: the false positives concentrate in
+    // documents ABOUT path handling, because those are the documents that write `/` and `./` in
+    // inline code while discussing syntax. ef-manager: "any repo doing import or path work will
+    // hit it, and yours is the worst case." An error rate that tracks what the project is about
+    // cannot be estimated from a sample of that project.
+    const db = await fixture('Paths use `/` separators, no leading `/`, no `.` or `..`.\n');
+    await detectDocLinks(db, repo);
+    expect(links(db), 'a separator is not a reference to the directory you are standing in')
+      .toEqual([]);
+    db.close();
+  }, 20_000);
+
+  it('★★★ ...and every no-segment spelling refuses, not just the one that was reported', async () => {
+    // One reported spelling is one spelling. The rule is "no segment that is not empty, . or ..",
+    // which is a property of the span rather than a list of strings somebody noticed.
+    for (const span of ['/', '//', './', '../', '.', '..', '/./']) {
+      const db = await fixture(`Syntax note: \`${span}\` is special.\n`);
+      await detectDocLinks(db, repo);
+      expect(links(db), `\`${span}\` must not resolve`).toEqual([]);
+      db.close();
+    }
+  }, 60_000);
+
+  it('★★★ a REAL relative path still resolves — the guard must not eat `../`', async () => {
+    // Negative control for the rule above. `../src/terrain.js` begins with the same segments the
+    // guard rejects; refusing it would trade a false-positive class for a false-negative one.
+    const db = await fixture('See [terrain](../src/terrain.js).\n');
+    await detectDocLinks(db, repo);
+    expect(links(db).map((r) => r.target)).toEqual(['src/terrain.js']);
+    db.close();
+  }, 20_000);
+
+  it('★★★ a fenced path is COUNTED, not silently dropped', async () => {
+    // ⚠ ef-manager: "a fenced path is invisible in every counter you have — it is neither an edge
+    // nor a miss." Fence exclusion is deliberate and correct (a mocked output block shows a
+    // shape, it does not make a reference), but a category that exists in the code and not in the
+    // accounting is how a denominator goes wrong quietly.
+    //
+    // Its own bucket rather than folded into `notAFileReference`, because "the author wrote a
+    // path inside an example block" and "the author wrote prose that looked like a path" are
+    // different facts about the document.
+    const db = await fixture('Example:\n\n```md\nSee [terrain](src/terrain.js) and `src/mesh.js`.\n```\n');
+    const stats = await detectDocLinks(db, repo);
+    expect(links(db), 'still no edge — the exclusion itself is unchanged').toEqual([]);
+    expect(stats.fencedExample, 'but it appears in the ledger now').toBeGreaterThan(0);
+    expect(stats.notAFileReference, 'and NOT under the prose bucket').toBe(0);
+    db.close();
+  }, 20_000);
+
+  it('★★★ the stats name how many DOCUMENTS produced an edge, not just how many edges', async () => {
+    // ef-manager's denominator point: "83% of documents link out" and "39% of the repo's markdown
+    // is reachable" describe the same system and imply different next actions. The per-document
+    // reach is the figure that answers "will this find the doc I forgot", so it is emitted
+    // rather than left to be recomputed by whoever quotes the edge count.
+    const db = await fixture('See [terrain](../src/terrain.js) and [mesh](../src/mesh.js).\n');
+    const stats = await detectDocLinks(db, repo);
+    expect(stats.added, 'two edges').toBe(2);
+    expect(stats.documentsWithLinks, 'from ONE document').toBe(1);
+    expect(stats.documents, 'out of two admitted documents').toBe(2);
+    db.close();
+  }, 20_000);
+
+  it('★★★ the admitted TARGET TYPES are pinned — the contract said "file", the code said five', async () => {
+    // ⛔ ef-manager measured the 480 real edges by target type: File 303, Document 80, Config 64,
+    // Directory 31, Entrypoint 2. The module described itself as resolving "to exactly one indexed
+    // FILE", so 6.5% of edges broke a promise nobody had noticed making — a consumer told
+    // Document→File and handed a Directory gets a different kind of answer than the contract says.
+    //
+    // Directories stay in: `docs/THE-GOAL.md` writing `` `docs/` `` means the directory. It was
+    // the DESCRIPTION that was wrong. Pinning the set here makes a future widening a reviewed
+    // event rather than something the field tester discovers for us.
+    const { FILE_LEVEL_TYPES } = await import('../../../mcp/stdio/analysis/doc-links.js');
+    expect([...FILE_LEVEL_TYPES]).toEqual(['File', 'Document', 'Config', 'Entrypoint', 'Directory']);
+    db_check: {
+      const db = await fixture('The specs live in `docs/` and config in [tsconfig](../tsconfig.json).\n', [
+        ['dir1', 'Directory', 'docs', 'docs'],
+      ]);
+      await detectDocLinks(db, repo);
+      const targets = db.all(
+        `SELECT t.type AS type FROM edges e JOIN nodes t ON t.id = e.to_id
+         WHERE e.relation = 'LINKS_TO' ORDER BY t.type`).map((r) => r.type);
+      expect(targets, 'a directory reference is an authored pointer and resolves')
+        .toEqual(['Config', 'Directory']);
+      db.close();
+    }
+  }, 30_000);
+
   it('★★★ a doc→DOC link resolves — the case the real graph could not do', async () => {
     // ⭐ THE HIGHEST-VALUE EDGE IN THE WHOLE FEATURE, and the first implementation could not
     // produce a single one. Documents are `Document` nodes, never `File` nodes, and the index

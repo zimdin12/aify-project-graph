@@ -19,8 +19,23 @@
 //   > to exactly one node.
 //
 // So the admission test is not "does this token look important" but "did the author write down
-// something that identifies a file, and does that something resolve to exactly one indexed file".
+// something that identifies a path, and does that path resolve to exactly one indexed NODE".
 // A Markdown link and a path-shaped inline-code span both meet it. A bare word never does.
+//
+// ⚠ "NODE", NOT "FILE" — AND THE WORD MATTERED. ef-manager measured the 480 admitted edges by
+// target type: File 303, Document 80, Config 64, DIRECTORY 31, Entrypoint 2. The contract said
+// "file" while the code admitted five types, so 6.5% of edges broke a promise nobody had noticed
+// making. Directories stay IN — `docs/THE-GOAL.md` writing `` `docs/` `` means the directory, and
+// "the specs live in docs/superpowers/specs/" is a real authored pointer — so the DESCRIPTION was
+// the wrong half. The admitted types are named in FILE_LEVEL_PRECEDENCE below and pinned by test,
+// so widening the set is a reviewed event rather than something a reader discovers in the field.
+//
+// ⚠ FENCED CONTENT IS EXCLUDED, DELIBERATELY, and that is part of the contract rather than an
+// implementation detail. Inside ``` a Markdown link is literal text and a backtick pair is not an
+// inline-code span; a mocked output block shows a shape, it does not make a reference. Measured:
+// of 480 admitted edges 0 came from inside a fence, and every hand-graded candidate recall-miss
+// was inside one. Fenced spans are counted under `fencedExample` so the exclusion is visible in
+// the ledger instead of being invisible in both the edges and the misses.
 //
 // ⭐ THIS EMITS `LINKS_TO` (Document → File), NOT `MENTIONS` (Document → Symbol). dev was explicit
 // that these are different relations with different authority and must not share a name: a link
@@ -64,9 +79,24 @@ const HAS_EXTENSION = /\.[A-Za-z][A-Za-z0-9]{0,9}$/;
 function isPathShaped(raw) {
   if (!raw || raw.length > 300) return false;
   if (!PATH_CHARS.test(raw)) return false;
-  if (raw === '.' || raw === '..') return false;
   return raw.includes('/') || HAS_EXTENSION.test(raw);
 }
+
+// ⛔ A SPAN THAT NAMES NO SEGMENT IS NOT A PATH, AND `/` PROVED IT THE HARD WAY.
+//
+// ef-manager found this on the real graph: documents about path handling write `` `/` `` and
+// `` `./` `` in inline code while DESCRIBING syntax, and `/` is path-shaped (it contains a
+// separator), normalises to nothing, and is then joined onto the document's own directory by the
+// relative anchoring — so `docs/x.md` writing `` `/` `` emitted an edge to `docs`.
+//
+// ⚠ The old `raw === '.' || raw === '..'` guard was DEAD: neither has a separator or an
+// extension, so neither was ever a candidate. It looked like this rule and was not.
+//
+// ⚠ And the error rate concentrates in documents about paths — which in a repo that resolves
+// paths means it correlates with the project's own subject matter, not with anything random. An
+// error class that tracks what the codebase is about cannot be estimated from that codebase.
+const namesNoSegment = (spec) =>
+  !String(spec).split('/').some((seg) => seg && seg !== '.' && seg !== '..');
 
 // Normalise to the repo-relative posix form the `nodes.file_path` column stores: forward slashes,
 // no leading `./`, `..` segments folded. Returns null when the path escapes the repo root, which
@@ -186,8 +216,11 @@ export function resolveDocPath(written, docPath, index) {
  */
 export function classifyTarget(written, docPath, index) {
   const cleaned = String(written).split('#')[0].split('?')[0].trim();
-  if (!cleaned) return { kind: 'unresolved', reason: 'empty' };
+  if (!cleaned) return { kind: 'unresolved', reason: 'not_a_file_reference' };
   if (EXTERNAL.test(cleaned)) return { kind: 'external' };
+  // Before resolution, not inside it: a span naming no segment must never reach the anchoring
+  // step, because that step is what turns "nothing" into "the document's own directory".
+  if (namesNoSegment(cleaned)) return { kind: 'unresolved', reason: 'not_a_file_reference' };
   const id = resolveDocPath(cleaned, docPath, index);
   if (id) return { kind: 'resolved', id };
 
@@ -224,15 +257,25 @@ export function scanDocReferences(content) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; continue; }
-    if (fenced) continue;
 
+    // ⚠ FENCED SPANS ARE STILL FOUND, THEN MARKED — they used to be skipped outright.
+    //
+    // ef-manager, measuring the corpus: "a fenced path is invisible in every counter you have —
+    // it is neither an edge nor a miss." The exclusion is right and stays; what was wrong is that
+    // it happened before anything could count it, so a whole category of authored path lived
+    // outside the accounting. A category that exists in the code and not in the ledger is how a
+    // denominator goes wrong quietly.
+    //
+    // They also measured that the exclusion is doing real work: of 480 admitted edges, 0 came
+    // from inside a fence, and every candidate recall-miss they hand-graded was inside one —
+    // mocked output blocks showing a shape rather than making a reference.
     for (const m of line.matchAll(MD_LINK)) {
-      found.push({ written: m[1], rule: 'doc_link:markdown', line: i + 1 });
+      found.push({ written: m[1], rule: 'doc_link:markdown', line: i + 1, fenced });
     }
     for (const m of line.matchAll(INLINE_CODE)) {
       const raw = m[1].trim();
       if (isPathShaped(raw) && !EXTERNAL.test(raw)) {
-        found.push({ written: raw, rule: 'doc_link:inline-path', line: i + 1 });
+        found.push({ written: raw, rule: 'doc_link:inline-path', line: i + 1, fenced });
       }
     }
   }
@@ -242,7 +285,8 @@ export function scanDocReferences(content) {
 // ── Entry point ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Rebuild every Document→File LINKS_TO edge this extractor owns.
+ * Rebuild every LINKS_TO edge this extractor owns. Source is a Document; target is any one of
+ * FILE_LEVEL_PRECEDENCE — File, Document, Config, Entrypoint or Directory.
  *
  * ⛔ IT DELETES FIRST. dev: "INSERT OR IGNORE alone will preserve the poison forever." The unique
  * index makes re-insertion idempotent but says nothing about edges a RETIRED rule wrote — those
@@ -254,7 +298,10 @@ export async function detectDocLinks(db, repoRoot) {
   db.run(`DELETE FROM edges WHERE relation = 'LINKS_TO' AND extractor LIKE '${EXTRACTOR_PREFIX}%'`);
 
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
-  const empty = { added: 0, documents: 0, external: 0, noSuchPath: 0, notAFileReference: 0 };
+  const empty = {
+    added: 0, documents: 0, documentsWithLinks: 0,
+    external: 0, noSuchPath: 0, notAFileReference: 0, fencedExample: 0,
+  };
   if (docs.length === 0) return empty;
 
   const types = FILE_LEVEL_TYPES.map((t) => `'${t}'`).join(', ');
@@ -264,6 +311,8 @@ export async function detectDocLinks(db, repoRoot) {
   let external = 0;
   let noSuchPath = 0;
   let notAFileReference = 0;
+  let fencedExample = 0;
+  let documentsWithLinks = 0;
 
   for (const doc of docs) {
     let content;
@@ -279,6 +328,9 @@ export async function detectDocLinks(db, repoRoot) {
     // occurrence explicitly makes the recorded span reproducible.
     const best = new Map();
     for (const ref of scanDocReferences(content)) {
+      // The exclusion is unchanged — a fenced span never becomes an edge. It is now COUNTED
+      // rather than dropped before anything could see it.
+      if (ref.fenced) { fencedExample++; continue; }
       const verdict = classifyTarget(ref.written, doc.file_path, index);
       if (verdict.kind === 'external') { external++; continue; }
       if (verdict.kind === 'unresolved') {
@@ -288,6 +340,8 @@ export async function detectDocLinks(db, repoRoot) {
       if (verdict.id === doc.id) continue;          // a document does not link to itself
       if (!best.has(verdict.id)) best.set(verdict.id, ref);
     }
+
+    if (best.size > 0) documentsWithLinks++;
 
     for (const [targetId, ref] of best) {
       db.run(
@@ -308,5 +362,19 @@ export async function detectDocLinks(db, repoRoot) {
     }
   }
 
-  return { added, documents: docs.length, external, noSuchPath, notAFileReference };
+  // ⚠ `documents` IS THE ADMITTED CORPUS, NOT THE REPOSITORY'S MARKDOWN. ef-manager composed the
+  // real figure end to end on this repo: 150 tracked .md → 71 Document nodes (47.3%, the
+  // ingest/sweep.js allowlist) → 59 emitting a link (83.1% of survivors) = 39.3% of the repo's
+  // markdown reachable through this layer. "83% of documents link out" and "39% of the markdown
+  // is reachable" describe the same system and imply completely different next actions, and only
+  // the second answers "will this find the doc I forgot".
+  //
+  // ⇒ `documentsWithLinks / documents` is emitted here so nobody has to recompute it from the
+  // edge count. The THIRD term — how much markdown never became a node — is not knowable from
+  // this module, which only ever sees nodes. It belongs to the sweep, and until the corpus fix
+  // lands this ratio must not be quoted as repository coverage.
+  return {
+    added, documents: docs.length, documentsWithLinks,
+    external, noSuchPath, notAFileReference, fencedExample,
+  };
 }
