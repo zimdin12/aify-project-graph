@@ -1,0 +1,68 @@
+# DIRECTS_READER_TO — population measured across four corpora, before the rule exists
+
+Purpose: supply the population and the negative control BEFORE the rule is designed, since the
+negative control is the state these repos rarely occupy. Read-only; nothing indexed.
+
+## The reported zero was instrument-incapable
+
+The first probe reported "866 read-ish sentences, 0 naming a `.md`". Executed directly:
+
+    regex  /\b(read|see|start with)\b([^.\n]{0,80})/i
+    input  "Read `AGENTS.md` first. It contains the full project guide."
+    capture -> "Read `AGENTS"
+
+The character class excludes `.`, which is IN `.md`, so the capture stops one character before the
+thing it searches for. **It could not return a filename.** Corrected, the same input captures the
+whole sentence.
+
+⇒ The population is not empty, and it is not empty in THIS repo either — see below.
+
+## Population, tight definition (read-verb + `.md` target + order word, minus hostile witnesses)
+
+    corpus                 tracked .md   read-verb lines   DIRECTIVES   excluded (fence/neg/quote)
+    aify-project-graph          156             836            13            1 / 2 / 1
+    echoes_of_the_fallen        122             429            26            0 / 1 / 2
+    sand_castle                 923            1686            22            0 / 10 / 0
+    lc-api                        8               7             0            0 / 0 / 0
+
+Instrument controls, run against synthetic input so both outcomes are demonstrated:
+
+    PRESENT  "Read `AGENTS.md` first."               -> true
+    ABSENT   "Read the code first."      (no target) -> false
+    ABSENT   "See docs/x.md for details."(no order)  -> false
+    ABSENT   "Do not read AGENTS.md first." (negated)-> false
+
+## ⚠ The negative control is DEFINITION-DEPENDENT, which is the part to decide first
+
+Same probe with the order-word requirement dropped — i.e. "points the reader at a document" rather
+than "tells the reader what to read first":
+
+    aify-project-graph   13 -> 65
+    echoes_of_the_fallen 26 -> 96
+    sand_castle          22 -> 86
+    lc-api                0 ->  1
+
+The population roughly quintuples, and **lc-api stops being empty**. Its single loose match:
+
+    app/Components/Api/Company/Search/Impl/README.md:7
+      "Refer to `app/Components/Api/BusinessRegistry/Processor/Impl/README.md` for more info."
+
+That is a real cross-reference and not a read-order directive. So lc-api is a true negative for
+READ-ORDER and NOT a true negative for POINTER. A precision floor graded on "lc-api returns 0"
+holds only under the tighter relation, and which relation `DIRECTS_READER_TO` names decides
+whether the negative control is valid at all. Worth fixing before the rule, not after.
+
+## Caveat on the exclusion counts
+
+The negation filter here is crude — a `do not|never|rather than` test on the line. Under the loose
+definition sand_castle shows 36 "negated", and spot-checking those finds lines like "are **never
+read in engine/render**", which concern code rather than reading order and were never directives
+in spirit. ⛔ Do not read these counts as a measured hazard rate for hostile witnesses. They show
+the categories OCCUR; they do not size them.
+
+## What this does not do
+
+It does not implement or grade the rule, and it does not propose the extraction. It establishes
+that the population exists, that it exists in this repo, that one available corpus is genuinely
+empty under the tighter reading, and that the count is highly sensitive to a definition choice
+that has not been made yet.
