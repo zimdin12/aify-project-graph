@@ -1,4 +1,10 @@
-# Field test 2026-08-21 — brief document section reaches 2 of 4 surfaces
+# Field test 2026-08-21 — server stale; the brief-surface finding was RETRACTED
+
+> ⛔ **The original title of this file claimed the document section reached only 2 of 4 brief
+> surfaces. That is FALSE and retracted below.** The title is corrected because a directory listing
+> shows titles, and a reader who never opens the file would otherwise carry away the wrong claim.
+> The commit subject of 1c4f94f still carries it and cannot be corrected without rewriting pushed
+> history, so this line is the correction of record.
 
 Run from the user's seat. Most of the round was blocked by a stale server and says so.
 
