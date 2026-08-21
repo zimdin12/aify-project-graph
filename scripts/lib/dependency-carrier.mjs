@@ -101,8 +101,18 @@ export function environmentAllowlist(env = process.env) {
  * unnamed population the referee identified: `.aify-graph`, caches, generated configs. A candidate
  * run must refuse anything ignored that it did not itself put there.
  *
- * ⚠ `.aify-graph` MATERIALISES ON ITS OWN in fresh worktrees — observed, producer unidentified. It
- * is therefore exactly the kind of state this check exists to catch, not an exception to it.
+ * ⚠⚠ `.aify-graph` MATERIALISES ON ITS OWN in fresh worktrees, INTERMITTENTLY, and sometimes with
+ * a held file handle so removal fails. Measured across consecutive runs on an unchanged tree:
+ * PASS, then REFUSE with `REMOVAL FAILED`, then PASS. A manual probe showed a fresh worktree with
+ * ZERO ignored entries, so the producer acts between worktree creation and the entry sample —
+ * most likely a running MCP server indexing directories it notices.
+ *
+ * ⇒ It is exactly the kind of state this check exists to catch, not an exception to it.
+ *
+ * ⛔ AND INTERMITTENT IS WORSE THAN CONSISTENT: a class that refuses sometimes will be re-run
+ * until it passes, and re-running until green is how a real refusal gets laundered into a receipt.
+ * Any PASS from this class on this machine means "no interference was observed in that window",
+ * never "no interference is possible".
  */
 export function unexpectedIgnored(ignoredPaths, allowed = ['node_modules']) {
   const allowedSet = new Set(allowed);
