@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import {
-  RECEIPT_CLASS, VERDICT, receiptVerdict, renderReceipt, capture,
+  RECEIPT_CLASS, VERDICT, receiptVerdict, renderReceipt, capture, gatePassed,
 } from './lib/gate-receipt.mjs';
 // ⛔ The ambient population, ENUMERATED. A materialized tree fixes SOURCE attribution and nothing
 // else -- node_modules is ignored, so it cannot come from T. This names what remains rather than
@@ -218,8 +218,24 @@ function main() {
     const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--candidate-tree', '--out', receiptFile],
       { cwd: REPO, encoding: 'utf8' });
     console.log(r.stdout ?? '');
-    const receiptText = existsSync(receiptFile) ? readFileSync(receiptFile, 'utf8') : '';
-    const verdict = /VERDICT {4}([A-Z_]+)/.exec(receiptText)?.[1] ?? 'UNKNOWN';
+    // ⛔ AN ABSENT RECEIPT MUST NOT READ AS EMPTY TEXT. It silently became '', so the verdict
+    // parsed as UNKNOWN and the message would have carried NO receipt at all — a commit claiming
+    // candidate authority with nothing behind it. Observed for real: `/tmp` resolves differently
+    // under Git Bash (AppData\Local\Temp) and Node (C:	mp), so the child wrote the receipt
+    // somewhere the parent never looked.
+    if (!existsSync(receiptFile)) {
+      conclude(OUTCOME.GATE_REFUSE, { reason: `the gate produced no receipt at ${receiptFile}` });
+      console.error(`REFUSED: the gate produced no receipt at ${receiptFile} — nothing was committed.`);
+      console.error('   An absent receipt is not an empty one; a commit must never carry a receipt that does not exist.');
+      process.exit(1);
+    }
+    const receiptText = readFileSync(receiptFile, 'utf8');
+    const verdict = /VERDICT {4}([A-Z_]+)/.exec(receiptText)?.[1] ?? null;
+    if (verdict === null) {
+      conclude(OUTCOME.GATE_REFUSE, { reason: 'the receipt carries no parseable verdict' });
+      console.error('REFUSED: the receipt carries no parseable verdict — the outcome is unknown, not acceptable.');
+      process.exit(1);
+    }
     const reason = /VERDICT {4}[A-Z_]+ — (.*)/.exec(receiptText)?.[1] ?? null;
 
     if (r.status !== 0) {
@@ -444,6 +460,25 @@ EXPECTED   ${T0}`);
 
     const out = receipt + cleanupNote;
     console.log(out);
+
+    // ⛔⛔ A FAILED GATE IS NOT THE SAME AS AN UNBOUND CARRIER, AND I CONFLATED THEM. A diagnostic
+    // receipt reading `UNBOUND_DIRTY — 1 gate(s) failed` says two things: this class binds no
+    // commit (expected, by construction) AND a gate process actually failed (not expected at all).
+    // I read the first clause, treated the whole line as the usual diagnostic outcome, and
+    // committed over a RED SUITE.
+    //
+    // ⇒ Third time this session I proceeded past a measurement that said stop — after publishing a
+    // fabricated green, and after committing over a REFUSE. The remedy is the same each time:
+    // make the distinction impossible to skim past.
+    // ⚠ `gatePassed` was NOT IMPORTED when I first wrote this, so the very control meant to make a
+    // failed gate loud threw a ReferenceError and the process exited 2 through the catch. A control
+    // that cannot run is not a control -- and this one was invisible because the throw happened
+    // AFTER the receipt had already printed, so the output looked complete.
+    const failedGates = gates.filter((g) => !gatePassed(g));
+    if (failedGates.length) {
+      console.error(`⛔ ${failedGates.length} GATE PROCESS FAILED: ${failedGates.map((g) => g.label).join(', ')}`);
+      console.error('   This is NOT merely an unbound carrier. A gate said the code did not pass.');
+    }
     const outIdx = argv.indexOf('--out');
     if (outIdx !== -1 && argv[outIdx + 1]) {
       // The MACHINE-READABLE receipt is the carrier; the prose above is RENDERED FROM IT, never
