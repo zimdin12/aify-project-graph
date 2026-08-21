@@ -21,11 +21,12 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import {
-  ARM_STATE, ISOLATION_ROOT, MANIFEST_ROOT, HEARTBEAT_STALE_MS, BLOCKS_NEW_RUN,
+  ARM_STATE, ISOLATION_ROOT, MANIFEST_ROOT, HEARTBEAT_STALE_MS, BLOCKS_NEW_RUN, MAY_DELETE,
+  REMOVAL_ORDER, CLOSURE_FIELDS, validateClosure,
   armManifest, writeManifest, manifestPathFor, heartbeatPathFor, writeBeat, readBeat,
   classifyArm, findArms, isolationPermission, containedInRoot, preserveArmEvidence, sha,
 } from '../../../scripts/lib/arm-isolation.mjs';
-import { cleanupAuthority, parseConfirmation, observeArm, REMOVAL_ORDER } from '../../../scripts/lib/arm-cleanup.mjs';
+import { cleanupAuthority, parseConfirmation, observeArm } from '../../../scripts/lib/arm-cleanup.mjs';
 
 const FIXTURE = fileURLToPath(new URL('../../fixtures/hostile-kill-arm.mjs', import.meta.url));
 const TARGET = 'src/subject.js';
@@ -200,20 +201,39 @@ describe('classification states are distinct and none of them is a licence', () 
     expect(cleanupAuthority(repo, 'nm1', [a], null, STALE_AT()).reason).toMatch(/no worktree to remove/);
   });
 
-  it('★★★⛔ EVERY state except ORPHAN_CONFIRMED blocks a new run', () => {
-    // Derived from the state set rather than listed, so a state added later cannot quietly acquire
-    // a path around this gate.
-    for (const s of Object.values(ARM_STATE)) {
-      expect(BLOCKS_NEW_RUN.has(s), `${s} must block unless confirmed`).toBe(s !== ARM_STATE.ORPHAN_CONFIRMED);
+  it('★★★⛔ EVERY state blocks — INCLUDING ORPHAN_CONFIRMED. Eligibility is not completion.', () => {
+    // ⛔ THE BUG I SHIPPED AN HOUR AGO. I wrote BLOCKS_NEW_RUN as "everything except
+    // ORPHAN_CONFIRMED" and was pleased to have DERIVED it rather than listed it. The derivation
+    // encoded the premise that "deletable" and "not blocking" are one question. They are two.
+    //
+    // ⇒ A confirmed orphan still holds the mutant bytes, still has a registered worktree and a
+    // manifest, and its cleanup can still fail. Excluding it let the next mutation run start during
+    // the exact custody interval that confirmation exists to govern.
+    for (const st of Object.values(ARM_STATE)) {
+      expect(BLOCKS_NEW_RUN.has(st), `${st} must block a new run`).toBe(true);
     }
+    expect([...MAY_DELETE], 'and exactly one state is deletable').toEqual([ARM_STATE.ORPHAN_CONFIRMED]);
+    expect(MAY_DELETE.size < BLOCKS_NEW_RUN.size,
+      'the two predicates are deliberately not complements').toBe(true);
   });
 
-  it('★★★ a CLOSED arm blocks nothing — the one state that must not refuse forever', () => {
-    openArm('done', { beat: { seq: 0 } });
-    const p = manifestPathFor(repo, 'done');
+  it('★★★⛔ A BARE state:CLOSED IS A BYPASS — and my own test used to pin it as correct', () => {
+    // ⛔⛔ THE OLD DISCOVERY LOOP SAID `if (m.state === 'CLOSED') continue`. Anything that could put
+    // eight characters into a JSON file made an arm VANISH from discovery along with its mutant
+    // bytes. In the same file I had written "an unreadable manifest is UNKNOWN, never absent" and
+    // then let a READABLE string be absent.
+    //
+    // ⇒ AND THE TEST THAT USED TO LIVE HERE ASSERTED `findArms(repo)` returns [] for exactly this
+    // manifest. It pinned the bypass as the specification. A test locks in a defect just as firmly
+    // as it locks in a behaviour, which is why "it passed" is never the whole question.
+    openArm('forged', { beat: { seq: 0 } });
+    const p = manifestPathFor(repo, 'forged');
     writeFileSync(p, JSON.stringify({ ...JSON.parse(readFileSync(p, 'utf8')), state: 'CLOSED' }));
-    expect(findArms(repo)).toEqual([]);
-    expect(isolationPermission(findArms(repo)).allowed).toBe(true);
+    const arms = findArms(repo);
+    expect(arms.length, 'a forged closure must not remove the arm from view').toBe(1);
+    expect(arms[0].state).toBe(ARM_STATE.UNKNOWN);
+    expect(arms[0].detail).toMatch(/CLOSED is not valid: CLOSED without a closure record/);
+    expect(isolationPermission(arms).allowed).toBe(false);
   });
 });
 
@@ -358,5 +378,95 @@ describe('evidence is preserved before anything is removed', () => {
     const r = preserveArmEvidence({ runId: 'a', worktree, target: 'f.js' });
     expect(r.preserved).toBe(true);
     expect(r.mutantSha256).toBe(sha(Buffer.from('mutant')));
+  });
+});
+
+
+// ⛔ CLOSURE IS THE ONLY EXIT FROM THE BLOCKING SET, so it is the one record that must be checked
+// rather than believed. Confirmation says a delete MAY happen; only a validated closure says every
+// removal step DID happen.
+describe('only a validated closure stops an arm blocking', () => {
+  const validClosure = (over = {}) => ({
+    runId: 'z1',
+    priorManifestHash: 'a'.repeat(64),
+    confirmationHash: 'b'.repeat(64),
+    preservedMutantSha256: 'c'.repeat(64),
+    cleanupResults: REMOVAL_ORDER.map((step) => ({ step, ok: true })),
+    closedAt: '2026-08-21T12:00:00.000Z',
+    approver: 'graph-senior-dev',
+    approvalMessageId: 'msg-9',
+    ...over,
+  });
+
+  const closeWith = (runId, closure) => {
+    const p = manifestPathFor(repo, runId);
+    const m = JSON.parse(readFileSync(p, 'utf8'));
+    writeFileSync(p, JSON.stringify({ ...m, state: 'CLOSED', closure }));
+  };
+
+  it('★★★ POSITIVE CONTROL: a complete, consistent closure DOES release the arm', () => {
+    // ⛔ Without this the apparatus can never finish a cleanup, refuses forever, and gets switched
+    // off within a week. The exit must exist; it must merely be earned.
+    openArm('z1', { beat: { seq: 0 } });
+    closeWith('z1', validClosure());
+    expect(findArms(repo), 'a validated closure removes it from the population').toEqual([]);
+    expect(isolationPermission(findArms(repo)).allowed).toBe(true);
+  });
+
+  it('★★★⛔ A CONFIRMED-BUT-NOT-CLEANED ARM STILL BLOCKS', () => {
+    // The gap dev found: confirmation grants eligibility, and the bytes are still on disk.
+    openArm('z1');
+    const arms = findArms(repo, STALE_AT());
+    const auth = cleanupAuthority(repo, 'z1', arms, confirmFor(arms[0]), STALE_AT());
+    expect(auth.allowed, 'it is eligible').toBe(true);
+    expect(auth.stillBlocksNewRuns, 'and it still blocks').toBe(true);
+    expect(isolationPermission(findArms(repo, STALE_AT())).allowed,
+      'nothing has been removed yet, so no new run may start').toBe(false);
+  });
+
+  it('★★★⛔ A CLOSURE REPORTING A FAILED REMOVAL STEP STILL BLOCKS', () => {
+    // A cleanup that removed the directory but failed to deregister the worktree has NOT finished.
+    openArm('z1', { beat: { seq: 0 } });
+    closeWith('z1', validClosure({
+      cleanupResults: REMOVAL_ORDER.map((step) => (
+        step === 'remove-registration' ? { step, ok: false, reason: 'git worktree remove failed' } : { step, ok: true }
+      )),
+    }));
+    const arms = findArms(repo);
+    expect(arms.length).toBe(1);
+    expect(arms[0].detail).toMatch(/remove-registration did not succeed/);
+    expect(isolationPermission(arms).allowed).toBe(false);
+  });
+
+  it('★★★⛔ A CLOSURE MISSING ANY REMOVAL STEP STILL BLOCKS', () => {
+    // Silence about a step is not a report that it succeeded.
+    openArm('z1', { beat: { seq: 0 } });
+    closeWith('z1', validClosure({
+      cleanupResults: REMOVAL_ORDER.filter((x) => x !== 'remove-directory').map((step) => ({ step, ok: true })),
+    }));
+    expect(findArms(repo)[0].detail).toMatch(/records no result for remove-directory/);
+  });
+
+  it('★★★⛔ PRESERVED EVIDENCE WITHOUT A REAL MUTANT HASH STILL BLOCKS', () => {
+    openArm('z1', { beat: { seq: 0 } });
+    closeWith('z1', validClosure({ preservedMutantSha256: 'not-a-hash' }));
+    expect(findArms(repo)[0].detail).toMatch(/preservedMutantSha256 is not a sha256/);
+  });
+
+  it('★★★⛔ a closure naming a DIFFERENT run cannot close this manifest', () => {
+    openArm('z1', { beat: { seq: 0 } });
+    closeWith('z1', validClosure({ runId: 'someone-else' }));
+    expect(findArms(repo)[0].detail).toMatch(/names a different run than its manifest/);
+  });
+
+  it('★★★⛔ EVERY required field is required — checked against the derived list', () => {
+    // Derived from CLOSURE_FIELDS so a field added later is covered without editing this test.
+    for (const f of CLOSURE_FIELDS) {
+      const c = validClosure();
+      delete c[f];
+      const v = validateClosure({ runId: 'z1', closure: c });
+      expect(v.ok, `${f} must be required`).toBe(false);
+      expect(v.reason).toMatch(new RegExp(f));
+    }
   });
 });

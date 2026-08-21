@@ -16,8 +16,13 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
 import {
-  ARM_STATE, classifyArm, manifestHash, heartbeatPathFor, readBeat, containedInRoot,
+  ARM_STATE, MAY_DELETE, BLOCKS_NEW_RUN, REMOVAL_ORDER,
+  classifyArm, manifestHash, heartbeatPathFor, readBeat, containedInRoot,
 } from './arm-isolation.mjs';
+
+// Re-exported so cleanup callers read the order from ONE definition. A second copy is a second
+// thing to forget to update, and this one decides what gets deleted in which order.
+export { REMOVAL_ORDER };
 
 /** Everything a confirmation must name. Derived, so a new field cannot be forgotten by a caller. */
 export const CONFIRMATION_FIELDS = [
@@ -145,30 +150,22 @@ export function cleanupAuthority(repo, runId, arms, confirmation, now = Date.now
     return refuse(`arm re-classified as ${live.state} at decision time: ${live.detail}`);
   }
 
+  // ELIGIBILITY IS NOT COMPLETION. This says the arm MAY be deleted. It still holds mutant bytes, a
+  // registered worktree and a manifest, so it goes on blocking new runs until a VALIDATED closure
+  // records that every removal step actually succeeded.
   return {
     allowed: true,
     state: ARM_STATE.ORPHAN_CONFIRMED,
+    mayDelete: MAY_DELETE.has(ARM_STATE.ORPHAN_CONFIRMED),
+    stillBlocksNewRuns: BLOCKS_NEW_RUN.has(ARM_STATE.ORPHAN_CONFIRMED),
     arm,
     confirmation: c,
-    reason: `ORPHAN_CONFIRMED by ${c.approver} (${c.approvalMessageId}); observation: ${c.observedProcess}`,
+    reason: `ORPHAN_CONFIRMED by ${c.approver} (${c.approvalMessageId}); observation: ${c.observedProcess}`
+      + ' -- eligible for deletion, and still blocking new runs until closure validates',
   };
 }
 
-/**
- * The removal order, as data rather than as control flow, so a caller cannot reorder it by
- * accident and every step's result is recorded.
- *
- * ⚠ NOTHING IS RENAMED OR MOVED BEFORE EVIDENCE PRESERVATION IS DURABLE. A rename is already a
- * destructive act against an interrupted run, and a preservation written after it describes bytes
- * that have already been disturbed.
- */
-export const REMOVAL_ORDER = Object.freeze([
-  'preserve-evidence',      // hash the mutant and write it OUTSIDE, durably
-  'verify-preservation',    // read it back before touching anything
-  'remove-registration',    // git worktree remove/prune
-  'remove-directory',       // the throwaway tree itself
-  'close-manifest',         // state: CLOSED, last, so a crash mid-removal still blocks
-]);
+
 
 export function preservationDurable(path, expected) {
   if (!existsSync(path)) return { ok: false, reason: 'preservation artifact was not written' };

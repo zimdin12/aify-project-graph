@@ -39,8 +39,11 @@ export const MANIFEST_ROOT = '.self-review-arms';
 export const HEARTBEAT_STALE_MS = 90_000;
 
 /**
- * ⛔ THE FOUR STATES. Only ORPHAN_CONFIRMED is deletable, and nothing in this file can produce it —
- * confirmation requires an outside observation and lives in arm-cleanup.mjs.
+ * ⛔ THE OBSERVABLE STATES. Only ORPHAN_CONFIRMED is DELETABLE, and nothing in this file can
+ * produce it -- confirmation requires an outside observation and lives in arm-cleanup.mjs.
+ *
+ * ⚠ Deletable is not the same as non-blocking: see MAY_DELETE / BLOCKS_NEW_RUN below. Every state
+ * here blocks a new mutation run.
  */
 export const ARM_STATE = {
   PEER_ACTIVE: 'PEER_ACTIVE',                 // fresh, token-authenticated heartbeat
@@ -50,10 +53,95 @@ export const ARM_STATE = {
   NOT_MATERIALIZED: 'NOT_MATERIALIZED',       // manifest exists, worktree never created
 };
 
-/** Every state that must block a new mutation run. Derived, so a new state cannot be forgotten. */
-export const BLOCKS_NEW_RUN = new Set(
-  Object.values(ARM_STATE).filter((s) => s !== ARM_STATE.ORPHAN_CONFIRMED),
+/**
+ * TWO PREDICATES, DELIBERATELY NOT COMPLEMENTS OF EACH OTHER.
+ *
+ * My first version wrote BLOCKS_NEW_RUN as "everything except ORPHAN_CONFIRMED" and I was pleased
+ * with myself for DERIVING it rather than listing it. The derivation was the bug: it encoded the
+ * premise that "deletable" and "not blocking" are the same question. They are not.
+ *
+ * Confirmation grants ELIGIBILITY TO DELETE. It is not evidence that deletion HAPPENED. A confirmed
+ * orphan still holds the mutant bytes, still has a registered worktree, a junction and a manifest,
+ * and its cleanup can still fail. Excluding it from the blocking set let the next mutation run start
+ * during the exact custody interval that confirmation exists to govern.
+ *
+ * So EVERY observable state blocks. An arm stops blocking only by ceasing to be an observable arm --
+ * that is, by reaching a VALIDATED closure, which is checked rather than believed.
+ */
+export const MAY_DELETE = new Set([ARM_STATE.ORPHAN_CONFIRMED]);
+export const BLOCKS_NEW_RUN = new Set(Object.values(ARM_STATE));
+
+/**
+ * The removal order, as data rather than control flow, so a caller cannot reorder it by accident.
+ *
+ * NOTHING IS RENAMED OR MOVED BEFORE EVIDENCE PRESERVATION IS DURABLE. A rename is already a
+ * destructive act against an interrupted run, and a preservation written afterwards describes bytes
+ * that have already been disturbed.
+ */
+export const REMOVAL_ORDER = Object.freeze([
+  'preserve-evidence',
+  'verify-preservation',
+  'remove-registration',
+  'remove-directory',
+  'close-manifest',
+]);
+
+/** Everything a closure must bind. Derived, so a field cannot be forgotten by a writer. */
+export const CLOSURE_FIELDS = [
+  'runId',
+  'priorManifestHash',
+  'confirmationHash',
+  'preservedMutantSha256',
+  'cleanupResults',
+  'closedAt',
+  'approver',
+  'approvalMessageId',
+];
+
+const HEX64 = /^[0-9a-f]{64}$/;
+
+const cleanupResultMap = (c) => new Map(
+  (Array.isArray(c.cleanupResults) ? c.cleanupResults : [])
+    .filter((r) => r && typeof r.step === 'string')
+    .map((r) => [r.step, r]),
 );
+
+/**
+ * `state: 'CLOSED'` WAS TRUSTED AS PROSE, AND THAT WAS A BYPASS OF THE ENTIRE GATE.
+ *
+ * The old discovery loop said `if (m.state === 'CLOSED') continue`. Any writer -- a partial write, a
+ * hand edit, a stale template, anything that can put eight characters into a JSON file -- made an
+ * arm VANISH from discovery along with its mutant bytes. In this same file I had written "an
+ * unreadable manifest is UNKNOWN, never absent", and then let a READABLE string be absent.
+ *
+ * AND MY OWN TEST PINNED THE BYPASS. It asserted findArms() returns [] for a manifest with CLOSED
+ * written into it, which is the bypass working as designed. A test locks in a defect exactly as
+ * firmly as it locks in a behaviour.
+ *
+ * A closure must BIND: which run, the manifest bytes it closes, the confirmation that authorised it,
+ * the preserved mutant hash, a result for EVERY removal step, and who approved it. Anything
+ * malformed, incomplete, or reporting a failed step is UNKNOWN -- never skipped.
+ */
+export function validateClosure(m) {
+  const c = m && m.closure;
+  if (!c || typeof c !== 'object' || Array.isArray(c)) return { ok: false, reason: 'CLOSED without a closure record' };
+  for (const f of CLOSURE_FIELDS) {
+    if (c[f] === undefined || c[f] === null || c[f] === '') return { ok: false, reason: `closure names no ${f}` };
+  }
+  if (c.runId !== m.runId) return { ok: false, reason: 'closure names a different run than its manifest' };
+  for (const field of ['priorManifestHash', 'confirmationHash', 'preservedMutantSha256']) {
+    if (typeof c[field] !== 'string' || !HEX64.test(c[field])) return { ok: false, reason: `closure ${field} is not a sha256` };
+  }
+  if (!Array.isArray(c.cleanupResults)) return { ok: false, reason: 'closure cleanupResults is not a list' };
+  const byStep = cleanupResultMap(c);
+  for (const step of REMOVAL_ORDER) {
+    const r = byStep.get(step);
+    if (!r) return { ok: false, reason: `closure records no result for ${step}` };
+    if (r.ok !== true) return { ok: false, reason: `cleanup step ${step} did not succeed: ${r.reason || 'no reason given'}` };
+  }
+  if (!Number.isFinite(Date.parse(c.closedAt))) return { ok: false, reason: 'closure closedAt is not a timestamp' };
+  return { ok: true };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Heartbeats: token-bound, atomically replaced, monotonic.
@@ -201,7 +289,16 @@ export function findArms(repo, now = Date.now()) {
       out.push({ file: f, path, manifest: null, manifestHash: manifestHash(path), state: ARM_STATE.UNKNOWN, detail: 'manifest is unreadable' });
       continue;
     }
-    if (m && m.state === 'CLOSED') continue;
+    if (m && m.state === 'CLOSED') {
+      // VALIDATED, NOT BELIEVED. A forged or partial CLOSED must not delete an arm from view.
+      const v = validateClosure(m);
+      if (v.ok) continue;
+      out.push({
+        file: f, path, manifest: m, manifestHash: manifestHash(path),
+        state: ARM_STATE.UNKNOWN, detail: `CLOSED is not valid: ${v.reason}`,
+      });
+      continue;
+    }
     const c = classifyArm(repo, m, now);
     out.push({ file: f, path, manifest: m, manifestHash: manifestHash(path), ...c });
   }
@@ -211,8 +308,8 @@ export function findArms(repo, now = Date.now()) {
 /**
  * May a new mutation run start?
  *
- * ⛔ Derived from BLOCKS_NEW_RUN rather than listed, so adding a state cannot silently create a
- * path that skips this gate.
+ * EVERY observable state blocks. An arm leaves the blocking set only by reaching a VALIDATED
+ * closure, never by merely being eligible for deletion.
  */
 export function isolationPermission(arms) {
   const blocking = arms.filter((a) => BLOCKS_NEW_RUN.has(a.state));
