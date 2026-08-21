@@ -41,8 +41,17 @@ export const OUTCOME = {
   INCOMPLETE: 'INCOMPLETE',
 };
 
-/** Only these mean the transaction succeeded. Everything else blocks a plain retry. */
-const SUCCESS = new Set([OUTCOME.PUBLISHED_EXACT_TREE, OUTCOME.WORKTREE_POSTCONDITION_REFUSE]);
+/**
+ * Outcomes meaning THIS TREE HAS ALREADY BEEN COMMITTED. They do not "succeed and allow another
+ * try" — they close the tree.
+ *
+ * ⛔⛔ MY FIRST VERSION TREATED THESE AS NON-BLOCKING, so a plain new attempt was permitted after a
+ * successful publication. I then ran exactly that and called it a hostile control: a second
+ * transaction on an already-published tree, which could create a second empty-tree commit and let a
+ * later REFUSE contaminate a published tree's history. The referee caught that my "control" was the
+ * defect demonstrating itself.
+ */
+const PUBLISHED = new Set([OUTCOME.PUBLISHED_EXACT_TREE, OUTCOME.WORKTREE_POSTCONDITION_REFUSE]);
 
 const REQUIRED_FIELDS = ['id', 'at', 'tree', 'outcome'];
 
@@ -52,12 +61,34 @@ const REQUIRED_FIELDS = ['id', 'at', 'tree', 'outcome'];
  * ⛔ A ROW THAT CANNOT BE UNDERSTOOD IS NOT A ROW THAT DID NOT HAPPEN. Skipping malformed entries
  * would let a corrupted write erase a refusal, so any defect poisons the whole read.
  */
-function rowProblem(row, i) {
-  if (row === null || typeof row !== 'object' || Array.isArray(row)) return `row ${i} is not an object`;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const TERMINAL_FIELDS = ['commit', 'headTree', 'porcelainDirty'];
+
+function rowProblem(row, fileStem, tree) {
+  if (row === null || typeof row !== 'object' || Array.isArray(row)) return `${fileStem} is not an object`;
   for (const f of REQUIRED_FIELDS) {
-    if (typeof row[f] !== 'string' || row[f] === '') return `row ${i} is missing "${f}"`;
+    if (typeof row[f] !== 'string' || row[f] === '') return `${fileStem} is missing "${f}"`;
   }
-  if (!Object.values(OUTCOME).includes(row.outcome)) return `row ${i} has unknown outcome "${row.outcome}"`;
+  if (!Object.values(OUTCOME).includes(row.outcome)) return `${fileStem} has unknown outcome "${row.outcome}"`;
+
+  // ⛔ THE ROW MUST BE BOUND TO THE CARRIER IT WAS FOUND UNDER. Validating that `tree` is a
+  // non-empty string accepted a valid row belonging to a DIFFERENT tree, and a renamed file
+  // detached the row from its id. Either would import foreign history into this tree's ledger —
+  // which is laundering by relocation rather than by retry.
+  if (row.tree !== tree) return `${fileStem} carries tree ${row.tree.slice(0, 12)} but sits under ${tree.slice(0, 12)}`;
+  if (!UUID_RE.test(row.id)) return `${fileStem} has a non-canonical attempt id`;
+  if (fileStem !== row.id) return `${fileStem} does not match its own id ${row.id}`;
+  if (Number.isNaN(Date.parse(row.at))) return `${fileStem} has an unparseable timestamp`;
+
+  // ⛔ A TERMINAL OUTCOME WITHOUT A CONCLUSION IS A HALF-WRITTEN ROW, and an INCOMPLETE carrying
+  // publication fields is a row claiming an outcome it never reached. Both are refusals.
+  const terminal = row.outcome !== OUTCOME.INCOMPLETE;
+  if (terminal && (typeof row.concludedAt !== 'string' || Number.isNaN(Date.parse(row.concludedAt)))) {
+    return `${fileStem} is ${row.outcome} without a valid concludedAt`;
+  }
+  if (!terminal && TERMINAL_FIELDS.some((f) => row[f] !== undefined)) {
+    return `${fileStem} is INCOMPLETE but carries terminal fields`;
+  }
   return null;
 }
 
@@ -72,13 +103,15 @@ export function readAttempts(repo, tree) {
   let files;
   try { files = readdirSync(dir).filter((f) => f.endsWith('.json')); } catch { return null; }
   const rows = [];
+  const seen = new Set();
   for (const f of files.sort()) {
     let parsed;
     try { parsed = JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { return null; }
     // ⛔ EVERY non-object shape refuses. `{}`, `null`, a number and a string are all valid JSON and
     // none of them is an attempt.
-    const problem = rowProblem(parsed, f);
-    if (problem) return null;
+    if (rowProblem(parsed, f.replace(/\.json$/, ''), tree)) return null;
+    if (seen.has(parsed.id)) return null;   // duplicate ids make history unattributable
+    seen.add(parsed.id);
     rows.push(parsed);
   }
   return rows.sort((a, b) => a.at.localeCompare(b.at));
@@ -139,7 +172,19 @@ export function retryPermission(attempts, supersession = null) {
   if (attempts === null) {
     return { allowed: false, reason: 'the attempt ledger for this tree is unreadable or malformed — history unknown', blocking: [] };
   }
-  const blocking = attempts.filter((a) => !SUCCESS.has(a.outcome));
+  // ⛔ ALREADY PUBLISHED IS NOT RETRYABLE, AT ALL — not even with supersession. Superseding a
+  // refusal is a judgement about evidence; committing a tree twice is just a second commit.
+  const published = attempts.filter((a) => PUBLISHED.has(a.outcome));
+  if (published.length) {
+    return {
+      allowed: false,
+      blocking: published,
+      reason: `this tree was already published as ${published[0].commit ?? '(commit unrecorded)'} `
+        + `(${published[0].outcome}). Already published, not retryable. Use --probe-candidate for an `
+        + 'interference probe; the commit transaction is not a probe.',
+    };
+  }
+  const blocking = attempts.filter((a) => a.outcome !== OUTCOME.INCOMPLETE || true).filter((a) => !PUBLISHED.has(a.outcome));
   if (blocking.length === 0) return { allowed: true, reason: 'no blocking prior attempts on this tree', blocking: [] };
 
   if (!supersession) {

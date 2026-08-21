@@ -267,14 +267,73 @@ ${receiptText}`);
     const exact = headTree === T0;
     const outcome = !exact ? OUTCOME.GATE_PASS_CAS_REFUSE
       : porcelain === '' ? OUTCOME.PUBLISHED_EXACT_TREE : OUTCOME.WORKTREE_POSTCONDITION_REFUSE;
-    conclude(outcome, { commit: newCommit, headTree, porcelainDirty: porcelain !== '' });
+    const terminal = conclude(outcome, { commit: newCommit, headTree, porcelainDirty: porcelain !== '' });
+
+    // ── 8. DURABLE TERMINAL ATTESTATION, OUTSIDE THE GITIGNORED LEDGER.
+    //
+    // ⛔ The commit's own message can only ever carry INCOMPLETE: the terminal outcome is not known
+    // until the object already exists. So "this commit was PUBLISHED_EXACT_TREE" lived solely in a
+    // local, ignored, mutable file — neither portable nor recoverable from the commit itself.
+    //
+    // ⇒ The terminal row is written as a git blob and a ref advanced by CAS. Not a tracked file, so
+    // it cannot alter the tree it attests to; not the commit message, so it is not self-referential.
+    const attRef = `refs/aify/candidate-attempts/${T0}`;
+    const blob = execFileSync('git', ['hash-object', '-w', '--stdin'],
+      { cwd: REPO, encoding: 'utf8', input: `${JSON.stringify(terminal, null, 2)}
+` }).trim();
+    const attPrev = spawnSync('git', ['rev-parse', '--verify', '--quiet', attRef], { cwd: REPO, encoding: 'utf8' });
+    const attArgs = attPrev.status === 0
+      ? ['update-ref', attRef, blob, attPrev.stdout.trim()]   // CAS against the existing attestation
+      : ['update-ref', attRef, blob, ''];                     // create only if absent
+    const attCas = spawnSync('git', attArgs, { cwd: REPO, encoding: 'utf8' });
+    const attested = attCas.status === 0;
+
     console.log(`COMMIT     ${newCommit}
 TREE       ${headTree}
 EXPECTED   ${T0}`);
     console.log(`           ${exact ? 'PUBLISHED_EXACT_TREE — the ref points at a commit whose tree is exactly T' : 'MISMATCH — reported, never repaired'}`);
     if (porcelain !== '') console.log('           ⚠ WORKTREE_POSTCONDITION_REFUSE — the checkout was dirtied after publication; the commit is unaffected');
+    console.log(`ATTESTED   ${attested ? `${attRef} -> ${blob.slice(0, 12)}` : 'FAILED — terminal outcome is local-only'}`);
+    console.log('           ⚠ LOCAL-ONLY AUTHORITY unless the ref is pushed: `git push origin ' + attRef + '`');
     console.log('           ⛔ NEVER amend a wrapper-created commit: the receipt names this object.');
     process.exit(exact ? 0 : 1);
+  }
+
+  // ⛔ READBACK: verify a commit's candidate authority from OUTSIDE it. Without this, the claim
+  // "transaction-terminal PUBLISHED_EXACT_TREE" rests on a mutable local file that nobody else can
+  // check — evidence only its author can read, which is the defect the CRLF preimage taught me.
+  const rbIdx = argv.indexOf('--readback');
+  if (rbIdx !== -1 && argv[rbIdx + 1]) {
+    const target = argv[rbIdx + 1];
+    const problems = [];
+    const tree = execFileSync('git', ['rev-parse', `${target}^{tree}`], { cwd: REPO, encoding: 'utf8' }).trim();
+    const message = execFileSync('git', ['log', '-1', '--format=%B', target], { cwd: REPO, encoding: 'utf8' });
+
+    const receiptTree = /candidate  tree ([0-9a-f]{40})/.exec(message)?.[1];
+    if (!/GATE RECEIPT \[CANDIDATE_TREE_BOUND\]/.test(message)) problems.push('no candidate receipt in the message');
+    if (!/VERDICT {4}PASS/.test(message)) problems.push('the embedded receipt is not a PASS');
+    if (receiptTree !== tree) problems.push(`the receipt names tree ${receiptTree?.slice(0, 12)} but the commit's tree is ${tree.slice(0, 12)}`);
+
+    const attRef = `refs/aify/candidate-attempts/${tree}`;
+    const att = spawnSync('git', ['cat-file', '-p', attRef], { cwd: REPO, encoding: 'utf8' });
+    let row = null;
+    if (att.status !== 0) problems.push(`no terminal attestation at ${attRef}`);
+    else {
+      try { row = JSON.parse(att.stdout); } catch { problems.push('the attestation is not readable JSON'); }
+      if (row) {
+        if (row.tree !== tree) problems.push('the attestation names a different tree');
+        if (row.commit !== execFileSync('git', ['rev-parse', target], { cwd: REPO, encoding: 'utf8' }).trim()) {
+          problems.push(`the attestation names commit ${row.commit?.slice(0, 12)}, not this one`);
+        }
+        if (row.outcome !== 'PUBLISHED_EXACT_TREE') problems.push(`the attested outcome is ${row.outcome}`);
+      }
+    }
+    console.log(`READBACK   ${target}`);
+    console.log(`  tree       ${tree}`);
+    console.log(`  attestation ${row ? `${row.outcome} [${row.id?.slice(0, 8)}]` : '(none)'}`);
+    for (const p of problems) console.log(`  ⛔ ${p}`);
+    console.log(`  ${problems.length === 0 ? 'BOUND — receipt, tree and terminal attestation agree' : 'NOT BOUND'}`);
+    process.exit(problems.length === 0 ? 0 : 1);
   }
 
   const finIdx = argv.indexOf('--finalize');

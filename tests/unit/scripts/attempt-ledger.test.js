@@ -13,7 +13,7 @@
 //   2. The attempt was appended after the GATE, so a gate PASS whose transaction later failed left
 //      `PASS` on the record — the same laundering, one layer later.
 //   3. Read-modify-write of one shared file — two processes lose each other's attempts.
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
   retryPermission, renderAttempts, parseSupersession, messageProblem, OUTCOME,
 } from '../../../scripts/lib/attempt-ledger.mjs';
@@ -55,14 +55,25 @@ describe('a refusal cannot be retried away', () => {
     expect(retryPermission([row(OUTCOME.INCOMPLETE)]).allowed).toBe(false);
   });
 
-  it('★★★ a prior successful publication does not block', () => {
-    expect(retryPermission([published]).allowed).toBe(true);
+  it('★★★⛔ AN ALREADY-PUBLISHED TREE IS NOT RETRYABLE — my "control" was the defect', () => {
+    // ⛔ My first version treated a publication as a non-blocking success, so a plain new attempt
+    // was permitted afterwards. I then ran exactly that and reported it as a hostile control. It
+    // was not a control; it was the defect demonstrating itself — a second transaction on an
+    // already-published tree, which can create a second empty-tree commit and let a later REFUSE
+    // contaminate a published tree's history.
+    const p = retryPermission([published]);
+    expect(p.allowed).toBe(false);
+    expect(p.reason).toMatch(/Already published, not retryable/);
+    expect(p.reason).toMatch(/--probe-candidate/);
   });
 
-  it('★★★ published-then-dirtied does NOT block', () => {
-    // ⚠ Publication and working-copy custody are separate facts. The commit's tree is exactly T;
-    // another process dirtying the checkout afterwards must not force the tree to be re-attempted.
-    expect(retryPermission([row(OUTCOME.WORKTREE_POSTCONDITION_REFUSE)]).allowed).toBe(true);
+  it('★★★⛔ published-then-dirtied is ALSO closed, and supersession cannot reopen either', () => {
+    // ⚠ Superseding a REFUSAL is a judgement about evidence. Committing a tree twice is just a
+    // second commit, so no authority reopens it.
+    const dirty = row(OUTCOME.WORKTREE_POSTCONDITION_REFUSE);
+    expect(retryPermission([dirty]).allowed).toBe(false);
+    expect(retryPermission([dirty], parseSupersession(auth([dirty.id]))).allowed,
+      'not even with structured authority').toBe(false);
   });
 
   it('★★★⛔ AN UNREADABLE HISTORY IS NOT AN EMPTY ONE', () => {
@@ -126,5 +137,84 @@ describe('the receipt carries the whole history, and the message is preflighted'
   it('★★★ a message already containing a receipt is refused — it would embed twice', () => {
     const doubled = ['fix: something real', '', 'GATE RECEIPT [CANDIDATE_TREE_BOUND] — ...'].join('\n');
     expect(messageProblem(doubled)).toMatch(/already contains a receipt/);
+  });
+});
+
+// ⛔ A ROW MUST BE BOUND TO THE CARRIER IT WAS FOUND UNDER.
+//
+// `readAttempts(repo, tree)` validated that `row.tree` was a non-empty string — so a perfectly valid
+// row belonging to a DIFFERENT tree was accepted into this tree's history, and a renamed file
+// detached a row from its own id. Either imports foreign history: laundering by relocation rather
+// than by retry.
+//
+// These exercise the row predicate through a real ledger directory, because the binding is between
+// a file's NAME, its CONTENT, and the DIRECTORY it sits in — none of which a pure-value test sees.
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join as pjoin } from 'node:path';
+import { readAttempts, LEDGER_DIR } from '../../../scripts/lib/attempt-ledger.mjs';
+
+describe('rows are bound to their tree and their filename', () => {
+  const TREE = 'c'.repeat(40);
+  const ID = '11111111-2222-4333-8444-555555555555';
+  let repo;
+
+  const write = (stem, obj) => {
+    const dir = pjoin(repo, LEDGER_DIR, TREE);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(pjoin(dir, `${stem}.json`), JSON.stringify(obj));
+  };
+  const good = (over = {}) => ({
+    id: ID, at: '2026-08-21T10:00:00Z', tree: TREE, outcome: OUTCOME.GATE_REFUSE,
+    concludedAt: '2026-08-21T10:01:00Z', ...over,
+  });
+
+  beforeEach(() => { repo = mkdtempSync(pjoin(tmpdir(), 'ledger-')); });
+  afterEach(() => rmSync(repo, { recursive: true, force: true }));
+
+  it('★★★ POSITIVE CONTROL: a well-formed row reads back', () => {
+    // Without this every assertion below is satisfied by a reader that returns null unconditionally.
+    write(ID, good());
+    expect(readAttempts(repo, TREE)?.length).toBe(1);
+  });
+
+  it('★★★⛔ a row carrying ANOTHER tree poisons the read', () => {
+    write(ID, good({ tree: 'd'.repeat(40) }));
+    expect(readAttempts(repo, TREE), 'foreign history must not be importable').toBe(null);
+  });
+
+  it('★★★⛔ a RENAMED file poisons the read', () => {
+    write('renamed-by-hand', good());
+    expect(readAttempts(repo, TREE)).toBe(null);
+  });
+
+  it('★★★⛔ a terminal outcome without concludedAt poisons the read', () => {
+    write(ID, good({ concludedAt: undefined }));
+    expect(readAttempts(repo, TREE), 'a half-written row is not a finished one').toBe(null);
+  });
+
+  it('★★★⛔ an INCOMPLETE carrying terminal fields poisons the read', () => {
+    // A row claiming an outcome it never reached.
+    write(ID, { id: ID, at: '2026-08-21T10:00:00Z', tree: TREE, outcome: OUTCOME.INCOMPLETE, commit: 'abc' });
+    expect(readAttempts(repo, TREE)).toBe(null);
+  });
+
+  it('★★★⛔ a malformed timestamp and a non-canonical id both poison the read', () => {
+    write(ID, good({ at: 'yesterday' }));
+    expect(readAttempts(repo, TREE)).toBe(null);
+    rmSync(pjoin(repo, LEDGER_DIR, TREE), { recursive: true, force: true });
+    write('not-a-uuid', { ...good(), id: 'not-a-uuid' });
+    expect(readAttempts(repo, TREE)).toBe(null);
+  });
+
+  it('★★★⛔ VALID JSON OF THE WRONG SHAPE still poisons the read', () => {
+    // The original defect, kept as a permanent witness: `{}` is readable JSON and is not an attempt.
+    write(ID, {});
+    expect(readAttempts(repo, TREE)).toBe(null);
+  });
+
+  it('★★★ an absent directory is genuinely empty, not unknown', () => {
+    // ⚠ The one case that legitimately returns []: nothing has ever been attempted here.
+    expect(readAttempts(repo, 'e'.repeat(40))).toEqual([]);
   });
 });
