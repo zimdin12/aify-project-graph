@@ -24,9 +24,17 @@ Running the mutation-testing apparatus for the first time in nine days exposed t
 declared witness specs could execute** — none carried the fields the tool made mandatory. The
 "honest" adjective in the goal was resting on a corpus that could not run.
 
-The ladder is now measured at every rung rather than collapsed into one flattering number:
+The ladder is now measured at every rung rather than collapsed into one flattering number.
 
-    declared 35 · addressable 35 · runnable (was 0) · witnessed 0
+**Cumulative capability** (each rung contains the next; retired arms are counted in none of them):
+
+    declared                     35
+    addressable                  35
+    schema-runnable              3    (D1, D2, G8)
+    failure-observed-or-better   2    (D2, G8)
+    witnessed                    0
+
+**Exclusive states** (each arm in exactly one; these sum to the population, the rollups above do not):
 
     legacy_unruled                    30
     retired_obsolete                   2   structurally undefendable — their mutation destroys
@@ -36,8 +44,18 @@ The ladder is now measured at every rung rather than collapsed into one flatteri
     v3_witnessed                       0
     TOTAL                             35
 
-⚠ **Two arms have produced real witnesses. Thirty have not.** That is the honest position, and the
-ledger is gated so it cannot drift from it.
+⚠⚠ **THE PRECISE POSITION, because the loose version of this sentence was wrong.**
+
+> **Two arms have produced preregistered `FAILURE_OBSERVED_UNATTRIBUTED` receipts. ZERO arms are
+> `v3_witnessed`.** Thirty remain legacy-unruled, one is runnable-unwitnessed, and two are retired.
+
+⛔ I first wrote *"two arms have produced real witnesses"* — directly above a ledger saying
+`v3_witnessed: 0`. G8 and D2 produced bounded failure observations **with body attribution explicitly
+unavailable**: a `beforeEach` throw occupies the same evidence slot as a body assertion, so nothing
+proves the test body ran.
+
+⇒ Calling those "witnesses" collapses the exact rung this page exists to preserve — in the sentence
+summarising a ledger built to stop that collapse. The reviewer caught it before you read it.
 
 ## ⛔ Three failures of mine worth your knowing about
 
@@ -70,10 +88,14 @@ arm, and 30 arms remain.
 |---|---|---|
 | **A. Full rigour for all 30** | every witness preregistered and blind-refereed | ~30 review cycles |
 | **B. Full rigour for load-bearing arms only** | the guarantees that protect data and identity get it; the rest get schema-validity and an addressable anchor, honestly labelled `runnable_unwitnessed` forever | fewer cycles, and a permanently split corpus |
-| **C. Stop here** | 2 witnessed arms, 30 declared-but-unwitnessed, all honestly labelled | nothing further |
+| **C. Stop here** | 2 failure-observed-unattributed, 0 witnessed, 30 legacy-unruled, all honestly labelled | nothing further |
 
-**My recommendation: B.** The ledger already distinguishes the states, so an unwitnessed arm is not
-a lie — it is a declared gap. Spending equal effort on `byte-gate`'s detector logic and on the
+**My recommendation: B — and it is only defensible if the product claim is scoped to match.**
+Load-bearing guarantees get referee-backed failure observations; the remainder stay **explicitly
+unwitnessed**, not "honest by addressability." An addressable anchor proves a mutation could find a
+site, and nothing about whether anything would catch it.
+
+The ledger already distinguishes the states, so an unwitnessed arm is not a lie — it is a declared gap. Spending equal effort on `byte-gate`'s detector logic and on the
 destructive-operation guarantees would be treating a denominator as the goal, which is the exact
 error this whole ledger exists to prevent.
 
