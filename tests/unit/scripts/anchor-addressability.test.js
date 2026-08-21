@@ -53,6 +53,38 @@ describe('every declared self-review anchor is ADDRESSABLE', () => {
     expect(missing, 'a spec pointing at a deleted file can never mutate').toEqual([]);
   });
 
+  it('★★★ every declared TEST ROUTE exists — the half addressability did not cover', () => {
+    // ⛔ THE GATE CHECKED THE TARGET, NEVER THE ROUTE. Addressability proves the mutation can find
+    // a site to damage. It says nothing about whether the test that is supposed to WITNESS the
+    // damage still exists — and a spec whose `tests` file has been deleted or renamed can never
+    // run, however perfectly its anchor resolves.
+    //
+    // ⇒ Measured 2026-08-21: 37 declared routes, 37 present, 0 missing. No defect found — this is
+    // a hole in the INSTRUMENT being closed, not a repair to the corpus. Recording that distinction
+    // because "we added a gate" reads like "we found something" and here we did not.
+    const missing = [];
+    for (const s of declaredSpecs()) {
+      for (const t of s.tests) {
+        if (!existsSync(join(REPO, t))) missing.push(`${s.name} -> ${t}`);
+      }
+    }
+    expect(missing, 'a spec whose witness route is gone can never run, whatever its anchor does')
+      .toEqual([]);
+  });
+
+  it('★★★ CONTROL: the route check can say NO', () => {
+    // Without this, "no missing routes" is satisfied by an existence check that always agrees.
+    expect(existsSync(join(REPO, 'tests/unit/zz-definitely-not-a-real-file.test.js'))).toBe(false);
+    expect(existsSync(join(REPO, 'package.json')), 'and YES').toBe(true);
+  });
+
+  it('★★★ every spec declares at least one route — an empty tests[] is not a witness', () => {
+    // A declaration with no route cannot be exercised by anything, so it would sit in the corpus
+    // looking migratable forever.
+    const routeless = declaredSpecs().filter((s) => !Array.isArray(s.tests) || s.tests.length === 0);
+    expect(routeless.map((s) => s.name), 'a spec with no test route').toEqual([]);
+  });
+
   it('★★★ every anchor resolves UNIQUE, and absent/duplicate are reported separately', () => {
     // ⛔ TWO DEAD ANCHORS WERE FOUND THIS WAY. F6 and G8 were ABSENT because refactors moved their
     // code — packet.js -> packet-symbol.js, and server.js -> tools/schema.js. Both were repaired by
