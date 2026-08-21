@@ -19,16 +19,43 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { graphPacket } from '../../../mcp/stdio/query/verbs/packet.js';
+// The producer itself, so the STALE invariant is checked against what the code emits rather than
+// against whatever state this repo's graph happens to be in.
+import { snapshotLine } from '../../../mcp/stdio/query/verbs/packet-input.js';
 
 const REPO = process.cwd();
 const snapshotOf = (text) => text.split('\n').find((l) => l.startsWith('SNAPSHOT:')) || '';
 
 describe('the packet SNAPSHOT line', () => {
   it('★★★ is emitted at all — the guard pins its shape, not its existence per route', async () => {
+    // ⛔ THE `$` ANCHOR MADE THIS TEST UNPASSABLE ON A STALE GRAPH. `snapshotLine` appends
+    // ` STALE` when the indexed commit differs from HEAD, so the old pattern
+    //     /^SNAPSHOT: indexed=\S+ head=\S+ dirty=\d+ trust=\S+$/
+    // could only match when the graph happened to be fresh. It was reported as flakiness; it is
+    // deterministic, and it fails in EXACTLY the state the SNAPSHOT line exists to announce.
+    //
+    // ⇒ A shape assertion that excludes the interesting case is not a weak test, it is a test of
+    // the uninteresting one.
     const out = await graphPacket({ repoRoot: REPO, target: 'graphPacket', mode: 'orient' });
     expect(snapshotOf(out), 'no snapshot line means the guard is excluding nothing and covering nothing')
-      .toMatch(/^SNAPSHOT: indexed=\S+ head=\S+ dirty=\d+ trust=\S+$/);
+      .toMatch(/^SNAPSHOT: indexed=\S+ head=\S+ dirty=\d+ trust=\S+( STALE)?$/);
   }, 20_000);
+
+  it('★★★ STALE is present exactly when indexed differs from head — the case the shape check hid', () => {
+    // ⛔ THE BLIND SPOT, NOW COVERED. Nothing asserted the STALE marker at all: the shape check
+    // silently excluded it and no other case mentioned it. So the field that tells an agent its
+    // map is out of date was, itself, unwitnessed.
+    //
+    // Exercised through the real producer with both worlds constructed, rather than through
+    // whatever state this repo's graph happens to be in — which is what made the original
+    // assertion's outcome depend on the weather.
+    const fresh = snapshotLine(REPO);
+    const indexed = /indexed=(\S+)/.exec(fresh)?.[1];
+    const head = /head=(\S+)/.exec(fresh)?.[1];
+    const differs = indexed !== '?' && head !== '?' && indexed !== head;
+    expect(/ STALE$/.test(fresh), `indexed=${indexed} head=${head} — STALE must appear iff they differ`)
+      .toBe(differs);
+  });
 
   it('★★★ its `indexed` really is the manifest commit, abbreviated', async () => {
     // This is the assertion the guard structurally cannot make. A shortSha that returned a
