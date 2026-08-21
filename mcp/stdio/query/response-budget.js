@@ -4,6 +4,18 @@
 // want to kill. codegraph's load-bearing invariant: caps NEVER shrink as the
 // repo grows. assertMonotonicPacketTiers() enforces it at load + in a unit test.
 
+// ⛔ THE TOKEN-ESTIMATION DIVISOR LIVES HERE, WITH THE BUDGET CONCEPT THAT OWNS IT.
+//
+// It began as a private const in `packet-input.js` while `packet-lists.js` carried its own bare
+// literal `4`. The obvious repair — export it from packet-input — made the SEALED list authority
+// import the heavy input island (filesystem, git, database, freshness, storage) to share one
+// number, reversing the intended dependency direction and widening an island's public surface.
+// graph-senior-dev measured the cost: importing `packet-lists.js` went to ~296 ms.
+//
+// ⇒ This module imports NOTHING. A constant two authorities share belongs in the neutral thing
+// they both already depend on, not in whichever of them happened to declare it first.
+export const CHAR_PER_TOKEN_EST = 4; // rough; matches our existing brief-budget heuristic
+
 export const PACKET_TIERS = [
   { name: 'tiny',   maxNodes: 800,      budgetTokens: 1500,  caps: { evidence_records: 12, affected_files: 12, read_first: 10, diagnostics: 10, refs_per_symbol: 8 } },
   { name: 'small',  maxNodes: 4000,     budgetTokens: 2800,  caps: { evidence_records: 16, affected_files: 16, read_first: 12, diagnostics: 12, refs_per_symbol: 8 } },

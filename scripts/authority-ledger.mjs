@@ -55,7 +55,11 @@ export const AUTHORITIES = {
   'packet:budget': {
     why: 'decides how much output is allowed and which mode shape applies',
     declarations: [
-      'DEFAULTS', 'CHAR_PER_TOKEN_EST', 'PACKET_MODES', 'MODE_OVERRIDES', 'esTokens',
+      // ⚠ CHAR_PER_TOKEN_EST LEFT THIS FILE. It moved to the neutral leaf
+      // mcp/stdio/query/response-budget.js so packet-lists.js could share it without
+      // importing the input island. A ledger entry for a declaration that is no longer here
+      // would be an authority over nothing — and the ledger caught its own staleness.
+      'DEFAULTS', 'PACKET_MODES', 'MODE_OVERRIDES', 'esTokens',
       'resolvePacketBudget', 'normalizeMode', 'optionsForMode',
     ],
   },

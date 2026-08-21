@@ -1,70 +1,115 @@
-// ⛔ A CONSTANT MAINTAINED IN TWO PLACES WILL DISAGREE WITH ITSELF IN ONE OF THEM.
+// ⛔ ONE DEFINITION OF THE TOKEN-ESTIMATION DIVISOR, PROVEN OVER A NAMED POPULATION.
 //
-// `packet-input.js` named the token-estimation heuristic `CHAR_PER_TOKEN_EST = 4`. `packet-lists.js`
-// carried its own `Math.ceil(t.length / 4)` with the 4 written as a LITERAL — invisible to any
-// rename, any search for the name, and any reviewer reading the named definition. The copy nobody
-// remembers is the one that decides a budget.
+// `packet-input.js` named it; `packet-lists.js` carried its own bare `4` — invisible to any rename,
+// any search for the name, and any reviewer reading the named definition. The copy nobody remembers
+// is the one that decides a list budget.
 //
-// graph-senior-dev flagged it while I was chasing a surviving mutant: changing CHAR_PER_TOKEN_EST
-// from 4 to 2 left the guard green, because the only consumer of the NAMED constant was the legacy
-// text-budget path that production does not use.
+// ⛔⛔ MY FIRST REPAIR PUT IT IN THE WRONG PLACE. Exporting it from `packet-input.js` made the
+// SEALED list authority import the heavy input island — filesystem, git, database, freshness,
+// storage — to share one number. graph-senior-dev measured it: importing `packet-lists.js` went to
+// ~296 ms, the dependency direction reversed, and an island's public surface widened for a literal.
 //
-// ⚠⚠ AND THE TWO FUNCTIONS ARE NOT THE SAME FUNCTION. This is the part that makes the obvious fix
-// wrong:
+// ⇒ It now lives in `response-budget.js`, which imports NOTHING and which both consumers already
+// depended on. **A constant two authorities share belongs in the neutral thing they both already
+// depend on, not in whichever declared it first.**
 //
-//     packet-input.js   esTokens(s) => Math.ceil((s || '').length / CHAR_PER_TOKEN_EST)   null-safe
-//     packet-lists.js   esTokens(t) => Math.ceil(t.length / CHAR_PER_TOKEN_EST)           throws
-//
-// Unifying the bodies would change behaviour on null input from a throw to 0 — **a behaviour change
-// wearing a de-duplication's clothes**. Only the CONSTANT is shared. The difference is preserved
-// deliberately and pinned below, so a later "tidy-up" has to argue with a test rather than a
-// comment.
+// ⛔ AND MY FIRST GATE OVER-CLAIMED ITS TITLE. It said "exactly one definition" while proving only
+// that ONE file lacked ONE exact substring. That is a claim about a population it never
+// enumerated — the defect this repo has spent the day removing. The inventory below walks
+// `mcp/stdio/query/**/*.js` and is stated over that scope and no wider.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CHAR_PER_TOKEN_EST, esTokens } from '../../../mcp/stdio/query/verbs/packet-input.js';
+import { CHAR_PER_TOKEN_EST } from '../../../mcp/stdio/query/response-budget.js';
+import { esTokens } from '../../../mcp/stdio/query/verbs/packet-input.js';
 
-const read = (rel) => readFileSync(fileURLToPath(new URL(`../../../mcp/stdio/query/verbs/${rel}`, import.meta.url)), 'utf8');
+const QUERY = fileURLToPath(new URL('../../../mcp/stdio/query', import.meta.url));
 
-describe('the token-estimation heuristic has exactly one definition', () => {
-  it('★★★ the constant is a real exported number', () => {
-    // ⛔ POSITIVE CONTROL FIRST: a source scan for "no stray literals" is trivially satisfied by a
-    // constant that does not exist.
-    expect(typeof CHAR_PER_TOKEN_EST).toBe('number');
-    expect(CHAR_PER_TOKEN_EST).toBeGreaterThan(0);
+function jsFiles(dir, out = []) {
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) jsFiles(p, out);
+    else if (e.endsWith('.js')) out.push(p);
+  }
+  return out;
+}
+
+const ESTIMATOR_SITES = [
+  'verbs/packet-input.js',
+  'verbs/packet-lists.js',
+];
+
+describe('the token-estimation divisor has exactly one definition in mcp/stdio/query', () => {
+  it('★★★ the population is real — the walk found the files it is claiming over', () => {
+    // ⛔ POSITIVE CONTROL FIRST. "Exactly one declaration" is trivially true of a walk that found
+    // nothing, and a wrong zero here agrees with what we hope to see.
+    const files = jsFiles(QUERY);
+    expect(files.length, 'a substantial population').toBeGreaterThan(20);
+    for (const rel of ESTIMATOR_SITES) {
+      expect(files.some((f) => f.split(String.fromCharCode(92)).join('/').endsWith(rel)), `${rel} is in the walk`).toBe(true);
+    }
   });
 
-  it('★★★ packet-lists.js divides by the NAMED constant, not a literal', () => {
-    // The arm that was red before this slice.
-    const src = read('packet-lists.js');
-    expect(src, 'it imports the shared constant').toMatch(/import \{ CHAR_PER_TOKEN_EST \}/);
-    expect(src.split('length / 4').length - 1, 'no bare /4 token estimate remains').toBe(0);
+  it('★★★ exactly ONE declaration exists, and it is in the neutral leaf', () => {
+    const declarations = [];
+    for (const f of jsFiles(QUERY)) {
+      const src = readFileSync(f, 'utf8');
+      for (const m of src.matchAll(/(?:export\s+)?const\s+CHAR_PER_TOKEN_EST\s*=/g)) {
+        declarations.push(`${f.split(String.fromCharCode(92)).join('/').split('mcp/')[1]}`);
+      }
+    }
+    expect(declarations.length, 'one declaration across the whole query tree').toBe(1);
+    expect(declarations[0]).toMatch(/query\/response-budget\.js$/);
   });
 
-  it('★★★ CONTROL: the literal scan can FAIL — it detects a bare divisor', () => {
-    // Without this, "0 occurrences" is satisfied by a search that never matches anything.
-    const synthetic = 'const esTokens = (t) => Math.ceil(t.length / 4);';
-    expect(synthetic.split('length / 4').length - 1, 'the scan finds a real literal').toBe(1);
+  it('★★★ BOTH estimator sites divide by the imported identifier, not a literal', () => {
+    for (const rel of ESTIMATOR_SITES) {
+      const src = readFileSync(join(QUERY, rel), 'utf8');
+      expect(src, `${rel} imports the shared constant`).toMatch(/CHAR_PER_TOKEN_EST/);
+      expect(src.split('length / 4').length - 1, `${rel} holds no bare estimator divisor`).toBe(0);
+      expect(src, `${rel} divides by the identifier`).toMatch(/length \/ CHAR_PER_TOKEN_EST/);
+    }
   });
 
-  it('★★★ the two esTokens differ on NULL, and that is deliberate', () => {
-    // ⛔ THE REASON THE BODIES WERE NOT UNIFIED. If someone later "finishes the job" by importing
-    // packet-input's esTokens into packet-lists, this reddens — which is the point. The difference
-    // is a decision, not an oversight, and the test is where that decision is enforced.
-    expect(esTokens(null), 'packet-input tolerates null').toBe(0);
-    expect(esTokens(''), 'and empty').toBe(0);
-    expect(esTokens('abcd'), 'and divides by the constant').toBe(Math.ceil(4 / CHAR_PER_TOKEN_EST));
-
-    // packet-lists' local copy is not exported, so its behaviour is asserted through its shape:
-    // no null guard. Reading the source is the only route to a private function, and the claim is
-    // narrow enough that a source read carries it.
-    const src = read('packet-lists.js');
-    expect(src, "packet-lists' esTokens has no null guard").toMatch(/const esTokens = \(t\) => Math\.ceil\(t\.length \/ CHAR_PER_TOKEN_EST\);/);
+  it('★★★ packet-lists imports from the NEUTRAL LEAF, not from the input island', () => {
+    // ⛔ THE DEPENDENCY-DIRECTION REPAIR. If this reverts, the sealed list authority starts pulling
+    // in filesystem/git/database/freshness/storage to obtain a number.
+    const src = readFileSync(join(QUERY, 'verbs/packet-lists.js'), 'utf8');
+    expect(src).toMatch(/CHAR_PER_TOKEN_EST \} from '\.\.\/response-budget\.js'/);
   });
 
-  it('★★★ changing the constant moves the estimate — it is not decoration', () => {
-    // A constant nothing reads is a constant that can be wrong forever. This binds the exported
-    // function to the exported value rather than to the number 4.
+  it('★★★ CONTROLS: the inventory detects a duplicate declaration and a bare divisor', () => {
+    // Without these, "one declaration" and "no literals" are satisfied by searches that never match.
+    const dup = 'const CHAR_PER_TOKEN_EST = 4;\nexport const CHAR_PER_TOKEN_EST = 8;';
+    expect([...dup.matchAll(/(?:export\s+)?const\s+CHAR_PER_TOKEN_EST\s*=/g)].length,
+      'the declaration scan finds two').toBe(2);
+    const bare = 'const esTokens = (t) => Math.ceil(t.length / 4);';
+    expect(bare.split('length / 4').length - 1, 'the literal scan finds a bare divisor').toBe(1);
+  });
+
+  it('★★★ the estimate is bound to the CONSTANT, not to the number 4', () => {
+    // A constant nothing reads can be wrong forever. EXECUTED, not read from source.
     expect(esTokens('a'.repeat(CHAR_PER_TOKEN_EST * 3))).toBe(3);
+    expect(typeof CHAR_PER_TOKEN_EST).toBe('number');
+  });
+
+  it('★★★ packet-input.esTokens tolerates null — EXECUTED', () => {
+    // ⚠ CLAIM SCOPE, corrected. This is an OBSERVED runtime behaviour of an exported function.
+    expect(esTokens(null)).toBe(0);
+    expect(esTokens('')).toBe(0);
+  });
+
+  it("★★★ packet-lists' estimator has no null guard — IMPLEMENTATION SHAPE, not observed behaviour", () => {
+    // ⛔⛔ THE CLAIM I OVERSTATED. I wrote that both null behaviours were "pinned". They are not.
+    // packet-lists' esTokens is PRIVATE and production calls it only with `join()` strings, so no
+    // route in this suite executes it with null. What follows is a SOURCE assertion about shape.
+    //
+    // ⇒ It is still worth keeping: it is why the two bodies were not unified, and it reddens if
+    // someone "finishes the job" by importing packet-input's null-safe version. But asserting a
+    // shape and reporting a behaviour are different claims, and only one of them was measured.
+    const src = readFileSync(join(QUERY, 'verbs/packet-lists.js'), 'utf8');
+    expect(src, "no null guard in packet-lists' estimator")
+      .toMatch(/const esTokens = \(t\) => Math\.ceil\(t\.length \/ CHAR_PER_TOKEN_EST\);/);
   });
 });

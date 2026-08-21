@@ -57,9 +57,10 @@
 //      A first-time reader reached that conclusion from the output alone before reading any of
 //      this code, which is the strongest evidence the old classification had.
 import { AsyncLocalStorage } from 'node:async_hooks';
-// One definition of the token-estimation heuristic. This file used to write the 4 as a
-// literal, so a rename of the named constant could not reach it.
-import { CHAR_PER_TOKEN_EST } from './packet-input.js';
+// ⛔ FROM THE NEUTRAL LEAF, NOT FROM THE INPUT ISLAND. Importing packet-input.js here would make
+// this sealed list authority pull in filesystem, git, database, freshness and storage to share one
+// number — reversing the dependency direction to save a literal.
+import { CHAR_PER_TOKEN_EST } from '../response-budget.js';
 
 const sealScope = new AsyncLocalStorage();
 

@@ -15,7 +15,7 @@ import { execFileSync } from 'node:child_process';
 import { computeTrustLevel } from './health.js';
 import { getTrackedDirtyFilesSync } from '../../freshness/git.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { getPacketTokenBudget } from '../response-budget.js';
+import { getPacketTokenBudget, CHAR_PER_TOKEN_EST } from '../response-budget.js';
 import { openExistingDb } from '../../storage/db.js';
 
 // Section caps come first; the final token-estimate clamp is a safety
@@ -29,16 +29,6 @@ const DEFAULTS = {
   budget_tokens: 800,
 };
 
-// ⛔ EXPORTED BECAUSE IT WAS LIVING IN TWO PLACES. `packet-lists.js` carried its own
-// `Math.ceil(t.length / 4)` with the 4 written as a literal, invisible to any rename of this
-// name. A constant maintained in N places is a constant that will disagree with itself in one
-// of them, and the copy nobody remembers is the one that decides a budget.
-//
-// ⚠ ONLY THE CONSTANT IS SHARED. The two `esTokens` are NOT the same function: this one is
-// null-safe (`s || ''`), packet-lists' is not. Unifying the bodies would change behaviour on
-// null input from a throw to 0, which is a behaviour change wearing a de-duplication's
-// clothes. The difference is preserved deliberately.
-export const CHAR_PER_TOKEN_EST = 4; // rough; matches our existing brief-budget heuristic
 
 const PACKET_MODES = new Set(['orient', 'plan', 'debug', 'review', 'audit', 'verify']);
 
