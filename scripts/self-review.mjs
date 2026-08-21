@@ -38,6 +38,9 @@
 //     means "nothing was tested".
 //  3. VERIFY THE RESTORE BY HASH, in a `finally`, before anything else runs.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import {
+  mainRepoWorkspace, openArmWorkspace, disposeArmWorkspace, ARM_WORKTREE_ROOT,
+} from './lib/arm-workspace.mjs';
 // ⛔ ONE anchor authority, shared with the suite-time inventory that gates it. A second
 // interpretation in a test would be a different opinion about what 'the site' means.
 import { applyAnchor } from './lib/anchor.mjs';
@@ -50,6 +53,16 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// THE CHECKOUT THE TEAM IS WORKING IN, AND IT HAS NO WORKING `write`.
+//
+// Every mutation and every restore now goes through a Workspace. This one is constructed
+// read-only, so a write aimed at it THROWS instead of landing. That is the difference between
+// "we were careful" and "it cannot happen": the thirty-first arm can copy the wrong line and
+// still not leave mutant bytes here.
+//
+// Reads stay open, because reading pristine source is exactly what an arm must do.
+const MAIN = mainRepoWorkspace(REPO);
 const specPath = process.argv[2];
 if (!specPath) {
   console.error('usage: self-review.mjs <spec.json>');
@@ -190,10 +203,14 @@ const manifest = {
 const writeManifest = () => writeFileSync(join(runDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
 
 
-function restoreAndVerify() {
-  for (const [f, content] of pristine) writeFileSync(join(REPO, f), content);
+// ⚠ KEPT EVEN THOUGH DISPOSAL NOW MAKES IT REDUNDANT. A fresh worktree at HEAD already holds
+// pristine bytes and is thrown away afterwards, so in principle there is nothing to restore.
+// Removing a check because a redesign made it unnecessary is how the redesign's own bug ships
+// unnoticed, so it runs against the workspace instead of being deleted.
+function restoreAndVerify(ws) {
+  for (const [f, content] of pristine) ws.write(f, content);
   for (const [f, h] of baselineHash) {
-    if (sha(readFileSync(join(REPO, f), 'utf8')) !== h) {
+    if (sha(ws.read(f)) !== h) {
       return { ok: false, file: f };
     }
   }
@@ -214,8 +231,8 @@ const REPORTER = './scripts/self-review-reporter.mjs';
 // reporter from the spec is necessary but not sufficient — anything else that rewrites it mid
 // run would still be certifying itself.
 const REPORTER_SHA = sha(gitRaw('show', 'HEAD:scripts/self-review-reporter.mjs'));
-const reporterIntact = () => {
-  try { return sha(readFileSync(join(REPO, 'scripts/self-review-reporter.mjs'), 'utf8')) === REPORTER_SHA; }
+const reporterIntact = (ws) => {
+  try { return sha(ws.read('scripts/self-review-reporter.mjs')) === REPORTER_SHA; }
   catch { return false; }
 };
 
@@ -223,37 +240,42 @@ const reporterIntact = () => {
 // crafted selector injected a second process that wrote schema-valid evidence to
 // SELF_REVIEW_OUT — reporter bytes still correctly pinned, gauge intact, ARTIFACT SUBSTITUTED.
 // Vitest is now invoked as a node script directly, so argv is never interpreted by a shell.
-const VITEST_CLI = join(REPO, 'node_modules', 'vitest', 'vitest.mjs');
+// ⛔ VITEST_CLI (a REPO-rooted runner path) IS DELETED, not left unused. A dead constant pointing
+// at the main checkout is the "legacy direct path" that gets copied back into a call site by the
+// next person who needs a runner in a hurry. The runner now comes from the workspace, always.
 
 // Selectors are repo-relative test paths and nothing else. Anything that could be an option,
 // an absolute path, a traversal or a shell token is refused before it reaches argv.
-function selectorProblem(t) {
+function selectorProblem(t, ws) {
   if (typeof t !== 'string' || !t.length) return 'not a non-empty string';
   if (/[;&|`$(){}<>*?"'\\\n\r]/.test(t)) return 'contains shell/meta characters';
   if (t.startsWith('-')) return 'looks like a CLI option';
   if (t.includes('..')) return 'contains a path traversal';
   if (/^[a-zA-Z]:/.test(t) || t.startsWith('/')) return 'is absolute; selectors must be repo-relative';
-  if (!existsSync(join(REPO, t))) return 'does not exist in the repository';
+  if (!ws.exists(t)) return 'does not exist in the workspace under test';
   return null;
 }
 
-function runTests(tests, outFile) {
-  if (!reporterIntact()) return { apparatus: 'evidence reporter bytes differ from HEAD before invocation' };
+function runTests(tests, outFile, ws) {
+  if (!reporterIntact(ws)) return { apparatus: 'evidence reporter bytes differ from HEAD before invocation' };
   // ⚠ `--retry=0` is evidence hygiene, not tuning. Measured: a case with `retry: 2` emits
   // THREE failure messages, so any message-population rule would be reasoning about attempts
   // it never preregistered. Retries are disabled and non-zero retry/repeat counts are refused.
   for (const t of tests) {
-    const bad = selectorProblem(t);
+    const bad = selectorProblem(t, ws);
     if (bad) return { apparatus: `refused test selector ${JSON.stringify(t)} — ${bad}` };
   }
   // Artifact custody: the evidence file must not pre-exist, and must come back bearing the
   // nonce only this invocation knows.
   if (existsSync(outFile)) return { apparatus: `evidence path already exists before invocation: ${outFile}` };
   const nonce = randomUUID();
-  const argv = [VITEST_CLI, 'run', '--retry=0', `--reporter=${REPORTER}`, ...tests];
+  // ⛔ THE RUNNER AND THE CWD COME FROM THE WORKSPACE, NOT FROM REPO. Pointing vitest at the
+  // main checkout would execute the UNMUTATED source and report a clean pass over code the arm
+  // never touched — a green with no relationship to the mutation, which is worse than a red.
+  const argv = [ws.path(join('node_modules', 'vitest', 'vitest.mjs')), 'run', '--retry=0', `--reporter=${REPORTER}`, ...tests];
   let exit = 0; let signal = null; let stdio = '';
   try {
-    stdio = execFileSync(process.execPath, argv, { cwd: REPO, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, SELF_REVIEW_OUT: outFile, SELF_REVIEW_NONCE: nonce } });
+    stdio = execFileSync(process.execPath, argv, { cwd: ws.root, encoding: 'utf8', stdio: 'pipe', env: { ...process.env, SELF_REVIEW_OUT: outFile, SELF_REVIEW_NONCE: nonce } });
   } catch (e) {
     if (e.code === 'ENOENT' || e.code === 'EACCES') return { apparatus: `spawn failed: ${e.code}` };
     if (e.signal) return { apparatus: `terminated by signal ${e.signal}` };
@@ -269,7 +291,7 @@ function runTests(tests, outFile) {
     return { apparatus: `evidence schema unsupported (got ${JSON.stringify(json.schema)})` };
   }
   if (json.nonce !== nonce) return { apparatus: 'evidence file was not written by this invocation (nonce mismatch) — artifact substitution' };
-  if (!reporterIntact()) return { apparatus: 'evidence reporter bytes changed DURING invocation' };
+  if (!reporterIntact(ws)) return { apparatus: 'evidence reporter bytes changed DURING invocation' };
   return { exit, signal, json, stdio, argv: argv.join(' ') };
 }
 
@@ -308,13 +330,24 @@ for (const [i, m] of spec.entries()) {
     if (verdict === VERDICT.APPARATUS) halted = true;
   };
 
+  // ⛔ PER ARM, NOT PER RUN. A shared worktree lets a killed arm contaminate the next one and
+  // reintroduces exactly the cross-arm custody this design removes. The ~200-500ms is small beside
+  // two vitest executions per arm.
+  let ws = null;
+  const armPath = join(REPO, ARM_WORKTREE_ROOT, `arm-${runId}-${i}`);
   try {
-    const r0 = restoreAndVerify();
+    let transport = null;
+    try { ({ workspace: ws, transport } = openArmWorkspace(REPO, HEAD_COMMIT, armPath)); }
+    catch (e) { record(VERDICT.APPARATUS, `could not open the isolated workspace: ${e.message}`); break; }
+    // Path is environment DISCLOSURE, not identity: commit and tree remain the source identity.
+    arm.workspace = { path: armPath, dependencyTransport: transport };
+
+    const r0 = restoreAndVerify(ws);
     if (!r0.ok) { record(VERDICT.APPARATUS, `restore/hash failed for ${r0.file} before baseline`); break; }
 
     // ── BASELINE, retained. v2 kept only mutant output while claiming baseline discovery.
     const baseFile = join(runDir, `arm-${i}-baseline.json`);
-    const base = runTests(m.tests, baseFile);
+    const base = runTests(m.tests, baseFile, ws);
     if (base.apparatus) { record(VERDICT.APPARATUS, `baseline: ${base.apparatus}`); break; }
     arm.baselineArtifact = { path: `arm-${i}-baseline.json`, sha256: sha(readFileSync(baseFile, 'utf8')), exit: base.exit, command: base.argv };
 
@@ -334,7 +367,7 @@ for (const [i, m] of spec.entries()) {
     // `after !== before`, and let the arm attribute a red test to a site nobody chose. Absent
     // failed closed; ambiguous did not fail at all. This was listed under OPEN in this file's own
     // header as "single-occurrence anchor enforcement" and is now closed.
-    const before = readFileSync(join(REPO, m.file), 'utf8');
+    const before = ws.read(m.file);
     const applied = applyAnchor(before, m.from, m.to);
     if (!applied.applied) {
       const where = applied.occurrences ? ` at offsets ${applied.occurrences.join(', ')}` : '';
@@ -343,10 +376,10 @@ for (const [i, m] of spec.entries()) {
     }
     const after = applied.after;
     arm.mutation = { preSha256: sha(before), postSha256: sha(after), anchorOffset: applied.index };
-    writeFileSync(join(REPO, m.file), after);
+    ws.write(m.file, after);
 
     const mutFile = join(runDir, `arm-${i}-mutant.json`);
-    const mut = runTests(m.tests, mutFile);
+    const mut = runTests(m.tests, mutFile, ws);
     if (mut.apparatus) { record(VERDICT.APPARATUS, `mutant: ${mut.apparatus}`); break; }
     arm.mutantArtifact = { path: `arm-${i}-mutant.json`, sha256: sha(readFileSync(mutFile, 'utf8')), exit: mut.exit, command: mut.argv };
 
@@ -418,12 +451,20 @@ for (const [i, m] of spec.entries()) {
     record(VERDICT.FAILURE_OBSERVED, 'exact case failed on the preregistered assertion — DIAGNOSTIC ONLY, body execution unproven');
   } finally {
     // RULE 3 — restoration is not optional and not conditional on the path taken.
-    const r = restoreAndVerify();
-    if (!r.ok) {
-      manifest.restorationFailure = r.file;
+    if (ws) {
+      const r = restoreAndVerify(ws);
+      if (!r.ok) {
+        manifest.restorationFailure = r.file;
+        writeManifest();
+        console.error(`⛔ APPARATUS_ERROR: restore/hash failed for ${r.file} in the arm workspace`);
+        halted = true;
+      }
+      // ⚠ EVERY REMOVAL STEP'S RESULT TRAVELS, not one boolean. A surviving registration is the
+      // state that blocks the next run, so it has to be legible rather than swallowed.
+      arm.disposal = disposeArmWorkspace(REPO, armPath);
+      const failed = arm.disposal.filter((d) => !d.ok);
+      if (failed.length) console.error(`⚠ arm ${i} disposal incomplete: ${failed.map((f) => f.step).join(', ')}`);
       writeManifest();
-      console.error(`⛔ APPARATUS_ERROR: restore/hash failed for ${r.file} — working tree may hold mutant bytes`);
-      halted = true;
     }
   }
 }
