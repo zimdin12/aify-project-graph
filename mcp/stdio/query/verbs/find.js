@@ -27,12 +27,34 @@ const GENERATED_PENALTY = 2000;
 const ALL_LAYERS = ['code', 'features', 'tasks', 'docs'];
 const CODE_TYPES = new Set(['Function', 'Method', 'Class', 'Interface', 'Type', 'Test']);
 
+// A LAYER THAT COULD NOT BE READ IS NOT AN EMPTY LAYER.
+//
+// This returned a bare [] down THREE different routes, and the caller then reported the layer in
+// `layers_searched` regardless — telling the consumer the tasks layer was searched and held nothing
+// when nothing had been read at all. That is a coverage claim an instrument failure falsifies, in a
+// structured field an agent acts on.
+//
+//   file absent               -> honestly zero
+//   corrupt bytes             -> UNKNOWN, via the catch
+//   valid JSON, no tasks key  -> UNKNOWN, via the `|| []` fallback, WITHOUT touching the catch
+//
+// The third route is the one a control aimed at the catch would have missed entirely.
+//
+// The shape is not invented here: loadFunctionality already returns a typed result with an `error`
+// field. This makes loadTasks consistent with its sibling.
 function loadTasks(repoRoot) {
   const p = join(repoRoot, '.aify-graph', 'tasks.json');
-  if (!existsSync(p)) return [];
+  if (!existsSync(p)) return { tasks: [], readable: true, state: 'absent' };
+  let parsed;
   try {
-    return JSON.parse(readFileSync(p, 'utf8')).tasks || [];
-  } catch { return []; }
+    parsed = JSON.parse(readFileSync(p, 'utf8'));
+  } catch (e) {
+    return { tasks: [], readable: false, state: 'unparseable', error: String(e.message).slice(0, 120) };
+  }
+  if (!Array.isArray(parsed?.tasks)) {
+    return { tasks: [], readable: false, state: 'malformed', error: 'parsed, but carries no `tasks` array' };
+  }
+  return { tasks: parsed.tasks, readable: true, state: 'read' };
 }
 
 function scoreTextMatch(haystack, needle) {
@@ -224,7 +246,30 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
 
   try {
     const overlay = loadFunctionality(repoRoot);
-    const tasks = loadTasks(repoRoot);
+    const taskLayer = loadTasks(repoRoot);
+    const tasks = taskLayer.tasks;
+
+    // ⛔ A LAYER WHOSE SOURCE COULD NOT BE READ MUST NOT BE CLAIMED AS SEARCHED.
+    //
+    // `layers_searched` is a coverage claim. Leaving an unreadable layer in it reports that the
+    // layer was searched and found empty — the false-exhaustive shape, asserted in a field a
+    // consumer can act on.
+    //
+    // ⚠ The two layers are checked INDEPENDENTLY and on purpose. The cheap version is one guard
+    // covering both loads, which would unclaim BOTH when one file is bad — a fix that degrades the
+    // verb more than the defect did.
+    //
+    // ⚠ For features the honesty already existed and was DISCARDED: loadFunctionality has always
+    // returned an `error` field on a parse failure, and this call site read only `.features`. An
+    // honest producer whose consumer ignores it buys nothing.
+    const layersUnavailable = [];
+    const unclaim = (layer, reason) => {
+      if (!layerSet.has(layer)) return;
+      layerSet.delete(layer);
+      layersUnavailable.push({ layer, reason });
+    };
+    if (!taskLayer.readable) unclaim('tasks', `tasks.json ${taskLayer.state}: ${taskLayer.error}`);
+    if (overlay.error) unclaim('features', `functionality.json unreadable: ${overlay.error}`);
     const broadQuery = tokens.length === 1 && raw.length <= 5;
     const perLayerDisplayLimit = broadQuery ? Math.min(perLayer, 2) : perLayer;
     const topDisplayLimit = broadQuery ? Math.min(limit, 6) : limit;
@@ -232,6 +277,9 @@ export async function graphFind({ repoRoot, query, layers, limit = 10, fresh = f
     const results = {
       query: q,
       layers_searched: [...layerSet],
+      // Present only when something was NOT searched, so a clean run carries no noise and an
+      // unreadable layer cannot vanish silently.
+      ...(layersUnavailable.length ? { layers_unavailable: layersUnavailable } : {}),
       broad_query_capped: broadQuery,
       hits: { code: [], features: [], tasks: [], docs: [] },
     };
