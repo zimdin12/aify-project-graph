@@ -23,7 +23,7 @@ The two are not the same defect and must not be fixed with the same urgency.
 |---|---|---|
 | `freshness/git.js:106` | **"nothing changed"** | feeds the freshness/staleness machinery, which decides whether an indexed graph can still be believed. A trust claim, not a display one. ⚠ **DOCUMENTED AS INTENTIONAL** — "returns [] on any git failure … so callers can degrade gracefully instead of throwing". Needs a RULING, not a patch. |
 | `query/verbs/find.js:35` | **"no tasks match"** | `loadTasks()` on a corrupt `tasks.json`. A search verb reporting an absence about the repository because it could not read a file. |
-| `query/verbs/collect_code_intel.js:106` | **"no call edges"** | this is an ANSWER, not a decoration. An agent asking who calls what gets a clean empty result from a failed query. |
+| ~~`query/verbs/collect_code_intel.js:106`~~ | ~~"no call edges"~~ | ⛔ **DEMOTED TO LOW — see the correction below. I was wrong.** |
 
 ⚠ `safeDirtyCount` (returns `0`, not `[]`) belongs in this tier and already has its own
 preregistration at `docs/2026-08-21-prereg-safedirtycount.md`.
@@ -48,6 +48,39 @@ preregistration at `docs/2026-08-21-prereg-safedirtycount.md`.
 ⇒ The LOW tier is where I would NOT spend a slice. Fixing them would add typed-unknown plumbing to
 paths whose empty value is already honest, and a reviewer trained to expect noise from this
 inventory stops reading it.
+
+## ⛔ CORRECTION — I graded `collect_code_intel.js:106` HIGH and it is LOW
+
+I wrote that its `[]` reads as **"no call edges"** and called it an ANSWER. That is wrong, and I
+found it by reading the function instead of the inventory row.
+
+The catch is inside `sampleLspEdges`, whose own header says:
+
+> a SMALL sample (≤ cap) of created LSP_VERIFIED CALLS edges, read back from the DB after import so
+> the agent sees concrete evidence the collect produced edges **without the full records[] flood.
+> Best-effort: never throws.**
+
+and it surfaces as `sampleEdges` — named as a sample, capped at 10, labelled "concrete evidence".
+An empty sample says *"here are up to ten examples"*, not *"there are none"*. The AUTHORITATIVE
+counts live elsewhere in the same file and already carry the right discipline:
+
+> ⚠ NULL ON FAILURE OR EMPTY, NEVER 0. A zero denominator makes any ratio read as total coverage.
+
+⇒ So this file had already learned the lesson where it mattered, and I mistook a deliberately
+best-effort display sample for a coverage claim.
+
+⚠ **HOW I GOT IT WRONG, because the shape repeats:** I adjudicated from the inventory's one-line
+output — "returns `[]` on catch" — without reading the function's purpose or what the value is
+CALLED at the boundary. That is the same error as the brief-surface false alarm earlier the same
+day: reading the artifact rather than the producer's contract.
+
+⇒ **The rule this adds:** severity is decided at the BOUNDARY, by what the value is named and
+claimed to be, not at the `catch` where it originates. `sampleEdges: []` and `hits.tasks: []` are
+the same syntax and different claims — and only one of them sits beside a field asserting the layer
+was searched.
+
+⇒ **Remaining HIGH is two, not three:** `freshness/git.js:106` (documented-intentional, needs a
+ruling) and `query/verbs/find.js:35` (fixed — see the layers_searched slice).
 
 ## What I am NOT doing here
 
