@@ -210,7 +210,7 @@ async function runCorpus() {
       entry.bytes = Buffer.byteLength(stable, 'utf8');
       entry.sha256 = sha(stable);
       entry.volatileLines = excluded.length;
-      entry.volatileShapeOk = excluded.every((l) => VOLATILE_LINE.test(l));
+      entry.volatileShapeOk = volatileShapeOk(excluded);
       // The marker is the proof the OWNER ran. Without it the row is an input, not a route.
       entry.routeExecuted = text.includes(r.marker);
     } catch (err) {
@@ -235,7 +235,7 @@ async function runCorpus() {
         // stops being emitted, or changes format, that is a behaviour change the exclusion must
         // not hide — which is the whole risk of excluding anything.
         entry.volatileLines = excluded.length;
-        entry.volatileShapeOk = excluded.every((l) => VOLATILE_LINE.test(l));
+        entry.volatileShapeOk = volatileShapeOk(excluded);
       } catch (err) {
         // ⚠ A THROW IS A RESULT, NOT A SKIP. Dropping it would let a slice that starts throwing
         // on one input still report a clean pass over the inputs that survived — the
@@ -261,9 +261,44 @@ async function runCorpus() {
 // or timestamps generically — a regex scrub is another way to erase a real drift." So this does
 // NOT scrub. It excludes ONE named line, records that it excluded it, and gives that line its
 // own shape invariant. The exclusion is visible in the artifact rather than silent in a regex.
-const VOLATILE_LINE = /^SNAPSHOT: indexed=\S+ head=\S+ dirty=\d+ trust=\S+$/;
+//
+// ⛔⛔ AND THE REGEX BELOW DID NOT DELIVER WHAT THE PARAGRAPH ABOVE PROMISES. It was anchored
+// immediately after `trust=<tier>`, but the producer appends ` STALE` whenever the indexed commit
+// differs from HEAD — which is the NORMAL condition during exactly the active refactor this guard
+// exists to survive. A stale line therefore failed to match, fell through to the COMPARED set, and
+// carried its per-machine SHA and per-edit dirty count straight into the baseline. The guard's one
+// protection switched itself off precisely when it was needed, and the failure is the cry-wolf
+// false refusal described two paragraphs up.
+//
+// ⇒ The sibling of this defect was fixed in the packet test at bcaf565, where the same end-anchored
+// spelling made a shape assertion unpassable on a stale graph. I fixed that site and did not sweep
+// for the spelling elsewhere, so this one survived another day. ONE FIX IS NOT A SWEEP.
+//
+// ⚠ `dirty=\d+` is deliberately NOT widened to accept `?` yet. safeDirtyCount currently returns 0
+// on a failed git query, so no input can produce `dirty=?` — and a guard no input can reach is
+// decoration. It widens in the same commit that makes the producer able to emit it.
+const VOLATILE_LINE = /^SNAPSHOT: indexed=\S+ head=\S+ dirty=\d+ trust=\S+( STALE)?$/;
 
-function splitVolatile(text) {
+// ⛔⛔ `[].every(pred)` IS VACUOUSLY TRUE, AND THAT IS HOW THIS CHECK CERTIFIED ITS OWN FAILURE.
+//
+// The comment at the call site says the excluded line's SHAPE is pinned so that "if the snapshot
+// line stops being emitted, or changes format, that is a behaviour change the exclusion must not
+// hide — which is the whole risk of excluding anything." The code implemented the exact opposite.
+// A format change makes the line stop matching, `excluded` comes back EMPTY, and `every` on an
+// empty array returns TRUE. The check designed to catch a format change was disabled BY the format
+// change, and reported `volatileShapeOk: true` while doing it.
+//
+// ⇒ MEASURED, NOT ASSUMED: every one of the 61 corpus rows emits exactly ONE snapshot line. Before
+// the anchor fix all 61 recorded `volatileLines: 0` with `volatileShapeOk: true` — the exclusion
+// was totally inert and the artifact asserted health over it for as long as it has existed.
+//
+// ⇒ So ABSENCE IS NOW A FAILURE, not a vacuous pass. A packet with no volatile line has either
+// stopped emitting the banner or changed its format, and both are exactly what this pins.
+export function volatileShapeOk(excluded) {
+  return excluded.length === 1 && VOLATILE_LINE.test(excluded[0]);
+}
+
+export function splitVolatile(text) {
   const stable = [];
   const excluded = [];
   for (const line of text.split('\n')) {
