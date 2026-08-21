@@ -3,6 +3,9 @@
 //
 //   node scripts/gate-receipt.mjs                       # PRECOMMIT_DIAGNOSTIC — never PASS
 //   node scripts/gate-receipt.mjs --bind <commit>       # COMMIT_BOUND — clean detached worktree
+//   node scripts/gate-receipt.mjs --finalize <tree>     # verify HEAD^{tree} === <tree> AFTER the
+//                                                       # commit. Until this existed, that equality
+//                                                       # was caller PROSE enforced by nothing.
 //   node scripts/gate-receipt.mjs --candidate-tree      # CANDIDATE_TREE_BOUND — gates the STAGED
 //                                                       # tree about to be committed. Put the
 //                                                       # receipt in the COMMIT MESSAGE, not in the
@@ -103,6 +106,25 @@ function linkDeps(worktree) {
 
 function main() {
   const argv = process.argv;
+
+  // ⛔ THE POSTCONDITION, MACHINE-ENFORCED. A candidate receipt binds tree T; only `HEAD^{tree} === T`
+  // promotes that result to the commit. I had been asserting that equality in shell and reporting it
+  // in prose -- which is precisely the "a human must remember to check" shape this whole transport
+  // exists to remove. graph-senior-dev: "the gate tool itself neither commits nor enforces the
+  // post-commit equality."
+  const finIdx = argv.indexOf('--finalize');
+  if (finIdx !== -1 && argv[finIdx + 1]) {
+    const expected = argv[finIdx + 1];
+    const actual = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const porcelain = execFileSync('git', ['status', '--porcelain=v1'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const ok = actual === expected && porcelain === '';
+    console.log(`FINALIZE  expected ${expected}`);
+    console.log(`          actual   ${actual}`);
+    console.log(`          porcelain ${porcelain === '' ? 'empty' : 'DIRTY'}`);
+    console.log(`          ${ok ? 'BOUND — the candidate receipt now certifies this commit'
+      : 'REFUSED — the committed tree is not the gated tree; the receipt binds nothing'}`);
+    process.exit(ok ? 0 : 1);
+  }
   const bindIdx = argv.indexOf('--bind');
   const commitBound = bindIdx !== -1 && argv[bindIdx + 1];
   const candidateTree = argv.includes('--candidate-tree');

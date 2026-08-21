@@ -51,16 +51,50 @@ describe('CANDIDATE_TREE_BOUND binds staged bytes, not a commit', () => {
     expect(CANDIDATE_IDENTITY_KEYS, 'porcelain is deliberately not an identity key here').toEqual(['commit']);
   });
 
+  it('★★★⛔⛔ TERMINAL unstaged REFUSES — the fail-open the referee executed', () => {
+    // ⛔ MY FIRST VERSION CHECKED ONLY THE ENTRY SAMPLE. `git write-tree` names the INDEX, so a gate
+    // that creates an unstaged edit DURING the run does not move T — and the class returned PASS
+    // while the gates had read or produced bytes T does not name.
+    //
+    // ⇒ I built this class around "sample both ends", applied it to the tree hash, and then checked
+    // the working state at entry only. **An entry condition is not an exit condition.**
+    const v = receiptVerdict(candidate({
+      after: ident({ candidate: { tree: T, unstaged: true, untracked: 0 } }),
+    }));
+    expect(v.verdict).toBe(VERDICT.REFUSE);
+    expect(v.reason).toMatch(/unstaged changes at exit/);
+  });
+
+  it('★★★⛔⛔ TERMINAL untracked REFUSES — same hole, other field', () => {
+    const v = receiptVerdict(candidate({
+      after: ident({ candidate: { tree: T, unstaged: false, untracked: 3 } }),
+    }));
+    expect(v.verdict).toBe(VERDICT.REFUSE);
+    expect(v.reason).toMatch(/3 untracked file\(s\) at exit/);
+  });
+
+  it('★★★ a missing TERMINAL candidate sample refuses — fail closed at both ends', () => {
+    const v = receiptVerdict(candidate({ after: ident({ candidate: {} }) }));
+    expect(v.verdict).toBe(VERDICT.REFUSE);
+    expect(v.reason).toMatch(/no terminal candidate tree/);
+  });
+
+  it('★★★ the receipt DISCLOSES both samples, so a reader can see which end failed', () => {
+    const receipt = renderReceipt(candidate());
+    expect(receipt).toMatch(/at entry unstaged=false untracked=0/);
+    expect(receipt).toMatch(/at exit  unstaged=false untracked=0/);
+  });
+
   it('★★★⛔ UNSTAGED CHANGES REFUSE — the gates would read bytes T does not name', () => {
     const v = receiptVerdict(candidate({ before: ident({ candidate: { tree: T, unstaged: true, untracked: 0 } }) }));
     expect(v.verdict).toBe(VERDICT.REFUSE);
-    expect(v.reason).toMatch(/not the ones T names/);
+    expect(v.reason).toMatch(/unstaged changes at entry/);
   });
 
   it('★★★⛔ UNTRACKED FILES REFUSE — the candidate tree is not the whole working state', () => {
     const v = receiptVerdict(candidate({ before: ident({ candidate: { tree: T, unstaged: false, untracked: 2 } }) }));
     expect(v.verdict).toBe(VERDICT.REFUSE);
-    expect(v.reason).toMatch(/2 untracked file\(s\)/);
+    expect(v.reason).toMatch(/2 untracked file\(s\) at entry/);
   });
 
   it('★★★⛔ A TREE THAT MOVED MID-RUN REFUSES, and names both hashes', () => {

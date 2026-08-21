@@ -122,12 +122,29 @@ export function receiptVerdict({ receiptClass, before, after, gates }) {
   if (receiptClass === RECEIPT_CLASS.CANDIDATE_TREE_BOUND) {
     // The candidate tree must be FULLY STAGED and stable across the run. Unstaged edits or
     // untracked files mean the bytes the gates read are not the bytes `T` names.
+    // ⛔⛔ BOTH ENDS, FOR ALL THREE FIELDS. My first version checked `unstaged`/`untracked` only on
+    // the ENTRY sample and compared only the tree hash afterwards. graph-senior-dev executed the
+    // hole: `git write-tree` names the INDEX, so a gate that creates an unstaged edit or an
+    // untracked file during the run does NOT move T — and the class returned PASS while the gates
+    // had read or produced bytes T does not name. That is the exact defect this class exists to
+    // close, committed inside the class that closes it.
+    //
+    // ⇒ I built this class around "sample both ends", applied it to the tree hash, and then checked
+    // the working state at entry only. An entry condition is not an exit condition.
     const c = before.candidate ?? {};
+    const a = after.candidate ?? {};
     if (!c.tree) return { verdict: VERDICT.REFUSE, reason: 'no candidate tree was recorded', moved };
-    if (c.unstaged) return { verdict: VERDICT.REFUSE, reason: 'unstaged changes: the working bytes are not the ones T names', moved };
-    if (c.untracked > 0) return { verdict: VERDICT.REFUSE, reason: `${c.untracked} untracked file(s): the candidate tree is not the whole working state`, moved };
-    if (c.tree !== after.candidate?.tree) {
-      return { verdict: VERDICT.REFUSE, reason: `the candidate tree moved during the run: ${c.tree} -> ${after.candidate?.tree}`, moved };
+    if (!a.tree) return { verdict: VERDICT.REFUSE, reason: 'no terminal candidate tree was recorded', moved };
+    for (const [when, sample] of [['at entry', c], ['at exit', a]]) {
+      if (sample.unstaged) {
+        return { verdict: VERDICT.REFUSE, reason: `unstaged changes ${when}: the working bytes are not the ones T names`, moved };
+      }
+      if (sample.untracked > 0) {
+        return { verdict: VERDICT.REFUSE, reason: `${sample.untracked} untracked file(s) ${when}: the candidate tree is not the whole working state`, moved };
+      }
+    }
+    if (c.tree !== a.tree) {
+      return { verdict: VERDICT.REFUSE, reason: `the candidate tree moved during the run: ${c.tree} -> ${a.tree}`, moved };
     }
     const failedGates = gates.filter((g) => !gatePassed(g));
     if (failedGates.length) {
@@ -173,7 +190,8 @@ export function renderReceipt({ receiptClass, before, after, gates, boundTo, dep
     // The staged content this run gated, named exactly. Stronger than porcelain: porcelain says
     // WHICH paths differ, T says WHAT the bytes are.
     lines.push(`    candidate  tree ${before.candidate.tree}`);
-    lines.push(`               unstaged=${before.candidate.unstaged} untracked=${before.candidate.untracked}`);
+    lines.push(`      at entry unstaged=${before.candidate.unstaged} untracked=${before.candidate.untracked}`);
+    lines.push(`      at exit  unstaged=${after?.candidate?.unstaged} untracked=${after?.candidate?.untracked} tree=${after?.candidate?.tree}`);
   }
   if (dependencyTransport) lines.push(`    deps       ${dependencyTransport}`);
   for (const g of gates) {
