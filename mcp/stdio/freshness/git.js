@@ -72,9 +72,30 @@ export async function getChangedFiles(repoRoot, fromRef, toRef = 'HEAD') {
 
 // Shared sync git-diff name-only helper. Used by verify mode (which stays
 // sync) and the async getChangedFiles wrapper so both get identical line
-// normalization (trim, drop blanks, backslash→slash). Returns [] on any git
-// failure (no git, no commits, invalid ref, not a repo) so callers can
-// degrade gracefully instead of throwing.
+// normalization (trim, drop blanks, backslash→slash).
+//
+// ⛔ RETURNS null WHEN THE DIFF COULD NOT BE COMPUTED — never [].
+//
+// `[]` means "these zero files changed". `null` means "I could not find out". They used to be the
+// SAME VALUE, and the orchestrator read the second as the first:
+//
+//     HEAD..HEAD   -> []    a legitimate empty delta
+//     bogus..HEAD  -> []    a failure
+//
+// With an unresolvable indexed commit the orchestrator found nothing to reindex, took its no-op
+// path, and ADVANCED THE MANIFEST over code it had never read. Reproduced end to end, with a live
+// control arm, in tests/integration/stale-commit-advances-manifest.test.js.
+//
+// ⚠ THE OLD CONTRACT — "so callers can degrade gracefully instead of throwing" — REMAINS CORRECT
+// FOR ONE CALLER. packet-verify is a display path that documents its own degradation and now writes
+// `?? []`. It was never correct for a caller deciding what to reindex. One failure policy cannot
+// serve two callers with opposite needs, and `null` forces each to say which it is: null is not an
+// array, so it cannot be silently spread, iterated or defaulted away.
+//
+// ★ AND NOTE WHAT THIS FUNCTION'S OWN HEADER ALREADY RECORDS, below: a rename leaking the old
+// file's nodes, invisible to every per-file assertion in the suite and found only because a rebuild
+// oracle disagreed with the incremental graph. The catch beneath was producing a SECOND instance of
+// that same class — silent incompleteness that nothing in the suite could see.
 export function getChangedFilesSync(repoRoot, fromRef, toRef = 'HEAD') {
   try {
     // ★★ `--no-renames` IS LOAD-BEARING. WITHOUT IT A RENAME LEAKS THE OLD FILE'S NODES.
@@ -104,7 +125,7 @@ export function getChangedFilesSync(repoRoot, fromRef, toRef = 'HEAD') {
     const stdout = execGit(repoRoot, ['diff', '--no-renames', '--name-only', `${fromRef}..${toRef}`]);
     return normalizeLines(stdout);
   } catch {
-    return [];
+    return null;
   }
 }
 

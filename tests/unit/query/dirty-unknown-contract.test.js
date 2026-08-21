@@ -48,9 +48,13 @@ const initRepo = () => {
 describe('C1 — a failed git query renders UNKNOWN, never zero', () => {
   it('★★★⛔ THE INDUCTION IS PROVEN TO INDUCE, before its result is read', () => {
     // ⛔ A CONTROL WHOSE INDUCTION CANNOT REACH THE CODE PATH PASSES VACUOUSLY. If the helper
-    // degraded to [] instead of throwing — as its NEIGHBOUR getChangedFilesSync deliberately does —
-    // then `catch` would never run, the fix would change nothing, and this control would still be
-    // green. So the throw is asserted first, as its own fact.
+    // degraded to [] instead of throwing, `catch` would never run, the fix would change nothing,
+    // and this control would still be green. So the throw is asserted first, as its own fact.
+    //
+    // ⚠ WHEN THIS WAS WRITTEN, its neighbour getChangedFilesSync DID degrade to [] — which is what
+    // made the risk concrete. That neighbour now returns null on failure for the same reason this
+    // one does, so the hazard has moved from "a sibling does the wrong thing" to "a sibling used
+    // to, and the reasoning is why both were changed". The control stands either way.
     expect(() => getTrackedDirtyFilesSync(repo),
       'a non-repository must make the git query THROW, or C1 proves nothing').toThrow();
   });

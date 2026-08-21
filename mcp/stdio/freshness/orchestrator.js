@@ -212,7 +212,15 @@ export async function ensureFresh({
     const changedFromCommit = !force && manifest.commit && manifest.commit !== commit
       ? await getChangedFiles(repoRoot, manifest.commit, commit)
       : [];
-    const initialChanged = [...new Set([...dirtyFiles, ...changedFromCommit])];
+    // ⛔ null MEANS THE DELTA COULD NOT BE COMPUTED — the indexed commit is no longer resolvable
+    // (rebase, branch reset, force-push, a gc that pruned it, a shallow-clone boundary). Reading
+    // that as "nothing changed" advanced the manifest over code that was never read.
+    //
+    // ⇒ An unresolvable indexed commit is morally identical to an ABSENT one, and `!manifest.commit`
+    // ALREADY forces a full rebuild. So this folds one term into that existing, tested decision
+    // rather than adding a new path — see `fullRebuild` below.
+    const deltaUnavailable = changedFromCommit === null;
+    const initialChanged = [...new Set([...dirtyFiles, ...(changedFromCommit ?? [])])];
 
     const db = openDb(join(graphDir, 'graph.sqlite'));
     try {
@@ -248,6 +256,8 @@ export async function ensureFresh({
       const fullRebuild = !canResumeFromPartial && (force
         || manifestState.status !== 'ok'
         || !manifest.commit
+        // An indexed commit git cannot resolve is no more usable than an absent one, directly above.
+        || deltaUnavailable
         || manifest.status === 'indexing'
         || schemaMismatch
         || toolingMismatch);

@@ -15,7 +15,11 @@ function computeStale(block) {
 // (including backslash→slash normalization on Windows). Returns [] on any
 // git failure — verify still produces a useful packet with empty files.
 function deriveFilesFromSinceSync(repoRoot, since) {
-  return getChangedFilesSync(repoRoot, since, 'HEAD');
+  // ⚠ `?? []` IS THE DEGRADATION THIS PATH ALREADY PROMISED, now written down rather than inherited.
+  // getChangedFilesSync returns null when the diff could not be computed; for verify that is still
+  // "produce a useful packet with empty files". The orchestrator makes the opposite choice from the
+  // same signal, which is exactly why the signal had to stop being `[]` for both.
+  return getChangedFilesSync(repoRoot, since, 'HEAD') ?? [];
 }
 
 function renderVerify(packet) {
