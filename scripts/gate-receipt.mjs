@@ -29,7 +29,10 @@ import {
 import { dependencyCarrier, unexpectedIgnored } from './lib/dependency-carrier.mjs';
 // ⛔ A refusal must not be retriable into a receipt. Every attempt on a candidate tree is recorded
 // outside T, and a plain retry after a non-PASS is refused.
-import { readAttempts, recordAttempt, retryPermission, renderAttempts } from './lib/attempt-ledger.mjs';
+import {
+  readAttempts, beginAttempt, concludeAttempt, retryPermission, renderAttempts,
+  parseSupersession, messageProblem, OUTCOME,
+} from './lib/attempt-ledger.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sha = (b) => createHash('sha256').update(b ?? '').digest('hex');
@@ -186,24 +189,31 @@ function main() {
   if (cwIdx !== -1 && argv[cwIdx + 1]) {
     const msgFile = argv[cwIdx + 1];
     const supIdx = argv.indexOf('--supersedes');
-    const supersedes = supIdx !== -1 ? argv[supIdx + 1] : null;
+    const supersession = supIdx !== -1 ? parseSupersession(argv[supIdx + 1]) : null;
 
-    // ── 1. FREEZE THE CUSTODY BEFORE ANYTHING RUNS. Parent, ref and tree are read once; every
-    //       later step compares against these, so a move between gate and commit is detectable
-    //       rather than merely unlikely.
+    // ── 0. MESSAGE PREFLIGHT, BEFORE ANYTHING EXPENSIVE. My wrapper once committed a message
+    //       reading "placeholder": the mechanism worked and I handed it a throwaway file. The
+    //       cheap refusal must come first so an operator error cannot become published history.
+    const msgText = existsSync(msgFile) ? readFileSync(msgFile, 'utf8') : '';
+    const msgIssue = messageProblem(msgText);
+    if (msgIssue) { console.error(`REFUSED: ${msgIssue}`); process.exit(1); }
+
+    // ── 1. FREEZE CUSTODY. Read once; every later step compares against these.
     const ref = execFileSync('git', ['symbolic-ref', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
     const parent = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
     const T0 = execFileSync('git', ['write-tree'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const msgSha = sha(msgText);
 
-    // ── 2. THE ATTEMPT LEDGER GOVERNS WHETHER WE MAY EVEN TRY.
-    const priorAttempts = readAttempts(REPO, T0);
-    const permission = retryPermission(priorAttempts, { supersedes });
-    if (!permission.allowed) {
-      console.error(`REFUSED: ${permission.reason}`);
-      process.exit(1);
-    }
+    // ── 2. THE LEDGER GOVERNS WHETHER WE MAY TRY AT ALL.
+    const permission = retryPermission(readAttempts(REPO, T0), supersession);
+    if (!permission.allowed) { console.error(`REFUSED: ${permission.reason}`); process.exit(1); }
 
-    // ── 3. GATE THE MATERIALIZED TREE.
+    // ── 3. OPEN THE ATTEMPT BEFORE THE GATE. It is INCOMPLETE until a terminal outcome is
+    //       recorded, so a crash leaves an explicit unfinished attempt that blocks a plain retry
+    //       rather than leaving silence that reads as "never happened".
+    const attempt = beginAttempt(REPO, T0, { parent, ref, msgSha, supersession: supersession ?? undefined });
+    const conclude = (outcome, detail) => concludeAttempt(REPO, T0, attempt.id, outcome, detail);
+
     const receiptFile = `${msgFile}.receipt`;
     const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--candidate-tree', '--out', receiptFile],
       { cwd: REPO, encoding: 'utf8' });
@@ -211,54 +221,60 @@ function main() {
     const receiptText = existsSync(receiptFile) ? readFileSync(receiptFile, 'utf8') : '';
     const verdict = /VERDICT {4}([A-Z_]+)/.exec(receiptText)?.[1] ?? 'UNKNOWN';
     const reason = /VERDICT {4}[A-Z_]+ — (.*)/.exec(receiptText)?.[1] ?? null;
-    const materialization = /materialized at ([0-9a-f]+)/.exec(receiptText)?.[1] ?? null;
-    const attempts = recordAttempt(REPO, T0, {
-      at: new Date().toISOString(), verdict, reason, materialization, exit: r.status,
-      supersedes: supersedes ?? undefined,
-    });
+
     if (r.status !== 0) {
+      conclude(verdict === 'FAILED' ? OUTCOME.GATE_FAILED : OUTCOME.GATE_REFUSE, { reason, gateVerdict: verdict });
       console.error(`REFUSED: the candidate gate returned ${verdict} — nothing was committed.`);
-      console.error(`  recorded as attempt ${attempts.length} on tree ${T0}`);
       process.exit(1);
     }
 
-    // ── 4. RECHECK CUSTODY. The gate takes minutes; the index or the branch can move under it.
+    // ── 4. RECHECK CUSTODY, AND RECORD A GATE-PASS-THEN-MOVED AS ITS OWN TERMINAL OUTCOME.
+    //       Recording only the gate's PASS here is how a failed transaction would look retryable.
     const T1 = execFileSync('git', ['write-tree'], { cwd: REPO, encoding: 'utf8' }).trim();
     const parentNow = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
-    if (T1 !== T0 || parentNow !== parent) {
-      console.error(`REFUSED: custody moved during the gate — tree ${T0} -> ${T1}, parent ${parent} -> ${parentNow}.`);
+    if (T1 !== T0 || parentNow !== parent || sha(readFileSync(msgFile, 'utf8')) !== msgSha) {
+      conclude(OUTCOME.GATE_PASS_CUSTODY_REFUSE, { reason: `tree ${T0}->${T1}, parent ${parent}->${parentNow}, message changed=${sha(readFileSync(msgFile, 'utf8')) !== msgSha}` });
+      console.error('REFUSED: custody moved between the gate and the commit — nothing was committed.');
       process.exit(1);
     }
 
-    // ── 5. BUILD THE COMMIT OBJECT WITH THE EXACT TREE. `git commit-tree` names T directly, so the
-    //       committed tree cannot differ from the gated one — unlike `git commit`, where a hook or
-    //       an index change decides the tree and `--finalize` only notices AFTERWARDS.
-    writeFileSync(msgFile, `${readFileSync(msgFile, 'utf8')}
-${renderAttempts(attempts)}
+    // ── 5. EXACT-T COMMIT OBJECT. `commit-tree` names T directly, so the committed tree cannot
+    //       differ from the gated one — unlike `git commit`, where a hook or index change decides.
+    const attemptsNow = readAttempts(REPO, T0);
+    writeFileSync(msgFile, `${msgText}
+${renderAttempts(attemptsNow)}
 
 ${receiptText}`);
     const newCommit = execFileSync('git', ['commit-tree', T0, '-p', parent, '-F', msgFile],
       { cwd: REPO, encoding: 'utf8' }).trim();
 
-    // ── 6. ADVANCE THE REF BY COMPARE-AND-SWAP. `update-ref <ref> <new> <old>` fails if the branch
-    //       moved, so a concurrent commit cannot be silently overwritten.
+    // ── 6. BRANCH COMPARE-AND-SWAP.
     const cas = spawnSync('git', ['update-ref', ref, newCommit, parent], { cwd: REPO, encoding: 'utf8' });
     if (cas.status !== 0) {
+      conclude(OUTCOME.GATE_PASS_CAS_REFUSE, { reason: `branch moved; ${newCommit} exists unreferenced`, commit: newCommit });
       console.error(`REFUSED: compare-and-swap on ${ref} failed — the branch moved. `
-        + `The commit object ${newCommit} exists but is unreferenced; nothing was published.`);
+        + `Object ${newCommit} exists but is unreferenced; nothing was published.`);
       process.exit(1);
     }
 
-    // ── 7. VERIFY, AND NEVER REPAIR BY REWRITING.
+    // ── 7. PUBLICATION AND WORKING-COPY CUSTODY ARE SEPARATE FACTS.
+    //       Once CAS succeeds the published commit's tree IS T; later dirt in the checkout cannot
+    //       make that untrue. Reporting "binds nothing" because another process touched the
+    //       working copy afterwards would understate a correct publication — and claiming the whole
+    //       transaction was clean would overstate it. Both are recorded.
     const headTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: REPO, encoding: 'utf8' }).trim();
     const porcelain = execFileSync('git', ['status', '--porcelain=v1'], { cwd: REPO, encoding: 'utf8' }).trim();
-    const ok = headTree === T0 && porcelain === '';
+    const exact = headTree === T0;
+    const outcome = !exact ? OUTCOME.GATE_PASS_CAS_REFUSE
+      : porcelain === '' ? OUTCOME.PUBLISHED_EXACT_TREE : OUTCOME.WORKTREE_POSTCONDITION_REFUSE;
+    conclude(outcome, { commit: newCommit, headTree, porcelainDirty: porcelain !== '' });
     console.log(`COMMIT     ${newCommit}
 TREE       ${headTree}
-EXPECTED   ${T0}
-PORCELAIN  ${porcelain === '' ? 'empty' : 'DIRTY'}`);
-    console.log(`           ${ok ? 'BOUND — the candidate receipt certifies this commit' : 'MISMATCH — reported, not repaired'}`);
-    process.exit(ok ? 0 : 1);
+EXPECTED   ${T0}`);
+    console.log(`           ${exact ? 'PUBLISHED_EXACT_TREE — the ref points at a commit whose tree is exactly T' : 'MISMATCH — reported, never repaired'}`);
+    if (porcelain !== '') console.log('           ⚠ WORKTREE_POSTCONDITION_REFUSE — the checkout was dirtied after publication; the commit is unaffected');
+    console.log('           ⛔ NEVER amend a wrapper-created commit: the receipt names this object.');
+    process.exit(exact ? 0 : 1);
   }
 
   const finIdx = argv.indexOf('--finalize');
