@@ -15,7 +15,7 @@
 // ⛔ EXITS NON-ZERO UNLESS THE VERDICT IS PASS, so a green receipt cannot be obtained from a red
 // run — nor from a dirty tree, nor from a diagnostic. `cba6c24` published "EXIT 0" over an observed
 // exit 1 because the number and the run were connected only by my attention.
-import { writeFileSync, existsSync, rmSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -153,6 +153,40 @@ function main() {
   // in prose -- which is precisely the "a human must remember to check" shape this whole transport
   // exists to remove. graph-senior-dev: "the gate tool itself neither commits nor enforces the
   // post-commit equality."
+  // ⛔⛔ THE WRAPPER, because the human step is where I failed. I ran the candidate gate, it
+  // returned REFUSE, and I committed anyway -- my shell block called `git commit` unconditionally
+  // instead of gating on the exit code. The receipt in that message says REFUSE verbatim, so
+  // nothing was falsified, but committing over an observed refusal is the same ACT as publishing a
+  // fabricated green: proceeding past a measurement that said stop.
+  //
+  // ⇒ `--commit-with <msgfile>` makes the sequence atomic: run the candidate gate, commit ONLY on
+  // PASS, then finalize against the exact T the run produced. No copied tree argument, no
+  // remembered exit code.
+  const cwIdx = argv.indexOf('--commit-with');
+  if (cwIdx !== -1 && argv[cwIdx + 1]) {
+    const msgFile = argv[cwIdx + 1];
+    const receiptFile = `${msgFile}.receipt`;
+    const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--candidate-tree', '--out', receiptFile],
+      { cwd: REPO, encoding: 'utf8' });
+    console.log(r.stdout ?? '');
+    if (r.status !== 0) {
+      console.error('REFUSED: the candidate gate did not PASS — nothing was committed.');
+      process.exit(1);
+    }
+    const receipt = readFileSync(receiptFile, 'utf8');
+    const T = /candidate  tree ([0-9a-f]{40})/.exec(receipt)?.[1];
+    if (!T) { console.error('REFUSED: could not read the candidate tree from the receipt.'); process.exit(2); }
+    writeFileSync(msgFile, `${readFileSync(msgFile, 'utf8')}
+${receipt}`);
+    execFileSync('git', ['commit', '-F', msgFile], { cwd: REPO, stdio: 'inherit' });
+    const actual = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const ok = actual === T;
+    console.log(`FINALIZE  expected ${T}
+          actual   ${actual}
+          ${ok ? 'BOUND' : 'REFUSED — committed tree is not the gated tree'}`);
+    process.exit(ok ? 0 : 1);
+  }
+
   const finIdx = argv.indexOf('--finalize');
   if (finIdx !== -1 && argv[finIdx + 1]) {
     const expected = argv[finIdx + 1];
