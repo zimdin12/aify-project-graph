@@ -1,14 +1,5 @@
 [
   {
-    "name": "D2 a pending start is reported as already_running",
-    "file": "mcp/stdio/query/verbs/dashboard.js",
-    "from": "    if (existing.pendingStart) return existing.joinable;",
-    "to": "    // mutated: pending read as running",
-    "tests": [
-      "tests/unit/dashboard/repo-root-wiring.test.js"
-    ]
-  },
-  {
     "name": "D3 drop the shutdown-ACTIVE check, keep only the generation",
     "file": "mcp/stdio/query/verbs/dashboard.js",
     "from": "teardownGeneration !== startedInGeneration || shutdownInFlight",

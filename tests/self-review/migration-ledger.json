@@ -8,7 +8,7 @@
     "attributedWitnesses": 0,
     "note": "Immutable migration baseline. 0 of 35 pre-v3 declarations are runnable: none carry the mandatory case/expect witness fields. Do NOT rewrite history by calling a pre-v3 declaration runnable."
   },
-  "legacyCeiling": 31,
+  "legacyCeiling": 30,
   "entries": {
     "F1 the true row total is never passed to the ambiguity message": {
       "spec": "ambiguity-population.spec.json",
@@ -76,9 +76,9 @@
       "reason": "Structurally undefendable, not an open defect. The mutation WEAKENS the exemption assertion itself -- toEqual(exact set) becomes toContain(each approved), which accepts a superset -- and that assertion is the only thing that could detect the weakening. A spec whose hostile mutation targets its own sole defence cannot produce a preregistered RED, so it can never earn a witness. Retired on ruling, not on experiment. Self-declared OUT OF SCOPE in its own note; verified structurally 2026-08-21."
     },
     "D2 a pending start is reported as already_running": {
-      "spec": "dashboard-ownership.spec.json",
-      "state": "legacy_unruled",
-      "reason": "pre-v3 declaration; predates mandatory case/expect. Not runnable, no witness claim."
+      "spec": "dashboard-ownership-D2.spec.json",
+      "state": "v3_runnable_unwitnessed",
+      "reason": "Physically extracted into its own v3-loadable file before any run. Preregistration tests/self-review/preregistrations/D2.json, referee graph-senior-dev, approval 1787278542582-fafd49ab. PROMOTED ON SCHEMA AND PREREGISTRATION ALONE, never on a result. Bounded to the same-key JOIN route; does not touch D1's publication-timing question."
     },
     "D3 drop the shutdown-ACTIVE check, keep only the generation": {
       "spec": "dashboard-ownership.spec.json",

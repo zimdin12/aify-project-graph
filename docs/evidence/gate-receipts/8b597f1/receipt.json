@@ -42,7 +42,8 @@
         "truncated": false,
         "fullHash": "25366170ccc0ae8522286e4ca369612dea23cb74c8ea25654088c68dbb89d597",
         "capturedHash": "25366170ccc0ae8522286e4ca369612dea23cb74c8ea25654088c68dbb89d597",
-        "artifact": "vitest.stdout.txt"
+        "artifact": "vitest.stdout.b64",
+        "encoding": "base64"
       },
       "stderr": {
         "originalBytes": 10086,
@@ -50,7 +51,8 @@
         "truncated": false,
         "fullHash": "49cf509adecfcf19a6319aa746acd81b18c3a72744be895c12bc9f44500c062c",
         "capturedHash": "49cf509adecfcf19a6319aa746acd81b18c3a72744be895c12bc9f44500c062c",
-        "artifact": "vitest.stderr.txt"
+        "artifact": "vitest.stderr.b64",
+        "encoding": "base64"
       }
     },
     {
@@ -73,7 +75,8 @@
         "truncated": false,
         "fullHash": "80c7cabe69f009f9883e43122e9e13d31afed8d32ab1df0add9544b77a583a25",
         "capturedHash": "80c7cabe69f009f9883e43122e9e13d31afed8d32ab1df0add9544b77a583a25",
-        "artifact": "authority-ledger.stdout.txt"
+        "artifact": "authority-ledger.stdout.b64",
+        "encoding": "base64"
       },
       "stderr": {
         "originalBytes": 0,
@@ -81,7 +84,8 @@
         "truncated": false,
         "fullHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "capturedHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "artifact": "authority-ledger.stderr.txt"
+        "artifact": "authority-ledger.stderr.b64",
+        "encoding": "base64"
       }
     }
   ],

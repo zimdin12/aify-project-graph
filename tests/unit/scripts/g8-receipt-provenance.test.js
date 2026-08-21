@@ -143,6 +143,18 @@ describe('the tracked G8 spec is loadable by the normal invocation', () => {
     expect(spec[0].withdrawnTitle, 'the corrected title records what it replaced').toMatch(/WITHDRAWN/);
   });
 
+  it('★★★ the TRACKED D2 spec loads, and the legacy dashboard file keeps six arms', () => {
+    // Extracted BEFORE its run, as G8 taught: the experiment must consume a tracked declared file,
+    // never a spec constructed outside the repo whose preimage nobody committed.
+    const d2 = JSON.parse(read(join(SR, 'dashboard-ownership-D2.spec.json')));
+    expect(validateV3Spec(d2).problems).toEqual([]);
+    expect(d2[0].expectFailures, 'the failing-case population is preregistered').toBe(1);
+
+    const legacy = JSON.parse(read(join(SR, 'dashboard-ownership.spec.json')));
+    expect(legacy.length, 'exactly one more declaration moved out').toBe(6);
+    expect(validateV3Spec(legacy).loadable, 'and it is still honestly pre-v3').toBe(false);
+  });
+
   it('★★★ the legacy seven-arm file is still NOT loadable, and that is recorded honestly', () => {
     // ⚠ POSITIVE CONTROL for the validator: if it called everything loadable, the assertion above
     // would be worthless. The legacy file genuinely cannot load, which is why its arms remain

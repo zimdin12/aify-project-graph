@@ -150,16 +150,21 @@ function main() {
           timedOut: g.timedOut,
           spawnError: g.spawnError,
           countLines: g.countLines,
-          stdout: { ...g.stdout, text: undefined, artifact: g.label + '.stdout.txt' },
-          stderr: { ...g.stderr, text: undefined, artifact: g.label + '.stderr.txt' },
+          stdout: { ...g.stdout, text: undefined, artifact: g.label + '.stdout.b64', encoding: 'base64' },
+          stderr: { ...g.stderr, text: undefined, artifact: g.label + '.stderr.b64', encoding: 'base64' },
         })),
         cleanup: cleanupNote.trim() || null,
       };
       writeFileSync(base, out + String.fromCharCode(10));
       writeFileSync(base.replace(/[.]txt$/, '') + '.json', JSON.stringify(json, null, 2) + String.fromCharCode(10));
+      // BASE64 ENCODED TRANSPORT, not the raw preimage on disk. Raw runner output contains ANSI
+      // escapes (0x1b), and `no-raw-nul-bytes` forbids control bytes in tracked files -- my first
+      // evidence commit shipped two such artifacts and turned the suite red. Encoding keeps the
+      // EXACT bytes recoverable while the tracked file holds none of them: decode, then re-hash
+      // against fullHash. Labelled encoded transport so nobody mistakes it for the raw file.
       for (const g of gates) {
-        writeFileSync(join(dir, g.label + '.stdout.txt'), g.stdout.text);
-        writeFileSync(join(dir, g.label + '.stderr.txt'), g.stderr.text);
+        writeFileSync(join(dir, g.label + '.stdout.b64'), Buffer.from(g.stdout.text, 'utf8').toString('base64'));
+        writeFileSync(join(dir, g.label + '.stderr.b64'), Buffer.from(g.stderr.text, 'utf8').toString('base64'));
       }
     }
     process.exit(verdict === VERDICT.PASS ? 0 : 1);

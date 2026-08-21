@@ -1,0 +1,47 @@
+{
+  "specId": "D2 a pending start is reported as already_running",
+  "spec": "dashboard-ownership-D2.spec.json",
+  "ledgerStateBefore": "legacy_unruled",
+  "ledgerStateAtPreregistration": "v3_runnable_unwitnessed",
+  "referee": {
+    "identity": "graph-senior-dev",
+    "proposalThreadMessageId": "1787278493213-6aaee5cc",
+    "approvalResponseMessageId": "1787278542582-fafd49ab",
+    "disposition": "APPROVE design; extract + promote on schema, then send identity for GO. No mutant before approval of the carrier."
+  },
+  "carrier": {
+    "commit": "a20d3f159f2a2f4c7559a78b4867927977a18726",
+    "tree": "70be9450c4a7660dcd1d8337258da9cf45486f8b",
+    "target": "mcp/stdio/query/verbs/dashboard.js",
+    "anchorResolution": {
+      "state": "unique",
+      "index": 1767,
+      "resolver": "scripts/lib/anchor.mjs",
+      "note": "UTF-16 offset, independently confirmed by referee and executor"
+    }
+  },
+  "guarantee": "A second same-key caller arriving while a start is still pending JOINS that start and receives a usable url, rather than being handed status:'already_running' with url undefined.",
+  "discriminatorArgument": "HONEST: the second call hits `if (existing.pendingStart) return existing.joinable;`, awaits the joinable, and receives the FIRST call's completed result -- url is a real url, toBeTruthy passes. HOSTILE: the branch is removed, control falls to `return { url: existing.url, port: existing.port, status: 'already_running' }` while `existing` is STILL the pending marker -- and that marker is `{ pendingStart, repoRoot, joinable }`, carrying no url or port at all. So url === undefined and toBeTruthy fails. The VALUE differs because of the mutation, not the ordering. Marker shape verified in source at dashboard.js:23-38, not assumed -- D1 failed precisely because I named an assertion whose value was identical in both worlds.",
+  "populationArgument": "Three cases issue two graphDashboard calls. :256 and :332 both use `repoRoot: second` -- a DIFFERENT key -- so activeDashboards.get(repoRoot) returns undefined, `existing` is falsy, and the mutated branch is unreachable. Both also await their first call to completion, so no pending marker survives. Only :298 makes a second SAME-KEY call and explicitly waits for the marker to exist. Hence expectFailures 1.",
+  "leakPrediction": "NO EBUSY and no second message. D2's mutation makes the second call return EARLY; it never starts a rival dashboard, so no extra server or DB handle is opened and teardown has nothing locked. FALSIFIABLE: if EBUSY appears, this leak model is wrong and the D1 diagnosis must be revisited too.",
+  "case": "★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+  "expect": "the joiner must receive a usable url, never undefined",
+  "expectFailures": 1,
+  "predictions": {
+    "baseline": "exit 0, all 10 cases pass",
+    "mutant": "exit 1; EXACTLY ONE failing case (:298); ONE message containing the predicate"
+  },
+  "downstreamAssertionsUnexecuted": "`b.url === a.url` and `started.toHaveLength(1)` both sit AFTER the predicted toBeTruthy throw. Vitest stops the case at the first throw, so they will be UNEXECUTED -- no verdict. They must not be reported as passing.",
+  "antiTargets": [
+    "any first-call failure (a?.status toBe('running'))",
+    ":256 or :332 failing -- the different-key reasoning is wrong",
+    "any EBUSY or second message -- the leak model is wrong",
+    "makeRepo / fixture / mock-start setup failure",
+    "the 20-second case timeout -- a hang is not a witness",
+    "any beforeEach/afterEach throw or non-case error",
+    "any failing-case total other than exactly 1"
+  ],
+  "restorationCarrier": "detached disposable worktree at the approved commit; node_modules by recorded junction; the TRACKED spec consumed directly; restore verified by hash; worktree disposed",
+  "claimCeiling": "v3_failure_observed_unattributed",
+  "boundedClaim": "A pass would establish that the pending-join branch is load-bearing for the same-key JOIN route. NOT teardown, NOT ownership, NOT release -- and NOT that the marker is published early enough, which is D1's separate and still-unwitnessed question."
+}
