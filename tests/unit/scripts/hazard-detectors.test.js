@@ -29,6 +29,16 @@ describe('vacuous quantifiers', () => {
     expect(hits[0].question).toMatch(/is EMPTY, this yields true/);
   });
 
+  it('★★★ THE REPAIRED COUNTERPART: the fixed form is NOT flagged', () => {
+    // ⛔ THE PAIR IS THE FIXTURE, not the defect alone. A detector holding only the broken form can
+    // pass by flagging everything; a detector holding only the fixed form can pass by flagging
+    // nothing. Frozen together, they pin the DISCRIMINATION rather than either half of it.
+    //
+    // This is the shape refactor-guard actually carries now: the quantifier moved behind a named
+    // predicate that requires exact cardinality, so there is no bare quantifier left to be vacuous.
+    expect(vacuousQuantifiers('entry.volatileShapeOk = volatileShapeOk(excluded);')).toEqual([]);
+  });
+
   it('★★★ POSITIVE CONTROL: every gate context is recognised', () => {
     // Enumerating the contexts I could think of is how the assignment case got missed, so each one
     // that IS handled is pinned. A context silently dropped later would otherwise read as "clean".
@@ -79,6 +89,19 @@ describe('fail-open catches', () => {
     expect(hits.length).toBe(1);
     expect(hits[0].returns).toBe('0');
     expect(hits[0].question).toMatch(/Can a caller tell that apart from a genuine 0/);
+  });
+
+  it('⚠ THE REPAIRED COUNTERPART FOR THIS CATEGORY DOES NOT EXIST YET, and that is recorded', () => {
+    // ⛔ The motivating defect here — safeDirtyCount's `catch { return 0 }` — is STILL LIVE. Its fix
+    // is a separately held slice with four preregistered semantic controls, so there is no repaired
+    // form to freeze beside it. Inventing a plausible one would make this pair look complete when
+    // half of it is imaginary.
+    //
+    // ⇒ What CAN be pinned today is the honest alternative the repair will use, which the same file
+    // already uses for an unknown commit: a typed unknown rather than a successful-looking zero.
+    // When safeDirtyCount lands, its real repaired form replaces this and the note goes away.
+    expect(failOpenCatches("function f(){ try { return g(); } catch { return '?'; } }"),
+      'the honest marker this repo already uses for unknown').toEqual([]);
   });
 
   it('★★★ POSITIVE CONTROL: every success-shaped literal is caught', () => {
