@@ -77,8 +77,8 @@
     },
     "D2 a pending start is reported as already_running": {
       "spec": "dashboard-ownership-D2.spec.json",
-      "state": "v3_runnable_unwitnessed",
-      "reason": "Physically extracted into its own v3-loadable file before any run. Preregistration tests/self-review/preregistrations/D2.json, referee graph-senior-dev, approval 1787278542582-fafd49ab. PROMOTED ON SCHEMA AND PREREGISTRATION ALONE, never on a result. Bounded to the same-key JOIN route; does not touch D1's publication-timing question."
+      "state": "v3_failure_observed_unattributed",
+      "reason": "Receipt tests/self-review/receipts/D2/, run f694cd25, authorized carrier 6d9fd5a/647c92e, referee approval 1787282584838-51740c62. BOUNDED CLAIM: the pending-join branch is load-bearing for the same-key JOIN route against D2's fall-through mutation; without it the pending marker yields an undefined URL and the preregistered usable-URL assertion fails. NOT teardown visibility, ownership or release; NOT D1's publication-timing question; NOT v3_witnessed, since body attribution stays open. The falsifiable no-EBUSY prediction held ONCE on this exact Windows carrier and this mutation -- not generalizable across platforms or mutations."
     },
     "D3 drop the shutdown-ACTIVE check, keep only the generation": {
       "spec": "dashboard-ownership.spec.json",
