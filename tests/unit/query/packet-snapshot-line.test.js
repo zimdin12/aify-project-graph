@@ -39,7 +39,7 @@ describe('the packet SNAPSHOT line', () => {
     // the uninteresting one.
     const out = await graphPacket({ repoRoot: REPO, target: 'graphPacket', mode: 'orient' });
     expect(snapshotOf(out), 'no snapshot line means the guard is excluding nothing and covering nothing')
-      .toMatch(/^SNAPSHOT: indexed=\S+ head=\S+ dirty=\d+ trust=\S+( STALE)?$/);
+      .toMatch(/^SNAPSHOT: indexed=\S+ head=\S+ dirty=(?:\d+|\?) trust=\S+( STALE)?$/);
   }, 20_000);
 
   it('★★★ STALE is present exactly when indexed differs from head — the case the shape check hid', () => {
@@ -127,6 +127,9 @@ describe('the packet SNAPSHOT line', () => {
     const staged = execFileSync('git', ['-C', REPO, 'diff', '--cached', '--name-only'], { encoding: 'utf8' })
       .split('\n').filter(Boolean).length;
     const out = await graphPacket({ repoRoot: REPO, target: 'graphPacket', mode: 'orient' });
+    // ⚠ Reads \d+ deliberately: this case runs against a REAL repository, where the git query
+    // succeeds, so a `?` here would mean the query failed and the assertion below should not
+    // quietly absorb it. The unknown state has its own file, dirty-unknown-contract.test.js.
     const shown = Number(/dirty=(\d+)/.exec(snapshotOf(out))?.[1]);
     if (tracked + staged === 0) {
       expect(shown, 'no tracked change means the count must be zero, not merely small').toBe(0);

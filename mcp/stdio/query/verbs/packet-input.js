@@ -137,10 +137,22 @@ function safeGitHead(repoRoot) {
 // said nothing. The agent had two contradictory dirty counts for one tree and no
 // way to tell which was load-bearing, so the honest banner lost credibility to
 // the wrong one.
+// ⛔ A COUNT THE TOOL COULD NOT TAKE IS NOT ZERO.
+//
+// This returned 0 when the git query threw, so a failed query was indistinguishable from a
+// genuinely clean tree — and `dirty=` is a TRUST number. It told an agent "the graph matches your
+// working tree" at exactly the moment the tool had lost the ability to check.
+//
+// ⚠ The honest marker already existed ONE LINE AWAY and this field ignored it: the same banner
+// renders `indexed=?`, `head=?` and `trust=missing` when those are unknown. Three fields admitted
+// ignorance; this one did not.
+//
+// ⇒ null is UNKNOWN. The renderer owns the presentation, so a "count" never has to return a string.
+// Contract preregistered at docs/2026-08-21-prereg-safedirtycount.md before this edit.
 function safeDirtyCount(repoRoot) {
   try {
     return getTrackedDirtyFilesSync(repoRoot).length;
-  } catch { return 0; }
+  } catch { return null; }
 }
 
 export function trustTier(unresolvedEdges) {
@@ -162,7 +174,9 @@ export function snapshotLine(brief, manifest, repoRoot) {
   const { trust: trustCount } = getUnresolvedCounts(manifest ?? {});
   const trust = manifest ? trustTier(trustCount) : 'missing';
   const stale = indexed !== '?' && head !== '?' && indexed !== head ? ' STALE' : '';
-  return `SNAPSHOT: indexed=${shortSha(indexed)} head=${shortSha(head)} dirty=${dirty} trust=${trust}${stale}`;
+  // ⛔ `??` AND NOT `||`. A genuinely clean tree is 0, and `0 || "?"` is "?" — which would report
+  // UNKNOWN for the commonest honest state and destroy the field while looking like a fix.
+  return `SNAPSHOT: indexed=${shortSha(indexed)} head=${shortSha(head)} dirty=${dirty ?? "?"} trust=${trust}${stale}`;
 }
 
 function shortSha(s) {

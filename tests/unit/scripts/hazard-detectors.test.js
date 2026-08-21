@@ -91,17 +91,20 @@ describe('fail-open catches', () => {
     expect(hits[0].question).toMatch(/Can a caller tell that apart from a genuine 0/);
   });
 
-  it('⚠ THE REPAIRED COUNTERPART FOR THIS CATEGORY DOES NOT EXIST YET, and that is recorded', () => {
-    // ⛔ The motivating defect here — safeDirtyCount's `catch { return 0 }` — is STILL LIVE. Its fix
-    // is a separately held slice with four preregistered semantic controls, so there is no repaired
-    // form to freeze beside it. Inventing a plausible one would make this pair look complete when
-    // half of it is imaginary.
+  it('★★★ THE REPAIRED COUNTERPART, now real: safeDirtyCount returns null for unknown', () => {
+    // ⚠ THIS TEST USED TO SAY THE PAIR WAS INCOMPLETE, and it was right at the time: the motivating
+    // defect was still live, so there was no repaired form to freeze beside it. Inventing a
+    // plausible one would have made the pair look complete when half of it was imaginary — the
+    // false-completeness this inventory exists to prevent, and worse inside an instrument.
     //
-    // ⇒ What CAN be pinned today is the honest alternative the repair will use, which the same file
-    // already uses for an unknown commit: a typed unknown rather than a successful-looking zero.
-    // When safeDirtyCount lands, its real repaired form replaces this and the note goes away.
+    // ⇒ safeDirtyCount has landed. This is its ACTUAL repaired shape, so the pair is now genuine
+    // rather than promised: the broken form is flagged, the shipped form is not.
+    expect(failOpenCatches('function f(r) { try { return g(r).length; } catch { return null; } }'),
+      'null is a typed unknown, not a success-shaped literal').toEqual([]);
     expect(failOpenCatches("function f(){ try { return g(); } catch { return '?'; } }"),
-      'the honest marker this repo already uses for unknown').toEqual([]);
+      'and so is the ? marker this repo already uses for an unknown commit').toEqual([]);
+    expect(failOpenCatches('function f(r) { try { return g(r).length; } catch { return 0; } }').length,
+      'while the ORIGINAL broken form is still caught — the other half of the pair').toBe(1);
   });
 
   it('★★★ POSITIVE CONTROL: every success-shaped literal is caught', () => {

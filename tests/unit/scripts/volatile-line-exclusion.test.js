@@ -72,12 +72,16 @@ describe('the volatile SNAPSHOT line is excluded in every state it can occur in'
     expect(r.stable).toBe(impostor);
   });
 
-  it('★★★⛔ `dirty=?` is NOT excluded yet, and that is deliberate', () => {
-    // safeDirtyCount returns 0 on a failed git query, so no input can currently produce this line.
-    // A guard no input can reach is decoration, and a test asserting it would manufacture coverage
-    // for an unreachable state. This assertion is the LEDGER of that decision: it fails, loudly and
-    // by design, in the commit that teaches the producer to emit an unknown dirty count.
-    expect(splitVolatile('SNAPSHOT: indexed=? head=? dirty=? trust=missing').excluded).toEqual([]);
+  it('★★★ `dirty=?` IS excluded now — the ledger entry, flipped as designed', () => {
+    // ⚠ THIS ASSERTION USED TO BE ITS OWN OPPOSITE, on purpose. While safeDirtyCount returned 0 on
+    // a failed git query, no input could produce `dirty=?` — and a guard no input can reach is
+    // decoration, so widening the pattern early would have added a branch nothing could exercise.
+    // The old test asserted the exclusion did NOT happen, and said in its body that it would fail
+    // loudly in the commit that taught the producer to emit an unknown count. That commit is this
+    // one, and the assertion inverted rather than being quietly deleted.
+    const unknown = 'SNAPSHOT: indexed=? head=? dirty=? trust=missing';
+    expect(splitVolatile(unknown).excluded, 'an unknown dirty count is still a volatile banner').toEqual([unknown]);
+    expect(splitVolatile(unknown).stable, 'and must not reach the compared set').toBe('');
   });
 });
 

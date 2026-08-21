@@ -274,10 +274,10 @@ async function runCorpus() {
 // spelling made a shape assertion unpassable on a stale graph. I fixed that site and did not sweep
 // for the spelling elsewhere, so this one survived another day. ONE FIX IS NOT A SWEEP.
 //
-// ⚠ `dirty=\d+` is deliberately NOT widened to accept `?` yet. safeDirtyCount currently returns 0
-// on a failed git query, so no input can produce `dirty=?` — and a guard no input can reach is
-// decoration. It widens in the same commit that makes the producer able to emit it.
-const VOLATILE_LINE = /^SNAPSHOT: indexed=\S+ head=\S+ dirty=\d+ trust=\S+( STALE)?$/;
+// ⚠ `dirty=` NOW ACCEPTS `?`, and this widening lands in the SAME COMMIT that teaches the producer
+// to emit it. Until now no input could produce `dirty=?`, and a guard no input can reach is
+// decoration — so widening earlier would have been a branch nothing could exercise.
+const VOLATILE_LINE = /^SNAPSHOT: indexed=\S+ head=\S+ dirty=(?:\d+|\?) trust=\S+( STALE)?$/;
 
 // ⛔⛔ `[].every(pred)` IS VACUOUSLY TRUE, AND THAT IS HOW THIS CHECK CERTIFIED ITS OWN FAILURE.
 //
