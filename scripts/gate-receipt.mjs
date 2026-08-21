@@ -124,6 +124,23 @@ function ignoredIn(cwd) {
  * run observe a filesystem built FROM T rather than hoping the ambient checkout equals it --
  * measured: HEAD and branch are unchanged, and the temp commit's tree is exactly T.
  */
+// PROVEN CAUSE OF THE .aify-graph ENTRY REFUSALS, and it was MINE, not the MCP servers.
+//
+// `git worktree add` fires the repo's post-checkout hook. This repo installs one that runs
+// scripts/reindex.mjs against `git rev-parse --show-toplevel` -- which, inside a brand-new
+// worktree, resolves to THE NEW WORKTREE. reindex.mjs creates .aify-graph/ there. The hook
+// backgrounds it with `&`, so it RACES the gate's entry sample: absent at 0s, present at ~6s.
+//
+// That is a mechanism, reproduced on demand, not a correlation. Three of four commits were
+// refused by it while I was reporting nine stale MCP servers as the leading candidate. They were
+// innocent of this charge.
+//
+// A materialized worktree is an EVIDENCE CARRIER, not a working checkout. Reindexing it is pure
+// interference, so hooks are disabled for the checkout that creates it. This does not weaken the
+// entry check -- the check still refuses any unexpected ignored state; it removes the thing that
+// was creating it.
+const NO_HOOKS = ['-c', 'core.hooksPath=' + join(REPO, '.git', 'no-hooks-for-evidence-carriers')];
+
 function materialize(T) {
   const tempCommit = execFileSync('git', ['commit-tree', T, '-p', 'HEAD', '-m', 'candidate materialization (unreferenced)'],
     { cwd: REPO, encoding: 'utf8' }).trim();
@@ -153,7 +170,7 @@ function materialize(T) {
         + 'generated state would be inherited as if fresh. Release the handle or remove it by hand.');
     }
   }
-  execFileSync('git', ['worktree', 'add', '--detach', worktree, tempCommit], { cwd: REPO, stdio: 'ignore' });
+  execFileSync('git', [...NO_HOOKS, 'worktree', 'add', '--detach', worktree, tempCommit], { cwd: REPO, stdio: 'ignore' });
   return { tempCommit, worktree, runId, pid: process.pid };
 }
 
@@ -380,7 +397,7 @@ EXPECTED   ${T0}`);
   if (commitBound) {
     worktree = join(REPO, '..', `apg-receipt-${argv[bindIdx + 1].slice(0, 7)}`);
     if (existsSync(worktree)) rmSync(worktree, { recursive: true, force: true });
-    execFileSync('git', ['worktree', 'add', '--detach', worktree, argv[bindIdx + 1]], { cwd: REPO, stdio: 'ignore' });
+    execFileSync('git', [...NO_HOOKS, 'worktree', 'add', '--detach', worktree, argv[bindIdx + 1]], { cwd: REPO, stdio: 'ignore' });
     dependencyTransport = linkDeps(worktree);
     root = worktree;
   } else if (candidateTree) {
