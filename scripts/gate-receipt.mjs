@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
-  RECEIPT_CLASS, VERDICT, receiptVerdict, renderReceipt,
+  RECEIPT_CLASS, VERDICT, receiptVerdict, renderReceipt, capture,
 } from './lib/gate-receipt.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -51,8 +51,11 @@ function runGate({ label, argv, cwd, countPattern, timeoutMs }) {
     // are different facts, and a hang must not read as a verdict.
     timedOut: r.error?.code === 'ETIMEDOUT',
     spawnError: r.error && r.error.code !== 'ETIMEDOUT' ? String(r.error.message) : null,
-    stdoutSha256: sha(r.stdout),
-    stderrSha256: sha(r.stderr),
+    // FULL 64-hex hashes PLUS the bytes themselves. The first evidence commit carried 16-hex
+    // PREFIXES inside prose and no raw output: a prefix in prose is not an immutable content
+    // carrier, because nothing can be re-hashed against it. It names bytes nobody kept.
+    stdout: capture(r.stdout),
+    stderr: capture(r.stderr),
     countLines: countPattern ? plain.split('\n').filter((l) => countPattern.test(l)).map((l) => l.trimEnd()) : [],
   };
 }
@@ -124,7 +127,41 @@ function main() {
     const out = receipt + cleanupNote;
     console.log(out);
     const outIdx = argv.indexOf('--out');
-    if (outIdx !== -1 && argv[outIdx + 1]) writeFileSync(argv[outIdx + 1], `${out}\n`);
+    if (outIdx !== -1 && argv[outIdx + 1]) {
+      // The MACHINE-READABLE receipt is the carrier; the prose above is RENDERED FROM IT, never
+      // authored beside it. Raw output is written as its own artifact so every recorded hash has a
+      // preimage a reader can re-hash -- the defect the first evidence commit shipped, which carried
+      // 16-hex prefixes in prose and no bytes at all.
+      const base = argv[outIdx + 1];
+      const dir = dirname(base);
+      const json = {
+        receiptClass,
+        verdict,
+        boundTo: commitBound ? { commit: before.commit, tree: before.tree } : null,
+        identity: { before, after },
+        node: process.version,
+        platform: process.platform,
+        dependencyTransport,
+        gates: gates.map((g) => ({
+          label: g.label,
+          argv: g.argv,
+          exit: g.exit,
+          signal: g.signal,
+          timedOut: g.timedOut,
+          spawnError: g.spawnError,
+          countLines: g.countLines,
+          stdout: { ...g.stdout, text: undefined, artifact: g.label + '.stdout.txt' },
+          stderr: { ...g.stderr, text: undefined, artifact: g.label + '.stderr.txt' },
+        })),
+        cleanup: cleanupNote.trim() || null,
+      };
+      writeFileSync(base, out + String.fromCharCode(10));
+      writeFileSync(base.replace(/[.]txt$/, '') + '.json', JSON.stringify(json, null, 2) + String.fromCharCode(10));
+      for (const g of gates) {
+        writeFileSync(join(dir, g.label + '.stdout.txt'), g.stdout.text);
+        writeFileSync(join(dir, g.label + '.stderr.txt'), g.stderr.text);
+      }
+    }
     process.exit(verdict === VERDICT.PASS ? 0 : 1);
   } catch (err) {
     if (worktree && existsSync(worktree)) rmSync(worktree, { recursive: true, force: true });

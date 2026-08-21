@@ -22,6 +22,31 @@
 //   COMMIT_BOUND           clean detached worktree at an exact commit/tree · identity sampled
 //                          before and after · any dirt or movement REFUSES · only this may PASS
 
+import { createHash } from 'node:crypto';
+
+const sha = (b) => createHash('sha256').update(b ?? '').digest('hex');
+
+/**
+ * Bound the raw output, and make the bound EXPLICIT rather than silent.
+ *
+ * A truncated artifact that does not say so is a lie by omission: a reader re-hashes it, gets a
+ * different value, and cannot tell whether the evidence was clipped or tampered with. Both hashes
+ * travel -- of the whole output, and of what was actually kept.
+ */
+export const MAX_CAPTURE = 256 * 1024;
+export function capture(raw) {
+  const full = raw ?? '';
+  const kept = full.length > MAX_CAPTURE ? full.slice(0, MAX_CAPTURE) : full;
+  return {
+    originalBytes: Buffer.byteLength(full),
+    capturedBytes: Buffer.byteLength(kept),
+    truncated: kept.length !== full.length,
+    fullHash: sha(full),
+    capturedHash: sha(kept),
+    text: kept,
+  };
+}
+
 /** What a receipt is allowed to conclude. */
 export const RECEIPT_CLASS = {
   PRECOMMIT_DIAGNOSTIC: 'PRECOMMIT_DIAGNOSTIC',
@@ -116,7 +141,12 @@ export function renderReceipt({ receiptClass, before, after, gates, boundTo, dep
     lines.push(`    gate       ${g.label}`);
     lines.push(`    argv       ${JSON.stringify(g.argv)}`);
     lines.push(`    exit       ${g.exit}${g.signal ? ` signal=${g.signal}` : ''}${g.timedOut ? ' TIMED OUT' : ''}${g.spawnError ? ` spawn-error=${g.spawnError}` : ''}`);
-    lines.push(`    outHash    ${g.stdoutSha256?.slice(0, 16) ?? '(none)'} / ${g.stderrSha256?.slice(0, 16) ?? '(none)'}`);
+    // FULL hashes, and the truncation state, because a prefix names bytes nobody can re-hash.
+    for (const [name, cap] of [['stdout', g.stdout], ['stderr', g.stderr]]) {
+      if (!cap) continue;
+      lines.push(`    ${name}     ${cap.fullHash}`);
+      lines.push(`               ${cap.originalBytes} bytes${cap.truncated ? ` TRUNCATED to ${cap.capturedBytes} (captured hash ${cap.capturedHash})` : ' (captured whole)'}`);
+    }
     for (const c of g.countLines) lines.push(`   ${c}`);
   }
   lines.push('');

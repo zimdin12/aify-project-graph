@@ -13,16 +13,17 @@
 //
 // ⇒ **A disclosure the reader must act on is not a control. The verdict has to move.**
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'node:crypto';
 import {
   identityMovement, IDENTITY_KEYS, gatePassed, renderReceipt, receiptVerdict,
-  RECEIPT_CLASS, VERDICT,
+  RECEIPT_CLASS, VERDICT, capture, MAX_CAPTURE,
 } from '../../../scripts/lib/gate-receipt.mjs';
 
 const ident = (over = {}) => ({ commit: 'c'.repeat(40), tree: 't'.repeat(40), porcelain: '', ...over });
 
 const gate = (over = {}) => ({
   label: 'vitest', argv: ['node', 'vitest.mjs', 'run'], exit: 0, signal: null, spawnError: null,
-  timedOut: false, stdoutSha256: 'a'.repeat(64), stderrSha256: 'b'.repeat(64),
+  timedOut: false, stdout: capture('gate output'), stderr: capture(''),
   countLines: ['  Tests  10 passed (10)'], ...over,
 });
 
@@ -130,8 +131,52 @@ describe('the receipt transports rather than authors', () => {
     expect(receipt).toContain('["node","x y.mjs","--flag"]');
   });
 
-  it('★★★ raw output hashes are preserved so a quoted count ties back to bytes', () => {
-    expect(renderReceipt(bound())).toMatch(/outHash {4}a{16} \/ b{16}/);
+  it('★★★ FULL 64-hex hashes are printed, not prefixes', () => {
+    // ⛔ THE FIRST EVIDENCE COMMIT CARRIED 16-HEX PREFIXES IN PROSE AND NO BYTES. A prefix is not
+    // an immutable content carrier: nothing can be re-hashed against it, so it names bytes nobody
+    // kept. The referee refused it as an incomplete carrier and was right to.
+    const receipt = renderReceipt(bound());
+    const full = createHash('sha256').update('gate output').digest('hex');
+    expect(receipt, 'the whole digest travels').toContain(full);
+    expect(full.length).toBe(64);
+  });
+
+  it('★★★ capture() records ORIGINAL bytes, and says when it truncated', () => {
+    const small = capture('abc');
+    expect(small.truncated).toBe(false);
+    expect(small.originalBytes).toBe(3);
+    expect(small.capturedBytes).toBe(3);
+    expect(small.fullHash).toBe(small.capturedHash);
+    expect(small.text).toBe('abc');
+  });
+
+  it('★★★⛔ A TRUNCATED ARTIFACT SAYS SO, and carries BOTH hashes', () => {
+    // ⚠ A truncated artifact that does not declare itself is a lie by omission: a reader re-hashes
+    // the file, gets a different value, and cannot tell whether the evidence was clipped or
+    // tampered with. Both digests travel so the two cases stay distinguishable.
+    const big = 'x'.repeat(MAX_CAPTURE + 1000);
+    const cap = capture(big);
+    expect(cap.truncated, 'it declares the bound').toBe(true);
+    expect(cap.originalBytes).toBe(MAX_CAPTURE + 1000);
+    expect(cap.capturedBytes).toBe(MAX_CAPTURE);
+    expect(cap.fullHash, 'the whole output is still identified').toBe(createHash('sha256').update(big).digest('hex'));
+    expect(cap.capturedHash, 'and so is what was kept').toBe(createHash('sha256').update(cap.text).digest('hex'));
+    expect(cap.fullHash).not.toBe(cap.capturedHash);
+    expect(renderReceipt(bound({ gates: [gate({ stdout: cap })] }))).toMatch(/TRUNCATED to \d+/);
+  });
+
+  it('★★★ the captured text re-hashes to its recorded capturedHash — the preimage contract', () => {
+    // This is what the first evidence commit could not offer: a hash WITH bytes a reader can check.
+    for (const sample of ['', 'one line', ['multi', 'line', 'output'].join(String.fromCharCode(10))]) {
+      const cap = capture(sample);
+      expect(createHash('sha256').update(cap.text).digest('hex')).toBe(cap.capturedHash);
+    }
+  });
+
+  it('★★★ CONTROL: a tampered artifact does NOT re-hash', () => {
+    // Without this, "it re-hashes" is satisfied by a comparison that always agrees.
+    const cap = capture('evidence');
+    expect(createHash('sha256').update(`${cap.text} `).digest('hex')).not.toBe(cap.capturedHash);
   });
 
   it('★★★ a dirty tree is disclosed with its entry count AS WELL AS refusing', () => {
