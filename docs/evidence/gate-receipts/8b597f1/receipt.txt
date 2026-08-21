@@ -1,0 +1,30 @@
+GATE RECEIPT [COMMIT_BOUND] — numbers transported from the runs, not authored
+    binds      8b597f124fa093825be79e62f11e54f894ff54ef / tree 804d7f50beb534514dab892581a64062453a3b3f
+    commit     8b597f124fa093825be79e62f11e54f894ff54ef
+    tree       804d7f50beb534514dab892581a64062453a3b3f
+    porcelain  empty
+    deps       node_modules JUNCTION -> C:\Docker\aify-project-graph\node_modules (shared, mutable)
+
+    gate       vitest
+    argv       ["C:\\nvm4w\\nodejs\\node.exe","C:\\Docker\\apg-receipt-8b597f1\\node_modules\\vitest\\vitest.mjs","run"]
+    exit       0
+    stdout     25366170ccc0ae8522286e4ca369612dea23cb74c8ea25654088c68dbb89d597
+               97516 bytes (captured whole)
+    stderr     49cf509adecfcf19a6319aa746acd81b18c3a72744be895c12bc9f44500c062c
+               10086 bytes (captured whole)
+    Test Files  319 passed (319)
+         Tests  2482 passed | 4 skipped (2486)
+
+    gate       authority-ledger
+    argv       ["C:\\nvm4w\\nodejs\\node.exe","C:\\Docker\\apg-receipt-8b597f1\\scripts\\authority-ledger.mjs","--check"]
+    exit       0
+    stdout     80c7cabe69f009f9883e43122e9e13d31afed8d32ab1df0add9544b77a583a25
+               917 bytes (captured whole)
+    stderr     e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+               0 bytes (captured whole)
+   ALL FILES COMPLETE: true
+
+    terminal   8b597f1 / porcelain empty
+    cleanup    recorded below by the caller
+    VERDICT    PASS — every gate process exited 0 on a clean exact-commit carrier
+    cleanup    worktree removed: true · junction removed · worktree pruned
