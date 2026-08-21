@@ -160,10 +160,61 @@ export const FILE_AUTHORITIES = {
   'mcp/stdio/query/verbs/packet-overlay.js': ['packet:overlay'],
 };
 
+/**
+ * ⛔ `[].every(pred)` IS TRUE, AND THIS FUNCTION EMITS A NON-NEGOTIABLE AUTHORITY CLAIM.
+ *
+ * The old line was `complete: files.every((f) => f.complete)`. It was safe only because
+ * FILE_AUTHORITIES happens to be a six-entry module literal — one deletion, one filter, one
+ * refactor away from `ALL FILES COMPLETE: true` computed over ZERO FILES. Certifying that every
+ * file is complete when there are no files is the strongest possible statement made on the weakest
+ * possible evidence, and nothing in the output would have looked different.
+ *
+ * Found by the candidate-hazard inventory, which was built after `volatileShapeOk` failed in
+ * exactly this way — there the vacuous `true` disabled a wired FAIL path for the entire life of the
+ * tool. This is the same shape in one of the three gates every slice depends on.
+ *
+ * ⇒ THREE STATES, because an empty population is not "incomplete". It is a REFUSAL: nothing was
+ * examined, so no verdict about completeness exists to give. Collapsing it into `false` would be
+ * honest about the exit code and dishonest about the reason.
+ *
+ * ⚠ EXACT POSITIVE CARDINALITY, checked in the same expression that decides — not a count printed
+ * beside an unchanged `.every`. A number reported next to a verdict is disclosure; the verdict has
+ * to move.
+ */
+export const AUTHORITY_VERDICT = {
+  COMPLETE: 'COMPLETE',
+  INCOMPLETE: 'INCOMPLETE',
+  REFUSED_EMPTY: 'REFUSED_EMPTY',
+};
+
+export function allFilesComplete(files) {
+  if (!Array.isArray(files) || files.length === 0) {
+    return {
+      verdict: AUTHORITY_VERDICT.REFUSED_EMPTY,
+      complete: false,
+      examined: 0,
+      reason: 'the authority population is EMPTY — nothing was examined, so "every file is complete" '
+        + 'is vacuously true and means nothing. This is a refusal, not a pass and not a failure.',
+    };
+  }
+  const incomplete = files.filter((f) => !f.complete);
+  if (incomplete.length > 0) {
+    return {
+      verdict: AUTHORITY_VERDICT.INCOMPLETE,
+      complete: false,
+      examined: files.length,
+      reason: `${incomplete.length} of ${files.length} file(s) incomplete: `
+        + incomplete.map((f) => f.file).join(', '),
+    };
+  }
+  return { verdict: AUTHORITY_VERDICT.COMPLETE, complete: true, examined: files.length };
+}
+
 export function auditAll() {
   const files = Object.entries(FILE_AUTHORITIES)
     .map(([f, tags]) => auditFile(f, Object.fromEntries(tags.map((t) => [t, AUTHORITIES[t]]))));
-  return { files, complete: files.every((f) => f.complete) };
+  const outcome = allFilesComplete(files);
+  return { files, ...outcome };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────────────
@@ -180,7 +231,16 @@ ${a.file}`);
     if (a.phantom.length) console.log(`  ⛔ PHANTOM: ${a.phantom.join(', ')}`);
     console.log(`  complete: ${a.complete}`);
   }
-  console.log(`
-ALL FILES COMPLETE: ${result.complete}`);
+  // ⛔ THE `ALL FILES COMPLETE` LINE IS ONLY PRINTED WHEN A POPULATION WAS ACTUALLY EXAMINED.
+  // On a refusal it must not appear in EITHER polarity: "false" would imply files were checked and
+  // found wanting, which is a different claim from "there were no files".
+  if (result.verdict === AUTHORITY_VERDICT.REFUSED_EMPTY) {
+    console.log(`
+⛔ REFUSED — no authority verdict: ${result.reason}`);
+  } else {
+    console.log(`
+ALL FILES COMPLETE: ${result.complete}   (examined ${result.examined})`);
+    if (result.reason) console.log(`  ${result.reason}`);
+  }
   if (process.argv.includes('--check') && !result.complete) process.exit(1);
 }
