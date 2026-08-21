@@ -25,3 +25,4 @@ tests/fixtures/packet-routes/.git/
 tests/fixtures/packet-routes/.aify-graph/graph.sqlite*
 !tests/fixtures/packet-routes/.aify-graph/
 !tests/fixtures/packet-routes/.aify-graph/*.json
+.candidate-attempts/

@@ -19,7 +19,7 @@ import { writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   RECEIPT_CLASS, VERDICT, receiptVerdict, renderReceipt, capture,
 } from './lib/gate-receipt.mjs';
@@ -27,6 +27,9 @@ import {
 // else -- node_modules is ignored, so it cannot come from T. This names what remains rather than
 // implying a hermeticity the run does not have.
 import { dependencyCarrier, unexpectedIgnored } from './lib/dependency-carrier.mjs';
+// ⛔ A refusal must not be retriable into a receipt. Every attempt on a candidate tree is recorded
+// outside T, and a plain retry after a non-PASS is refused.
+import { readAttempts, recordAttempt, retryPermission, renderAttempts } from './lib/attempt-ledger.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sha = (b) => createHash('sha256').update(b ?? '').digest('hex');
@@ -121,17 +124,22 @@ function ignoredIn(cwd) {
 function materialize(T) {
   const tempCommit = execFileSync('git', ['commit-tree', T, '-p', 'HEAD', '-m', 'candidate materialization (unreferenced)'],
     { cwd: REPO, encoding: 'utf8' }).trim();
-  // ⛔ RUN-UNIQUE, NOT TREE-DERIVED. The name used to be `apg-materialized-<T12>` — deterministic
-  // from the tree — so two consecutive runs on an UNCHANGED tree resolved to the SAME directory.
-  // Vitest workers from the previous run outlive its disposal by moments and recreate `.aify-graph`
-  // at that path, which the next run then saw as pre-existing ambient state at entry.
+  // ⛔ RUN-UNIQUE BY UUID, NOT BY TREE AND NOT BY PID.
   //
-  // ⇒ That is the intermittency: PASS when the previous run's workers had finished, REFUSE when
-  // they had not. The "unidentified ambient producer" was THIS TOOL'S OWN PREVIOUS RUN, reaching
-  // forward into the next one through a shared path.
+  // The name was once `apg-materialized-<T12>` — derived from T — so two consecutive runs on an
+  // UNCHANGED tree resolved to the SAME directory. Vitest workers outlive disposal by moments, hold
+  // the sqlite handles, and recreate `.aify-graph` there; the next run then saw it as pre-existing
+  // ambient state. Measured: with a live child, disposal leaves the directory present containing
+  // ONLY `.aify-graph` with graph.sqlite/-shm/-wal, removable once the handles release.
   //
-  // ⚠ The pid keeps it unique per process while the tree prefix keeps it attributable.
-  const worktree = join(REPO, '..', `apg-materialized-${T.slice(0, 12)}-${process.pid}`);
+  // ⛔⛔ MY FIRST FIX USED `process.pid`, AND THAT IS NOT UNIQUENESS AUTHORITY. A pid is unique only
+  // while that process lives — pids recycle, and two materializations inside ONE long-lived process
+  // collide with each other, which is precisely the shared-path bug again inside a single run.
+  //
+  // ⇒ A cryptographic run id, created once per materialization. The pid still travels in the
+  // receipt as DISCLOSURE; it is never the thing that makes the path unique.
+  const runId = randomUUID();
+  const worktree = join(REPO, '..', `apg-materialized-${T.slice(0, 12)}-${runId.slice(0, 8)}`);
   if (existsSync(worktree)) {
     rmSync(worktree, { recursive: true, force: true });
     // ⛔ `rmSync(force:true)` SWALLOWS FAILURES. A previous run holding a sqlite handle leaves the
@@ -143,7 +151,7 @@ function materialize(T) {
     }
   }
   execFileSync('git', ['worktree', 'add', '--detach', worktree, tempCommit], { cwd: REPO, stdio: 'ignore' });
-  return { tempCommit, worktree };
+  return { tempCommit, worktree, runId, pid: process.pid };
 }
 
 /** Link the dependency carrier into a fresh worktree, and DISCLOSE how it got there. */
@@ -177,25 +185,79 @@ function main() {
   const cwIdx = argv.indexOf('--commit-with');
   if (cwIdx !== -1 && argv[cwIdx + 1]) {
     const msgFile = argv[cwIdx + 1];
+    const supIdx = argv.indexOf('--supersedes');
+    const supersedes = supIdx !== -1 ? argv[supIdx + 1] : null;
+
+    // ── 1. FREEZE THE CUSTODY BEFORE ANYTHING RUNS. Parent, ref and tree are read once; every
+    //       later step compares against these, so a move between gate and commit is detectable
+    //       rather than merely unlikely.
+    const ref = execFileSync('git', ['symbolic-ref', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const parent = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const T0 = execFileSync('git', ['write-tree'], { cwd: REPO, encoding: 'utf8' }).trim();
+
+    // ── 2. THE ATTEMPT LEDGER GOVERNS WHETHER WE MAY EVEN TRY.
+    const priorAttempts = readAttempts(REPO, T0);
+    const permission = retryPermission(priorAttempts, { supersedes });
+    if (!permission.allowed) {
+      console.error(`REFUSED: ${permission.reason}`);
+      process.exit(1);
+    }
+
+    // ── 3. GATE THE MATERIALIZED TREE.
     const receiptFile = `${msgFile}.receipt`;
     const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url), '--candidate-tree', '--out', receiptFile],
       { cwd: REPO, encoding: 'utf8' });
     console.log(r.stdout ?? '');
+    const receiptText = existsSync(receiptFile) ? readFileSync(receiptFile, 'utf8') : '';
+    const verdict = /VERDICT {4}([A-Z_]+)/.exec(receiptText)?.[1] ?? 'UNKNOWN';
+    const reason = /VERDICT {4}[A-Z_]+ — (.*)/.exec(receiptText)?.[1] ?? null;
+    const materialization = /materialized at ([0-9a-f]+)/.exec(receiptText)?.[1] ?? null;
+    const attempts = recordAttempt(REPO, T0, {
+      at: new Date().toISOString(), verdict, reason, materialization, exit: r.status,
+      supersedes: supersedes ?? undefined,
+    });
     if (r.status !== 0) {
-      console.error('REFUSED: the candidate gate did not PASS — nothing was committed.');
+      console.error(`REFUSED: the candidate gate returned ${verdict} — nothing was committed.`);
+      console.error(`  recorded as attempt ${attempts.length} on tree ${T0}`);
       process.exit(1);
     }
-    const receipt = readFileSync(receiptFile, 'utf8');
-    const T = /candidate  tree ([0-9a-f]{40})/.exec(receipt)?.[1];
-    if (!T) { console.error('REFUSED: could not read the candidate tree from the receipt.'); process.exit(2); }
+
+    // ── 4. RECHECK CUSTODY. The gate takes minutes; the index or the branch can move under it.
+    const T1 = execFileSync('git', ['write-tree'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const parentNow = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: REPO, encoding: 'utf8' }).trim();
+    if (T1 !== T0 || parentNow !== parent) {
+      console.error(`REFUSED: custody moved during the gate — tree ${T0} -> ${T1}, parent ${parent} -> ${parentNow}.`);
+      process.exit(1);
+    }
+
+    // ── 5. BUILD THE COMMIT OBJECT WITH THE EXACT TREE. `git commit-tree` names T directly, so the
+    //       committed tree cannot differ from the gated one — unlike `git commit`, where a hook or
+    //       an index change decides the tree and `--finalize` only notices AFTERWARDS.
     writeFileSync(msgFile, `${readFileSync(msgFile, 'utf8')}
-${receipt}`);
-    execFileSync('git', ['commit', '-F', msgFile], { cwd: REPO, stdio: 'inherit' });
-    const actual = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: REPO, encoding: 'utf8' }).trim();
-    const ok = actual === T;
-    console.log(`FINALIZE  expected ${T}
-          actual   ${actual}
-          ${ok ? 'BOUND' : 'REFUSED — committed tree is not the gated tree'}`);
+${renderAttempts(attempts)}
+
+${receiptText}`);
+    const newCommit = execFileSync('git', ['commit-tree', T0, '-p', parent, '-F', msgFile],
+      { cwd: REPO, encoding: 'utf8' }).trim();
+
+    // ── 6. ADVANCE THE REF BY COMPARE-AND-SWAP. `update-ref <ref> <new> <old>` fails if the branch
+    //       moved, so a concurrent commit cannot be silently overwritten.
+    const cas = spawnSync('git', ['update-ref', ref, newCommit, parent], { cwd: REPO, encoding: 'utf8' });
+    if (cas.status !== 0) {
+      console.error(`REFUSED: compare-and-swap on ${ref} failed — the branch moved. `
+        + `The commit object ${newCommit} exists but is unreferenced; nothing was published.`);
+      process.exit(1);
+    }
+
+    // ── 7. VERIFY, AND NEVER REPAIR BY REWRITING.
+    const headTree = execFileSync('git', ['rev-parse', 'HEAD^{tree}'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const porcelain = execFileSync('git', ['status', '--porcelain=v1'], { cwd: REPO, encoding: 'utf8' }).trim();
+    const ok = headTree === T0 && porcelain === '';
+    console.log(`COMMIT     ${newCommit}
+TREE       ${headTree}
+EXPECTED   ${T0}
+PORCELAIN  ${porcelain === '' ? 'empty' : 'DIRTY'}`);
+    console.log(`           ${ok ? 'BOUND — the candidate receipt certifies this commit' : 'MISMATCH — reported, not repaired'}`);
     process.exit(ok ? 0 : 1);
   }
 
@@ -289,7 +351,8 @@ ${receipt}`);
     const receipt = renderReceipt({
       receiptClass, before, after, gates,
       boundTo: commitBound ? `${before.commit} / tree ${before.tree}`
-        : candidateTree ? `CANDIDATE TREE ${candidateTreeHash} materialized at ${materialization.tempCommit.slice(0, 12)} (unreferenced)`
+        : candidateTree ? `CANDIDATE TREE ${candidateTreeHash} materialized at ${materialization.tempCommit.slice(0, 12)} `
+          + `(unreferenced) run=${materialization.runId} pid=${materialization.pid}`
           : null,
       dependencyTransport,
     });
