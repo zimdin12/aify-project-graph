@@ -3,6 +3,10 @@
 //
 //   node scripts/gate-receipt.mjs                       # PRECOMMIT_DIAGNOSTIC — never PASS
 //   node scripts/gate-receipt.mjs --bind <commit>       # COMMIT_BOUND — clean detached worktree
+//   node scripts/gate-receipt.mjs --candidate-tree      # CANDIDATE_TREE_BOUND — gates the STAGED
+//                                                       # tree about to be committed. Put the
+//                                                       # receipt in the COMMIT MESSAGE, not in the
+//                                                       # tree, or it certifies itself.
 //   ...--out FILE                                       # write it, for pasting verbatim
 //
 // ⛔ EXITS NON-ZERO UNLESS THE VERDICT IS PASS, so a green receipt cannot be obtained from a red
@@ -21,9 +25,21 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sha = (b) => createHash('sha256').update(b ?? '').digest('hex');
 
 /** Repository identity at one instant: what a receipt is claiming its numbers describe. */
-function repoIdentity(cwd) {
+function repoIdentity(cwd, withCandidate = false) {
   const git = (...a) => execFileSync('git', a, { cwd, encoding: 'utf8' }).trim();
-  return { commit: git('rev-parse', 'HEAD'), tree: git('rev-parse', 'HEAD^{tree}'), porcelain: git('status', '--porcelain=v1') };
+  const out = { commit: git('rev-parse', 'HEAD'), tree: git('rev-parse', 'HEAD^{tree}'), porcelain: git('status', '--porcelain=v1') };
+  if (withCandidate) {
+    // ⛔ `write-tree` NAMES THE STAGED CONTENT, which is strictly stronger than porcelain: porcelain
+    // says WHICH paths differ, T says exactly WHAT the bytes are. Unstaged edits and untracked files
+    // are recorded separately because both mean the working bytes the gates read are NOT the bytes
+    // T names -- and a receipt that gated different bytes than it certifies is the whole defect.
+    let unstaged = false;
+    try { execFileSync('git', ['diff', '--quiet'], { cwd, stdio: 'ignore' }); } catch { unstaged = true; }
+    const untracked = git('ls-files', '--others', '--exclude-standard')
+      .split(String.fromCharCode(10)).filter(Boolean).length;
+    out.candidate = { tree: git('write-tree'), unstaged, untracked };
+  }
+  return out;
 }
 
 /**
@@ -89,6 +105,7 @@ function main() {
   const argv = process.argv;
   const bindIdx = argv.indexOf('--bind');
   const commitBound = bindIdx !== -1 && argv[bindIdx + 1];
+  const candidateTree = argv.includes('--candidate-tree');
 
   let root = REPO;
   let worktree = null;
@@ -104,13 +121,17 @@ function main() {
   }
 
   try {
-    const before = repoIdentity(root);
+    const before = repoIdentity(root, candidateTree);
     const gates = gatesFor(root).map((g) => runGate({ ...g, cwd: root }));
-    const after = repoIdentity(root);
-    const receiptClass = commitBound ? RECEIPT_CLASS.COMMIT_BOUND : RECEIPT_CLASS.PRECOMMIT_DIAGNOSTIC;
+    const after = repoIdentity(root, candidateTree);
+    const receiptClass = commitBound ? RECEIPT_CLASS.COMMIT_BOUND
+      : candidateTree ? RECEIPT_CLASS.CANDIDATE_TREE_BOUND
+        : RECEIPT_CLASS.PRECOMMIT_DIAGNOSTIC;
     const receipt = renderReceipt({
       receiptClass, before, after, gates,
-      boundTo: commitBound ? `${before.commit} / tree ${before.tree}` : null,
+      boundTo: commitBound ? `${before.commit} / tree ${before.tree}`
+        : candidateTree ? `CANDIDATE TREE ${before.candidate.tree} (not yet committed)`
+          : null,
       dependencyTransport,
     });
     const { verdict } = receiptVerdict({ receiptClass, before, after, gates });

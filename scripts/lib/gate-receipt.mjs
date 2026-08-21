@@ -51,6 +51,16 @@ export function capture(raw) {
 export const RECEIPT_CLASS = {
   PRECOMMIT_DIAGNOSTIC: 'PRECOMMIT_DIAGNOSTIC',
   COMMIT_BOUND: 'COMMIT_BOUND',
+  // ⛔ THE CLASS THAT ENDS THE CHAIN. A COMMIT_BOUND receipt certifies its PARENT, so the commit
+  // carrying it is never itself gated -- which is how an evidence child shipped raw ANSI and
+  // reddened the suite while its own receipt was valid. The naive fix is another evidence child
+  // certifying that one, and another, forever.
+  //
+  // ⇒ CANDIDATE_TREE_BOUND binds the exact TREE OBJECT `T` that is about to be committed, measured
+  // BEFORE the commit exists. The receipt then travels in the COMMIT MESSAGE rather than inside T,
+  // so it cannot be part of what it certifies. After the commit, `HEAD^{tree} === T` promotes the
+  // result to the commit. Finite by construction.
+  CANDIDATE_TREE_BOUND: 'CANDIDATE_TREE_BOUND',
 };
 
 export const VERDICT = {
@@ -62,6 +72,13 @@ export const VERDICT = {
 
 /** Which identity fields must hold across the run for a receipt to bind. */
 export const IDENTITY_KEYS = ['commit', 'tree', 'porcelain'];
+
+/**
+ * ⚠ A CANDIDATE-TREE RUN IS EXPECTED TO HAVE A NON-EMPTY PORCELAIN — the staged evidence IS the
+ * thing being gated. Its stability is enforced by the candidate tree hash instead, which is
+ * strictly stronger: `porcelain` describes which paths changed, `T` names the exact content.
+ */
+export const CANDIDATE_IDENTITY_KEYS = ['commit'];
 
 /**
  * Fields that differ between two identity samples.
@@ -93,13 +110,30 @@ export const gatePassed = (g) => g.exit === 0 && g.signal == null && g.spawnErro
  * observed against an unnamed tree is not evidence about the commit named at the top.
  */
 export function receiptVerdict({ receiptClass, before, after, gates }) {
-  const moved = identityMovement(before, after);
+  const keys = receiptClass === RECEIPT_CLASS.CANDIDATE_TREE_BOUND ? CANDIDATE_IDENTITY_KEYS : IDENTITY_KEYS;
+  const moved = keys.filter((k) => !(k in (before ?? {})) || !(k in (after ?? {})) || before[k] !== after[k]);
   if (moved.length) {
     return { verdict: VERDICT.REFUSE, reason: `identity moved during the run: ${moved.join(', ')}`, moved };
   }
   const dirty = (before.porcelain ?? '') !== '';
   if (receiptClass === RECEIPT_CLASS.COMMIT_BOUND && dirty) {
     return { verdict: VERDICT.REFUSE, reason: 'a commit-bound receipt requires a clean tree', moved };
+  }
+  if (receiptClass === RECEIPT_CLASS.CANDIDATE_TREE_BOUND) {
+    // The candidate tree must be FULLY STAGED and stable across the run. Unstaged edits or
+    // untracked files mean the bytes the gates read are not the bytes `T` names.
+    const c = before.candidate ?? {};
+    if (!c.tree) return { verdict: VERDICT.REFUSE, reason: 'no candidate tree was recorded', moved };
+    if (c.unstaged) return { verdict: VERDICT.REFUSE, reason: 'unstaged changes: the working bytes are not the ones T names', moved };
+    if (c.untracked > 0) return { verdict: VERDICT.REFUSE, reason: `${c.untracked} untracked file(s): the candidate tree is not the whole working state`, moved };
+    if (c.tree !== after.candidate?.tree) {
+      return { verdict: VERDICT.REFUSE, reason: `the candidate tree moved during the run: ${c.tree} -> ${after.candidate?.tree}`, moved };
+    }
+    const failedGates = gates.filter((g) => !gatePassed(g));
+    if (failedGates.length) {
+      return { verdict: VERDICT.FAILED, reason: `${failedGates.length} gate(s) failed: ${failedGates.map((g) => g.label).join(', ')}`, moved };
+    }
+    return { verdict: VERDICT.PASS, reason: `every gate process exited 0 against candidate tree ${c.tree}`, moved };
   }
   if (receiptClass === RECEIPT_CLASS.PRECOMMIT_DIAGNOSTIC) {
     // ⛔ NEVER PASS, clean or not. This class does not run on an exact-commit detached carrier, so
@@ -135,6 +169,12 @@ export function renderReceipt({ receiptClass, before, after, gates, boundTo, dep
   lines.push(`    commit     ${before.commit}`);
   lines.push(`    tree       ${before.tree}`);
   lines.push(`    porcelain  ${(before.porcelain ?? '') === '' ? 'empty' : `DIRTY (${before.porcelain.split('\n').length} entries)`}`);
+  if (before.candidate) {
+    // The staged content this run gated, named exactly. Stronger than porcelain: porcelain says
+    // WHICH paths differ, T says WHAT the bytes are.
+    lines.push(`    candidate  tree ${before.candidate.tree}`);
+    lines.push(`               unstaged=${before.candidate.unstaged} untracked=${before.candidate.untracked}`);
+  }
   if (dependencyTransport) lines.push(`    deps       ${dependencyTransport}`);
   for (const g of gates) {
     lines.push('');
