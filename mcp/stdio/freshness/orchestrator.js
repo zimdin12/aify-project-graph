@@ -209,6 +209,14 @@ export async function ensureFresh({
       ...dirtyEntries.map((entry) => entry.path),
       ...(manifest.dirtyFiles ?? []),
     ])];
+    // ⛔ THE `: []` IS LOAD-BEARING — DO NOT "TIDY" IT TO null FOR CONSISTENCY.
+    //
+    // This else covers the ORDINARY paths: force, no indexed commit, or the commit already matching.
+    // `[]` there means "no delta was needed", which is true. `null` would mean "the delta could not
+    // be computed", and since that forces a full rebuild below, EVERY ORDINARY RUN WOULD REBUILD.
+    //
+    // Flagged by ef-manager reviewing 9c94586: correct, but silently so. A reader making the two
+    // branches "consistent" would introduce the exact over-correction the fix was written to avoid.
     const changedFromCommit = !force && manifest.commit && manifest.commit !== commit
       ? await getChangedFiles(repoRoot, manifest.commit, commit)
       : [];
@@ -219,6 +227,19 @@ export async function ensureFresh({
     // ⇒ An unresolvable indexed commit is morally identical to an ABSENT one, and `!manifest.commit`
     // ALREADY forces a full rebuild. So this folds one term into that existing, tested decision
     // rather than adding a new path — see `fullRebuild` below.
+    // ⚠ WHY THE ANSWER IS A FULL REBUILD AND NOT SOMETHING CHEAPER. The next person to see a full
+    // rebuild in a hot path will reach for file mtimes — the signal is free and already used as a
+    // freshness basis elsewhere. It fails in the UNSAFE direction: a checkout or rebase does not
+    // update mtime on every file whose content the graph now disagrees with, and archive extraction
+    // or a restore carries old mtimes forward. Missing a changed file is silent incompleteness —
+    // the exact class this code exists to eliminate.
+    //
+    // A content-addressed delta would be the honest cheap answer and IS NOT AVAILABLE: there is no
+    // per-file hash in the manifest or the schema. `structural_fp` is per NODE and computable only
+    // by re-parsing, so it cannot tell you WHICH files to re-parse. That is a schema addition, not
+    // a tweak, and it must not ride along on a correctness fix.
+    //
+    // ⇒ Full rebuild is right here because nothing cheaper can currently be TRUSTED TO BE COMPLETE.
     const deltaUnavailable = changedFromCommit === null;
     const initialChanged = [...new Set([...dirtyFiles, ...(changedFromCommit ?? [])])];
 

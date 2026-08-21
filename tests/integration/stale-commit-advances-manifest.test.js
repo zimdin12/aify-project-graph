@@ -80,6 +80,24 @@ async function run(manifestCommitFor) {
   writeFileSync(join(repo, 'src', 'untouched.js'), 'export function gamma() { return 3; }\n');
   git(repo, 'add', '-A');
   git(repo, 'commit', '-qm', 'w');
+
+  // ⛔ THE DISCRIMINATOR'S PRECONDITION, ASSERTED RATHER THAN TRUSTED.
+  //
+  // untouched.js separates incremental from rebuild ONLY because nothing references it. Flagged by
+  // ef-manager reviewing 9c94586: if anyone adds an import between these files, or the orchestrator
+  // grows dependency-closure reindexing — reindex changed files AND their dependents, a normal
+  // thing to want — then untouched.js enters processedFiles on the INCREMENTAL path and this
+  // control INVERTS. It would report over-correction that is not there, and the obvious repair
+  // would be to delete the assertion that just started failing.
+  //
+  // ⚠ THE GAP IS NOT DETECTION, IT IS THAT THE DISCRIMINATOR CAN STOP BEING VALID WITHOUT ANYONE
+  // EDITING THIS TEST. A comment cannot catch that; this can. It fails loudly at the moment the
+  // precondition dies, rather than letting the control quietly start measuring something else.
+  const referencesUntouched = readFileSync(join(repo, 'src', 'a.js'), 'utf8').includes('untouched');
+  if (referencesUntouched) {
+    throw new Error('FIXTURE INVARIANT BROKEN: src/a.js references untouched.js, so it would be '
+      + 'reindexed as a dependent and could no longer separate an incremental run from a rebuild.');
+  }
   const first = git(repo, 'rev-parse', 'HEAD');
 
   await ensureFresh({ repoRoot: repo });
