@@ -1,0 +1,108 @@
+{
+  "schema": "self-review-evidence/3",
+  "nonce": "878fe10f-d0cb-42a0-b4f1-97e0bba95d0b",
+  "cases": [
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ the verb hands the server the CALLER'S repoRoot, not the process cwd",
+      "name": "★★ the verb hands the server the CALLER'S repoRoot, not the process cwd",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ the handle it opens is RELEASABLE — a green response is not cleanup evidence",
+      "name": "★★ the handle it opens is RELEASABLE — a green response is not cleanup evidence",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a SECOND shutdown joins the first instead of racing it",
+      "name": "★★ a SECOND shutdown joins the first instead of racing it",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a start IN FLIGHT during shutdown does not publish an orphan",
+      "name": "★★ a start IN FLIGHT during shutdown does not publish an orphan",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a shutdown does not ERASE a dashboard that started after its snapshot",
+      "name": "★★ a shutdown does not ERASE a dashboard that started after its snapshot",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "name": "★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "status": "fail",
+      "messages": [
+        "exactly one start may occur per key: expected [ …(2) ] to have a length of 1 but got 2",
+        "EBUSY: resource busy or locked, unlink 'C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-dashroot-wholjn\\.aify-graph\\graph.sqlite'"
+      ],
+      "errorTypes": [
+        "AssertionError",
+        "Error"
+      ],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a start COMPLETING while teardown is still running releases itself",
+      "name": "★★ a start COMPLETING while teardown is still running releases itself",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a startup failure reports the STARTUP cause, not the cleanup error",
+      "name": "★★ a startup failure reports the STARTUP cause, not the cleanup error",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ an explicitly-rooted server serves THAT repo's bytes",
+      "name": "★★ an explicitly-rooted server serves THAT repo's bytes",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★ refuses a path that escapes the configured root",
+      "name": "★ refuses a path that escapes the configured root",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    }
+  ],
+  "fileErrors": [],
+  "counts": {
+    "cases": 10,
+    "failedCases": 1,
+    "nonCaseErrors": 0
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "runId": "64f11cb2-3c57-4b28-89ae-976c36987cbe",
+  "startedAtIso": "2026-08-21T00:33:05.244Z",
+  "commit": "85a6552610f893b3d01ab678cdb9cbeadcf1d7d6",
+  "tree": "6b9eeb29fe3d115ae87b8105de4f8d7ea436b92c",
+  "specPath": "tests/self-review/dashboard-ownership-D1.spec.json",
+  "specSha256": "fbb95ccaacf4a857bc5a868ae4900a6b824971df3441f3a9db6285413b67ebe7",
+  "node": "v22.20.0",
+  "platform": "win32/x64",
+  "arms": [
+    {
+      "index": 0,
+      "name": "D1 pending ownership marker is constructed but never published",
+      "file": "mcp/stdio/query/verbs/dashboard.js",
+      "case": "★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "expect": "and it must be the SAME dashboard, not a second one",
+      "baselineArtifact": {
+        "path": "arm-0-baseline.json",
+        "sha256": "ddc7e6067ec0dbaeae1f489518238c7a7b639c3f26ebf79b376ad0d02ae329b1",
+        "exit": 0,
+        "command": "C:\\Docker\\apg-wt-d1\\node_modules\\vitest\\vitest.mjs run --retry=0 --reporter=./scripts/self-review-reporter.mjs tests/unit/dashboard/repo-root-wiring.test.js"
+      },
+      "caseIdentity": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "mutation": {
+        "preSha256": "70774c70e759f7483a7bde97459d079cd22a93fb7dea7b6bac61b6ba1dde1015",
+        "postSha256": "08b34f9452e7b0ec353bf0a0db36ecfd1b0a21617992b54d10885ac210033c94",
+        "anchorOffset": 3145
+      },
+      "mutantArtifact": {
+        "path": "arm-0-mutant.json",
+        "sha256": "7d32195bb63f3058e544057d0510f1a50aa3f6f934b9aaf06a0a7a58c8632165",
+        "exit": 1,
+        "command": "C:\\Docker\\apg-wt-d1\\node_modules\\vitest\\vitest.mjs run --retry=0 --reporter=./scripts/self-review-reporter.mjs tests/unit/dashboard/repo-root-wiring.test.js"
+      },
+      "verdict": "INVALID",
+      "why": "case carries 2 failure messages; exactly 1 is accountable — extra: exactly one start may occur per key: expected [ …("
+    }
+  ],
+  "finishedAtIso": "2026-08-21T00:33:15.965Z",
+  "survived": 0,
+  "failureObserved": 0,
+  "invalid": 1
+}
