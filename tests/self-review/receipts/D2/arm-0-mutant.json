@@ -1,0 +1,106 @@
+{
+  "schema": "self-review-evidence/3",
+  "nonce": "8b3d9327-2dc1-49c7-b3c4-42e1df8b2432",
+  "cases": [
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ the verb hands the server the CALLER'S repoRoot, not the process cwd",
+      "name": "★★ the verb hands the server the CALLER'S repoRoot, not the process cwd",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ the handle it opens is RELEASABLE — a green response is not cleanup evidence",
+      "name": "★★ the handle it opens is RELEASABLE — a green response is not cleanup evidence",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a SECOND shutdown joins the first instead of racing it",
+      "name": "★★ a SECOND shutdown joins the first instead of racing it",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a start IN FLIGHT during shutdown does not publish an orphan",
+      "name": "★★ a start IN FLIGHT during shutdown does not publish an orphan",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a shutdown does not ERASE a dashboard that started after its snapshot",
+      "name": "★★ a shutdown does not ERASE a dashboard that started after its snapshot",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "name": "★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "status": "fail",
+      "messages": [
+        "the joiner must receive a usable url, never undefined: expected undefined to be truthy"
+      ],
+      "errorTypes": [
+        "AssertionError"
+      ],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a start COMPLETING while teardown is still running releases itself",
+      "name": "★★ a start COMPLETING while teardown is still running releases itself",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a startup failure reports the STARTUP cause, not the cleanup error",
+      "name": "★★ a startup failure reports the STARTUP cause, not the cleanup error",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ an explicitly-rooted server serves THAT repo's bytes",
+      "name": "★★ an explicitly-rooted server serves THAT repo's bytes",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    },
+    {
+      "fullName": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★ refuses a path that escapes the configured root",
+      "name": "★ refuses a path that escapes the configured root",
+      "status": "pass",
+      "messages": [],
+      "errorTypes": [],
+      "retryCount": 0,
+      "repeatCount": 0
+    }
+  ],
+  "fileErrors": [],
+  "counts": {
+    "cases": 10,
+    "failedCases": 1,
+    "nonCaseErrors": 0
+  }
+}

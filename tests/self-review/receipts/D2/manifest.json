@@ -1,0 +1,43 @@
+{
+  "runId": "f694cd25-43f6-429d-87d0-dec5c4fb253a",
+  "startedAtIso": "2026-08-21T03:13:06.113Z",
+  "commit": "6d9fd5a2cbca183883e1afa75616c458bb81d42a",
+  "tree": "647c92e668412ae1e6791b65d368ca193cc166da",
+  "specPath": "tests/self-review/dashboard-ownership-D2.spec.json",
+  "specSha256": "8bf86c8c0c4270421bc60b887e122fca1de9c5dfd7480ac2506498e8d2ff67ce",
+  "node": "v22.20.0",
+  "platform": "win32/x64",
+  "arms": [
+    {
+      "index": 0,
+      "name": "D2 a pending start is reported as already_running",
+      "file": "mcp/stdio/query/verbs/dashboard.js",
+      "case": "★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "expect": "the joiner must receive a usable url, never undefined",
+      "baselineArtifact": {
+        "path": "arm-0-baseline.json",
+        "sha256": "a63c06a5f5cf623608c49252771e7908ce3178a70bf0c4334f1f152761c59f34",
+        "exit": 0,
+        "command": "C:\\Docker\\apg-wt-d2\\node_modules\\vitest\\vitest.mjs run --retry=0 --reporter=./scripts/self-review-reporter.mjs tests/unit/dashboard/repo-root-wiring.test.js"
+      },
+      "caseIdentity": "tests/unit/dashboard/repo-root-wiring.test.js the dashboard is wired to the repo it is inspecting ★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+      "mutation": {
+        "preSha256": "70774c70e759f7483a7bde97459d079cd22a93fb7dea7b6bac61b6ba1dde1015",
+        "postSha256": "972d9cc0a1c56d2403b32ccfba4b8c25f2d2aeae85efe48ede13672848233449",
+        "anchorOffset": 1767
+      },
+      "mutantArtifact": {
+        "path": "arm-0-mutant.json",
+        "sha256": "0a27c67dd6929807d0ea14a8ae47bcad035585c814f69849d2441cf99b33926f",
+        "exit": 1,
+        "command": "C:\\Docker\\apg-wt-d2\\node_modules\\vitest\\vitest.mjs run --retry=0 --reporter=./scripts/self-review-reporter.mjs tests/unit/dashboard/repo-root-wiring.test.js"
+      },
+      "verdict": "FAILURE_OBSERVED_UNATTRIBUTED",
+      "why": "exact case failed on the preregistered assertion — DIAGNOSTIC ONLY, body execution unproven"
+    }
+  ],
+  "finishedAtIso": "2026-08-21T03:13:16.531Z",
+  "survived": 0,
+  "failureObserved": 1,
+  "invalid": 0
+}
