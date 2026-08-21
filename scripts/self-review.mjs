@@ -115,6 +115,28 @@ for (const [i, m] of spec.entries()) {
 
 const files = [...new Set(spec.map((m) => m.file))];
 const pristine = new Map();
+// ⛔ THE CARRIER IS RESOLVED FIRST, AND A RUN THAT CANNOT NAME IT MUST NOT PROCEED.
+//
+// Both fields fall back to `null` when git cannot answer, and a manifest recording `commit: null`
+// binds its verdict to nothing -- the same defect as a hash whose preimage nobody kept. Every
+// artifact such a run produced would be unattributable to any repository state.
+//
+// ⚠ ORDERING IS THE WHOLE POINT, AND I GOT IT WRONG FIRST. I originally placed this check after the
+// per-file "committed at HEAD" loop below, where it was SHADOWED: any repo whose HEAD cannot be
+// resolved fails that loop first, so nothing could ever reach my guard. Three separate probes hit
+// three different earlier guards before I noticed. A guard no input can reach is decoration.
+//
+// ⇒ The carrier precedes the contents. Declared OPEN in this file's header as "null commit/tree
+// refusal before mutation"; closed here, before any byte is written.
+const HEAD_COMMIT = (() => { try { return git('rev-parse', 'HEAD'); } catch { return null; } })();
+const HEAD_TREE = (() => { try { return git('rev-parse', 'HEAD^{tree}'); } catch { return null; } })();
+if (HEAD_COMMIT == null || HEAD_TREE == null) {
+  console.error('⛔ APPARATUS_ERROR: cannot resolve HEAD commit/tree — a run that cannot name '
+    + 'its carrier must not mutate, because nothing it produced could be attributed to a repository state.');
+  process.exit(4);
+}
+
+
 for (const f of files) {
   try { pristine.set(f, gitRaw('show', `HEAD:${f}`)); }
   catch { console.error(`⛔ ${f} is not committed at HEAD — nothing immutable to restore from`); process.exit(2); }
@@ -157,8 +179,8 @@ catch (e) {
 const manifest = {
   runId,
   startedAtIso: new Date().toISOString(),
-  commit: (() => { try { return git('rev-parse', 'HEAD'); } catch { return null; } })(),
-  tree: (() => { try { return git('rev-parse', 'HEAD^{tree}'); } catch { return null; } })(),
+  commit: HEAD_COMMIT,
+  tree: HEAD_TREE,
   specPath,
   specSha256: sha(specRaw),
   node: process.version,
@@ -166,6 +188,7 @@ const manifest = {
   arms: [],
 };
 const writeManifest = () => writeFileSync(join(runDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
 
 function restoreAndVerify() {
   for (const [f, content] of pristine) writeFileSync(join(REPO, f), content);
@@ -421,11 +444,16 @@ console.log('No output here is evidence that a guarantee EXISTS; SURVIVED is evi
 //     mutate and restore leaves mutant bytes on disk;
 //   · body-entry witness: `expect()` inside `beforeEach` produces the same evidence shape as a
 //     body assertion, so even FAILURE_OBSERVED does not prove the body ran;
-//   · expectFailures type validation, null commit/tree refusal before mutation, and per-arm
-//     APPARATUS_ERROR recording on `finally` restore.
-// ⇒ CLOSED, and only this one: single-occurrence anchor enforcement now lives in
-// `scripts/lib/anchor.mjs` — absent and ambiguous are distinct INVALID reasons and neither
-// mutates a byte. The remaining items above are still OPEN and are not closed by that.
+//   · per-arm APPARATUS_ERROR recording on `finally` restore.
+// ⇒ CLOSED SO FAR, and only these three. Each names where it lives, so the claim can be checked
+// rather than believed:
+//   · single-occurrence anchor enforcement — `scripts/lib/anchor.mjs`; absent and ambiguous are
+//     distinct INVALID reasons and neither mutates a byte;
+//   · expectFailures type validation — `scripts/lib/spec-schema.mjs`; a non-integer is an
+//     uncomparable total and 0 would credit an arm whose mutation broke nothing, which is a
+//     SURVIVED hole rather than a witness;
+//   · null commit/tree refusal before mutation — above, exiting 4 before any bytes are written.
+// The items still listed above are OPEN and are not closed by these.
 if (survived > 0 || invalid > 0 || halted) {
   console.error(`\n⛔ ${survived} candidate hole(s), ${invalid} invalid arm(s) — read the manifest, not this line.`);
   process.exit(1);
