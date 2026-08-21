@@ -21,40 +21,50 @@ worse than no test.
 the remedy, and specified verification by TIMESTAMP rather than commit because "an unsuccessful
 restart and a restart onto the same commit are indistinguishable by commit alone."
 
-## ⛔ The document section reaches 2 of 4 surfaces
+## ⛔ RETRACTED — the document section ships on ALL FOUR surfaces
 
-The briefs are FILES written by the post-commit hook from the current checkout — stamped
-`GENERATED: 2026-08-21`, mtime 14:05:59 — so they are current-code output and bypass the stale
-server. That is what makes this half of the round valid.
+**This file previously reported that `brief.agent.md` and `brief.onboard.md` carried no document
+section. That finding is WRONG and is withdrawn.** It is corrected in place rather than deleted,
+because a false product defect in an evidence directory is something a later reader acts on.
 
-    brief.md          3 doc mentions    carries it
-    brief.json        keys present      carries it
-    brief.agent.md    0                 ⛔ nothing
-    brief.onboard.md  0                 ⛔ nothing
+The compact renderers emit the token **`DOCS`**. Verified directly:
 
-Instrument note: the first probe searched for markdown headings and found none, because
-`brief.agent.md` is `KEY: value`, not markdown. Wrong instrument, discarded. Re-run as a content
-search with a positive control — `EXPORTS` returns 1 in the same file, so it can find what is there.
+    brief.agent.md:77   DOCS (link prominence, not a read order):
+                          README.md
+                          AGENTS.md
+                          showing 2 of 95 linked candidates
+    brief.onboard.md:31 identical section, same content
 
-**Not correct-because-empty.** The candidates exist and are rendered elsewhere:
+Population disclosed, ranking caveat intact, cap stated — on the surface an agent reads first.
 
-    brief.md:38  ## Linked document candidates
-      "Ranked by link prominence, NOT a reading order — no explicit read-order directive was
-       derived from this repo. Showing 2 of 93."
-      - README.md — 9 document(s) link here …, last edited 2026-08-20 — evidence of relevance,
-        not of accuracy
-      - AGENTS.md — 6 document(s) link here …, last edited 2026-08-19
+    surface            DOCS   "document"
+    brief.md              0        3
+    brief.agent.md        1        0
+    brief.onboard.md      1        0
 
-    brief.json   brief_schema_version 2 · read_first holds ONLY source entries now ·
-                 linked_document_candidates populated · positional_document_fallback and
-                 document_evidence present
+⇒ The probe counted occurrences of "document". `DOCS` does not contain that substring, so the
+matcher could not fire on correct output. `brief.md` scored only because it spells the words out
+as "Linked document candidates".
 
-⇒ The withdrawal, the rename, the schema discriminator and the age disclosure all shipped and are
-visible — on two surfaces. The surface an agent reads FIRST shows nothing, with 2 candidates
-rendered and 93 in the population.
+### ⛔ The positive control was on the wrong thing
 
-⚠ Whether that is a dropped section or a deliberate token-budget omission is not established here
-and is a one-line answer from inside the renderer.
+The probe was controlled by grepping `EXPORTS`, which returns 1 in the same file. That proved the
+instrument could find **a** string that was present. It did not prove the instrument could find
+**the target** string.
+
+**A positive control on a convenient token is not a control on the class.** The control has to be
+the thing being claimed absent — here, the string the producer actually emits.
+
+### And the confirming read was the same instrument twice
+
+The finding was "independently verified" by re-running `grep -ci "document"` across the four files.
+That is the same matcher class, so it supplied no independence: two reads of one source are one
+instrument read twice. What broke it open was reading the RENDERER — both compact renderers hold
+the section gated on `if (docCands.length)`, and `requireDocumentView` returns the same view for
+every surface, making "compact has no candidates" impossible by construction.
+
+⇒ **When a finding says A SECTION IS ABSENT, grep the PRODUCER for the string it actually emits
+before believing a consumer-side probe.**
 
 ## Second repo could not answer
 
