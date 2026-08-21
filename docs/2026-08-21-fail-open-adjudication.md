@@ -28,14 +28,25 @@ The two are not the same defect and must not be fixed with the same urgency.
 ⚠ `safeDirtyCount` (returns `0`, not `[]`) belongs in this tier and already has its own
 preregistration at `docs/2026-08-21-prereg-safedirtycount.md`.
 
-## MEDIUM — asserts a fact on a secondary surface
+## ⛔ THE TIERS WERE RE-GRADED — see the method note below
 
-| site | `[]` reads as | note |
+**The first pass assigned severity from the inventory's one-line output.** That method produced TWO
+wrong grades before I noticed it was a method problem rather than two mistakes. Every row below now
+carries the consumer trace that justifies it.
+
+## MEDIUM — asserts a fact a reader sees
+
+| site | who consumes it | why MEDIUM |
 |---|---|---|
-| `ingest/sweep.js:199` | **"this config has no keys"** | `extractConfigKeys` on malformed JSON. The Config node is created claiming zero keys and nothing records that the file was unparseable — graph content is missing and the graph cannot say why. |
-| `code-intel/prewarm/cpp.js:74, 94, 151` | "no C++ files here" | affects prewarm scope; a failed enumeration is indistinguishable from an empty tree. |
-| `brief/extract.js:235, 265` | "no recent commits" | carries the comment *"Not a git repo — skip section"*, so the intent is real; the reader still cannot distinguish a quiet repo from an unreadable one. |
-| `query/verbs/pull.js:425` | "no commits" | same shape as the brief extractors. |
+| `brief/extract.js:235, 265` | the `RECENT:` section, rendered in the brief | a git failure reads as "no recent activity". Mild — recent commits are context, not an authoritative answer — but it IS shown to a reader. |
+| `query/verbs/pull.js:425` | a file's commit history in a pull packet | reads as "this file has no history". |
+
+## ⇒ DEMOTED TO LOW on a consumer trace
+
+| site | first grade | what the trace found |
+|---|---|---|
+| `ingest/sweep.js:199` | MEDIUM | **Nothing reads `extra.keys`.** The only reference in `mcp/` is the write site itself, and Config nodes are excluded from the analysis paths (`NOT IN (… 'Config')` in communities and analytics). A malformed JSON yields zero keys in a field nobody consumes, on a node type most verbs skip. |
+| `code-intel/prewarm/cpp.js:74, 94, 151` | MEDIUM | Feeds `selectCppPrewarmFiles`, which chooses what to prewarm. An empty list makes the next query SLOWER. It is a performance path, not a claim about the repository. |
 
 ## LOW — omits a hint, asserts nothing about the repository
 
@@ -81,6 +92,26 @@ was searched.
 
 ⇒ **Remaining HIGH is two, not three:** `freshness/git.js:106` (documented-intentional, needs a
 ruling) and `query/verbs/find.js:35` (fixed — see the layers_searched slice).
+
+## ⛔⛔ THE METHOD NOTE — why these grades were wrong twice
+
+Both demotions above, and the earlier one of `collect_code_intel.js:106`, came from the same
+mistake: **I graded severity from the inventory's one-line output** — "returns `[]` on catch" —
+without asking who reads the value.
+
+That is the same error as the brief-surface false alarm on the same day: reading the artifact
+instead of the producer's contract. Three instances is a method problem, not three slips.
+
+⇒ **THE INVENTORY GIVES YOU THE SHAPE. SEVERITY REQUIRES A CONSUMER TRACE.** `sampleEdges: []`,
+`extra.keys: []` and `hits.tasks: []` are the same syntax and three different claims — and only one
+of them sat beside a field asserting the layer had been searched.
+
+⇒ **Do the trace BEFORE writing the grade.** A published severity is something a reader sequences
+work from; a grade assigned from a grep is a guess wearing a table.
+
+⚠ And note which direction these errors ran: all three were **over**-grading. Nothing was graded too
+low. A tool whose findings are systematically inflated gets muted exactly as fast as one that is
+silent — which is the failure this inventory was built to avoid, reappearing in how I read it.
 
 ## What I am NOT doing here
 
