@@ -14,6 +14,7 @@
 // ⇒ **A disclosure the reader must act on is not a control. The verdict has to move.**
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import {
   identityMovement, IDENTITY_KEYS, gatePassed, renderReceipt, receiptVerdict,
   RECEIPT_CLASS, VERDICT, capture, MAX_CAPTURE,
@@ -192,5 +193,37 @@ describe('the receipt transports rather than authors', () => {
     expect(renderReceipt({
       receiptClass: RECEIPT_CLASS.PRECOMMIT_DIAGNOSTIC, before: ident(), after: ident(), gates: [gate()],
     }), 'a diagnostic says so in its own header').toMatch(/binds {6}\(nothing — diagnostic\)/);
+  });
+});
+
+// AN AMBIENT SIDE EFFECT WE SUPPRESS MUST TRAVEL WITH THE RECEIPT.
+//
+// The carrier is materialized with repository hooks disabled, because post-checkout ran a
+// background reindex INTO the new worktree and raced the entry sample -- the mechanism behind three
+// refused commits. Suppressing it is correct; suppressing it SILENTLY would make the receipt
+// describe an environment it did not run in.
+describe('the receipt discloses that checkout hooks were disabled', () => {
+  const base = { receiptClass: RECEIPT_CLASS.CANDIDATE_TREE_BOUND, after: { commit: 'a'.repeat(40), tree: 'b'.repeat(40), porcelain: '' }, gates: [] };
+
+  it('★★★ the disclosure appears when hooks were disabled', () => {
+    const out = renderReceipt({ ...base, before: { commit: 'a', tree: 'b', porcelain: '', checkoutHooks: 'DISABLED for materialization via -c core.hooksPath=X' } });
+    expect(out).toMatch(/hooks\s+DISABLED for materialization/);
+  });
+
+  it('★★★ POSITIVE CONTROL: the whole LINE is absent when nothing was suppressed', () => {
+    // ⛔ MY FIRST VERSION OF THIS CONTROL DID NOT CATCH THE THING IT EXISTED FOR. It asserted the
+    // absence of /hooks\s+DISABLED/, so a renderer printing the line UNCONDITIONALLY emitted
+    // renderer printing the line UNCONDITIONALLY emitted the row with the value "undefined" and
+    // sailed straight through -- I ran that exact mutation and got 21 passed, EXIT 0.
+    //
+    // ⇒ The claim is that the LINE is absent, so that is what must be asserted. Testing for the
+    // word rather than the row is how a disclosure turns into a decoration that says 'undefined'.
+    const out = renderReceipt({ ...base, before: { commit: 'a', tree: 'b', porcelain: '' } });
+    expectAbsentWithLiveMatcher(
+      /^ *hooks +/m,
+      { forbidden: '    hooks      DISABLED for materialization via -c core.hooksPath=X', allowed: '    deps       node_modules JUNCTION' },
+      out,
+      'a run that suppressed nothing must not carry a hooks row at all',
+    );
   });
 });

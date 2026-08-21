@@ -215,6 +215,13 @@ export function renderReceipt({ receiptClass, before, after, gates, boundTo, dep
       lines.push(`      produced             : ${(after.candidate.producedOutputs ?? []).join(', ') || '(none)'}`);
     }
   }
+  if (before.checkoutHooks) {
+    // AMBIENT SIDE EFFECTS ARE NOT CONTAINED IN T, so the one we suppress must travel with the
+    // receipt. This carrier is built with repository hooks disabled because post-checkout ran a
+    // background reindex INTO the new worktree and raced the entry sample -- the mechanism behind
+    // three refused commits. Ordinary developer checkouts are unaffected.
+    lines.push(`    hooks      ${before.checkoutHooks}`);
+  }
   if (dependencyTransport) lines.push(`    deps       ${dependencyTransport}`);
   if (before.dependencies) {
     // ⚠ NAMED, NOT IMMUTABLE. `closureInventoried:false` travels so nobody reads two lockfile

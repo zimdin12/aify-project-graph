@@ -452,6 +452,10 @@ EXPECTED   ${T0}`);
         declaredOutputs, producedOutputs: ignoredIn(root).filter((x) => declaredOutputs.some((d) => x.split(/[\/]/).includes(d))),
       };
       before.dependencies = dependencyCarrier(root, join(root, 'node_modules'));
+      // Derived from the argv actually passed to `worktree add`, not re-stated by hand: a second
+      // copy is a second thing to drift. The EFFECT is verified independently by the entry check,
+      // which still refuses any unexpected ignored state.
+      before.checkoutHooks = `DISABLED for materialization via ${NO_HOOKS.join(' ')}`;
     }
     const receiptClass = commitBound ? RECEIPT_CLASS.COMMIT_BOUND
       : candidateTree ? RECEIPT_CLASS.CANDIDATE_TREE_BOUND
