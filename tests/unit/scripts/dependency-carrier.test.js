@@ -64,16 +64,27 @@ describe('unexpectedIgnored — the unnamed population, bounded', () => {
     expect(unexpectedIgnored(['.aify-graph/']), 'undeclared by default').toEqual(['.aify-graph/']);
   });
 
-  it('★★★ a DECLARED gate output is allowed at any depth — the nesting bug', () => {
-    // ⛔ My first version compared only the LEADING segment, so a declared output nested inside a
-    // fixture read as undeclared and the class refused its own gate's legitimate product.
-    // Measured: the suite creates graph databases inside fixture repos as part of testing.
-    const allowed = ['node_modules', '.aify-graph'];
-    expect(unexpectedIgnored(['.aify-graph/'], allowed)).toEqual([]);
-    expect(unexpectedIgnored(['tests/fixtures/code-intel/cpp-fixture-repo/.aify-graph/'], allowed)).toEqual([]);
-    // ⚠ AND THE BOUND THIS ACCEPTS: a declared name is allowed at ANY depth. Something merely
-    // NEAR it is still refused, so the allowance is by name rather than by neighbourhood.
-    expect(unexpectedIgnored(['tests/fixtures/.aify-graph-backup/'], allowed))
+  it('★★★ a DECLARED output is allowed under its DECLARED ROOT, and nowhere else', () => {
+    // ⛔ TWO CORRECTIONS LIVE HERE. First: my original matcher compared only the LEADING segment, so
+    // a declared output nested in a fixture read as undeclared and the class refused its own gate's
+    // legitimate product. Then I over-corrected to "this name at ANY depth", which the referee
+    // refused as too broad for authority — it would permit an unexpected `.aify-graph` under any
+    // subtree at all.
+    //
+    // ⇒ A declared pattern now binds ROOT **and** NAME together.
+    const allowed = ['node_modules', '.aify-graph', 'tests/fixtures/**/.aify-graph'];
+
+    expect(unexpectedIgnored(['node_modules/'], allowed), 'the dependency transport').toEqual([]);
+    expect(unexpectedIgnored(['.aify-graph/'], allowed), 'the root-level output').toEqual([]);
+    expect(unexpectedIgnored(['tests/fixtures/code-intel/cpp-fixture-repo/.aify-graph/'], allowed),
+      'the same output under its declared root').toEqual([]);
+
+    // ⛔ THE HOSTILE CONTROLS the referee asked for, and they are the point of the pattern.
+    expect(unexpectedIgnored(['src/deep/.aify-graph/'], allowed),
+      'the right NAME under an unapproved root is still refused')
+      .toEqual(['src/deep/.aify-graph/']);
+    expect(unexpectedIgnored(['tests/fixtures/.aify-graph-backup/'], allowed),
+      'a same-name SIBLING under the approved root is still refused')
       .toEqual(['tests/fixtures/.aify-graph-backup/']);
   });
 

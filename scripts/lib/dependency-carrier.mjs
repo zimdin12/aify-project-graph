@@ -125,6 +125,28 @@ export function unexpectedIgnored(ignoredPaths, allowed = ['node_modules']) {
     //
     // ⚠ THE BOUND THIS ACCEPTS, STATED: a declared output name is allowed at ANY depth. That is
     // broader than a single path, and it is the honest description of what the gate produces.
-    return !segments.some((seg) => allowedSet.has(seg));
+    // ⛔ EXPLICIT ROOTS, NOT A BARE NAME AT ANY DEPTH. Matching `.aify-graph` anywhere would permit
+    // an unexpected one under ANY subtree -- too broad to be authority. An allowed entry is either
+    // an exact leading segment (`node_modules`), or a declared root PREFIX (`tests/fixtures/`).
+    //
+    // ⚠ Deliberately still refuses a same-NAME sibling: `.aify-graph-backup` is not `.aify-graph`,
+    // and a directory under an unapproved root is not covered by a root it merely resembles.
+    const head = segments[0];
+    const norm = p.split(String.fromCharCode(92)).join('/');
+    const last = segments[segments.length - 1];
+    for (const a of allowedSet) {
+      // exact leading segment — the dependency transport
+      if (a === head) return false;
+      // exact top-level directory — the gate's own root-level output
+      if (a === last && segments.length === 1) return false;
+      // ROOT/**/NAME — a declared output under a declared root, matched by BOTH
+      const star = a.indexOf('/**/');
+      if (star !== -1) {
+        const root = a.slice(0, star + 1);
+        const name = a.slice(star + 4);
+        if (norm.startsWith(root) && last === name) return false;
+      }
+    }
+    return true;
   });
 }

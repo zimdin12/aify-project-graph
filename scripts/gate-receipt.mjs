@@ -95,7 +95,9 @@ function gatesFor(root) {
     // this gate's own product. A declared output may appear at EXIT; anything undeclared refuses.
     { label: 'vitest', argv: [process.execPath, join(root, 'node_modules', 'vitest', 'vitest.mjs'), 'run'],
       countPattern: /^\s*(Test Files|Tests)\s/, timeoutMs: 30 * 60_000,
-      producesIgnored: ['.aify-graph'] },
+      // ⚠ EXPLICIT ROOTS, not a bare name. `.aify-graph` at any depth would permit an unexpected
+      // one under any subtree; these are the paths the suite is known to write.
+      producesIgnored: ['.aify-graph', 'tests/fixtures/**/.aify-graph'] },
     { label: 'authority-ledger', argv: [process.execPath, join(root, 'scripts', 'authority-ledger.mjs'), '--check'],
       countPattern: /ALL FILES COMPLETE/, timeoutMs: 5 * 60_000 },
   ];
@@ -119,7 +121,17 @@ function ignoredIn(cwd) {
 function materialize(T) {
   const tempCommit = execFileSync('git', ['commit-tree', T, '-p', 'HEAD', '-m', 'candidate materialization (unreferenced)'],
     { cwd: REPO, encoding: 'utf8' }).trim();
-  const worktree = join(REPO, '..', `apg-materialized-${T.slice(0, 12)}`);
+  // ⛔ RUN-UNIQUE, NOT TREE-DERIVED. The name used to be `apg-materialized-<T12>` — deterministic
+  // from the tree — so two consecutive runs on an UNCHANGED tree resolved to the SAME directory.
+  // Vitest workers from the previous run outlive its disposal by moments and recreate `.aify-graph`
+  // at that path, which the next run then saw as pre-existing ambient state at entry.
+  //
+  // ⇒ That is the intermittency: PASS when the previous run's workers had finished, REFUSE when
+  // they had not. The "unidentified ambient producer" was THIS TOOL'S OWN PREVIOUS RUN, reaching
+  // forward into the next one through a shared path.
+  //
+  // ⚠ The pid keeps it unique per process while the tree prefix keeps it attributable.
+  const worktree = join(REPO, '..', `apg-materialized-${T.slice(0, 12)}-${process.pid}`);
   if (existsSync(worktree)) {
     rmSync(worktree, { recursive: true, force: true });
     // ⛔ `rmSync(force:true)` SWALLOWS FAILURES. A previous run holding a sqlite handle leaves the
@@ -239,23 +251,19 @@ ${receipt}`);
     // ⛔ ENTRY IS STRICT: nothing ignored beyond the dependency link. This is what catches a STALE
     // materialization -- if a previous run's worktree could not be deleted (a held sqlite handle
     // does exactly that), reusing the directory would silently inherit its generated state.
-    // ⛔⛔ SOMETHING AMBIENT CREATES `.aify-graph` IN A FRESH WORKTREE. Measured: a manual probe
-    // showed ZERO ignored entries on checkout and after linking deps, yet the gate's own
-    // materialization finds `.aify-graph/` already present at entry. The producer is outside this
-    // tool -- most likely a running MCP server that indexes directories it notices.
+    // ⛔⛔ NO AUTO-DELETION. My previous version REMOVED unexpected pre-entry state and could then
+    // PASS -- converting an observed unknown producer into a clean-looking entry by deletion. That
+    // is the orphan-sweep error again: disclosure does not make deletion a control, and if the
+    // producer is live the removal can race it.
     //
-    // ⇒ Refusing outright would make the class unusable on this machine. Silently tolerating it
-    // would be the unnamed population all over again. So the initial condition is ESTABLISHED and
-    // RECORDED: pre-existing generated state is removed before the entry sample, and exactly what
-    // was removed travels in the receipt every single run. The signal is preserved, not erased.
-    const preExistingRemoved = [];
-    if (candidateTree) {
-      for (const entry of unexpectedIgnored(ignoredIn(root))) {
-        const abs = join(root, entry);
-        try { rmSync(abs, { recursive: true, force: true }); } catch { /* recorded below */ }
-        preExistingRemoved.push(`${entry}${existsSync(abs) ? ' (REMOVAL FAILED)' : ''}`);
-      }
-    }
+    // ⇒ Unexpected pre-entry state now REFUSES, and an inventory is preserved for attribution.
+    //
+    // ★ AND THE PRODUCER IS IDENTIFIED, so this is defence rather than a workaround. It was THIS
+    // TOOL'S OWN PREVIOUS RUN: the worktree name was derived from T, so consecutive runs on an
+    // unchanged tree resolved to the SAME path; vitest workers outlive disposal by moments, hold
+    // the sqlite handles, and recreate `.aify-graph` there. Measured: with a live child, disposal
+    // leaves the directory present, containing ONLY `.aify-graph` with graph.sqlite/-shm/-wal, and
+    // removal succeeds once the handles release. Run-unique paths remove the shared channel.
     const ignoredEntry = candidateTree ? unexpectedIgnored(ignoredIn(root)) : [];
     const declaredGates = gatesFor(root);
     const gates = declaredGates.map((g) => runGate({ ...g, cwd: root }));
@@ -267,7 +275,7 @@ ${receipt}`);
     const after = repoIdentity(root, candidateTree);
     if (candidateTree) {
       before.candidate = {
-        ...before.candidate, tree: candidateTreeHash, unexpectedIgnored: ignoredEntry, preExistingRemoved,
+        ...before.candidate, tree: candidateTreeHash, unexpectedIgnored: ignoredEntry,
       };
       after.candidate = {
         ...after.candidate, tree: candidateTreeHash, unexpectedIgnored: ignoredExit,
