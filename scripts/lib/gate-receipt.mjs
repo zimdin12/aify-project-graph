@@ -136,6 +136,19 @@ export function receiptVerdict({ receiptClass, before, after, gates }) {
     if (!c.tree) return { verdict: VERDICT.REFUSE, reason: 'no candidate tree was recorded', moved };
     if (!a.tree) return { verdict: VERDICT.REFUSE, reason: 'no terminal candidate tree was recorded', moved };
     for (const [when, sample] of [['at entry', c], ['at exit', a]]) {
+      // ⛔ IGNORED STATE IS THE UNNAMED POPULATION. Ignored files are in neither T nor
+      // `ls-files --others`, yet gates can read them: `.aify-graph`, caches, generated configs.
+      // The ONLY permitted entry is the dependency link the tool itself created, and even that is
+      // disclosed rather than trusted. Anything else means the run read or produced bytes T does
+      // not name -- which is the same defect as an unstaged edit, one layer further out.
+      if ((sample.unexpectedIgnored?.length ?? 0) > 0) {
+        return {
+          verdict: VERDICT.REFUSE,
+          reason: `unexpected ignored state ${when}: ${sample.unexpectedIgnored.slice(0, 4).join(', ')}`
+            + `${sample.unexpectedIgnored.length > 4 ? ` (+${sample.unexpectedIgnored.length - 4} more)` : ''}`,
+          moved,
+        };
+      }
       if (sample.unstaged) {
         return { verdict: VERDICT.REFUSE, reason: `unstaged changes ${when}: the working bytes are not the ones T names`, moved };
       }
@@ -192,8 +205,29 @@ export function renderReceipt({ receiptClass, before, after, gates, boundTo, dep
     lines.push(`    candidate  tree ${before.candidate.tree}`);
     lines.push(`      at entry unstaged=${before.candidate.unstaged} untracked=${before.candidate.untracked}`);
     lines.push(`      at exit  unstaged=${after?.candidate?.unstaged} untracked=${after?.candidate?.untracked} tree=${after?.candidate?.tree}`);
+    lines.push(`      ignored  UNEXPECTED entry=${before.candidate.unexpectedIgnored?.length ?? 'n/a'} exit=${after?.candidate?.unexpectedIgnored?.length ?? 'n/a'}`);
+    if (before.candidate.preExistingRemoved?.length) {
+      // ⚠ AMBIENT STATE THAT WAS ALREADY THERE. Disclosed every run so its producer stays visible.
+      lines.push(`      ⚠ pre-existing generated state removed before the entry sample: ${before.candidate.preExistingRemoved.join(', ')}`);
+    }
+    if (after?.candidate?.declaredOutputs?.length) {
+      lines.push(`      declared gate outputs: ${after.candidate.declaredOutputs.join(', ')}`);
+      lines.push(`      produced             : ${(after.candidate.producedOutputs ?? []).join(', ') || '(none)'}`);
+    }
   }
   if (dependencyTransport) lines.push(`    deps       ${dependencyTransport}`);
+  if (before.dependencies) {
+    // ⚠ NAMED, NOT IMMUTABLE. `closureInventoried:false` travels so nobody reads two lockfile
+    // hashes as an inventory of the whole node_modules closure.
+    const d = before.dependencies;
+    lines.push(`    depsRoot   ${d.linkTargetRealpath}`);
+    lines.push(`    node       ${d.node.version} ${d.node.sha256?.slice(0, 16) ?? '(unhashed)'}`);
+    for (const l of d.lockfiles) lines.push(`    lock       ${l.present ? `${l.sha256?.slice(0, 16)} ${l.path}` : `ABSENT ${l.path}`}`);
+    lines.push(`    runner     ${d.runner.present ? d.runner.sha256?.slice(0, 16) : 'ABSENT'}`);
+    for (const n of d.native) lines.push(`    native     ${n.present ? (n.directory ? 'dir ' : `${n.sha256?.slice(0, 16)} `) : 'ABSENT '}${n.path.split(/[\/]/).slice(-3).join('/')}`);
+    lines.push(`    env        ${JSON.stringify(d.env)}`);
+    lines.push(`    ⚠ closureInventoried=${d.closureInventoried} — ${d.transport}`);
+  }
   for (const g of gates) {
     lines.push('');
     lines.push(`    gate       ${g.label}`);

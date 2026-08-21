@@ -23,6 +23,10 @@ import { createHash } from 'node:crypto';
 import {
   RECEIPT_CLASS, VERDICT, receiptVerdict, renderReceipt, capture,
 } from './lib/gate-receipt.mjs';
+// ⛔ The ambient population, ENUMERATED. A materialized tree fixes SOURCE attribution and nothing
+// else -- node_modules is ignored, so it cannot come from T. This names what remains rather than
+// implying a hermeticity the run does not have.
+import { dependencyCarrier, unexpectedIgnored } from './lib/dependency-carrier.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
 const sha = (b) => createHash('sha256').update(b ?? '').digest('hex');
@@ -86,11 +90,48 @@ function gatesFor(root) {
   // behaviour it exists for, demonstrated against its own author. Resolving the runner's own entry
   // removes the Windows shim from between a gate and its verdict.
   return [
+    // ⚠ `producesIgnored` DECLARES a bounded output path. Measured: running the suite creates
+    // `.aify-graph/` in the worktree -- it is not a checkout artifact and not ambient noise, it is
+    // this gate's own product. A declared output may appear at EXIT; anything undeclared refuses.
     { label: 'vitest', argv: [process.execPath, join(root, 'node_modules', 'vitest', 'vitest.mjs'), 'run'],
-      countPattern: /^\s*(Test Files|Tests)\s/, timeoutMs: 30 * 60_000 },
+      countPattern: /^\s*(Test Files|Tests)\s/, timeoutMs: 30 * 60_000,
+      producesIgnored: ['.aify-graph'] },
     { label: 'authority-ledger', argv: [process.execPath, join(root, 'scripts', 'authority-ledger.mjs'), '--check'],
       countPattern: /ALL FILES COMPLETE/, timeoutMs: 5 * 60_000 },
   ];
+}
+
+/** Ignored paths actually present in a materialized worktree. */
+function ignoredIn(cwd) {
+  return execFileSync('git', ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory'],
+    { cwd, encoding: 'utf8' })
+    .split(String.fromCharCode(10)).filter(Boolean);
+}
+
+/**
+ * Materialize the staged tree T as a real filesystem, WITHOUT touching any ref.
+ *
+ * ⛔ `git commit-tree` creates an UNREFERENCED commit object naming T. No branch moves, no history
+ * changes, and the object is unreachable once the worktree is gone. That is what lets a candidate
+ * run observe a filesystem built FROM T rather than hoping the ambient checkout equals it --
+ * measured: HEAD and branch are unchanged, and the temp commit's tree is exactly T.
+ */
+function materialize(T) {
+  const tempCommit = execFileSync('git', ['commit-tree', T, '-p', 'HEAD', '-m', 'candidate materialization (unreferenced)'],
+    { cwd: REPO, encoding: 'utf8' }).trim();
+  const worktree = join(REPO, '..', `apg-materialized-${T.slice(0, 12)}`);
+  if (existsSync(worktree)) {
+    rmSync(worktree, { recursive: true, force: true });
+    // ⛔ `rmSync(force:true)` SWALLOWS FAILURES. A previous run holding a sqlite handle leaves the
+    // directory behind, and reusing it would inherit that run's generated state as though it were
+    // a fresh materialization -- silently, and in the reassuring direction.
+    if (existsSync(worktree)) {
+      throw new Error(`refusing to reuse ${worktree}: it still exists after removal, so its `
+        + 'generated state would be inherited as if fresh. Release the handle or remove it by hand.');
+    }
+  }
+  execFileSync('git', ['worktree', 'add', '--detach', worktree, tempCommit], { cwd: REPO, stdio: 'ignore' });
+  return { tempCommit, worktree };
 }
 
 /** Link the dependency carrier into a fresh worktree, and DISCLOSE how it got there. */
@@ -134,25 +175,79 @@ function main() {
   let dependencyTransport = null;
   let cleanupNote = '';
 
+  let candidateTreeHash = null;
+  let materialization = null;
+
   if (commitBound) {
     worktree = join(REPO, '..', `apg-receipt-${argv[bindIdx + 1].slice(0, 7)}`);
     if (existsSync(worktree)) rmSync(worktree, { recursive: true, force: true });
     execFileSync('git', ['worktree', 'add', '--detach', worktree, argv[bindIdx + 1]], { cwd: REPO, stdio: 'ignore' });
     dependencyTransport = linkDeps(worktree);
     root = worktree;
+  } else if (candidateTree) {
+    // ⛔ THE CANDIDATE RUN NO LONGER OBSERVES THE AMBIENT CHECKOUT. It observes a filesystem
+    // materialized FROM T. The old version computed T and then ran gates against whatever the
+    // working directory happened to contain -- which is only the same thing if nothing ignored
+    // influences the tests, and `.aify-graph`, caches and generated configs are all ignored.
+    candidateTreeHash = execFileSync('git', ['write-tree'], { cwd: REPO, encoding: 'utf8' }).trim();
+    materialization = materialize(candidateTreeHash);
+    worktree = materialization.worktree;
+    dependencyTransport = linkDeps(worktree);
+    root = worktree;
   }
 
   try {
     const before = repoIdentity(root, candidateTree);
-    const gates = gatesFor(root).map((g) => runGate({ ...g, cwd: root }));
+    // ⛔ IGNORED STATE IS CHECKED AT BOTH ENDS, and the ONLY permitted entry is the dependency link
+    // we ourselves created. Ignored files are in neither T nor `ls-files --others`, yet gates read
+    // them -- that is the unnamed population. Measured on a fresh materialization: ZERO ignored
+    // entries, so anything present is either ours or something a gate produced.
+    // ⛔ ENTRY IS STRICT: nothing ignored beyond the dependency link. This is what catches a STALE
+    // materialization -- if a previous run's worktree could not be deleted (a held sqlite handle
+    // does exactly that), reusing the directory would silently inherit its generated state.
+    // ⛔⛔ SOMETHING AMBIENT CREATES `.aify-graph` IN A FRESH WORKTREE. Measured: a manual probe
+    // showed ZERO ignored entries on checkout and after linking deps, yet the gate's own
+    // materialization finds `.aify-graph/` already present at entry. The producer is outside this
+    // tool -- most likely a running MCP server that indexes directories it notices.
+    //
+    // ⇒ Refusing outright would make the class unusable on this machine. Silently tolerating it
+    // would be the unnamed population all over again. So the initial condition is ESTABLISHED and
+    // RECORDED: pre-existing generated state is removed before the entry sample, and exactly what
+    // was removed travels in the receipt every single run. The signal is preserved, not erased.
+    const preExistingRemoved = [];
+    if (candidateTree) {
+      for (const entry of unexpectedIgnored(ignoredIn(root))) {
+        const abs = join(root, entry);
+        try { rmSync(abs, { recursive: true, force: true }); } catch { /* recorded below */ }
+        preExistingRemoved.push(`${entry}${existsSync(abs) ? ' (REMOVAL FAILED)' : ''}`);
+      }
+    }
+    const ignoredEntry = candidateTree ? unexpectedIgnored(ignoredIn(root)) : [];
+    const declaredGates = gatesFor(root);
+    const gates = declaredGates.map((g) => runGate({ ...g, cwd: root }));
+    // ⚠ EXIT ALLOWS ONLY WHAT A GATE DECLARED IT WOULD PRODUCE, and the declaration is part of the
+    // receipt rather than a silent exception.
+    const declaredOutputs = declaredGates.flatMap((g) => g.producesIgnored ?? []);
+    const ignoredExit = candidateTree
+      ? unexpectedIgnored(ignoredIn(root), ['node_modules', ...declaredOutputs]) : [];
     const after = repoIdentity(root, candidateTree);
+    if (candidateTree) {
+      before.candidate = {
+        ...before.candidate, tree: candidateTreeHash, unexpectedIgnored: ignoredEntry, preExistingRemoved,
+      };
+      after.candidate = {
+        ...after.candidate, tree: candidateTreeHash, unexpectedIgnored: ignoredExit,
+        declaredOutputs, producedOutputs: ignoredIn(root).filter((x) => declaredOutputs.some((d) => x.split(/[\/]/).includes(d))),
+      };
+      before.dependencies = dependencyCarrier(root, join(root, 'node_modules'));
+    }
     const receiptClass = commitBound ? RECEIPT_CLASS.COMMIT_BOUND
       : candidateTree ? RECEIPT_CLASS.CANDIDATE_TREE_BOUND
         : RECEIPT_CLASS.PRECOMMIT_DIAGNOSTIC;
     const receipt = renderReceipt({
       receiptClass, before, after, gates,
       boundTo: commitBound ? `${before.commit} / tree ${before.tree}`
-        : candidateTree ? `CANDIDATE TREE ${before.candidate.tree} (not yet committed)`
+        : candidateTree ? `CANDIDATE TREE ${candidateTreeHash} materialized at ${materialization.tempCommit.slice(0, 12)} (unreferenced)`
           : null,
       dependencyTransport,
     });
