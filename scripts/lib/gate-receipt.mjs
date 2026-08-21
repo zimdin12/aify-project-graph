@@ -1,34 +1,41 @@
-// GATE RESULTS ARE TRANSPORTED, NEVER AUTHORED.
+// GATE RESULTS ARE TRANSPORTED, NEVER AUTHORED — AND ONLY A CLEAN EXACT-COMMIT RUN MAY SAY PASS.
 //
 // ⛔⛔ I PUBLISHED A FABRICATED GREEN. `cba6c24`'s message says "vitest 2456 passed / 318 files
-// EXIT 0". The run immediately before it reported **exit 1**, one failed file, one failed test. I
-// had the exit code in front of me and typed the passing figures anyway.
+// EXIT 0". The run immediately before it reported **exit 1**. I had the exit code in front of me
+// and typed the passing figures anyway. graph-senior-dev's ruling: the remedy is not care, it is
+// mechanical transport — a human summary may explain the numbers but must never originate them.
 //
-// graph-senior-dev's ruling, and it is the right one: *"The right procedural consequence is not
-// 'be more careful typing.' Gate claims must be mechanically copied from a preserved command
-// receipt containing command, exit, counts, commit/tree, and terminal status. A human-authored
-// summary may explain it but must not originate the numbers."*
+// ⛔⛔ AND THEN THE FIRST TRANSPORT REPEATED THE SHAPE ONE LEVEL UP. It printed
+// `porcelain DIRTY (3 entries)` and, on the next line, `VERDICT all gates exited 0`. The dirt was
+// DISCLOSED beside the verdict instead of DEGRADING it.
 //
-// ⇒ A rule I must remember is the remedy that already failed. This module makes the number a
-// TRANSPORT: it comes out of the process that produced it, or it does not exist.
+// ⇒ *"Commit/tree identity does not bind uncommitted bytes. Stable dirt at both endpoints is still
+// an unnamed alternate tree."* The processes ran and their exits are real — but they certify some
+// tree nobody has named, not the commit the receipt prints at the top.
 //
-// ⚠ AND THE IDENTITY IS SAMPLED ON BOTH SIDES, because a receipt that names a commit is claiming
-// the gates ran against THAT commit. The carrier can move during a multi-minute suite — the same
-// defect that made refactor-guard accuse unchanged code. One sample cannot detect movement during
-// the window it certifies.
-import { execFileSync, spawnSync } from 'node:child_process';
+// ⇒ **A disclosure the reader must act on is not a control. The verdict has to move.**
+//
+// TWO CLASSES, deliberately not interchangeable:
+//
+//   PRECOMMIT_DIAGNOSTIC   may run dirty · reports raw outcomes · NEVER says PASS
+//                          author feedback only; unquotable as proof about any commit
+//   COMMIT_BOUND           clean detached worktree at an exact commit/tree · identity sampled
+//                          before and after · any dirt or movement REFUSES · only this may PASS
 
-/** Repository identity at one instant: what a receipt is claiming its numbers describe. */
-export function repoIdentity(cwd) {
-  const git = (...a) => execFileSync('git', a, { cwd, encoding: 'utf8' }).trim();
-  return {
-    commit: git('rev-parse', 'HEAD'),
-    tree: git('rev-parse', 'HEAD^{tree}'),
-    porcelain: git('status', '--porcelain=v1'),
-  };
-}
+/** What a receipt is allowed to conclude. */
+export const RECEIPT_CLASS = {
+  PRECOMMIT_DIAGNOSTIC: 'PRECOMMIT_DIAGNOSTIC',
+  COMMIT_BOUND: 'COMMIT_BOUND',
+};
 
-/** Which identity fields must hold across the run for the receipt to bind. */
+export const VERDICT = {
+  PASS: 'PASS',
+  FAILED: 'FAILED',
+  REFUSE: 'REFUSE',
+  UNBOUND_DIRTY: 'UNBOUND_DIRTY',
+};
+
+/** Which identity fields must hold across the run for a receipt to bind. */
 export const IDENTITY_KEYS = ['commit', 'tree', 'porcelain'];
 
 /**
@@ -44,60 +51,77 @@ export function identityMovement(before, after) {
 }
 
 /**
- * Run one gate and capture what it actually did.
+ * Did this gate's PROCESS succeed?
  *
- * ⛔ THE EXIT CODE IS THE VERDICT, and it is read from the process — never inferred from output.
- * `countLines` are extracted for the reader's benefit and carry no authority: a receipt whose
- * status disagreed with its counts would be resolved by the status.
+ * ⛔ EXIT, SIGNAL AND SPAWN FAILURE ARE THE AUTHORITY. Parsed counts are display-only: a receipt
+ * whose status disagreed with its counts is resolved by the status, always.
+ *
+ * ⚠ A TIMEOUT IS TYPED SEPARATELY from an exit failure. "The suite said no" and "the suite never
+ * finished" are different facts, and collapsing them would let a hang read as a verdict.
  */
-export function runGate({ label, command, args, cwd, countPattern }) {
-  const r = spawnSync(command, args, { cwd, encoding: 'utf8', shell: false, maxBuffer: 1 << 24 });
-  const output = `${r.stdout ?? ''}${r.stderr ?? ''}`;
-  // eslint-disable-next-line no-control-regex
-  const plain = output.replace(/\[[0-9;]*m/g, '');
-  const countLines = countPattern
-    ? plain.split('\n').filter((l) => countPattern.test(l)).map((l) => l.trimEnd())
-    : [];
-  return {
-    label,
-    commandLine: [command, ...args].join(' '),
-    exit: r.status,
-    signal: r.signal ?? null,
-    spawnError: r.error ? String(r.error.message) : null,
-    countLines,
-  };
-}
+export const gatePassed = (g) => g.exit === 0 && g.signal == null && g.spawnError == null && !g.timedOut;
 
-/** A gate passed only if the process exited 0 with no signal and no spawn failure. */
-export const gatePassed = (g) => g.exit === 0 && g.signal == null && g.spawnError == null;
+/**
+ * The verdict, derived from class + identity + gate outcomes. Nothing here is written by hand.
+ *
+ * ORDER IS LOAD-BEARING. Identity is settled before outcomes are consulted, because a gate result
+ * observed against an unnamed tree is not evidence about the commit named at the top.
+ */
+export function receiptVerdict({ receiptClass, before, after, gates }) {
+  const moved = identityMovement(before, after);
+  if (moved.length) {
+    return { verdict: VERDICT.REFUSE, reason: `identity moved during the run: ${moved.join(', ')}`, moved };
+  }
+  const dirty = (before.porcelain ?? '') !== '';
+  if (receiptClass === RECEIPT_CLASS.COMMIT_BOUND && dirty) {
+    return { verdict: VERDICT.REFUSE, reason: 'a commit-bound receipt requires a clean tree', moved };
+  }
+  if (receiptClass === RECEIPT_CLASS.PRECOMMIT_DIAGNOSTIC) {
+    // ⛔ NEVER PASS, clean or not. This class does not run on an exact-commit detached carrier, so
+    // it cannot certify a commit even when the working tree happens to be tidy.
+    const failed = gates.filter((g) => !gatePassed(g));
+    return {
+      verdict: VERDICT.UNBOUND_DIRTY,
+      reason: failed.length
+        ? `${failed.length} gate(s) failed; and a diagnostic binds no commit either way`
+        : 'gates exited 0, but a diagnostic run binds no commit',
+      moved,
+    };
+  }
+  const failed = gates.filter((g) => !gatePassed(g));
+  if (failed.length) {
+    return { verdict: VERDICT.FAILED, reason: `${failed.length} gate(s) failed: ${failed.map((g) => g.label).join(', ')}`, moved };
+  }
+  return { verdict: VERDICT.PASS, reason: 'every gate process exited 0 on a clean exact-commit carrier', moved };
+}
 
 /**
  * Render the receipt.
  *
- * ⚠ EVERY NUMBER HERE ORIGINATES IN A PROCESS RESULT. Nothing in this function invents a count, and
- * the verdict line is computed from exit codes rather than written.
+ * ⚠ EVERY NUMBER ORIGINATES IN A PROCESS RESULT, and the verdict is computed rather than written.
+ * The command is printed as its argv ARRAY, not reassembled into shell prose — a reconstructed
+ * command line is a claim about what ran, and this repo has already paid for those.
  */
-export function renderReceipt({ before, after, gates, moved }) {
+export function renderReceipt({ receiptClass, before, after, gates, boundTo, dependencyTransport }) {
+  const { verdict, reason } = receiptVerdict({ receiptClass, before, after, gates });
   const lines = [];
-  lines.push('GATE RECEIPT — numbers transported from the runs, not authored');
+  lines.push(`GATE RECEIPT [${receiptClass}] — numbers transported from the runs, not authored`);
+  lines.push(`    binds      ${boundTo ?? '(nothing — diagnostic)'}`);
   lines.push(`    commit     ${before.commit}`);
   lines.push(`    tree       ${before.tree}`);
-  lines.push(`    porcelain  ${before.porcelain === '' ? 'empty' : `DIRTY (${before.porcelain.split('\n').length} entries)`}`);
+  lines.push(`    porcelain  ${(before.porcelain ?? '') === '' ? 'empty' : `DIRTY (${before.porcelain.split('\n').length} entries)`}`);
+  if (dependencyTransport) lines.push(`    deps       ${dependencyTransport}`);
   for (const g of gates) {
     lines.push('');
-    lines.push(`    command    ${g.commandLine}`);
-    lines.push(`    exit       ${g.exit}${g.signal ? ` (signal ${g.signal})` : ''}${g.spawnError ? ` (spawn error: ${g.spawnError})` : ''}`);
+    lines.push(`    gate       ${g.label}`);
+    lines.push(`    argv       ${JSON.stringify(g.argv)}`);
+    lines.push(`    exit       ${g.exit}${g.signal ? ` signal=${g.signal}` : ''}${g.timedOut ? ' TIMED OUT' : ''}${g.spawnError ? ` spawn-error=${g.spawnError}` : ''}`);
+    lines.push(`    outHash    ${g.stdoutSha256?.slice(0, 16) ?? '(none)'} / ${g.stderrSha256?.slice(0, 16) ?? '(none)'}`);
     for (const c of g.countLines) lines.push(`   ${c}`);
   }
   lines.push('');
-  if (moved.length) {
-    lines.push(`    ⛔ IDENTITY MOVED DURING THE RUN (${moved.join(', ')}) — this receipt binds NOTHING.`);
-  } else {
-    lines.push(`    terminal   ${after.commit.slice(0, 7)} / porcelain ${after.porcelain === '' ? 'empty' : 'DIRTY'} — unchanged across the run`);
-  }
-  const failed = gates.filter((g) => !gatePassed(g));
-  lines.push(failed.length
-    ? `    VERDICT    ${failed.length} GATE(S) FAILED: ${failed.map((g) => g.label).join(', ')}`
-    : '    VERDICT    all gates exited 0');
+  lines.push(`    terminal   ${after.commit?.slice(0, 7)} / porcelain ${(after.porcelain ?? '') === '' ? 'empty' : 'DIRTY'}`);
+  if (dependencyTransport) lines.push(`    cleanup    recorded below by the caller`);
+  lines.push(`    VERDICT    ${verdict} — ${reason}`);
   return lines.join('\n');
 }
