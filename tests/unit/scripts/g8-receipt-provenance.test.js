@@ -133,6 +133,16 @@ describe('the tracked G8 spec is loadable by the normal invocation', () => {
     expect(result.loadable).toBe(true);
   });
 
+  it('★★★ the TRACKED D1 spec also loads — promoted before any experiment', () => {
+    // ⛔ PROMOTED TO runnable-unwitnessed ON SCHEMA ALONE, never on a result. G8's carrier gap was
+    // an externally-constructed one-arm spec whose preimage was not committed; D1 is extracted and
+    // tracked BEFORE its run, so the experiment consumes the declared file directly.
+    const spec = JSON.parse(read(join(SR, 'dashboard-ownership-D1.spec.json')));
+    expect(validateV3Spec(spec).problems).toEqual([]);
+    expect(spec[0].expectFailures, 'the failing-case population is preregistered').toBe(1);
+    expect(spec[0].withdrawnTitle, 'the corrected title records what it replaced').toMatch(/WITHDRAWN/);
+  });
+
   it('★★★ the legacy seven-arm file is still NOT loadable, and that is recorded honestly', () => {
     // ⚠ POSITIVE CONTROL for the validator: if it called everything loadable, the assertion above
     // would be worthless. The legacy file genuinely cannot load, which is why its arms remain

@@ -137,9 +137,9 @@ describe('the witness migration ledger accounts for every declared spec', () => 
       .toBe(entries.length);
 
     expect(exclusive).toEqual({
-      legacy_unruled: 32,
+      legacy_unruled: 31,
       retired_obsolete: 2,
-      v3_runnable_unwitnessed: 0,
+      v3_runnable_unwitnessed: 1,
       v3_failure_observed_unattributed: 1,
       v3_witnessed: 0,
     });
@@ -156,7 +156,7 @@ describe('the witness migration ledger accounts for every declared spec', () => 
       failureObservedOrBetter: count('v3_failure_observed_unattributed') + count('v3_witnessed'),
       witnessed: count('v3_witnessed'),
     };
-    expect(cumulative).toEqual({ schemaRunnable: 1, failureObservedOrBetter: 1, witnessed: 0 });
+    expect(cumulative).toEqual({ schemaRunnable: 2, failureObservedOrBetter: 1, witnessed: 0 });
     // ⚠ RETIRED SPECS ARE NOT IN ANY CUMULATIVE ROLLUP. Retirement is a ruling that a witness
     // cannot exist, not partial progress toward one — counting it as capability would be the
     // denominator-flattering move this ledger exists to prevent.

@@ -8,7 +8,7 @@
     "attributedWitnesses": 0,
     "note": "Immutable migration baseline. 0 of 35 pre-v3 declarations are runnable: none carry the mandatory case/expect witness fields. Do NOT rewrite history by calling a pre-v3 declaration runnable."
   },
-  "legacyCeiling": 32,
+  "legacyCeiling": 31,
   "entries": {
     "F1 the true row total is never passed to the ambiguity message": {
       "spec": "ambiguity-population.spec.json",
@@ -74,11 +74,6 @@
       "spec": "byte-gate.spec.json",
       "state": "retired_obsolete",
       "reason": "Structurally undefendable, not an open defect. The mutation WEAKENS the exemption assertion itself -- toEqual(exact set) becomes toContain(each approved), which accepts a superset -- and that assertion is the only thing that could detect the weakening. A spec whose hostile mutation targets its own sole defence cannot produce a preregistered RED, so it can never earn a witness. Retired on ruling, not on experiment. Self-declared OUT OF SCOPE in its own note; verified structurally 2026-08-21."
-    },
-    "D1 reserve ownership AFTER the await, not before": {
-      "spec": "dashboard-ownership.spec.json",
-      "state": "legacy_unruled",
-      "reason": "pre-v3 declaration; predates mandatory case/expect. Not runnable, no witness claim."
     },
     "D2 a pending start is reported as already_running": {
       "spec": "dashboard-ownership.spec.json",
@@ -184,6 +179,11 @@
       "spec": "stale-warning-claims.spec.json",
       "state": "legacy_unruled",
       "reason": "pre-v3 declaration; predates mandatory case/expect. Not runnable, no witness claim."
+    },
+    "D1 pending ownership marker is constructed but never published": {
+      "spec": "dashboard-ownership-D1.spec.json",
+      "state": "v3_runnable_unwitnessed",
+      "reason": "Physically extracted into its own v3-loadable file with the corrected title; the old title claimed an AFTER-AWAIT publication its own mutation bytes do not contain. Preregistration tests/self-review/preregistrations/D1.json, referee graph-senior-dev, revision 1787271727083-cae28491. PROMOTED BEFORE ANY EXPERIMENT and only to runnable-unwitnessed: justified by the committed schema and preregistration, never by a result. Bounded to the JOIN path -- it does not establish teardown visibility."
     }
   }
 }

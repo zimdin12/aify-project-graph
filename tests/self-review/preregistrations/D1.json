@@ -1,0 +1,46 @@
+{
+  "specId": "D1 pending ownership marker is constructed but never published",
+  "spec": "dashboard-ownership-D1.spec.json",
+  "withdrawnTitle": "D1 reserve ownership AFTER the await, not before. WITHDRAWN 2026-08-21: the mutation does not move the publication after the await -- it constructs the marker and never publishes it at all. A title describing an after-await publication cannot be supported by bytes that contain no publication. Referee ruling 1787271727083-cae28491.",
+  "ledgerStateBefore": "legacy_unruled",
+  "ledgerStateAtPreregistration": "v3_runnable_unwitnessed",
+  "referee": {
+    "identity": "graph-senior-dev",
+    "proposalThreadMessageId": "1787271670514-3f8ba86c",
+    "revisionResponseMessageId": "1787271727083-cae28491",
+    "disposition": "REVISE -> guarantee narrowed to the JOIN path, title corrected, physical extraction required before any run; predicate approved with exact execution limits"
+  },
+  "carrier": {
+    "commit": "efa11b43e63da5a1bbed57bacfc054e63602c3c2",
+    "tree": "fcb2593df85eee6ee8f4e1d65ea103347e29829c",
+    "target": "mcp/stdio/query/verbs/dashboard.js",
+    "anchorResolution": {
+      "state": "unique",
+      "index": 3145,
+      "resolver": "scripts/lib/anchor.mjs"
+    }
+  },
+  "guarantee": "Before awaiting startDashboard(), a start publishes a pending marker keyed by repo root so a second same-key caller observes and joins that exact in-flight start. For D1's mutation, the join-path test must reject a rival second start by observing that both callers receive the same dashboard URL. This arm does not establish teardown visibility or release ownership.",
+  "notEstablished": "Teardown visibility and release ownership. By my own prediction the :231 in-flight-during-shutdown case stays GREEN because the generation check at dashboard.js:78-82 independently defends it -- so this experiment gives that half of the original guarantee no weight whatsoever.",
+  "case": "★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+  "expect": "and it must be the SAME dashboard, not a second one",
+  "expectFailures": 1,
+  "predictions": {
+    "baseline": "whole file exits 0; every case passes",
+    "mutant": "exit 1; EXACTLY ONE failing case, the named one, with ONE message containing the predicate",
+    "case231": "STAYS GREEN -- the captured generation changes before the held start resumes"
+  },
+  "downstreamAssertionsUnexecuted": "started.toHaveLength(1) sits AFTER the predicted URL-equality throw. Vitest stops the case at the first throw, so it will be UNEXECUTED -- no verdict. It is not a secondary passing control and must not be reported as one.",
+  "antiTargets": [
+    ":231 failing -- the generation-check model is wrong; NOT the predicted witness",
+    "b?.url toBeTruthy failing -- the joiner errored rather than starting a rival: different mechanism",
+    "a?.status toBe('running') failing -- the FIRST call broke, not the join path",
+    "makeRepo / fixture / mock-start setup failure",
+    "the 20-second case timeout -- a hang is not a witness",
+    "any beforeEach/afterEach throw, or a non-case error riding alongside",
+    "any failing-case total other than exactly 1 -- population does not reconcile"
+  ],
+  "restorationCarrier": "detached disposable worktree at the approved commit; node_modules by recorded junction; the TRACKED spec consumed directly -- no scratch-constructed arm, no external preimage; restore verified by hash; worktree disposed",
+  "claimCeiling": "v3_failure_observed_unattributed",
+  "claimCeilingReason": "Body attribution is open: a beforeEach throw occupies the same slot as a body assertion."
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "name": "D1 pending ownership marker is constructed but never published",
+    "file": "mcp/stdio/query/verbs/dashboard.js",
+    "from": "  const pending = { pendingStart: true, repoRoot, joinable: new Promise((r) => { settle = r; }) };\n  activeDashboards.set(repoRoot, pending);",
+    "to": "  const pending = { pendingStart: true, repoRoot, joinable: new Promise((r) => { settle = r; }) };",
+    "tests": [
+      "tests/unit/dashboard/repo-root-wiring.test.js"
+    ],
+    "withdrawnTitle": "D1 reserve ownership AFTER the await, not before. WITHDRAWN 2026-08-21: the mutation does not move the publication after the await -- it constructs the marker and never publishes it at all. A title describing an after-await publication cannot be supported by bytes that contain no publication. Referee ruling 1787271727083-cae28491.",
+    "case": "★★ a SECOND same-key call joins the in-flight start, it is not told a lie",
+    "expect": "and it must be the SAME dashboard, not a second one",
+    "expectFailures": 1
+  }
+]
