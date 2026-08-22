@@ -8,7 +8,8 @@
 // thirty-first arm and copies the wrong line. ⇒ THE MAIN WORKSPACE HAS NO WORKING `write`, so the
 // dangerous state is not merely unwritten — it is unconstructible.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -63,6 +64,48 @@ describe('the main checkout cannot be mutated', () => {
 });
 
 describe('a workspace path cannot escape its root', () => {
+  it('★★★⛔ A JUNCTION CANNOT WALK THROUGH CONTAINMENT — lexical was not enough', async () => {
+    // ⛔ THE ESCAPE, DEMONSTRATED BEFORE IT WAS FIXED. `path()` used resolve()+relative(), which is
+    // STRING arithmetic: it catches `..` and cannot see a junction, because a junction is lexically
+    // inside the root and physically anywhere.
+    //
+    //     ../escaped.txt   REFUSED     the lexical check does work
+    //     ok.txt           wrote       the instrument can write
+    //     deps/pwned.txt   ACCEPTED    and the bytes landed OUTSIDE the root
+    //
+    // ⛔⛔ AND THIS MODULE CREATES EXACTLY SUCH A JUNCTION IN EVERY ARM: openArmWorkspace links
+    // <arm>/node_modules to the MAIN CHECKOUT's node_modules. One path per arm was lexically
+    // contained and physically inside the tree this module exists to protect.
+    //
+    // ⇒ The same junction was ALREADY guarded for the other operation — disposeArmWorkspace removes
+    // it first, and says why. Same junction, two operations, reasoned through for DELETE and never
+    // taught to WRITE. Found by ef-manager reviewing 1c05bde.
+    const outside = join(dir, '..', `outside-${Date.now()}`);
+    mkdirSync(outside, { recursive: true });
+    const ws = new Workspace(dir, { writable: true, kind: 't' });
+    try {
+      execFileSync('cmd', ['/c', 'mklink', '/J', join(dir, 'deps'), outside], { stdio: 'ignore' });
+    } catch {
+      // No junction support (non-Windows, or no permission): the case cannot be constructed here.
+      // ⚠ Skipping SILENTLY would make this test a decoration, so it fails loudly instead of
+      // pretending to have checked something.
+      expect.fail('could not create a junction — this control cannot run on this platform and must '
+        + 'not report a pass it did not earn');
+    }
+    expect(() => ws.write('deps/pwned.txt', 'x'),
+      'a junction is lexically inside and physically outside').toThrow(/outside the workspace root/);
+    expect(existsSync(join(outside, 'pwned.txt')), 'and no bytes reached the far side').toBe(false);
+    rmSync(outside, { recursive: true, force: true, maxRetries: 3 });
+  });
+
+  it('★★★ POSITIVE CONTROL: the realpath check did not become a lobotomy', () => {
+    // ⛔ Without this, the refusal above is satisfied by a path() that refuses everything — which
+    // would pass the control that motivated the change while making the workspace unusable.
+    const ws = new Workspace(dir, { writable: true, kind: 't' });
+    ws.write('src/a.js', 'still writes');
+    expect(readFileSync(join(dir, 'src', 'a.js'), 'utf8')).toBe('still writes');
+  });
+
   it('★★★⛔ traversal and absolute paths are refused', () => {
     // This object stands between a mutation and the rest of the disk, so a relative path is not
     // automatically inside the root.

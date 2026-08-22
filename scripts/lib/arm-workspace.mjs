@@ -12,9 +12,9 @@
 // ⚠ The read side stays open on main, because reading the pristine source is exactly what an arm
 // must do to compute its mutant. Read and write are separated for that reason rather than the
 // whole object being sealed.
-import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync, realpathSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { join, resolve, relative, isAbsolute } from 'node:path';
+import { join, resolve, relative, isAbsolute, dirname, basename } from 'node:path';
 
 /** Thrown when something tries to mutate the checkout the team is working in. */
 export class ReadOnlyWorkspaceError extends Error {
@@ -47,9 +47,40 @@ export class Workspace {
   path(rel) {
     if (isAbsolute(rel)) throw new Error(`REFUSED: ${rel} is absolute; a workspace path must be repo-relative`);
     const abs = resolve(this.root, rel);
-    const inside = relative(this.root, abs);
+
+    // ⛔ THE LEXICAL CHECK IS NOT ENOUGH, AND I HAD ALREADY WRITTEN THE PHYSICAL ONE ELSEWHERE.
+    //
+    // resolve()+relative() is STRING arithmetic. It catches `..`, and it cannot see a junction: a
+    // junction is lexically inside the root and physically anywhere. Demonstrated against this very
+    // class, with both controls in one run:
+    //
+    //     ../escaped.txt   -> REFUSED    the lexical check does work
+    //     ok.txt           -> wrote      the instrument can write
+    //     deps/pwned.txt   -> ACCEPTED   and the bytes landed OUTSIDE the root
+    //
+    // ⛔⛔ AND THIS CLASS CREATES EXACTLY SUCH A JUNCTION, IN EVERY ARM: openArmWorkspace links
+    // <arm>/node_modules to the MAIN CHECKOUT'S node_modules. So one path per arm was lexically
+    // contained and physically in the tree this whole module exists to protect.
+    //
+    // ⇒ The same junction was ALREADY guarded for the other operation. disposeArmWorkspace removes
+    // it FIRST, saying why: "removing the directory tree while a junction into the real node_modules
+    // is still present is how a cleanup deletes the thing it was linking to." Same junction, two
+    // operations, reasoned through for DELETE and never taught to WRITE.
+    //
+    // ⚠ REALPATH THE PARENT, not the target: realpathSync throws on a path that does not exist yet,
+    // which is every write target. The parent is what a junction would redirect.
+    // Found by ef-manager reviewing 1c05bde.
+    const physicalParent = (() => {
+      try { return realpathSync(dirname(abs)); } catch { return null; }
+    })();
+    const root = (() => { try { return realpathSync(this.root); } catch { return this.root; } })();
+    const inside = physicalParent === null
+      ? relative(this.root, abs)                    // parent absent: fall back to lexical, fail closed below
+      : relative(root, join(physicalParent, basename(abs)));
+
     if (inside.startsWith('..') || isAbsolute(inside)) {
-      throw new Error(`REFUSED: ${rel} resolves outside the workspace root ${this.root}`);
+      throw new Error(`REFUSED: ${rel} resolves outside the workspace root ${this.root}`
+        + (physicalParent !== null ? ' (checked on the REAL path — a junction or symlink cannot walk through)' : ''));
     }
     return abs;
   }
