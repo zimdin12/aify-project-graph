@@ -555,5 +555,88 @@ export function staleProcessWarning() {
   return null;
 }
 
+// ⛔ REFUSE, DO NOT WARN — ef-manager's 6b, and the sentence that earns it:
+//
+//     "Three of my last four rounds opened blocked on a stale MCP process… Right now the only
+//      actor who can fix it is the one who cannot see it."
+//
+// The warning above has existed on the shared read channel for weeks and did not stop those three
+// rounds. A warning that is reliably ignored is not a lighter-touch guard; it is a guard that does
+// not work, and it costs the reader attention on every healthy read to buy nothing on the unhealthy
+// ones. This is [[stand-in-principle]] exactly: a rule is not a remedy — only a closed door is.
+//
+// ⚠ AND ONE PROCESS SERVES EVERY REPO. The stale bytes are the SERVER'S, so switching repositories
+// does not escape them. The refusal is process-scoped for the same reason the defect is.
+//
+// ⛔ WHAT IT REFUSES ON, AND WHAT IT DELIBERATELY DOES NOT.
+//
+// `staleDelta.behaviourally_current` is already tri-state, and the distinction is load-bearing:
+//
+//     true    the whole delta is non-executable — docs, markdown. WARN ONLY.
+//     false   executable files changed. REFUSE.
+//     null    cannot say (this process loaded uncommitted changes). REFUSE.
+//
+// ef-manager hit the `true` case: loaded cad4569 vs tree c526849, staleProcess true, and the entire
+// delta was ONE DOC. Refusing there would be the over-correction — a hard block on a process that
+// is behaviourally current, which teaches people to set the override permanently and puts us back
+// where we started with a guard nobody respects.
+//
+// ⇒ So: refuse unless we POSITIVELY KNOW the delta cannot change behaviour. Unknown refuses.
+//
+// ⚠ graph_health IS NOT AFFECTED, by construction rather than by exemption — it does not route
+// through the read-freshness channel at all. That matters: a refusal an agent cannot diagnose is a
+// dead end, and health is where `server.buildId`, `staleWarning` and `staleDelta` are readable.
+const STALE_OVERRIDE_ENV = 'APG_ALLOW_STALE_PROCESS';
+
+/**
+ * A blocker string when this process must not answer reads, or null.
+ *
+ * @returns {string|null}
+ */
+export function staleProcessBlocker() {
+  return decideStaleRefusal(serverBuildInfo(), process.env);
+}
+
+/**
+ * The decision, as a pure function of the build info and the environment.
+ *
+ * ⛔ SPLIT OUT BECAUSE THE CASE THAT MUST *NOT* REFUSE IS THE HARD ONE TO CONSTRUCT. Proving the
+ * refusal fires needs only a touched file. Proving it stays silent on a docs-only delta needs a
+ * two-commit history whose diff contains no executable file — expensive to build, and the exact
+ * case ef-manager hit and objected to. A pure function takes that state as an argument, so the
+ * over-correction guard is as cheap to write as the positive one.
+ *
+ * @param {object} b   serverBuildInfo() output
+ * @param {object} env process.env, or a stand-in
+ * @returns {string|null}
+ */
+export function decideStaleRefusal(b, env = {}) {
+  // The forced door, and it is an ENV VAR rather than a parameter on purpose: a caller cannot pass
+  // it accidentally, and setting it is a deliberate act recorded in the environment where someone
+  // else can see it.
+  if (env[STALE_OVERRIDE_ENV] === '1') return null;
+  if (!b?.staleProcess) return null;
+  // Positively-known docs-only: the warning already says so and is enough.
+  if (b.staleDelta?.behaviourally_current === true) return null;
+  const why = b.staleSignals?.sourceEdited === true
+    ? 'server source files have been EDITED since this process loaded them'
+    : `this process is running ${b.buildId}, the checkout is now ${b.workingTreeCommit ?? 'unknown'}`;
+  const delta = b.staleDelta?.executable_files_changed;
+  return [
+    'STALE SERVER PROCESS — refusing to answer rather than answering from code that is no longer on disk.',
+    `Reason: ${why}.`,
+    ...(delta ? [`${delta} executable file(s) changed; e.g. ${(b.staleDelta.sample ?? []).slice(0, 3).join(', ')}`] : []),
+    ...(b.staleDelta?.behaviourally_current === null
+      ? ['The delta cannot be classified: this process loaded uncommitted changes, so it corresponds'
+        + ' to no commit and a commit-to-commit diff cannot describe what it is running.']
+      : []),
+    '',
+    'Restart the aify-project-graph MCP server. One process serves EVERY repository, so switching',
+    'repos does not avoid this — the stale bytes are the server\'s.',
+    `graph_health() still answers and carries server.buildId, staleWarning and staleDelta.`,
+    `To proceed anyway and accept answers from stale code, set ${STALE_OVERRIDE_ENV}=1.`,
+  ].join('\n');
+}
+
 // Test seam: force the next call to re-derive instead of waiting out the TTL.
 export function _resetServerBuildCache() { _verdict = null; _verdictAt = 0; }

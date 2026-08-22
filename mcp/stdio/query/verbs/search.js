@@ -362,10 +362,39 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
       // widened, because re-suggesting the setting they just passed is a remedy that cannot
       // change the answer — the same non-terminating shape as the did-you-mean loop.
       const defaultNarrowed = !type && !kindSupplied;
+      // ⛔ A ZERO MUST NAME THE POPULATION IT SEARCHED, OR IT READS AS A CLAIM ABOUT THE REPOSITORY.
+      //
+      // ef-manager, field-testing the heading index on their own corpus: `denoiser` returned
+      // "NO RESULTS. Ruled out: the index is fresh." — with ELEVEN documents discussing denoisers
+      // sitting in that corpus. `git grep` finds all eleven.
+      //
+      // ⛔⛔ AND "RULED OUT: THE INDEX IS FRESH" MADE THE FALSE NEGATIVE MORE CONFIDENT. It answers
+      // "is this stale?", which was not the reason for the zero, and by eliminating the one cause
+      // it can see it implies the remaining explanation is that the topic is not here. Their words:
+      // a three-state instrument reporting two states — PRESENT and ABSENT, with NOT-SIGNPOSTED
+      // collapsed into ABSENT. `git grep` returning noise never does that, because noise is
+      // visibly noise and a confident zero is not.
+      //
+      // ⇒ So when documents were IN SCOPE and none matched, say what was actually searched.
+      // Document bodies are not indexed anywhere in this system; the searchable surface is
+      // filename, title and headings. That is a real recall floor and it is honest — the message
+      // was not. Of four topics genuinely present in their corpus, this found one, because their
+      // documents are audits and session logs whose headings are dates and role names.
+      //
+      // ⚠ ONLY WHEN DOCUMENTS COULD HAVE MATCHED. On the default kind="code" the reader already
+      // gets the line below telling them documents were excluded entirely, and adding this there
+      // would be a second explanation for a population they did not ask for.
+      const docsInScope = kind === 'all' || type === 'Document';
       const base = [
         `NO RESULTS for "${normalizedQuery}".`,
         ruledOut.length ? `Ruled out: ${ruledOut.join('; ')}.` : '',
         mayNarrow.length ? `May be narrowing: ${mayNarrow.join('; ')}.` : '',
+        docsInScope
+          ? 'Scope searched for documents: FILENAME, TITLE and HEADINGS only — document bodies are '
+            + 'not indexed. A topic discussed inside a document but never written into a heading is '
+            + 'not reachable here, so this zero is NOT evidence the topic is absent from the repo. '
+            + 'Fall back to grep for body text.'
+          : '',
         defaultNarrowed
           ? 'Note: this verb DEFAULTS to kind="code", which excludes Document/Directory/Config/External nodes — you did not set that.'
           : '',

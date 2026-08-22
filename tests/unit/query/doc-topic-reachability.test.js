@@ -25,6 +25,7 @@ import { execFileSync } from 'node:child_process';
 import { extractHeadings } from '../../../mcp/stdio/ingest/sweep.js';
 import { graphSearch } from '../../../mcp/stdio/query/verbs/search.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 describe('extractHeadings reads the structure, not the prose', () => {
   it('★★★ every ATX level is a heading', () => {
@@ -235,4 +236,64 @@ describe('the extractor output shape and EXTRACTOR_VERSION move together', () =>
     expect(noHeadings, 'a document with no headings carries no headings key').toBe('summary,title');
     expect(withHeadings).not.toBe(noHeadings);
   });
+});
+
+// ⛔ A ZERO MUST NAME THE POPULATION IT SEARCHED, OR IT READS AS A CLAIM ABOUT THE REPOSITORY.
+//
+// ef-manager, field-testing the heading index on their own corpus: `denoiser` returned
+//
+//     NO RESULTS for "denoiser". Ruled out: the index is fresh.
+//
+// with ELEVEN documents discussing denoisers sitting in that corpus. `git grep` finds all eleven.
+//
+// ⛔⛔ "Ruled out: the index is fresh" MADE THE FALSE NEGATIVE MORE CONFIDENT. It answers "is this
+// stale?", which was not the reason for the zero, and by eliminating the one cause it can see it
+// implies the remaining explanation is that the topic is not here. Their words: a three-state
+// instrument reporting two states — PRESENT and ABSENT, with NOT-SIGNPOSTED collapsed into ABSENT.
+// `git grep` returning noise never does that, because noise is visibly noise and a confident zero
+// is not.
+//
+// ⚠ Of four topics genuinely present in their corpus, the tool found ONE — their documents are
+// audits and session logs whose headings are dates and role names rather than subjects. The recall
+// floor is real and disclosed. The MESSAGE was the defect.
+describe('a zero result discloses what was actually searched', () => {
+  it('★★★⛔ kind="all" with no match says bodies are not indexed', async () => {
+    repoRoot = await topicRepo();
+    const out = await graphSearch({ repoRoot, query: 'denoiser', kind: 'all' });
+    expect(out).toMatch(/NO RESULTS/);
+    expect(out, 'name the surface').toMatch(/FILENAME, TITLE and HEADINGS only/);
+    expect(out, 'and say what the zero does NOT mean').toMatch(/NOT evidence the topic is absent/);
+    expect(out, 'and give the fallback that does search bodies').toMatch(/grep/i);
+  }, 20_000);
+
+  it('★★★⛔ the DEFAULT kind="code" does NOT get it — one explanation per population', async () => {
+    // ⚠ THE OVER-CORRECTION GUARD. A code search already tells the reader documents were excluded
+    // entirely; adding a second explanation for a population they did not ask about is the noise
+    // that trains people to stop reading the block where the real warning lives.
+    repoRoot = await topicRepo();
+    const out = await graphSearch({ repoRoot, query: 'denoiser' });
+    expect(out).toMatch(/NO RESULTS/);
+    expectAbsentWithLiveMatcher(
+      /FILENAME, TITLE and HEADINGS only/,
+      { forbidden: 'Scope searched for documents: FILENAME, TITLE and HEADINGS only.',
+        allowed: 'Note: this verb DEFAULTS to kind="code".' },
+      out,
+      'a code search must not explain a document population the caller did not ask for',
+    );
+  }, 20_000);
+
+  it('★★★ POSITIVE CONTROL: a query WITH results carries no such disclosure', async () => {
+    // ⛔ Without this, the assertions above are satisfied by appending the sentence to every
+    // response — which would put a permanent caveat on every successful search in the product.
+    repoRoot = await topicRepo();
+    const out = await graphSearch({ repoRoot, query: 'widget', kind: 'all' });
+    expect(out, 'this query does find something').toMatch(/design-notes\.md/);
+    expectAbsentWithLiveMatcher(
+      /FILENAME, TITLE and HEADINGS only/,
+      { forbidden: 'Scope searched for documents: FILENAME, TITLE and HEADINGS only.',
+        allowed: 'NODE abc document design-notes.md docs/design-notes.md:1' },
+      out,
+      'a successful search must not carry a permanent caveat',
+    );
+  }, 20_000);
 });

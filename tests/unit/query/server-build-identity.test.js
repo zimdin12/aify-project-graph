@@ -191,12 +191,33 @@ describe('server build identity', () => {
     // condition on the whole session, not a graph condition. Reporting it only in
     // the diagnostic verb means a reader who never calls it acts on stale-build
     // output indefinitely.
-    expect(freshnessSrc).toMatch(/import \{ staleProcessWarning \} from '\.\.\/\.\.\/server-build\.js'/);
+    // ⚠ MATCH THE SYMBOL, NOT THE WHOLE IMPORT LINE. This asserted the exact text
+    // `import { staleProcessWarning } from '../../server-build.js'` and broke the moment a SECOND
+    // symbol was added to the same import — a legitimate change, flagged as a regression. A
+    // brittle source assertion spends its failures on edits that are fine, which is how a guard
+    // gets relaxed rather than fixed.
+    expect(freshnessSrc).toMatch(/staleProcessWarning[\s\S]{0,80}from '\.\.\/\.\.\/server-build\.js'/);
     const inspect = freshnessSrc.slice(freshnessSrc.indexOf('export async function inspectReadFreshness'));
     expect(inspect).toMatch(/const staleBuild = staleProcessWarning\(\)/);
     // It must be pushed BEFORE the snapshot-staleness warning: if the build is
     // wrong, the freshness answer itself came from the wrong build.
     expect(inspect.indexOf('staleBuild')).toBeLessThan(inspect.indexOf('graph snapshot is stale'));
+  });
+
+  it('★★★⛔ and a stale process now REFUSES, ahead of every graph branch', () => {
+    // ⛔ ef-manager, roadmap 6b: "Three of my last four rounds opened blocked on a stale MCP
+    // process… the only actor who can fix it is the one who cannot see it." The warning above had
+    // been on this channel for weeks and did not stop those three rounds.
+    //
+    // The blocker must come FIRST — before the missing-DB, corrupt-manifest and schema branches —
+    // because a stale process is a condition on the running code, INCLUDING the code that decides
+    // whether the graph is fresh. Checking it later would let a stale build adjudicate its own
+    // trustworthiness and would answer the early-return paths from bytes no longer on disk.
+    const inspect = freshnessSrc.slice(freshnessSrc.indexOf('export async function inspectReadFreshness'));
+    expect(inspect).toMatch(/staleProcessBlocker\(\)/);
+    expect(inspect.indexOf('staleProcessBlocker'),
+      'the refusal precedes the missing-database branch')
+      .toBeLessThan(inspect.indexOf('existsSync(dbPath)'));
   });
 
   it('graph_health surfaces it as the FIRST verdict, above nodes/edges', () => {

@@ -6,7 +6,7 @@ import { WorktreeState } from '../../freshness/worktree-state.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { openExistingDb } from '../../storage/db.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
-import { staleProcessWarning } from '../../server-build.js';
+import { staleProcessWarning, staleProcessBlocker } from '../../server-build.js';
 
 // Count commits between the indexed snapshot and current HEAD using the same
 // indexed-commit → HEAD basis graph_health uses for its `stale` verdict. We
@@ -110,6 +110,20 @@ function freshnessResult(fields) {
 export async function inspectReadFreshness({ repoRoot, verbName }) {
   const graphDir = join(repoRoot, '.aify-graph');
   const dbPath = join(graphDir, 'graph.sqlite');
+
+  // ⛔ FIRST, BEFORE THE GRAPH IS TOUCHED AT ALL. A stale process is not a condition on this
+  // repository, it is a condition on the running code — including the code that decides whether the
+  // graph is fresh. Checking it after the manifest and schema branches would let a stale build
+  // adjudicate its own trustworthiness, and would answer some reads (the early-return paths) from
+  // bytes that are no longer on disk.
+  //
+  // ⚠ This REFUSES where the warning below only warns, and the warning is kept for the case the
+  // blocker deliberately lets through — a delta known to be docs-only. See staleProcessBlocker for
+  // why "unknown" refuses and why one doc does not.
+  const staleBlocker = staleProcessBlocker();
+  if (staleBlocker) {
+    return freshnessResult({ blocker: staleBlocker, graphDir, dbPath });
+  }
 
   if (!existsSync(dbPath)) {
     await ensureFresh({ repoRoot });
