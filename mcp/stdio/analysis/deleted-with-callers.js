@@ -87,11 +87,27 @@ export function removedDeclarations(diff) {
  */
 function callersOf(db, name, declaredIn, editedFiles) {
   if (!declaredIn) return null;
+  // ⛔ THE TARGET MUST BE A DECLARATION, NOT ANY NODE THAT SHARES THE NAME.
+  //
+  // Found after code-intel collection raised verified edges from 19 to 3,008 — i.e. only once the
+  // evidence was good enough for the rule to fire at all. It fired on `allowed`, reporting twelve
+  // callers. `allowed` is a DESTRUCTURED PARAMETER of `expectAbsentWithLiveMatcher`, indexed as a
+  // `Symbol` node, and its "callers" are files passing `{ forbidden, allowed }` — genuine LSP
+  // references to a property name, carried under the CALLS relation. Nobody calls a parameter.
+  //
+  // ⇒ The diff said `export function X`. So the node this resolves to must be something that
+  // could have been declared that way. Matching any same-named node in the file re-admits the
+  // whole class of near-miss the file-scoping was introduced to close, one level down.
+  //
+  // ⚠ AND THE CASE THAT EXPOSED IT WAS BUILT ON A FALSE PREMISE — my probe synthesised
+  // `-export function allowed()` for something that is not a function. A fabricated input found a
+  // real defect, which is luck rather than method; the control below uses the true shape.
+  const CALLABLE = "('Function','Method','Class','Interface','Type')";
   const targets = db.all(
-    `SELECT id FROM nodes WHERE label = $name AND file_path = $file`,
+    `SELECT id FROM nodes WHERE label = $name AND file_path = $file AND type IN ${CALLABLE}`,
     { name, file: declaredIn },
   );
-  // Zero: the graph never knew this symbol, so it can contradict nothing.
+  // Zero: the graph never knew this symbol as a declaration, so it can contradict nothing.
   // More than one: the name is not unique even within its own file, and picking is guessing.
   if (targets.length !== 1) return null;
   // ⛔⛔ VERIFIED EDGES ONLY, AND THIS IS WHY THE RULE IS INERT TODAY.

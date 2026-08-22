@@ -193,3 +193,37 @@ describe('⛔ heuristic edges cannot support an unbidden claim', () => {
     expect(deletedWithCallers({ db, diff, editedFiles: ['src/dup.js'] })).toEqual([]);
   });
 });
+
+// ⛔ THE TARGET MUST BE A DECLARATION, NOT ANY NODE SHARING THE NAME.
+//
+// Found only AFTER code-intel collection raised verified edges from 19 to 3,008 — the rule could
+// not fire often enough to be wrong before that. It then fired on `allowed`, reporting twelve
+// callers. `allowed` is a DESTRUCTURED PARAMETER of `expectAbsentWithLiveMatcher`, indexed as a
+// `Symbol` node, and its "callers" are files passing `{ forbidden, allowed }` — genuine LSP
+// references to a property name, carried under the CALLS relation.
+//
+// ⇒ Nobody calls a parameter. The diff said `export function X`, so the node it resolves to must
+// be something that could have been declared that way. File-scoping closed the cross-file
+// collision; this closes the same class one level down, inside the file.
+describe('⛔ only a callable declaration can be the target', () => {
+  it('★★★⛔ a same-named NON-declaration node in the same file does not resolve', () => {
+    db.run(`INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
+            VALUES ('sym','Symbol','paramName','src/lib.js',40,40,'javascript',1,'{}')`);
+    db.run(`INSERT INTO edges (from_id,to_id,relation,confidence,provenance,extractor)
+            VALUES ('c1','sym','CALLS',1,'LSP_VERIFIED','ts-langserver')`);
+    const diff = '--- a/src/lib.js\n+++ b/src/lib.js\n-export function paramName() {}\n';
+    expect(deletedWithCallers({ db, diff, editedFiles: ['src/lib.js'] }),
+      'a Symbol node is not something a diff can have declared as a function').toEqual([]);
+  });
+
+  it('★★★ POSITIVE CONTROL: a Function node with the same shape DOES resolve', () => {
+    // ⛔ Without this the refusal above is satisfied by a type filter that excludes everything,
+    // which would silently retire the rule while every other test still passed.
+    db.run(`INSERT INTO nodes (id,type,label,file_path,start_line,end_line,language,confidence,extra)
+            VALUES ('fn','Function','realDecl','src/lib.js',40,40,'javascript',1,'{}')`);
+    db.run(`INSERT INTO edges (from_id,to_id,relation,confidence,provenance,extractor)
+            VALUES ('c1','fn','CALLS',1,'LSP_VERIFIED','ts-langserver')`);
+    const diff = '--- a/src/lib.js\n+++ b/src/lib.js\n-export function realDecl() {}\n';
+    expect(deletedWithCallers({ db, diff, editedFiles: ['src/lib.js'] }).length).toBe(1);
+  });
+});
