@@ -275,3 +275,38 @@ describe('Code-Intel v2 L2b — LSP_VERIFIED surface', () => {
     expect(dropped).toBe(1);
   });
 });
+
+// ⛔ THE DIRECTION OF AN ERROR IS PART OF THE ERROR.
+//
+// HEURISTIC_TRUST_LINE said only "may undercount C++ virtual/cross-TU dispatch". True, and a reader
+// takes from it that the caller list is at least a SUBSET of the truth — incomplete but safe to act
+// on. Measured on the real graph:
+//
+//     graph_callers("has")        100 callers, essentially all of them `Map.has()` / `Set.has()`
+//     graph_callers("writeFile")   70 callers, resolved onto a symbol declared in a TEST file
+//
+// Tree-sitter resolves a call BY NAME, so every `x.has(y)` in the corpus was attributed to whichever
+// node happened to be labelled `has`. On a common name the list is not a subset of the truth; it is
+// mostly not the truth at all.
+//
+// ⇒ A caveat that names the SAFE direction while the dangerous one dominates is worse than no
+// caveat: it tells the reader which way to lean and the lean is wrong. Someone reading "may
+// undercount" before a deletion concludes the risk is a caller they cannot see, when the live risk
+// is that most of what they CAN see is a name collision.
+describe('the heuristic trust line names BOTH directions', () => {
+  it('★★★⛔ it warns about overcounting, not only undercounting', async () => {
+    const { HEURISTIC_TRUST_LINE } = await import('../../../mcp/stdio/query/lsp-evidence.js');
+    expect(HEURISTIC_TRUST_LINE, 'the dominant error on a common name').toMatch(/OVERCOUNT/);
+    expect(HEURISTIC_TRUST_LINE, 'and the one it already named').toMatch(/UNDERCOUNT/);
+    expect(HEURISTIC_TRUST_LINE, 'and the mechanism, so the reader can predict WHEN')
+      .toMatch(/BY NAME/);
+  });
+
+  it('★★★ it stays ONE line — it prints on every caller answer in the product', async () => {
+    // ⚠ This is paid for constantly, so it cannot grow. The constraint is why both directions are
+    // stated in the shortest form that keeps them distinguishable rather than explained.
+    const { HEURISTIC_TRUST_LINE } = await import('../../../mcp/stdio/query/lsp-evidence.js');
+    expect(HEURISTIC_TRUST_LINE.includes('\n'), 'one line').toBe(false);
+    expect(HEURISTIC_TRUST_LINE.length, 'and a bounded one').toBeLessThan(320);
+  });
+});

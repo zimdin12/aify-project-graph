@@ -79,11 +79,33 @@ function relativeTime(iso) {
   return `${days}d ago`;
 }
 
-// The heuristic-only undercount caveat. Identical wording everywhere so the
+// The heuristic-trust caveat. Identical wording everywhere so the
 // callers/impact/callees/neighbors footers can't drift. ONE line.
+//
+// ⛔ IT USED TO NAME ONLY THE UNDERCOUNT, AND THE OVERCOUNT IS THE LARGER ERROR HERE.
+//
+// "may undercount C++ virtual/cross-TU dispatch" is true, and a reader takes from it that the list
+// is at least a SUBSET of the truth — safe to act on, merely incomplete. Measured on this repo:
+//
+//     graph_callers("has")        100 callers, essentially all of them `Map.has()` / `Set.has()`
+//     graph_callers("writeFile")   70 callers, resolved onto a symbol declared in a TEST file
+//
+// Tree-sitter resolves a call by NAME. Every `x.has(y)` in the corpus was attributed to whichever
+// node happened to be labelled `has`. So the list is not a subset of the truth; on a common name it
+// is mostly not the truth at all.
+//
+// ⇒ THE DIRECTION OF AN ERROR IS PART OF THE ERROR. A caveat that names the safe direction while
+// the dangerous one dominates is worse than no caveat: it tells the reader which way to lean, and
+// the lean is wrong. Someone reading "may undercount" before a deletion concludes the danger is a
+// caller they cannot see, when the live danger is that most of what they CAN see is a name
+// collision.
+//
+// ⚠ Both directions now, shortest form that keeps them distinguishable. This line prints on every
+// caller answer in the product, so it is paid for constantly and cannot grow.
 export const HEURISTIC_TRUST_LINE =
-  'TRUST: heuristic only (tree-sitter) — may undercount C++ virtual/cross-TU '
-  + 'dispatch; run graph_collect_code_intel for exhaustive clangd evidence, or verify with rg';
+  'TRUST: heuristic only (tree-sitter) — resolves calls BY NAME, so a common name '
+  + '(has, get, writeFile) OVERCOUNTS with unrelated same-named calls, and C++ virtual/cross-TU '
+  + 'dispatch UNDERCOUNTS; run graph_collect_code_intel for compiler-resolved evidence, or verify with rg';
 
 // I1 / R2-2026-05-31 — absence-claim trust gating for the GRAPH-EDGE traversal
 // verbs (graph_callers / graph_callees / graph_neighbors / graph_impact). The
