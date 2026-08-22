@@ -1,0 +1,2505 @@
+{
+  "what": "Frozen doc-ref population for per-rule precision grading. Verdicts are NOT filled in.",
+  "how_to_grade": [
+    "For each entry in `admitted`, read `source_text` — the sentence the author actually wrote —",
+    "and decide whether it refers to `target_label` at `target_file`. Set verdict to \"correct\" or",
+    "\"false_positive\". Grade the PROSE, not the resolution: reading the target first is grading",
+    "the answer key. Precision is computed PER `extractor`, because dev set the floor per rule and",
+    "an aggregate can clear 0.95 while a rule inside it sits at 0.6.",
+    "For each entry in `refused`, decide whether the layer SHOULD have admitted it. That is the",
+    "recall question, and it is the one a precision number cannot answer."
+  ],
+  "pins": {
+    "commit": "32944829e7a63a9fa9c55d811d7f98a9530c6a6a",
+    "dirty_files": 1,
+    "graph_sha256_16": "e6ea52508e0ee49f",
+    "repo": "agent-understand-anything",
+    "rules": {
+      "doc_ref:qualified": 0.9,
+      "doc_ref:shaped": 0.8,
+      "doc_ref:path-scoped": 0.85
+    }
+  },
+  "totals": {
+    "documents": 118,
+    "documents_with_refs": 30,
+    "admitted": 131,
+    "admitted_by_rule": {
+      "doc_ref:shaped": 100,
+      "doc_ref:path-scoped": 25,
+      "doc_ref:qualified": 6
+    },
+    "refused_total": 10138,
+    "span_invariant_violations": 0
+  },
+  "admitted": [
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+      "source_line": 290,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "SearchEngine",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/search.ts",
+      "source_text": "**Context:** The current dashboard store has basic case-insensitive substring search across name/summary/tags. Phase 2 needs fuzzy matching and relevance scoring. We build a reusable `SearchEngine` in core (used by both dashboard and skill), powered by Fuse.js. The dashboard store will switch to using this engine in a later task.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+      "source_line": 1723,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LayerLegend",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/LayerLegend.tsx",
+      "source_text": "Add `LayerLegend` to the header area, next to SearchBar.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+      "source_line": 1814,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "isStale",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/staleness.ts",
+      "source_text": "4. **Staleness**: Call `isStale('/project', 'oldHash')` → verify it detects changes",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+      "source_line": 1815,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detectLayers",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/analyzer/layer-detector.ts",
+      "source_text": "5. **Layer detection**: Call `detectLayers(graph)` on a project with routes/models/services → verify layers populated",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase3-implementation.md",
+      "source_line": 38,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "TourStep",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "**Context:** The `TourStep` schema already exists in `packages/core/src/types.ts` (order, title, description, nodeIds, languageLesson?). The sample `knowledge-graph.json` already has 6 tour steps with language lessons. This task builds the engine that GENERATES those tours: an LLM prompt builder + response parser, and a heuristic fallback that creates tours without an LLM by using graph topology (entry-point detection → topological sort → group by layers).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase3-implementation.md",
+      "source_line": 565,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "DashboardStore",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/store.ts",
+      "source_text": "In `packages/dashboard/src/store.ts`, add to the `DashboardStore` interface:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase3-implementation.md",
+      "source_line": 898,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "CustomNodeData",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/CustomNode.tsx",
+      "source_text": "In `packages/dashboard/src/components/CustomNode.tsx`, add to `CustomNodeData`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase3-implementation.md",
+      "source_line": 1147,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "**Context:** The `languageNotes` field on `GraphNode` and `languageLesson` field on `TourStep` are designed for language-specific teaching. This task builds the LLM prompt templates that generate these lessons — explaining language concepts (async/await, generics, middleware patterns, decorators, etc.) in the context of the user's actual code. This is what makes \"Learn Mode\" unique: you learn Go/Rust/TypeScript concepts by seeing them explained in YOUR project.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase3-implementation.md",
+      "source_line": 1564,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "PersonaSelector",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/PersonaSelector.tsx",
+      "source_text": "Import `PersonaSelector` and add it to the header bar, between the project info and search.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1056,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "AnalyzerPlugin",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "**Context:** The `AnalyzerPlugin` interface already exists in `packages/core/src/types.ts`. Currently only `TreeSitterPlugin` implements it. This task creates a plugin registry that discovers, registers, and manages analyzer plugins. The registry maps file extensions to plugins and provides a unified `analyzeFile` entrypoint. This is the foundation for community plugins.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1056,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TreeSitterPlugin",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "**Context:** The `AnalyzerPlugin` interface already exists in `packages/core/src/types.ts`. Currently only `TreeSitterPlugin` implements it. This task creates a plugin registry that discovers, registers, and manages analyzer plugins. The registry maps file extensions to plugins and provides a unified `analyzeFile` entrypoint. This is the foundation for community plugins.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1524,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "SearchEngine",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/search.ts",
+      "source_text": "**Context:** The current `SearchEngine` uses fuse.js for fuzzy keyword matching. Embedding-based search enables true semantic queries like \"find code that handles authentication\" even if the word \"authentication\" doesn't appear in the node data. This task adds a `SemanticSearchEngine` that stores and searches vector embeddings. The embeddings themselves are generated externally (by calling an embedding API) — this module handles storage and cosine similarity search. It falls back to the existing `SearchEngine` when no embeddings are available.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1524,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "SemanticSearchEngine",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/embedding-search.ts",
+      "source_text": "**Context:** The current `SearchEngine` uses fuse.js for fuzzy keyword matching. Embedding-based search enables true semantic queries like \"find code that handles authentication\" even if the word \"authentication\" doesn't appear in the node data. This task adds a `SemanticSearchEngine` that stores and searches vector embeddings. The embeddings themselves are generated externally (by calling an embedding API) — this module handles storage and cosine similarity search. It falls back to the existing `SearchEngine` when no embeddings are available.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1866,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "register",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "   - `PluginRegistry.register()`, `getPluginForFile()`, `analyzeFile()`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1867,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "parsePluginConfig",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/discovery.ts",
+      "source_text": "   - `parsePluginConfig()` handles valid/invalid JSON",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1869,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "cosineSimilarity",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/embedding-search.ts",
+      "source_text": "   - `cosineSimilarity()` produces correct values",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+      "source_line": 1870,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "search",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/embedding-search.ts",
+      "source_text": "   - `SemanticSearchEngine.search()` returns sorted results",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-21-language-agnostic-plan.md",
+      "source_line": 7,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LanguageConfig",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/languages/types.ts",
+      "source_text": "**Architecture:** Config-first hybrid approach — each language defined by a `LanguageConfig` object (tree-sitter node mappings, concepts, extensions) plus a prompt snippet markdown file. A single `GenericTreeSitterPlugin` replaces the hardcoded TS-only plugin, driven by whichever config matches the file extension.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-21-language-agnostic-plan.md",
+      "source_line": 955,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LanguageRegistry",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/languages/language-registry.ts",
+      "source_text": "- Takes a `LanguageRegistry` in the constructor",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-21-language-agnostic-plan.md",
+      "source_line": 956,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "init",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "- In `init()`, lazily loads WASM grammars per language using `require.resolve(config.treeSitter.grammarPackage + '/' + config.treeSitter.wasmFile)`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-21-language-agnostic-plan.md",
+      "source_line": 958,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TreeSitterPlugin",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "- Reuses the same helper patterns from the old `TreeSitterPlugin` (traverse, getStringValue, extractParams) but driven by config instead of hardcoded node types",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-21-language-agnostic-plan.md",
+      "source_line": 964,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getStringValue",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/extractors/base-extractor.ts",
+      "source_text": "- For import extraction, use the same `getStringValue()` approach but match against language-specific import node types",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-21-language-agnostic-plan.md",
+      "source_line": 1292,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "getByExtension",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/languages/language-registry.ts",
+      "source_text": "1. Map file extensions to language IDs (reuse `LanguageRegistry.getByExtension()`)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-25-dashboard-robustness-impl.md",
+      "source_line": 96,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ValidationResult",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/schema.ts",
+      "source_text": "In `schema.ts`, replace the `ValidationResult` interface (lines 95-99) with:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-25-dashboard-robustness-plan.md",
+      "source_line": 148,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "KnowledgeGraph",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- GraphView / store logic (they already handle valid `KnowledgeGraph` objects)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-26-theme-system-implementation.md",
+      "source_line": 667,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "AnalysisMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Add `theme` field to `AnalysisMeta`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+      "source_line": 87,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "EdgeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Update the `EdgeType` type (lines 1-7) to add 8 new edge types:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+      "source_line": 100,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "StructuralAnalysis",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Extend `StructuralAnalysis` (after line 95) with new optional fields:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+      "source_line": 161,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "AnalyzerPlugin",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Update `AnalyzerPlugin` interface (lines 109-115) — make `resolveImports` optional, add `extractReferences`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+      "source_line": 507,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LanguageConfig",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/languages/types.ts",
+      "source_text": "**Important:** For filename-based detection (Dockerfile, Makefile, Jenkinsfile), extend LanguageRegistry to support `filenames` array in addition to `extensions`. Add a `filenames?: string[]` field to `LanguageConfig` and update `getForFile()` to check basename against filenames when extension lookup fails.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+      "source_line": 507,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getForFile",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/languages/language-registry.ts",
+      "source_text": "**Important:** For filename-based detection (Dockerfile, Makefile, Jenkinsfile), extend LanguageRegistry to support `filenames` array in addition to `extensions`. Add a `filenames?: string[]` field to `LanguageConfig` and update `getForFile()` to check basename against filenames when extension lookup fails.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+      "source_line": 661,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "registerAllParsers",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/index.ts",
+      "source_text": "Create `parsers/index.ts` that exports all parsers and a `registerAllParsers(registry: PluginRegistry)` helper.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+      "source_line": 1235,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getDirectionalLabel",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/NodeInfo.tsx",
+      "source_text": "Add to `getDirectionalLabel()`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 7,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "KnowledgeGraph",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "**Architecture:** Separate `domain-graph.json` file using extended `KnowledgeGraph` schema (3 new node types, 4 new edge types, optional `domainMeta` field). Two analysis paths: lightweight scan (no existing graph) or derivation from existing graph. Dashboard shows domain view by default when available, with pill toggle to switch to structural view.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 178,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "NodeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "In `understand-anything-plugin/packages/core/src/types.ts`, update the `NodeType` union (lines 1-5):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 189,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "EdgeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Update `EdgeType` union (lines 7-15):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 204,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DomainMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Add `DomainMeta` interface after `GraphNode` (after line 28):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 204,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Add `DomainMeta` interface after `GraphNode` (after line 28):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 391,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "loadConfig",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/persistence/index.ts",
+      "source_text": "Add to `understand-anything-plugin/packages/core/src/persistence/index.ts` (after `loadConfig` function, before end of file):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 588,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ViewMode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/store.ts",
+      "source_text": "Add `ViewMode` type after the existing type definitions (after line 14):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+      "source_line": 620,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DashboardStore",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/store.ts",
+      "source_text": "Add to `DashboardStore` interface (after line 93):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-09-understand-knowledge.md",
+      "source_line": 18,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "KnowledgeMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- Modify: `understand-anything-plugin/packages/core/src/types.ts` — add 5 node types, 6 edge types, `KnowledgeMeta` interface, `kind` field",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-09-understand-knowledge.md",
+      "source_line": 24,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "ViewMode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/store.ts",
+      "source_text": "- Modify: `understand-anything-plugin/packages/dashboard/src/store.ts` — add knowledge node types, edge categories, `ViewMode`, node categories",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-09-understand-knowledge.md",
+      "source_line": 88,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DomainMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Add after the `DomainMeta` interface:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-09-understand-knowledge.md",
+      "source_line": 446,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "EdgeCategory",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/store.ts",
+      "source_text": "Update `EdgeCategory` and `EDGE_CATEGORY_MAP`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-10-understandignore-impl.md",
+      "source_line": 7,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "IgnoreFilter",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/ignore-filter.ts",
+      "source_text": "**Architecture:** An `IgnoreFilter` module in `packages/core` uses the `ignore` npm package to parse `.understandignore` files and filter paths. A companion `IgnoreGenerator` scans the project for common patterns and produces a commented-out starter file. The `project-scanner` agent applies the filter as a second pass after its existing hardcoded exclusions. The `/understand` skill adds a Phase 0.5 that generates the starter file and pauses for user review.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 7,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LanguageExtractor",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/extractors/types.ts",
+      "source_text": "**Architecture:** Introduce a `LanguageExtractor` interface that each language implements. `TreeSitterPlugin` delegates extraction to the registered extractor for the file's language. A bundled `extract-structure.mjs` script in `skills/understand/` uses `PluginRegistry` (which includes both `TreeSitterPlugin` and the non-code parsers) to provide deterministic structural extraction for the file-analyzer agent — replacing the current approach where the LLM writes throwaway regex scripts every run.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 7,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "PluginRegistry",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "**Architecture:** Introduce a `LanguageExtractor` interface that each language implements. `TreeSitterPlugin` delegates extraction to the registered extractor for the file's language. A bundled `extract-structure.mjs` script in `skills/understand/` uses `PluginRegistry` (which includes both `TreeSitterPlugin` and the non-code parsers) to provide deterministic structural extraction for the file-analyzer agent — replacing the current approach where the LLM writes throwaway regex scripts every run.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 7,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TreeSitterPlugin",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "**Architecture:** Introduce a `LanguageExtractor` interface that each language implements. `TreeSitterPlugin` delegates extraction to the registered extractor for the file's language. A bundled `extract-structure.mjs` script in `skills/understand/` uses `PluginRegistry` (which includes both `TreeSitterPlugin` and the non-code parsers) to provide deterministic structural extraction for the file-analyzer agent — replacing the current approach where the LLM writes throwaway regex scripts every run.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 79,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getStringValue",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/extractors/base-extractor.ts",
+      "source_text": "Move `traverse()` and `getStringValue()` from `tree-sitter-plugin.ts` into a shared module:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 79,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "traverse",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/extractors/base-extractor.ts",
+      "source_text": "Move `traverse()` and `getStringValue()` from `tree-sitter-plugin.ts` into a shared module:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 158,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "getExtractor",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "The `languageIds` should be `[\"typescript\", \"javascript\"]`. Do NOT include `\"tsx\"` — it is a synthetic key internal to `TreeSitterPlugin` for grammar selection, not a `LanguageConfig.id`. The tsx→typescript mapping is handled in `getExtractor()` below.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 227,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TypeScriptExtractor",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/extractors/typescript-extractor.ts",
+      "source_text": "The constructor should accept an optional `extractors` array and register them. If none provided, register the built-in `TypeScriptExtractor` for backward compatibility.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 852,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "init",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "**Lazy grammar loading (future optimization):** The current `TreeSitterPlugin.init()` loads all grammar WASMs upfront via `Promise.all`. With 10 grammars (~12MB total WASM), this may cause noticeable init delay. A future improvement: load TS/JS eagerly (most common), defer others to first use. Not required for this PR — measure first.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+      "source_line": 854,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "analyzeFile",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "**Fingerprint side effect:** `buildFingerprintStore` in `fingerprint.ts` uses `PluginRegistry.analyzeFile` internally. Once the new extractors are wired up, fingerprinting for Python/Go/Rust/etc. will automatically produce structural fingerprints instead of content-hash-only. No code changes needed — it happens for free.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 1157,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "DashboardStore",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/store.ts",
+      "source_text": "Open `understand-anything-plugin/packages/dashboard/src/store.ts` and locate the `DashboardStore` interface (around line 62) and the `create<DashboardStore>` initializer.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 1618,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ElkChild",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/utils/elk-layout.ts",
+      "source_text": "(`ElkChild` and `ElkEdge` types come from `../utils/elk-layout` — add to imports.)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 1618,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ElkEdge",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/utils/elk-layout.ts",
+      "source_text": "(`ElkChild` and `ElkEdge` types come from `../utils/elk-layout` — add to imports.)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 1721,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "CustomFlowNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/CustomNode.tsx",
+      "source_text": "The helper `buildCustomFlowNode` is the existing inline logic that converts a `GraphNode` into the existing `CustomFlowNode` shape — extract it from the current code (the same data fields populated for `flowNodes`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 1721,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "The helper `buildCustomFlowNode` is the existing inline logic that converts a `GraphNode` into the existing `CustomFlowNode` shape — extract it from the current code (the same data fields populated for `flowNodes`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 2291,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ContainerNodeData",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/ContainerNode.tsx",
+      "source_text": "**Type consistency:** `ElkInput` / `ElkChild` / `ElkEdge` defined once in `elk-layout.ts` (Task 5), used unchanged everywhere. Container shapes (`DerivedContainer`, `ContainerNodeData`) are defined in their canonical files (Tasks 2, 8) and not redefined later. Method names (`expandContainer`, `toggleContainer`, `collapseAllContainers`, `setContainerLayout`, `bumpStage1Tick`) are stable across Tasks 7 → 13 → 15.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 2291,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DerivedContainer",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/utils/containers.ts",
+      "source_text": "**Type consistency:** `ElkInput` / `ElkChild` / `ElkEdge` defined once in `elk-layout.ts` (Task 5), used unchanged everywhere. Container shapes (`DerivedContainer`, `ContainerNodeData`) are defined in their canonical files (Tasks 2, 8) and not redefined later. Method names (`expandContainer`, `toggleContainer`, `collapseAllContainers`, `setContainerLayout`, `bumpStage1Tick`) are stable across Tasks 7 → 13 → 15.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 2291,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ElkInput",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/utils/elk-layout.ts",
+      "source_text": "**Type consistency:** `ElkInput` / `ElkChild` / `ElkEdge` defined once in `elk-layout.ts` (Task 5), used unchanged everywhere. Container shapes (`DerivedContainer`, `ContainerNodeData`) are defined in their canonical files (Tasks 2, 8) and not redefined later. Method names (`expandContainer`, `toggleContainer`, `collapseAllContainers`, `setContainerLayout`, `bumpStage1Tick`) are stable across Tasks 7 → 13 → 15.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+      "source_line": 2293,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "applyDagreLayout",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/utils/layout.ts",
+      "source_text": "**Out of plan (deferred):** Removing `applyDagreLayout` from `utils/layout.ts` is deferred to a follow-up after this plan ships and is verified stable, per spec Migration Notes.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+      "source_line": 33,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TestMultiPart",
+      "target_type": "Class",
+      "target_file": "tests/skill/understand/test_merge_batch_graphs.py",
+      "source_text": "- `understand-anything-plugin/skills/understand/test_merge_batch_graphs.py` — new `TestMultiPart` class",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+      "source_line": 648,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extractExports",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/skills/understand/compute-batches.mjs",
+      "source_text": "Then add an `extractExports(projectRoot, codeFiles)` function before `main()`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+      "source_line": 866,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "buildNonCodeBatches",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/skills/understand/compute-batches.mjs",
+      "source_text": "In `compute-batches.mjs`, add a `buildNonCodeBatches(nonCodeFiles, startIndex)` function before `main()`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+      "source_line": 1315,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "runLouvain",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/skills/understand/compute-batches.mjs",
+      "source_text": "Add a `runLouvain(codeFiles, importMap)` function before `main()`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 24,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "FigmaDocument",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/types.ts",
+      "source_text": "- `source/types.ts` — `FigmaSource` interface + raw Figma response types (`FigmaDocument`, `FigmaStyles`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 24,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "FigmaSource",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/types.ts",
+      "source_text": "- `source/types.ts` — `FigmaSource` interface + raw Figma response types (`FigmaDocument`, `FigmaStyles`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 24,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "FigmaStyles",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/types.ts",
+      "source_text": "- `source/types.ts` — `FigmaSource` interface + raw Figma response types (`FigmaDocument`, `FigmaStyles`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 25,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "FigmaApiSource",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/api-source.ts",
+      "source_text": "- `source/api-source.ts` — `FigmaApiSource` (reads `FIGMA_TOKEN`, calls `GET /v1/files/:key`, `/styles`, `/images`), `parseFileKey(urlOrKey)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 25,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "parseFileKey",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/api-source.ts",
+      "source_text": "- `source/api-source.ts` — `FigmaApiSource` (reads `FIGMA_TOKEN`, calls `GET /v1/files/:key`, `/styles`, `/images`), `parseFileKey(urlOrKey)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 26,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "parseDocument",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/parse/parse-document.ts",
+      "source_text": "- `parse/parse-document.ts` — `parseDocument(doc, fileKey)` → `{ nodes, edges }` (page/screen/component/componentSet/instance + `contains`/`instance_of`/`variant_of`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 27,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "extractTokens",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/parse/tokens.ts",
+      "source_text": "- `parse/tokens.ts` — `extractTokens(doc, styles)` → token nodes + `uses_token` edges.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 28,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "KnowledgeGraph",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- `merge.ts` — `mergeDesignGraph(manifest, analysisBatches, project)` → full `KnowledgeGraph` (`kind:\"design\"`), runs `validateGraph`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 28,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "mergeDesignGraph",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/merge.ts",
+      "source_text": "- `merge.ts` — `mergeDesignGraph(manifest, analysisBatches, project)` → full `KnowledgeGraph` (`kind:\"design\"`), runs `validateGraph`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 33,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "EdgeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- `packages/core/src/types.ts` — add `\"design\"` to `kind`; add 6 `NodeType`s; add 3 `EdgeType`s; add `FigmaMeta` + `figmaMeta?` on `GraphNode`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 33,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "FigmaMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- `packages/core/src/types.ts` — add `\"design\"` to `kind`; add 6 `NodeType`s; add 3 `EdgeType`s; add `FigmaMeta` + `figmaMeta?` on `GraphNode`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 33,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- `packages/core/src/types.ts` — add `\"design\"` to `kind`; add 6 `NodeType`s; add 3 `EdgeType`s; add `FigmaMeta` + `figmaMeta?` on `GraphNode`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 33,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "NodeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- `packages/core/src/types.ts` — add `\"design\"` to `kind`; add 6 `NodeType`s; add 3 `EdgeType`s; add `FigmaMeta` + `figmaMeta?` on `GraphNode`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 82,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DomainMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Add near `KnowledgeMeta`/`DomainMeta`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 82,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "KnowledgeMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Add near `KnowledgeMeta`/`DomainMeta`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 1372,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "FigmaThumbnail",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/NodeInfo.tsx",
+      "source_text": "- [ ] **Step 2: Add the `FigmaThumbnail` component**",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+      "source_line": 1527,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DesignAnalysis",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/merge.ts",
+      "source_text": "- **Type consistency:** `parseDocument`/`extractTokens`/`mergeDesignGraph` signatures match their callers in `figma-scan.mjs`/`figma-merge.mjs`; `DesignAnalysis` matches `design-analyzer` output; the 6 new `NodeType`s appear consistently in `types.ts`, `schema.ts`, `CustomNode.tsx`, and `NodeInfo.tsx`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-07-17-benchmark-unsupported-outcomes.md",
+      "source_line": 9,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "PluginRegistry",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "**Tech Stack:** Node.js ESM, `PluginRegistry`, Vitest, JSON Schema 2020-12, pnpm.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-07-17-benchmark-unsupported-outcomes.md",
+      "source_line": 31,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "getPluginForFile",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "- Consumes: `PluginRegistry.getPluginForFile()`, optional `AnalyzerPlugin.extractCallGraph`, existing `filesSkipped`, and existing analysis outcome counters.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-07-17-benchmark-unsupported-outcomes.md",
+      "source_line": 32,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "analyzeFileWithOutcomes",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/skills/understand/extract-structure-result.mjs",
+      "source_text": "- Produces: capability-aware `analyzeFileWithOutcomes()` results and schema-compatible degraded reports for unsupported files.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-21-language-agnostic-design.md",
+      "source_line": 95,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TreeSitterPlugin",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "Replaces the current TS-only `TreeSitterPlugin` with a config-driven version.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-21-language-agnostic-design.md",
+      "source_line": 131,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "PluginRegistry",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "- `PluginRegistry` unchanged",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-26-theme-system-design.md",
+      "source_line": 237,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "applyTheme",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/themes/theme-engine.ts",
+      "source_text": "2. Calls `applyTheme()` on every config change",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-26-theme-system-design.md",
+      "source_line": 307,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "AnalysisMeta",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Extend `AnalysisMeta` in `packages/core/src/types.ts`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-26-theme-system-design.md",
+      "source_line": 396,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "PresetId",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/themes/types.ts",
+      "source_text": "- Export `ThemeConfig` and `PresetId` types from `./types` subpath",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 159,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "MarkdownParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/markdown-parser.ts",
+      "source_text": "| `MarkdownParser` | Regex | Headings, links, code blocks, front matter |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 163,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "EnvParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/env-parser.ts",
+      "source_text": "| `EnvParser` | Regex | Variable names and references |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 164,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DockerfileParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/dockerfile-parser.ts",
+      "source_text": "| `DockerfileParser` | Regex | FROM stages, EXPOSE ports, COPY sources |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 166,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphQLParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/graphql-parser.ts",
+      "source_text": "| `GraphQLParser` | Regex | Types, queries, mutations, subscriptions |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 167,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ProtobufParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/protobuf-parser.ts",
+      "source_text": "| `ProtobufParser` | Regex | Messages, services, enums, RPCs |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 168,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TerraformParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/terraform-parser.ts",
+      "source_text": "| `TerraformParser` | Regex | Resources, modules, variables, outputs |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 169,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "MakefileParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/makefile-parser.ts",
+      "source_text": "| `MakefileParser` | Regex | Targets, dependencies, variables |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 170,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ShellParser",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/parsers/shell-parser.ts",
+      "source_text": "| `ShellParser` | Regex | Functions, sourced files |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 262,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "StructuralAnalysis",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- All new `StructuralAnalysis` fields are optional",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 263,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "AnalyzerPlugin",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "- `resolveImports` becomes optional on `AnalyzerPlugin`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+      "source_line": 264,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LanguageConfig",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/languages/types.ts",
+      "source_text": "- Existing `LanguageConfig` entries unchanged",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-01-business-domain-knowledge-design.md",
+      "source_line": 16,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "KnowledgeGraph",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Domain data lives in a **separate file** (`domain-graph.json`) using the **same `KnowledgeGraph` type system** — extended with new node/edge types. The dashboard detects both files and offers a view toggle. Domain nodes can reference structural nodes by ID for drill-down.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-01-business-domain-knowledge-design.md",
+      "source_line": 285,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "loadDomainGraph",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/persistence/index.ts",
+      "source_text": "| `packages/core/src/persistence/` | Add `loadDomainGraph()` / `saveDomainGraph()` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-01-business-domain-knowledge-design.md",
+      "source_line": 285,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "saveDomainGraph",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/persistence/index.ts",
+      "source_text": "| `packages/core/src/persistence/` | Add `loadDomainGraph()` / `saveDomainGraph()` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-01-business-domain-knowledge-design.md",
+      "source_line": 301,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "parseTourGenerationResponse",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/analyzer/tour-generator.ts",
+      "source_text": "| LLM output parsing | Same strategy as existing `parseTourGenerationResponse()` — extract JSON from markdown, handle partial responses. |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-09-understand-knowledge-design.md",
+      "source_line": 52,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "EdgeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Added to the existing `EdgeType` union (currently 29 types):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-09-understand-knowledge-design.md",
+      "source_line": 85,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Added as an optional field on `GraphNode`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-10-understandignore-design.md",
+      "source_line": 193,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "generateStarterIgnoreFile",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/core/src/ignore-generator.ts",
+      "source_text": "2. If not, run `generateStarterIgnoreFile(projectRoot)` and write the result to `.understand-anything/.understandignore`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-04-10-understandignore-design.md",
+      "source_line": 205,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "IgnoreFilter",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/ignore-filter.ts",
+      "source_text": "3. Apply `IgnoreFilter` from core (Layer 2 — user patterns)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-03-graph-layout-scaling-design.md",
+      "source_line": 17,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphIssue",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/schema.ts",
+      "source_text": "- Treat layout failures with the same `GraphIssue` model already used for schema validation.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-03-graph-layout-scaling-design.md",
+      "source_line": 196,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "repairElkInput",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/utils/elk-layout.ts",
+      "source_text": "Before invoking ELK, run `repairElkInput()` over the assembled input. Each repair emits a `GraphIssue` consumed by the existing `WarningBanner`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-03-graph-layout-scaling-design.md",
+      "source_line": 428,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TourFitView",
+      "target_type": "Function",
+      "target_file": "understand-anything-plugin/packages/dashboard/src/components/GraphView.tsx",
+      "source_text": "| Tour | Tour-highlighted child auto-expands its container. `TourFitView` fits to the highlighted leaf positions (cached after expand). |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-24-semantic-batching-and-output-chunking-design.md",
+      "source_line": 83,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "PluginRegistry",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "Reuses `@understand-anything/core`'s `TreeSitterPlugin` and `PluginRegistry` (already imported by `extract-structure.mjs`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-24-semantic-batching-and-output-chunking-design.md",
+      "source_line": 83,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TreeSitterPlugin",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "Reuses `@understand-anything/core`'s `TreeSitterPlugin` and `PluginRegistry` (already imported by `extract-structure.mjs`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-24-semantic-batching-and-output-chunking-design.md",
+      "source_line": 516,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "TestMultiPart",
+      "target_type": "Class",
+      "target_file": "tests/skill/understand/test_merge_batch_graphs.py",
+      "source_text": "New test class `TestMultiPart` in `test_merge_batch_graphs.py`:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-03-language-auto-detection-design.md",
+      "source_line": 49,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ProjectConfig",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "  exists in `ProjectConfig` (`packages/core/src/types.ts:119`).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.ko.md",
+      "source_line": 59,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "EdgeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "`domain`·`knowledge` 확장과 동일한 메커니즘입니다: `NodeType`/`EdgeType` zod enum은 **닫혀(closed)** 있어(`validateGraph`가 알 수 없는 타입을 드롭) 새 타입은 enum에 **추가**하고, alias 맵 항목이 LLM 어휘를 정규화합니다. `GraphNode`는 `.passthrough()`라 타입드 `figmaMeta` 필드가 `domainMeta`/`knowledgeMeta`와 나란히 실립니다.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.ko.md",
+      "source_line": 59,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "`domain`·`knowledge` 확장과 동일한 메커니즘입니다: `NodeType`/`EdgeType` zod enum은 **닫혀(closed)** 있어(`validateGraph`가 알 수 없는 타입을 드롭) 새 타입은 enum에 **추가**하고, alias 맵 항목이 LLM 어휘를 정규화합니다. `GraphNode`는 `.passthrough()`라 타입드 `figmaMeta` 필드가 `domainMeta`/`knowledgeMeta`와 나란히 실립니다.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.ko.md",
+      "source_line": 149,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "FigmaApiSource",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/api-source.ts",
+      "source_text": "**v1 구현 — `FigmaApiSource`** (`source/api-source.ts`, Node 전용):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.ko.md",
+      "source_line": 154,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "FigmaSource",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/types.ts",
+      "source_text": "**향후 — `LocalJsonSource`**: 미리 내보낸 JSON 문서를 읽음. 동일한 `FigmaSource` 인터페이스, 토큰·네트워크 불필요. 기반이 API 전용(A)에서 \"둘 다\"(앞선 입력 소스 논의의 C)로 진화하는 방식입니다.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.md",
+      "source_line": 57,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "EdgeType",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Same mechanism as the `domain` and `knowledge` extensions: the `NodeType`/`EdgeType` zod enums are **closed** (`validateGraph` drops unknown types), so new types are **added** to the enums, and alias-map entries normalize LLM vocabulary. `GraphNode` uses `.passthrough()`, so a typed `figmaMeta` field rides alongside `domainMeta`/`knowledgeMeta`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.md",
+      "source_line": 57,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "Same mechanism as the `domain` and `knowledge` extensions: the `NodeType`/`EdgeType` zod enums are **closed** (`validateGraph` drops unknown types), so new types are **added** to the enums, and alias-map entries normalize LLM vocabulary. `GraphNode` uses `.passthrough()`, so a typed `figmaMeta` field rides alongside `domainMeta`/`knowledgeMeta`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.md",
+      "source_line": 147,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "FigmaApiSource",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/api-source.ts",
+      "source_text": "**v1 implementation — `FigmaApiSource`** (`source/api-source.ts`, Node-only):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.md",
+      "source_line": 152,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "FigmaSource",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/figma/source/types.ts",
+      "source_text": "**Future — `LocalJsonSource`**: reads a pre-exported JSON document. Same `FigmaSource` interface, no token, no network. This is how the foundation evolves from API-only (A) toward \"both\" (C in the earlier input-source discussion).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-07-17-benchmark-unsupported-outcomes-design.md",
+      "source_line": 8,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "PluginRegistry",
+      "target_type": "Class",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/registry.ts",
+      "source_text": "current mapper collapses `PluginRegistry`'s contractual `null` return into a",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "understand-anything-plugin/agents/file-analyzer.md",
+      "source_line": 149,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphEdge",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "For each file in the script's `results` array, produce `GraphNode` and `GraphEdge` objects by combining the script's structural data with your expert judgment.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "understand-anything-plugin/agents/file-analyzer.md",
+      "source_line": 149,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "GraphNode",
+      "target_type": "Type",
+      "target_file": "understand-anything-plugin/packages/core/src/types.ts",
+      "source_text": "For each file in the script's `results` array, produce `GraphNode` and `GraphEdge` objects by combining the script's structural data with your expert judgment.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "understand-anything-plugin/skills/understand/languages/go.md",
+      "source_line": 14,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "init",
+      "target_type": "Method",
+      "target_file": "understand-anything-plugin/packages/core/src/plugins/tree-sitter-plugin.ts",
+      "source_text": "- **Init Functions**: Package-level `init()` runs automatically before `main()` for setup",
+      "label_on_cited_line": true,
+      "verdict": null
+    }
+  ],
+  "refused": [
+    {
+      "bucket": "unqualified",
+      "total": 8111,
+      "sample": [
+        {
+          "document": ".github/PULL_REQUEST_TEMPLATE.md",
+          "written": "pnpm lint",
+          "line": 14,
+          "bucket": "unqualified",
+          "source_text": "- [ ] `pnpm lint`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-25-dashboard-robustness-plan.md",
+          "written": "type",
+          "line": 59,
+          "bucket": "unqualified",
+          "source_text": "| Unrecognizable `type` value (not in canonical or alias list) | Drop item |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-09-understand-knowledge.md",
+          "written": "kind === \"codebase\"",
+          "line": 921,
+          "bucket": "unqualified",
+          "source_text": "In `GraphView.tsx`, where the layout is applied, check the graph's `kind` field. If `kind === \"knowledge\"`, use `\"TB\"` (top-to-bottom). If `kind === \"codebase\"` or undefined, keep the existing default.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+          "written": "understand-anything-plugin/skills/understand-figma/SKILL.md",
+          "line": 38,
+          "bucket": "unqualified",
+          "source_text": "- `understand-anything-plugin/skills/understand-figma/SKILL.md` — orchestration (Phases 1–4).",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-28-understand-anything-extension-design.md",
+          "written": "setting",
+          "line": 107,
+          "bucket": "unqualified",
+          "source_text": "- `route` -> `endpoint`, `doc` -> `document`, `setting` -> `config`, `infra` -> `resource`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.ko.md",
+          "written": "FIGMA_TOKEN",
+          "line": 305,
+          "bucket": "unqualified",
+          "source_text": "- **`FIGMA_TOKEN`은 환경변수에서만 읽음.** 그래프·config·`meta.json`·로그·중간파일에 절대 기록하지 않음. 토큰을 담은 요청 헤더는 에러/로그에 출력하지 않음.",
+          "verdict": null
+        },
+        {
+          "document": "READMEs/README.zh-CN.md",
+          "written": ".ua/",
+          "line": 269,
+          "bucket": "unqualified",
+          "source_text": "**需要提交的内容：** `.ua/` 下的全部文件，*除了* `intermediate/` 和 `diff-overlay.json`（这些是本地临时文件）。（旧项目使用 `.understand-anything/`——如果存在的是该目录，请将下方的目录名替换为它。）",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/file-analyzer.md",
+          "written": "*Test.php",
+          "line": 213,
+          "bucket": "unqualified",
+          "source_text": "- Filename contains `.test.` or `.spec.` or `test_*.py` or `*_test.go` or `*Test.java` or `*_spec.rb` or `*Test.php` or `*Tests.cs` = `test`",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/project-scanner.md",
+          "written": ".circleci/*",
+          "line": 113,
+          "bucket": "unqualified",
+          "source_text": "| `Dockerfile`, `Dockerfile.*`, `docker-compose.*`, `compose.yml`/`compose.yaml`, `Makefile`, `Jenkinsfile`, `Procfile`, `Vagrantfile`, `.gitlab-ci.yml`, `.dockerignore`, `.github/workflows/*`, `.circleci/*`, paths in `k8s/` or `kubernetes/`, `*.k8s.yml`/`*.k8s.yaml` | `infra` |",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/gin.md",
+          "written": "layer:data",
+          "line": 45,
+          "bucket": "unqualified",
+          "source_text": "| `layer:data` | Data Layer | `models/`, `repository/`, database access, migrations |",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/protobuf.md",
+          "written": "repeated",
+          "line": 11,
+          "bucket": "unqualified",
+          "source_text": "- **Repeated Fields**: `repeated` keyword for list/array fields",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/SKILL.md",
+          "written": "ru",
+          "line": 151,
+          "bucket": "unqualified",
+          "source_text": "      - `chinese` → `zh`, `japanese` → `ja`, `korean` → `ko`, `english` → `en`, `spanish` → `es`, `french` → `fr`, `german` → `de`, `portuguese` → `pt`, `russian` → `ru`, `arabic` → `ar`, etc.",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "is_a_path",
+      "total": 47,
+      "sample": [
+        {
+          "document": "CLAUDE.md",
+          "written": "package.json",
+          "line": 8,
+          "bucket": "is_a_path",
+          "source_text": "- pnpm >= 10 (pinned via `packageManager` field in root `package.json`)",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase1-implementation.md",
+          "written": "package.json",
+          "line": 16,
+          "bucket": "is_a_path",
+          "source_text": "- Create: `package.json`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+          "written": "CLAUDE.md",
+          "line": 1745,
+          "bucket": "is_a_path",
+          "source_text": "- Modify: `CLAUDE.md`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-18-multi-platform-simple-implementation.md",
+          "written": "README.md",
+          "line": 472,
+          "bucket": "is_a_path",
+          "source_text": "Read `README.md` in full.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-03-language-auto-detection.md",
+          "written": "README.md",
+          "line": 9,
+          "bucket": "is_a_path",
+          "source_text": "**Tech Stack:** Markdown skill prompt (`SKILL.md`), Markdown docs (`README.md`). No code, no schema, no TypeScript. There is no automated-test hook for skill-prompt behavior, so verification is the manual scenario walkthrough in Task 3 (this matches how the existing `--language` flag is verified).",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-18-multi-platform-simple-design.md",
+          "written": "README.md",
+          "line": 103,
+          "bucket": "is_a_path",
+          "source_text": "| Modify | `README.md` (multi-platform section) |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-24-semantic-batching-and-output-chunking-design.md",
+          "written": "package.json",
+          "line": 587,
+          "bucket": "is_a_path",
+          "source_text": "13. Bump version in all five `package.json` / `plugin.json` files per the project's CLAUDE.md versioning rule.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/file-analyzer.md",
+          "written": "tsconfig.json",
+          "line": 299,
+          "bucket": "is_a_path",
+          "source_text": "- **Config files:** Look at the config file's purpose. `tsconfig.json` configures all `.ts` files; `package.json` configures the build. Create `configures` edges to the most relevant entry points or directories.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/project-scanner.md",
+          "written": "package.json",
+          "line": 45,
+          "bucket": "is_a_path",
+          "source_text": "- **`name`** -- in priority order: `package.json` `name`, `Cargo.toml` `[package].name`, `go.mod` module path's last segment, `pyproject.toml` `[project].name` or `[tool.poetry].name`, else the directory name of the project root.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/javascript.md",
+          "written": "package.json",
+          "line": 29,
+          "bucket": "is_a_path",
+          "source_text": "- `package.json` `\"type\"` field — sets default module system (`\"module\"` or `\"commonjs\"`)",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/json.md",
+          "written": "package.json",
+          "line": 25,
+          "bucket": "is_a_path",
+          "source_text": "- `package.json` `configures` the build toolchain and defines project dependencies",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/typescript.md",
+          "written": "tsconfig.json",
+          "line": 28,
+          "bucket": "is_a_path",
+          "source_text": "- `tsconfig.json` — TypeScript compiler configuration and project references",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_no_symbol",
+      "total": 145,
+      "sample": [
+        {
+          "document": "CLAUDE.md",
+          "written": "ProviderModelNotFoundError",
+          "line": 29,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Agent model field is omitted from frontmatter so each platform falls back to its configured default — `inherit` was a Claude Code-only keyword that opencode (and similar tools) treated as a literal model id and rejected with `ProviderModelNotFoundError` (see #167)",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-25-dashboard-robustness-plan.md",
+          "written": "WarningBanner",
+          "line": 121,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- On `result.success === true` with `result.issues.length > 0`: show `WarningBanner` with issues, load graph normally",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+          "written": "defineConfig({ ... })",
+          "line": 82,
+          "bucket": "shaped_no_symbol",
+          "source_text": "Inside the `defineConfig({ ... })` object add:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-21-language-agnostic-design.md",
+          "written": "GenericTreeSitterPlugin",
+          "line": 130,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Current `TreeSitterPlugin` deleted, replaced by `GenericTreeSitterPlugin` + TS/JS configs",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-26-theme-system-design.md",
+          "written": "rgba(20,20,20,0.95)",
+          "line": 53,
+          "bucket": "shaped_no_symbol",
+          "source_text": "| `--glass-bg-heavy` | `rgba(20,20,20,0.95)` | `rgba(255,255,255,0.95)` |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-26-theme-system-design.md",
+          "written": "rgba(212,165,116,X)",
+          "line": 352,
+          "bucket": "shaped_no_symbol",
+          "source_text": "| `rgba(212,165,116,X)` | `var(--color-accent)` with opacity modifier or dedicated variable |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-03-graph-layout-scaling-design.md",
+          "written": "LayerClusterNode",
+          "line": 281,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Click semantics differ (`LayerClusterNode` drills into a layer; `ContainerNode` toggles edge expansion).",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.ko.md",
+          "written": "DomainGraphView",
+          "line": 280,
+          "bucket": "shaped_no_symbol",
+          "source_text": "| **B** | 사용자 플로우 | `figmaMeta.prototypeTargets` → `navigates_to` 엣지 + 플로우 뷰 | `navigates_to` 엣지 타입; 플로우 레이아웃(flow/step + `DomainGraphView` 재사용) |",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/django.md",
+          "written": "ForeignKey",
+          "line": 41,
+          "bucket": "shaped_no_symbol",
+          "source_text": "**ORM relationships** — When `models.py` defines `ForeignKey`, `OneToOneField`, or `ManyToManyField`, create `depends_on` edges between the model classes with a description indicating the relationship type and cardinality.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/fastapi.md",
+          "written": "ForeignKey",
+          "line": 37,
+          "bucket": "shaped_no_symbol",
+          "source_text": "**ORM model relationships** — When SQLAlchemy models use `relationship()`, `ForeignKey`, create `depends_on` edges between the model classes.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/vue.md",
+          "written": "setup()",
+          "line": 54,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- **Composition API over Options API**: Modern Vue favors `setup()` and `<script setup>` with composables, replacing the Options API's data/methods/computed separation",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/swift.md",
+          "written": "TaskGroup",
+          "line": 11,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- **Actors and Structured Concurrency**: `actor` types for data isolation; `async let`, `TaskGroup`",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "basename_only",
+      "total": 69,
+      "sample": [
+        {
+          "document": "CLAUDE.md",
+          "written": "vite.config.ts",
+          "line": 58,
+          "bucket": "basename_only",
+          "source_text": "`packages/viewer` serves a committed graph without Claude Code, via `npx <release-asset-url>`. Update it when (a) the dashboard UI changes — the tarball embeds the built `dist/` — or (b) the `vite.config.ts` dev-server middleware changes, which `bin/viewer.mjs` deliberately mirrors. On every release, repack (`pack:release` script) and re-upload the tarball to the GitHub release as `understand-anything-viewer.tgz` — exactly that name, the READMEs' `releases/latest/download/` URL depends on it.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+          "written": "GraphView.tsx",
+          "line": 1553,
+          "bucket": "basename_only",
+          "source_text": "Update `GraphView.tsx`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-25-dashboard-robustness-impl.md",
+          "written": "schema.ts",
+          "line": 361,
+          "bucket": "basename_only",
+          "source_text": "Add to `schema.ts` after the existing `EDGE_TYPE_ALIASES` map (after line 39):",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+          "written": "registry.ts",
+          "line": 366,
+          "bucket": "basename_only",
+          "source_text": "In `registry.ts`, update `resolveImports` (line 62-66):",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-09-understand-knowledge.md",
+          "written": "GraphView.tsx",
+          "line": 921,
+          "bucket": "basename_only",
+          "source_text": "In `GraphView.tsx`, where the layout is applied, check the graph's `kind` field. If `kind === \"knowledge\"`, use `\"TB\"` (top-to-bottom). If `kind === \"codebase\"` or undefined, keep the existing default.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+          "written": "containers.ts",
+          "line": 258,
+          "bucket": "basename_only",
+          "source_text": "- [ ] **Step 3: Implement `containers.ts`**",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+          "written": "GraphView.tsx",
+          "line": 2121,
+          "bucket": "basename_only",
+          "source_text": "After every `applyElkLayout(...)` resolution in `GraphView.tsx` and `DomainGraphView.tsx`, append `issues` to the store:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+          "written": "test_compute_batches.test.mjs",
+          "line": 571,
+          "bucket": "basename_only",
+          "source_text": "Add a fixture-on-disk test that writes real source files and points the fixture at them. Append to `test_compute_batches.test.mjs`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+          "written": "schema.ts",
+          "line": 191,
+          "bucket": "basename_only",
+          "source_text": "In `schema.ts`, extend the `type` enum in `GraphNodeSchema`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+          "written": "NodeInfo.tsx",
+          "line": 1527,
+          "bucket": "basename_only",
+          "source_text": "- **Type consistency:** `parseDocument`/`extractTokens`/`mergeDesignGraph` signatures match their callers in `figma-scan.mjs`/`figma-merge.mjs`; `DesignAnalysis` matches `design-analyzer` output; the 6 new `NodeType`s appear consistently in `types.ts`, `schema.ts`, `CustomNode.tsx`, and `NodeInfo.tsx`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-04-01-business-domain-knowledge-design.md",
+          "written": "NodeInfo.tsx",
+          "line": 291,
+          "bucket": "basename_only",
+          "source_text": "| `packages/dashboard/src/components/` | Modify: `App.tsx` (view toggle), `NodeInfo.tsx` (domain sidebar), `FilterPanel.tsx` (domain filters) |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.md",
+          "written": "App.tsx",
+          "line": 212,
+          "bucket": "basename_only",
+          "source_text": "1. **`kind: \"design\"` branch** in `App.tsx` — adds a design view (like `KnowledgeGraphView` was added). The structure is hierarchical, so reuse the existing dagre/ELK hierarchical layout (similar to `DomainGraphView`'s LR).",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "fenced_example",
+      "total": 1280,
+      "sample": [
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase1-implementation.md",
+          "written": "ua-test-${Date.now()}",
+          "line": 415,
+          "bucket": "fenced_example",
+          "source_text": "    testDir = join(tmpdir(), `ua-test-${Date.now()}`);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase3-implementation.md",
+          "written": "4. Any patterns or concepts worth understanding",
+          "line": 1036,
+          "bucket": "fenced_example",
+          "source_text": "      `4. Any patterns or concepts worth understanding`,",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-18-multi-platform-simple-implementation.md",
+          "written": "main.py",
+          "line": 110,
+          "bucket": "fenced_example",
+          "source_text": "   - Detect the project entry point by checking for common patterns: `src/index.ts`, `src/main.ts`, `src/App.tsx`, `main.py`, `main.go`, `src/main.rs`, `index.js`. Store first match as `$ENTRY_POINT`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-25-dashboard-robustness-impl.md",
+          "written": "nodes[${i}] (\"${name}\"): missing \"complexity\" — defaulted to \"moderate\"",
+          "line": 417,
+          "bucket": "fenced_example",
+          "source_text": "          message: `nodes[${i}] (\"${name}\"): missing \"complexity\" — defaulted to \"moderate\"`,",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-27-token-reduction-impl.md",
+          "written": "store/",
+          "line": 377,
+          "bucket": "fenced_example",
+          "source_text": "| File in `store/`, `slices/`, `reducers/`, `state/` | `state` |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+          "written": "file:${filePath}",
+          "line": 764,
+          "bucket": "fenced_example",
+          "source_text": "    id: `file:${filePath}`,",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-09-understand-knowledge.md",
+          "written": "authored_by",
+          "line": 1254,
+          "bucket": "fenced_example",
+          "source_text": "- Author mentions → `authored_by` edges",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-03-graph-layout-scaling.md",
+          "written": "n${j}",
+          "line": 460,
+          "bucket": "fenced_example",
+          "source_text": "        if (i !== j) edges.push({ source: `n${i}`, target: `n${j}`, type: \"calls\" } as GraphEdge);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+          "written": "<batchIndex>/<totalBatches>",
+          "line": 1776,
+          "bucket": "fenced_example",
+          "source_text": "> Batch: `<batchIndex>/<totalBatches>`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+          "written": "calls",
+          "line": 2324,
+          "bucket": "fenced_example",
+          "source_text": "- Cross-batch neighbors (with their exported symbols) passed to file-analyzer via `neighborMap` so semantic edges like `calls` and `inherits` can be confidently emitted across batches.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+          "written": "${result.data.layers.length} layers, ${result.data.tour.length} tour steps",
+          "line": 1148,
+          "bucket": "fenced_example",
+          "source_text": "  `${result.data.layers.length} layers, ${result.data.tour.length} tour steps`,",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-24-semantic-batching-and-output-chunking-design.md",
+          "written": ".dockerignore",
+          "line": 110,
+          "bucket": "fenced_example",
+          "source_text": "     `.dockerignore` → one batch per such directory (so multi-service",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "no_such_symbol",
+      "total": 179,
+      "sample": [
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+          "written": "JSON.parse",
+          "line": 21,
+          "bucket": "no_such_symbol",
+          "source_text": "**Context:** Currently `loadGraph` does `JSON.parse()` with no validation. Corrupted or incompatible graph files silently produce broken data. Add zod schemas matching every type in `types.ts`, and validate on load. This is foundational — all Phase 2 features rely on correct graph data.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+          "written": "Promise.all",
+          "line": 852,
+          "bucket": "no_such_symbol",
+          "source_text": "**Lazy grammar loading (future optimization):** The current `TreeSitterPlugin.init()` loads all grammar WASMs upfront via `Promise.all`. With 10 grammars (~12MB total WASM), this may cause noticeable init delay. A future improvement: load TS/JS eagerly (most common), defer others to first use. Not required for this PR — measure first.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-26-theme-system-design.md",
+          "written": "index.css",
+          "line": 403,
+          "bucket": "no_such_symbol",
+          "source_text": "- Update `index.css`: glass classes, scrollbar, glow effects to use variables",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.md",
+          "written": "figmaMeta.tokenKind",
+          "line": 168,
+          "bucket": "no_such_symbol",
+          "source_text": "**Tokens (bounded on purpose):** v1 promotes **published styles and variables** (color/text/effect/grid styles, design variables) to `token` nodes — this keeps the token set meaningful and prevents node explosion. Raw inline values (e.g. a one-off hex) are recorded on the consuming node's `figmaMeta` but are **not** promoted to `token` nodes unless they resolve to a published style/variable. Each `token` node carries `figmaMeta.tokenKind` + `tokenValue`; `uses_token` edges connect consumers.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/file-analyzer.md",
+          "written": "metrics.serviceCount",
+          "line": 132,
+          "bucket": "no_such_symbol",
+          "source_text": "When any of these arrays is present and non-empty, you MUST iterate it and emit nodes for the significant entries (don't just create the parent file node and call it done). The corresponding `metrics.serviceCount` / `metrics.endpointCount` / `metrics.resourceCount` / `metrics.stepCount` / `metrics.definitionCount` fields tell you how many were extracted at a glance.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/project-scanner.md",
+          "written": "setup.cfg",
+          "line": 36,
+          "bucket": "no_such_symbol",
+          "source_text": "- `pyproject.toml`, `setup.py`, `setup.cfg`, `Pipfile`, `requirements.txt` — Python framework signals",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/tour-builder.md",
+          "written": "index.php",
+          "line": 68,
+          "bucket": "no_such_symbol",
+          "source_text": "- Filename matches `index.ts`, `index.js`, `main.ts`, `main.js`, `app.ts`, `app.js`, `server.ts`, `server.js`, `mod.rs`, `main.go`, `main.py`, `main.rs`, `manage.py`, `app.py`, `wsgi.py`, `asgi.py`, `run.py`, `__main__.py`, `Application.java`, `Main.java`, `Program.cs`, `config.ru`, `index.php`, `App.swift`, `Application.kt`, `main.cpp`, `main.c` -> +3 points",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/gin.md",
+          "written": "c.Abort",
+          "line": 54,
+          "bucket": "no_such_symbol",
+          "source_text": "- **Handler functions with gin.Context**: Every Gin handler receives a `*gin.Context` parameter — it provides request parsing (`c.Bind`, `c.Param`, `c.Query`), response writing (`c.JSON`, `c.HTML`), and control flow (`c.Abort`, `c.Next`)",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/csharp.md",
+          "written": "Startup.cs",
+          "line": 28,
+          "bucket": "no_such_symbol",
+          "source_text": "- `Startup.cs` — service and middleware configuration (older ASP.NET Core pattern)",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/html.md",
+          "written": "index.html",
+          "line": 17,
+          "bucket": "no_such_symbol",
+          "source_text": "- `index.html` — Application entry point or SPA shell",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/rust.md",
+          "written": "main.rs",
+          "line": 28,
+          "bucket": "no_such_symbol",
+          "source_text": "- `main.rs` — binary crate entry point",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/terraform.md",
+          "written": "backend.tf",
+          "line": 22,
+          "bucket": "no_such_symbol",
+          "source_text": "- `backend.tf` — Remote state backend configuration (S3, GCS, etc.)",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "ambiguous_path",
+      "total": 25,
+      "sample": [
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+          "written": "types.ts",
+          "line": 21,
+          "bucket": "ambiguous_path",
+          "source_text": "**Context:** Currently `loadGraph` does `JSON.parse()` with no validation. Corrupted or incompatible graph files silently produce broken data. Add zod schemas matching every type in `types.ts`, and validate on load. This is foundational — all Phase 2 features rely on correct graph data.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-28-understand-anything-extension-impl.md",
+          "written": "index.ts",
+          "line": 842,
+          "bucket": "ambiguous_path",
+          "source_text": "Add to `index.ts`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-03-language-auto-detection.md",
+          "written": "SKILL.md",
+          "line": 20,
+          "bucket": "ambiguous_path",
+          "source_text": "No other files. The `outputLanguage` field already exists in `packages/core/src/types.ts:119`; the `locales/<lang>.md` injection at `SKILL.md` step 4 (line ~424) and the `$LANGUAGE_DIRECTIVE` template (lines ~148–151) are unchanged and require no edits.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+          "written": "SKILL.md",
+          "line": 1172,
+          "bucket": "ambiguous_path",
+          "source_text": "### Task 10: `/understand-figma` skill orchestration (`SKILL.md`)",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-18-multi-platform-simple-design.md",
+          "written": "SKILL.md",
+          "line": 42,
+          "bucket": "ambiguous_path",
+          "source_text": "The prompt template files retain the full instruction content but drop the agent frontmatter (`name`, `tools`, `model`). The `SKILL.md` dispatch changes from \"Dispatch the **project-scanner** agent\" to \"Dispatch a subagent using the template at `./project-scanner-prompt.md`\".",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-03-language-auto-detection-design.md",
+          "written": "SKILL.md",
+          "line": 59,
+          "bucket": "ambiguous_path",
+          "source_text": "- **(B, chosen) Detection-as-fallback in `SKILL.md`:** minimal diff, strictly",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-03-language-auto-detection-design.md",
+          "written": "SKILL.md",
+          "line": 103,
+          "bucket": "ambiguous_path",
+          "source_text": "The instruction text in `SKILL.md` stays in **English** (skill prompts are",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/tour-builder.md",
+          "written": "index.ts",
+          "line": 68,
+          "bucket": "ambiguous_path",
+          "source_text": "- Filename matches `index.ts`, `index.js`, `main.ts`, `main.js`, `app.ts`, `app.js`, `server.ts`, `server.js`, `mod.rs`, `main.go`, `main.py`, `main.rs`, `manage.py`, `app.py`, `wsgi.py`, `asgi.py`, `run.py`, `__main__.py`, `Application.java`, `Main.java`, `Program.cs`, `config.ru`, `index.php`, `App.swift`, `Application.kt`, `main.cpp`, `main.c` -> +3 points",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/typescript.md",
+          "written": "index.ts",
+          "line": 45,
+          "bucket": "ambiguous_path",
+          "source_text": "> Barrel files (`index.ts`) re-export symbols so consumers import from the directory",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "path_not_indexed",
+      "total": 248,
+      "sample": [
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase2-implementation.md",
+          "written": "meta.json",
+          "line": 595,
+          "bucket": "path_not_indexed",
+          "source_text": "**Context:** The design doc specifies an auto-sync flow: read `meta.json` → git diff against last hash → re-analyze only changed files → merge into existing graph. This task builds the staleness detection and graph merging logic. It does NOT invoke LLM or tree-sitter (that's orchestration, done by the skill). It provides the building blocks: detect changed files, merge updated nodes/edges into an existing graph.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-03-language-auto-detection.md",
+          "written": "config.json",
+          "line": 140,
+          "bucket": "path_not_indexed",
+          "source_text": "| 1 | Conversation in Chinese, run `/understand` | Gate appears → confirm → `$OUTPUT_LANGUAGE=zh`; `config.json` gets `\"outputLanguage\":\"zh\"` |",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-24-semantic-batching-and-output-chunking-design.md",
+          "written": "batches.json",
+          "line": 170,
+          "bucket": "path_not_indexed",
+          "source_text": "### Output schema (`batches.json`)",
+          "verdict": null
+        },
+        {
+          "document": "READMEs/README.ja-JP.md",
+          "written": "index.md",
+          "line": 74,
+          "bucket": "path_not_indexed",
+          "source_text": "`/understand-knowledge` を [Karpathy パターンの LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) に向けると、コミュニティクラスタリング付きのフォースディレクテッドナレッジグラフが生成されます。決定論的パーサーが `index.md` から wikilinks とカテゴリを抽出し、LLM エージェントが暗黙の関係を発見、エンティティを抽出、主張を浮き彫りにして、wiki をナビゲート可能な相互接続されたアイデアのグラフに変換します。",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/architecture-analyzer.md",
+          "written": "manage.py",
+          "line": 153,
+          "bucket": "path_not_indexed",
+          "source_text": "- Files named `manage.py` at the project root -> `entry` (Django management entry point)",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/agents/tour-builder.md",
+          "written": "main.js",
+          "line": 68,
+          "bucket": "path_not_indexed",
+          "source_text": "- Filename matches `index.ts`, `index.js`, `main.ts`, `main.js`, `app.ts`, `app.js`, `server.ts`, `server.js`, `mod.rs`, `main.go`, `main.py`, `main.rs`, `manage.py`, `app.py`, `wsgi.py`, `asgi.py`, `run.py`, `__main__.py`, `Application.java`, `Main.java`, `Program.cs`, `config.ru`, `index.php`, `App.swift`, `Application.kt`, `main.cpp`, `main.c` -> +3 points",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/hooks/auto-update-prompt.md",
+          "written": "fingerprints.json",
+          "line": 318,
+          "bucket": "path_not_indexed",
+          "source_text": "- If `fingerprints.json` doesn't exist: treat all changed files as STRUCTURAL and regenerate fingerprints after the update.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/django.md",
+          "written": "asgi.py",
+          "line": 58,
+          "bucket": "path_not_indexed",
+          "source_text": "| `layer:config` | Config Layer | `settings.py`, `urls.py` (root), `wsgi.py`, `asgi.py`, `apps.py`, `manage.py` |",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/fastapi.md",
+          "written": "database.py",
+          "line": 48,
+          "bucket": "path_not_indexed",
+          "source_text": "| `layer:data` | Data Layer | ORM models, `database.py`, migrations |",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/frameworks/flask.md",
+          "written": "conftest.py",
+          "line": 47,
+          "bucket": "path_not_indexed",
+          "source_text": "| `layer:test` | Test Layer | Test files, `conftest.py` |",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/markdown.md",
+          "written": "CHANGELOG.md",
+          "line": 18,
+          "bucket": "path_not_indexed",
+          "source_text": "- `CHANGELOG.md` — Version history following Keep a Changelog or similar format",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/SKILL.md",
+          "written": "readme.md",
+          "line": 201,
+          "bucket": "path_not_indexed",
+          "source_text": "   - Read `README.md` (or `README.rst`, `readme.md`) from `$PROJECT_ROOT` if it exists. Store as `$README_CONTENT` (first 3000 characters).",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_ambiguous",
+      "total": 34,
+      "sample": [
+        {
+          "document": "docs/superpowers/plans/2026-03-14-phase4-implementation.md",
+          "written": "getPluginForFile()",
+          "line": 1866,
+          "bucket": "shaped_ambiguous",
+          "source_text": "   - `PluginRegistry.register()`, `getPluginForFile()`, `analyzeFile()`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-03-21-language-agnostic-plan.md",
+          "written": "resolveImports()",
+          "line": 959,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- Implements `resolveImports()` and `extractCallGraph()` with the same logic as before",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-01-business-domain-knowledge-impl.md",
+          "written": "NodeType",
+          "line": 594,
+          "bucket": "shaped_ambiguous",
+          "source_text": "Update `NodeType` (line 12) to include domain types:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-15-language-extractors-impl.md",
+          "written": "extractCallGraph()",
+          "line": 207,
+          "bucket": "shaped_ambiguous",
+          "source_text": "The `extractCallGraph()` method follows the same pattern — parser lifecycle must be managed identically:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+          "written": "main()",
+          "line": 359,
+          "bucket": "shaped_ambiguous",
+          "source_text": "Replace the trailing `process.stderr.write(...)` lines in `compute-batches.mjs` `main()` with the full minimal-batches output. Replace lines starting from `// Print size distribution` to end of `main()`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+          "written": "main()",
+          "line": 698,
+          "bucket": "shaped_ambiguous",
+          "source_text": "In `main()`, after building `codeFiles` and before Louvain, call:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-24-semantic-batching-and-output-chunking-impl.md",
+          "written": "main()",
+          "line": 1315,
+          "bucket": "shaped_ambiguous",
+          "source_text": "Add a `runLouvain(codeFiles, importMap)` function before `main()`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+          "written": "NodeType",
+          "line": 33,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- `packages/core/src/types.ts` — add `\"design\"` to `kind`; add 6 `NodeType`s; add 3 `EdgeType`s; add `FigmaMeta` + `figmaMeta?` on `GraphNode`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-24-understand-figma-foundation.md",
+          "written": "NodeType",
+          "line": 1307,
+          "bucket": "shaped_ambiguous",
+          "source_text": "`typeColors` and `typeTextColors` in `CustomNode.tsx` are `Record<NodeType, ...>`; after Task 1 widened `NodeType`, the dashboard build FAILS until all 6 design keys are added. Reuse existing theme vars/classes (no new theme tokens in v1).",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-03-26-theme-system-design.md",
+          "written": "ThemeConfig",
+          "line": 396,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- Export `ThemeConfig` and `PresetId` types from `./types` subpath",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-24-understand-figma-foundation-design.ko.md",
+          "written": "NodeType",
+          "line": 59,
+          "bucket": "shaped_ambiguous",
+          "source_text": "`domain`·`knowledge` 확장과 동일한 메커니즘입니다: `NodeType`/`EdgeType` zod enum은 **닫혀(closed)** 있어(`validateGraph`가 알 수 없는 타입을 드롭) 새 타입은 enum에 **추가**하고, alias 맵 항목이 LLM 어휘를 정규화합니다. `GraphNode`는 `.passthrough()`라 타입드 `figmaMeta` 필드가 `domainMeta`/`knowledgeMeta`와 나란히 실립니다.",
+          "verdict": null
+        },
+        {
+          "document": "understand-anything-plugin/skills/understand/languages/go.md",
+          "written": "main()",
+          "line": 14,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- **Init Functions**: Package-level `init()` runs automatically before `main()` for setup",
+          "verdict": null
+        }
+      ]
+    }
+  ]
+}

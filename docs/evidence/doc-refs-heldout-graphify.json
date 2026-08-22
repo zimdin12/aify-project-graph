@@ -1,0 +1,2355 @@
+{
+  "what": "Frozen doc-ref population for per-rule precision grading. Verdicts are NOT filled in.",
+  "how_to_grade": [
+    "For each entry in `admitted`, read `source_text` — the sentence the author actually wrote —",
+    "and decide whether it refers to `target_label` at `target_file`. Set verdict to \"correct\" or",
+    "\"false_positive\". Grade the PROSE, not the resolution: reading the target first is grading",
+    "the answer key. Precision is computed PER `extractor`, because dev set the floor per rule and",
+    "an aggregate can clear 0.95 while a rule inside it sits at 0.6.",
+    "For each entry in `refused`, decide whether the layer SHOULD have admitted it. That is the",
+    "recall question, and it is the one a precision number cannot answer."
+  ],
+  "pins": {
+    "commit": "b14b52e94ec3d9840413d81777f4c134eac0a40d",
+    "dirty_files": 1,
+    "graph_sha256_16": "f6e83c575e074ab2",
+    "repo": "graphify",
+    "rules": {
+      "doc_ref:qualified": 0.9,
+      "doc_ref:shaped": 0.8,
+      "doc_ref:path-scoped": 0.85
+    }
+  },
+  "totals": {
+    "documents": 363,
+    "documents_with_refs": 11,
+    "admitted": 116,
+    "admitted_by_rule": {
+      "doc_ref:shaped": 92,
+      "doc_ref:path-scoped": 9,
+      "doc_ref:qualified": 15
+    },
+    "refused_total": 18331,
+    "span_invariant_violations": 0
+  },
+  "admitted": [
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 19,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detect",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "| `detect.py` | `detect(root)` | directory → scan summary dict: `files` grouped by category, plus `total_files`, `total_words`, `warning`, `scan_root`, … |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 20,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "collect_files",
+      "target_type": "Function",
+      "target_file": "graphify/extract.py",
+      "source_text": "| `extract.py` | `extract(paths, *, root=None, ...)`, `collect_files(target)` | **list** of file paths → `{nodes, edges}` dict. `collect_files` expands a directory into that list, and lives here, not in `detect.py` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 20,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extract",
+      "target_type": "Function",
+      "target_file": "graphify/extract.py",
+      "source_text": "| `extract.py` | `extract(paths, *, root=None, ...)`, `collect_files(target)` | **list** of file paths → `{nodes, edges}` dict. `collect_files` expands a directory into that list, and lives here, not in `detect.py` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 23,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "find_import_cycles",
+      "target_type": "Function",
+      "target_file": "graphify/analyze.py",
+      "source_text": "| `analyze.py` | `god_nodes(G)`, `surprising_connections(G)`, `suggest_questions(G, communities, community_labels)`, `find_import_cycles(G)`, `graph_diff(G_old, G_new)` | graph → one list/dict per analysis. There is no single `analyze()` entry point |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 24,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "generate",
+      "target_type": "Function",
+      "target_file": "graphify/report.py",
+      "source_text": "| `report.py` | `generate(G, communities, cohesion_scores, community_labels, ...)` | graph + analysis → GRAPH_REPORT.md string |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 26,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "to_wiki",
+      "target_type": "Function",
+      "target_file": "graphify/wiki.py",
+      "source_text": "| `wiki.py` | `to_wiki(G, communities, output_dir, ...)` | graph → one markdown article per community + `index.md` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 27,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "write_callflow_html",
+      "target_type": "Function",
+      "target_file": "graphify/callflow_html.py",
+      "source_text": "| `callflow_html.py` | `write_callflow_html(...)` | graphify-out files → Mermaid architecture/call-flow HTML |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 28,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ingest",
+      "target_type": "Function",
+      "target_file": "graphify/ingest.py",
+      "source_text": "| `ingest.py` | `ingest(url, target_dir, ...)` | URL → file saved to corpus dir |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 29,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "check_semantic_cache",
+      "target_type": "Function",
+      "target_file": "graphify/cache.py",
+      "source_text": "| `cache.py` | `check_semantic_cache(files, root)`, `save_semantic_cache(nodes, edges, ...)` | files → cached nodes / edges / hyperedges + the list of files still needing extraction |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 29,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "save_semantic_cache",
+      "target_type": "Function",
+      "target_file": "graphify/cache.py",
+      "source_text": "| `cache.py` | `check_semantic_cache(files, root)`, `save_semantic_cache(nodes, edges, ...)` | files → cached nodes / edges / hyperedges + the list of files still needing extraction |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 31,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "assert_valid",
+      "target_type": "Function",
+      "target_file": "graphify/validate.py",
+      "source_text": "| `validate.py` | `validate_extraction(data)`, `assert_valid(data)` | extraction dict → **list of schema error strings** (`validate_extraction` returns them; `assert_valid` raises) |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 31,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "validate_extraction",
+      "target_type": "Function",
+      "target_file": "graphify/validate.py",
+      "source_text": "| `validate.py` | `validate_extraction(data)`, `assert_valid(data)` | extraction dict → **list of schema error strings** (`validate_extraction` returns them; `assert_valid` raises) |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 32,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "serve",
+      "target_type": "Function",
+      "target_file": "graphify/serve.py",
+      "source_text": "| `serve.py` | `serve(graph_path)`, `serve_http(graph_path, *, host, port, ...)` | graph file path → MCP stdio server / HTTP server |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 32,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "serve_http",
+      "target_type": "Function",
+      "target_file": "graphify/serve.py",
+      "source_text": "| `serve.py` | `serve(graph_path)`, `serve_http(graph_path, *, host, port, ...)` | graph file path → MCP stdio server / HTTP server |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 33,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "check_update",
+      "target_type": "Function",
+      "target_file": "graphify/watch.py",
+      "source_text": "| `watch.py` | `watch(watch_path, debounce=3.0)`, `check_update(watch_path)` | directory → rebuild on change; `check_update` reports whether a re-extraction is pending |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 33,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "watch",
+      "target_type": "Function",
+      "target_file": "graphify/watch.py",
+      "source_text": "| `watch.py` | `watch(watch_path, debounce=3.0)`, `check_update(watch_path)` | directory → rebuild on change; `check_update` reports whether a re-extraction is pending |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 34,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "run_benchmark",
+      "target_type": "Function",
+      "target_file": "graphify/benchmark.py",
+      "source_text": "| `benchmark.py` | `run_benchmark(graph_path)` | graph file → corpus vs subgraph token comparison |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 87,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "validate_url",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "- URLs → `validate_url()` (http/https only) + `_NoFileRedirectHandler` (blocks file:// redirects)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 88,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "safe_fetch",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "- Fetched content → `safe_fetch()` / `safe_fetch_text()` (size cap, timeout)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 88,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "safe_fetch_text",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "- Fetched content → `safe_fetch()` / `safe_fetch_text()` (size cap, timeout)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 89,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "validate_graph_path",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "- Graph file paths → `validate_graph_path()` (must resolve inside `graphify-out/`)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "ARCHITECTURE.md",
+      "source_line": 90,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "sanitize_label",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "- Node labels → `sanitize_label()` (strips control chars, caps 256 chars, HTML-escapes)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 106,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "file_hash",
+      "target_type": "Function",
+      "target_file": "graphify/cache.py",
+      "source_text": "- Fix: `file_hash()`'s stat fastpath no longer serves a stale digest when a file is rewritten to the same size within one mtime tick (#2612, thanks @rajarshidattapy); a racily-clean guard falls back to a content hash for recently-modified files.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 108,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "normalize_id",
+      "target_type": "Function",
+      "target_file": "graphify/ids.py",
+      "source_text": "- Fix: `normalize_id()` is now idempotent for Turkish `İ` and similar codepoints by casefolding before the non-word filter; no ASCII identifier ids change (#2614, thanks @rajarshidattapy).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 334,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detect",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- Fix: an incomplete extraction no longer force-writes a partial graph over a complete one (#1951, thanks @TPAteeq). A crashed AST/semantic pass, a some-chunks-failed run, or a walk that couldn't fully enumerate the corpus (permission-denied subtree) produced a smaller graph that the `to_json(force=True)` path wrote anyway, bypassing the #479 shrink guard; the `--no-cluster` raw dump had no guard at all. Both paths now refuse to overwrite a larger existing graph when the run was incomplete (exit 1, nothing written) unless `--allow-partial` is passed, and a present-but-unparseable existing graph fails closed (a corrupt/mid-write file could be hiding a complete graph). `detect()`'s `walk_errors` now count as incomplete too.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 334,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "to_json",
+      "target_type": "Function",
+      "target_file": "graphify/export.py",
+      "source_text": "- Fix: an incomplete extraction no longer force-writes a partial graph over a complete one (#1951, thanks @TPAteeq). A crashed AST/semantic pass, a some-chunks-failed run, or a walk that couldn't fully enumerate the corpus (permission-denied subtree) produced a smaller graph that the `to_json(force=True)` path wrote anyway, bypassing the #479 shrink guard; the `--no-cluster` raw dump had no guard at all. Both paths now refuse to overwrite a larger existing graph when the run was incomplete (exit 1, nothing written) unless `--allow-partial` is passed, and a present-but-unparseable existing graph fails closed (a corrupt/mid-write file could be hiding a complete graph). `detect()`'s `walk_errors` now count as incomplete too.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 340,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_stamped_manifest_files",
+      "target_type": "Function",
+      "target_file": "graphify/cli.py",
+      "source_text": "- Fix: `save_manifest` no longer seeds a stale `semantic_hash` for a file that was dispatched this run but produced no stamped output, masking an LLM-omitted doc on the next run (#1948, thanks @rsolanilla). A file omitted from the semantic result (a `--force` re-run where the model drops its chunk) is dropped from the `files` dict `cli.py`'s `_stamped_manifest_files()` passes to `save_manifest`, per the #933/#1890 never-stamp-a-failed-chunk contract — but the seed loop that carries forward untouched rows for subset saves (#917) then copied that file's row from the on-disk manifest verbatim, including its `semantic_hash` from an earlier successful run. `detect_incremental(kind=\"semantic\")` compared current content against that inherited hash, found a match, and silently reported the file unchanged — defeating the #1890 retry promise the exact way the issue's manual \"blank the hash by hand\" workaround worked around. `save_manifest` now accepts a `clear_semantic` set; the seed loop forces `semantic_hash` to `\"\"` for any file in it instead of inheriting the stale value. `cli.py` derives the set as `semantic_files` — what was actually sent to the backend this run (narrowed by the incremental gate and `--code-only`, widened by deep mode) — minus `_stamped_manifest_files()`'s result: dispatched-but-not-stamped, regardless of why. Untouched live files that were never dispatched are deliberately not in the set, so a partial incremental run cannot blank the rest of the corpus's stamps. The set is passed at all three `_save_manifest` call sites. `clear_semantic` defaults to `None` (no-op), so every existing caller and the #917/#1908 seed/pruning behavior for untouched and excluded-but-alive rows is unchanged.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 340,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detect_incremental",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- Fix: `save_manifest` no longer seeds a stale `semantic_hash` for a file that was dispatched this run but produced no stamped output, masking an LLM-omitted doc on the next run (#1948, thanks @rsolanilla). A file omitted from the semantic result (a `--force` re-run where the model drops its chunk) is dropped from the `files` dict `cli.py`'s `_stamped_manifest_files()` passes to `save_manifest`, per the #933/#1890 never-stamp-a-failed-chunk contract — but the seed loop that carries forward untouched rows for subset saves (#917) then copied that file's row from the on-disk manifest verbatim, including its `semantic_hash` from an earlier successful run. `detect_incremental(kind=\"semantic\")` compared current content against that inherited hash, found a match, and silently reported the file unchanged — defeating the #1890 retry promise the exact way the issue's manual \"blank the hash by hand\" workaround worked around. `save_manifest` now accepts a `clear_semantic` set; the seed loop forces `semantic_hash` to `\"\"` for any file in it instead of inheriting the stale value. `cli.py` derives the set as `semantic_files` — what was actually sent to the backend this run (narrowed by the incremental gate and `--code-only`, widened by deep mode) — minus `_stamped_manifest_files()`'s result: dispatched-but-not-stamped, regardless of why. Untouched live files that were never dispatched are deliberately not in the set, so a partial incremental run cannot blank the rest of the corpus's stamps. The set is passed at all three `_save_manifest` call sites. `clear_semantic` defaults to `None` (no-op), so every existing caller and the #917/#1908 seed/pruning behavior for untouched and excluded-but-alive rows is unchanged.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 344,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extract",
+      "target_type": "Function",
+      "target_file": "graphify/extract.py",
+      "source_text": "- Fix: `graphify extract <root> --out <dir>` no longer reduces every node's `source_file` to a bare filename, so a `graph.json` stays resolvable against its scan root (#1941, thanks @JensD-git). `--out` passes the output dir as `cache_root` to relocate the cache, but that value also anchored relativization — so every scanned file failed `relative_to(root)`, fell through to the #1899 out-of-root fallback, tripped its `updepth > 3` walk-up guard, and collapsed to a basename; on Windows an `--out` on another drive hit the cross-drive branch and basenamed unconditionally. `extract()` now takes an explicit `root` anchor the CLI pins to the scan root, independent of where the cache lives (completing the #1774 cache/anchor decoupling and matching `build(root=target)`). Cache location, out-of-root portability (#1899), and the no-`--out`/watch paths are unchanged. A graph already written with basenamed paths does not self-heal on an unchanged corpus (the stale nodes are pruned as out-of-scope, leaving them empty); run `graphify extract --force` once, or re-extract after a file change, to rebuild it correctly.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 406,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "FileSlice",
+      "target_type": "Class",
+      "target_file": "graphify/file_slice.py",
+      "source_text": "- Fix: the incremental semantic-cache checkpoint no longer fails on oversized (sliced) documents (#1870). The 0.9.14 batch-scoping fix built its per-chunk allowlist by reading `FileSlice.rel`, an attribute that does not exist (a `FileSlice` carries its parent file in `.path`), so every chunk containing a sliced document leaked the `FileSlice` object into the allowlist, `save_semantic_cache` raised `TypeError`, and the best-effort handler swallowed it: extraction still finished but those chunks were never checkpointed, so a re-run or a run resumed after a crash/rate-limit re-billed them. The allowlist now resolves each unit through `unit_path`, so a slice maps to its parent file and the checkpoint writes as intended.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 590,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "submit",
+      "target_type": "Method",
+      "target_file": "tests/test_extract.py",
+      "source_text": "- Fix: cross-file `indirect_call` edges were dropped by `graphify extract` on the CLI (a 0.9.4 regression). The callable-target guard for cross-file indirect dispatch was keyed on node ids collected before the id-relativization/disambiguation passes; when the scan root relativizes ids (the CLI's default, `cache_root == project root`), those ids went stale and every cross-file indirect edge was silently dropped — only same-file ones survived. Callable-ness is now read from a node marker that rides through the remaps, so `submit(imported_fn)`, imported dispatch tables, assignment/getattr aliases across files resolve on the CLI as they already did via the `extract()` API.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 687,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "serve_http",
+      "target_type": "Function",
+      "target_file": "graphify/serve.py",
+      "source_text": "- Security: floor `starlette` at `>=1.3.1` to pick up the fixes for CVE-2026-48818 and CVE-2026-54283 (both resolved by 1.3.1). starlette underpins the HTTP MCP transport (`graphify-mcp` over HTTP / `serve_http`); the stdio transport and CLI are unaffected. It was an undeclared transitive dependency (via `mcp`) that `graphify/serve.py` imports directly, so it is now declared in the `mcp` (and `all`) extras and floored, which protects end users installing `graphifyy[mcp]`, not just the locked dev/CI environment. Lockfile bumped 1.0.0 -> 1.3.1; serve/MCP/HTTP tests pass on the new version (#1391, #1396, thanks @orbisai0security).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 688,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "_file_stem",
+      "target_type": "Function",
+      "target_file": "graphify/extractors/base.py",
+      "source_text": "- Refactor: begin splitting the monolithic `extract.py` into per-language modules under `graphify/extractors/` (#1212). The `blade`, `elixir`, `razor`, and `zig` extractors plus the shared primitives (`_make_id`, `_file_stem`, `_read_text`, `_LANGUAGE_BUILTIN_GLOBALS`) move into their own files, with `graphify/extractors/base.py` holding the shared pieces and a strict one-way import direction (`extract.py` -> `extractors/`, never the reverse). `extract.py` re-exports the moved names, so every `from graphify.extract import ...` caller and the dispatch table are unchanged. Behavior-neutral lift-and-shift (verified byte-identical), groundwork for moving the remaining languages out. See `graphify/extractors/MIGRATION.md`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 688,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "_make_id",
+      "target_type": "Function",
+      "target_file": "graphify/extractors/base.py",
+      "source_text": "- Refactor: begin splitting the monolithic `extract.py` into per-language modules under `graphify/extractors/` (#1212). The `blade`, `elixir`, `razor`, and `zig` extractors plus the shared primitives (`_make_id`, `_file_stem`, `_read_text`, `_LANGUAGE_BUILTIN_GLOBALS`) move into their own files, with `graphify/extractors/base.py` holding the shared pieces and a strict one-way import direction (`extract.py` -> `extractors/`, never the reverse). `extract.py` re-exports the moved names, so every `from graphify.extract import ...` caller and the dispatch table are unchanged. Behavior-neutral lift-and-shift (verified byte-identical), groundwork for moving the remaining languages out. See `graphify/extractors/MIGRATION.md`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 688,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "_read_text",
+      "target_type": "Function",
+      "target_file": "graphify/extractors/base.py",
+      "source_text": "- Refactor: begin splitting the monolithic `extract.py` into per-language modules under `graphify/extractors/` (#1212). The `blade`, `elixir`, `razor`, and `zig` extractors plus the shared primitives (`_make_id`, `_file_stem`, `_read_text`, `_LANGUAGE_BUILTIN_GLOBALS`) move into their own files, with `graphify/extractors/base.py` holding the shared pieces and a strict one-way import direction (`extract.py` -> `extractors/`, never the reverse). `extract.py` re-exports the moved names, so every `from graphify.extract import ...` caller and the dispatch table are unchanged. Behavior-neutral lift-and-shift (verified byte-identical), groundwork for moving the remaining languages out. See `graphify/extractors/MIGRATION.md`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 717,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "graphify.paths",
+      "target_type": "Module",
+      "target_file": "graphify/paths.py",
+      "source_text": "- Fix: `GRAPHIFY_OUT` is now honoured end-to-end. The override (a custom output-dir name or absolute path, for worktrees/shared setups — #686) was only respected by some readers; `graphify extract` and several commands hardcoded `graphify-out/`, so a `GRAPHIFY_OUT=custom-out graphify extract` still wrote to `graphify-out/`, and downstream `query`/`serve`/`update` looked in the wrong place. The output-dir name is now resolved through `graphify.paths` everywhere it matters: the `extract` write dir, `cluster-only`/`label`, `query`/`affected`/`benchmark` defaults, `save-result --memory-dir`, `uninstall --purge`, `cache-check`, the `manifest.json`/`transcripts`/`memory`/`converted` paths in `detect`/`transcribe`, the `build_merge`/`serve`/`benchmark`/`prs` graph-path defaults, and the `detect` scan-exclude (so a renamed output dir is never re-ingested as source). Default behaviour is unchanged — without the env var everything still uses `graphify-out/` (#1423).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 718,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "generate",
+      "target_type": "Function",
+      "target_file": "graphify/report.py",
+      "source_text": "- Fix: the `GRAPH_REPORT.md` header now shows the actual scan root instead of a literal `.`. The split-skill runbook passed `'.'` as the `root` argument to `report.generate` in Steps 4 and 5, so a `/graphify /some/path` run produced a report titled `# Graph Report - .`. It now passes `'INPUT_PATH'` (matching the monoliths, which were already correct). Display-only — no path written to `graph.json`/`manifest.json` was affected (#1419).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 719,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "save_manifest",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- Fix: the skill runbooks now write a portable `manifest.json`. Step 9 (full build) and the `--update` reference called `save_manifest(...)` without `root=`, so manifest keys were stored as absolute paths; cloning or moving the repo then broke `graphify --update` — every cached file missed and the whole corpus re-extracted. All four runbook call sites (the lean-core `skill.md`, the Aider/Devin monoliths, and the shared `--update` reference) now pass `root='INPUT_PATH'`, relativizing keys to the scan root to match the native `graphify update` path. The monolith change is registered as a new sanctioned change-class in the round-trip guard (#1417).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 721,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "validate_graph_path",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "- Fix: the `GRAPHIFY_OUT` override is now honoured everywhere instead of a hardcoded `\"graphify-out\"` literal. The name is consolidated into a single `graphify.paths` module (was duplicated across `__main__`, `cache`, and `watch`); `security.validate_graph_path`'s `base=None` discovery + fallback, `callflow_html`'s project-root resolution, and the post-commit/post-checkout hook bodies (which now read the env var at hook-run time) all use it. Previously a renamed output dir validated against the wrong base or made the hook miss `.graphify_root` (#1423).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 738,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "_bash_make_id",
+      "target_type": "Function",
+      "target_file": "graphify/symbol_resolution.py",
+      "source_text": "- Refactor: node-ID normalization is unified into a single `graphify.ids` module. `extract._make_id`, `build._normalize_id`, `mcp_ingest._make_id`, and `symbol_resolution._bash_make_id` were four hand-synced copies of the same NFKC/casefold recipe — the root of the recurring ghost-node bug class (#811/#550/#1033/#1104). All four now delegate to one implementation guarded by contract + hypothesis property tests (#1378; thanks @danielnguyenfinhub).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 738,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "_make_id",
+      "target_type": "Function",
+      "target_file": "graphify/mcp_ingest.py",
+      "source_text": "- Refactor: node-ID normalization is unified into a single `graphify.ids` module. `extract._make_id`, `build._normalize_id`, `mcp_ingest._make_id`, and `symbol_resolution._bash_make_id` were four hand-synced copies of the same NFKC/casefold recipe — the root of the recurring ghost-node bug class (#811/#550/#1033/#1104). All four now delegate to one implementation guarded by contract + hypothesis property tests (#1378; thanks @danielnguyenfinhub).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 738,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "graphify.ids",
+      "target_type": "Module",
+      "target_file": "graphify/ids.py",
+      "source_text": "- Refactor: node-ID normalization is unified into a single `graphify.ids` module. `extract._make_id`, `build._normalize_id`, `mcp_ingest._make_id`, and `symbol_resolution._bash_make_id` were four hand-synced copies of the same NFKC/casefold recipe — the root of the recurring ghost-node bug class (#811/#550/#1033/#1104). All four now delegate to one implementation guarded by contract + hypothesis property tests (#1378; thanks @danielnguyenfinhub).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 752,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "build_merge",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "- Fix: `/graphify <path> --update` now prunes stale nodes correctly. The update runbook called `build_merge(prune_sources=...)` without `root=`, so the absolute prune paths were never relativized to match the graph's relative `source_file` values — nothing was pruned and changed/deleted files left ghost nodes that compounded on every incremental run. The shared skill fragment now passes `root` (the native `graphify update` CLI was already correct) (#1361).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 776,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "render",
+      "target_type": "Function",
+      "target_file": "tools/skillgen/gen.py",
+      "source_text": "- Fix: ghost-merge skips ambiguous `(basename, label)` collisions where two AST nodes share the same key. When same-named symbols appear in same-named files across different directories (e.g. two `render()` in two `index.ts`), the previous last-writer-wins produced an arbitrary canonical node and mis-pointed all edges. Ambiguous keys are now tracked and skipped (#1257).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 817,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "convert_office_file",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- Fix: `--update` on macOS no longer re-extracts all Office files on every run. `convert_office_file()` now NFC-normalises the source path before hashing the sidecar filename, so NFD paths returned by `os.walk` (HFS+/APFS) produce the same sidecar as NFC-constructed paths. An early-return when the sidecar exists prevents mtime bumps causing spurious re-detection.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 819,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_resolve_temperature",
+      "target_type": "Function",
+      "target_file": "graphify/llm.py",
+      "source_text": "- Fix: OpenAI-compatible backends no longer send `temperature=0` to reasoning models. `_resolve_temperature()` auto-detects o1/o3/o4 and gpt-5 series and omits temperature from the request. Override with `GRAPHIFY_LLM_TEMPERATURE=<value>` (or `none` to omit explicitly for any model).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 833,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_resolve_max_tokens",
+      "target_type": "Function",
+      "target_file": "graphify/llm.py",
+      "source_text": "- Fix: `label_communities` token budget raised and `GRAPHIFY_MAX_OUTPUT_TOKENS` now honoured. Hardcoded `min(40+16n, 4096)` undershooted (~16 tok/community); raised to `min(64+24n, 8192)` and wrapped in `_resolve_max_tokens()` (#1200).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 921,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "find_import_cycles",
+      "target_type": "Function",
+      "target_file": "graphify/analyze.py",
+      "source_text": "- Feat: `find_import_cycles(G)` in `analyze.py` detects file-level circular import dependencies — collapses symbol graph to file-level directed import graph, finds simple cycles via Johnson's algorithm, deduplicates rotations, renders `## Import Cycles` section in `GRAPH_REPORT.md` (#961)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 922,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detect_backend",
+      "target_type": "Function",
+      "target_file": "graphify/llm.py",
+      "source_text": "- Feat: custom LLM provider registry — `graphify provider add/list/show/remove` registers any OpenAI-compatible endpoint (NVIDIA NIM, vLLM, OpenRouter, Together, LiteLLM) via `~/.graphify/providers.json`; custom providers auto-detected after built-ins in `detect_backend()` priority (#1084)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 923,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extract_files_direct",
+      "target_type": "Function",
+      "target_file": "graphify/llm.py",
+      "source_text": "- Fix: `extract_files_direct()` no longer silently defaults to kimi (Moonshot AI) — `backend=None` now calls `detect_backend()` and raises a clear `ValueError` if no key is configured, matching CLI behavior; README Privacy section updated with data-residency notes (#1086)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 925,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_matches",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- Fix: anchored `.graphifyignore` patterns (leading `/`) no longer match the same directory name anywhere in the tree — `_matches()` in both `_is_ignored` and `_is_included` now gates basename/segment shortcuts on `not anchored`; anchored patterns do exact anchor-relative path match only (#1087)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1006,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_norm_label",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "- Fix: CJK/Unicode labels no longer silently stripped during dedup — `_norm()` and `_norm_label()` now use Unicode-aware `[\\W_]+` regex with `casefold()` and NFKC normalization; previously `道具処理クラス` and any non-ASCII label collapsed to empty string and got falsely merged (#937)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1144,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_check_shrink",
+      "target_type": "Function",
+      "target_file": "graphify/watch.py",
+      "source_text": "- Fix: shrink-check (refuse overwrite when new graph has fewer nodes) was duplicated across two code paths; unified into a single `_check_shrink()` helper",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1195,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "edge_data",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "- Fix: `graphify explain` and `graphify path` no longer crash on `MultiGraph` inputs -- new `edge_data()`/`edge_datas()` helpers in `build.py` handle both simple and multi-graphs; all 8 production call sites and 30 skill-file inline heredocs updated (#796)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1195,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "edge_datas",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "- Fix: `graphify explain` and `graphify path` no longer crash on `MultiGraph` inputs -- new `edge_data()`/`edge_datas()` helpers in `build.py` handle both simple and multi-graphs; all 8 production call sites and 30 skill-file inline heredocs updated (#796)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1196,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_response_is_hollow",
+      "target_type": "Function",
+      "target_file": "graphify/llm.py",
+      "source_text": "- Fix: hollow Ollama responses (0 tokens / empty string) now trigger adaptive retry bisection instead of silently dropping the chunk -- `_response_is_hollow()` detects empty/null/whitespace content and parsed results with no nodes/edges, then rewrites `finish_reason=\"length\"` to route into the existing bisection path (#792)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1207,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "print_benchmark",
+      "target_type": "Function",
+      "target_file": "graphify/benchmark.py",
+      "source_text": "- Fix: Windows pipeline unblocked -- `print_benchmark()` falls back to ASCII box-drawing on cp1252 consoles; `ProcessPoolExecutor` `BrokenProcessPool` caught and falls back to sequential extraction when caller lacks `if __name__ == \"__main__\":` guard; Windows skill file (`skill-windows.md`) rewrites all `python -c \"...\"` blocks as PowerShell heredocs to fix quote-escaping failures (#788)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1238,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "collect_files",
+      "target_type": "Function",
+      "target_file": "graphify/extract.py",
+      "source_text": "- Fix: `collect_files()` extension set now auto-syncs with `_DISPATCH` -- previously 18 extensions (`.sql`, `.vue`, `.svelte`, `.jsx`, `.ex`, `.jl`, etc.) were silently skipped in skill-mode extraction (#711)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1259,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_is_sensitive",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- Fix: `_is_sensitive()` no longer drops legitimate source files — word boundaries on the keyword pattern prevent false positives like `tokenizer.py`, `password_verification.py`, `SecretManager.java` (#718)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1262,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "extract_svelte",
+      "target_type": "Function",
+      "target_file": "graphify/extract.py",
+      "source_text": "- Fix: `extract_svelte()` stub nodes now carry the resolved import path as `source_file` instead of the importer's path, preventing metadata corruption after merge (#712)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1280,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_read_tsconfig_aliases",
+      "target_type": "Function",
+      "target_file": "graphify/extractors/resolution.py",
+      "source_text": "- Fix: `_read_tsconfig_aliases()` now parses JSONC — handles `//` line comments, `/* */` block comments, and trailing commas that every TypeScript framework starter generates; warns to stderr on parse failure instead of silently returning `{}` (#700)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1296,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_load_tsconfig_aliases",
+      "target_type": "Function",
+      "target_file": "graphify/extractors/resolution.py",
+      "source_text": "- Fix: `_load_tsconfig_aliases()` now follows tsconfig `extends` chains - SvelteKit, Nuxt, and NestJS path aliases defined in extended configs are no longer silently dropped (#691)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1336,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "sanitize_label",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "- Fix: `sanitize_label(None)` raised `TypeError` crashing `to_html` on graphs with null `source_file` rationale nodes — return `\"\"` early (#656)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1351,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_js_safe",
+      "target_type": "Function",
+      "target_file": "graphify/exporters/html.py",
+      "source_text": "- Feat: `graphify tree` — self-contained D3 v7 collapsible-tree HTML view of `graph.json`; expand/collapse controls, depth-based colours, hover inspector; XSS-safe via `html.escape()` and `_js_safe()` (#557)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1398,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "xlsx_extract_structure",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- Feat: `xlsx_extract_structure()` utility — extracts sheet names, named tables, and column headers from .xlsx files as structural nodes",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1448,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "deduplicate_by_label",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "- Feat: duplicate node deduplication via `deduplicate_by_label()`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1545,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "prune_dangling_edges",
+      "target_type": "Function",
+      "target_file": "graphify/export.py",
+      "source_text": "- Add: `prune_dangling_edges()` utility in `export.py` — removes edges whose source/target is not in the node set (#294)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1567,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ValidationError",
+      "target_type": "Class",
+      "target_file": "worked/example/raw/validator.py",
+      "source_text": "- Fix: MCP server no longer crashes with `ValidationError` on blank lines sent between JSON messages by some clients (#201)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1634,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "gemini_install",
+      "target_type": "Function",
+      "target_file": "graphify/install.py",
+      "source_text": "- Fix: `graphify install --platform gemini` now routes to `gemini_install()` instead of erroring — `gemini` was missing from `_PLATFORM_CONFIG` (#171)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1635,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_cursor_install",
+      "target_type": "Function",
+      "target_file": "graphify/install.py",
+      "source_text": "- Fix: `graphify install --platform cursor` now routes to `_cursor_install()` the same way (#171)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1637,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "call_tool",
+      "target_type": "Function",
+      "target_file": "graphify/serve.py",
+      "source_text": "- Fix: MCP `call_tool()` handler now wraps dispatch in try/except — exceptions in tool handlers return graceful error strings instead of crashing the stdio loop (#163)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1656,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_rebuild_code",
+      "target_type": "Function",
+      "target_file": "graphify/watch.py",
+      "source_text": "- Fix: `_rebuild_code()` KeyError — `detected[FileType.CODE]` corrected to `detected['files']['code']` matching `detect()`'s actual return shape; was silently breaking git hooks on every commit (#148)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1670,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_check_tree_sitter_version",
+      "target_type": "Function",
+      "target_file": "graphify/extract.py",
+      "source_text": "- Fix: `tree-sitter>=0.23.0` now pinned in dependencies and `_check_tree_sitter_version()` guard added — stale environments now get a clear `RuntimeError` with upgrade instructions instead of a cryptic `TypeError` deep in the AST pipeline (#89)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1772,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "LanguageConfig",
+      "target_type": "Class",
+      "target_file": "graphify/extractors/models.py",
+      "source_text": "- Refactor: `extract.py` 2527 → 1588 lines — replaced 12 copy-pasted language extractors with `LanguageConfig` dataclass + `_extract_generic()`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1772,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_extract_generic",
+      "target_type": "Function",
+      "target_file": "graphify/extractors/engine.py",
+      "source_text": "- Refactor: `extract.py` 2527 → 1588 lines — replaced 12 copy-pasted language extractors with `LanguageConfig` dataclass + `_extract_generic()`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 1795,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "to_wiki",
+      "target_type": "Function",
+      "target_file": "graphify/wiki.py",
+      "source_text": "- Add: `graphify/wiki.py` module with `to_wiki()` — cross-community wikilinks, cohesion scores, audit trail, navigation footer",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source_line": 31,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "safe_fetch",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "| SSRF via URL fetch | `security.validate_url()` allows only `http` and `https` schemes, blocks private/loopback/link-local IPs, and blocks cloud metadata endpoints. Redirect targets are re-validated. All fetch paths including tweet oEmbed go through `safe_fetch()`. |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source_line": 31,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "validate_url",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "| SSRF via URL fetch | `security.validate_url()` allows only `http` and `https` schemes, blocks private/loopback/link-local IPs, and blocks cloud metadata endpoints. Redirect targets are re-validated. All fetch paths including tweet oEmbed go through `safe_fetch()`. |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source_line": 32,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "safe_fetch_text",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "| Oversized downloads | `safe_fetch()` streams responses and aborts at 50 MB. `safe_fetch_text()` aborts at 10 MB. |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source_line": 34,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "validate_graph_path",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "| Path traversal in MCP server | `security.validate_graph_path()` resolves paths and requires them to be inside `graphify-out/`. Also requires the `graphify-out/` directory to exist. |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source_line": 35,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "sanitize_label",
+      "target_type": "Function",
+      "target_file": "graphify/security.py",
+      "source_text": "| XSS in graph HTML output | `security.sanitize_label()` strips control characters, caps at 256 chars, and HTML-escapes all node labels and edge titles before pyvis embeds them. |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source_line": 37,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_neutralise_injection_sentinels",
+      "target_type": "Function",
+      "target_file": "graphify/llm.py",
+      "source_text": "| Prompt injection via source file content | During the semantic pass, source files are attacker-controlled text mixed into the LLM context. `_read_files()` in `llm.py` wraps every file in a hash-stamped `<untrusted_source path=... sha256=...>` delimiter block, the extraction system prompt instructs the model to treat that block as inert data and never as instructions, and `_neutralise_injection_sentinels()` defangs known chat-template/jailbreak tokens (`<\\|im_start\\|>`, `[INST]`, `<<SYS>>`, forged `</untrusted_source>`, etc.) before insertion. This is the table-stakes defense (issue #1210): it does not make injection impossible, but changes it from \"works on first try\" to \"requires evasion.\" |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "SECURITY.md",
+      "source_line": 37,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "_read_files",
+      "target_type": "Function",
+      "target_file": "graphify/llm.py",
+      "source_text": "| Prompt injection via source file content | During the semantic pass, source files are attacker-controlled text mixed into the LLM context. `_read_files()` in `llm.py` wraps every file in a hash-stamped `<untrusted_source path=... sha256=...>` delimiter block, the extraction system prompt instructs the model to treat that block as inert data and never as instructions, and `_neutralise_injection_sentinels()` defangs known chat-template/jailbreak tokens (`<\\|im_start\\|>`, `[INST]`, `<<SYS>>`, forged `</untrusted_source>`, etc.) before insertion. This is the table-stakes defense (issue #1210): it does not make injection impossible, but changes it from \"works on first try\" to \"requires evasion.\" |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+      "source_line": 9,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "graphify.build",
+      "target_type": "Module",
+      "target_file": "graphify/build.py",
+      "source_text": "**Tech Stack:** Python 3.10+, `datasketch` (MinHash/LSH), `rapidfuzz` (Jaro-Winkler), `networkx` (union-find via `nx.utils.UnionFind`), existing `graphify.cache`, `graphify.detect`, `graphify.build`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+      "source_line": 9,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "graphify.cache",
+      "target_type": "Module",
+      "target_file": "graphify/cache.py",
+      "source_text": "**Tech Stack:** Python 3.10+, `datasketch` (MinHash/LSH), `rapidfuzz` (Jaro-Winkler), `networkx` (union-find via `nx.utils.UnionFind`), existing `graphify.cache`, `graphify.detect`, `graphify.build`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+      "source_line": 9,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "graphify.detect",
+      "target_type": "Module",
+      "target_file": "graphify/detect.py",
+      "source_text": "**Tech Stack:** Python 3.10+, `datasketch` (MinHash/LSH), `rapidfuzz` (Jaro-Winkler), `networkx` (union-find via `nx.utils.UnionFind`), existing `graphify.cache`, `graphify.detect`, `graphify.build`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+      "source_line": 18,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "build",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "| `graphify/build.py` | **Modify** | Call `deduplicate_entities()` from `build()` and `build_merge()`; wire dormant `deduplicate_by_label` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+      "source_line": 18,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "build_merge",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "| `graphify/build.py` | **Modify** | Call `deduplicate_entities()` from `build()` and `build_merge()`; wire dormant `deduplicate_by_label` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+      "source_line": 18,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "deduplicate_by_label",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "| `graphify/build.py` | **Modify** | Call `deduplicate_entities()` from `build()` and `build_merge()`; wire dormant `deduplicate_by_label` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+      "source_line": 18,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "deduplicate_entities",
+      "target_type": "Function",
+      "target_file": "graphify/dedup.py",
+      "source_text": "| `graphify/build.py` | **Modify** | Call `deduplicate_entities()` from `build()` and `build_merge()`; wire dormant `deduplicate_by_label` |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-04-incremental-updates-dedup-design.md",
+      "source_line": 45,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detect",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- `detect_incremental(target)` instead of `detect(target)` — returns `new_files`, `unchanged_files`, `deleted_files`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-04-incremental-updates-dedup-design.md",
+      "source_line": 45,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detect_incremental",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "- `detect_incremental(target)` instead of `detect(target)` — returns `new_files`, `unchanged_files`, `deleted_files`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-04-incremental-updates-dedup-design.md",
+      "source_line": 47,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "build_merge",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "- `build_merge(new_chunks, prune_sources=deleted_files)` instead of `build_from_json` — merges into existing graph, prunes nodes from deleted files",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-04-incremental-updates-dedup-design.md",
+      "source_line": 51,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "check_semantic_cache",
+      "target_type": "Function",
+      "target_file": "graphify/cache.py",
+      "source_text": "- Before LLM call: `check_semantic_cache(files)` splits into `(cached_results, uncached_files)`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-04-incremental-updates-dedup-design.md",
+      "source_line": 53,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "save_semantic_cache",
+      "target_type": "Function",
+      "target_file": "graphify/cache.py",
+      "source_text": "- After LLM call: `save_semantic_cache(fresh_results)` — keyed by content hash",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-04-incremental-updates-dedup-design.md",
+      "source_line": 113,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "deduplicate_by_label",
+      "target_type": "Function",
+      "target_file": "graphify/build.py",
+      "source_text": "- `graphify/build.py` — call `deduplicate_entities` after graph construction; wire dormant `deduplicate_by_label`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "graphify/extractors/MIGRATION.md",
+      "source_line": 47,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "graphify.extract",
+      "target_type": "Module",
+      "target_file": "graphify/extract.py",
+      "source_text": "4. **Never import from `graphify.extract` inside this package.** Import",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/GRAPH_REPORT.md",
+      "source_line": 14,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "AsyncClient",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/client.py",
+      "source_text": "2. `AsyncClient` - 25 edges",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/GRAPH_REPORT.md",
+      "source_line": 17,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "BaseClient",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/client.py",
+      "source_text": "5. `BaseClient` - 18 edges",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/GRAPH_REPORT.md",
+      "source_line": 19,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "BaseTransport",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/transport.py",
+      "source_text": "7. `BaseTransport` - 16 edges",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/GRAPH_REPORT.md",
+      "source_line": 20,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "AsyncHTTPTransport",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/transport.py",
+      "source_text": "8. `AsyncHTTPTransport` - 15 edges",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/README.md",
+      "source_line": 37,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "AsyncClient",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/client.py",
+      "source_text": "- God nodes: `Client`, `AsyncClient`, `Response`, `Request`, `BaseClient`, `HTTPTransport`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/README.md",
+      "source_line": 37,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "BaseClient",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/client.py",
+      "source_text": "- God nodes: `Client`, `AsyncClient`, `Response`, `Request`, `BaseClient`, `HTTPTransport`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/README.md",
+      "source_line": 38,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "DigestAuth",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/auth.py",
+      "source_text": "- Surprising connection: `DigestAuth` linked to `Response` — auth.py reads Response to parse WWW-Authenticate headers",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 88,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "RequestError",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/exceptions.py",
+      "source_text": "  as `_make_id(stem, base_name)` - e.g. `RequestError` inheriting `Exception` produces target",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 92,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "BaseClient",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/client.py",
+      "source_text": "- **No inheritance across files.** `BaseClient` inherits nothing in the graph. `Client(BaseClient)`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 92,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "Client",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/client.py",
+      "source_text": "- **No inheritance across files.** `BaseClient` inherits nothing in the graph. `Client(BaseClient)`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 97,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "BaseTransport",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/transport.py",
+      "source_text": "- **Cross-file inheritance is not captured.** `HTTPTransport(BaseTransport)` - `BaseTransport`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 97,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "HTTPTransport",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/transport.py",
+      "source_text": "- **Cross-file inheritance is not captured.** `HTTPTransport(BaseTransport)` - `BaseTransport`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 127,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "auth_flow",
+      "target_type": "Method",
+      "target_file": "worked/httpx/raw/auth.py",
+      "source_text": "  For example, `DigestAuth.auth_flow` calls `Response.status_code` - this relationship is",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 134,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "HTTPStatusError",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/exceptions.py",
+      "source_text": "- **No \"calls\" relationships.** `Response.raise_for_status()` calls `HTTPStatusError()` -",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 134,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "raise_for_status",
+      "target_type": "Method",
+      "target_file": "worked/httpx/raw/models.py",
+      "source_text": "- **No \"calls\" relationships.** `Response.raise_for_status()` calls `HTTPStatusError()` -",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 202,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "ConnectionPool",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/transport.py",
+      "source_text": "   - transport.py imports from models. That `ConnectionPool` specifically uses `Request`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/httpx/review.md",
+      "source_line": 253,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "AsyncClient",
+      "target_type": "Class",
+      "target_file": "worked/httpx/raw/client.py",
+      "source_text": "  `Request`, `Client`, and `AsyncClient`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/karpathy-repos/review.md",
+      "source_line": 57,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "forward",
+      "target_type": "Method",
+      "target_file": "tests/fixtures/sample.py",
+      "source_text": "| 0 (30 nodes) | nanoGPT Model Architecture | `Block`, `forward()`, `dataclasses` - transformer architecture |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "worked/mixed-corpus/review.md",
+      "source_line": 90,
+      "extractor": "doc_ref:shaped",
+      "confidence": 0.8,
+      "target_label": "detect",
+      "target_type": "Function",
+      "target_file": "graphify/detect.py",
+      "source_text": "**Result: PASS.** All 3 query results appear in the next `detect()` scan. On the next",
+      "label_on_cited_line": true,
+      "verdict": null
+    }
+  ],
+  "refused": [
+    {
+      "bucket": "unqualified",
+      "total": 15605,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "graphify update .",
+          "line": 8,
+          "bucket": "unqualified",
+          "source_text": "- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "_is_sensitive",
+          "line": 520,
+          "bucket": "unqualified",
+          "source_text": "- Fix: source files are no longer silently dropped during discovery by two over-broad filters (#1666, thanks @krishnateja7 for the precise root-cause). (a) A bare `snapshots/` directory was pruned as a Jest/Vitest artifact, which killed legitimate code namespaces like a Rails `app/services/snapshots/`; it is now pruned only when it actually contains `.snap` files or sits directly under a JS test root (`__snapshots__` stays unconditionally pruned). (b) `_is_sensitive` dropped files on a bare name-keyword hit (`device_token.rb`, `passwords_controller.rb`) even when `classify_file` had already resolved them to source code; a genuine programming-language source file is now exempt from the weak keyword heuristic, while real secret stores in data/config formats (`credentials.json`, `secrets.yaml`, `.env`, `.pem`, ...) are still caught. This is the discovery-layer fix; the 0.9.7 no-cache-on-empty change could not surface these because the files never reached extraction.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "nohup \"$GRAPHIFY_PYTHON\" -c",
+          "line": 882,
+          "bucket": "unqualified",
+          "source_text": "- Security: hook script hardening — the `_PINNED=` assignment uses single quotes to prevent shell injection from a path containing metacharacters; `nohup \"$GRAPHIFY_PYTHON\" -c` is properly quoted to handle spaces; the fallback emits a loud stderr diagnostic instead of a bare silent `exit 0`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/docker-mcp-sqlite.md",
+          "written": "mcp-sqlite",
+          "line": 77,
+          "bucket": "unqualified",
+          "source_text": "Database file lives in a Docker named volume `mcp-sqlite`, mounted at `/mcp`",
+          "verdict": null
+        },
+        {
+          "document": "docs/translations/README.ru-RU.md",
+          "written": "rationale_for",
+          "line": 144,
+          "bucket": "unqualified",
+          "source_text": "**«Почему»** — docstrings, встроенные комментарии (`# NOTE:`, `# IMPORTANT:`, `# HACK:`, `# WHY:`), и обоснования дизайна из документов извлекаются как узлы `rationale_for`.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skill-devin.md",
+          "written": "NEO4J_PASSWORD",
+          "line": 710,
+          "bucket": "unqualified",
+          "source_text": "Replace `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD` with actual values. Default URI is `bolt://localhost:7687`, default user is `neo4j`. Uses MERGE - safe to re-run without creating duplicates.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/agents/references/exports.md",
+          "written": "shortest_path",
+          "line": 65,
+          "bucket": "unqualified",
+          "source_text": "This starts a stdio MCP server that exposes tools: `query_graph`, `get_node`, `get_neighbors`, `get_community`, `god_nodes`, `graph_stats`, `shortest_path`. Add to Claude Desktop or any MCP-compatible agent orchestrator so other agents can query the graph live.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/opencode/references/add-watch.md",
+          "written": "/graphify --update",
+          "line": 50,
+          "bucket": "unqualified",
+          "source_text": "- **Docs, papers, or images:** writes a `graphify-out/needs_update` flag and prints a notification to run `/graphify --update` (LLM semantic re-extraction required).",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skill-agents.md",
+          "written": "--cluster-only",
+          "line": 53,
+          "bucket": "unqualified",
+          "source_text": "**Fast path — existing graph:** Before doing anything else, check whether `graphify-out/graph.json` exists. The expected location is `graphify-out/graph.json` relative to the **current working directory** (i.e. the project root where you are running commands). If it exists AND the user's request is a natural-language question about the codebase (e.g. \"How does X work?\", \"What calls Y?\", \"Trace the data flow through Z\") and NOT an explicit rebuild command (`--update`, `--cluster-only`, or a bare path/URL that implies fresh extraction): **skip Steps 1–5 entirely and jump straight to `## For /graphify query`.** Run `graphify query \"<question>\"` immediately. Do not run detect. Do not check corpus size. Do not ask the user to narrow. The graph is already built — use it.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skill-kiro.md",
+          "written": "--budget",
+          "line": 691,
+          "bucket": "unqualified",
+          "source_text": "Before traversal, expand the question against the graph's own vocabulary so a wording mismatch does not collapse the answer to noise. If the `graphify query` CLI is unavailable, fall back to an inline NetworkX traversal of `graphify-out/graph.json`. Answer using only what the graph output contains, and quote `source_location` when citing a specific fact. For that vocab-expansion step, the BFS/DFS traversal modes, the `--budget` cap, the NetworkX fallback, `save-result` feedback, and the `/graphify path` and `/graphify explain` flows, see `references/query.md`.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__claw__references__exports.md",
+          "written": "cat graphify-out/.graphify_python",
+          "line": 67,
+          "bucket": "unqualified",
+          "source_text": "To configure in Claude Desktop, add to `claude_desktop_config.json`. Claude Desktop can't run `$(...)`, and under `uv tool install` the system `python3` can't import graphify — so set `command` to the **absolute interpreter path** printed by `cat graphify-out/.graphify_python`:",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__vscode__references__exports.md",
+          "written": "--wiki",
+          "line": 3,
+          "bucket": "unqualified",
+          "source_text": "Load this when the user passed one of the export flags (`--wiki`, `--neo4j`, `--neo4j-push`, `--falkordb`, `--falkordb-push`, `--svg`, `--graphml`, `--mcp`), or when the corpus is large enough for the token-reduction benchmark. Each step runs only for its own flag.",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "ambiguous_path",
+      "total": 413,
+      "sample": [
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "analyze.py",
+          "line": 11,
+          "bucket": "ambiguous_path",
+          "source_text": "Each stage lives in its own module and they communicate through plain Python dicts and NetworkX graphs - no shared state, no side effects outside `graphify-out/`. Most stages are a single function; `analyze.py` and `export.py` are sets of sibling functions rather than one entry point.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "GRAPH_REPORT.md",
+          "line": 448,
+          "bucket": "ambiguous_path",
+          "source_text": "- Fix: the report's \"Suggested Questions\" weakly-connected-node count now matches its \"Knowledge Gaps\" count (#1768, thanks @balloon72). `suggest_questions()` omitted the `file_type != \"rationale\"` filter that `report.py`'s Knowledge Gaps section applies, so the same `GRAPH_REPORT.md` showed two different numbers for the same concept (e.g. 757 vs 245), making a healthy graph look like it had a major documentation gap. Both computations now use the same filter.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "graph.json",
+          "line": 823,
+          "bucket": "ambiguous_path",
+          "source_text": "- Feat: `GRAPHIFY_MAX_GRAPH_BYTES` env var to override the 512 MiB `graph.json` size cap. Accepts plain bytes, `<N>MB`, or `<N>GB`. The cap error message now cites this env var. `graphify export html` auto-falls back to the community-aggregation view when over cap instead of hard-failing.",
+          "verdict": null
+        },
+        {
+          "document": "docs/how-it-works.md",
+          "written": "graph.json",
+          "line": 67,
+          "bucket": "ambiguous_path",
+          "source_text": "Each `worked/` folder in the repo has the raw input files and actual output (`GRAPH_REPORT.md`, `graph.json`) so you can run it yourself and verify.",
+          "verdict": null
+        },
+        {
+          "document": "docs/translations/README.ko-KR.md",
+          "written": "graph.json",
+          "line": 255,
+          "bucket": "ambiguous_path",
+          "source_text": "토큰 축소는 코퍼스 크기에 비례하여 확장됩니다. 6개 파일은 어차피 컨텍스트 윈도우에 들어가므로, 그래프의 가치는 압축이 아닌 구조적 명확성에 있습니다. 52개 파일(코드 + 논문 + 이미지)에서는 71배 이상을 달성합니다. 각 `worked/` 폴더에는 원본 입력 파일과 실제 출력(`GRAPH_REPORT.md`, `graph.json`)이 있어 직접 실행하여 수치를 검증할 수 있습니다.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/amp/references/hooks.md",
+          "written": "GRAPH_REPORT.md",
+          "line": 15,
+          "bucket": "ambiguous_path",
+          "source_text": "After every `git commit`, the hook detects which code files changed (via `git diff HEAD~1`), re-runs AST extraction on those files, and rebuilds `graph.json` and `GRAPH_REPORT.md`. Doc/image changes are ignored by the hook - run `/graphify --update` manually for those.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/droid/references/hooks.md",
+          "written": "GRAPH_REPORT.md",
+          "line": 15,
+          "bucket": "ambiguous_path",
+          "source_text": "After every `git commit`, the hook detects which code files changed (via `git diff HEAD~1`), re-runs AST extraction on those files, and rebuilds `graph.json` and `GRAPH_REPORT.md`. Doc/image changes are ignored by the hook - run `/graphify --update` manually for those.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/trae/references/hooks.md",
+          "written": "GRAPH_REPORT.md",
+          "line": 15,
+          "bucket": "ambiguous_path",
+          "source_text": "After every `git commit`, the hook detects which code files changed (via `git diff HEAD~1`), re-runs AST extraction on those files, and rebuilds `graph.json` and `GRAPH_REPORT.md`. Doc/image changes are ignored by the hook - run `/graphify --update` manually for those.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skill-devin.md",
+          "written": "graph.json",
+          "line": 1385,
+          "bucket": "ambiguous_path",
+          "source_text": "After every `git commit`, the hook detects which code files changed, re-runs AST extraction on those files, and rebuilds `graph.json` and `GRAPH_REPORT.md`. Doc/image changes are ignored by the hook - run `/graphify --update` manually for those.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__codex__references__update.md",
+          "written": "graph.json",
+          "line": 210,
+          "bucket": "ambiguous_path",
+          "source_text": "`graphify cluster-only .` is **self-contained**: it re-clusters, names communities, and regenerates `GRAPH_REPORT.md`, `graph.json`, and `graph.html` from the existing graph. **Do not re-run Steps 5–9** — they read intermediate files (`.graphify_extract.json`, `.graphify_detect.json`, `.graphify_analysis.json`) that a prior build's cleanup (Step 9) already deleted, so they raise `FileNotFoundError` (#1392). When it finishes, present the refreshed `GRAPH_REPORT.md` summary as usual.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__opencode__references__update.md",
+          "written": "graph.json",
+          "line": 210,
+          "bucket": "ambiguous_path",
+          "source_text": "`graphify cluster-only .` is **self-contained**: it re-clusters, names communities, and regenerates `GRAPH_REPORT.md`, `graph.json`, and `graph.html` from the existing graph. **Do not re-run Steps 5–9** — they read intermediate files (`.graphify_extract.json`, `.graphify_detect.json`, `.graphify_analysis.json`) that a prior build's cleanup (Step 9) already deleted, so they raise `FileNotFoundError` (#1392). When it finishes, present the refreshed `GRAPH_REPORT.md` summary as usual.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/fragments/core/aider.md",
+          "written": "graph.json",
+          "line": 1255,
+          "bucket": "ambiguous_path",
+          "source_text": "After every `git commit`, the hook detects which code files changed (via `git diff HEAD~1`), re-runs AST extraction on those files, and rebuilds `graph.json` and `GRAPH_REPORT.md`. Doc/image changes are ignored by the hook - run `/graphify --update` manually for those.",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "basename_only",
+      "total": 104,
+      "sample": [
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "export.py",
+          "line": 11,
+          "bucket": "basename_only",
+          "source_text": "Each stage lives in its own module and they communicate through plain Python dicts and NetworkX graphs - no shared state, no side effects outside `graphify-out/`. Most stages are a single function; `analyze.py` and `export.py` are sets of sibling functions rather than one entry point.",
+          "verdict": null
+        },
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "cache.py",
+          "line": 29,
+          "bucket": "basename_only",
+          "source_text": "| `cache.py` | `check_semantic_cache(files, root)`, `save_semantic_cache(nodes, edges, ...)` | files → cached nodes / edges / hyperedges + the list of files still needing extraction |",
+          "verdict": null
+        },
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "detect.py",
+          "line": 79,
+          "bucket": "basename_only",
+          "source_text": "3. Add the suffix to `CODE_EXTENSIONS` in `detect.py` and `_WATCHED_EXTENSIONS` in `watch.py`.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "llm.py",
+          "line": 341,
+          "bucket": "basename_only",
+          "source_text": "- Fix: the semantic cache no longer replays extractions from an older prompt after an upgrade (#1939, thanks @HunterMcGrew and @SinghAman21). Entries were keyed on `sha256(file content + path)` alone, with no component for the extraction prompt that produced them, so a release that changed the prompt left every unchanged file a cache hit: the run exited 0, `cost.json` looked cheap, and the graph silently carried two prompt generations side by side. Semantic entries are now namespaced by a fingerprint of the extraction prompt (`cache/semantic/p{fingerprint}/`, mirroring the AST cache's `v{version}/` layout), keeping both properties #1252 wanted — entries survive releases that don't touch the prompt, and invalidate only when it actually changed. The fingerprint normalizes line endings so a CRLF checkout doesn't look like a prompt change. Both extraction paths pass their prompt: the Python/CLI path (`llm.py`'s `_EXTRACTION_SYSTEM`, all backends) automatically, and the skill path via a new `prompt_file` argument in Step B0/B3 pointing at the `references/extraction-spec.md` the subagents were handed. Pre-existing entries predate fingerprinting and have unknowable vintage: they are still served rather than re-billing a whole corpus, but `check_semantic_cache` now warns with the count, so the \"no signal at all\" the report describes becomes a visible one; `--force` (or `GRAPHIFY_FORCE=1`) re-extracts them. Old-fingerprint entries are pruned by liveness only, never swept wholesale the way stale AST versions are — two hosts with different prompts can share one `graphify-out/`, and a wholesale sweep would have each run delete the other's entries. (The two monolith skills, aider and devin, inline their prompt instead of shipping a spec sidecar and stay on the unfingerprinted path for now.)",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "extract.py",
+          "line": 688,
+          "bucket": "basename_only",
+          "source_text": "- Refactor: begin splitting the monolithic `extract.py` into per-language modules under `graphify/extractors/` (#1212). The `blade`, `elixir`, `razor`, and `zig` extractors plus the shared primitives (`_make_id`, `_file_stem`, `_read_text`, `_LANGUAGE_BUILTIN_GLOBALS`) move into their own files, with `graphify/extractors/base.py` holding the shared pieces and a strict one-way import direction (`extract.py` -> `extractors/`, never the reverse). `extract.py` re-exports the moved names, so every `from graphify.extract import ...` caller and the dispatch table are unchanged. Behavior-neutral lift-and-shift (verified byte-identical), groundwork for moving the remaining languages out. See `graphify/extractors/MIGRATION.md`.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "prs.py",
+          "line": 778,
+          "bucket": "basename_only",
+          "source_text": "- Fix: `prs.py` claude-cli backend resolves `claude.cmd` on Windows. The `_call_llm` and `_call_claude_cli` extraction paths were already fixed; `prs.py` had the same bare `[\"claude\", ...]` subprocess call that fails on Windows npm installs with WinError 2 (#1288).",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "serve.py",
+          "line": 1152,
+          "bucket": "basename_only",
+          "source_text": "- Fix: MCP `shortest_path` and `get_neighbors` tools had the same reversed-arrow bug; now fixed in `serve.py` alongside the CLI commands (#849, #853)",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "cache.py",
+          "line": 1316,
+          "bucket": "basename_only",
+          "source_text": "- Feat: `GRAPHIFY_OUT` env var overrides the output directory — accepts a relative name or absolute path, wires through `cache.py`, `watch.py`, and the CLI; useful for sharing one graph across multiple git worktrees (#686)",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "skill.md",
+          "line": 1685,
+          "bucket": "basename_only",
+          "source_text": "- Fix: `mkdir -p graphify-out` now runs before writing `.graphify_python` in `skill.md` — prevents write failure on first run; `.graphify_python` no longer deleted in Step 9 cleanup across all skill files so follow-up commands keep their interpreter (#93)",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+          "written": "dedup.py",
+          "line": 1128,
+          "bucket": "basename_only",
+          "source_text": "- [x] `dedup.py` new module → Task 2",
+          "verdict": null
+        },
+        {
+          "document": "SECURITY.md",
+          "written": "serve.py",
+          "line": 41,
+          "bucket": "basename_only",
+          "source_text": "| Corrupted graph.json | `_load_graph()` in `serve.py` wraps `json.JSONDecodeError` and prints a clear recovery message instead of crashing. |",
+          "verdict": null
+        },
+        {
+          "document": "worked/httpx/review.md",
+          "written": "client.py",
+          "line": 235,
+          "bucket": "basename_only",
+          "source_text": "- `client.py` as #1 god node makes sense - it imports from 5 other modules and contains the",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_ambiguous",
+      "total": 137,
+      "sample": [
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "build(extractions)",
+          "line": 21,
+          "bucket": "shaped_ambiguous",
+          "source_text": "| `build.py` | `build(extractions)`, `build_from_json(extraction)` | extraction dict(s) → `nx.Graph` |",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "build()",
+          "line": 599,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- Docs: correct the `deduplicate_by_label` docstring — it is dormant, not auto-called by `build()` (#1514, thanks @TPAteeq). The active dedup path is `deduplicate_entities`; the note that `deduplicate_by_label` runs automatically was never true, and it must not be enabled for code nodes (it merges by label with no file_type guard, conflating same-named symbols across files).",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "build()",
+          "line": 1819,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- Fix: `build()` cross-extraction edges were silently dropped - now merged before assembly",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skill-claw.md",
+          "written": "build_from_json()",
+          "line": 395,
+          "bucket": "shaped_ambiguous",
+          "source_text": "**Before starting:** the code blocks below pass `directed=IS_DIRECTED` to `build_from_json()`. Replace `IS_DIRECTED` with `True` if `--directed` was given (builds a `DiGraph` preserving edge direction source→target), otherwise `False` (the default undirected `Graph`). Substitute it the same way you substitute `INPUT_PATH` — do not leave the literal `IS_DIRECTED` in the code.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skill.md",
+          "written": "build_from_json()",
+          "line": 395,
+          "bucket": "shaped_ambiguous",
+          "source_text": "**Before starting:** the code blocks below pass `directed=IS_DIRECTED` to `build_from_json()`. Replace `IS_DIRECTED` with `True` if `--directed` was given (builds a `DiGraph` preserving edge direction source→target), otherwise `False` (the default undirected `Graph`). Substitute it the same way you substitute `INPUT_PATH` — do not leave the literal `IS_DIRECTED` in the code.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skill-kiro.md",
+          "written": "build_from_json()",
+          "line": 395,
+          "bucket": "shaped_ambiguous",
+          "source_text": "**Before starting:** the code blocks below pass `directed=IS_DIRECTED` to `build_from_json()`. Replace `IS_DIRECTED` with `True` if `--directed` was given (builds a `DiGraph` preserving edge direction source→target), otherwise `False` (the default undirected `Graph`). Substitute it the same way you substitute `INPUT_PATH` — do not leave the literal `IS_DIRECTED` in the code.",
+          "verdict": null
+        },
+        {
+          "document": "worked/httpx/review.md",
+          "written": "_make_id(\"client\", \"BaseClient\")",
+          "line": 94,
+          "bucket": "shaped_ambiguous",
+          "source_text": "  ID is `_make_id(\"client\", \"BaseClient\")` = `\"client_baseclient\"` - this actually SHOULD work",
+          "verdict": null
+        },
+        {
+          "document": "worked/mixed-corpus/GRAPH_REPORT.md",
+          "written": "_is_concept_node()",
+          "line": 17,
+          "bucket": "shaped_ambiguous",
+          "source_text": "5. `_is_concept_node()` - 4 edges",
+          "verdict": null
+        },
+        {
+          "document": "worked/mixed-corpus/GRAPH_REPORT.md",
+          "written": "_surprise_score()",
+          "line": 59,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- **Why does `_surprise_score()` connect `Community 1` to `Community 3`?**",
+          "verdict": null
+        },
+        {
+          "document": "worked/mixed-corpus/GRAPH_REPORT.md",
+          "written": "_cross_community_surprises()",
+          "line": 66,
+          "bucket": "shaped_ambiguous",
+          "source_text": "  _`_cross_community_surprises()` has 4 INFERRED edges - model-reasoned connections that need verification._",
+          "verdict": null
+        },
+        {
+          "document": "worked/mixed-corpus/review.md",
+          "written": "score_all()",
+          "line": 42,
+          "bucket": "shaped_ambiguous",
+          "source_text": "| 1 | Clustering & Scoring | 0.29 | cluster.py, `cluster()`, `score_all()`, `cohesion_score()`, `build_graph()`, `_split_community()`, graspologic |",
+          "verdict": null
+        },
+        {
+          "document": "worked/mixed-corpus/review.md",
+          "written": "score_all()",
+          "line": 73,
+          "bucket": "shaped_ambiguous",
+          "source_text": "- `score_all()` connects to `cohesion_score()` and `_split_community()` in cluster.py",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "no_such_symbol",
+      "total": 242,
+      "sample": [
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "nx.Graph",
+          "line": 21,
+          "bucket": "no_such_symbol",
+          "source_text": "| `build.py` | `build(extractions)`, `build_from_json(extraction)` | extraction dict(s) → `nx.Graph` |",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "json.JSONDecodeError",
+          "line": 296,
+          "bucket": "no_such_symbol",
+          "source_text": "- Fix: `serve.py`'s \"graph.json is corrupted\" recovery message is now reachable (#2005, thanks @kimdzhekhon). `json.JSONDecodeError` subclasses `ValueError`, and the broad `except (ValueError, FileNotFoundError)` clause was ordered first, so a truncated graph printed the bare `Expecting value...` instead of the documented rebuild hint. The `JSONDecodeError` clause now comes first.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "passwords_controller.rb",
+          "line": 520,
+          "bucket": "no_such_symbol",
+          "source_text": "- Fix: source files are no longer silently dropped during discovery by two over-broad filters (#1666, thanks @krishnateja7 for the precise root-cause). (a) A bare `snapshots/` directory was pruned as a Jest/Vitest artifact, which killed legitimate code namespaces like a Rails `app/services/snapshots/`; it is now pruned only when it actually contains `.snap` files or sits directly under a JS test root (`__snapshots__` stays unconditionally pruned). (b) `_is_sensitive` dropped files on a bare name-keyword hit (`device_token.rb`, `passwords_controller.rb`) even when `classify_file` had already resolved them to source code; a genuine programming-language source file is now exempt from the weak keyword heuristic, while real secret stores in data/config formats (`credentials.json`, `secrets.yaml`, `.env`, `.pem`, ...) are still caught. This is the discovery-layer fix; the 0.9.7 no-cache-on-empty change could not surface these because the files never reached extraction.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "Type.M",
+          "line": 561,
+          "bucket": "no_such_symbol",
+          "source_text": "- Feat: C# receiver-typed member-call resolution (#1609, thanks @JensD-git). `recv.Method()` where `recv` is a typed field, property, parameter, or local now resolves to the receiver *type's* method. C# previously had no member-call resolver, so the bare method name matched any same-named method in the corpus — `_server.Save()` silently mis-bound to an unrelated `Cache.Save()` (a wrong edge, not just a missing one), leaving delegation-heavy call graphs blind across typed boundaries. The receiver is now typed from a per-file field/property/param/local table (incl. `var v = new T()`) and resolved with the single-definition god-node guard; `this.M()` binds to the enclosing class and `Type.M()` to the named type. An untypable receiver (e.g. `dynamic`) or a method absent on the type produces no edge — precision over recall, matching the Swift/C++/Python resolvers.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "data.geojson",
+          "line": 676,
+          "bucket": "no_such_symbol",
+          "source_text": "- Fix: the `Read|Glob` PreToolUse hook (the \"run graphify first\" nudge installed for Claude Code and CodeBuddy) now matches the file's real trailing extension instead of substring-scanning the path (#1463, thanks @marketechniks). The old check asked `any(ext in path)`, which had two opposite failures: `.json` files (`package.json`, `tsconfig.json`) spuriously fired because `.js` is a substring of `.json`, and `.astro`/`.vue`/`.svelte` never fired because they weren't in the set — so on Astro/Vue/Svelte projects, where those are the primary source type, reads and globs never surfaced the graph. The hook now compares the segment after the last `/` then after the last `.` against the extension set (with `.astro`/`.vue`/`.svelte` added), so `package.json` stays silent, `data.geojson` stays silent, `**/*.astro` fires, and an extension sitting on a directory component (`my.ts/file`) correctly doesn't. The `graphify-out/` suppression and fail-open behavior are unchanged.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "os.walk",
+          "line": 804,
+          "bucket": "no_such_symbol",
+          "source_text": "- Fix: `collect_files` rewritten as a single pruned `os.walk` instead of one `rglob` per extension. On large repos this eliminated ~85 redundant filesystem traversals; noise directories (`node_modules`, `.git`, `__pycache__`, etc.) are now pruned before descent, preventing those subtrees from being scanned at all.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "re.UNICODE",
+          "line": 1180,
+          "bucket": "no_such_symbol",
+          "source_text": "- Fix: non-ASCII identifiers (CJK, Cyrillic, Arabic, accented Latin) are no longer collapsed to a bare file stem -- `[^\\w]+` with `re.UNICODE` replaces the old `[^a-zA-Z0-9]+` so Unicode word chars are preserved as part of the ID (#811)",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "shutil.copy2",
+          "line": 1505,
+          "bucket": "no_such_symbol",
+          "source_text": "- Fix: `os.replace` in cache writer falls back to `shutil.copy2` on `PermissionError` (Windows WinError 5) (#287)",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/claude/references/exports.md",
+          "written": "GRAPH.QUERY",
+          "line": 33,
+          "bucket": "no_such_symbol",
+          "source_text": "**If `--falkordb`** - generate a Cypher file. The statements are OpenCypher, but FalkorDB's `GRAPH.QUERY` runs one statement at a time (no bulk script import like Neo4j's `cypher-shell`), so prefer `--falkordb-push` to load a graph. Use this only when you want the portable `cypher.txt` artifact:",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/vscode/references/update.md",
+          "written": "graph.html",
+          "line": 210,
+          "bucket": "no_such_symbol",
+          "source_text": "`graphify cluster-only .` is **self-contained**: it re-clusters, names communities, and regenerates `GRAPH_REPORT.md`, `graph.json`, and `graph.html` from the existing graph. **Do not re-run Steps 5–9** — they read intermediate files (`.graphify_extract.json`, `.graphify_detect.json`, `.graphify_analysis.json`) that a prior build's cleanup (Step 9) already deleted, so they raise `FileNotFoundError` (#1392). When it finishes, present the refreshed `GRAPH_REPORT.md` summary as usual.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__copilot__references__exports.md",
+          "written": "GRAPH.QUERY",
+          "line": 33,
+          "bucket": "no_such_symbol",
+          "source_text": "**If `--falkordb`** - generate a Cypher file. The statements are OpenCypher, but FalkorDB's `GRAPH.QUERY` runs one statement at a time (no bulk script import like Neo4j's `cypher-shell`), so prefer `--falkordb-push` to load a graph. Use this only when you want the portable `cypher.txt` artifact:",
+          "verdict": null
+        },
+        {
+          "document": "worked/karpathy-repos/README.md",
+          "written": "gpt2_124M_loss.png",
+          "line": 25,
+          "bucket": "no_such_symbol",
+          "source_text": "- `gpt2_124M_loss.png` — nanoGPT training loss curve (in the nanoGPT repo)",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "shaped_no_symbol",
+      "total": 373,
+      "sample": [
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "analyze()",
+          "line": 23,
+          "bucket": "shaped_no_symbol",
+          "source_text": "| `analyze.py` | `god_nodes(G)`, `surprising_connections(G)`, `suggest_questions(G, communities, community_labels)`, `find_import_cycles(G)`, `graph_diff(G_old, G_new)` | graph → one list/dict per analysis. There is no single `analyze()` entry point |",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "import(...)",
+          "line": 532,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Fix: a deferred `import(...)` no longer manufactures a phantom file cycle (#1241, thanks @Synvoya). Dynamic imports are real dependencies but not static ones, so two files that reference each other via one static import plus one dynamic import were reported as a circular dependency. The dynamic-import edge stays in the graph (marked `deferred`) but is excluded from `find_import_cycles`.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "WaitForMultipleObjects",
+          "line": 775,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Fix: AST extraction no longer crashes on Windows machines with >61 logical cores. `ProcessPoolExecutor` on Windows is hard-capped at 61 workers via `WaitForMultipleObjects`; the clamp now applies to all three input paths (auto-compute, `GRAPHIFY_MAX_WORKERS`, `--max-workers`) (#1298).",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "require()",
+          "line": 1232,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Fix: CommonJS `require()` imports now extracted from JS/TS -- `const { foo } = require('./mod')`, `const m = require('./mod')`, and `const x = require('./mod').y` all emit EXTRACTED `imports_from` (and per-symbol `imports`) edges. Previously CJS-only Node.js codebases produced AST graphs missing every import edge, which downgraded all cross-file calls to INFERRED.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skill-aider.md",
+          "written": "$(cat graphify-out/.graphify_python)",
+          "line": 97,
+          "bucket": "shaped_no_symbol",
+          "source_text": "**In every subsequent bash block, replace `python3` with `$(cat graphify-out/.graphify_python)` to use the correct interpreter.**",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skill-kiro.md",
+          "written": "DiGraph",
+          "line": 395,
+          "bucket": "shaped_no_symbol",
+          "source_text": "**Before starting:** the code blocks below pass `directed=IS_DIRECTED` to `build_from_json()`. Replace `IS_DIRECTED` with `True` if `--directed` was given (builds a `DiGraph` preserving edge direction source→target), otherwise `False` (the default undirected `Graph`). Substitute it the same way you substitute `INPUT_PATH` — do not leave the literal `IS_DIRECTED` in the code.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/codex/references/exports.md",
+          "written": "$(...)",
+          "line": 67,
+          "bucket": "shaped_no_symbol",
+          "source_text": "To configure in Claude Desktop, add to `claude_desktop_config.json`. Claude Desktop can't run `$(...)`, and under `uv tool install` the system `python3` can't import graphify — so set `command` to the **absolute interpreter path** printed by `cat graphify-out/.graphify_python`:",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skill-amp.md",
+          "written": "FileNotFoundError",
+          "line": 198,
+          "bucket": "shaped_no_symbol",
+          "source_text": "**Fast path:** If detection found zero docs, papers, and images (code-only corpus), skip Part B entirely and go straight to Part C. AST handles code - there is nothing for semantic subagents to do. **First write an empty semantic file** so Part C's merge has its input (it reads `.graphify_semantic.json` unconditionally; without this a code-only run hits `FileNotFoundError`):",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skill-opencode.md",
+          "written": "ceil(uncached_non_code_files / 22)",
+          "line": 212,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- Estimate agents needed: `ceil(uncached_non_code_files / 22)` (chunk size is 20-25)",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__copilot__references__update.md",
+          "written": "FileNotFoundError",
+          "line": 210,
+          "bucket": "shaped_no_symbol",
+          "source_text": "`graphify cluster-only .` is **self-contained**: it re-clusters, names communities, and regenerates `GRAPH_REPORT.md`, `graph.json`, and `graph.html` from the existing graph. **Do not re-run Steps 5–9** — they read intermediate files (`.graphify_extract.json`, `.graphify_detect.json`, `.graphify_analysis.json`) that a prior build's cleanup (Step 9) already deleted, so they raise `FileNotFoundError` (#1392). When it finishes, present the refreshed `GRAPH_REPORT.md` summary as usual.",
+          "verdict": null
+        },
+        {
+          "document": "worked/karpathy-repos/GRAPH_REPORT.md",
+          "written": "get_default_config()",
+          "line": 25,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- `from_pretrained()` --calls--> `get_default_config()`  [INFERRED]",
+          "verdict": null
+        },
+        {
+          "document": "worked/rsl-siege-manager/GRAPH_REPORT.md",
+          "written": "_make_siege()",
+          "line": 454,
+          "bucket": "shaped_no_symbol",
+          "source_text": "- **Why does `_make_siege()` connect `Community 12` to `Community 0`, `Community 1`, `Community 3`, `Community 36`, `Community 6`, `Community 11`, `Community 46`, `Community 20`, `Community 54`, `Community 22`, `Community 25`, `Community 30`?**",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "path_not_indexed",
+      "total": 244,
+      "sample": [
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "index.md",
+          "line": 26,
+          "bucket": "path_not_indexed",
+          "source_text": "| `wiki.py` | `to_wiki(G, communities, output_dir, ...)` | graph → one markdown article per community + `index.md` |",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "CLAUDE.md",
+          "line": 514,
+          "bucket": "path_not_indexed",
+          "source_text": "- Fix: `--update`-style section writes to `CLAUDE.md`/`AGENTS.md` no longer corrupt or drop content (#1688, thanks @bdfinst). `_replace_or_append_section` located its managed block by substring (`marker in content`) and `next(... if marker in line)`, so a heading that appeared as a substring of another line (or duplicate headings) matched the wrong offset and the rewrite could truncate the file. It now matches the section heading exactly (`line.strip() == marker`), appends when absent, and prefers the last exact match when several exist, so unrelated content is preserved.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "cli.md",
+          "line": 755,
+          "bucket": "path_not_indexed",
+          "source_text": "- Fix: every platform's query skill now ships **both** the vocab/IDF query-expansion step and the inline NetworkX fallback. Previously the two capabilities were split across `cli.md` / `cli-inline.md` so no platform got both — Claude had the superior expansion but no CLI-down fallback, while all other platforms had the fallback but the weaker raw-question matcher. The two fragments are merged into one unified `query` reference (and stub) shipped to all hosts; the `query_variant` enum and its coverage-audit exemption are removed (#1325; thanks @LeanderBlume).",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "oauth_token.json",
+          "line": 1040,
+          "bucket": "path_not_indexed",
+          "source_text": "- Security: `_is_sensitive` now correctly flags underscore-prefixed secret filenames (`api_token.txt`, `oauth_token.json`) — `\\b` word boundary was treating `_` as a word char, so names like `api_token` never matched (#920)",
+          "verdict": null
+        },
+        {
+          "document": "docs/translations/README.he-IL.md",
+          "written": "apm.yml",
+          "line": 287,
+          "bucket": "path_not_indexed",
+          "source_text": "| מניפסטים של חבילות | `apm.yml` ‏`pyproject.toml` ‏`go.mod` ‏`pom.xml` — צומת חבילה קנוני אחד לכל חבילה (לפי שם) בתוספת קשתות `depends_on`, כך שחבילה שמופנית מכמה מניפסטים היא מוקד (hub) יחיד |",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/amp/references/exports.md",
+          "written": "cypher.txt",
+          "line": 33,
+          "bucket": "path_not_indexed",
+          "source_text": "**If `--falkordb`** - generate a Cypher file. The statements are OpenCypher, but FalkorDB's `GRAPH.QUERY` runs one statement at a time (no bulk script import like Neo4j's `cypher-shell`), so prefer `--falkordb-push` to load a graph. Use this only when you want the portable `cypher.txt` artifact:",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/droid/references/hooks.md",
+          "written": "CLAUDE.md",
+          "line": 29,
+          "bucket": "path_not_indexed",
+          "source_text": "This writes a `## graphify` section to the local `CLAUDE.md` that instructs Claude to check the graph before answering codebase questions and rebuild it after code changes. No manual `/graphify` needed in future sessions.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/vscode/references/exports.md",
+          "written": "cypher.txt",
+          "line": 33,
+          "bucket": "path_not_indexed",
+          "source_text": "**If `--falkordb`** - generate a Cypher file. The statements are OpenCypher, but FalkorDB's `GRAPH.QUERY` runs one statement at a time (no bulk script import like Neo4j's `cypher-shell`), so prefer `--falkordb-push` to load a graph. Use this only when you want the portable `cypher.txt` artifact:",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__amp__references__exports.md",
+          "written": "claude_desktop_config.json",
+          "line": 67,
+          "bucket": "path_not_indexed",
+          "source_text": "To configure in Claude Desktop, add to `claude_desktop_config.json`. Claude Desktop can't run `$(...)`, and under `uv tool install` the system `python3` can't import graphify — so set `command` to the **absolute interpreter path** printed by `cat graphify-out/.graphify_python`:",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__droid__references__query.md",
+          "written": "LESSONS.md",
+          "line": 182,
+          "bucket": "path_not_indexed",
+          "source_text": "At the **start** of graph work, refresh and read the lessons: run `graphify reflect --if-stale` (cheap, deterministic, no LLM; `--if-stale` makes it a no-op when `LESSONS.md` is already newer than every input, e.g. when the git hook just refreshed it), then read `graphify-out/reflections/LESSONS.md`. It lists **preferred sources** (start there), **known dead ends** (skip them), and prior **corrections**. Running `reflect` yourself keeps the lessons current even without the git hook installed; if the post-commit hook *is* installed, `--if-stale` means your session-start run costs almost nothing.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__vscode__references__exports.md",
+          "written": "claude_desktop_config.json",
+          "line": 67,
+          "bucket": "path_not_indexed",
+          "source_text": "To configure in Claude Desktop, add to `claude_desktop_config.json`. Claude Desktop can't run `$(...)`, and under `uv tool install` the system `python3` can't import graphify — so set `command` to the **absolute interpreter path** printed by `cat graphify-out/.graphify_python`:",
+          "verdict": null
+        },
+        {
+          "document": "worked/httpx/review.md",
+          "written": "ast_extractor.py",
+          "line": 340,
+          "bucket": "path_not_indexed",
+          "source_text": "**Location:** `ast_extractor.py` lines 124–133",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "is_a_path",
+      "total": 64,
+      "sample": [
+        {
+          "document": "ARCHITECTURE.md",
+          "written": "pyproject.toml",
+          "line": 80,
+          "bucket": "is_a_path",
+          "source_text": "4. Add the tree-sitter package to `pyproject.toml` dependencies.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "AGENTS.md",
+          "line": 514,
+          "bucket": "is_a_path",
+          "source_text": "- Fix: `--update`-style section writes to `CLAUDE.md`/`AGENTS.md` no longer corrupt or drop content (#1688, thanks @bdfinst). `_replace_or_append_section` located its managed block by substring (`marker in content`) and `next(... if marker in line)`, so a heading that appeared as a substring of another line (or duplicate headings) matched the wrong offset and the rewrite could truncate the file. It now matches the section heading exactly (`line.strip() == marker`), appends when absent, and prefers the last exact match when several exist, so unrelated content is preserved.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "pyproject.toml",
+          "line": 1686,
+          "bucket": "is_a_path",
+          "source_text": "- Fix: `skill-trae.md` added to `pyproject.toml` package-data — Trae users no longer hit `ModuleNotFoundError` after `pip install` (#102)",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+          "written": "pyproject.toml",
+          "line": 1077,
+          "bucket": "is_a_path",
+          "source_text": "- Modify: `pyproject.toml`",
+          "verdict": null
+        },
+        {
+          "document": "docs/translations/README.he-IL.md",
+          "written": "AGENTS.md",
+          "line": 265,
+          "bucket": "is_a_path",
+          "source_text": "**Kilo Code** מתקין את מיומנות Graphify ל-`~/.config/kilo/skills/graphify/SKILL.md` ופקודת `‎/graphify` נטיבית ל-`~/.config/kilo/command/graphify.md`. ‏`graphify kilo install` כותב גם `AGENTS.md` וגם **תוסף `tool.execute.before` נטיבי** (`.kilo/plugins/graphify.js` + רישום ב-`.kilo/kilo.json` או `.kilo/kilo.jsonc`) כך ש-Kilo מקבל את אותה התנהגות תזכורת-גרף קבועה דרך תצורת `.kilo` נטיבית.",
+          "verdict": null
+        },
+        {
+          "document": "docs/translations/README.zh-CN.md",
+          "written": "AGENTS.md",
+          "line": 88,
+          "bucket": "is_a_path",
+          "source_text": "**Codex、OpenCode、OpenClaw、Factory Droid、Trae** 会把同样的规则写进项目根目录的 `AGENTS.md`。这些平台没有 PreToolUse hook，所以 `AGENTS.md` 是它们的常驻机制。",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/trae/references/hooks.md",
+          "written": "AGENTS.md",
+          "line": 29,
+          "bucket": "is_a_path",
+          "source_text": "This writes a `## graphify` section to the local `AGENTS.md` that instructs Trae to check the graph before answering codebase questions and rebuild it after code changes. No manual `/graphify` needed in future sessions.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__agents__references__hooks.md",
+          "written": "AGENTS.md",
+          "line": 29,
+          "bucket": "is_a_path",
+          "source_text": "This writes a `## graphify` section to the local `AGENTS.md` that instructs your agent to check the graph before answering codebase questions and rebuild it after code changes. No manual `/graphify` needed in future sessions.",
+          "verdict": null
+        },
+        {
+          "document": "worked/httpx/README.md",
+          "written": "review.md",
+          "line": 43,
+          "bucket": "is_a_path",
+          "source_text": "Run `graphify benchmark worked/httpx/graph.json` to verify the numbers. Actual output is in this folder: `GRAPH_REPORT.md` and `graph.json`. Full eval: `review.md`.",
+          "verdict": null
+        },
+        {
+          "document": "worked/mixed-corpus/README.md",
+          "written": "review.md",
+          "line": 43,
+          "bucket": "is_a_path",
+          "source_text": "Actual output is in this folder: `GRAPH_REPORT.md` and `graph.json`. Full eval: `review.md`.",
+          "verdict": null
+        },
+        {
+          "document": "worked/rsl-siege-manager/README.md",
+          "written": "GRAPH_REPORT.md",
+          "line": 68,
+          "bucket": "is_a_path",
+          "source_text": "| `GRAPH_REPORT.md` | Raw graphify report (god nodes, communities, surprising connections, suggested questions) |",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "ambiguous_symbol",
+      "total": 1,
+      "sample": [
+        {
+          "document": "CHANGELOG.md",
+          "written": "Foo::bar",
+          "line": 612,
+          "bucket": "ambiguous_symbol",
+          "source_text": "- Feat: cross-file member-call resolution for C++ and Objective-C (#1547, #1556). A class declared in a header and defined in its `.cpp`/`.m` no longer fragments into two nodes (a decl/def merge pass collapses the sibling header/impl pair, gated to same-directory same-name so unrelated classes never merge), and a member call now resolves across files by the receiver's inferred type: C++ `Foo f; f.bar()` / `Foo::bar()` / `this->bar()` and ObjC `Foo *f = [[Foo alloc] init]; [f doThing]` / `[self render]` link to the owning class's method. Resolution is by receiver type, never bare name, with the single-definition god-node guard — an uninferable or ambiguous receiver produces no edge (high precision over recall, grounded in how compiler-free indexers like ctags/Doxygen mis-resolve by name). Also routes C++ headers to the C++ extractor and ObjC `#import` bridging headers to the ObjC extractor. Reported by @c0dezer019 and @JabberYQ. (Residual cross-file `#include` edge resolution under symlinked roots and ObjC dynamic-dispatch receivers remain follow-ups.)",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "fenced_example",
+      "total": 1148,
+      "sample": [
+        {
+          "document": "docs/superpowers/plans/2026-05-04-incremental-updates-dedup.md",
+          "written": "graphify extract",
+          "line": 1086,
+          "bucket": "fenced_example",
+          "source_text": "- Feat: `graphify extract` now runs incrementally — auto-detects prior `manifest.json` and re-extracts only changed/new files; semantic results cached by content hash so unchanged docs cost zero LLM tokens on repeat runs (#698)",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/amp/references/extraction-spec.md",
+          "written": "_",
+          "line": 61,
+          "bucket": "fenced_example",
+          "source_text": "Node ID format: lowercase, only `[a-z0-9_]`, no dots or slashes. Format: `{stem}_{entity}` where stem is the **full repo-relative path with the extension dropped**, every path segment kept and joined with `_` (each segment lowercased with non-alphanumeric chars replaced by `_`), and entity is the symbol name similarly normalized. Use every directory level, not just the immediate parent — this keeps same-named files in different directories distinct. Examples: `src/auth/session.py` + `ValidateToken` → `src_auth_session_validatetoken`; `lib/utils/helpers.py` + `parse_url` → `lib_utils_helpers_parse_url`; `tests/test_foo.py` + `_helper` → `tests_test_foo_helper`; `docs/v1/api/README.md` + `getUser` → `docs_v1_api_readme_getuser`. Top-level files (no parent dir, e.g. `setup.py`) use just the filename stem: `setup_my_func`. This must match the ID the AST extractor generates — using just the filename (e.g., `session_validatetoken`) or only the immediate parent (e.g., `auth_session_validatetoken`) will create orphan ghost-duplicate nodes. If you are re-extracting a project built under the old immediate-parent format, the user should run `graphify extract --force` to rebuild cleanly. CRITICAL: never append chunk numbers, sequence numbers, or any suffix to an ID (no `_c1`, `_c2`, `_chunk2`, etc.). IDs must be deterministic from the label alone — the same entity must always produce the same ID regardless of which chunk processes it.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/codex/references/extraction-spec.md",
+          "written": "semantically_similar_to",
+          "line": 20,
+          "bucket": "fenced_example",
+          "source_text": "- Semantic similarity: if two concepts solve the same problem or represent the same idea without a structural link (no import, call, or citation), add a `semantically_similar_to` edge marked INFERRED with confidence_score 0.6-0.95. Non-obvious cross-file links only.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/kilo/references/extraction-spec.md",
+          "written": "concept",
+          "line": 19,
+          "bucket": "fenced_example",
+          "source_text": "Doc/paper files: extract named concepts, entities, citations. For rationale (WHY decisions were made, trade-offs, design intent): store as a `rationale` attribute on the relevant concept node — do NOT create a separate rationale node or fragment node. Only create a node for something that is itself a named entity or concept. Use `file_type:\"rationale\"` for concept-like nodes (ideas, principles, mechanisms, design patterns). `file_type` MUST be one of exactly these six values: `code`, `document`, `paper`, `image`, `rationale`, `concept`. Any other value is invalid and will be rejected.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/pi/references/extraction-spec.md",
+          "written": "file_type:\"concept\"",
+          "line": 17,
+          "bucket": "fenced_example",
+          "source_text": "- Doc/paper files: named concepts, entities, citations. Store rationale (WHY decisions were made) as a `rationale` attribute on the relevant node, not as a separate node. Use `file_type:\"rationale\"` for concept-like nodes (ideas, principles, mechanisms) and `file_type:\"concept\"` for named concepts. `file_type` MUST be one of exactly these six values: `code`, `document`, `paper`, `image`, `rationale`, `concept`. Any other value is invalid and will be rejected.",
+          "verdict": null
+        },
+        {
+          "document": "graphify/skills/windows/references/extraction-spec.md",
+          "written": "rationale",
+          "line": 19,
+          "bucket": "fenced_example",
+          "source_text": "Doc/paper files: extract named concepts, entities, citations. For rationale (WHY decisions were made, trade-offs, design intent): store as a `rationale` attribute on the relevant concept node — do NOT create a separate rationale node or fragment node. Only create a node for something that is itself a named entity or concept. Use `file_type:\"rationale\"` for concept-like nodes (ideas, principles, mechanisms, design patterns). `file_type` MUST be one of exactly these six values: `code`, `document`, `paper`, `image`, `rationale`, `concept`. Any other value is invalid and will be rejected.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__agents__references__extraction-spec.md",
+          "written": "setup.py",
+          "line": 61,
+          "bucket": "fenced_example",
+          "source_text": "Node ID format: lowercase, only `[a-z0-9_]`, no dots or slashes. Format: `{stem}_{entity}` where stem is the **full repo-relative path with the extension dropped**, every path segment kept and joined with `_` (each segment lowercased with non-alphanumeric chars replaced by `_`), and entity is the symbol name similarly normalized. Use every directory level, not just the immediate parent — this keeps same-named files in different directories distinct. Examples: `src/auth/session.py` + `ValidateToken` → `src_auth_session_validatetoken`; `lib/utils/helpers.py` + `parse_url` → `lib_utils_helpers_parse_url`; `tests/test_foo.py` + `_helper` → `tests_test_foo_helper`; `docs/v1/api/README.md` + `getUser` → `docs_v1_api_readme_getuser`. Top-level files (no parent dir, e.g. `setup.py`) use just the filename stem: `setup_my_func`. This must match the ID the AST extractor generates — using just the filename (e.g., `session_validatetoken`) or only the immediate parent (e.g., `auth_session_validatetoken`) will create orphan ghost-duplicate nodes. If you are re-extracting a project built under the old immediate-parent format, the user should run `graphify extract --force` to rebuild cleanly. CRITICAL: never append chunk numbers, sequence numbers, or any suffix to an ID (no `_c1`, `_c2`, `_chunk2`, etc.). IDs must be deterministic from the label alone — the same entity must always produce the same ID regardless of which chunk processes it.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__claw__references__extraction-spec.md",
+          "written": "image",
+          "line": 17,
+          "bucket": "fenced_example",
+          "source_text": "- Doc/paper files: named concepts, entities, citations. Store rationale (WHY decisions were made) as a `rationale` attribute on the relevant node, not as a separate node. Use `file_type:\"rationale\"` for concept-like nodes (ideas, principles, mechanisms) and `file_type:\"concept\"` for named concepts. `file_type` MUST be one of exactly these six values: `code`, `document`, `paper`, `image`, `rationale`, `concept`. Any other value is invalid and will be rejected.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__droid__references__extraction-spec.md",
+          "written": "parse_url",
+          "line": 61,
+          "bucket": "fenced_example",
+          "source_text": "Node ID format: lowercase, only `[a-z0-9_]`, no dots or slashes. Format: `{stem}_{entity}` where stem is the **full repo-relative path with the extension dropped**, every path segment kept and joined with `_` (each segment lowercased with non-alphanumeric chars replaced by `_`), and entity is the symbol name similarly normalized. Use every directory level, not just the immediate parent — this keeps same-named files in different directories distinct. Examples: `src/auth/session.py` + `ValidateToken` → `src_auth_session_validatetoken`; `lib/utils/helpers.py` + `parse_url` → `lib_utils_helpers_parse_url`; `tests/test_foo.py` + `_helper` → `tests_test_foo_helper`; `docs/v1/api/README.md` + `getUser` → `docs_v1_api_readme_getuser`. Top-level files (no parent dir, e.g. `setup.py`) use just the filename stem: `setup_my_func`. This must match the ID the AST extractor generates — using just the filename (e.g., `session_validatetoken`) or only the immediate parent (e.g., `auth_session_validatetoken`) will create orphan ghost-duplicate nodes. If you are re-extracting a project built under the old immediate-parent format, the user should run `graphify extract --force` to rebuild cleanly. CRITICAL: never append chunk numbers, sequence numbers, or any suffix to an ID (no `_c1`, `_c2`, `_chunk2`, etc.). IDs must be deterministic from the label alone — the same entity must always produce the same ID regardless of which chunk processes it.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__opencode__references__extraction-spec.md",
+          "written": "src/auth/session.py",
+          "line": 61,
+          "bucket": "fenced_example",
+          "source_text": "Node ID format: lowercase, only `[a-z0-9_]`, no dots or slashes. Format: `{stem}_{entity}` where stem is the **full repo-relative path with the extension dropped**, every path segment kept and joined with `_` (each segment lowercased with non-alphanumeric chars replaced by `_`), and entity is the symbol name similarly normalized. Use every directory level, not just the immediate parent — this keeps same-named files in different directories distinct. Examples: `src/auth/session.py` + `ValidateToken` → `src_auth_session_validatetoken`; `lib/utils/helpers.py` + `parse_url` → `lib_utils_helpers_parse_url`; `tests/test_foo.py` + `_helper` → `tests_test_foo_helper`; `docs/v1/api/README.md` + `getUser` → `docs_v1_api_readme_getuser`. Top-level files (no parent dir, e.g. `setup.py`) use just the filename stem: `setup_my_func`. This must match the ID the AST extractor generates — using just the filename (e.g., `session_validatetoken`) or only the immediate parent (e.g., `auth_session_validatetoken`) will create orphan ghost-duplicate nodes. If you are re-extracting a project built under the old immediate-parent format, the user should run `graphify extract --force` to rebuild cleanly. CRITICAL: never append chunk numbers, sequence numbers, or any suffix to an ID (no `_c1`, `_c2`, `_chunk2`, etc.). IDs must be deterministic from the label alone — the same entity must always produce the same ID regardless of which chunk processes it.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/expected/graphify__skills__vscode__references__extraction-spec.md",
+          "written": "[a-z0-9_]",
+          "line": 61,
+          "bucket": "fenced_example",
+          "source_text": "Node ID format: lowercase, only `[a-z0-9_]`, no dots or slashes. Format: `{stem}_{entity}` where stem is the **full repo-relative path with the extension dropped**, every path segment kept and joined with `_` (each segment lowercased with non-alphanumeric chars replaced by `_`), and entity is the symbol name similarly normalized. Use every directory level, not just the immediate parent — this keeps same-named files in different directories distinct. Examples: `src/auth/session.py` + `ValidateToken` → `src_auth_session_validatetoken`; `lib/utils/helpers.py` + `parse_url` → `lib_utils_helpers_parse_url`; `tests/test_foo.py` + `_helper` → `tests_test_foo_helper`; `docs/v1/api/README.md` + `getUser` → `docs_v1_api_readme_getuser`. Top-level files (no parent dir, e.g. `setup.py`) use just the filename stem: `setup_my_func`. This must match the ID the AST extractor generates — using just the filename (e.g., `session_validatetoken`) or only the immediate parent (e.g., `auth_session_validatetoken`) will create orphan ghost-duplicate nodes. If you are re-extracting a project built under the old immediate-parent format, the user should run `graphify extract --force` to rebuild cleanly. CRITICAL: never append chunk numbers, sequence numbers, or any suffix to an ID (no `_c1`, `_c2`, `_chunk2`, etc.). IDs must be deterministic from the label alone — the same entity must always produce the same ID regardless of which chunk processes it.",
+          "verdict": null
+        },
+        {
+          "document": "tools/skillgen/fragments/references/shared/extraction-spec-compact.md",
+          "written": "src_auth_session_validatetoken",
+          "line": 25,
+          "bucket": "fenced_example",
+          "source_text": "Node ID format: lowercase, only `[a-z0-9_]`, no dots or slashes. Format `{stem}_{entity}` where stem is the full repo-relative path with the extension dropped, every segment joined with `_` (each lowercased with non-alphanumeric chars replaced by `_`) and entity is the symbol name similarly normalized. Use every directory level, not just the immediate parent. `src/auth/session.py` + `ValidateToken` → `src_auth_session_validatetoken`. Top-level files use just the filename stem. This must match the AST extractor's ID. Never append chunk or sequence suffixes — IDs must be deterministic from the label alone.",
+          "verdict": null
+        }
+      ]
+    }
+  ]
+}
