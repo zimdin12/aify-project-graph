@@ -80,41 +80,61 @@ function buildSchemaMismatchMessage({ verbName, schemaVersion }) {
   ].join('\n');
 }
 
+// ⛔ EVERY RETURN FROM inspectReadFreshness HAS THE SAME SHAPE, BECAUSE THE ALTERNATIVE ALREADY
+// BROKE. This function has five exits. Two of them carry a `blocker`, so callers stop and never
+// look further. The other three set `blocker: null` and callers PROCEED — and those three used to
+// omit `dirtyFiles`, `dirtyFilesKnown` and `stale` entirely.
+//
+// That was survivable only while each verb ran its own `git status`. The moment four of them
+// switched to reading the shared observation, `freshness.dirtyFiles.includes(...)` on a repo with
+// no graph.sqlite became a TypeError. Caught by a control on the first run, not in the field.
+//
+// ⇒ The defaults are not padding, they are the honest values for those paths: git was NEVER RUN
+// there, so `dirtyFilesKnown` is false and `stale` is null. A caller that lands on one of those
+// exits is correctly told the tree was not observed, rather than handed a confident empty list.
+function freshnessResult(fields) {
+  return {
+    blocker: null,
+    warnings: [],
+    head: null,
+    dirtyFiles: [],
+    // false, not true: these exits do no git work at all. See the note above.
+    dirtyFilesKnown: false,
+    stale: null,
+    commitsBehind: null,
+    manifest: null,
+    ...fields,
+  };
+}
+
 export async function inspectReadFreshness({ repoRoot, verbName }) {
   const graphDir = join(repoRoot, '.aify-graph');
   const dbPath = join(graphDir, 'graph.sqlite');
 
   if (!existsSync(dbPath)) {
     await ensureFresh({ repoRoot });
-    return {
-      blocker: null,
-      warnings: [],
-      graphDir,
-      dbPath,
-    };
+    return freshnessResult({ graphDir, dbPath });
   }
 
   const manifestState = await loadManifest(graphDir);
   const { manifest } = manifestState;
   if (manifestState.status !== 'ok') {
-    return {
-      blocker: null,
+    return freshnessResult({
       warnings: ['graph manifest missing or corrupt; reading the current DB snapshot directly'],
       graphDir,
       dbPath,
       manifest,
-    };
+    });
   }
 
   const schemaVersion = manifest.schemaVersion ?? 1;
   if (schemaVersion !== SCHEMA_VERSION) {
-    return {
+    return freshnessResult({
       blocker: buildSchemaMismatchMessage({ verbName, schemaVersion }),
-      warnings: [],
       graphDir,
       dbPath,
       manifest,
-    };
+    });
   }
 
   let alreadyIndexedFiles = null;
@@ -130,13 +150,12 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   }
 
   if (manifest.status === 'indexing') {
-    return {
+    return freshnessResult({
       blocker: buildIncompleteMessage({ verbName, alreadyIndexedFiles, pendingFiles: null }),
-      warnings: [],
       graphDir,
       dbPath,
       manifest,
-    };
+    });
   }
 
   const warnings = [];
@@ -198,17 +217,20 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
     warnings.push(`working tree has ${trackedDirty.length} modified tracked file${trackedDirty.length === 1 ? '' : 's'}; live reads use the last completed snapshot`);
   }
 
-  return {
-    blocker: null,
+  return freshnessResult({
     warnings,
     head,
     dirtyFiles,
+    // ⛔ WITHOUT THIS FLAG `dirtyFiles: []` IS TWO DIFFERENT ANSWERS WEARING ONE SHAPE. Four verbs
+    // read this list to compute dirty seams, and a caller cannot tell a measured empty tree from a
+    // git query that failed. The warning above says so in prose; this says so to code.
+    dirtyFilesKnown: worktree.dirtyKnown,
     stale,
     commitsBehind,
     graphDir,
     dbPath,
     manifest,
-  };
+  });
 }
 
 export async function ensureFreshForReadVerb({ repoRoot, verbName }) {

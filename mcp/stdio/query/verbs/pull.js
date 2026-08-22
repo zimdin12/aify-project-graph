@@ -64,7 +64,6 @@ function pinOverlayAge(repoRoot) {
   return newest;
 }
 import { loadFunctionality, featuresForFile } from '../../overlay/loader.js';
-import { getDirtyFiles } from '../../freshness/git.js';
 import { assessOverlayBuild, loadTasksArtifact, overlayNotBuiltHint, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs } from '../../overlay/quality.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
@@ -1259,7 +1258,11 @@ function pullTask({ db, taskId, features, allTasks, repoRoot, layers }) {
   return out;
 }
 
-function summarizeDirtyOverlapForNode({ kind, value, features, dirtyFiles }) {
+// ⛔ `dirtyFilesKnown` HAS NO DEFAULT, DELIBERATELY. I wrote `= true` first, which means a call
+// site added later and missed here would silently certify a tree nobody read — a fail-open
+// default, the exact shape this whole sweep exists to remove. Absent now means undefined,
+// which is falsy, which reports UNOBSERVED. The omission fails toward doubt, not toward a claim.
+function summarizeDirtyOverlapForNode({ kind, value, features, dirtyFiles, dirtyFilesKnown }) {
   const seams = summarizeDirtySeams(features, dirtyFiles);
   let targetFiles = [];
   let targetFeatureIds = [];
@@ -1287,6 +1290,9 @@ function summarizeDirtyOverlapForNode({ kind, value, features, dirtyFiles }) {
         file_count: feature.file_count,
         files: feature.files.slice(0, 5),
       })),
+    // ⛔ See consequences.js: an empty overlap and an unread tree are the same bytes without this.
+    // A caller that omits the flag entirely lands here too, which is the intended direction.
+    ...(dirtyFilesKnown ? {} : { unobserved: true }),
   };
 }
 
@@ -1325,7 +1331,18 @@ export async function graphPull({ repoRoot, node, layers, direction, receipt: re
     const allTasks = loadTasksSafe(repoRoot);
     const features = overlay.features;
     const overlayQuality = summarizeOverlayQuality(features, allTasks);
-    const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+    // ⛔ ONE GIT OBSERVATION PER READ, NOT TWO. inspectReadFreshness above already ran
+    // `git status` and printed a warning about the result; this line ran it AGAIN, moments later,
+    // and swallowed a failure into []. Two queries for one question is the shape of the field
+    // report this whole area exists to answer — one verb said "592 dirty" and another "4 dirty"
+    // for the same tree at the same commit, and the reader could not tell which was lying. Sharing
+    // the observation makes disagreement unconstructible rather than merely unlikely.
+    //
+    // ⚠ `dirtyFilesKnown` is false when the query failed. The shared warning channel has already
+    // told the reader so, which is why nothing is re-announced here; the flag is for the structured
+    // seam fields below, which an agent reads without seeing the prose.
+    const dirtyFiles = freshness.dirtyFiles;
+    const dirtyFilesKnown = freshness.dirtyFilesKnown;
     const prefixed = parsePrefixedNode(node);
 
     // Resolve node kind. Feature/task prefixes are explicit routing hints:
@@ -1340,6 +1357,7 @@ export async function graphPull({ repoRoot, node, layers, direction, receipt: re
           value: featureMatch,
           features,
           dirtyFiles,
+          dirtyFilesKnown,
         }),
       },
       freshness.warnings);
@@ -1355,6 +1373,7 @@ export async function graphPull({ repoRoot, node, layers, direction, receipt: re
           value: taskMatch,
           features,
           dirtyFiles,
+          dirtyFilesKnown,
         }),
       }, freshness.warnings);
       return JSON.stringify(withCodeIntel(result), null, 2);
@@ -1401,6 +1420,7 @@ export async function graphPull({ repoRoot, node, layers, direction, receipt: re
           value: detected.value,
           features,
           dirtyFiles,
+          dirtyFilesKnown,
         }),
       }, freshness.warnings);
       return JSON.stringify(withCodeIntel(result), null, 2);
@@ -1414,6 +1434,7 @@ export async function graphPull({ repoRoot, node, layers, direction, receipt: re
           value: detected.value,
           features,
           dirtyFiles,
+          dirtyFilesKnown,
         }),
       }, freshness.warnings);
       return JSON.stringify(withCodeIntel(result), null, 2);

@@ -24,7 +24,6 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, hasOverlay } from '../../overlay/loader.js';
 import { isTaskOpen } from '../../overlay/task-status.js';
 import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
-import { getDirtyFiles } from '../../freshness/git.js';
 import { computeTrustLevel } from './health.js';
 import { buildAmbiguousMatchMessage, resolveSymbolWithTotal } from './symbol_lookup.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
@@ -265,7 +264,18 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const functionality = hasOverlay(repoRoot) ? loadFunctionality(repoRoot) : { features: [] };
-    const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+    // ⛔ ONE GIT OBSERVATION PER READ, NOT TWO. inspectReadFreshness above already ran
+    // `git status` and printed a warning about the result; this line ran it AGAIN, moments later,
+    // and swallowed a failure into []. Two queries for one question is the shape of the field
+    // report this whole area exists to answer — one verb said "592 dirty" and another "4 dirty"
+    // for the same tree at the same commit, and the reader could not tell which was lying. Sharing
+    // the observation makes disagreement unconstructible rather than merely unlikely.
+    //
+    // ⚠ `dirtyFilesKnown` is false when the query failed. The shared warning channel has already
+    // told the reader so, which is why nothing is re-announced here; the flag is for the structured
+    // seam fields below, which an agent reads without seeing the prose.
+    const dirtyFiles = freshness.dirtyFiles;
+    const dirtyFilesKnown = freshness.dirtyFilesKnown;
 
     // 1. Resolve input to concrete code nodes (symbol match OR file match).
     // For a class name that exists in multiple files (forward decls in
@@ -977,6 +987,11 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
           files: feature.files.slice(0, 5),
         })),
       orphan_dirty_files: dirtySeams.orphanFilesSample.filter((file) => matchedFiles.has(file)),
+      // ⛔ PRESENT ONLY WHEN THE TREE COULD NOT BE READ. Every field beside this one is
+      // computed from an empty dirty list, so without it a failed `git status` produces
+      // the exact bytes of a repo with no uncommitted work — and this block is read by an
+      // agent, which never sees the prose warning the read channel prints.
+      ...(dirtyFilesKnown ? {} : { unobserved: true }),
     };
 
     const riskFlags = [];

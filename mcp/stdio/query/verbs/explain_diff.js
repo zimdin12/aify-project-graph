@@ -22,7 +22,6 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { inspectReadFreshness, attachReadWarnings } from './read_freshness.js';
-import { getDirtyFiles } from '../../freshness/git.js';
 import { loadIntelligenceOverlays } from '../../intelligence/overlays.js';
 import { buildTrustLine, hasLspVerifiedEdge } from '../lsp-evidence.js';
 
@@ -95,7 +94,7 @@ function resolveChangedFiles({ repoRoot, range, staged, files }) {
 
   // Default: working-tree changes (uncommitted, tracked + untracked) — the
   // "what am I about to commit?" view. Reuse status --porcelain semantics
-  // via getDirtyFiles for parity with the rest of the freshness stack.
+  // from the freshness observation, which is the same one every other read verb uses.
   return { files: null, mode: 'worktree', rangeLabel: 'working tree (uncommitted)' };
 }
 
@@ -237,7 +236,17 @@ export async function graphExplainDiff({ repoRoot, range, staged = false, files,
   let changedFiles = resolved.files;
   if (changedFiles == null) {
     // Working-tree default — reuse the shared dirty-file helper.
-    changedFiles = await getDirtyFiles(repoRoot).catch(() => []);
+    // ⛔ ONE GIT OBSERVATION PER READ, NOT TWO. inspectReadFreshness above already ran
+    // `git status` and printed a warning about the result; this line ran it AGAIN, moments later,
+    // and swallowed a failure into []. Two queries for one question is the shape of the field
+    // report this whole area exists to answer — one verb said "592 dirty" and another "4 dirty"
+    // for the same tree at the same commit, and the reader could not tell which was lying. Sharing
+    // the observation makes disagreement unconstructible rather than merely unlikely.
+    //
+    // ⚠ This is `changedFiles`, the fallback used when no explicit diff range was given. An
+    // unreadable tree yields an empty change set and the freshness warning above says why, which
+    // is the whole disclosure for a verb whose output is prose.
+    changedFiles = freshness.dirtyFiles;
   }
   changedFiles = normalizeFileList(changedFiles);
 

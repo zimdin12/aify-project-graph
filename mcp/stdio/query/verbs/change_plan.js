@@ -1,7 +1,6 @@
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
-import { getDirtyFiles } from '../../freshness/git.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { featuresForFile, loadFunctionality } from '../../overlay/loader.js';
@@ -472,7 +471,18 @@ export async function graphChangePlan({ repoRoot, symbol, top_k = 6 }) {
   const functionality = loadFunctionality(repoRoot);
   const tasksArtifact = loadTasksArtifact(repoRoot);
   const overlayQuality = summarizeOverlayQuality(functionality.features ?? [], tasksArtifact.tasks ?? []);
-  const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+  // ⛔ ONE GIT OBSERVATION PER READ, NOT TWO. inspectReadFreshness above already ran
+  // `git status` and printed a warning about the result; this line ran it AGAIN, moments later,
+  // and swallowed a failure into []. Two queries for one question is the shape of the field
+  // report this whole area exists to answer — one verb said "592 dirty" and another "4 dirty"
+  // for the same tree at the same commit, and the reader could not tell which was lying. Sharing
+  // the observation makes disagreement unconstructible rather than merely unlikely.
+  //
+  // ⚠ NO `dirtyFilesKnown` HERE, AND THAT IS A DECISION RATHER THAN AN OMISSION. This verb renders
+  // TEXT (see the lines.join below), so its reader always sees the prose warning the freshness
+  // channel prints. A second machine-readable flag would have no consumer — and an unused flag
+  // whose comment claims it does the work is how a defect hides behind its own documentation.
+  const dirtyFiles = freshness.dirtyFiles;
 
   const db = openExistingDb(join(graphDir, 'graph.sqlite'));
   try {
