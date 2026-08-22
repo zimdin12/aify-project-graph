@@ -1,3 +1,56 @@
+# ⛔⛔⛔ THIS ENTIRE DOCUMENT IS WITHDRAWN. THERE WAS NO DEFECT, AND I RETRACTED TWO CORRECT FIGURES.
+
+Read this section only. Everything below it is preserved for the record and is **wrong**.
+
+## What actually happened, read from source and measured
+
+`scope: 'all'` enumerates the corpus, then subtracts what a **resume ledger** says is already
+collected (`lsp-collect.js:158-190`). The ledger on disk:
+
+    .aify-graph/code-intel/collect-progress.json
+      collected: 628 files · updatedAt 2026-08-22T05:10:46.620Z   ← exactly my run's timestamp
+
+⇒ **555 files were already collected; my run correctly took the remaining 73.** It was a
+continuation, `status: ok` was honest (it processed everything it owed), and the prune refused
+because `isContinuation` / `declaredFileScope` — **correctly**, since a 73-file batch must not
+delete evidence for 555 files it did not observe.
+
+## ⛔ "91.5% STALE" WAS WRONG, AND THE FIGURES I RETRACTED WERE RIGHT
+
+    files with records                          640
+      covered by exactly ONE collection         542   84.7%   ← their ONLY evidence, not stale
+      covered by more than one                   98   15.3%   ← the only place supersession occurs
+    records in multi-collection files        41,626   22.8% of 182,594
+
+I computed "records not in the latest collection" and called them stale. **A batched collector
+covering a corpus across nine continuation runs is working exactly as designed** — "not in the most
+recent batch" is not "superseded". For 542 files the earlier collection *is* the evidence.
+
+⇒ **UN-RETRACTED:** `coveredFileCount` 624 of 627 and "97.6% of declarations have evidence" were
+**correct**. They count the union across collections, which is the right population for *is this file
+covered*. I withdrew two accurate numbers on the strength of a wrong staleness model, and told Steven
+so twice.
+
+## What is left, much smaller
+
+⚠ For the **98 files** collected more than once, older records coexist with newer and
+`getCodeIntelEvidenceForSymbol` queries across collections — so duplicate or outdated entries can
+surface there. Real, bounded at ≤22.8% of records, and **not** what I described.
+
+## ⛔ THE ERROR CHAIN, because it is the lesson
+
+1. Measured "records outside the latest collection" — a real number.
+2. Named it **stale** — a noun it had not earned.
+3. Retracted two correct figures to match the wrong noun.
+4. Built a causal chain to explain the phantom, which named a **safety guard as the defect**.
+5. Rejected the correct explanation (continuation) by testing it against the **records table**
+   instead of the **ledger** — 628−624=4 ≠ 73 — a wrong-store comparison.
+
+⇒ Five layers, one root: **I never asked what the number I had computed was a number OF.** The
+measurement was sound at every step and the *noun* was wrong at every step.
+
+---
+
 # A 73-of-627 collection reported `ok`, and three of my figures were 91.5% stale
 
 Found by chasing "why does edge derivation keep 4.9%" — a question whose premise turned out to be
