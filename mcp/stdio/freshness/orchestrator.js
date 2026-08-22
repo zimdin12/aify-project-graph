@@ -6,6 +6,7 @@ import { SCHEMA_VERSION } from '../storage/schema.js';
 import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/nodes.js';
 import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
 import { getHeadCommit, getDirtyFileEntries, getChangedFiles } from './git.js';
+import { appendAll } from '../util/append-all.js';
 import { loadManifest, writeManifest } from './manifest.js';
 import { readDirtyEdgesSidecar, writeDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
 import { readStructuralFpSidecar, writeStructuralFpSidecar } from './structural-fp-sidecar.js';
@@ -464,7 +465,11 @@ export async function ensureFresh({
       let pendingFingerprints = new Map();
       let pendingFiles = [];
       const commitPending = () => {
-        refs.push(...pendingRefs);
+        // ⛔ appendAll, NOT push(...). pendingRefs holds every unresolved reference from a whole
+        // extraction chunk, so its length scales with the corpus. On reference/graphify it went
+        // past the engine's ~125k argument limit and the entire index died with "Maximum call
+        // stack size exceeded" — a message naming the stack, in code with no recursion in it.
+        appendAll(refs, pendingRefs);
         for (const [f, fp] of pendingFingerprints) computedFingerprints.set(f, fp);
         pendingRefs = [];
         pendingFingerprints = new Map();
@@ -558,7 +563,8 @@ export async function ensureFresh({
           // Transaction-local. Promoted to `refs` by commitPending() only after the
           // COMMIT that makes the matching nodes real — otherwise a rollback leaves refs
           // that resolve into edges pointing at nodes which no longer exist.
-          pendingRefs.push(...extracted.refs);
+          // Same reason: one generated or vendored file can carry an enormous ref list.
+          appendAll(pendingRefs, extracted.refs);
           pendingFiles.push(relPath);
           pendingFingerprints.set(relPath, fileStructuralFingerprint(extracted));
           chunkSize += 1;
@@ -1092,7 +1098,10 @@ async function listRepoFiles(repoRoot, currentDir = repoRoot, ignoredDirs = IGNO
     if (entry.isDirectory()) {
       const relPath = normalizeRelativePath(repoRoot, join(currentDir, entry.name));
       if (isIgnoredDirName(entry.name, ignoredDirs) || pathContainsIgnoredDir(relPath, ignoredDirs)) continue;
-      files.push(...await listRepoFiles(repoRoot, join(currentDir, entry.name), ignoredDirs));
+      // ⚠ THE RECURSIVE ONE, AND THE WORST SHAPE OF THE THREE: each directory spreads its ENTIRE
+      // subtree into an argument list, so the deepest node is fine and the ROOT is what breaks.
+      // It has not fired in the field, which is exactly why it is fixed here rather than after.
+      appendAll(files, await listRepoFiles(repoRoot, join(currentDir, entry.name), ignoredDirs));
       continue;
     }
 
