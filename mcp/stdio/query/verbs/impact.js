@@ -186,9 +186,22 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
           `[${resultCount} edges found`,
           `trust=${trust}`,
           `${occurrences} indexed node${occurrences === 1 ? '' : 's'} labeled "${symbol}"`,
-          `${trustCount} unresolved CALLS edges may hide additional sites`,
+          `${trustCount} unresolved CALLS edges not attributed to any caller`,
         ];
-        confidenceFooter = `\nCONFIDENCE: ${parts.join(' · ')}.\n  ⚠ Likely undercount on weak-trust graphs (C++ cross-file dispatch, PHP traits/Eloquent, dynamic dispatch).`
+        // ⛔ THE SAME ONE-DIRECTIONAL LEAN graph_callers CARRIED, and finding it here is the point.
+        // The lesson written at that site is "when a claim is withdrawn, grep for every surface that
+        // restates it before calling the fix done" — fixing callers.js alone would have been that
+        // defect a fourth time, in the commit that names it.
+        //
+        // ⚠ "Likely undercount" tells a reader the list is a FLOOR, and a floor licenses acting on
+        // what is shown. Heuristic edges resolve calls BY NAME, so the list is not a floor: it can
+        // overcount with unrelated same-named calls as well as undercount.
+        const overcountRisk = occurrences >= 2 || symbol.length <= 8;
+        confidenceFooter = `\nCONFIDENCE: ${parts.join(' · ')}.`
+          + `\n  ⚠ This list is NOT a floor. On a weak-trust graph it can UNDERCOUNT (C++ cross-file`
+          + ` dispatch, PHP traits/Eloquent, dynamic dispatch) and, because heuristic edges resolve`
+          + ` calls BY NAME, it can also OVERCOUNT with unrelated same-named calls`
+          + `${overcountRisk ? ' — and this symbol is exactly the shape that overcounts' : ''}.`
           + `\n  Verify with: rg -n "${symbol}\\b" before any deletion, rename, or signature change.`;
       }
     } catch { /* defensive — never block result on confidence-check failure */ }

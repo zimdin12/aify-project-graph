@@ -135,8 +135,30 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       const suspicious = (trust === 'weak' && resultCount < 10)
         || (occurrences >= 3 && resultCount < occurrences);
       if (suspicious) {
-        confidenceFooter = `\nCONFIDENCE: ${resultCount} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges may hide additional sites.`
-          + `\n  ⚠ Likely undercount on weak-trust graphs (C++ cross-file dispatch, PHP traits/Eloquent, dynamic dispatch).`
+        // ⛔ THE LEAN THIS BLOCK USED TO CARRY, TWO LINES BELOW THE SENTENCE THAT WITHDREW IT.
+        //
+        // `HEURISTIC_TRUST_LINE` was repaired to name BOTH directions after `graph_callers("has")`
+        // returned 100 callers that were nearly all `Map.has()`. This footer — the half carrying
+        // the NUMBERS, and the more authoritative-looking one — still said only "Likely undercount"
+        // and "may hide additional sites". ef-manager, field-testing the fix: "the subset story
+        // restated, immediately after the sentence that withdrew it. A reader who takes the last
+        // word takes the wrong one."
+        //
+        // ⇒ THIRD TIME IN ONE SESSION a repair landed in one surface and left the claim standing in
+        // another: a retracted H1 over a corrected body, a reasoning comment fixed while the printed
+        // output still said 38%, and now TRUST fixed while CONFIDENCE leaned. ⇒ When a claim is
+        // withdrawn, grep for every surface that restates it before calling the fix done.
+        //
+        // ⚠ AND THE DIRECTION MATTERS MORE HERE THAN ANYWHERE. ef-manager, asked directly whether
+        // the old wording would have misled them: "YES… 'may undercount' says the list is a floor,
+        // and a floor licenses acting on what IS shown — that is the whole value of a floor." So it
+        // did not merely omit the overcount; it named the direction that makes a list SAFE TO USE.
+        const overcountRisk = occurrences >= 2 || symbol.length <= 8;
+        confidenceFooter = `\nCONFIDENCE: ${resultCount} callers · trust=${trust} · ${occurrences} indexed nodes labeled "${symbol}" · ${trustCount} unresolved CALLS edges not attributed to any caller.`
+          + `\n  ⚠ This list is NOT a floor. On a weak-trust graph it can UNDERCOUNT (C++ cross-file`
+          + ` dispatch, PHP traits/Eloquent, dynamic dispatch) and, because heuristic edges resolve`
+          + ` calls BY NAME, it can also OVERCOUNT with unrelated same-named calls`
+          + `${overcountRisk ? ' — and this symbol is exactly the shape that overcounts' : ''}.`
           + `\n  Verify with: rg -n "${symbol}\\b" before any deletion, rename, or signature change.`;
       }
     } catch { /* defensive */ }
