@@ -338,7 +338,27 @@ for (const [i, m] of spec.entries()) {
   try {
     let transport = null;
     try { ({ workspace: ws, transport } = openArmWorkspace(REPO, HEAD_COMMIT, armPath)); }
-    catch (e) { record(VERDICT.APPARATUS, `could not open the isolated workspace: ${e.message}`); break; }
+    catch (e) {
+      // ⛔ `git worktree add` IS NOT ATOMIC. It can register the worktree and THEN fail — disk full,
+      // permissions, a checkout error — leaving the registration behind while this throw leaves
+      // `ws` null. The `finally` below is guarded on `if (ws)`, so disposal would be SKIPPED and a
+      // surviving registration is exactly the state that blocks the next run. A transient disk-full
+      // would convert into a self-inflicted permanent block, recoverable only through the FOREIGN
+      // path — which now demands ORPHAN_CONFIRMED with an approver and an outside observation. The
+      // cheapest failure would need the most expensive cleanup.
+      //
+      // ⇒ Safe to dispose here for the same reason the `finally` is: armPath is CONSTRUCTED from
+      // this run's own runId and index, so it can only ever name a directory this run created.
+      // Self-teardown needs no orphan confirmation; the state machine governs foreign paths.
+      // disposeArmWorkspace reports per step rather than throwing, so it cannot worsen the failure.
+      //
+      // Found by ef-manager reviewing 7440ceb.
+      const cleanup = disposeArmWorkspace(REPO, armPath);
+      const failed = cleanup.filter((c) => !c.ok);
+      record(VERDICT.APPARATUS, `could not open the isolated workspace: ${e.message}`
+        + (failed.length ? ` — and cleanup left ${failed.map((f) => f.step).join(', ')}` : ' — cleaned up'));
+      break;
+    }
     // Path is environment DISCLOSURE, not identity: commit and tree remain the source identity.
     arm.workspace = { path: armPath, dependencyTransport: transport };
 
