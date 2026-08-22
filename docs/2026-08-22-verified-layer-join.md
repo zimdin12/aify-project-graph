@@ -1,5 +1,13 @@
 # The verified layer is mostly not reachable from the verb that would use it
 
+> ⛔ **RETRACTED 2026-08-22 — these records-side figures were 91.5% STALE.** They were computed
+> across NINE collections; `pruneSupersededCollections` never ran because it only prunes on a
+> COMPLETE collect and the collection reported 73/627 files. Current-collection figures:
+> declarations with evidence **9.8%** (not 97.6%), file coverage **86/627** (not 624/627).
+> See `docs/2026-08-22-collection-coverage-recurrence.md`. The 2,820 verified EDGES are unaffected.
+
+
+
 Measured 2026-08-22, after code-intel collection took `LSP_VERIFIED` call edges from 19 to 3,008.
 Found because `ef-manager` field-tested the change on a symbol whose truth they had established
 **by hand** that morning.
