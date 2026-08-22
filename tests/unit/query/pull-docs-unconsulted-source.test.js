@@ -132,14 +132,23 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
     // what it left out. graph_neighbors being unlisted was never the whole barrier."
     await repoWithAuthoredLink();
     const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
-    expect(out.layers.docs, 'defaults are unchanged — this is a disclosure, not a new default')
+    // ⛔⛔ THIS TEST USED TO ASSERT `out.layers.docs` WAS UNDEFINED, with the comment "defaults are
+    // unchanged — this is a disclosure, not a new default". That decision is SUPERSEDED, and the
+    // reason is in ef-manager's own sentence three lines above: an agent who reaches correctly and
+    // does not know to type layers:["docs"] gets the same nothing.
+    //
+    // A pointer whose entire purpose is to make you ASK AGAIN for something we could have handed
+    // you is a stand-in for the fix, not the fix — and it costs a line on exactly the 29.5% of
+    // files where the data itself would have cost one to three items. Measured before changing it:
+    // 194 of 657 files have any doc edge, median 1, p90 3, empty for 70.5%.
+    //
+    // ⇒ `docs` is now a DEFAULT layer. The disclosure mechanism is kept for the caller who passes
+    // an explicit narrow `layers` list that excludes docs, which is a deliberate act rather than
+    // an ignorant one.
+    expect(out.layers.docs, 'the data itself, not a pointer to it').toBeTruthy();
+    expect(out.layers.docs.items.length, 'and populated').toBeGreaterThan(0);
+    expect(out.docs_not_shown, 'nothing is withheld any more, so nothing announces a withholding')
       .toBeUndefined();
-    // ⚠ WORDING UPDATED WITH THE NOUN FIX. "reference this file" was the defect: it covered
-    // MENTIONS edges, which point at a SYMBOL and say nothing about the file being named.
-    expect(out.docs_not_shown, 'the payload must name what it withheld and how to ask for it')
-      .toMatch(/1 document relates to this file/);
-    expect(out.docs_not_shown, 'and say which kind of relation it was').toMatch(/1 links to the file itself/);
-    expect(out.docs_not_shown).toMatch(/layers:\["docs"\]/);
   }, 60_000);
 
   it('★★★ ...and stays SILENT when there is nothing to disclose', async () => {
@@ -406,6 +415,12 @@ describe('graph_pull resolves nodes that EXIST — "unresolved" is not "no docs"
 });
 
 describe('docs_not_shown — the noun, and the denominator', () => {
+  // ⚠ `layers:['code']` THROUGHOUT THIS BLOCK, AND IT USED TO BE THE DEFAULT CALL. `docs` is now
+  // a default layer, so the default path no longer withholds anything and has no disclosure to
+  // make. The disclosure survives for the caller who NARROWS EXPLICITLY — a deliberate act,
+  // and the one case where a pointer is the right answer rather than a stand-in for one.
+  // Everything these tests pin — the noun, the three-way split, the reconciliation — is
+  // unchanged; only the route that reaches it is.
   // ⛔ ef-manager, from the user's seat: "12 document(s) reference this file." MENTIONS is
   // Document→SYMBOL; LINKS_TO is Document→FILE. The count mixed both and attached the result to
   // the noun "this file". Proven on dedup-records.js — one document, CHANGELOG.md, which never
@@ -430,7 +445,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
     plant(db, 'd-both', 's1', 'MENTIONS', 0);
     db.close();
 
-    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js', layers: ['code'] }));
     const b = out.docs_not_shown_breakdown;
     expect(b.linkOnly + b.mentionOnly + b.both, 'parts must reconcile to the whole')
       .toBe(b.documents);
@@ -449,7 +464,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
     plant(db, 'd-mention', 's1', 'MENTIONS', 0);
     db.close();
 
-    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js', layers: ['code'] }));
     expect(out.docs_not_shown).toMatch(/1 only mentions a symbol defined in it/);
     expect(out.docs_not_shown, 'nothing links to this file, so nothing may say it does')
       .not.toMatch(/links? to the file itself/);
@@ -461,7 +476,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
     // their real-world instance — 12 documents, all LINKS_TO, zero MENTIONS, verified including
     // the two rows truncated past the display limit.
     await repoWithAuthoredLink();
-    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js', layers: ['code'] }));
     expect(out.docs_not_shown).toMatch(/1 links to the file itself/);
     expect(out.docs_not_shown).not.toMatch(/mentions? a symbol/);
     expect(out.docs_not_shown).not.toMatch(/does both|do both/);
@@ -489,7 +504,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
     plant(db, 'd-mention', 's3', 'MENTIONS', 22);   // same doc, DIFFERENT lines -> no collapse
     db.close();
 
-    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js', layers: ['code'] }));
     const b = out.docs_not_shown_breakdown;
     expect(b.documents, 'one document').toBe(1);
     expect(b.references, 'two rows, because the lines differ').toBe(2);
@@ -515,7 +530,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
     plant(db, 'd-both', 's3', 'MENTIONS', 0);   // 2 symbols in ONE file -> 2 rows, 1 document
     db.close();
 
-    const bare = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    const bare = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js', layers: ['code'] }));
     const withDocs = JSON.parse(await graphPull({
       repoRoot: repo, node: 'src/terrain.js', layers: ['docs'],
     }));
@@ -598,4 +613,48 @@ describe('assessCoverage — the receipt learns that unconsulted is not untrunca
     expect(assessCoverage({}).proven).toBe(true);
     expect(assessCoverage({ declared: [], consulted: [] }).unconsulted).toEqual([]);
   });
+});
+
+// ⛔ AND THE SAME DEFECT HAD ONE MORE LAYER: THE QUERY WAS FIXED, THE DEFAULT WAS NOT.
+//
+// Everything above repaired what the docs layer ANSWERS when you ask for it. Nobody checked
+// whether anyone asks. `DEFAULT_LAYERS` was ['code','functionality','tasks','activity'] — `docs`
+// was opt-in behind `layers: ["docs"]`, a parameter a caller must already know exists.
+//
+// Measured on this repo: graph_pull("mcp/stdio/server.js") returned ZERO documents while THIRTEEN
+// doc edges pointed at that file. Every one of them was reachable, correct, and invisible.
+//
+// ⇒ THAT IS THE WHOLE EXPLANATION FOR "the doc layer has had zero consumers", and we spent weeks
+// treating it as a PRECISION problem — grading rules blind on three held-out corpora, deleting one
+// at 0.9311, adding `target_qname` so a binding could be verified. All of that was worth doing and
+// none of it was the reason. The test above says it in its own words: "an unreachable feature costs
+// an agent nothing — they never learn it existed."
+//
+// ⚠ THE COST WAS MEASURED BEFORE THE DEFAULT CHANGED, because a layer on every response is a token
+// cost on every response: 194 of 657 files (29.5%) have any doc edge; median 1, p90 3, max 13. It
+// is EMPTY for 70.5% of files. `code_intel`, `relations` and `transitive` stay opt-in — their cost
+// is real and per-symbol.
+describe('the docs layer is REACHABLE without knowing to ask for it', () => {
+  it('★★★⛔ graph_pull returns the docs layer with NO layers argument', async () => {
+    await repoWithAuthoredLink();
+    const out = await graphPull({ repoRoot: repo, node: 'src/terrain.js' });
+    const parsed = typeof out === 'string' ? JSON.parse(out) : out;
+    expect(Object.keys(parsed.layers ?? {}), 'docs must be present by default')
+      .toContain('docs');
+    expect(parsed.layers.docs.items.length,
+      'and populated — present-but-empty is the failure this file already documents')
+      .toBeGreaterThan(0);
+  }, 20_000);
+
+  it('★★★ POSITIVE CONTROL: the expensive layers are still opt-in', async () => {
+    // ⛔ Without this, the assertion above is satisfied by defaulting EVERYTHING on, which would
+    // trade an unreachable layer for a response nobody can afford. The bar this repo holds is that
+    // a signal firing on most calls is slop however good it is; `docs` clears it because it is
+    // empty for 70.5% of files, and code_intel does not.
+    await repoWithAuthoredLink();
+    const parsed = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
+    for (const opt of ['code_intel', 'relations', 'transitive']) {
+      expect(Object.keys(parsed.layers ?? {}), `${opt} must stay opt-in`).not.toContain(opt);
+    }
+  }, 20_000);
 });

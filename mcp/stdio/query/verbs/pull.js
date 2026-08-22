@@ -289,7 +289,33 @@ function docRelationsPresent(db) {
 // Every capped list carries { items, total, truncated, limit } metadata.
 // `code_intel` is opt-in only — keeps token budget controlled. Plan #3.
 const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive', 'code_intel'];
-const DEFAULT_LAYERS = ['code', 'functionality', 'tasks', 'activity'];
+// ⛔ `docs` JOINED THE DEFAULT, AND ITS ABSENCE EXPLAINS "ZERO CONSUMERS".
+//
+// ef-manager, after days of intensive field use: "it cannot have cost me, because I never consumed
+// it — the doc layer has had zero consumers." We treated that as an interest problem and spent
+// weeks on the layer's PRECISION: rules graded blind on three held-out corpora, one deleted at
+// 0.9311, `target_qname` added so a grader could verify a binding.
+//
+// ⇒ None of that was the reason. The layer was UNREACHABLE FROM THE FRONT DOOR. `graph_pull` is
+// the cross-layer verb, and `docs` was opt-in behind a parameter a caller would have to already
+// know existed — which is the one thing someone asking "where is the document about this" does not.
+// Measured: graph_pull on mcp/stdio/server.js returned ZERO documents while thirteen doc edges
+// pointed at it.
+//
+// ⚠ MEASURED BEFORE CHANGING IT, because a layer added to every response is a token cost on every
+// response, and this repo's bar is that a signal firing on most calls is slop however good it is:
+//
+//     files in the graph                657
+//     files with >=1 doc edge           194   (29.5%)
+//     when non-empty: median 1, p90 3, max 13
+//
+// So it is EMPTY for 70.5% of files and one to three items for most of the rest. That is the
+// cheapest possible way to carry the thing THE-GOAL says the product is: "from that doc, that
+// decision built this feature, this feature lives in these files."
+//
+// `code_intel` stays opt-in — it is genuinely expensive, and its cost is per-symbol rather than
+// per-file. `relations` and `transitive` stay opt-in for the same reason.
+const DEFAULT_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity'];
 
 function emptyCodeIntelEvidence() {
   return { found: false, definitions: [], references: [], hovers: [], summary: { definitions: 0, references: 0, hovers: 0 } };
@@ -925,10 +951,25 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     // So an agent who reaches CORRECTLY still got the same nothing as before the fix, now from a
     // call returning exhaustive:false without saying what it left out.
     //
-    // Disclose rather than change the default: adding docs to the defaults makes every pull pay
-    // for a layer most callers do not want, while a pointer costs nothing when there is nothing
-    // to point at and names the exact argument when there is. Same shape as the
-    // recompile_surface truncation disclosure already in this file.
+    // ⛔ THE PARAGRAPH THAT USED TO BE HERE CHOSE A POINTER OVER A DEFAULT, AND ITS REASON WAS
+    // WRONG — measured, not re-argued. It read: "adding docs to the defaults makes every pull pay
+    // for a layer most callers do not want, while a pointer costs nothing when there is nothing to
+    // point at." The second half is true. The first half was never measured:
+    //
+    //     files in the graph            657
+    //     files with >=1 doc edge       194   (29.5%)   median 1, p90 3, max 13
+    //
+    // ⇒ 70.5% of pulls pay NOTHING because the layer is empty, and the 29.5% that would pay one to
+    // three items were instead paying a sentence of prose telling them to ask again. Comparable
+    // cost, strictly less use, plus a round trip.
+    //
+    // ⇒ AND THE POINTER WAS A STAND-IN FOR THE FIX. ef-manager's own sentence, quoted above: an
+    // agent who reaches correctly and does not know to type layers:["docs"] gets the same nothing.
+    // Telling them what to type is better than silence and worse than answering.
+    //
+    // `docs` is now a DEFAULT layer. This branch survives for the caller who passes an explicit
+    // narrow `layers` list excluding docs — a deliberate act rather than an ignorant one, and the
+    // one case where a pointer is the right answer.
     const breakdown = docReferenceBreakdown(db, filePath);
     if (breakdown.documents > 0) {
       out.docs_not_shown = docsNotShownSentence(breakdown);
