@@ -3,7 +3,12 @@
 Found by chasing "why does edge derivation keep 4.9%" — a question whose premise turned out to be
 mine, not the code's.
 
-## The two defects
+## ONE defect, and one claim I withdrew
+
+> ⛔ **② BELOW IS WITHDRAWN.** It is *not* a defect — the prune refused **correctly**, on
+> authority rather than completeness. Acting on the original version would have removed the
+> guard that prevented data loss. Full correction further down; the numbers in ② are still true,
+> the word "defect" and the causal story were not.
 
     collected_at          mode   proc/scope/elig   refs_found  status
     2026-08-22T05:10:46   null     73/  73/ 627       2204     ok        <- mine, scope:'all'
@@ -16,14 +21,19 @@ a 900-second budget. It processed **73 of 627 eligible files (11.6%)** and recor
 Note `files_in_scope` is **73, not 627** — the scope itself resolved to 73. Runs that stopped at 200
 recorded `partial`; mine stopped at 73 and did not.
 
-**② PRUNE NEVER RAN, SO 91.5% OF THE RECORD TABLE IS STALE.**
+**② ~~PRUNE NEVER RAN, SO 91.5% OF THE RECORD TABLE IS STALE.~~** ⛔ **WITHDRAWN — NOT A DEFECT.**
+The staleness figures below are correct. The *cause* stated after them is wrong, and the prune
+refused correctly because the run carried a declared 73-file scope. See the withdrawal section
+below before acting on anything in this block.
 
     records total                182,594
       in the current collection   15,549
       STALE                      167,045   (91.5%)   across 9 same-provider collections
 
-`pruneSupersededCollections` only prunes on a COMPLETE collect. Since ① never reports complete,
-nothing is ever pruned. And the source comment states the consequence exactly:
+~~`pruneSupersededCollections` only prunes on a COMPLETE collect. Since ① never reports complete,
+nothing is ever pruned.~~ ⛔ **FALSE — the gate is `mayDestroyPriorEvidence`, which contains no
+completeness term. Collections accumulating is EXPECTED because no run has held repo-wide
+authority.** And the source comment states the consequence exactly:
 
 > *getCodeIntelEvidenceForSymbol/getCodeIntelDiagnosticsForFiles query ACROSS all collections, so
 > stale evidence/diagnostics from superseded runs resurface.*
