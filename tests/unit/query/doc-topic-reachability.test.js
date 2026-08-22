@@ -184,3 +184,55 @@ describe('a topic in a heading is reachable when the caller widens', () => {
     expect(found, 'a document with no claim on the topic stays out').not.toContain('docs/unrelated.md');
   }, 20_000);
 });
+
+// ⛔ REACHABLE BY A QUERY IS ONLY HALF OF IT. A FEATURE MUST ALSO REACH DEPLOYED GRAPHS.
+//
+// `headings` shipped and was INERT everywhere it mattered. Measured on three already-indexed
+// repositories immediately after:
+//
+//     graphify                    363 documents,   0 with headings
+//     agent-understand-anything   118 documents,   0 with headings
+//     codegraph                    80 documents,   0 with headings
+//
+// An unchanged file is never re-extracted, so its `extra` keeps the old shape for ever. Bumping
+// EXTRACTOR_VERSION is what forces one re-extraction — and running the IDENTICAL command after the
+// bump gave 347/363, 118/118, 78/80.
+//
+// ⛔⛔ AND THE COMMENT DIRECTLY ABOVE THAT CONSTANT ALREADY SAID SO, in its own words, about the
+// previous bump: "a graph indexed under 0.2.3 would otherwise never re-derive documents that had
+// not changed, and the new layer would be missing on precisely the long-lived repos it was built
+// for." Correct, prominent, adjacent knowledge that did not prevent the defect it described. The
+// remedy for that is never a better comment.
+//
+// ⇒ So the coupling is made MECHANICAL. This pins the extractor's output shape beside the version.
+// Add a field and the shape changes; the test fails and names the bump. It can still be satisfied
+// by updating both without thinking — but it cannot be satisfied by not noticing.
+describe('the extractor output shape and EXTRACTOR_VERSION move together', () => {
+  it('★★★⛔ a change to what a Document node carries requires a version bump', async () => {
+    const { extractDocumentMeta } = await import('../../../mcp/stdio/ingest/sweep.js');
+    const { EXTRACTOR_VERSION } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    const shape = Object.keys(
+      extractDocumentMeta('# Title\nsecond line\n\n## A heading\n', 'docs/x.md'),
+    ).sort().join(',');
+    expect({ shape, version: EXTRACTOR_VERSION },
+      'If `shape` changed, deployed graphs will NOT re-extract and the change is inert on every '
+      + 'existing repository. Bump EXTRACTOR_VERSION in freshness/orchestrator.js and update this '
+      + 'expectation in the same edit — that is the whole point of pinning them together.')
+      .toEqual({ shape: 'headings,summary,title', version: '0.4.0' });
+  });
+
+  it('★★★ POSITIVE CONTROL: the shape really does move when a field appears', async () => {
+    // ⛔ Without this the assertion above passes against a `shape` that is a constant string —
+    // which would be a guard that cannot detect the thing it guards.
+    const { extractDocumentMeta } = await import('../../../mcp/stdio/ingest/sweep.js');
+    // ⚠ THE NO-HEADINGS DOCUMENT MUST NOT START WITH `#`. My first version used '# T\nx\n' and the
+    // control failed — because an H1 title IS a heading, so that document has one. The fixture, not
+    // the code, was wrong. A document with no ATX heading anywhere is the only way to observe the
+    // key being absent.
+    const withHeadings = Object.keys(extractDocumentMeta('# T\nx\n\n## H\n', 'a.md')).sort().join(',');
+    const noHeadings = Object.keys(extractDocumentMeta('Plain prose title\nsecond line\n', 'a.md')).sort().join(',');
+    expect(withHeadings).toBe('headings,summary,title');
+    expect(noHeadings, 'a document with no headings carries no headings key').toBe('summary,title');
+    expect(withHeadings).not.toBe(noHeadings);
+  });
+});

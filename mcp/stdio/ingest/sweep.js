@@ -234,7 +234,11 @@ export function extractHeadings(content) {
   return { headings: out, truncated };
 }
 
-function extractDocumentMeta(content, relPath) {
+// Exported so a control can pin its OUTPUT SHAPE against EXTRACTOR_VERSION. Changing what this
+// returns without bumping that constant ships a feature that is inert on every existing graph —
+// which is exactly what happened when `headings` was added, measured at 0 of 363 documents on a
+// repository that had already been indexed.
+export function extractDocumentMeta(content, relPath) {
   const lines = readLines(content).filter(Boolean);
   const first = lines[0] ?? basename(relPath);
   const title = first.replace(/^#+\s*/u, '').trim();

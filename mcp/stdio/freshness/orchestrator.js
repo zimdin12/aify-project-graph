@@ -61,7 +61,27 @@ import { writeDocLinkMissSidecar } from './doc-link-miss-sidecar.js';
 // graph indexed under 0.2.3 would otherwise never re-derive documents that had not changed, and
 // the new layer would be missing on precisely the long-lived repos it was built for.
 // Bumping forces deployed graphs to re-extract/re-resolve once.
-export const EXTRACTOR_VERSION = '0.3.0';
+//
+// ── 0.4.0 — DOCUMENT HEADINGS ────────────────────────────────────────────────────────────────
+// `extractDocumentMeta` now stores `headings` on every Document node, and graph_search queries
+// them. Over ten topics this repo discusses, name|title reached 3 documents and headings reach 52.
+//
+// ⛔ AND THE PARAGRAPH DIRECTLY ABOVE THIS ONE ALREADY SAID WHY THIS BUMP IS REQUIRED — I shipped
+// the feature without it anyway. Measured immediately afterwards, on the three vendored corpora:
+//
+//     graphify                    363 documents,   0 with headings
+//     agent-understand-anything   118 documents,   0 with headings
+//     codegraph                    80 documents,   0 with headings
+//
+// A shipped feature, inert on every existing installation, because an unchanged file is never
+// re-extracted and its `extra` keeps the old shape. That is the same failure the 0.3.0 note
+// describes in its own words — correct, prominent, adjacent knowledge that did not stop the
+// defect it described. The remedy for that is never a better comment; it is that the version and
+// the extractor's OUTPUT SHAPE must move together, which is what this constant is for.
+//
+// ⚠ The cost is one full rebuild per repository on upgrade. That is the honest price of the
+// change; the alternative is a feature that reports success and does nothing.
+export const EXTRACTOR_VERSION = '0.4.0';
 export const PARSER_BUNDLE_VERSION = '2026.04.16';
 // Plugin-emitted node types that the per-file extraction loop must NOT reap.
 // They're attributed to non-source files (a Route to routes/web.php, a
