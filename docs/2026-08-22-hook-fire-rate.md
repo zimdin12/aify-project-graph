@@ -75,3 +75,55 @@ universality is.
 measurement does not depend on it, and it removes the part of the decision that was guesswork:
 whichever surface it lands on, one of the two candidate contents is disqualified and the other has
 a fire rate that clears the bar.
+
+---
+
+# ADDENDUM — rule B is correct and INERT, and the reason outranks the hook
+
+Written after implementing rule B and testing it against the **real** graph rather than fixtures.
+
+## The fire rate was never the binding constraint
+
+Resolving the deleted symbol by identity — the node declared in the file the diff removed it from —
+was not enough, because **the edges are resolved by label too**:
+
+    deleting `writeFile`   (declared in a TEST file, spelled like Node's fs function)  → 70 "callers"
+    deleting `has`         (a Map/Set method name)                                     → 193 "callers"
+
+Every `x.has(y)` in the corpus had been attributed by the extractor to one node labelled `has`.
+
+    whole-graph CALLS / REFERENCES / IMPORTS provenance
+        EXTRACTED     12024     tree-sitter heuristic, resolved by label
+        AMBIGUOUS      1028
+        LSP_VERIFIED     19     compiler-resolved
+
+⛔ **A hook is unbidden and cannot be cheaply checked, so it may only claim what its evidence
+supports.** "You removed X and it has 70 callers" built on heuristic label matches would be the most
+confident-sounding sentence in the product resting on its least reliable data — and one false alarm
+gets a hook muted permanently.
+
+⇒ **This is the defect this repository deleted a doc rule for in the same week.** `doc_ref:shaped`
+died at 0.9311 because *existence and uniqueness in the index are not evidence of reference*. I
+rebuilt it inside a hook, and the fixtures could not see it: they contained only the edges I had
+written, all of them true by construction. **Only the real graph exposed it.**
+
+## Where that leaves 3b
+
+| rule | status |
+|---|---|
+| A — callers of what you edited | ⛔ **DEAD.** 85.5% fire rate; not a contradiction signal at any rate. |
+| B — deleted something with callers | ✅ **built, correct, and INERT** — gated to `LSP_VERIFIED`, of which this graph has **19**. |
+
+⇒ **The hook is not shippable today, and the blocker is not the hook.** It is that call edges are
+predominantly heuristic. Rule B becomes useful exactly as code-intel collection coverage grows, and
+not one commit before.
+
+⚠ **The alternative — shipping on `EXTRACTED` edges — is not a weaker version of this feature. It is
+a different and worse one**, and it would have been indistinguishable from success in every test I
+wrote before running it against real data.
+
+## What this changes about the placement question
+
+Nothing, and that is now a smaller decision than it was. Whichever surface a hook lands on, there is
+no content to put in it yet. ⏳ Placement remains Steven's call; **the prerequisite is verified call
+edges, which is a code-intel coverage question, not a hook question.**
