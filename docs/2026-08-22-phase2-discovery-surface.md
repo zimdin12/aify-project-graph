@@ -84,10 +84,20 @@ doc→symbol edges, and [[adjacent-not-ambient]] applies: the evidence should be
 structural — a heading the topic appears under, a title, a first paragraph — not ambient
 whole-document presence.
 
-⚠ **`summary` is truncated at ~100 characters and is dead weight.** It is stored on every Document
-node, is not searched, and is cut mid-word (*"Driven by `graph-tech-lead`. Ruled on by
-`graph-senior-dev` (correctness, executed"*). Either it earns its place by being searchable or it
-should go; today it is neither.
+⛔ **CORRECTION — `summary` IS NOT TRUNCATED, AND I ASSERTED THAT IT WAS.**
+
+The first version of this document, and the roadmap entry citing it, said `summary` was "truncated
+at ~100 characters, cut mid-word", quoting *"Driven by `graph-tech-lead`. Ruled on by
+`graph-senior-dev` (correctness, executed"*.
+
+`extractDocumentMeta` does `const summary = lines[1] ?? ''`. **There is no truncation anywhere.**
+That value is line 3 of the roadmap, complete, all 82 characters of it — the file is hard-wrapped at
+~90 columns, so the second line of a paragraph naturally ends mid-sentence.
+
+⇒ I inferred a MECHANISM from an APPEARANCE without reading the producer, and shipped it in two
+documents. Exactly the failure this repo keeps finding in other people's reasoning. The real
+problem is smaller and different: **"the second non-blank line of a hard-wrapped file" is a poor
+summary**, and it is searched by nothing. It earns its place by becoming a real summary, or it goes.
 
 ⇒ **The honest headline for Phase 2:** discovery by topic works when an author happened to put the
 topic in the filename or the title. That beats `ls docs/`, and it is a long way from *"what do I

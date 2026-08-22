@@ -148,7 +148,30 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
 
     // Fast path: exact symbol-style queries should not pay the broad substring scan
     // when we already have a direct hit.
-    if (EXACT_SYMBOL_RE.test(normalizedQuery)) {
+    //
+    // ⛔ AND IT IS SKIPPED WHEN THE CALLER WIDENED, BECAUSE IT WAS SILENTLY DELETING THE WIDENING.
+    //
+    // A document is reached by its TITLE or its HEADINGS, never by an exact `label` match — a
+    // label is a filename. So whenever the query happened to be a valid symbol name AND some node
+    // carried it exactly, this returned early and no document could be returned at all, however
+    // well it matched. Measured on this repo:
+    //
+    //     query        exact-label nodes   fast path   documents matching by heading
+    //     overlay              4            FIRES                24   ← all unreachable
+    //     clangd               1            FIRES                13   ← all unreachable
+    //     sqlite               0            skipped               2   ← returned fine
+    //     staleness            0            skipped               5   ← returned fine
+    //
+    // Perfect discrimination: the two queries that returned zero documents are exactly the two
+    // where this branch fired. ⇒ Not a ranking problem and not a cap — the widened query was never
+    // executed. The reserved-page-share machinery below is downstream of a return statement.
+    //
+    // ⚠ THIS PREDATES the heading index; it blocked TITLE matches the same way, which is why
+    // `kind:"all"` looked like it worked only on queries that were not symbol names.
+    // ⚠ The default `kind:'code'` keeps the fast path: documents are excluded by the filter there
+    // anyway, so short-circuiting costs that caller nothing. Paying the scan is correct only for
+    // the caller who explicitly asked for more than code.
+    if (EXACT_SYMBOL_RE.test(normalizedQuery) && kind !== 'all') {
       const exactClauses = ['label = $label', ...baseClauses];
       const exactHits = db.all(
         `SELECT * FROM nodes WHERE ${exactClauses.join(' AND ')} LIMIT $limit`,
@@ -220,16 +243,35 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     // widen recall by an unmeasured amount at an unmeasured precision cost, and this repo has
     // spent the night deleting rules that were admitted without a measurement.
     const TITLE = "json_extract(extra, '$.title')";
+    // ⛔ HEADINGS TOO, AND THE MEASUREMENT IS WHY. Over ten topics this repo genuinely discusses,
+    // name|title reached THREE documents; headings add FORTY-NINE. `graph_search("sqlite")`
+    // answered NO RESULTS on the repository whose storage layer is SQLite.
+    //
+    // ⚠ STILL NOT THE BODY, and the restraint is the same one the paragraph above states. Ninety-
+    // six documents contain the word "overlay"; returning all of them would be catastrophic
+    // precision, and word-containment-as-aboutness is the legacy `mentions` error. Headings admit
+    // 14% of that population because a heading is a claim the author made about a section, not a
+    // coincidence of vocabulary. ADJACENT, NOT AMBIENT — the property that separated the doc→symbol
+    // rules that survived held-out grading from the one deleted at 0.9311.
+    //
+    // ⚠ `$.headings` is a JSON ARRAY, so LIKE runs over its serialised form. That is coarse — it
+    // can match across the quote-comma boundary between two adjacent headings — and it is chosen
+    // over a json_each join deliberately, because this clause is also built for the multi-token
+    // path where the join would need a correlated subquery per token. The failure mode is a rare
+    // extra match rather than a missed one, and precision is UNMEASURED on any corpus this rule
+    // did not shape.
+    const HEADINGS = "json_extract(extra, '$.headings')";
+    const docText = (bind) => `(label LIKE ${bind} OR ${TITLE} LIKE ${bind} OR ${HEADINGS} LIKE ${bind})`;
     let matchClause;
     if (tokens.length > 1) {
       matchClause = tokens
         .map((t, i) => {
           params[`t${i}`] = `%${t}%`;
-          return `(label LIKE $t${i} OR file_path LIKE $t${i} OR ${TITLE} LIKE $t${i})`;
+          return `(file_path LIKE $t${i} OR ${docText(`$t${i}`)})`;
         })
         .join(' AND ');
     } else {
-      matchClause = `(label LIKE $q OR ${TITLE} LIKE $q)`;
+      matchClause = docText('$q');
       params.q = `%${normalizedQuery}%`;
     }
     const clauses = [matchClause, ...baseClauses];

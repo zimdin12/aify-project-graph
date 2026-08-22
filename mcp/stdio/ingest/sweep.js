@@ -177,12 +177,80 @@ function detectLanguage(relPath) {
   }
 }
 
+// ⛔ HEADINGS ARE THE AUTHOR'S OWN STRUCTURAL CLAIM ABOUT SUBJECT MATTER, which is why they are
+// the searchable surface and the body is not.
+//
+// MEASURED on this repo's 179 documents, over ten topics it genuinely discusses. Before this, the
+// only searchable text for a document was its FILENAME and its title:
+//
+//     reachable by name|title      3 documents
+//     headings would ADD          49
+//     the lede would add          10 more
+//     body-word presence         359     ⛔ NOT A TARGET
+//
+// ⚠ THE 359 IS THE TRAP, NOT THE GOAL. Ninety-six documents contain the word "overlay" somewhere;
+// returning all of them for the query "overlay" is catastrophic precision, and treating word
+// containment as evidence of aboutness is exactly the mistake that produced the legacy `mentions`
+// extractor and its 2,533 unverifiable edges. Headings admit 14% of that population — a
+// seventeen-fold gain in reachability from a strictly structural signal.
+//
+// ⇒ ADJACENT, NOT AMBIENT. The same property that separated the doc→symbol rules that survived
+// held-out grading from the one deleted at 0.9311: the evidence must sit in a structure the author
+// built, not in the ambient text. A heading is a claim; a mention is a coincidence.
+//
+// ⚠ AND IT IS NOT UNIVERSAL. Three of the ten topics — mutation, heartbeat, tokenizer — gain
+// NOTHING from headings, because nobody wrote a heading about them. This rule reaches what authors
+// chose to signpost and nothing else, and its recall is a floor by construction.
+// ⚠ UP TO THREE LEADING SPACES, AND THE FOURTH IS THE WHOLE POINT. CommonMark makes an ATX
+// heading indentable by 0–3 spaces; at 4 the line becomes an indented CODE BLOCK. So `   # Title`
+// is a heading an author wrote and `    # cleanup` is a shell comment inside a code sample. My
+// first version anchored at column 0, which was safe but lost real headings inside list items for
+// no precision gain — and the test I wrote asserted the spec while the code did not implement it.
+// Following the spec is both more correct and no more permissive.
+const HEADING_LINE = /^ {0,3}#{1,6}\s+(\S.*)$/u;
+const FENCE_LINE = /^ {0,3}(?:```|~~~)/u;
+
+// Bounded so one enormous document cannot dominate the index. A cap that truncates silently is the
+// defect this repo has fixed four times, so the flag travels with the value.
+const HEADINGS_MAX_CHARS = 4000;
+
+export function extractHeadings(content) {
+  const out = [];
+  let fenced = false;
+  let chars = 0;
+  let truncated = false;
+  for (const line of content.split(/\r?\n/u)) {
+    // A `#` inside a fence is a shell comment or a Python comment, not a heading.
+    if (FENCE_LINE.test(line)) { fenced = !fenced; continue; }
+    if (fenced) continue;
+    const m = HEADING_LINE.exec(line);
+    if (!m) continue;
+    const text = m[1].replace(/\s+#+\s*$/u, '').trim();   // closing-hash style: `## Title ##`
+    if (!text) continue;
+    if (chars + text.length > HEADINGS_MAX_CHARS) { truncated = true; break; }
+    out.push(text);
+    chars += text.length;
+  }
+  return { headings: out, truncated };
+}
+
 function extractDocumentMeta(content, relPath) {
   const lines = readLines(content).filter(Boolean);
   const first = lines[0] ?? basename(relPath);
   const title = first.replace(/^#+\s*/u, '').trim();
+  // ⚠ THIS IS LINE 2, WHOLE — IT IS NOT TRUNCATED, though it reads like it. Markdown here is
+  // hard-wrapped at ~90 columns, so the second line of a paragraph ends mid-sentence and the value
+  // looks cut. I asserted a "~100-char truncation" in two documents on the strength of that
+  // appearance, without reading this function. There is no truncation anywhere; there is a
+  // one-line summary of a wrapped paragraph, which is a different and smaller problem.
   const summary = lines[1] ?? '';
-  return { title, summary };
+  const { headings, truncated } = extractHeadings(content);
+  return {
+    title,
+    summary,
+    ...(headings.length ? { headings } : {}),
+    ...(truncated ? { headings_truncated: true } : {}),
+  };
 }
 
 function extractConfigKeys(content, relPath) {
