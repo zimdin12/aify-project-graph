@@ -174,6 +174,32 @@ const QUALIFIED = /^([A-Za-z_$][\w$]*(?:(?:::|->|\.)[A-Za-z_$][\w$]*)+)(?:\(\s*\
 const FILE_LEVEL = new Set(FILE_LEVEL_TYPES);
 
 /**
+ * The qualified name a node carries, or null.
+ *
+ * ⛔ ONE IMPLEMENTATION, BECAUSE THE SECOND ONE WAS ALREADY WRITTEN BEFORE ANYONE NOTICED.
+ * `buildSymbolIndex` below has parsed `extra.qname` since it was written. When the frozen-sample
+ * script needed the same value I wrote a fresh copy in `scripts/doc-ref-sample.mjs` rather than
+ * asking whether the repo already knew how to do this — the exact question that found the
+ * containment bug in 1c05bde, unasked again. Two copies of a parse are two places for `qname`'s
+ * shape to be assumed differently.
+ *
+ * ⚠ Returns null for a missing, empty or UNPARSEABLE `extra`. Never the node's bare label: that
+ * fallback would hand back the same unusable string a qname exists to disambiguate, in a field
+ * whose name promises a qualifier. A blank is honest; a wrong answer under a trusted label is not.
+ *
+ * @param {string|null|undefined} extra  a node's `extra` column, JSON or not
+ * @returns {string|null}
+ */
+export function qnameOf(extra) {
+  try {
+    const q = JSON.parse(extra || '{}').qname;
+    return q ? String(q) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Index every symbol by the dotted tail of its qname, at every suffix depth.
  *
  * Real qnames are fully path-qualified — `mcp.stdio.code-intel.lsp-client.LspClient.constructor` —
@@ -190,10 +216,9 @@ export function buildSymbolIndex(symbolNodes) {
   const bySuffix = new Map();
   for (const n of symbolNodes) {
     if (FILE_LEVEL.has(n.type)) continue;
-    let qname;
-    try { qname = JSON.parse(n.extra || '{}').qname; } catch { continue; }
+    const qname = qnameOf(n.extra);
     if (!qname) continue;
-    const segments = String(qname).split('.').filter(Boolean);
+    const segments = qname.split('.').filter(Boolean);
     // ⚠ DEPTH IS CAPPED, AND THE CAP IS WHAT LETS THIS RUN UNGATED. Real qnames are fully
     // path-qualified — `mcp.stdio.code-intel.lsp-client.LspClient.constructor` is six segments —
     // so indexing every suffix is O(symbols × depth) and grows without bound on a large repo.
@@ -450,53 +475,45 @@ export async function detectDocRefs(db, repoRoot) {
   };
   if (docs.length === 0) return empty;
 
-  // ⛔ EXTERNAL AND MODULE NODES ARE NOT CANDIDATES, AND THIS IS NOT A TIE-BREAK.
+  // ⛔ HISTORY, NOT MECHANISM. THE BARE-LABEL RESOLUTION INDEX AND THE CLAIMANT COUNT ARE GONE.
   //
-  // An `External` node is a stub for a symbol defined outside this repository — the import site,
-  // not a definition. A document in this repo writing `computeTrustLevel()` means the function
-  // this repo defines. Where both exist they are usually the SAME symbol seen from two sides, so
-  // including the stub would turn a real reference into an "ambiguous" refusal.
+  // `resolutionIndex` and `nameOwners` answered "which single symbol owns this bare name, and does
+  // anything else claim it" — the two questions rule 3 asked, and the only two. They went with it.
+  // Both were still being BUILT on every run after the rule was deleted, walking every labelled
+  // node in the graph to fill structures nothing read.
   //
-  // ⚠ Stated because it CHANGES AMBIGUITY, not just ranking: a label matching one Function and
-  // one External is unique under this rule and ambiguous without it. That is a judgement about
-  // what a node type means, and it belongs in the open where someone can disagree with it.
-  // ⛔ TWO POPULATIONS, BECAUSE "UNIQUE" AND "UNIQUE AMONG WHAT" ARE DIFFERENT QUESTIONS.
+  // ⚠ AND THIS PARAGRAPH USED TO ARGUE FOR THEM IN THE PRESENT TENSE, with the tombstone appended
+  // underneath. ef-manager caught it reviewing c8dcb2e: a reader met the case for a mechanism and
+  // then a line saying the mechanism was removed. That is a description outliving its behaviour —
+  // the third instance this week — and it appeared INSIDE the commit that did the deleting, which
+  // is the moment the author is least able to see it. The order is the fix: what is true now
+  // first, what it replaced second.
   //
-  // These were one index, and the filter above ran BEFORE the uniqueness test. So `hits.length > 1`
-  // meant "more than one non-External, non-Module, non-file-level node" while reading as "more
-  // than one node in the graph" — a POPULATION STATEMENT HIDING INSIDE A BOOLEAN.
+  // ── WHY IT WORKED THE WAY IT DID, kept because the incident is real and the distinction is ────
   //
-  // ef-manager found it as two false positives on echoes_of_the_fallen. `vec3` has two nodes:
+  // "UNIQUE" AND "UNIQUE AMONG WHAT" ARE DIFFERENT QUESTIONS. The two maps were once ONE index, and
+  // the External/Module filter ran BEFORE the uniqueness test — so `hits.length > 1` meant "more
+  // than one non-External, non-Module, non-file-level node" while READING as "more than one node in
+  // the graph". A population statement hiding inside a boolean.
+  //
+  // ef-manager found it as two false positives on echoes_of_the_fallen. `vec3` had two nodes:
   //
   //     Class      engine/voxel/SimplexNoise.h:46   a PRIVATE NESTED STRUCT in a noise class
   //     External   (no file)                        the glm/GLSL type the author actually meant
   //
   // The External candidate was filtered out before the ambiguity test ran, so a name with two
-  // owners passed as unique and both documents got an edge to a private struct they were not
-  // talking about.
+  // owners passed as unique and both documents got an edge to a private struct nobody was talking
+  // about.
   //
-  // ⇒ The filter is RIGHT for resolution — you must not point an edge at an External stub, which
-  // has no file and no span — and WRONG for ambiguity, because an External node carrying your
-  // label is precisely the evidence that the name is not yours alone. Same index, opposite needs.
+  // ⇒ THE DISTINCTION IS WORTH REMEMBERING EVEN THOUGH THE CODE IS GONE: an index of what an edge
+  // may POINT AT is not the same as a count of what CLAIMS a name. Filtering External stubs is
+  // right for resolution — an edge must not point at a node with no file and no span — and wrong
+  // for ambiguity, because an External node carrying your label is precisely the evidence that the
+  // name is not yours alone. Same index, opposite needs.
   //
-  //     resolutionIndex   what an edge may point AT
-  //     nameOwners        how many nodes claim the name, at all
-  //
-  // Admission needs BOTH: exactly one admissible target AND no other claimant.
-  //
-  // ⚠ MEASURED BEFORE ADOPTING, because a stricter rule that silently halves the layer is not an
-  // improvement: 0 of this repo's 71 shaped edges are refused by the stricter test. It costs
-  // nothing here and removes two known false positives there.
-  // ⛔ THE BARE-LABEL RESOLUTION INDEX AND THE CLAIMANT COUNT WENT WITH RULE 3.
-  //
-  // They answered "which single symbol owns this bare name, and does anything else claim it" —
-  // the two questions rule 3 asked and the only two. Both maps were still being BUILT on every
-  // run after the rule was deleted, walking every labelled node in the graph to populate a
-  // structure nothing read. Dead work that a reader would mistake for a live mechanism.
-  //
-  // ⚠ The distinction they drew is worth remembering even though the code is gone: an index of
-  // what an edge may POINT AT is not the same as a count of what CLAIMS a name, and an External
-  // stub carrying your label is exactly the evidence the name is not yours alone.
+  // ⚠ Its resolution was ALSO the shape the held-out grading later killed: uniqueness among
+  // whatever this repository happens to contain, standing in for evidence the author supplied.
+  // Getting the population right made rule 3 less wrong. It could not make it right.
   const symbolsByFile = buildSymbolsByFile(db.all(
     "SELECT id, type, label, file_path FROM nodes WHERE label != '' AND file_path != ''"));
 

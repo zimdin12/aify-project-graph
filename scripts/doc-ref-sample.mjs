@@ -31,7 +31,7 @@ import { readFileSync, writeFileSync, mkdirSync, copyFileSync, rmSync } from 'no
 import { join, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { openDb } from '../mcp/stdio/storage/db.js';
-import { detectDocRefs, DOC_REF_RULES } from '../mcp/stdio/analysis/doc-refs.js';
+import { detectDocRefs, DOC_REF_RULES, qnameOf } from '../mcp/stdio/analysis/doc-refs.js';
 
 const REPO = process.cwd();
 const GRAPH = join(REPO, '.aify-graph', 'graph.sqlite');
@@ -79,14 +79,35 @@ function sourceLine(file, line) {
   return lines ? (lines[line - 1] ?? null) : null;
 }
 
+// ⛔ `target_qname` IS HERE BECAUSE ITS ABSENCE MADE A CORRECT ANSWER UNVERIFIABLE.
+//
+// ef-manager, grading the held-out sample: row `qualified #14` cited `DigestAuth.auth_flow` and the
+// artifact reported `target_label: auth_flow` — the BARE method name. `worked/httpx/raw/auth.py`
+// declares FIVE sibling `auth_flow` methods, on Auth, BasicAuth, BearerAuth, DigestAuth and
+// NetRCAuth. From the row alone nobody could tell which one the edge bound.
+//
+// The resolver was innocent: `buildSymbolIndex` keys on the dotted qname tail and starts its loop
+// at length-2, so `DigestAuth.auth_flow` and `BasicAuth.auth_flow` bind to different symbols and a
+// bare `auth_flow` is not indexed at all. Measured, with the five siblings as the induction.
+//
+// ⇒ SO THE HOLE WAS IN THE EVIDENCE, NOT THE CODE. A grader could only score "did the author mean
+// this element", never "did we bind this element" — and those are different claims. The rule's
+// whole premise is the qualifier; an artifact that drops it cannot show the premise was honoured.
+// Note the direction: it forced a CORRECT verdict on a row the grader could not actually check.
 const admitted = db.all(
   `SELECT e.source_file, e.source_line, e.extractor, e.confidence,
-          t.label AS target_label, t.type AS target_type, t.file_path AS target_file
+          t.label AS target_label, t.type AS target_type, t.file_path AS target_file,
+          t.extra AS target_extra
      FROM edges e JOIN nodes t ON t.id = e.to_id
     WHERE e.relation = 'MENTIONS'
     ORDER BY e.source_file, e.source_line, t.label`,
-).map((e) => ({
+).map(({ target_extra: extra, ...e }) => ({
   ...e,
+  // ⚠ THE SAME PARSE THE RESOLVER USES, imported rather than reproduced. My first version was a
+  // second copy of `JSON.parse(extra).qname` written inline here, while `buildSymbolIndex` had
+  // been doing it since it was written — two places for `qname`'s shape to be assumed differently,
+  // in an artifact whose whole job is to settle what the resolver bound.
+  target_qname: qnameOf(extra),
   source_text: sourceLine(e.source_file, e.source_line),
   // The span invariant, computed here so a grader sees it beside the claim rather than having to
   // trust that someone checked it. A `false` is a defect regardless of whether the target is right.
@@ -121,13 +142,24 @@ for (const e of admitted) byRule[e.extractor] = (byRule[e.extractor] ?? 0) + 1;
 const artifact = {
   what: 'Frozen doc-ref population for per-rule precision grading. Verdicts are NOT filled in.',
   how_to_grade: [
-    'For each entry in `admitted`, read `source_text` — the sentence the author actually wrote —',
-    'and decide whether it refers to `target_label` at `target_file`. Set verdict to "correct" or',
+    'READ `source_text` IN FULL. It is the complete source line, not an excerpt, and it is often',
+    'long — median ~107 characters but up to ~2400. Do NOT window it. A grader who read all 462',
+    'rows through an 85-character window around the label found afterwards that 33% of rows were',
+    'truncated; a cut sentence loses the framing that turns a citation into an example, so the bias',
+    'runs toward "correct". Regrading at full text moved zero verdicts, but that was luck the next',
+    'sample should not depend on.',
+    'For each entry in `admitted`, decide whether that sentence refers to `target_qname` (or',
+    '`target_label` where no qname exists) at `target_file`. Set verdict to "correct" or',
     '"false_positive". Grade the PROSE, not the resolution: reading the target first is grading',
     'the answer key. Precision is computed PER `extractor`, because dev set the floor per rule and',
     'an aggregate can clear 0.95 while a rule inside it sits at 0.6.',
+    '`target_qname` is what makes a qualified reference CHECKABLE — five sibling `auth_flow`',
+    'methods in one file are five different answers, and the bare label cannot tell them apart.',
+    'A null qname means the node carries none; it is not a licence to fall back to the label.',
     'For each entry in `refused`, decide whether the layer SHOULD have admitted it. That is the',
     'recall question, and it is the one a precision number cannot answer.',
+    'Report UNSURE separately rather than folding it either way. How many a rule produces is a',
+    'finding about the rule.',
   ],
   pins: {
     commit,
