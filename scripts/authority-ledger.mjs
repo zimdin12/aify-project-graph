@@ -242,5 +242,20 @@ ${a.file}`);
 ALL FILES COMPLETE: ${result.complete}   (examined ${result.examined})`);
     if (result.reason) console.log(`  ${result.reason}`);
   }
-  if (process.argv.includes('--check') && !result.complete) process.exit(1);
+  // ⛔ THREE VERDICTS, THREE EXIT CODES — because the only other discriminator was STDOUT.
+  //
+  // REFUSED_EMPTY and INCOMPLETE both carry complete:false, so both exited 1. The output already
+  // distinguished them, but that put the distinction on the channel this project forbids trusting:
+  // a verdict must be the process's own exit code, never a grep of what it printed.
+  //
+  // ⇒ They demand OPPOSITE human responses. INCOMPLETE means fix your code. REFUSED_EMPTY means fix
+  // the gate or its input — nothing was examined. Collapsed, an empty population reads as a real
+  // detection and someone hunts authority violations that were never looked for.
+  //
+  // 0 COMPLETE · 1 INCOMPLETE · 2 REFUSED. Fails closed either way; only the legibility changes.
+  // Found by ef-manager reviewing bddbb48.
+  if (process.argv.includes('--check')) {
+    if (result.verdict === AUTHORITY_VERDICT.REFUSED_EMPTY) process.exit(2);
+    if (!result.complete) process.exit(1);
+  }
 }
