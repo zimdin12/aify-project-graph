@@ -209,3 +209,51 @@ Three verbs already call it.
 
 ⚠ **Still not a proposed fix** — neither of us is claiming this is the remedy. It is the place a
 remedy should start, rather than at a new join between node tables.
+
+---
+
+# CORRECTION 4 — THE GAP IS EDGE DERIVATION, AND MY 10-OF-10 MEASURED THE PIPE
+
+`ef-manager` looked at *which qnames* my 10-of-10 sampled: `repoRoot`, `db`, `source`, `filePath`,
+`config`, `repo`, `id`, `r`, `out`, `symbol`. **Local variables and parameters.** "The 200 richest
+qnames" selects for **ubiquity**, and the most ubiquitous identifiers in JavaScript are parameter
+names — **158 of that top 200 (79%) match no declaration at all**.
+
+⇒ So 10-of-10 established that the **retrieval path works**. It said nothing about whether evidence
+exists for the symbols an agent names. **Testing `repoRoot` proves the pipe; it says nothing about
+`ensureFresh`.**
+
+⚠ **And it is the same noun error the whole thread is about** — my 8.4% was over *declarations*, my
+10-of-10 was over *richest qnames*. Fourth noun slip in one investigation.
+
+## Re-measured over declarations, control interleaved
+
+    declaration population 1908 · sampled 41 (every 47th) · in-pass control 6 of 6
+
+    any code-intel record                                      40   97.6%
+    has REFERENCE records (the kind an edge could come from)   40   97.6%
+    has a derived VERIFIED edge                                 2    4.9%
+
+⚠ **The middle row is the fair comparison and I nearly skipped it.** "Records 97.6% vs edges 4.9%"
+would have implied derivation loses 95% — but definitions, hovers and diagnostics were never going
+to become CALLS edges. Restricting to **reference** records preserves the gap: like for like,
+**97.6% → 4.9%**.
+
+## ⇒ SO THE GAP IS IN EDGE DERIVATION
+
+    record store   132,325 references · 40,143 definitions · 10,126 diagnostics
+    coverage       97.6% of declarations have reference evidence
+    derived edges   4.9% of declarations have a verified edge
+
+- The **collection is excellent**. It is not a coverage problem.
+- It is **not a node-join problem** either — that hypothesis was already refuted (99.5% of `ci:lsp:`
+  nodes have no extraction counterpart).
+- `graph_callers` reads **edges** → sees ~5%. `graph_pull`'s `code_intel` layer reads **records** →
+  sees ~98%.
+
+⇒ **`ef-manager`'s lead lands exactly here:** `getCodeIntelEvidenceForSymbol` is symbol-keyed and
+reads the **rich** store; `graph_callers` reads the **lossy** one. That is the sentence the whole
+investigation was reaching for.
+
+⚠ **Still not a proposed fix.** Why derivation keeps 4.9% is unexamined — it may be correct
+(a reference is not a call), it may be lossy, and nothing here decides which.
