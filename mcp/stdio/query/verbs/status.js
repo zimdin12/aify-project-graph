@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { loadManifest } from '../../freshness/manifest.js';
-import { getHeadCommit, getDirtyFiles } from '../../freshness/git.js';
+import { WorktreeState } from '../../freshness/worktree-state.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { openExistingDb } from '../../storage/db.js';
 import { hasOverlay, loadFunctionality } from '../../overlay/loader.js';
@@ -11,8 +11,13 @@ export async function graphStatus({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
   const { status: mStatus, manifest } = await loadManifest(graphDir);
   const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
-  const commit = await getHeadCommit(repoRoot).catch(() => null);
-  const dirtyFiles = await getDirtyFiles(repoRoot).catch(() => []);
+  // graph_status REPORTS these two values as the state of the tree, so a failed git query used
+  // to be published as currentHead:null alongside dirtyFiles:[] — an honest null next to a
+  // dishonest empty list, which together read as "a repo with no HEAD and nothing modified"
+  // rather than "we could not look".
+  const worktree = await WorktreeState.observe(repoRoot);
+  const commit = worktree.head;
+  const dirtyFiles = worktree.allDirty ?? [];
   const functionality = hasOverlay(repoRoot) ? loadFunctionality(repoRoot) : { features: [] };
   const tasksArtifact = loadTasksArtifact(repoRoot);
   const overlayQuality = summarizeOverlayQuality(functionality.features ?? [], tasksArtifact.tasks ?? []);
@@ -47,6 +52,11 @@ export async function graphStatus({ repoRoot }) {
     commit: manifest.commit ?? null,
     currentHead: commit,
     dirtyFiles,
+    // Present ONLY on the failure path, so a healthy graph_status is unchanged byte for byte.
+    // Without it, dirtyFiles:[] is indistinguishable from a measured clean tree.
+    ...(worktree.disclosures().length > 0
+      ? { worktreeObservationFailed: worktree.disclosures() }
+      : {}),
     unresolvedEdges,
     trustUnresolvedEdges,
     dirtyEdgeCount: unresolvedEdges,

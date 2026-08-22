@@ -15,10 +15,9 @@ import { execFileSync } from 'node:child_process';
 import { computeCoverage } from '../coverage-denominator.js';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
-import { getDirtyFileEntries } from '../../freshness/git.js';
+import { WorktreeState } from '../../freshness/worktree-state.js';
 import { serverBuildInfo } from '../../server-build.js';
 import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
-import { getHeadCommit } from '../../freshness/git.js';
 import { getUnresolvedCounts, explainTrustExclusions } from '../../freshness/unresolved-metrics.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
 import { loadTasksArtifact, lintTaskSchema, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
@@ -303,18 +302,31 @@ export async function graphHealth({ repoRoot }) {
 
   const { manifest } = await loadManifest(graphDir);
   const manifestStatus = manifest?.status ?? 'ok';
-  const head = await getHeadCommit(repoRoot).catch(() => null);
+  // ⛔ THE DIAGNOSTIC VERB IS THE LAST PLACE A FAILED QUERY MAY READ AS A MEASUREMENT. This is the
+  // verb an agent calls to decide whether to trust everything else, and it used to answer a failed
+  // `git status` with "0 tracked, 0 untracked" — a clean bill of health sourced from a query that
+  // never ran. One observation now, carrying which half of it failed.
+  const worktree = await WorktreeState.observe(repoRoot);
+  const head = worktree.head;
   // health is the diagnostic verb, so it keeps BOTH numbers and labels them.
   // `dirtyFiles` (tracked + untracked) still feeds dirty-seam analysis — a new
   // untracked source file is a genuine seam signal — but the count reported in
   // the verdict line distinguishes the trust-relevant tracked number from
   // untracked noise. Unlabelled, a large untracked count reads as snapshot drift
   // (field report: 592 untracked, 0 tracked modifications).
-  const dirtyEntries = await getDirtyFileEntries(repoRoot).catch(() => []);
-  const dirtyFiles = dirtyEntries.map((e) => e.path);
-  const trackedDirtyFiles = dirtyEntries.filter((e) => !e.untracked).map((e) => e.path);
-  const untrackedDirtyCount = dirtyFiles.length - trackedDirtyFiles.length;
-  const stale = Boolean(manifest?.commit && head && manifest.commit !== head);
+  //
+  // ⚠ THE `?? []` IS DELIBERATE AND IS NOT THE DEFENCE. Downstream this file counts, slices and
+  // caps these lists in a dozen places; handing them null would only move the failure to a
+  // TypeError inside report assembly. So the arithmetic gets an empty list and stays total, and
+  // the honesty is carried separately by `worktreeObservationFailed` in the result and the
+  // `worktree-unobserved:` verdict line — the two things a reader actually sees. Neither is
+  // derived from these counts, so neither can be silenced by them.
+  const dirtyFiles = worktree.allDirty ?? [];
+  const trackedDirtyFiles = worktree.trackedDirty ?? [];
+  const untrackedDirtyCount = worktree.untrackedCount ?? 0;
+  // Tri-state: null means staleness was never established. `if (s.stale)` below is correct on
+  // null (no claim either way); the unknown is reported by its own verdict line instead.
+  const stale = worktree.stalenessAgainst(manifest?.commit);
   const { total: unresolvedEdges, trust: trustUnresolvedEdges } = getUnresolvedCounts(manifest);
 
   // Live counts agree with graph_status + graph_report
@@ -1323,6 +1335,12 @@ export async function graphHealth({ repoRoot }) {
       verdicts.push(`dirty=${trackedDirtyFiles.length} tracked${untracked}`);
     }
   }
+  // ⛔ FIRST among the verdicts, because it says how to read the ones after it. `dirty=0` and a
+  // missing `stale` verdict are the healthy tree's output; they are also the failed query's
+  // output. This is the only line that separates them.
+  for (const disclosure of worktree.disclosures()) {
+    verdicts.push(`worktree-unobserved: ${disclosure}`);
+  }
   if (briefStaleVsManifest) {
     verdicts.push('brief-stale: regenerate with graph-brief.mjs');
   }
@@ -1416,6 +1434,13 @@ export async function graphHealth({ repoRoot }) {
     ...(trackedDirtyFiles.length > DIRTY_LIST_CAP
       ? { trackedDirtyFilesOmitted: trackedDirtyFiles.length - DIRTY_LIST_CAP } : {}),
     dirtySeams,
+    // ⛔ WITHOUT THIS FIELD EVERY COUNT ABOVE IS A LIE ON THE FAILURE PATH. dirtyFilesTotal: 0 and
+    // trackedDirtyFilesTotal: 0 are the exact bytes a genuinely clean tree produces, so a reader —
+    // human or agent — cannot tell a measured zero from a query that never ran. Present ONLY when
+    // something could not be observed, so the healthy response is byte-identical to before.
+    ...(worktree.disclosures().length > 0
+      ? { worktreeObservationFailed: worktree.disclosures() }
+      : {}),
     commit: manifest?.commit ?? null,
     currentHead: head,
     stale,

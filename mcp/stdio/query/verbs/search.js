@@ -306,7 +306,13 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
       // they are DIFFERENT facts and only one of them is something the reader chose.
       const ruledOut = [];
       const mayNarrow = [];
-      if (freshnessState && !freshnessState.stale) ruledOut.push('the index is fresh');
+      // ⛔ `=== false`, NOT `!stale`. This line RULES OUT staleness as the reason a symbol was not
+      // found — an affirmative claim about the index, printed to a reader deciding whether "not
+      // found" means "not there". `stale` is tri-state and `null` means the git query that would
+      // have established freshness never ran; `!null` is `true`, so the old test exonerated the
+      // index on the strength of a check that did not happen. An unknown may not be laundered into
+      // a ruled-out. Same class as the absence claims in graph_find and graph_whereis.
+      if (freshnessState && freshnessState.stale === false) ruledOut.push('the index is fresh');
       if (type || file || (kindSupplied && kind !== 'all')) {
         mayNarrow.push('filters are active (type/file/kind) and may be excluding matches');
       }

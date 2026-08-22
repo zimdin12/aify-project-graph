@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../freshness/orchestrator.js';
-import { getDirtyFileEntries, getHeadCommit } from '../../freshness/git.js';
+import { WorktreeState } from '../../freshness/worktree-state.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { openExistingDb } from '../../storage/db.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
@@ -34,7 +34,19 @@ export function commitsBehindHead(repoRoot, indexedCommit, head) {
 // "not found" as proof a symbol doesn't exist. Kept to two lines. Returns ''
 // when the index is fresh (no caveat → no noise on the happy path).
 export function staleNotFoundCaveat(freshness) {
-  if (!freshness || !freshness.stale) return '';
+  if (!freshness) return '';
+  // ⛔ THE UNKNOWN GETS ITS OWN CAVEAT, and it is NOT the stale one. `stale === null` means the git
+  // query that would have established staleness never ran, so this verb cannot say the index is
+  // behind — and equally cannot let a not-found stand unqualified. Falling through to `return ''`
+  // here (what `!freshness.stale` used to do, since `!null` is true) hands the reader a bare
+  // "not found" backed by a check that did not happen.
+  if (freshness.stale === null || freshness.stale === undefined) {
+    return [
+      'NOTE: index staleness could NOT be determined (the git query failed), so this "not found" is',
+      'not proof the symbol does not exist. Run graph_health() to see why, then graph_index().',
+    ].join('\n');
+  }
+  if (!freshness.stale) return '';
   const n = freshness.commitsBehind;
   const behind = n != null
     ? `${n} commit${n === 1 ? '' : 's'} behind HEAD`
@@ -137,10 +149,21 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   // every read verb already prints through.
   const staleBuild = staleProcessWarning();
   if (staleBuild) warnings.push(staleBuild);
-  const head = await getHeadCommit(repoRoot).catch(() => null);
-  const dirtyEntries = await getDirtyFileEntries(repoRoot).catch(() => []);
-  const dirtyFiles = dirtyEntries.map((e) => e.path);
-  const stale = Boolean(manifest.commit && head && manifest.commit !== head);
+  // ⛔ ONE OBSERVATION, AND IT MAY BE "I COULD NOT LOOK". This used to be two independent
+  // `.catch()` clauses: HEAD fell back to null (honest) and the dirty query fell back to `[]`
+  // (not honest — indistinguishable from a clean tree). A failed `git status` therefore silenced
+  // the tracked-modification warning eleven lines below, whose own comment calls it the only thing
+  // standing between a user and a stale answer.
+  const worktree = await WorktreeState.observe(repoRoot);
+  const head = worktree.head;
+  const dirtyFiles = worktree.allDirty ?? [];
+  // ⛔ TRI-STATE. `null` means staleness was never determined — NOT that the snapshot is current.
+  // Callers that want to claim freshness must test `=== false`; see graph_search's "Ruled out"
+  // line, which asserted exactly that from an unknown and is the reason this is not a boolean.
+  const stale = worktree.stalenessAgainst(manifest.commit);
+  // The disclosure goes FIRST among the freshness warnings: it tells the reader how to read the
+  // silence that follows it. Empty on the healthy path, which is asserted by a control.
+  warnings.push(...worktree.disclosures());
   // Reuse graph_health's indexed-commit → HEAD basis so the loud not-found
   // staleness caveat reports the SAME "N commits behind" agents see from health.
   const commitsBehind = stale ? commitsBehindHead(repoRoot, manifest.commit, head) : null;
@@ -166,8 +189,12 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   // warning about them tells the user to distrust a snapshot that is current.
   // This warning is the only thing standing between a user and a stale answer,
   // so it keys on the one number that means drift.
-  const trackedDirty = dirtyEntries.filter((e) => !e.untracked).map((e) => e.path);
-  if (trackedDirty.length > 0) {
+  //
+  // ⛔ `trackedDirty` is null when the query failed, never []. The `> 0` test below then simply
+  // does not fire — correctly, because there is nothing to report — and the disclosure pushed
+  // above is what tells the reader that this silence is an unknown rather than a clean tree.
+  const trackedDirty = worktree.trackedDirty;
+  if (trackedDirty !== null && trackedDirty.length > 0) {
     warnings.push(`working tree has ${trackedDirty.length} modified tracked file${trackedDirty.length === 1 ? '' : 's'}; live reads use the last completed snapshot`);
   }
 
