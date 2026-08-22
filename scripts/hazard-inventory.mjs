@@ -53,10 +53,33 @@ for (const [f, src] of sources) { for (const k of readKeys(src, f)) readEverywhe
  * ⛔ DISABLED ON EVIDENCE, NOT ON TASTE — and the evidence is reproduced on every run.
  *
  * The referee's category 6 (self-reporting literal fields) is computable and the detector works: it
- * finds `stillBlocksNewRuns: true`. But run over this corpus it returns ~300 candidates, and a
- * sample of them is `windowsHide: true`, `recursive: true`, `withFileTypes: true` — Node API
- * options that ARE consumed, by Node, not by our code. The "nothing reads this key" heuristic
- * cannot see that reader.
+ * finds `stillBlocksNewRuns: true`. But run over this corpus it returns ~300 candidates.
+ *
+ * ⛔ MY FIRST STATED REASON COVERED 38% OF THAT POPULATION. I wrote that a sample is `windowsHide`,
+ * `recursive`, `withFileTypes` — Node API options consumed by Node rather than by our code. True,
+ * and measured by ef-manager at 114 hits across 7 keys. The other 186 hits across 77 keys are
+ * project-domain names: `minimum`/`maximum` (JSON Schema, read by ajv), `dynamicRegistration` (read
+ * by the language server), `evidence_records`, `repositoryExhaustive`, `measured`.
+ *
+ * ⇒ THE REAL CLASS IS "KEYS WHOSE READER IS OUTSIDE THIS CODEBASE". Node options are one instance
+ * of it. Stated that way it covers most of the 300, which makes the disable MORE justified than my
+ * original text argued — the correction strengthens the decision rather than undermining it.
+ *
+ * ⛔⛔ AND THE PROOF IS NOT HYPOTHETICAL. `measured` is written at health.js:103, has ZERO in-repo
+ * reads, and travels in graph_health's storage block. ef-manager READ IT THIS SESSION, out of this
+ * tool's own output, while checking a server buildId. A field this detector calls unread was
+ * consumed by an agent, from our product, today.
+ *
+ * ⇒ So the heuristic's premise is structurally unable to hold in a codebase WHOSE PRODUCT IS DATA
+ * FOR EXTERNAL CONSUMERS. Every MCP response field is written once and read by someone the scanner
+ * cannot see. That is not noise to tune out; it is the detector asking a question that has no
+ * in-repo answer for a whole region of the code.
+ *
+ * ⚠ THE SHIPPABLE VERSION, not implemented here: distinguish BOUNDARY-CROSSING from INTERNAL. A
+ * literal field that reaches a tool response, a JSON artifact or a schema has an external reader BY
+ * CONSTRUCTION. A literal that stays in process memory and is never read is the actual hazard. That
+ * is a structural property, and unlike an allowlist of names it does not need Node plus ajv plus
+ * LSP plus every future dependency. The residue after such a filter is UNMEASURED and may be zero.
  *
  * ⇒ I wrote, one screen above, that a high-noise detector gets muted and a muted detector is worse
  * than an absent one because it looks like coverage. Shipping this at 300 would have been exactly
@@ -119,10 +142,14 @@ if (show) {
 }
 
 console.log(`  MEASURED AND DISABLED: self-reporting literal fields — ${suppressed.length} candidates.`);
-console.log('    Sampled as windowsHide/recursive/withFileTypes: Node API options that ARE consumed,');
-console.log('    by Node, which the "nothing reads this key" heuristic cannot see. Reporting 300');
-console.log('    candidates would be the muted-detector failure this tool exists to prevent. The');
-console.log('    one real instance of this class was found by running a control, not by a scanner.\n');
+console.log('    The class is KEYS WHOSE READER IS OUTSIDE THIS CODEBASE. Node options (windowsHide,');
+console.log('    recursive) are one instance and cover ~38%; the rest are project-domain names read');
+console.log('    by ajv, by a language server, or by an agent consuming an MCP response. Measured:');
+console.log('    `measured` is written in health.js, has ZERO in-repo reads, and was read out of');
+console.log('    graph_health output by an agent the same day this was written. The premise');
+console.log('    "nothing reads this key" cannot hold where the PRODUCT is data for outside');
+console.log('    consumers. Shippable version: distinguish boundary-crossing from internal, which is');
+console.log('    structural rather than an allowlist of Node plus ajv plus LSP plus what comes next.\n');
 
 console.log('  NOT IMPLEMENTED, deliberately — a tool silent about its blind spots reads as coverage:');
 for (const n of NOT_IMPLEMENTED) console.log(`    · ${n.category}\n        ${n.why}\n`);

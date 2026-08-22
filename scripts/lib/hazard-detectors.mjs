@@ -38,10 +38,15 @@ export const NOT_IMPLEMENTED = Object.freeze([
   },
   {
     category: 'mutation controls lacking a unique-site count, an applied-edit assertion, or a predicted red',
-    why: 'the population is empty in this repository. Mutation controls are written ad hoc in the '
-      + 'operator scratchpad and are never committed, so there is nothing here to scan. Implementing '
-      + 'it would produce a permanent, reassuring zero over a population that does not exist — the '
-      + 'exact defect shape this inventory is for.',
+    why: '⚠ THIS JUSTIFICATION EXPIRED THE DAY IT WAS WRITTEN, and is corrected here rather than '
+      + 'left standing. It said the population was empty because mutation controls "are written ad '
+      + 'hoc in the operator scratchpad and are never committed". scripts/lib/mutation-control.mjs '
+      + 'was committed the same session, so a committed population now exists — one member. '
+      + 'Flagged by ef-manager, applying the rule this project already holds: that a description '
+      + 'must not '
+      + 'outlive the behaviour it describes. The category stays unimplemented because ONE member is '
+      + 'not a corpus worth a detector, but that is a different and much weaker reason than the one '
+      + 'it replaces, and it stops being true the moment a second harness lands.',
   },
 ]);
 
@@ -70,9 +75,66 @@ const VACUOUS_QUANTIFIERS = new Set(['every', 'some']);
  * ⚠ This is the difference between a hazard and a line of code. `xs.every(p)` logged to a console
  * is harmless; the same call returned from `isHealthy()` is a verdict.
  */
-function gateContext(node) {
+/**
+ * ⛔⛔ ONE PAIR OF PARENTHESES DEFEATED EVERY RULE IN THIS FUNCTION.
+ *
+ *     return xs.every(p);      DETECTED
+ *     return (xs.every(p));    MISSED
+ *     e.ok = (xs.every(p));    MISSED
+ *
+ * `node.parent` became a ParenthesizedExpression, so return / assignment / arrow / if / ternary all
+ * stopped matching AT ONCE. That is not one more context to enumerate — it is the SAME context
+ * wearing a transparent wrapper, it is semantically identical, and formatters add and remove them.
+ *
+ * ⇒ EVERY CONTEXT ADDED LATER WOULD HAVE INHERITED THE HOLE. So the wrapper is stripped before
+ * anything is classified, and one unwrapping step repairs three probe cases plus every future rule.
+ *
+ * ⚠ AND IT CHANGED WHAT THE EXISTING CONTROLS PROVED. They all use unparenthesized source, so they
+ * could not distinguish "handles assignment" from "handles assignment as long as nobody wrapped it".
+ *
+ * ⚠ `await` is treated the same way. The comma operator is NOT blanket-transparent: only the RIGHT
+ * operand's value flows out, so the left is deliberately not unwrapped.
+ *
+ * Found by ef-manager, running 24 constructs as a corpus rather than imagining cases.
+ */
+function unwrapTransparent(node) {
+  let cur = node;
+  for (;;) {
+    const parent = cur.parent;
+    if (!parent) return cur;
+    if (ts.isParenthesizedExpression(parent) || ts.isAwaitExpression(parent)) { cur = parent; continue; }
+    if (ts.isBinaryExpression(parent)
+        && parent.operatorToken.kind === ts.SyntaxKind.CommaToken
+        && parent.right === cur) { cur = parent; continue; }
+    return cur;
+  }
+}
+
+/**
+ * Callees whose ARGUMENT is a verdict rather than data.
+ *
+ * ⚠ ENUMERATION, KNOWINGLY — and the argument for it is ef-manager's: `console.log(xs.every(p))` is
+ * data and `assert(xs.every(p))` is a verdict, so a blanket argument rule would be wrong. But
+ * leaving arguments out entirely is not neutral: it makes a vacuous quantifier INSIDE AN ASSERTION
+ * invisible, which is where a vacuous `true` does the most damage — a test passing over an empty
+ * population. This is enumeration over a much smaller and slower-moving set than syntax.
+ */
+const VERDICT_CALLEES = new Set(['assert', 'expect', 'invariant', 'ok', 'require', 'strictEqual']);
+
+function gateContext(rawNode) {
+  const node = unwrapTransparent(rawNode);
   const p = node.parent;
   if (!p) return null;
+  if (ts.isWhileStatement(p) && p.expression === node) return 'while-condition';
+  if (ts.isDoStatement(p) && p.expression === node) return 'do-while-condition';
+  if (ts.isSwitchStatement(p) && p.expression === node) return 'switch-discriminant';
+  // A class property initialiser is the same act as an assignment, with a different node type.
+  if (ts.isPropertyDeclaration(p) && p.initializer === node) return `assigned to class field \`${p.name.getText()}\``;
+  if (ts.isCallExpression(p) && p.arguments.includes(node)) {
+    const callee = ts.isPropertyAccessExpression(p.expression) ? p.expression.expression.getText()
+      : p.expression.getText();
+    if (VERDICT_CALLEES.has(String(callee).split('.').pop())) return `argument to ${callee}()`;
+  }
   if (ts.isReturnStatement(p)) return 'returned';
   if (ts.isIfStatement(p) && p.expression === node) return 'if-condition';
   if (ts.isConditionalExpression(p) && p.condition === node) return 'ternary-condition';
@@ -88,7 +150,15 @@ function gateContext(node) {
     // ⇒ The detector for vacuous checks was itself unable to see the vacuous check it exists for,
     // and the live-instance control PASSED, so nothing would have revealed it. Enumerating the
     // contexts I could think of is the same losing move as enumerating syntax.
-    if (p.operatorToken.kind === ts.SyntaxKind.EqualsToken && p.right === node) {
+    // ⛔ `&&=` `||=` `??=` ARE ASSIGNMENTS TOO, and testing EqualsToken alone missed all three —
+    // the same shape as the defect that motivated this tool, one token class over.
+    const ASSIGN = new Set([
+      ts.SyntaxKind.EqualsToken,
+      ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+      ts.SyntaxKind.BarBarEqualsToken,
+      ts.SyntaxKind.QuestionQuestionEqualsToken,
+    ]);
+    if (ASSIGN.has(p.operatorToken.kind) && p.right === node) {
       return `assigned to ${p.left.getText().slice(0, 40)}`;
     }
     if (['&&', '||', '??'].includes(p.operatorToken.getText())) return 'boolean operand';

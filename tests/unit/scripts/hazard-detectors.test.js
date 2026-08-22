@@ -59,6 +59,50 @@ describe('vacuous quantifiers', () => {
     }
   });
 
+  it('★★★⛔ ONE PAREN USED TO DEFEAT EVERY RULE IN THE FUNCTION', () => {
+    // ⛔⛔ NOT AN ENUMERATION GAP — A STRUCTURAL ONE. `node.parent` became a ParenthesizedExpression,
+    // so return / assignment / arrow / if / ternary ALL stopped matching at once. Parenthesising is
+    // not a different context; it is the SAME context wearing a transparent wrapper, semantically
+    // identical, and formatters add and remove them freely.
+    //
+    // ⇒ Every context added later would have inherited the hole. So the wrapper is stripped BEFORE
+    // classification, and this test is what stops it coming back.
+    //
+    // ⚠ AND IT CHANGED WHAT THE OTHER CONTROLS PROVED: they all use unparenthesized source, so they
+    // could not distinguish "handles assignment" from "handles assignment as long as nobody wrapped
+    // it". They were passing on a strictly easier corpus than reality.
+    // Found by ef-manager, running 24 constructs as a corpus rather than imagining cases.
+    for (const src of ['return (xs.every(p));', 'e.ok = (xs.every(p));', 'const f = () => (xs.every(p));']) {
+      expect(vacuousQuantifiers(src).length, src).toBe(1);
+    }
+    // await and the comma operator's RIGHT operand are transparent the same way.
+    expect(vacuousQuantifiers('async function f(){ return await (xs.every(p)); }').length).toBe(1);
+  });
+
+  it('★★★⛔ `&&=` `||=` `??=` ARE ASSIGNMENTS — the motivating defect, one token class over', () => {
+    // ⛔ The `=` branch tested EqualsToken specifically, so a logical assignment to a gate variable
+    // slipped past for exactly the reason plain assignment did before this tool existed.
+    for (const op of ['&&=', '||=', '??=']) {
+      expect(vacuousQuantifiers(`ok ${op} xs.every(p);`).length, op).toBe(1);
+    }
+  });
+
+  it('★★★⛔ a quantifier inside an ASSERTION is a gate — where a vacuous true costs most', () => {
+    // ⚠ KNOWINGLY AN ENUMERATION, over a much smaller and slower-moving set than syntax. Argument
+    // position genuinely depends on the callee: console.log(...) is data, assert(...) is a verdict.
+    // A blanket rule would be wrong — but omitting arguments entirely makes a vacuous quantifier
+    // invisible exactly where it does the most damage: a test PASSING over an empty population.
+    for (const src of ['assert(xs.every(p));', 'expect(xs.every(p)).toBe(true);', 'invariant(xs.every(p));']) {
+      expect(vacuousQuantifiers(src).length, src).toBe(1);
+    }
+  });
+
+  it('★★★ loop and class-field gates are recognised', () => {
+    for (const src of ['while (xs.every(p)) {}', 'do {} while (xs.every(p));', 'class C { ok = xs.every(p); }']) {
+      expect(vacuousQuantifiers(src).length, src).toBe(1);
+    }
+  });
+
   it('★★★ NEGATIVE CONTROL: a quantifier used as DATA is not a gate', () => {
     // ⛔ Without this the detector is satisfied by one that flags every `.every()` in the repo,
     // which would be 100% recall and no signal — the muted-detector failure.
