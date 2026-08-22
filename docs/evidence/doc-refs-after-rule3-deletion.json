@@ -1,0 +1,1171 @@
+{
+  "what": "Frozen doc-ref population for per-rule precision grading. Verdicts are NOT filled in.",
+  "how_to_grade": [
+    "For each entry in `admitted`, read `source_text` — the sentence the author actually wrote —",
+    "and decide whether it refers to `target_label` at `target_file`. Set verdict to \"correct\" or",
+    "\"false_positive\". Grade the PROSE, not the resolution: reading the target first is grading",
+    "the answer key. Precision is computed PER `extractor`, because dev set the floor per rule and",
+    "an aggregate can clear 0.95 while a rule inside it sits at 0.6.",
+    "For each entry in `refused`, decide whether the layer SHOULD have admitted it. That is the",
+    "recall question, and it is the one a precision number cannot answer."
+  ],
+  "pins": {
+    "commit": "53718b94ac390a4e5b1ed02da25e92485d67b461",
+    "dirty_files": 2,
+    "graph_sha256_16": "cfa638142aca1dfc",
+    "repo": "aify-project-graph",
+    "rules": {
+      "doc_ref:qualified": 0.9,
+      "doc_ref:path-scoped": 0.85
+    }
+  },
+  "totals": {
+    "documents": 179,
+    "documents_with_refs": 16,
+    "admitted": 35,
+    "admitted_by_rule": {
+      "doc_ref:path-scoped": 34,
+      "doc_ref:qualified": 1
+    },
+    "refused_total": 12805,
+    "span_invariant_violations": 0
+  },
+  "admitted": [
+    {
+      "source_file": "CHANGELOG.md",
+      "source_line": 297,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "check",
+      "target_type": "Symbol",
+      "target_file": "scripts/sync-skills.mjs",
+      "source_text": "Guards so this can't silently recur: **`tests/unit/integrations/skill-parity.test.js`** asserts the four trees ship the same skill set, that skill BODIES are byte-identical across runtimes (frontmatter may differ), no `''` corruption, LF endings, and non-empty `name`/`description` frontmatter. **`scripts/sync-skills.mjs`** makes that test actionable — it propagates the canonical claude-code bodies while preserving each runtime's frontmatter (`--check` for a CI-friendly report, idempotent).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-12-refactor-proposal.md",
+      "source_line": 347,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "tools",
+      "target_type": "Symbol",
+      "target_file": "scripts/toolsurface-oracle.mjs",
+      "source_text": "| 1. `tools/schema.js` | the emitted tool surface | `scripts/toolsurface-oracle.mjs` — full `tools/list` over the real protocol: names, descriptions, every schema byte |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/2026-08-19-variable-extraction-parked.md",
+      "source_line": 125,
+      "extractor": "doc_ref:qualified",
+      "confidence": 0.9,
+      "target_label": "matchRule",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/extractors/generic.js",
+      "source_text": "`generic.matchRule()` uses `rules.find` and calls that ONE rule; turning it into",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2-next-plan.md",
+      "source_line": 99,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "readJsonCapped",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/util/json.js",
+      "source_text": "| P5-1 ✅ DONE | **Pre-parse JSON size cap** on `.aify-graph/*.json` before `JSON.parse` — shipped `18b5bff` (`util/json.js` `readJsonCapped`, 64MiB default / `APG_JSON_MAX_BYTES`, stat-checks before parse; routed overlay/manifest/categorization reads). _SSRF kit deferred — no fetch path lives yet._ | [MISS]#8 | S |",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "source_line": 30,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "getGitCandidateFiles",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/git-candidates.js",
+      "source_text": "`mcp/stdio/ingest/git-candidates.js` `getGitCandidateFiles` runs `git ls-files --cached --others --exclude-standard` **without `-z`** and splits on `\\r?\\n`. Without `-z`, git C-escapes non-ASCII paths (`\"\\360\\237...\"`) → files under emoji/CJK/accented dirs are **silently dropped from ingest**. Fix: add `-z`, split on `\\0`, bump maxBuffer. Latent correctness bug independent of everything else.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2/reference-borrow-synthesis.md",
+      "source_line": 33,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "normalizeImportSource",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/languages/javascript.js",
+      "source_text": "Fixes the **87 IMPORTS**. Two sub-bugs in `normalizeImportSource` (identical in `languages/javascript.js` + `typescript.js`):",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/code-intel-v2/test-round-2026-05-31.md",
+      "source_line": 58,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "buildAbsenceTrustLine",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/lsp-evidence.js",
+      "source_text": "**Root cause (read in source):** `mcp/stdio/query/lsp-evidence.js` → `buildAbsenceTrustLine()` (lines 87-115). It calls `getLatestCollection(db)` and, if `collection.indexReady===true` and not stale-vs-HEAD, unconditionally returns *\"lsp-verified-exhaustive … TRUSTWORTHY absence.\"* It never verifies (a) that THIS symbol was resolved by clangd, or (b) that caller-side TUs were in the collection. Empty ≠ exhaustive.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 10,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "getCodeIntelDiagnosticsForFiles",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "- A new shared module `mcp/stdio/code-intel/query.js` exposes `getCodeIntelEvidenceForSymbol(db, symbolKey)` and `getCodeIntelDiagnosticsForFiles(db, files)` so verbs and the future `verify` mode (Plan #4) consume one canonical helper.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 10,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "getCodeIntelEvidenceForSymbol",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/query.js",
+      "source_text": "- A new shared module `mcp/stdio/code-intel/query.js` exposes `getCodeIntelEvidenceForSymbol(db, symbolKey)` and `getCodeIntelDiagnosticsForFiles(db, files)` so verbs and the future `verify` mode (Plan #4) consume one canonical helper.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+      "source_line": 191,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "importV02Collection",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/ingest/code-intel/importer.js",
+      "source_text": "In `mcp/stdio/ingest/code-intel/importer.js`, inside `importV02Collection(envelope, db, options)` (added in Plan #1), insert before the records loop:",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-graph-freshness-self-heal.md",
+      "source_line": 73,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "commitsBehindHead",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/read_freshness.js",
+      "source_text": "**Integration facts (verified):** dispatch calls `const result = await tool.handler(normalized)` at ~1060, then computes `stalenessWarning` (manifest.commit !== head) at ~1070-1085 and prepends `WARNING:`/`_warnings`. `commitsBehindHead(repoRoot, indexed, head)` is exported from `query/verbs/read_freshness.js`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 56,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "computeOverview",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/analytics.js",
+      "source_text": "**Files:** Modify `mcp/stdio/intelligence/analytics.js` (`computeOverview`); Test `tests/unit/intelligence/archetype-overview.test.js`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+      "source_line": 94,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "buildEmbeddings",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/embeddings.js",
+      "source_text": "**Files:** `mcp/stdio/intelligence/embeddings.js` (`buildEmbeddings`); modify `mcp/stdio/query/verbs/search.js` (`mode`); Test `tests/unit/query/semantic-search.test.js`",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 8,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "resolveNodeBin",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/node-bin.js",
+      "source_text": "- **0.1** `code-intel/node-bin.js`: `resolveNodeBin(name, projectRoot)` → project `node_modules/.bin` → plugin root `node_modules/.bin` → PATH. Unit test the order.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "cppSpawnFor",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "getBackend",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 9,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "inferLanguage",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/backends.js",
+      "source_text": "- **0.2** `code-intel/backends.js`: backend registry `{ language, spawnFor, coldTimeoutMs, providerName }` for cpp (move `cppSpawnFor` ref), typescript, python. `getBackend(language)`, `inferLanguage(file)`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 10,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "computeCoverage",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/coverage.js",
+      "source_text": "- **0.3** `code-intel/coverage.js`: `computeCoverage({ language, projectRoot, env })` dispatcher. cpp→`computeCompileDbCoverage` (unchanged), typescript→tsconfig strategy, python→dynamic caveat. Unit-test each verdict.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 18,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "collect",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/providers/ts-langserver.js",
+      "source_text": "- **1.3** `providers/ts-langserver.js`: spawnFor via `resolveNodeBin('typescript-language-server')` + `--stdio`; glob enumerate `.ts/.tsx/.js/.jsx` (skip node_modules/dist/build); freshnessBasis tsconfig hash or mtime; `collect()` via lsp-collect. Register `typescript: 'ts-langserver'`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-06-02-multi-language-lsp-backends.md",
+      "source_line": 25,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "collect",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/code-intel/providers/pyright.js",
+      "source_text": "- **2.2** `providers/pyright.js`: spawnFor via `resolveNodeBin('pyright-langserver')` + `--stdio`; glob `.py` (skip venv/.venv/site-packages/__pycache__); freshnessBasis mtime; `collect()` via lsp-collect. Register `python: 'pyright'`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+      "source_line": 25,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "aifyBlock",
+      "target_type": "Function",
+      "target_file": "scripts/install-graph-hook.mjs",
+      "source_text": "- Modify: `scripts/install-graph-hook.mjs` (whole file — `aifyBlock`, `installGraphHook`, CLI entry)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+      "source_line": 25,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "installGraphHook",
+      "target_type": "Function",
+      "target_file": "scripts/install-graph-hook.mjs",
+      "source_text": "- Modify: `scripts/install-graph-hook.mjs` (whole file — `aifyBlock`, `installGraphHook`, CLI entry)",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+      "source_line": 104,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "getChangedFiles",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/git.js",
+      "source_text": "- **`since:<git-ref>` derivation polish.** **DONE 2026-05-18 (`ce8807b`).** Extracted `getChangedFilesSync` into `freshness/git.js`; verify and the async `getChangedFiles` wrapper now share it (identical trim/blank/backslash→slash normalization). Also fixed a real Windows backslash path gap the ad-hoc verify copy had.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-05-12-wrap-up-summary.md",
+      "source_line": 104,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "getChangedFilesSync",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/git.js",
+      "source_text": "- **`since:<git-ref>` derivation polish.** **DONE 2026-05-18 (`ce8807b`).** Extracted `getChangedFilesSync` into `freshness/git.js`; verify and the async `getChangedFiles` wrapper now share it (identical trim/blank/backslash→slash normalization). Also fixed a real Windows backslash path gap the ad-hoc verify copy had.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 22,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "buildAbsenceTrustLine",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/lsp-evidence.js",
+      "source_text": "- Trust spine: `mcp/stdio/query/lsp-evidence.js` (`buildTrustLine`, `buildAbsenceTrustLine`) + the evidence/exhaustiveness contract already on `code_intel_references` / `code_intel_hierarchy` / `graph_callers`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 22,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "buildTrustLine",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/lsp-evidence.js",
+      "source_text": "- Trust spine: `mcp/stdio/query/lsp-evidence.js` (`buildTrustLine`, `buildAbsenceTrustLine`) + the evidence/exhaustiveness contract already on `code_intel_references` / `code_intel_hierarchy` / `graph_callers`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 23,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "inspectReadFreshness",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/read_freshness.js",
+      "source_text": "- Freshness: `mcp/stdio/query/verbs/read_freshness.js` (`inspectReadFreshness`) — staleness gating already exists.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 31,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "assertMonotonicTiers",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/source-bundle.js",
+      "source_text": "**What already exists (discovered during planning).** `mcp/stdio/query/source-bundle.js` ALREADY implements adaptive, monotonic, repo-size tiers (`getSourceBundleBudget(nodeCount)` → `{perBlockLines, totalLines, maxBlocks}`, `assertMonotonicTiers()`), and `graph_explore` + `graph_trace` already use it. **So those verbs are done.** The isolated gap is **`graph_packet`**, which clamps to a STATIC `budget_tokens: 800` (in `graphPacket(...)` default + `clampToBudget`) and uses STATIC list caps (`packet-budget.js` `DEFAULT_CAPS`) regardless of repo size.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-agent-front-door-design.md",
+      "source_line": 31,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "getSourceBundleBudget",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/source-bundle.js",
+      "source_text": "**What already exists (discovered during planning).** `mcp/stdio/query/source-bundle.js` ALREADY implements adaptive, monotonic, repo-size tiers (`getSourceBundleBudget(nodeCount)` → `{perBlockLines, totalLines, maxBlocks}`, `assertMonotonicTiers()`), and `graph_explore` + `graph_trace` already use it. **So those verbs are done.** The isolated gap is **`graph_packet`**, which clamps to a STATIC `budget_tokens: 800` (in `graphPacket(...)` default + `clampToBudget`) and uses STATIC list caps (`packet-budget.js` `DEFAULT_CAPS`) regardless of repo size.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "source_line": 12,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "ensureFresh",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/orchestrator.js",
+      "source_text": "- The freshness *engine* (`ensureFresh` in `mcp/stdio/freshness/orchestrator.js`) is robust + incremental (detects HEAD movement via `manifest.commit !== HEAD` → diffs changed files; cosmetic/structural tiers; partial-resume). `graph_index` is a thin wrapper over it.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-graph-freshness-self-heal-design.md",
+      "source_line": 39,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "autoReindexEnabled",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/freshness/auto-reindex.js",
+      "source_text": "- A module-level helper keeps it testable: `export function autoReindexEnabled(env)` in a small `mcp/stdio/freshness/auto-reindex.js`.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 18,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "computeOverview",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/intelligence/analytics.js",
+      "source_text": "- `mcp/stdio/intelligence/analytics.js` `computeOverview(db, {topSymbols, architecture})` clusters by `community_id` → architecture layer → directory, producing `{cluster, label, node_count, top_symbols, edges_to}`. The community `label` is generic today. **Archetypes plug in here** → improves `graph_overview`, `graph_digest`, and the dashboard `/api/overview` (the \"by community\" Map) in one place.",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 20,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "graphSearch",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/search.js",
+      "source_text": "- `mcp/stdio/query/verbs/search.js` `graphSearch({repoRoot, query, type, file, kind, limit, fresh})` — lexical/FTS. **Semantic mode plugs in here** (`mode` param).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+      "source_line": 35,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "graphTour",
+      "target_type": "Function",
+      "target_file": "mcp/stdio/query/verbs/tour.js",
+      "source_text": "**Verb:** `mcp/stdio/query/verbs/tour.js` `graphTour({ repoRoot, steps = 8, focus = null })` → markdown (narrative verb).",
+      "label_on_cited_line": true,
+      "verdict": null
+    },
+    {
+      "source_file": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+      "source_line": 14,
+      "extractor": "doc_ref:path-scoped",
+      "confidence": 0.85,
+      "target_label": "LspClient",
+      "target_type": "Class",
+      "target_file": "mcp/stdio/code-intel/lsp-client.js",
+      "source_text": "The `LspClient` (`code-intel/lsp-client.js`) is a **generic, capability-aware LSP JSON-RPC client** — not clangd-specific. Only the *session resolver* (`getLiveSession`, `if (language === 'cpp')`), the *collection provider registry* (`PROVIDER_BY_LANGUAGE = { cpp }`), and the *exhaustiveness gate* (`computeCompileDbCoverage`) are C++-bound.",
+      "label_on_cited_line": true,
+      "verdict": null
+    }
+  ],
+  "refused": [
+    {
+      "bucket": "unqualified",
+      "total": 11278,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "graph_report",
+          "line": 7,
+          "bucket": "unqualified",
+          "source_text": "A local MCP server that indexes the user's current repo into a SQLite-backed code graph and exposes high-intent query verbs (`graph_report`, `graph_whereis`, `graph_callers`, `graph_impact`, etc.). Compact NODE/EDGE output with `file:line` citations. No server, no container, client-side only.",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-10-one-plan.md",
+          "written": "floor_cause",
+          "line": 1042,
+          "bucket": "unqualified",
+          "source_text": "| `receipt.floor_cause` | ⚠ marginal | `receipt` named as a parameter; `floor_cause` itself unnamed |",
+          "verdict": null
+        },
+        {
+          "document": "docs/a-stand-in-where-the-real-thing-was-available.md",
+          "written": "AppData\\Local\\Temp",
+          "line": 149,
+          "bucket": "unqualified",
+          "source_text": "`AppData\\Local\\Temp` — cleanable, session-scoped, one cleanup away from gone, while",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2-status.md",
+          "written": "initialize",
+          "line": 62,
+          "bucket": "unqualified",
+          "source_text": "- **MCP `initialize` server-instructions playbook** (`mcp/stdio/server-instructions.js`) — intent-routed trust-spine guidance injected into the host system prompt once/session; reaches Hermes + Claude identically.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "mcp/stdio/query/verbs/whereis.js",
+          "line": 2609,
+          "bucket": "unqualified",
+          "source_text": "`mcp/stdio/query/verbs/whereis.js`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "refreshMechanismVerdict(repoRoot: string) => { state: 'ok'|'degraded'|'unconfigured'|'not_a_git_repo', hooks_installed: number, hooks_expected: number, last_refresh: object|null, consequence: string, remedy: string|null }",
+          "line": 616,
+          "bucket": "unqualified",
+          "source_text": "- Produces: `refreshMechanismVerdict(repoRoot: string) => { state: 'ok'|'degraded'|'unconfigured'|'not_a_git_repo', hooks_installed: number, hooks_expected: number, last_refresh: object|null, consequence: string, remedy: string|null }`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-02-multi-language-lsp-backends-design.md",
+          "written": "PROVIDER_BY_LANGUAGE = { cpp }",
+          "line": 14,
+          "bucket": "unqualified",
+          "source_text": "The `LspClient` (`code-intel/lsp-client.js`) is a **generic, capability-aware LSP JSON-RPC client** — not clangd-specific. Only the *session resolver* (`getLiveSession`, `if (language === 'cpp')`), the *collection provider registry* (`PROVIDER_BY_LANGUAGE = { cpp }`), and the *exhaustiveness gate* (`computeCompileDbCoverage`) are C++-bound.",
+          "verdict": null
+        },
+        {
+          "document": "install.opencode.md",
+          "written": ".aify-graph/",
+          "line": 101,
+          "bucket": "unqualified",
+          "source_text": "> Install done. **Restart OpenCode** so the MCP server loads. In any repo, first make sure `.gitignore` contains `.aify-graph/` and add local scratch/build patterns to `.aifyignore` when needed (`build-linux-techlead`, `generated/**`, `*.tmp.cpp`). Then call `graph_health()` to verify registration and `graph_index(force=true)` to build the graph. For the static-brief workflow (briefs + overlay reliably save ~15-20% wall-clock and tool calls vs Grep-only on planning shapes — see README for measurement caveats), run once per target repo:",
+          "verdict": null
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-guide/SKILL.md",
+          "written": "*.tmp.cpp",
+          "line": 165,
+          "bucket": "unqualified",
+          "source_text": "  - examples: `build-linux-techlead`, `scratch`, `tmp-local`, `generated/**`, `*.tmp.cpp`",
+          "verdict": null
+        },
+        {
+          "document": "integrations/codex/skills/graph-feature-edit/SKILL.md",
+          "written": "related_to",
+          "line": 78,
+          "bucket": "unqualified",
+          "source_text": "- Source's `depends_on` / `related_to` are UNION'd into target, minus self-references.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/cursor/skills/graph-build-intelligence/SKILL.md",
+          "written": "inputSha",
+          "line": 103,
+          "bucket": "unqualified",
+          "source_text": "- `inputSha` — sha256 of the canonical structural extract",
+          "verdict": null
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-intelligence/prompts/file-summarizer.md",
+          "written": "route-handler",
+          "line": 75,
+          "bucket": "unqualified",
+          "source_text": "- `api-handler`, `route-handler`, `controller`",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "is_a_path",
+      "total": 90,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "install.claude.md",
+          "line": 23,
+          "bucket": "is_a_path",
+          "source_text": "- **Claude Code (native Windows / macOS / Linux)** → [`install.claude.md`](install.claude.md)",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "README.md",
+          "line": 303,
+          "bucket": "is_a_path",
+          "source_text": "- **`install.hermes.md` documented the wrong config entirely.** The JSON-patch fallback wrote `~/.config/hermes/hermes.json` → `mcpServers`. Hermes actually reads **`$HERMES_HOME/config.yaml`** (default `~/.hermes/config.yaml`) under a top-level **`mcp_servers`** key — YAML, not JSON. Anyone following the fallback produced a file Hermes never reads. Corrected in `install.hermes.md`, `README.md`, and the marketplace `runtime_configs` metadata.",
+          "verdict": null
+        },
+        {
+          "document": "docs/evidence/directs-reader-to-population.md",
+          "written": "AGENTS.md",
+          "line": 92,
+          "bucket": "is_a_path",
+          "source_text": "      PRESENT  \"Read `AGENTS.md` first.\"               -> true",
+          "verdict": null
+        },
+        {
+          "document": "docs/evidence/read-first-docs-second-corpus-echoes.md",
+          "written": "AGENTS.md",
+          "line": 20,
+          "bucket": "is_a_path",
+          "source_text": "`echoes_of_the_fallen/CLAUDE.md` line 3, verbatim: **\"Read `AGENTS.md` first.\"** The correct",
+          "verdict": null
+        },
+        {
+          "document": "docs/install-and-launch-scope.md",
+          "written": "AGENTS.md",
+          "line": 46,
+          "bucket": "is_a_path",
+          "source_text": "1. **Docs:** a short \"Install scopes\" section in `AGENTS.md` / README making",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "install.opencode.md",
+          "line": 3522,
+          "bucket": "is_a_path",
+          "source_text": "- Create: `install.codex.md`, `install.opencode.md`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "README.md",
+          "line": 3549,
+          "bucket": "is_a_path",
+          "source_text": "`README.md`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "written": "package.json",
+          "line": 109,
+          "bucket": "is_a_path",
+          "source_text": "- [ ] **Step 3: Add bin entries to `package.json`**",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "install.opencode.md",
+          "line": 877,
+          "bucket": "is_a_path",
+          "source_text": "- Modify: `install.hermes.md`, `install.codex.md`, `install.cursor.md`, `install.opencode.md`",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-04-16-aify-project-graph-design.md",
+          "written": "install.claude.md",
+          "line": 576,
+          "bucket": "is_a_path",
+          "source_text": "5. **Install works for both runtimes.** A user can tell Claude Code or Codex \"install aify-project-graph in this repo\" and the agent successfully follows `install.claude.md` / `install.codex.md` end-to-end.",
+          "verdict": null
+        },
+        {
+          "document": "install.codex.md",
+          "written": "install.claude.md",
+          "line": 7,
+          "bucket": "is_a_path",
+          "source_text": "Codex is typically used in WSL on Windows. If the user also runs Claude Code on native Windows, the two runtimes need **separate clones** — `better-sqlite3` is a native module and its compiled binary must match the runtime (Windows .node ≠ Linux .so). Install this doc inside the environment where Codex actually runs (usually WSL). The Claude-Code install is a separate clone on the Windows side via `install.claude.md`.",
+          "verdict": null
+        },
+        {
+          "document": "README.md",
+          "written": "install.hermes.md",
+          "line": 345,
+          "bucket": "is_a_path",
+          "source_text": "For the full step-by-step per runtime see [`install.claude.md`](install.claude.md), [`install.codex.md`](install.codex.md), [`install.opencode.md`](install.opencode.md), [`install.pi.md`](install.pi.md) (oh-my-pi), [`install.hermes.md`](install.hermes.md), [`install.cursor.md`](install.cursor.md). They are agent-executable — paste the \"Install in one paste\" prompt above and the agent follows them.",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "path_not_indexed",
+      "total": 459,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "opencode.json",
+          "line": 34,
+          "bucket": "path_not_indexed",
+          "source_text": "| OpenCode | `${XDG_CONFIG_HOME:-~/.config}/opencode/plugins/aify-project-graph` | JSON-patch `opencode.json` |",
+          "verdict": null
+        },
+        {
+          "document": "docs/archive/a2-plan.md",
+          "written": "brief.onboard.md",
+          "line": 10,
+          "bucket": "path_not_indexed",
+          "source_text": "4. **Two typed briefs**: `brief.onboard.md` + `brief.plan.md` (not 4 — dev: \"start smaller\")",
+          "verdict": null
+        },
+        {
+          "document": "docs/dogfood/ab-results-2026-04-19-deep-summary.md",
+          "written": "functionality.json",
+          "line": 62,
+          "bucket": "path_not_indexed",
+          "source_text": "The self-repo plan brief used here was the enhanced version (558 tok, with `open:`/`tests:`/`load:` per feature, feature+test attribution on risk items). It cleanly beat lean-MCP −19%/-28% on self. The test on repos-without-overlay wasn't possible because the enrichment only fires when `functionality.json` exists.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-25-upgrade-plan.md",
+          "written": "brief.plan.md",
+          "line": 195,
+          "bucket": "path_not_indexed",
+          "source_text": "- [ ] `brief.plan.md` feature `load:` metric reuses `graph_change_plan`'s caller-resolution path (currently undercount on C++ class anchors)",
+          "verdict": null
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "written": "brief.onboard.md",
+          "line": 20,
+          "bucket": "path_not_indexed",
+          "source_text": "- For orient / onboarding: read `brief.agent.md` or `brief.onboard.md`",
+          "verdict": null
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-build-intelligence/SKILL.md",
+          "written": "functionality.json",
+          "line": 75,
+          "bucket": "path_not_indexed",
+          "source_text": "**The validators are non-negotiable.** If either fails, do NOT write the file. Surface the error list to the user and stop. LLM hallucinations (invented paths, unknown layer ids, paths with backslashes, contradictions with `functionality.json`) are the failure modes the validators exist to catch — bypassing them defeats the entire intelligence layer.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/codex/skill/SKILL.md",
+          "written": "brief.agent.md",
+          "line": 226,
+          "bucket": "path_not_indexed",
+          "source_text": "- read `brief.agent.md`",
+          "verdict": null
+        },
+        {
+          "document": "integrations/codex/skills/graph-feature-edit/SKILL.md",
+          "written": "functionality.json",
+          "line": 57,
+          "bucket": "path_not_indexed",
+          "source_text": "7. **Write** `functionality.json`.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/cursor/skills/graph-build-all/SKILL.md",
+          "written": "brief.json",
+          "line": 77,
+          "bucket": "path_not_indexed",
+          "source_text": "`brief.json`, and `unresolved-categorization.json` under",
+          "verdict": null
+        },
+        {
+          "document": "integrations/cursor/skills/graph-guide/SKILL.md",
+          "written": "tasks.json",
+          "line": 245,
+          "bucket": "path_not_indexed",
+          "source_text": "- do not skip brief regeneration after changing `functionality.json` or `tasks.json`",
+          "verdict": null
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-briefs/SKILL.md",
+          "written": "brief.plan.md",
+          "line": 26,
+          "bucket": "path_not_indexed",
+          "source_text": "- User edited `.aify-graph/tasks.json` (e.g. after running `/graph-build-tasks`) and wants the per-feature task lines in `brief.plan.md` updated",
+          "verdict": null
+        },
+        {
+          "document": "integrations/hermes/skills/graph-walk-bugs/SKILL.md",
+          "written": "tasks.json",
+          "line": 19,
+          "bucket": "path_not_indexed",
+          "source_text": "within tiers), filter `tasks.json` for bug-like tasks per feature, and emit a flat plan with depth",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "fenced_example",
+      "total": 416,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "tests",
+          "line": 72,
+          "bucket": "fenced_example",
+          "source_text": "# add feature-level `tests` arrays on repos with monolithic/shared test files",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "${table.toLowerCase()}:${filePath}:${qname}",
+          "line": 1108,
+          "bucket": "fenced_example",
+          "source_text": "  const id = `${table.toLowerCase()}:${filePath}:${qname}`;",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "MATCH (a)-[r:CALLS]->(b) WHERE a.label = $label RETURN b LIMIT 3",
+          "line": 3180,
+          "bucket": "fenced_example",
+          "source_text": "      `MATCH (a)-[r:CALLS]->(b) WHERE a.label = $label RETURN b LIMIT 3`, { label: node }",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "unresolvedEdges: 0",
+          "line": 3501,
+          "bucket": "fenced_example",
+          "source_text": "   Should report `indexed: true`, `unresolvedEdges: 0`, `dirtyEdgeCount: 0`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-cpp-clangd-provider.md",
+          "written": "c:cpp:${file}:${line}:${col}",
+          "line": 881,
+          "bucket": "fenced_example",
+          "source_text": "  return `c:cpp:${file}:${line}:${col}`;",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "${provider}@${providerVersion}",
+          "line": 1164,
+          "bucket": "fenced_example",
+          "source_text": "        provenance: `${provider}@${providerVersion}`,",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "qname",
+          "line": 1255,
+          "bucket": "fenced_example",
+          "source_text": "Every record carries `collectionId` so imported facts trace back to the provider run that produced them. `symbolId` is the provider-stable identifier (e.g., a clangd USR). `qname` includes the disambiguating signature where the language requires it (`ns::foo(int)` rather than `ns::foo`). `language` is required so multi-language consumers can dispatch by record.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "confidence",
+          "line": 1275,
+          "bucket": "fenced_example",
+          "source_text": "Records carry `confidence` ∈ {`high`, `medium`, `low`}. Direct call references and definitions are `high`. Virtual-call, template-instantiation, and macro-expansion contexts are at most `medium`. Text-search-derived inferences are `low` and tagged `provenance: INFERRED`, never `CODE_INTEL`. Providers may emit confidence directly or APG derives it deterministically from `(kind, context, provider)`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-graph-merge.md",
+          "written": "apg-cic-${Date.now()}-p.json",
+          "line": 171,
+          "bucket": "fenced_example",
+          "source_text": "    const tmp = path.join(os.tmpdir(), `apg-cic-${Date.now()}-p.json`);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-packet-v2-verify.md",
+          "written": "DIAGNOSTICS (${packet.diagnostics.length}):",
+          "line": 467,
+          "bucket": "fenced_example",
+          "source_text": "    lines.push(`DIAGNOSTICS (${packet.diagnostics.length}):`);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "${dead} deleted",
+          "line": 259,
+          "bucket": "fenced_example",
+          "source_text": "      expect(existsSync(join(REPO, dead)), `${dead} deleted`).toBe(false);",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-08-07-graph-freshness.md",
+          "written": "degraded",
+          "line": 999,
+          "bucket": "fenced_example",
+          "source_text": "- If a response says \"graph stale\", run graph_index first. Check graph_health.refreshMechanism: `unconfigured` means no hook refreshes this repo (install-graph-hook.mjs); `degraded` means the mechanism is installed but failing, so staleness will RECUR until fixed.",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "no_such_symbol",
+      "total": 388,
+      "sample": [
+        {
+          "document": "AGENTS.md",
+          "written": "graph_health.codeIntel",
+          "line": 136,
+          "bucket": "no_such_symbol",
+          "source_text": "Or via MCP: `graph_collect_code_intel({language:\"cpp\", scope:\"all\"})`. After import, evidence flows into `graph_health.codeIntel`, `graph_pull(layers:[\"code_intel\"])`, `graph_change_plan` ranking (`provenance: 'CODE_INTEL' | 'EXTRACTED'`), and `graph_packet` EVIDENCE blocks in every mode.",
+          "verdict": null
+        },
+        {
+          "document": "CHANGELOG.md",
+          "written": "graph_status.unresolvedEdges",
+          "line": 862,
+          "bucket": "no_such_symbol",
+          "source_text": "- `graph_status.unresolvedEdges` now reports `manifest.dirtyEdgeCount`",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-21-prereg-find-layers-searched.md",
+          "written": "JSON.parse",
+          "line": 54,
+          "bucket": "no_such_symbol",
+          "source_text": "- Write a `tasks.json` containing `{\"tasks\": [` and assert `JSON.parse` on those bytes **throws**.",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2/test-round-2026-05-31.md",
+          "written": "pcas_powder.comp.glsl",
+          "line": 77,
+          "bucket": "no_such_symbol",
+          "source_text": "`pcas_powder.comp.glsl` → real BINDING TABLE (set.binding / access / kind / block) + LOADED BY C++ sites + a clearly-labeled heuristic BINDING CONTRACT. Good honesty banner (\"static structural link … not a compiler/descriptor-layout check\").",
+          "verdict": null
+        },
+        {
+          "document": "docs/known-limitations.md",
+          "written": "graph_health.refsNotFoundBreakdown",
+          "line": 271,
+          "bucket": "no_such_symbol",
+          "source_text": "and `graph_health.refsNotFoundBreakdown` reports `{total, degraded, clean}` so a",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-08-10-contradiction-surface-design.md",
+          "written": "receipt.floor_cause",
+          "line": 607,
+          "bucket": "no_such_symbol",
+          "source_text": "`dirtySeams`, `receipt.floor_cause`.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/claude-code/skill/SKILL.md",
+          "written": "X.related_to",
+          "line": 217,
+          "bucket": "no_such_symbol",
+          "source_text": "- **Mine the overlay links before planning.** When planning a feature X, don't stop at the brief — open `functionality.json` (or `brief.json.features`) and read `X.contracts[]` doc-by-doc, skim related `brief.json.features.valid[].tasks[]` for X (shipped so you don't re-parse `tasks.json`), and check `X.depends_on` + `X.related_to`. The graph stores these links; plans routinely ignore them. That's a skill-prompt failure, not a tool limitation.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/claude-code/skills/graph-guide/SKILL.md",
+          "written": "receipt.replay.verb",
+          "line": 135,
+          "bucket": "no_such_symbol",
+          "source_text": "- To check a teammate's claim, **replay** `receipt.replay.verb` with",
+          "verdict": null
+        },
+        {
+          "document": "integrations/codex/skills/graph-build-all/SKILL.md",
+          "written": "anchors.files",
+          "line": 84,
+          "bucket": "no_such_symbol",
+          "source_text": "Run the `graph-build-functionality` skill's logic inline: read `.aify-graph/brief.json`, draft a set of 5-10 features with `anchors.symbols` and `anchors.files` globs, and fill the overlay fields that make the map actually useful on large repos:",
+          "verdict": null
+        },
+        {
+          "document": "integrations/cursor/skills/cpp-inner-loop/SKILL.md",
+          "written": "index.enumeratedTotal",
+          "line": 191,
+          "bucket": "no_such_symbol",
+          "source_text": "`index.enumeratedTotal`; `filesProcessed` resets every call and cannot show",
+          "verdict": null
+        },
+        {
+          "document": "integrations/hermes/skill/SKILL.md",
+          "written": "anchors.docs",
+          "line": 58,
+          "bucket": "no_such_symbol",
+          "source_text": "- `OVERLAY:` / `OVERLAY GAPS:` — how many features have `tests[]`, `anchors.docs`, `depends_on`, `related_to`, and how many open tasks are actually linked. Thin overlay means the map will mostly orient, not dominate.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/hermes/skills/graph-build-intelligence/prompts/architecture-layer-assigner.md",
+          "written": "semanticFiles.files",
+          "line": 72,
+          "bucket": "no_such_symbol",
+          "source_text": "4. Every path in `semanticFiles.files` MUST have an entry in `assignments` (no orphans).",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "basename_only",
+      "total": 118,
+      "sample": [
+        {
+          "document": "CHANGELOG.md",
+          "written": "compile_commands.json",
+          "line": 292,
+          "bucket": "basename_only",
+          "source_text": "- **codex and cursor were missing the compile-DB coverage gate entirely.** The main `skill/SKILL.md` for those two runtimes never received the Windows-first trust guidance that landed in claude-code and hermes — the paragraph explaining that a foreign/unity `compile_commands.json` makes the clangd index silently PARTIAL, that this returns `exhaustive:false` with `cause:\"partial_compile_db_coverage\"`, and that such a result must NOT be read as \"no callers / safe to delete\". Agents on those two runtimes were reading a skill that omitted the core absence-claim safety rule. Also missing: the cold-clangd retry guidance (\"index/AST not confirmed ready\" is a retry signal, not \"no hierarchy\"). Both propagated.",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "health.js",
+          "line": 115,
+          "bucket": "basename_only",
+          "source_text": "⇒ `health.js` is not a 1,182-line file. It is a 582-line file carrying ~570 lines of recorded",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-19-roadmap.md",
+          "written": "packet.js",
+          "line": 229,
+          "bucket": "basename_only",
+          "source_text": "> *\"`packet.js` being 1453 lines is not itself a user defect. The previous '~710' target was an",
+          "verdict": null
+        },
+        {
+          "document": "docs/archive/backlog.md",
+          "written": "generator.js",
+          "line": 17,
+          "bucket": "basename_only",
+          "source_text": "- Add contributor hook in `generator.js` so other frameworks (Express, FastAPI, Django, Rails, NestJS) can plug in the same way",
+          "verdict": null
+        },
+        {
+          "document": "docs/dogfood/FINAL-analysis-2026-04-20.md",
+          "written": "backlog.md",
+          "line": 240,
+          "bucket": "basename_only",
+          "source_text": "Cross-tester reconciled data + Phase 2 addendum live at [`ab-results-2026-04-20-cross-tester.md`](./ab-results-2026-04-20-cross-tester.md). Backlog with agreed post-launch work at [`backlog.md`](../backlog.md).",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-agent-front-door.md",
+          "written": "read_freshness.js",
+          "line": 7,
+          "bucket": "basename_only",
+          "source_text": "**Architecture:** Layer on existing machinery. `graph_explore`/`graph_trace` already use monotonic repo-size tiers (`source-bundle.js`); add a sibling TOKEN-budget tier helper for `graph_packet` (the one static-`800` gap), tightening `server-instructions.js` (content only), and standardize a staleness banner reusing `read_freshness.js`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-05-09-next-gen-code-intel-bridge-superplan.md",
+          "written": "compile_commands.json",
+          "line": 291,
+          "bucket": "basename_only",
+          "source_text": "**Change:** APG-owned C++ provider using `compile_commands.json` + clangd. Implements definitions, references, hover, diagnostics, symbols. Batch-warms same-translation-unit files before collection per `9cf2f94`.",
+          "verdict": null
+        },
+        {
+          "document": "install.claude.md",
+          "written": "compile_commands.json",
+          "line": 153,
+          "bucket": "basename_only",
+          "source_text": "The C++ repo needs a `compile_commands.json` (project root or `build/`) for cross-TU references. **Windows note:** a `compile_commands.json` built under WSL/Linux carries Linux include/sysroot paths; references and hierarchy stay trustworthy, but full-quality **diagnostics/hover need clangd run under WSL** against the Linux DB (see `docs/code-intel-v2-status.md` known-issue P0-3).",
+          "verdict": null
+        },
+        {
+          "document": "install.pi.md",
+          "written": "compile_commands.json",
+          "line": 5,
+          "bucket": "basename_only",
+          "source_text": "This install keeps the base APG runtime small: Node, SQLite native module, tree-sitter parsers, static briefs, and the lean MCP surface. C++ code-intel is optional and only runs when `compile_commands.json` and `clangd` are available.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/claude-code/skills/safe-to-delete/SKILL.md",
+          "written": "compile_commands.json",
+          "line": 56,
+          "bucket": "basename_only",
+          "source_text": "   - For C++, check whether the file is even in `compile_commands.json`. If it is not, the",
+          "verdict": null
+        },
+        {
+          "document": "integrations/cursor/skill/SKILL.md",
+          "written": "compile_commands.json",
+          "line": 154,
+          "bucket": "basename_only",
+          "source_text": "**Compile-DB coverage gate (read the evidence, not just the result).** ⛔ **SUPERSEDED 2026-08-19: they do not attest an exhaustive caller set at all, and the sentence below described a condition we never verified.** The compile DB says which TUs clangd MAY index; it never reports which it DID. A TU present in the DB can still fail to compile — a missing include path is enough — while background indexing reports idle, so `exhaustive` is now withheld with cause `index_population_unattested`. Returned locations remain compiler-resolved and precise; the SET is a floor, and absence claims need rg. The toolchain/unity guidance below is still correct as far as it goes: When the `compile_commands.json` was built by a *different* toolchain than the host clangd (e.g. a Linux/WSL DB with `/mnt/c` paths run against Windows clangd) or is a CMake **unity/jumbo** build, the index is silently PARTIAL — some real callers are invisible. These verbs now detect that and return `evidence.degraded:true, cause:\"partial_compile_db_coverage\", exhaustive:false` with an \"verify with rg before delete/rename\" fallback **instead of a false `exhaustive:true`**. When you see that cause: do NOT treat the result as \"no callers / dead code / safe to delete\" — cross-check with Grep. To make the index actually complete, generate a NATIVE Windows compile DB so host clangd matches it. MSBuild does NOT emit `compile_commands.json`, so configure a Ninja+clang-cl build purely for the DB: `cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON` — APG auto-discovers `build-win-clangd/`. `APG_CLANGD_WSL=1` (clangd under WSL against a Linux DB) is the fallback if a WSL build is still around.",
+          "verdict": null
+        },
+        {
+          "document": "integrations/hermes/skills/cpp-inner-loop/SKILL.md",
+          "written": "compile_commands.json",
+          "line": 54,
+          "bucket": "basename_only",
+          "source_text": "2. **The non-empty grant was false too.** Two sources, both in `compile_commands.json`,",
+          "verdict": null
+        }
+      ]
+    },
+    {
+      "bucket": "ambiguous_path",
+      "total": 56,
+      "sample": [
+        {
+          "document": "CHANGELOG.md",
+          "written": "frameworks.test.js",
+          "line": 636,
+          "bucket": "ambiguous_path",
+          "source_text": "  on repos that don't use the framework. Tests: `frameworks.test.js`",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "server.js",
+          "line": 57,
+          "bucket": "ambiguous_path",
+          "source_text": "> and by the time I audited this document its own numbers had drifted: `server.js` had grown",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "render.js",
+          "line": 163,
+          "bucket": "ambiguous_path",
+          "source_text": "must import `render.js` to call them, and `render.js` would import `computeCoverage` back. In",
+          "verdict": null
+        },
+        {
+          "document": "docs/2026-08-12-refactor-proposal.md",
+          "written": "server.js",
+          "line": 337,
+          "bucket": "ambiguous_path",
+          "source_text": "⇒ **Extracting `TOOLS` from `server.js` changes no brief artefact at all.** The brief oracle",
+          "verdict": null
+        },
+        {
+          "document": "docs/code-intel-v2/reference-borrow-synthesis.md",
+          "written": "typescript.js",
+          "line": 33,
+          "bucket": "ambiguous_path",
+          "source_text": "Fixes the **87 IMPORTS**. Two sub-bugs in `normalizeImportSource` (identical in `languages/javascript.js` + `typescript.js`):",
+          "verdict": null
+        },
+        {
+          "document": "docs/evidence/lc-api-zero-documents.md",
+          "written": "sweep.js",
+          "line": 51,
+          "bucket": "ambiguous_path",
+          "source_text": "that is visible in `sweep.js` at cb03566. **The mechanism is NOT identified here and is not",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-04-16-aify-project-graph-v1.md",
+          "written": "walker.js",
+          "line": 860,
+          "bucket": "ambiguous_path",
+          "source_text": "If the package ships a native `.node` binding instead of `.wasm`, the walker needs to use the native `tree-sitter` package instead of `web-tree-sitter`. In that case, swap `walker.js` to:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-05-09-code-intel-foundation.md",
+          "written": "schema.test.js",
+          "line": 1005,
+          "bucket": "ambiguous_path",
+          "source_text": "Expected: PASS — including pre-existing `importer.test.js` and `schema.test.js` from `d7bf17a`.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/plans/2026-06-01-semantic-layer.md",
+          "written": "archetypes.js",
+          "line": 49,
+          "bucket": "ambiguous_path",
+          "source_text": "- [ ] Implement `archetypes.js`: `ARCHETYPES` table (id,name,keywords[]) for rendering, physics, simulation, audio, input, ai, networking, assets, ecs, math, ui, serialization, scripting, shaders, memory, concurrency, core, tooling, tests. `classifyArchetype(samples)`:",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-04-16-aify-project-graph-design.md",
+          "written": "composer.json",
+          "line": 171,
+          "bucket": "ambiguous_path",
+          "source_text": "Pluggable per-framework enrichers run after base extraction. Plugins detect their framework (e.g. `composer.json` with `laravel/framework`) and add framework-aware edges at lower confidence (0.6-0.8). v1 ships the plugin interface + a **Laravel routes plugin** that parses `routes/*.php` to create Route → Controller INVOKES edges.",
+          "verdict": null
+        },
+        {
+          "document": "docs/superpowers/specs/2026-06-01-semantic-layer-design.md",
+          "written": "archetypes.js",
+          "line": 62,
+          "bucket": "ambiguous_path",
+          "source_text": "- `archetypes.js`, `embeddings.js` (similarity + builder) are pure/injectable → unit-tested without IO/network.",
+          "verdict": null
+        },
+        {
+          "document": "docs/whereis-threshold-retirement.md",
+          "written": "SKILL.md",
+          "line": 4,
+          "bucket": "ambiguous_path",
+          "source_text": "shipped `SKILL.md` files and replaced with a schema statement.",
+          "verdict": null
+        }
+      ]
+    }
+  ]
+}

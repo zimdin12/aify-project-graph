@@ -53,18 +53,26 @@ import { edgeClass, ownedEdgesPredicate } from '../storage/edge-classes.js';
 export const DOC_REF_RULES = Object.freeze({
   // A qualified reference inside an author-marked code span, resolving to exactly one symbol.
   'doc_ref:qualified': 0.9,
-  // RULE 3. An author-marked span whose SHAPE is a program element — a call with parentheses, a
-  // CamelCase type, a snake_case identifier — resolving to exactly one symbol by bare label.
-  // Lower than rule 2 because the name is unqualified: uniqueness in this graph is what stands in
-  // for the qualifier, and uniqueness is a property of the repository rather than of the writing.
-  'doc_ref:shaped': 0.8,
+  // ⛔ `doc_ref:shaped` WAS HERE AND IS GONE. 0.9311 on held-out data against a 0.95 floor; see the
+  // deleted RULE 3 block below for the measurement and for why it could not be tuned. Named in this
+  // table rather than silently absent, because a reader comparing the rule numbering in the docs to
+  // this object should find out what happened to 3 instead of assuming a typo.
   // RULE 4. A bare symbol name sharing a LINE with a path that resolves to the file declaring it.
   //
-  // ⭐ RANKED ABOVE `shaped` AND BELOW `qualified`, DELIBERATELY. Rule 3's uniqueness is a property
-  // of the whole repository — the same sentence in a repo with two `trust` functions emits nothing
-  // — whereas rule 4's scope is written IN THE DOCUMENT by the author, which is the same kind of
-  // evidence rule 2 has. It sits below `qualified` only because the name itself is bare, so the
-  // association between path and word is co-occurrence rather than syntax.
+  // ⭐ ITS SCOPE IS WRITTEN IN THE DOCUMENT BY THE AUTHOR, which is the same KIND of evidence rule
+  // 2 has, and it is why this rule survived the held-out grading that killed rule 3. Rule 3's
+  // evidence was uniqueness — a property of whatever this repository happens to contain. Rule 4's
+  // is a path the author put on the line. It sits below `qualified` only because the name itself is
+  // bare, so the association between path and word is co-occurrence rather than syntax.
+  //
+  // ⭐⭐ THE PROPERTY THAT ACTUALLY SEPARATED THE SURVIVORS, measured rather than argued: both
+  // remaining rules require a STRUCTURAL ANCHOR ADJACENT TO THE TOKEN — a path in scope, or a
+  // `Class.` prefix. ef-manager regraded all 125 surviving edges at full source text after
+  // discovering their first pass had used ±85-character windows, and found 63 of them had been
+  // truncated. ZERO verdicts moved. The anchor is adjacent by construction, so even a cut sentence
+  // still carried the deciding evidence. Rule 3, whose only evidence was ambient prose, is exactly
+  // what a window destroys — and exactly what admitted a Go keyword and another repo's symbol.
+  // ⇒ REQUIRE THE EVIDENCE TO BE ADJACENT, NOT AMBIENT. That is the design rule for any successor.
   //
   // ⚠ THE ORDER IS LOAD-BEARING, NOT DECORATIVE. When more than one rule reaches the same symbol
   // in the same document, the STRONGEST tag wins — see `offer()`. Before this constant existed the
@@ -81,8 +89,6 @@ export const DOC_REF_RULES = Object.freeze({
 //
 // ⚠ CamelCase requires TWO humps deliberately. `README` and `TODO` are screaming case, and a
 // single-hump `Graph` is a perfectly ordinary English word with a capital.
-const INVOCATION = /^([A-Za-z_$][\w$]*)\(\s*(?:\.\.\.|[^)]*)?\)$/;
-const TYPE_SHAPED = /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+$/;
 
 // ⛔ THE BARE snake_case SHAPE WAS DELETED, AND THE EVIDENCE IS CROSS-REPO.
 //
@@ -117,18 +123,16 @@ const TYPE_SHAPED = /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+$/;
 // named a TOOL that shares its spelling — which is what this shape would do first on any repo
 // where an MCP tool is implemented by a same-named function.
 
-/**
- * The shape that admitted a span, or null. Pure: a token in, a label out.
- *
- * Order matters: `render_frame()` must be read as an invocation, not as a snake token with
- * punctuation, because the parentheses are the stronger evidence of the two.
- */
-export function shapeOf(raw) {
-  const inv = INVOCATION.exec(raw);
-  if (inv) return { name: inv[1], shape: 'invocation' };
-  if (TYPE_SHAPED.test(raw)) return { name: raw, shape: 'type' };
-  return null;
-}
+// ⛔ `shapeOf` WAS DELETED WITH RULE 3, ITS ONLY CALLER.
+//
+// Retiring the rule and keeping its apparatus would have left an exported, tested function that
+// nothing calls — and a test suite exercising a museum piece, which reads as coverage of a
+// capability the product no longer has. Retire the workaround with the defect.
+//
+// ⚠ The IDEA it encoded is not wrong: parentheses and CamelCase humps really are marks an author
+// puts on a token to say "this is a program element". What the measurement showed is that the mark
+// is evidence of INTENT TO NAME CODE and not evidence of WHICH code — which is why a successor
+// needs a second, document-local source of identity, the way rule 4 uses a path.
 
 const EXTRACTOR_PREFIX = 'doc_ref:';
 
@@ -440,7 +444,7 @@ export async function detectDocRefs(db, repoRoot) {
   const docs = db.all("SELECT id, file_path FROM nodes WHERE type = 'Document'");
   const empty = {
     added: 0, documents: 0, documentsWithRefs: 0,
-    unqualified: 0, shapedNoSymbol: 0, shapedAmbiguous: 0, basenameOnly: 0,
+    unqualified: 0, basenameOnly: 0,
     noSuchSymbol: 0, pathNotIndexed: 0, ambiguousPath: 0, ambiguousSymbol: 0,
     isAPath: 0, fencedExample: 0, misses: [],
   };
@@ -483,15 +487,16 @@ export async function detectDocRefs(db, repoRoot) {
   // ⚠ MEASURED BEFORE ADOPTING, because a stricter rule that silently halves the layer is not an
   // improvement: 0 of this repo's 71 shaped edges are refused by the stricter test. It costs
   // nothing here and removes two known false positives there.
-  const resolutionIndex = new Map();
-  const nameOwners = new Map();
-  for (const n of db.all("SELECT id, type, label FROM nodes WHERE label != ''")) {
-    nameOwners.set(n.label, (nameOwners.get(n.label) ?? 0) + 1);
-    if (FILE_LEVEL.has(n.type) || n.type === 'External' || n.type === 'Module') continue;
-    if (!resolutionIndex.has(n.label)) resolutionIndex.set(n.label, []);
-    resolutionIndex.get(n.label).push(n.id);
-  }
-
+  // ⛔ THE BARE-LABEL RESOLUTION INDEX AND THE CLAIMANT COUNT WENT WITH RULE 3.
+  //
+  // They answered "which single symbol owns this bare name, and does anything else claim it" —
+  // the two questions rule 3 asked and the only two. Both maps were still being BUILT on every
+  // run after the rule was deleted, walking every labelled node in the graph to populate a
+  // structure nothing read. Dead work that a reader would mistake for a live mechanism.
+  //
+  // ⚠ The distinction they drew is worth remembering even though the code is gone: an index of
+  // what an edge may POINT AT is not the same as a count of what CLAIMS a name, and an External
+  // stub carrying your label is exactly the evidence the name is not yours alone.
   const symbolsByFile = buildSymbolsByFile(db.all(
     "SELECT id, type, label, file_path FROM nodes WHERE label != '' AND file_path != ''"));
 
@@ -538,33 +543,40 @@ export async function detectDocRefs(db, repoRoot) {
 
       if (ref.fenced) { note('fenced_example'); continue; }
 
-      // ── RULE 3 ────────────────────────────────────────────────────────────────────────────
+      // ── RULE 3 — DELETED 2026-08-22, MEASURED AT 0.9311 ON HELD-OUT DATA ─────────────────────
       //
-      // An unqualified span is not automatically prose. `read` is the English word in monospace;
-      // `read()` is someone writing a call. The shape is the evidence, and the bare label must
-      // still resolve to exactly ONE symbol — uniqueness standing in for the qualifier rule 2
-      // demands.
+      // It admitted an unqualified span whose SHAPE looked like a program element — `render()`,
+      // `LspClient` — when the bare label resolved to exactly one symbol. Uniqueness in the graph
+      // stood in for the qualifier rule 2 demands.
       //
-      // ⚠ THIS IS A WEAKER RULE THAN 2 AND IT IS TAGGED SEPARATELY FOR THAT REASON. Uniqueness is
-      // a property of the REPOSITORY, not of the writing: the same sentence in a repo with two
-      // `trust` functions would emit nothing. Rule 2's evidence is in the document and travels
-      // with it; rule 3's is half in the graph. Filing both under one extractor tag would let the
-      // weaker inherit the stronger one's authority, which is the objection that kept the legacy
-      // clamp out of packet-lists.js and the reason `mentions` had to be deleted rather than
-      // narrowed.
-      if (!ref.qualified) {
-        const shaped = shapeOf(ref.written);
-        if (!shaped) { note('unqualified'); continue; }
-        const hits = [...new Set(resolutionIndex.get(shaped.name) ?? [])];
-        if (hits.length === 0) { note('shaped_no_symbol'); continue; }
-        if (hits.length > 1) { note('shaped_ambiguous'); continue; }
-        // One admissible target, but is it the only claimant? An External or Module node carrying
-        // the same label means the name is shared with something outside this repository, and a
-        // document writing it is at least as likely to mean that.
-        if ((nameOwners.get(shaped.name) ?? 0) > 1) { note('shaped_ambiguous'); continue; }
-        offer(hits[0], 'doc_ref:shaped', ref.line);
-        continue;
-      }
+      // ⛔ 311 CORRECT, 23 WRONG, 3 UNSURE = 0.9311, against a floor of 0.95 per rule. Graded blind
+      // by ef-manager on three corpora that had never been indexed — graphify b14b52e9,
+      // agent-understand-anything 32944829, codegraph c6aaa203 — because the previous 0.972 was
+      // measured on the corpus the rule had been tuned against three times.
+      // dev's ruling: a rule below the floor is DELETED. Not demoted, not ranked, not rescued.
+      //
+      // ⛔⛔ AND IT IS NOT TUNABLE, WHICH IS THE PART WORTH KEEPING. The rule already refused 1,309
+      // of its own candidates (997 no-symbol, 312 ambiguous) and still admitted 23 wrong. Its whole
+      // evidence is "this name resolves here, uniquely" — and a Go `init()`, a Swift
+      // `init(name:age:)`, an R `source()`, an author's declared `trace(a,b)` NOTATION, and another
+      // repository's `forward()` all satisfy that perfectly. ef-manager's sentence, which belongs
+      // here verbatim: EXISTENCE AND UNIQUENESS IN THE INDEX ARE NOT EVIDENCE OF REFERENCE.
+      //
+      // ⚠ 19 of the 23 errors were in ONE corpus — codegraph, whose docs discuss many languages and
+      // many analysed repositories. The rule is not uniformly imprecise; it degrades in
+      // documentation that talks about code OTHER THAN ITS OWN, which is exactly what a tool aimed
+      // at other people's repositories will meet. Any successor must be designed against that.
+      //
+      // ⚠ AND THE 0.9311 IS AN UPPER BOUND, not a point estimate. The grader disclosed afterwards
+      // that all 462 rows were read through a ±85-character window while the artifact carried the
+      // full line — 33% of rows were longer than that. A truncated sentence looks MORE like a
+      // citation than it is, so the bias runs toward CORRECT. True precision is at most 0.9311,
+      // which only makes the deletion safer.
+      //
+      // ⇒ An unqualified span now emits nothing here. It can still reach rule 4 below, where the
+      // author supplies a PATH in the same line — evidence that lives in the document and travels
+      // with it, rather than in whatever this repository happens to contain.
+      if (!ref.qualified) { note('unqualified'); continue; }
 
       // ⛔ RULE 1 GETS FIRST REFUSAL, so the two layers are disjoint BY CONSTRUCTION rather than
       // by the accident of their patterns not overlapping. `README.md` is a qualified-looking
@@ -722,8 +734,10 @@ export async function detectDocRefs(db, repoRoot) {
     documents: docs.length,
     documentsWithRefs,
     unqualified: tally('unqualified'),
-    shapedNoSymbol: tally('shaped_no_symbol'),
-    shapedAmbiguous: tally('shaped_ambiguous'),
+    // ⛔ `shapedNoSymbol` and `shapedAmbiguous` were REMOVED, not zeroed. Nothing notes those
+    // buckets since rule 3 was deleted, so they would have reported 0 for ever — and a standing
+    // zero in a telemetry block reads as a measured absence of refusals rather than the absence
+    // of the rule that produced them. A field that cannot vary is not telemetry.
     noSuchSymbol: tally('no_such_symbol'),
     pathNotIndexed: tally('path_not_indexed'),
     basenameOnly: tally('basename_only'),

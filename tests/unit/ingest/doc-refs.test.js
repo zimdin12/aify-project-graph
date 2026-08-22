@@ -25,7 +25,9 @@ import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
-import { detectDocRefs, buildSymbolIndex, shapeOf, isSpanHead } from '../../../mcp/stdio/analysis/doc-refs.js';
+import {
+  detectDocRefs, buildSymbolIndex, isSpanHead, DOC_REF_RULES,
+} from '../../../mcp/stdio/analysis/doc-refs.js';
 
 let repo;
 afterEach(async () => {
@@ -301,119 +303,86 @@ describe('miss buckets name the reason, not the rule that refused', () => {
 // ⚠ IT IS WEAKER THAN RULE 2 AND TAGGED SEPARATELY. Uniqueness is a property of the REPOSITORY,
 // not of the writing: the same sentence in a repo with two `trust` functions emits nothing. Rule
 // 2's evidence travels with the document; rule 3's is half in the graph.
-describe('doc → symbol references, rule 3 (shaped + unique)', () => {
-  const shaped = (db) => db.all(
-    `SELECT e.*, t.label AS target FROM edges e JOIN nodes t ON t.id = e.to_id
-     WHERE e.extractor = 'doc_ref:shaped'`);
+describe('RULE 3 IS DELETED — 0.9311 on held-out data, against a 0.95 floor', () => {
+  // ⛔ THIS BLOCK USED TO PROVE RULE 3 WORKED. It now proves it is gone, on the same fixtures,
+  // because the deleted rule's own tests are the cheapest guard against it being reintroduced by
+  // someone who reads the shape argument and finds it persuasive. It IS persuasive. It is wrong.
+  //
+  // THE MEASUREMENT. Graded blind by ef-manager on three corpora that had never been indexed —
+  // graphify b14b52e9, agent-understand-anything 32944829, codegraph c6aaa203 — because the
+  // previous 0.972 came from the corpus the rule had been tuned against three times.
+  //
+  //     311 CORRECT · 23 WRONG · 3 UNSURE = 0.9311        floor is 0.95, PER RULE
+  //
+  // THE 23, and they are one mechanism: a Go `init()`, a Swift `init(name:age:)`, an R `source()`,
+  // a C# `default(…)`; nanoGPT's `forward()` and React Native's `getName()` landing on this repo's
+  // test fixtures; an author's DECLARED NOTATION `trace(a,b)` admitted four times from a sentence
+  // that says it is notation; `len` and `m`.
+  //
+  // ⛔ AND IT WAS NOT TUNABLE, which is the part to keep. The rule already refused 1,309 of its own
+  // candidates and still admitted those 23. Its whole evidence is "this name resolves here,
+  // uniquely" — and every one of the 23 satisfies that perfectly.
+  // ⇒ EXISTENCE AND UNIQUENESS IN THE INDEX ARE NOT EVIDENCE OF REFERENCE.
+  //
+  // ⚠ 19 of 23 were in ONE corpus, codegraph, whose docs discuss many languages and many analysed
+  // repositories. The rule degrades in documentation about code OTHER than its own — which is what
+  // a tool aimed at other people's repositories will mostly meet.
+  const anyRef = (db) => db.all(
+    `SELECT e.extractor, t.label AS target FROM edges e JOIN nodes t ON t.id = e.to_id
+     WHERE e.relation = 'MENTIONS'`);
 
-  it('★★★ an INVOCATION-shaped span resolves by bare label', async () => {
+  it('★★★⛔ THE CORE DELETION: a unique, invocation-shaped, marked span emits NOTHING', async () => {
+    // Byte-for-byte the fixture that used to assert exactly one edge here.
     const db = await fixture('Call `compute()` at startup.\n', [
       ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
     ]);
     await detectDocRefs(db, repo);
-    expect(shaped(db).length).toBe(1);
-    expect(shaped(db)[0].target).toBe('compute');
-    expect(shaped(db)[0].source_line).toBe(1);
+    expect(anyRef(db), 'shape plus uniqueness is no longer admissible evidence').toEqual([]);
     db.close();
   }, 20_000);
 
-  it('★★★ THE PARENTHESES ARE THE WHOLE DIFFERENCE — `read` vs `read()`', async () => {
-    // ⛔ This is the line between rule 3 and the extractor it replaced. The legacy rule admitted
-    // `read` because a function was called that; rule 3 admits `read()` because somebody wrote a
-    // call. Same word, same graph, different claim by the author.
-    const bare = await fixture('You should `read` the file first.\n');
-    await detectDocRefs(bare, repo);
-    expect(shaped(bare), 'the English word emits nothing').toEqual([]);
-    bare.close();
-
-    const called = await fixture('The helper `read()` opens it.\n');
-    await detectDocRefs(called, repo);
-    expect(shaped(called).length, 'the written call emits an edge').toBe(1);
-    called.close();
-  }, 40_000);
-
-  it('★★★ CamelCase needs TWO humps — `Graph` is a word, `LspClient` is a type', async () => {
-    // ⚠ A single hump is an ordinary English word with a capital, and screaming case (`README`,
-    // `TODO`) is not a type at all. Both are excluded by the shape, not by a dictionary.
-    const db = await fixture('See `Graph` and `README` and `LspClient`.\n', [
-      ['g1', 'Class', 'Graph', 'src/g.cpp', '{"qname":"Graph"}'],
-      ['r1', 'Class', 'README', 'src/r.cpp', '{"qname":"README"}'],
-      ['l1', 'Class', 'LspClient', 'src/l.cpp', '{"qname":"LspClient"}'],
+  it('★★★⛔ nor a two-hump CamelCase type, which was the other admitted shape', async () => {
+    const db = await fixture('The `LspClient` owns the socket.\n', [
+      ['t1', 'Type', 'LspClient', 'src/lsp.ts', '{"qname":"LspClient"}'],
     ]);
     await detectDocRefs(db, repo);
-    expect(shaped(db).map((r) => r.target), 'only the two-hump type is a reference')
-      .toEqual(['LspClient']);
+    expect(anyRef(db)).toEqual([]);
     db.close();
   }, 20_000);
 
-  it('★★★ snake_case is caught BY THE INVOCATION SHAPE, and the bare shape is deleted', async () => {
-    // ⛔ THE BARE snake_case SHAPE SHIPPED AND NEVER FIRED. 1170 candidates on this repo, 270 on
-    // echoes_of_the_fallen, ZERO resolved on either. I held it at 0/1170 because deleting a shape
-    // on one repository's evidence would be calibrating on that repository's naming convention —
-    // and then predicted, on the record, that a C++ repo would rescue it.
-    //
-    // ⚠ THE SECOND REPO CONVICTED IT INSTEAD. Same zero, and the sample says why: `comms_send`
-    // x26, `comms_share` x12, `query_voxel` x8 — MCP TOOL NAMES AND CONFIG KEYS, snake_case by
-    // ECOSYSTEM convention in both corpora regardless of host language.
-    //
-    // ★ And the case worth having was never the bare shape's: a snake_case function written the
-    // way people write functions is an INVOCATION. That is what this test now pins.
-    const db = await fixture('Call `render_frame()`; the tool is `voxel_count`.', [
-      ['s1', 'Function', 'render_frame', 'src/r.c', '{"qname":"render_frame"}'],
-      ['s2', 'Function', 'voxel_count', 'src/v.c', '{"qname":"voxel_count"}'],
+  it('★★★⛔ THE HELD-OUT FAILURE, REPRODUCED: a language construct that happens to resolve', async () => {
+    // ⚠ This is the shape of 7 of the 23 — a Go/CFML/Swift `init()` or an R `source()` written
+    // about ANOTHER language, landing on a same-named symbol in this repository. Under rule 3 it
+    // resolved and emitted. It is the case the rule could never have distinguished, because
+    // nothing about the token differs from a genuine reference.
+    const db = await fixture('In Go, `init()` runs before main.\n', [
+      ['i1', 'Function', 'init', 'src/boot.js', '{"qname":"init"}'],
     ]);
     await detectDocRefs(db, repo);
-    expect(shaped(db).map((r) => r.target),
-      'the call admits; the bare token does not, even though both symbols exist')
-      .toEqual(['render_frame']);
+    expect(anyRef(db), "a Go keyword is not a reference to this repo's init").toEqual([]);
     db.close();
   }, 20_000);
 
-  it('★★★ shapeOf reads parentheses as the stronger evidence, not as punctuation', async () => {
-    // The ordering control. If TYPE/snake were tested before INVOCATION, `render_frame()` would
-    // have been read as something else and the subsumption above would be an accident of regex
-    // order rather than a stated rule.
-    expect(shapeOf('render_frame()')).toEqual({ name: 'render_frame', shape: 'invocation' });
-    expect(shapeOf('render_frame'), 'no parens, no shape — deliberately').toBeNull();
-    expect(shapeOf('LspClient')).toEqual({ name: 'LspClient', shape: 'type' });
+  it('★★★ POSITIVE CONTROL: rules 2 and 4 still admit on the SAME fixture shape', async () => {
+    // ⛔ WITHOUT THIS, EVERY ASSERTION ABOVE IS SATISFIED BY A DOC LAYER THAT EMITS NOTHING AT ALL.
+    // Deleting 73% of the edges and deleting the feature look identical from the refusal side.
+    // ⚠ NO EXTRA NODE, AND MY FIRST VERSION ADDED ONE. The base fixture already declares
+    // `Terrain.generate`, so a second made the reference genuinely AMBIGUOUS and rule 2 refused it
+    // — correctly. My "positive control" then failed against working code, which is the worse
+    // direction: a control that constructs the wrong world reads as a regression in the thing
+    // under test, and the next person deletes a good rule to make it green.
+    const db = await fixture('See `Terrain::generate` for the algorithm.\n');
+    await detectDocRefs(db, repo);
+    expect(anyRef(db).map((r) => r.extractor), 'the qualified rule survived and still fires')
+      .toEqual(['doc_ref:qualified']);
+    db.close();
+  }, 20_000);
+
+  it('★★★⛔ the tag itself is unreachable, and the rule table no longer offers it', async () => {
+    // A tag absent from the vocabulary cannot be emitted by a future edit that forgets why.
+    expect(Object.keys(DOC_REF_RULES).sort()).toEqual(['doc_ref:path-scoped', 'doc_ref:qualified']);
+    expect(DOC_REF_RULES['doc_ref:shaped'], 'no confidence to inherit').toBeUndefined();
   });
-
-  it('★★★ an AMBIGUOUS bare label emits nothing — uniqueness is the qualifier', async () => {
-    const db = await fixture('Call `build()`.\n', [
-      ['b1', 'Function', 'build', 'src/a.cpp', '{"qname":"a.build"}'],
-      ['b2', 'Function', 'build', 'src/b.cpp', '{"qname":"b.build"}'],
-    ]);
-    const stats = await detectDocRefs(db, repo);
-    expect(shaped(db)).toEqual([]);
-    expect(stats.misses.map((m) => m.bucket)).toContain('shaped_ambiguous');
-    db.close();
-  }, 20_000);
-
-  it('★★★ rule 3 edges are tagged SEPARATELY from rule 2, and carry lower confidence', async () => {
-    // ⛔ ONE TAG FOR TWO STRENGTHS IS THE DEFECT THAT KILLED THE LEGACY EXTRACTOR. A reader
-    // pulling MENTIONS must be able to tell an in-document qualifier from a graph-wide uniqueness
-    // claim, or the weaker inherits the stronger one's authority.
-    const db = await fixture('Both `Terrain::generate` and `compute()` here.\n', [
-      ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
-    ]);
-    await detectDocRefs(db, repo);
-    const byTag = Object.fromEntries(db.all(
-      "SELECT extractor, confidence FROM edges WHERE relation = 'MENTIONS'")
-      .map((r) => [r.extractor, r.confidence]));
-    expect(Object.keys(byTag).sort()).toEqual(['doc_ref:qualified', 'doc_ref:shaped']);
-    expect(byTag['doc_ref:shaped'], 'weaker rule, lower confidence, visibly')
-      .toBeLessThan(byTag['doc_ref:qualified']);
-    db.close();
-  }, 20_000);
-
-  it('★★★ a fenced shaped span is still excluded', async () => {
-    const db = await fixture('```js\nCall `compute()` here.\n```\n', [
-      ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
-    ]);
-    await detectDocRefs(db, repo);
-    expect(shaped(db)).toEqual([]);
-    db.close();
-  }, 20_000);
 });
 
 describe('the recoverable-source-span invariant', () => {
@@ -434,22 +403,31 @@ describe('the recoverable-source-span invariant', () => {
     // ⚠ THE LEGACY EXTRACTOR FAILED THIS ON ALL 2,533 EDGES — source_line hardcoded to 0 — and no
     // amount of precision grading would have surfaced it, because the targets were the thing
     // being judged.
+    // ⚠ REBUILT WHEN RULE 3 WAS DELETED, AND THE THRESHOLD WAS DELIBERATELY NOT LOWERED. Three of
+    // the four original edges came from rule 3, so the choice was to restore the population from
+    // the surviving rules or to drop the number to 1. Dropping it would have kept this green while
+    // quietly retiring the positive control that is the only reason the loop below proves anything
+    // — this guard's whole purpose is that it cannot pass vacuously.
+    // ⇒ The population is now rule 2 (a qualifier) plus rule 4 (a path in scope), which is what
+    // the layer actually ships after the deletion.
     const body = [
       'The entry point is `Terrain::generate` today.',
       '',
-      'It calls `compute()` and then `helper()`.',
+      'See `src/c.cpp` for `compute` and `helper`.',
       '',
       '```md',
-      'Not this one: `compute()`',
+      'Not this one: `src/l.cpp` and `LspClient`',
       '```',
       '',
-      'Finally see `LspClient` for the transport.',
+      'Finally `src/l.cpp` defines `LspClient` for the transport.',
     ].join('\n');
 
     const db = await fixture(body, [
       ['c1', 'Function', 'compute', 'src/c.cpp', '{"qname":"compute"}'],
-      ['h1', 'Function', 'helper', 'src/h.cpp', '{"qname":"helper"}'],
+      ['h1', 'Function', 'helper', 'src/c.cpp', '{"qname":"helper"}'],
       ['l1', 'Class', 'LspClient', 'src/l.cpp', '{"qname":"LspClient"}'],
+      ['fc', 'File', 'c.cpp', 'src/c.cpp', '{}'],
+      ['fl', 'File', 'l.cpp', 'src/l.cpp', '{}'],
     ]);
     await detectDocRefs(db, repo);
 
@@ -471,68 +449,23 @@ describe('the recoverable-source-span invariant', () => {
   }, 20_000);
 });
 
-describe('uniqueness names the population it is unique within', () => {
-  it('★★★ an EXTERNAL node sharing the label makes the name ambiguous, not unique', async () => {
-    // ⛔ "UNIQUE" WAS A POPULATION STATEMENT HIDING INSIDE A BOOLEAN.
-    //
-    // The label filter ran BEFORE the uniqueness test, so `hits.length > 1` meant "more than one
-    // non-External, non-Module, non-file-level node" while reading as "more than one node in the
-    // graph". A name with two owners passed as unique because one owner was removed first.
-    //
-    // ef-manager found it as two false positives on echoes_of_the_fallen. `vec3` has a Class node
-    // — a PRIVATE NESTED STRUCT inside an unrelated noise header — and an External node for the
-    // glm/GLSL type the authors actually meant. The External one was filtered out, so both
-    // documents got an edge to the private struct.
-    //
-    // ⇒ The filter is right for RESOLUTION (an edge must not point at an External stub, which has
-    // no file and no span) and wrong for AMBIGUITY DETECTION (an External node carrying your label
-    // is exactly the evidence that the name is not yours alone). Same index, opposite needs.
-    const db = await fixture('The gravity vector is `vec3(0,-1,0)`.', [
-      ['v1', 'Class', 'vec3', 'src/noise.h', '{"qname":"SimplexNoise.vec3"}'],
-      ['v2', 'External', 'vec3', '', '{}'],
-    ]);
-    const stats = await detectDocRefs(db, repo);
-    expect(refs(db), 'two owners is not one owner').toEqual([]);
-    expect(stats.misses.map((m) => m.bucket)).toContain('shaped_ambiguous');
-    db.close();
-  }, 20_000);
-
-  it('★★★ the SAME reference resolves when nothing else claims the name', async () => {
-    // The negative control, and it is doing real work: without it, a rule that refused everything
-    // would satisfy the test above perfectly. Removing ONLY the External node must flip the answer.
-    const db = await fixture('The gravity vector is `vec3(0,-1,0)`.', [
-      ['v1', 'Class', 'vec3', 'src/noise.h', '{"qname":"SimplexNoise.vec3"}'],
-    ]);
-    await detectDocRefs(db, repo);
-    expect(refs(db).map((r) => r.target), 'sole claimant, so it resolves').toEqual(['vec3']);
-    db.close();
-  }, 20_000);
-
-  it('★★★ an External stub is still never the TARGET of an edge', async () => {
-    // The other half of the split: External is counted for ambiguity but remains inadmissible as
-    // a destination. If it were admissible, this would emit an edge to a node with no file and no
-    // line — breaking the recoverable-source-span invariant from the other direction.
-    const db = await fixture('See `parseJson()` for details.', [
-      ['e1', 'External', 'parseJson', '', '{}'],
-    ]);
-    const stats = await detectDocRefs(db, repo);
-    expect(refs(db)).toEqual([]);
-    expect(stats.misses.map((m) => m.bucket), 'no admissible target at all')
-      .toContain('shaped_no_symbol');
-    db.close();
-  }, 20_000);
-});
-
 // RULE 4 — THE PATH IS THE QUALIFIER.
 //
-// Rules 2 and 3 both require the TOKEN to carry its own evidence: a `::` or a `()`. Rule 4 requires
-// neither, because the author wrote the FILE alongside the name, and a file scope disambiguates a
-// bare word far better than any token shape can.
+// Rule 2 requires the TOKEN to carry its own evidence: a `::` or a `.`. Rule 4 requires no token
+// evidence at all, because the author wrote the FILE alongside the name, and a file scope
+// disambiguates a bare word far better than any token shape can.
 //
-// ★ IT REACHES REFERENCES THE OTHER RULES STRUCTURALLY CANNOT. Measured on this repo:
-// `diagnostics`, `references` and `hover` all appear on one line beside
-// `mcp/stdio/code-intel/lsp-client.js`. They are ordinary English words; rule 3 refuses them and
-// should. Scoped to that file they are three unambiguous methods.
+// ★ IT REACHES REFERENCES RULE 2 STRUCTURALLY CANNOT. Measured on this repo: `diagnostics`,
+// `references` and `hover` all appear on one line beside `mcp/stdio/code-intel/lsp-client.js`.
+// They are ordinary English words. Scoped to that file they are three unambiguous methods.
+//
+// ⭐⭐ AND IT IS WHY THIS RULE SURVIVED THE GRADING THAT KILLED RULE 3. Both surviving rules put a
+// STRUCTURAL ANCHOR ADJACENT TO THE TOKEN — a path in scope, or a `Class.` prefix. ef-manager
+// regraded all 125 surviving edges at full source text after finding their first pass had used
+// ±85-character windows; 63 of the 125 had been truncated and ZERO verdicts moved. The anchor is
+// adjacent by construction, so even a cut sentence carried the deciding evidence. Rule 3's only
+// evidence was ambient prose, which is exactly what a window destroys.
+// ⇒ ADJACENT, NOT AMBIENT. That is the requirement for any successor to rule 3.
 describe('doc → symbol references, rule 4 (path-scoped)', () => {
   const scoped = (db) => db.all(
     `SELECT e.*, t.label AS target FROM edges e JOIN nodes t ON t.id = e.to_id
