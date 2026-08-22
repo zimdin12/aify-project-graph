@@ -67,7 +67,59 @@ is lossy" hypothesis should not be carried forward on today's evidence.
 
 ---
 
-# THE STRUCTURAL CAUSE — a 628-file corpus can never produce a complete collection
+# ⛔⛔ THE SECTION BELOW IS WRONG AND ACTING ON IT WOULD DESTROY EVIDENCE — READ THIS FIRST
+
+`ef-manager` checked my causal chain link by link. Two links hold. **The load-bearing one does not.**
+
+**PRUNE IS NOT GATED ON COMPLETENESS.** Verified in source:
+
+    importer.js:1331   if (authority.mayDestroyPriorEvidence) { … pruneSupersededCollections … }
+    importer.js:623    mayDestroyPriorEvidence: succeeded && collectedReferences && !walkedNothing
+                         && !observedNothing && !isContinuation && !declaredFileScope
+
+There is no `complete` term anywhere in it. **And my own row says `status: "ok"`, not `partial`** —
+so "no run is ever complete → prune never fires" cannot explain this run even if the gate were
+completeness, because `succeeded` was true.
+
+## ⇒ THE PRUNE REFUSED, AND IT WAS RIGHT TO
+
+`files_in_scope 73` against `files_eligible 627` means the run carried a **declared file scope**, and
+`!declaredFileScope` is a term in the predicate. The comment sitting directly above it says why:
+
+> *Only a run that swept the REPOSITORY may declare a prior collection superseded. Everything
+> narrower re-observed a slice and speaks for a slice.* … *166,992 records would have gone to keep
+> 3 files.*
+
+⇒ A 73-file run was denied the right to delete records for 554 files it never looked at. **That is
+the guard working exactly as designed.**
+
+## ⛔ AND MY WRITE-UP POINTED A FIXER AT THAT GUARD
+
+A reader given "batch cap forces partial, prune needs complete" would go make partial runs complete
+**or relax the prune gate** — and relaxing that gate is the single change that would let a scoped run
+destroy the evidence it never observed. **My stated cause named the guard that saved me as the
+defect.**
+
+⚠ This is the hazard my own comment names four lines above that gate: *"A defect report naming one
+instance gets an instance-shaped fix."*
+
+## ⇒ WHAT IS ACTUALLY WRONG
+
+Only the thing I had already flagged as unexplained: **why did `scope: 'all'` resolve to a declared
+73-file scope?** Everything downstream — the batch cap, `partial`, the refused prune, the nine
+accumulated collections — is the system behaving **correctly** given a scope that was wrong before
+any of it ran.
+
+⚠ Collections accumulating is therefore **expected**, not a defect: no run has ever held repo-wide
+authority, so none may prune. The stale-evidence consequence is real; its cause is upstream.
+
+⚠ `ef-manager` notes `declaredFileScope=true` is *inferred* from 73-vs-627 because the envelope's
+scope object is not persisted. What is **not** inferred is `status: "ok"`, which kills the
+completeness explanation on its own.
+
+---
+
+# ~~THE STRUCTURAL CAUSE — a 628-file corpus can never produce a complete collection~~ ⛔ WITHDRAWN — see above
 
 Measured, not inferred. `enumerateFirstPartyFiles` on this repo:
 
