@@ -115,3 +115,53 @@ the one that should travel.
 
 ⚠ **Still not diagnosed:** whether the populations *should* be joined. `ci:lsp:` nodes carry
 compiler-resolved identity that extraction cannot express. This measurement does not decide it.
+
+---
+
+# RETRACTION — "0 of 27" WAS AN INVALID RUN. THE FIGURE IS 2 OF 30, AND IT ESTABLISHES NOTHING.
+
+`ef-manager` replayed the consumer-side measurement and got **2 of 30 (6.7%)**, not my 0 of 27. I
+re-ran mine with the positive control **interleaved into the same pass** and reproduced theirs
+exactly: 41 sampled, 30 answered, **2 verified (`arm`, `rowProblem`)**, in-pass control 6 of 6.
+
+My original run landed in a REBUILD WINDOW. Both `arm` and `rowProblem` were in my sample — at
+indices 2 and 32 — and I reported neither. My positive control ran *afterwards, separately*, so it
+passed while the sample it was supposed to vouch for had been silently depressed. `ef-manager` hit
+the identical transient twice today and caught it **only because their control ran inline**.
+
+=> **A control that does not run in the same pass as the measurement does not vouch for it.**
+
+## AND NEITHER RUN ESTABLISHES ANYTHING - THE STATISTICS, NOT THE POINT ESTIMATE
+
+    mine (invalid)     0 of 27     95% interval ~[0%, 12.5%]
+    both valid runs    2 of 30     95% interval ~[1.9%, 21.3%]
+    table-side figure              8.4%
+
+**Both intervals contain 8.4%.** n=30 cannot distinguish "the consumer sees nothing" from "the
+consumer sees the table-side rate". ef-manager: *a point estimate of 0.0% from 27 trials is the most
+quotable number in this whole thread and the least supported.*
+
+=> **RETRACTED:** "what a caller actually receives is 0 of 27" and "my correction was UNDERSTATED".
+The correction was correctly stated the first time; my attempt to strengthen it was the error.
+
+## What survives
+
+**19 -> 3,008 is true.** **The implication that `graph_callers` answers materially improved is still
+unsupported** - consumer-side ~6.7%, table-side 8.4%, and no sample here separates either from low
+single digits. The reachability lesson stands on the *table-side* 8.4% and the 99.5% non-overlap,
+neither of which is in dispute.
+
+ef-manager's point that a near-empty overlap should produce a LOW rate rather than a ZERO one was the
+tell, and it was right: the overlap is 6 nodes, not 0.
+
+## MY PROPOSED SECOND-SUBSTRATE TEST WAS TAUTOLOGICAL
+
+I suggested replaying against a corpus where collection was never made. Where collection was never
+made there are **zero verified edges by construction**, so 0-of-N cannot fail - guaranteed by the
+absence of the thing being measured. A test that cannot return PRESENT cannot return ABSENT.
+
+## THIS REPO IS A MOVING TARGET FOR ANYONE WHO DOES NOT OWN IT
+
+Twice today a measurement against APG was silently invalidated by a rebuild window opening between
+calls, once for each of us. **Any measurement taken here while the other party is working needs its
+control in the same pass.**
