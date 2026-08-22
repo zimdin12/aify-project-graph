@@ -165,3 +165,47 @@ absence of the thing being measured. A test that cannot return PRESENT cannot re
 Twice today a measurement against APG was silently invalidated by a rebuild window opening between
 calls, once for each of us. **Any measurement taken here while the other party is working needs its
 control in the same pass.**
+
+---
+
+# CORRECTION 3 — MY CONSUMER LIST WAS TOO SMALL, AND THE COLLECTION DOES REACH AGENTS
+
+I wrote "only `code_intel_replay`, `collect_code_intel` and `health` read that table". `ef-manager`
+swept it: the ones I missed are reached **transitively** through `mcp/stdio/code-intel/query.js`,
+and they are agent-facing verbs.
+
+    change_plan.js:398      getCodeIntelEvidenceForSymbol(db, { qname: String(symbol) })
+    packet-evidence.js:18   getCodeIntelEvidenceForSymbol(db, { qname: String(symbol) })
+    pull.js:1363            getCodeIntelEvidenceForSymbol(db, { qname: String(node) })
+
+I checked direct table reads and stopped one level short — the exact failure I was correcting in
+the same message.
+
+## Measured, with the manifest checked in-pass
+
+Ten qnames that hold collected records, sampled deterministically from the 200 richest:
+
+    asked explicitly (layers:["code_intel"])   found:true  10 of 10
+    present WITHOUT asking (default layers)                 0 of 10
+
+⇒ **The collection is reachable and it delivers.** A consumer that asks gets the evidence every
+time. A consumer that does not ask gets nothing.
+
+⚠ **AND THAT OPT-IN IS DEFENSIBLE HERE, UNLIKE THE DOC LAYER.** `docs` was empty for 70.5% of files,
+so gating it bought nothing; `code_intel` evidence is per-symbol and genuinely expensive. This is
+the same SHAPE as the doc-layer defect without being the same DEFECT, and saying so is the
+difference between a rule and a reflex.
+
+## ⇒ THE LEAD FOR THE `graph_callers` GAP, WHICH I HAD REFUSED TO GUESS AT
+
+`ef-manager` answered the review question I have now cited twice and failed twice — *is there a
+correct implementation of this in the codebase already?*
+
+    export function getCodeIntelEvidenceForSymbol(db, { qname, symbolId } = {})
+
+**It is symbol-keyed.** That is precisely the access pattern `graph_callers` lacks: the verb
+resolves an extraction NODE, while the evidence is keyed by `qname` / `symbol_id` in the records.
+Three verbs already call it.
+
+⚠ **Still not a proposed fix** — neither of us is claiming this is the remedy. It is the place a
+remedy should start, rather than at a new join between node tables.
