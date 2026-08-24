@@ -24,23 +24,124 @@ import { BUILD_DEP_PREFIXES } from './providers/cpp-clangd.js';
 
 // Build dirs probed in priority-agnostic order; the richest (most in-repo
 // first-party entries) wins, so order only matters for ties (first kept).
-const PROBE_DIRS = [
-  '',                 // <projectRoot>/compile_commands.json
-  // Native Windows / clangd-dedicated DBs first — these are the ones our own
-  // foreign-DB guidance tells users to create (Ninja+clang-cl) so host clangd
-  // matches the DB. They MUST be probed, and on win32 a native one wins over a
-  // foreign (Linux/WSL) one regardless of entry count (see the selection below).
-  'build-win-clangd',
-  'build-clangd',
-  'build-win',
-  'build',
-  'build-debug',
-  'build-linux',
-  'build-linux-techlead',
-  'build-debug-win',
-  'cmake-build-debug',
-  'out'
-];
+// ⛔ THIS WAS A HARDCODED ALLOWLIST OF ELEVEN DIRECTORY NAMES AND IT COST US A REAL REPO.
+// On 2026-08-25 sand_castle held two compile DBs side by side. `build-clangd-native` carried
+// 679/679 clang-cl entries matching the host clangd; `build-win-clangd` carried 679/679 MSVC
+// cl.exe. The selector chose the MSVC one and reported READY. `build-clangd-native` was not on
+// the list, so it was never a candidate and could not have been selected under any circumstances.
+//
+// Worse, the list RANKED `build-win-clangd` first, and the comment justifying that said the quiet
+// part: it is "the one our own foreign-DB guidance tells users to create (Ninja+clang-cl)". The
+// DIRECTORY NAME was standing in for the toolchain inside it. Someone followed our advice's name,
+// got MSVC, and the name won.
+//
+// ⇒ Derive the candidates, never list them. A list you must remember to update is a defect with a
+// delay on it — the same shape as the doc-corpus allowlist deleted at ec45281.
+//
+// Depth 1 only: a compile DB lives at the repo root or in a build directory beside it. Directories
+// that can never hold one are skipped so the scan stays cheap on the interactive hot path.
+const NEVER_A_BUILD_DIR = new Set([
+  '.git', '.aify-graph', 'node_modules', '.venv', 'venv', '__pycache__', '.idea', '.vs', '.vscode',
+]);
+
+/**
+ * Every compile_commands.json reachable from the project root, derived from disk.
+ * Sorted for deterministic tie-breaking.
+ * @returns {string[]} absolute paths
+ */
+export function discoverCompileDbCandidates(projectRoot) {
+  const found = [];
+  const rootDb = path.join(projectRoot, 'compile_commands.json');
+  if (fs.existsSync(rootDb)) found.push(rootDb);
+  let entries = [];
+  try {
+    entries = fs.readdirSync(projectRoot, { withFileTypes: true });
+  } catch {
+    return found; // unreadable root — the caller reports "missing", which fails closed
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || NEVER_A_BUILD_DIR.has(entry.name)) continue;
+    const candidate = path.join(projectRoot, entry.name, 'compile_commands.json');
+    if (fs.existsSync(candidate)) found.push(candidate);
+  }
+  found.sort();
+  return found;
+}
+
+// The compiler a DB was built with, as a bare lowercase basename ('cl.exe' → 'cl').
+function compilerOf(entry) {
+  let token = null;
+  if (Array.isArray(entry?.arguments)) token = entry.arguments[0];
+  else if (typeof entry?.command === 'string') {
+    const trimmed = entry.command.trim();
+    // A quoted path may contain spaces: "C:/Program Files/LLVM/bin/clang-cl.exe" -c ...
+    token = trimmed.startsWith('"') ? trimmed.slice(1, trimmed.indexOf('"', 1)) : trimmed.split(/\s+/)[0];
+  }
+  if (typeof token !== 'string' || !token) return null;
+  return token.replace(/\\/g, '/').split('/').pop().toLowerCase().replace(/\.exe$/, '');
+}
+
+/**
+ * Does this DB's compiler match the clangd that will consume it?
+ *
+ * ⛔ THE GAP THIS CLOSES: detectForeignToolchain only ever looked for LINUX signals — posix paths,
+ * --sysroot, --gcc-toolchain. An MSVC `cl.exe` database on Windows scored as perfectly NATIVE and
+ * sailed through, even though our own foreign_toolchain diagnostic text warns in the same file that
+ * a DB host clangd cannot compile leaves the index "silently PARTIAL" with TRUNCATED caller sets.
+ * The failure was only detectable when the mismatch happened to be Linux.
+ *
+ * clangd is clang. `clang-cl` is clang wearing an MSVC-compatible driver, so it matches. `cl` is
+ * Microsoft's compiler and does not — clangd cannot consume MSVC-only flags, and the caller sets it
+ * returns are silently short.
+ */
+export function detectToolchainMismatch(rawEntries) {
+  if (!Array.isArray(rawEntries) || rawEntries.length === 0) return { mismatch: false, compiler: null, sampled: 0 };
+  const seen = new Map();
+  const sampleSize = Math.min(rawEntries.length, 200);
+  for (let i = 0; i < sampleSize; i += 1) {
+    const compiler = compilerOf(rawEntries[i]);
+    if (compiler) seen.set(compiler, (seen.get(compiler) ?? 0) + 1);
+  }
+  if (seen.size === 0) return { mismatch: false, compiler: null, sampled: 0 };
+  const [dominant, count] = [...seen.entries()].sort((a, b) => b[1] - a[1])[0];
+  // MSVC proper. Everything else (clang, clang-cl, clang++, gcc, g++, cc) is either clang itself or
+  // a GNU-driver compiler clangd can consume. Named positively rather than by exclusion so a new
+  // compiler defaults to "no mismatch claimed" instead of a false accusation.
+  const MSVC = new Set(['cl']);
+  return { mismatch: MSVC.has(dominant), compiler: dominant, sampled: count };
+}
+
+/**
+ * Is this DB rooted somewhere that is not the repository?
+ *
+ * sand_castle's selected DB had `directory` pointing into AppData/Local/Temp — specifically into a
+ * per-session Claude Code scratchpad. A build root that may not survive a reboot was serving every
+ * answer, and the verdict rendered was READY.
+ */
+export function detectExternalRoot(rawEntries, projectRoot) {
+  if (!Array.isArray(rawEntries) || rawEntries.length === 0 || !projectRoot) {
+    return { external: false, sample: null, outside: 0, sampled: 0 };
+  }
+  const root = normalizeForCompare(projectRoot);
+  let outside = 0;
+  let sample = null;
+  const sampleSize = Math.min(rawEntries.length, 200);
+  for (let i = 0; i < sampleSize; i += 1) {
+    const dir = rawEntries[i]?.directory;
+    if (typeof dir !== 'string' || !dir) continue;
+    const normalized = normalizeForCompare(wslToHost(dir));
+    if (!normalized.startsWith(`${root}/`) && normalized !== root) {
+      outside += 1;
+      if (!sample) sample = dir;
+    }
+  }
+  // Majority rule: a handful of odd entries is not a misrooted database.
+  return { external: outside > sampleSize / 2, sample, outside, sampled: sampleSize };
+}
+
+function normalizeForCompare(value) {
+  return String(value || '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
 
 // CMake emits unity aggregates per language: C++ TUs land in `unity_<n>_cxx.cxx`
 // but a target that also compiles C sources gets a parallel `unity_<n>_c.c`
@@ -524,12 +625,11 @@ const _prepareCache = new Map();
 
 function compileDbProbeFingerprint(projectRoot) {
   const parts = [];
-  for (const dir of PROBE_DIRS) {
-    const candidate = path.join(projectRoot, dir, 'compile_commands.json');
+  for (const candidate of discoverCompileDbCandidates(projectRoot)) {
     try {
       const st = fs.statSync(candidate);
       parts.push(`${candidate}:${st.mtimeMs}:${st.size}`);
-    } catch { /* candidate absent — contributes nothing, like before */ }
+    } catch { /* candidate vanished between discovery and stat — contributes nothing */ }
   }
   return parts.join('|');
 }
@@ -552,7 +652,13 @@ export function prepareCompileDb({ projectRoot }) {
     // DB with MORE entries still truncates caller sets. detectForeignToolchain is
     // a no-op off win32. (Sand Castle probe bug: WSL build/ was winning by count.)
     const foreign = detectForeignToolchain(raw).foreign;
-    return { sourcePath: candidate, raw, normalized, firstParty, unity, entryCount: raw.length, foreign };
+    const toolchain = detectToolchainMismatch(raw);
+    const rooting = detectExternalRoot(raw, projectRoot);
+    return {
+      sourcePath: candidate, raw, normalized, firstParty, unity, entryCount: raw.length, foreign,
+      toolchainMismatch: toolchain.mismatch, compiler: toolchain.compiler,
+      externalRoot: rooting.external, externalRootSample: rooting.sample,
+    };
   };
 
   // 0. APG_COMPILE_DB pins a specific compile DB (a compile_commands.json file or
@@ -568,14 +674,32 @@ export function prepareCompileDb({ projectRoot }) {
 
   // 1. Probe every candidate, parse, and pick the best: a non-foreign DB beats a
   //    foreign one (win32); within the same foreign status, most first-party wins.
+  // Ranked lexicographically, most important first. Entry COUNT is last on purpose: a bigger DB
+  // that host clangd cannot compile still truncates caller sets, and coverage was the only
+  // criterion that used to matter, which is how an MSVC database beat a matching clang-cl one.
+  const rankOf = (c) => [
+    c.toolchainMismatch ? 0 : 1,  // a DB clangd can actually consume
+    c.externalRoot ? 0 : 1,       // rooted in the repository, not a temp scratchpad
+    c.foreign ? 0 : 1,            // native beats Linux/WSL on win32 (no-op elsewhere)
+    c.firstParty,                 // and only then, coverage
+  ];
+  const beats = (a, b) => {
+    const ra = rankOf(a);
+    const rb = rankOf(b);
+    for (let i = 0; i < ra.length; i += 1) {
+      if (ra[i] !== rb[i]) return ra[i] > rb[i];
+    }
+    return false; // equal on every axis — keep the first, discovery order is sorted and stable
+  };
+
+  const rejected = [];
   if (!best) {
-    for (const dir of PROBE_DIRS) {
-      const cand = mkCandidate(path.join(projectRoot, dir, 'compile_commands.json'));
+    for (const candidatePath of discoverCompileDbCandidates(projectRoot)) {
+      const cand = mkCandidate(candidatePath);
       if (!cand) continue;
       if (!best) { best = cand; continue; }
-      if (best.foreign && !cand.foreign) { best = cand; continue; } // native beats foreign
-      if (!best.foreign && cand.foreign) continue;                  // keep the native one
-      if (cand.firstParty > best.firstParty) best = cand;           // tie-break by coverage
+      if (beats(cand, best)) { rejected.push(best); best = cand; }
+      else rejected.push(cand);
     }
   }
 
@@ -696,8 +820,37 @@ export function prepareCompileDb({ projectRoot }) {
     });
   }
 
+  // The selected DB's compiler is not the one clangd is. Same consequence as foreign_toolchain —
+  // TUs that do not compile, caller sets silently short — but previously undetectable, because the
+  // only mismatch we looked for was Linux-on-Windows.
+  if (best.toolchainMismatch) {
+    const alternative = rejected.find((c) => !c.toolchainMismatch);
+    diagnostics.push({
+      code: 'toolchain_mismatch',
+      message: `compile DB was built with '${best.compiler}' (MSVC), but clangd is clang. clangd cannot consume MSVC-only flags, so these TUs may fail to compile and the index is silently PARTIAL: code_intel_references / code_intel_hierarchy caller sets are TRUNCATED. Do NOT trust any "no callers / dead code / safe to delete" result from this DB; verify with rg.${alternative ? ` A MATCHING DB IS ALREADY ON DISK AND WAS NOT SELECTED BEFORE THIS FIX: ${alternative.sourcePath} (compiler '${alternative.compiler}').` : ''}`,
+      fix: alternative
+        ? `point at the matching DB: APG_COMPILE_DB=${path.dirname(alternative.sourcePath)}`
+        : 'regenerate with clang-cl rather than cl: cmake -S . -B build-clangd -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON',
+    });
+  }
+
+  // A build root outside the repository — observed in the field as a per-session temp scratchpad,
+  // which will not survive a reboot and was never the user's intended build tree.
+  if (best.externalRoot) {
+    diagnostics.push({
+      code: 'compile_db_external_root',
+      message: `compile DB entries are rooted OUTSIDE this repository (e.g. ${best.externalRootSample}). Relative includes and generated headers resolve against that directory, so if it is transient — a temp dir, another checkout, another machine — clangd's view is wrong or will silently become wrong. Treat completeness answers from this DB as unreliable.`,
+      fix: `regenerate the compile DB with its build directory inside ${projectRoot}, or pin a known-good one with APG_COMPILE_DB=<dir>`,
+    });
+  }
+
   const result = {
     found: true,
+    toolchainMismatch: best.toolchainMismatch,
+    compiler: best.compiler,
+    externalRoot: best.externalRoot,
+    externalRootSample: best.externalRootSample,
+    candidatesConsidered: rejected.length + 1,
     sourcePath: best.sourcePath,
     // Directory of the ORIGINAL (un-normalized) compile DB. The opt-in
     // WSL-clangd transport points `--compile-commands-dir` here (e.g.

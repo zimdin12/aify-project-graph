@@ -92,7 +92,11 @@ function reportCpp(projectRoot, write) {
   // wslActive = WSL mode is requested AND actually usable for THIS db.
   let wslActive = false;
   if (db.found) {
-    dbReady = db.firstPartyCount > 0;
+    // ⛔ THIS USED TO BE `db.firstPartyCount > 0` AND NOTHING ELSE. On 2026-08-25 that reported
+    // "=> READY" for an MSVC compile DB rooted in a per-session temp scratchpad, on a clang host,
+    // in a repo whose owner had been told every absence claim there was void. A verdict that
+    // cannot say NOT-READY for the case our own diagnostics describe is decoration.
+    dbReady = db.firstPartyCount > 0 && !db.toolchainMismatch && !db.externalRoot;
     unityWarn = !!db.unity;
     unityExpanded = !!db.unityExpanded;
     foreignToolchain = !!db.foreignToolchain;
@@ -127,7 +131,18 @@ function reportCpp(projectRoot, write) {
       write(`    WARNING unity_build: ${d ? d.message : 'unity aggregates detected'}\n`);
       if (d?.fix) write(`      fix: ${d.fix}\n`);
     }
-    if (!dbReady) {
+    if (db.toolchainMismatch) {
+      const d = (db.diagnostics || []).find((x) => x.code === 'toolchain_mismatch');
+      write(`    WARNING toolchain_mismatch: DB built with '${db.compiler}' (MSVC) but clangd is clang\n`);
+      if (d?.message) write(`      ${d.message}\n`);
+      if (d?.fix) write(`      fix: ${d.fix}\n`);
+    }
+    if (db.externalRoot) {
+      const d = (db.diagnostics || []).find((x) => x.code === 'compile_db_external_root');
+      write(`    WARNING external_root: entries rooted outside this repository — ${db.externalRootSample}\n`);
+      if (d?.fix) write(`      fix: ${d.fix}\n`);
+    }
+    if (db.firstPartyCount === 0) {
       write('    WARNING: 0 first-party entries after dep filtering — clangd will see only vendored/build sources\n');
     }
   } else {
