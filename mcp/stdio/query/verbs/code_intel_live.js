@@ -870,8 +870,16 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
     evidence.exhaustive = false;
     evidence.translationUnitFailed = true;
     evidence.missingHeaders = fatalIncludes.map((d) => d.header).filter(Boolean).slice(0, 5);
-    // Only claim the cause when nothing else already did; an existing cause is more specific.
-    if (!evidence.cause) evidence.cause = 'translation_unit_did_not_compile';
+    // ⛔ THIS WAS `if (!evidence.cause)` AND IT MADE THE VALUE UNREACHABLE. The comment claimed
+    // "an existing cause is more specific" — the reverse is true, and `cause` is NEVER null:
+    // measured, 0 of 1,134 combinations. So the standing `index_population_unattested` always won
+    // and `translation_unit_did_not_compile` could not be emitted by any input. I wrote both the
+    // dead line and the skill text telling agents to branch on the name.
+    //
+    // ⇒ THE SPECIFIC DIAGNOSIS BEATS THE STANDING ONE. "This TU did not compile, here is the
+    // header" is actionable; "the index population is unattested" is true of every call and tells
+    // a reader nothing about THIS query. A standing limit must never crowd out an incident.
+    evidence.cause = 'translation_unit_did_not_compile';
     const headers = evidence.missingHeaders.length
       ? ` (unresolved: ${evidence.missingHeaders.join(', ')})`
       : '';

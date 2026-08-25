@@ -77,10 +77,11 @@ it is currently the only sound method.**
   definitionLocations: [...], // declaration entries split out
   evidence: {
     ready: true,              // ready signal + workspace warm
-    degraded: false,          // any reason the answer isn't exhaustive
+    degraded: true,           // ⛔ DEPRECATED: true on EVERY answer, carries no information
+                              //    (contract 1; removed in contract 2 — branch on `cause`)
     cause: null,              // cold_index|timeout|unsupported|definition_only|stale_index|unknown
     confidence: 'high',       // high|medium|low
-    fallback: null,           // recovery instruction string when degraded
+    fallback: null,           // recovery instruction string when `cause` is set
     exhaustive: false,        // WITHHELD — cause: index_population_unattested (see below)
     warnings: [],             // human-readable caveats
     previouslyDegraded: null  // session recovered from a prior degraded state

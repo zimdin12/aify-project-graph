@@ -76,3 +76,34 @@ describe('evidence.translationUnitFailed — the firing half', () => {
     expect(r.evidence.missingHeaders ?? []).toHaveLength(0);
   });
 });
+
+// ⛔ THE CAUSE VALUE WAS DEAD CODE FROM THE DAY I WROTE IT.
+//
+// The guard set `if (!evidence.cause) evidence.cause = 'translation_unit_did_not_compile'`, with a
+// comment claiming "an existing cause is more specific". The reverse is true, and `cause` is NEVER
+// null — measured, 0 of 1,134 combinations. So the standing `index_population_unattested` always
+// won and this value could not be emitted by any input, while the skill text I wrote told agents
+// to branch on it.
+//
+// ⇒ A STANDING LIMIT MUST NOT CROWD OUT AN INCIDENT. "This TU did not compile, here is the header"
+// is actionable; "the index population is unattested" is true of every call.
+describe('translationUnitFailed — the cause value must actually be reachable', () => {
+  it('⭐ a failed TU reports the SPECIFIC cause, not the standing one', async () => {
+    const root = tmpRepo(['unresolved.cpp']);
+    const r = await refs(root, 'unresolved.cpp');
+    expect(r.evidence.translationUnitFailed).toBe(true);
+    expect(r.evidence.cause).toBe('translation_unit_did_not_compile');
+    expect(r.evidence.cause).not.toBe('index_population_unattested');
+  });
+
+  it('a healthy TU keeps the standing cause — the override is not unconditional', () => {
+    // The negative control. If the specific cause appeared everywhere it would be the same
+    // non-discriminating field `degraded` already is.
+    // (Driven through the builder rather than a session, so no clangd is required.)
+    return import('../../../mcp/stdio/query/verbs/code_intel_live.js').then(({ buildReferencesEvidence }) => {
+      const e = buildReferencesEvidence({ freshness: 'fresh', callsiteCount: 5, defCount: 1, resultState: 'found', coverage: { complete: true } });
+      expect(e.cause).toBe('index_population_unattested');
+      expect(e.translationUnitFailed ?? false).toBe(false);
+    });
+  });
+});
