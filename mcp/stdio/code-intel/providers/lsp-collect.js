@@ -12,7 +12,6 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { LspClient } from '../lsp-client.js';
-import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
 import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness } from '../collect-ledger.js';
@@ -23,14 +22,58 @@ function realpath(p) {
 
 // Relativize a server-returned file URI against the project root, reconciling
 // Windows 8.3 short paths vs long paths (and case) by realpath-ing both sides.
-function relativizeUri(uri, realRoot) {
+/**
+ * Repo-relative path for a URI, or `null` when the target is OUTSIDE the repository.
+ *
+ * ⛔ THIS FUNCTION LEAKED OUT-OF-REPO NODES INTO EVERY COLLECTED GRAPH, AND THE BUG WAS ALREADY
+ * DOCUMENTED TEN LINES BELOW. The fallback read:
+ *
+ *     try { return toRepoRelative(uri, realRoot); } catch { return uri; }
+ *
+ * Two defects on one line. The arguments are REVERSED — the signature is
+ * `toRepoRelative(projectRoot, filePath)` — so it always threw, with an error naming the repo root
+ * as the path and the URI as the root. And the catch returned the INPUT, writing a raw
+ * percent-encoded `file://` URI into `file_path`.
+ *
+ * MEASURED on click: pyright resolves `click` to the operator's INSTALLED site-packages copy and
+ * reads its own bundled typeshed stubs, both legitimately outside the repository. The containment
+ * check above correctly REJECTED them; this fallback then stored them verbatim. Six such nodes, and
+ * zero in the four arms that ran no collection.
+ *
+ * ⇒ The guard was never the problem. What followed converted a correct refusal into an artifact.
+ *
+ * ⛔⛔ AND THE COMMENT AT `uriToRepoRelative` BELOW DESCRIBES THIS EXACT DEFECT — reversed
+ * arguments, a `file://` URI where a path was expected — in a copy that was DELETED for being a
+ * trap, while the live one ten lines above was left in place. It even explains why the dead copy
+ * was harmless: "it was never called". That is the property this one did not have.
+ * ⇒ The most accurate description of this bug in the repository sat ten lines from the bug and did
+ * not prevent it. A comment is not an instrument; a test calling this with an out-of-repo URI is.
+ *
+ * ⚠ THE FALLBACK IS DELETED, NOT CORRECTED. With the arguments the right way round it throws for
+ * exactly the same inputs — it can only succeed where the containment check already succeeded — so
+ * it was dead weight whose sole effect was to produce the wrong answer.
+ *
+ * Returning `null` rather than a path makes the out-of-repo case UNIGNORABLE at every call site: a
+ * caller must decide what to do instead of silently recording a URI.
+ */
+export function relativizeUri(uri, realRoot) {
   try {
     let p = String(uri).startsWith('file:') ? fileURLToPath(uri) : uri;
     p = realpath(p);
-    const rel = path.relative(realRoot, p);
+    // ⚠ THE ROOT IS CANONICALISED HERE TOO, NOT ONLY ASSUMED. The single caller passes an
+    // already-realpath'd root, and the parameter name says so — but a caller that did not would get
+    // SILENT TOTAL FAILURE: every path rejected as out-of-repo, no error, an empty collection that
+    // looks like a repository with nothing in it.
+    //
+    // Found because a positive control failed. On Windows a temp dir is handed back as the 8.3 short
+    // name `C:\Users\ADMINI~1\...` while its realpath is `C:\Users\Administrator\...`, so an
+    // IN-REPO file compared against the raw root and was refused. realpath is idempotent, so this
+    // costs one call and removes a trap that produces no diagnostic at all.
+    const root = realpath(realRoot);
+    const rel = path.relative(root, p);
     if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return rel.replace(/\\/g, '/');
-  } catch { /* fall through */ }
-  try { return toRepoRelative(uri, realRoot); } catch { return uri; }
+  } catch { /* not a usable path — treated as out-of-repo below */ }
+  return null;
 }
 
 function newCollectionId() {
@@ -48,6 +91,15 @@ function rangeFromLsp(range) {
 // helper with inverted arguments is a trap for the next caller, and the correct
 // implementation already exists as uriToRepoRelativeSafe in
 // ingest/code-intel/paths.js.
+//
+// ⛔⛔ AND THE SAME BUG WAS LIVE TEN LINES ABOVE THIS NOTE FOR THE WHOLE TIME IT STOOD.
+// `relativizeUri`'s fallback made the identical reversed call, and unlike this deleted helper it
+// WAS called — on every definition and reference a language server returned. It leaked raw
+// percent-encoded file:// URIs into `file_path` for anything resolving outside the repository.
+//
+// ⇒ This note diagnosed the defect precisely, explained why the dead copy was harmless, and did
+// not prevent the live one. The author was reading the unused helper, not the used one.
+// ⇒ A comment is not an instrument. See the tests for `relativizeUri`, which are.
 function severityFromLsp(sev) {
   return ({ 1: 'error', 2: 'warning', 3: 'info', 4: 'hint' })[sev] || 'info';
 }
@@ -261,6 +313,12 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   let positionGuessSkipped = 0;
   let anonymousSkipped = 0;
   let refsTruncatedSymbols = 0;
+  // ⚠ COUNTED AND REPORTED, NOT SILENTLY DROPPED. These are definitions and references that resolve
+  // OUTSIDE the repository — pyright reaching the operator's installed site-packages and its own
+  // typeshed stubs. They used to be stored with a raw file:// URI in `file_path`. Skipping them
+  // without saying so would replace a wrong answer with an unexplained gap, so the count travels
+  // with the collection: a reader can see the caller set is a floor for a NAMED reason.
+  let outOfRepoSkipped = 0;
   let anyResult = false;
 
   try {
@@ -270,7 +328,10 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       if (overBudget()) { budgetExhausted = true; break; }
       const abs = path.isAbsolute(rel) ? rel : path.join(realRoot, rel);
       const uri = pathToFileURL(abs).toString();
+      // ⚠ An enumerated file is inside the repo by construction, so `null` here means the path
+      // could not be read at all — skip rather than record a file we cannot name.
       const relPath = path.isAbsolute(rel) ? relativizeUri(uri, realRoot) : rel.replace(/\\/g, '/');
+      if (!relPath) { outOfRepoSkipped += 1; continue; }
       let text = '';
       try { text = fs.readFileSync(abs, 'utf8'); } catch { continue; }
       await client.didOpen(uri, language, text);
@@ -329,7 +390,13 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
             const defs = (await client.definition(uri, pos)) || [];
             for (const d of (Array.isArray(defs) ? defs : [defs])) {
               if (!d?.uri) continue;
-              records.push({ ...recordBase(collectionId, language, prov), kind: 'definition', symbolId, qname, file: relativizeUri(d.uri, realRoot), range: rangeFromLsp(d.range), confidence: 'high', freshness: fresh, result_state: 'found' });
+              // A definition that resolves OUTSIDE the repository is real information, but it is
+              // not a node in THIS graph. pyright resolves imports into the operator's installed
+              // site-packages and its own typeshed stubs; recording those as repo files is what
+              // produced the raw file:// URIs in `file_path`.
+              const defFile = relativizeUri(d.uri, realRoot);
+              if (!defFile) { outOfRepoSkipped += 1; continue; }
+              records.push({ ...recordBase(collectionId, language, prov), kind: 'definition', symbolId, qname, file: defFile, range: rangeFromLsp(d.range), confidence: 'high', freshness: fresh, result_state: 'found' });
               operations.definitions.count += 1;
             }
           } catch { /* per-symbol */ }
@@ -352,7 +419,12 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
               const droppedRefs = refs.length - kept.length;
               if (droppedRefs > 0) refsTruncatedSymbols += 1;
               for (const ref of kept) {
-                records.push({ ...recordBase(collectionId, language, prov), kind: 'reference', symbolId, qname, file: relativizeUri(ref.uri, realRoot), range: rangeFromLsp(ref.range), context: 'call_expr', confidence: 'high', freshness: fresh, result_state: 'found',
+                // A reference from OUTSIDE the repository is a real fact about the wider world and
+                // not an edge in THIS graph. Recording it stored a raw file:// URI in `file_path`,
+                // pointing at a different copy of the library than the one under edit.
+                const refFile = relativizeUri(ref.uri, realRoot);
+                if (!refFile) { outOfRepoSkipped += 1; continue; }
+                records.push({ ...recordBase(collectionId, language, prov), kind: 'reference', symbolId, qname, file: refFile, range: rangeFromLsp(ref.range), context: 'call_expr', confidence: 'high', freshness: fresh, result_state: 'found',
                   ...(droppedRefs > 0 ? { truncated: droppedRefs, totalReferences: refs.length } : {}) });
               }
               operations.references.count += kept.length;
@@ -427,7 +499,7 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       refsFoundSymbols, refsNotFoundSymbols,
       // What was never asked — see the guards above. Without these a coverage
       // percentage over this collection reads as a rate when it is a FLOOR.
-      positionGuessSkipped, anonymousSkipped, refsTruncatedSymbols,
+      positionGuessSkipped, anonymousSkipped, refsTruncatedSymbols, outOfRepoSkipped,
       filesProcessed, filesTotal: files.length,
       // Resume state — resumedFrom climbing toward enumeratedTotal is the
       // convergence signal; filesProcessed resets every call and cannot show it.

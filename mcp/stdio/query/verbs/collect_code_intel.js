@@ -542,6 +542,19 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
       // verb reporting it. Always emitted, `null` when unknown, never omitted.
       positionGuessSkipped: sess.positionGuessSkipped ?? null,
       refsTruncatedSymbols: sess.refsTruncatedSymbols ?? null,
+      // Definitions and references that resolved OUTSIDE the repository and were therefore not
+      // recorded — a language server reaching installed packages or its own bundled stubs. They
+      // used to be stored with a raw file:// URI in `file_path`, pointing at a different copy of
+      // the library than the one under edit.
+      //
+      // ⚠ A SIBLING COUNTER IN A BLOCK A READER ALREADY CONSULTS, beside positionGuessSkipped and
+      // refsTruncatedSymbols. Skipping these without reporting the count would replace a wrong
+      // answer with an unexplained gap: the caller set is a floor, and this names one reason why.
+      //
+      // ⛔ AND IT WAS ADDED TO THE PROVIDER'S SESSION FIRST WITHOUT THIS LINE, so the count existed
+      // and no caller could see it — the same unreachable-by-the-consumer defect this audit keeps
+      // turning up, committed inside the fix for another instance of it.
+      outOfRepoSkipped: sess.outOfRepoSkipped ?? null,
       // RESUME STATE. `filesProcessed` resets every call, so on its own it cannot
       // show whether repeated runs are CONVERGING or just repeating — which is
       // exactly the ambiguity that let "run again to continue" stay false for so
