@@ -1223,8 +1223,10 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   } else if (poorlyCovered) {
     const missing = Math.max(0, diskSources - coveredOnDisk);
     reason = `the compile DB covers ${coveredOnDisk} of ~${diskSources} first-party sources `
-      + `(${Math.round(coverageRatio * 100)}%), leaving ~${missing} translation unit(s) unindexed. A caller in any of `
-      + `those is INVISIBLE to clangd, so the caller set is a FLOOR, not a completeness oracle — verify with rg before `
+      + `(${Math.round(coverageRatio * 100)}%), leaving ~${missing} translation unit(s) unindexed. `
+      + `⛔ THAT SHORTFALL IS A LOWER BOUND ON THE RISK, NOT THE WHOLE OF IT: being listed in the compile DB is not evidence `
+      + `clangd indexed the file or resolved its callers. Measured 2026-08-25 on a repo at this exact ratio — four real `
+      + `callers were missed in a file that IS in the DB. So the caller set is a FLOOR, not a completeness oracle — verify with rg before `
       + `any "no callers / dead code / safe to delete" claim. FIX: export compile commands for all your targets `
       + `(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON on a build that compiles them) and confirm your sources appear in compile_commands.json.`;
   } else if (fileUncovered) {
@@ -1237,14 +1239,27 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   } else if (unityUnexpanded) {
     reason = 'compile DB is a CMake UNITY build whose per-source TUs are absent (aggregates not expanded on this host), so callers in unity-only sources are invisible to clangd — verify with rg before any delete/rename';
   } else if (!fullyCovered && coverageRatio !== null) {
-    // Above the severity threshold but not complete: the shortfall is small, so the prose is
-    // proportionate — but the population is NAMED, because a withheld grant with no cause
-    // misdirects the remedy exactly as a false grant misdirects the decision.
+    // Above the severity threshold but not complete. The population is named — but naming it is
+    // not enough, and this branch is where that was learned.
+    //
+    // ⛔ THIS SENTENCE SAT BESIDE A WRONG ANSWER. ef-manager, field-testing 2026-08-25, saw
+    // "122 of ~123 first-party sources (99%)" while the query MISSED FOUR REAL CALLERS in a file
+    // that IS in the database. The old text said "That is good coverage, but a caller in any
+    // EXCLUDED TU is invisible" — which bounds the risk to the ~1 missing source and reads as
+    // "at most one TU's worth of callers could be hiding". That bound is FALSE, and false in the
+    // dangerous direction: it makes a floor look nearly complete.
+    //
+    // ⇒ A ratio over a FILE LIST is not a ratio over what was SEARCHED. Being listed in the
+    // compile DB says clangd MAY index a file; it never says it DID, nor that it resolved the
+    // callers inside it. The remainder is a LOWER BOUND on the risk, never its extent.
     const missing = Math.max(0, diskSources - coveredOnDisk);
     reason = `the compile DB covers ${coveredOnDisk} of ~${diskSources} first-party sources `
       + `(${Math.round(coverageRatio * 100)}%), leaving ~${missing} translation unit(s) unindexed. `
-      + `That is good coverage, but a caller in any excluded TU is INVISIBLE to clangd, so this `
-      + `caller set cannot be attested exhaustive — it is a FLOOR. Verify with rg before any `
+      + `⛔ DO NOT READ THAT RATIO AS THE RISK. It counts whether a source is LISTED in the compile `
+      + `database — not whether clangd indexed it, and not whether it resolved its callers. `
+      + `MEASURED 2026-08-25 at this exact ratio: four real callers were missed in a file that IS `
+      + `in the database. The uncovered remainder is a LOWER BOUND on what can be invisible, never `
+      + `the whole of it. This caller set is a FLOOR — verify with rg before any `
       + `"no callers / dead code / safe to delete" claim.`;
   } else if (censusRecalled) {
     reason = 'the first-party source census was recalled from cache rather than measured during '
