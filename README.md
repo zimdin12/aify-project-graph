@@ -4,7 +4,7 @@ On-demand codebase graph map for coding agents. Scans any project with tree-sitt
 
 **Honest measurement, n=1 per arm — read the caveats.** The static brief + overlay reliably beat Grep-only on planning shapes by **~15-20% wall-clock and tool calls** with structurally better feature taxonomy across multiple runs (apg dogfood + 2026-04-26 echoes A/B). That's the consistent win.
 
-**Bounded `code_intel_*` verbs (C++, TypeScript/JS, Python) — load-bearing on REFUSING confidently-wrong absence claims.** Top-level MCP tools (`code_intel_diagnostics/references/definitions/hover/symbols/hierarchy/analyze`) drive a real language server live — clangd / typescript-language-server / pyright, auto-selected by file extension, **bundled with the plugin (no host LSP config)** — no collect/import round-trip. Per-language honesty: C++ gated on compile-DB coverage, TS exhaustive with a `tsconfig.json`, **Python never provably exhaustive** (dynamic dispatch → a verified floor). After Plan #14 (2026-05-21) they carry a structured **evidence contract**: `code_intel_references` returns `evidence: {ready, degraded, cause, confidence, fallback, exhaustive, warnings[]}`. Absence claims ("no callers", "dead code", "safe to delete") are only safe when `evidence.exhaustive === true`; otherwise the agent MUST refuse the claim or fall back per `evidence.fallback`. Degraded causes (`cold_index|timeout|definition_only|stale_index|unsupported|unknown`) name what went wrong; cold sessions auto-prewarm a bounded ≤15-file set (same-dir + `compile_commands.json` siblings only); sticky degraded state per session warns when the index quietly recovered after an earlier under-report.
+**Bounded `code_intel_*` verbs (C++, TypeScript/JS, Python) — load-bearing on REFUSING confidently-wrong absence claims.** Top-level MCP tools (`code_intel_diagnostics/references/definitions/hover/symbols/hierarchy/analyze`) drive a real language server live — clangd / typescript-language-server / pyright, auto-selected by file extension, **bundled with the plugin (no host LSP config)** — no collect/import round-trip. Per-language honesty: C++ gated on compile-DB coverage, TS exhaustive with a `tsconfig.json`, **Python never provably exhaustive** (dynamic dispatch → a verified floor). After Plan #14 (2026-05-21) they carry a structured **evidence contract**: `code_intel_references` returns `evidence: {ready, degraded, cause, confidence, fallback, exhaustive, warnings[]}`. ⛔ **Absence claims ("no callers", "dead code", "safe to delete") are NOT AVAILABLE from this tool.** `evidence.exhaustive` is withheld on every verb (cause `index_population_unattested`) — see "What licenses an absence claim" below. The contract is enforceable in the NEGATIVE direction only: it tells an agent when to refuse, and it can no longer certify a complete set. Degraded causes (`cold_index|timeout|definition_only|stale_index|unsupported|unknown`) name what went wrong; cold sessions auto-prewarm a bounded ≤15-file set (same-dir + `compile_commands.json` siblings only); sticky degraded state per session warns when the index quietly recovered after an earlier under-report.
 
 **Honest finding from real-clangd validation (2026-05-22, Sand Castle WSL clangd 18.1.3):** on clangd running with `--background-index=false` (our default for determinism), `evidence.exhaustive === true` is NOT achievable through any current prewarm/wait combo — clangd doesn't emit readiness in that configuration. The contract is enforceable in the **negative direction**: refuse confident absence claims when degraded. That's still load-bearing protection (it prevents the most dangerous class of confidently-wrong "dead code" report) but the agent rarely gets to make a positive exhaustive claim from APG alone today. Future work: a workspace-symbol round-trip OR background-index opt-in for repos that can afford the indexing cost — both surface real `ready` signals.
 
@@ -82,19 +82,26 @@ to trust each answer**. That second part is the product. Two rules cover most of
 
 ### 1. Empty is not absent
 
-Every evidence-bearing verb returns an `evidence` block. The only field that licenses
-a "there are no callers / this is safe to delete" conclusion is:
+Every evidence-bearing verb returns an `evidence` block.
 
-```
-evidence.exhaustive === true
-```
+⛔ **`evidence.exhaustive === true` IS WITHHELD, AND THIS SECTION USED TO TEACH THE OPPOSITE.**
+It said that flag licenses "no callers / safe to delete", with a table row reading *"the absence
+is real; safe to act on"*. The flag was withdrawn on 2026-08-19 (`code_intel_references`) and
+2026-08-25 (`code_intel_hierarchy`, which had kept granting it on evidence its sibling already
+declared insufficient). **No verb issues it today.** The withdrawal reached the skills and not
+this page for six days — this README is the first thing most readers meet, so it was the worst
+place for it to survive.
 
-Anything else means *the tool could not answer*, which is a statement about the index
-— never about your code:
+**Nothing this tool returns licenses an absence claim.** The compile DB reports which translation
+units clangd MAY index, never which it DID: a file present in it can still fail to compile — one
+missing include is enough — while background indexing reports idle. Returned locations are
+compiler-resolved and precise; the SET is a **floor**. Verify with `rg` before any delete,
+rename, or signature change.
 
-| `evidence.cause` | what it licenses |
+| `evidence.cause` | what it means |
 |---|---|
-| `null` + `exhaustive: true` | the absence is real; safe to act on |
+| `index_population_unattested` | the standing state. Results are a floor of compiler-resolved locations, never a complete set |
+| `translationUnitFailed: true` | **this TU never compiled** (unresolved include, named in `missingHeaders`). An empty result here is not evidence of absence at all |
 | `definition_only` | the index knew the declaration and nothing else. **Not evidence of no callers.** |
 | `stale_index` / `cold_no_warm` | correct answer, unattested. Re-run with `waitForReadyMs` |
 | `no_index_entry` | the symbol is not in the index at all |
@@ -380,7 +387,7 @@ Code-Intel v2 (delivered 2026-05; status doc `docs/code-intel-v2-status.md`, his
 
 **The trust model — read this before quoting graph results on C++:**
 - **`[lsp✓]` marker + `LSP_VERIFIED` provenance = clangd ground truth.** When `graph_callers` / `graph_pull` render `[lsp✓]` on an edge (or an edge carries `LSP_VERIFIED`), that caller was resolved by clangd, not guessed. **Don't re-grep it.** A TRUST banner summarizes evidence + exhaustiveness for the response.
-- **Absence claims are gated on exhaustive evidence.** `code_intel_references` returns an `evidence` object (`{ready, degraded, cause, confidence, fallback, exhaustive, warnings[]}`). Only an empty refs list with `evidence.exhaustive === true` justifies "no callers". Otherwise the verb refuses the claim and names the fallback. The empty-result paths of `graph_callers` / `graph_callees` / `graph_neighbors` / `graph_impact` now route through the same trust line, so "NO CALLERS" never prints without the not-exhaustive caveat.
+- **Absence claims are refused, not gated.** `code_intel_references` returns an `evidence` object (`{ready, degraded, cause, confidence, fallback, exhaustive, warnings[]}`). `exhaustive: true` was the gate until 2026-08-19 and is now **never issued** — the compile DB reports which TUs clangd MAY index, not which it DID. Every result is a floor; the verb names the fallback and the caller verifies with `rg`. The empty-result paths of `graph_callers` / `graph_callees` / `graph_neighbors` / `graph_impact` now route through the same trust line, so "NO CALLERS" never prints without the not-exhaustive caveat.
 - **References and hierarchy are the trustworthy core.** `code_intel_references` and `code_intel_hierarchy` (call + type hierarchy, virtual overrides) don't depend hard on the toolchain sysroot, so they stay reliable where fresh/exhaustive. **Diagnostics and hover are weaker on Windows** when the `compile_commands.json` was built under WSL/Linux (its include/sysroot paths don't exist on the Windows host). `--query-driver=*` recovers many cases; for full-quality diagnostics set **`APG_CLANGD_WSL=1`** to run clangd under WSL against the original Linux DB (opt-in; locations round-trip back to Windows paths). Verified on echoes: 90 bogus-cascade diagnostics on Windows clangd → 15 clean (only a genuine `windows.h`-not-found) under WSL. See the status doc's "Known issues" #3.
 
 **What's in the spine:** clangd compile-db normalization (WSL→host) + unity-build expansion (engine *and* test TUs) + Windows foreign-toolchain handling; clangd refs promoted to `LSP_VERIFIED` graph edges with readiness-gated cross-TU resolution; static virtual-override edges (`OVERRIDDEN_BY`, `provenance:'INFERRED'`) for vtable-heavy engine code; the C++↔GLSL shader bridge (`graph_shader`); and an MCP `initialize` server-instructions playbook (`mcp/stdio/server-instructions.js`) that injects the intent-routed trust guidance into the host system prompt once per session, reaching Hermes + Claude Code identically. One `storage/taxonomy.js` registry and a unified trust vocabulary (lsp-verified / partial / heuristic) keep it reading as one system.

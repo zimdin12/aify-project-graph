@@ -374,7 +374,40 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
         warnings: [`compile-DB / project coverage could not be verified — the ${noun} tree is a FLOOR, not a complete set`],
       };
     }
-    return { ready: true, degraded: false, cause: null, confidence: 'high', exhaustive: true, fallback: null, warnings: [] };
+    // ⛔ THIS RETURNED exhaustive:true AND IT WAS THE LAST PLACE THAT COULD.
+    //
+    // On 2026-08-19 `code_intel_references` withdrew the exhaustive grant entirely, cause
+    // `index_population_unattested`, on this reasoning (its own words):
+    //
+    //     "the compile DB does not report which TUs clangd actually DID index. A file present
+    //      in it can still fail to compile (a missing include path is enough) and its callers
+    //      are then invisible, while background indexing still reports idle."
+    //
+    // That reasoning applies to THIS VERB IDENTICALLY — the comment ten lines above says so:
+    // hierarchy answers the transitive "who calls X" and "licenses dead-code claims just as
+    // strongly". But the withdrawal reached `references` and stopped at its sibling, so the
+    // gate below kept granting the certification on `coverage.complete === true`, which is
+    // EXACTLY the evidence that reasoning declares insufficient.
+    //
+    // ⭐ AND 2026-08-25 MADE IT CONCRETE RATHER THAN THEORETICAL. A TU that fails on
+    // `#include <cstddef>` has a PERFECTLY COMPLETE compile DB — coverage.complete is true —
+    // and produces an empty tree, because clangd built no AST for it. Measured: 2 references
+    // vs 0 on identical TUs differing only by that include. So this line could certify
+    // "no callers, safe to delete" over a translation unit that never compiled.
+    //
+    // ⇒ Withheld on the same standing basis. A caller that cannot tell which TUs compiled
+    // cannot certify an absence, whichever verb it asked.
+    return {
+      ready: true,
+      degraded: true,
+      cause: 'index_population_unattested',
+      confidence: 'medium',
+      exhaustive: false,
+      completeness: 'floor',
+      precision: 'compiler_resolved',
+      fallback: `the compile DB reports which TUs clangd MAY index, never which it DID — a file in it can still fail to compile (one missing include is enough) and its ${noun} are then invisible while indexing reports idle. The tree is a FLOOR of compiler-resolved results; verify with rg before any "no ${noun}" / dead-code / safe-to-delete claim.`,
+      warnings: [`index population unattested — the ${noun} tree is a FLOOR, not a complete set`],
+    };
   }
   // INDEXED mode but the index never reached idle within budget.
   return {
@@ -738,12 +771,23 @@ export async function codeIntelHierarchy(args = {}) {
   const multiRoot = items.length > 1;
   const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage, truncated, multiRoot });
   const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated, multiRoot });
-  // I3 + HIGH-1 — only stamp the ground-truth `[lsp✓]` when the FINAL evidence is
-  // exhaustive (INDEXED mode + indexReady===true AND a non-empty resolved tree).
-  // An index-ready-but-empty tree is now lsp-partial (no_incoming_unconfirmed),
-  // so its node marker must be the distinct partial `[lsp~]`, never a bare
-  // `[lsp✓]` that would contradict its own banner.
-  const nodeMark = finalEvidence.exhaustive ? '[lsp✓]' : '[lsp~]';
+  // I3 + HIGH-1 — stamp the ground-truth `[lsp✓]` only on a tree whose edges really are
+  // compiler-resolved: INDEXED mode, index ready, and a non-empty resolved tree. An
+  // index-ready-but-empty tree stays lsp-partial (no_incoming_unconfirmed), so its marker is
+  // the distinct `[lsp~]` and never contradicts its own banner.
+  //
+  // ⛔ THIS USED TO READ `finalEvidence.exhaustive ? ...` AND WITHDRAWING exhaustive MADE THE
+  // GROUND-TRUTH MARK UNREACHABLE. Caught by six red tests, not by reading.
+  //
+  // The mark and the banner answer DIFFERENT QUESTIONS, and collapsing them was the bug:
+  //   `[lsp✓]` per node  — PRECISION: this edge came from the compiler, do not re-grep it.
+  //   banner/exhaustive  — COMPLETENESS: is this the whole set?
+  // Precision survives the withdrawal intact. Completeness does not. THE-GOAL states the rule
+  // this violated — "precision and exhaustiveness are orthogonal, never let one become the
+  // other" — and gating the per-edge mark on the set claim did exactly that: it would have
+  // stripped a TRUE signal from every edge to express a doubt about the set.
+  const groundTruthEdges = mode !== 'bounded' && indexReady === true && Number(nodeCount) > 1;
+  const nodeMark = groundTruthEdges ? '[lsp✓]' : '[lsp~]';
   const treeText = [
     `${kind.toUpperCase()} of ${rootItem.name || symbol || file} (depth ${depth})`,
     // Overload/multi-root sets: we walk only the first root to stay budgeted —

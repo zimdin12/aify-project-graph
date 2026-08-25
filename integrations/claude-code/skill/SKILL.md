@@ -163,6 +163,10 @@ Analyzer `partial` / `not_collected` means evidence was unavailable for some req
 
 **Listed ≠ callable.** Your `tools/list` shows a focused subset; every other verb stays callable by name via `tools/call`. Read the tool descriptions for what each one does — this skill does not re-list them, because a hand-maintained catalogue here drifts out of step with the server. Long-tail verbs worth knowing exist: `graph_preflight` / `graph_path` / `graph_find` / `graph_callees` / `graph_neighbors` / `graph_file` / `graph_shader` and the `graph_overview` / `graph_hotspots` / `graph_cycles` analytics behind `graph_digest`. Caveat: a host that defers MCP tools behind a search step can only reach **listed** verbs — if a tool-search finds one of these, do not retry; use a listed verb or start the server with `--toolset=full`.
 
+**⛔ `evidence.degraded` NO LONGER DISCRIMINATES — read `cause`.** As of 2026-08-25 both `code_intel_references` and `code_intel_hierarchy` return `degraded: true` on EVERY answer, with the standing cause `index_population_unattested`: the compile DB reports which TUs clangd MAY index, never which it DID, and a TU in it can still fail to compile while indexing reports idle. So `degraded` is now true of every call and carries no information — branch on `cause` instead. The causes that mean something specific went wrong are `translationUnitFailed` (that TU did not compile; `missingHeaders` names why), `no_incoming_unconfirmed`, `truncated_to_caps`, `cold_index`, `bounded_mode`.
+
+⭐ **And `[lsp✓]` still means what it always meant.** Withholding the SET claim does not touch the PER-EDGE one: a node marked `[lsp✓]` is compiler-resolved ground truth and does not need re-grepping. Precision and exhaustiveness are orthogonal — an incomplete set of exact answers is still exact.
+
 **Trust rule:** `[lsp✓]` / `LSP_VERIFIED` = language-server ground truth — don't re-grep it. Absence claims gate on `evidence.exhaustive === true`, never on an empty result.
 
 ## Edge provenance

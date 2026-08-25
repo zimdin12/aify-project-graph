@@ -131,15 +131,18 @@ describe('code_intel_hierarchy — depth + breadth capping', () => {
 });
 
 describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', () => {
-  it('INDEXED + index-ready → lsp-verified banner + evidence.exhaustive=true', async () => {
+  it('INDEXED + index-ready: lsp-verified banner, but exhaustive is WITHHELD', async () => {
     const repo = tmpRepo();
     const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 2000, spawn: fakeProgressSpawn });
     expect(r.mode).toBe('indexed');
     expect(r.indexReady).toBe(true);
     expect(r.trust).toMatch(/lsp-verified \(clangd, index-ready/);
-    expect(r.evidence.exhaustive).toBe(true);
+    expect(r.evidence.exhaustive).toBe(false);
+    expect(r.evidence.cause).toBe('index_population_unattested');
     expect(r.evidence.ready).toBe(true);
-    expect(r.evidence.degraded).toBe(false);
+    // degraded:true with a STANDING cause, matching code_intel_references. A standing cause is
+    // not an incident (see STANDING_CAUSES in code_intel_live.js) - it is true of every call.
+    expect(r.evidence.degraded).toBe(true);
     expect(r.treeText).toContain('lsp-verified');
     // I3 — index-ready exhaustive tree: per-node ground-truth mark is allowed.
     expect(r.treeText).toContain('[lsp✓]');
@@ -190,6 +193,18 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
 // "lsp-verified exhaustive" — cross-TU resolution is unconfirmed, so an empty
 // hierarchy is NOT safe evidence of absence (mirrors code_intel_references'
 // definition_only gating). Only a NON-EMPTY index-ready tree is exhaustive.
+// WITHDRAWN 2026-08-25 - code_intel_hierarchy NO LONGER ISSUES exhaustive:true.
+// `code_intel_references` withdrew that grant on 2026-08-19 (cause index_population_unattested)
+// because the compile DB reports which TUs clangd MAY index, never which it DID. The same
+// reasoning always applied here - this verb answers the transitive "who calls X" and licenses
+// dead-code claims just as strongly - but the withdrawal reached references and stopped at its
+// sibling. Measured 2026-08-25: a TU failing on `#include <cstddef>` has a COMPLETE compile DB
+// (coverage.complete === true) and yields an empty tree, so this verb could certify "no callers"
+// over a translation unit that never compiled.
+//
+// The assertions below USED to require exhaustive===true. They were not wrong when written; they
+// pinned a LIVE path, which is how we know the certification was reachable rather than dead code.
+// They now pin the withholding.
 describe('code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive', () => {
   const rootOnlySpawn = {
     command: process.execPath,
@@ -220,14 +235,17 @@ describe('code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive', () => {
     expect(r.treeText).toContain('[lsp~]');
   });
 
-  it('index-ready + NON-EMPTY tree still reports exhaustive=true (positive path intact)', async () => {
+  it('index-ready + NON-EMPTY tree is STILL not exhaustive - there is no positive path any more', async () => {
     const repo = tmpRepo();
     const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 2000, spawn: fakeProgressSpawn });
     expect(r.status).toBe('ok');
     expect(r.indexReady).toBe(true);
     expect(r.telemetry.nodes).toBeGreaterThan(1);
-    expect(r.evidence.exhaustive).toBe(true);
-    expect(r.evidence.degraded).toBe(false);
+    expect(r.evidence.exhaustive).toBe(false);
+    expect(r.evidence.cause).toBe('index_population_unattested');
+    // degraded:true with a STANDING cause, matching code_intel_references. A standing cause is
+    // not an incident (see STANDING_CAUSES in code_intel_live.js) - it is true of every call.
+    expect(r.evidence.degraded).toBe(true);
     expect(r.trust).toMatch(/lsp-verified \(clangd, index-ready/);
     expect(r.treeText).toContain('[lsp✓]');
   });
@@ -296,15 +314,16 @@ describe('code_intel_hierarchy — error envelopes', () => {
 });
 
 describe('code_intel_hierarchy — evidence/banner unit cases', () => {
-  it('buildHierarchyEvidence: indexed+ready+PROVEN coverage → exhaustive', () => {
+  it('buildHierarchyEvidence: indexed+ready+PROVEN coverage - STILL withheld (proven coverage is not proven population)', () => {
     // P0-2 parity (2026-07-26): proven coverage is now required. This test
     // previously passed NO coverage at all and asserted exhaustive:true — it
     // pinned the fail-open default on the transitive "who calls X" verb, which
     // licenses dead-code claims just as strongly as references.
     const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3, coverage: { complete: true } });
-    expect(e.exhaustive).toBe(true);
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('index_population_unattested');
     expect(e.ready).toBe(true);
-    expect(e.cause).toBeNull();
+    expect(e.cause).toBe('index_population_unattested');
   });
   it('buildHierarchyEvidence: indexed+ready but coverage UNPROVEN → not exhaustive', () => {
     for (const coverage of [undefined, null, { complete: undefined }]) {
@@ -358,7 +377,8 @@ describe('code_intel_hierarchy — evidence/banner unit cases', () => {
   });
   it('buildHierarchyEvidence: index-ready + complete coverage + no truncation → still exhaustive', () => {
     const e = buildHierarchyEvidence({ mode: 'indexed', indexReady: true, nodeCount: 3, kind: 'callers', coverage: { complete: true }, truncated: 0, multiRoot: false });
-    expect(e.exhaustive).toBe(true);
+    expect(e.exhaustive).toBe(false);
+    expect(e.cause).toBe('index_population_unattested');
   });
   it('buildHierarchyTrustLine: index-ready BUT incomplete coverage → lsp-partial banner (agrees with evidence, never lsp-verified)', () => {
     const line = buildHierarchyTrustLine({ mode: 'indexed', indexReady: true, kind: 'callers', nodeCount: 3, coverage: { complete: false, reason: 'foreign toolchain' } });
