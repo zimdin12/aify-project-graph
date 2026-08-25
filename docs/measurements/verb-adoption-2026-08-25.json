@@ -11,7 +11,7 @@
         "Read",
         "Grep"
       ],
-      "count": 62049,
+      "count": 62762,
       "passed": true
     },
     "negative": {
@@ -20,7 +20,44 @@
       "passed": true
     },
     "ranInSamePass": true,
-    "unparseableLines": 5
+    "unparseableLines": 5,
+    "unparseableDetail": [
+      {
+        "project": "C--Docker-aify-comms",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Docker-aify-comms\\651b895f-a564-4d3a-8e0b-27f8429b1dd0.jsonl",
+        "line": 31196,
+        "bytes": 5870,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Docker-aify-comms",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Docker-aify-comms\\651b895f-a564-4d3a-8e0b-27f8429b1dd0.jsonl",
+        "line": 103429,
+        "bytes": 3137,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Users-Administrator-AppData-Roaming--minecraft",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Users-Administrator-AppData-Roaming--minecraft\\aed32f2b-ac5d-49e0-99f8-249d1fe22f36.jsonl",
+        "line": 25666,
+        "bytes": 2095,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Users-Administrator-sand-castle",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Users-Administrator-sand-castle\\502989ba-6e2f-4358-95e0-1a4b340c2579.jsonl",
+        "line": 219318,
+        "bytes": 3967,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Users-Administrator-sand-castle",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Users-Administrator-sand-castle\\dfa159ae-46e9-4e47-8e7e-ceb1f456519d.jsonl",
+        "line": 18592,
+        "bytes": 11023,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      }
+    ]
   },
   "topLevelSessions": {
     "noun": "A transcript an agent session actually ran. Comparable to the published \"% of sessions that never invoke a query tool\".",
@@ -28,15 +65,15 @@
     "sessionsWithAtLeastOneGraphCall": 8,
     "sessionsWithZeroGraphCalls": 14,
     "adoptionRateSessions": 0.36363636363636365,
-    "graphCalls": 318
+    "graphCalls": 320
   },
   "subagentSidechains": {
     "noun": "Nested transcripts spawned BY a session. Real invocations, but not sessions anyone chose to start. NOT comparable to the published figure.",
-    "transcripts": 1049,
-    "withAtLeastOneGraphCall": 7,
-    "graphCalls": 53,
+    "transcripts": 1059,
+    "withAtLeastOneGraphCall": 9,
+    "graphCalls": 55,
     "topVerbs": {
-      "code_intel_references": 10,
+      "code_intel_references": 11,
       "graph_whereis": 8,
       "graph_search": 6,
       "graph_callers": 6,
@@ -45,11 +82,11 @@
       "graph_trace": 3,
       "graph_packet": 3,
       "graph_impact": 2,
-      "graph_health": 2
+      "graph_consequences": 2
     }
   },
   "perVerb": {
-    "graph_health": 78,
+    "graph_health": 80,
     "graph_whereis": 42,
     "graph_packet": 37,
     "graph_consequences": 36,
@@ -98,10 +135,10 @@
       "sessions": 4,
       "sessionsWithGraphCall": 3,
       "adoptionRate": 0.75,
-      "graphCalls": 25,
+      "graphCalls": 27,
       "topVerbs": {
         "graph_whereis": 14,
-        "graph_health": 9,
+        "graph_health": 11,
         "graph_status": 1,
         "graph_index": 1
       }

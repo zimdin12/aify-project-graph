@@ -18,8 +18,13 @@ stays callable. `ef-manager` advised on the rest and then explicitly refused on 
   deferred-tool catalogue is echoed into the prompt. A tool NAME is not a tool CALL.
 - **Population:** every Claude Code transcript on `win32:stevenz-l` — 2.8 GB, 22 top-level
   sessions + 1,049 subagent sidechains, 9 project directories.
-- **Controls, same pass:** positive `Bash`/`Read`/`Grep` = 62,049; negative (fabricated verb
-  name) = 0; 5 unparseable lines reported.
+- **Controls, same pass:** positive `Bash`/`Read`/`Grep` = 62,762; negative (fabricated verb
+  name) = 0; **5 unparseable lines, now localized.**
+- ⭐ **The skipped lines are identified, not just counted.** A count is not whole-byte coverage: a
+  recovered line can only ADD usage, so a per-project **zero** cannot be defended from a count
+  alone — and "APG 0" is load-bearing below. Localized: 2 in `aify-comms`, 2 in `sand_castle`, 1 in
+  `.minecraft`, and **0 in the aify-project-graph population**. The APG zero therefore stands, and
+  the two in `sand_castle` could only strengthen the game-repo attribution if recovered.
 - **Data:** `docs/measurements/verb-adoption-2026-08-25.json`.
 
 ## The seven, measured
@@ -44,12 +49,26 @@ population — exactly as they warned.
 | `graph_consequences` | 31 | 5 | **0** |
 | `code_intel_references` | 13 | 14 | **0** |
 
-The two heaviest of the seven are called **entirely by other agents in the game repos, and not
-once from this repo**. Ranked by total calls across the fleet, `code_intel_references` and
-`graph_consequences` are **3rd and 4th of eighteen verbs**.
+⚠ **NARROWED — the instrument does not support the wider claim.** `perProject.topVerbs` covers
+**top-level sessions only**; nested sidechains are pooled into one global tally that does **not**
+retain project attribution. So:
+
+- `graph_consequences` — 36 calls, **0 nested**, so the game-repo attribution holds for all 36.
+- `code_intel_references` — **27 top-level** calls were all in the two game repos; the **10 nested
+  calls are unattributed by this carrier**. "All 37 from the game repos" is NOT supported.
+
+Ranked by total calls, they are **4th and 5th of eighteen verbs** — 3rd and 4th only *after
+excluding `graph_health`*, which is maintenance. The original text wrote "across the fleet" beside
+an exclusion it never stated.
 
 ⇒ Cutting on one consumer's enumeration would have removed two of the most-used verbs we ship.
 That is [[enumeration-vs-detection]] with a live example attached.
+
+**Ruling (`graph-senior-dev`, 2026-08-25): all seven APPROVED to remain listed; `graph_index`
+APPROVED to remain listed.** His reasoning for the keep is the asymmetry, not the counts: a
+deferred host may be unable to call an unlisted verb *at all*, so cutting a demonstrated consumer
+route has asymmetric harm. It establishes that zero-use reasoning is false for this population —
+not that any verb earns its schema cost.
 
 ## For comparison, the verbs 3c did drop
 
@@ -57,9 +76,22 @@ That is [[enumeration-vs-detection]] with a live example attached.
 seven (`graph_trace`, `graph_explore`, 9 each) outranks every dropped verb by roughly an order of
 magnitude.
 
-⚠ One drop looks wrong on this data: **`graph_index` at 26 session calls** — more than
-`graph_search` (14). It was dropped as "a thing a human runs, not an agent mid-task", which the
-counts do not support. Flagged, not reversed; that is dev's call too.
+⛔ **CORRECTION — I NAMED A DROP THAT NEVER HAPPENED.** This document originally said
+`graph_index` "was dropped" and called it a decision of mine that looked wrong. It is **in
+`DEFAULT_TOOL_NAMES`** (`mcp/stdio/server.js:152-202`) and always has been, and lines 204-239
+record an explicit REFUSAL to drop it:
+
+> *"BOTH of those verbs are in this set BECAUSE OF RECORDED HARM WHEN THEY WERE ABSENT, and a
+> usage count does not address absence-harm evidence… graph_index 2026-06-01 Sand Castle A/B — a
+> stale graph is WORSE than none for managed workers who got the read verbs but not this one.
+> They could not act on the 'run graph_index' staleness warning because it was not in their
+> surface."*
+
+I read Phase 3c's **proposal** list in the roadmap and reported it as the shipped state, without
+opening the file. Then I claimed authorship of it. `graph-senior-dev` caught it against source.
+
+⇒ What the 26 calls actually do: they **independently refute the proposed drop**. The implemented
+keep is unchanged, and its original basis — absence harm — is the stronger of the two reasons.
 
 ## Recommendation
 

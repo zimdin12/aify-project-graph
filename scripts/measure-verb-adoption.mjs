@@ -44,15 +44,17 @@ class ProjectTally {
     this.positive = 0;
     this.negative = 0;
     this.unparseableLines = 0;
+    this.unparseableDetail = [];
   }
 
-  recordSession({ graphCalls, verbs, positive, negative, badLines }) {
+  recordSession({ graphCalls, verbs, positive, negative, badLines, badLineDetail = [] }) {
     this.sessions += 1;
     if (graphCalls > 0) this.sessionsWithGraphCall += 1;
     this.graphCalls += graphCalls;
     this.positive += positive;
     this.negative += negative;
     this.unparseableLines += badLines;
+    for (const d of badLineDetail) this.unparseableDetail.push({ project: this.name, ...d });
     for (const [verb, n] of verbs) this.perVerb.set(verb, (this.perVerb.get(verb) ?? 0) + n);
   }
 
@@ -68,6 +70,8 @@ async function scanSession(file) {
   let positive = 0;
   let negative = 0;
   let badLines = 0;
+  let lineNo = 0;
+  const badLineDetail = [];
 
   const rl = createInterface({
     input: createReadStream(file, { encoding: 'utf8' }),
@@ -76,11 +80,17 @@ async function scanSession(file) {
 
   for await (const line of rl) {
     if (!line) continue;
+    lineNo += 1;
     let obj;
     try {
       obj = JSON.parse(line);
-    } catch {
+    } catch (err) {
       badLines += 1;
+      // graph-senior-dev, reviewing 85f6559: a COUNT of skipped lines is not whole-byte coverage.
+      // Without their identity you cannot prove a per-project zero, because a recovered line can
+      // only ADD usage — and "APG 0" was load-bearing in the attribution claim. Retain where each
+      // failure was so the zero can be defended rather than assumed.
+      badLineDetail.push({ file, line: lineNo, bytes: line.length, error: String(err && err.message).slice(0, 80) });
       continue;
     }
     const content = obj?.message?.content;
@@ -98,7 +108,7 @@ async function scanSession(file) {
       }
     }
   }
-  return { graphCalls, verbs, positive, negative, badLines };
+  return { graphCalls, verbs, positive, negative, badLines, badLineDetail };
 }
 
 // TWO POPULATIONS, NEVER MERGED. A transcript sitting directly in a project directory is a
@@ -172,6 +182,7 @@ console.log(JSON.stringify({
     negative: { name: NEGATIVE_CONTROL, count: totals.negative, passed: totals.negative === 0 },
     ranInSamePass: true,
     unparseableLines: totals.bad,
+    unparseableDetail: [...tallies, nestedTally].flatMap((t) => t.unparseableDetail),
   },
   topLevelSessions: {
     noun: 'A transcript an agent session actually ran. Comparable to the published "% of sessions that never invoke a query tool".',
