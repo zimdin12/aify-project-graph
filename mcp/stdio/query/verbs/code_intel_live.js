@@ -16,6 +16,7 @@ import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/p
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 import { openExistingDb } from '../../storage/db.js';
 import { evidenceContractStamp } from '../evidence-contract.js';
+import { classifyCause, pinsStickyDegraded } from '../cause-classification.js';
 import { createHash } from 'node:crypto';
 
 const HINTS = {
@@ -894,15 +895,28 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   // surfaces, and (b) pin the session degraded forever with a fact that is true of every call.
   // Caught by the existing Step D test rather than by reading — the failing assertion was the
   // prior cause going missing.
-  const STANDING_CAUSES = new Set(['index_population_unattested']);
+  // ⭐ STEP 5 OF THE CONTRACT MIGRATION: the tracker now reads a NAMED CLASSIFICATION of the cause
+  // instead of a boolean plus a hardcoded set. `degraded` is deprecated and leaving; the local
+  // STANDING_CAUSES set was the classification in embryo, living in one file.
+  //
+  // ⚠ THIS CHANGED BEHAVIOUR IN EXACTLY ONE WAY, MEASURED ACROSS 1,890 COMBINATIONS: 378 of them,
+  // all `cause: bounded_mode`, used to pin the session degraded and no longer do. That implements
+  // dev's ruling — "bounded mode is not an incident; it never waits for the index BY DESIGN, so
+  // nothing happened *to* that request". It is a deliberate change, not a refactor, and calling it
+  // equivalent would repeat the error that reopened this step.
+  //
+  // ⛔ AND THE FIRST VERSION OF THIS STEP WAS WRONG. I claimed the branch could simply drop its
+  // `degraded &&` term because "cause is non-null exactly when degraded is true". 336 of 1,134
+  // combinations say otherwise — `cause: 'unknown'` carries `degraded: false`. Running it, rather
+  // than reading it, is what produced the three-way classification this now uses.
   const priorSticky = session.referencesStickyDegraded;
-  if (evidence.degraded && evidence.cause && !STANDING_CAUSES.has(evidence.cause)) {
+  if (pinsStickyDegraded(evidence.cause)) {
     // `since` tracks the FIRST degrade in an unbroken degraded streak (so it can
     // measure how long the session has been degraded), not the most recent call.
     // Preserve it across same-streak calls; only refresh cause.
     const since = (priorSticky && priorSticky.since) ? priorSticky.since : Date.now();
     session.referencesStickyDegraded = { cause: evidence.cause, since };
-  } else if (evidence.ready && (evidence.exhaustive || STANDING_CAUSES.has(evidence.cause))) {
+  } else if (evidence.ready && (evidence.exhaustive || classifyCause(evidence.cause) === 'standing')) {
     // Recovery is judged on the TRANSIENT condition clearing. Requiring `exhaustive` here would
     // mean no session can ever recover now that the grant is withheld by a standing cause —
     // the same "unreachable field" trap as raising the coverage bar without a route back.
