@@ -1,0 +1,206 @@
+[
+  {
+    "arm": "fmt (C++)",
+    "symbolsQueried": 12,
+    "rowsShown": 99,
+    "ambiguousMentions": 4,
+    "verifiedMentions": 0,
+    "perSymbol": [
+      {
+        "symbol": "c_str",
+        "incomingCalls": 102,
+        "rowsShown": 5,
+        "ambiguous": 1,
+        "verified": 0
+      },
+      {
+        "symbol": "to_unsigned",
+        "incomingCalls": 49,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "report_error",
+        "incomingCalls": 37,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "UniversalPrint",
+        "incomingCalls": 30,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "printf",
+        "incomingCalls": 27,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "StreamableToString",
+        "incomingCalls": 24,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      }
+    ]
+  },
+  {
+    "arm": "click (Python)",
+    "symbolsQueried": 12,
+    "rowsShown": 82,
+    "ambiguousMentions": 7,
+    "verifiedMentions": 13,
+    "perSymbol": [
+      {
+        "symbol": "invoke",
+        "incomingCalls": 321,
+        "rowsShown": 5,
+        "ambiguous": 1,
+        "verified": 0
+      },
+      {
+        "symbol": "option",
+        "incomingCalls": 151,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 5
+      },
+      {
+        "symbol": "echo",
+        "incomingCalls": 105,
+        "rowsShown": 2,
+        "ambiguous": 1,
+        "verified": 0
+      },
+      {
+        "symbol": "argument",
+        "incomingCalls": 76,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 1
+      },
+      {
+        "symbol": "__init__",
+        "incomingCalls": 52,
+        "rowsShown": 5,
+        "ambiguous": 1,
+        "verified": 0
+      },
+      {
+        "symbol": "__init__",
+        "incomingCalls": 42,
+        "rowsShown": 5,
+        "ambiguous": 1,
+        "verified": 0
+      }
+    ]
+  },
+  {
+    "arm": "fast-route (PHP)",
+    "symbolsQueried": 12,
+    "rowsShown": 86,
+    "ambiguousMentions": 1,
+    "verifiedMentions": 0,
+    "perSymbol": [
+      {
+        "symbol": "recommendedSettings",
+        "incomingCalls": 10,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "simpleDispatcher",
+        "incomingCalls": 10,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "routeGeneratorFor",
+        "incomingCalls": 10,
+        "rowsShown": 10,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "disableCache",
+        "incomingCalls": 9,
+        "rowsShown": 9,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "addRoute",
+        "incomingCalls": 9,
+        "rowsShown": 5,
+        "ambiguous": 1,
+        "verified": 0
+      },
+      {
+        "symbol": "generateDispatcherOptions",
+        "incomingCalls": 8,
+        "rowsShown": 8,
+        "ambiguous": 0,
+        "verified": 0
+      }
+    ]
+  },
+  {
+    "arm": "p-queue (TS)",
+    "symbolsQueried": 12,
+    "rowsShown": 42,
+    "ambiguousMentions": 0,
+    "verifiedMentions": 0,
+    "perSymbol": [
+      {
+        "symbol": "add",
+        "incomingCalls": 7,
+        "rowsShown": 7,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "#onEvent",
+        "incomingCalls": 6,
+        "rowsShown": 6,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "#tryToStartAnother",
+        "incomingCalls": 4,
+        "rowsShown": 4,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "#scheduleRateLimitUpdate",
+        "incomingCalls": 4,
+        "rowsShown": 4,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "#processQueue",
+        "incomingCalls": 3,
+        "rowsShown": 3,
+        "ambiguous": 0,
+        "verified": 0
+      },
+      {
+        "symbol": "cleanupQueueAbortHandler",
+        "incomingCalls": 3,
+        "rowsShown": 3,
+        "ambiguous": 0,
+        "verified": 0
+      }
+    ]
+  }
+]
