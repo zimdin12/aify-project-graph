@@ -162,7 +162,8 @@ export const TOOLS = [
         col: { type: 'integer', minimum: 1, default: 1, description: '1-based column number.' },
         warmupFiles: { type: 'array', items: { type: 'string' }, description: 'Repo-relative files to open before the references query so clangd considers them as candidate callers.' },
         warmupMs: { type: 'integer', minimum: 0, maximum: 30000, description: 'Override the post-open settle. Omit to auto-pick (longer when the session is cold, short when warm).' },
-        waitForReadyMs: { type: 'integer', minimum: 0, maximum: 30000, default: 0, description: 'Optional inline wait for LSP indexing readiness before the semantic request; returns freshness fresh/stale/unknown.' }
+        waitForReadyMs: { type: 'integer', minimum: 0, maximum: 30000, default: 0, description: 'Optional inline wait for LSP indexing readiness before the semantic request; returns freshness fresh/stale/unknown.' },
+        acceptEvidenceContractVersion: { type: 'integer', enum: [1, 2], description: 'Opt in to a newer evidence contract. Omit for 1. 2 removes the deprecated degraded/operationallyDegraded booleans — read exhaustive and cause instead. Unsupported values are refused, never downgraded.' }
       },
       required: ['file', 'line']
     },
@@ -262,7 +263,8 @@ export const TOOLS = [
         depth: { type: 'integer', minimum: 1, maximum: 5, default: 2, description: 'How many hops to walk (transitive depth). Capped at 5.' },
         breadthCap: { type: 'integer', minimum: 1, maximum: 100, default: 25, description: 'Max children rendered per node.' },
         totalCap: { type: 'integer', minimum: 1, maximum: 1000, default: 200, description: 'Hard ceiling on total tree nodes.' },
-        waitForReadyMs: { type: 'integer', minimum: 0, maximum: 600000, description: 'INDEXED-mode index-readiness wait budget; omit to use APG_CLANGD_INDEX_WAIT_MS (default 90000).' }
+        waitForReadyMs: { type: 'integer', minimum: 0, maximum: 600000, description: 'INDEXED-mode index-readiness wait budget; omit to use APG_CLANGD_INDEX_WAIT_MS (default 90000).' },
+        acceptEvidenceContractVersion: { type: 'integer', enum: [1, 2], description: 'Opt in to a newer evidence contract. Omit for 1. 2 removes the deprecated degraded/operationallyDegraded booleans — read exhaustive and cause instead. Unsupported values are refused, never downgraded.' }
       },
       required: ['kind']
     },

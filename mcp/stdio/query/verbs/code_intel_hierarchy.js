@@ -31,7 +31,7 @@ import { inferLanguage } from '../../code-intel/backends.js';
 import { identifierColumn, leafNameOf } from '../../code-intel/identifier-position.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { openExistingDb } from '../../storage/db.js';
-import { evidenceContractStamp } from '../evidence-contract.js';
+import { applyEvidenceContract, negotiateEvidenceContract, DEFAULT_EVIDENCE_CONTRACT_VERSION } from '../evidence-contract-negotiation.js';
 
 const HINTS = {
   language_unsupported: 'no live LSP session registered for this language; supported: cpp',
@@ -325,7 +325,15 @@ export function renderAnchorDiagnosis(d, kind) {
 // linked to it — the "0 callers" case the thesis bug mis-reported.
 export function buildHierarchyEvidence(args) {
   // Same single choke point as references — the inner function has many return sites.
-  return { ...buildHierarchyEvidenceInner(args), ...evidenceContractStamp() };
+  //
+  // ⚠ SAME NEGOTIATION OWNER AS THE REFERENCES VERB, deliberately. Two copies of "which contract
+  // am I rendering" is precisely how the two compile-DB directory allowlists drifted apart and
+  // cost a real repository its caller sets. Defaults to contract 1 when absent, so every caller
+  // that predates negotiation is unaffected.
+  return applyEvidenceContract(
+    buildHierarchyEvidenceInner(args),
+    args?.contractVersion ?? DEFAULT_EVIDENCE_CONTRACT_VERSION,
+  );
 }
 
 function buildHierarchyEvidenceInner({ mode, indexReady, nodeCount, kind, coverage, truncated = 0, multiRoot = false }) {
@@ -629,12 +637,18 @@ export async function codeIntelHierarchy(args = {}) {
     breadthCap: breadthArg,
     totalCap: totalArg,
     waitForReadyMs,
-    spawn
+    spawn,
+    acceptEvidenceContractVersion,
   } = args;
   const repoRoot = args.repoRoot || args.repo;
   let { file, line, col } = args;
 
   if (!repoRoot) return errorResponse('invalid_request', 'repoRoot is required');
+  // ⛔ Same refusal as the references verb, from the same owner. See the note on
+  // buildHierarchyEvidence: one negotiation owner, so the two verbs cannot drift apart on which
+  // contracts they accept.
+  const contract = negotiateEvidenceContract(acceptEvidenceContractVersion);
+  if (!contract.ok) return errorResponse('unsupported_evidence_contract_version', contract.error);
   if (!kind || (!KIND_CALL.has(kind) && !KIND_TYPE.has(kind))) {
     return errorResponse(
       'invalid_request',
@@ -762,7 +776,7 @@ export async function codeIntelHierarchy(args = {}) {
     return errorResponse('internal_error', `prepare ${needsCall ? 'call' : 'type'} hierarchy failed: ${err.message}`);
   }
 
-  const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0, kind, coverage });
+  const evidence = buildHierarchyEvidence({ mode, indexReady, nodeCount: 0, kind, coverage, contractVersion: contract.version });
 
   if (items.length === 0) {
     // ROOT DEFECT, LAST INSTANCE (field report 2026-07-27): a zero-result path
@@ -814,7 +828,7 @@ export async function codeIntelHierarchy(args = {}) {
   const nodeCount = walked.nodeCount;
   const truncated = walked.truncated || 0;
   const multiRoot = items.length > 1;
-  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage, truncated, multiRoot });
+  const finalEvidence = buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage, truncated, multiRoot, contractVersion: contract.version });
   const trust = buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, coverage, truncated, multiRoot });
   // I3 + HIGH-1 — stamp the ground-truth `[lsp✓]` only on a tree whose edges really are
   // compiler-resolved: INDEXED mode, index ready, and a non-empty resolved tree. An

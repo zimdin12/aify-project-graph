@@ -15,7 +15,7 @@ import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 import { openExistingDb } from '../../storage/db.js';
-import { evidenceContractStamp } from '../evidence-contract.js';
+import { applyEvidenceContract, negotiateEvidenceContract, DEFAULT_EVIDENCE_CONTRACT_VERSION } from '../evidence-contract-negotiation.js';
 import { classifyCause, pinsStickyDegraded } from '../cause-classification.js';
 import { createHash } from 'node:crypto';
 
@@ -119,7 +119,14 @@ export function splitDefinitionFromReferences(refs, defs) {
 export function buildReferencesEvidence(args) {
   // ONE choke point, so the stamp cannot be missing from a branch. Fifteen return sites in the
   // inner function is exactly how a per-branch field goes absent on the one path that matters.
-  return { ...dedupeEvidenceProse(buildReferencesEvidenceInner(args)), ...evidenceContractStamp() };
+  //
+  // ⚠ `contractVersion` DEFAULTS TO 1 WHEN ABSENT, which is what makes the negotiation safe: every
+  // existing caller — including every test written before this existed — keeps receiving contract
+  // 1 with the deprecated booleans. Silence is not consent.
+  return applyEvidenceContract(
+    dedupeEvidenceProse(buildReferencesEvidenceInner(args)),
+    args?.contractVersion ?? DEFAULT_EVIDENCE_CONTRACT_VERSION,
+  );
 }
 
 export function dedupeEvidenceProse(ev) {
@@ -742,9 +749,15 @@ export async function codeIntelDiagnostics({ repoRoot, language, files = [], dia
  *  Cross-file refs require clangd to have indexed candidate callers. Pass
  *  `warmupFiles[]` (e.g. ['src/foo.cpp', 'src/bar.cpp', 'src/foo.h']) when
  *  background-index is disabled and you need clangd to consider those files. */
-export async function codeIntelReferences({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn }) {
+export async function codeIntelReferences({ repoRoot, language, file, line, col, warmupFiles = [], warmupMs, prewarmCap, waitForReadyMs = 0, spawn, acceptEvidenceContractVersion }) {
   const startedAt = Date.now();
   if (!repoRoot || !file || !line) return errorResponse('invalid_request', 'repoRoot, file and line are all required — pass file (repo-relative) and line (1-based)');
+  // ⛔ NEGOTIATE BEFORE DOING ANY WORK, AND REFUSE RATHER THAN BEST-EFFORT. A client that asks for
+  // a contract we do not implement must not receive a payload it will misread; handing back the
+  // nearest contract we do have is the fail-open direction, because the client then believes it
+  // holds something nobody emitted.
+  const contract = negotiateEvidenceContract(acceptEvidenceContractVersion);
+  if (!contract.ok) return errorResponse('unsupported_evidence_contract_version', contract.error);
   // The file extension is authoritative for which language server to drive, so
   // agents don't have to pass `language` for TS/Python repos (default is cpp).
   const lang = language || inferLanguage(file) || 'cpp';
@@ -849,7 +862,8 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot, file }); }
   catch { coverage = { complete: false, partial: true, kind: 'unknown', foreignToolchain: false, unityUnexpanded: false, reason: 'coverage detection failed — treating as partial (fail-closed)' }; }
   const evidence = buildReferencesEvidence({
-    freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage
+    freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage,
+    contractVersion: contract.version,
   });
 
   // ⛔ AN EMPTY CALLER SET FROM A TU THAT NEVER COMPILED IS BYTE-IDENTICAL TO A TU WITH NO
