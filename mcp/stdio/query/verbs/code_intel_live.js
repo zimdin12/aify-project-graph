@@ -631,8 +631,47 @@ export function fatalIncludeErrors(session, uri) {
   return out;
 }
 
+// ⛔ THIS DROPPED `ok` AND THAT IS HOW A DIRECTORY REACHED THE `file` FIELD.
+//
+// uriToRepoRelativeSafe deliberately returns {path, ok, reason} so a caller can tell an
+// out-of-repo location from a normalized one — its own comment says that is the point. This
+// wrapper returned `.path` alone, so `outside_project_root` arrived looking exactly like a repo
+// file. ef-manager, field-testing v0.7.0: every definitionLocations[0].file came back as
+// `.../VC/Tools/MSVC/14.43.34604/include` — a DIRECTORY holding 277 headers, which is
+// toolset.includeDir from msvc-env.js. It appeared with ebba7de, i.e. it is mine, from today.
+//
+// ⚠ THE ORIGIN OF THAT URI IS NOT ESTABLISHED. ef-manager did not determine whether clangd emits
+// it or something here invents it, and neither have I. So this does NOT claim to fix the source.
+// It fixes what IS established: the one signal built to flag such a location was discarded before
+// any consumer could see it, and A DIRECTORY IS NOT A SOURCE LOCATION under any origin story.
+//
+// The stat only runs when ok === false — rare — so the common in-repo path is untouched.
+function classifyUri(uri, projectRoot) {
+  const r = uriToRepoRelativeSafe(uri, projectRoot);
+  if (r.ok) return { path: r.path, inRepo: true, isDirectory: false };
+  let isDirectory = false;
+  try { isDirectory = fs.statSync(r.path).isDirectory(); } catch { /* unreadable — not a directory we can prove */ }
+  return { path: r.path, inRepo: false, isDirectory, reason: r.reason };
+}
+
 function uriToRel(uri, projectRoot) {
   return uriToRepoRelativeSafe(uri, projectRoot).path;
+}
+
+/**
+ * Locations that are not real source positions, dropped with a count rather than silently.
+ * A directory has no line to point at, so it cannot be a reference or a definition; leaving it in
+ * inflates `telemetry.references` and the callsite count — numbers someone will quote.
+ */
+function dropNonLocations(entries, projectRoot) {
+  const kept = [];
+  let dropped = 0;
+  for (const e of entries) {
+    const c = classifyUri(e.__uri ?? '', projectRoot);
+    if (c.isDirectory) { dropped += 1; continue; }
+    kept.push(e);
+  }
+  return { kept, dropped };
 }
 
 /** Diagnostics for a bounded set of files. */
@@ -738,12 +777,35 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   try {
     const defs = await session.client.definition(uri, pos);
     const defList = Array.isArray(defs) ? defs : (defs ? [defs] : []);
-    defLocations = defList
-      .filter(d => d?.uri)
-      .map(d => ({ file: uriToRel(d.uri, repoRoot), range: rangeFromLsp(d.range) }));
+    // ONE pass: classify and build together. An earlier version filtered and then re-indexed
+    // into defList[i], which misaligns after any drop — the classic filter-then-zip bug.
+    defLocations = [];
+    for (const d of defList) {
+      if (!d?.uri) continue;
+      const c = classifyUri(d.uri, repoRoot);
+      if (c.isDirectory) continue;   // a directory has no line to point at
+      defLocations.push({
+        file: c.path,
+        range: rangeFromLsp(d.range),
+        ...(c.inRepo ? {} : { outsideRepo: true, reason: c.reason }),
+      });
+    }
   } catch { /* definition lookup is best-effort; absence shouldn't fail refs */ }
 
-  const allRefs = refs.map(r => ({ file: uriToRel(r.uri, repoRoot), range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high' }));
+  // Same classification for references. A location outside the repo is KEPT (a system header is a
+  // real answer) but MARKED, so it can never masquerade as a repo file; a DIRECTORY is dropped and
+  // counted, because it is not a location at all and leaving it inflates telemetry.references and
+  // the callsite count — numbers a reader will quote.
+  let droppedNonLocations = 0;
+  const allRefs = refs.map(r => {
+    const c = classifyUri(r.uri, repoRoot);
+    return { file: c.path, range: rangeFromLsp(r.range), provenance: 'clangd@live', confidence: 'high',
+             ...(c.inRepo ? {} : { outsideRepo: true, reason: c.reason }), __isDir: c.isDirectory };
+  }).filter(r => {
+    if (r.__isDir) { droppedNonLocations += 1; return false; }
+    delete r.__isDir;
+    return true;
+  });
   const split = splitDefinitionFromReferences(allRefs, defLocations);
   const { callsiteLocations } = split;
 
