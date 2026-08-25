@@ -1,0 +1,119 @@
+{
+  "what": "Bytes on the wire for tools/list — the surface every session pays before doing any work.",
+  "unit": "BYTES, not tokens. No tokenizer here; chars/4 would be a guess dressed as a measurement.",
+  "controls": {
+    "servedToolsResolved": 16,
+    "namesInDefaultList": 16,
+    "unmatchedNames": [],
+    "passed": true
+  },
+  "served": {
+    "tools": 16,
+    "bytes": 21211,
+    "descriptionBytes": 10535,
+    "schemaAndEnvelopeBytes": 10676,
+    "descriptionShare": 0.497
+  },
+  "notServed": {
+    "tools": 27,
+    "bytes": 17261
+  },
+  "perTool": [
+    {
+      "name": "graph_packet",
+      "bytes": 3048,
+      "description": 1409,
+      "schema": 1639
+    },
+    {
+      "name": "graph_collect_code_intel",
+      "bytes": 2505,
+      "description": 970,
+      "schema": 1535
+    },
+    {
+      "name": "code_intel_references",
+      "bytes": 2282,
+      "description": 1090,
+      "schema": 1192
+    },
+    {
+      "name": "code_intel_hierarchy",
+      "bytes": 2124,
+      "description": 591,
+      "schema": 1533
+    },
+    {
+      "name": "graph_pull",
+      "bytes": 1923,
+      "description": 792,
+      "schema": 1131
+    },
+    {
+      "name": "graph_consequences",
+      "bytes": 1328,
+      "description": 778,
+      "schema": 550
+    },
+    {
+      "name": "graph_trace",
+      "bytes": 1236,
+      "description": 817,
+      "schema": 419
+    },
+    {
+      "name": "graph_census",
+      "bytes": 1071,
+      "description": 954,
+      "schema": 117
+    },
+    {
+      "name": "graph_explore",
+      "bytes": 1022,
+      "description": 649,
+      "schema": 373
+    },
+    {
+      "name": "graph_health",
+      "bytes": 980,
+      "description": 861,
+      "schema": 119
+    },
+    {
+      "name": "graph_whereis",
+      "bytes": 969,
+      "description": 606,
+      "schema": 363
+    },
+    {
+      "name": "graph_callers",
+      "bytes": 921,
+      "description": 550,
+      "schema": 371
+    },
+    {
+      "name": "graph_search",
+      "bytes": 920,
+      "description": 220,
+      "schema": 700
+    },
+    {
+      "name": "graph_impact",
+      "bytes": 444,
+      "description": 133,
+      "schema": 311
+    },
+    {
+      "name": "graph_index",
+      "bytes": 231,
+      "description": 59,
+      "schema": 172
+    },
+    {
+      "name": "graph_dashboard",
+      "bytes": 207,
+      "description": 56,
+      "schema": 151
+    }
+  ]
+}
