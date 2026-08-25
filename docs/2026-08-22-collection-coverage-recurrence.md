@@ -1,4 +1,17 @@
-# ⛔⛔⛔ THIS ENTIRE DOCUMENT IS WITHDRAWN. THERE WAS NO DEFECT, AND I RETRACTED TWO CORRECT FIGURES.
+# ⛔⛔⛔ THE CONTINUATION/PRUNE DEFECT REPORTED HERE DID NOT EXIST. ITS CAUSAL CHAIN IS WITHDRAWN IN FULL, AND I RETRACTED TWO CORRECT FIGURES TO FIT IT.
+
+⚠ **NARROWED 2026-08-25, on graph-senior-dev's review — the previous heading read "THERE WAS NO
+DEFECT" and that over-withdrew.** The reported defect (a 73-file run mis-read as a broken
+collection, with the prune's authority gate named as its cause) is nonexistent and everything
+about it is withdrawn: 73 was the owed remainder after 555 ledger-complete files, `status: ok`
+was honest for that batch, the prune refusal correctly protected the other 555, and the union
+figures 624/627 and 97.6% are restored.
+
+⛔ **But a SEPARATE, bounded defect remains OPEN and this document is where it was found:**
+98 files carry records from more than one collection, and `getCodeIntelEvidenceForSymbol` queries
+across collections, so outdated or duplicate evidence can surface for those symbols — bounded at
+≤22.8% of records. A valid withdrawal must not erase a different population. That one is real,
+was never withdrawn, and is still unfixed.
 
 Read this section only. Everything below it is preserved for the record and is **wrong**.
 

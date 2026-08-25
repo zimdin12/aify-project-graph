@@ -11,8 +11,7 @@ import {
   buildHierarchyEvidence,
   buildHierarchyTrustLine,
   resolveSymbolPosition,
-  columnOfSymbolOnLine
-} from '../../../mcp/stdio/query/verbs/code_intel_hierarchy.js';
+  columnOfSymbolOnLine, renderTree } from '../../../mcp/stdio/query/verbs/code_intel_hierarchy.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { _resetSessions, shutdownAllSessions } from '../../../mcp/stdio/code-intel/live.js';
 
@@ -160,8 +159,18 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     // I3 — bounded mode's banner says lsp-partial, so per-node marks must NOT
     // claim ground truth with a bare [lsp✓] (that would contradict the banner
     // and the "do NOT re-grep" doctrine). Use the distinct partial marker.
-    expect(r.treeText).not.toContain('[lsp✓]');
-    expect(r.treeText).toContain('[lsp~]');
+    // REWORKED 2026-08-25 per graph-senior-dev's review of 0d1fd1d. This USED to assert the
+    // mark was absent whenever the index was cold / the tree empty. That pinned a COLLAPSE:
+    // index-readiness constrains POPULATION COMPLETENESS, not whether a RETURNED edge came from
+    // clangd. Children come only from incoming/outgoingCalls and roots only from
+    // prepare*Hierarchy, so a returned node is compiler-resolved whatever the readiness. The
+    // incompleteness is real and is carried by exhaustive:false + the banner, not by degrading
+    // a true per-edge fact.
+    expect(r.treeText).toContain('[lsp✓]');  // precision survives; completeness is the banner's job
+    // Companion to the reworked assertion above: the RETURNED node is compiler-resolved, so it
+    // keeps [lsp✓]. What the cold/empty case must still refuse is the COMPLETENESS claim, which
+    // the banner and exhaustive:false carry — asserted separately in this same test.
+    expect(r.treeText).not.toContain('[lsp~]');
   });
 
   it('I3: per-node mark is gated on indexReady===true (cold/not-ready → no bare [lsp✓])', async () => {
@@ -231,8 +240,18 @@ describe('code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive', () => {
     expect(r.trust).toMatch(/lsp-partial/);
     expect(r.trust).toMatch(/code_intel_references/);
     // I3/HIGH-1 — partial banner ⇒ no bare ground-truth [lsp✓] node mark.
-    expect(r.treeText).not.toContain('[lsp✓]');
-    expect(r.treeText).toContain('[lsp~]');
+    // REWORKED 2026-08-25 per graph-senior-dev's review of 0d1fd1d. This USED to assert the
+    // mark was absent whenever the index was cold / the tree empty. That pinned a COLLAPSE:
+    // index-readiness constrains POPULATION COMPLETENESS, not whether a RETURNED edge came from
+    // clangd. Children come only from incoming/outgoingCalls and roots only from
+    // prepare*Hierarchy, so a returned node is compiler-resolved whatever the readiness. The
+    // incompleteness is real and is carried by exhaustive:false + the banner, not by degrading
+    // a true per-edge fact.
+    expect(r.treeText).toContain('[lsp✓]');  // precision survives; completeness is the banner's job
+    // Companion to the reworked assertion above: the RETURNED node is compiler-resolved, so it
+    // keeps [lsp✓]. What the cold/empty case must still refuse is the COMPLETENESS claim, which
+    // the banner and exhaustive:false carry — asserted separately in this same test.
+    expect(r.treeText).not.toContain('[lsp~]');
   });
 
   it('index-ready + NON-EMPTY tree is STILL not exhaustive - there is no positive path any more', async () => {
@@ -488,5 +507,74 @@ describe('resolveSymbolPosition — leaf column + qualified lookup (FIX 1)', () 
   it('returns null for an unknown symbol', () => {
     const repo = repoWithGraph();
     expect(resolveSymbolPosition({ repoRoot: repo, symbol: 'nope' })).toBeNull();
+  });
+});
+
+// ⭐ THE HOSTILE MATRIX graph-senior-dev ASKED FOR, reviewing 0d1fd1d.
+//
+// The point of binding `[lsp✓]` to per-node provenance is that it must be able to say NO. A
+// predicate that is true of every node is not a precision signal, it is decoration — the same
+// vacuous-guard failure as `[].every()` certifying an empty set. So the load-bearing case here is
+// the LAST one: a node WITHOUT LSP provenance must not receive the mark, no matter how healthy
+// the tree around it looks.
+describe('code_intel_hierarchy — [lsp✓] is bound to node provenance, not to set completeness', () => {
+  const render = (node) => renderTree(node).join('\n');
+
+  it('marks a returned node that carries LSP provenance', () => {
+    const t = render({ name: 'foo', file: 'src/a.cpp', line: 1, children: [], provenance: 'clangd@live' });
+    expect(t).toContain('[lsp✓]');
+  });
+
+  it('⛔ does NOT mark a node with no provenance — the predicate can say no', () => {
+    const t = render({ name: 'injected', file: 'src/a.cpp', line: 1, children: [] });
+    expect(t).not.toContain('[lsp✓]');
+    expect(t).toContain('[lsp~]');
+  });
+
+  it('⛔ does NOT mark a node whose provenance is something else', () => {
+    const t = render({ name: 'heuristic', file: 'src/a.cpp', line: 1, children: [], provenance: 'tree-sitter' });
+    expect(t).not.toContain('[lsp✓]');
+  });
+
+  it('marks per node: an LSP parent keeps its mark while a non-LSP child does not get one', () => {
+    // The case a tree-wide `mark` argument structurally could not express.
+    const t = render({
+      name: 'root', file: 'src/a.cpp', line: 1, provenance: 'clangd@live',
+      children: [{ name: 'grafted', file: 'src/b.cpp', line: 9, children: [] }],
+    });
+    const [rootLine, childLine] = t.split('\n');
+    expect(rootLine).toContain('[lsp✓]');
+    expect(childLine).toContain('[lsp~]');
+  });
+});
+
+// graph-senior-dev, reviewing 0d1fd1d: "a flag true on every successful answer is not health
+// information." `degraded` became a standing constant when exhaustiveness was withdrawn, so it
+// stopped discriminating. `operationallyDegraded` is the replacement and this describe exists to
+// prove it can take BOTH values — a guard that cannot say no is decoration.
+describe('code_intel_hierarchy — operationallyDegraded separates a standing limit from an incident', () => {
+  const ready = { mode: 'indexed', indexReady: true, kind: 'callers', coverage: { complete: true } };
+
+  it('a healthy index-ready tree is NOT operationally degraded, though exhaustive is withheld', () => {
+    const e = buildHierarchyEvidence({ ...ready, nodeCount: 4, truncated: 0 });
+    expect(e.exhaustive).toBe(false);                    // standing epistemic limit
+    expect(e.cause).toBe('index_population_unattested');
+    expect(e.operationallyDegraded).toBe(false);         // ...but nothing went wrong HERE
+  });
+
+  it('truncation IS an incident — something happened to this request', () => {
+    const e = buildHierarchyEvidence({ ...ready, nodeCount: 4, truncated: 7 });
+    expect(e.operationallyDegraded).toBe(true);
+    expect(e.cause).toBe('truncated_to_caps');
+  });
+
+  it('a cold index IS an incident', () => {
+    const e = buildHierarchyEvidence({ ...ready, indexReady: false, nodeCount: 4 });
+    expect(e.operationallyDegraded).toBe(true);
+  });
+
+  it('bounded mode IS an incident', () => {
+    const e = buildHierarchyEvidence({ ...ready, mode: 'bounded', nodeCount: 4 });
+    expect(e.operationallyDegraded).toBe(true);
   });
 });

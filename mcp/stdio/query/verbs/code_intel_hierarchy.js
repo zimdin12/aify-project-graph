@@ -60,6 +60,20 @@ const KIND_TYPE = new Set(['subtypes', 'supertypes']);
 // Struct node (review R2 phantom-Struct drop).
 const RESOLVE_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type'];
 
+// PROVENANCE IS A PROPERTY OF THE NODE, NOT OF THE TREE.
+// Every node in both walkers is built from an LSP response — the root from
+// prepare{Call,Type}Hierarchy, children from incoming/outgoingCalls — so it is stamped where it
+// is CONSTRUCTED. `[lsp✓]` then renders from the node's own provenance and nothing else.
+//
+// ⛔ WHY, per graph-senior-dev's review of 0d1fd1d: the previous repair rendered the mark from
+// `mode !== 'bounded' && indexReady && nodeCount > 1`. Those constrain POPULATION COMPLETENESS,
+// not whether a returned edge came from clangd. A bounded or not-yet-idle response may
+// undercount while every edge it DID return is still compiler-resolved — so that predicate
+// withheld a true per-edge precision mark whenever completeness was uncertain. It was the same
+// precision/completeness collapse as the original defect, running in the opposite direction:
+// I moved the error instead of removing it.
+const LSP_PROVENANCE = 'clangd@live';
+
 function errorResponse(code, message) {
   return { status: 'error', errors: [{ code, message, hint: HINTS[code] || '' }] };
 }
@@ -313,7 +327,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
   const empty = !(Number(nodeCount) > 1); // root-only / unresolved root → empty
   if (mode === 'bounded') {
     return {
-      ready: false, degraded: true, cause: 'bounded_mode', confidence: 'medium',
+      ready: false, degraded: true, operationallyDegraded: true, cause: 'bounded_mode', confidence: 'medium',
       exhaustive: false,
       fallback: 'bounded mode never waits for the index — re-run in INDEXED mode (unset APG_CLANGD_MODE) for an exhaustive tree',
       warnings: ['bounded mode: tree may undercount cross-TU callers/overrides']
@@ -326,7 +340,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
     // sysroot limit). An EMPTY hierarchy is therefore NOT safe evidence of
     // absence — mirror references' definition_only: degraded, not exhaustive.
     return {
-      ready: false, degraded: true, cause: 'no_incoming_unconfirmed', confidence: 'low',
+      ready: false, degraded: true, operationallyDegraded: true, cause: 'no_incoming_unconfirmed', confidence: 'low',
       exhaustive: false,
       fallback: `verify with code_intel_references (live clangd, per-symbol evidence) or rg before any "no ${noun}" / dead-code claim`,
       warnings: [`0 ${noun} is NOT safe evidence of no ${noun} — cross-TU resolution unconfirmed; verify with code_intel_references / rg`]
@@ -354,7 +368,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
       if (multiRoot) bits.push('overload/multi-root set — only the first root was walked');
       const why = bits.join('; ');
       return {
-        ready: true, degraded: true, cause: 'truncated_to_caps', confidence: 'medium',
+        ready: true, degraded: true, operationallyDegraded: true, cause: 'truncated_to_caps', confidence: 'medium',
         exhaustive: false,
         fallback: `tree is complete only up to the caps (${why}); raise breadthCap/totalCap or verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
         warnings: [`hierarchy truncated: ${why} — NOT exhaustive`],
@@ -368,7 +382,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
     // so it needs the same rule: silence is not proof.
     if (coverage?.complete !== true) {
       return {
-        ready: true, degraded: true, cause: 'coverage_unknown', confidence: 'medium',
+        ready: true, degraded: true, operationallyDegraded: true, cause: 'coverage_unknown', confidence: 'medium',
         exhaustive: false,
         fallback: `coverage for this query is unproven; the ${noun} tree is a FLOOR — verify with code_intel_references / rg before any "no ${noun}" / dead-code claim`,
         warnings: [`compile-DB / project coverage could not be verified — the ${noun} tree is a FLOOR, not a complete set`],
@@ -399,7 +413,14 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
     // cannot certify an absence, whichever verb it asked.
     return {
       ready: true,
+      // ⛔ `degraded` KEPT FOR COMPATIBILITY, BUT IT NO LONGER DISCRIMINATES — read
+      // `operationallyDegraded` instead. graph-senior-dev, reviewing 0d1fd1d: "a flag true on
+      // every successful answer is not health information." `index_population_unattested` is a
+      // STANDING EPISTEMIC LIMIT — the compile DB never reports which TUs produced usable ASTs —
+      // so it is true of every call and cannot mark an incident. An operational degradation is
+      // something that HAPPENED to this request: a cold index, a timeout, truncation.
       degraded: true,
+      operationallyDegraded: false,
       cause: 'index_population_unattested',
       confidence: 'medium',
       exhaustive: false,
@@ -411,7 +432,7 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
   }
   // INDEXED mode but the index never reached idle within budget.
   return {
-    ready: false, degraded: true, cause: 'cold_index', confidence: 'low',
+    ready: false, degraded: true, operationallyDegraded: true, cause: 'cold_index', confidence: 'low',
     exhaustive: false,
     fallback: 'clangd index not ready within budget — raise APG_CLANGD_INDEX_WAIT_MS / waitForReadyMs and re-run; absence claims unsafe',
     warnings: ['index NOT ready — tree may undercount; re-collect']
@@ -459,7 +480,7 @@ export function buildHierarchyTrustLine({ mode, indexReady, kind, nodeCount, cov
 //   { label, file, line, children:[…], truncated:N }
 // `direction` is 'callers' (incomingCalls) or 'callees' (outgoingCalls).
 async function walkCallHierarchy(session, rootItem, { direction, depth, breadthCap, totalCap, projectRoot }) {
-  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0 };
+  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0, provenance: LSP_PROVENANCE };
   // `truncated` accumulates every edge dropped at the breadth/total caps so the
   // caller can downgrade the exhaustive claim — a capped tree is a FLOOR, not a
   // complete caller set (audit 2026-06-12 B3).
@@ -488,7 +509,7 @@ async function walkCallHierarchy(session, rootItem, { direction, depth, breadthC
       const childItem = direction === 'callers' ? edge.from : edge.to;
       if (!childItem) continue;
       const childLabel = itemLabel(childItem, projectRoot);
-      const child = { ...childLabel, children: [], truncated: 0 };
+      const child = { ...childLabel, children: [], truncated: 0, provenance: LSP_PROVENANCE };
       budget.nodes += 1;
       if (seen.has(child.key)) {
         child.cycle = true;
@@ -508,7 +529,7 @@ async function walkCallHierarchy(session, rootItem, { direction, depth, breadthC
 // Type hierarchy is one level of subtypes/supertypes by default but we honor
 // `depth` for deep inheritance chains, with the same caps.
 async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthCap, totalCap, projectRoot }) {
-  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0 };
+  const root = { ...itemLabel(rootItem, projectRoot), children: [], truncated: 0, provenance: LSP_PROVENANCE };
   const budget = { nodes: 1, truncated: 0 };
   const seen = new Set([root.key]);
 
@@ -528,7 +549,7 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
     for (const kid of capped) {
       if (budget.nodes >= totalCap) { node.truncated += 1; budget.truncated += 1; continue; }
       const childLabel = itemLabel(kid, projectRoot);
-      const child = { ...childLabel, children: [], truncated: 0 };
+      const child = { ...childLabel, children: [], truncated: 0, provenance: LSP_PROVENANCE };
       budget.nodes += 1;
       if (seen.has(child.key)) { child.cycle = true; node.children.push(child); continue; }
       seen.add(child.key);
@@ -550,17 +571,20 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
 // mode or a cold/not-ready index the banner says `lsp-partial … may undercount;
 // re-collect`, so we use the distinct `[lsp~]` (partial) marker instead — never
 // a bare `[lsp✓]` that would contradict its own banner.
-function renderTree(node, { indent = '', isLast = true, isRoot = true, mark = '[lsp✓]' } = {}) {
+export function renderTree(node, { indent = '', isLast = true, isRoot = true } = {}) {
   const lines = [];
   const branch = isRoot ? '' : (isLast ? '└─ ' : '├─ ');
   const cycleMark = node.cycle ? ' (cycle)' : '';
   const detail = node.detail ? node.detail : '';
+  // Per-node, from its own provenance. A node with no LSP provenance never gets the mark,
+  // whatever the tree around it claims.
+  const mark = node.provenance === LSP_PROVENANCE ? '[lsp✓]' : '[lsp~]';
   lines.push(`${indent}${branch}${node.name}${detail}  ${node.file}:${node.line} ${mark}${cycleMark}`);
   const childIndent = isRoot ? '' : indent + (isLast ? '   ' : '│  ');
   const kids = node.children || [];
   kids.forEach((child, i) => {
     const last = i === kids.length - 1 && (!node.truncated || node.truncated === 0);
-    lines.push(...renderTree(child, { indent: childIndent, isLast: last, isRoot: false, mark }));
+    lines.push(...renderTree(child, { indent: childIndent, isLast: last, isRoot: false }));
   });
   if (node.truncated && node.truncated > 0) {
     lines.push(`${childIndent}└─ … TRUNCATED — ${node.truncated} more`);
@@ -786,14 +810,13 @@ export async function codeIntelHierarchy(args = {}) {
   // this violated — "precision and exhaustiveness are orthogonal, never let one become the
   // other" — and gating the per-edge mark on the set claim did exactly that: it would have
   // stripped a TRUE signal from every edge to express a doubt about the set.
-  const groundTruthEdges = mode !== 'bounded' && indexReady === true && Number(nodeCount) > 1;
-  const nodeMark = groundTruthEdges ? '[lsp✓]' : '[lsp~]';
+  // (no tree-wide mark: renderTree reads each node's own provenance — see LSP_PROVENANCE)
   const treeText = [
     `${kind.toUpperCase()} of ${rootItem.name || symbol || file} (depth ${depth})`,
     // Overload/multi-root sets: we walk only the first root to stay budgeted —
     // say so, since callers of the OTHER overloads are absent from this tree.
     ...(multiRoot ? [`(note: ${items.length} hierarchy roots resolved — overload/multi-decl set; only the first was walked; the others' ${kind} are NOT shown)`] : []),
-    ...renderTree(walked.root, { isRoot: true, mark: nodeMark }),
+    ...renderTree(walked.root, { isRoot: true }),
     trust
   ].join('\n');
 
