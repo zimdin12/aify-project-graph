@@ -450,8 +450,25 @@ export async function graphHealth({ repoRoot }) {
               filesProcessed: processed,
               // Kept and named, because "this run did 3" and "the repo has 553" are different
               // facts and a reader chasing a partial collection needs the first one.
+              // ⛔ `null` HERE MEANT TWO DIFFERENT THINGS AND A READER COULD NOT TELL THEM APART.
+              //
+              // ef-manager, field-testing v0.7.0 on echoes: "filesProcessedLatestCollection null
+              // and filesInScopeLatestCollection null. A per-collection disclosure that reads null
+              // tells a reader nothing about whether supersession ran."
+              //
+              // `latest.filesProcessed ?? null` collapses "this collection predates the column, so
+              // the value was never stored" into the same `null` a reader would read as "nothing
+              // was processed" — while a collection that genuinely processed nothing stores a real
+              // 0. Two states, one appearance; and three collections in THIS repo do store 0, so
+              // both values occur in practice.
+              //
+              // ⇒ The distinction goes in the EXISTING Source field rather than a new one.
+              // ef-manager on my last fix: "two booleans to ignore instead of one" — a defect gets
+              // one more VALUE in a field a reader already consults, never one more field.
               filesProcessedLatestCollection: latest.filesProcessed ?? null,
-              filesProcessedSource: covered != null ? 'all_live_collections' : 'latest_collection',
+              filesProcessedSource: latest.filesProcessed == null
+                ? 'unrecorded_at_collection'
+                : (covered != null ? 'all_live_collections' : 'latest_collection'),
               // ⚠ RENAMED, NOT ANNOTATED. ef-manager: three populations now live in five fields —
               // all-live-collections (553), latest-collection (3, twice) and the corpus (557) — and
               // `filesInScope` was the only one not saying which. It is the LATEST collection's
