@@ -45,6 +45,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { cppPreflight, cppPreflightMessage } from './lib/cpp-preflight.mjs';
 import { fileURLToPath } from 'node:url';
 
 const SELF_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -268,6 +269,7 @@ async function main() {
       pluginRoot,
       existingHadAifyEntry: !!(existing?.mcpServers?.['aify-project-graph']),
       approvalNote: approvalNoteFor(opts.runtime),
+      cppPreflight: cppPreflight(projectRoot),
       hintHook: wantHintHook
         ? { settingsPath, wouldWrite: hintPlan.settings, alreadyPresent: !hintPlan.added }
         : { skipped: opts.runtime !== 'claude-code' ? 'not claude-code' : 'disabled (--no-hint-hook)' },
@@ -288,6 +290,17 @@ async function main() {
       ? `Wired the SessionStart discoverability hint into ${settingsPath} (managed agents will be nudged to ToolSearch the graph verbs).`
       : `SessionStart discoverability hint already present in ${settingsPath} — left as-is.`);
   }
+
+  // ⛔ C++ PREFLIGHT AT INSTALL TIME, WHEN THE OPERATOR IS ALREADY CONFIGURING. Measured on a fresh
+  // clone of fmt: collection returns `compile_db_missing` in 74ms — typed, fast, with the right
+  // remedy. The error is good; discovering it deep inside a later workflow is not.
+  //
+  // ⚠ NONFATAL AND NARROW. It never fails the install, and it reports what it FOUND rather than
+  // asserting what C++ projects require: a compile DB may be committed, and CMake emits one at
+  // configure time.
+  const cpp = cppPreflight(projectRoot);
+  const cppMsg = cppPreflightMessage(cpp);
+  if (cppMsg) console.log(`\n${cppMsg}`);
 
   const note = approvalNoteFor(opts.runtime);
   if (note) console.log(note);

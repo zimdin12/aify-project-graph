@@ -1,0 +1,94 @@
+[
+  {
+    "arm": "fmt (C++)",
+    "symbolsAsked": 20,
+    "caller_rows": 10,
+    "ambiguous_match_no_rows": 10,
+    "genuinely_no_callers": 0,
+    "other": 0,
+    "blockedShare": 0.5,
+    "callsHiddenByBlock": 381,
+    "examples": [
+      {
+        "symbol": "c_str",
+        "incomingCalls": 103
+      },
+      {
+        "symbol": "size",
+        "incomingCalls": 40
+      },
+      {
+        "symbol": "begin",
+        "incomingCalls": 38
+      },
+      {
+        "symbol": "string_view",
+        "incomingCalls": 35
+      }
+    ]
+  },
+  {
+    "arm": "click (Python)",
+    "symbolsAsked": 20,
+    "caller_rows": 8,
+    "ambiguous_match_no_rows": 12,
+    "genuinely_no_callers": 0,
+    "other": 0,
+    "blockedShare": 0.6,
+    "callsHiddenByBlock": 936,
+    "examples": [
+      {
+        "symbol": "invoke",
+        "incomingCalls": 329
+      },
+      {
+        "symbol": "__init__",
+        "incomingCalls": 289
+      },
+      {
+        "symbol": "echo",
+        "incomingCalls": 123
+      },
+      {
+        "symbol": "command",
+        "incomingCalls": 62
+      }
+    ]
+  },
+  {
+    "arm": "fast-route (PHP)",
+    "symbolsAsked": 20,
+    "caller_rows": 18,
+    "ambiguous_match_no_rows": 2,
+    "genuinely_no_callers": 0,
+    "other": 0,
+    "blockedShare": 0.1,
+    "callsHiddenByBlock": 13,
+    "examples": [
+      {
+        "symbol": "addRoute",
+        "incomingCalls": 10
+      },
+      {
+        "symbol": "get",
+        "incomingCalls": 3
+      }
+    ]
+  },
+  {
+    "arm": "p-queue (TS)",
+    "symbolsAsked": 20,
+    "caller_rows": 19,
+    "ambiguous_match_no_rows": 1,
+    "genuinely_no_callers": 0,
+    "other": 0,
+    "blockedShare": 0.05,
+    "callsHiddenByBlock": 1,
+    "examples": [
+      {
+        "symbol": "setPriority",
+        "incomingCalls": 1
+      }
+    ]
+  }
+]

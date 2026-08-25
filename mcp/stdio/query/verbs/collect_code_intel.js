@@ -359,8 +359,20 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
           code: 'record_volume_anomaly',
           message: `${recordCount} records from ${filesSeen} files (~${Math.round(perFile)}/file) is far above the typical ~50-150/file`
             + ' — this is the signature of a per-symbol reference blowup, not a large repo.',
-          hint: 'check index.positionGuessSkipped and index.refsTruncatedSymbols in this response;'
-            + ' a high guess count means symbols were queried at positions that could not be placed, so the references may belong to the wrong symbols.',
+          // ⚠ THE UNIT IS SYMBOLS, AND SAYING SO IS THE WHOLE POINT OF THIS EDIT. Review read
+          // `positionGuessSkipped: 25` on a 79-file collection and had to correct me: I reported it
+          // as "every one of 25 processed FILES skipped a guess". It counts SYMBOL records whose
+          // identifier column could not be located, so definitions/references were never issued for
+          // them. There is no per-file distribution in that scalar.
+          //
+          // ⇒ A count whose unit a reader must guess is a count they will guess wrong, and the name
+          // does not carry it. Naming the unit at the point of use costs one clause.
+          hint: 'check index.positionGuessSkipped and index.refsTruncatedSymbols in this response.'
+            + ' BOTH ARE COUNTS OF SYMBOLS, not files: positionGuessSkipped is the number of SYMBOL'
+            + ' records whose identifier column could not be located, so definitions/references were'
+            + ' NOT queried for them and their relations sit outside the collected numerator.'
+            + ' A high value means symbols were queried at positions that could not be placed, so the'
+            + ' references may belong to the wrong symbols.',
         };
       }
       // ⛔ THE DENOMINATOR A COVERAGE CLAIM IS ABOUT, ATTACHED BEFORE IMPORT.
@@ -419,10 +431,37 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
       ? result.notes.find(n => n.code === 'budget_exhausted')
       : null;
     if (note) {
+      // ⛔ THE CALLER WAS LEFT TO COMPUTE ITS OWN REMAINDER, AND THE FIELDS INVITE GETTING IT WRONG.
+      // `filesProcessed` resets every call and `filesTotal` is the SCOPE's total, so "how much is
+      // left" is derivable only by combining three fields correctly. Measured on click: processed
+      // 25, enumerated 79, resumedFrom 0 — 54 remain, and nothing said so.
+      //
+      // ⚠ THE PROJECTION IS LABELLED A PROJECTION, NEVER A COST. Review was explicit: warm index
+      // state, per-file symbol populations and timeouts make the next pass non-exchangeable with
+      // this one, so "2 more calls" would be a promise this cannot keep. Stating the observed rate
+      // and calling the extrapolation what it is leaves the caller to decide.
+      const processed = Number(sess.filesProcessed);
+      const enumerated = Number(sess.enumeratedTotal);
+      const from = Number(sess.resumedFrom) || 0;
+      const done = Number.isFinite(processed) ? from + processed : null;
+      const remaining = (Number.isFinite(enumerated) && done !== null) ? Math.max(0, enumerated - done) : null;
+      const projection = (remaining !== null && Number.isFinite(processed) && processed > 0)
+        ? Math.ceil(remaining / processed)
+        : null;
+
       budgetNote = {
         code: 'budget_exhausted',
         message: note.message,
-        hint: 'partial result is already imported; re-run graph_collect_code_intel (warm) to continue/complete'
+        hint: 'partial result is already imported; re-run graph_collect_code_intel (warm) to continue'
+          + (remaining !== null
+            ? ` — EXACTLY ${remaining} of ${enumerated} enumerated file(s) remain (${done} done, `
+              + `${processed} this pass)`
+            : ' — the remaining count could not be derived from this session, so treat coverage as UNKNOWN')
+          + (projection !== null
+            ? `. PROJECTION ONLY, not a promise: at this pass's rate that is ~${projection} more call(s); `
+              + 'a warm index and different per-file symbol populations make the next pass '
+              + 'non-exchangeable with this one'
+            : ''),
       };
     }
   }

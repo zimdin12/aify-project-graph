@@ -9,6 +9,8 @@
 // the overlay validator + the brief's trust logic already expose.
 
 import { join, dirname } from 'node:path';
+import { graphCapabilities } from '../graph-capabilities.mjs';
+import { getBackend } from '../../code-intel/backends.js';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -36,6 +38,44 @@ const DIRTY_LIST_CAP = 25;
 // brief's trust() both consume this so they can't drift. Echoes bench
 // 2026-04-21 showed them disagreeing (brief said "strong" while health said
 // "weak (5421 unresolved)" on the same state) — fixed by centralizing.
+// Does this language have a language server in THIS server build?
+//
+// ⛔ DERIVED FROM THE REAL BACKEND REGISTRY, never a parallel list. `getBackend` is the same
+// registry the collector uses, so adding a PHP backend later flips this automatically — there is no
+// second table to remember, which is how the two compile-DB allowlists drifted apart.
+//
+// ⚠ It also corrected a hand-written map I nearly shipped: the registry aliases `c -> cpp`, so C
+// DOES have clangd. My own table had called it heuristic.
+//
+// PHP is the case that matters: extractor, no server. Its graphs can never earn a verified edge, so
+// it must never be told to run a collection to get one.
+/**
+ * The language most of this graph's CODE nodes are written in.
+ *
+ * ⚠ Code nodes only. Counting every node would let a repository's markdown and config outvote its
+ * source, and the question here is which language server could verify its EDGES.
+ *
+ * Returns null when the graph cannot say — and null must never be read as "has a server", which is
+ * why the caller treats an unknown language as "do not invent a permanent limit".
+ */
+function dominantGraphLanguage(dbPath) {
+  try {
+    const db = openExistingDb(dbPath);
+    try {
+      const row = db.get(`SELECT language, COUNT(*) c FROM nodes
+        WHERE language IS NOT NULL AND language <> ''
+          AND type IN ('Function','Method','Class','Interface','Type','Symbol','Test')
+        GROUP BY language ORDER BY c DESC LIMIT 1`);
+      return row?.language ?? null;
+    } finally { db.close(); }
+  } catch { return null; }
+}
+
+function languageHasLspBackend(language) {
+  if (!language) return true;            // unknown language: do not invent a permanent limit
+  try { return Boolean(getBackend(language)); } catch { return true; }
+}
+
 export const UNRESOLVED_WEAK = 2000;
 export const UNRESOLVED_OK = 500;
 export function computeTrustLevel(unresolvedEdges) {
@@ -1370,9 +1410,47 @@ export async function graphHealth({ repoRoot }) {
     briefStaleVsManifest, trustUnresolvedEdges,
   });
 
+  // ⛔ `trust` DOES NOT MEAN "AN EDGE WAS COMPILER-CHECKED", AND THE HEADLINE WAS CONTRADICTING THE
+  // WARNING BELOW IT. Measured on third-party repositories:
+  //
+  //     fast-route (PHP)  0 verified edges       -> trust "strong"
+  //     fmt (C++)         0 verified edges       -> trust "ok"
+  //     click (Python)    1,410 verified (10.4%) -> trust "weak"
+  //
+  // `computeTrustLevel` is a function of unresolved-edge count alone — a real measure of how
+  // completely extraction resolved its own references, and silent on evidence tier. So the repo
+  // with no spine reports the strongest trust, and PHP reports "strong" permanently because no PHP
+  // language server exists for it to fail.
+  //
+  // `nextActions` already carries the correct warning. But a reader who believes the headline never
+  // reaches the correction, and this project's own finding is that behaviour changes only when a
+  // field CONTRADICTS an agent's confidence — here the contradiction pointed the wrong way.
+  //
+  // ⇒ Capabilities are reported SEPARATELY rather than folded into one word. `trust` keeps its
+  // meaning; `capabilities.absenceAuthority` answers the question that deletes code.
+  // ⛔ THE LANGUAGE MUST COME FROM THE GRAPH, NOT THE COLLECTION RECORD, AND EXECUTING THIS CAUGHT
+  // IT. `codeIntel.language` is only populated AFTER a collection has run — so on a fresh PHP repo
+  // it is null, the "no language server" branch never fires, and the reader is told to run a
+  // collection that cannot possibly help them.
+  //
+  // ⇒ The fact that matters BEFORE a collection was only knowable AFTER one. The graph already
+  // holds a language per node, so it can answer before anything is collected.
+  const primaryLanguage = codeIntel?.language ?? dominantGraphLanguage(dbPath);
+  const capabilities = graphCapabilities({
+    indexed: true,
+    compilerVerifiedEdges: codeIntel?.lspVerifiedEdges ?? 0,
+    collectionAvailable: codeIntel?.available === true,
+    coverage: codeIntel?.coverage ?? null,
+    language: primaryLanguage,
+    languageHasServer: languageHasLspBackend(primaryLanguage),
+  });
+
   return {
     indexed: true,
     trust,
+    // ⚠ Placed immediately after `trust` on purpose: the two are read together or the separation
+    // achieves nothing.
+    capabilities,
     unresolvedEdges,
     trustUnresolvedEdges,
     ...(stalenessImpact ? { stalenessImpact } : {}),
