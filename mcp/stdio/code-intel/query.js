@@ -99,16 +99,69 @@ export function getCodeIntelEvidenceForSymbol(db, { qname, symbolId } = {}) {
   if (qname) { conditions.push('qname = $qname'); params.qname = qname; }
   const where = conditions.join(' OR ');
   const rows = db.all(`SELECT * FROM code_intel_records WHERE ${where}`, params);
-  const definitions = rows.filter((r) => r.kind === 'definition').map(rowToRecord);
-  const references = rows.filter((r) => r.kind === 'reference').map(rowToRecord);
-  const hovers = rows.filter((r) => r.kind === 'hover').map(rowToRecord);
+  const { kept, supersededDropped, spannedCollections } = supersedeByFile(db, rows);
+  const definitions = kept.filter((r) => r.kind === 'definition').map(rowToRecord);
+  const references = kept.filter((r) => r.kind === 'reference').map(rowToRecord);
+  const hovers = kept.filter((r) => r.kind === 'hover').map(rowToRecord);
   return {
     found: definitions.length > 0 || references.length > 0,
     definitions,
     references,
     hovers,
+    // Disclosed, not silent: how many older-generation records were dropped, and whether this
+    // symbol's evidence spanned more than one collection at all.
+    supersededDropped,
+    spannedCollections,
     summary: { definitions: definitions.length, references: references.length, hovers: hovers.length },
   };
+}
+
+/**
+ * Keep only the NEWEST collection's records FOR EACH FILE.
+ *
+ * ⛔ THE DEFECT THIS CLOSES. A repo accumulates one row per collection run, and this query had no
+ * collection filter and no recency order — so a symbol touched by two runs returned BOTH
+ * generations merged, with nothing telling the caller. Measured on this repo, 2026-08-25:
+ * 6 collections, 99 files spanning more than one, and **1,170 of 7,082 symbols (16.5%)** returning
+ * mixed-generation evidence. That is the CONSUMER-side number; the store-side figure ("98 files,
+ * <=22.8% of records") describes what is on disk, not what anyone is handed.
+ *
+ * ⚠ PER FILE, NEVER GLOBALLY, AND THAT DISTINCTION IS THE WHOLE DESIGN. Filtering to the single
+ * newest collection would delete every record for a file that run did not touch — and a partial
+ * collection is the normal case here (the newest covered 73 files of 632). That would turn stale
+ * evidence into ABSENT evidence, manufacturing the exact confident-empty-result defect this
+ * codebase spent 2026-08-25 removing. Superseding per file cannot empty a file that has evidence.
+ */
+function supersedeByFile(db, rows) {
+  if (!Array.isArray(rows) || rows.length < 2) {
+    return { kept: rows || [], supersededDropped: 0, spannedCollections: 1 };
+  }
+  const collectionIds = [...new Set(rows.map((r) => r.collection_id).filter(Boolean))];
+  if (collectionIds.length <= 1) {
+    return { kept: rows, supersededDropped: 0, spannedCollections: collectionIds.length || 1 };
+  }
+  // Recency comes from the collections table, not from the id string: an id is not an ordering.
+  const order = new Map();
+  try {
+    const placeholders = collectionIds.map((_, i) => `$c${i}`).join(',');
+    const p = Object.fromEntries(collectionIds.map((id, i) => [`c${i}`, id]));
+    for (const row of db.all(
+      `SELECT collection_id, collected_at FROM code_intel_collections WHERE collection_id IN (${placeholders})`, p,
+    )) order.set(row.collection_id, row.collected_at || '');
+  } catch {
+    // Cannot establish recency ⇒ supersede nothing. Fail OPEN here on purpose: keeping a stale
+    // record shows the caller too much, dropping a current one shows too little, and only the
+    // second can be mistaken for an absence.
+    return { kept: rows, supersededDropped: 0, spannedCollections: collectionIds.length };
+  }
+  const newestPerFile = new Map();
+  for (const r of rows) {
+    const at = order.get(r.collection_id) ?? '';
+    const cur = newestPerFile.get(r.file);
+    if (cur === undefined || at > cur) newestPerFile.set(r.file, at);
+  }
+  const kept = rows.filter((r) => (order.get(r.collection_id) ?? '') === newestPerFile.get(r.file));
+  return { kept, supersededDropped: rows.length - kept.length, spannedCollections: collectionIds.length };
 }
 
 export function getCodeIntelDiagnosticsForFiles(db, files) {
