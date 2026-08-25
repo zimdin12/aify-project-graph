@@ -327,7 +327,15 @@ export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, cove
   const empty = !(Number(nodeCount) > 1); // root-only / unresolved root → empty
   if (mode === 'bounded') {
     return {
-      ready: false, degraded: true, operationallyDegraded: true, cause: 'bounded_mode', confidence: 'medium',
+      ready: false,
+      degraded: true,
+      // ⛔ NOT an incident. Bounded mode is EXPLICITLY SELECTED behaviour — it never waits for the
+      // index, by design. Nothing happened *to* this request, so flagging it operationally
+      // degraded repeats the standing-limit mistake at a smaller scope (graph-senior-dev, review
+      // of b396c0a). A bounded response can be healthy-for-bounded, precise on every returned
+      // node, and incomplete — three separate facts carried by three separate fields.
+      operationallyDegraded: false,
+      cause: 'bounded_mode', confidence: 'medium',
       exhaustive: false,
       fallback: 'bounded mode never waits for the index — re-run in INDEXED mode (unset APG_CLANGD_MODE) for an exhaustive tree',
       warnings: ['bounded mode: tree may undercount cross-TU callers/overrides']
@@ -565,12 +573,19 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
 // Render the tree as compact indented text. Each hop carries file:line + a
 // verification mark. Budget-stable.
 //
-// I3 — the per-node mark must agree with the banner. `[lsp✓]` means "ground
-// truth, do NOT re-grep" (server-instructions), which is only honest when the
-// tree is index-ready exhaustive (INDEXED mode + indexReady===true). In bounded
-// mode or a cold/not-ready index the banner says `lsp-partial … may undercount;
-// re-collect`, so we use the distinct `[lsp~]` (partial) marker instead — never
-// a bare `[lsp✓]` that would contradict its own banner.
+// `[lsp✓]` means "this node came from the compiler, do NOT re-grep it" (server-instructions).
+// It is a claim about PROVENANCE and nothing else, so it is decided per node, from the node.
+//
+// ⛔ THIS COMMENT USED TO TEACH THE OPPOSITE — that the mark is honest "only when the tree is
+// index-ready exhaustive", and that bounded/cold must render `[lsp~]`. The executable code below
+// had already been corrected to do the reverse, so the source contract an agent reads contradicted
+// the behaviour it describes. Caught by graph-senior-dev reviewing b396c0a, and it is the same
+// defect as the README teaching a withdrawn rule six days after the skills were fixed: a repair
+// that reaches the code and not the prose is half a repair.
+//
+// The tree may be incomplete — bounded mode, a cold index, truncation. That is COMPLETENESS and
+// it is carried by `exhaustive:false`, `completeness:'floor'` and the banner. It never justifies
+// downgrading a true statement about where a returned node came from.
 export function renderTree(node, { indent = '', isLast = true, isRoot = true } = {}) {
   const lines = [];
   const branch = isRoot ? '' : (isLast ? '└─ ' : '├─ ');

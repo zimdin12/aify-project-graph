@@ -71,7 +71,16 @@ function handle(msg) {
     case 'initialized':
       if (process.env.FAKE_LSP_PROGRESS === '1') {
         notify('$/progress', { token: 'index', value: { kind: 'begin', title: 'indexing' } });
-        setTimeout(() => notify('$/progress', { token: 'index', value: { kind: 'end', message: 'ready' } }), 20);
+        // FAKE_LSP_INDEXING_FOREVER: begin indexing and never end it, so waitForIndexReady
+        // genuinely times out and indexReady comes back FALSE. Added 2026-08-25 because the
+        // fixture could not previously express a not-ready index at all — without progress the
+        // client short-circuits to 'no_progress_signalled' ready, and with it the 20ms end
+        // arrives before any realistic budget. A test asserting not-ready behaviour therefore
+        // had an UNREACHABLE branch and passed by never running it (graph-senior-dev, review of
+        // b396c0a). The state has to be constructible before a test of it can mean anything.
+        if (process.env.FAKE_LSP_INDEXING_FOREVER !== '1') {
+          setTimeout(() => notify('$/progress', { token: 'index', value: { kind: 'end', message: 'ready' } }), 20);
+        }
       }
       return;
     case 'shutdown':

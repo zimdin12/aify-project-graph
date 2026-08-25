@@ -156,9 +156,6 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     expect(r.trust).toMatch(/lsp-partial.*bounded mode/);
     expect(r.evidence.exhaustive).toBe(false);
     expect(r.evidence.cause).toBe('bounded_mode');
-    // I3 — bounded mode's banner says lsp-partial, so per-node marks must NOT
-    // claim ground truth with a bare [lsp✓] (that would contradict the banner
-    // and the "do NOT re-grep" doctrine). Use the distinct partial marker.
     // REWORKED 2026-08-25 per graph-senior-dev's review of 0d1fd1d. This USED to assert the
     // mark was absent whenever the index was cold / the tree empty. That pinned a COLLAPSE:
     // index-readiness constrains POPULATION COMPLETENESS, not whether a RETURNED edge came from
@@ -173,27 +170,35 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     expect(r.treeText).not.toContain('[lsp~]');
   });
 
-  it('I3: per-node mark is gated on indexReady===true (cold/not-ready → no bare [lsp✓])', async () => {
-    // FAKE_LSP_PROGRESS unset → no $/progress events. When the fake server does
-    // not reach index-ready, indexReady is false in INDEXED mode and the banner
-    // is lsp-partial — the per-node marks must then be [lsp~], never a bare
-    // [lsp✓]. (If the fixture happens to report ready, the [lsp✓] path is
-    // already covered by the index-ready test above; we only assert the gate
-    // when the not-ready condition actually held.)
+  it('a NOT-READY index still marks returned nodes [lsp✓] — readiness is completeness, not provenance', async () => {
+    // ⛔ THIS TEST USED TO BE NAMED "per-node mark is gated on indexReady===true" AND IT COULD
+    // SKIP ITS OWN ASSERTION. It branched on `if (r.indexReady === true) ... else ...` with a
+    // further `if (r.tree)` inside, so the hostile branch only ran when the fixture happened to
+    // come back not-ready. It passed by taking the healthy branch — green without ever executing
+    // the case it existed to check. graph-senior-dev caught it reviewing b396c0a; the same
+    // vacuous-guard shape as `[].every()` certifying an empty set.
+    //
+    // Deterministic now: the fake server never emits $/progress, so INDEXED mode cannot reach
+    // ready, and every assertion runs unconditionally.
     const repo = tmpRepo();
-    const coldSpawn = { command: process.execPath, args: [fakeServer], env: { ...process.env } };
-    const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 200, spawn: coldSpawn });
+    // Progress ON so indexing actually BEGINS, with a budget too small to see it finish. Without
+    // the progress flag the client short-circuits to ready ('no_progress_signalled'), which is
+    // why the old else-branch could never run.
+    const coldSpawn = { command: process.execPath, args: [fakeServer], env: { ...process.env, FAKE_LSP_PROGRESS: '1', FAKE_LSP_INDEXING_FOREVER: '1' } };
+    const r = await codeIntelHierarchy({ repoRoot: repo, file: 'src/foo.cpp', line: 1, col: 6, kind: 'callers', waitForReadyMs: 60, spawn: coldSpawn });
+
     expect(r.mode).toBe('indexed');
-    if (r.indexReady === true) {
-      // Fixture reached ready — ground-truth mark is legitimate here.
-      if (r.tree) expect(r.treeText).toContain('[lsp✓]');
-    } else {
-      expect(r.trust).toMatch(/lsp-partial|index NOT ready/);
-      if (r.tree) {
-        expect(r.treeText).not.toContain('[lsp✓]');
-        expect(r.treeText).toContain('[lsp~]');
-      }
-    }
+    expect(r.indexReady).not.toBe(true);        // the precondition, asserted rather than assumed
+    expect(r.treeText).toBeTruthy();            // and a tree really came back to be marked
+
+    // PRECISION: the nodes came from prepare*Hierarchy / incomingCalls, so they are
+    // compiler-resolved no matter what the index readiness is.
+    expect(r.treeText).toContain('[lsp✓]');
+    expect(r.treeText).not.toContain('[lsp~]');
+
+    // COMPLETENESS: carried separately, and still refused.
+    expect(r.evidence.exhaustive).toBe(false);
+    expect(r.trust).toMatch(/lsp-partial|index NOT ready/);
   });
 });
 
@@ -573,8 +578,14 @@ describe('code_intel_hierarchy — operationallyDegraded separates a standing li
     expect(e.operationallyDegraded).toBe(true);
   });
 
-  it('bounded mode IS an incident', () => {
+  it('⛔ bounded mode is NOT an incident — it is selected behaviour', () => {
+    // I had this backwards. Bounded mode never waits for the index BY DESIGN, so nothing happened
+    // *to* the request; calling it operationally degraded repeats the standing-limit mistake at a
+    // smaller scope (graph-senior-dev, review of b396c0a). Healthy-for-bounded, precise on every
+    // returned node, and incomplete are three separate facts.
     const e = buildHierarchyEvidence({ ...ready, mode: 'bounded', nodeCount: 4 });
-    expect(e.operationallyDegraded).toBe(true);
+    expect(e.operationallyDegraded).toBe(false);
+    expect(e.cause).toBe('bounded_mode');
+    expect(e.exhaustive).toBe(false);   // still incomplete — that is the honest part
   });
 });

@@ -7,6 +7,13 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+## [0.7.0] — 2026-08-25
+
+**A minor bump, not a patch, because BEHAVIOUR CHANGED for anyone reading the evidence
+contract: `evidence.exhaustive` is now withheld on every verb, `code_intel_hierarchy` no
+longer certifies an absence, and `operationallyDegraded` is a new field. Capability did not
+grow. Nine ways of returning a confident wrong "nothing calls this" were removed.**
+
 ### 2026-08-25 — six ways to return a confident empty caller set, and an adoption number
 
 **The shape all of these share** (sc-manager, field-probing sand_castle): *"an empty caller
