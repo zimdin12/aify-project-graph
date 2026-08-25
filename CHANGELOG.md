@@ -7,6 +7,61 @@ Dates are ISO 8601 (YYYY-MM-DD).
 
 ## [Unreleased]
 
+### 2026-08-25 — six ways to return a confident empty caller set, and an adoption number
+
+**The shape all of these share** (sc-manager, field-probing sand_castle): *"an empty caller
+set from a TU that never compiled is byte-identical to a TU with no callers."* That is the
+most expensive output this product can produce, on the one question grep cannot answer.
+
+**Compile-DB selection was decided by directory NAME, not contents.** `PROBE_DIRS` was a
+hardcoded list of eleven names; `build-clangd-native/` was not on it, so the only
+toolchain-matching DB in that repo could never be selected. The list ranked
+`build-win-clangd` first *because our own fix text tells users to create it with clang-cl* —
+and the DB sitting there held 679/679 MSVC `cl.exe`, rooted in a per-session temp
+scratchpad. `doctor` reported `=> READY`, because the entire readiness test was
+`firstPartyCount > 0`.
+
+- Candidates are now **derived from disk** — any directory holding a `compile_commands.json`
+  is found, and the name means nothing.
+- New `toolchain_mismatch` detection: MSVC `cl` flagged, `clang-cl` explicitly not (it is
+  clang in an MSVC driver), unknown compilers not accused. Names the better DB when one is
+  on disk.
+- New `compile_db_external_root` detection for a DB rooted outside the repository.
+- Ranking is now **toolchain match > repo-rooted > native > coverage**. Entry count is last:
+  a bigger DB clangd cannot compile still truncates caller sets, and coverage-first is
+  exactly how the MSVC database won.
+- `dbReady` fails closed on either condition.
+
+**`code_intel_analyze` carried a SECOND hardcoded list** (four entries) that had drifted from
+the first, ignored `APG_COMPILE_DB`, and ignored the normalized DB `doctor` itself writes. It
+reported `compile_db_missing` with two databases in the repo — and returned **byte-identical
+output for a real source and a fabricated one**, so it could not distinguish PRESENT from
+ABSENT. Deleted, not extended; `prepareCompileDb` is now the single discovery path.
+
+**An empty caller set from a translation unit that never compiled now says so.** A clangd
+with no MSVC environment returns **0 references for any TU including a standard header** and
+reports `status: ok` — measured, 2 refs vs 0 on identical TUs differing only by
+`#include <cstddef>`. `--query-driver=*` does not cover it; that is GCC-style driver
+interrogation, and clang-cl finds the MSVC STL through `INCLUDE`. The diagnostics were on the
+LSP client the whole time and this verb never read them. Empty results whose TU failed now
+carry `evidence.translationUnitFailed`, the unresolved header names, and the remedy.
+
+⚠ **Guidance corrected on every surface it appeared.** Our own advice named
+`build-win-clangd/` and said APG auto-discovers it. Both halves are now wrong: the name is
+not special, and telling people to create a *directory* without telling them to verify its
+*contents* is what produced the MSVC database in the first place. The skills, the
+`foreign_toolchain` fix text, and the server instructions now say the name does not matter,
+that entries must name `clang-cl` rather than `cl.exe`, and that the clangd process itself
+needs the MSVC environment on Windows.
+
+**Adoption, measured from 2.8 GB of transcripts rather than from recall.** 80% of sessions
+invoked a graph verb where the server is installed (8 of 10, across three repos); 0% where it
+is not (0 of 12, six repos). The published finding that agents self-route away from query
+tools does not replicate here — adoption is an **install** problem. Subagents are the real
+gap at 0.7% (7 of 1049). ⚠ One machine, 22 sessions; install and task class are confounded;
+and a call is not a benefit — `graph_health` is the top verb and that is maintenance.
+
+
 ## [0.6.1] — 2026-08-11
 
 **A patch on the release that shipped hours earlier, found by the first person to

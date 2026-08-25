@@ -815,8 +815,22 @@ export function prepareCompileDb({ projectRoot }) {
       // even SAME-FILE references (observed: 2 of 5 in-file callsites returned).
       // So this host can't use code_intel_references as a completeness oracle
       // until the index is fixed. Stripping Linux-only flags is not enough.
-      message: `compile DB built on Linux/WSL (signals: ${foreignReasons.join(', ')}); stripped ${strippedFlags} Linux-only toolchain flag(s). On this Windows host clangd cannot compile these TUs, so the index is silently PARTIAL: code_intel_references / code_intel_hierarchy caller sets are TRUNCATED — even SAME-FILE references can be missed — and diagnostics/hover are degraded. Do NOT trust any "no callers / dead code / safe to delete" result here; verify with rg. FIX (preferred — host clangd matches a native Windows DB): generate one with a Ninja+clang-cl configure (MSBuild's generator does NOT emit compile_commands.json): cmake -S . -B build-win-clangd -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON — APG auto-discovers build-win-clangd/. FALLBACK (if you keep a Linux/WSL build): set APG_CLANGD_WSL=1 to run clangd under WSL against that DB.`,
-      fix: 'preferred: generate a native Windows compile DB via a Ninja+clang-cl configure (cmake -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON), which APG auto-discovers; fallback: set APG_CLANGD_WSL=1 to run clangd under WSL against the Linux DB'
+      message: `compile DB built on Linux/WSL (signals: ${foreignReasons.join(', ')}); stripped ${strippedFlags} Linux-only toolchain flag(s). On this Windows host clangd cannot compile these TUs, so the index is silently PARTIAL: code_intel_references / code_intel_hierarchy caller sets are TRUNCATED — even SAME-FILE references can be missed — and diagnostics/hover are degraded. Do NOT trust any "no callers / dead code / safe to delete" result here; verify with rg. FIX (preferred — host clangd matches a native Windows DB): generate one with a Ninja+clang-cl configure (MSBuild's generator does NOT emit compile_commands.json): cmake -S . -B build-clangd -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON. The directory NAME does not matter (candidates are derived from disk) but its CONTENTS do: verify each entry names clang-cl and not cl.exe, because a configure can silently fall back to MSVC and the resulting DB is one clangd cannot compile. FALLBACK (if you keep a Linux/WSL build): set APG_CLANGD_WSL=1 to run clangd under WSL against that DB.`,
+      // ⛔ THIS FIX TEXT MANUFACTURED A DEFECT AND HAS BEEN CORRECTED TWICE OVER.
+      //
+      // It used to end "— APG auto-discovers build-win-clangd/", naming one directory. Two things
+      // were wrong with that. (a) The name is no longer special: candidates are DERIVED from disk,
+      // so any directory holding a compile_commands.json is found. (b) Far worse, it told people
+      // to create a DIRECTORY and never to check what landed in it. In sand_castle a
+      // `build-win-clangd/` existed, exactly as instructed, containing 679/679 MSVC cl.exe — and
+      // the selector then preferred it BY NAME over a real clang-cl DB beside it. Advice that
+      // names an artifact without naming how to verify it is a stand-in for the advice.
+      fix: 'generate a native Windows compile DB with a Ninja+clang-cl configure (MSBuild does not emit compile_commands.json): '
+        + 'cmake -S . -B build-clangd -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON. '
+        + 'The directory name does not matter — any dir holding a compile_commands.json is discovered. '
+        + 'THEN VERIFY THE CONTENTS, because a configure can silently fall back to MSVC: the "command"/"arguments" of each entry must name clang-cl, not cl.exe. '
+        + 'AND on Windows the clangd process itself needs the MSVC environment to resolve <chrono>/<cstddef> — if references come back empty with translationUnitFailed, launch the MCP server from a Developer Command Prompt so INCLUDE is inherited. '
+        + 'Fallback for a Linux/WSL build: APG_CLANGD_WSL=1.'
     });
   }
 
@@ -1089,7 +1103,7 @@ const NO_FIRST_PARTY_REASON =
   + 'completeness oracle. Verify with rg before any "no callers / dead code / safe to delete" claim. '
   + 'FIX: configure CMake to export compile commands for your OWN targets, not only dependencies — '
   + 'cmake -S . -B build-win-clangd -G Ninja -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_EXPORT_COMPILE_COMMANDS=ON '
-  + '(APG auto-discovers build-win-clangd/), then confirm your sources appear in its compile_commands.json.';
+  + '(the directory name does not matter — candidates are derived from disk), then confirm your sources appear in its compile_commands.json AND that the entries name clang-cl rather than cl.exe.';
 
 export function computeCompileDbCoverage({ projectRoot, prepared, file = null, env = process.env } = {}) {
   const fail = (reason) => ({ complete: false, reason, foreignToolchain: false, unityUnexpanded: false, unity: false, firstPartyCount: 0 });

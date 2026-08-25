@@ -199,6 +199,44 @@ top of `brief.agent.md`). For "what calls into this verb from
 outside the graph," that's a server-tool-dispatch concern not a code
 graph concern.
 
+## clangd needs the MSVC environment on Windows, or C++ caller sets are silently EMPTY
+
+**Measured 2026-08-25** (`scripts/probe-clangd-stdlib-env.mjs`), synthetic repo, clangd 22.1.6,
+controls in the same pass:
+
+    POSITIVE  plain TU, no stdlib include      2 references   status ok
+    NEGATIVE  position naming no symbol        0 references   status ok
+    MEASURE   TU with #include <cstddef>       0 references   status ok
+
+    INCLUDE=false  VCINSTALLDIR=false  LIB=false
+
+**Impact.** `clang-cl` locates the MSVC standard library through the `INCLUDE` environment
+variable. A clangd spawned by the MCP server inherits whatever the server was launched with — on
+a normal shell, none of it. Any translation unit that includes a standard header then fails to
+compile, clangd builds no AST for it, and `code_intel_references` / `code_intel_hierarchy` return
+an **empty set with `status: ok`**. Nearly every real C++ file includes a standard header, so the
+blast radius is effectively the whole repository, and the failure is silent.
+
+⚠ `--query-driver=*` does **not** cover this. It is a GCC-style mechanism: clangd executes the
+driver named in the DB to extract its include paths. It does not supply the MSVC `INCLUDE` set.
+
+⚠ Generating the compile DB and consuming it are **different steps with different requirements**.
+The Ninja+clang-cl configure we recommend deliberately avoids needing a vcvars shell (it uses
+`llvm-rc` and `clang-cl` as siblings). That is still correct — and it says nothing about the
+environment the *query-time* clangd needs.
+
+**Detection.** As of 2026-08-25 an empty result whose TU failed carries
+`evidence.translationUnitFailed: true` plus `evidence.missingHeaders`, and a warning stating the
+empty set is not evidence of absence. If you see that with standard headers named, this is the
+cause.
+
+**Fix.** Launch the MCP server from a Developer Command Prompt / `vcvars64` shell so `INCLUDE` is
+inherited by the clangd child.
+
+**Not established.** Whether this is the cause of any particular repo's empty caller sets. The
+mechanism is reproducible on demand; attributing a specific repo's symptom to it requires running
+the relaunch there and comparing.
+
 ## LSP-verified edges do not survive a full re-index
 
 `graph_collect_code_intel` materializes `LSP_VERIFIED` / `[lsp✓]` edges (clangd /

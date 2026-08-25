@@ -76,6 +76,20 @@ roadmap, not opinions to be re-argued.
   calls; 64.6% of sessions in production telemetry never invoked a query tool. Agents self-route
   by task class and route *correctly*. Tool descriptions and skills are worth more measured
   points than index quality.
+  - ⭐ **REFINED BY OUR OWN MEASUREMENT, 2026-08-25** (`docs/2026-08-25-adoption-is-an-install-problem.md`).
+    Across every transcript on this machine: **80% of sessions invoked a graph verb where the
+    server is installed** (8 of 10, three repos), and **0% where it is not** (0 of 12, six repos —
+    the server is distributed per-repository via a local `.mcp.json` and is not in user scope).
+    The self-routing-away finding **does not replicate here**: where agents can reach these verbs,
+    they reach for them hard. Adoption is an **install** problem for parent sessions. The
+    descriptions-and-skills lever is real, but it belongs to **subagents** — 7 of 1049 sidechain
+    transcripts, 0.7%.
+    ⚠ One machine, 22 sessions; install and task class are confounded; and a call is not a
+    benefit — `graph_health` is the top verb and that is maintenance.
+    ⛔ **AND THE "ZERO" ABOVE WAS COLLECTED BY ASKING AN AGENT TO REMEMBER.** Asked from recall,
+    sc-manager answered NONE and then counted their own transcript: **55 invocations**. Wrong by
+    two orders of magnitude, in the direction that condemns the tool. The zero is not refuted —
+    its *provenance* is inadmissible. Re-derive it from transcripts, never from memory.
 - **Attestation is nearly, but no longer entirely, unclaimed.** LSP, SCIP, LSIF and MCP have no
   field for index coverage. A 39.6k-star competitor now ships a coverage tool and explicitly
   disclaims completeness with it.
