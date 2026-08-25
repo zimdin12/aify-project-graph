@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import lockfile from 'proper-lockfile';
+import { enrichLockError } from './lock-error.js';
 
 // In-process lock coordination: when two verbs in the same MCP server
 // process both call ensureFresh concurrently (legitimate — MCP dispatches
@@ -41,6 +42,20 @@ export async function withWriteLock(repoRoot, fn) {
     } finally {
       await release();
     }
+  } catch (err) {
+    // ⛔ "Lock file is already being held" NAMES NO CAUSE, NO EXPIRY AND NO REMEDY, and a reader
+    // who hits it has nowhere to go. Measured: a killed index (a timeout, a Ctrl-C, a crashed peer)
+    // leaves the lock directory behind, and with `stale: 3600000` the repository is UNINDEXABLE FOR
+    // UP TO AN HOUR while every attempt fails with that one sentence.
+    //
+    // The 1-hour window is correct — it protects a legitimately long first index from being stolen
+    // by a peer. What was wrong is that the failure explained none of it.
+    //
+    // ⚠ ONE MORE VALUE IN A FIELD A READER ALREADY CONSULTS — the error message — not a new field.
+    // And it states only what it can OBSERVE: the lock's age, when it becomes reclaimable, and the
+    // path. It does NOT claim the holder is dead; a long index is indistinguishable from a crashed
+    // one from here, and asserting otherwise would invite deleting a live peer's lock.
+    throw enrichLockError(err, repoRoot);
   } finally {
     resolveSlot();
     // If no one queued behind us, remove the map entry to avoid leaking
