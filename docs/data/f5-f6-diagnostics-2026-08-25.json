@@ -1,0 +1,314 @@
+[
+  {
+    "repo": "fmt",
+    "orphans": [
+      {
+        "type": "Document",
+        "orphaned": 16,
+        "totalOfType": 23,
+        "shareOfType": 0.696
+      },
+      {
+        "type": "Config",
+        "orphaned": 13,
+        "totalOfType": 13,
+        "shareOfType": 1
+      },
+      {
+        "type": "Entrypoint",
+        "orphaned": 4,
+        "totalOfType": 4,
+        "shareOfType": 1
+      },
+      {
+        "type": "BuildTarget",
+        "orphaned": 3,
+        "totalOfType": 3,
+        "shareOfType": 1
+      },
+      {
+        "type": "BuildTest",
+        "orphaned": 1,
+        "totalOfType": 1,
+        "shareOfType": 1
+      }
+    ],
+    "orphanSamples": [
+      {
+        "type": "Config",
+        "label": "dependabot.yml",
+        "file_path": ".github/dependabot.yml"
+      },
+      {
+        "type": "Config",
+        "label": "FUNDING.yml",
+        "file_path": ".github/FUNDING.yml"
+      },
+      {
+        "type": "Document",
+        "label": "issue_template.md",
+        "file_path": ".github/issue_template.md"
+      },
+      {
+        "type": "Document",
+        "label": "pull_request_template.md",
+        "file_path": ".github/pull_request_template.md"
+      },
+      {
+        "type": "Config",
+        "label": "codeql.yml",
+        "file_path": ".github/workflows/codeql.yml"
+      },
+      {
+        "type": "Config",
+        "label": "doc.yml",
+        "file_path": ".github/workflows/doc.yml"
+      }
+    ],
+    "ambiguous": [
+      {
+        "relation": "CALLS",
+        "ambiguous": 3051,
+        "totalOfRelation": 8655,
+        "shareOfRelation": 0.353
+      },
+      {
+        "relation": "REFERENCES",
+        "ambiguous": 12,
+        "totalOfRelation": 90,
+        "shareOfRelation": 0.133
+      },
+      {
+        "relation": "USES_TYPE",
+        "ambiguous": 4,
+        "totalOfRelation": 22,
+        "shareOfRelation": 0.182
+      }
+    ]
+  },
+  {
+    "repo": "click",
+    "orphans": [
+      {
+        "type": "Symbol",
+        "orphaned": 34,
+        "totalOfType": 151,
+        "shareOfType": 0.225
+      },
+      {
+        "type": "Document",
+        "orphaned": 28,
+        "totalOfType": 43,
+        "shareOfType": 0.651
+      },
+      {
+        "type": "Config",
+        "orphaned": 20,
+        "totalOfType": 22,
+        "shareOfType": 0.909
+      },
+      {
+        "type": "File",
+        "orphaned": 7,
+        "totalOfType": 107,
+        "shareOfType": 0.065
+      }
+    ],
+    "orphanSamples": [
+      {
+        "type": "Config",
+        "label": "devcontainer.json",
+        "file_path": ".devcontainer/devcontainer.json"
+      },
+      {
+        "type": "Document",
+        "label": "bug-report.md",
+        "file_path": ".github/ISSUE_TEMPLATE/bug-report.md"
+      },
+      {
+        "type": "Config",
+        "label": "config.yml",
+        "file_path": ".github/ISSUE_TEMPLATE/config.yml"
+      },
+      {
+        "type": "Document",
+        "label": "feature-request.md",
+        "file_path": ".github/ISSUE_TEMPLATE/feature-request.md"
+      },
+      {
+        "type": "Document",
+        "label": "pull_request_template.md",
+        "file_path": ".github/pull_request_template.md"
+      },
+      {
+        "type": "Config",
+        "label": "lock.yaml",
+        "file_path": ".github/workflows/lock.yaml"
+      }
+    ],
+    "ambiguous": [
+      {
+        "relation": "CALLS",
+        "ambiguous": 842,
+        "totalOfRelation": 4984,
+        "shareOfRelation": 0.169
+      },
+      {
+        "relation": "REFERENCES",
+        "ambiguous": 234,
+        "totalOfRelation": 3585,
+        "shareOfRelation": 0.065
+      },
+      {
+        "relation": "USES_TYPE",
+        "ambiguous": 69,
+        "totalOfRelation": 1119,
+        "shareOfRelation": 0.062
+      }
+    ]
+  },
+  {
+    "repo": "fast-route",
+    "orphans": [
+      {
+        "type": "Config",
+        "orphaned": 10,
+        "totalOfType": 10,
+        "shareOfType": 1
+      },
+      {
+        "type": "Document",
+        "orphaned": 1,
+        "totalOfType": 1,
+        "shareOfType": 1
+      }
+    ],
+    "orphanSamples": [
+      {
+        "type": "Config",
+        "label": "backwards-compatibility.yml",
+        "file_path": ".github/workflows/backwards-compatibility.yml"
+      },
+      {
+        "type": "Config",
+        "label": "benchmarks.yml",
+        "file_path": ".github/workflows/benchmarks.yml"
+      },
+      {
+        "type": "Config",
+        "label": "coding-standards.yml",
+        "file_path": ".github/workflows/coding-standards.yml"
+      },
+      {
+        "type": "Config",
+        "label": "composer-json-lint.yml",
+        "file_path": ".github/workflows/composer-json-lint.yml"
+      },
+      {
+        "type": "Config",
+        "label": "phpunit.yml",
+        "file_path": ".github/workflows/phpunit.yml"
+      },
+      {
+        "type": "Config",
+        "label": "static-analysis.yml",
+        "file_path": ".github/workflows/static-analysis.yml"
+      }
+    ],
+    "ambiguous": [
+      {
+        "relation": "CALLS",
+        "ambiguous": 119,
+        "totalOfRelation": 382,
+        "shareOfRelation": 0.312
+      },
+      {
+        "relation": "REFERENCES",
+        "ambiguous": 73,
+        "totalOfRelation": 520,
+        "shareOfRelation": 0.14
+      },
+      {
+        "relation": "USES_TYPE",
+        "ambiguous": 1,
+        "totalOfRelation": 7,
+        "shareOfRelation": 0.143
+      }
+    ]
+  },
+  {
+    "repo": "p-queue",
+    "orphans": [
+      {
+        "type": "Config",
+        "orphaned": 3,
+        "totalOfType": 3,
+        "shareOfType": 1
+      },
+      {
+        "type": "Entrypoint",
+        "orphaned": 3,
+        "totalOfType": 3,
+        "shareOfType": 1
+      },
+      {
+        "type": "Document",
+        "orphaned": 2,
+        "totalOfType": 2,
+        "shareOfType": 1
+      }
+    ],
+    "orphanSamples": [
+      {
+        "type": "Document",
+        "label": "security.md",
+        "file_path": ".github/security.md"
+      },
+      {
+        "type": "Entrypoint",
+        "label": "main.yml",
+        "file_path": ".github/workflows/main.yml"
+      },
+      {
+        "type": "Config",
+        "label": ".mcp.json",
+        "file_path": ".mcp.json"
+      },
+      {
+        "type": "Config",
+        "label": "package.json",
+        "file_path": "package.json"
+      },
+      {
+        "type": "Document",
+        "label": "readme.md",
+        "file_path": "readme.md"
+      },
+      {
+        "type": "Entrypoint",
+        "label": "index.ts",
+        "file_path": "source/index.ts"
+      }
+    ],
+    "ambiguous": [
+      {
+        "relation": "CALLS",
+        "ambiguous": 40,
+        "totalOfRelation": 141,
+        "shareOfRelation": 0.284
+      },
+      {
+        "relation": "USES_TYPE",
+        "ambiguous": 12,
+        "totalOfRelation": 64,
+        "shareOfRelation": 0.188
+      },
+      {
+        "relation": "REFERENCES",
+        "ambiguous": 4,
+        "totalOfRelation": 44,
+        "shareOfRelation": 0.091
+      }
+    ]
+  }
+]

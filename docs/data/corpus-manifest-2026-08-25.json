@@ -1,0 +1,444 @@
+{
+  "corpus": "C:/Docker/apg-testbed",
+  "ok": true,
+  "gate": {
+    "declaredArms": 4,
+    "reportedArms": 4,
+    "armsPresent": true,
+    "indexedAll": true,
+    "pinnedAll": true,
+    "cleanAll": true,
+    "artifactsAll": true,
+    "instrumentBound": true,
+    "note": null
+  },
+  "toolchain": {
+    "apgCommit": "47f775a4d279bdc93558b88c30576ca7847baebe",
+    "apgTree": "5a50fc027e818302f1848696a57bcfb6379c2f00",
+    "apgWorkingTreeClean": true,
+    "node": "v22.20.0",
+    "platform": "win32:x64"
+  },
+  "repos": [
+    {
+      "name": "fmt",
+      "language": "cpp",
+      "steps": {
+        "clone": "already at declared commit",
+        "install": "ok",
+        "index": "ok"
+      },
+      "pinMatch": {
+        "commit": true,
+        "tree": true
+      },
+      "indexEvidence": {
+        "totalNodes": 6735,
+        "codeNodes": 4784
+      },
+      "sizeMb": 15,
+      "graph": {
+        "nodes": 6735,
+        "edges": 14855
+      },
+      "provenance": {
+        "remote": "https://github.com/fmtlib/fmt.git",
+        "commit": "e27cc20bd93a4e280fb9268d41cd131069a9c73f",
+        "tree": "d1e2972611908589b48e8a24d4871338d09a42f8",
+        "branch": "main",
+        "sourceUnmodified": true,
+        "statusCaptureFailed": false,
+        "addedArtifacts": [
+          ".aify-graph/",
+          ".claude/",
+          ".mcp.json",
+          ".mcp.json.apg-bak"
+        ],
+        "unexpectedUntracked": [],
+        "unexpectedUntrackedSource": [],
+        "artifactsAllowed": true,
+        "submoduleStatus": [],
+        "submoduleCount": 0
+      },
+      "recognisedSourceMembership": {
+        "javascript": [
+          "doc/fmt.js"
+        ],
+        "cpp": [
+          "include/fmt/args.h",
+          "include/fmt/base.h",
+          "include/fmt/chrono.h",
+          "include/fmt/color.h",
+          "include/fmt/compile.h",
+          "include/fmt/core.h",
+          "include/fmt/enum.h",
+          "include/fmt/fmt-c.h",
+          "include/fmt/format-inl.h",
+          "include/fmt/format.h",
+          "include/fmt/os.h",
+          "include/fmt/ostream.h",
+          "include/fmt/printf.h",
+          "include/fmt/ranges.h",
+          "include/fmt/std.h",
+          "include/fmt/xchar.h",
+          "src/fmt-c.cc",
+          "src/fmt.cc",
+          "src/format.cc",
+          "src/os.cc",
+          "test/add-subdirectory-test/main.cc",
+          "test/args-test.cc",
+          "test/assert-test.cc",
+          "test/base-test.cc",
+          "test/chrono-test.cc",
+          "test/color-test.cc",
+          "test/compile-test.cc",
+          "test/cuda-test/cpp14.cc",
+          "test/detect-stdfs.cc",
+          "test/enforce-checks-test.cc",
+          "test/enum-test.cc",
+          "test/find-package-test/main.cc",
+          "test/format-impl-test.cc",
+          "test/format-test.cc",
+          "test/fuzzing/chrono-duration.cc",
+          "test/fuzzing/chrono-timepoint.cc",
+          "test/fuzzing/float.cc",
+          "test/fuzzing/fuzzer-common.h",
+          "test/fuzzing/main.cc",
+          "test/fuzzing/named-arg.cc",
+          "test/fuzzing/one-arg.cc",
+          "test/fuzzing/two-args.cc",
+          "test/gtest-extra-test.cc",
+          "test/gtest-extra.cc",
+          "test/gtest-extra.h",
+          "test/gtest/gmock-gtest-all.cc",
+          "test/gtest/gmock/gmock.h",
+          "test/gtest/gtest/gtest-spi.h",
+          "test/gtest/gtest/gtest.h",
+          "test/header-only-test.cc",
+          "test/mock-allocator.h",
+          "test/module-test.cc",
+          "test/no-builtin-types-test.cc",
+          "test/noexception-test.cc",
+          "test/os-test.cc",
+          "test/ostream-test.cc",
+          "test/perf-sanity.cc",
+          "test/posix-mock-test.cc",
+          "test/posix-mock.h",
+          "test/printf-test.cc",
+          "test/ranges-odr-test.cc",
+          "test/ranges-test.cc",
+          "test/scan-test.cc",
+          "test/scan.h",
+          "test/static-export-test/library.cc",
+          "test/static-export-test/main.cc",
+          "test/std-test.cc",
+          "test/test-assert.h",
+          "test/test-main.cc",
+          "test/unicode-test.cc",
+          "test/util.cc",
+          "test/util.h",
+          "test/xchar-test.cc"
+        ],
+        "python": [
+          "support/docopt.py",
+          "support/printable.py",
+          "support/python/mkdocstrings_handlers/cxx/__init__.py",
+          "support/release.py"
+        ],
+        "c": [
+          "test/c-test.c"
+        ]
+      },
+      "recognisedSourceCounts": {
+        "javascript": 1,
+        "cpp": 73,
+        "python": 4,
+        "c": 1
+      }
+    },
+    {
+      "name": "click",
+      "language": "python",
+      "steps": {
+        "clone": "already at declared commit",
+        "install": "ok",
+        "index": "ok"
+      },
+      "pinMatch": {
+        "commit": true,
+        "tree": true
+      },
+      "indexEvidence": {
+        "totalNodes": 2572,
+        "codeNodes": 1724
+      },
+      "sizeMb": 16,
+      "graph": {
+        "nodes": 2572,
+        "edges": 13618
+      },
+      "provenance": {
+        "remote": "https://github.com/pallets/click.git",
+        "commit": "68e7ea7228ca144c52e4d1d282cc09da59f7771f",
+        "tree": "2955d48825c98fd7dcbc60eb41cf18a952a2c0a3",
+        "branch": "main",
+        "sourceUnmodified": true,
+        "statusCaptureFailed": false,
+        "addedArtifacts": [
+          ".aify-graph/",
+          ".claude/",
+          ".mcp.json",
+          ".mcp.json.apg-bak"
+        ],
+        "unexpectedUntracked": [],
+        "unexpectedUntrackedSource": [],
+        "artifactsAllowed": true,
+        "submoduleStatus": [],
+        "submoduleCount": 0
+      },
+      "recognisedSourceMembership": {
+        "python": [
+          "docs/conf.py",
+          "examples/aliases/aliases.py",
+          "examples/colors/colors.py",
+          "examples/completion/completion.py",
+          "examples/complex/complex/__init__.py",
+          "examples/complex/complex/cli.py",
+          "examples/complex/complex/commands/__init__.py",
+          "examples/complex/complex/commands/cmd_init.py",
+          "examples/complex/complex/commands/cmd_status.py",
+          "examples/imagepipe/imagepipe.py",
+          "examples/inout/inout.py",
+          "examples/naval/naval.py",
+          "examples/repo/repo.py",
+          "examples/termui/termui.py",
+          "examples/validation/validation.py",
+          "src/click/__init__.py",
+          "src/click/_compat.py",
+          "src/click/_termui_impl.py",
+          "src/click/_textwrap.py",
+          "src/click/_utils.py",
+          "src/click/_winconsole.py",
+          "src/click/core.py",
+          "src/click/decorators.py",
+          "src/click/exceptions.py",
+          "src/click/formatting.py",
+          "src/click/globals.py",
+          "src/click/parser.py",
+          "src/click/shell_completion.py",
+          "src/click/termui.py",
+          "src/click/testing.py",
+          "src/click/types.py",
+          "src/click/utils.py",
+          "tests/conftest.py",
+          "tests/test_arguments.py",
+          "tests/test_basic.py",
+          "tests/test_chain.py",
+          "tests/test_command_decorators.py",
+          "tests/test_commands.py",
+          "tests/test_compat.py",
+          "tests/test_context.py",
+          "tests/test_custom_classes.py",
+          "tests/test_defaults.py",
+          "tests/test_deprecations.py",
+          "tests/test_formatting.py",
+          "tests/test_imports.py",
+          "tests/test_info_dict.py",
+          "tests/test_normalization.py",
+          "tests/test_options.py",
+          "tests/test_parser.py",
+          "tests/test_shell_completion.py",
+          "tests/test_stream_lifecycle.py",
+          "tests/test_termui.py",
+          "tests/test_testing.py",
+          "tests/test_types.py",
+          "tests/test_utils/__init__.py",
+          "tests/test_utils/test_KeepOpenFile.py",
+          "tests/test_utils/test_LazyFile.py",
+          "tests/test_utils/test__detect_program_name.py",
+          "tests/test_utils/test__expand_args.py",
+          "tests/test_utils/test_confirm.py",
+          "tests/test_utils/test_echo.py",
+          "tests/test_utils/test_echo_via_pager.py",
+          "tests/test_utils/test_format_filename.py",
+          "tests/test_utils/test_make_default_short_help.py",
+          "tests/test_utils/test_open_file.py",
+          "tests/test_utils/test_prompt.py",
+          "tests/test_utils/test_sentinel.py",
+          "tests/test_utils/test_style.py",
+          "tests/typing/typing_aliased_group.py",
+          "tests/typing/typing_confirmation_option.py",
+          "tests/typing/typing_edit.py",
+          "tests/typing/typing_group_kw_options.py",
+          "tests/typing/typing_help_option.py",
+          "tests/typing/typing_options.py",
+          "tests/typing/typing_password_option.py",
+          "tests/typing/typing_progressbar.py",
+          "tests/typing/typing_prompt.py",
+          "tests/typing/typing_simple_example.py",
+          "tests/typing/typing_version_option.py"
+        ]
+      },
+      "recognisedSourceCounts": {
+        "python": 79
+      }
+    },
+    {
+      "name": "fast-route",
+      "language": "php",
+      "steps": {
+        "clone": "already at declared commit",
+        "install": "ok",
+        "index": "ok"
+      },
+      "pinMatch": {
+        "commit": true,
+        "tree": true
+      },
+      "indexEvidence": {
+        "totalNodes": 489,
+        "codeNodes": 255
+      },
+      "sizeMb": 2,
+      "graph": {
+        "nodes": 489,
+        "edges": 1343
+      },
+      "provenance": {
+        "remote": "https://github.com/nikic/FastRoute.git",
+        "commit": "1c961398bef1ff6ecd8b273bef651d7afe90312b",
+        "tree": "f7c33a29ac1d10b73b9ef6a6bafbec2f453e738c",
+        "branch": "master",
+        "sourceUnmodified": true,
+        "statusCaptureFailed": false,
+        "addedArtifacts": [
+          ".aify-graph/",
+          ".claude/",
+          ".mcp.json",
+          ".mcp.json.apg-bak"
+        ],
+        "unexpectedUntracked": [],
+        "unexpectedUntrackedSource": [],
+        "artifactsAllowed": true,
+        "submoduleStatus": [],
+        "submoduleCount": 0
+      },
+      "recognisedSourceMembership": {
+        "php": [
+          "benchmark/DispatcherForBenchmark.php",
+          "benchmark/RouteRegistrationBench.php",
+          "benchmark/RoutingWithManyRoutesBench.php",
+          "benchmark/RoutingWithRealLifeExampleBench.php",
+          "benchmark/UriGenerationBench.php",
+          "src/BadRouteException.php",
+          "src/Cache.php",
+          "src/Cache/FileCache.php",
+          "src/Cache/Psr16Cache.php",
+          "src/ConfigureRoutes.php",
+          "src/DataGenerator.php",
+          "src/DataGenerator/CharCountBased.php",
+          "src/DataGenerator/GroupCountBased.php",
+          "src/DataGenerator/GroupPosBased.php",
+          "src/DataGenerator/MarkBased.php",
+          "src/DataGenerator/RegexBasedAbstract.php",
+          "src/Dispatcher.php",
+          "src/Dispatcher/CharCountBased.php",
+          "src/Dispatcher/GroupCountBased.php",
+          "src/Dispatcher/GroupPosBased.php",
+          "src/Dispatcher/MarkBased.php",
+          "src/Dispatcher/RegexBasedAbstract.php",
+          "src/Dispatcher/Result/Matched.php",
+          "src/Dispatcher/Result/MethodNotAllowed.php",
+          "src/Dispatcher/Result/NotMatched.php",
+          "src/Exception.php",
+          "src/FastRoute.php",
+          "src/GenerateUri.php",
+          "src/GenerateUri/FromProcessedConfiguration.php",
+          "src/GenerateUri/GeneratedUri.php",
+          "src/GenerateUri/UriCouldNotBeGenerated.php",
+          "src/Route.php",
+          "src/RouteCollector.php",
+          "src/RouteParser.php",
+          "src/RouteParser/Std.php",
+          "src/functions.php",
+          "test/Cache/Psr16CacheTest.php",
+          "test/Dispatcher/CachingTest.php",
+          "test/Dispatcher/CharCountBasedTest.php",
+          "test/Dispatcher/DispatcherTestCase.php",
+          "test/Dispatcher/GroupCountBasedTest.php",
+          "test/Dispatcher/GroupPosBasedTest.php",
+          "test/Dispatcher/MarkBasedTest.php",
+          "test/FastRouteTest.php",
+          "test/GenerateUri/FromProcessedConfigurationTest.php",
+          "test/RouteCollectorTest.php",
+          "test/RouteParser/StdTest.php"
+        ]
+      },
+      "recognisedSourceCounts": {
+        "php": 47
+      }
+    },
+    {
+      "name": "p-queue",
+      "language": "typescript",
+      "steps": {
+        "clone": "already at declared commit",
+        "install": "ok",
+        "index": "ok"
+      },
+      "pinMatch": {
+        "commit": true,
+        "tree": true
+      },
+      "indexEvidence": {
+        "totalNodes": 184,
+        "codeNodes": 86
+      },
+      "sizeMb": 1,
+      "graph": {
+        "nodes": 184,
+        "edges": 384
+      },
+      "provenance": {
+        "remote": "https://github.com/sindresorhus/p-queue.git",
+        "commit": "180ab9e25cd10b6f548767d7176076b50d25e188",
+        "tree": "e8e63896c7368b45ead03441d007c76f2b2591e5",
+        "branch": "HEAD",
+        "sourceUnmodified": true,
+        "statusCaptureFailed": false,
+        "addedArtifacts": [
+          ".aify-graph/",
+          ".claude/",
+          ".mcp.json",
+          ".mcp.json.apg-bak"
+        ],
+        "unexpectedUntracked": [],
+        "unexpectedUntrackedSource": [],
+        "artifactsAllowed": true,
+        "submoduleStatus": [],
+        "submoduleCount": 0
+      },
+      "recognisedSourceMembership": {
+        "typescript": [
+          "bench.ts",
+          "source/index.ts",
+          "source/lower-bound.ts",
+          "source/options.ts",
+          "source/priority-queue.ts",
+          "source/queue.ts",
+          "test-d/index.test-d.ts",
+          "test/advanced.ts",
+          "test/basic.ts",
+          "test/debug.ts",
+          "test/priority-queue.ts",
+          "test/rate-limit.ts",
+          "test/strict.ts",
+          "test/validation.ts"
+        ]
+      },
+      "recognisedSourceCounts": {
+        "typescript": 14
+      }
+    }
+  ]
+}

@@ -1,0 +1,281 @@
+{
+  "what": "Graph quality measured against the source tree each graph was built from.",
+  "controls": {
+    "declaredArms": 4,
+    "usableArms": 4,
+    "allArmsUsable": true,
+    "passed": true,
+    "unusableArms": [],
+    "note": null
+  },
+  "coverageMeans": "tracked recognised-extension files with >=1 non-directory/non-external node; NOT within-file recall",
+  "results": [
+    {
+      "root": "C:/Docker/apg-testbed/fmt",
+      "totals": {
+        "nodes": 6735,
+        "edges": 14855,
+        "trackedFiles": 145,
+        "indexedSourceFiles": 116
+      },
+      "excludedFromFileCount": {
+        "Directory": 25,
+        "External": 1662
+      },
+      "coverage": [
+        {
+          "language": "c",
+          "tier": "heuristic",
+          "sourceFiles": 1,
+          "indexedFiles": 1,
+          "coverage": 1,
+          "missedExamples": []
+        },
+        {
+          "language": "cpp",
+          "tier": "lsp",
+          "sourceFiles": 73,
+          "indexedFiles": 73,
+          "coverage": 1,
+          "missedExamples": []
+        },
+        {
+          "language": "javascript",
+          "tier": "lsp",
+          "sourceFiles": 1,
+          "indexedFiles": 1,
+          "coverage": 1,
+          "missedExamples": []
+        },
+        {
+          "language": "python",
+          "tier": "lsp",
+          "sourceFiles": 4,
+          "indexedFiles": 4,
+          "coverage": 1,
+          "missedExamples": []
+        }
+      ],
+      "nodeTypes": {
+        "Method": 2687,
+        "External": 1662,
+        "Function": 1043,
+        "Class": 1001,
+        "Module": 140,
+        "File": 80,
+        "Type": 53,
+        "Directory": 25,
+        "Document": 23,
+        "Config": 13,
+        "Entrypoint": 4,
+        "BuildTarget": 3,
+        "BuildTest": 1
+      },
+      "relations": {
+        "CALLS": 8655,
+        "CONTAINS": 2911,
+        "DEFINES": 2427,
+        "EXTENDS": 254,
+        "OVERRIDDEN_BY": 249,
+        "IMPORTS": 196,
+        "REFERENCES": 90,
+        "LINKS_TO": 39,
+        "USES_TYPE": 22,
+        "MENTIONS": 12
+      },
+      "provenance": {
+        "EXTRACTED": 11488,
+        "AMBIGUOUS": 3067,
+        "INFERRED": 300
+      },
+      "integrity": {
+        "danglingToEdges": 0,
+        "danglingFromEdges": 0,
+        "danglingShare": 0,
+        "orphanNodes": 37,
+        "orphanShare": 0.005,
+        "lspVerifiedEdges": 0,
+        "lspVerifiedShare": 0
+      }
+    },
+    {
+      "root": "C:/Docker/apg-testbed/click",
+      "totals": {
+        "nodes": 2572,
+        "edges": 13618,
+        "trackedFiles": 166,
+        "indexedSourceFiles": 147
+      },
+      "excludedFromFileCount": {
+        "Directory": 25,
+        "External": 572
+      },
+      "coverage": [
+        {
+          "language": "python",
+          "tier": "lsp",
+          "sourceFiles": 79,
+          "indexedFiles": 79,
+          "coverage": 1,
+          "missedExamples": []
+        }
+      ],
+      "nodeTypes": {
+        "External": 572,
+        "Test": 547,
+        "Method": 462,
+        "Function": 409,
+        "Class": 155,
+        "Symbol": 151,
+        "File": 107,
+        "Module": 79,
+        "Document": 43,
+        "Directory": 25,
+        "Config": 22
+      },
+      "relations": {
+        "CALLS": 4984,
+        "REFERENCES": 3585,
+        "TESTS": 1688,
+        "USES_TYPE": 1119,
+        "DEFINES": 1111,
+        "CONTAINS": 565,
+        "IMPORTS": 322,
+        "EXTENDS": 184,
+        "MENTIONS": 54,
+        "LINKS_TO": 6
+      },
+      "provenance": {
+        "EXTRACTED": 10987,
+        "LSP_VERIFIED": 1410,
+        "AMBIGUOUS": 1145,
+        "INFERRED": 76
+      },
+      "integrity": {
+        "danglingToEdges": 0,
+        "danglingFromEdges": 0,
+        "danglingShare": 0,
+        "orphanNodes": 89,
+        "orphanShare": 0.035,
+        "lspVerifiedEdges": 1410,
+        "lspVerifiedShare": 0.104
+      }
+    },
+    {
+      "root": "C:/Docker/apg-testbed/fast-route",
+      "totals": {
+        "nodes": 489,
+        "edges": 1343,
+        "trackedFiles": 66,
+        "indexedSourceFiles": 58
+      },
+      "excludedFromFileCount": {
+        "Directory": 16,
+        "External": 113
+      },
+      "coverage": [
+        {
+          "language": "php",
+          "tier": "heuristic",
+          "sourceFiles": 47,
+          "indexedFiles": 47,
+          "coverage": 1,
+          "missedExamples": []
+        }
+      ],
+      "nodeTypes": {
+        "Method": 207,
+        "External": 113,
+        "File": 47,
+        "Module": 47,
+        "Class": 46,
+        "Directory": 16,
+        "Config": 10,
+        "Function": 2,
+        "Document": 1
+      },
+      "relations": {
+        "REFERENCES": 520,
+        "CALLS": 382,
+        "CONTAINS": 269,
+        "IMPORTS": 87,
+        "DEFINES": 48,
+        "EXTENDS": 19,
+        "IMPLEMENTS": 11,
+        "USES_TYPE": 7
+      },
+      "provenance": {
+        "EXTRACTED": 1150,
+        "AMBIGUOUS": 193
+      },
+      "integrity": {
+        "danglingToEdges": 0,
+        "danglingFromEdges": 0,
+        "danglingShare": 0,
+        "orphanNodes": 11,
+        "orphanShare": 0.022,
+        "lspVerifiedEdges": 0,
+        "lspVerifiedShare": 0
+      }
+    },
+    {
+      "root": "C:/Docker/apg-testbed/p-queue",
+      "totals": {
+        "nodes": 184,
+        "edges": 384,
+        "trackedFiles": 24,
+        "indexedSourceFiles": 20
+      },
+      "excludedFromFileCount": {
+        "Directory": 6,
+        "External": 56
+      },
+      "coverage": [
+        {
+          "language": "typescript",
+          "tier": "lsp",
+          "sourceFiles": 14,
+          "indexedFiles": 14,
+          "coverage": 1,
+          "missedExamples": []
+        }
+      ],
+      "nodeTypes": {
+        "External": 56,
+        "Method": 56,
+        "Function": 18,
+        "File": 14,
+        "Module": 14,
+        "Type": 10,
+        "Directory": 6,
+        "Config": 3,
+        "Entrypoint": 3,
+        "Class": 2,
+        "Document": 2
+      },
+      "relations": {
+        "CALLS": 141,
+        "CONTAINS": 75,
+        "USES_TYPE": 64,
+        "REFERENCES": 44,
+        "DEFINES": 30,
+        "IMPORTS": 26,
+        "IMPLEMENTS": 3,
+        "EXTENDS": 1
+      },
+      "provenance": {
+        "EXTRACTED": 328,
+        "AMBIGUOUS": 56
+      },
+      "integrity": {
+        "danglingToEdges": 0,
+        "danglingFromEdges": 0,
+        "danglingShare": 0,
+        "orphanNodes": 8,
+        "orphanShare": 0.043,
+        "lspVerifiedEdges": 0,
+        "lspVerifiedShare": 0
+      }
+    }
+  ]
+}
