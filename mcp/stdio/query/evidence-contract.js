@@ -54,9 +54,19 @@ export const DEPRECATED_EVIDENCE_FIELDS = Object.freeze({
  * @param {number} understood   the highest version this reader implements
  */
 export function canInterpretEvidence(seen, understood = EVIDENCE_CONTRACT_VERSION) {
-  if (!Number.isInteger(seen)) return false;      // absent or malformed — never assume 1
-  if (!Number.isInteger(understood)) return false;
+  // ⛔ A CONTRACT VERSION IS A POSITIVE IDENTITY, and `seen <= understood` alone let 0, -1 and
+  // MIN_SAFE_INTEGER through as though they were older supported schemas. They name no contract
+  // that has ever existed, so a forged or corrupt stamp was being interpreted under contract 1.
+  // Found by graph-senior-dev while checking the step-8 tripwire; confirmed by execution, and the
+  // test above it had been ASSERTING the fail-open rather than catching it.
+  if (!isRealContractVersion(seen)) return false;       // absent, malformed, or naming no contract
+  if (!isRealContractVersion(understood)) return false; // a reader claiming version 0 is not a reader
   return seen <= understood;
+}
+
+/** A contract version is an integer >= 1. There is no version 0, and never a negative one. */
+function isRealContractVersion(v) {
+  return Number.isInteger(v) && v >= 1;
 }
 
 /** The version stamp every evidence object carries. Kept as a function so the shape has one owner. */

@@ -64,13 +64,50 @@ describe('canInterpretEvidence — FAILS CLOSED, which is the entire point', () 
     expect(canInterpretEvidence(Number.NaN, 1)).toBe(false);
   });
 
+  // ⛔ A CONTRACT VERSION IS A POSITIVE IDENTITY. 0 and negatives name no contract that has ever
+  // existed, so they are malformed carriers, not "older schemas" — and `seen <= understood` waved
+  // every one of them through. graph-senior-dev found this while checking the tripwire:
+  //
+  //     "a forged/corrupt contractVersion:-1 would be interpreted under contract 1 or 2 despite
+  //      naming no real contract."
+  //
+  // ⛔⛔ AND THE TEST DIRECTLY ABOVE USED TO CERTIFY IT. Its assertion read `toEqual([1, 0, -1])`
+  // under a comment saying "only real integers at or below the understood version". The comment
+  // stated the correct rule; the assertion pinned the broken one. A comment adjacent to a defect
+  // has never once caught it in this repo — the assertion is the instrument, and mine was aimed
+  // at the wrong target.
+  //
+  // This matters specifically for step 8: after the booleans are deleted, a payload that gets
+  // interpreted under the wrong contract is exactly how an absent `degraded` reads as healthy.
+  it('⛔ REFUSES version 0, negatives, and MIN_SAFE_INTEGER — they name no contract', () => {
+    for (const seen of [0, -1, -2, Number.MIN_SAFE_INTEGER]) {
+      expect(canInterpretEvidence(seen, 1), `seen=${seen}`).toBe(false);
+      expect(canInterpretEvidence(seen, 2), `seen=${seen} under contract 2`).toBe(false);
+    }
+  });
+
+  it('⛔ REFUSES a reader claiming a non-positive understood version', () => {
+    for (const understood of [0, -1]) {
+      expect(canInterpretEvidence(1, understood), `understood=${understood}`).toBe(false);
+    }
+  });
+
   it('⭐ the guard can say NO more often than YES — it is not a rubber stamp', () => {
     // A predicate that accepts everything it is shown is decoration. Counting both outcomes is
     // the cheapest proof it discriminates at all.
     const cases = [1, 2, 0, undefined, null, '1', 1.5, Number.NaN, -1];
     const accepted = cases.filter((v) => canInterpretEvidence(v, 1));
-    expect(accepted).toEqual([1, 0, -1]);   // only real integers at or below the understood version
+    expect(accepted).toEqual([1]);   // the ONLY positive integer at or below the understood version
     expect(accepted.length).toBeLessThan(cases.length - accepted.length);
+  });
+
+  it('⭐ POSITIVE CONTROL — the valid grid still ACCEPTS, so the repair is not just refusing more', () => {
+    // A guard hardened until it refuses everything passes every hostile test and is useless. The
+    // accept side has to be exercised in the same pass as the refuse side.
+    expect(canInterpretEvidence(1, 1)).toBe(true);
+    expect(canInterpretEvidence(1, 2)).toBe(true);
+    expect(canInterpretEvidence(2, 2)).toBe(true);
+    expect(canInterpretEvidence(2, 1)).toBe(false);  // newer payload, older reader — the real hazard
   });
 });
 
