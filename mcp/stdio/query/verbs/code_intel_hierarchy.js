@@ -31,6 +31,7 @@ import { inferLanguage } from '../../code-intel/backends.js';
 import { identifierColumn, leafNameOf } from '../../code-intel/identifier-position.js';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { openExistingDb } from '../../storage/db.js';
+import { evidenceContractStamp } from '../evidence-contract.js';
 
 const HINTS = {
   language_unsupported: 'no live LSP session registered for this language; supported: cpp',
@@ -322,7 +323,12 @@ export function renderAnchorDiagnosis(d, kind) {
 // `nodeCount` is the total nodes in the walked tree (root + resolved
 // callers/callees/subtypes). nodeCount<=1 means the root resolved but NOTHING
 // linked to it — the "0 callers" case the thesis bug mis-reported.
-export function buildHierarchyEvidence({ mode, indexReady, nodeCount, kind, coverage, truncated = 0, multiRoot = false }) {
+export function buildHierarchyEvidence(args) {
+  // Same single choke point as references — the inner function has many return sites.
+  return { ...buildHierarchyEvidenceInner(args), ...evidenceContractStamp() };
+}
+
+function buildHierarchyEvidenceInner({ mode, indexReady, nodeCount, kind, coverage, truncated = 0, multiRoot = false }) {
   const noun = (kind === 'subtypes' || kind === 'supertypes') ? 'subtypes' : (kind === 'callees' ? 'callees' : 'callers');
   const empty = !(Number(nodeCount) > 1); // root-only / unresolved root → empty
   if (mode === 'bounded') {

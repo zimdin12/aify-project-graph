@@ -15,6 +15,7 @@ import { inferLanguage } from '../../code-intel/backends.js';
 import { toRepoRelative, uriToRepoRelativeSafe } from '../../ingest/code-intel/paths.js';
 import { selectCppPrewarmFiles } from '../../code-intel/prewarm/cpp.js';
 import { openExistingDb } from '../../storage/db.js';
+import { evidenceContractStamp } from '../evidence-contract.js';
 import { createHash } from 'node:crypto';
 
 const HINTS = {
@@ -115,7 +116,9 @@ export function splitDefinitionFromReferences(refs, defs) {
 // than fifteen return sites, so it cannot regress per-branch: `fallback` owns the
 // actionable remedy, and `warnings` carries only what is NOT already said there.
 export function buildReferencesEvidence(args) {
-  return dedupeEvidenceProse(buildReferencesEvidenceInner(args));
+  // ONE choke point, so the stamp cannot be missing from a branch. Fifteen return sites in the
+  // inner function is exactly how a per-branch field goes absent on the one path that matters.
+  return { ...dedupeEvidenceProse(buildReferencesEvidenceInner(args)), ...evidenceContractStamp() };
 }
 
 export function dedupeEvidenceProse(ev) {
