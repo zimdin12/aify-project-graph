@@ -604,6 +604,33 @@ async function waitForReady(session, waitForReadyMs = 0) {
 // repoRoot's (8.3 short names, junctions, drive-letter case). See
 // uriToRepoRelativeSafe — it normalizes through realpath on both sides and never
 // returns a URI for a path that IS inside the repo.
+// A `#include` clangd could not resolve is fatal to the whole translation unit: no AST is built,
+// so every reference/hierarchy answer derived from it is empty for a reason that has nothing to do
+// with the code. Reads diagnostics the client already holds — see the call site for why this
+// matters more than any single caller set.
+//
+// Matched on the message rather than an error code because clang does not assign include failures
+// a distinct LSP code; the phrasing ("'cstddef' file not found") is stable across clang versions
+// and is what clangd actually publishes.
+const MISSING_INCLUDE_RE = /['"<]([^'"<>]+)['">]\s+file not found/i;
+
+export function fatalIncludeErrors(session, uri) {
+  let diagnostics = [];
+  try {
+    diagnostics = session?.client?.diagnosticsFor?.(uri) || [];
+  } catch {
+    return []; // never let a diagnostics read fail the query
+  }
+  const out = [];
+  for (const d of diagnostics) {
+    // LSP severity 1 === Error. Anything softer cannot have stopped the parse.
+    if (d?.severity !== 1 || typeof d?.message !== 'string') continue;
+    const m = MISSING_INCLUDE_RE.exec(d.message);
+    if (m) out.push({ header: m[1], message: d.message });
+  }
+  return out;
+}
+
 function uriToRel(uri, projectRoot) {
   return uriToRepoRelativeSafe(uri, projectRoot).path;
 }
@@ -758,6 +785,35 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   const evidence = buildReferencesEvidence({
     freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage
   });
+
+  // ⛔ AN EMPTY CALLER SET FROM A TU THAT NEVER COMPILED IS BYTE-IDENTICAL TO A TU WITH NO
+  // CALLERS. sc-manager's sentence, and it is the most expensive output this verb can produce.
+  //
+  // Reproduced on 2026-08-25 (scripts/probe-clangd-stdlib-env.mjs), controls in the same pass:
+  // a TU with `#include <cstddef>` returned 0 references with status "ok" while an identical TU
+  // without it returned 2. clang-cl locates the MSVC STL through the INCLUDE environment, and a
+  // clangd we spawn inherits whatever the MCP server was launched with — commonly nothing.
+  // `--query-driver=*` does not cover it; that is a GCC-style driver-interrogation mechanism.
+  //
+  // The diagnostics were on the client the whole time (`diagnosticsFor`), and this verb never
+  // read them. So the fix is not new plumbing — it is consulting evidence we already had, and
+  // refusing to hand back a bare empty list that reads as "no callers".
+  const fatalIncludes = fatalIncludeErrors(session, uri);
+  if (fatalIncludes.length > 0) {
+    evidence.degraded = true;
+    evidence.exhaustive = false;
+    evidence.translationUnitFailed = true;
+    evidence.missingHeaders = fatalIncludes.map((d) => d.header).filter(Boolean).slice(0, 5);
+    // Only claim the cause when nothing else already did; an existing cause is more specific.
+    if (!evidence.cause) evidence.cause = 'translation_unit_did_not_compile';
+    const headers = evidence.missingHeaders.length
+      ? ` (unresolved: ${evidence.missingHeaders.join(', ')})`
+      : '';
+    evidence.warnings = [
+      ...(evidence.warnings || []),
+      `THIS TRANSLATION UNIT DID NOT COMPILE${headers}. clangd built no AST for it, so ${callsiteLocations.length === 0 ? 'this empty result is NOT evidence of absence' : 'this result may be badly incomplete'} — do not read it as "no callers", "dead code" or "safe to delete". Verify with rg. If the unresolved names are standard headers on Windows, the clangd process is missing the MSVC environment: launch the MCP server from a Developer Command Prompt / vcvars64 shell so INCLUDE is inherited.`,
+    ];
+  }
 
   // Plan #14 Step D: sticky degraded state. Once a references call in
   // this session comes back degraded, subsequent results carry a

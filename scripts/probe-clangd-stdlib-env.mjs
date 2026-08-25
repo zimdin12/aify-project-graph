@@ -38,12 +38,31 @@ std::size_t stdlib_target() { return 1; }
 std::size_t stdlib_caller() { return stdlib_target(); }
 `;
 
+// GAP 1, raised by sc-manager: the guard keys on clangd REPORTING an unresolved include. What
+// about a TU that was never attempted at all — a file absent from the compile DB? There may be no
+// diagnostic to read, translationUnitFailed stays false, and the empty result is presented as
+// genuine. That is the same green null one level up, landing in the exact bucket the guard exists
+// to keep honest. This file is on disk with a real caller, and deliberately NOT in the DB.
+const ORPHAN = `int orphan_target() { return 1; }
+int orphan_caller() { return orphan_target(); }
+`;
+
 function buildRepo() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-stdlib-probe-'));
   const src = path.join(root, 'src');
   fs.mkdirSync(src, { recursive: true });
   fs.writeFileSync(path.join(src, 'plain.cpp'), CLEAN);
   fs.writeFileSync(path.join(src, 'stdlib.cpp'), STDLIB);
+  fs.writeFileSync(path.join(src, 'orphan.cpp'), ORPHAN);
+  // GAP 1, harder shape. `orphan.cpp` needs no flags, so clangd's fallback command compiles it
+  // and the question goes unanswered. This one includes a project header reachable ONLY via an
+  // -I the compile DB would have supplied — so clangd's fallback cannot resolve it. If clangd
+  // emits an unresolved-include diagnostic, the guard fires and the gap is closed. If it returns
+  // empty in silence, sc-manager's Gap 1 is real.
+  fs.mkdirSync(path.join(root, 'include', 'deep'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'include', 'deep', 'Dep.h'), 'inline int dep() { return 7; }\n');
+  fs.writeFileSync(path.join(src, 'orphan_needs_include.cpp'),
+    '#include "deep/Dep.h"\nint needy_target() { return dep(); }\nint needy_caller() { return needy_target(); }\n');
 
   const buildDir = path.join(root, 'build-clangd-native');
   fs.mkdirSync(buildDir, { recursive: true });
@@ -60,9 +79,20 @@ async function refs(repoRoot, file, line, col, label) {
   try {
     const res = await codeIntelReferences({ repoRoot, language: 'cpp', file, line, col, waitForReadyMs: 20000 });
     const n = Array.isArray(res?.references) ? res.references.length : 0;
-    return { label, count: n, status: res?.status ?? 'unknown', exhaustive: res?.evidence?.exhaustive ?? null };
+    const ev = res?.evidence ?? {};
+    return {
+      label,
+      count: n,
+      status: res?.status ?? 'unknown',
+      exhaustive: ev.exhaustive ?? null,
+      // Does the guard actually FIRE here? A fix that tests green but never triggers on the case
+      // it was built from is the same green — so the reproduction has to check it, not the suite.
+      translationUnitFailed: ev.translationUnitFailed ?? false,
+      missingHeaders: ev.missingHeaders ?? [],
+      warnsNotAbsence: (ev.warnings || []).some((w) => /DID NOT COMPILE/.test(w)),
+    };
   } catch (err) {
-    return { label, count: 0, status: `threw: ${err.message}`, exhaustive: null };
+    return { label, count: 0, status: `threw: ${err.message}`, exhaustive: null, translationUnitFailed: false };
   }
 }
 
@@ -88,8 +118,12 @@ const positive = await refs(root, path.join(src, 'plain.cpp'), 1, 5, 'POSITIVE p
 const measured = await refs(root, path.join(src, 'stdlib.cpp'), 2, 13, 'MEASURE stdlib_target (includes <cstddef>)');
 // A position inside whitespace naming nothing — must produce no references.
 const negative = await refs(root, path.join(src, 'plain.cpp'), 2, 1, 'NEGATIVE no symbol at this position');
+// GAP 1: on disk, has a real caller one line below, absent from the compile DB.
+const orphan = await refs(root, path.join(src, 'orphan.cpp'), 1, 5, 'GAP1 orphan_target (file NOT in the compile DB)');
 
-console.log(JSON.stringify({ positive, measured, negative }, null, 2));
+const needy = await refs(root, path.join(src, 'orphan_needs_include.cpp'), 2, 5, 'GAP1-HARD needy_target (not in DB, needs an -I only the DB supplies)');
+
+console.log(JSON.stringify({ positive, measured, negative, orphan, needy }, null, 2));
 
 const controlsOk = positive.count > 0 && negative.count === 0;
 console.log(JSON.stringify({
