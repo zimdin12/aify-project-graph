@@ -5,11 +5,11 @@ Carrier: every Claude Code transcript on `win32:stevenz-l`, 2.8 GB, 22 top-level
 
 ## Why this was measured at all
 
-`sc-manager` was asked, from recall, whether any graph verb had changed what they did. They answered
+`the field fleet` was asked, from recall, whether any graph verb had changed what they did. They answered
 **NONE**, then counted their own transcript and found **55 invocations**. Self-report was wrong by two
 orders of magnitude, **in the direction that condemns the tool** — the direction nobody audits.
 
-⛔ **The number in `docs/THE-GOAL.md` that has governed this project — sc-manager's "zero" — was
+⛔ **The number in `docs/THE-GOAL.md` that has governed this project — the field fleet's "zero" — was
 collected by that same method.** It is not refuted. Its *provenance* is now known to be inadmissible.
 
 ## Controls, run in the same pass as the measurement
@@ -26,7 +26,7 @@ positive control came back 0 — impossible — which is the only reason it was 
 would have read as "nobody uses it" and agreed with the prior.* A wrong zero that confirms what you
 expected produces no collision, so nothing prompts you to check.
 
-⛔ **And the trap `sc-manager` hit first**, preserved in the instrument: grepping the bare string
+⛔ **And the trap `the field fleet` hit first**, preserved in the instrument: grepping the bare string
 `graph_` returns ~5,170 on one session. That is the deferred-tool catalogue echoed into the prompt.
 **A tool name is not a tool call.** Count `type === "tool_use"` blocks and read `name`.
 
@@ -104,10 +104,10 @@ ranking:
   ones; `.minecraft` is Java, where `javap` genuinely serves better. The correlation is perfect but
   the causal direction is not established by this data.
 - **A call is not a benefit.** 318 invocations prove the verbs were reached, not that any changed a
-  decision. `sc-manager` measured 55 calls they could not feel, and separately reports that the
+  decision. `the field fleet` measured 55 calls they could not feel, and separately reports that the
   `code_intel_references` arc they do remember ended in a **retracted conclusion** — an empty caller
   set from a TU that never compiled is byte-identical to a TU with no callers.
 - **`graph_health` at 78 is the top verb**, and health/index/collect are maintenance, not decision
   inputs. The decision verbs are `code_intel_references` (27) and `graph_callers` (6).
 - **Which config served any particular call is unobserved.** The `.mcp.json` files exist; that they
-  are what loaded during those calls is an inference, flagged as such at `sc-manager`'s insistence.
+  are what loaded during those calls is an inference, flagged as such at `the field fleet`'s insistence.

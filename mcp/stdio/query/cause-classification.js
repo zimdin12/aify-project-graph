@@ -1,6 +1,6 @@
 // What KIND of limitation is a `cause`? The classification the sticky-degraded tracker needs.
 //
-// graph-senior-dev, step 5 of the evidence-contract migration: "migrate sticky telemetry to named
+// the reviewer, step 5 of the evidence-contract migration: "migrate sticky telemetry to named
 // cause classification, not either boolean."
 //
 // ⛔ I FIRST CLAIMED THIS WAS A TERM DELETION AND IT IS NOT. The census said the tracker could drop
@@ -15,7 +15,7 @@
 //     'unknown'        always degraded:false   (336 of 336)
 //
 // So `degraded` IS derivable from `cause`, just not by the rule I guessed. It needs a
-// classification over the vocabulary, which is what dev asked for.
+// classification over the vocabulary, which is what the reviewer asked for.
 //
 // ⚠ THE CLASSES ARE THE TRACKER'S, NOT THE BOOLEAN'S. This says which causes should PIN a session
 // as degraded. It deliberately does not redefine `degraded`, which is deprecated and leaving.

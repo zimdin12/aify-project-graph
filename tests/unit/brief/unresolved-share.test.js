@@ -2,7 +2,7 @@
 //
 // brief.agent.md read "2150 unresolved edges (mostly CALLS 199, REFERENCES 196)". 199+196 is
 // 395, which is 18% of 2150 — so "mostly" was false on the two figures printed beside it, and
-// the other 1755 edges were never named. ef-manager measured it worse in the field on echoes:
+// the other 1755 edges were never named. the field test measured it worse in the field on echoes:
 // 473 of 4392, 11%, with 3919 unnamed. Their words: at 11% it is not a rounding problem, it is
 // backwards.
 //
@@ -29,7 +29,7 @@ describe('the unresolved-edge breakdown states its own share', () => {
   });
 
   it('★★★ the echoes shape, where "mostly" was 11% true', () => {
-    // ef-manager measured 473 of 4392 on echoes, with 3919 unnamed.
+    // the field test measured 473 of 4392 on echoes, with 3919 unnamed.
     const spread = { CALLS: 326, IMPORTS: 147 };
     for (let i = 0; i < 40; i += 1) spread[`REL_${i}`] = Math.round(3919 / 40);
     const line = describeUnresolvedBreakdown(spread);

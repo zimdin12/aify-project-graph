@@ -734,7 +734,7 @@ function synthesizeLspEdges(envelope, db, stats) {
     // (b) delete only synthesizer-created edges THIS PROVIDER is entitled to remove.
     //
     // ⛔ RENAMING THE LABEL WITHOUT THIS CLAUSE ORPHANS EVERY EDGE ALREADY IN THE GRAPH —
-    // ef-manager flagged it before it shipped. Existing rows read `cpp-clangd#` whoever wrote
+    // the field test flagged it before it shipped. Existing rows read `cpp-clangd#` whoever wrote
     // them; a predicate of `LIKE 'ts-langserver#%'` matches none of them, so a ts re-collect
     // would not remove the stale ts edges it wrote yesterday. The symptom is edges that never
     // refresh, which nothing errors on.
@@ -982,7 +982,7 @@ export function compactCodeIntelRecords(db) {
   // ZERO files and correctly reported "authority over nothing" — wrote an empty
   // collection row with a later collected_at, became "latest", and pruned the
   // real collection out from under it: 8530 records to 0 on a live repo.
-  // ef-manager had a pre-collect backup only because this codebase has a prior
+  // the field test had a pre-collect backup only because this codebase has a prior
   // incident of a collect destroying spine data, and his copy is the sole
   // surviving source of the entire 52% dataset.
   //
@@ -1181,7 +1181,7 @@ export function importV02Collection(envelope, db) {
       refsNotFoundSymbols: sess.refsNotFoundSymbols ?? null,
       refsDegradedSymbols: sess.refsDegradedSymbols ?? null,
       refsCleanNotFoundSymbols: sess.refsCleanNotFoundSymbols ?? null,
-      // ★ CAPTURED AND NOT AGGREGATED — the fourth instance, caught by ef-manager
+      // ★ CAPTURED AND NOT AGGREGATED — the fourth instance, caught in field testing
       // predicting it would populate on a walking collect and then finding it
       // absent. The provider HAS emitted refsNotFoundByKind since it was written;
       // the importer never copied it into _session, so it died at this boundary
@@ -1282,7 +1282,7 @@ export function importV02Collection(envelope, db) {
       // counters wrote NULL — and the breakdown read null with 833 causes sitting
       // one table away. That is the original "captured, not aggregated" defect
       // still live, one layer up, inside the region I had just described as
-      // covered. ef-manager caught the scope claim before the gap bit anyone.
+      // covered. the field test caught the scope claim before the gap bit anyone.
       //
       // Records are ground truth; the session counter is a summary that can go
       // missing. Prefer the summary when present (it counts symbols the provider

@@ -12,7 +12,7 @@ import { shutdownAllSessions } from '../../../mcp/stdio/code-intel/live.js';
 // work is about. It was observed firing ONCE, by hand, against a real clangd
 // (scripts/probe-clangd-stdlib-env.mjs: 0 refs + translationUnitFailed on a TU including
 // <cstddef>). Then:
-//   · ef-manager's field test could not produce a failing TU, so the firing half stayed unproven;
+//   · the field test's field test could not produce a failing TU, so the firing half stayed unproven;
 //   · the suite tested `fatalIncludeErrors` in isolation and never that the verb SETS the flag.
 // A guard proven once by hand and pinned by nothing can stop firing silently.
 //

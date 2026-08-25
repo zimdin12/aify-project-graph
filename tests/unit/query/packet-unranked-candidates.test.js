@@ -75,7 +75,7 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
     // The property, stated so it holds on whichever branch renders. Nine definitions
     // exist; every integer the packet prints about them must be nine, or must be
     // accompanied by an explicit n-of-m disclosure. A bare "(3 matches)" is a cap
-    // reported as a total — the defect ef-manager found in symbol_lookup's candidate
+    // reported as a total — the defect the field test found in symbol_lookup's candidate
     // list, and the reason `matched.symbols_total` now exists upstream.
     repoRoot = await makeRepo(9);
     const text = asText(await graphPacket({ repoRoot, target: 'GpuMaterial' }));
@@ -117,7 +117,7 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
     expect(text, 'and nothing may say items were left out').not.toMatch(/not listed here|more — narrow target|AT LEAST/);
   }, 20_000);
 
-  // ★★ ADDED 2026-08-12 after ef-manager tested the fix on real echoes and found it did
+  // ★★ ADDED 2026-08-12 after the field test tested the fix on real echoes and found it did
   // not reach their case. `GpuMaterial` MAPS TO A FEATURE, so the packet takes the
   // MATCHED VIA branch — which has its own independent `.slice(0, 3)` that my first fix
   // never touched. Sixteen definitions, three shown, no count and no marker.
@@ -172,7 +172,7 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
 
       // Two lines that communicate the ABI hazard and do not depend on the cap.
       //
-      // ⛔ It said `ALL 16` until 2026-08-12. ef-manager, on real C++: `LodChunkInstance`
+      // ⛔ It said `ALL 16` until 2026-08-12. the field test, on real C++: `LodChunkInstance`
       // reported `ALL 4` when the true mirror count is 5 — the fifth being GLSL inside a C++
       // raw string literal, which tree-sitter never parses, no `*.glsl` grep finds, and the
       // shader toolchain does not compile. `ALL` is a completeness claim the extractor cannot
@@ -191,7 +191,7 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
       expect(text).toMatch(/CROSS-LANGUAGE DUPLICATE/);
       // ⛔ THIS USED TO PIN THE BARE CALL, which was the false promise itself.
       // `graph_whereis(symbol="X") — every definition, unsampled` pointed at a verb that caps
-      // at limit=5, so on this 16-definition fixture the "remedy" returned five. ef-manager
+      // at limit=5, so on this 16-definition fixture the "remedy" returned five. the field test
       // found it by asking whether the thing the fix pointed AT could keep the promise the fix
       // made — and the referrer kept promising it after whereis itself was made honest.
       //
@@ -241,7 +241,7 @@ describe('the symbol-pointer packet is honest about its candidate list', () => {
     }, 20_000);
   });
 
-  // ★★ ADDED 2026-08-12 from graph-senior-dev-hermes's review, and it is the sharpest
+  // ★★ ADDED 2026-08-12 from review, hermes session's review, and it is the sharpest
   // finding of the round: the number I introduced TO FIX a cap-as-total defect was ITSELF
   // a cap reported as a total. `resolveSymbol` ends every query with LIMIT 50, so
   // `nodes.length` maxes out at 50 — their probe inserted 60 definitions and the packet

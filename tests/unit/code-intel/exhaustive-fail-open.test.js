@@ -47,7 +47,7 @@ describe('exhaustive grant fails CLOSED on unproven coverage', () => {
 
   // ⛔ SUPERSEDED 2026-08-19 BY AN EXECUTED COUNTEREXAMPLE, and rewritten rather than deleted so
   // the reason survives. This asserted that PROVEN compile-DB coverage grants exhaustive:true.
-  // graph-senior-dev built two sources, BOTH in compile_commands (ratio 1, census fresh), one
+  // the reviewer built two sources, BOTH in compile_commands (ratio 1, census fresh), one
   // carrying a command with a missing include path so clangd could not compile it. Its caller
   // was absent from the result and the verb still returned exhaustive:true / cause:null /
   // confidence:'high'. Upstream: clangd's BackgroundQueue counts a task Completed regardless of
@@ -83,7 +83,7 @@ describe('exhaustive grant fails CLOSED on unproven coverage', () => {
     // The reason is asserted where it CANONICALLY lives — `fallback`. This
     // previously read it out of `warnings`, which held a byte-for-byte copy;
     // duplicating a ~300-word paragraph on every degraded call was named the most
-    // annoying thing about the tool by a field user (ef-manager, 2026-07-30).
+    // annoying thing about the tool by a field user (the field test, 2026-07-30).
     // Asserting the canonical field means the test cannot re-pin the duplication.
     expect(e.fallback).toMatch(/foreign compile DB/);
     expect(e.warnings).not.toContain(e.fallback);

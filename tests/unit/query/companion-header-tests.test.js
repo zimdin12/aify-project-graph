@@ -1,6 +1,6 @@
 // NOTHING EVER #INCLUDES A .cpp.
 //
-// Field report (sc-manager, Sand Castle, 2026-08-04→05), and the rare kind that
+// Field report (the field fleet, Sand Castle, 2026-08-04→05), and the rare kind that
 // survives its own author checking it. The observation was:
 //
 //   graph_consequences(target="sim/fields/UnifiedFluidWriteback.cpp")

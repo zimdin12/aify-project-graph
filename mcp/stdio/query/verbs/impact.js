@@ -45,7 +45,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
        )
        -- DEDUPED PATHS, NOT EDGES. SELECT DISTINCT kept i.depth in the distinct key, so one
        -- edge reachable by two paths OF DIFFERENT LENGTHS survived twice, and the confidence
-       -- line then counted it twice. ef-manager measured it in the field: five rows rendered,
+       -- line then counted it twice. the field test measured it in the field: five rows rendered,
        -- two byte-identical, four distinct edges, "5 edges found".
        -- Reproduced by depth: absent at depth=1, present at depth=3.
        --

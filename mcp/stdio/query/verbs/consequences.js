@@ -115,7 +115,7 @@ function resolveTaskTarget(repoRoot, target) {
 }
 
 // Provenance lattice: a claim is only as strong as its weakest input. Computed so a
-// derived field cannot silently outrank what it was derived from (ef-manager, D2).
+// derived field cannot silently outrank what it was derived from (the field test, D2).
 const PROVENANCE_RANK = { observed: 2, inferred: 1 };
 function weakestOf(values = []) {
   if (values.length === 0) return 'inferred'; // nothing to stand on
@@ -298,7 +298,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
 
     // ⛔ AND THE SUBTLER HALF: A COLLAPSED PAGE IS NOT PROOF OF UNIQUENESS.
     //
-    // graph-senior-dev-hermes: "if retrieval is truncated and the first 50 collapse to one
+    // review, hermes session: "if retrieval is truncated and the first 50 collapse to one
     // group, uniqueness is also not established — do not proceed down `matched` merely
     // because unseen rows were not inspected."
     //
@@ -458,7 +458,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
 
     // ★ THE SAFETY VERB MISSED THE BINDING CONTRACT THE BROWSE VERB FOUND.
     //
-    // Measured (ef-manager, 2026-07-31): asked what a change to ChunkDataCache.h
+    // Measured (the field test, 2026-07-31): asked what a change to ChunkDataCache.h
     // could break, graph_consequences listed two contracts with ZERO textual
     // mention of the file — and MISSED worldbuffer-authority.md, which names it
     // 22 times. graph_pull's docs layer found it immediately, from the same DB,
@@ -546,7 +546,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
 
     // ⛔ THE FLOOR WAS A REMEDY FOR A DEFECT THAT HAS NOW BEEN DELETED.
     //
-    // It was calibrated on the legacy `mentions` extractor (ef-manager, 2026-08-09: 14
+    // It was calibrated on the legacy `mentions` extractor (the field test, 2026-08-09: 14
     // entries, 10 of them with ≤2 distinct nodes) — a long tail of documents that happened
     // to contain a WORD equal to a symbol label. A doc naming one symbol was almost always
     // a collision, so requiring three was a cheap proxy for "this is a real reference".
@@ -603,7 +603,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
           // Plane, GitHub Issues, plaintext), so the id prefix is exactly what
           // cannot be relied on — while `url` is portable across every one of them.
           //
-          // sc-manager's category applies: `spec_docs` was kept out of the deletion
+          // the field fleet's category applies: `spec_docs` was kept out of the deletion
           // list because it is a POINTER TO AUTHORITY rather than a derived summary,
           // and their failure mode this session was not retrieving authority they
           // already had. A tracker link is the same kind of object, and cheaper.
@@ -622,7 +622,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // peer set explicitly so refactor planners see the full blast radius.
     // ★ ATTACK SEVEN — THIS LIST WAS CAPPED AT 10 AND DROPPED ITS TRUNCATION STATE.
     //
-    // ef-manager found it in his own experiment-2 transcript, without a running
+    // the field test found it in his own experiment-2 transcript, without a running
     // build, from a single observation: co_consumer_files came back with EXACTLY
     // 10 entries and — alone among every list in the response — carried no total,
     // no truncated, no limit. Every neighbour had them (docs 19/true/10,
@@ -715,7 +715,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     if (matchedFiles.size > 0) {
       // ★ THIS QUERY HAD NO `e.relation` FILTER, so ANY edge of ANY type from a
       // test-ish file to ANY symbol attributed to the target file counted as test
-      // adjacency. Measured on ef-manager's case: the single edge that made
+      // adjacency. Measured on the field test's case: the single edge that made
       // graph_consequences claim tests/test_main.cpp covers CylindricalPosition.h
       // was `CALLS test_main.cpp -> vec3`. The test calls a math-type constructor,
       // `vec3` is one of 15 symbols the graph attributes to that header, and the
@@ -774,7 +774,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
 
     // ★ NOTHING EVER #INCLUDES A .cpp.
     //
-    // Field report (sc-manager, Sand Castle, 2026-08-04→05). graph_consequences on
+    // Field report (the field fleet, Sand Castle, 2026-08-04→05). graph_consequences on
     // sim/fields/UnifiedFluidWriteback.cpp returned tests_adjacent []. The same
     // call on UnifiedFluidWriteback.h returned the test, provenance import_linked.
     // The structural tier was working perfectly and answering a question nobody
@@ -821,7 +821,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // shared test entrypoints (e.g. monolithic tests/test_main.cpp).
     // ★ A WORD MATCH IS NOT A LINK — and this one was labelled `linked`/`observed`.
     //
-    // ef-manager carried tests_adjacent as a defect, correctly, and diagnosed it as
+    // the field test carried tests_adjacent as a defect, correctly, and diagnosed it as
     // transitive-include reachability standing in for coverage. Measured, the real
     // mechanism is worse than his hypothesis: for CylindricalPosition.h there is NO
     // import path to tests/test_main.cpp at all (0 direct edges; its actual imports
@@ -853,7 +853,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
     // linkage found" into "here is a test", and the caller cannot tell which they
     // received.
     //
-    // Measured cost (ef-manager, 2026-07-31). He asked, in a written-down
+    // Measured cost (the field test, 2026-07-31). He asked, in a written-down
     // experiment: "is there any mechanism that would tell me if I got this wrong?"
     // graph_consequences answered tests_adjacent: ["tests/test_main.cpp"]. He
     // hand-verified that file: ZERO matches for the symbol, for cylindrical, for
@@ -900,7 +900,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       // `symbol_direct` takes it first. For FILE targets `matchedSymbols` is empty, so it
       // could not fire at all.
       //
-      // graph-senior-dev then corrected their own "structurally unreachable" claim, which
+      // the reviewer then corrected their own "structurally unreachable" claim, which
       // is the version worth keeping: it IS reachable, via exactly one path — create four
       // nodes sharing a symbol label, `pickPrimarySymbol()` caps selection at three, and a
       // test edge to the omitted fourth escapes `symbol_direct` while still matching the
@@ -919,7 +919,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       : (mentionTests.length > 0 ? 'text_mentioned'
         : (featureTests.length > 0 ? 'feature_declared' : 'none'));
     // ★ A CAVEAT MAY BE CLEARED ONLY BY EVIDENCE AT THE SAME GRANULARITY AS THE CLAIM
-    // IT QUALIFIES. (ef-manager, 2026-08-10, deciding a question I raised and did not
+    // IT QUALIFIES. (the field test, 2026-08-10, deciding a question I raised and did not
     // decide myself.)
     //
     // `import_linked` used to clear this flag and no longer does. The reason is NOT
@@ -1020,7 +1020,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         // `symbolNodes` is `pickPrimarySymbol(...)`, which slices to 3. `graph_packet`
         // consumed `matched.symbols` and rendered "UNRANKED (3 matches)" on a repo with
         // NINE definitions — a cap reported as a total, which is the same defect
-        // ef-manager found in symbol_lookup's candidate list and which this field made
+        // the field test found in symbol_lookup's candidate list and which this field made
         // unavoidable downstream: the consumer had no way to know it had been capped.
         //
         // Found 2026-08-11 while converting the source-grep test that guarded that
@@ -1038,7 +1038,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         // reach here, and are sliced to 3 by pickPrimarySymbol. Canonical uniqueness is not
         // row uniqueness, and I read the two as the same thing.
         //
-        // graph-senior-dev-hermes refuted it with an EXECUTED counterexample on this exact
+        // review, hermes session refuted it with an EXECUTED counterexample on this exact
         // tree (74a45de): a real graph fixture of 9 `Class` rows, same label, same file,
         // distinct ids/lines → return type object, `matched.symbols.length` 3,
         // matching-row population 9, `referenced_in.length` 6, and no ambiguity string.
@@ -1081,7 +1081,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       features_touching: features,
       // ★ WHY THE OVERLAY FIELDS ARE EMPTY — unmapped is not unaffected.
       //
-      // Field report (sc-manager, Sand Castle, 2026-08-04): graph_consequences on
+      // Field report (the field fleet, Sand Castle, 2026-08-04): graph_consequences on
       // the file at the centre of five slices and two nights of work returned
       // features/contracts/open_tasks/co_consumers ALL EMPTY. The code layer was
       // fine — 12,130 nodes, freshly indexed. Every empty field was overlay-derived,
@@ -1136,7 +1136,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       open_tasks_on_those_features: tasks,
       // ★ ONLY WHEN IT SAYS SOMETHING open_tasks DOES NOT.
       //
-      // Measured (ef-manager, 2026-08-09) on a real call: this field and
+      // Measured (the field test, 2026-08-09) on a real call: this field and
       // open_tasks_on_those_features were BYTE-FOR-BYTE identical, 233 tokens
       // each, in a response whose actual answer — matched + features_touching —
       // was 66 tokens. The same task object printed twice.
@@ -1148,7 +1148,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       ...(tasks.length > 3 ? { top_related_tasks: rankedTasks.slice(0, 3) } : {}),
       // ★ WHICH FIELDS ARE OBSERVED AND WHICH ARE INFERRED.
       //
-      // ef-manager's request after two measured experiments, and it is the
+      // the field test's request after two measured experiments, and it is the
       // generalisation of the tests_adjacent fix rather than a new idea:
       //
       //   "Criterion 3's win and criterion 4's miss came from the SAME inferential
@@ -1207,7 +1207,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
           ? 'observed' : 'inferred',
         // ★ D2 — A DERIVED FIELD INHERITED AN INFERRED FIELD'S ERROR WITHOUT ITS LABEL.
         //
-        // ef-manager: risk_flags and spec_docs were not in this map at all, and
+        // the field test: risk_flags and spec_docs were not in this map at all, and
         // risk_flags says "contract_binding — 2 contract(s) may be affected" counting
         // ONLY the two inferred, 97-day-stale overlay contracts with zero textual
         // mention — while worldbuffer-authority.md, the contract that actually makes
@@ -1225,7 +1225,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       }),
       // ★★ WAS 347 CHARS OF INVARIANT ESSAY WITH ONE VARYING SENTENCE ON THE END.
       //
-      // ef-manager, from the used / never-read audit: *"`provenance_note` — I know it
+      // the field test, from the used / never-read audit: *"`provenance_note` — I know it
       // verbatim. It never varied."* Meanwhile they used `overlay_age_days` constantly and
       // the paragraph never, and `field_provenance` — which labels each field observed vs
       // inferred, per item, per call — produced their best finding of the day.
@@ -1248,7 +1248,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
         : 'INFERRED fields come from the overlay (see field_provenance for which); absence is not evidence.',
       // ★ THE MOST VALUABLE LAYER IS THE ONE WHOSE STALENESS IS LEAST VISIBLE.
       //
-      // ef-manager's unflattering read, and he is right: the feature-anchoring
+      // the field test's unflattering read, and he is right: the feature-anchoring
       // layer that WON his experiment is also the most staleness-sensitive thing
       // in the product, and it won partly by luck. The overlay was 96 days old;
       // it still described the code because THIS REPO IS MOTHBALLED. On an active
@@ -1263,7 +1263,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       // ★ THE CLAIM, PORTABLE — see receipt.js for why this shape and not prose.
       //
       // This verb is why the receipt exists: one response held the best answer of
-      // ef-manager's engagement (four co-consumers unreachable by grep) and a
+      // the field test's engagement (four co-consumers unreachable by grep) and a
       // wrong one (the contracts), from the SAME mechanism, and nothing in the
       // output let him tell them apart. field_provenance fixed that for a reader.
       // The receipt fixes it for a TEAMMATE, who otherwise gets prose and must
@@ -1329,7 +1329,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       }), receiptMode),
       // ⛔ `overlay_age_warning` REMOVED — 275 chars restating `overlay_age_days`.
       //
-      // ef-manager defended this field earlier as a doubt clause, and was right to. Their
+      // the field test defended this field earlier as a doubt clause, and was right to. Their
       // used / never-read audit then split it precisely: *"I used the NUMBER
       // (`overlay_age_days: 107`) constantly and the paragraph never."*
       //
@@ -1354,7 +1354,7 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
       tests_adjacent_provenance: testsProvenance,
       // ★ THE WARNING MUST DESCRIBE THE TIER THAT ACTUALLY FIRED.
       //
-      // Measured (ef-manager, echoes, 8e09c67): provenance came back
+      // Measured (the field test, echoes, 8e09c67): provenance came back
       // `symbol_referenced` while this warning read "DECLARED by the touching
       // feature". "Declared by the touching feature" is the feature_declared
       // mechanism — a different tier entirely. The text was hardcoded for one

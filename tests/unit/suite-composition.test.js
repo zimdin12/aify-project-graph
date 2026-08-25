@@ -1,6 +1,6 @@
 // ★ "1688 TESTS PASS" IS NOT A STATEMENT ABOUT BEHAVIOUR, AND I KEPT QUOTING IT AS ONE.
 //
-// graph-senior-dev's scope-4 audit (2026-08-10) measured that 68 of 1,593 declared cases
+// the reviewer's scope-4 audit (2026-08-10) measured that 68 of 1,593 declared cases
 // invoke ZERO production behaviour — they read implementation files and assert regexes,
 // token order, comments. All 68 stay green if the named behaviour becomes unreachable
 // while the source spelling survives. Two more pass with no assertion at all on live
@@ -77,7 +77,7 @@ function classify(filePath) {
 //   · framing-not-data's two declaration-shape assertions → the same file
 // ★★ MUTATION EVIDENCE, 2026-08-11 — recorded per file, with the mutation named.
 //
-// ef-manager: "delete the behaviour, run the test, see if it goes red. Where it stays
+// the field test: "delete the behaviour, run the test, see if it goes red. Where it stays
 // green, the test is decoration regardless of what either of us judged about it." And
 // their caution, which decides how a result may be read: "a case that stays GREEN is
 // decoration ONLY IF the mutation actually reached the behaviour it names."
@@ -99,7 +99,7 @@ function classify(filePath) {
 //      It asserts the banner's spelling, not that it ever fires.
 //   ✅ health-dirty-noise — CONVERTED 2026-08-11. Was DECORATION. Corrupted the arithmetic it describes
 //      (`dirtyFilesTotal + 999`) with all predicate text intact: 3/3 still green.
-//      ⚠ Note the irony recorded by ef-manager separately: the dirtyFilesOmitted
+//      ⚠ Note the irony recorded in field testing separately: the dirtyFilesOmitted
 //      arithmetic bug was caught by a human reading a live payload, NOT by this test —
 //      which guards that exact line.
 //   ✅ dirty-omitted-reconciles — CONVERTED 2026-08-11. Mutation split it cleanly: case 1
@@ -112,7 +112,7 @@ function classify(filePath) {
 //   ✅ packet-unranked-candidates — 3 of 4 real; the emissions were genuinely removed.
 //   ✅ coverage-denominator — CONVERTED 2026-08-11. Was EIGHT regexes over health.js, all
 //      spelling, none able to fail on a wrong number — on a statistic whose entire failure
-//      mode IS a wrong number, and which ef-manager confirmed they actually use. The
+//      mode IS a wrong number, and which the field test confirmed they actually use. The
 //      computation was inline in health.js, which is why it had never been run in a test;
 //      extracted to query/coverage-denominator.js and wired back, so the tested code is
 //      the shipped code. Falsified by restoring the ORIGINAL 12% defect (divide by every
@@ -128,7 +128,7 @@ function classify(filePath) {
 //      DISTINCT guards a join fan-out rather than duplicate edges; (2) a single mention is
 //      below the weak-signal FLOOR and is dropped, so a ranking test needs both documents
 //      above it. Neither was visible from the source-grep version.
-//   ✅ packet-timeout-not-absence — CONVERTED 2026-08-11, using the seam ef-manager named:
+//   ✅ packet-timeout-not-absence — CONVERTED 2026-08-11, using the seam the field test named:
 //      "needs an injectable slow lookup, then assert the TIMED OUT text". Was asserting
 //      `featureLookupTimedOut = true` and the ORDER OF TWO BRANCHES by their byte offsets
 //      — reorder them for readability and it goes red having found nothing, while a
@@ -193,7 +193,7 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   //   ↳ ⚠ THE ARGUMENT THAT PUT THIS HERE WAS WRONG, AND THE ENTRY SURVIVES ON A SMALLER
   //     ONE. It read: "an INVENTORY cannot be behavioural by construction — its purpose is
   //     to catch a route nobody has written a fixture for." That defended a claim the file
-  //     could not keep. graph-senior-dev-hermes added a disclosure-less branch INSIDE
+  //     could not keep. review, hermes session added a disclosure-less branch INSIDE
   //     graphPacket and the route arm passed, because the check is function-level and that
   //     function calls the renderer elsewhere. A source-contract test whose contract is
   //     false is the worst case this list can hold: it retires a doubt it never earned.

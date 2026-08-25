@@ -1050,7 +1050,7 @@ function walkFirstPartySourcesOnDisk(projectRoot) {
 // denominator must not be frozen for the whole process lifetime (M7).
 const DISK_WALK_TTL_MS = 60_000;
 const _diskCountCache = new Map();
-// ⛔ THE CACHE IS FINE; AUTHORISING A DELETION FROM IT IS NOT. graph-senior-dev executed the
+// ⛔ THE CACHE IS FINE; AUTHORISING A DELETION FROM IT IS NOT. the reviewer executed the
 // consequence: add a caller-bearing source in-session, and within the TTL the denominator still
 // describes the repo as it was — so `exhaustive:true` was re-issued over a population that had
 // already changed. A recalled census may not license an irreversible claim, so freshness now
@@ -1138,7 +1138,7 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
   // H1: a bare `> 0` check let a DB exporting 1 of 500 sources claim full
   // coverage — the same silent-truncation shape as exporting none. Compare
   // against the sources actually on disk and require a real share.
-  // ⛔ THE CACHE IS NOT THE DEFECT; AUTHORISING FROM IT IS. graph-senior-dev added a
+  // ⛔ THE CACHE IS NOT THE DEFECT; AUTHORISING FROM IT IS. the reviewer added a
   // caller-bearing source in-session and, inside the 60s TTL, the denominator still described
   // the old repo — so the grant was re-issued over a population that had already changed.
   //
@@ -1173,7 +1173,7 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
     ? true
     : (coverageRatio !== null && coverageRatio < MIN_FIRST_PARTY_COVERAGE);
   // ⛔⛔ P0, 2026-08-19: A THRESHOLD MAY NOT GRANT A BOOLEAN NAMED "EXHAUSTIVE".
-  // graph-senior-dev executed it against real clangd: ten valid TUs, nine in the compile DB,
+  // the reviewer executed it against real clangd: ten valid TUs, nine in the compile DB,
   // ratio exactly 0.9 — so `poorlyCovered` was false, `complete` was true, and the verb
   // returned exhaustive:true while omitting a caller that exists in the source. On a 1000-TU
   // repo that is 100 caller-bearing TUs excluded with the flag still granted.
@@ -1242,7 +1242,7 @@ export function computeCompileDbCoverage({ projectRoot, prepared, file = null, e
     // Above the severity threshold but not complete. The population is named — but naming it is
     // not enough, and this branch is where that was learned.
     //
-    // ⛔ THIS SENTENCE SAT BESIDE A WRONG ANSWER. ef-manager, field-testing 2026-08-25, saw
+    // ⛔ THIS SENTENCE SAT BESIDE A WRONG ANSWER. the field test, field-testing 2026-08-25, saw
     // "122 of ~123 first-party sources (99%)" while the query MISSED FOUR REAL CALLERS in a file
     // that IS in the database. The old text said "That is good coverage, but a caller in any
     // EXCLUDED TU is invisible" — which bounds the risk to the ~1 missing source and reads as

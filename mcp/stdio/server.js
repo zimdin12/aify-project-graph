@@ -159,7 +159,7 @@ const DEFAULT_TOOL_NAMES = new Set([
   'graph_explore',
   // ⛔ `graph_explain_diff` AND `graph_digest` WERE DROPPED FROM THIS LISTING (Phase 3c).
   //
-  // ef-manager's usage across the whole review arc: FIVE of seventeen verbs ever called —
+  // the field test's usage across the whole review arc: FIVE of seventeen verbs ever called —
   // graph_health (every round, "highest-value call in the set"), graph_whereis, graph_search,
   // graph_packet, graph_impact (once, found a bug).
   //
@@ -177,7 +177,7 @@ const DEFAULT_TOOL_NAMES = new Set([
   // picks is schema billed every session for salience that is not working. Adding one back needs
   // the opposite evidence, and this is the only verb in the product that has it:
   //
-  //   ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
+  //   the field test hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
   //   review rounds — because nothing exposed it — and it produced a finding EVERY time: four dead
   //   declaration types, the 67%-unreachable figure, and echoes' 183 `Symbol` + 1 `BuildTest` nodes
   //   that graph_whereis silently cannot return.
@@ -203,7 +203,7 @@ const DEFAULT_TOOL_NAMES = new Set([
 
 // ⛔ I REFUSED TO DROP `graph_index` AND `graph_dashboard`, WHICH PHASE 3c ALSO LISTED.
 //
-// ef-manager's argument is that "three of them are things a human runs, not an agent mid-task",
+// the field test's argument is that "three of them are things a human runs, not an agent mid-task",
 // and their call counts support it. But BOTH of those verbs are in this set BECAUSE OF RECORDED
 // HARM WHEN THEY WERE ABSENT, and a usage count does not address absence-harm evidence:
 //
@@ -215,14 +215,14 @@ const DEFAULT_TOOL_NAMES = new Set([
 //
 // ⚠ A SUPPORTING ARGUMENT, WITH ITS PROVENANCE STATED EXACTLY.
 //
-// `docs/2026-08-19-roadmap.md:208-212` (introduced by afbc4ad) records ef-manager refusing to
+// `docs/2026-08-19-roadmap.md:208-212` (introduced by afbc4ad) records the field test refusing to
 // advise on seven other verbs: "zero calls is evidence I was not doing the work they serve. Do NOT
 // let me be the reason those get cut — a drop decision on my numbers alone would be the
 // consumer-enumeration mistake again." Their calls on graph_index and graph_dashboard are also
 // zero, for the same reason — a reviewer grading precision never re-indexes or opens a dashboard —
 // so the caveat covers these two unchanged.
 //
-// ⛔ THAT LINE IS A TRANSCRIPTION, NOT THE ORIGINAL MESSAGE, AND ef-manager COULD NOT CONFIRM IT.
+// ⛔ THAT LINE IS A TRANSCRIPTION, NOT THE ORIGINAL MESSAGE, AND the field test COULD NOT CONFIRM IT.
 // Asked to verify, they said their session had been compacted and the quote was not in the context
 // they carry: "I will not confirm reasoning I cannot see just because it sounds like mine and the
 // conclusion is one I agree with." Pinned to a commit is not the same as verified against a
@@ -317,7 +317,7 @@ const SHORT_DESCRIPTIONS = new Map([
 
   ['graph_explain_diff', 'Explain an EXISTING change/diff (the reverse of graph_consequences). Keyed on a git range, NOT a symbol: range / staged=true / files[]; defaults to uncommitted working-tree changes. Returns CHANGED, AFFECTED 1-hop, LAYERS, RISK (a labeled heuristic score), TESTS, carrying the LSP-vs-heuristic trust banner. Use when triaging a PR or an already-made change.'],
 
-  // ⚠ THE TIER ASYMMETRY, ef-manager 2026-08-19. A SKILL is a file an agent CHOOSES to load; a
+  // ⚠ THE TIER ASYMMETRY, the field test 2026-08-19. A SKILL is a file an agent CHOOSES to load; a
   // tool description is what EVERY agent sees at selection time, unconditionally. The whereis
   // scope work landed in the skill and left this tier saying "Exact symbol definition lookup.
   // Prefer this for known names." — so an agent that reads only the schema had no way to know
@@ -471,7 +471,7 @@ rl.on('line', async (line) => {
   if (req.method === 'tools/list') {
     // ★ ARM THE DENOMINATOR. A tools/list call means a host is building its callable
     // set from the listing — so if these verbs are filtered out of it, that host CANNOT
-    // reach them however much it might want to. ef-manager measured 0 of 11 reachable on
+    // reach them however much it might want to. the field test measured 0 of 11 reachable on
     // exactly such a host, which means an empty call log proves nothing about demand.
     //
     // `hostCanReachUnlisted` is false whenever any watched verb is absent from what we
@@ -598,7 +598,7 @@ rl.on('line', async (line) => {
 
     // ★ DELETION EVIDENCE — AFTER the sensitive-path gate, deliberately.
     //
-    // This used to run before it. graph-senior-dev found that a hidden-verb call could
+    // This used to run before it. the reviewer found that a hidden-verb call could
     // therefore write telemetry beneath a caller-supplied path that the very next check
     // was about to reject as sensitive: the catch stopped the append throwing outward, it
     // did not undo a successful unauthorised write. Telemetry must never be the thing
@@ -736,7 +736,7 @@ rl.on('line', async (line) => {
       // calls health would never learn." That is the intent. The effect was ONE consumer,
       // `read_freshness.js`. Every other verb said nothing, so an agent that opened a round with
       // graph_search or graph_packet got answers from old code with no signal at all — which is
-      // why three of ef-manager's last four rounds opened blocked on it, and why they asked for
+      // why three of the field test's last four rounds opened blocked on it, and why they asked for
       // this three times.
       //
       // ⚠ NOTE THE TWO DIFFERENT STALENESSES. `stalenessWarning` above is the GRAPH lagging HEAD
@@ -812,7 +812,7 @@ async function teardownSessions() {
   try { await shutdownAllSessions(); } catch { /* best-effort teardown */ }
   // ⛔ AN HTTP LISTENER PINS THE LOOP HARDER THAN AN LSP CHILD, and it was never torn down.
   //
-  // graph-senior-dev-hermes, consumer-visible probe: boot the server, call graph_dashboard
+  // review, hermes session, consumer-visible probe: boot the server, call graph_dashboard
   // (succeeds, real URL), close stdin, wait 5s — THE PROCESS DOES NOT EXIT. They had to
   // kill it. I had added stopAllDashboards() and a test for it, and wired it to NOTHING:
   // zero production consumers. The leak I correctly promoted from a test problem to a

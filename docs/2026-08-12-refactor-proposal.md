@@ -16,7 +16,7 @@
 > a detached worktree at the pre-refactor commit and compared byte-for-byte —
 > `e0f83fc27088885f` before and after, covering descriptions and input schemas, not just the 17
 > names. `HIDDEN_FULL_TOOL_NAMES` reachable stayed 0 of 11, independently re-checked in the field
-> by ef-manager after each slice.
+> in field testing after each slice.
 >
 > ## What the plan got wrong, and what that cost
 >
@@ -48,7 +48,7 @@
 > > function calls — NOT module constants)`. A clean result that names what it examined cannot be
 > > mistaken for an exhaustive one.
 >
-> ef-manager's framing, and it is the strongest form of the argument: *a checker which does not
+> the field test's framing, and it is the strongest form of the argument: *a checker which does not
 > publish its scope will eventually be trusted beyond it, including by its author.*
 
 > ## ⚠ READ THIS FIRST — this document went stale in under a day, and it predicted that
@@ -82,7 +82,7 @@ Steven asked how many files are oversized and whether a refactor is due. Measure
 than estimated, and the answer is **narrower than the raw counts suggest**.
 
 ⚠ **Not started.** Steven's sequencing is: close the review blockers → get
-graph-senior-dev-hermes's verification → *then* refactor. This document is the seam
+review, hermes session's verification → *then* refactor. This document is the seam
 analysis only. No code has moved.
 
 ---

@@ -1,6 +1,6 @@
 // THE FULL MISS LEDGER, OUT OF THE MANIFEST.
 //
-// ef-manager, blocked on grading the doc layer: "the manifest stores counts and not the misses
+// the field test, blocked on grading the doc layer: "the manifest stores counts and not the misses
 // themselves — I can see how many landed in each, never which." A count nobody can open is
 // unfalsifiable from outside, and 707 `noSuchPath` on this repo could be 707 genuine stale doc
 // references or 707 mis-bucketed prose tokens with the number reading identically.

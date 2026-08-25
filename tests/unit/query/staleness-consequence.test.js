@@ -1,6 +1,6 @@
 // ★ THE NUMBER WITHOUT THE CONSEQUENCE IS HALF AN ANSWER.
 //
-// sc-manager, field-testing on a repo nobody tuned the tool against:
+// the field fleet, field-testing on a repo nobody tuned the tool against:
 //
 //   "It told me the fact (44 commits stale) but not the consequence. For
 //    orientation, 44 stale is harmless. For 'is #96 linked to this file', 44 stale

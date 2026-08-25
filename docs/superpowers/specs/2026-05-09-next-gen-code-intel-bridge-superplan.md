@@ -4,7 +4,7 @@
 > **Date:** 2026-05-09.
 > **Branch:** `plan/next-gen-code-intel-bridge`.
 > **Supersedes:** `docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md` (Draft v1).
-> **Inputs:** `docs/superpowers/specs/2026-05-09-graph-senior-dev-merge-plan-draft.md`; brainstorming convergence (graph-tech-lead ↔ graph-senior-dev) on six open items O1-O6; Steven's product steer on coupling, surface shape, and C++ priority.
+> **Inputs:** `docs/superpowers/specs/2026-05-09-review-merge-plan-draft.md`; brainstorming convergence (this project ↔ the reviewer) on six open items O1-O6; Steven's product steer on coupling, surface shape, and C++ priority.
 > **Reference repo state:** `reference/agent-code-intel` at `00da467` (origin `https://gitlab.com/baltic-lei/agent-code-intel.git`, branch `main`).
 
 ## Executive thesis
@@ -21,7 +21,7 @@ The original plan framed code-intel as an **optional precision backend** layered
 
 1. **Reference-repo evidence (`reference/agent-code-intel` 1235a5a → 00da467).** Seven new commits demonstrated a stronger pattern than the old plan assumed: stable wrapper command (`agent-code-intel serve-lsp <lang>` and `mcp-server <lang>`), dual native-LSP + MCP exposure for hosts, batch warmup as correctness scaffolding, parent-session subagent evidence pattern, symbol-aware references guidance, and Pi `.pi-lsp.json` opt-in. The wrapper/provider lifecycle is not incidental — it is the host abstraction.
 
-2. **Senior-dev draft (`2026-05-09-graph-senior-dev-merge-plan-draft.md`).** Reframed coupling as "first-class subsystem behind a provider boundary," added milestones M0.5 (provider boundary spec), M2.5 (host wrapper strategy), M3.5 (freshness model), M7.5 (cross-runtime install lab).
+2. **Review draft (`2026-05-09-review-merge-plan-draft.md`).** Reframed coupling as "first-class subsystem behind a provider boundary," added milestones M0.5 (provider boundary spec), M2.5 (host wrapper strategy), M3.5 (freshness model), M7.5 (cross-runtime install lab).
 
 3. **Steven's product steer.** Confirmed the merge target is "graph + that LSP, like a unified LSP but for C++." Code-intel is no longer a polish layer; it is the differentiation.
 
@@ -421,7 +421,7 @@ M0.5 → M1 → M2 → M3 → M4 → M7. M2.5/M3.5 parallel with M2/M3. M5/M6 pa
 Three loops, all required for release:
 
 1. **Unit + fixture tests** — every milestone has acceptance tests in this document; PRs cannot merge without them.
-2. **Dogfood A/B re-run** — re-run the 2026-04-20 graph-senior-dev tasks after M4 lands. Trace, search, orient, mem0 must non-regress; trust assessment and pre-delete-impact must show non-regression and improve when code-intel is present.
+2. **Dogfood A/B re-run** — re-run the 2026-04-20 the reviewer tasks after M4 lands. Trace, search, orient, mem0 must non-regress; trust assessment and pre-delete-impact must show non-regression and improve when code-intel is present.
 3. **Cross-runtime install lab (M7.5)** — Claude plugin cache, Claude `.mcp.json`, Codex plugin install, OpenCode lean MCP, Pi base (no provider), Pi opt-in (`.pi-lsp.json`). Scripted where possible; documented where manual host checks remain.
 
 ## Decision log

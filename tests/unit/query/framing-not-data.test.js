@@ -1,6 +1,6 @@
 // TWO FRAMING BUGS, FOUND BY ONE MEASURED EXPERIMENT.
 //
-// ef-manager ran a written-down blast-radius question both ways (2026-07-31):
+// the field test ran a written-down blast-radius question both ways (2026-07-31):
 // hand/grep answered 4 of 4 criteria in 54.6s; packet/pull/consequences answered
 // 1 partial, 1 yes, and FAILED 2, in 65.7s. Grep won. But his diagnosis of WHY is
 // what these tests pin, and it was not "the data is wrong":

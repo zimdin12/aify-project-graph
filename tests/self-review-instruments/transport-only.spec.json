@@ -10,6 +10,6 @@
     "case": "★ reads intact — the readout of an instrument, not a guarantee",
     "expect": "expected 'mutated' to be 'intact'",
     "note": "⛔ WIRING_TRANSPORT_EXECUTED ONLY. Run this to observe that the per-arm workspace transport works: the mutation lands in a disposable worktree and the main checkout stays byte-identical. It witnesses NO guarantee, promotes NOTHING in the migration ledger, and must never be cited as scientific evidence. It exists because the first isolation proof re-ran the CLOSED arm route-authority-G8, and the referee refused that — a closed experiment cannot witness a prediction twice, and re-running one spends a sample nobody preregistered. Re-run this as often as you like; there is nothing here to contaminate.",
-    "ruling": "2026-08-21: created at graph-senior-dev's instruction (message 1787315451324-1c44af81) — 'future live isolation proofs must use a purpose-built synthetic transport arm or a newly preregistered non-scientific fixture, not a closed migration arm.'"
+    "ruling": "2026-08-21: created at the reviewer's instruction (message 1787315451324-1c44af81) — 'future live isolation proofs must use a purpose-built synthetic transport arm or a newly preregistered non-scientific fixture, not a closed migration arm.'"
   }
 ]

@@ -1,4 +1,4 @@
-// ⛔ THE DENOMINATOR COUNTED FILES THE CORPUS EXCLUDES — AND I TOLD ef-manager IT WOULD FIX ITSELF.
+// ⛔ THE DENOMINATOR COUNTED FILES THE CORPUS EXCLUDES — AND I TOLD the field test IT WOULD FIX ITSELF.
 //
 // They flagged `files_eligible: 579` as counting excluded trees. I replied it would "become correct
 // as a side effect" of fixing the collector's enumeration, and would be "re-derived rather than

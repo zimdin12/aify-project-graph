@@ -129,9 +129,9 @@ export function detectFromPackageJson(repoRoot) {
 // ⚠ THIS HEADING USED TO SAY "for ranking what to read first" AND THAT CLAIM IS WITHDRAWN. The
 // ranking failed 0 of 2 ground-truth corpora and the output no longer asserts a read order (see
 // 310fc64). Prose that still instructs the next maintainer to restore it is how a withdrawn claim
-// comes back — graph-senior-dev flagged exactly this while approving the withdrawal.
+// comes back — the reviewer flagged exactly this while approving the withdrawal.
 //
-// ⛔ ef-manager REFUTED THE SIGNAL I WOULD HAVE REACHED FOR FIRST, with data, before proposing this
+// ⛔ the field test REFUTED THE SIGNAL I WOULD HAVE REACHED FOR FIRST, with data, before proposing this
 // one. Their hypothesis was that a stale document's references fail to resolve, so resolution rate
 // should separate current from stale using misses already recorded per document. Measured:
 //
@@ -154,7 +154,7 @@ export function detectFromPackageJson(repoRoot) {
 export function documentRecency(repoRoot, paths = []) {
   const out = new Map();
   if (!Array.isArray(paths) || paths.length === 0) return out;
-  // ⛔ BOUNDED BATCHES AND NUL-DELIMITED OUTPUT, both flagged by graph-senior-dev before this
+  // ⛔ BOUNDED BATCHES AND NUL-DELIMITED OUTPUT, both flagged in review before this
   // shipped. Passing every path as argv exceeds the command-line limit on a doc-heavy repo, and
   // the failure mode is the worst available: ONE oversized call throws, the catch returns an empty
   // map, and EVERY document silently becomes UNKNOWN — the ranking loses a whole signal and says
@@ -181,7 +181,7 @@ export function documentRecency(repoRoot, paths = []) {
         { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
       let date = null;
       // ⛔⛔ `.trim()` WAS HERE AND IT DESTROYED PATH BYTES. It removed git's structural newline and
-      // also any leading or trailing whitespace belonging to the FILENAME. graph-senior-dev
+      // also any leading or trailing whitespace belonging to the FILENAME. the reviewer
       // committed a tracked file named exactly ` leading.md` and called this function with it:
       //
       //     asked   [" leading.md"]

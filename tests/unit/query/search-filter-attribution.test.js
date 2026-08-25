@@ -1,6 +1,6 @@
 // A CAUSE MUST BE ATTRIBUTED TO WHOEVER ACTUALLY CAUSED IT.
 //
-// ⛔ REGRESSION I INTRODUCED, caught by ef-manager the same day (2026-08-19, build 754223f).
+// ⛔ REGRESSION I INTRODUCED, caught in field testing the same day (2026-08-19, build 754223f).
 // The original defect: `kind !== 'code'` counted `kind="all"` — the WIDEST setting, which
 // excludes nothing — as an active narrowing filter, so taking the message's own advice
 // produced a new line blaming filters. My fix changed it to `kind && kind !== 'all'`, which

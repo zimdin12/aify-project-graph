@@ -6,7 +6,7 @@
 // with nothing to notice. A shrinking denominator is the exact failure this corpus exists to
 // prevent, so it must not be reachable through the code that counts it.
 //
-// ⇒ graph-senior-dev: *"fails if a would-be spec is silently excluded — not merely filters until
+// ⇒ the reviewer: *"fails if a would-be spec is silently excluded — not merely filters until
 // tests turn green."*
 import { describe, it, expect, afterEach } from 'vitest';
 import { writeFileSync, rmSync, existsSync } from 'node:fs';

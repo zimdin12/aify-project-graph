@@ -398,7 +398,7 @@ git commit -m "feat(scripts): optional git post-commit reindex hook installer"
 - **Freshness self-heal (2026-06-01, field-report fix).** `graph_index` is now in the default
   tool surface; the central staleness warning reports commits-behind + the self-heal hint; opt-in
   `APG_AUTO_REINDEX=1` makes read verbs refresh a behind-HEAD graph before answering; optional
-  `scripts/install-graph-hook.mjs` installs a post-commit reindex hook. Addresses the sc-manager
+  `scripts/install-graph-hook.mjs` installs a post-commit reindex hook. Addresses the the field fleet
   A/B finding that a stale graph was worse than none for managed workers who couldn't reindex.
   (Overlay-build gap is a per-repo data action: run /graph-build-functionality.)
 ```

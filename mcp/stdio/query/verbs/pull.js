@@ -97,7 +97,7 @@ const PULL_DOC_SQL_LIST = DOC_FAMILY.map((r) => `'${r}'`).join(', ');
  *
  * DEFECT 1 — THE NOUN. `MENTIONS` is Document→SYMBOL; `LINKS_TO` is Document→FILE. Both are in
  * `DOC_FAMILY` and both join on `s.file_path`, so the count mixed them and then attached the
- * result to the noun "this file". ef-manager proved it on `dedup-records.js`: one document,
+ * result to the noun "this file". the field test proved it on `dedup-records.js`: one document,
  * `CHANGELOG.md`, which never names that file — it names the SYMBOL `dedupCollectionRecords`.
  * The edge is real; the noun was invented.
  *
@@ -109,7 +109,7 @@ const PULL_DOC_SQL_LIST = DOC_FAMILY.map((r) => `'${r}'`).join(', ');
  *    101 (29%)  sentence PARTLY wrong — both kinds present
  *    166 (47%)  sentence CORRECT — LINKS_TO only
  *
- * ⚠ AND THE OBVIOUS FIX HAS AN OVERLAP DEFECT, which ef-manager caught in the gap between my
+ * ⚠ AND THE OBVIOUS FIX HAS AN OVERLAP DEFECT, which the field test caught in the gap between my
  * describing it and my writing it. The two sets are NOT disjoint — a document can link to a file
  * AND mention a symbol in it. `scripts/refactor-oracle.mjs`: total 53, linking 1, mentioning 53.
  * A two-bucket split renders 1 + 53 = 54 against a total of 53, and it would look MORE
@@ -174,7 +174,7 @@ function docReferenceBreakdown(db, filePath) {
 export const docsNotShownSentenceForTest = (b) => docsNotShownSentence(b);
 
 function docsNotShownSentence(b) {
-  // ⚠ EVERY NUMBER HERE COUNTS DOCUMENTS, AND THE SENTENCE SAYS SO EXPLICITLY. ef-manager
+  // ⚠ EVERY NUMBER HERE COUNTS DOCUMENTS, AND THE SENTENCE SAYS SO EXPLICITLY. the field test
   // measured FOUR distinct denominators available on one file (packet.js: 13 documents, 20 raw
   // edge rows, 18 layer rows, 4 target symbols) and warned that a reader seeing "mention a symbol
   // defined in it" will most likely read the number beside it as HOW MANY SYMBOLS. On packet.js
@@ -188,8 +188,8 @@ function docsNotShownSentence(b) {
   // ⚠ SUBJECT-VERB AT n=1. "1 do both" / "1 only mention" read as machine output, and they surface
   // on the SMALLEST cases — which are exactly the ones a reader meets when the answer is simplest
   // and easiest to check by hand. A sentence built so its structure can be trusted should not
-  // stumble at the moment it is most checkable. (ef-manager, on CHECK 4 and CHECK 5.)
-  // ⚠ THE LEADING CLAUSE WAS THE FOURTH MEMBER OF THIS CLASS AND I WALKED PAST IT. ef-manager
+  // stumble at the moment it is most checkable. (the field test, on CHECK 4 and CHECK 5.)
+  // ⚠ THE LEADING CLAUSE WAS THE FOURTH MEMBER OF THIS CLASS AND I WALKED PAST IT. the field test
   // named three examples — "1 do both", "1 only mention", "1 link" — and my fix matched the LIST
   // instead of the class the list was drawn from. Their diagnosis, which is the transferable
   // part: "a defect report enumerating instances invites an instance-shaped fix, so the report
@@ -206,7 +206,7 @@ function docsNotShownSentence(b) {
   // The second number is what the docs layer will HAND BACK, so following the instruction cannot
   // surprise. Printed only when it differs, so it means something when it appears.
   //
-  // ⚠ THAT SILENCE IS LOAD-BEARING ON AN INVARIANT NOBODY DECLARED, and ef-manager found it by
+  // ⚠ THAT SILENCE IS LOAD-BEARING ON AN INVARIANT NOBODY DECLARED, and the field test found it by
   // cross-tabbing all 350 files with doc edges: MENTIONS edges carry NO source_line — 2527 of
   // 2527, zero exceptions, against LINKS_TO's 477 of 477 non-zero. So for a mention-only file the
   // layer tuple (label, path, relation, line) collapses to one row per document BY CONSTRUCTION,
@@ -226,7 +226,7 @@ function docsNotShownSentence(b) {
     + ' reference is on.';
 }
 
-// A TRUE ZERO AND A BROKEN ZERO WERE SHAPE-IDENTICAL, and ef-manager caught it inside the fix for
+// A TRUE ZERO AND A BROKEN ZERO WERE SHAPE-IDENTICAL, and the field test caught it inside the fix for
 // the original bug: "the morning bug returned items:[] + exhaustive:true over 12 real edges. The
 // true zero I used as a control returns items:[] + exhaustive:true. You fixed the data; you did
 // not make the failure distinguishable from the success."
@@ -291,7 +291,7 @@ function docRelationsPresent(db) {
 const ALL_LAYERS = ['code', 'functionality', 'tasks', 'docs', 'activity', 'relations', 'transitive', 'code_intel'];
 // ⛔ `docs` JOINED THE DEFAULT, AND ITS ABSENCE EXPLAINS "ZERO CONSUMERS".
 //
-// ef-manager, after days of intensive field use: "it cannot have cost me, because I never consumed
+// the field test, after days of intensive field use: "it cannot have cost me, because I never consumed
 // it — the doc layer has had zero consumers." We treated that as an interest problem and spent
 // weeks on the layer's PRECISION: rules graded blind on three held-out corpora, one deleted at
 // 0.9311, `target_qname` added so a grader could verify a binding.
@@ -506,7 +506,7 @@ function relationsForFile(db, filePath, limit = 10) {
      LIMIT 50`, { p: filePath });
   // ★ THE RECOMPILE SURFACE IS TRANSITIVE, AND WE WERE STOPPING AT HOP 1.
   //
-  // ef-manager, deleting a header (2026-07-31): "ChunkManager.h and
+  // the field test, deleting a header (2026-07-31): "ChunkManager.h and
   // GpuTerrainGenerator.h are HEADERS, so the blast radius does not stop at the 10
   // direct includers. One more grep gave ~30 additional TUs at hop 2, and showed
   // propagation TERMINATES there because every hop-2 includer is a .cpp. For a
@@ -573,7 +573,7 @@ function relationsForFile(db, filePath, limit = 10) {
       // defeated by the first .inl/.glsl/.tpp the walk met; this is not.
       terminated: !truncated && !depthCapped,
       note: truncated
-        ? // ⚠ WORDING CORRECTED 2026-08-12 (graph-senior-dev-hermes). "not the full closure"
+        ? // ⚠ WORDING CORRECTED 2026-08-12 (review, hermes session). "not the full closure"
         // asserts omission, and on an EXACTLY-full page nothing may have been omitted —
         // 300 returned rows cannot distinguish 300 candidates from 3000. What is true in
         // both cases is that completeness was not established.
@@ -593,7 +593,7 @@ function relationsForFile(db, filePath, limit = 10) {
     imports: capped(importsRaw.map(r => r.file_path), limit),
     // ★ D5 — SAME RELATION, SAME HOP, SAME RESPONSE, ONE CAPPED AND ONE NOT.
     //
-    // ef-manager on worldbuf.glsl: imported_by showed 10 of 13 with truncated:true
+    // the field test on worldbuf.glsl: imported_by showed 10 of 13 with truncated:true
     // while recompile_surface hop 1 listed all 13 with truncated:false. Both are
     // the IMPORTS hop-1 set. Nothing was wrong in either number, which is exactly
     // why it is worth fixing — a reader who has been trained to check `truncated`
@@ -813,7 +813,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     if (!fileNode) {
       // ⛔ THIS SENTENCE ASSERTED ABSENCE FROM THE GRAPH, and for the 78 nodes the resolver above
       // now admits it would have been FALSE — a Document or Config node is in the graph, it simply
-      // has no `File`-typed row. ef-manager scoped it correctly: fixing the resolver alone is
+      // has no `File`-typed row. the field test scoped it correctly: fixing the resolver alone is
       // sufficient for the disclosure, because this gate fails SOFT and the other layers still
       // run. But it would then announce "file not in graph" about a file that is in the graph, on
       // exactly the population being fixed — and it is the assertion, not the emptiness, that ends
@@ -824,7 +824,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
       const indexedAs = db.get(
         `SELECT type FROM nodes WHERE type IN (${FILE_LEVEL_SQL_LIST}) AND file_path = $p LIMIT 1`,
         { p: filePath });
-      // ⛔ THE KEY WAS `error`, AND THE KEY CONTRADICTED ITS OWN CONTENT. ef-manager: "This is not
+      // ⛔ THE KEY WAS `error`, AND THE KEY CONTRADICTED ITS OWN CONTENT. the field test: "This is not
       // an error. It is a correct, complete answer to a question that does not apply to the node.
       // The prose was fixed to stop asserting a failure; the field name still asserts one, and a
       // consumer branching on the presence of `error` — which is exactly what a field called
@@ -872,7 +872,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     // featuresForFile matches ONLY `anchors.files` globs. graph_consequences also
     // reaches features through SYMBOL anchors and through tasks.json references —
     // so the two verbs answered "does this file map to a feature?" with flatly
-    // opposite verdicts on the same file, same server, same minute (ef-manager,
+    // opposite verdicts on the same file, same server, same minute (the field test,
     // 2026-07-31):
     //     graph_pull          → features: [], orphan: true
     //     graph_consequences  → features_touching: [world-buffer, chunk-management]
@@ -944,7 +944,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
       if (cause) out.layers.docs.absence_cause = cause;
     }
   } else {
-    // REACHABLE-BY-ARGUMENT IS NOT REACHABLE. ef-manager re-ran the fixed call with `layers`
+    // REACHABLE-BY-ARGUMENT IS NOT REACHABLE. the field test re-ran the fixed call with `layers`
     // omitted — what an agent gets who reaches for the right verb without knowing the layer
     // names — and the defaults (code/functionality/tasks/activity) do not include docs. The
     // response carried zero documents and nothing in it named a docs layer or hinted one existed.
@@ -963,7 +963,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     // three items were instead paying a sentence of prose telling them to ask again. Comparable
     // cost, strictly less use, plus a round trip.
     //
-    // ⇒ AND THE POINTER WAS A STAND-IN FOR THE FIX. ef-manager's own sentence, quoted above: an
+    // ⇒ AND THE POINTER WAS A STAND-IN FOR THE FIX. the field test's own sentence, quoted above: an
     // agent who reaches correctly and does not know to type layers:["docs"] gets the same nothing.
     // Telling them what to type is better than silence and worse than answering.
     //
@@ -983,7 +983,7 @@ function pullFile({ db, filePath, features, allTasks, repoRoot, layers, receiptM
     out.layers.relations = relationsForFile(db, filePath);
   }
 
-  // ★ RECEIPT ON graph_pull — ef-manager's stated priority over graph_impact,
+  // ★ RECEIPT ON graph_pull — the field test's stated priority over graph_impact,
   // because relations/docs are the layers that won his experiment 2 and the ones
   // he would most want handed to a teammate with a receipt attached.
   //

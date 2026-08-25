@@ -6,9 +6,9 @@ constructed. Kept byte-exact — see "Why no header inside the JSON" below.
 ## Where it came from
 
 `C:/Users/Administrator/sand_castle/.aify-graph/code-intel/collect-progress.json`, copied
-2026-08-20 immediately before it was cleared by hand. Captured by ef-manager during the field
+2026-08-20 immediately before it was cleared by hand. Captured in field testing during the field
 round that found the defect; sand_castle is not this project's repo, and the copy was taken with
-graph-tech-lead's authorisation. Nothing of ours was left behind there.
+this project's authorisation. Nothing of ours was left behind there.
 
 ## The state it captures
 

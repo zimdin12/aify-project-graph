@@ -3,7 +3,7 @@
 // ⛔ ROUND 1 — THE SAME DEFECT AS `module-graph.mjs`, ONE FILE AWAY FROM ITS HEADER. That file opens
 // by explaining that a cycle gate matching `/from\s+'\.\/packet\.js'/` let a double-quoted import
 // through. I then wrote a producer inventory matching `/type:\s*'([A-Z][A-Za-z]+)'/` and called it
-// "every literally-emitted type". graph-senior-dev executed it: `type: "X"`, `"type": "X"` and
+// "every literally-emitted type". the reviewer executed it: `type: "X"`, `"type": "X"` and
 // `` type: `X` `` all returned nothing. One spelling of four, described as the class.
 //
 // ⛔⛔ ROUND 2 — AND THEN I BOUND A FALSE POPULATION INSIDE THE FIX FOR FALSE POPULATIONS. Having

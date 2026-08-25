@@ -1,7 +1,7 @@
 # Final analysis: aify-project-graph — what it is, how it works, where it helps
 
 **Date**: 2026-04-20 (cross-tester bench + 3 audit rounds complete; `main` at `11b90fb`)
-**Testers**: graph-tech-lead (Claude Code Agent + Opus on Windows); graph-senior-dev (Codex + gpt-5.4 on WSL)
+**Testers**: this project (Claude Code Agent + Opus on Windows); the reviewer (Codex + gpt-5.4 on WSL)
 **Data**: 24-cell cross-tester matrix + 8-cell overlay-dependent Phase 2 + 4-cell feedback experiment
 
 ## What this is

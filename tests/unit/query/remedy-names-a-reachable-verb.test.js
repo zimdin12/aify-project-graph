@@ -1,6 +1,6 @@
 // A REMEDY MUST NAME A DOOR THE READER CAN OPEN.
 //
-// ⛔ FIELD REPORT (ef-manager, 2026-08-19). `graph_health`'s no-collection remedy — which I had
+// ⛔ FIELD REPORT (the field test, 2026-08-19). `graph_health`'s no-collection remedy — which I had
 // written the day before, to fix a remedy that pointed at the wrong question — told the reader
 // to call `code_intel_definitions`. That verb is not in the 17-name default `tools/list`
 // profile. In a managed session, where MCP tools are deferred behind a search step, it is not

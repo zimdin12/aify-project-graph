@@ -1,6 +1,6 @@
 # aify-project-graph upgrade plan (post-2026-04-25 session)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan milestone-by-milestone. This is a co-designed plan between graph-tech-lead (Claude Code) and graph-senior-dev (Codex), locked at v2 on 2026-04-25.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan milestone-by-milestone. This is a co-designed plan between this project (Claude Code) and the reviewer (Codex), locked at v2 on 2026-04-25.
 
 ## Goal
 
@@ -245,9 +245,9 @@ Re-bench fixture stays the same 8-task apg shape from `docs/dogfood/token-cost-b
 
 ## Co-design log
 
-- v0 — graph-tech-lead drafted Phase A/B/C/D bucket sketch
-- v1 — graph-tech-lead drafted M1-M5 with acceptance criteria
-- v2 — graph-senior-dev pushed back on:
+- v0 — this project drafted Phase A/B/C/D bucket sketch
+- v1 — this project drafted M1-M5 with acceptance criteria
+- v2 — the reviewer pushed back on:
   1. packet should not call graph_pull/consequences directly (orchestrator-only over JSON)
   2. add M0.5 latency reconnaissance before M1
   3. split M4 into honesty (M4a) vs C++ debt (M4b)

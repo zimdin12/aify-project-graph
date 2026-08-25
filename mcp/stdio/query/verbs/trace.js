@@ -80,7 +80,7 @@ function hasBody(node) {
 // ★ A HOP THAT RESOLVES TO A HEADER DECLARATION ENDS THE INVESTIGATION AT THE
 // PROTOTYPE — UNDER A BANNER TELLING THE READER NOT TO LOOK FURTHER.
 //
-// ef-manager, on real C++, 2026-08-11. `ChunkManager::setVoxel →
+// the field test, on real C++, 2026-08-11. `ChunkManager::setVoxel →
 // WorldBuffer::writeSingleVoxelGpu` resolved hop 1 to `WorldBuffer.h:580`:
 //
 //     void writeSingleVoxelGpu(int slot, int localX, ..., uint8_t material);
@@ -366,7 +366,7 @@ function renderSuccess({ db, repoRoot, fromNode, toNode, pathSteps, budget, trus
   let usedLines = 0;
   // ★ A DECLARATION AND ITS DEFINITION CAN COLLAPSE ONTO THE SAME NODE.
   //
-  // ef-manager, on real C++ after the declaration fix: an interface→impl trace rendered
+  // the field test, on real C++ after the declaration fix: an interface→impl trace rendered
   // `WorldBufferDomain.cpp:132-144` at START **and** at HOP 1 — the same 13 lines twice
   // in a one-hop trace. Before the fix START showed the one-line declaration: wrong, but
   // distinct. Resolving both to the definition made them identical, and on a large
@@ -463,7 +463,7 @@ function renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget }) {
 
   // ★ THE CAUSE ANALYSIS MUST NAME THE CAUSE THE SERVER ALREADY KNOWS.
   //
-  // ef-manager, on real C++: a NO STATIC PATH result correctly ruled out dynamic dispatch
+  // the field test, on real C++: a NO STATIC PATH result correctly ruled out dynamic dispatch
   // and said CAUSE UNKNOWN rather than inventing one — honest — but never mentioned that
   // the repo had NO clangd collection, which is the highest-prior cause of a missing CALLS
   // edge on a C++ tree. The fact was in the payload (`codeIntel.available: false`) and

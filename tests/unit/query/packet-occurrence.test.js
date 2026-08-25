@@ -1,4 +1,4 @@
-// THE SIX PROBES graph-senior-dev EXECUTED AGAINST 88b9535, AS REGRESSIONS.
+// THE SIX PROBES the reviewer EXECUTED AGAINST 88b9535, AS REGRESSIONS.
 //
 // ⛔ Every one of these was a GREEN FALSE PASS under APG_PACKET_SEAL_STRICT=1 on 88b9535.
 // They are written here first, confirmed RED against the old implementation, and only then

@@ -10,7 +10,7 @@
 //
 // 1. THE REASON IS FALSE. The case is IDENTICAL. `lower === q` catches the exact match and the
 //    case variant with one branch and prints the case-variant wording for both. Same class as
-//    the `leafOf` defect ef-manager found in the field — a printed basis that is not the basis.
+//    the `leafOf` defect the field test found in the field — a printed basis that is not the basis.
 //    A stated reason is strong enough to act on, so a wrong one is worse than none.
 //
 // 2. THE REMEDY LOOPS. "Re-run with one of these" offers the caller the string they just

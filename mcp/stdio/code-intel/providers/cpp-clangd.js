@@ -337,7 +337,7 @@ export function createCppClangdProvider({ spawn } = {}) {
         let refsNotFoundSymbols = 0;
         // ★ NEVER SUM DEGRADED WITH ABSENT. A "no references" statistic that
         // includes definition-only results is not a floor, it is a wrong number
-        // pointing the wrong way (ef-manager).
+        // pointing the wrong way (the field test).
         let refsDegradedSymbols = 0;
         let refsCleanNotFoundSymbols = 0;
         // LSP SymbolKind -> count, for the not-found population. See the comment at
@@ -455,7 +455,7 @@ export function createCppClangdProvider({ spawn } = {}) {
             // about the WRONG SYMBOL, and we were recording it under this symbol's
             // id. For a common type that is tens of thousands of references.
             //
-            // Field measurement (sc-manager, 2026-07-30) — two adjacent batches of
+            // Field measurement (the field fleet, 2026-07-30) — two adjacent batches of
             // the same repo, minutes apart, one server process:
             //     files 1-60    3,083 refs   (~51/file)     55 guessed positions
             //     files 61-106  1,618,718 refs (~35,190/file) 1,412 guessed
@@ -522,7 +522,7 @@ export function createCppClangdProvider({ spawn } = {}) {
                   //
                   // ~52% of symbols return no references, and that ratio held to
                   // within 0.1% across a 13x larger sample, a different compile DB,
-                  // and a native toolchain (ef-manager, 2026-07-31: 64/70 foreign →
+                  // and a native toolchain (the field test, 2026-07-31: 64/70 foreign →
                   // 766/833 native). That kills the "foreign DB drops cross-TU refs"
                   // hypothesis and leaves a stable, structural, unexplained half.
                   //
@@ -545,7 +545,7 @@ export function createCppClangdProvider({ spawn } = {}) {
                   // ★ THE COLLECT WAS DISCARDING THE FIELD THAT SAYS WHETHER AN
                   //   ABSENCE MEANS ANYTHING.
                   //
-                  // ef-manager ground-truthed this against the live verb: for
+                  // the field test ground-truthed this against the live verb: for
                   // symbols in the 833, code_intel_references returns
                   // evidence.cause "definition_only", degraded true, exhaustive
                   // false, confidence low, and the warning "definition-only
@@ -792,7 +792,7 @@ export function createCppClangdProvider({ spawn } = {}) {
             // incremented on the same condition (`posGuessed`) and were therefore
             // EXACTLY equal in every collection — a field user noticed the identity
             // and correctly refused to guess which of the two was mismeasuring
-            // (ef-manager, 2026-07-31). Neither was: every guessed position is now
+            // (the field test, 2026-07-31). Neither was: every guessed position is now
             // skipped, so the two names describe one event. Two counters for one
             // fact make a reader wonder which to trust, so only the one that names
             // the CONSEQUENCE survives (see positionGuessSkipped below).
@@ -812,7 +812,7 @@ export function createCppClangdProvider({ spawn } = {}) {
             // completes, remainder == enumerated, so the two look identical and the
             // name reads as "total". A field user was told "repeat until filesTotal
             // is 0", saw 122 == enumeratedTotal, and correctly refused to loop on a
-            // predicate that looked non-terminating (ef-manager, 2026-07-31). He was
+            // predicate that looked non-terminating (the field test, 2026-07-31). He was
             // right to stop: the instruction cost an extra no-op call to observe a
             // state the response already knew.
             //

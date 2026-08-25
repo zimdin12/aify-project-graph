@@ -4,7 +4,7 @@
 // CANNOT attest exhaustiveness". True of the STORED GRAPH, false of the LIVE verbs,
 // which query the language server directly and never read those edges.
 //
-// The field caught both in one session, minutes apart, on one server (ef-manager,
+// The field caught both in one session, minutes apart, on one server (the field test,
 // echoes, 2026-07-30):
 //     graph_health          : trust spine EMPTY, CANNOT attest exhaustiveness
 //     code_intel_references : exhaustive true, confidence high, degraded false

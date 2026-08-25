@@ -1,6 +1,6 @@
 # A/B 2026-04-20 — no-graph baseline vs brief-only with aify-project-graph
 
-Two independent testers ran the same 24-cell matrix (4 repos × 3 task shapes × 2 arms) using the spec at `ab-2026-04-20-spec.v3.json`, both datasets landed and are reconciled in this document. graph-senior-dev additionally ran a Phase 2 APG-only overlay-dependent bench (8 cells) — see Phase 2 addendum section below. Post-audit correction (2026-04-20 evening): the initial Codex aggregate used mismatched-N accounting; matched 11-vs-11 figures are now used throughout.
+Two independent testers ran the same 24-cell matrix (4 repos × 3 task shapes × 2 arms) using the spec at `ab-2026-04-20-spec.v3.json`, both datasets landed and are reconciled in this document. the reviewer additionally ran a Phase 2 APG-only overlay-dependent bench (8 cells) — see Phase 2 addendum section below. Post-audit correction (2026-04-20 evening): the initial Codex aggregate used mismatched-N accounting; matched 11-vs-11 figures are now used throughout.
 
 **Spec hashes (verified identical across both testers):**
 - apg brief.agent.md: `e8d64d99c4a185d68e5c479861b4c4c35d652d356731f43f6be30c76087ed829`
@@ -8,7 +8,7 @@ Two independent testers ran the same 24-cell matrix (4 repos × 3 task shapes ×
 - lc brief.agent.md: `14d94032f62611b540549a1bbe0ec65c20a03d1b8c980d40d56216576616acc5`
 - mem0 brief.agent.md: `67b008dba00ff914e484c16a858e76d33ca226a35f9e57a8d14fe1a47e977b4c`
 
-**Tester:** graph-tech-lead (Claude Code Agent tool subagents, claude-opus-4-7, native Windows)
+**Tester:** this project (Claude Code Agent tool subagents, claude-opus-4-7, native Windows)
 **Cells:** 24 / 24 complete
 **Quality:** baseline 12/12 pass; brief-only 9/12 pass + 3 partial + 0 fail
 
@@ -110,7 +110,7 @@ The 2026-04-20 bench surfaces a **quality finding the 2026-04-19 bench did not**
 
 ## Cross-tester section (24-cell × 2-tester comparison)
 
-graph-senior-dev's independent run (codex+gpt-5.4 in WSL) landed. All 24 cells matched 1:1 against my run.
+the reviewer's independent run (codex+gpt-5.4 in WSL) landed. All 24 cells matched 1:1 against my run.
 
 **Suspect row to exclude:** `echoes.trace.brief-only` on dev's side has `effective_tokens=0`, `quality=fail`, empty answer — recorded from his earlier broken-path attempt before he switched to clean foreground. Dev flagged it explicitly. Excluded from clean cross-tester aggregates below; would need a manual rerun to land properly.
 
@@ -223,9 +223,9 @@ Proposed revision:
 
 Less hero-friendly, but defensible.
 
-## graph-senior-dev's independent conclusion (verbatim posture)
+## the reviewer's independent conclusion (verbatim posture)
 
-Dev wrote a fresh single-tester analysis from his 24-cell JSON without referencing this doc. Our conclusions converge on ship posture. His full analysis is shared at `ab-2026-04-20-graph-senior-dev-analysis.md` (comms artifact). His bottom-line launch recommendation:
+The reviewer wrote a fresh single-tester analysis from his 24-cell JSON without referencing this doc. Our conclusions converge on ship posture. His full analysis is shared at `ab-2026-04-20-review-analysis.md` (comms artifact). His bottom-line launch recommendation:
 
 > I would ship now, with this exact posture:
 > - ship the current brief-first experience
@@ -284,7 +284,7 @@ The 24-cell matrix above measured brief-only vs baseline on **shell-accessible**
 
 Phase 2 adds 4 overlay-dependent task shapes that require the `functionality.json` feature map to answer cleanly. Baseline subagents without the overlay have to reconstruct feature structure from grep+git+file reads. Brief-only subagents have it pre-computed.
 
-graph-senior-dev ran this single-tester on APG (the one repo with a mature `functionality.json`):
+the reviewer ran this single-tester on APG (the one repo with a mature `functionality.json`):
 
 | task | arm | tokens | duration | quality |
 |---|---|---:|---:|---|

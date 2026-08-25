@@ -27,7 +27,7 @@ import { buildDocumentView } from '../../../mcp/stdio/brief/document-view.js';
 
 // ⛔⛔ THIS FIXTURE USED TO SUPPLY LOOSE `documentCount` / `documentCandidateCount` AND NO VIEW —
 // so every coordinate it enumerated ran through the renderers' compatibility fallback, not through
-// the carrier `generateBrief` actually uses. graph-senior-dev: "the gate enumerates the right
+// the carrier `generateBrief` actually uses. the reviewer: "the gate enumerates the right
 // dimensions over the wrong carrier."
 //
 // ★ That is why 79 tests were green while the fallback produced a four-way disagreement. A

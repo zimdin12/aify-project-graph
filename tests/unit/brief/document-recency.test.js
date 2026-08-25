@@ -1,6 +1,6 @@
 // ⛔ THE TRANSPORT WAS UNSAFE IN TWO WAYS AND BOTH FAILED SILENTLY IN THE REASSURING DIRECTION.
 //
-// graph-senior-dev flagged them before this shipped:
+// the reviewer flagged them before this shipped:
 //
 //   1. Every document path passed as argv. On a doc-heavy repo that exceeds the command-line
 //      limit, ONE call throws, the catch returns an empty map, and EVERY document becomes UNKNOWN.
@@ -80,7 +80,7 @@ describe('documentRecency survives real paths and real corpus sizes', () => {
   it('★★★ a filename with a LEADING SPACE keeps its byte — dev executed this against a8f1337', async () => {
     // ⛔⛔ THE WITNESS THAT KILLED `.trim()`. I removed git's structural newline with a blunt trim,
     // which also removed leading and trailing whitespace BELONGING TO THE FILENAME.
-    // graph-senior-dev committed a tracked file named exactly ` leading.md` and ran the function:
+    // the reviewer committed a tracked file named exactly ` leading.md` and ran the function:
     //
     //     asked   [" leading.md"]
     //     keys    ["leading.md"]      <- an unrequested key

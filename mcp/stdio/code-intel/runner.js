@@ -56,7 +56,7 @@ export async function runCollection(req) {
 
   // ⛔ A PROVIDER MUST NOT SELF-ATTEST THE SLOT IT OCCUPIES.
   //
-  // graph-senior-dev-hermes: a provider has TWO identities — the instantiated object's
+  // review, hermes session: a provider has TWO identities — the instantiated object's
   // `name`, and the `provider` field it writes into its own envelope. Only the envelope
   // was ever checked, so setting the object's name to `pyright` while the envelope still
   // claimed `cpp-clangd` left the boundary suite 3/3 green. The consumer was trusting a

@@ -1,6 +1,6 @@
 // THE RANKER ONLY EVER SAW AN ARBITRARY SAMPLE.
 //
-// ⛔ graph-senior-dev, 2026-08-19, reviewing a different question: `search.js` selects its
+// ⛔ review, 2026-08-19, reviewing a different question: `search.js` selects its
 // candidate page with `SELECT * FROM nodes WHERE label LIKE $q LIMIT 200` and **no ORDER BY**,
 // then scores in JS — where a code-typed node earns +1000. So the +1000 can only be awarded to
 // whatever 200 rows storage order happened to hand over.

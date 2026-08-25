@@ -2,7 +2,7 @@
 //
 // Eleven verbs are hidden from tools/list because a comment says they are redundant.
 // The comment has been right there for months and nothing happened, which is the point
-// ef-manager made on 2026-08-10 and the reason this file exists:
+// the field test made on 2026-08-10 and the reason this file exists:
 //
 //   A COMMENT IS A NOTE TO NOBODY. It has no owner, no date, no trigger and no
 //   consequence. A failing test creates obligation; a runtime deprecation creates
@@ -86,7 +86,7 @@ for (const name of Object.keys(DEPRECATION_REPLACEMENTS)) {
 
 // ★ THE SINK LIVES OUTSIDE THE QUERIED REPO. Two findings forced this, 2026-08-11.
 //
-// 1. SAFETY BOUNDARY (graph-senior-dev). The probe ran BEFORE `findSensitivePathArg`,
+// 1. SAFETY BOUNDARY (the reviewer). The probe ran BEFORE `findSensitivePathArg`,
 //    so a hidden verb call could mkdir+append beneath a caller-supplied path that the
 //    very next check was about to reject as sensitive. The catch stopped the append from
 //    throwing outward; it did not undo a successful unauthorised write. Telemetry must
@@ -165,7 +165,7 @@ export function noteDeprecatedVerbCall(verbName, repoRoot) {
 
 // ★ THE DENOMINATOR. Without it the probe records fires and nothing else.
 //
-// ef-manager, 2026-08-11: on a deferred-MCP host, 0 of 11 hidden verbs are reachable at
+// the field test, 2026-08-11: on a deferred-MCP host, 0 of 11 hidden verbs are reachable at
 // all, because such a host builds its callable set FROM tools/list and these are filtered
 // out of it. So `deprecated-verb-calls.jsonl` being empty after a week of real work meant
 // NOTHING — reachability was zero.

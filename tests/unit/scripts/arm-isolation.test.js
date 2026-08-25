@@ -67,7 +67,7 @@ const openArm = (runId, { beat = null, materialize = true, ...over } = {}) => {
 /** A confirmation that is valid for the arm as it stands right now. */
 const confirmFor = (arm, over = {}) => JSON.stringify({
   ...observeArm(repo, arm),
-  approver: 'graph-senior-dev',
+  approver: 'the reviewer',
   approvalMessageId: 'msg-123',
   observedProcess: 'checked the managed session list; pid 4210 is gone and no wrapper owns this run',
   ...over,
@@ -261,7 +261,7 @@ describe('confirmation is bound to the exact bytes it was written about', () => 
     const r = cleanupAuthority(repo, 'c1', arms, confirmFor(arms[0]), STALE_AT());
     expect(r.allowed).toBe(true);
     expect(r.state).toBe(ARM_STATE.ORPHAN_CONFIRMED);
-    expect(r.reason).toMatch(/graph-senior-dev/);
+    expect(r.reason).toMatch(/the reviewer/);
   });
 
   it('★★★⛔ a confirmation missing ANY required field is refused', () => {
@@ -393,7 +393,7 @@ describe('only a validated closure stops an arm blocking', () => {
     preservedMutantSha256: 'c'.repeat(64),
     cleanupResults: REMOVAL_ORDER.map((step) => ({ step, ok: true })),
     closedAt: '2026-08-21T12:00:00.000Z',
-    approver: 'graph-senior-dev',
+    approver: 'the reviewer',
     approvalMessageId: 'msg-9',
     ...over,
   });
@@ -414,7 +414,7 @@ describe('only a validated closure stops an arm blocking', () => {
   });
 
   it('★★★⛔ A CONFIRMED-BUT-NOT-CLEANED ARM STILL BLOCKS', () => {
-    // The gap dev found: confirmation grants eligibility, and the bytes are still on disk.
+    // The gap the reviewer found: confirmation grants eligibility, and the bytes are still on disk.
     openArm('z1');
     const arms = findArms(repo, STALE_AT());
     const auth = cleanupAuthority(repo, 'z1', arms, confirmFor(arms[0]), STALE_AT());

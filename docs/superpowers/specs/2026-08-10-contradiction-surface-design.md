@@ -12,7 +12,7 @@
 
 ## The finding this is built on
 
-ef-manager, asked which changes altered what he actually *did*, answered with
+the field test, asked which changes altered what he actually *did*, answered with
 counterfactuals against errors he had published — not opinion:
 
 > Every single behaviour change came from a field that CONTRADICTED MY
@@ -52,7 +52,7 @@ So this release opens with deletion, not optimisation.
 ## ⛔ Part 0 — my cost table was measured on the wrong repo
 
 Everything below was measured on `aify-project-graph`, a **JS** repo, to plan a
-**C++** release. ef-manager caught it and it is disqualifying for the audit as
+**C++** release. the field test caught it and it is disqualifying for the audit as
 originally specified:
 
 ```
@@ -94,7 +94,7 @@ tokens."
 
 ### ★ DECIDED: the overlay fields go — and the reason is granularity, not staleness
 
-I asked sc-manager the disambiguating question: *if your overlay were fresh and
+I asked the field fleet the disambiguating question: *if your overlay were fresh and
 complete, would `features_touching` / `contracts_potentially_affected` change a
 decision?* Answer: **no**, and the reason matters more than the verdict:
 
@@ -128,7 +128,7 @@ Different object from the other five. Delete it on its own evidence or not at al
    hours of exactly the work those fields target — impact, consumers,
    what-touches-this — with zero overlay consultation and no moment of wanting it.
 
-Before deleting, get ef-manager's verdict on the same list. Two managers agreeing
+Before deleting, get the field test's verdict on the same list. Two managers agreeing
 is a pattern; one is a data point, and this spec has already been wrong once by
 generalising from a single reading.
 
@@ -142,7 +142,7 @@ audit.
 
 ## ★ Part 1b — the cut I had missed: invariant prose (~20% of every response)
 
-ef-manager classified every string ≥170 chars in two payloads and split them by
+the field test classified every string ≥170 chars in two payloads and split them by
 whether the text **varies**:
 
 | | |
@@ -189,7 +189,7 @@ demonstrate the query WORKS on this repo, in this session, right now. A
 silently-broken index and a genuinely empty result produce identical output —
 the defect shape this project exists to remove, sitting inside the flagship claim.
 
-sc-manager's lanes solved it by hand and their sentence is the spec:
+the field fleet's lanes solved it by hand and their sentence is the spec:
 
 > the same query that found no simulation consumers DID find the known renderer
 > consumption at Render.cpp:733-735, so the absence was demonstrably a real
@@ -203,7 +203,7 @@ Applies to `code_intel_references`, `code_intel_hierarchy`, and `graph_callers`.
 
 ### ★ DECIDED: per-call, and staleness was the wrong axis
 
-I put per-call vs per-session to sc-manager as a freshness tradeoff. That framing
+I put per-call vs per-session to the field fleet as a freshness tradeoff. That framing
 was wrong, and their answer is measured rather than argued — **six extraction
 failures in one afternoon, none of them index failures**:
 
@@ -258,7 +258,7 @@ reproduce, one level up, the exact defect it was built to fix.
 
 ### 2.2 Truncation markers, everywhere a list is capped
 
-ef-manager's priority call, and it outranked the ranking work I had planned:
+the field test's priority call, and it outranked the ranking work I had planned:
 
 > a ranking warning says the ORDER is unreliable and I must still go looking; a
 > truncation marker says the LIST IS INCOMPLETE — a different and load-bearing
@@ -299,7 +299,7 @@ structural argument rather than a preference:
 > Contradiction-class fields cannot be opt-in **by construction** — nobody asks to
 > be told they are wrong.
 
-sc-manager supported it empirically from a single afternoon. Three things that
+the field fleet supported it empirically from a single afternoon. Three things that
 changed their conclusions, **all arriving unrequested**:
 
 | | |
@@ -318,7 +318,7 @@ contradiction is the one confident enough to have picked the lean profile."*
 
 ### The role hypothesis was retracted by the person who raised it
 
-sc-manager's caveat had two parts, and only one was a claim:
+the field fleet's caveat had two parts, and only one was a claim:
 - *"I am not answering for them"* — a statement about the limit of their evidence.
   Correct, and justifies nothing.
 - *"A cold-orientation lane is a different consumer"* — **a category they named,
@@ -329,7 +329,7 @@ sc-manager's caveat had two parts, and only one was a claim:
 
 ### ★ My question was malformed — opt-in is only *coherent* for 3 of the 8
 
-ef-manager: the eight DELETE candidates are not one kind of thing, and
+the field test: the eight DELETE candidates are not one kind of thing, and
 configurability is only a meaningful option for the last group.
 
 | category | fields | why opt-in fails |
@@ -377,7 +377,7 @@ is structurally incapable of tuning value — it can only preserve clutter.
 | lane | window | strength |
 |---|---|---|
 | sc-claude | ~10h dense, exactly this work, zero overlay consultation | STRONG |
-| sc-manager | same window + ~187 cards of history, zero | STRONG |
+| the field fleet | same window + ~187 cards of history, zero | STRONG |
 | sc-coder / sc-architect | **~1 day of access** (registration landed 2026-08-09), quota-starved | **WEAK** |
 
 The weak half is precisely the pair who would most plausibly *be* the
@@ -395,7 +395,7 @@ cold-orientation case. Delete survives it anyway, on asymmetry:
   agent already suspecting a problem.
 - **No shrinking as a primary activity.** See the corollary. Shrink only what
   survives Part 1.
-- **Not the overlay.** Both managers report not consulting it; sc-manager's
+- **Not the overlay.** Both managers report not consulting it; the field fleet's
   project knowledge lives in ~187 cards and comms threads. Do not invest until
   someone reads it.
 - **No ranking heuristics** where a truncation marker or a better resolution path
@@ -405,7 +405,7 @@ cold-orientation case. Delete survives it anyway, on asymmetry:
 
 ## ★ A general rule from this audit, larger than any field
 
-ef-manager, correcting his own experiment design after it silently bound the build
+the field test, correcting his own experiment design after it silently bound the build
 under test to the runner:
 
 > I fixed the axis I was looking at and did not enumerate the axes I moved.
@@ -441,7 +441,7 @@ Specific to this release:
 
 ## The measurement this release is judged on
 
-Not token counts. sc-manager's answer to *"name one time the tool changed what
+Not token counts. the field fleet's answer to *"name one time the tool changed what
 you did"* was **zero** — and unbounded: they retracted the reachability excuse
 themselves after testing, so it was not "I couldn't reach it" but *"I could reach
 it and did not reach for it."*
@@ -463,7 +463,7 @@ quality wins is exactly the error this spec exists to avoid.
 3. ~~`documents_mentioning_note` costs 46 tokens describing an empty list~~ —
    **resolved, and I had the diagnosis backwards.**
 
-   ef-manager: an empty list is where that note is at its **most** load-bearing,
+   the field test: an empty list is where that note is at its **most** load-bearing,
    not its least. `documents_mentioning: []` with no note reads as *"no documents
    mention this"* — a false absence, the exact error class this product exists to
    prevent. The 46 tokens buy the difference between *"nothing mentions this"* and
@@ -486,18 +486,18 @@ quality wins is exactly the error this spec exists to avoid.
    already uses. **Apply it everywhere; the problem was solved once and not
    propagated.**
 4. **Cold-orientation consumer — being MEASURED, not argued.** Authorised
-   2026-08-10: ef-manager spawns a subagent with no memory file and no field-test
+   2026-08-10: the field test spawns a subagent with no memory file and no field-test
    context, gives it a cold orientation question on echoes, and records which
    fields it actually **reads and cites**. Read-only.
 
-   Why it is worth running rather than settling by argument: sc-manager retracted
+   Why it is worth running rather than settling by argument: the field fleet retracted
    the role hypothesis outright, but their no-sighting is *uneven* — the two lanes
    who would most plausibly BE the cold-orientation case have had graph access for
    about a day and were quota-starved. The hypothesis is thin AND its strongest
    disconfirmation is the weakest-windowed. One session closes that.
 
-   **Design: runner and adjudicator are split.** ef-manager locked the falsifier
-   and prediction before the run; graph-tech-lead spawns and hands over the **raw
+   **Design: runner and adjudicator are split.** the field test locked the falsifier
+   and prediction before the run; this project spawns and hands over the **raw
    transcript**, not a summary. Their pre-registration protects against *their*
    bias and does nothing about the runner's — so the falsifier is fixed by someone
    who does not control the data, and the data comes from someone who cannot
@@ -505,8 +505,8 @@ quality wins is exactly the error this spec exists to avoid.
 
    ⚠ **AMENDMENT, registered before any data:** the split silently bound a third
    variable — a subagent inherits its parent's MCP servers, so moving the runner
-   moved **the build under test** with it. Caught when graph-tech-lead checked his
-   own side: his server was on `504563e`, *staler than ef-manager's `8e09c67`*, so
+   moved **the build under test** with it. Caught when this project checked his
+   own side: his server was on `504563e`, *staler than the field test's `8e09c67`*, so
    the run would have gated Sand Castle on a two-day-old build.
 
    > The server commit is an experimental parameter, not an environmental detail.
@@ -518,13 +518,13 @@ quality wins is exactly the error this spec exists to avoid.
    shipped three times in three mechanisms.
 
    ★ It doubles as a free control: whether a fresh reader reaches for the trust
-   verb unprompted. ef-manager's registered prediction — **it will not**, because
+   verb unprompted. the field test's registered prediction — **it will not**, because
    nothing in an orientation question suggests trust is in doubt, which would make
    it a finding about *discoverability* rather than value.
 
    **Blocked on:** one `/mcp` reconnect covering both sessions.
 
-   Prior evidence pointing the same way, with its limit stated: in ef-manager's
+   Prior evidence pointing the same way, with its limit stated: in the field test's
    two most orientation-shaped experiments — *"what shader code must change in
    lockstep"* and *"delete ChunkDataCache.h, what breaks"* — **not one of the eight
    delete-candidates contributed to either result.** Every win came from
@@ -539,7 +539,7 @@ quality wins is exactly the error this spec exists to avoid.
    commit he measured. So DELETE may mean "unfixable" or "was unfixable before the
    tiers, untested since". Different answers.
 
-   ⚠ Deleting it also permanently moots sc-manager's pending `.cpp` header-pairing
+   ⚠ Deleting it also permanently moots the field fleet's pending `.cpp` header-pairing
    verification — the one v0.4.0 claim never run against real C++.
 
    ⚠ When it does go: `tests_adjacent_basis`, `tests_adjacent_warning` and
@@ -548,7 +548,7 @@ quality wins is exactly the error this spec exists to avoid.
 
 ## ★★★ A false positive in a coverage field DELETES A WARNING
 
-The single most important finding of the audit, measured by ef-manager on
+The single most important finding of the audit, measured in field testing on
 `e8c8d61` after the `symbol_referenced` identity check shipped:
 
 ```
@@ -574,7 +574,7 @@ pre-existing gap in Echoes that its own defect had been concealing.**
 
 ### And it inverts the deletion argument
 
-ef-manager retracted the DELETE because the field was 2-of-3 correct. The real
+the field test retracted the DELETE because the field was 2-of-3 correct. The real
 reason it was wrong is stronger:
 
 > Deleting `tests_adjacent` would have deleted the field whose CORRECT OPERATION
@@ -596,7 +596,7 @@ could in principle perturb a true negative and that has not been looked at.
 
 ## ★ Verdicts from usage, and the inversion they expose
 
-ef-manager's field-by-field verdicts (deepest usage record on `graph_consequences`):
+the field test's field-by-field verdicts (deepest usage record on `graph_consequences`):
 
 **DELETE** — `tests_adjacent` (293 tok, and **3-for-3 wrong**: it asserted
 `tests/test_main.cpp` covers `cylindricalLatBandsForBody` on the basis of
@@ -650,7 +650,7 @@ protected mechanism.
 
 ## ⚠ Measurement hygiene for this release
 
-sc-manager flagged that Steven's machine is currently running a MiniMax H3 video
+the field fleet flagged that Steven's machine is currently running a MiniMax H3 video
 generator on the GPU. **Any timing- or GPU-shaped benchmark taken from this
 machine while that is live is contaminated** — and a contended GPU returns a
 plausible number, not an error, which is the same failure class as everything in
@@ -658,7 +658,7 @@ plausible number, not an error, which is the same failure class as everything in
 
 Affects one figure already in the record: the 601ms / 4316ms `graphConsequences`
 round-trips that motivated the cheap-path fix. Those are CPU/SQLite work rather
-than GPU, and the fix stands independently — ef-manager measured 3 of 3 bare
+than GPU, and the fix stands independently — the field test measured 3 of 3 bare
 symbols timing out, and the architectural argument (do not compute callers,
 importers, docs, tasks and a receipt to answer "which feature owns this symbol")
 does not depend on the exact milliseconds. But the specific numbers should not be

@@ -10,7 +10,7 @@
 // literal `4`. The obvious repair — export it from packet-input — made the SEALED list authority
 // import the heavy input island (filesystem, git, database, freshness, storage) to share one
 // number, reversing the intended dependency direction and widening an island's public surface.
-// graph-senior-dev measured the cost: importing `packet-lists.js` went to ~296 ms.
+// the reviewer measured the cost: importing `packet-lists.js` went to ~296 ms.
 //
 // ⇒ This module imports NOTHING. A constant two authorities share belongs in the neutral thing
 // they both already depend on, not in whichever of them happened to declare it first.

@@ -1,7 +1,7 @@
 // ★ MAKING A BLOCKED DECISION DECIDABLE, FOR ELEVEN LOG LINES.
 //
 // Eleven verbs are hidden from tools/list because a comment calls them redundant. The
-// comment has sat there for months. ef-manager's diagnosis (2026-08-10): a comment is a
+// comment has sat there for months. the field test's diagnosis (2026-08-10): a comment is a
 // note to nobody — no owner, no date, no trigger, no consequence — so writing the eleven
 // down WAS the entire action taken, and then eleven accumulated.
 //
@@ -10,7 +10,7 @@
 // past it — never fires, delete it; fires, the comment was wrong.
 //
 // These tests drive the real server over stdio. A source-grep version would be the
-// 69th case in graph-senior-dev's audit of tests that assert text and invoke nothing.
+// 69th case in the reviewer's audit of tests that assert text and invoke nothing.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtemp, rm, readFile, writeFile, mkdir } from 'node:fs/promises';
@@ -82,7 +82,7 @@ describe('the deprecation probe makes the deletion decision decidable', () => {
     // question. The DEFAULT profile hides long-tail SPECIALISTS to keep the surface
     // coherent; nobody claims those are redundant. HIDDEN_FULL_TOOL_NAMES hides verbs
     // that something in the repo calls REDUNDANT. 11 + 14 = the 25 unlisted verbs in
-    // graph-senior-dev's scope-3 audit. A probe aimed at "unlisted verbs" measures both
+    // the reviewer's scope-3 audit. A probe aimed at "unlisted verbs" measures both
     // and answers neither.
     //
     // The map/hidden-set correspondence is now enforced at import in
@@ -120,7 +120,7 @@ describe('the deprecation probe makes the deletion decision decidable', () => {
     // DURABLE: stderr alone would make "it never fired" unfalsifiable next month — the
     // same unverified-absence shape as every other defect here.
     //
-    // OUTSIDE THE REPO: graph-senior-dev found the probe wrote beneath a caller-supplied
+    // OUTSIDE THE REPO: the reviewer found the probe wrote beneath a caller-supplied
     // path BEFORE the sensitive-path gate had approved it, and that writing into the
     // queried repo breaks the no-residue contract protecting repos we do not own. A
     // probe that cannot run against a read-only repo cannot measure the repos we most
@@ -146,7 +146,7 @@ describe('the deprecation probe makes the deletion decision decidable', () => {
   });
 
   it('★★ records the DENOMINATOR — armed sessions, and whether the host could reach these verbs', async () => {
-    // ef-manager: on a deferred-MCP host, 0 of 11 hidden verbs are reachable at all,
+    // the field test: on a deferred-MCP host, 0 of 11 hidden verbs are reachable at all,
     // because such a host builds its callable set FROM tools/list. So an empty call log
     // meant nothing — reachability was zero.
     //

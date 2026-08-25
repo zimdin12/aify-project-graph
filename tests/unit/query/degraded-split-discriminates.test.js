@@ -1,7 +1,7 @@
 // ★ A FIELD THAT FIRES EVERYWHERE AND A FIELD THAT FIRES CORRECTLY ARE
 //   INDISTINGUISHABLE UNTIL YOU PRODUCE A CASE WHERE IT MUST NOT FIRE.
 //
-// ef-manager's control, and the reasoning is why this test exists rather than a
+// the field test's control, and the reasoning is why this test exists rather than a
 // single happy-path assertion. The real-world observation is {total 833,
 // degraded 833, clean 0} — which proves the field POPULATES and cannot prove it
 // DISCRIMINATES, because clean is 0. A breakdown that hardcoded clean:0, or that

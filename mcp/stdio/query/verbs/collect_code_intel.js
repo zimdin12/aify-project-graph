@@ -188,7 +188,7 @@ export function splitCollectBudget(budgetMs) {
  * narrowed to the corpus.
  *
  * ⛔ IT USED TO BE `COUNT(DISTINCT file_path)` OVER EVERY NODE WITH A MATCHING EXTENSION, so it
- * counted files the corpus EXCLUDES. ef-manager flagged `files_eligible: 579` for this and I
+ * counted files the corpus EXCLUDES. the field test flagged `files_eligible: 579` for this and I
  * replied it would resolve as a side effect of fixing the collector's enumeration. That reply was
  * WRONG: the enumerator decides what to WALK, this counts what is already in `nodes`, and the two
  * populations are reached by different routes.
@@ -380,7 +380,7 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
           const exts = LANGUAGE_FILE_EXTENSIONS[language] ?? [];
           if (exts.length > 0) {
             // ⛔ COUNTED FROM THE GRAPH, SO IT COUNTS WHAT THE GRAPH HOLDS — INCLUDING FILES THE
-            // CORPUS EXCLUDES. ef-manager flagged `files_eligible: 579` as counting excluded
+            // CORPUS EXCLUDES. the field test flagged `files_eligible: 579` as counting excluded
             // trees, and I replied it would resolve as a side effect of fixing the collector's
             // enumeration. IT DID NOT, AND THAT REPLY WAS WRONG: the enumerator decides what to
             // WALK, this query counts what is already in `nodes`, and the two populations are

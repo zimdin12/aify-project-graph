@@ -14,7 +14,7 @@
 //      hidden to keep the default surface coherent.
 //
 // The two sets are DISJOINT, and 11 + 14 = the 25 unlisted verbs in
-// graph-senior-dev's scope-3 audit. Only set 1 is a deletion question. A probe aimed
+// the reviewer's scope-3 audit. Only set 1 is a deletion question. A probe aimed
 // at "unlisted verbs" would measure both and answer neither.
 //
 // It lives in its own module so `server.js` and `deprecation-probe.js` derive from ONE

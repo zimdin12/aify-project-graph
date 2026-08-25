@@ -1,6 +1,6 @@
 # A stand-in was used where the real thing was available
 
-**Session of 2026-07-31 · graph-tech-lead + ef-manager · twenty instances in one session**
+**Session of 2026-07-31 · this project + the field test · twenty instances in one session**
 
 Attributed to the session and the date rather than to a person, deliberately. The
 principle is worth something only because twenty independent instances landed within

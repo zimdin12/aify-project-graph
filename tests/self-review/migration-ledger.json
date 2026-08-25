@@ -148,7 +148,7 @@
     "G8 lookalike that MINTS correctly but knows no repo path": {
       "spec": "route-authority-G8.spec.json",
       "state": "v3_failure_observed_unattributed",
-      "reason": "Physically extracted into its own v3-loadable file so the normal spec-path invocation loads it without an external construction step. Preregistration tests/self-review/preregistrations/G8.json, referee graph-senior-dev, approval 1787266025666-e83bb59d. Receipt tests/self-review/receipts/G8/. BOUNDED CLAIM: the repo-path discriminator rejects this constant forgery. NOT handler/runner/provider/import/replay identity -- that claim is expressly withdrawn by the test's own source. Ceiling is failure_observed_unattributed: body attribution is open."
+      "reason": "Physically extracted into its own v3-loadable file so the normal spec-path invocation loads it without an external construction step. Preregistration tests/self-review/preregistrations/G8.json, referee the reviewer, approval 1787266025666-e83bb59d. Receipt tests/self-review/receipts/G8/. BOUNDED CLAIM: the repo-path discriminator rejects this constant forgery. NOT handler/runner/provider/import/replay identity -- that claim is expressly withdrawn by the test's own source. Ceiling is failure_observed_unattributed: body attribution is open."
     },
     "M1 drop a claim from the docs_only route": {
       "spec": "stale-warning-claims.spec.json",
@@ -183,7 +183,7 @@
     "D1 pending ownership marker is constructed but never published": {
       "spec": "dashboard-ownership-D1.spec.json",
       "state": "v3_runnable_unwitnessed",
-      "reason": "Physically extracted into its own v3-loadable file with the corrected title; the old title claimed an AFTER-AWAIT publication its own mutation bytes do not contain. Preregistration tests/self-review/preregistrations/D1.json, referee graph-senior-dev, revision 1787271727083-cae28491. PROMOTED BEFORE ANY EXPERIMENT and only to runnable-unwitnessed: justified by the committed schema and preregistration, never by a result. Bounded to the JOIN path -- it does not establish teardown visibility."
+      "reason": "Physically extracted into its own v3-loadable file with the corrected title; the old title claimed an AFTER-AWAIT publication its own mutation bytes do not contain. Preregistration tests/self-review/preregistrations/D1.json, referee the reviewer, revision 1787271727083-cae28491. PROMOTED BEFORE ANY EXPERIMENT and only to runnable-unwitnessed: justified by the committed schema and preregistration, never by a result. Bounded to the JOIN path -- it does not establish teardown visibility."
     }
   }
 }

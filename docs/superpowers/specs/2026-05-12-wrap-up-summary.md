@@ -4,7 +4,7 @@
 > **Latest tag:** `project-wrap-up-2026-05-12` (HEAD `0128af9`). Latest implementation tag: `plan-9b-warmupfiles-and-replay-skill-complete` (`c420542`).
 > **Companion to:** `2026-05-09-next-gen-code-intel-bridge-superplan.md` (the locked thesis) and `2026-05-09-superplan-completion-summary.md` (the earlier Plan-#1-through-#6 summary).
 >
-> This document rolls forward everything that shipped after the 2026-05-09 summary: Plans #5a, #5b, #6, #6b, #6c, #7, #8, #9, #9b, and H. Validated end-to-end by graph-tech-lead (Windows) + graph-senior-dev (Ubuntu/clangd 18.1.3) via the dashboard-driven loop pattern Steven taught us on 2026-05-12.
+> This document rolls forward everything that shipped after the 2026-05-09 summary: Plans #5a, #5b, #6, #6b, #6c, #7, #8, #9, #9b, and H. Validated end-to-end by this project (Windows) + the reviewer (Ubuntu/clangd 18.1.3) via the dashboard-driven loop pattern Steven taught us on 2026-05-12.
 
 ## Final headline
 
@@ -41,7 +41,7 @@ The aify-project-graph code-intel subsystem now ships **as a real C++ inner-loop
 
 ## Real-clangd baseline (Ubuntu/clangd 18.1.3)
 
-From graph-senior-dev's linux:StevenZ-L validation on 2026-05-12 against `tests/integration/code-intel/live-verbs-real.test.js`:
+From the reviewer's linux:StevenZ-L validation on 2026-05-12 against `tests/integration/code-intel/live-verbs-real.test.js`:
 
 - **Integration test:** 4/4 PASS, vitest duration 3.06s, shell wall-clock 6.21s.
 - **`code_intel_references` on `int foo(int x)` (foo.cpp:1:5) with `warmupFiles:['src/bar.cpp','src/foo.h']`:**
@@ -134,7 +134,7 @@ node scripts/import-code-intel.mjs /path/to/cpp collection.json
 
 ## Coordination model (the loop)
 
-Steven taught us mid-project: every reply ends with a `comms_send` request to the other agent. Their reply wakes our run. That kept graph-tech-lead (Windows/Claude) and graph-senior-dev (Ubuntu/Codex) building together across multiple plans without going idle. The pattern caught:
+Steven taught us mid-project: every reply ends with a `comms_send` request to the other agent. Their reply wakes our run. That kept this project (Windows/Claude) and the reviewer (Ubuntu/Codex) building together across multiple plans without going idle. The pattern caught:
 
 - The Windows/WSL native-module flip (Plan #7 inception).
 - The `db.prepare is not a function` bug in `code_intel_replay` (Plan #8 dev cycle).

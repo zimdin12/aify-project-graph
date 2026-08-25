@@ -8,7 +8,7 @@ import { missScopeNote, emptyTypesAmong } from '../miss-scope.js';
 export const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Variable', 'Test', 'Route', 'Entrypoint'];
 
 export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false }) {
-  // ⛔ `limit: 0` ANSWERED A REAL SYMBOL WITH A MISS. graph-senior-dev executed it: the schema
+  // ⛔ `limit: 0` ANSWERED A REAL SYMBOL WITH A MISS. the reviewer executed it: the schema
   // accepts any integer, `LIMIT 0` returns no rows, and the population — which by design rides
   // ON the rows so that it cannot come from a second WAL snapshot — has nothing to ride on, so
   // the count falls to 0 and the not-found branch runs. A negative limit is treated by SQLite
@@ -59,7 +59,7 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
     const basis = `nodes in this graph whose exact label is "${symbol}", among declaration types`;
     const populationLine = (shown, mode) => {
       if (population === 0) return '';
-      // ⛔ THE SAME GLYPH, TWO DIFFERENT NUMERATORS, AND NO WAY OUT. ef-manager: compact's "2 of
+      // ⛔ THE SAME GLYPH, TWO DIFFERENT NUMERATORS, AND NO WAY OUT. the field test: compact's "2 of
       // 5" counts rows LISTED, expand's "1 of 5" counts rows DETAILED — and the capped route's
       // remedy ("re-run with limit=N") changes nothing here, because all N rows were already
       // fetched and there is no call that expands match 2.
@@ -68,7 +68,7 @@ export async function graphWhereis({ repoRoot, symbol, limit = 5, expand = false
       // call the reader can actually make. What does not: their edges are unreachable. Naming
       // only the first half would be the "advice not conditioned on whether it applies" defect
       // again — the remedy is real for locations and absent for edges, and the sentence has to
-      // say which. ef-manager's test for whether this is a remedy rather than a restatement:
+      // say which. the field test's test for whether this is a remedy rather than a restatement:
       // does following it leave the reader knowing something they did not know? It does.
       //
       // ⚠ NOT building an `index` parameter to expand match 2. Nobody has asked for it,
@@ -97,11 +97,11 @@ ${shown} of ${population} — ${basis}. Nothing was truncated.`;
       // Suggest, do not redirect. This path was missed when did-you-mean landed on
       // callers/callees/impact/change_plan — and graph_whereis is the verb a field
       // user actually reached for, so the fix covered four verbs nobody hit and
-      // skipped the one they did (ef-manager, 2026-07-31). Same "the fix reached
+      // skipped the one they did (the field test, 2026-07-31). Same "the fix reached
       // one path" shape this codebase keeps producing; the lesson is to enumerate
       // every emitter of a message rather than the ones that come to mind.
       // ⛔ "NO MATCH" FOR A FILE THAT IS INDEXED IS A FALSE STATEMENT ABOUT THE REPOSITORY.
-      // ef-manager, in the field: graph_whereis on a real path said NO MATCH while graph_packet
+      // the field test, in the field: graph_whereis on a real path said NO MATCH while graph_packet
       // resolved the same node. Two verbs, one node, opposite answers on existence.
       //
       // ★ Declining is CORRECT — this verb answers "where is this SYMBOL defined", matching on
@@ -114,7 +114,7 @@ ${shown} of ${population} — ${basis}. Nothing was truncated.`;
       // the thing exists as a file and, if so, says which question it answered instead.
       // ⛔ AND THIS PROBE THEN UNDER-ENUMERATED, three lines under the comment about
       // under-enumerating. It listed `File` and `Directory`. This graph also holds 69
-      // `Document` and 54 `Config` nodes — 123 indexed files on disk — and ef-manager found
+      // `Document` and 54 `Config` nodes — 123 indexed files on disk — and the field test found
       // every one of them still answering NO MATCH, reproduced on a second repo in another
       // language. A hand-written type list is a rule, and a rule fails silently the next time
       // someone adds a node type.
@@ -159,7 +159,7 @@ ${shown} of ${population} — ${basis}. Nothing was truncated.`;
       // search that no longer happens.
       // ⛔ THE TOP LINE SENT THE READER TO A VERB THAT CANNOT ANSWER THE CASE JUST DIAGNOSED.
       // When an empty declaration type explains the miss, graph_search is guaranteed to fail —
-      // it queries the same node table. ef-manager executed exactly that on echoes: the
+      // it queries the same node table. the field test executed exactly that on echoes: the
       // constant exists at CylindricalPosition.h:102, and the suggested search returned NO
       // RESULTS. The correct next step is the source file, and it has to be the FIRST thing
       // said, because the top line is the one that gets followed.

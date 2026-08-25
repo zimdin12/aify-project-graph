@@ -4,7 +4,7 @@
   "repo": "echoes_of_the_fallen",
   "graded_at_commit": "d3e4add",
   "note": "Run against a COPY of the echoes graph; that repo was never written to. The two vec3 FPs were killed by df775b7 → shaped 90/91, confirmed by set-diff (2 removed, 0 added).",
-  "graded_by": "ef-manager",
+  "graded_by": "the field test",
   "graded_at": "2026-08-20",
   "method": "FULL POPULATION, graded from the document prose rather than from the resolved edge. Not sampled.",
   "population": 105,

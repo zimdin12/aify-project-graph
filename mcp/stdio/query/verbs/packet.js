@@ -12,7 +12,7 @@
 // is skipped or times out — overlay-first value is the milestone.
 
 import {
-  // ⚠ MINIMIZED, not allowlisted. graph-senior-dev on the first attempt: I pinned all 31
+  // ⚠ MINIMIZED, not allowlisted. the reviewer on the first attempt: I pinned all 31
   // accidental exports instead of reducing them — "otherwise 'export every moved helper, then
   // allowlist it' becomes the Phase-0 pattern." Measured by AST: the facade referenced 15 of the
   // 31; the other 16 were imports it never read, which preserve behaviour while obscuring
@@ -23,7 +23,7 @@ import {
 } from './packet-input.js';
 import { buildFeaturePacket, buildTaskPacket } from './packet-overlay.js';
 
-// ⚠ COMPATIBILITY RE-EXPORT, per graph-senior-dev: "keep compatibility re-exports from
+// ⚠ COMPATIBILITY RE-EXPORT, per the reviewer: "keep compatibility re-exports from
 // packet.js where existing callers import them." `resolvePacketBudget` was part of this
 // module's public surface before slice 1 and four tests import it from here. Moving a
 // declaration is a mechanical change; moving its PUBLIC NAME is an API change, and slice 1
@@ -140,7 +140,7 @@ export {
 // NINE definitions. The tests did not merely miss the deletion — the fallback absorbed it and
 // manufactured a confident wrong number in its place.
 //
-// graph-senior-dev-hermes's ruling, which this implements: fail closed. `symHits.length` is a
+// review, hermes session's ruling, which this implements: fail closed. `symHits.length` is a
 // display count, not a population authority. A total is usable ONLY when producer-attested and
 // internally consistent; anything else is `unknown`, and a boolean cannot mint a count.
 //
@@ -149,7 +149,7 @@ export {
 // once already: I fixed the no-feature branch and the feature branch kept the bug for a day.
 // ★★ ONE RENDERER FOR CANDIDATE/DEFINITION LISTS, CONSUMED BY EVERY BRANCH.
 //
-// ef-manager, after the third per-branch fix: "I would stop patching branches. Three fixes to
+// the field test, after the third per-branch fix: "I would stop patching branches. Three fixes to
 // three branches of one verb, and comparing the two survivors immediately surfaced a fourth
 // divergence." They were right, and the fourth was real — both branches printed the
 // CROSS-LANGUAGE DUPLICATE finding, only ONE carried the FLOOR caveat, on the same verb, same
@@ -164,7 +164,7 @@ export {
 // correction. The CONDITION (a cross-language duplicate) is language-generic; naming
 // `R"(...)"` is C++/GLSL-specific and would be noise on a Python/TypeScript duplicate. The
 // general claim is what always holds; the example appears only where it applies.
-// ⛔ THE ROUTE INVENTORY COULD NOT SEE A FIFTH ROUTE, AND graph-senior-dev-hermes PROVED IT
+// ⛔ THE ROUTE INVENTORY COULD NOT SEE A FIFTH ROUTE, AND review, hermes session PROVED IT
 // BY WRITING ONE. They inserted a branch inside graphPacket returning a bare
 // `CANDIDATES:\n- src/hidden.cpp:1` — a real reader-facing list that never touches the
 // renderer — and packet-route-inventory.test.js still passed 2/2.
@@ -218,7 +218,7 @@ export { resolvePopulation };
 function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAvailable = false }) {
   const lines = [];
   // ⛔ THE LAST LINE USED TO BE UNCONDITIONAL, AND IT WAS WRONG TWICE OVER ON A JS REPO.
-  // ef-manager, in the field: on a file-path target it emitted
+  // the field test, in the field: on a file-path target it emitted
   //   NEXT: code_intel_hierarchy(symbol="mcp/stdio/query/verbs/packet.js", kind="callers")
   //         — clangd call/override tree
   // A C++ verb recommended for JavaScript, AND a file path in a parameter named `symbol`.
@@ -249,7 +249,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     ...(looksLikePath || !codeIntelAvailable
       ? []
       : [`NEXT: code_intel_hierarchy(symbol="${symbol}", kind="callers") — compiler-backed call/override tree`]),
-  // ⚠ ef-manager, 2026-08-19: "names a listed verb" and "adds information" are DIFFERENT
+  // ⚠ the field test, 2026-08-19: "names a listed verb" and "adds information" are DIFFERENT
   // assertions, and only the first was tested. My own correction produced a duplicate NEXT —
   // I repointed a slot at graph_pull when graph_pull was already the first line — which reads
   // as a bug in the tool and burns the slot. Deduping at the point of emission makes the state
@@ -269,7 +269,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     lines.push(snapshot);
     // ★ THIS LIST IS TRUNCATED AND UNRANKED — SAY BOTH.
     //
-    // Field report (ef-manager, echoes_of_the_fallen, 2026-08-09). `GpuMaterial`
+    // Field report (the field test, echoes_of_the_fallen, 2026-08-09). `GpuMaterial`
     // has 16 hits: ONE authoritative C++ declaration and 15 GLSL mirrors. This
     // slice showed five shader copies and dropped the C++ declaration entirely,
     // while graph_whereis ranked the C++ one first. An agent trusting this list
@@ -298,14 +298,14 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     // branch rendered "(3 matches)" on a repo with nine definitions — the cap reported as
     // the total, with no disclosure that anything had been dropped.
     //
-    // That is the same defect ef-manager found in symbol_lookup's candidate list, one
+    // That is the same defect the field test found in symbol_lookup's candidate list, one
     // layer up: a capped list whose consumer could not tell it had been capped. The old
     // test here asserted the template's spelling and could never have seen the number in
     // it was wrong.
     const pop = resolvePopulation(consequences.matched?.symbols_total, symHits.length);
     // ⛔ DEFINED IN USED TO BE A "BOUNDED" LIST — a kind that by definition states no
     // population — while the population was disclosed on SEPARATE LINES pushed after it.
-    // graph-senior-dev, reading the output with no knowledge of the design, could not tell
+    // the reviewer, reading the output with no knowledge of the design, could not tell
     // whether one row meant one definition, a sample, or a floor. I had flagged the same seam
     // from the design side. Two independent routes to the same conclusion.
     //
@@ -372,7 +372,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     lines.push(`${looksLikePath ? 'FILE' : 'SYMBOL'}: ${symbol}`);
     // ★ "NO FEATURE MAPPING" WAS NEVER ESTABLISHED ON THIS PATH.
     //
-    // Found by ef-manager (2026-08-09) while reviewing the timeout fix, and it is
+    // Found in field testing (2026-08-09) while reviewing the timeout fix, and it is
     // the SAME defect 148 lines earlier — an unestablished negative rendered as a
     // fact about the code.
     //
@@ -395,7 +395,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     lines.push('  established that the symbol maps to no feature. Do not read it as unmapped.');
     lines.push(snapshot);
     // ⛔ THE THIRD ROUTE. This branch kept the candidate rows and DROPPED the population that
-    // was sitting in the same string. ef-manager, on real C++ with no overlay: `GpuMaterial`
+    // was sitting in the same string. the field test, on real C++ with no overlay: `GpuMaterial`
     // printed five candidates with no count, no truncation marker and no cross-language
     // finding, while `graph_consequences` — the source of this very text — printed
     // "16 concrete candidates found", "SHOWING 5 OF 16 — 11 omitted" and the DUPLICATE finding
@@ -416,7 +416,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     const statedTotal = Number(trimmed.match(/(\d+)\s+concrete candidates/)?.[1] ?? NaN);
     // ⛔ A POPULATION CAN ITSELF BE CAPPED, AND "of N" SAYS IT WAS NOT.
     //
-    // ef-manager built the case both of us had recorded as untested — 60 headers each defining
+    // the field test built the case both of us had recorded as untested — 60 headers each defining
     // the same struct, above the 50-row retrieval cap. `graph_consequences` got it exactly
     // right: "AT LEAST 50 concrete candidates, identified from 50 of 60 matching rows — the
     // full ambiguity population is NOT established (retrieval was capped before grouping)".
@@ -431,7 +431,7 @@ function buildSymbolPointerPacket({ symbol, consequences, snapshot, codeIntelAva
     // Not UNKNOWN (50 is real and useful), not `of N` (50 is not the total). Rendering it as
     // `of N` is the only wrong choice available.
     //
-    // ⇒ ef-manager's structural point, which the shared renderer does NOT address: a renderer
+    // ⇒ the field test's structural point, which the shared renderer does NOT address: a renderer
     // handed the bare integer 50 will faithfully print "of 50" in every branch at once, and the
     // parity arm passes with both routes agreeing on the same wrong word. The exactness must
     // travel WITH the value, not be re-derived at each call site.
@@ -573,7 +573,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       if (raw && raw.__timeout) {
         // ★ A TIMEOUT IS NOT AN ABSENCE.
         //
-        // Root-caused 2026-08-09 from ef-manager: graph_packet("SimCoordinator")
+        // Root-caused 2026-08-09 from the field test: graph_packet("SimCoordinator")
         // on echoes returned ERROR: not found as feature, task, or symbol — while
         // graph_consequences on the SAME symbol, overlay and process resolved it
         // to TWO features. Measured: consequences takes 601ms on a 3958-node repo
@@ -584,7 +584,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
         // as a fact about the code — the exact substitution this whole project
         // exists to remove, sitting in the flagship orientation verb.
         //
-        // It also explains the count inversion ef-manager measured: a UNIQUE match
+        // It also explains the count inversion the field test measured: a UNIQUE match
         // runs the full computation and blows the budget, while AMBIGUOUS matches
         // return early and cheap. Not inverted on count — inverted on COST. The
         // cleanest input takes the most expensive path.
@@ -666,7 +666,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
     // OVERLAY. A bare unresolved token has no kind, so it was classed as overlay-routed and got
     // "OVERLAY NOT BUILT" — byte-identical for `renderPacket` (a misspelling of a symbol that
     // exists) and `ZZZ_definitely_not_a_symbol_12345`. The remedy offered was real; it was just
-    // not the reader's problem. Found in the first field test of this code (ef-manager).
+    // not the reader's problem. Found in the first field test of this code (the field test).
     //
     // ★ The comment that used to sit here said "bare symbol targets that genuinely resolve
     // never reach here". True — and the ones that do NOT resolve reach here, which is the
@@ -712,7 +712,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
     //
     // ★ AND CARRY THE SYMBOL'S OWN LOCATION WITH IT.
     //
-    // Field report (sc-manager / sc-coder, Sand Castle, 2026-08-09), from a real
+    // Field report (the field fleet / sc-coder, Sand Castle, 2026-08-09), from a real
     // 223-member census in a 50k-line header set: asking for a symbol returned
     // the broad owning feature and OMITTED the file that declares it.
     // graph_whereis found it instantly at game/UnifiedFluidRuntime.h:378.
@@ -740,7 +740,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       //
       // The no-feature path got `symbols_total` and a "showing n of m" line. This branch
       // has its OWN cap and got nothing — so on the case that actually matters it stayed
-      // broken. ef-manager, testing the fix on real echoes: `GpuMaterial` has SIXTEEN
+      // broken. the field test, testing the fix on real echoes: `GpuMaterial` has SIXTEEN
       // definitions and the packet listed three, with no count and no marker of any kind.
       // Their words, and they are the point: a wrong number is at least a number a reader
       // can doubt; a silently complete-looking list of 3 offers nothing to doubt.
@@ -768,7 +768,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
       if (sampled && byLang.length) {
         // Repo-size-independent in a way the sample can never be: two lines say "1 C++
         // header and 15 shader mirrors" whatever the cap happens to be.
-        // ⛔ "ALL" WAS A COMPLETENESS CLAIM THE EXTRACTOR CANNOT SUPPORT. ef-manager, on real
+        // ⛔ "ALL" WAS A COMPLETENESS CLAIM THE EXTRACTOR CANNOT SUPPORT. the field test, on real
         // C++: `LodChunkInstance` reported `ALL 4 BY LANGUAGE` and the true mirror count is 5.
         // The fifth is GLSL embedded in a C++ RAW STRING LITERAL —
         //   static const char* flatQuadVertSrc = R"( #version 450 struct LodChunkInstance {…} )"
@@ -793,13 +793,13 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
         // silence. Same sentence, same data, no new analysis required.
         // ⚠ The floor caveat rides HERE rather than on every packet, because this is the exact
         // condition where an unparsed mirror matters: a shader struct duplicated across
-        // languages is the thing that drifts. ef-manager's rule — a disclosure that fires
+        // languages is the thing that drifts. the field test's rule — a disclosure that fires
         // conditionally carries information by appearing at all; one that fires always is
         // wallpaper and readers stop seeing it.
       }
       // ⇒ BOTH branches now assemble their disclosures from renderCandidateDisclosures, which
       // is why the FLOOR caveat can no longer exist on one and not the other — the divergence
-      // ef-manager found by comparing the two survivors of the previous round.
+      // the field test found by comparing the two survivors of the previous round.
       // Still offered when completeness is UNKNOWN — that case needs the remedy more, not less.
       // ⚠ No `limit=` here and no "unsampled": with no population there is no number to pass,
       // and promising an unsampled result from a verb that caps at 5 is the false promise this

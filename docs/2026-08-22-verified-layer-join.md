@@ -9,7 +9,7 @@
 
 
 Measured 2026-08-22, after code-intel collection took `LSP_VERIFIED` call edges from 19 to 3,008.
-Found because `ef-manager` field-tested the change on a symbol whose truth they had established
+Found because `the field test` field-tested the change on a symbol whose truth they had established
 **by hand** that morning.
 
 ## The case that exposed it
@@ -64,7 +64,7 @@ right fix is joining them, resolving the verb through records, or something else
 by this measurement**, and I have not investigated it.
 
 ⚠ **And the −6% is unexplained.** A reindex after collection took verified edges 3,008 → 2,820 while
-the 182,594 underlying records stayed intact. `ef-manager` confirms 2,820 persists. Neither of us
+the 182,594 underlying records stayed intact. `the field test` confirms 2,820 persists. Neither of us
 has chased it.
 
 ---
@@ -93,7 +93,7 @@ person to fix code that is working.
 
 ## ⛔ 2. THE CONSUMER-SIDE MEASUREMENT — 0 of 27
 
-`ef-manager`'s proposal, and the right instrument: a table-side ratio can be true while every answer
+`the field test`'s proposal, and the right instrument: a table-side ratio can be true while every answer
 an agent actually receives is unchanged. Deterministic sample — every 47th of 1,908 distinct
 declaration labels, no randomness, replayable:
 
@@ -114,7 +114,7 @@ against six declarations that *do* carry verified inbound edges fires **6 of 6**
 `graph_callers` answers for a randomly chosen declaration. The correction I owed — "19 → 3,008 is
 true, the implication that caller answers improved is not" — is understated rather than overstated.
 
-⚠ **`ef-manager` reproduced the table-side numbers exactly and explicitly refused to be cited as
+⚠ **`the field test` reproduced the table-side numbers exactly and explicitly refused to be cited as
 corroboration**, on the rule they have been applying to me all week: *two reads of one source are
 one instrument read twice; independence is a different substrate, never a second reader.* They read
 the same `graph.sqlite` with different queries. That confirms the arithmetic, **not the finding**.
@@ -128,13 +128,13 @@ compiler-resolved identity that extraction cannot express. This measurement does
 
 # RETRACTION — "0 of 27" WAS AN INVALID RUN. THE FIGURE IS 2 OF 30, AND IT ESTABLISHES NOTHING.
 
-`ef-manager` replayed the consumer-side measurement and got **2 of 30 (6.7%)**, not my 0 of 27. I
+`the field test` replayed the consumer-side measurement and got **2 of 30 (6.7%)**, not my 0 of 27. I
 re-ran mine with the positive control **interleaved into the same pass** and reproduced theirs
 exactly: 41 sampled, 30 answered, **2 verified (`arm`, `rowProblem`)**, in-pass control 6 of 6.
 
 My original run landed in a REBUILD WINDOW. Both `arm` and `rowProblem` were in my sample — at
 indices 2 and 32 — and I reported neither. My positive control ran *afterwards, separately*, so it
-passed while the sample it was supposed to vouch for had been silently depressed. `ef-manager` hit
+passed while the sample it was supposed to vouch for had been silently depressed. `the field test` hit
 the identical transient twice today and caught it **only because their control ran inline**.
 
 => **A control that does not run in the same pass as the measurement does not vouch for it.**
@@ -146,7 +146,7 @@ the identical transient twice today and caught it **only because their control r
     table-side figure              8.4%
 
 **Both intervals contain 8.4%.** n=30 cannot distinguish "the consumer sees nothing" from "the
-consumer sees the table-side rate". ef-manager: *a point estimate of 0.0% from 27 trials is the most
+consumer sees the table-side rate". the field test: *a point estimate of 0.0% from 27 trials is the most
 quotable number in this whole thread and the least supported.*
 
 => **RETRACTED:** "what a caller actually receives is 0 of 27" and "my correction was UNDERSTATED".
@@ -159,7 +159,7 @@ unsupported** - consumer-side ~6.7%, table-side 8.4%, and no sample here separat
 single digits. The reachability lesson stands on the *table-side* 8.4% and the 99.5% non-overlap,
 neither of which is in dispute.
 
-ef-manager's point that a near-empty overlap should produce a LOW rate rather than a ZERO one was the
+the field test's point that a near-empty overlap should produce a LOW rate rather than a ZERO one was the
 tell, and it was right: the overlap is 6 nodes, not 0.
 
 ## MY PROPOSED SECOND-SUBSTRATE TEST WAS TAUTOLOGICAL
@@ -178,7 +178,7 @@ control in the same pass.**
 
 # CORRECTION 3 — MY CONSUMER LIST WAS TOO SMALL, AND THE COLLECTION DOES REACH AGENTS
 
-I wrote "only `code_intel_replay`, `collect_code_intel` and `health` read that table". `ef-manager`
+I wrote "only `code_intel_replay`, `collect_code_intel` and `health` read that table". `the field test`
 swept it: the ones I missed are reached **transitively** through `mcp/stdio/code-intel/query.js`,
 and they are agent-facing verbs.
 
@@ -206,7 +206,7 @@ difference between a rule and a reflex.
 
 ## ⇒ THE LEAD FOR THE `graph_callers` GAP, WHICH I HAD REFUSED TO GUESS AT
 
-`ef-manager` answered the review question I have now cited twice and failed twice — *is there a
+`the field test` answered the review question I have now cited twice and failed twice — *is there a
 correct implementation of this in the codebase already?*
 
     export function getCodeIntelEvidenceForSymbol(db, { qname, symbolId } = {})
@@ -222,7 +222,7 @@ remedy should start, rather than at a new join between node tables.
 
 # CORRECTION 4 — THE GAP IS EDGE DERIVATION, AND MY 10-OF-10 MEASURED THE PIPE
 
-`ef-manager` looked at *which qnames* my 10-of-10 sampled: `repoRoot`, `db`, `source`, `filePath`,
+`the field test` looked at *which qnames* my 10-of-10 sampled: `repoRoot`, `db`, `source`, `filePath`,
 `config`, `repo`, `id`, `r`, `out`, `symbol`. **Local variables and parameters.** "The 200 richest
 qnames" selects for **ubiquity**, and the most ubiquitous identifiers in JavaScript are parameter
 names — **158 of that top 200 (79%) match no declaration at all**.
@@ -259,7 +259,7 @@ to become CALLS edges. Restricting to **reference** records preserves the gap: l
 - `graph_callers` reads **edges** → sees ~5%. `graph_pull`'s `code_intel` layer reads **records** →
   sees ~98%.
 
-⇒ **`ef-manager`'s lead lands exactly here:** `getCodeIntelEvidenceForSymbol` is symbol-keyed and
+⇒ **`the field test`'s lead lands exactly here:** `getCodeIntelEvidenceForSymbol` is symbol-keyed and
 reads the **rich** store; `graph_callers` reads the **lossy** one. That is the sentence the whole
 investigation was reaching for.
 

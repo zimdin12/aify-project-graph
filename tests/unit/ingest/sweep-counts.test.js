@@ -4,7 +4,7 @@
 // Document (or this `.json` not a Config, or this file not anything), and dropped the decision on
 // the floor: four bare `continue`s and a `return { nodes, edges }` with nowhere to record them.
 //
-// ef-manager measured the Document hole from OUTSIDE, with `git ls-files` — 52.7% of this repo's
+// the field test measured the Document hole from OUTSIDE, with `git ls-files` — 52.7% of this repo's
 // markdown is not a node, against 1.4% on sand_castle — because there was no number inside to
 // read. Their generalisation is the reason this test exists rather than a doc-specific one: if
 // Route, Schema, Config or Entrypoint are under-admitting the same way, no figure would show it
@@ -80,7 +80,7 @@ describe('the sweep publishes what it declined, not only what it admitted', () =
     // ⛔ NAMED RATHER THAN COUNTED, because a count of 5 is satisfied by any five files and these
     // two are the ones the defect was about. `install.claude.md` is the sharpest instance: the
     // allowlist CONTAINED `claude` and refused the file anyway, because `nameNoExt` stripped only
-    // the last extension and produced "install.claude". ef-manager found the same parsing accident
+    // the last extension and produced "install.claude". the field test found the same parsing accident
     // on echoes, where `AGENTS.md` is admitted and `AGENTS.MANAGER.md` is not.
     await fixture();
     const { nodes } = await sweepFilesystem({ repoRoot: repo, gitCandidates: null });
@@ -106,7 +106,7 @@ describe('the sweep publishes what it declined, not only what it admitted', () =
   }, 30_000);
 
   it('★★★ the size cap is counted even though it is not currently firing anywhere', async () => {
-    // ef-manager checked: 0 files over 500KB across APG, echoes and sand_castle, largest markdown
+    // the field test checked: 0 files over 500KB across APG, echoes and sand_castle, largest markdown
     // 181,537 B. Counted anyway because the cap sits UPSTREAM of every classifier — a file
     // dropped there is invisible even to a fix that counts classifier rejections, and
     // sand_castle's largest document is within 3x of it.
@@ -214,7 +214,7 @@ describe('a directory is a node because it CONTAINS something', () => {
     // graph holds 4,390 non-Directory nodes, because plain source files are declined by the sweep
     // (`not_a_special_kind`) and their File/Function nodes come from the language extractors.
     //
-    // ef-manager could not reconcile 222 against any population they could name, and said so rather
+    // the field test could not reconcile 222 against any population they could name, and said so rather
     // than assuming it was wrong. They were right: the FIELD was correct and the NOUN was too broad,
     // which is the defect this repo has spent the night on in every other layer. The repo-wide
     // support for the same conclusion is 4945 - 4601 = 344 nodes removed against 357 Directory nodes

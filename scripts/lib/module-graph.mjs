@@ -1,6 +1,6 @@
 // MODULE EDGES BY AST, NOT BY SPELLING.
 //
-// ⛔ graph-senior-dev executed this against slice 1: my cycle gate matched
+// ⛔ the reviewer executed this against slice 1: my cycle gate matched
 //     /from\s+'\.\/packet\.js'/
 // so a single-quoted import turned it red, and this equally real cycle passed all seven
 // boundary tests:
@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 
 
-// ⛔ ONE RECURSIVE BINDING WALKER, because graph-senior-dev executed the shapes the first AST
+// ⛔ ONE RECURSIVE BINDING WALKER, because the reviewer executed the shapes the first AST
 // version still missed — one level deeper than the line regex it replaced:
 //     topLevelDeclarations('export const { a: { b } } = x;')  => []
 //     topLevelDeclarations('export const [a, { b }] = x;')    => ['a']   (lost `b`)

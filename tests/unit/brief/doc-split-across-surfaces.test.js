@@ -1,7 +1,7 @@
 // ⛔ "ALL FOUR SURFACES" WAS A CLAIM WITH NO EXECUTABLE DENOMINATOR.
 //
 // 310fc64 split document entries out of READ FIRST on the markdown brief, two compact renderings
-// and the JSON payload. graph-senior-dev approved the change and then said the quiet part: source
+// and the JSON payload. the reviewer approved the change and then said the quiet part: source
 // inspection showed it right, and there was ONE markdown-only regression test. A claim about four
 // surfaces verified on one is a claim about one.
 //
@@ -139,7 +139,7 @@ describe('the document/source split holds on every public surface', () => {
 
 // ⛔ THE TYPED STATE SHIPPED ON ONE SURFACE OF FOUR AND NAMED CAUSES IT COULD NOT ESTABLISH.
 //
-// graph-senior-dev ran the same `documentCount: 0` input through every renderer:
+// the reviewer ran the same `documentCount: 0` input through every renderer:
 //
 //     full markdown  state emitted        agent brief   SILENT
 //     onboard brief  SILENT               JSON          SILENT (no count, no state)
@@ -149,7 +149,7 @@ describe('the document/source split holds on every public surface', () => {
 //
 // ⛔⛔ AND THE WORDING CONTRADICTED ITSELF: it said "not a statement about the repository" and then
 // called zero Document nodes an INGESTION gap and prescribed re-indexing. A document-free repo
-// produces the identical input. ef-manager's field evidence made it worse — in the motivating repo
+// produces the identical input. the field test's field evidence made it worse — in the motivating repo
 // the three root documents PASS the historical predicate, so "re-index and it is fixed" was never
 // established there either.
 //
@@ -237,7 +237,7 @@ describe('the document-evidence state is typed, cross-surface and cause-neutral'
   });
 });
 
-// ⛔ TWO CONTRACT ATTACKS graph-senior-dev EXECUTED AGAINST 2de7fc4, kept as witnesses.
+// ⛔ TWO CONTRACT ATTACKS the reviewer EXECUTED AGAINST 2de7fc4, kept as witnesses.
 describe('the typed state carries a population, not a rendered sample', () => {
   it('★★★ JSON reports the candidate TOTAL, not the two that were rendered', () => {
     // ⛔ `linked_candidate_count` was `readFirstArr.filter(kind==="doc").length`, and `readFirst`
@@ -302,7 +302,7 @@ describe('the typed state carries a population, not a rendered sample', () => {
 
 // ⛔ THE POSITIONAL FALLBACK TRAVELLED AS LINK EVIDENCE, and the artifact contradicted itself.
 //
-// graph-senior-dev built a graph with two root Documents and zero edges. One artifact then said
+// the reviewer built a graph with two root Documents and zero edges. One artifact then said
 // 0 linked candidates, 2 SHOWN candidates, and "Ranked by link prominence" — beside two entries
 // whose own `why` read "position, not evidence". Three mutually exclusive statements in one section.
 //
@@ -401,7 +401,7 @@ describe('malformed and contradictory totals fail closed', () => {
 // ⛔ THE WEAKER AUTHORITY WAS ERASING THE STRONGER ONE.
 //
 // Positional rows used to be pushed into `readFirst`'s accumulator and its `seen` dedupe BEFORE
-// exports and source rows. graph-senior-dev executed the overlap: one root `AGENTS.md` with no
+// exports and source rows. the reviewer executed the overlap: one root `AGENTS.md` with no
 // links, plus an export-backed source fact for the SAME path. The positional row claimed `seen`
 // first and the export fact was silently discarded — and the renderer's later re-split by kind
 // could not recover it, because the row no longer existed.
@@ -438,7 +438,7 @@ describe('positional custody is separate from the source accumulator', () => {
 // ⛔ THE FIRST CODEC FIX COVERED THE SITE THE WITNESS NAMED, NOT THE CLASS.
 //
 // A malformed CANDIDATE total got a JSON-safe diagnostic. The malformed INDEXED count did not, and
-// it crosses the same serializer. graph-senior-dev executed the wire artifact:
+// it crosses the same serializer. the reviewer executed the wire artifact:
 //
 //     NaN      -> indexed_document_count: null    indistinguishable from ABSENT
 //     Infinity -> indexed_document_count: null    same

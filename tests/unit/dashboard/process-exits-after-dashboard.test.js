@@ -2,7 +2,7 @@
 //
 // I found that graphDashboard filed {db, server} in a write-only registry, added
 // stopAllDashboards(), wrote a test asserting the registry drains, and called it fixed.
-// graph-senior-dev-hermes then ran the only probe that could see the truth: boot the real
+// review, hermes session then ran the only probe that could see the truth: boot the real
 // server, call graph_dashboard (succeeds, real URL), CLOSE STDIN, wait 5 seconds.
 //
 //   ⇒ THE PROCESS DID NOT EXIT. They had to kill it.

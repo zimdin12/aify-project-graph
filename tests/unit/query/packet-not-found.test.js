@@ -1,6 +1,6 @@
 // A TYPO MUST NOT BE REPORTED AS "OVERLAY NOT BUILT".
 //
-// ⛔ FIELD REPORT (ef-manager, f556625). On a repo with no overlay:
+// ⛔ FIELD REPORT (the field test, f556625). On a repo with no overlay:
 //     graph_packet({target: "renderPacket"})                    ← typo for renderPacketLines
 //     graph_packet({target: "ZZZ_definitely_not_a_symbol_12345"})
 // returned BYTE-IDENTICAL output: "OVERLAY NOT BUILT … run /graph-build-functionality".
@@ -70,7 +70,7 @@ describe('an unresolvable target on an overlay-less repo', () => {
   }, 20_000);
 
   it('★★ the correctly spelled symbol still returns a packet — the control', async () => {
-    // ef-manager's control. Without this the tests above pass on a tool that fails everything.
+    // the field test's control. Without this the tests above pass on a tool that fails everything.
     repoRoot = await noOverlayRepo();
     const text = asText(await graphPacket({ repoRoot, target: 'renderPacketLines' }));
     expect(text, 'a resolving symbol must not hit the not-found path').not.toMatch(/not found/i);
@@ -87,7 +87,7 @@ describe('an unresolvable target on an overlay-less repo', () => {
 
 // ── the compiler-backed recommendation is CONDITIONAL, both ways ─────────────────────────
 //
-// ef-manager confirmed in the field that `NEXT: code_intel_hierarchy(...)` was emitted
+// the field test confirmed in the field that `NEXT: code_intel_hierarchy(...)` was emitted
 // unconditionally: for JavaScript symbols, for FILE PATHS in a parameter named `symbol`, and on
 // repos with no code-intel collection at all. Advice not conditioned on whether it applies costs
 // the reader a call to discover it was never for them.

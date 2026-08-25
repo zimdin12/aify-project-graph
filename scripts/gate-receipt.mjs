@@ -191,7 +191,7 @@ function main() {
   // ⛔ THE POSTCONDITION, MACHINE-ENFORCED. A candidate receipt binds tree T; only `HEAD^{tree} === T`
   // promotes that result to the commit. I had been asserting that equality in shell and reporting it
   // in prose -- which is precisely the "a human must remember to check" shape this whole transport
-  // exists to remove. graph-senior-dev: "the gate tool itself neither commits nor enforces the
+  // exists to remove. the reviewer: "the gate tool itself neither commits nor enforces the
   // post-commit equality."
   // ⛔⛔ THE WRAPPER, because the human step is where I failed. I ran the candidate gate, it
   // returned REFUSE, and I committed anyway -- my shell block called `git commit` unconditionally

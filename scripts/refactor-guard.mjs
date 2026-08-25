@@ -28,7 +28,7 @@ import { carrierMovement } from './lib/carrier.mjs';
 import { guardVerdict, baselineVerdict, VERDICT, REFUSAL } from './lib/guard-verdict.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-// ⛔ THE BASELINE LIVED UNDER .aify-graph AND REINDEXING DELETED IT. graph-senior-dev hit that
+// ⛔ THE BASELINE LIVED UNDER .aify-graph AND REINDEXING DELETED IT. the reviewer hit that
 // during review: "running focused tests/reindex removed refactor-guard-baseline.json, proving
 // the evidence cannot be rerun after the fact." Evidence stored inside the thing that
 // regenerates is not evidence.
@@ -66,7 +66,7 @@ function carrier() {
 //
 // Explicit, not sampled. A sampled corpus makes a pass mean "the parts I happened to draw did
 // not change", which is a claim about the draw rather than about the code.
-// ⛔ 55/55 WAS A DENOMINATOR OVER INPUTS, NOT OVER THE MOVED ROUTES. graph-senior-dev made
+// ⛔ 55/55 WAS A DENOMINATOR OVER INPUTS, NOT OVER THE MOVED ROUTES. the reviewer made
 // `buildFeaturePacket` emit a marker string and the guard STILL reported 55 of 55 unchanged —
 // because this checkout has no functionality/tasks overlay, so no corpus cell ever reached the
 // moved feature or task builder. A false green on the core proof of the slice.
@@ -257,7 +257,7 @@ async function runCorpus() {
 // change constantly, so the baseline decays as the work proceeds. A guard whose reference drifts
 // under the work it is guarding will cry wolf until someone disables it.
 //
-// ⚠ graph-senior-dev named this class before I hit it: "do not normalize elapsed_ms, HEAD, dirt
+// ⚠ the reviewer named this class before I hit it: "do not normalize elapsed_ms, HEAD, dirt
 // or timestamps generically — a regex scrub is another way to erase a real drift." So this does
 // NOT scrub. It excludes ONE named line, records that it excluded it, and gives that line its
 // own shape invariant. The exclusion is visible in the artifact rather than silent in a regex.
@@ -389,7 +389,7 @@ async function main() {
   // this said "your code changed behaviour" about code that did not exist yet in any changed form.
   // It is the failure mode this whole script exists to prevent, inside the script itself.
   //
-  // ⇒ THE FIX IS THE REVIEW-LEASE PROTOCOL APPLIED TO AN INSTRUMENT. graph-senior-dev binds a
+  // ⇒ THE FIX IS THE REVIEW-LEASE PROTOCOL APPLIED TO AN INSTRUMENT. the reviewer binds a
   // receipt by recording HEAD and status before a run, re-reading both after, and binding only if
   // the identity matched at BOTH ends. A single sample cannot detect movement during the window it
   // is supposed to certify — the second read is what makes the first one evidence.
@@ -404,7 +404,7 @@ async function main() {
     // ⛔⛔ THE ARTIFACT USED TO BE WRITTEN BEFORE THESE CHECKS RAN. `writeFileSync` came first, then
     // the route-coverage and all-threw refusals. A REFUSED baseline therefore stayed on disk and
     // could be consumed by a later verify — the refusal printed, and the bad artifact survived to
-    // certify something. graph-senior-dev: a refused baseline must never masquerade as an attempt.
+    // certify something. the reviewer: a refused baseline must never masquerade as an attempt.
     const decision = baselineVerdict({ before, after, results, routeIds });
     const published = publishBaseline({
       decision, artifactPath: ARTIFACT, carrier: now, results, onMessage: (m) => console.error(m),
@@ -453,7 +453,7 @@ async function main() {
 // ⛔ MAIN RUNS ONLY WHEN THIS FILE IS THE ENTRY POINT. It used to run at import, so importing
 // the module from a test executed the whole 61-entry corpus and then exited the process — which
 // is precisely why the decision it contained went untested and shipped a false accusation.
-// Same defect `authority-ledger.mjs` already fixed; taken here on graph-senior-dev's ruling.
+// Same defect `authority-ledger.mjs` already fixed; taken here on the reviewer's ruling.
 const invokedDirectly = process.argv[1]
   && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
 if (invokedDirectly) {

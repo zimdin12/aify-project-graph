@@ -79,7 +79,7 @@ describe('a workspace path cannot escape its root', () => {
     //
     // ⇒ The same junction was ALREADY guarded for the other operation — disposeArmWorkspace removes
     // it first, and says why. Same junction, two operations, reasoned through for DELETE and never
-    // taught to WRITE. Found by ef-manager reviewing 1c05bde.
+    // taught to WRITE. Found in field testing reviewing 1c05bde.
     const outside = join(dir, '..', `outside-${Date.now()}`);
     mkdirSync(outside, { recursive: true });
     const ws = new Workspace(dir, { writable: true, kind: 't' });

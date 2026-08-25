@@ -107,7 +107,7 @@ export async function graphExplore({ repoRoot, symbols = [], max_files }) {
           endLine: n.end_line || n.start_line,
           // ★ A FILE BLOCK'S "SYMBOL" IS ITS FILENAME, AND A FILE NEED NOT CONTAIN ITS
           // OWN NAME. Passing `n.label` as the thing to look for made the drift proof
-          // report PROVEN OFFSET DRIFT on a perfectly fresh index — graph-senior-dev
+          // report PROVEN OFFSET DRIFT on a perfectly fresh index — the reviewer
           // reproduced it live on `bin/apg.js`.
           //
           // That is the worst possible failure for this check: a false ⛔ on the loudest

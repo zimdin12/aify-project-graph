@@ -2,7 +2,7 @@
 
 **Status:** Draft v2 — revised after brainstorm (SQLite, broad taxonomy, multi-language, dashboard)
 **Repo:** https://github.com/zimdin12/aify-project-graph
-**Authors:** graph-tech-lead, graph-senior-dev
+**Authors:** this project, the reviewer
 **Date:** 2026-04-16
 **Inspired by:** [graphify](https://github.com/safishamsi/graphify) (MIT-licensed)
 

@@ -86,7 +86,7 @@ describe('overlay/loader', () => {
       expect(out.features[0].anchors.symbols).toEqual(['a', 'b']);
     });
 
-    it('warns LOUD on an unrecognized schema version (sc-manager P0 #2)', async () => {
+    it('warns LOUD on an unrecognized schema version (the field fleet P0 #2)', async () => {
       await writeFile(join(repoRoot, '.aify-graph', 'functionality.json'), JSON.stringify({
         version: '0.9',
         features: [{ id: 'x', anchors: { files: ['src/x.cpp'] } }],
@@ -226,7 +226,7 @@ describe('overlay/loader', () => {
     });
   });
 
-  describe('lintFeatures — legacy/invalid overlay shape warnings (sc-manager issue [1])', () => {
+  describe('lintFeatures — legacy/invalid overlay shape warnings (the field fleet issue [1])', () => {
     it('warns on a legacy top-level `paths` field (migrate to anchors.files)', () => {
       const w = lintFeatures([{ id: 'terrain', paths: ['sim/terrain.cpp'] }]);
       expect(w.join(' ')).toMatch(/legacy top-level `paths`/);
@@ -252,7 +252,7 @@ describe('overlay/loader', () => {
     });
   });
 
-  describe('validateAnchors — non-source file distinction (sc-manager issue [2])', () => {
+  describe('validateAnchors — non-source file distinction (the field fleet issue [2])', () => {
     it('a literal file that exists on disk but is not a graph node → non_source_files, not missing_files', async () => {
       await writeFile(join(repoRoot, 'CMakeLists.txt'), 'project(x)\n');
       const features = [{ id: 'build-system', anchors: { symbols: [], files: ['CMakeLists.txt'], routes: [], docs: [] } }];

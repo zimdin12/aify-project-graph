@@ -1,7 +1,7 @@
 // ★★ THE ORACLE THAT DID NOT EXIST: does INCREMENTAL indexing converge to the same graph
 // as a CLEAN REBUILD?
 //
-// graph-senior-dev's scope-4 addendum (2026-08-10), from a negative search across
+// the reviewer's scope-4 addendum (2026-08-10), from a negative search across
 // tests/unit/freshness and tests/integration:
 //
 //   "I found NO test that applies the same edit history to two identical repos, refreshes
@@ -67,7 +67,7 @@ async function step0(repo) {
 
 const HISTORY = [
   // 1. ADD — and it RESOLVES the dangling reference from the baseline.
-  //    This is the crossing graph-senior-dev insisted on: unresolved → resolved.
+  //    This is the crossing the reviewer insisted on: unresolved → resolved.
   async (repo) => {
     await writeFile(join(repo, 'src', 'helper.js'), 'export function helper() { return 1; }\n');
     await commitAll(repo, 'add helper — resolves alpha→helper');

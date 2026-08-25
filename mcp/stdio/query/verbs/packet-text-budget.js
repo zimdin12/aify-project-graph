@@ -3,7 +3,7 @@
 // Phase 0 slice 4, MECHANICAL: the four bodies below are byte-identical to the ones that were in
 // packet.js, comment blocks included.
 //
-// ⛔ THIS IS NOT THE OCCURRENCE CLAMP, AND THE DISTINCTION IS A SAFETY ONE. graph-senior-dev:
+// ⛔ THIS IS NOT THE OCCURRENCE CLAMP, AND THE DISTINCTION IS A SAFETY ONE. the reviewer:
 //
 //   "clampToBudget(text, ...) is an exported compatibility/test surface; production now uses
 //    clampOccurrences. It may move to a clearly named compatibility module with re-export, but do
@@ -21,7 +21,7 @@
 // no export allowlist, no cycle check, no unsealed-entry check. Found by trying to name the file.
 //
 // ⚠ ONLY `clampToBudget` IS EXPORTED. The three helpers stay private: exporting them would be the
-// "export every moved helper, then allowlist it" pattern dev named as the Phase-0 failure mode.
+// "export every moved helper, then allowlist it" pattern the reviewer named as the Phase-0 failure mode.
 // The token estimator lives in the input island and is already on its export allowlist. Island to
 // island, never island to facade — so this satisfies "authority modules do not import their
 // facade" rather than merely avoiding a cycle by luck.

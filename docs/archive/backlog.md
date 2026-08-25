@@ -34,7 +34,7 @@ Run 4 tasks × 4 repos × 2 arms = 32 cells. Expected to show quality GAINS: bas
 ### Fresh rerun of `echoes.trace brief-only`
 **Problem**: contaminated data row from the earlier broken-harness path (`effective_tokens=0`, empty answer). Already excluded from aggregate interpretation but worth having a clean replacement row for the artifact.
 
-**Scope**: dev reruns that single cell via clean manual harness, overwrites the suspect row in `docs/dogfood/ab-2026-04-20-graph-senior-dev-results.json`. ~5 min.
+**Scope**: the reviewer reruns that single cell via clean manual harness, overwrites the suspect row in `docs/dogfood/ab-2026-04-20-review-results.json`. ~5 min.
 
 ## P1 post-launch — dashboard UX layer
 

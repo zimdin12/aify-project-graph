@@ -1,7 +1,7 @@
 # Preregistration — `safeDirtyCount` returns a typed unknown
 
 **Status: PREREGISTERED, NOT YET IMPLEMENTED.** Written before any code changes, per
-`graph-senior-dev`'s instruction: *"Do not merely widen the regex to `dirty=(?:\d+|\?)`. First
+`the reviewer`'s instruction: *"Do not merely widen the regex to `dirty=(?:\d+|\?)`. First
 preregister the semantic controls."*
 
 Ruling reference: message `1787304084412-f7e8a3c6`.

@@ -3,7 +3,7 @@
 // The briefs are the nearest thing this tool has to shared TEAM understanding of a
 // codebase. On a real repo they sat 96 days stale while four agents worked around
 // them, and the staleness was visible ONLY in graph_health — a verb none of them
-// called (ef-manager, 2026-07-30). A brief read straight off disk looked
+// called (the field test, 2026-07-30). A brief read straight off disk looked
 // authoritative and was three months out of date.
 //
 // His framing is the one that matters: shared artifacts that don't self-date rot

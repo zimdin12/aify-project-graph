@@ -1,10 +1,10 @@
 # Graph Freshness Self-Heal + Discoverability — design spec
 
-_Date: 2026-06-01 · Branch: `plan/next-gen-code-intel-bridge` · Author: graph-tech-lead_
+_Date: 2026-06-01 · Branch: `plan/next-gen-code-intel-bridge` · Author: this project_
 
 ## Goal
 
-Fix the #1 agent-value problem found in a real A/B field test (sc-manager, Sand Castle, 3 converging datapoints): **a stale graph is worse than no graph** for managed workers, because they get the read verbs but cannot refresh. The graph was many commits behind HEAD → false-empty results for just-landed symbols (e.g. `graph_search` for new `UnifiedFluid*` symbols → 0 hits) and drifted line numbers, turning the tool into an extra verify-against-source step instead of replacing one.
+Fix the #1 agent-value problem found in a real A/B field test (the field fleet, Sand Castle, 3 converging datapoints): **a stale graph is worse than no graph** for managed workers, because they get the read verbs but cannot refresh. The graph was many commits behind HEAD → false-empty results for just-landed symbols (e.g. `graph_search` for new `UnifiedFluid*` symbols → 0 hits) and drifted line numbers, turning the tool into an extra verify-against-source step instead of replacing one.
 
 ## Root cause (verified in code)
 

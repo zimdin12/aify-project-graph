@@ -1,5 +1,5 @@
 // EVIDENCE REPORTER FOR scripts/self-review.mjs — because the BUILT-IN JSON REPORTER DROPS
-// THE THING graph-senior-dev-hermes FORGED WITH.
+// THE THING review, hermes session FORGED WITH.
 //
 // Measured, not assumed. Two runs of one file with one failing case, identical except that
 // one also threw from `afterAll`:
@@ -68,7 +68,7 @@ export default class SelfReviewReporter {
     if (!out) return;
     writeFileSync(out, JSON.stringify({
       schema: 'self-review-evidence/3',
-      // ⛔ OWNERSHIP NONCE. graph-senior-dev-hermes executed a command-route forgery: because
+      // ⛔ OWNERSHIP NONCE. review, hermes session executed a command-route forgery: because
       // `tests[]` flowed through `shell:true`, a crafted selector injected a SECOND process
       // that wrote schema-valid evidence to SELF_REVIEW_OUT while the reporter's own bytes
       // stayed correctly pinned. The gauge was intact and the EVIDENCE FILE was substituted.

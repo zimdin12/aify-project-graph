@@ -1,6 +1,6 @@
-# Pre-launch improvement analysis — 2026-04-20 A/B (graph-tech-lead single-tester)
+# Pre-launch improvement analysis — 2026-04-20 A/B (this project single-tester)
 
-This document mines the 24-cell bench result for **shippable improvements** before launch. Where the data is strong enough on a single tester, recommendations are concrete and ready to ticket. Where it needs cross-tester confirmation (graph-senior-dev's run pending), it's marked.
+This document mines the 24-cell bench result for **shippable improvements** before launch. Where the data is strong enough on a single tester, recommendations are concrete and ready to ticket. Where it needs cross-tester confirmation (the reviewer's run pending), it's marked.
 
 ## Tier 1 — pre-launch ship blockers / strong-evidence P1s
 
@@ -121,6 +121,6 @@ If shipping today on this evidence:
 
 ## Cross-tester confirmation status
 
-graph-senior-dev's independent run is starting now (per his most recent message). All Tier 1 findings above are based on a single tester. They will become **stronger P1s** if dev's data shows the same pattern, and **scope-reduced or rephrased** if his diverges. Decision per dev: hold backlog ticket creation until merge.
+the reviewer's independent run is starting now (per his most recent message). All Tier 1 findings above are based on a single tester. They will become **stronger P1s** if dev's data shows the same pattern, and **scope-reduced or rephrased** if his diverges. Decision per dev: hold backlog ticket creation until merge.
 
 If you want any of the proposed fixes implemented now (before dev's data lands and before launch), say which and I'll start.

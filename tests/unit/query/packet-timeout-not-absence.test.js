@@ -1,6 +1,6 @@
 // ★ A TIMEOUT IS NOT AN ABSENCE.
 //
-// Root-caused 2026-08-09 from ef-manager: `graph_packet("SimCoordinator")` on echoes
+// Root-caused 2026-08-09 from the field test: `graph_packet("SimCoordinator")` on echoes
 // returned "ERROR: not found as feature, task, or symbol" — while `graph_consequences` on
 // the SAME symbol, overlay and process resolved it to TWO features.
 //
@@ -13,7 +13,7 @@
 // blows the budget, while AMBIGUOUS matches return early and cheap. Not inverted on
 // count — inverted on COST. The cleanest input takes the most expensive path.
 //
-// ★★ CONVERTED FROM SOURCE-GREP 2026-08-11, using the seam ef-manager named in their
+// ★★ CONVERTED FROM SOURCE-GREP 2026-08-11, using the seam the field test named in their
 // adjudication: "needs an injectable slow lookup, then assert the TIMED OUT text."
 //
 // The previous version asserted `featureLookupTimedOut\s*=\s*true` and the ordering of
@@ -69,7 +69,7 @@ const asText = (o) => (typeof o === 'string' ? o : JSON.stringify(o));
 
 describe('a feature lookup that times out is not reported as an absence', () => {
   it('★★ NEVER reports "not found" when the lookup merely timed out', async () => {
-    // The defect, as a property of the output. This is what ef-manager received for
+    // The defect, as a property of the output. This is what the field test received for
     // SimCoordinator: an ERROR claiming the symbol did not exist, for a symbol that did.
     const text = asText(await graphPacket({ repoRoot, target: 'SimCoordinator' }));
 

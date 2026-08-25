@@ -5,7 +5,7 @@
 //
 // WHY THIS EXISTS. Clearing `.aify-graph/code-intel/collect-progress.json` removes
 // the record of WHICH files were collected — it does not remove the RECORDS
-// THEMSELVES from the graph DB. sc-manager hit exactly that on 2026-07-30: he
+// THEMSELVES from the graph DB. the field fleet hit exactly that on 2026-07-30: he
 // cleared the ledger after the wrong-symbol reference explosion, and 1,618,718
 // contaminated references were still imported and still being served. His words:
 // "I removed the index of the bad thing and left the bad thing."

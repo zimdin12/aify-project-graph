@@ -112,7 +112,7 @@ describe('the extractor names its producer, and bounds what it may delete', () =
   }, 30_000);
 
   it('★★★ MIGRATION: legacy `cpp-clangd#` rows are still reachable by the provider that made them', async () => {
-    // ⛔ THE HAZARD ef-manager FLAGGED BEFORE THIS SHIPPED. Rename the label and every edge
+    // ⛔ THE HAZARD the field test FLAGGED BEFORE THIS SHIPPED. Rename the label and every edge
     // already in the graph carries a string no new predicate matches — a ts re-collect would not
     // remove the stale ts edges it wrote yesterday. Permanently stale, immune to its own
     // provider's re-collect, and nothing errors.

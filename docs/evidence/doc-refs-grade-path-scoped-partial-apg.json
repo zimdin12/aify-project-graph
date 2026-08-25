@@ -12,7 +12,7 @@
     "population_stable": "32 path-scoped / 19 exact / 13 partial — identical across two forced rebuilds",
     "repo": "aify-project-graph"
   },
-  "graded_by": "ef-manager",
+  "graded_by": "the field test",
   "graded_at": "2026-08-20",
   "method": "FULL POPULATION, all 13, graded from the document prose. The grader wrote neither the rule nor the resolver.",
   "population": 13,

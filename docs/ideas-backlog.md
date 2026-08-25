@@ -68,7 +68,7 @@ highest-ranked open problem in the plan and the one nothing else currently addre
 - **D1′**: the cold lane spent **34 consecutive calls** on grep and reads without touching
   a graph verb — while the injected instructions *named* `code_intel_references` for
   exactly the task it was doing. Discoverability was not the problem; it knew.
-- **graph-senior-dev's reference reading** found the same shape everywhere:
+- **the reviewer's reference reading** found the same shape everywhere:
   - CodeGraph: **one listed tool** (`codegraph_explore`) returning source + call paths in
     one call, plus a prompt hook that injects context on symbol hits.
   - Understory: injects a compact topic seed because, in its own source, *without a signal
@@ -81,7 +81,7 @@ caller asks a question instead of choosing among 17 verbs and reading an evidenc
 
 ### ⚠ The trap, and it is the same one that contaminated D1′
 
-**Every reference project solves adoption by FORCING or NUDGING**, and graph-senior-dev
+**Every reference project solves adoption by FORCING or NUDGING**, and the reviewer
 flagged it explicitly: *"Do not use their adoption as B2 evidence — after injection, use is
 compliance/availability, not preference."*
 
@@ -169,7 +169,7 @@ because there is no telemetry. That is the eleven-hidden-verbs story, one layer 
   a reasonable bet.
 - **Or** the memory layer is scoped to the thing that DID demonstrably pay: D1′'s single
   load-bearing dependence was a **contract document reachable only through a
-  symbol→contract edge**. graph-senior-dev's correction is the key: *"content was
+  symbol→contract edge**. the reviewer's correction is the key: *"content was
   knowledge; selection was map."* A memory layer that is **symbol-anchored** —
   memories reachable from code, the way contracts are — is a much better bet than a
   free-floating memory store with similarity search.
@@ -179,7 +179,7 @@ because there is no telemetry. That is the eleven-hidden-verbs story, one layer 
 - **Layers differ in kind, and the plan already has language for it.** The code map is
   `observed`; the overlay is `inferred`; memories would be `asserted` — a third provenance
   class, not a third copy of the second. `field_provenance` already carries this
-  distinction and it is the field ef-manager rates highest.
+  distinction and it is the field the field test rates highest.
 - **Vector/similarity search has no exhaustiveness contract.** Everything this release
   fixed was about absence being legible. A similarity search cannot say "these are all of
   them", so it must never answer an absence question, and its results must be labelled a

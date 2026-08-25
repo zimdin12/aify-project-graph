@@ -4,7 +4,7 @@
   "repo": "aify-project-graph",
   "graded_at_commit": "8280567",
   "note": "BELOW FLOOR. Rule DELETED at 0bd5b94 on this grade. All 35 false positives share one target: an ecosystem-standard build-artifact filename resolved to a test fixture. Deleting cost 85 correct edges — recorded here so the loss is not invisible.",
-  "graded_by": "ef-manager",
+  "graded_by": "the field test",
   "graded_at": "2026-08-20",
   "method": "FULL POPULATION, graded from the document prose rather than from the resolved edge. Not sampled.",
   "population": 120,
@@ -655,7 +655,7 @@
       "written_basename": "compile_commands.json",
       "target": "tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json",
       "extractor": "doc_link:inline-basename",
-      "doc": "docs/superpowers/specs/2026-05-09-graph-senior-dev-merge-plan-draft.md",
+      "doc": "docs/superpowers/specs/2026-05-09-review-merge-plan-draft.md",
       "line": 252,
       "verdict": "FALSE_POSITIVE",
       "reason": "generic ecosystem filename — the doc means the READER’s compile_commands.json, not this fixture"

@@ -1,13 +1,13 @@
 // PHASE 0 SLICE 3 — THE ONE PACKET PATH THAT LEAVES THE STATIC SNAPSHOT.
 //
-// graph-senior-dev's ruling for this slice: "Move withTimeout + enrichLive into packet-live.js;
+// the reviewer's ruling for this slice: "Move withTimeout + enrichLive into packet-live.js;
 // inject/import graphConsequences there without importing packet.js. Pin timeout/error/enriched
 // output and timer cleanup."
 //
 // ⛔ AND THE REFACTOR GUARD CANNOT COVER `enrichLive`, which is why this file exists rather than
 // another guard route. Every corpus cell calls graphPacket without `live: true`, and that flag
 // defaults false — so the byte-comparison corpus cannot reach the function at all. That is the
-// same shape as dev's BLOCKER 1 against slice 1 and as the two unreached declarations in slice 2:
+// same shape as the reviewer's BLOCKER 1 against slice 1 and as the two unreached declarations in slice 2:
 // a moved declaration can be live, imported, and covered by a passing corpus while never running.
 //
 // A live route is not the fix. It would put `LIVE: enriched (147ms)` into the corpus, and dev was
@@ -34,7 +34,7 @@ describe('withTimeout', () => {
     await expect(withTimeout(never, 5)).resolves.toEqual({ __timeout: true });
   });
 
-  it('★★★ CLEARS THE TIMER on the winning path — dev asked for this by name', async () => {
+  it('★★★ CLEARS THE TIMER on the winning path — the reviewer asked for this by name', async () => {
     // ⚠ A leaked timer keeps the event loop alive. In an MCP server that means a process that
     // will not exit, and the symptom appears far from here — a hung shutdown, blamed on whatever
     // was running last. `clearTimeout` in a `finally` is what makes it unobservable, so the only
@@ -97,7 +97,7 @@ describe('enrichLive', () => {
 
   it('★★★ the timeout message names the budget it exceeded', async () => {
     // A timeout that does not say what it exceeded leaves the reader unable to tell a slow graph
-    // from a wrong budget. Pinned because dev asked for the timeout OUTPUT, not just the branch.
+    // from a wrong budget. Pinned because the reviewer asked for the timeout OUTPUT, not just the branch.
     const src = await import('node:fs').then((fs) => fs.readFileSync(
       new URL('../../../mcp/stdio/query/verbs/packet-live.js', import.meta.url), 'utf8'));
     expect(src).toMatch(/live enrichment exceeded \$\{LIVE_BUDGET_MS\}ms/);

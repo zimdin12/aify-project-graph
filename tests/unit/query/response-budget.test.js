@@ -56,7 +56,7 @@ describe('receipts default to the head, body is opt-in', () => {
     expect(size(signals), 'default is cheaper than full').toBeLessThan(size(full));
 
     // ★ The default must keep the two fields that changed decisions in the field:
-    // ef-manager reversed a published deletion-safety verdict on `exhaustive`
+    // the field test reversed a published deletion-safety verdict on `exhaustive`
     // alone, and both managers cited disconfirming_test by name. A cheaper default
     // that dropped these would be a quality cut wearing a cost-cut label.
     expect(signals.exhaustive).toBe(true);

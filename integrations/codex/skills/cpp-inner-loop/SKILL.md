@@ -114,7 +114,7 @@ except reading the source. They are listed alternatives for FINDING things, not 
 nothing is there.
 
 ⚠ This caveat existed in the parent skill (`integrations/*/skill/SKILL.md`, "Listed ≠ callable")
-and not here — found in the field by ef-manager, 2026-08-19, from a session where six of these
+and not here — found in the field, 2026-08-19, from a session where six of these
 verbs were confirmed unreachable by name. Same sibling-branch shape as every other fix in this
 repo that reached one path: a capability claim about X lives in files that are not X.
 

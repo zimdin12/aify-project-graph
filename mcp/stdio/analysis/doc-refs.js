@@ -1,6 +1,6 @@
 // DOCUMENT → SYMBOL REFERENCES. RULE 2 OF THE DOC-FOUNDATION REBUILD.
 //
-// ⛔ THIS DELETES THE LEGACY `mentions` EXTRACTOR RATHER THAN SITTING BESIDE IT. graph-senior-dev
+// ⛔ THIS DELETES THE LEGACY `mentions` EXTRACTOR RATHER THAN SITTING BESIDE IT. the reviewer
 // ruled: "remove every edge emitted by the legacy mentions extractor from the consumable graph and
 // rebuild under a new extractor version." Measured on this repo at the moment of writing:
 //
@@ -32,7 +32,7 @@
 // repository's naming convention.
 //
 // ⛔ NO STOPWORD LIST AND NO GLOBAL THRESHOLD, per dev, and the reason is measured rather than
-// stylistic: ef-manager ran the legacy extractor on `echoes_of_the_fallen` and got 63.1% English-
+// stylistic: the field test ran the legacy extractor on `echoes_of_the_fallen` and got 63.1% English-
 // word targets against 83.9% here, from identical code. The rate tracks the language's naming
 // convention — JavaScript names functions `read` and `count` and collides with English head-on;
 // C++ CamelCase mostly does not. Anything calibrated on one repo is wrong on the other by
@@ -67,7 +67,7 @@ export const DOC_REF_RULES = Object.freeze({
   //
   // ⭐⭐ THE PROPERTY THAT ACTUALLY SEPARATED THE SURVIVORS, measured rather than argued: both
   // remaining rules require a STRUCTURAL ANCHOR ADJACENT TO THE TOKEN — a path in scope, or a
-  // `Class.` prefix. ef-manager regraded all 125 surviving edges at full source text after
+  // `Class.` prefix. the field test regraded all 125 surviving edges at full source text after
   // discovering their first pass had used ±85-character windows, and found 63 of them had been
   // truncated. ZERO verdicts moved. The anchor is adjacent by construction, so even a cut sentence
   // still carried the deciding evidence. Rule 3, whose only evidence was ambient prose, is exactly
@@ -99,7 +99,7 @@ export const DOC_REF_RULES = Object.freeze({
 //
 // I kept it at 0/1170 on the grounds that deleting a shape on one repository's evidence would be
 // calibrating on that repository's NAMING CONVENTION — the error that made the legacy extractor
-// score 83.9% here and 63.1% on echoes from identical code. So ef-manager ran the second repo,
+// score 83.9% here and 63.1% on echoes from identical code. So the field test ran the second repo,
 // expecting (as I predicted on the record) that a C++ codebase would rescue it.
 //
 // ⚠ THE SECOND REPO DID NOT RESCUE IT. IT CONVICTED IT. Same zero, and the sample says why:
@@ -416,7 +416,7 @@ export function scanPathScopedReferences(content, docPath, pathIndex, symbolsByF
       // produced an edge to a function called `rebuild` — the surviving false positive from the
       // first grade. A code span names ONE thing, and the thing is at its head.
       //
-      // ⚠ NAIVE HEAD-POSITION DROPS A TRUE POSITIVE, and ef-manager measured it before I applied
+      // ⚠ NAIVE HEAD-POSITION DROPS A TRUE POSITIVE, and the field test measured it before I applied
       // the version I had proposed:
       //
       //     `npm rebuild better-sqlite3`               head `npm`      -> the FP, correctly dropped
@@ -483,7 +483,7 @@ export async function detectDocRefs(db, repoRoot) {
   // node in the graph to fill structures nothing read.
   //
   // ⚠ AND THIS PARAGRAPH USED TO ARGUE FOR THEM IN THE PRESENT TENSE, with the tombstone appended
-  // underneath. ef-manager caught it reviewing c8dcb2e: a reader met the case for a mechanism and
+  // underneath. the field test caught it reviewing c8dcb2e: a reader met the case for a mechanism and
   // then a line saying the mechanism was removed. That is a description outliving its behaviour —
   // the third instance this week — and it appeared INSIDE the commit that did the deleting, which
   // is the moment the author is least able to see it. The order is the fix: what is true now
@@ -496,7 +496,7 @@ export async function detectDocRefs(db, repoRoot) {
   // than one non-External, non-Module, non-file-level node" while READING as "more than one node in
   // the graph". A population statement hiding inside a boolean.
   //
-  // ef-manager found it as two false positives on echoes_of_the_fallen. `vec3` had two nodes:
+  // the field test found it as two false positives on echoes_of_the_fallen. `vec3` had two nodes:
   //
   //     Class      engine/voxel/SimplexNoise.h:46   a PRIVATE NESTED STRUCT in a noise class
   //     External   (no file)                        the glm/GLSL type the author actually meant
@@ -567,7 +567,7 @@ export async function detectDocRefs(db, repoRoot) {
       // stood in for the qualifier rule 2 demands.
       //
       // ⛔ 311 CORRECT, 23 WRONG, 3 UNSURE = 0.9311, against a floor of 0.95 per rule. Graded blind
-      // by ef-manager on three corpora that had never been indexed — graphify b14b52e9,
+      // in field testing on three corpora that had never been indexed — graphify b14b52e9,
       // agent-understand-anything 32944829, codegraph c6aaa203 — because the previous 0.972 was
       // measured on the corpus the rule had been tuned against three times.
       // dev's ruling: a rule below the floor is DELETED. Not demoted, not ranked, not rescued.
@@ -576,7 +576,7 @@ export async function detectDocRefs(db, repoRoot) {
       // of its own candidates (997 no-symbol, 312 ambiguous) and still admitted 23 wrong. Its whole
       // evidence is "this name resolves here, uniquely" — and a Go `init()`, a Swift
       // `init(name:age:)`, an R `source()`, an author's declared `trace(a,b)` NOTATION, and another
-      // repository's `forward()` all satisfy that perfectly. ef-manager's sentence, which belongs
+      // repository's `forward()` all satisfy that perfectly. the field test's sentence, which belongs
       // here verbatim: EXISTENCE AND UNIQUENESS IN THE INDEX ARE NOT EVIDENCE OF REFERENCE.
       //
       // ⚠ 19 of the 23 errors were in ONE corpus — codegraph, whose docs discuss many languages and
@@ -620,7 +620,7 @@ export async function detectDocRefs(db, repoRoot) {
       if (HAS_FILE_EXTENSION.test(ref.written)) {
         // ⛔ FOURTH LYING BUCKET, INSIDE THE SPLIT BUILT TO STOP BUCKETS LYING.
         //
-        // ef-manager graded the 228 and found 28 of them were bare basenames whose file IS
+        // the field test graded the 228 and found 28 of them were bare basenames whose file IS
         // in the graph, at two or more paths: `server.js` is both mcp/stdio/server.js and
         // mcp/stdio/dashboard/server.js; likewise render.js, extract.js, schema.js. rule 1
         // correctly REFUSES an ambiguous basename rather than picking one — but its refusal
@@ -653,7 +653,7 @@ export async function detectDocRefs(db, repoRoot) {
         // hole by every bare filename in the corpus.
         if (pathCandidates && pathCandidates.length > 0) { note('basename_only'); continue; }
         // ⚠ WHAT SURVIVES HERE IS NOT "THE DOC CORPUS HOLE", AND THE HEADLINE NUMBER IS
-        // WRONG BY 3.4x IF READ THAT WAY. ef-manager hand-graded all 230 pre-split:
+        // WRONG BY 3.4x IF READ THAT WAY. the field test hand-graded all 230 pre-split:
         //
         //     99  (43%)  DELIBERATELY EXCLUDED — .aify-graph/brief.*.md, functionality.json,
         //                tasks.json, fixture graphs under tests/fixtures/. The graph's own
@@ -667,7 +667,7 @@ export async function detectDocRefs(db, repoRoot) {
         //                the six install.*.md, ATTRIBUTION.md, and SKILL.md
         //
         // ⚠ AN EARLIER VERSION OF THIS COMMENT SAID reference/ WAS NOT DENYLISTED, on the
-        // strength of 345 graph nodes carrying that path. ef-manager retracted it: 342 of
+        // strength of 345 graph nodes carrying that path. the field test retracted it: 342 of
         // those are Directory nodes and ZERO are Files, so the tree was walked and nothing
         // was extracted. `.gitignore:12` excludes it. A real number attached to an invented
         // noun — kept here because the corrected figure is a quarter of the headline.
@@ -703,7 +703,7 @@ export async function detectDocRefs(db, repoRoot) {
     // It argued the rule with `diagnostics`, `references` and `hover` — ordinary English words
     // beside `lsp-client.js` — as references only a scope could reach. Then the first grade failed
     // at 0.911 and I added a requirement that the token be inside an author-marked code span,
-    // which excludes exactly those bare words. ef-manager measured the result: `hover` 0 edges,
+    // which excludes exactly those bare words. the field test measured the result: `hover` 0 edges,
     // `diagnostics` 0 edges, `references` 1 edge justified by a MARKED occurrence elsewhere on its
     // line. The flagship example in this comment produced one edge of three, and that one did not
     // need the rule as argued.
@@ -720,7 +720,7 @@ export async function detectDocRefs(db, repoRoot) {
     // Sentences wrapped across lines are a disclosed recall miss, not an oversight.
     //
     // ⚠ AND MY EVIDENCE THAT "A LINE IS A PARAGRAPH" IS RETRACTED. I cited a graded edge with ~855
-    // characters between the scoping path and the word. ef-manager found that figure was measured
+    // characters between the scoping path and the word. the field test found that figure was measured
     // with `indexOf`, which returns the FIRST occurrence of a token — and the edge in question had
     // two, bare prose at column 1298 and a marked span at 1724. Every scope-distance number for a
     // repeated token was measured against the wrong occurrence. The concern may still be real; the

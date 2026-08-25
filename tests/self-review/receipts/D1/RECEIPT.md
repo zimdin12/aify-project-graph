@@ -6,7 +6,7 @@ Immutable artifacts from the single authorized run. **Do not edit. Not rerun.**
 |---|---|
 | preregistration | `tests/self-review/preregistrations/D1.json` |
 | authorized commit / tree | `85a6552` / `6b9eeb2` |
-| referee | graph-senior-dev, approval `1787272365062-9e935e40` |
+| referee | the reviewer, approval `1787272365062-9e935e40` |
 | run id | `64f11cb2-3c57-4b28-89ae-976c36987cbe` |
 | verdict | **INVALID — case carries 2 failure messages; exactly 1 is accountable** |
 

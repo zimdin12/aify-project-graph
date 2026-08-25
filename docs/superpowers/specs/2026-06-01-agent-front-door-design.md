@@ -1,6 +1,6 @@
 # Agent Front Door + Adaptive Sizing — design spec
 
-_Date: 2026-06-01 · Branch: `plan/next-gen-code-intel-bridge` · Author: graph-tech-lead_
+_Date: 2026-06-01 · Branch: `plan/next-gen-code-intel-bridge` · Author: this project_
 
 ## Goal
 

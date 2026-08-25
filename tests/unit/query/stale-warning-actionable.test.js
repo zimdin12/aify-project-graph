@@ -1,6 +1,6 @@
 // A WARNING WHOSE READER CANNOT ACT ON IT IS HALF A WARNING.
 //
-// Two failures from the same string, both found by ef-manager (2026-08-09/10) by
+// Two failures from the same string, both found in field testing (2026-08-09/10) by
 // being blocked by it twice in two sessions:
 //
 // 1. It said "RESTART the aify-project-graph MCP server." Correct for an operator,
@@ -85,11 +85,11 @@ afterEach(() => {
 // ⛔ THE APPROVAL MUST NOT COME FROM THE THING BEING APPROVED.
 //
 // My first closed-set attempt imported RESTART_GUIDANCE from server-build and compared the
-// emitted warning against it. dev's mutant appends its sentence to that very constant — so
+// emitted warning against it. the reviewer's mutant appends its sentence to that very constant — so
 // production and the approval moved together and the check stayed GREEN. A contract that
 // derives its expectation from its subject cannot constrain the subject.
 //
-// ★ Exactly the trap dev named for the classifier table (deriving arms from the production
+// ★ Exactly the trap the reviewer named for the classifier table (deriving arms from the production
 // registry means shrinking the registry shrinks the test set), one level up and in prose.
 // I applied the lesson there and then rebuilt the same hole here within the hour.
 //
@@ -115,7 +115,7 @@ describe('the stale warning is actionable by whoever reads it', () => {
     //
     // It asserted /an agent cannot self-restart/ and /ask your operator/. That claim is
     // false in this deployment — a peer agent can restart a managed session via
-    // aify-comms `comms_restart`. ef-manager read the warning, believed it, and asked the
+    // aify-comms `comms_restart`. the field test read the warning, believed it, and asked the
     // operator twice to do something they could have done in one call.
     //
     // ★ The general form, worth more than the fix: PROSE CAN CARRY FACTUAL CLAIMS, AND
@@ -163,7 +163,7 @@ describe('the stale warning is actionable by whoever reads it', () => {
       //
       // Everything below is a BLACKLIST, and a blacklist over natural language is never
       // finished — this case has now failed three reviews to three sentences no previous
-      // filter anticipated, most recently dev's "Only a human operator is permitted to
+      // filter anticipated, most recently the reviewer's "Only a human operator is permitted to
       // restart this service." (a false host-capability claim containing no inability
       // modal at all, so every regex here missed it).
       //
@@ -176,7 +176,7 @@ describe('the stale warning is actionable by whoever reads it', () => {
         .toContain(APPROVED_RESTART_GUIDANCE);
 
       // ⚠ CONTAINMENT ALONE IS NOT CLOSURE — an extra sentence can sit either side of an
-      // intact fragment, which is exactly what dev's mutant did. So the guidance's
+      // intact fragment, which is exactly what the reviewer's mutant did. So the guidance's
       // boundaries are pinned: it must be immediately followed by the PROCESS STARTED
       // sentence, and the warning must end with the commit-cannot-answer-it sentence.
       // Together those close the two insertion points that matter.
@@ -247,7 +247,7 @@ describe('the stale warning is actionable by whoever reads it', () => {
     //
     // (1) An unanchored /\d{4}-\d{2}-\d{2}T/ was satisfied by a DIFFERENT ISO instant
     //     further along the warning. Anchoring to the label fixed that one.
-    // (2) graph-senior-dev-hermes then replaced the interpolation with a FABRICATED fixed
+    // (2) review, hermes session then replaced the interpolation with a FABRICATED fixed
     //     instant (2000-01-01T00:00:00.000Z) and the anchored regex stayed GREEN — because
     //     a regex can only ever grant FORMAT credit. Shape is not identity.
     //
@@ -282,7 +282,7 @@ describe('the stale warning is actionable by whoever reads it', () => {
   // become behaviour at no extra cost — and they belong beside the warning they qualify.
   //
   // The defect: staleProcess said RESTART whether the delta was a guard preventing data
-  // loss or a single markdown file. ef-manager hit exactly that — loaded cad4569 vs tree
+  // loss or a single markdown file. the field test hit exactly that — loaded cad4569 vs tree
   // c526849, and the entire delta was one doc. He had to run `git diff --name-only`
   // himself to learn the running server was behaviourally current.
   describe('the delta distinguishes a doc change from a behaviour change', () => {
@@ -296,7 +296,7 @@ describe('the stale warning is actionable by whoever reads it', () => {
 
     // ⛔ THIS PINNED ONLY `.js`, AND THE OTHER FOUR ARMS WERE UNTESTED.
     //
-    // graph-senior-dev-hermes removed `.json` from the production classifier and the file
+    // review, hermes session removed `.json` from the production classifier and the file
     // stayed 8/8 GREEN; a package.json-only delta then produced the false reassurance
     // "BEHAVIOURALLY CURRENT" for a process whose executable config had changed.
     //
@@ -309,7 +309,7 @@ describe('the stale warning is actionable by whoever reads it', () => {
       //
       // The table below generates one case per registry member, which is right: a copied
       // list drifts from the thing it describes. But it means REMOVING a member removes
-      // its own test. Replaying dev's exact mutant — deleting `.json` from the classifier
+      // its own test. Replaying the reviewer's exact mutant — deleting `.json` from the classifier
       // — produced 13 passing cases instead of 14 and NOT ONE FAILURE. The defect deleted
       // the evidence of itself.
       //

@@ -10,13 +10,13 @@
 // ⚠ 83.5% IS A TRIAGE PROXY, NOT A CORRECTNESS LABEL — a doc can genuinely refer to `read()`.
 // What is established from source is that the ADMISSION RULE required no reference evidence.
 //
-// ⭐ AND ef-manager RAN IT ON A SECOND REPO: 63.1% on echoes, twenty points apart, same
+// ⭐ AND the field test RAN IT ON A SECOND REPO: 63.1% on echoes, twenty points apart, same
 // extractor. The rate tracks the LANGUAGE'S NAMING CONVENTION — JavaScript names functions
 // `exists`, `count`, `read` and collides with English head-on, while C++ CamelCase survives it.
 // So no global threshold and no hand-tuned stop-word list can be right on both repos. This slice
 // uses neither.
 //
-// graph-senior-dev's invariant, which this implements:
+// the reviewer's invariant, which this implements:
 //   > A stored doc edge must carry a recoverable source span and a deterministic resolution path
 //   > to exactly one node.
 //
@@ -144,7 +144,7 @@ describe('doc → file links', () => {
   }, 20_000);
 
   it('★★★ a span that names NO path segment resolves to nothing — the slash bug', async () => {
-    // ⛔ FIELD-FOUND BY ef-manager ON THE REAL GRAPH, and my shape test was innocent of it.
+    // ⛔ FIELD-FOUND BY the field test ON THE REAL GRAPH, and my shape test was innocent of it.
     // `.` and `..` were explicitly rejected — and that guard turns out to be dead, because
     // neither has an extension or a separator so neither was ever a candidate. The span that got
     // through is `` `/` ``: it IS path-shaped (it contains a separator), it normalises to
@@ -153,7 +153,7 @@ describe('doc → file links', () => {
     //
     // ⚠ THE REASON THIS MATTERS MORE THAN THREE BAD EDGES: the false positives concentrate in
     // documents ABOUT path handling, because those are the documents that write `/` and `./` in
-    // inline code while discussing syntax. ef-manager: "any repo doing import or path work will
+    // inline code while discussing syntax. the field test: "any repo doing import or path work will
     // hit it, and yours is the worst case." An error rate that tracks what the project is about
     // cannot be estimated from a sample of that project.
     const db = await fixture('Paths use `/` separators, no leading `/`, no `.` or `..`.\n');
@@ -184,7 +184,7 @@ describe('doc → file links', () => {
   }, 20_000);
 
   it('★★★ a fenced path is COUNTED, not silently dropped', async () => {
-    // ⚠ ef-manager: "a fenced path is invisible in every counter you have — it is neither an edge
+    // ⚠ the field test: "a fenced path is invisible in every counter you have — it is neither an edge
     // nor a miss." Fence exclusion is deliberate and correct (a mocked output block shows a
     // shape, it does not make a reference), but a category that exists in the code and not in the
     // accounting is how a denominator goes wrong quietly.
@@ -201,7 +201,7 @@ describe('doc → file links', () => {
   }, 20_000);
 
   it('★★★ the stats name how many DOCUMENTS produced an edge, not just how many edges', async () => {
-    // ef-manager's denominator point: "83% of documents link out" and "39% of the repo's markdown
+    // the field test's denominator point: "83% of documents link out" and "39% of the repo's markdown
     // is reachable" describe the same system and imply different next actions. The per-document
     // reach is the figure that answers "will this find the doc I forgot", so it is emitted
     // rather than left to be recomputed by whoever quotes the edge count.
@@ -214,7 +214,7 @@ describe('doc → file links', () => {
   }, 20_000);
 
   it('★★★ the admitted TARGET TYPES are pinned — the contract said "file", the code said five', async () => {
-    // ⛔ ef-manager measured the 480 real edges by target type: File 303, Document 80, Config 64,
+    // ⛔ the field test measured the 480 real edges by target type: File 303, Document 80, Config 64,
     // Directory 31, Entrypoint 2. The module described itself as resolving "to exactly one indexed
     // FILE", so 6.5% of edges broke a promise nobody had noticed making — a consumer told
     // Document→File and handed a Directory gets a different kind of answer than the contract says.
@@ -239,7 +239,7 @@ describe('doc → file links', () => {
   }, 30_000);
 
   it('★★★ every miss is RECORDED, not just counted', async () => {
-    // ⛔ ef-manager, blocked: "I could not falsify the split between the two miss buckets, because
+    // ⛔ the field test, blocked: "I could not falsify the split between the two miss buckets, because
     // the manifest stores counts and not the misses themselves — I can see how many landed in
     // each, never which."
     //

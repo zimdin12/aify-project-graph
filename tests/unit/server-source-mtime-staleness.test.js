@@ -5,7 +5,7 @@
 // looks like, for hours at a time, and is the state this process spends most of its life in during
 // active work.
 //
-// Measured consequence: THREE OF ef-manager's LAST FOUR REVIEW ROUNDS opened blocked on a stale
+// Measured consequence: THREE OF the field test's LAST FOUR REVIEW ROUNDS opened blocked on a stale
 // process. The failure mode was not a wrong warning — it was NO warning, because HEAD had not
 // moved. And the stale code belongs to the SERVER, so one stale process poisons every repo it
 // answers for while each repo's own staleness field reads clean.
@@ -98,7 +98,7 @@ describe('the server notices its own source changing under it', () => {
     // `staleProcessWarning()` returned null for it. Scan-failed and unchanged were the same
     // observable.
     //
-    // ef-manager ran the null path rather than reading it, and quoted my own comment back at me:
+    // the field test ran the null path rather than reading it, and quoted my own comment back at me:
     // the function honoured the rule, the two places anyone reads did not.
     //
     // ⚠ AND THE TRIGGER IS A WEEKDAY ON WINDOWS: `walk` propagates failure upward, so ONE

@@ -14,7 +14,7 @@
 //   1. `tests_adjacent` used it as `via_symbol` and SUPPRESSED `no_test_coverage`, so the
 //      safety axis reported SAFE on untested symbols. Fixed at the consumer.
 //   2. `graph_trace` then listed `vec3 @ CylindricalPosition.h:213` in a callee list —
-//      found by ef-manager on real C++ AFTER that consumer fix.
+//      found in field testing on real C++ AFTER that consumer fix.
 //
 // ★ THE RULE THAT KEPT BEING RELEARNED: a fix at one layer does not cover the other
 // consumers of the same bad data. Two consumers patched, the data untouched, and it

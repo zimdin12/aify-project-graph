@@ -1,7 +1,7 @@
 // GOLDEN VECTORS FROM AN INDEPENDENT IMPLEMENTATION — falsifier 14, shared-bug self-review.
 //
 // ⛔ THE RULE THAT MAKES THIS TEST WORTH ANYTHING: no expected value below is computed by the
-// production codec. graph-senior-dev generated them from separate Python and Node
+// production codec. the reviewer generated them from separate Python and Node
 // implementations required to agree byte-for-byte, from the spec text rather than from our
 // code. If this file ever computes an expectation through `selection-digest.js`, it stops
 // testing conformance and starts asserting that a function equals itself.
@@ -11,7 +11,7 @@
 // are defensible; only RAW BYTES matches. I had a 50/50 guess and the oracle settled it before
 // a line of consuming code existed.
 //
-// ⚠ Known-answer vectors are an oracle for CONFORMANCE, not for TRUTH — graph-senior-dev's own
+// ⚠ Known-answer vectors are an oracle for CONFORMANCE, not for TRUTH — the reviewer's own
 // caveat. If their reading of the spec is wrong, two implementations agree on the wrong thing.
 // The independent selector fixtures below, and their post-implementation review of emitted
 // bodies, are what cover that layer. No single oracle eliminates a bad specification.
@@ -22,7 +22,7 @@ import { encodeEntryRow, aggregateRows, canonicalRelative } from '../../../mcp/s
 const ASCII = Buffer.from('int a;\n', 'utf8');
 const UNICODE = Buffer.from('// café\n'.normalize('NFC'), 'utf8');
 
-// Frozen, from graph-senior-dev. Do not regenerate these locally.
+// Frozen, from the reviewer. Do not regenerate these locally.
 const VECTORS = {
   raw_ascii_sha: '386593f1475dc210d45a5f3d4b6bb11c065fc6fe2e08ebdd00ab4cf3a0848744',
   raw_unicode_sha: '14952601d4c2321aea9341ebb808fea2eed00877cbf362c62b4745421b46b387',
@@ -107,7 +107,7 @@ describe('selected_tu_set_digest — metamorphic properties', () => {
   const WIN = process.platform === 'win32';
 
   it.runIf(!WIN)('★★★ a case-SIBLING tree is NOT inside the root (the executed WSL defect)', () => {
-    // ⛔ graph-senior-dev ran this under WSL against this checkout. `canonicalRelative`
+    // ⛔ the reviewer ran this under WSL against this checkout. `canonicalRelative`
     // lowercased both sides on EVERY OS, so `/tmp/…/repo/src/x.cpp` was relabelled as
     // `src/x.cpp` inside `/tmp/…/Repo` — two distinct POSIX trees. That is a FALSE SELECTION
     // BODY: the receipt names a member that is not in the population it claims. Containment is

@@ -3,7 +3,7 @@
   "spec": "route-authority.spec.json",
   "ledgerStateBefore": "legacy_unruled",
   "referee": {
-    "identity": "graph-senior-dev",
+    "identity": "the reviewer",
     "proposalThreadMessageId": "1787264935906-d36cd491",
     "revisionResponseMessageId": "1787265001594-d1a338ce",
     "disposition": "REVISE -> revised wording below is the referee's own text; final identity check pending before any mutant run"
@@ -19,7 +19,7 @@
     }
   },
   "guarantee": "For the specific G8 forgery -- a registered constant handler that satisfies invocation/success, collection response shape, provider shape, and fresh mint formatting but does not derive request-bound repository identity -- the routing test's repo-path discriminator rejects the response. This proves that discriminator is load-bearing against this forgery; it does not prove graphCollectCodeIntel, runner, provider, import, or replay identity.",
-  "withdrawnClaim": "The wire name reaches graphCollectCodeIntel itself. NOT CLAIMED. tool-routing-identity.test.js:177-228 expressly withdraws it: graph-senior-dev-hermes refuted it by execution with a request-derived lookalike that never called graphCollectCodeIntel. I read those lines, quoted the refutation to the referee, and then wrote the withdrawn claim into my own guarantee anyway. It is recorded here so it cannot reappear.",
+  "withdrawnClaim": "The wire name reaches graphCollectCodeIntel itself. NOT CLAIMED. tool-routing-identity.test.js:177-228 expressly withdraws it: review, hermes session refuted it by execution with a request-derived lookalike that never called graphCollectCodeIntel. I read those lines, quoted the refutation to the referee, and then wrote the withdrawn claim into my own guarantee anyway. It is recorded here so it cannot reappear.",
   "knownSurvivingVariant": "A smarter lookalike that derives projectRoot from the normalized request DEFEATS the repo-path discriminator and is known to survive. G8's mutation is deliberately NOT strengthened to that variant: it is a limitation and a negative result, not a predicted-red witness. Referee ruling.",
   "case": "★★ every probed name returns that verb's own output, not another's",
   "testFile": "tests/unit/server/tool-routing-identity.test.js",

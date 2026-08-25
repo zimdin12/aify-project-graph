@@ -1,6 +1,6 @@
 // WHEN NOTHING TRACKED IS DIRTY, THE FILE-NAME SAMPLE IS NOISE.
 //
-// Measured (ef-manager, 2026-08-09) on echoes: `graph_health` shipped 25 sampled
+// Measured (the field test, 2026-08-09) on echoes: `graph_health` shipped 25 sampled
 // dirty-file names costing 537 tokens, EVERY one an untracked backup directory
 // (.aify-graph.bak-*, .aify-graph-PRE-RESTORE-*), out of 2824 — while
 // `trackedDirtyFiles` was [], one line, and that is the field carrying the signal. Both
@@ -15,7 +15,7 @@
 // arithmetic it describes — `dirtyFilesTotal: dirtyFiles.length + 999` — with every
 // predicate string left intact: **3/3 still green**.
 //
-// ⚠ AND THE IRONY IS RECORDED BECAUSE IT IS THE ARGUMENT. ef-manager caught the real
+// ⚠ AND THE IRONY IS RECORDED BECAUSE IT IS THE ARGUMENT. the field test caught the real
 // `dirtyFilesOmitted` arithmetic bug by READING A LIVE PAYLOAD — not with this test,
 // which sits on that exact line. A test guarding an arithmetic invariant that survives
 // the arithmetic being wrong by 999 was never guarding it.

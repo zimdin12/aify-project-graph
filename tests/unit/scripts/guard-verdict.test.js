@@ -2,7 +2,7 @@
 //
 // The previous test for this could only assert SOURCE ORDER, because the decision lived inside a
 // `main()` that ran at import: importing the module executed the whole 61-entry corpus and exited
-// the process. graph-senior-dev's ruling was exact — *"source-order assertions do not prove the CLI
+// the process. the reviewer's ruling was exact — *"source-order assertions do not prove the CLI
 // routes through the predicate; the test itself admits this."*
 //
 // ⇒ `guardVerdict` takes a context object and returns a verdict object, so every branch that
@@ -83,7 +83,7 @@ describe('guardVerdict — PASS, FAIL and REFUSE are all reachable', () => {
   });
 
   it('★★★ REFUSE on baseline drift — the boundary that used to FAIL OPEN', () => {
-    // ⛔ graph-senior-dev's executed counterexample: baseline missing `edges`, current carrying
+    // ⛔ the reviewer's executed counterexample: baseline missing `edges`, current carrying
     // `edges: 2`. The old handwritten loop compared `undefined !== undefined` in its first
     // conjunct, never considered the real value, and reported NO drift.
     const d = guardVerdict(ctx({
@@ -140,7 +140,7 @@ describe('guardVerdict — PASS, FAIL and REFUSE are all reachable', () => {
 
 // ⛔⛔ THE COUNT WAS NOT THE POPULATION.
 //
-// graph-senior-dev executed this through the shipped `guardVerdict`:
+// the reviewer executed this through the shipped `guardVerdict`:
 //
 //     baseline [A, B]  corpusSize 2   ->   current [A, A]  length 2   =>  PASS "2 of 2 identical"
 //

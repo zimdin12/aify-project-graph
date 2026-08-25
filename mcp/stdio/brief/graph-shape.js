@@ -269,7 +269,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
   let docBasis = 'links';
   // ⛔ CANDIDATE POPULATION IS EVERY DOCUMENT. The first version joined from the candidate to a
   // non-Document target, so a document could not be a candidate unless it referenced code — which
-  // excluded exactly the docs index that other documents point AT. graph-senior-dev executed it:
+  // excluded exactly the docs index that other documents point AT. the reviewer executed it:
   // `other.md` LINKS_TO `docs/index.md`, and the index was absent while the unrelated source won on
   // root position. My own test "doc→doc links alone do not qualify" had PINNED that exclusion.
   //
@@ -298,7 +298,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
 
   // ⛔ NO PRE-TRUNCATION. The first version took `LIMIT 12` in SQL ordered by inbound, then applied
   // recency in JS — so recency ranked the top-12-by-a-different-order, not the population.
-  // graph-senior-dev executed that too: 13 documents, all inbound 0, the NEWEST holding the lowest
+  // the reviewer executed that too: 13 documents, all inbound 0, the NEWEST holding the lowest
   // degree, and it never entered the sort. At 155 rows there is nothing to justify a cap; if scale
   // ever demands one it must preserve complete tie groups and be disclosed as a cap.
   const recencyOf = (file) => {
@@ -320,7 +320,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
     return a.file.localeCompare(b.file);
   });
 
-  // ⛔⛔ THE RANKING IS UNGRADED AND ON ITS ONLY GROUND-TRUTH CORPUS IT IS WRONG. ef-manager field-
+  // ⛔⛔ THE RANKING IS UNGRADED AND ON ITS ONLY GROUND-TRUTH CORPUS IT IS WRONG. the field test field-
   // tested it on `echoes_of_the_fallen`, whose CLAUDE.md line 3 says verbatim "Read AGENTS.md
   // first" — so the answer is written down rather than judged:
   //
@@ -334,7 +334,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
   // so inbound rank and staleness correlate POSITIVELY — the ranking is pulled toward old documents
   // by construction, and recency cannot correct it because inbound is a strict primary sort.
   //
-  // ★ Same shape as the resolution-rate signal ef-manager refuted earlier: a metric that tracks
+  // ★ Same shape as the resolution-rate signal the field test refuted earlier: a metric that tracks
   // GENRE, read as currency. Neither of us could see it from inside one repo.
   //
   // ⇒ SO THE REMEDY HERE IS DISCLOSURE, NOT RE-SORTING. The inbound evidence is real and I have no
@@ -356,7 +356,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
 
   // ⛔⛔ THE POSITIONAL FALLBACK IS A SEPARATE POPULATION AND USED TO TRAVEL IN `items`.
   //
-  // graph-senior-dev built a graph with two root Documents and zero edges. One artifact then said:
+  // the reviewer built a graph with two root Documents and zero edges. One artifact then said:
   // 0 linked candidates, 2 shown candidates, "ranked by link prominence" — beside two entries whose
   // own `why` said "position, not evidence". Three statements, mutually exclusive, same section.
   //
@@ -375,7 +375,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
   } else {
     // ⛔ THE TOTAL IS CAPTURED BEFORE THE SLICE. It used to be counted AFTER, from the
     // RENDERED array, so `linked_candidate_count` reported 2 for a population of 88 — a cap
-    // reported as a total, in the typed state built to remove exactly that. graph-senior-dev
+    // reported as a total, in the typed state built to remove exactly that. the reviewer
     // measured it on this graph.
     total = docs.length;
     docs = docs.slice(0, 2);
@@ -386,7 +386,7 @@ export function linkedDocumentCandidates(db, opts = {}) {
   // ⛔ THE PRODUCER BUILDS THE RENDERED ROWS. They used to be assembled inside `readFirst`, which
   // meant the linked population had to pass through a MIXED accumulator to acquire its `why` — and
   // that accumulator's `seen` dedupe let a linked row erase an export-backed source fact for the
-  // same path. graph-senior-dev executed it: `AGENTS.md` linked AND export-backed returned only the
+  // same path. the reviewer executed it: `AGENTS.md` linked AND export-backed returned only the
   // linked row. Same custody defect as the positional fallback, one category over.
   // ⚠ Reuses the `recencyOf` / `median` / `newerThan` already computed above over the FULL
   // population — the disclosure counts linked candidates, not the two rendered.
@@ -466,7 +466,7 @@ export function readFirst(db, limit = 6, opts = {}) {
   // becoming denominators, renderer samples becoming producer state. Each local fix closed one
   // projection while the shared custody produced the next sibling.
   //
-  // graph-senior-dev's ruling, and the reason this is a deletion rather than a feature: document
+  // the reviewer's ruling, and the reason this is a deletion rather than a feature: document
   // carriers own their own populations end to end, and this function owns exports, feature anchors
   // and source degree.
   // EXPORTS-backed files: parse "<file>:<line>" or "<file> → handler" forms

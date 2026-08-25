@@ -20,7 +20,7 @@
 // ⚠ THE JUSTIFICATION FOR THAT DESTRUCTIVE FLAG IS MEASURED AT RUN TIME, NOT QUOTED FROM A
 // COMMENT. This header used to read "Measured on sand_castle: ~450 MB of them, including one
 // 353 MB file, beside an 864 MB graph.sqlite". By 2026-08-20 that repo had NO envelopes left at
-// all and a 1.07 GB graph — someone had cleaned them in between (ef-manager, checking the claim
+// all and a 1.07 GB graph — someone had cleaned them in between (the field test, checking the claim
 // rather than believing it). So a reader deciding whether to pass a flag that DELETES THEIR FILES
 // was being sold it by a number that no longer held.
 //

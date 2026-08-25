@@ -1,6 +1,6 @@
 # Reference pull + codebase audit — 2026-06-12
 
-Ran by graph-tech-lead at the dashboard's request: pull all `reference/` updates, analyze
+Ran by this project at the dashboard's request: pull all `reference/` updates, analyze
 them for borrowable techniques, then audit our own codebase for "big issues" (4 Fable-5
 reference-analysis agents + 4 Fable-5 codebase-scan agents, medium effort).
 

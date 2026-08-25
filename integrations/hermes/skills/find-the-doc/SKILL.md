@@ -9,7 +9,7 @@ description: "Use for 'where is the design doc', 'did we write this down', 'what
 
 This exists for one measured problem:
 
-> *"my agents constantly forget where what files where. my sc-manager asked me today where the game
+> *"my agents constantly forget where what files where. my agent asked me today where the game
 > design doc is. he has worked on the project for 2 months already. he has read it multiple times,
 > but compactions and stuff make him forget that it even existed."*
 

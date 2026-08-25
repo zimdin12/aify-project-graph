@@ -102,7 +102,7 @@ function containsEdge(fromNode, toNode) {
 //     install.claude.md      -> "install.claude"   REFUSED, while `claude` IS on the list
 //     AGENTS.MANAGER.md      -> "agents.manager"   REFUSED, while `agents` IS on the list
 //
-// ef-manager found the second on echoes, which adopted `NAME.QUALIFIER.md` independently for its
+// the field test found the second on echoes, which adopted `NAME.QUALIFIER.md` independently for its
 // most role-specific documents. Two repos, two conventions, one parsing accident: ANY
 // `NAME.QUALIFIER.md` defeats the list even when NAME is on it.
 //
@@ -293,12 +293,12 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
   // ⛔ EVERY CLASSIFICATION THIS SWEEP DECLINES WAS INVISIBLE. There was no counts object
   // anywhere in this function and the return carried two fields, so nothing downstream could ask
   // what had been dropped — not for Documents, and not for Route/Schema/Config/Entrypoint either.
-  // ef-manager measured the Document hole from OUTSIDE with `git ls-files` (52.7% of this repo's
+  // the field test measured the Document hole from OUTSIDE with `git ls-files` (52.7% of this repo's
   // markdown is not a node, 1.4% on sand_castle) because there was no number inside to read.
   // If any other kind is under-admitting the same way, the first evidence would again arrive
   // from someone measuring us from the outside.
   //
-  // ⚠ `seen` IS THE INPUT, and it is emitted because ef-manager asked for it by name: "publish
+  // ⚠ `seen` IS THE INPUT, and it is emitted because the field test asked for it by name: "publish
   // the input, and the outcomes sum to it or the sum is itself a finding." Without the
   // denominator a reader reconciling their own file count against ours finds a discrepancy and
   // has nowhere to attribute it — the candidate set here is git candidates, layered over the
@@ -445,7 +445,7 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
         // the graph's directory structure describing a tree it extracts NOTHING from. Zero Files,
         // zero Functions, 343 directories.
         //
-        // ⚠ AND IT SURFACED THREE TIMES FROM THREE DIRECTIONS before anyone traced it: ef-manager
+        // ⚠ AND IT SURFACED THREE TIMES FROM THREE DIRECTIONS before anyone traced it: the field test
         // counting node TYPES under reference/, a walker default exposing 1,046 files there, and
         // two doc links resolving INTO it. An excluded tree that still has nodes is a
         // HALF-EXCLUSION, and every layer that walks the graph rediscovers it.
@@ -471,7 +471,7 @@ export async function sweepFilesystem({ repoRoot, ignoredDirs = IGNORED_DIRS, gi
       let content;
       try {
         const fileStat = await fsStat(entryAbsPath);
-        // ⚠ ef-manager checked whether this cap is live: 0 files over 500KB across APG, echoes
+        // ⚠ the field test checked whether this cap is live: 0 files over 500KB across APG, echoes
         // and sand_castle, largest markdown 181,537 B. NOT firing anywhere today — and counted
         // anyway, because it sits UPSTREAM of every classifier, so a file dropped here is
         // invisible even to a fix that counts classifier rejections. sand_castle's largest doc is

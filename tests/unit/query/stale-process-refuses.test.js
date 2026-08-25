@@ -1,6 +1,6 @@
 // ⛔ REFUSE, DO NOT WARN. A WARNING THAT IS RELIABLY IGNORED IS NOT A LIGHTER GUARD.
 //
-// ef-manager, roadmap 6b: "Three of my last four rounds opened blocked on a stale MCP process…
+// the field test, roadmap 6b: "Three of my last four rounds opened blocked on a stale MCP process…
 // Right now the only actor who can fix it is the one who cannot see it."
 //
 // The warning has been on the shared read channel for weeks and did not stop those three rounds.
@@ -44,7 +44,7 @@ describe('what refuses, and what deliberately does not', () => {
   });
 
   it('★★★⛔ THE OVER-CORRECTION GUARD: a DOCS-ONLY delta must NOT refuse', () => {
-    // ⛔ THE CASE ef-manager ACTUALLY HIT AND OBJECTED TO: loaded cad4569 vs tree c526849,
+    // ⛔ THE CASE the field test ACTUALLY HIT AND OBJECTED TO: loaded cad4569 vs tree c526849,
     // staleProcess true, and the entire delta was ONE DOC. They had to run `git diff --name-only`
     // themselves to learn the running server was behaviourally current.
     //

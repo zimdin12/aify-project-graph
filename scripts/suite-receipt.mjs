@@ -6,7 +6,7 @@
 // reviewer could not reproduce any of them, said so repeatedly, and I filed that as a
 // residual limit instead of testing it. When I finally did, both dependencies were real.
 //
-// graph-senior-dev-hermes's ruling, which this implements: a commit cannot inherit
+// review, hermes session's ruling, which this implements: a commit cannot inherit
 // evidence from untracked state or an undeclared default. A minimum receipt must BIND:
 //
 //   · commit + tree hash            — which bytes produced this
@@ -152,7 +152,7 @@ try {
 // the pattern was right and the SUBJECT was wrong.
 // ⛔ THE ATTRIBUTION INTERVAL — the carrier was read only BEFORE the run.
 //
-// graph-senior-dev-hermes: "A suite that changes tracked or generated state can still emit
+// review, hermes session: "A suite that changes tracked or generated state can still emit
 // counts attributed to the pre-run carrier." Correct, and it defeats the entire point of the
 // file: the receipt binds counts to a commit that may not have been the commit throughout.
 // A carrier is an INTERVAL, not an instant, so both ends are read and they must agree.
@@ -197,7 +197,7 @@ for (const [when, g] of [['before', carrier.aifyGraph], ['after', graphAfter]]) 
 //
 // An ordinary all-green run prints `Test Files  240 passed (240)` with NO `failed` token, so
 // `failed` became -1 and the nonnegative gate I had just added REFUSED — my fix for
-// "unparseable output exits 0" made ORDINARY SUCCESS impossible to emit. graph-senior-dev-hermes
+// "unparseable output exits 0" made ORDINARY SUCCESS impossible to emit. review, hermes session
 // found it from the source and the summary shape; it had never fired here because every run
 // since had refused earlier, at the dirty-tree gate.
 //
@@ -315,7 +315,7 @@ if (intervalProblems.length) {
   // that have not yet been checkpointed into `graph.sqlite`. Excluding it by name would let two
   // semantically DIFFERENT committed graph states share one identity — and no test over
   // filename presence could ever establish that a given WAL carried no committed state.
-  // graph-senior-dev-hermes's ruling, and the reason I did not know when I proposed excluding it.
+  // review, hermes session's ruling, and the reason I did not know when I proposed excluding it.
   //
   // ⇒ Consequence, accepted rather than worked around: this receipt cannot presently bind a run
   // whose database access changes the byte-total generated state. That is AVAILABILITY, not

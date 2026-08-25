@@ -2,8 +2,8 @@
 
 **Status: the RULE is on hold. This document is not.**
 
-The matcher is the cheap half and may be discarded: `graph-senior-dev` has held the relation pending
-a representation ruling, and `ef-manager`'s measurement argues against a phrase matcher at all
+The matcher is the cheap half and may be discarded: `the reviewer` has held the relation pending
+a representation ruling, and `the field test`'s measurement argues against a phrase matcher at all
 (40 forms / 64 instances, "Read X first" only 38%, 38 forms occurring exactly once).
 
 ⇒ **The refusal classes below are a design result, not an implementation detail.** They cost a
@@ -81,8 +81,8 @@ The document is not instructing its reader; it is **documenting a behaviour**. B
 > `> Read `AGENTS.md` first.`
 
 ★ **Instanced in this repo, created while measuring the thing.** `docs/evidence/read-first-*.md`
-quote another repo's directive while reporting on it. `graph-senior-dev` predicted this class before
-anyone had seen an instance; `ef-manager` found three, all in apparatus they had written that day.
+quote another repo's directive while reporting on it. `the reviewer` predicted this class before
+anyone had seen an instance; `the field test` found three, all in apparatus they had written that day.
 
 ### 6. `noun_usage`
 

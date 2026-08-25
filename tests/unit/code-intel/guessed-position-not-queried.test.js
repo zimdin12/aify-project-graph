@@ -6,7 +6,7 @@
 // returns a TRUTHFUL answer about the WRONG SYMBOL, recorded under this symbol's
 // id. For a common type that is tens of thousands of references.
 //
-// Field measurement (sc-manager, 2026-07-30) — two adjacent batches of the same
+// Field measurement (the field fleet, 2026-07-30) — two adjacent batches of the same
 // repo, minutes apart, one server process:
 //     files 1-60     3,083 refs   (~51/file)      55 guessed positions
 //     files 61-106   1,618,718 refs (~35,190/file) 1,412 guessed positions

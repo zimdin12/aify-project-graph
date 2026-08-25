@@ -1,4 +1,4 @@
-// graph-senior-dev's FOUR MINIMUM REGRESSIONS against 6a5e22a, written before the fix.
+// the reviewer's FOUR MINIMUM REGRESSIONS against 6a5e22a, written before the fix.
 //
 // ⛔ v7 closed all six of their original probes and still did not hold. Their four new
 // findings, and what each one says about how I had been working:
@@ -142,7 +142,7 @@ describe('occurrence transforms and the routes that bypassed them', () => {
   });
 });
 
-// ── round 9: graph-senior-dev's two remaining blockers ───────────────────────────────────
+// ── round 9: the reviewer's two remaining blockers ───────────────────────────────────
 //
 // ⛔ BLOCKER 1 IS THE RECURRING SHAPE, NOW INSIDE THE CONSTRUCTOR PAIR I JUST BUILT.
 // requirePopulationCoversShown was called by candidateList and NOT by symbolList, so the
@@ -224,7 +224,7 @@ describe('round 10 — the floor must fit inside its own evidence', () => {
   });
 });
 
-// ── field report (ef-manager, 2026-08-18, build f556625 CONFIRMED CURRENT) ────────────────
+// ── field report (the field test, 2026-08-18, build f556625 CONFIRMED CURRENT) ────────────────
 //
 // The first field test of any of this work. Two findings are regressions MY change introduced,
 // which is the reason field testing exists and unit tests did not catch either.

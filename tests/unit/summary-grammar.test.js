@@ -4,7 +4,7 @@
 // was absent. Vitest OMITS zero categories, so an all-green run had no `failed` token, `failed`
 // became -1, and the nonnegative gate refused. **The fix for "unparseable output exits 0"
 // made a passing suite unable to emit a receipt** — and it never showed locally because every
-// run since had refused earlier at the dirty-tree gate. graph-senior-dev-hermes found it from
+// run since had refused earlier at the dirty-tree gate. review, hermes session found it from
 // the source and required exactly this matrix.
 //
 // ★ Every line below is a real Vitest summary shape. The point is that an ABSENT category is

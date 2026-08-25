@@ -1,6 +1,6 @@
 // A FAILED SYNC RECORDED ITSELF AS A SUCCESS.
 //
-// ⛔ graph-senior-dev, 2026-08-19, found this while reading for the receipt's carrier binding
+// ⛔ review, 2026-08-19, found this while reading for the receipt's carrier binding
 // rather than by looking for a bug: `openIfNeeded` caught a `didChange` rejection with
 // `/* best-effort */` and then updated `openDocState` on the very next line regardless. Our
 // record said the document was synced at the new version while the language server still held

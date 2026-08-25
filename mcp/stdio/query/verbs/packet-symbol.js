@@ -3,7 +3,7 @@
 // Phase 0 slice 2, and MECHANICAL: the three bodies below are byte-identical to the ones that
 // were in packet.js, comment blocks included. Nothing about their behaviour is reshaped here.
 //
-// ⛔ `buildSymbolPointerPacket` IS DELIBERATELY NOT HERE, and that is graph-senior-dev's ruling
+// ⛔ `buildSymbolPointerPacket` IS DELIBERATELY NOT HERE, and that is the reviewer's ruling
 // rather than a convenience. It returns a SERIALIZED string via `renderPacketLines`, so exporting
 // it from an island would create the exact failure they pre-registered as the most likely way
 // this phase goes wrong:
@@ -41,7 +41,7 @@ export function countByLanguage(nodes) {
 
 // ★ SYMBOL→FEATURE DOES NOT NEED THE FULL CONSEQUENCES TRAVERSAL.
 //
-// Measured (ef-manager, echoes, 2026-08-10): ALL THREE bare symbols tried —
+// Measured (the field test, echoes, 2026-08-10): ALL THREE bare symbols tried —
 // SimCoordinator, WorldBuffer, GpuMaterial — blew the 2000ms budget. Not an edge
 // case: graph_packet's bare-symbol path was non-functional on a 12k-node C++ repo,
 // which is the repo class this verb exists to serve.
@@ -63,7 +63,7 @@ export function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
     db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
     // ⛔ `nodes` is capped at 50 by the retrieval query; `resolvedTotal` is the COUNT.
     // Reporting nodes.length as the total was the same cap-as-total defect this whole
-    // change exists to remove, one level upstream — caught by graph-senior-dev-hermes.
+    // change exists to remove, one level upstream — caught by review, hermes session.
     const { rows: nodes, total: resolvedTotal } = resolveSymbolWithTotal(db, symbol);
     // ⇒ UNCAPPED census where the exact-label predicate applies; null (=> SAMPLED) otherwise.
     // An exact total must never lend its authority to a composition built from the page.
@@ -93,7 +93,7 @@ export function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
           // the symbol_lookup candidate defect: a limit reported as a finding.
           locationsTotal: resolvedTotal,
           // ★★ BY LANGUAGE, because for a mirrored type the COUNT IS THE FINDING.
-          // ef-manager, echoes: `GpuMaterial` is 16 definitions — 1 C++ header and 15 GLSL
+          // the field test, echoes: `GpuMaterial` is 16 definitions — 1 C++ header and 15 GLSL
           // shaders on a shared std430 stride, where every copy must agree or
           // materialPalette[id] addresses the wrong entry for every material above 0. A
           // fixed cap treats N definitions as a list to SAMPLE; here N is a property of

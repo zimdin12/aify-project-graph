@@ -2,7 +2,7 @@
 //
 // ⛔ THE ENUMERATE-EVERY-EMITTER MISS, AGAIN, IN THE FIX FOR THE PREVIOUS ONE. The efficacy
 // pilot found that an uncapped compact result stated no population. I fixed the compact route
-// and shipped it. graph-senior-dev then executed the OTHER routes:
+// and shipped it. the reviewer then executed the OTHER routes:
 //
 //   expand=true, population=1  -> only "NODE ..." — no count, no predicate. The exact gap the
 //                                 pilot found, alive in a public mode.

@@ -1,6 +1,6 @@
 // ★ A RAW NUL BYTE IN SOURCE MAKES ripgrep RETURN "NO MATCHES" — SILENTLY.
 //
-// Found by ef-manager while answering a publish-readiness question (2026-08-02).
+// Found in field testing while answering a publish-readiness question (2026-08-02).
 // Three tracked source files carried raw NUL bytes, used as a dedup-key delimiter
 // and written as a literal byte instead of the `\x00` escape:
 //
@@ -31,7 +31,7 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
 // ⛔ THE POPULATION WAS SELF-SELECTED, AND TWO WITHHELD CARRIERS WALKED THROUGH IT.
 //
-// graph-senior-dev-hermes:
+// review, hermes session:
 //   1. the scan listed only *.js/*.mjs/*.cjs/*.ts/*.json/*.md, so a tracked
 //      `raw-control-probe.html` carrying one 0x08 stayed GREEN — while the test's own
 //      claim said "every tracked source file".
@@ -58,7 +58,7 @@ const BINARY_FILES = new Set([]);
 
 // ⛔ AN EXCLUSION LIST IS AN AUTHORITY, AND IT WAS ACCOUNTABLE TO NOTHING.
 //
-// graph-senior-dev-hermes: they added the TEXT source `mcp/stdio/server-build.js` to
+// review, hermes session: they added the TEXT source `mcp/stdio/server-build.js` to
 // BINARY_FILES, inserted two literal 0x08 bytes into it, and the gate stayed 2/2 GREEN.
 // So the whole tracked population was ENUMERATED but not SCANNED — any carrier could be
 // silently reclassified as binary and walk straight through.
@@ -80,7 +80,7 @@ const APPROVED_BINARY_EXEMPTIONS = [];
 
 // ⛔ THE DENSITY CLASSIFIER WAS CIRCULAR, AND THE CIRCULARITY IS THE ELEGANT PART.
 //
-// graph-senior-dev-hermes broke the previous version five ways, but one is the root:
+// review, hermes session broke the previous version five ways, but one is the root:
 // adding an ordinary `smuggled.js` to both approved lists with an EARLY NUL stayed green
 // "because one NUL self-justifies binary". ⇒ THE CONTAMINATING BYTE WAS ALSO THE EVIDENCE
 // OF EXEMPTION ELIGIBILITY. The thing being detected was licensing its own concealment.
@@ -168,7 +168,7 @@ function trackedFiles() {
 // unrunnable assertion looks exactly like a surviving mutant, so I concluded twice that
 // my semantics were wrong when the instrument simply was not running.
 //
-// ⚠ graph-senior-dev-hermes's correction, and it is load-bearing: this must be a BYTE
+// ⚠ review, hermes session's correction, and it is load-bearing: this must be a BYTE
 // gate, not a parser gate. My first proposal allowed controls "outside string literals" —
 // but the 0x08 WAS inside a regex literal, so that exemption would have preserved the
 // exact defect. In tracked text a literal backspace is never a legitimate way to spell a
@@ -189,7 +189,7 @@ const hex = (b) => `0x${b.toString(16).padStart(2, '0')}`;
 
 describe('★ no tracked source file contains a raw control byte', () => {
   it('★★ the scanner detects a backspace — proven IN MEMORY, not by a fixture', () => {
-    // dev's control, and it has to be in-memory: committing a contaminated fixture to
+    // the reviewer's control, and it has to be in-memory: committing a contaminated fixture to
     // prove the scanner works would trip the very gate below. Without this, a scanner
     // that always returned an empty map would pass the real test forever — which is the
     // same dead-instrument failure the class exists to catch.
@@ -268,7 +268,7 @@ describe('★ no tracked source file contains a raw control byte', () => {
   });
 
   it('★★ the EXEMPTION LIST is accountable — membership approved AND binariness proven', () => {
-    // dev's mutant: add a text source to BINARY_FILES, contaminate it, stay green. Both
+    // the reviewer's mutant: add a text source to BINARY_FILES, contaminate it, stay green. Both
     // constraints below independently stop that, so editing one list is not enough and
     // editing both is still not enough if the file is not really binary.
     expect([...BINARY_FILES].sort(), 'every exemption must be on the hand-approved list')
@@ -288,7 +288,7 @@ describe('★ no tracked source file contains a raw control byte', () => {
   });
 
   it('★★ admission requires FORMAT MAGIC — a contaminant cannot vouch for its own container', () => {
-    // The circularity dev found: under a density rule, the very NUL being smuggled made
+    // The circularity the reviewer found: under a density rule, the very NUL being smuggled made
     // the file "look binary" and so justified exempting it from the scan that would have
     // caught it. Magic is positional, so a stray byte anywhere proves nothing.
     const smuggled = Buffer.concat([
@@ -299,7 +299,7 @@ describe('★ no tracked source file contains a raw control byte', () => {
     expect(binaryFormatOf(smuggled), 'a NUL inside JavaScript does not make it a binary format')
       .toBeNull();
 
-    // A leading NUL is likewise not a format — dev's early-NUL variant.
+    // A leading NUL is likewise not a format — the reviewer's early-NUL variant.
     expect(binaryFormatOf(Buffer.concat([Buffer.from([0x00]), Buffer.from('let x=1', 'utf8')])),
       'a leading NUL is not a signature').toBeNull();
 
@@ -357,7 +357,7 @@ describe('★ no tracked source file contains a raw control byte', () => {
       .toBeGreaterThan(100);
 
     // ★ CLOSED-POPULATION CONTROL. The scan must cover EXACTLY what git tracks — no
-    // filter, no dropped entries. dev's `.html` carrier walked through the old extension
+    // filter, no dropped entries. the reviewer's `.html` carrier walked through the old extension
     // list, and this is what makes that impossible rather than merely unlikely.
     const trackedCount = execFileSync('git', ['ls-files'], {
       cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,

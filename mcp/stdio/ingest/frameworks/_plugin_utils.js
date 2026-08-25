@@ -46,7 +46,7 @@ export function routeNode({ filePath, label, language, startLine = 1, confidence
 // in `.gitignore`, `.aifyignore` and `.aifyinclude`. So there were TWO WALKERS WITH TWO ADMISSION
 // POLICIES, and the weaker one silently indexed what the stronger one declined.
 //
-// ef-manager found it from outside: 3 `Test` nodes in this repo's graph sourced from
+// the field test found it from outside: 3 `Test` nodes in this repo's graph sourced from
 // `reference/graphify/tests/fixtures/sample_doctest.cpp`, under `.gitignore:12 reference/`, a
 // path `git ls-files` does not know. Content nodes past an exclusion is not the same thing as
 // directory nodes past one — something read a file it was told not to.

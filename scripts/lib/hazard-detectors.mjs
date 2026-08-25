@@ -42,7 +42,7 @@ export const NOT_IMPLEMENTED = Object.freeze([
       + 'left standing. It said the population was empty because mutation controls "are written ad '
       + 'hoc in the operator scratchpad and are never committed". scripts/lib/mutation-control.mjs '
       + 'was committed the same session, so a committed population now exists — one member. '
-      + 'Flagged by ef-manager, applying the rule this project already holds: that a description '
+      + 'Flagged in field testing, applying the rule this project already holds: that a description '
       + 'must not '
       + 'outlive the behaviour it describes. The category stays unimplemented because ONE member is '
       + 'not a corpus worth a detector, but that is a different and much weaker reason than the one '
@@ -95,7 +95,7 @@ const VACUOUS_QUANTIFIERS = new Set(['every', 'some']);
  * ⚠ `await` is treated the same way. The comma operator is NOT blanket-transparent: only the RIGHT
  * operand's value flows out, so the left is deliberately not unwrapped.
  *
- * Found by ef-manager, running 24 constructs as a corpus rather than imagining cases.
+ * Found in field testing, running 24 constructs as a corpus rather than imagining cases.
  */
 function unwrapTransparent(node) {
   let cur = node;
@@ -113,7 +113,7 @@ function unwrapTransparent(node) {
 /**
  * Callees whose ARGUMENT is a verdict rather than data.
  *
- * ⚠ ENUMERATION, KNOWINGLY — and the argument for it is ef-manager's: `console.log(xs.every(p))` is
+ * ⚠ ENUMERATION, KNOWINGLY — and the argument for it is the field test's: `console.log(xs.every(p))` is
  * data and `assert(xs.every(p))` is a verdict, so a blanket argument rule would be wrong. But
  * leaving arguments out entirely is not neutral: it makes a vacuous quantifier INSIDE AN ASSERTION
  * invisible, which is where a vacuous `true` does the most damage — a test passing over an empty

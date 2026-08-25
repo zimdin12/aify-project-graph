@@ -1,6 +1,6 @@
 // ★ "SUCCESS MUST ATTEST CORPUS AND SCOPE."
 //
-// graph-senior-dev's generalisation, from four separate upstream projects plus ours:
+// the reviewer's generalisation, from four separate upstream projects plus ours:
 // codegraph #1502 reported "complete" with 0 files · #1361 turned a lock failure into
 // "up to date" · Understand #628 silently dropped cross-batch edges · graphify #2520
 // exited 0 with parse holes. One invariant, four codebases.
@@ -88,7 +88,7 @@ describe('an index that loses files must say so', () => {
   });
 
   it('★★ graph_index does not name a DROPPED file as processed, and discloses in its own response', async () => {
-    // ef-manager on a 4.1 MB miniaudio.h, 2026-08-11: the file appeared in
+    // the field test on a 4.1 MB miniaudio.h, 2026-08-11: the file appeared in
     // `processedFiles`, `graph_whereis("ma_device_init")` returned NO MATCH, and the
     // response carried no disclosure at all. graph_health was correct — but this is the
     // response the REINDEXING agent reads, at the moment it learns what the index did,
@@ -130,7 +130,7 @@ describe('an index that loses files must say so', () => {
   });
 
   it('★★★ a chunk ROLLBACK attests every file it lost, not just the one that threw', async () => {
-    // graph-senior-dev's blocker, reproduced with their method: a SQLite trigger that
+    // the reviewer's blocker, reproduced with their method: a SQLite trigger that
     // aborts insertion of one file AFTER its chunk-mates were already extracted.
     //
     // A ROLLBACK unwinds SQL and leaves JavaScript untouched. The old code kept the

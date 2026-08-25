@@ -1,4 +1,4 @@
-# Phase 2 partial — graph-tech-lead (4 cells, apg only)
+# Phase 2 partial — this project (4 cells, apg only)
 
 Stopped after 4 cells; dev will pick up Phase 2 after his dashboard UX work.
 

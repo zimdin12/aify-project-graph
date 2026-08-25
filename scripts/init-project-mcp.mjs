@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Plan #20 — close the managed-session install gap.
 //
-// Both graph-senior-dev's managed Codex session AND apg-test-claude's
+// Both the reviewer's managed Codex session AND apg-test-claude's
 // managed Claude Code session reported `apg_mcp_tools_exposed: false`
 // after running install.*.md. Root cause: `claude mcp add` / `codex mcp
 // add` write user-level config (~/.claude.json, ~/.codex/mcp.json) but

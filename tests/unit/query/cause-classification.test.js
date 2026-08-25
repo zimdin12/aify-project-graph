@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { classifyCause, pinsStickyDegraded, UNRECOGNISED_CAUSE_CLASS } from '../../../mcp/stdio/query/cause-classification.js';
 
-// Step 5 of graph-senior-dev's evidence-contract migration: "migrate sticky telemetry to named
+// Step 5 of the reviewer's evidence-contract migration: "migrate sticky telemetry to named
 // cause classification, not either boolean."
 //
 // ⛔ I FIRST CLAIMED THIS WAS A TERM DELETION. The census said the tracker could drop its
@@ -19,7 +19,7 @@ describe('classifyCause — four classes, because three could not express the vo
     expect(classifyCause('index_population_unattested')).toBe('standing');
   });
 
-  it('⭐ SELECTED behaviour is not an incident — dev ruled this and I had it backwards', () => {
+  it('⭐ SELECTED behaviour is not an incident — the reviewer ruled this and I had it backwards', () => {
     // "bounded mode never waits for the index BY DESIGN, so nothing happened *to* that request."
     expect(classifyCause('bounded_mode')).toBe('selected');
   });
@@ -60,7 +60,7 @@ describe('pinsStickyDegraded — only a real incident pins a session', () => {
 
   it('⭐ does NOT pin on bounded_mode — the ONE measured behaviour change of step 5', () => {
     // Measured across 1,890 combinations: 378, all bounded_mode, previously pinned and no longer
-    // do. That is the whole delta, and it implements dev's ruling rather than being a refactor.
+    // do. That is the whole delta, and it implements the reviewer's ruling rather than being a refactor.
     expect(pinsStickyDegraded('bounded_mode')).toBe(false);
   });
 

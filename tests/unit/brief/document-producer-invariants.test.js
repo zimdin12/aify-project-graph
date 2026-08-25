@@ -16,7 +16,7 @@
 // surface**. The ordering rules (inbound primary, recency secondary, degree tertiary, lexical tie)
 // were only ever checked on the top pair.
 //
-// ★ graph-senior-dev named this boundary: "renderer tests should test presentation only; producer
+// ★ the reviewer named this boundary: "renderer tests should test presentation only; producer
 // tests should test populations/invariants; codec tests should test the published bytes." This file
 // is the producer half, and the discriminator below proves it is not duplicate coverage.
 import { describe, it, expect, afterEach } from 'vitest';

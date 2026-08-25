@@ -1,6 +1,6 @@
 // UNMAPPED IS NOT UNAFFECTED.
 //
-// Field report (sc-manager, Sand Castle, 2026-08-04). graph_consequences was run
+// Field report (the field fleet, Sand Castle, 2026-08-04). graph_consequences was run
 // on the file at the centre of five slices and two nights of work. It returned
 // features_touching [], contracts [], open_tasks [], co_consumer_files [],
 // claim_count 0. The code layer was healthy — 12,130 nodes, freshly indexed.
@@ -37,7 +37,7 @@ const SERVER = join(REPO, 'mcp', 'stdio', 'server.js');
 //
 // ★ Measured, not assumed: moving `.aify-graph/` aside and running the full suite gives
 // 3 failures in 2 files. That is precisely the "missing repo-local overlays" that
-// graph-senior-dev-hermes reported and could not reconcile with my numbers — and it means
+// review, hermes session reported and could not reconcile with my numbers — and it means
 // EVERY suite count I have quoted was a claim about MY MACHINE'S UNTRACKED STATE rather
 // than about the committed code. Their refusal to accept those counts as exact-target
 // evidence was correct, and better grounded than my reporting of them.

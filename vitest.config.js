@@ -29,7 +29,7 @@ export default defineConfig({
     // and process.chdir() throws inside vitest's `threads` pool ("not supported in
     // workers"). It passes here only because the CURRENT default happens to be `forks`.
     //
-    // ★ graph-senior-dev-hermes hit exactly that restriction running an isolated archive,
+    // ★ review, hermes session hit exactly that restriction running an isolated archive,
     // and reported it among failures they could not attribute. The suite was relying on a
     // DEFAULT to satisfy a hard requirement — and a default is not a decision, it is
     // whatever the tool picked this version. It has already moved once (vitest 2 changed
@@ -46,7 +46,7 @@ export default defineConfig({
     // recording the caveat as expected output.
     //
     // ⇒ This is what makes the guarantee route-sensitive rather than function-sensitive.
-    // graph-senior-dev-hermes killed the source inventory by adding a disclosure-less branch
+    // review, hermes session killed the source inventory by adding a disclosure-less branch
     // INSIDE graphPacket — which the inventory passed, because that 396-line function calls
     // the renderer elsewhere. Nothing pattern-matched over source can attribute a header to
     // the path that produced it. Executing it can.

@@ -1,6 +1,6 @@
 // ★ THE HOP THAT ALREADY FAILED ONCE.
 //
-// ef-manager caught a scope claim that was one hop wider than the test behind it.
+// the field test caught a scope claim that was one hop wider than the test behind it.
 // The discrimination test seeds the COLLECTION ROW directly, so it verifies
 // collection-row → reader → surfacing. The step it skips is the importer turning
 // per-record `cause` values into refs_degraded / refs_clean_not_found — and that

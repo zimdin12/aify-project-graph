@@ -4,7 +4,7 @@
   "ledgerStateBefore": "legacy_unruled",
   "ledgerStateAtPreregistration": "v3_runnable_unwitnessed",
   "referee": {
-    "identity": "graph-senior-dev",
+    "identity": "the reviewer",
     "proposalThreadMessageId": "1787278493213-6aaee5cc",
     "approvalResponseMessageId": "1787278542582-fafd49ab",
     "disposition": "APPROVE design; extract + promote on schema, then send identity for GO. No mutant before approval of the carrier."

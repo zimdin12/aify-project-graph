@@ -240,7 +240,7 @@ describe('the extractor output shape and EXTRACTOR_VERSION move together', () =>
 
 // ⛔ A ZERO MUST NAME THE POPULATION IT SEARCHED, OR IT READS AS A CLAIM ABOUT THE REPOSITORY.
 //
-// ef-manager, field-testing the heading index on their own corpus: `denoiser` returned
+// the field test, field-testing the heading index on their own corpus: `denoiser` returned
 //
 //     NO RESULTS for "denoiser". Ruled out: the index is fresh.
 //

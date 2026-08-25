@@ -112,7 +112,7 @@ describe('server toolset selection', () => {
   it('★★★ graph_census is CALLABLE through the real server, not just listed', async () => {
     // ⛔ LISTED IS NOT CALLABLE, AND THIS REPO HAS SHIPPED THAT GAP. A warning once named
     // `code_intel_definitions`, which was not in the default profile and therefore not reachable
-    // in a managed session at all — ef-manager executed the lookup and got "No matching deferred
+    // in a managed session at all — the field test executed the lookup and got "No matching deferred
     // tools found". A verb in the manifest that errors on invocation is worse than an absent one,
     // because the reader spends a call discovering it.
     //
@@ -153,13 +153,13 @@ describe('server toolset selection', () => {
     // ⛔ 17 -> 15. `graph_digest` and `graph_explain_diff` were dropped from the DEFAULT LISTING
     // in Phase 3c. Both remain CALLABLE via tools/call; gating is listing only.
     //
-    // ef-manager's usage across the whole review arc was FIVE of seventeen verbs, and the datum
+    // the field test's usage across the whole review arc was FIVE of seventeen verbs, and the datum
     // that mattered was not the zero counts but where they went instead: three times they had a
     // real question, had the full list in front of them, and went to raw sqlite. "Presence did not
     // steer me wrong; it steered me NOWHERE." A listed verb nobody picks is schema billed on every
     // session for salience that is not working.
     // ⭐ 15 -> 16: `graph_census` ADDED, and the listing cost is earned by evidence the two dropped
-    // verbs did not have. ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type`
+    // verbs did not have. the field test hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type`
     // in THREE separate review rounds — because nothing exposed it — and it produced a finding
     // EVERY time: four dead declaration types, the 67%-unreachable figure, and echoes' 183
     // `Symbol` + 1 `BuildTest` nodes that graph_whereis silently cannot return.
@@ -178,7 +178,7 @@ describe('server toolset selection', () => {
     //                    the "run graph_index" staleness warning because it was not in their surface
     //   graph_dashboard  2026-06 field report — agents hand-rolled a server launcher without it
     //
-    // ⚠ And ef-manager's own caveat covers them: "zero calls is evidence I was not doing the work
+    // ⚠ And the field test's own caveat covers them: "zero calls is evidence I was not doing the work
     // they serve... a drop decision on my numbers alone would be the consumer-enumeration mistake
     // again." A reviewer grading precision never needs to re-index or open a dashboard.
     expect(names, 'kept on recorded absence-harm, not on usage').toContain('graph_index');

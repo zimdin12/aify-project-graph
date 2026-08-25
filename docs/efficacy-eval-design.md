@@ -1,7 +1,7 @@
 # Efficacy evaluation — design v3 (pre-registered)
 
 > **RUN STATUS: NO-RUN.** v3 is a defensible protocol scaffold, not yet an executable
-> preregistration. graph-senior-dev approves running it *as a descriptive paired case series*
+> preregistration. the reviewer approves running it *as a descriptive paired case series*
 > once the Appendix is filled with exact tasks, contracts, instrument and schedule. Until then
 > no arm may be executed — a half-frozen preregistration is not one.
 

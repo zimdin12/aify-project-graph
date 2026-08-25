@@ -5,7 +5,7 @@
 // through `walkFiles`, which defaulted to the bare `IGNORED_DIRS` constant — a hardcoded list of
 // directory names that never reads `.gitignore`.
 //
-// ⛔ ef-manager found it from outside, and only because they checked node TYPES rather than counts:
+// ⛔ the field test found it from outside, and only because they checked node TYPES rather than counts:
 // 3 `Test` nodes in this repo's live graph sourced from
 // `reference/graphify/tests/fixtures/sample_doctest.cpp`, under `.gitignore:12 reference/`, a path
 // `git ls-files --error-unmatch` rejects. Directory nodes past an exclusion are a tree walk;

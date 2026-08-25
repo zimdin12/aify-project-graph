@@ -9,7 +9,7 @@
 // continue;` makes the tests green, and it also makes every future mistake invisible: a spec file
 // misnamed, a spec file that stops parsing, a spec whose entries lose their required fields — all
 // would be silently skipped, and the denominator would quietly shrink while every gate stayed green.
-// graph-senior-dev: *"fails if a would-be spec is silently excluded — not merely filters until
+// the reviewer: *"fails if a would-be spec is silently excluded — not merely filters until
 // tests turn green."*
 //
 // ⇒ EVERY `.json` IN THE DIRECTORY IS CLASSIFIED, and an unclassifiable one THROWS:

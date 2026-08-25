@@ -3,7 +3,7 @@
 // ⚠ READ THE TITLE AGAIN — IT SAYS *FUNCTION*, AND IT USED TO SAY *ROUTE*. THAT WAS FALSE.
 //
 // ⛔ This file previously claimed "NO route shows a symbol list without reaching
-// renderCandidateDisclosures()". graph-senior-dev-hermes falsified it by executing a
+// renderCandidateDisclosures()". review, hermes session falsified it by executing a
 // mutation: inside graphPacket,
 //
 //     if (mode === '__inventory_probe__') return 'CANDIDATES:\n- src/hidden.cpp:1';
@@ -23,7 +23,7 @@
 //
 // ⚠ THIS PARAGRAPH USED TO DESCRIBE A CALL-COUNT SEAL — "compares the renderer's call count
 // either side of the call" — which was several architectures ago and was itself falsified
-// twice. graph-senior-dev flagged the stale text as non-blocking, on the grounds that an
+// twice. the reviewer flagged the stale text as non-blocking, on the grounds that an
 // explanation nobody has re-read becomes an authority the next reviewer cites. They were
 // right; a comment that is wrong about the mechanism is worse than none, because it is
 // believed.

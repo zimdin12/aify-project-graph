@@ -90,7 +90,7 @@ describe('the declaration types the query layer searches', () => {
   });
 
   it('★★★ the arrow-const path still produces a Function, so the gap is scoped to DATA consts', () => {
-    // graph-senior-dev's refutation of my first wording, pinned: `export const f = () => …`
+    // the reviewer's refutation of my first wording, pinned: `export const f = () => …`
     // DOES become a Function. The gap is non-function bindings, and conflating the two is how
     // a measured 84/89 turns into a claim about "module constants" that is not true.
     const config = getLanguageConfig('app.ts');

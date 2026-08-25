@@ -4,7 +4,7 @@
 // LSP_VERIFIED; their origin is stashed in the extractor column. Deleting them
 // outright silently loses call sites that genuinely exist — they read afterwards as
 // "these call sites don't exist", which is the worst failure this codebase has.
-// sc-manager's tree had 891 of them.
+// the field fleet's tree had 891 of them.
 //
 // THE BUG THIS PINS. reset-code-intel.mjs originally REIMPLEMENTED the stash
 // decoder and split the payload on '|' when the real component separator is '::'.

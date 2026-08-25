@@ -1,7 +1,7 @@
 // ★ THE DENOMINATOR, EXTRACTED SO IT CAN BE RUN INSTEAD OF GREPPED.
 //
 // `lspVerifiedPct` was computed inline in health.js, so the only way to guard it was to
-// assert regexes over that file — eight of them, all spelling. ef-manager rates this
+// assert regexes over that file — eight of them, all spelling. the field test rates this
 // denominator among the fields they ACTUALLY USED (they checked the 833/1599 arithmetic
 // against it), which makes a test that cannot fail on a wrong number the worst kind to
 // have here.

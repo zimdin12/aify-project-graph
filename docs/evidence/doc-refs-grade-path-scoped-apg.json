@@ -4,7 +4,7 @@
   "repo": "aify-project-graph",
   "graded_at_commit": "420147b",
   "note": "Graded BEFORE the head-identifier fix (8280567), which removed the single false positive. Neither grader had tuned the code at this commit.",
-  "graded_by": "ef-manager",
+  "graded_by": "the field test",
   "graded_at": "2026-08-20",
   "method": "FULL POPULATION, graded from the document prose rather than from the resolved edge. Not sampled.",
   "population": 33,

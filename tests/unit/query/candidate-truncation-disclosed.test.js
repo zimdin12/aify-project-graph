@@ -1,6 +1,6 @@
 // A CAPPED CANDIDATE LIST THAT DOES NOT SAY IT IS CAPPED HIDES THE ANSWER.
 //
-// Measured (ef-manager, echoes, 2026-08-10). `graph_consequences("GpuMaterial")` printed
+// Measured (the field test, echoes, 2026-08-10). `graph_consequences("GpuMaterial")` printed
 // "16 concrete candidates found:" then FIVE bullets, all GLSL, and stopped. No "11 more",
 // no truncated flag, no limit.
 //

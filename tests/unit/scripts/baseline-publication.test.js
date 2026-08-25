@@ -2,7 +2,7 @@
 //
 // `writeFileSync(ARTIFACT, ...)` used to run BEFORE the route-coverage and all-threw refusals. The
 // refusal printed and exited 1 — and the artifact it had just written stayed there, ready for a
-// later `--verify` to consume. graph-senior-dev: *"a refused baseline must never masquerade as an
+// later `--verify` to consume. the reviewer: *"a refused baseline must never masquerade as an
 // attempted baseline."*
 //
 // ⚠ THESE SIDE EFFECTS WERE ONLY EVER INFERRED FROM READING THE ORDER. A test that asserts source

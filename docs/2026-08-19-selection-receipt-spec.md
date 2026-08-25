@@ -3,14 +3,14 @@
 **Status 2026-08-19: codec + population selector IMPLEMENTED and independently replayed; the
 receipt body is NOT WIRED to any verb.** `mcp/stdio/code-intel/selection-digest.js`. No agent can obtain one yet, so this is still not a capability to cite.
 
-Verified: all six golden vectors from `graph-senior-dev`'s independent Python/Node pair, plus body-only replay with the producer's source files **deleted** — the property their first Python replay could not actually establish, because it was re-reading those files.
+Verified: all six golden vectors from `the reviewer`'s independent Python/Node pair, plus body-only replay with the producer's source files **deleted** — the property their first Python replay could not actually establish, because it was re-reading those files.
 
 Context: `evidence.exhaustive` was falsified three times in one day and is now **withheld**
 (`bd9034f`, `cfe0538`). This document specifies a **SELECTION / FLOOR receipt**: a smaller,
 separate, TRUE claim about which population APG selected and which locations it exposed.
 
 ⛔ **It does NOT make a future positive claim auditable, and must not be described as a step
-toward one.** I wrote that and retracted it; `graph-senior-dev` caught it standing in the
+toward one.** I wrote that and retracted it; `the reviewer` caught it standing in the
 opening after the body already said otherwise. The positive claim needs the ATTESTATION
 receipt — a separate remedy, a separate `receipt_kind`, and a population independent of its own
 observed successes.
@@ -89,7 +89,7 @@ H     = SHA-256
 3. Project-relative, `/` separators, no leading `/`, no `.` or `..`, NFC, **preserve case**.
 4. ⛔ **RETIRED — this rule said "reject duplicate normalized paths that case-fold equal … never
    silently merge aliases", and it contradicts the accepted implementation two sections down.**
-   `graph-senior-dev` caught it surviving the falsifier-4 correction: *"exactly the kind of second
+   `the reviewer` caught it surviving the falsifier-4 correction: *"exactly the kind of second
    authority from which the retired proxy will be reintroduced."* The population is a
    compile-entry **multiset** — preserve the original spelling and every row, never merge or
    dedupe. Physical-file identity belongs to a separate future population derived from resolved
@@ -192,7 +192,7 @@ rather than an enum member — so the vocabulary governs the emitters instead of
 - `no_project_root` — the population root is missing. A selection with no subject is not a
   claim about anything.
 - ⛔ **RETIRED: `path_alias_collision`.** It refused two entries whose paths case-fold together.
-  `graph-senior-dev`'s ruling removes it: this population is a compile-entry **multiset**, two
+  `the reviewer`'s ruling removes it: this population is a compile-entry **multiset**, two
   entries spelling one physical file differently are still two selected entries, and the selector
   never merges anything — so the check protected nothing and only cost availability. The
   `process.platform === 'win32'` predicate behind it was a **stand-in** for a filesystem property

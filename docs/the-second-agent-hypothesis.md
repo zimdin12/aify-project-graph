@@ -1,6 +1,6 @@
 # The second-agent hypothesis
 
-**Session of 2026-07-31 → 08-02 · graph-tech-lead + ef-manager · HYPOTHESIS, not a finding**
+**Session of 2026-07-31 → 08-02 · this project + the field test · HYPOTHESIS, not a finding**
 
 Recorded as a testable claim with its falsifier attached. One session, two agents,
 one repo, and both authors were wrong about mechanisms multiple times inside it. It

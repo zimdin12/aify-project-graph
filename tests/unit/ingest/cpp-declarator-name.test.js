@@ -5,7 +5,7 @@
 // fallback that re-parses the declarator's SOURCE TEXT. That text includes the
 // parameter list, defaults and all.
 //
-// Found by ef-manager on echoes (2026-08-02):
+// Found in field testing on echoes (2026-08-02):
 //   inline CylindricalPositionId cylindricalIdFromWorldPos(
 //       const glm::vec3& worldPosVoxels, ...,
 //       const glm::vec3& spinAxis = glm::vec3(0, 1, 0), ...)

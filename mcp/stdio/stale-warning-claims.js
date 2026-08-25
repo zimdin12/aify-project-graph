@@ -1,6 +1,6 @@
 // THE CLAIMS ARE THE CONTRACT. THE PROSE IS A RENDERING OF THEM.
 //
-// graph-senior-dev-hermes's answer to the question I could not solve: do not make prose
+// review, hermes session's answer to the question I could not solve: do not make prose
 // authoritative. A paragraph cannot be policed by a blacklist (an open class), and it
 // cannot be policed by an equality check either, because subject and expectation move
 // together in one patch — which is exactly the survivor they demonstrated.
@@ -18,7 +18,7 @@
 //                                          this service." passed (no inability modal)
 //   4. approved-fragment equality       → editing production and the copy together passed
 //
-// ★★ THE HONEST LIMIT, stated because dev asked for it explicitly rather than left
+// ★★ THE HONEST LIMIT, stated because the reviewer asked for it explicitly rather than left
 // implicit: this repo has no governance boundary outside its own patch authority. A
 // contributor who edits both this file and its test in one change still authorises
 // themselves. What this design buys is CHANGE VISIBILITY — a new claim ID is legible in a

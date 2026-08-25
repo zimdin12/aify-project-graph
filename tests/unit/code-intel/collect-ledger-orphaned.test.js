@@ -1,6 +1,6 @@
 // ⛔ THE REMEDY OUR OWN TOOL PRINTS WAS INERT IN EXACTLY THE STATE THAT TRIGGERS IT.
 //
-// ef-manager, sand_castle, 2026-08-20. A `graph_index(force=true)` destroyed the LSP-verified
+// the field test, sand_castle, 2026-08-20. A `graph_index(force=true)` destroyed the LSP-verified
 // edges. The reindex printed, in its own words:
 //
 //   "this rebuild DROPPED the LSP-verified trust spine ... Run graph_collect_code_intel to

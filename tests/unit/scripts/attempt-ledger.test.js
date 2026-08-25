@@ -23,7 +23,7 @@ const published = row(OUTCOME.PUBLISHED_EXACT_TREE);
 const refuse = row(OUTCOME.GATE_REFUSE, { reason: 'unexpected ignored state at entry' });
 const failed = row(OUTCOME.GATE_FAILED);
 const auth = (ids) => JSON.stringify({
-  supersedes: ids, reason: 'servers quiesced', approver: 'graph-senior-dev', approvalMessageId: 'msg-1',
+  supersedes: ids, reason: 'servers quiesced', approver: 'the reviewer', approvalMessageId: 'msg-1',
 });
 
 describe('a refusal cannot be retried away', () => {
@@ -98,7 +98,7 @@ describe('supersession must be authority, not a sentence', () => {
     const p = retryPermission([refuse, failed], parseSupersession(auth([refuse.id, failed.id])));
     expect(p.allowed).toBe(true);
     expect(p.reason).toMatch(/superseding 2 attempt/);
-    expect(p.reason).toMatch(/graph-senior-dev/);
+    expect(p.reason).toMatch(/the reviewer/);
   });
 
   it('★★★⛔ a supersession that does not name a blocking attempt is REFUSED', () => {

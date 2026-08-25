@@ -1,5 +1,5 @@
 {
-  "_comment": "Plan #14 Step C task spec for scripts/code-intel-microbench.mjs. Ground truth locked with graph-senior-dev against Sand Castle WSL clangd 18.1.3 (2026-05-22 to 2026-05-23). Edit projectRoot to your Sand Castle absolute path before running.",
+  "_comment": "Plan #14 Step C task spec for scripts/code-intel-microbench.mjs. Ground truth locked with the reviewer against Sand Castle WSL clangd 18.1.3 (2026-05-22 to 2026-05-23). Edit projectRoot to your Sand Castle absolute path before running.",
   "schema_version": "0.1",
   "projectRoot": "/mnt/c/Users/Administrator/sand_castle",
   "lockedAt": "2026-05-23",

@@ -1,6 +1,6 @@
 // EDGE LIFECYCLE: A DELETED DOCUMENT MUST TAKE ITS EDGES WITH IT.
 //
-// ⭐ dev named this as the Phase 5 requirement and it is the one that does not announce itself:
+// ⭐ the reviewer named this as the Phase 5 requirement and it is the one that does not announce itself:
 //
 //   "Every derived cross-layer relation needs a producer, population, admission rule, provenance,
 //    freshness trigger, DELETION TRIGGER and consumer policy. Without that ledger, file rename /
@@ -14,7 +14,7 @@
 //
 // ⛔ AND THE DATABASE DOES NOT ENFORCE IT — BUT SAY THAT PRECISELY, BECAUSE THE OBVIOUS PHRASING IS
 // WRONG. "PRAGMA foreign_keys is 0" is a claim about a CONNECTION, not about the file: the pragma is
-// session state and is not stored. ef-manager measured 1 on a bare better-sqlite3 handle and on the
+// session state and is not stored. the field test measured 1 on a bare better-sqlite3 handle and on the
 // read path, and nearly filed a contradiction before finding that `storage/db.js` sets
 // `foreign_keys = OFF` inside `openDb` — which is the only path that WRITES edges, and does it
 // deliberately because an edge may reference a not-yet-inserted node.
@@ -136,7 +136,7 @@ describe('a document leaving the repo takes its edges with it', () => {
   }, 120_000);
 
   it('★★★ RENAMING a document moves its edges rather than duplicating them', async () => {
-    // dev named rename alongside deletion. A rename is a delete plus an add, and the failure mode
+    // the reviewer named rename alongside deletion. A rename is a delete plus an add, and the failure mode
     // is that the OLD path's edges survive beside the new ones — both truthful at creation, one of
     // them now describing a file that does not exist.
     await writeFile(join(repoRoot, 'src', 'terrain.js'),

@@ -66,7 +66,7 @@ const RESOLVE_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type'];
 // prepare{Call,Type}Hierarchy, children from incoming/outgoingCalls — so it is stamped where it
 // is CONSTRUCTED. `[lsp✓]` then renders from the node's own provenance and nothing else.
 //
-// ⛔ WHY, per graph-senior-dev's review of 0d1fd1d: the previous repair rendered the mark from
+// ⛔ WHY, per the reviewer's review of 0d1fd1d: the previous repair rendered the mark from
 // `mode !== 'bounded' && indexReady && nodeCount > 1`. Those constrain POPULATION COMPLETENESS,
 // not whether a returned edge came from clangd. A bounded or not-yet-idle response may
 // undercount while every edge it DID return is still compiler-resolved — so that predicate
@@ -337,7 +337,7 @@ function buildHierarchyEvidenceInner({ mode, indexReady, nodeCount, kind, covera
       degraded: true,
       // ⛔ NOT an incident. Bounded mode is EXPLICITLY SELECTED behaviour — it never waits for the
       // index, by design. Nothing happened *to* this request, so flagging it operationally
-      // degraded repeats the standing-limit mistake at a smaller scope (graph-senior-dev, review
+      // degraded repeats the standing-limit mistake at a smaller scope (the reviewer, review
       // of b396c0a). A bounded response can be healthy-for-bounded, precise on every returned
       // node, and incomplete — three separate facts carried by three separate fields.
       operationallyDegraded: false,
@@ -428,7 +428,7 @@ function buildHierarchyEvidenceInner({ mode, indexReady, nodeCount, kind, covera
     return {
       ready: true,
       // ⛔ `degraded` KEPT FOR COMPATIBILITY, BUT IT NO LONGER DISCRIMINATES — read
-      // `operationallyDegraded` instead. graph-senior-dev, reviewing 0d1fd1d: "a flag true on
+      // `operationallyDegraded` instead. the reviewer, reviewing 0d1fd1d: "a flag true on
       // every successful answer is not health information." `index_population_unattested` is a
       // STANDING EPISTEMIC LIMIT — the compile DB never reports which TUs produced usable ASTs —
       // so it is true of every call and cannot mark an incident. An operational degradation is
@@ -585,7 +585,7 @@ async function walkTypeHierarchy(session, rootItem, { direction, depth, breadthC
 // ⛔ THIS COMMENT USED TO TEACH THE OPPOSITE — that the mark is honest "only when the tree is
 // index-ready exhaustive", and that bounded/cold must render `[lsp~]`. The executable code below
 // had already been corrected to do the reverse, so the source contract an agent reads contradicted
-// the behaviour it describes. Caught by graph-senior-dev reviewing b396c0a, and it is the same
+// the behaviour it describes. Caught in review reviewing b396c0a, and it is the same
 // defect as the README teaching a withdrawn rule six days after the skills were fixed: a repair
 // that reaches the code and not the prose is half a repair.
 //
@@ -653,7 +653,7 @@ export async function codeIntelHierarchy(args = {}) {
       // Carry candidates instead of redirecting. A one-character typo on a symbol
       // the graph definitely holds returned a bare "run graph_search" here — the
       // same wasted round-trip did-you-mean removed elsewhere, still live on the
-      // verb a field user actually reached for (ef-manager, 2026-07-31).
+      // verb a field user actually reached for (the field test, 2026-07-31).
       let suggestions = [];
       try {
         const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));

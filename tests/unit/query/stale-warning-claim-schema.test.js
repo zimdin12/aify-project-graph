@@ -1,6 +1,6 @@
 // THE CLAIMS ARE THE CONTRACT; THE PROSE IS A RENDERING.
 //
-// graph-senior-dev-hermes's design, after four rounds proved prose cannot police itself.
+// review, hermes session's design, after four rounds proved prose cannot police itself.
 // A blacklist over natural language is never finished (an open class), and an equality
 // check against a hand-written copy is defeated by editing subject and expectation in one
 // patch — which they demonstrated.
@@ -9,7 +9,7 @@
 // the warning requires adding a claim ID: enumerable, legible in a diff, testable as an
 // ordered set. A sentence appended inside a template literal is none of those.
 //
-// ★★ THE LIMIT, stated because dev asked for it and because overclaiming here would be
+// ★★ THE LIMIT, stated because the reviewer asked for it and because overclaiming here would be
 // the exact defect the warning exists to prevent: this gives CHANGE VISIBILITY, not
 // independent semantic authorization. A contributor editing the schema and this test
 // together still authorises themselves.

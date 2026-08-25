@@ -13,7 +13,7 @@ const src = readFileSync(join(REPO, 'scripts', 'reindex.mjs'), 'utf8');
 describe('the hook payload refreshes everything a reader depends on', () => {
   // ★★ THESE THREE WERE `toMatch(/ensureFresh/)` AND FRIENDS — a regex for a function
   // NAME, which passes whether or not the call ever runs, and fails on a rename that
-  // changes nothing. ef-manager adjudicated them as "gave up" and named the observable
+  // changes nothing. the field test adjudicated them as "gave up" and named the observable
   // signals: graph_health already reports briefStaleVsManifest and
   // unresolvedCategorizationStaleVsManifest precisely BECAUSE they can diverge from
   // graph freshness.
@@ -68,7 +68,7 @@ describe('the hook payload refreshes everything a reader depends on', () => {
   });
 
   it('★★ never fails the git operation — RUN, not grepped', async () => {
-    // ef-manager's adjudication (2026-08-11) named this the highest-consequence miss of
+    // the field test's adjudication (2026-08-11) named this the highest-consequence miss of
     // the eighteen source-contract tests, and they were right about why:
     //
     //   it asserted /process\.exit\(0\)/ ON A POST-COMMIT HOOK.

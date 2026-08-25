@@ -4,7 +4,7 @@
 //     ADDRESSABLE anchors           35   the anchor resolves to exactly one site in its file
 //     behaviourally executed        ??   what self-review actually runs — NOT measured here
 //
-// ⚠ THIS FILE PROVES ADDRESSABILITY ONLY. graph-senior-dev's wording, and it is the right wording:
+// ⚠ THIS FILE PROVES ADDRESSABILITY ONLY. the reviewer's wording, and it is the right wording:
 // *"a unique present anchor proves mutation transport can locate a site; it does not prove the
 // mutation lands, changes behaviour, reaches the route, or produces the predicted failure."*
 // Nothing here executes a hostile mutation or observes a red test. **Addressable is not witnessed.**

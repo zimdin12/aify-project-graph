@@ -69,7 +69,7 @@ export class Workspace {
     //
     // ⚠ REALPATH THE PARENT, not the target: realpathSync throws on a path that does not exist yet,
     // which is every write target. The parent is what a junction would redirect.
-    // Found by ef-manager reviewing 1c05bde.
+    // Found in field testing reviewing 1c05bde.
     const physicalParent = (() => {
       try { return realpathSync(dirname(abs)); } catch { return null; }
     })();

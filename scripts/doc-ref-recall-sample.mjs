@@ -8,7 +8,7 @@
 //
 // ⚠ TRUE RECALL IS NOT COMPUTABLE HERE and this script does not pretend otherwise. It needs the
 // count of genuine references in the corpus, which requires exhaustively hand-labelling ~7,000
-// spans. dev asked for recall "disclosed as a FLOOR", and a floor is what a sample can honestly
+// spans. the reviewer asked for recall "disclosed as a FLOOR", and a floor is what a sample can honestly
 // support:
 //
 //     recall_floor = admitted / (admitted + estimated_missed)

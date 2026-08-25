@@ -1,6 +1,6 @@
 // A RETRIEVAL LIMIT OF ZERO PRODUCED AN ANSWER SHAPED LIKE ABSENCE.
 //
-// ⛔ graph-senior-dev, 2026-08-19, executing against 528a68c: `graphWhereis(symbol:'graphWhereis',
+// ⛔ review, 2026-08-19, executing against 528a68c: `graphWhereis(symbol:'graphWhereis',
 // limit:0)` returns a NO MATCH-shaped response for a symbol whose Function node is right there.
 // The schema accepts any integer (`limit: { type: 'integer', default: 5 }`).
 //

@@ -105,7 +105,7 @@ export function splitDefinitionFromReferences(refs, defs) {
 
 // THE VERDICT IS STRUCTURED; THE REASONING MUST NOT BE SAID TWICE.
 //
-// Field feedback (ef-manager, 2026-07-30) named this the single most ANNOYING thing
+// Field feedback (the field test, 2026-07-30) named this the single most ANNOYING thing
 // about the tool. `exhaustive` is perfect — one field, branch on it, done — and
 // sitting beside it was a ~300-word prose paragraph duplicated BYTE-FOR-BYTE between
 // `fallback` and `warnings[0]`, on every degraded call. The reader must scan the wall
@@ -225,7 +225,7 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
   // difference between establishing the route and checking a different shape, which is the
   // shape of nearly every defect found in this codebase this month.
   //
-  // graph-senior-dev's second counterexample: the on-disk population census is TTL-cached, so a
+  // the reviewer's second counterexample: the on-disk population census is TTL-cached, so a
   // caller-bearing source added in-session left the denominator describing a repo that no
   // longer existed, and exhaustive:true was re-issued over it.
   if (freshness === 'fresh' && callsiteCount > 0 && coverage && coverage.censusFresh === false) {
@@ -255,7 +255,7 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
       warnings,
     };
   }
-  // ⛔⛔⛔ REMEDY 3 — MEMBERSHIP IS SELECTION, NOT SUCCESS. graph-senior-dev executed this on
+  // ⛔⛔⛔ REMEDY 3 — MEMBERSHIP IS SELECTION, NOT SUCCESS. the reviewer executed this on
   // 7a46e4c, AFTER the coverage fix: two sources, both in compile_commands, ratio 1, census
   // fresh — and one of them carried a compile command missing an include path, so clangd could
   // not compile it. Its caller was absent from the result and the verb still returned
@@ -321,7 +321,7 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
     // matches HEAD, which graph_health also calls "stale". A field user got
     // `cause: stale_index, confidence: low, exhaustive: false` on an answer that was
     // 6/6 CORRECT against ripgrep ground truth, while graph_health seconds later
-    // reported stale:false, indexReady:true, drift resolved (ef-manager,
+    // reported stale:false, indexReady:true, drift resolved (the field test,
     // 2026-07-31). Two surfaces, one vocabulary, opposite verdicts.
     //
     // His point is the one that matters, and it is the same argument he made about
@@ -385,7 +385,7 @@ export function buildDefinitionsEvidence({ freshness, defCount, coverage }) {
   }
   // ⛔⛔ FALSIFIED FOR DEFINITIONS TOO, executed against bd9034f and real clangd. I had left
   // this granting on the grounds that the reference counterexample did not bound it;
-  // graph-senior-dev built the definition-specific one rather than let me guess:
+  // the reviewer built the definition-specific one rather than let me guess:
   //   include/api.h declares target(); src/definition.cpp holds the real out-of-line
   //   definition; BOTH source paths are in compile_commands (2/2, ratio 1, censusFresh).
   //   definition.cpp's DB command omits the include path -> rc 1, 'api.h' file not found.
@@ -474,7 +474,7 @@ export async function openIfNeeded(session, file) {
       let text = '';
       try { text = fs.readFileSync(abs, 'utf8'); } catch { /* leave empty */ }
       const version = (prev?.version || 1) + 1;
-      // ⛔ THE FAILURE WAS SWALLOWED AND THE STATE UPDATED ANYWAY. graph-senior-dev, reading for
+      // ⛔ THE FAILURE WAS SWALLOWED AND THE STATE UPDATED ANYWAY. the reviewer, reading for
       // the receipt's carrier binding: `didChange` threw, the catch dropped it, and the very
       // next line recorded the new version/mtime/size as though the server had accepted it. So
       // our record said "synced" while clangd still held the OLD text — and every answer after
@@ -547,7 +547,7 @@ function planAutoPrewarm(session, queriedFile, callerWarmupFiles, prewarmCap) {
     cap: prewarmCap,
     // Let prewarm consult the call graph. Without this it picks warmup files by
     // DIRECTORY ORDER while we hold the answer — measured at ~22s of warming
-    // non-callers, still returning non-exhaustive (ef-manager, 2026-07-31).
+    // non-callers, still returning non-exhaustive (the field test, 2026-07-31).
     openDb: openExistingDb,
   });
   return { addedFiles: result.files, stats: result.stats };
@@ -640,11 +640,11 @@ export function fatalIncludeErrors(session, uri) {
 // uriToRepoRelativeSafe deliberately returns {path, ok, reason} so a caller can tell an
 // out-of-repo location from a normalized one — its own comment says that is the point. This
 // wrapper returned `.path` alone, so `outside_project_root` arrived looking exactly like a repo
-// file. ef-manager, field-testing v0.7.0: every definitionLocations[0].file came back as
+// file. the field test, field-testing v0.7.0: every definitionLocations[0].file came back as
 // `.../VC/Tools/MSVC/14.43.34604/include` — a DIRECTORY holding 277 headers, which is
 // toolset.includeDir from msvc-env.js. It appeared with ebba7de, i.e. it is mine, from today.
 //
-// ⚠ THE ORIGIN OF THAT URI IS NOT ESTABLISHED. ef-manager did not determine whether clangd emits
+// ⚠ THE ORIGIN OF THAT URI IS NOT ESTABLISHED. the field test did not determine whether clangd emits
 // it or something here invents it, and neither have I. So this does NOT claim to fix the source.
 // It fixes what IS established: the one signal built to flag such a location was discarded before
 // any consumer could see it, and A DIRECTORY IS NOT A SOURCE LOCATION under any origin story.
@@ -825,7 +825,7 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   // ONLY as a filter — we had the definition in hand and threw it away. A field
   // tester queried a symbol AT its own definition and got definitionLocations: []
   // with a documented contract saying "declaration entries split out"
-  // (ef-manager, echoes, 2026-07-30). He isolated it by elimination — full
+  // (the field test, echoes, 2026-07-30). He isolated it by elimination — full
   // coverage, non-degraded, still zero — which is what made the mechanism findable.
   //
   // Surface what we resolved, and say WHERE it came from, because "split out of the
@@ -853,7 +853,7 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   });
 
   // ⛔ AN EMPTY CALLER SET FROM A TU THAT NEVER COMPILED IS BYTE-IDENTICAL TO A TU WITH NO
-  // CALLERS. sc-manager's sentence, and it is the most expensive output this verb can produce.
+  // CALLERS. the field fleet's sentence, and it is the most expensive output this verb can produce.
   //
   // Reproduced on 2026-08-25 (scripts/probe-clangd-stdlib-env.mjs), controls in the same pass:
   // a TU with `#include <cstddef>` returned 0 references with status "ok" while an identical TU
@@ -951,7 +951,7 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
     warmedFiles: batch.length,
     // COMPAT ARRAY, DEDUPLICATED. `references` predates the
     // referenceLocations/definitionLocations split and is kept so existing callers
-    // do not break. Field measurement (ef-manager, 2026-07-30): it was BYTE-IDENTICAL
+    // do not break. Field measurement (the field test, 2026-07-30): it was BYTE-IDENTICAL
     // to referenceLocations in 4 of 4 responses, doubling every payload for zero
     // information — and payload size is a real cost for an agent, not a cosmetic one.
     //

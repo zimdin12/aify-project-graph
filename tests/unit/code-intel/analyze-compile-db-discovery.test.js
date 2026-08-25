@@ -5,7 +5,7 @@ import path from 'node:path';
 import { EventEmitter } from 'node:events';
 import { codeIntelAnalyze } from '../../../mcp/stdio/query/verbs/code_intel_analyze.js';
 
-// DEFECT 5, found by sc-manager on sand_castle 2026-08-25: code_intel_analyze carried its OWN
+// DEFECT 5, found in the field on sand_castle 2026-08-25: code_intel_analyze carried its OWN
 // compile-DB discovery — a four-entry hardcoded list (root, build/, build-linux/,
 // cmake-build-debug/). sand_castle's two DBs live in build-clangd-native/ and build-win-clangd/,
 // so analyze reported compile_db_missing while two databases sat in the repo. It also ignored

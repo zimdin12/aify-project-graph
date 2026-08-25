@@ -4,7 +4,7 @@
 // solely in nested content produced the SAME digest. I fixed that and shipped it bundled with
 // an unrelated commit-attribution change — with no test for the one case the fix existed for.
 //
-// graph-senior-dev-hermes required the split and this matrix, and the reason generalises:
+// review, hermes session required the split and this matrix, and the reason generalises:
 // **a fix whose specific failure case is untested is a claim, not a repair.** Every arm below
 // is a state pair that the OLD implementation could not tell apart, plus the negative controls
 // that stop this suite from passing vacuously.

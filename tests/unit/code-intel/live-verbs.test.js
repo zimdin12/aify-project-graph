@@ -125,7 +125,7 @@ describe('code_intel_hover (live)', () => {
 // without a more invasive fixture rebuild.
 describe('Plan #14 evidence contract — integration', () => {
   it('references with fresh freshness + callsites → NOT exhaustive (index unattested) + compat array preserved', async () => {
-    // ⛔ SUPERSEDED 2026-08-19. graph-senior-dev executed a fixture where BOTH sources were
+    // ⛔ SUPERSEDED 2026-08-19. the reviewer executed a fixture where BOTH sources were
     // in compile_commands (ratio 1, census fresh) but one carried a command missing an
     // include path, so clangd could not compile it; its caller was absent and the verb
     // still returned exhaustive:true. clangd's BackgroundQueue counts a task Completed
@@ -161,7 +161,7 @@ describe('Plan #14 evidence contract — integration', () => {
 
 describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', () => {
   it('fresh + callsites + PROVEN coverage → still NOT exhaustive; membership is not index success', () => {
-    // ⛔ SUPERSEDED 2026-08-19. graph-senior-dev executed a fixture where BOTH sources were
+    // ⛔ SUPERSEDED 2026-08-19. the reviewer executed a fixture where BOTH sources were
     // in compile_commands (ratio 1, census fresh) but one carried a command missing an
     // include path, so clangd could not compile it; its caller was absent and the verb
     // still returned exhaustive:true. clangd's BackgroundQueue counts a task Completed
@@ -190,7 +190,7 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
     expect(e.confidence).toBe('medium');
     // The REASON lives in `fallback`, once. This used to also assert
     // warnings.length > 0 — pinning a byte-for-byte duplicate of `fallback` that a
-    // field user named the most annoying thing about the tool (ef-manager,
+    // field user named the most annoying thing about the tool (the field test,
     // 2026-07-30): a ~300-word paragraph printed twice on every degraded call.
     // `warnings` now carries only what `fallback` does not already say, so an empty
     // warnings array here is the fix working, not information lost.
@@ -199,7 +199,7 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
   });
 
   it('fresh + callsites + COMPLETE coverage → coverage gate passes but the index is unattested', () => {
-    // ⛔ SUPERSEDED 2026-08-19. graph-senior-dev executed a fixture where BOTH sources were
+    // ⛔ SUPERSEDED 2026-08-19. the reviewer executed a fixture where BOTH sources were
     // in compile_commands (ratio 1, census fresh) but one carried a command missing an
     // include path, so clangd could not compile it; its caller was absent and the verb
     // still returned exhaustive:true. clangd's BackgroundQueue counts a task Completed
@@ -240,7 +240,7 @@ describe('Plan #14 evidence contract — buildReferencesEvidence unit cases', ()
     // What changed: "stale" meant two different things across two surfaces. A field
     // user got cause:stale_index / confidence:low on an answer that was 6/6 CORRECT,
     // while graph_health seconds later reported stale:false and indexReady:true
-    // (ef-manager, 2026-07-31). Same word, opposite verdicts, no way to tell them
+    // (the field test, 2026-07-31). Same word, opposite verdicts, no way to tell them
     // apart. A trust field that cries low-confidence over correct answers teaches a
     // reader to stop reading evidence.exhaustive at all.
     expect(e.scope).toBe('live_session');

@@ -1,8 +1,8 @@
 # Variable extraction (R2) — PARKED, with the design intact
 
 **Status: PARKED 2026-08-19, not rejected.** Reviewed and conditionally approved by
-`graph-senior-dev`; the decision not to build it now is a **priority** call by
-`graph-tech-lead`, not a disagreement with their correctness analysis.
+`the reviewer`; the decision not to build it now is a **priority** call by
+`this project`, not a disagreement with their correctness analysis.
 
 This document exists because of the one-plan's rule: *deaths, with reasons, so they are not
 re-proposed*. The tool-split question was re-litigated twice because the reasoning lived in
@@ -17,13 +17,13 @@ code-intel LSP importer (`ingest/code-intel/schema.js` maps `variable`/`field`),
 without a collection has none.
 
 **⚠ The narrower wording is the true one.** My first framing was "module-level constants are
-not indexed", and `graph-senior-dev` refuted it: a const bound **directly** to an arrow or
+not indexed", and `the reviewer` refuted it: a const bound **directly** to an arrow or
 function expression *does* become a `Function` via `arrowFnSymbolInfo`. That is exactly the
 5 of 89 that resolve. The claim is **non-function module-level const bindings**. The 89 are
 **two populations** — callable constants hit, value constants miss — and quoting them as one
 hides the mechanism.
 
-Measured, and independently reproduced by `graph-senior-dev` on a fresh manifest:
+Measured, and independently reproduced by `the reviewer` on a fresh manifest:
 - 89 distinct `^export const NAME =` names under `mcp/`; **84 have no non-External node**
 - **30 of the 84** exist only as `External` stubs, carrying **55 incoming edges** (54
   REFERENCES, 1 CALLS)
@@ -39,12 +39,12 @@ Measured, and independently reproduced by `graph-senior-dev` on a fresh manifest
 
 **1. The gates are the honest price, and they are high.** See the design record below.
 Nothing in it is padding; it is the cost of not shipping something that, in
-`graph-senior-dev`'s words, *"looks authoritative while either absorbing unrelated targets
+`the reviewer`'s words, *"looks authoritative while either absorbing unrelated targets
 or remaining invisible to the safety verbs that matter."*
 
 **2. The payoff is unproven, and the evidence I have does not bound it.**
 
-⚠ **CORRECTED 2026-08-19 by `graph-senior-dev`, and the correction matters.** I first wrote
+⚠ **CORRECTED 2026-08-19 by `the reviewer`, and the correction matters.** I first wrote
 "the payoff class has no headroom". That over-extends the evidence: localization measurements
 bound the **edgeless LOCATION-only slice** and nothing more. **Reference precision is a
 different task class from symbol localization**, and my own new thesis says that is exactly
@@ -77,7 +77,7 @@ unwrap rule. **Same low payoff, most of the cost.**
 
 ## The design record — keep this, it is the expensive part
 
-Produced by `graph-senior-dev` and preserved verbatim in substance. If R2 is revived, start
+Produced by `the reviewer` and preserved verbatim in substance. If R2 is revived, start
 here rather than re-deriving it.
 
 ### Admission rule (the part a same-file edge does NOT solve)
@@ -179,7 +179,7 @@ accept a known non-callable). Pin with a route-inventory test.
 
 Two mechanisms, one outcome, found separately:
 
-- **`graph-senior-dev`**: repo-global bare-name fallback lets a globally unique Variable absorb
+- **`the reviewer`**: repo-global bare-name fallback lets a globally unique Variable absorb
   an unrelated module's REFERENCES/CALLS target. Today that stays unresolved — *honestly
   uncertain*. After R2 it becomes a confident edge to the wrong constant.
 - **codegraph's own changelog** (reference audit): React `forwardRef`/`memo` components indexed

@@ -27,7 +27,7 @@ that confound would invalidate the whole run.
 
 ⚠ **Carrier weakness, stated up front:** this repo **names documents after their incidents**
 (`2026-08-25-adoption-is-an-install-problem.md`). `ls | grep` therefore answers many discovery
-questions outright. sc-manager reported exactly this from the field. To make the discovery tasks
+questions outright. the field fleet reported exactly this from the field. To make the discovery tasks
 test discovery rather than lookup, **every prompt is phrased in a user's words, never the repo's
 vocabulary** — the agent must not be handed the search term. Where a prompt unavoidably contains
 repo vocabulary (DS1, D2) that is noted per task.

@@ -5,7 +5,7 @@
   "ledgerStateBefore": "legacy_unruled",
   "ledgerStateAtPreregistration": "v3_runnable_unwitnessed",
   "referee": {
-    "identity": "graph-senior-dev",
+    "identity": "the reviewer",
     "proposalThreadMessageId": "1787271670514-3f8ba86c",
     "revisionResponseMessageId": "1787271727083-cae28491",
     "disposition": "REVISE -> guarantee narrowed to the JOIN path, title corrected, physical extraction required before any run; predicate approved with exact execution limits"

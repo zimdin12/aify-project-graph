@@ -1,6 +1,6 @@
 // `terminated: true` IS A COMPLETENESS CLAIM, SO IT HAS TO EARN IT.
 //
-// ef-manager went looking for a case that would make it lie (2026-07-31). His
+// the field test went looking for a case that would make it lie (2026-07-31). His
 // predicted mechanism was extension-based terminality — a walk that stops at
 // anything that is not .h/.cpp would be defeated by the first .inl/.tpp/.glsl it
 // met. He built a GLSL chain to prove it, since this repo's shaders have real
@@ -28,7 +28,7 @@
 // different way and it reds too. Neither is a defect. Meanwhile a wrong verdict — the
 // actual bug — is invisible to all four, because none of them ever ran the walk.
 //
-// ⚠⚠ MY FIXTURE CLAIM WAS FALSE, AND graph-senior-dev-hermes MEASURED IT.
+// ⚠⚠ MY FIXTURE CLAIM WAS FALSE, AND review, hermes session MEASURED IT.
 //
 // I wrote that `fullPageWithCycle` reproduces the clipping defect — that SQLite "had
 // already cut" the closure and real includers were discarded. They ran it: 300 candidates,
@@ -130,7 +130,7 @@ const deepChain = ({ node, imports }) => {
   }
 };
 
-// ef-manager's shape: a multi-hop chain of extensions an extension whitelist would stop
+// the field test's shape: a multi-hop chain of extensions an extension whitelist would stop
 // at. THREE hops, deliberately — a four-hop chain ends with the frontier still holding the
 // last file when the depth loop exits, so `depth_capped` is true and `terminated` is
 // correctly false. That is not the case being tested here, and the first version of this
@@ -229,7 +229,7 @@ describe('recompile surface cannot claim a completeness it did not verify', () =
   }, 30_000);
 
   it('★★ decides terminality from the graph, not from file extension', async () => {
-    // ef-manager's predicted defect, as behaviour rather than as the absence of
+    // the field test's predicted defect, as behaviour rather than as the absence of
     // `endsWith(` in a slice of source. An extension whitelist would stop at the first
     // .glsl and report a 1-hop closure; a .tpp four hops out proves it did not.
     repoRoot = await makeRepo(shaderChain);

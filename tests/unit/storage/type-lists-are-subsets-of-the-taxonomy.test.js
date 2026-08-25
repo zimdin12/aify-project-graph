@@ -18,7 +18,7 @@
 // producer can emit is declared: a future extractor emitting a type absent from both lists leaves
 // this gate GREEN until a runtime census sees it on somebody's repo.
 //
-// ⇒ graph-senior-dev's ruling, and they were right to refuse the wider wording — "every behavioural
+// ⇒ the reviewer's ruling, and they were right to refuse the wider wording — "every behavioural
 // type list" is a claim about a population this file never enumerates. The wider guarantee needs a
 // PRODUCER-EMISSION INVENTORY checked against NODE_TYPES, which is a different instrument and is
 // not built here.
@@ -27,7 +27,7 @@ import { NODE_TYPES } from '../../../mcp/stdio/storage/taxonomy.js';
 import { SEARCH_TYPES } from '../../../mcp/stdio/query/verbs/whereis.js';
 
 // ⚠ IMPORTED, NOT PARSED. The first version read `SPECIAL_TYPES` out of the orchestrator's SOURCE
-// with a regex, because the list was module-private. graph-senior-dev: "a source parse is
+// with a regex, because the list was module-private. the reviewer: "a source parse is
 // intentionally weaker than structural ownership" — a rename makes the parse vacuous and the arm
 // goes quietly green. The list is now exported and this observes the runtime object.
 import { SPECIAL_TYPES } from '../../../mcp/stdio/freshness/orchestrator.js';

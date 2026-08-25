@@ -18,7 +18,7 @@ from that doc, that decision built this feature, this feature lives in these fil
 
 ## The problem it exists to solve
 
-> "my agents constantly forget where what files where. my sc-manager asked me today where the
+> "my agents constantly forget where what files where. my agent asked me today where the
 > game design doc is. he has worked on the project for 2 months already. he has read it multiple
 > times, but compactions and stuff make him forget that it even existed."
 
@@ -54,7 +54,7 @@ a disclosure nobody acts on, and so is a verb that exists because it was easy.
 > "when it becomes actually useful and would give us gains in knowledge and token usage — make
 > our agents better at their work and/or consume less tokens."
 
-⛔ The number that judged it: sc-manager, asked to name one time a graph verb changed what they
+⛔ The number that judged it: the field fleet, asked to name one time a graph verb changed what they
 did, said **zero** — and then tested and retracted their own excuse. That has never been beaten.
 
 ---
@@ -87,7 +87,7 @@ roadmap, not opinions to be re-argued.
     ⚠ One machine, 22 sessions; install and task class are confounded; and a call is not a
     benefit — `graph_health` is the top verb and that is maintenance.
     ⛔ **AND THE "ZERO" ABOVE WAS COLLECTED BY ASKING AN AGENT TO REMEMBER.** Asked from recall,
-    sc-manager answered NONE and then counted their own transcript: **55 invocations**. Wrong by
+    the field fleet answered NONE and then counted their own transcript: **55 invocations**. Wrong by
     two orders of magnitude, in the direction that condemns the tool. The zero is not refuted —
     its *provenance* is inadmissible. Re-derive it from transcripts, never from memory.
 - **Attestation is nearly, but no longer entirely, unclaimed.** LSP, SCIP, LSIF and MCP have no
@@ -111,7 +111,7 @@ dressing it up.
 ⚠ **MY FIRST WRITE-UP OF THIS SAID "76% WRONG EDGES". BOTH HALVES WERE WRONG**, and both agents
 corrected it independently. The honest statement is below.
 
-**MEASURED, reproduced by `graph-senior-dev` and `ef-manager` on separate reads:** ~2,370 doc→code
+**MEASURED, reproduced by `the reviewer` and `the field test` on separate reads:** ~2,370 doc→code
 `MENTIONS` edges over 73 documents on APG, of which **83.5% have an all-lowercase-word target** —
 `files` (60), `file` (58), `repo` (56), `tests` (53), `read` (52).
 
@@ -122,7 +122,7 @@ each edge. Publishing it as "83.5% wrong" would be the cap-as-total defect in ou
 What IS established from source: `mentions.js` admits every regex word collision, takes the first
 node when a label is ambiguous, and records line 0.
 
-⭐ **AND ONE REPO COULD NOT SHOW THE REAL SHAPE.** `ef-manager` ran the same census on echoes:
+⭐ **AND ONE REPO COULD NOT SHOW THE REAL SHAPE.** `the field test` ran the same census on echoes:
 **63.1%**, twenty points apart, same extractor. The rate tracks the **language's naming
 convention** — JavaScript names functions `exists`, `count`, `list`, `read`, so the namespace
 collides with English head-on; C++ leans CamelCase and `WorldBuffer` survives contact with prose.
@@ -136,7 +136,7 @@ that surfaces "most-mentioned symbols" is a noise generator, and anything that t
 mentions list by count drops the signal first.
 
 ⇒ The layer Steven names as the foundation rests on an admission rule that requires no evidence.
-⚠ And `ef-manager`'s scope on it, which is the more useful fact: *"it cannot have cost me, because
+⚠ And `the field test`'s scope on it, which is the more useful fact: *"it cannot have cost me, because
 I never consumed it"* — in days of intensive field use, the doc layer has had **zero consumers**.
 
 ---

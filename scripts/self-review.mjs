@@ -20,7 +20,7 @@
 //      assertion could evaluate was reported RED and the run concluded "every mutation was
 //      caught."
 //  v2  I "fixed" it by accepting a parsed `×` line — a narrower version of the same defect.
-//      graph-senior-dev-hermes then executed three more forgeries against v2:
+//      review, hermes session then executed three more forgeries against v2:
 //        A. `expect` was OPTIONAL, so CAUGHT could be credited on case-name shape alone.
 //        B. `out.includes(expect)` was a WHOLE-OUTPUT predicate, unbound from the failed
 //           case — text in a case NAME, a console log or a sibling failure satisfied it.
@@ -71,7 +71,7 @@ if (!specPath) {
 
 // ⛔⛔ `CAUGHT` IS RETIRED. It is not renamed, not narrowed — REMOVED as a credit.
 //
-// Six independent forgeries were executed against v1–v5, by graph-senior-dev-hermes and by me.
+// Six independent forgeries were executed against v1–v5, by review, hermes session and by me.
 // EVERY ONE OF THEM FORGED A CATCH. Not one ever manufactured a survivor. Positive credit is
 // the forgeable direction, and each of my five patches rejected the exact construction shown
 // and left the class. When a fix has been refuted five times, the defect is the patching.
@@ -352,7 +352,7 @@ for (const [i, m] of spec.entries()) {
       // Self-teardown needs no orphan confirmation; the state machine governs foreign paths.
       // disposeArmWorkspace reports per step rather than throwing, so it cannot worsen the failure.
       //
-      // Found by ef-manager reviewing 7440ceb.
+      // Found in field testing reviewing 7440ceb.
       const cleanup = disposeArmWorkspace(REPO, armPath);
       const failed = cleanup.filter((c) => !c.ok);
       record(VERDICT.APPARATUS, `could not open the isolated workspace: ${e.message}`

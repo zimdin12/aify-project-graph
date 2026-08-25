@@ -1,6 +1,6 @@
 // THE STALENESS IS A PROPERTY OF THE PROCESS, NOT OF THE REPO YOU ASKED ABOUT.
 //
-// ⛔ FIELD REPORT (ef-manager, 2026-08-19), catching themselves mid-error:
+// ⛔ FIELD REPORT (the field test, 2026-08-19), catching themselves mid-error:
 //   "I assumed I could at least test discovery on echoes, since echoes' checkout has not moved.
 //    It does not work that way: ONE MCP process serves both repos, so a stale process poisons
 //    every repo it answers for. The staleness field is scoped to the repo you ask about; the
@@ -10,7 +10,7 @@
 // last four rounds opened blocked on this.
 //
 // ⚠ MY FIRST VERSION OF THIS TEST GREPPED THE SOURCE for the new phrase. That is the exact
-// "gate on spelling rather than behaviour" defect graph-senior-dev had already caught in two of
+// "gate on spelling rather than behaviour" defect the reviewer had already caught in two of
 // my instruments this week — committed inside the fix for a scope defect, and flagged by the
 // suite-composition guard. The warning is now a pure function and this CALLS it.
 import { describe, it, expect } from 'vitest';
@@ -42,13 +42,13 @@ describe('the stale-process warning', () => {
 
   it('★★★ still tells a peer agent it can restart the session itself', () => {
     // The earlier defect in this same sentence asserted the reader could NOT self-restart, and
-    // ef-manager asked the operator twice for something they could do in one call. Pinned so the
+    // the field test asked the operator twice for something they could do in one call. Pinned so the
     // scope fix cannot quietly drop it.
     expect(stale()).toMatch(/comms_restart|restart/i);
   });
 
   it('★★★ a behaviourally-current delta says so instead of demanding a restart', () => {
-    // The graded verdict ef-manager called "the best thing in this build": distinguishing stale
+    // The graded verdict the field test called "the best thing in this build": distinguishing stale
     // from stale-in-a-way-that-can-change-an-answer is what turns a blocking condition into a
     // scoped one. Still true after the scope widening.
     const w = stale({ staleDelta: { behaviourally_current: true, files_changed: 1, sample: [], executable_files_changed: 0 } });

@@ -9,7 +9,7 @@
 // the defect. A guard failing together with the thing it guards is how a blind
 // spot survives.
 //
-// Cost a real run (2026-07-30): sc-manager did the careful thing — restart, then
+// Cost a real run (2026-07-30): the field fleet did the careful thing — restart, then
 // confirm `server.commit` via graph_health BEFORE testing a fix — and the field
 // answered about the filesystem. He then tested code that was never loaded. His
 // summary: it converts "I should check" into "I checked".
@@ -32,7 +32,7 @@ const healthSrc = readFileSync(join(here, '../../../mcp/stdio/query/verbs/health
 
 describe('server build identity', () => {
   it('★★★ a DIRTY load cannot be certified behaviourally current', () => {
-    // ⛔ ef-manager walked the reachable path, which is the loop I ran all night:
+    // ⛔ the field test walked the reachable path, which is the loop I ran all night:
     //   1. process loads at X with an uncommitted experimental edit  -> buildId X+1dirty
     //   2. the experiment is judged wrong and DISCARDED              -> git checkout -- file
     //   3. an unrelated docs-only change is committed as Y
@@ -55,7 +55,7 @@ describe('server build identity', () => {
   it('★★★ ...but a CLEAN load still gets a real verdict, both ways', () => {
     // ⚠ THE NEGATIVE CONTROL. Without it, returning null unconditionally would pass both cases
     // above and destroy the field's usefulness — every stale process would demand a restart it
-    // may not need, which is the graded verdict ef-manager called "the best thing in this build".
+    // may not need, which is the graded verdict the field test called "the best thing in this build".
     expect(classifyStaleDelta({ changedFiles: ['README.md'], loadedDirtyCount: 0 })
       .behaviourally_current, 'docs-only delta on a clean load').toBe(true);
     expect(classifyStaleDelta({ changedFiles: ['mcp/stdio/x.js'], loadedDirtyCount: 0 })
@@ -70,7 +70,7 @@ describe('server build identity', () => {
     // the one every reader takes. Someone quoting `e18a739` as the build under test could not
     // know whether that identity had been verified or was merely unavailable.
     //
-    // Found while checking a claim that turned out to be wrong: ef-manager proposed buildId
+    // Found while checking a claim that turned out to be wrong: the field test proposed buildId
     // should carry the dirt, which it already did. Reading the code to confirm that showed the
     // null branch collapsing into the clean branch one line below.
     expect(formatBuildId('abc1234', 0), 'clean is the bare commit').toBe('abc1234');
@@ -107,7 +107,7 @@ describe('server build identity', () => {
     // build cannot change while the process lives." The build cannot; the TREE
     // can, and staleProcess is a comparison against the tree. Reference identity
     // therefore required freezing the one field whose whole job is to change,
-    // and the test enshrined that. sc-manager ran three days on a server that had
+    // and the test enshrined that. the field fleet ran three days on a server that had
     // cached "not stale" on its first call and never looked again.
     //
     // What must actually be stable is the process's IDENTITY.
@@ -130,7 +130,7 @@ describe('server build identity', () => {
     // staleProcess must be present and FALSE, not absent. It used to be omitted
     // on the happy path, which made "this build is current" indistinguishable
     // from "this build has no such check" — and that ambiguity is precisely the
-    // inference sc-manager drew when a frozen verdict returned no field: they
+    // inference the field fleet drew when a frozen verdict returned no field: they
     // concluded the guard post-dated their binary. It shipped five days before it.
     expect(info.staleProcess).toBe(false);
     expect(Object.hasOwn(info, 'staleProcess')).toBe(true);
@@ -187,7 +187,7 @@ describe('server build identity', () => {
   });
 
   it('EVERY read verb carries the warning, not just graph_health', () => {
-    // The generalization sc-manager's case demands: a stale process is a
+    // The generalization the field fleet's case demands: a stale process is a
     // condition on the whole session, not a graph condition. Reporting it only in
     // the diagnostic verb means a reader who never calls it acts on stale-build
     // output indefinitely.
@@ -205,7 +205,7 @@ describe('server build identity', () => {
   });
 
   it('★★★⛔ and a stale process now REFUSES, ahead of every graph branch', () => {
-    // ⛔ ef-manager, roadmap 6b: "Three of my last four rounds opened blocked on a stale MCP
+    // ⛔ the field test, roadmap 6b: "Three of my last four rounds opened blocked on a stale MCP
     // process… the only actor who can fix it is the one who cannot see it." The warning above had
     // been on this channel for weeks and did not stop those three rounds.
     //
@@ -225,7 +225,7 @@ describe('server build identity', () => {
     // scans before attributing behaviour to a commit.
     //
     // ⚠ THIS ASSERTION IS SOURCE-ANCHORED AND THAT IS A KNOWN WEAKNESS, declared
-    // rather than hidden. It is one of the 68 cases in graph-senior-dev's 2026-08-10
+    // rather than hidden. It is one of the 68 cases in the reviewer's 2026-08-10
     // audit that read implementation text instead of running it — and it proved the
     // point the same day: it failed when the summary line changed from inlining
     // `_build.staleWarning` to naming it, which was a 265-token IMPROVEMENT, not a
@@ -245,7 +245,7 @@ describe('server build identity', () => {
   });
 
   it('★★ version is captured at LOAD, not read from disk per query', async () => {
-    // ef-manager, on the v0.6.0 release itself, 2026-08-11. `version` was read from
+    // the field test, on the v0.6.0 release itself, 2026-08-11. `version` was read from
     // package.json at QUERY time, so it reported the CHECKOUT's version and never the
     // running process's. Observed twice on ONE process — "0.5.0" before the release
     // commit landed, "0.6.0" after, with `startedAt` IDENTICAL. The number moved
@@ -289,7 +289,7 @@ describe('server build identity', () => {
   });
 
   it('★★ a dirty-at-load tree is part of BUILD IDENTITY, and `dirty` cannot heal itself', async () => {
-    // ef-manager, third instance of one defect in this file in one day.
+    // the field test, third instance of one defect in this file in one day.
     //
     // Their process started at 18:45 with HEAD=4615ed1 and UNCOMMITTED edits to
     // server-build.js. Four minutes later those edits became 040b518 — so the process
@@ -315,7 +315,7 @@ describe('server build identity', () => {
     expect(Object.hasOwn(info, 'treeDirtyNow'), 'query-time dirtiness must be named as such').toBe(true);
 
     // ★★ buildId is UNCONDITIONAL. It was originally emitted only on a dirty load, so a
-    // clean process had none — and ef-manager, told "quote buildId, not commit", went to
+    // clean process had none — and the field test, told "quote buildId, not commit", went to
     // quote it and found it absent. An instruction that cannot be followed on the healthy
     // path is worse than no instruction.
     //
@@ -338,7 +338,7 @@ describe('server build identity', () => {
   });
 
   it('the stale warning is emitted ONCE — summary names it, server carries it', () => {
-    // ef-manager, measured on e8c8d61: `server.staleWarning` (265 tok) was ALSO
+    // the field test, measured on e8c8d61: `server.staleWarning` (265 tok) was ALSO
     // inlined verbatim at the head of `summary`, making `server` the largest field in
     // the response at 26.8%. Same defect as nextActions-duplicated-into-summary,
     // reported and fixed that morning, recurring the same day in a feature shipped

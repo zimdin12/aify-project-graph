@@ -142,7 +142,7 @@ async function makeRepo() {
 
 // ⛔ CLEANUP THAT DOES NOT CLEAN UP LOOKS EXACTLY LIKE CLEANUP THAT DOES.
 //
-// graph-senior-dev-hermes found this on a GREEN run: the mocked case calls the real
+// review, hermes session found this on a GREEN run: the mocked case calls the real
 // graphDashboard, which opens SQLite and files {db, server} in a module-global registry —
 // and the mock's `close()` is a no-op, so nothing ever released the handle. Every
 // repetition left an `apg-dashroot-*` directory on Windows; 72 accumulated across their
@@ -152,7 +152,7 @@ async function makeRepo() {
 //
 // I recorded the removal failure into `removalError` inside afterEach, and asserted on it
 // from a TEST BODY — which runs BEFORE afterEach. The assertion could only ever observe the
-// initial `undefined`. graph-senior-dev-hermes replaced the teardown `rm()` with an
+// initial `undefined`. review, hermes session replaced the teardown `rm()` with an
 // unconditional throw caught into that variable: 5/5 GREEN. Teardown was still silently
 // absorbing every failure.
 //

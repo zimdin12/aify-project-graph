@@ -1,6 +1,6 @@
 // The evidence contract's version, and the deprecations queued against it.
 //
-// WHY THIS EXISTS. graph-senior-dev, ruling 2026-08-25: deleting `degraded` and
+// WHY THIS EXISTS. review ruling 2026-08-25: deleting `degraded` and
 // `operationallyDegraded` is APPROVED AS A TARGET and immediate silent deletion is REFUSED,
 // because of one failure mode:
 //
@@ -57,7 +57,7 @@ export function canInterpretEvidence(seen, understood = EVIDENCE_CONTRACT_VERSIO
   // ⛔ A CONTRACT VERSION IS A POSITIVE IDENTITY, and `seen <= understood` alone let 0, -1 and
   // MIN_SAFE_INTEGER through as though they were older supported schemas. They name no contract
   // that has ever existed, so a forged or corrupt stamp was being interpreted under contract 1.
-  // Found by graph-senior-dev while checking the step-8 tripwire; confirmed by execution, and the
+  // Found in review while checking the step-8 tripwire; confirmed by execution, and the
   // test above it had been ASSERTING the fail-open rather than catching it.
   if (!isRealContractVersion(seen)) return false;       // absent, malformed, or naming no contract
   if (!isRealContractVersion(understood)) return false; // a reader claiming version 0 is not a reader

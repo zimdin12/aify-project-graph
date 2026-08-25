@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // Measure how often agents ACTUALLY invoke the graph verbs, from transcripts on disk.
 //
-// WHY THIS EXISTS: on 2026-08-24 sc-manager was asked from recall whether any graph verb had
+// WHY THIS EXISTS: on 2026-08-24 the field fleet was asked from recall whether any graph verb had
 // changed what they did. They answered NONE, then counted their own transcript and found 55
 // invocations. Self-report was wrong by two orders of magnitude, in the direction that condemns
 // the tool — the direction nobody audits. Recall is not an admissible instrument for this
 // question. Transcripts are.
 //
-// ⛔ THE TRAP sc-manager HIT FIRST, preserved so nobody repeats it: grepping the bare string
+// ⛔ THE TRAP the field fleet HIT FIRST, preserved so nobody repeats it: grepping the bare string
 // "graph_" returned 5170 on one session. That is the DEFERRED-TOOL CATALOGUE echoed into the
 // prompt, not behaviour. A tool NAME appearing in text is not a tool CALL. This script counts
 // only `type === "tool_use"` blocks and reads their `name` field.
@@ -86,7 +86,7 @@ async function scanSession(file) {
       obj = JSON.parse(line);
     } catch (err) {
       badLines += 1;
-      // graph-senior-dev, reviewing 85f6559: a COUNT of skipped lines is not whole-byte coverage.
+      // the reviewer, reviewing 85f6559: a COUNT of skipped lines is not whole-byte coverage.
       // Without their identity you cannot prove a per-project zero, because a recovered line can
       // only ADD usage — and "APG 0" was load-bearing in the attribution claim. Retain where each
       // failure was so the zero can be defended rather than assumed.

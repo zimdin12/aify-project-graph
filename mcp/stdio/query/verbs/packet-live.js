@@ -3,7 +3,7 @@
 // Phase 0 slice 3, MECHANICAL: the three bodies below are byte-identical to the ones that were in
 // packet.js, comment blocks included.
 //
-// graph-senior-dev's ruling for this slice: "Move withTimeout + enrichLive into packet-live.js;
+// the reviewer's ruling for this slice: "Move withTimeout + enrichLive into packet-live.js;
 // inject/import graphConsequences there without importing packet.js. Pin timeout/error/enriched
 // output and timer cleanup."
 //

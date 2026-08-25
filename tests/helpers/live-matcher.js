@@ -12,7 +12,7 @@
 //   · an actor-enumerating regex (you / your / the agent / an agent) that genuinely ran,
 //     but did not contain "THIS agent" — the phrasing the reviewer's mutant used.
 //
-// ⇒ graph-senior-dev-hermes's rule, and it is stricter than what I proposed: per-matcher
+// ⇒ review, hermes session's rule, and it is stricter than what I proposed: per-matcher
 // bidirectionality, not one live assertion per file. One working matcher can happily
 // coexist with seven dead ones in the same test.
 //

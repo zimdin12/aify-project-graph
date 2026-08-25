@@ -6,7 +6,7 @@
 //
 // ⛔⛔ MY FIRST REPAIR PUT IT IN THE WRONG PLACE. Exporting it from `packet-input.js` made the
 // SEALED list authority import the heavy input island — filesystem, git, database, freshness,
-// storage — to share one number. graph-senior-dev measured it: importing `packet-lists.js` went to
+// storage — to share one number. the reviewer measured it: importing `packet-lists.js` went to
 // ~296 ms, the dependency direction reversed, and an island's public surface widened for a literal.
 //
 // ⇒ It now lives in `response-budget.js`, which imports NOTHING and which both consumers already

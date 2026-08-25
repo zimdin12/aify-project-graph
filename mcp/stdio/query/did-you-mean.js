@@ -25,7 +25,7 @@ const CANDIDATE_CAP = 200;
 // DAMERAU-Levenshtein: a TRANSPOSITION costs 1, not 2.
 //
 // Plain Levenshtein charges a swapped pair as two substitutions, and transposition
-// is the single most common human typo. Measured consequence (ef-manager,
+// is the single most common human typo. Measured consequence (the field test,
 // 2026-07-31): `ISimDomian` for `ISimDomain` — one swapped pair — scored distance 2
 // against a length-derived budget of 1, so the suggester found NOTHING and the miss
 // path looked byte-identical to the unfixed version. The feature was present and
@@ -63,7 +63,7 @@ export function editDistanceWithin(a, b, max) {
 // Splitting on "::", "." and "->" is right for qualified SYMBOL names — the leaf of `Foo::bar`
 // is `bar`, which is what this was written for. Applied to a path it takes the last dot
 // segment, so the leaf of `engine/rendering/GpuMaterialPalette.h` is `h` and EVERY .h file in
-// the repo "shares a leaf name" with it. ef-manager hit exactly that in the field: three
+// the repo "shares a leaf name" with it. the field test hit exactly that in the field: three
 // unrelated headers suggested, each labelled with a basis that was not the basis.
 //
 // ★ Suggesting neighbours is fine; labelling the reason wrongly is not, because "same leaf
@@ -160,7 +160,7 @@ export function findSimilarSymbols(db, query) {
 // Render the miss WITH its suggestions. Falls back to the original wording when
 // nothing similar exists, so the message never gets worse.
 // ⚠ `nextInstruction` lets the CALLER replace the trailing advice, because only the caller
-// knows whether the fallback verb can help. ef-manager followed this message's top line on a
+// knows whether the fallback verb can help. the field test followed this message's top line on a
 // miss that had already been diagnosed as "this declaration type has zero nodes" — and
 // graph_search reads the same node table, so it returned nothing and could not have done
 // otherwise. The message contained its own correction four lines down; the TOP line is the one

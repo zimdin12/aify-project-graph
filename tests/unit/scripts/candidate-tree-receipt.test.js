@@ -5,7 +5,7 @@
 // receipt remained perfectly valid — it certified the parent honestly and said nothing about
 // itself. The naive fix is another evidence child certifying that one, and another, forever.
 //
-// ⇒ graph-senior-dev's design: bind the exact TREE OBJECT `T` about to be committed, measured
+// ⇒ the reviewer's design: bind the exact TREE OBJECT `T` about to be committed, measured
 // BEFORE the commit exists, and carry the receipt in the COMMIT MESSAGE rather than inside `T`.
 // A receipt inside the tree it certifies is self-reference; a receipt in the message is not part
 // of the tree at all. After committing, `HEAD^{tree} === T` promotes the result to the commit.

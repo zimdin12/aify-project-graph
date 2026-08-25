@@ -512,7 +512,7 @@ export function extractFile({ filePath, source, config }) {
     // finding it. The bad ref made `vec3` look like a callee of every function whose
     // signature defaulted a glm type; `tests_adjacent` then used it as `via_symbol` and
     // SUPPRESSED `no_test_coverage` on untested symbols (fixed at the consumer), and
-    // `graph_trace` later listed it in a callee list (found by ef-manager on real C++,
+    // `graph_trace` later listed it in a callee list (found in field testing on real C++,
     // 2026-08-11, after the consumer fix).
     //
     // ★ THE RULE THAT KEEPS BEING RELEARNED: a fix at one layer does not cover the other

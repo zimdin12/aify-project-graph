@@ -4,7 +4,7 @@
 // **Vitest OMITS zero categories**, so an ordinary all-green run — `Test Files  240 passed
 // (240)` — has no `failed` token, yielding -1, and the nonnegative gate added alongside it then
 // refused. My fix for "unparseable output exits 0" made ORDINARY SUCCESS impossible to emit.
-// graph-senior-dev-hermes found it from the source and the summary shape; it had never fired
+// review, hermes session found it from the source and the summary shape; it had never fired
 // locally because every run since had refused earlier at the dirty-tree gate.
 //
 // ★ A missing optional category means ZERO **only once the complete line is recognised**.
@@ -18,7 +18,7 @@ const SUMMARY = /^\s*(Test Files|Tests)\s+(.+?)\s*\((\d+)\)\s*$/;
 
 // ⛔ CLOSED CATEGORY SETS, PER LABEL. The first version accepted any `[a-z]+`, summed it into
 // the reporter total, and returned it by spread — while suite-receipt projected only
-// passed/failed/skipped/todo. graph-senior-dev-hermes executed the consequence:
+// passed/failed/skipped/todo. review, hermes session executed the consequence:
 //
 //   parseSummaryLine('Tests', ' Tests  1 bananas (1)')
 //     -> recognised:true, total:1, passed:0, failed:0, skipped:0, todo:0, bananas:1

@@ -1,4 +1,4 @@
-// ⛔⛔ P0 — `exhaustive: true` WAS REPRODUCIBLY FALSE. graph-senior-dev, 2026-08-19, executed
+// ⛔⛔ P0 — `exhaustive: true` WAS REPRODUCIBLY FALSE. review, 2026-08-19, executed
 // against real clangd/clang-cl 22.1.6, two independent mechanisms, on committed bytes.
 //
 // COUNTEREXAMPLE 1 — A THRESHOLD GRANTED A BOOLEAN NAMED "EXHAUSTIVE".
@@ -44,7 +44,7 @@ describe('the exhaustive grant', () => {
   beforeEach(() => { repo = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-exh-')); });
   afterEach(() => { try { fs.rmSync(repo, { recursive: true, force: true }); } catch { /* win lock */ } });
 
-  // graph-senior-dev's fixture, at the seam rather than through live clangd: ten first-party
+  // the reviewer's fixture, at the seam rather than through live clangd: ten first-party
   // translation units on disk, `covered` of them listed in compile_commands.json.
   function fixture(covered, total = 10) {
     fs.mkdirSync(path.join(repo, 'src'), { recursive: true });
@@ -95,7 +95,7 @@ describe('the exhaustive grant', () => {
   });
 
   it('★★★ a RECALLED population census cannot authorize the grant', () => {
-    // graph-senior-dev's second counterexample: the on-disk census is TTL-cached, so a source
+    // the reviewer's second counterexample: the on-disk census is TTL-cached, so a source
     // added in-session leaves the denominator describing a repo that no longer exists — and the
     // grant was re-issued. A cached denominator may not license an irreversible claim.
     const cov = fixture(10);

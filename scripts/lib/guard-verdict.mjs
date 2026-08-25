@@ -6,7 +6,7 @@
 // **A check that cannot be called cannot be tested**, and this one shipped a false accusation
 // against unchanged code that no test could have caught, because no test could reach the branch.
 //
-// ⛔⛔ AND THEN IT CERTIFIED A CHANGED POPULATION. graph-senior-dev executed this through the
+// ⛔⛔ AND THEN IT CERTIFIED A CHANGED POPULATION. the reviewer executed this through the
 // shipped function:
 //
 //     baseline results  [A, B]   corpusSize 2

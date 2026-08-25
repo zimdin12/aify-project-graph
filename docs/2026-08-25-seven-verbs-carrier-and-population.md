@@ -1,12 +1,12 @@
-# The seven verbs — the carrier and population dev asked for
+# The seven verbs — the carrier and population the reviewer asked for
 
-`graph-senior-dev`, reviewing `b396c0a`: *"seven-verb ruling stays open absent its exact
+`the reviewer`, reviewing `b396c0a`: *"seven-verb ruling stays open absent its exact
 carrier."* Right to refuse. Here it is, measured rather than recalled.
 
 ## The question
 
 Phase 3c cut the default `tools/list` from 17 verbs to 15 — a **listing** decision; everything
-stays callable. `ef-manager` advised on the rest and then explicitly refused on seven:
+stays callable. `the field test` advised on the rest and then explicitly refused on seven:
 
 > *"zero calls is evidence I was not doing the work they serve. Do NOT let me be the reason those
 > get cut — a drop decision on my numbers alone would be the consumer-enumeration mistake again."*
@@ -39,7 +39,7 @@ stays callable. `ef-manager` advised on the rest and then explicitly refused on 
 | `graph_trace` | 6 | 3 | 9 |
 | `graph_explore` | 6 | 3 | 9 |
 
-**All seven are called.** `ef-manager`'s zero was a fact about `ef-manager`, not about the
+**All seven are called.** `the field test`'s zero was a fact about `the field test`, not about the
 population — exactly as they warned.
 
 ## ⭐ And the attribution is the finding
@@ -64,7 +64,7 @@ an exclusion it never stated.
 ⇒ Cutting on one consumer's enumeration would have removed two of the most-used verbs we ship.
 That is [[enumeration-vs-detection]] with a live example attached.
 
-**Ruling (`graph-senior-dev`, 2026-08-25): all seven APPROVED to remain listed; `graph_index`
+**Ruling (`the reviewer`, 2026-08-25): all seven APPROVED to remain listed; `graph_index`
 APPROVED to remain listed.** His reasoning for the keep is the asymmetry, not the counts: a
 deferred host may be unable to call an unlisted verb *at all*, so cutting a demonstrated consumer
 route has asymmetric harm. It establishes that zero-use reasoning is false for this population —
@@ -88,7 +88,7 @@ record an explicit REFUSAL to drop it:
 > surface."*
 
 I read Phase 3c's **proposal** list in the roadmap and reported it as the shipped state, without
-opening the file. Then I claimed authorship of it. `graph-senior-dev` caught it against source.
+opening the file. Then I claimed authorship of it. `the reviewer` caught it against source.
 
 ⇒ What the 26 calls actually do: they **independently refute the proposed drop**. The implemented
 keep is unchanged, and its original basis — absence harm — is the stronger of the two reasons.

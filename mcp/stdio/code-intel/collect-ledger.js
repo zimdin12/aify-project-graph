@@ -32,7 +32,7 @@ export function ledgerPath(projectRoot) {
 /**
  * ⛔ THIS LEDGER GUARDED THE WRONG DATABASE, AND THE REMEDY OUR OWN TOOL PRINTS WENT INERT.
  *
- * ef-manager, sand_castle, 2026-08-20. A `graph_index(force=true)` destroyed the LSP-verified
+ * the field test, sand_castle, 2026-08-20. A `graph_index(force=true)` destroyed the LSP-verified
  * edges; the reindex printed "Run graph_collect_code_intel to restore it". That call returned in
  * **1.8 seconds** having imported nothing, and was a FIXED POINT across repeated calls:
  *

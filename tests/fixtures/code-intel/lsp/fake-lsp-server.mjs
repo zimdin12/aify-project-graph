@@ -76,7 +76,7 @@ function handle(msg) {
         // fixture could not previously express a not-ready index at all — without progress the
         // client short-circuits to 'no_progress_signalled' ready, and with it the 20ms end
         // arrives before any realistic budget. A test asserting not-ready behaviour therefore
-        // had an UNREACHABLE branch and passed by never running it (graph-senior-dev, review of
+        // had an UNREACHABLE branch and passed by never running it (the reviewer, review of
         // b396c0a). The state has to be constructible before a test of it can mean anything.
         if (process.env.FAKE_LSP_INDEXING_FOREVER !== '1') {
           setTimeout(() => notify('$/progress', { token: 'index', value: { kind: 'end', message: 'ready' } }), 20);
@@ -149,7 +149,7 @@ function handle(msg) {
       const otherUri = uri.replace('foo.cpp', 'bar.cpp');
       // FAKE_LSP_MANY_REFS: more references than MAX_REFS_PER_SYMBOL (2000), so the real
       // provider's per-symbol truncation actually fires and increments
-      // refsTruncatedSymbols. Added because graph-senior-dev-hermes mutated that increment
+      // refsTruncatedSymbols. Added because review, hermes session mutated that increment
       // to `+= 0` — leaving a `// refsTruncatedSymbols += 1` comment as a source-shaped
       // canary — and 20/20 tests stayed green: nothing in the suite had ever provoked a
       // symbol over the cap, so the counter's production was pinned only by a grep that a
@@ -184,7 +184,7 @@ function handle(msg) {
       // DIFFERENT counter (isAnonymousSymbolName), and conflating those two is the defect
       // that split was made to prevent.
       //
-      // ⚠ Added so the REAL producer can be pinned. graph-senior-dev-hermes zeroed both
+      // ⚠ Added so the REAL producer can be pinned. review, hermes session zeroed both
       // counters immediately before the provider's returned envelope, left every increment
       // site intact, and 14/14 tests stayed green — because every test in that journey
       // FABRICATED the session instead of provoking it.

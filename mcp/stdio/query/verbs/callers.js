@@ -140,7 +140,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         // `HEURISTIC_TRUST_LINE` was repaired to name BOTH directions after `graph_callers("has")`
         // returned 100 callers that were nearly all `Map.has()`. This footer — the half carrying
         // the NUMBERS, and the more authoritative-looking one — still said only "Likely undercount"
-        // and "may hide additional sites". ef-manager, field-testing the fix: "the subset story
+        // and "may hide additional sites". the field test, field-testing the fix: "the subset story
         // restated, immediately after the sentence that withdrew it. A reader who takes the last
         // word takes the wrong one."
         //
@@ -149,7 +149,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         // output still said 38%, and now TRUST fixed while CONFIDENCE leaned. ⇒ When a claim is
         // withdrawn, grep for every surface that restates it before calling the fix done.
         //
-        // ⚠ AND THE DIRECTION MATTERS MORE HERE THAN ANYWHERE. ef-manager, asked directly whether
+        // ⚠ AND THE DIRECTION MATTERS MORE HERE THAN ANYWHERE. the field test, asked directly whether
         // the old wording would have misled them: "YES… 'may undercount' says the list is a floor,
         // and a floor licenses acting on what IS shown — that is the whole value of a floor." So it
         // did not merely omit the overcount; it named the direction that makes a list SAFE TO USE.

@@ -1,13 +1,13 @@
 // ★ THE ENUMERATION OF WHAT THIS SERVER INJECTS INTO EVERY AGENT'S PROMPT.
 //
-// Origin (2026-08-10). ef-manager found that the cold-orientation experiment was
+// Origin (2026-08-10). the field test found that the cold-orientation experiment was
 // contaminated: our `instructions` block tells every session "graph_health — run ONCE
 // at session start; nothing else answers 'can I trust what I am about to be told'".
 // The subject was TOLD to call it first, so first-call-is-health measured compliance,
 // not discovery.
 //
 // I audited that block, found it named verbs and no falsifier FIELDS, and reported the
-// falsifier intact. ef-manager then caught that the TOOL SCHEMAS are also injected —
+// falsifier intact. the field test then caught that the TOOL SCHEMAS are also injected —
 // and they name fields. `nextActions` is valorised in graph_health's description;
 // `overlayQuality` is an exact parameter name on graph_pull. Of seven falsifier
 // fields, only two were clean.
@@ -17,12 +17,12 @@
 // "what ELSE does this server put in front of a model." The answer is FOUR surfaces,
 // and I had audited one — and the first version of THIS FILE still only found three.
 //
-// ★ AND A DOC LISTING THE THREE WOULD ROT (ef-manager, applying his own ruling that a
+// ★ AND A DOC LISTING THE THREE WOULD ROT (the field test, applying his own ruling that a
 // comment is a note to nobody — no owner, no trigger, no consequence; eleven of them
 // accumulated in this repo). So the enumeration is a TEST. It fails the day a NEW
 // surface is added, which is the only moment anyone needs to know.
 //
-// ⚠ AND IT RUNS THE SERVER RATHER THAN GREPPING IT. graph-senior-dev's audit found 68
+// ⚠ AND IT RUNS THE SERVER RATHER THAN GREPPING IT. the reviewer's audit found 68
 // suite cases that assert source text and invoke no behaviour; a grep-based version of
 // this test would be the 69th, and would miss exactly the case that matters — a new
 // surface added somewhere the grep does not look.
@@ -148,7 +148,7 @@ let resources;
     // anyone but the developer who had indexed locally.
     //
     // ★ Found by moving `.aify-graph/` aside and running the whole suite: 3 failures in 2
-    // files. That is the "missing repo-local resources" graph-senior-dev-hermes reported
+    // files. That is the "missing repo-local resources" review, hermes session reported
     // and could not reconcile against my numbers — every suite count I quoted was a claim
     // about MY UNTRACKED STATE, not about the committed code.
     //
@@ -174,7 +174,7 @@ let resources;
     ]);
 
     // ★ FOUR, not three. I wrote "three surfaces" in the plan and in this file's
-    // header; ef-manager pointed out that the walk enumerated PATHS WITHIN KNOWN
+    // header; the field test pointed out that the walk enumerated PATHS WITHIN KNOWN
     // PAYLOADS rather than THE SET OF PAYLOADS, and named resources/prompts as the
     // hypothetical gap. It was not hypothetical — this server has declared the
     // `resources` capability all along, and `resources/list` ships a prose
@@ -215,7 +215,7 @@ let resources;
   });
 
   it('★★ declares EXACTLY the `tools` capability — a new one carries prose this test never requests', () => {
-    // ef-manager, closing the blind spot this test inherited from the audit it was
+    // the field test, closing the blind spot this test inherited from the audit it was
     // built to fix. The walk above enumerates PATHS WITHIN KNOWN PAYLOADS; it asks for
     // `initialize` and `tools/list` and walks those. But MCP servers can also expose
     // RESOURCES and PROMPTS, each carrying descriptions that reach the model. If this

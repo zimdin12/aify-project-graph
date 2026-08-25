@@ -326,7 +326,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
       // the results path and vanished on the empty path.
       //
       // Say what we KNOW and what we RULED OUT; never name an unverified cause.
-      // ⛔ TWO DEFECTS ef-manager EXECUTED, 2026-08-19, BY TAKING THIS MESSAGE'S OWN ADVICE.
+      // ⛔ TWO DEFECTS the field test EXECUTED, 2026-08-19, BY TAKING THIS MESSAGE'S OWN ADVICE.
       //
       // (a) `kind !== 'code'` counted `kind="all"` — the WIDEST setting, which excludes nothing
       //     — as an active narrowing filter. So following the "Next:" line above produced a new
@@ -340,7 +340,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
       // PARAMETER DEFAULT of 'code', so `kind && kind !== 'all'` was true on a bare call with no
       // arguments — the commonest call there is — and the message blamed filters the caller
       // never passed. Worse under the new heading: "May be narrowing" asserts a candidate cause,
-      // so the false claim was promoted from a clause to a hypothesis. ef-manager executed all
+      // so the false claim was promoted from a clause to a hypothesis. the field test executed all
       // three arms the same day.
       //
       // ⇒ CALLER-SUPPLIED vs VERB-DEFAULT, not a value test. Both narrow in SQL — the default
@@ -364,7 +364,7 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
       const defaultNarrowed = !type && !kindSupplied;
       // ⛔ A ZERO MUST NAME THE POPULATION IT SEARCHED, OR IT READS AS A CLAIM ABOUT THE REPOSITORY.
       //
-      // ef-manager, field-testing the heading index on their own corpus: `denoiser` returned
+      // the field test, field-testing the heading index on their own corpus: `denoiser` returned
       // "NO RESULTS. Ruled out: the index is fresh." — with ELEVEN documents discussing denoisers
       // sitting in that corpus. `git grep` finds all eleven.
       //

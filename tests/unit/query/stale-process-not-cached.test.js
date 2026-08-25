@@ -6,7 +6,7 @@
 // the thing that moves. So the guard answered "not stale" once and never looked
 // again.
 //
-// Measured (sc-manager, 2026-08-07). Their server loaded 709cacf on Aug 4, called
+// Measured (the field fleet, 2026-08-07). Their server loaded 709cacf on Aug 4, called
 // a verb that day while the tree still matched, and cached staleProcess:false.
 // Two commits landed Aug 5. On Aug 7 graph_health returned no staleProcess field
 // at all, and they concluded — reasonably — that the field post-dated their
@@ -78,7 +78,7 @@ describe('staleProcess is re-evaluated, not frozen at first call', () => {
   it('★ reports stale AFTER the tree moves, even though the first call said fresh', async () => {
     const mod = await import(`file://${join(root, 'mcp', 'stdio', 'server-build.js').replace(/\\/g, '/')}?t=${Date.now()}`);
 
-    // 1. First call while the tree still matches — sc-manager's Aug 4.
+    // 1. First call while the tree still matches — the field fleet's Aug 4.
     const first = mod.serverBuildInfo();
     expect(first.staleProcess, 'not stale yet').toBe(false);
     const loaded = first.commit;

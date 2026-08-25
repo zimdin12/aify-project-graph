@@ -7,7 +7,7 @@
 //
 // That is the intent. The effect, measured by asking who imports it, was ONE consumer:
 // `query/verbs/read_freshness.js`. Every other verb returned answers from old code and said
-// nothing. Three of ef-manager's last four rounds opened blocked on a stale process, and they
+// nothing. Three of the field test's last four rounds opened blocked on a stale process, and they
 // asked for this three times.
 //
 // ⚠ THIS IS THE FAILURE MODE THE COMMENT ITSELF WARNS ABOUT, one level up: a comment describing
@@ -154,7 +154,7 @@ describe('a stale process warns through EVERY verb, not just the two that import
   }, 300_000);
 
   it('★★★ the warning states the process scope, not the repo scope', async () => {
-    // ef-manager reasoned "echoes has not moved, so I can test there" and was wrong: one process
+    // the field test reasoned "echoes has not moved, so I can test there" and was wrong: one process
     // serves both repos. The sentence has to close that inference at the point of use.
     const text = await callVerb('graph_search', { query: 'main' }, { stale: true });
     expect(text).toMatch(/EVERY REPO THIS PROCESS SERVES/);

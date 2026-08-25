@@ -6,7 +6,7 @@ exist), so the falsifier goes first.
 
 ## The defect, as measured by someone else
 
-`ef-manager`, on echoes, 2026-08-25, `rg` ground truth taken **before** each query:
+`the field test`, on echoes, 2026-08-25, `rg` ground truth taken **before** each query:
 
 | | `wakePcasCoordinatorForChunks` | `SimCoordinator::demote` |
 |---|---|---|
@@ -69,7 +69,7 @@ report a number as progress.
 every repo tested, it is not measuring the index; it is re-reading the DB by another route.
 Requires at least one carrier where the two genuinely differ.
 
-**F3 — it must not become a second unread field.** `ef-manager` on my last fix: *"two booleans to
+**F3 — it must not become a second unread field.** `the field test` on my last fix: *"two booleans to
 ignore instead of one, and it leaves the useful field third in line."* If this ships as another
 sibling field beside `degraded`, `operationallyDegraded`, `cause`, `exhaustive`, `completeness`
 and `precision`, it fails regardless of accuracy. Any addition must be paid for by a deletion.
@@ -89,7 +89,7 @@ questions at all. Both are larger than a field.
 ## Bounds accepted in advance
 
 - I cannot test this on a C++ repo from here: this session's MCP child is dead and APG is JS.
-  Any verdict on echoes belongs to `ef-manager`, not to me.
+  Any verdict on echoes belongs to `the field test`, not to me.
 - `echoes_of_the_fallen` carries a standing read-only / no-residue constraint. Reading a
   directory listing is not indexing, but nothing in this plan writes to that repo.
 
@@ -135,7 +135,7 @@ directory listings.
 
 ## ⛔ COLLATERAL FINDING — the coverage figure shown to a reader is the wrong noun
 
-`ef-manager` was shown `partial_compile_db_coverage — 122 of ~123 first-party sources, 99%`
+`the field test` was shown `partial_compile_db_coverage — 122 of ~123 first-party sources, 99%`
 beside an answer that **missed four real callers in a file that is in the DB**.
 
 Now measurable: clangd's index for that repo holds **3,017 distinct files**. So "99%" describes a

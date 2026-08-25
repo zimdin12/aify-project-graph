@@ -4,7 +4,7 @@ The roadmap's Phase 1 gate reads:
 
 > Stratified frozen hand-labelled sample, including negative-control docs using the same word in
 > ordinary prose. **Precision floor ≥0.95 per admission rule, not aggregate.** Recall disclosed as a
-> floor. **A rule below the floor is deleted, not rescued by ranking.** `ef-manager` reproduces
+> floor. **A rule below the floor is deleted, not rescued by ranking.** `the field test` reproduces
 > independently, on **both** repos, before it is called done.
 
 This page states where that stands, measured from the committed evidence rather than remembered.
@@ -13,10 +13,10 @@ This page states where that stands, measured from the committed evidence rather 
 
 | admission rule | precision | population | repo | graded by |
 |---|---|---|---|---|
-| `doc_ref:path-scoped` | **0.9697** | full | aify-project-graph | ef-manager |
-| `doc_ref:qualified` | **1.0000** (12/12) | full | echoes_of_the_fallen | ef-manager |
-| `doc_ref:shaped` | **0.9677** (90/93) | full | echoes_of_the_fallen | ef-manager |
-| tier-3 partial-path supplement | **1.0000** | full | aify-project-graph | ef-manager |
+| `doc_ref:path-scoped` | **0.9697** | full | aify-project-graph | the field test |
+| `doc_ref:qualified` | **1.0000** (12/12) | full | echoes_of_the_fallen | the field test |
+| `doc_ref:shaped` | **0.9677** (90/93) | full | echoes_of_the_fallen | the field test |
+| tier-3 partial-path supplement | **1.0000** | full | aify-project-graph | the field test |
 
 All three live rules clear the 0.95 floor **individually**. These are FULL-POPULATION grades, not
 samples — `doc-refs-grade-shaped-echoes.json` states `method: FULL POPULATION, graded from the
@@ -64,11 +64,11 @@ reason, or to change what the gate asks for.
 
 ## Independent reproduction — PARTIAL
 
-`ef-manager` graded `path-scoped` on aify-project-graph and `shaped`+`qualified` on
+`the field test` graded `path-scoped` on aify-project-graph and `shaped`+`qualified` on
 echoes_of_the_fallen. **No single rule has been graded on both repos**, so "reproduces on both
 repos" is satisfied at the level of the measurement programme but not per rule.
 
-⚠ The recall sample is `graded_by: graph-tech-lead` and carries its own warning:
+⚠ The recall sample is `graded_by: this project` and carries its own warning:
 `FIRST-PARTY GRADE. The rule author graded their own recall; treat as a self-report pending
 independent reproduction.` That flag is correct and stands.
 

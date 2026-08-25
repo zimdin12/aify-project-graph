@@ -114,7 +114,7 @@ if (!clangdAvailable) {
 // Meanwhile textDocument/definition was already being called, and its result used
 // ONLY as a filter — the definition was in hand and discarded. A field tester
 // queried a symbol AT its own definition and got [] against a documented contract
-// promising "declaration entries split out" (ef-manager, echoes, 2026-07-30). He
+// promising "declaration entries split out" (the field test, echoes, 2026-07-30). He
 // isolated it by elimination — full coverage, non-degraded, still zero — which is
 // what made the mechanism findable rather than arguable.
 describe.skipIf(!clangdAvailable)('definitionLocations is populated (real clangd)', () => {

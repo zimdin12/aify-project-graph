@@ -2,7 +2,7 @@
 //
 // Dividing verified edges by EVERY CALLS edge reported 12% on a repo where every
 // verifiable edge had in fact been verified. That reads as a coverage failure and was an
-// accounting one — and ef-manager checked the 833/1599 arithmetic against this exact
+// accounting one — and the field test checked the 833/1599 arithmetic against this exact
 // field, which makes it one of the few they confirmed they actually use.
 //
 // ★★ CONVERTED FROM SOURCE-GREP 2026-08-11.
@@ -76,7 +76,7 @@ describe('lsp coverage denominator', () => {
 
   it('★ the denominator names its own population', () => {
     // §4's basis rule: a ratio that travels without its denominator is how two correct
-    // numbers produce a wrong comparison. This is the field ef-manager used to check the
+    // numbers produce a wrong comparison. This is the field the field test used to check the
     // 833/1599 arithmetic.
     expect(computeCoverage([], 0).denominator).toBe('verifiable_and_in_scope_calls');
   });

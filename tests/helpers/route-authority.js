@@ -1,6 +1,6 @@
 // COMPONENT CONFORMANCE IS NOT ROUTE AUTHORITY.
 //
-// graph-senior-dev-hermes's refinement of the pattern behind six of eight findings in the
+// review, hermes session's refinement of the pattern behind six of eight findings in the
 // a137782 review, and it is sharper than the version I wrote:
 //
 //   The recurring defect is component conformance being promoted to ROUTE AUTHORITY
@@ -45,7 +45,7 @@ import { expect } from 'vitest';
  */
 // ⛔ A PREDICATE THAT IGNORES ITS ARGUMENT IS A CONSTANT WEARING A FUNCTION'S CLOTHES.
 //
-// graph-senior-dev-hermes rebound each predicate to consume a canned satisfying object
+// review, hermes session rebound each predicate to consume a canned satisfying object
 // instead of the supplied response — invocation, identity and success each independently —
 // and the selected suite stayed 25/25 GREEN. Deleting the helper outright reds; changing
 // what it READS does not. So the helper proved the callbacks returned true, never that

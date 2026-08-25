@@ -44,7 +44,7 @@ A corpus PASSES an ordering if the stated entry point is in that ordering's top 
 Set now, before the numbers exist:
 
 - **Withdraw the section** if the stated entry point falls outside the top 2 under the SHIPPED
-  ordering on a majority of ground-truth corpora — graph-tech-lead's own threshold, adopted.
+  ordering on a majority of ground-truth corpora — this project's own threshold, adopted.
 - **Bigger finding, supersedes the above:** if ALL THREE orderings miss on a majority of
   ground-truth corpora, no signal in this graph identifies an entry point, and the section should
   stop claiming to rather than be re-tuned.
@@ -53,6 +53,6 @@ Set now, before the numbers exist:
 
 ## Not measured, deliberately
 
-Whether a ranked document is a GOOD document to read. Ungradeable, and named by graph-tech-lead
+Whether a ranked document is a GOOD document to read. Ungradeable, and named by this project
 as the trap that killed the skills classifier. This grades one thing: does the ranking surface
 the entry point the repo itself names.

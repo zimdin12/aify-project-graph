@@ -7,13 +7,13 @@
 // correctness label — but the admission rule required no reference evidence whatsoever, which is
 // establishable from the source alone and is the actual defect.
 //
-// ⚠ ef-manager ran the same extractor on `echoes_of_the_fallen` and measured 63.1% — twenty
+// ⚠ the field test ran the same extractor on `echoes_of_the_fallen` and measured 63.1% — twenty
 // points from this repo, same code. The rate tracks the language's NAMING CONVENTION, not the
 // documents: JavaScript names functions `read`, `count`, `exists` and collides with English
 // head-on; C++ CamelCase mostly does not. ⇒ No global confidence threshold and no hand-tuned
 // stop-word list can be calibrated once and be right on both repos. This module uses NEITHER.
 //
-// graph-senior-dev's invariant:
+// the reviewer's invariant:
 //
 //   > A stored doc edge must carry a recoverable source span and a deterministic resolution path
 //   > to exactly one node.
@@ -22,7 +22,7 @@
 // something that identifies a path, and does that path resolve to exactly one indexed NODE".
 // A Markdown link and a path-shaped inline-code span both meet it. A bare word never does.
 //
-// ⚠ "NODE", NOT "FILE" — AND THE WORD MATTERED. ef-manager measured the 480 admitted edges by
+// ⚠ "NODE", NOT "FILE" — AND THE WORD MATTERED. the field test measured the 480 admitted edges by
 // target type: File 303, Document 80, Config 64, DIRECTORY 31, Entrypoint 2. The contract said
 // "file" while the code admitted five types, so 6.5% of edges broke a promise nobody had noticed
 // making. Directories stay IN — `docs/THE-GOAL.md` writing `` `docs/` `` means the directory, and
@@ -73,7 +73,7 @@ export const DOC_LINK_RULES = Object.freeze({
   // `[helper](helper.js)` where neither anchoring hit" — and not one authored link in this corpus
   // uses it. It fires 205 times for a case it was not designed for.
   //
-  // ★ AND ONE THIRD OF THAT IS A SINGLE FALSE-POSITIVE CLASS. ef-manager graded the newly-admitted
+  // ★ AND ONE THIRD OF THAT IS A SINGLE FALSE-POSITIVE CLASS. the field test graded the newly-admitted
   // SKILL.md edges and found 27 pointing at `tests/fixtures/code-intel/cpp-fixture-repo/
   // compile_commands.json`, from lines like "when a C++ repo has `compile_commands.json`". A
   // GENERIC FILENAME — a build-system convention naming a file in the READER'S repo — resolved to
@@ -119,7 +119,7 @@ function isPathShaped(raw) {
 
 // ⛔ A SPAN THAT NAMES NO SEGMENT IS NOT A PATH, AND `/` PROVED IT THE HARD WAY.
 //
-// ef-manager found this on the real graph: documents about path handling write `` `/` `` and
+// the field test found this on the real graph: documents about path handling write `` `/` `` and
 // `` `./` `` in inline code while DESCRIBING syntax, and `/` is path-shaped (it contains a
 // separator), normalises to nothing, and is then joined onto the document's own directory by the
 // relative anchoring — so `docs/x.md` writing `` `/` `` emitted an edge to `docs`.
@@ -231,7 +231,7 @@ export function resolveDocPath(written, docPath, index) {
   //
   // It resolved a BARE BASENAME whenever exactly one indexed file carried it. Split out under its
   // own tag at 91f24cd so it could be measured at all, then graded at full population by
-  // ef-manager, independently reaching the same 85 I had estimated.
+  // the field test, independently reaching the same 85 I had estimated.
   //
   // ⛔ ALL 35 FALSE POSITIVES WERE ONE FILENAME: `compile_commands.json`, resolving to
   // `tests/fixtures/code-intel/cpp-fixture-repo/compile_commands.json`. Every occurrence meant the
@@ -376,7 +376,7 @@ export function scanDocReferences(content) {
 
     // ⚠ FENCED SPANS ARE STILL FOUND, THEN MARKED — they used to be skipped outright.
     //
-    // ef-manager, measuring the corpus: "a fenced path is invisible in every counter you have —
+    // the field test, measuring the corpus: "a fenced path is invisible in every counter you have —
     // it is neither an edge nor a miss." The exclusion is right and stays; what was wrong is that
     // it happened before anything could count it, so a whole category of authored path lived
     // outside the accounting. A category that exists in the code and not in the ledger is how a
@@ -429,7 +429,7 @@ export async function detectDocLinks(db, repoRoot) {
   let added = 0;
   let documentsWithLinks = 0;
 
-  // ⛔ A COUNT IS UNFALSIFIABLE FROM OUTSIDE, and ef-manager was blocked by exactly that: "the
+  // ⛔ A COUNT IS UNFALSIFIABLE FROM OUTSIDE, and the field test was blocked by exactly that: "the
   // manifest stores counts and not the misses themselves — I can see how many landed in each,
   // never which." 707 `noSuchPath` could be 707 genuine stale references or 707 mis-bucketed
   // prose tokens, and the number reads identically either way.
@@ -499,7 +499,7 @@ export async function detectDocLinks(db, repoRoot) {
     }
   }
 
-  // ⚠ `documents` IS THE ADMITTED CORPUS, NOT THE REPOSITORY'S MARKDOWN. ef-manager composed the
+  // ⚠ `documents` IS THE ADMITTED CORPUS, NOT THE REPOSITORY'S MARKDOWN. the field test composed the
   // real figure end to end on this repo: 150 tracked .md → 71 Document nodes (47.3%, the
   // ingest/sweep.js allowlist) → 59 emitting a link (83.1% of survivors) = 39.3% of the repo's
   // markdown reachable through this layer. "83% of documents link out" and "39% of the markdown

@@ -7,7 +7,7 @@
 //
 // Each of those six was caught by a hand-written site-count assertion. That is the problem. The
 // guard against a silent no-op depended on remembering to write the guard, which is an ATTENTIONAL
-// control standing in the one tool used to check everything else. ef-manager named it: six catches
+// control standing in the one tool used to check everything else. the field test named it: six catches
 // is not a run of bad luck, it is a standing hazard whose only defence is vigilance.
 //
 // ⇒ Here the count is not optional. `sites` is REQUIRED, the edit is refused unless the match count

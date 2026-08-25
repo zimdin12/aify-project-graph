@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildReferencesEvidence } from '../../../mcp/stdio/query/verbs/code_intel_live.js';
 import { buildHierarchyEvidence } from '../../../mcp/stdio/query/verbs/code_intel_hierarchy.js';
 
-// Step 3 of graph-senior-dev's evidence-contract migration: "migrate absence authority to
+// Step 3 of the reviewer's evidence-contract migration: "migrate absence authority to
 // `exhaustive === true` only".
 //
 // ⚠ I HAVE BEEN CALLING THIS "already true in practice" FOR THREE CYCLES WITHOUT RUNNING IT.

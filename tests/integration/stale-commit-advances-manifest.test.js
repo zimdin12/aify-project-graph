@@ -84,7 +84,7 @@ async function run(manifestCommitFor) {
   // ⛔ THE DISCRIMINATOR'S PRECONDITION, ASSERTED RATHER THAN TRUSTED.
   //
   // untouched.js separates incremental from rebuild ONLY because nothing references it. Flagged by
-  // ef-manager reviewing 9c94586: if anyone adds an import between these files, or the orchestrator
+  // the field test reviewing 9c94586: if anyone adds an import between these files, or the orchestrator
   // grows dependency-closure reindexing — reindex changed files AND their dependents, a normal
   // thing to want — then untouched.js enters processedFiles on the INCREMENTAL path and this
   // control INVERTS. It would report over-correction that is not there, and the obvious repair

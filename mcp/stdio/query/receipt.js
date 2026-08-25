@@ -1,7 +1,7 @@
 // ★ A RECEIPT IS NOT EVIDENCE FOR A CLAIM. IT IS THE CLAIM PLUS ITS
 //   INVALIDATION CONDITIONS.
 //
-// Design owed entirely to ef-manager (2026-07-31), who named the gap after two
+// Design owed entirely to the field test (2026-07-31), who named the gap after two
 // measured experiments: there is no way to hand another agent a claim TOGETHER
 // with its evidence. Everything is per-session and per-call; a teammate gets your
 // prose, not a receipt they can re-verify. So they re-derive, or — worse — they
@@ -50,7 +50,7 @@ import { serverBuildInfo } from '../server-build.js';
 export const RECEIPT_VERSION = 1;
 
 // ★ SELF-CONTAINED AND CONTENT-ADDRESSED, which is what makes the transport
-//   question stop mattering — ef-manager's correction to my (a)/(b)/(c) trichotomy.
+//   question stop mattering — the field test's correction to my (a)/(b)/(c) trichotomy.
 //
 // I was about to pick "write to .aify-graph/receipts/ with a stable id". He killed
 // it with a fact I should have seen: WE DO NOT SHARE A REPO. He works in
@@ -88,7 +88,7 @@ export function receiptId(body) {
 // this list, not a guess about what might matter.
 // ★ EVERY PIN MUST BE AN IDENTITY, NOT A MEASUREMENT.
 //
-// ef-manager's category-error catch, against his own earlier suggestion: five of
+// the field test's category-error catch, against his own earlier suggestion: five of
 // the original six pins were content-derived identities, and `overlay_age_days`
 // was a CLOCK READING — now minus mtime. That breaks pin semantics in three
 // directions at once:
@@ -127,7 +127,7 @@ const MAX_CLAIMS = 40;
 /**
  * ★ UNKNOWN IS NOT UNTRUNCATED — the structural fix for the bug generator.
  *
- * ef-manager's, and he built it out of a sentence I had written four messages
+ * the field test's, and he built it out of a sentence I had written four messages
  * earlier about a different field ("'clean' and null are distinct — unknown is not
  * clean"), then applied it where it actually pays.
  *
@@ -150,7 +150,7 @@ const MAX_CLAIMS = 40;
 /**
  * ⛔ TRUNCATION IS NOT COVERAGE, AND `assessTruncation` COULD NOT TELL THE DIFFERENCE.
  *
- * ef-manager, field-testing the doc layer: `graph_pull(docs)` returned `items: []` with
+ * the field test, field-testing the doc layer: `graph_pull(docs)` returned `items: []` with
  * `exhaustive: true` for a file carrying 12 inbound authored doc links. The list was not
  * truncated — it was never populated, because the layer queried one of the two relations that
  * carry doc→code information. An empty list from a source nobody consulted is `truncated: false`
@@ -290,7 +290,7 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
 /**
  * ★ SPLIT HEAD FROM BODY — validation and reading are different jobs.
  *
- * ef-manager's refinement, and the property is one I would not give up: A TEAMMATE
+ * the field test's refinement, and the property is one I would not give up: A TEAMMATE
  * CAN DETECT DRIFT WITHOUT TRANSFERRING THE BODY. Validation needs only the pins;
  * reading needs the claims. You validate every time and read rarely, so a single
  * blob makes the cheap always-run operation pay the cost of the expensive
@@ -328,7 +328,7 @@ export function buildReceipt({ verb, args, pins = {}, claims = [], floor = {}, d
 //                                 body_note (102 tok of instructions for using a
 //                                 receipt the caller did not ask for)
 //
-// The signals are what actually changed decisions in the field: ef-manager reversed
+// The signals are what actually changed decisions in the field: the field test reversed
 // a published deletion-safety verdict on `exhaustive` alone — cold and warm returned
 // the SAME six results, only the attestation differed — and both managers cited
 // disconfirming_test by name. The apparatus serves a different job: letting a SECOND
@@ -348,7 +348,7 @@ export function receiptFor(receipt, mode) {
  * answer in front of them. Anything needed to hand the claim to another agent
  * lives in the head/full forms.
  */
-// ★★ INVARIANT PROSE OUT, FALSIFIER IN. The rule is ef-manager's, from the used /
+// ★★ INVARIANT PROSE OUT, FALSIFIER IN. The rule is the field test's, from the used /
 // never-read audit of ~40 real payloads (2026-08-11):
 //
 //   VARYING, per-item, machine-readable → earned its place decisively
@@ -369,20 +369,20 @@ export function receiptFor(receipt, mode) {
 // `exhaustive` stays, unconditionally, because absent-vs-false is the ambiguity this
 // codebase keeps rediscovering.
 //
-// ⚠ AND THE ZERO IS BOUNDED, NOT BANKED. ef-manager has never RUN a disconfirming test —
+// ⚠ AND THE ZERO IS BOUNDED, NOT BANKED. the field test has never RUN a disconfirming test —
 // but bounded that themselves: they made no delete/rename decisions today, so the
 // decision population is empty, the same confound that blocks the overlay verdict. Their
 // zero is NOT evidence the mechanism is useless. What it supports is narrower and holds:
 // had they wanted to validate, verb+args suffice without the essay.
-// ★★ AND THE PREDICATE STAYS. graph-senior-dev caught me over-cutting this within the
+// ★★ AND THE PREDICATE STAYS. the reviewer caught me over-cutting this within the
 // hour, and the correction is the whole point:
 //
 //   "`expect` contains TWO things: the comparison predicate — load-bearing — and an essay
 //    explaining why the predicate matters — movable. Do not replace both with a call.
 //    A bare call does not tell a novice WHICH DIFFERENCE REFUTES WHICH CLAIM."
 //
-// ef-manager said verb+args are self-executing, and for them they are — they have run
-// this mechanism all day. graph-senior-dev's reader is the cold lane, which is exactly
+// the field test said verb+args are self-executing, and for them they are — they have run
+// this mechanism all day. the reviewer's reader is the cold lane, which is exactly
 // Steven's regression worry. Both are right about different readers, and the resolution
 // is not to pick one: keep the predicate (short, tells you what to look for), drop the
 // essay (long, tells you why it matters).
@@ -416,7 +416,7 @@ export function receiptSignals(receipt) {
     ...(test ? { disconfirming_test: test } : {}),
     // ⚠ RESTORED AFTER I CUT IT AHEAD OF THE EVIDENCE.
     //
-    // ef-manager listed `full_receipt` as never-read — true — and in the same message
+    // the field test listed `full_receipt` as never-read — true — and in the same message
     // proposed the disciplined version: *"does ANYONE ever pass receipt:'full'? If nobody
     // does before or after, that tier was never load-bearing and can go first, at zero
     // risk."* That is instrument-then-cut. I cut first.
@@ -478,7 +478,7 @@ export function claimsDigest(claims) {
 /**
  * ★ THE ONLY DOOR TO A BODY. Read claims through this or not at all.
  *
- * ef-manager flagged the seam he had opened himself when proposing the split, and
+ * the field test flagged the seam he had opened himself when proposing the split, and
  * he was right that the two properties do not compose for free: the content
  * address closes body tampering ONLY IF the body is checked against head.id, but
  * validateReceipt deliberately works on the HEAD ALONE so drift is detectable
@@ -593,7 +593,7 @@ export function validateReceipt(receipt, currentPins = {}) {
     // Refusing only when ALL pins are null meant 5 nulls plus 1 match reported
     // valid:true on one-sixth of the evidence, and a caller had to read the pin
     // block to discover that. That is my own unpinned_inputs principle applied one
-    // level in, and ef-manager was right to turn it back on me: a VALIDATION that
+    // level in, and the field test was right to turn it back on me: a VALIDATION that
     // looks complete converts a known gap into an invisible one, exactly as an
     // unpinned input that looks pinned does.
     pins_compared: `${compared}/${PINNED_INPUTS.length}`,
@@ -637,7 +637,7 @@ export function hashOverlayContent(readFileSyncFn, paths = []) {
 }
 
 /**
- * Identity of the uncommitted state. ef-manager's A3, and the common case is
+ * Identity of the uncommitted state. the field test's A3, and the common case is
  * commoner than the one I had named: repo_commit matches, indexed_commit matches,
  * and someone has forty uncommitted modifications open in an editor. No rebuild
  * required. graph_health already reports trackedDirtyFiles — the signal existed

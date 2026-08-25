@@ -42,7 +42,7 @@ d('typescript-language-server (real) — live verbs', () => {
     const files = (r.referenceLocations || []).map((x) => x.file);
     expect(files).toContain('src/main.ts'); // cross-file caller found
     // ⛔ SUPERSEDED 2026-08-19. A tsconfig — like a compile DB — states which files the language
-    // server MAY index, not which it actually DID. graph-senior-dev executed the C++ instance:
+    // server MAY index, not which it actually DID. the reviewer executed the C++ instance:
     // both sources in the DB, one uncompilable, its caller absent, exhaustive:true returned.
     // The mechanism is not asserted for tsserver (nobody has executed it there); what IS true
     // for both is that we do not OBSERVE per-file index success, so a completeness claim is

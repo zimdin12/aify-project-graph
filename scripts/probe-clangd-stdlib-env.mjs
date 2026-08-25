@@ -2,7 +2,7 @@
 // Does a clangd spawned by THIS server resolve the C++ standard library against a clang-cl
 // compile DB, in the environment the MCP server actually runs in?
 //
-// WHY: sc-manager compiled sand_castle's TUs by hand on 2026-08-25 and every one failed at
+// WHY: the field fleet compiled sand_castle's TUs by hand on 2026-08-25 and every one failed at
 // `'chrono' file not found` / `'cstddef' file not found` — INCLUDING their positive control
 // (Terrain.cpp, core terrain code, nothing to do with the fluid solver they were chasing). They
 // flagged their own instrument as suspect: they ran from a bash shell with no vcvars applied, and
@@ -38,7 +38,7 @@ std::size_t stdlib_target() { return 1; }
 std::size_t stdlib_caller() { return stdlib_target(); }
 `;
 
-// GAP 1, raised by sc-manager: the guard keys on clangd REPORTING an unresolved include. What
+// GAP 1, raised in the field: the guard keys on clangd REPORTING an unresolved include. What
 // about a TU that was never attempted at all — a file absent from the compile DB? There may be no
 // diagnostic to read, translationUnitFailed stays false, and the empty result is presented as
 // genuine. That is the same green null one level up, landing in the exact bucket the guard exists
@@ -58,7 +58,7 @@ function buildRepo() {
   // and the question goes unanswered. This one includes a project header reachable ONLY via an
   // -I the compile DB would have supplied — so clangd's fallback cannot resolve it. If clangd
   // emits an unresolved-include diagnostic, the guard fires and the gap is closed. If it returns
-  // empty in silence, sc-manager's Gap 1 is real.
+  // empty in silence, the field fleet's Gap 1 is real.
   fs.mkdirSync(path.join(root, 'include', 'deep'), { recursive: true });
   fs.writeFileSync(path.join(root, 'include', 'deep', 'Dep.h'), 'inline int dep() { return 7; }\n');
   fs.writeFileSync(path.join(src, 'orphan_needs_include.cpp'),

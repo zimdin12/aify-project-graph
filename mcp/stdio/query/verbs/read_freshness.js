@@ -176,7 +176,7 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   // STALE PROCESS FIRST. If this server is executing code that is no longer on
   // disk, every answer below is suspect — including the freshness answers. It used
   // to be reported only by graph_health, so a reader who never called that verb
-  // could act on stale-build output indefinitely; sc-manager lost a verification
+  // could act on stale-build output indefinitely; the field fleet lost a verification
   // window to exactly that (2026-07-30). A stale process is not a graph condition,
   // it is a condition on the whole session, so it belongs on the shared channel
   // every read verb already prints through.

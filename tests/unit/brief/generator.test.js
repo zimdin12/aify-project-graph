@@ -125,7 +125,7 @@ describe('brief/generator', () => {
       expect(agent).toMatch(/features with stale anchors/);
     });
 
-    it('surfaces a LOUD ⚠ OVERLAY DEGRADED line for a legacy-format overlay (sc-manager P0 #2)', async () => {
+    it('surfaces a LOUD ⚠ OVERLAY DEGRADED line for a legacy-format overlay (the field fleet P0 #2)', async () => {
       const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
       seedNodes(db, [{ id: 'f1', type: 'File', label: 'terrain.cpp', file_path: 'sim/terrain.cpp' }]);
       db.close();

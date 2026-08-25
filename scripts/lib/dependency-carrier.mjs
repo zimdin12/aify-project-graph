@@ -2,7 +2,7 @@
 //
 // ⛔ A materialized candidate tree fixes SOURCE attribution and nothing else. `node_modules` is
 // ignored by git, so it cannot come from the tree object `T` — the run still depends on ambient
-// state by construction. I asked whether that made materialization pointless; graph-senior-dev's
+// state by construction. I asked whether that made materialization pointless; the reviewer's
 // answer is the right frame:
 //
 //   > The honest endpoint is not "no ambient dependencies"; it is: source/test filesystem

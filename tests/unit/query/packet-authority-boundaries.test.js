@@ -1,6 +1,6 @@
 // THE BOUNDARY LEDGER — pre-registered before slice 1 moves anything.
 //
-// graph-senior-dev's Phase 0 target is not file length:
+// the reviewer's Phase 0 target is not file length:
 //   "Every top-level declaration belongs to exactly one named authority; every named guarantee
 //    has exactly one owner module whose public API is sufficient to execute a hostile
 //    counterexample; authority modules do not import their facade."
@@ -39,7 +39,7 @@ const read = (f) => readFileSync(join(VERBS, f), 'utf8');
 // unsealed-entry check. And the governed-set-equals-allowlist assertion could not catch it,
 // because a file that never enters the set cannot be missing from it.
 //
-// ⛔ THEN I WIDENED THE REGEX, WHICH CLOSED THE INSTANCE AND LEFT THE CLASS OPEN. ef-manager
+// ⛔ THEN I WIDENED THE REGEX, WHICH CLOSED THE INSTANCE AND LEFT THE CLASS OPEN. the field test
 // measured the repair: 10 of 15 plausible names still escaped — `packet-v2-lists.js`,
 // `packet-text.mjs`, `packet_text.js`, `packetText.js`, `packet2-lists.js`. Not adversarial
 // constructions; names a person reaches for. A digit, an underscore, a capital or a different
@@ -69,7 +69,7 @@ const VERB_FILES = () => readdirSync(VERBS).filter((f) => /\.(js|mjs|cjs|ts)$/.t
 // `/^\.\/(.+)$/` over it, `<unresolved>` failed the match, and it was dropped by the same
 // `continue` as "not a sibling in verbs/". Two states meaning opposite things, one branch.
 //
-// ef-manager demonstrated the escape it opens, and it is not exotic:
+// the field test demonstrated the escape it opens, and it is not exotic:
 //     const p = './packet_v2Escape.js';   // name escapes NAME_SHAPED
 //     await import(p);                    // specifier unreadable -> edge dropped
 // Not name-shaped, not reachable, not a tool. Ungoverned, silently — which is the exact property
@@ -163,7 +163,7 @@ describe('packet authority boundaries', () => {
     // unsealed-entry check, and the governed-set-equals-allowlist assertion could not have caught
     // it, because a file that never enters the set cannot be missing from it.
     //
-    // dev's BLOCKER C closed the gap between the governed set and the allowlist. This closes the
+    // the reviewer's BLOCKER C closed the gap between the governed set and the allowlist. This closes the
     // gap one level up, in how the governed set is DISCOVERED: a gate whose population is defined
     // by a regex can be left silently by choosing a name.
     //
@@ -172,7 +172,7 @@ describe('packet authority boundaries', () => {
     // ⛔ THE VERSION OF THIS TEST I WROTE FIRST PINNED A LIST OF NAMES — six of them, chosen by
     // the person who had just widened the pattern, every one passing for the same reason it was
     // widened. It could not fail for the eleventh name, because the eleventh name was not in it.
-    // ef-manager: "a report that enumerates instances invites an instance-shaped fix. You
+    // the field test: "a report that enumerates instances invites an instance-shaped fix. You
     // reported it to yourself as an instance." Measured: 10 of 15 plausible names still escaped.
     //
     // ⇒ So this asserts the PROPERTY the governed set must have: every packet island is
@@ -217,7 +217,7 @@ describe('packet authority boundaries', () => {
     // passes forever and the one thing standing between a caller and an unsealed route is a
     // regex nobody has run. The control proves it fires on the exact text it forbids.
     // ⚠ USES THE HELPER THAT ALREADY EXISTED. I built a second one — weaker, one canary — before
-    // ef-manager found `live-matcher.js`, landed 0d97826 on 2026-08-12 with TWO canaries and a
+    // the field test found `live-matcher.js`, landed 0d97826 on 2026-08-12 with TWO canaries and a
     // lastIndex-safe clone. The mechanism was never missing; ADOPTION was: 3 call sites against
     // 158 bare `not.toMatch` in eight days.
     expectAbsentWithLiveMatcher(
@@ -232,7 +232,7 @@ describe('packet authority boundaries', () => {
   });
 
   it('★★★ the exported entry still wraps the inner call in the seal scope', () => {
-    // Pins the exact shape dev named. packet-seal.test.js already source-inspects for this;
+    // Pins the exact shape the reviewer named. packet-seal.test.js already source-inspects for this;
     // asserted here too because slice 4 touches the facade and this is the line that must survive.
     const src = read('packet.js');
     expect(src).toMatch(/withSealScope\(/);
@@ -240,7 +240,7 @@ describe('packet authority boundaries', () => {
   });
 
   it('★★★ no authority module DEPENDS ON the facade, in any form — that is the cycle', () => {
-    // ⛔ THIS GATE WAS QUOTE-SPECIFIC AND graph-senior-dev WALKED THROUGH IT. It matched
+    // ⛔ THIS GATE WAS QUOTE-SPECIFIC AND the reviewer WALKED THROUGH IT. It matched
     // /from\s+'\.\/packet\.js'/ — single quotes only — so this equally real cycle passed all
     // seven boundary tests:
     //     import { resolvePopulation } from "./packet.js";
@@ -331,7 +331,7 @@ describe('packet authority boundaries', () => {
   });
 
   it('★★★ island exports are an EXACT allowlist — a new export is a reviewed event', () => {
-    // ⚠ dev's reachability finding: slice 1 exported all 31 declarations of the two islands,
+    // ⚠ the reviewer's reachability finding: slice 1 exported all 31 declarations of the two islands,
     // "much broader than the facade needs, and the boundary gate does not inventory it." Not an
     // automatic tool entry, but a new API fact that arrived unreviewed. Pinned exactly, so
     // widening the surface has to be a deliberate edit here.
@@ -347,13 +347,13 @@ describe('packet authority boundaries', () => {
         'readTasks', 'resolvePacketBudget', 'snapshotLine', 'trustTier',
       ],
       'packet-overlay.js': ['buildFeaturePacket', 'buildTaskPacket'],
-      // ⭐ PRE-REGISTERED BEFORE THE FILE EXISTED, which is dev's explicit instruction for slice 2:
+      // ⭐ PRE-REGISTERED BEFORE THE FILE EXISTED, which is the reviewer's explicit instruction for slice 2:
       // "Pre-register packet-symbol.js's exact allowed surface before adding it." Writing the
       // allowlist first makes the surface a decision; writing it after makes it a description of
       // whatever the extraction happened to leave reachable, which is how slice 1 ended up
       // exporting all 31 of its declarations.
       //
-      // ⚠ THREE NAMES, AND buildSymbolPointerPacket IS NOT ONE OF THEM. dev ruled option (1):
+      // ⚠ THREE NAMES, AND buildSymbolPointerPacket IS NOT ONE OF THEM. the reviewer ruled option (1):
       // that function returns a SERIALIZED string via renderPacketLines, so deep-importing it
       // would create the unsealed-renderer escape they pre-registered as the most likely failure
       // of this whole phase — an extracted renderer gets exported, tests call it directly, and its
@@ -376,7 +376,7 @@ describe('packet authority boundaries', () => {
       // clearly named compatibility module with re-export, but do not move it into the private
       // occurrence authority as if both mechanisms had equal safety." The three helpers it calls
       // stay private to the module — exporting them would be the "export every moved helper, then
-      // allowlist it" pattern dev named as the Phase-0 failure mode.
+      // allowlist it" pattern the reviewer named as the Phase-0 failure mode.
       'packet-text-budget.js': ['clampToBudget'],
     };
     // ⛔ POPULATION-COMPLETE. dev: "a newly created packet-symbol.js would be discovered by

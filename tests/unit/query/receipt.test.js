@@ -1,7 +1,7 @@
 // ★ A RECEIPT IS NOT EVIDENCE FOR A CLAIM. IT IS THE CLAIM PLUS ITS
 //   INVALIDATION CONDITIONS.
 //
-// ef-manager named the missing team primitive after two measured experiments
+// the field test named the missing team primitive after two measured experiments
 // (2026-07-31): there is no way to hand another agent a claim TOGETHER with its
 // evidence, so teammates re-derive everything — or don't, and one agent's
 // unaudited answer becomes three agents' shared premise.
@@ -136,7 +136,7 @@ describe('an unverifiable pin is reported, never silently passed', () => {
 
 // ═══ CONTENT-ADDRESSING AND THE HEAD/BODY SPLIT ═══
 //
-// ef-manager rejected my (a)/(b)/(c) transport trichotomy as a trap, with a fact I
+// the field test rejected my (a)/(b)/(c) transport trichotomy as a trap, with a fact I
 // should have seen myself: WE DO NOT SHARE A REPO. He works in echoes_of_the_fallen,
 // I work in aify-project-graph, and a receipt written to echoes' .aify-graph/ is
 // invisible to me — every exchange across this engagement would have been unserved
@@ -202,7 +202,7 @@ describe('★ a teammate can detect drift without transferring the body', () => 
   });
 });
 
-// ═══ ★ ef-manager's PRE-REGISTERED ATTACKS (2026-07-31) ═══
+// ═══ ★ the field test's PRE-REGISTERED ATTACKS (2026-07-31) ═══
 //
 // He wrote these as PREDICTIONS before he could execute them, labelled as such,
 // and refused to report any as findings until run. Two were outside the weak spots
@@ -293,7 +293,7 @@ describe('★ B1/B2 — the two he predicted from my own list, both confirmed', 
 
 // ═══ ★ ATTACK SEVEN + THE BUG GENERATOR ═══
 //
-// ef-manager found attack seven in his own experiment-2 transcript with no running
+// the field test found attack seven in his own experiment-2 transcript with no running
 // build, from one observation: co_consumer_files returned EXACTLY 10 and — alone
 // among every list in the response — carried no total, no truncated, no limit.
 // Confirmed at consequences.js: a hard `break` at 10, emitted as a bare array.
@@ -358,7 +358,7 @@ describe('★ unknown is not untruncated — the default fails closed now', () =
 // the body_note argued: pin drift is detectable head-only, and if the pins drifted
 // the claims are moot, so the body is never worth fetching.
 //
-// ef-manager's counterexample: that is valid for TWO of three cases and drops the
+// the field test's counterexample: that is valid for TWO of three cases and drops the
 // third, which is the one the receipt exists for —
 //
 //     pins drift              head sufficient (claims are moot)

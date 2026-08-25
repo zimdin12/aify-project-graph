@@ -21,7 +21,7 @@ import {
 // ⚠ EVERY CALL HERE PASSES AN EXPLICIT "EVIDENCE PRESENT" WITNESS, and that is the point rather
 // than a formality. `readLedger` now also invalidates when the GRAPH no longer holds the verified
 // edges the ledger claims to have produced — a ledger orphaned by `graph_index(force=true)` made
-// `graph_collect_code_intel` a permanent no-op that reported success (ef-manager, sand_castle,
+// `graph_collect_code_intel` a permanent no-op that reported success (the field test, sand_castle,
 // 2026-08-20). It FAILS CLOSED, so a call with no witness resets, which is correct behaviour and
 // broke two tests in this file.
 //

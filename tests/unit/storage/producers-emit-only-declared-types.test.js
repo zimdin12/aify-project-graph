@@ -7,7 +7,7 @@
 // made every CMake repo report a false `present_but_undeclared` drift.
 //
 // ⛔⛔ THE FIRST VERSION OF THIS FILE WAS QUOTE-SENSITIVE AND I CALLED IT "LITERAL" COVERAGE.
-// It matched `/type:\s*'([A-Z][A-Za-z]+)'/`. graph-senior-dev executed the other spellings:
+// It matched `/type:\s*'([A-Z][A-Za-z]+)'/`. the reviewer executed the other spellings:
 // `type: "X"`, `"type": "X"` and `type: `X`` all returned nothing. One spelling of four, described
 // as the class. It now parses (`scripts/lib/emitted-node-types.mjs`) so the property is found by
 // its POSITION IN THE TREE, and the four spellings are pinned below as discriminators.

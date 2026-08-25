@@ -11,7 +11,7 @@
 // NINE definitions. The packet tests stayed green throughout — the fallback did not merely
 // fail to catch the deletion, it ABSORBED it and manufactured a confident wrong number.
 //
-// graph-senior-dev-hermes's ruling, implemented here: `symHits.length` is a display count,
+// review, hermes session's ruling, implemented here: `symHits.length` is a display count,
 // not a population authority. A total is usable only when producer-attested AND internally
 // consistent (>= the sample it accompanies); everything else is `unknown`. A boolean cannot
 // mint a count — `symbols_truncated === false` with no total is still unknown.
@@ -71,7 +71,7 @@ async function makeRepo({ defs = 9, anchorSymbol = false, noFeatures = false, di
   //
   // `distinctFiles`: many files, so the rows are GENUINELY ambiguous and short-circuit to the
   // AMBIGUOUS string route instead. Mixed languages so the cross-language finding has something
-  // to find. This is the third branch, and no fixture reached it until ef-manager hit it on
+  // to find. This is the third branch, and no fixture reached it until the field test hit it on
   // real C++.
   for (let i = 0; i < defs; i += 1) {
     db.run(
@@ -137,7 +137,7 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
   //
   // ⇒ They are kept because they DO pin the cheap route's rendering, which is a real public
   // path. They are relabelled so nobody reads them as the expensive-route coverage that
-  // graph-senior-dev-hermes required ("include the real graphConsequences 9→3 producer route
+  // review, hermes session required ("include the real graphConsequences 9→3 producer route
   // for at least one end-to-end arm"). That arm is OWED and is not in this file yet; whether
   // the consequences→packet consumer route is reachable at all is the open question.
   it('★★ CHEAP-ROUTE CONSUMER 1 (symbol-pointer / UNRANKED) reports the attested population, not the cap', async () => {
@@ -176,7 +176,7 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
   }, 30_000);
 
   it('★★★ THIRD ROUTE — the AMBIGUOUS branch must carry the population it is already reading', async () => {
-    // ⛔ ef-manager, on real C++ (echoes, no overlay): `GpuMaterial` printed FIVE candidates
+    // ⛔ the field test, on real C++ (echoes, no overlay): `GpuMaterial` printed FIVE candidates
     // with no count, no truncation marker and no cross-language finding — while
     // `graph_consequences`, the source of that very text, printed "16 concrete candidates
     // found", "SHOWING 5 OF 16 — 11 omitted" and the DUPLICATE finding for the same symbol in
@@ -196,12 +196,12 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
     expect(text, 'this fixture must reach the AMBIGUOUS branch').toMatch(/AMBIGUOUS/);
     expect(text, 'the producer-attested population must be carried through').toMatch(/showing \d+ of 16/);
     expect(text, 'the omission must be stated, not left to be inferred').toMatch(/not listed here/);
-    // Hand-written negative: a bare CANDIDATES header is the defect ef-manager found.
+    // Hand-written negative: a bare CANDIDATES header is the defect the field test found.
     expect(text, 'a bare candidate list implies the enumeration is complete').not.toMatch(/CANDIDATES:\n/);
   }, 30_000);
 
   it('★★★ FOURTH STATE — above the retrieval cap the population is a FLOOR, not a total', async () => {
-    // ⛔ ef-manager built the case both of us had recorded as untested: 60 definitions, above
+    // ⛔ the field test built the case both of us had recorded as untested: 60 definitions, above
     // the 50-row retrieval cap. `graph_consequences` was exactly right — "AT LEAST 50 concrete
     // candidates, identified from 50 of 60 matching rows — the full ambiguity population is NOT
     // established (retrieval was capped before grouping)". The packet rendered `showing 5 of
@@ -210,7 +210,7 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
     // ★ The three-state vocabulary was one state short. `of N` is the only wrong choice
     // available here — 50 is real and useful, so it is not UNKNOWN, and it is not the total.
     //
-    // ⚠ AND THIS IS WHY THE SHARED RENDERER WAS NOT ENOUGH — ef-manager's point, which the
+    // ⚠ AND THIS IS WHY THE SHARED RENDERER WAS NOT ENOUGH — the field test's point, which the
     // parity arm below CANNOT catch: a renderer handed the bare integer 50 prints "of 50" in
     // every branch at once, and parity passes with both routes agreeing on the same wrong word.
     // Exactness has to travel WITH the value. This arm is the one that fails if it does not.
@@ -220,7 +220,7 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
     expect(text, 'a capped population must be rendered as a floor').toMatch(/AT LEAST/);
     expect(text, 'the rows seen vs matched must be stated').toMatch(/matching rows/);
     expect(text, 'the reader must be told grouping happened after the cap').toMatch(/FLOOR/);
-    // Hand-written negative: the exact wrong rendering ef-manager measured.
+    // Hand-written negative: the exact wrong rendering the field test measured.
     expect(text, 'the retrieval cap must never be printed as the total').not.toMatch(/showing \d+ of 50\b/);
   }, 60_000);
 
@@ -260,7 +260,7 @@ describe('an unattested population must render as UNKNOWN, never as the sample',
   }, 60_000);
 
   it('★★★ BRANCH PARITY — both routes emit the SAME disclosures, from one renderer', async () => {
-    // ⛔ THE DIVERGENCE THIS EXISTS TO PREVENT. After the third per-branch fix, ef-manager
+    // ⛔ THE DIVERGENCE THIS EXISTS TO PREVENT. After the third per-branch fix, the field test
     // compared the two survivors and found a fourth: both branches printed the CROSS-LANGUAGE
     // DUPLICATE finding, and only ONE carried the FLOOR caveat — same verb, same symbol, same
     // repo content. A disclosure added where someone was burned, not to its sibling.

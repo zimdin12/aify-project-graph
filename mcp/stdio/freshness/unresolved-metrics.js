@@ -31,7 +31,7 @@ export function getUnresolvedCounts(manifest = {}) {
 
 // ★ ATTACK TEN — PUBLISH THE RULE THAT TAKES 4853 TO 402.
 //
-// ef-manager, and it is the same family as attack eight on a more load-bearing
+// the field test, and it is the same family as attack eight on a more load-bearing
 // field: `trust` was computed over a FILTERED subset whose filter was not
 // published. From outside you could see unresolvedEdges 4853 and
 // trustUnresolvedEdges 402 and had no way to tell a small HONEST population from a

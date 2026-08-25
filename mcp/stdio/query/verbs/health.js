@@ -66,7 +66,7 @@ const serverBuild = serverBuildInfo;
 // paid by the good suggestions too.
 // ⛔ A GRAPH CAN BE 70x ITS OWN CONTENT AND NOTHING SAID SO.
 //
-// sc-manager reported sand_castle's graph.sqlite at 2.87 GB for 12,478 nodes / 49,229
+// the field fleet reported sand_castle's graph.sqlite at 2.87 GB for 12,478 nodes / 49,229
 // edges and correctly refused to call it a diagnosis. Measured read-only: 689,127 of
 // 699,568 pages were FREE — 2.69 GB of empty space around ~41 MB of real content.
 //
@@ -226,7 +226,7 @@ export function buildNextActions(s) {
       // whether it applies (fixed in the packet's NEXT lines earlier the same day).
       // ⛔ AND THEN IT NAMED A DOOR THE READER CANNOT OPEN. `code_intel_definitions` is not in
       // the 17-name default tools/list profile; in a managed session, where tools are deferred
-      // behind a search step, it is not callable at all (ef-manager executed the lookup and got
+      // behind a search step, it is not callable at all (the field test executed the lookup and got
       // "No matching deferred tools found"). The comment above DEFAULT_TOOL_NAMES already
       // records this exact failure — graph_index was ADDED to the profile because workers could
       // not act on a warning naming a verb outside their surface — and I reproduced it anyway.
@@ -252,7 +252,7 @@ export function buildNextActions(s) {
   // ★ DELETED: a "this repo has N mapped features → try graph_packet" rule.
   //
   // It fired on every repo with an overlay, which is the definition of generic, and
-  // a field reviewer took it apart precisely (ef-manager, 2026-07-31):
+  // a field reviewer took it apart precisely (the field test, 2026-07-31):
   //   1. "this repo has features" is INVENTORY, not a finding;
   //   2. its why and do CONTRADICTED — the why said the overlay is 96 days old and
   //      should not be trusted, the do said go and use it;
@@ -411,7 +411,7 @@ export async function graphHealth({ repoRoot }) {
           // Three states, and `unknown` must never read as `complete`: a collection stored
           // before these columns existed returns null, and null is not evidence of coverage.
           // ⛔ THE DENOMINATOR IS A PROPERTY OF THE CORPUS NOW, NOT OF THE COLLECTION — and
-          // storing it froze a moving number. ef-manager caught this an hour after the fix that
+          // storing it froze a moving number. the field test caught this an hour after the fix that
           // corrected it: `eligibleFileCount` was repaired (594 -> 556) and the STORED row still
           // read 593, because the fix reaches rows written AFTER it and health reads the row.
           //
@@ -452,7 +452,7 @@ export async function graphHealth({ repoRoot }) {
               // facts and a reader chasing a partial collection needs the first one.
               // ⛔ `null` HERE MEANT TWO DIFFERENT THINGS AND A READER COULD NOT TELL THEM APART.
               //
-              // ef-manager, field-testing v0.7.0 on echoes: "filesProcessedLatestCollection null
+              // the field test, field-testing v0.7.0 on echoes: "filesProcessedLatestCollection null
               // and filesInScopeLatestCollection null. A per-collection disclosure that reads null
               // tells a reader nothing about whether supersession ran."
               //
@@ -463,13 +463,13 @@ export async function graphHealth({ repoRoot }) {
               // both values occur in practice.
               //
               // ⇒ The distinction goes in the EXISTING Source field rather than a new one.
-              // ef-manager on my last fix: "two booleans to ignore instead of one" — a defect gets
+              // the field test on my last fix: "two booleans to ignore instead of one" — a defect gets
               // one more VALUE in a field a reader already consults, never one more field.
               filesProcessedLatestCollection: latest.filesProcessed ?? null,
               filesProcessedSource: latest.filesProcessed == null
                 ? 'unrecorded_at_collection'
                 : (covered != null ? 'all_live_collections' : 'latest_collection'),
-              // ⚠ RENAMED, NOT ANNOTATED. ef-manager: three populations now live in five fields —
+              // ⚠ RENAMED, NOT ANNOTATED. the field test: three populations now live in five fields —
               // all-live-collections (553), latest-collection (3, twice) and the corpus (557) — and
               // `filesInScope` was the only one not saying which. It is the LATEST collection's
               // scope sitting immediately above a repo-wide `filesEligible`, so the obvious ratio a
@@ -553,7 +553,7 @@ export async function graphHealth({ repoRoot }) {
   // every other verdict below describes the OLD build — and a reader comparing
   // behaviour against a newly-landed fix will attribute the wrong result to it.
   const _build = serverBuild();
-  // ★ A POINTER, NOT THE TEXT. Measured by ef-manager on e8c8d61: the full warning
+  // ★ A POINTER, NOT THE TEXT. Measured in field testing on e8c8d61: the full warning
   // is 265 tokens and was being emitted TWICE — here at the head of `summary`, and
   // again as `server.staleWarning` — making `server` the single largest field in the
   // response at 26.8%.
@@ -575,7 +575,7 @@ export async function graphHealth({ repoRoot }) {
 
   // ── POPULATION CENSUS ────────────────────────────────────────────────────────────────────
   //
-  // ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
+  // the field test hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
   // rounds and it produced a finding every time — four dead declaration types, a 67%-unreachable
   // share, and a repo where 183 `Symbol` nodes existed that whereis can never return. Their
   // verdict on what this verb gave them instead: "nodes=4624 edges=15788 — two numbers that have
@@ -641,7 +641,7 @@ export async function graphHealth({ repoRoot }) {
           // DIFFERENT HAT. This banner recommended a Ninja+clang-cl recipe
           // unconditionally; a field tester checked and found clang-cl absent from
           // the host, so the only remedy we named was impossible for them
-          // (ef-manager, echoes, 2026-07-30). Same defect family the zero-result
+          // (the field test, echoes, 2026-07-30). Same defect family the zero-result
           // work removed — we told someone to do something without checking they
           // could — just on the ACTION side rather than the diagnosis side.
           //
@@ -651,7 +651,7 @@ export async function graphHealth({ repoRoot }) {
           //
           // The earlier one-liner (`-DCMAKE_CXX_COMPILER=clang-cl` alone) FAILS on a
           // standard Windows host, for two reasons a field tester hit in sequence
-          // (ef-manager, echoes, 2026-07-30):
+          // (the field test, echoes, 2026-07-30):
           //   - CMake's compiler test LINKS, and the link invokes `rc` (Windows
           //     Resource Compiler), which ships with the Windows SDK and is not on
           //     PATH outside a vcvars shell. clang-cl COMPILED fine; the configure
@@ -672,7 +672,7 @@ export async function graphHealth({ repoRoot }) {
           // This banner said "FIX: generate a native Windows compile DB", which
           // reads as "you set this up wrong and a flag corrects it". For a large
           // class of Windows CMake projects that is false, and the field found out
-          // the hard way (ef-manager, echoes, 2026-07-30):
+          // the hard way (the field test, echoes, 2026-07-30):
           //
           //   CMAKE_EXPORT_COMPILE_COMMANDS is supported ONLY by the Makefile and
           //   Ninja generators. A project whose Windows build uses the Visual Studio
@@ -697,7 +697,7 @@ export async function graphHealth({ repoRoot }) {
             const binDir = dirname(clangCl.command).replace(/\\/g, '/');
             // ★ ONE MISSING ENVIRONMENT, SURFACING REPEATEDLY AT INCREASING DEPTH.
             //
-            // Field-walked end to end (ef-manager, echoes, 2026-07-30). A Ninja
+            // Field-walked end to end (the field test, echoes, 2026-07-30). A Ninja
             // configure outside a developer shell failed three times, each deeper
             // than the last, on three Windows SDK components that were all INSTALLED
             // and all off-PATH: rc.exe, then the import libraries (LIB unset), then
@@ -731,7 +731,7 @@ export async function graphHealth({ repoRoot }) {
           }
           // Deliberately NOT the word "truncated": `refsTruncatedSymbols` is OUR
           // per-symbol reference cap, and a reader seeing both in one response
-          // reasonably assumed they were the same thing (ef-manager, 2026-07-30).
+          // reasonably assumed they were the same thing (the field test, 2026-07-30).
           // Two mechanisms, two words.
           verdicts.push('⚠ compile-db FOREIGN (Linux/WSL) on a Windows host — clangd silently DROPS cross-TU callers (and even same-file refs); code_intel_references is NOT a completeness oracle here. '
             + remedy + ' Do NOT trust "no callers / safe to delete" until fixed.');
@@ -878,7 +878,7 @@ export async function graphHealth({ repoRoot }) {
   }
   // ★ RENAMED FROM `rebuild-incomplete`, WHICH IT NEVER DETECTED.
   //
-  // ef-manager, 2026-08-11, meeting a falsifier I had written for myself: this verdict is
+  // the field test, 2026-08-11, meeting a falsifier I had written for myself: this verdict is
   // keyed on `manifestStatus` ALONE and cannot see `skippedFileCount`. On a genuinely
   // incomplete corpus — a file deleted from the graph and not re-extracted, its symbols
   // unfindable — status was 'ok', so the one line whose name promises to report an
@@ -911,7 +911,7 @@ export async function graphHealth({ repoRoot }) {
 
   // ★ THE NUMBER WITHOUT THE CONSEQUENCE IS HALF AN ANSWER.
   //
-  // sc-manager, field-testing on a repo nobody tuned this against: "It told me the
+  // the field fleet, field-testing on a repo nobody tuned this against: "It told me the
   // fact (44 commits stale) but not the consequence. For orientation, 44 stale is
   // harmless. For 'is #96 linked to this file', 44 stale was fatal."
   //
@@ -924,7 +924,7 @@ export async function graphHealth({ repoRoot }) {
   //
   // This states, per answer-class, whether being N commits behind actually matters.
   const stalenessImpact = stale ? (() => {
-    // How far behind, in commits — the number sc-manager was given ("44 commits
+    // How far behind, in commits — the number the field fleet was given ("44 commits
     // stale") and could not act on without knowing what it invalidated.
     let behind = null;
     try {
@@ -1002,7 +1002,7 @@ export async function graphHealth({ repoRoot }) {
         // ★ ATTACK EIGHT — THE DENOMINATOR WAS CONTAMINATED WITH EDGES THAT ARE
         //   UNVERIFIABLE IN PRINCIPLE.
         //
-        // ef-manager, on the headline coverage number I had been quoting to him
+        // the field test, on the headline coverage number I had been quoting to him
         // since day one and that neither of us had ever opened up. The denominator
         // was every CALLS edge, unrestricted. This repo's graph contains GLSL and
         // Python: clangd cannot verify a single one of those edges — not because
@@ -1027,7 +1027,7 @@ export async function graphHealth({ repoRoot }) {
         // ★ ATTACK NINE — SCOPE AND VERIFIABILITY ARE ORTHOGONAL, AND THE
         //   LANGUAGE-ONLY MODEL CONFLATED THEM.
         //
-        // ef-manager caught this in the attack-eight FIX, one commit old. Making
+        // the field test caught this in the attack-eight FIX, one commit old. Making
         // verifiability a language set means that when a Python backend lands,
         // every Python call edge reclassifies from `unverifiable` to `verifiable`
         // and enters the denominator as legitimate coverage debt — regardless of
@@ -1109,7 +1109,7 @@ export async function graphHealth({ repoRoot }) {
         codeIntel.lspCallsVerifiable = verifiable;
         // ★ THE DENOMINATOR TRAVELS IN THE NAME, NOT IN AN ADJACENT FIELD.
         //
-        // ef-manager, 2026-08-09, from having made the mistake himself: a caveat
+        // the field test, 2026-08-09, from having made the mistake himself: a caveat
         // stored beside a number protects the reader looking at the response, and
         // abandons the reader who COPIES THE NUMBER OUT. He read
         // refsNotFoundBreakdown.note — correct, well-worded — and days later still
@@ -1172,7 +1172,7 @@ export async function graphHealth({ repoRoot }) {
           // exhaustiveness". That is true of the STORED GRAPH and false of the LIVE
           // verbs, which query the language server directly and never touch these
           // edges. The field caught the pair in one session, minutes apart, on one
-          // server (ef-manager, echoes, 2026-07-30):
+          // server (the field test, echoes, 2026-07-30):
           //
           //   graph_health           : trust spine EMPTY, CANNOT attest exhaustiveness
           //   code_intel_references  : exhaustive true, confidence high, degraded false
@@ -1208,7 +1208,7 @@ export async function graphHealth({ repoRoot }) {
         //   QUALIFIES, OR IT CAN BE DELETED INDEPENDENTLY AND THE NUMBER KEEPS
         //   PRINTING.
         //
-        // ef-manager watched this happen with a before-image (2026-07-31). An
+        // the field test watched this happen with a before-image (2026-07-31). An
         // empty collection row wiped the session stats, and:
         //   BEFORE: "⚠ lsp coverage 12% is a FLOOR — 21 symbols NOT ASKED"
         //   AFTER:  warning gone, coverageIsFloor gone, 12% STILL REPORTED.
@@ -1263,7 +1263,7 @@ export async function graphHealth({ repoRoot }) {
         // ★ THE CONTRADICTION CHECK KEYED ON A LEGITIMATE ZERO — instance twelve,
         //   verbatim, inside the code written to fix instance twelve.
         //
-        // ef-manager measured it on the fresh collect: coverageFloorCause reported
+        // the field test measured it on the fresh collect: coverageFloorCause reported
         // `qualifier_unavailable` and the summary claimed the session "is missing"
         // — while THE SAME RESPONSE carried refsFoundSymbols 766,
         // refsNotFoundSymbols 833, positionGuessSkipped 0, refsTruncatedSymbols 0.
@@ -1399,7 +1399,7 @@ export async function graphHealth({ repoRoot }) {
     // while the {items,total,truncated,limit} envelope standardized elsewhere uses
     // `truncated` as a BOOLEAN. Truthiness made both work, so nothing broke; that
     // is exactly why it survived. Two meanings for one field name across sibling
-    // verbs is how a reader learns to guess instead of read (ef-manager, on the
+    // verbs is how a reader learns to guess instead of read (the field test, on the
     // first health response from the new build).
     //
     // The count is the better datum, so it is kept — under a name that says what it
@@ -1408,7 +1408,7 @@ export async function graphHealth({ repoRoot }) {
     // same defect one step further along; it gets both fields too.
     // ★ WHEN NOTHING TRACKED IS DIRTY, THE SAMPLE IS PURE NOISE.
     //
-    // Measured (ef-manager, 2026-08-09) on echoes: 25 sampled entries costing 537
+    // Measured (the field test, 2026-08-09) on echoes: 25 sampled entries costing 537
     // tokens, EVERY one an untracked backup directory — .aify-graph.bak-*,
     // .aify-graph-PRE-RESTORE-* — out of 2824. Meanwhile trackedDirtyFiles was [],
     // one line, and that is the field carrying the signal. Both his calls paid the
@@ -1433,7 +1433,7 @@ export async function graphHealth({ repoRoot }) {
     // ★ THE OMITTED-COUNT MUST MATCH WHAT WAS ACTUALLY PRINTED.
     //
     // Introduced by me the same day I suppressed the name list, and caught by
-    // ef-manager one commit later: it kept subtracting DIRTY_LIST_CAP, so on echoes
+    // the field test one commit later: it kept subtracting DIRTY_LIST_CAP, so on echoes
     // it reported dirtyFilesOmitted 2799 of dirtyFilesTotal 2824 — arithmetic that
     // asserts 25 names were shown, in a response that shows none. A count that
     // disagrees with the payload beside it is worse than no count, because a reader
@@ -1475,7 +1475,7 @@ export async function graphHealth({ repoRoot }) {
     server: serverBuild(),
     // ★ ROUTE FROM THE VERB PEOPLE ACTUALLY CALL TO THE ONES THEY SHOULD.
     //
-    // Field accounting (ef-manager, 2026-07-30): "I used 2 verbs out of ~17. I never
+    // Field accounting (the field test, 2026-07-30): "I used 2 verbs out of ~17. I never
     // once called graph_packet or graph_pull — your documented front door — despite
     // returning to a repo I hadn't touched in seven weeks, where orientation was
     // literally my problem. Nothing in my workflow PULLED me toward them."

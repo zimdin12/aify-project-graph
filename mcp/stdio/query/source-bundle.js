@@ -195,7 +195,7 @@ function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs, verifiable = true }
   if (indexedAtMs && mtimeMs && mtimeMs > indexedAtMs) {
     // ★ THIS WORDING SAID "THE NUMBERING MAY BE OFF". THAT UNDERSTATED IT BY A LOT.
     //
-    // ef-manager's adversarial test, 2026-08-11: 200 decoy lines inserted above
+    // the field test's adversarial test, 2026-08-11: 200 decoy lines inserted above
     // GpuMaterialPalette::uploadFromRegistry, crafted so the stale window still OPENS
     // with the correct signature and CLOSES with a brace — defeating the drift proof by
     // construction. The served body was entirely fabricated, under a correct signature,
@@ -225,7 +225,7 @@ function verifyWindow({ symbol, lines, mtimeMs, indexedAtMs, verifiable = true }
 //
 // They were the same field, and graph_trace passed decorated labels — `FROM: foo`,
 // `TO: bar` — as the thing to look for. Those strings cannot occur in source, so the
-// drift proof fired on EVERY correct trace. graph-senior-dev reproduced it live against
+// drift proof fired on EVERY correct trace. the reviewer reproduced it live against
 // a real C++ graph.
 //
 // Second instance of one defect in a day: file blocks were drift-proved against their
@@ -309,7 +309,7 @@ export function renderSourceBundle({ blocks = [], repoRoot, budget, includeHeade
     // This pushed one entry per warning, and explore then rendered
     // `${unverified.length} of ${blocks.length} block(s)`. A single block raising both
     // offset_drift and modified_since_index produced "NOT Read-equivalent for 2 of 1
-    // block(s)". Found by ef-manager on a real C++ repo, 2026-08-11.
+    // block(s)". Found in field testing on a real C++ repo, 2026-08-11.
     //
     // ⚠ AND MY FIXTURE MADE IT UNREACHABLE. The drift test synthesises a stale offset by
     // writing the file and passing the graph's old line numbers — content changes,

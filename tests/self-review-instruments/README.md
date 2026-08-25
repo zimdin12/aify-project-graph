@@ -19,7 +19,7 @@ added, the list does not, and it silently joins the corpus. A path cannot be for
 
 ## The rule that created this directory
 
-The first isolation proof re-ran `route-authority-G8`, a CLOSED scientific arm. `graph-senior-dev`
+The first isolation proof re-ran `route-authority-G8`, a CLOSED scientific arm. `the reviewer`
 refused it: a closed experiment cannot witness a prediction twice, and re-running one spends a
 sample nobody preregistered. Transport checks are not experiments and must not be paid for out of
 an experiment's budget.

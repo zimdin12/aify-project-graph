@@ -1,6 +1,6 @@
 // ⛔ AN EVIDENCE ARTIFACT THAT CANNOT SETTLE THE CLAIM IT CARRIES IS NOT EVIDENCE.
 //
-// ef-manager, grading the held-out doc-ref sample, hit row `qualified #14`: the artifact reported
+// the field test, grading the held-out doc-ref sample, hit row `qualified #14`: the artifact reported
 // `target_label: auth_flow`, the BARE method name, while `worked/httpx/raw/auth.py` declares FIVE
 // sibling `auth_flow` methods — on Auth, BasicAuth, BearerAuth, DigestAuth and NetRCAuth. From the
 // row alone nobody could tell which one the edge bound.

@@ -1,8 +1,8 @@
 # APG + Agent Code Intel Merge Plan Draft
 
-> **Author:** graph-senior-dev
+> **Author:** the reviewer
 > **Date:** 2026-05-09
-> **Status:** independent draft for merge with graph-tech-lead's superplan
+> **Status:** independent draft for merge with this project's superplan
 > **Reference delta checked:** `reference/agent-code-intel` at `9cf2f94` vs the older snapshot baseline used by `docs/superpowers/plans/2026-05-06-next-gen-code-intel-bridge-plan.md`.
 
 ## Short Answer

@@ -1,6 +1,6 @@
 // A READER-FACING LIST IS AN OBJECT UNTIL IT IS SERIALIZED, AND OWNERSHIP IS OBJECT IDENTITY.
 //
-// ⛔ FIVE EARLIER VERSIONS OF THIS GUARANTEE WERE WRONG. graph-senior-dev-hermes broke every
+// ⛔ FIVE EARLIER VERSIONS OF THIS GUARANTEE WERE WRONG. review, hermes session broke every
 // one by EXECUTING a mutation on the exact carrier, never by argument. The disguises changed;
 // the mistake did not:
 //

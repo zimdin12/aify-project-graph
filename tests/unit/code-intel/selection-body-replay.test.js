@@ -1,6 +1,6 @@
 // THE BODY MUST DETERMINE ITS OWN DIGEST — WITHOUT THE SENDER'S FILES.
 //
-// ⛔ graph-senior-dev's blocker 1. Their Python replay of `db3bbeb` passed, but ONLY because
+// ⛔ the reviewer's blocker 1. Their Python replay of `db3bbeb` passed, but ONLY because
 // Python was re-reading the sender's live source files. The emitted member body alone could not
 // reproduce the digest, because it omitted the main-file hash. Executed proof: `int a;` ->
 // `int b;` (both 7 bytes) gave a BYTE-IDENTICAL body and a different digest.
@@ -13,7 +13,7 @@
 // production codec would make it assert that a function equals itself — falsifier 14 again, in
 // the test written to guard against falsifier 1. The re-implementation is written from the SPEC
 // (`docs/2026-08-19-selection-receipt-spec.md`), which is the shared artifact, and it stands in
-// for the second-language verifier between graph-senior-dev's review passes. It is not a
+// for the second-language verifier between the reviewer's review passes. It is not a
 // substitute for that review.
 //
 // ⚠ THE SOURCE FILES ARE DELETED BEFORE REPLAY, on purpose. If they still existed the test
@@ -68,7 +68,7 @@ describe('body-only replay', () => {
     expect(replayFromBody(out.rows)).toBe(out.digest);
   });
 
-  it('★★★ matches the value graph-senior-dev computed independently in Python', () => {
+  it('★★★ matches the value the reviewer computed independently in Python', () => {
     // Frozen from their replay of the same two-member fixture. Not recomputed here: it is a
     // cross-implementation checkpoint, and it survived the blocker-1 rewrite unchanged, which
     // is itself evidence the fix added information rather than altering the encoding.

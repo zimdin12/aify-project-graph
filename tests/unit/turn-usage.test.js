@@ -29,7 +29,7 @@ describe('turn usage reconciliation', () => {
     expect(r.total).toBe(210);
   });
 
-  it('★★★ a GROWING series is ambiguous too — this is the fix graph-senior-dev forced', () => {
+  it('★★★ a GROWING series is ambiguous too — this is the fix the reviewer forced', () => {
     // ⛔ My first version called this cumulative and returned 400. They executed it: a PER-TURN
     // series naturally grows as context grows, so the true total may be 750. My own comment
     // conceded both readings fit and then picked one — the same inference-from-shape I had

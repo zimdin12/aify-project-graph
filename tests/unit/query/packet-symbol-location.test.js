@@ -1,6 +1,6 @@
 // A PACKET THAT RESOLVES TO A FEATURE MUST STILL SAY WHERE THE SYMBOL IS.
 //
-// Field report (sc-manager / sc-coder, Sand Castle, 2026-08-09) from a real
+// Field report (the field fleet / sc-coder, Sand Castle, 2026-08-09) from a real
 // 223-member status-object census in a 50k-line header set: graph_packet on a
 // symbol returned the broad owning feature and omitted the declaring file.
 // graph_whereis recovered it instantly at game/UnifiedFluidRuntime.h:378.

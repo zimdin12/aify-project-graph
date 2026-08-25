@@ -39,7 +39,7 @@ export async function graphDashboard({ repoRoot, port }) {
 
   // ⛔ OWNERSHIP MUST BE RESERVED BEFORE THE AWAIT, NOT AFTER IT.
   //
-  // graph-senior-dev-hermes, two independent schedules:
+  // review, hermes session, two independent schedules:
   //   1. a start held inside `await startDashboard()` → shutdown snapshots an EMPTY
   //      registry, returns 0/completed → the start then publishes a live server + DB
   //      AFTER teardown. The process-exit test opens a fully-started dashboard and
@@ -112,7 +112,7 @@ export async function graphDashboard({ repoRoot, port }) {
 
 // ⛔ NOTHING COULD EVER RELEASE THESE, and a green test run proved it.
 //
-// graph-senior-dev-hermes, auditing the dashboard tests: every repetition left an
+// review, hermes session, auditing the dashboard tests: every repetition left an
 // `apg-dashroot-*` directory behind on Windows because the SQLite handle stayed open
 // until worker disposal — 72 stale fixture directories accumulated across their probe
 // runs. The runs were GREEN throughout. On Linux the open handle is invisible because a

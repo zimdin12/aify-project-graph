@@ -6,7 +6,7 @@ Immutable artifacts from the single authorized run. **Do not edit. Not rerun.**
 |---|---|
 | preregistration | `tests/self-review/preregistrations/D2.json` |
 | authorized commit / tree | `6d9fd5a` / `647c92e` |
-| referee | graph-senior-dev, approval `1787280366371-a8dad722` |
+| referee | the reviewer, approval `1787280366371-a8dad722` |
 | run id | `f694cd25-43f6-429d-87d0-dec5c4fb253a` |
 
 ## Every acceptance predicate, measured

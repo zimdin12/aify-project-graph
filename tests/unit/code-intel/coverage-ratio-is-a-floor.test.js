@@ -7,7 +7,7 @@ import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 // ⛔ THE SENTENCE THIS PINS SAT BESIDE A WRONG ANSWER.
 //
-// ef-manager, field-testing on echoes 2026-08-25, was shown
+// the field test, field-testing on echoes 2026-08-25, was shown
 //   "the compile DB covers 122 of ~123 first-party sources (99%) ... That is good coverage, but a
 //    caller in any EXCLUDED TU is INVISIBLE to clangd"
 // while the same query MISSED FOUR REAL CALLERS in a file that IS in the database.
@@ -53,7 +53,7 @@ afterEach(() => { if (repo) { try { fs.rmSync(repo, { recursive: true, force: tr
 
 describe('compile-DB coverage reason — the ratio bounds nothing', () => {
   it('⭐ near-complete coverage does NOT tell the reader the coverage is good', () => {
-    // The exact shape ef-manager hit: a high ratio, one source short.
+    // The exact shape the field test hit: a high ratio, one source short.
     const root = buildRepo(20, 19);
     const cov = computeCompileDbCoverage({ projectRoot: root });
     expect(cov.reason, 'a reason must be produced at all (positive control)').toBeTruthy();

@@ -144,13 +144,13 @@ describe('source window verification — the offsets are from the index, the byt
     expect(text).toMatch(/UNVERIFIED BODY/);
     // A DIFFERENT claim, not a weaker one. `WRONG BODY` asserts the served lines are
     // provably not the symbol; `UNVERIFIED BODY` asserts we cannot tell — which
-    // ef-manager's decoy test showed is the more dangerous of the two, because the
+    // the field test's decoy test showed is the more dangerous of the two, because the
     // undetectable case is the one that reads as correct.
     expect(text).not.toMatch(/WRONG BODY/);
   });
 
   it('★★ BOTH kinds on one block counts as ONE unverified block, not two', async () => {
-    // ef-manager, on a real C++ repo: "NOT Read-equivalent for 2 of 1 block(s)".
+    // the field test, on a real C++ repo: "NOT Read-equivalent for 2 of 1 block(s)".
     // `unverified` counted WARNINGS while `blocks` counted BLOCKS.
     //
     // ★ MY FIXTURES MADE THIS UNREACHABLE, which is the more important half. The drift
@@ -177,7 +177,7 @@ describe('source window verification — the offsets are from the index, the byt
   });
 
   it('★ the staleness warning names FABRICATION, not a numbering slip', async () => {
-    // ef-manager's adversarial case: 200 decoy lines crafted so the stale window still
+    // the field test's adversarial case: 200 decoy lines crafted so the stale window still
     // opens with the correct signature and closes with a brace, defeating the drift
     // proof by construction. The served body was entirely fabricated and the reader was
     // told only that "line numbers may not be the lines these symbols now occupy".
@@ -202,7 +202,7 @@ describe('source window verification — the offsets are from the index, the byt
   });
 
   it('★★ a FILE block is never drift-proved — a file need not contain its own name', async () => {
-    // graph-senior-dev reproduced this live on a FRESH index: `graphExplore({symbols:
+    // the reviewer reproduced this live on a FRESH index: `graphExplore({symbols:
     // ['bin/apg.js']})` reported PROVEN OFFSET DRIFT, because file targets resolve to
     // File nodes whose `label` is the filename, and that filename was passed as the
     // symbol to look for. A source file need not mention its own name anywhere.

@@ -1,7 +1,7 @@
 // THE FIRST TWO LAYERS OF A FIVE-LAYER CLAIM WERE NEVER EXERCISED.
 //
 // skip-counters-survive-the-write.test.js says it puts values in "at the provider
-// boundary" and replaces five greps with one journey. graph-senior-dev-hermes checked:
+// boundary" and replaces five greps with one journey. review, hermes session checked:
 // it hand-builds the session object and calls importV02Collection DIRECTLY, importing
 // neither the provider nor the collect verb. They removed the real provider emissions
 // (cpp-clangd.js) AND the collect forwarding (collect_code_intel.js) and it stayed 6/6

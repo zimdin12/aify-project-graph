@@ -115,7 +115,7 @@ function candidateSortKey(a, b) {
 
 // ⛔ THE COUNT IN THIS MESSAGE WAS THE RETRIEVAL LIMIT AGAIN — third instance of one class.
 //
-// graph-senior-dev-hermes, with 60 definitions: "AMBIGUOUS MATCH … 50 concrete candidates
+// review, hermes session, with 60 definitions: "AMBIGUOUS MATCH … 50 concrete candidates
 // found". `rows` is the page resolveSymbol returned, and that query ends LIMIT 50, so
 // `groups.size` counts identities among the FIRST FIFTY and reports it as the population.
 //
@@ -174,7 +174,7 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
   // refusal, and then answering the qualified retry without ever mentioning the twin
   // we had just listed.
   //
-  // Measured (ef-manager, 2026-07-31). Asked what shader code must change in lockstep
+  // Measured (the field test, 2026-07-31). Asked what shader code must change in lockstep
   // with a C++ header, graph_consequences returned exactly the two candidates —
   // worldbuf.glsl:243 and CylindricalPosition.h:110 — as an AMBIGUOUS MATCH error.
   // That pair WAS the answer. He found the real bug by hand: the GLSL copy hardcodes
@@ -199,7 +199,7 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
       'That is usually a FINDING rather than a disambiguation problem: the same logic exists twice with no edge',
       // ★ WAS: "and nothing will fail if they drift apart." STATIC TEXT — an
       // unevidenced universal negative about test coverage, printed regardless of
-      // whether any test was looked for. ef-manager asked directly whether it was
+      // whether any test was looked for. the field test asked directly whether it was
       // conditioned on anything; it was not. It happened to be true for the symbol
       // he checked, which is exactly how a static claim survives: it is only ever
       // read next to cases where it holds.
@@ -217,7 +217,7 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
 
   // ★ THE LIST IS CAPPED. SAY SO — THE ONE THEY WANT MAY BE IN THE MISSING PART.
   //
-  // Measured (ef-manager, echoes, 2026-08-10). `GpuMaterial` printed
+  // Measured (the field test, echoes, 2026-08-10). `GpuMaterial` printed
   // "16 concrete candidates found:" and then FIVE bullets, all GLSL, and stopped.
   // No "11 more", no truncated flag, no limit. Ground truth by rg: exactly 16
   // definitions — 1 C++ (engine/rendering/GpuMaterialPalette.h:30) and 15 GLSL.
@@ -265,7 +265,7 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
 // their own set (whereis and preflight include Test, path uses all nodes).
 // ⛔ THE RETRIEVAL CAP IS NOT THE POPULATION, AND IT WAS BEING REPORTED AS ONE.
 //
-// Found by graph-senior-dev-hermes reviewing my own fix for this exact class. I had made
+// Found by review, hermes session reviewing my own fix for this exact class. I had made
 // graph_packet say "showing 3 of N" instead of printing the cap as a total — but N came
 // from `resolveSymbol().length`, and every query below is `LIMIT 50`. Their probe: insert
 // 60 same-label nodes, ask the packet, get "showing 3 of 50". The number I introduced to
@@ -287,7 +287,7 @@ const RESOLVE_LIMIT = 50;
 // ⛔ AN EXACT TOTAL PAIRED WITH A SAMPLED COMPOSITION IS STILL A CAP REPORTED AS A FINDING.
 //
 // `resolveFeatureForSymbolCheap` had the UNCAPPED total (via the COUNT below) but computed its
-// language census from the 50-row page. graph-senior-dev-hermes's probe: 60 definitions, first
+// language census from the 50-row page. review, hermes session's probe: 60 definitions, first
 // 50 C++ and last 10 GLSL, produced
 //     DEFINED IN ... showing 3 of 60
 //     PARSED 60 BY LANGUAGE: cpp 50

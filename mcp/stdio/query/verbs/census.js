@@ -1,6 +1,6 @@
 // THE DISTRIBUTION, NOT THE TOTALS.
 //
-// ⭐ THE ONE VERB THE FIELD EARNED. ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP
+// ⭐ THE ONE VERB THE FIELD EARNED. the field test hand-wrote `SELECT type, count(*) FROM nodes GROUP
 // BY type` in THREE separate review rounds and it produced a finding every time: four dead
 // declaration types, the 67%-unreachable figure, and echoes' 183 `Symbol` + 1 `BuildTest` nodes
 // that `graph_whereis` silently cannot return. Their words:

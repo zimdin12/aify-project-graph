@@ -1,6 +1,6 @@
 // THE SELECTION DIGEST — what population APG SELECTED, and nothing about what was INDEXED.
 //
-// Specified by graph-senior-dev, 2026-08-19, after `evidence.exhaustive` was falsified three
+// Specified in review, 2026-08-19, after `evidence.exhaustive` was falsified three
 // times in one day. Full spec and the 18 preregistered falsifiers:
 // `docs/2026-08-19-selection-receipt-spec.md`.
 //
@@ -12,7 +12,7 @@
 // digest here previously produced ONE SHA-256 for TWO DIFFERENT TREES, because content could
 // impersonate the next entry's header. Every variable-length field is preceded by its length.
 //
-// ⚠ VERIFIED AGAINST INDEPENDENT GOLDEN VECTORS. graph-senior-dev generated them from separate
+// ⚠ VERIFIED AGAINST INDEPENDENT GOLDEN VECTORS. the reviewer generated them from separate
 // Python and Node implementations required to agree byte-for-byte, and no test may recompute an
 // expected value through this codec — that is falsifier 14, shared-bug self-review. Those
 // vectors resolved a real ambiguity in the spec text: inside the framed codec the file digest is
@@ -42,7 +42,7 @@ const sha256 = (b) => createHash('sha256').update(b).digest();
 // Returns null when the path is not inside the project root.
 //
 // ⛔ THIS USED TO DO A LOWERCASED STRING-PREFIX CONTAINMENT CHECK ON EVERY OS, AND IT ADMITTED A
-// POSIX SIBLING. graph-senior-dev executed it under WSL against this checkout: project root
+// POSIX SIBLING. the reviewer executed it under WSL against this checkout: project root
 // `/tmp/…/Repo`, source `/tmp/…/repo/src/x.cpp` — two DISTINCT case-sensitive trees — and the
 // selector relabelled the outside source as `src/x.cpp` inside the root. That is a FALSE
 // SELECTION BODY, not a missing-availability case: the receipt would have described a member
@@ -95,7 +95,7 @@ export function aggregateRows(rows) {
   ])).toString('hex');
 }
 
-// ⚠ ONE EXPORTED ENUM, not a syntax the tests grep for. graph-senior-dev asked for this and the
+// ⚠ ONE EXPORTED ENUM, not a syntax the tests grep for. the reviewer asked for this and the
 // cause-vocabulary guard proved why within the hour: its harvester matched the literal form
 // `cause: '...'`, so refactoring these into a helper made it silently find ZERO causes. Its own
 // "guards the harvester" assertion is the only reason that was noticed rather than passing as a
@@ -122,7 +122,7 @@ const refuse = (cause, detail) => ({ available: false, cause, detail });
 // population that still calls itself complete is the denominator laundering this whole exercise
 // exists to prevent.
 export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileSync }) {
-  // ⛔ RETIRED: A CASE-FOLD ALIAS REFUSAL. graph-senior-dev's ruling, and it removes code rather
+  // ⛔ RETIRED: A CASE-FOLD ALIAS REFUSAL. the reviewer's ruling, and it removes code rather
   // than adding it. The population here is explicitly a COMPILE-ENTRY MULTISET — two entries
   // that spell one physical file differently are still two selected entries, and the selector
   // never merges anything (byte-identical duplicates are already retained). So the check
@@ -166,7 +166,7 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
     }
     // ⚠ CLONED BEFORE USE. The body used to export the caller's own array, so mutating it after
     // the call changed the published member while the digest stayed bound to the original —
-    // graph-senior-dev executed that, flipping `-c` to `-O3` in the body of a `-c` digest. One
+    // the reviewer executed that, flipping `-c` to `-O3` in the body of a `-c` digest. One
     // immutable snapshot now feeds both the row and the body.
     const argv = entry.arguments.slice();
 
@@ -201,7 +201,7 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
     pairs.push({
       row: encodeEntryRow({ relPath, relDir, argv, rawBytes }),
       // ⛔ THE BODY MUST DETERMINE ITS OWN DIGEST. Without `mainFileSha256` a same-length content
-      // change produced a BYTE-IDENTICAL body with a different digest — graph-senior-dev executed
+      // change produced a BYTE-IDENTICAL body with a different digest — the reviewer executed
       // `int a;` -> `int b;` — so a second agent could not recompute the advertised value from the
       // body and had to possess the sender's mutable files. That defeats the entire point of a
       // self-contained receipt.
@@ -224,7 +224,7 @@ export function selectedTuSetDigest({ projectRoot, entries, readFile = readFileS
   pairs.sort((a, b) => Buffer.compare(a.row, b.row));
 
   // ⛔ THE RETURNED BODY WAS STILL DIRECTLY MUTABLE AFTER THE DIGEST WAS FIXED. Removing the
-  // caller-input alias was not enough: graph-senior-dev executed `r.rows[0].argv[1] = '-O3'` and
+  // caller-input alias was not enough: the reviewer executed `r.rows[0].argv[1] = '-O3'` and
   // `r.rows[0].mainFileSha256 = '00…'` on the OUTPUT, and the digest stayed put while the body
   // moved. It matters precisely because wiring is a later step — a caller receives this object,
   // adds query/result/authority fields, then content-addresses the whole thing. An accidental

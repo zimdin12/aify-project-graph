@@ -5,7 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { uriToRepoRelativeSafe } from '../../../mcp/stdio/ingest/code-intel/paths.js';
 
-// FIELD REPORT, ef-manager, 2026-08-25 (v0.7.0 build 82172be): every definitionLocations[0].file
+// FIELD REPORT, the field test, 2026-08-25 (v0.7.0 build 82172be): every definitionLocations[0].file
 // came back as `.../VC/Tools/MSVC/14.43.34604/include` — a DIRECTORY holding 277 headers, and
 // exactly `toolset.includeDir` from msvc-env.js. It appeared with ebba7de, so it is mine.
 //

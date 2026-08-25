@@ -22,7 +22,7 @@ import { computeCoverage, openTasksByFeature, completedTaskCountsByFeature, open
 // exported both `computeCoverage` and `generateBrief`; the artifacts slice moved the first and
 // I updated the test's import in the same commit — which masked the break rather than revealing
 // it. A structural change that alters a module's public surface is not structural.
-// graph-senior-dev-hermes: preserve the old named export or classify the change as breaking.
+// review, hermes session: preserve the old named export or classify the change as breaking.
 export { computeCoverage } from './artifacts.js';
 // The five renderers live in render.js. generator.js orchestrates and hands each one a plain
 // data object; nothing flows back. See render.js's header for why artifacts.js had to move first.
@@ -113,7 +113,7 @@ function extractExports(repoRoot, db) {
   // starving extractPaths() of its input. tools/list stayed byte-identical, which is what I
   // measured and proved; the brief is a different surface and I proved nothing about it.
   //
-  // graph-senior-dev-hermes caught it with a differential against exact git blobs: pre-refactor
+  // review, hermes session caught it with a differential against exact git blobs: pre-refactor
   // server.js produced EXPORTS with `graph_status`; post-refactor produced neither. The unit
   // test manufactures the OLD inline server shape, so 33 generator tests passed while the real
   // architecture failed — a fixture pinning a shape the repo no longer has.
@@ -388,7 +388,7 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
     // means third-party/external deps dominate. No speculative cause labels.
     // ⛔ "MOSTLY" WAS FALSE, AND THE TWO NUMBERS BESIDE IT SAID SO. This printed
     // "2150 unresolved edges (mostly CALLS 199, REFERENCES 196)" — 395 of 2150, which is 18%.
-    // ef-manager measured it worse in the field on echoes: 473 of 4392, 11%, with 3919 edges
+    // the field test measured it worse in the field on echoes: 473 of 4392, 11%, with 3919 edges
     // unnamed. Their words: at 11% it is not a rounding problem, it is backwards.
     //
     // ★ The quantifier was hardcoded while the numbers were computed, so it could never be
@@ -524,7 +524,7 @@ export function generateBrief({ repoRoot }) {
     const intelligence = loadIntelligenceOverlays({ repoRoot, functionalityJson: overlay });
     const architectureLayers = summarizeArchitectureLayers(intelligence.architecture);
 
-    // ⛔ AN EMPTY DOC SECTION MEANT TWO DIFFERENT THINGS AND SAID NEITHER. ef-manager found a repo
+    // ⛔ AN EMPTY DOC SECTION MEANT TWO DIFFERENT THINGS AND SAID NEITHER. the field test found a repo
     // with 15,628 nodes, 50,527 edges and ZERO Document nodes, whose AGENTS.md, CLAUDE.md and
     // README.md all exist on disk. The section rendered empty — indistinguishable from a repo that
     // genuinely has no documents, when the real state was that the doc layer never ingested any.
@@ -641,7 +641,7 @@ export function generateBrief({ repoRoot }) {
 // number must be tested by running it.
 //
 // ⛔ THE DEFECT: "2150 unresolved edges (mostly CALLS 199, REFERENCES 196)" — 395 of 2150 is
-// 18%. ef-manager measured 473 of 4392 on echoes: 11%, with 3919 edges unnamed. At 11%,
+// 18%. the field test measured 473 of 4392 on echoes: 11%, with 3919 edges unnamed. At 11%,
 // "mostly" is not a rounding problem, it is backwards.
 //
 // ⇒ State the share, and name the remainder. Both are checkable by a reader against the

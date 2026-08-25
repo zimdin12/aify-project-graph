@@ -1,6 +1,6 @@
 // THE POPULATION SELECTOR, FIXTURED SEPARATELY FROM THE CODEC.
 //
-// graph-senior-dev's ruling, and the reason it is a separate file: golden digest vectors break
+// the reviewer's ruling, and the reason it is a separate file: golden digest vectors break
 // "the producer computes its own expected hash", but they do NOT catch a selector that omits
 // the same member before both the producer and the vector codec ever see it. A digest test
 // cannot notice a row that was never offered to it.
@@ -75,7 +75,7 @@ describe('the selection selector', () => {
     expect(r.cause).toBe('entry_outside_project_root');
   });
 
-  // ⛔ THE ALIAS TESTS ARE RETIRED WITH THE BEHAVIOUR THEY PINNED. graph-senior-dev's ruling:
+  // ⛔ THE ALIAS TESTS ARE RETIRED WITH THE BEHAVIOUR THEY PINNED. the reviewer's ruling:
   // this population is a compile-entry MULTISET, two entries spelling one physical file
   // differently are still two selected entries, and the selector never merges anything — so the
   // refusal protected nothing and only cost availability. The `process.platform === 'win32'`
@@ -103,7 +103,7 @@ describe('the selection selector', () => {
 
 describe('the selection body determines its own digest', () => {
   it('★★★ a SAME-LENGTH content change changes the published body, not only the digest', () => {
-    // ⛔ graph-senior-dev's blocker 1, executed: 'int a;' -> 'int b;' (both 7 bytes) produced a
+    // ⛔ the reviewer's blocker 1, executed: 'int a;' -> 'int b;' (both 7 bytes) produced a
     // BYTE-IDENTICAL body with a different digest, so a second agent could not recompute the
     // advertised value from the body and had to possess the sender's mutable files. That defeats
     // the only reason a self-contained receipt exists.
@@ -118,7 +118,7 @@ describe('the selection body determines its own digest', () => {
 
   it('★★★ every member carries the file digest as hex, matching the codec bytes', () => {
     const r = selectedTuSetDigest({ projectRoot: repo, entries: [entry('src/a.cpp')] });
-    // 'int a;\n' — the frozen value graph-senior-dev published with the golden vectors.
+    // 'int a;\n' — the frozen value the reviewer published with the golden vectors.
     expect(r.rows[0].mainFileSha256)
       .toBe('386593f1475dc210d45a5f3d4b6bb11c065fc6fe2e08ebdd00ab4cf3a0848744');
   });
@@ -174,7 +174,7 @@ describe('the selection body is isolated from its caller and frozen after return
 });
 
 describe('the RETURNED body cannot be mutated after the digest is fixed', () => {
-  // ⛔ graph-senior-dev executed this on the OUTPUT, not the input: `r.rows[0].argv[1]='-O3'`
+  // ⛔ the reviewer executed this on the OUTPUT, not the input: `r.rows[0].argv[1]='-O3'`
   // and `r.rows[0].mainFileSha256='00…'` both landed, leaving the digest fixed while the body
   // moved. Input isolation was necessary and not sufficient, and my earlier test's TITLE claimed
   // the property its body did not check.
@@ -224,7 +224,7 @@ describe('the cause vocabulary governs the emitters', () => {
 
   it('★★★ every non-reserved cause is BEHAVIOURALLY reachable — one input per refusal', () => {
     // ⚠ THIS TEST USED TO BE LEXICAL: it grepped for `RECEIPT_CAUSES.X` anywhere in the source,
-    // INCLUDING COMMENTS. graph-senior-dev flagged that the wording claimed more than the
+    // INCLUDING COMMENTS. the reviewer flagged that the wording claimed more than the
     // mechanism did — a cause mentioned only in a comment would have counted as reachable. The
     // causes really were emitted, so it never lied; it just could not have caught it if they
     // were not. Same over-claiming shape as the frozen-body test title, one file over.
@@ -262,7 +262,7 @@ describe('the cause vocabulary governs the emitters', () => {
 
 describe('the selection requires the population root it is for', () => {
   it('★★★ refuses an empty projectRoot even with an empty entry list', () => {
-    // Non-blocking hardening from graph-senior-dev: an empty selection could be issued with no
+    // Non-blocking hardening from the reviewer: an empty selection could be issued with no
     // project scope at all. The final receipt pins project/query separately, but a population
     // without the root it describes is a claim with no subject.
     const r = selectedTuSetDigest({ projectRoot: '', entries: [] });

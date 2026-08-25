@@ -9,7 +9,7 @@
 //
 // And the vacuous property test that shipped tonight did not fail for want of a helper. It failed
 // while hand-rolling a WEAKER inline copy of one, in a file that imports nothing from
-// live-matcher.js. ef-manager found the helper by grepping for the remedy; I had reasoned from the
+// live-matcher.js. the field test found the helper by grepping for the remedy; I had reasoned from the
 // defect and built a second one.
 //
 // ★ THE PATTERN, THREE TIMES IN ONE NIGHT, and the common factor is not knowledge:
@@ -55,7 +55,7 @@ function walk(dir, out = []) {
 //
 // Same family as the 158-vs-157 slack, by a different route: not headroom I wrote, headroom
 // anyone can create later by editing prose. Stripped, the baseline is 154 and means one thing.
-// (ef-manager found this while answering whether the two helper-file occurrences were an
+// (the field test found this while answering whether the two helper-file occurrences were an
 // uncovered hole. They are not — one is a comment and the other is the controlled path's own
 // guarded payload — so the boundary stays at test files.)
 const stripComments = (src) => src
@@ -102,7 +102,7 @@ describe('negative assertions must not spread uncontrolled', () => {
   });
 
   it('★★★ the controlled helper actually BEHAVES — called, not read', async () => {
-    // ⛔ THIS CONTROL WAS SOURCE-INSPECTION AND A COMMENT DEFEATED IT. ef-manager stripped the
+    // ⛔ THIS CONTROL WAS SOURCE-INSPECTION AND A COMMENT DEFEATED IT. the field test stripped the
     // overbroad canary out of live-matcher.js, watched this go red on the missing STRING, then put
     // "OVERBROAD INSTRUMENT" back in a comment with the behaviour still deleted — and the gate
     // went green. The helper the entire ratchet points at could lose the canary that makes it
@@ -145,7 +145,7 @@ describe('negative assertions must not spread uncontrolled', () => {
     )).not.toThrow();
 
     // ⛔ AND THE PAYLOAD ITSELF, WITHOUT WHICH THE THREE ABOVE PASS ON A HELPER THAT ASSERTS
-    // NOTHING. ef-manager deleted `expect(subject, label).not.toMatch(...)` from the helper — the
+    // NOTHING. the field test deleted `expect(subject, label).not.toMatch(...)` from the helper — the
     // one line that actually checks the production output — and all three controls stayed green,
     // because none of them uses a subject the matcher matches. The dead and overbroad controls
     // throw at the canary before the payload would run; the happy path only proves the helper does
@@ -162,7 +162,7 @@ describe('negative assertions must not spread uncontrolled', () => {
   });
 
   it('★★★ adoption is reported, so "available" is never mistaken for "adopted"', () => {
-    // ef-manager: "A helper nobody reaches for is not a control; it is an available control, which
+    // the field test: "A helper nobody reaches for is not a control; it is an available control, which
     // is a different thing and reads the same in a commit body." So the number is printed rather
     // than assumed — 3 of 162 was invisible until someone counted.
     let adopted = 0;

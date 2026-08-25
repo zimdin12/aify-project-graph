@@ -15,7 +15,7 @@
 // read as "no documents govern this". The two fields still disagree; the difference is that
 // one of them now earns its label instead of claiming it.
 //
-// ★ ef-manager's best finding of 2026-08-10 depended on exactly this split: an OBSERVED
+// ★ the field test's best finding of 2026-08-10 depended on exactly this split: an OBSERVED
 // field refuting an INFERRED one inside a single payload. That is impossible if both
 // carry the same provenance label.
 //
@@ -143,7 +143,7 @@ describe('documents_mentioning takes the provenance of its edges, and ranks by d
   });
 
   it('★★ carries the provenance OF ITS EDGES, and still differs from the overlay field', async () => {
-    // The split ef-manager's best finding depended on: an observed field refuting an
+    // The split the field test's best finding depended on: an observed field refuting an
     // inferred one inside one payload is impossible if both carry the same label. That
     // split survives — these two still disagree — but the label is now earned rather than
     // asserted.

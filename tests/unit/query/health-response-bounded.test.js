@@ -9,7 +9,7 @@
 // creates thousands of untracked files, so every user careful enough to follow the
 // safety practice broke health for themselves — and the failure surfaced as a
 // client token error, which reads as their problem rather than ours.
-// (ef-manager, echoes, 2026-07-30.)
+// (the field test, echoes, 2026-07-30.)
 //
 // Counts stay exact because they are the decision-relevant part; the lists are a
 // sample, and the truncation is reported rather than silent.
@@ -48,7 +48,7 @@ describe('graph_health response stays bounded', () => {
   afterEach(() => { try { rmSync(repo, { recursive: true, force: true }); } catch {} });
 
   it('★ with nothing TRACKED dirty, omits the names entirely and says why', async () => {
-    // Extension of the same fix, from the same reporter (ef-manager, 2026-08-09).
+    // Extension of the same fix, from the same reporter (the field test, 2026-08-09).
     // Capping at 25 was not enough: on echoes those 25 names cost 537 tokens and
     // were EVERY ONE untracked backup residue (.aify-graph.bak-*), out of 2824,
     // while trackedDirtyFiles was [] — the field actually carrying signal. He paid

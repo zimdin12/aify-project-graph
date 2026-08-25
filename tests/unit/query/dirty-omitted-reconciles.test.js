@@ -1,6 +1,6 @@
 // AN OMITTED-COUNT THAT DISAGREES WITH THE PAYLOAD IS WORSE THAN NO COUNT.
 //
-// I introduced this the same day I suppressed the untracked name list, and ef-manager
+// I introduced this the same day I suppressed the untracked name list, and the field test
 // caught it one commit later: `dirtyFilesOmitted` kept subtracting `DIRTY_LIST_CAP`
 // unconditionally, so echoes reported omitted 2799 of total 2824 — arithmetic asserting
 // 25 names were shown, in a response that shows none.

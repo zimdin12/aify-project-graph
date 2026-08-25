@@ -5,7 +5,7 @@ unknown — to be reasoned through, not acted on wholesale. Each finding carries
 its evidence and its scope so a later reader can discount it correctly.
 
 **Status of this document:** present-state analysis complete; reference-repo
-analysis delegated to `graph-senior-dev-hermes` and pending; over-engineering
+analysis delegated to `review, hermes session` and pending; over-engineering
 audit (`/ponytail-audit`) not yet run.
 
 ---
@@ -28,7 +28,7 @@ JS figure is dominated by a class of edge C++ never emits, so "JS is 10× worse
 than C++" is an artifact of extractor configuration, not a quality measurement.
 The PHP figure remains real and remains the outlier.
 
-### A1b ⛔ CORRECTION — the cross-language comparison was invalid (graph-senior-dev)
+### A1b ⛔ CORRECTION — the cross-language comparison was invalid (the reviewer)
 
 Verified independently, then re-verified by me at source:
 
@@ -100,7 +100,7 @@ edges. Even when it worked it sampled ~1%.
 
 `artifactAges.functionality`: APG **112 days** · echoes **112** · sand_castle **67**.
 
-Both managers report not consulting it. sc-manager's reason is **granularity, not
+Both managers report not consulting it. the field fleet's reason is **granularity, not
 staleness** — every load-bearing question resolved at line-, blob-, or
 table-membership level, which a feature name cannot answer. They confirmed a
 *fresh* overlay would not change their decisions.
@@ -109,7 +109,7 @@ table-membership level, which a feature name cannot answer. They confirmed a
 consumer is unmeasured (see D1).
 
 
-### A4 The 25 unlisted verbs — 12 credible fold/delete candidates (graph-senior-dev)
+### A4 The 25 unlisted verbs — 12 credible fold/delete candidates (the reviewer)
 
 ⚠ **Evidence limit stated by the reporter, and it is the important part:** the repo
 holds **no post-gating runtime telemetry**, so "nobody calls X" is not claimable.
@@ -148,7 +148,7 @@ then maintained them anyway.
 
 ### B1 ★★ The measured answer: contradiction changes behaviour, data does not
 
-ef-manager, answering with counterfactuals against errors he had **published**:
+the field test, answering with counterfactuals against errors he had **published**:
 
 > Every single behaviour change came from a field that CONTRADICTED MY
 > CONFIDENCE. Not one came from a field that gave me more information.
@@ -164,7 +164,7 @@ buys behaviour change.**
 
 ### B2 ⛔ The headline usage number is still ZERO, and it is not explained by reach
 
-sc-manager, asked to name one time a graph verb changed what they did: **none**.
+the field fleet, asked to name one time a graph verb changed what they did: **none**.
 They then retracted their own excuse after testing — the graph was reachable and
 trusted all day and they did not reach for it, on the flagship-shaped question of
 their day.
@@ -244,7 +244,7 @@ Nine instances in three days, mine and others':
 
 ### C2 "I fixed the axis I was looking at and did not enumerate the axes I moved"
 
-ef-manager, correcting his own experiment design. Also describes: the receipt
+the field test, correcting his own experiment design. Also describes: the receipt
 tiering (broke its own guard test), the `dirtyFiles` suppression (broke
 `dirtyFilesOmitted` an hour later), and the task-status fix (two more call sites
 found only by repo-wide grep, **after** the suite was green).
@@ -264,11 +264,11 @@ with and without the change it claimed to guard.
 
 | # | item | state |
 |---|---|---|
-| D1 | Cold-orientation consumer — does a fresh reader want different fields? | Protocol pre-registered with falsifier; **blocked on Steven's word in ef-manager's session** |
+| D1 | Cold-orientation consumer — does a fresh reader want different fields? | Protocol pre-registered with falsifier; **blocked on Steven's word in the field test's session** |
 | D2 | `.cpp` header-pairing verification against real C++ | Blocked; Steven has gated Sand Castle behind D1 |
-| D3 | Reference-repo borrow analysis | Delegated to `graph-senior-dev-hermes` |
+| D3 | Reference-repo borrow analysis | Delegated to `review, hermes session` |
 | D4 | `/ponytail-audit` — whole-repo over-engineering pass | **Not run.** Should be, on a fresh session |
-| D5 | Deletion audit re-measured on C++ | Required by Part 0 of the v0.6.0 spec; ef-manager has offered to run it |
+| D5 | Deletion audit re-measured on C++ | Required by Part 0 of the v0.6.0 spec; the field test has offered to run it |
 | D6 | Does any of this make agents better or cheaper? | **Unanswered since the goal was set.** B2 is the only datapoint and it is a zero |
 
 ---
@@ -283,7 +283,7 @@ Ranked by evidence behind them, not by appeal.
 2. **PHP/Laravel graph quality (A1).** 105% unresolved, and a documented measured
    loss: *"lc-api trace task loses to grep by +12.5% because `Kernel.php`'s
    middleware groups are declarative arrays the extractor doesn't model."*
-3. **Positive controls on absence claims.** sc-manager's practice; per-call decided
+3. **Positive controls on absence claims.** the field fleet's practice; per-call decided
    by measurement (six failures, none of them index failures).
 4. **Invariant-prose externalisation.** ~20% of every response is byte-identical
    documentation re-transmitted per call. Uncontroversial, largest single cost win.

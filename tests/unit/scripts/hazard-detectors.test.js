@@ -71,7 +71,7 @@ describe('vacuous quantifiers', () => {
     // ⚠ AND IT CHANGED WHAT THE OTHER CONTROLS PROVED: they all use unparenthesized source, so they
     // could not distinguish "handles assignment" from "handles assignment as long as nobody wrapped
     // it". They were passing on a strictly easier corpus than reality.
-    // Found by ef-manager, running 24 constructs as a corpus rather than imagining cases.
+    // Found in field testing, running 24 constructs as a corpus rather than imagining cases.
     for (const src of ['return (xs.every(p));', 'e.ok = (xs.every(p));', 'const f = () => (xs.every(p));']) {
       expect(vacuousQuantifiers(src).length, src).toBe(1);
     }

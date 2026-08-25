@@ -9,7 +9,7 @@ Two repos, measured 2026-08-07:
 
 | repo | staleness | consequence |
 |---|---|---|
-| `sand_castle` | 20 commits behind | sc-manager made **zero** graph calls in a full session, then concluded "it doesn't help" |
+| `sand_castle` | 20 commits behind | the field fleet made **zero** graph calls in a full session, then concluded "it doesn't help" |
 | `aify-project-graph` | **130 commits** behind | its own maintainer's queries answered from a snapshot four months old |
 
 Neither is a bug in indexing. Both are the same organizational fact: **keeping the
@@ -18,7 +18,7 @@ graph current is nobody's job.** The mechanisms exist — `graph_index`,
 of them were doing the work, because each requires someone to have decided,
 once, to turn it on.
 
-sc-manager's account of the failure mode is the one to design against:
+the field fleet's account of the failure mode is the one to design against:
 
 > it's stale because I stopped using it, and then I used the staleness as the
 > reason not to use it.

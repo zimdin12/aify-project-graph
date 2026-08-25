@@ -37,7 +37,7 @@ const REPO = process.cwd();
 const GRAPH = join(REPO, '.aify-graph', 'graph.sqlite');
 
 // ⛔ RUN AGAINST A COPY. detectDocRefs DELETES every MENTIONS edge it owns before rebuilding, so
-// pointing this at the live graph to measure it would destroy the thing being measured. ef-manager
+// pointing this at the live graph to measure it would destroy the thing being measured. the field test
 // hit exactly this and copied first; the hazard belongs in the tool, not in the operator's memory.
 const SCRATCH = join(REPO, '.aify-graph', 'doc-ref-sample.tmp.sqlite');
 
@@ -81,7 +81,7 @@ function sourceLine(file, line) {
 
 // ⛔ `target_qname` IS HERE BECAUSE ITS ABSENCE MADE A CORRECT ANSWER UNVERIFIABLE.
 //
-// ef-manager, grading the held-out sample: row `qualified #14` cited `DigestAuth.auth_flow` and the
+// the field test, grading the held-out sample: row `qualified #14` cited `DigestAuth.auth_flow` and the
 // artifact reported `target_label: auth_flow` — the BARE method name. `worked/httpx/raw/auth.py`
 // declares FIVE sibling `auth_flow` methods, on Auth, BasicAuth, BearerAuth, DigestAuth and
 // NetRCAuth. From the row alone nobody could tell which one the edge bound.

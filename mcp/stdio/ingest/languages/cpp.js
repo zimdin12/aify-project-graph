@@ -329,7 +329,7 @@ function extractCppFunctionSymbol({ node, source }) {
   // the text fallback below, which re-parses the declarator's SOURCE TEXT — and
   // that text includes the parameter list, defaults and all.
   //
-  // Measured (ef-manager, 2026-08-02) on:
+  // Measured (the field test, 2026-08-02) on:
   //   inline CylindricalPositionId cylindricalIdFromWorldPos(
   //       const glm::vec3& worldPosVoxels, ...,
   //       const glm::vec3& spinAxis = glm::vec3(0, 1, 0), ...)

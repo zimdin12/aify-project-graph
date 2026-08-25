@@ -4,7 +4,7 @@
 // exact commit fourteen files exceeded it. The claim had no population, so nothing could
 // contradict it.
 //
-// graph-senior-dev's replacement target, which this measures:
+// the reviewer's replacement target, which this measures:
 //
 //   > Every top-level declaration belongs to exactly one named authority; every named guarantee
 //   > has exactly one owner module whose public API is sufficient to execute a hostile
@@ -107,7 +107,7 @@ export const AUTHORITIES = {
   },
 };
 
-// ⛔ THE PARSER WAS NARROWER THAN THE CLAIM IT ENFORCED. graph-senior-dev: "the published claim
+// ⛔ THE PARSER WAS NARROWER THAN THE CLAIM IT ENFORCED. the reviewer: "the published claim
 // says EVERY top-level declaration, while the regex only recognizes function/class/const and can
 // be evaded by `let`, `var`, destructuring, generator/default declarations." 44/44 happened to be
 // true for the shapes present; the enforcement claim was broader than its instrument, which is
@@ -253,7 +253,7 @@ ALL FILES COMPLETE: ${result.complete}   (examined ${result.examined})`);
   // detection and someone hunts authority violations that were never looked for.
   //
   // 0 COMPLETE · 1 INCOMPLETE · 2 REFUSED. Fails closed either way; only the legibility changes.
-  // Found by ef-manager reviewing bddbb48.
+  // Found in field testing reviewing bddbb48.
   if (process.argv.includes('--check')) {
     if (result.verdict === AUTHORITY_VERDICT.REFUSED_EMPTY) process.exit(2);
     if (!result.complete) process.exit(1);

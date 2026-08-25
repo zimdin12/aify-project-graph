@@ -1,6 +1,6 @@
 # ⛔⛔⛔ THE CONTINUATION/PRUNE DEFECT REPORTED HERE DID NOT EXIST. ITS CAUSAL CHAIN IS WITHDRAWN IN FULL, AND I RETRACTED TWO CORRECT FIGURES TO FIT IT.
 
-⚠ **NARROWED 2026-08-25, on graph-senior-dev's review — the previous heading read "THERE WAS NO
+⚠ **NARROWED 2026-08-25, on the reviewer's review — the previous heading read "THERE WAS NO
 DEFECT" and that over-withdrew.** The reported defect (a 73-file run mis-read as a broken
 collection, with the prune's authority gate named as its cause) is nonexistent and everything
 about it is withdrawn: 73 was the owed remainder after 555 ledger-complete files, `status: ok`
@@ -116,7 +116,7 @@ authority.** And the source comment states the consequence exactly:
 
 ⇒ **RETRACTED.** `coveredFileCount` reads across every collection by design — it is the numerator
 for a repo-level claim, and it counted seven superseded runs. I used it, twice, to tell Steven and
-`ef-manager` that coverage was 624/627.
+`the field test` that coverage was 624/627.
 
 ## ⚠ THIS IS A RECURRENCE, NOT A NEW DEFECT
 
@@ -145,7 +145,7 @@ is lossy" hypothesis should not be carried forward on today's evidence.
 
 # ⛔⛔ THE SECTION BELOW IS WRONG AND ACTING ON IT WOULD DESTROY EVIDENCE — READ THIS FIRST
 
-`ef-manager` checked my causal chain link by link. Two links hold. **The load-bearing one does not.**
+`the field test` checked my causal chain link by link. Two links hold. **The load-bearing one does not.**
 
 **PRUNE IS NOT GATED ON COMPLETENESS.** Verified in source:
 
@@ -189,7 +189,7 @@ any of it ran.
 ⚠ Collections accumulating is therefore **expected**, not a defect: no run has ever held repo-wide
 authority, so none may prune. The stale-evidence consequence is real; its cause is upstream.
 
-⚠ `ef-manager` notes `declaredFileScope=true` is *inferred* from 73-vs-627 because the envelope's
+⚠ `the field test` notes `declaredFileScope=true` is *inferred* from 73-vs-627 because the envelope's
 scope object is not persisted. What is **not** inferred is `status: "ok"`, which kills the
 completeness explanation on its own.
 
@@ -235,7 +235,7 @@ cleanup depend on a completeness condition that a capped batch can never satisfy
 
 # ⛔ THE "EDGE DERIVATION" FINDING IS ALSO WITHDRAWN — THE PAIR WAS HALF STALE
 
-`ef-manager`, splitting every number by which store it read:
+`the field test`, splitting every number by which store it read:
 
     RETRACTED (records-side, 91.5% superseded)
       97.6% of declarations have reference evidence
@@ -257,7 +257,7 @@ now the pair that motivated it.
 # ⭐ INDEPENDENT EVIDENCE THE EDGES SURVIVE — the leg my claim was missing
 
 I asserted "the 2,820 edges are unaffected because they derive from the current import" by reading
-the importer. `ef-manager` supplied a check that does not depend on reading any code:
+the importer. `the field test` supplied a check that does not depend on reading any code:
 
     9 collections · 182,594 records · 2,820 verified edges
 
@@ -285,7 +285,7 @@ structurally safe".
 
 # ⚠ ON CALLING THIS "THE EIGHTH POPULATION ERROR"
 
-`ef-manager` pushed back and is right: **seven were caught inside the investigation before anything
+`the field test` pushed back and is right: **seven were caught inside the investigation before anything
 shipped. This one reached Steven twice.** That is a difference in *cost*, not a difference in
 *instance number*, and folding it into a running tally flattened exactly the thing that mattered.
 Counting them was becoming a performance; the severity is the datum.

@@ -1,6 +1,6 @@
 // THE BARE-SYMBOL PATH WAS NON-FUNCTIONAL ON REAL C++ REPOS.
 //
-// Measured (ef-manager, echoes, 2026-08-10): ALL THREE symbols tried —
+// Measured (the field test, echoes, 2026-08-10): ALL THREE symbols tried —
 // SimCoordinator, WorldBuffer, GpuMaterial — blew graph_packet's 2000ms
 // symbol→feature budget. Not an edge case. On a 12,126-node C++ repo the
 // flagship orientation verb could not resolve ANY bare symbol.
@@ -112,7 +112,7 @@ describe('graph_packet resolves symbol→feature without the full traversal', ()
     // The other half of the shared rule. If the glob branch were applied to every
     // pattern, this prefix-of-nothing anchor would wrongly match.
     //
-    // ⛔ NON-EXECUTION USED TO SATISFY THIS. graph-senior-dev-hermes made the exact-anchor
+    // ⛔ NON-EXECUTION USED TO SATISFY THIS. review, hermes session made the exact-anchor
     // comparison THROW: the cheap resolver fell through to the expensive traversal, which
     // is mocked to never return, the packet landed in the timeout branch — and the case
     // still passed, because "sim-core is absent" is trivially true of an output that

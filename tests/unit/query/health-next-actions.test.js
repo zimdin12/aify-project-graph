@@ -1,6 +1,6 @@
 // ROUTE FROM THE VERB PEOPLE CALL TO THE ONES THEY SHOULD.
 //
-// Field accounting (ef-manager, 2026-07-30): "I used 2 verbs out of ~17. I never
+// Field accounting (the field test, 2026-07-30): "I used 2 verbs out of ~17. I never
 // once called graph_packet or graph_pull — your documented front door — despite
 // returning to a repo I hadn't touched in seven weeks, where orientation was
 // literally my problem. Nothing in my workflow PULLED me toward them."
@@ -46,7 +46,7 @@ describe('health next-action routing', () => {
   it('a STALE overlay produces a regenerate action, not a go-use-it one', () => {
     // ★ This test previously asserted the OPPOSITE and pinned a filler rule I
     // shipped an hour earlier: "this repo has 16 features → try graph_packet".
-    // A field reviewer took it apart (ef-manager, 2026-07-31): inventory is not a
+    // A field reviewer took it apart (the field test, 2026-07-31): inventory is not a
     // finding; the why said the overlay was 96 days stale while the do said go use
     // it; and it fired on a healthy repo, breaking the "empty on a healthy repo,
     // never generic" contract stated in the same function.

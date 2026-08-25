@@ -1,6 +1,6 @@
 // "WHAT DOES THIS GRAPH ACTUALLY CONTAIN?" — the question the field asked three times.
 //
-// ef-manager, after days of intensive use: they hand-wrote `SELECT type, count(*) FROM nodes
+// the field test, after days of intensive use: they hand-wrote `SELECT type, count(*) FROM nodes
 // GROUP BY type` in THREE separate rounds and it produced a finding every single time — the four
 // dead declaration types, the 67%-unreachable figure, and echoes' 183 `Symbol` + 1 `BuildTest`
 // that whereis silently cannot return. Their words:
@@ -10,7 +10,7 @@
 //    thing I have run. This is not a feature request dressed as feedback. It is the thing I
 //    worked around, three times, with a tool you did not ship."
 //
-// ⚠ NOT A NEW VERB. graph-senior-dev's roadmap ruling is explicit: "no new verb until the
+// ⚠ NOT A NEW VERB. the reviewer's roadmap ruling is explicit: "no new verb until the
 // existing discovery journey cannot be expressed." It goes in `graph_health`, which is already
 // the step-zero call and already opens the DB — so the census costs one extra query on a verb
 // nobody calls in a loop.
@@ -78,7 +78,7 @@ describe('graph_health population census', () => {
   }, 20_000);
 
   it('★★★ names the declaration types that are EMPTY here', async () => {
-    // The finding ef-manager got twice by hand: a searched type with zero nodes cannot ever
+    // The finding the field test got twice by hand: a searched type with zero nodes cannot ever
     // match, so asking this verb about one is guaranteed to fail.
     repoRoot = await repoWith([['Function', 4]]);
     const out = text(await graphHealth({ repoRoot }));

@@ -2,7 +2,7 @@
 //
 // ⛔ sand_castle ran at 2.87 GB for 12,478 nodes / 49,229 edges. 98.5% of it was free
 // pages — residue of a code-intel prune that deleted 1.03M records and never reclaimed
-// them. sc-manager noticed only by running `ls -la` and thinking the number looked wrong,
+// them. the field fleet noticed only by running `ls -la` and thinking the number looked wrong,
 // and was careful to report it as an observation because nothing in the tool would tell
 // them either way. It had been that way for months.
 //

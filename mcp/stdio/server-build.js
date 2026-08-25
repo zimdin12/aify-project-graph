@@ -6,7 +6,7 @@
 // long-lived MCP server whose checkout moves underneath it (git pull, a push)
 // reported the NEW commit while executing the OLD code.
 //
-// That cost a real verification window on 2026-07-30: sc-manager did the careful
+// That cost a real verification window on 2026-07-30: the field fleet did the careful
 // thing — restart, then confirm `server.commit` via graph_health BEFORE testing a
 // fix — and the field answered about the filesystem. He then tested code that was
 // never loaded. His words: it converted "I should check" into "I checked".
@@ -42,7 +42,7 @@ const PROCESS_STARTED_AT = new Date().toISOString();
 // previous fix did not anticipate:
 //   · two exact phrasings banned → a synonym walked through
 //   · actors enumerated (you / your / the agent / an agent) → "THIS agent" walked through
-//   · an inability-modal + restart-verb pairing → graph-senior-dev-hermes appended
+//   · an inability-modal + restart-verb pairing → review, hermes session appended
 //     "Only a human operator is permitted to restart this service." and it walked through
 //     too. It is a false host-capability claim that contains no inability modal at all.
 //
@@ -76,7 +76,7 @@ export const RESTART_GUIDANCE =
 // .cjs-only delta would have been told the process was behaviourally current by a
 // sentence that never mentioned the extension that decided it.
 //
-// Found while closing graph-senior-dev-hermes's finding that the test pinned only `.js` —
+// Found while closing review, hermes session's finding that the test pinned only `.js` —
 // removing `.json` from the classifier left 8/8 green. They were right about the gap and
 // the gap was already occupied.
 //
@@ -96,7 +96,7 @@ const LOADED_COMMIT = process.env.APG_TEST_FORCE_LOADED_COMMIT
 
 // ★ CAPTURED AT LOAD, BESIDE THE COMMIT — NOT READ FROM DISK PER QUERY.
 //
-// ef-manager, 2026-08-11, on the v0.6.0 release itself: `version` was read from
+// the field test, 2026-08-11, on the v0.6.0 release itself: `version` was read from
 // package.json at QUERY time, so it reported the CHECKOUT's version and never the
 // running process's. Observed twice on one process — "0.5.0" before the release commit,
 // "0.6.0" after, with `startedAt` IDENTICAL. The number moved without a restart.
@@ -112,7 +112,7 @@ const LOADED_COMMIT = process.env.APG_TEST_FORCE_LOADED_COMMIT
 // was found. A field's blast radius is not fixed at the time it is written.
 // ★★ WAS THE TREE DIRTY WHEN THIS PROCESS LOADED? CAPTURED AT LOAD, LIKE THE COMMIT.
 //
-// Third instance of one defect in this file in one day, found by ef-manager each time:
+// Third instance of one defect in this file in one day, found in field testing each time:
 // a QUERY-TIME field sitting inside the block whose job is BUILD IDENTITY, beside
 // LOAD-TIME fields, with nothing marking which is which.
 //
@@ -149,7 +149,7 @@ const LOADED_DIRTY_FILES = (() => {
 // developing looks like, for hours at a time, and is the state this process spends most of its
 // life in during active work.
 //
-// Measured consequence: three of ef-manager's last four review rounds opened blocked on a stale
+// Measured consequence: three of the field test's last four review rounds opened blocked on a stale
 // process, and the failure mode is not that the warning was wrong — it is that there was no
 // warning, because HEAD had not moved.
 //
@@ -192,7 +192,7 @@ const LOADED_SOURCE_MTIME = newestSourceMtime();
 
 // ⛔ A ONE-DIRECTIONAL TEST SEAM, AND IT EXISTS BECAUSE THE DEFECT WAS IN THE CONSUMER.
 //
-// ef-manager's finding was NOT that `sourceChangedSinceLoad` mishandled null — it handled it
+// the field test's finding was NOT that `sourceChangedSinceLoad` mishandled null — it handled it
 // correctly and said so in a comment. The defect was that `staleProcess` and
 // `staleProcessWarning()` turned that null into silence. Testing the message function alone would
 // re-test the half that was already right, which is the mistake that produced the defect.
@@ -234,7 +234,7 @@ const LOADED_VERSION = (() => {
 // negative verdict omits the key entirely (see the spread below), so the frozen
 // answer was indistinguishable from a build that had no check at all.
 //
-// Measured (sc-manager, 2026-08-07): their server loaded 709cacf on Aug 4, called
+// Measured (the field fleet, 2026-08-07): their server loaded 709cacf on Aug 4, called
 // a verb that day while the tree still matched, and cached staleProcess:false.
 // Two commits landed on Aug 5. On Aug 7 graph_health returned NO staleProcess
 // field — and they reasonably concluded the field post-dated their binary. It did
@@ -276,7 +276,7 @@ export function serverBuildInfo() {
   // ★ COMMIT IDENTITY STOOD IN FOR BEHAVIOURAL DIFFERENCE.
   //
   // staleProcess says RESTART whether the delta is a guard that prevents data loss
-  // or a single markdown file. ef-manager hit exactly that: loaded cad4569 vs tree
+  // or a single markdown file. the field test hit exactly that: loaded cad4569 vs tree
   // c526849, staleProcess true — and the entire delta was one doc. He had to run
   // `git diff --name-only` himself to learn the running server was behaviourally
   // current, which is the difference between "you must restart before collecting"
@@ -305,7 +305,7 @@ export function serverBuildInfo() {
     // ★ ALWAYS PRESENT — OMIT-WHEN-HEALTHY IS RIGHT FOR DIAGNOSTICS AND WRONG FOR IDENTITY.
     //
     // This was wrapped in the dirty-only spread, so a clean load had NO `buildId` at all.
-    // I had just told ef-manager "quote buildId, not commit" — they went to quote it and
+    // I had just told the field test "quote buildId, not commit" — they went to quote it and
     // it was absent, leaving only `commit`, which the comment two lines above calls
     // insufficient. An instruction that cannot be followed on the healthy path is worse
     // than no instruction.
@@ -337,13 +337,13 @@ export function serverBuildInfo() {
     treeDirtyNow: dirtyOut == null ? null : dirtyOut.length > 0,
     // Explicit false rather than an omitted key. An absent field cannot be told
     // apart from a build that never had the check — which is exactly the
-    // inference sc-manager drew, correctly, from a missing key.
+    // inference the field fleet drew, correctly, from a missing key.
     staleProcess,
     ...(staleProcess ? {
       workingTreeCommit: treeCommit,
       ...(staleDelta ? { staleDelta } : {}),
       // ⛔ "THE CHECKOUT IS NOW X" READ AS REPO-SCOPED, AND THE DEFECT IS PROCESS-SCOPED.
-      // ef-manager, 2026-08-19, catching themselves mid-inference: "I assumed I could at least
+      // the field test, 2026-08-19, catching themselves mid-inference: "I assumed I could at least
       // test on echoes, since echoes' checkout has not moved. It does not work that way: ONE MCP
       // process serves both repos, so a stale process poisons every repo it answers for. The
       // staleness field is scoped to the repo you ask about; the defect is scoped to the
@@ -361,7 +361,7 @@ export function serverBuildInfo() {
 // graph_health — a reader who never calls health would never learn.
 // ⛔ EXTRACTED SO IT CAN BE TESTED BY CALLING IT, NOT BY GREPPING IT. My first test for the
 // process-scope fix asserted on the SOURCE TEXT of this module — the exact "gate on spelling
-// rather than behaviour" defect graph-senior-dev has caught in two of my instruments this week,
+// rather than behaviour" defect the reviewer has caught in two of my instruments this week,
 // committed inside the fix for a scope defect. The suite-composition guard flagged it.
 // ⇒ A pure function of its inputs. The test constructs a stale state and reads the sentence.
 export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDelta, commitMoved = true, sourceEdited = false }) {
@@ -404,7 +404,7 @@ export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDe
       // It told the reader that an agent could not self-restart the server and to ask
       // the operator. False in this deployment: a peer agent can restart a managed
       // session through aify-comms, which respawns the worker and its MCP children.
-      // ef-manager read it, believed it, and asked the operator twice for something
+      // the field test read it, believed it, and asked the operator twice for something
       // they could do in one call. It did not merely fail to help — it routed a capable
       // reader away from the action available to them. (2026-08-11)
       //
@@ -437,7 +437,7 @@ export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDe
       // `commit` cannot answer it. After a failed restart it reads the same as
       // after a successful restart that happened to load the same code — so a
       // reader who checks `commit` retries the same action and re-reads the same
-      // hash. Measured: ef-manager's startedAt held at 15:37:34.353Z across seven
+      // hash. Measured: the field test's startedAt held at 15:37:34.353Z across seven
       // hours, three commits and one restart attempt, which proved the process
       // had never cycled. That is the discriminator, and I had told them to check
       // the wrong field.
@@ -456,7 +456,7 @@ export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDe
  * everybody takes. A reader quoting `e18a739` as the build under test cannot know whether that
  * identity was verified or merely unavailable.
  *
- * Found while checking a DIFFERENT claim: ef-manager proposed that buildId should carry the dirt,
+ * Found while checking a DIFFERENT claim: the field test proposed that buildId should carry the dirt,
  * which it already did. Reading the code to confirm that showed the null branch collapsing into
  * the clean branch one line below. The suggestion was already implemented; the defect beside it
  * was not.
@@ -468,7 +468,7 @@ export function buildStaleWarning({ loadedCommit, startedAt, treeCommit, staleDe
  * ⛔ `behaviourally_current` COULD GRANT TRUE OVER A LOAD THAT MATCHES NO COMMIT.
  *
  * It was computed purely commit-to-commit — `git diff LOADED_COMMIT..treeCommit` — and never
- * consulted what this process actually loaded. ef-manager walked the reachable path, which is the
+ * consulted what this process actually loaded. the field test walked the reachable path, which is the
  * loop I have been running all night:
  *
  *   1. process loads at X with an uncommitted experimental edit  -> buildId `X+1dirty` (honest)
@@ -522,7 +522,7 @@ export function formatBuildId(commit, dirtyCount) {
 //     unchanged         false          false          SILENT
 //     SCAN FAILED       null           false          SILENT   <- indistinguishable from unchanged
 //
-// ef-manager ran the null path rather than reading it, and quoted my own comment back: "a scan that
+// the field test ran the null path rather than reading it, and quoted my own comment back: "a scan that
 // failed must not report 'unchanged' — that is the collapse this repo has now found six times, and
 // it fails in the reassuring direction every time." The FUNCTION honoured it. The two places anyone
 // actually reads did not.
@@ -555,7 +555,7 @@ export function staleProcessWarning() {
   return null;
 }
 
-// ⛔ REFUSE, DO NOT WARN — ef-manager's 6b, and the sentence that earns it:
+// ⛔ REFUSE, DO NOT WARN — the field test's 6b, and the sentence that earns it:
 //
 //     "Three of my last four rounds opened blocked on a stale MCP process… Right now the only
 //      actor who can fix it is the one who cannot see it."
@@ -576,7 +576,7 @@ export function staleProcessWarning() {
 //     false   executable files changed. REFUSE.
 //     null    cannot say (this process loaded uncommitted changes). REFUSE.
 //
-// ef-manager hit the `true` case: loaded cad4569 vs tree c526849, staleProcess true, and the entire
+// the field test hit the `true` case: loaded cad4569 vs tree c526849, staleProcess true, and the entire
 // delta was ONE DOC. Refusing there would be the over-correction — a hard block on a process that
 // is behaviourally current, which teaches people to set the override permanently and puts us back
 // where we started with a guard nobody respects.
@@ -603,7 +603,7 @@ export function staleProcessBlocker() {
  * ⛔ SPLIT OUT BECAUSE THE CASE THAT MUST *NOT* REFUSE IS THE HARD ONE TO CONSTRUCT. Proving the
  * refusal fires needs only a touched file. Proving it stays silent on a docs-only delta needs a
  * two-commit history whose diff contains no executable file — expensive to build, and the exact
- * case ef-manager hit and objected to. A pure function takes that state as an argument, so the
+ * case the field test hit and objected to. A pure function takes that state as an argument, so the
  * over-correction guard is as cheap to write as the positive one.
  *
  * @param {object} b   serverBuildInfo() output

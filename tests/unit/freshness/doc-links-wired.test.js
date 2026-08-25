@@ -41,7 +41,7 @@ const readManifest = async () =>
 
 describe('doc→file links survive a real index', () => {
   it('★★★ a design doc that links to a source file gets a LINKS_TO edge with its line', async () => {
-    // This is sc-manager's question in its smallest form: a document exists, it points at code,
+    // This is the field fleet's question in its smallest form: a document exists, it points at code,
     // and two months later nobody remembers it exists. The edge is what makes it findable from
     // the code side — and the LINE is what lets the answer be checked rather than trusted.
     await writeFile(join(repoRoot, 'src', 'terrain.js'), 'export function generateTerrain() { return 1; }\n');
@@ -111,7 +111,7 @@ describe('doc→file links survive a real index', () => {
   }, 60_000);
 
   it('★★★ the full miss ledger reaches disk, and the manifest carries a CAPPED sample beside an UNCAPPED count', async () => {
-    // ⛔ ef-manager could not grade the miss buckets because only counts were published. A count
+    // ⛔ the field test could not grade the miss buckets because only counts were published. A count
     // nobody can open is unfalsifiable from outside: 707 `noSuchPath` could be 707 genuine stale
     // references or 707 mis-bucketed prose tokens and the figure reads the same.
     //
@@ -143,7 +143,7 @@ describe('doc→file links survive a real index', () => {
   }, 60_000);
 
   it('★★★ the manifest states the CORPUS the sweep saw and what it declined', async () => {
-    // ⭐ THE NUMBER THAT MADE THE 52.7% MEASURABLE FROM INSIDE. ef-manager found the Document hole
+    // ⭐ THE NUMBER THAT MADE THE 52.7% MEASURABLE FROM INSIDE. the field test found the Document hole
     // with `git ls-files` because the sweep published nothing; a defect only detectable from
     // outside the system is a defect that waits for someone to go looking.
     //

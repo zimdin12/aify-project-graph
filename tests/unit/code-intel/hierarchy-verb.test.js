@@ -156,7 +156,7 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     expect(r.trust).toMatch(/lsp-partial.*bounded mode/);
     expect(r.evidence.exhaustive).toBe(false);
     expect(r.evidence.cause).toBe('bounded_mode');
-    // REWORKED 2026-08-25 per graph-senior-dev's review of 0d1fd1d. This USED to assert the
+    // REWORKED 2026-08-25 per the reviewer's review of 0d1fd1d. This USED to assert the
     // mark was absent whenever the index was cold / the tree empty. That pinned a COLLAPSE:
     // index-readiness constrains POPULATION COMPLETENESS, not whether a RETURNED edge came from
     // clangd. Children come only from incoming/outgoingCalls and roots only from
@@ -175,7 +175,7 @@ describe('code_intel_hierarchy — index-ready vs not-ready banner/evidence', ()
     // SKIP ITS OWN ASSERTION. It branched on `if (r.indexReady === true) ... else ...` with a
     // further `if (r.tree)` inside, so the hostile branch only ran when the fixture happened to
     // come back not-ready. It passed by taking the healthy branch — green without ever executing
-    // the case it existed to check. graph-senior-dev caught it reviewing b396c0a; the same
+    // the case it existed to check. the reviewer caught it reviewing b396c0a; the same
     // vacuous-guard shape as `[].every()` certifying an empty set.
     //
     // Deterministic now: the fake server never emits $/progress, so INDEXED mode cannot reach
@@ -245,7 +245,7 @@ describe('code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive', () => {
     expect(r.trust).toMatch(/lsp-partial/);
     expect(r.trust).toMatch(/code_intel_references/);
     // I3/HIGH-1 — partial banner ⇒ no bare ground-truth [lsp✓] node mark.
-    // REWORKED 2026-08-25 per graph-senior-dev's review of 0d1fd1d. This USED to assert the
+    // REWORKED 2026-08-25 per the reviewer's review of 0d1fd1d. This USED to assert the
     // mark was absent whenever the index was cold / the tree empty. That pinned a COLLAPSE:
     // index-readiness constrains POPULATION COMPLETENESS, not whether a RETURNED edge came from
     // clangd. Children come only from incoming/outgoingCalls and roots only from
@@ -515,7 +515,7 @@ describe('resolveSymbolPosition — leaf column + qualified lookup (FIX 1)', () 
   });
 });
 
-// ⭐ THE HOSTILE MATRIX graph-senior-dev ASKED FOR, reviewing 0d1fd1d.
+// ⭐ THE HOSTILE MATRIX the reviewer ASKED FOR, reviewing 0d1fd1d.
 //
 // The point of binding `[lsp✓]` to per-node provenance is that it must be able to say NO. A
 // predicate that is true of every node is not a precision signal, it is decoration — the same
@@ -553,7 +553,7 @@ describe('code_intel_hierarchy — [lsp✓] is bound to node provenance, not to 
   });
 });
 
-// graph-senior-dev, reviewing 0d1fd1d: "a flag true on every successful answer is not health
+// the reviewer, reviewing 0d1fd1d: "a flag true on every successful answer is not health
 // information." `degraded` became a standing constant when exhaustiveness was withdrawn, so it
 // stopped discriminating. `operationallyDegraded` is the replacement and this describe exists to
 // prove it can take BOTH values — a guard that cannot say no is decoration.
@@ -581,7 +581,7 @@ describe('code_intel_hierarchy — operationallyDegraded separates a standing li
   it('⛔ bounded mode is NOT an incident — it is selected behaviour', () => {
     // I had this backwards. Bounded mode never waits for the index BY DESIGN, so nothing happened
     // *to* the request; calling it operationally degraded repeats the standing-limit mistake at a
-    // smaller scope (graph-senior-dev, review of b396c0a). Healthy-for-bounded, precise on every
+    // smaller scope (the reviewer, review of b396c0a). Healthy-for-bounded, precise on every
     // returned node, and incomplete are three separate facts.
     const e = buildHierarchyEvidence({ ...ready, mode: 'bounded', nodeCount: 4 });
     expect(e.operationallyDegraded).toBe(false);

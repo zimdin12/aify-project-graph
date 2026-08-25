@@ -2,7 +2,7 @@
 
 Measured 2026-08-22 on this repo, 179 `Document` nodes, all readable on disk.
 
-## The two probes ef-manager designed, both run
+## The two probes the field test designed, both run
 
 They asked for two, aimed at finding "a fourth mistake" after three attempts at the discovery slice.
 
@@ -87,8 +87,8 @@ whole-document presence.
 ⛔ **CORRECTION — `summary` IS NOT TRUNCATED, AND I ASSERTED THAT IT WAS.**
 
 The first version of this document, and the roadmap entry citing it, said `summary` was "truncated
-at ~100 characters, cut mid-word", quoting *"Driven by `graph-tech-lead`. Ruled on by
-`graph-senior-dev` (correctness, executed"*.
+at ~100 characters, cut mid-word", quoting *"Driven by `this project`. Ruled on by
+`the reviewer` (correctness, executed"*.
 
 `extractDocumentMeta` does `const summary = lines[1] ?? ''`. **There is no truncation anywhere.**
 That value is line 3 of the roadmap, complete, all 82 characters of it — the file is hard-wrapped at

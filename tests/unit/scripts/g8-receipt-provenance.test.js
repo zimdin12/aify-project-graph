@@ -2,7 +2,7 @@
 //
 // The G8 manifest names the exact one-arm spec the run consumed, by sha256 — but that file lived in
 // a session scratchpad OUTSIDE the repo, so the committed receipt recorded a hash whose content
-// nobody else could read. graph-senior-dev: *"reconstruct and commit the exact spec, admissible
+// nobody else could read. the reviewer: *"reconstruct and commit the exact spec, admissible
 // only if its SHA-256 exactly equals the already-recorded f810cb…"*
 //
 // ⚠ The file was never deleted — it was never COMMITTED, which is a different failure and the one

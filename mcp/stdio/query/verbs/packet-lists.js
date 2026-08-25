@@ -5,7 +5,7 @@
 // promise was written as "no reader-facing list of symbols leaves graph_packet without stating
 // its population". That sentence is broader than any grammar can carry: `CANDIDATES:\n* x` is
 // reader-facing and is not detected, and no widening fixes the general case because "looks
-// like a list to a human" is not decidable. graph-senior-dev's instruction, which I asked for
+// like a list to a human" is not decidable. the reviewer's instruction, which I asked for
 // and am taking:
 //
 //   1. Every packet block consisting of a nonempty non-row header immediately followed by one
@@ -43,7 +43,7 @@
 // the commit message while the code held only a counter — and my own test constructed two
 // separate objects, so it could not have caught the identity reuse it claimed to cover.
 //
-// ⇒ v7, to graph-senior-dev's specification:
+// ⇒ v7, to the reviewer's specification:
 //   1. Population is a TAGGED VALUE (exact / floor / unknown). There is no integer-plus-
 //      defaulting-boolean form in which a floor can be silently rendered exact.
 //   2. Occurrences are OPAQUE and IMMUTABLE: rows are defensively copied and validated as
@@ -297,7 +297,7 @@ function populatedList(kind, rows, { symbol, population, languages = [], notes =
       + 'A bare integer cannot say whether it is a total or a floor, which is how a floor came '
       + 'to be rendered as exact.');
   }
-  // ⛔ FIELD REPORT: A DUPLICATE ROW IS NOW A FALSE POPULATION. ef-manager found a file
+  // ⛔ FIELD REPORT: A DUPLICATE ROW IS NOW A FALSE POPULATION. the field test found a file
   // reachable by two graph nodes listed twice, under a header the change had just taught to
   // say "showing 2 of 2". Their framing is the one to keep: the change did not create the
   // duplicate, it promoted it from ugly to FALSE — because the count is derived from row

@@ -229,7 +229,7 @@ export async function buildChangePlanWithContext(db, {
     sourceOccurrenceFiles: additionalOccurrenceFiles,
   });
 
-  // ⛔ TOTALS BEFORE THE CAP. Found by ef-manager's sweep for "an array is capped, then
+  // ⛔ TOTALS BEFORE THE CAP. Found in field testing's sweep for "an array is capped, then
   // the CAPPED array's length is emitted as a count" — the third instance of the class,
   // after symbol_lookup's candidate list and graph_packet's DEFINED IN.
   //

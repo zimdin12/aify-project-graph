@@ -136,7 +136,7 @@ const CODE_INTEL_RECORDS_TABLE_SQL = `
 // half works — the raw blob carries {"cause":"definition_only","degraded":true}.
 // But `cause` and `degraded` were persisted ONLY inside that JSON, with no columns
 // and nothing aggregating them, so graph_health still printed a bare
-// refsNotFoundSymbols=833 with no split. ef-manager got the answer by parsing 833
+// refsNotFoundSymbols=833 with no split. the field test got the answer by parsing 833
 // raw blobs by hand.
 //
 // His diagnosis is exact and it is the original defect moved down a level: the

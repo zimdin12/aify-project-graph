@@ -16,7 +16,7 @@
 // the harness asserted either, and a host is free to change it — a reference project had
 // exactly that happen silently and published rewritten numbers before catching it.
 //
-// ⇒ So this does not pick a side, and — after graph-senior-dev executed my first attempt — it
+// ⇒ So this does not pick a side, and — after the reviewer executed my first attempt — it
 // does not INFER one either. Only a DECREASE proves anything from the values (a counter that
 // goes down is not a counter). Every non-decreasing series fits both readings, because a
 // per-turn series naturally grows as context grows. The reading is a property of the HOST, so
@@ -73,7 +73,7 @@ export function reconcileTurnUsage(turns, { semantics = null } = {}) {
 
   // ⛔ MY FIRST VERSION CALLED A GROWING SERIES CUMULATIVE AND TOOK THE LAST VALUE. That is the
   // same inference-from-shape I have spent the week removing from everything else.
-  // graph-senior-dev executed it: [100,200,300] returns 300, but a PER-TURN series naturally
+  // the reviewer executed it: [100,200,300] returns 300, but a PER-TURN series naturally
   // grows as context grows, so the true total may be 600. The comment even conceded both
   // readings fit and then picked one.
   //

@@ -1,6 +1,6 @@
 // ★ THE FIXTURE GAP THAT LET THREE C++ DEFECTS THROUGH.
 //
-// ef-manager, 2026-08-11, after testing graph_trace on a real 339-file C++ repo:
+// the field test, 2026-08-11, after testing graph_trace on a real 339-file C++ repo:
 //
 //   "Your test corpus is structurally incapable of producing the failure modes of the
 //    language the tool is mainly used on. That is now a pattern, not three coincidences."
@@ -116,7 +116,7 @@ describe('graph_trace on a C++ header/implementation split', () => {
   });
 
   it('★ the same definition is not rendered twice in one trace', async () => {
-    // ef-manager, on real C++ after the declaration fix: an interface→impl trace rendered
+    // the field test, on real C++ after the declaration fix: an interface→impl trace rendered
     // the SAME 13 lines at START and at HOP 1, because resolving both to the definition
     // collapsed them onto one node. Before the fix START showed the one-line declaration
     // — wrong, but distinct. On a large function this doubles the payload for zero

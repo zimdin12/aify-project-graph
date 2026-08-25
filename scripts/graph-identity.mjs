@@ -4,7 +4,7 @@
 // states differing solely in nested content shared a digest. That is the historical defect
 // this module exists to close — and the discriminator for it (two trees with identical
 // top-level entries, differing only underneath) is exactly what the first fix LACKED, which is
-// why graph-senior-dev-hermes required this to be its own carrier with its own matrix rather
+// why review, hermes session required this to be its own carrier with its own matrix rather
 // than riding along with the receipt's commit-attribution row. Same file is not same proof.
 //
 // EXTRACTED so it can be tested at all: it previously lived inside suite-receipt.mjs, which
@@ -46,7 +46,7 @@ import { join } from 'node:path';
 // with its byte length, so the stream is unambiguously parseable and no content can forge a
 // boundary.
 //
-// ★ This was the surface I had just flagged to graph-senior-dev-hermes as "my own framing with
+// ★ This was the surface I had just flagged to review, hermes session as "my own framing with
 // no test that a crafted filename cannot collide two trees" — and it turned out to be
 // exploitable through CONTENT rather than filename, which is not where I was looking.
 const framed = (h, kind, rel, content) => {

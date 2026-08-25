@@ -2,7 +2,7 @@
 // scripts/diagnose-convergence.mjs
 //
 // Diagnoses the incremental-vs-force convergence bug flagged by echoes
-// manager (500→5424 on reindex) and graph-senior-dev (696→2097 on apg).
+// manager (500→5424 on reindex) and the reviewer (696→2097 on apg).
 //
 // Strategy: snapshot the current graph, run incremental ensureFresh,
 // capture (edge count, dirtyEdge count, edge sample), restore snapshot,

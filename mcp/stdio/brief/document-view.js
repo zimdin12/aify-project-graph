@@ -4,7 +4,7 @@
 // they do not derive" was true in the comments and false in the dependency graph: the composition
 // root reached into the presentation layer for domain construction.
 //
-// ⇒ graph-senior-dev's ruling, and the reason it is a move rather than a preference — a boundary
+// ⇒ the reviewer's ruling, and the reason it is a move rather than a preference — a boundary
 // that exists only in prose is a boundary the next edit crosses without noticing.
 
 /**
@@ -12,7 +12,7 @@
  *
  * ⛔⛔ THE FIRST CODEC FIX COVERED THE SITE THE WITNESS NAMED AND NOT THE CLASS. A malformed
  * CANDIDATE total got a JSON-safe `{type, repr}` diagnostic; the malformed INDEXED count did not,
- * and it crosses the same serializer. graph-senior-dev executed the wire artifact:
+ * and it crosses the same serializer. the reviewer executed the wire artifact:
  *
  *     NaN       -> indexed_document_count: null    indistinguishable from ABSENT
  *     Infinity  -> indexed_document_count: null    same

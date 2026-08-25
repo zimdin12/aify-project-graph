@@ -1,6 +1,6 @@
 // COMPACTING A LEGACY GRAPH MUST ALSO CONVERT IT, OR IT REFILLS.
 //
-// ⛔ THIS DEFECT REACHED A USER AND I ASSERTED THE OPPOSITE. I told sc-manager that "an
+// ⛔ THIS DEFECT REACHED A USER AND I ASSERTED THE OPPOSITE. I told the field fleet that "an
 // existing database stays NONE until one full VACUUM", which reads as: run the compaction
 // and the mode converts. They ran it, got exactly the advertised result on size
 // (2.87 GB -> 36.4 MB, content identical), checked the mode, and reported it STILL 0.

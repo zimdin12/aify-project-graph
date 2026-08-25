@@ -115,7 +115,7 @@ function listDirSiblings(projectRoot, queriedFileRel) {
  */
 // ★ WE OWN A CALL GRAPH AND WERE USING THE FILESYSTEM AS THE HEURISTIC.
 //
-// Measured in the field (ef-manager, 2026-07-31): the first references call after a
+// Measured in the field (the field test, 2026-07-31): the first references call after a
 // restart spent ~22 SECONDS warming 15 files chosen by DIRECTORY ORDER — the
 // alphabetical head of engine/voxel/ — and not one of them was a caller. The answer
 // came back non-exhaustive anyway. His framing: "you own a call graph and you are

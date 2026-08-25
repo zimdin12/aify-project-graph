@@ -7,7 +7,7 @@ Immutable raw artifacts from the single authorized run. **Do not edit.**
 | preregistration | `tests/self-review/preregistrations/G8.json` |
 | authorized commit | `c748f4231a51e32d9fa023127efb16ff8a95aee9` |
 | authorized tree | `4ab0bff50eb661598fe876629f93d042fd84a650` |
-| referee | graph-senior-dev, approval msg `1787266025666-e83bb59d` |
+| referee | the reviewer, approval msg `1787266025666-e83bb59d` |
 | run id | `cd87e1c6-9d70-4565-95ab-768e30ae6590` |
 | carrier | detached disposable worktree, `node_modules` by junction, disposed after |
 

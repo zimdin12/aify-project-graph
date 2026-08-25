@@ -7,7 +7,7 @@ import {
 import { buildReferencesEvidence } from '../../../mcp/stdio/query/verbs/code_intel_live.js';
 import { buildHierarchyEvidence } from '../../../mcp/stdio/query/verbs/code_intel_hierarchy.js';
 
-// graph-senior-dev, ruling 2026-08-25: deleting `degraded` and `operationallyDegraded` is
+// review ruling 2026-08-25: deleting `degraded` and `operationallyDegraded` is
 // APPROVED AS A TARGET, immediate silent deletion REFUSED, because:
 //
 //     "After deletion, `undefined` is falsy and `if (!evidence.degraded)` becomes true —
@@ -66,7 +66,7 @@ describe('canInterpretEvidence — FAILS CLOSED, which is the entire point', () 
 
   // ⛔ A CONTRACT VERSION IS A POSITIVE IDENTITY. 0 and negatives name no contract that has ever
   // existed, so they are malformed carriers, not "older schemas" — and `seen <= understood` waved
-  // every one of them through. graph-senior-dev found this while checking the tripwire:
+  // every one of them through. the reviewer found this while checking the tripwire:
   //
   //     "a forged/corrupt contractVersion:-1 would be interpreted under contract 1 or 2 despite
   //      naming no real contract."

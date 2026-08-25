@@ -7,7 +7,7 @@
 // decides how much output is allowed and which mode shape applies, and turns a caller string into
 // a resolved overlay entity. It decides nothing about presentation and renders no governed list.
 //
-// ⛔ NEVER IMPORT packet.js. That is the cycle graph-senior-dev pre-registered as one of the
+// ⛔ NEVER IMPORT packet.js. That is the cycle the reviewer pre-registered as one of the
 // three failures I would cause; packet-authority-boundaries.test.js fails if it appears.
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';

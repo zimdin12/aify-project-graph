@@ -39,7 +39,7 @@ export function emptyTypesAmong(db, types) {
   }
 }
 
-// Types this verb does NOT search but which HAVE nodes here. ef-manager's point, and it is
+// Types this verb does NOT search but which HAVE nodes here. the field test's point, and it is
 // symmetrical to the empty-type list: for a reader deciding "can this verb find my thing", a
 // present-but-excluded type is exactly as decisive as a declared-but-empty one — and unlike the
 // first it is currently invisible. On echoes that hides 183 `Symbol` nodes and 1 `BuildTest`.
@@ -78,7 +78,7 @@ export function missScopeNote(db, { types, what = 'declaration types' } = {}) {
   ];
   if (empty.length > 0) {
     // ⛔ THE REMEDY NAMED A DOOR THAT CANNOT OPEN FOR THE CASE IT HAD JUST DIAGNOSED.
-    // ef-manager followed it: this line said "use graph_search", and graph_search reads the SAME
+    // the field test followed it: this line said "use graph_search", and graph_search reads the SAME
     // node table — so a constant that is not a node cannot be found by a second verb that
     // queries nodes. Confirmed live on echoes: kEquatorLatBandsPerShell exists at
     // CylindricalPosition.h:102 and graph_search returns NO RESULTS.

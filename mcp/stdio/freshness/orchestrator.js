@@ -88,7 +88,7 @@ export const PARSER_BUNDLE_VERSION = '2026.04.16';
 // BuildTarget to CMakeLists.txt) that the loop would otherwise delete-then-not-
 // re-extract; clearSpecialNodes rebuilds the whole set each full index instead.
 // ⚠ EXPORTED so a gate can observe the RUNTIME OBJECT rather than a regex approximation of this
-// line's spelling. graph-senior-dev: a source parse is intentionally weaker than structural
+// line's spelling. the reviewer: a source parse is intentionally weaker than structural
 // ownership — a rename makes the parse vacuous and the test goes quietly green.
 //
 // These are the FILE-INDEPENDENT node types: a per-file delete must not touch them (they are not
@@ -236,7 +236,7 @@ export async function ensureFresh({
     // `[]` there means "no delta was needed", which is true. `null` would mean "the delta could not
     // be computed", and since that forces a full rebuild below, EVERY ORDINARY RUN WOULD REBUILD.
     //
-    // Flagged by ef-manager reviewing 9c94586: correct, but silently so. A reader making the two
+    // Flagged in field testing reviewing 9c94586: correct, but silently so. A reader making the two
     // branches "consistent" would introduce the exact over-correction the fix was written to avoid.
     const changedFromCommit = !force && manifest.commit && manifest.commit !== commit
       ? await getChangedFiles(repoRoot, manifest.commit, commit)
@@ -551,7 +551,7 @@ export async function ensureFresh({
           // non-fatal" described the intent and not the effect.
           //
           // Combined with a success envelope that reports `indexed: true`, that is the
-          // upstream failure graph-senior-dev named from four separate projects
+          // upstream failure the reviewer named from four separate projects
           // (codegraph #1502 "complete" with 0 files · #1361 lock failure → "up to date" ·
           // Understand #628 dropped cross-batch edges · graphify #2520 parse holes with
           // exit 0), and the generalisation is theirs: SUCCESS MUST ATTEST CORPUS AND
@@ -597,7 +597,7 @@ export async function ensureFresh({
         } catch (err) {
           // ★ A ROLLBACK UNDOES SQL. IT DOES NOT UNDO JAVASCRIPT.
           //
-          // graph-senior-dev, executable probe with a SQLite trigger, 2026-08-11. The
+          // the reviewer, executable probe with a SQLite trigger, 2026-08-11. The
           // old code rolled back the transaction and then kept the JS-side `refs`,
           // `computedFingerprints` and `existingFiles` accumulated inside it. Three
           // consequences, in ascending order of seriousness:
@@ -862,7 +862,7 @@ export async function ensureFresh({
       const skippedPaths = new Set(skipped.map((s) => s.file));
       const nextManifest = {
         // ⚠ 'ok' MEANS THE RUN FINISHED, NOT THAT THE CORPUS IS COMPLETE. Deliberate,
-        // and ef-manager flagged it as arguable: a status that goes non-ok on any skip
+        // and the field test flagged it as arguable: a status that goes non-ok on any skip
         // would make one 4 MB vendored header look like a failed rebuild, and callers
         // would learn to ignore it. The completeness signal is skippedFileCount, which
         // is precise, and graph_health leads with it. Revisit if 'ok' is ever read as
@@ -897,7 +897,7 @@ export async function ensureFresh({
         skippedFileCount: skipped.length,
         skippedFiles: skipped.slice(0, 50),
         // ⭐ THE CORPUS DENOMINATOR, FROM THE CODE THAT OWNS THE DECISION.
-        // ef-manager measured 52.7% of this repo's markdown never becoming a Document node — by
+        // the field test measured 52.7% of this repo's markdown never becoming a Document node — by
         // running `git ls-files` from OUTSIDE, because the sweep published no number. Their
         // caveat is why this comes from here rather than from their instrument: the sweep's
         // candidate set is git candidates layered over the ignore parser, minus binary and minus
@@ -962,7 +962,7 @@ export async function ensureFresh({
         //
         // `existingFiles` is populated BEFORE the size/read/parse checks, so
         // `processedFiles` was listing files the run had deleted and failed to
-        // re-extract. Found by ef-manager on a 4.1 MB miniaudio.h, 2026-08-11: the file
+        // re-extract. Found in field testing on a 4.1 MB miniaudio.h, 2026-08-11: the file
         // appeared in processedFiles, `graph_whereis("ma_device_init")` returned NO
         // MATCH, and the response carried no disclosure at all.
         //

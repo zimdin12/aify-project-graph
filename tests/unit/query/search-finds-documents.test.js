@@ -144,7 +144,7 @@ describe('a document is findable by its TITLE, not only by its filename', () => 
   }, 30_000);
 
   it('★★★ a query matching NOTHING still returns nothing — the slot promotes no filler', async () => {
-    // ⛔ ef-manager's second probe, and the reason it exists: `kind:"all"` RESERVES page space for
+    // ⛔ the field test's second probe, and the reason it exists: `kind:"all"` RESERVES page space for
     // widened types, and a reserved slot is a strong incentive to promote something. A discovery
     // surface that answers every question is worse than one that admits it has no answer — the
     // absence-claim defect class, arriving through a ranking feature rather than a query.

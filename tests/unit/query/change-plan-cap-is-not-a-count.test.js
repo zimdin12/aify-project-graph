@@ -1,6 +1,6 @@
 // A DISPLAY CAP WAS BEING REPORTED AS A POPULATION.
 //
-// Third instance of one class, found by ef-manager's mechanical sweep after the first two:
+// Third instance of one class, found in field testing's mechanical sweep after the first two:
 // symbol_lookup reported a candidate CAP as a total, graph_packet's DEFINED IN listed 3 of
 // 16 in silence, and here `testFiles` was cut to `top_k` (default 6) and its length then
 // emitted as the count in the SIGNALS line.

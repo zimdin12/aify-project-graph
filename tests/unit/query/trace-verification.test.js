@@ -1,6 +1,6 @@
 // ★ graph_trace INLINES THE MOST SOURCE AND WAS VERIFYING THE LEAST.
 //
-// graph-senior-dev's review, 2026-08-11, reproduced live against a real C++ graph:
+// the reviewer's review, 2026-08-11, reproduced live against a real C++ graph:
 //
 //   1. The no-path branch renders endpoint bodies with `symbol: "FROM: ${label}"` /
 //      `"TO: ${label}"`. Those strings cannot occur in source, so the drift proof fired

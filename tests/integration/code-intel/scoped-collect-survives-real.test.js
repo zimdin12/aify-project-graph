@@ -1,6 +1,6 @@
 // THE VERIFICATION THAT WAS WAITING ON A BUSY AGENT.
 //
-// sc-manager framed the real test better than I had: "the real test is not 'does
+// the field fleet framed the real test better than I had: "the real test is not 'does
 // the spine come back,' it's does the spine SURVIVE a subsequent one-file scoped
 // collect. Restoring it and then re-wiping it would be the same bug wearing a
 // fresh number."

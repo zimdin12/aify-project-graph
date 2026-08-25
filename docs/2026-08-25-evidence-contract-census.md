@@ -1,6 +1,6 @@
 # Census — every reader of `degraded` / `operationallyDegraded`
 
-**Step 2 of the migration `graph-senior-dev` ruled on 2026-08-25.** He approved deleting both
+**Step 2 of the migration `the reviewer` ruled on 2026-08-25.** He approved deleting both
 booleans as a *target* and **refused immediate silent deletion**, requiring a versioned
 fail-closed migration. Step 2 is this census, and it gates every later step.
 
@@ -23,7 +23,7 @@ CLAIMS on falsy.
 
 ## ⭐ Result: ZERO dangerous falsy reads of the contract field
 
-The pattern dev warned about — `if (!evidence.degraded)` — **does not exist anywhere.**
+The pattern the reviewer warned about — `if (!evidence.degraded)` — **does not exist anywhere.**
 
 ⚠ One near-miss, checked and cleared. `providers/cpp-clangd.js:593` contains
 `if (!degraded) refsCleanNotFoundSymbols += 1;`, which looks exactly like the hazard and feeds a
@@ -53,7 +53,7 @@ if (evidence.degraded && evidence.cause && !STANDING_CAUSES.has(evidence.cause))
 It is the sticky-degraded tracker, and it already **requires `cause`** alongside the boolean.
 
 ⛔ **RETRACTED 2026-08-25 — I CLAIMED THIS WAS A NO-OP AND IT IS NOT.** The original text here said
-dev's step 5 was *"smaller than it sounds: the branch can drop the `degraded &&` term and read
+the reviewer's step 5 was *"smaller than it sounds: the branch can drop the `degraded &&` term and read
 `cause` alone without altering its behaviour, because `cause` is non-null exactly when `degraded`
 is true."* I read that off the code. I did not exercise it.
 
@@ -74,7 +74,7 @@ the two fields as interchangeable. The checker is kept as an instrument for exac
 
 ## `operationallyDegraded` HAS crossed a release boundary
 
-Dev's step 7 says remove it outright if it has not shipped, otherwise deprecate it in the same
+The reviewer's step 7 says remove it outright if it has not shipped, otherwise deprecate it in the same
 window. Verified with `merge-base`: it entered at `b396c0a`, which **is** contained in `v0.7.0`
 and therefore in `v0.7.1`. So it has shipped twice and takes the deprecation path, not deletion.
 
@@ -87,12 +87,12 @@ is met.
 - **External consumers.** Nothing in this repo can tell whether an installed integration outside
   it reads `evidence.degraded`. The 8 `integrations` hits are our own skill text, which we ship;
   a third-party reader would be invisible here.
-- **That deletion is safe.** It establishes that the *specific hazard dev named* is absent from
+- **That deletion is safe.** It establishes that the *specific hazard the reviewer named* is absent from
   this codebase. Steps 1 and 3–8 are untouched.
 - **Persisted records.** `schema_version: '0.2'` records carry a `cause` column; whether any
   stored payload embeds `degraded` is not audited here.
 
-## Next steps, in dev's order
+## Next steps, in the reviewer's order
 
 1. bump an explicit evidence-contract version — ✅ `e0fbddd`, `contractVersion: 1`
 2. census — ✅ this document

@@ -3,7 +3,7 @@
 //
 // Drives the three locked Sand Castle questions (Q1 step refs, Q2
 // sample_pressure hover, Q3 body_count absence-refusal) via direct
-// APG module calls. Same shape graph-senior-dev's codex arm produced.
+// APG module calls. Same shape the reviewer's codex arm produced.
 //
 // HARD CONSTRAINT: read-only. Never writes to the target tree. No
 // temp-patch diagnostics question (T6 from the cpp-microbench) —

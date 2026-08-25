@@ -30,7 +30,7 @@ import { documentEvidence, buildDocumentView } from './document-view.js';
  * What the graph holds about documents, as ONE typed answer every surface renders.
  *
  * ⛔ THE FIRST VERSION OF THIS STATE SHIPPED ON ONE SURFACE AND NAMED CAUSES IT COULD NOT ESTABLISH.
- * graph-senior-dev executed the same input through every renderer:
+ * the reviewer executed the same input through every renderer:
  *
  *     full markdown  state emitted        agent brief   SILENT
  *     onboard brief  SILENT               JSON          SILENT (no count, no state)
@@ -67,7 +67,7 @@ import { documentEvidence, buildDocumentView } from './document-view.js';
  *     const view = data.documentView ?? buildDocumentView({ ...documentCandidateCount... });
  *
  * That preserved the OLD authority beside the canonical model. It cannot reconstruct linked items
- * or positional rows, and it emitted confident counts anyway — so graph-senior-dev executed it and
+ * or positional rows, and it emitted confident counts anyway — so the reviewer executed it and
  * got the four-way disagreement back:
  *
  *     full markdown  SILENT (no items, so the section fell through)
@@ -174,7 +174,7 @@ export function renderMarkdown(data) {
   //
   // I pre-registered the abandon rule before any number existed: if a repo's own stated entry point
   // falls outside the top 2 on a majority of ground-truth corpora, the feature is WITHDRAWN rather
-  // than tuned. ef-manager graded it, pre-registration committed at 6beb00c BEFORE the run and
+  // than tuned. the field test graded it, pre-registration committed at 6beb00c BEFORE the run and
   // results at 7ca476e:
   //
   //     ordering                     echoes   sand_castle   passed
@@ -185,7 +185,7 @@ export function renderMarkdown(data) {
   // 0 of 2. `echoes` states "Read AGENTS.md first" in CLAUDE.md line 3; the ranking returned two
   // four-month-old contracts and AGENTS.md ranked 9 of 99.
   //
-  // ⇒ graph-senior-dev ruled the same independently: "a warning beside a wrong answer is not a
+  // ⇒ the reviewer ruled the same independently: "a warning beside a wrong answer is not a
   // corrected answer." Disclosure does not rescue a known-wrong recommendation occupying the
   // privileged first position. The measurements are real and stay, under a name that says what they
   // are — link prominence, not a reading order.
@@ -292,7 +292,7 @@ export function renderMarkdown(data) {
 // Dense prompt substrate. Target ~300-450 tokens. No prose, key/value shape.
 // A SHARED ARTIFACT THAT DOES NOT SELF-DATE ROTS SILENTLY.
 //
-// Field feedback (ef-manager, 2026-07-30): the briefs are the nearest thing this
+// Field feedback (the field test, 2026-07-30): the briefs are the nearest thing this
 // tool has to shared TEAM understanding of a codebase, and on his repo they sat 96
 // days stale while four agents worked around them. The staleness was visible ONLY
 // in graph_health — a verb none of them called. A brief read straight off disk
@@ -723,7 +723,7 @@ export function renderJson(data, repoRoot) {
   // (rendered) and have to be recomputed from tasks.json by any consumer."
   const tasksByFeature = openTasksByFeature(tasksArtifact);
   return {
-    // ⛔ A VERSION, BECAUSE `read_first` CHANGED POPULATION SILENTLY. graph-senior-dev's required
+    // ⛔ A VERSION, BECAUSE `read_first` CHANGED POPULATION SILENTLY. the reviewer's required
     // receipt for an intentional break: document entries left `read_first` for
     // `linked_document_candidates`, and without a discriminator a programmatic consumer cannot tell
     // "no documents were recommended" from "the producer changed the contract". Those are the same

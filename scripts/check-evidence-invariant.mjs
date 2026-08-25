@@ -6,7 +6,7 @@
 //
 //     if (evidence.degraded && evidence.cause && !STANDING_CAUSES.has(evidence.cause))
 //
-// and I claimed — in a committed census, and to graph-senior-dev — that it could drop the
+// and I claimed — in a committed census, and to the reviewer — that it could drop the
 // `degraded &&` term with NO behaviour change "because cause is non-null exactly when degraded is
 // true". I had READ that, not exercised it.
 //

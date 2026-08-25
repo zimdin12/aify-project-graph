@@ -57,7 +57,7 @@ for (const [f, src] of sources) { for (const k of readKeys(src, f)) readEverywhe
  *
  * ⛔ MY FIRST STATED REASON COVERED 38% OF THAT POPULATION. I wrote that a sample is `windowsHide`,
  * `recursive`, `withFileTypes` — Node API options consumed by Node rather than by our code. True,
- * and measured by ef-manager at 114 hits across 7 keys. The other 186 hits across 77 keys are
+ * and measured in field testing at 114 hits across 7 keys. The other 186 hits across 77 keys are
  * project-domain names: `minimum`/`maximum` (JSON Schema, read by ajv), `dynamicRegistration` (read
  * by the language server), `evidence_records`, `repositoryExhaustive`, `measured`.
  *
@@ -66,7 +66,7 @@ for (const [f, src] of sources) { for (const k of readKeys(src, f)) readEverywhe
  * original text argued — the correction strengthens the decision rather than undermining it.
  *
  * ⛔⛔ AND THE PROOF IS NOT HYPOTHETICAL. `measured` is written at health.js:103, has ZERO in-repo
- * reads, and travels in graph_health's storage block. ef-manager READ IT THIS SESSION, out of this
+ * reads, and travels in graph_health's storage block. the field test READ IT THIS SESSION, out of this
  * tool's own output, while checking a server buildId. A field this detector calls unread was
  * consumed by an agent, from our product, today.
  *

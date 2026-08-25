@@ -1,6 +1,6 @@
 // AN INSTALLED SKILL IS A COPY, AND COPIES DO NOT LEARN.
 //
-// graph-senior-dev, 2026-08-19: `skill_view('cpp-inner-loop')` in their live profile still
+// review, 2026-08-19: `skill_view('cpp-inner-loop')` in their live profile still
 // served the WITHDRAWN contract — that `evidence.exhaustive === true` is the safe basis for a
 // dead-code claim — because skills ship by copying this tree and an installed copy never
 // updates when the server does. They patched their own profile; every other existing install

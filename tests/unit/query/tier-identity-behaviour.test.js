@@ -1,6 +1,6 @@
 // BEHAVIOURAL replacement for the source-grep half of tier-identity-check.test.js.
 //
-// graph-senior-dev's scope-4 audit (2026-08-10) found that 68 of 1,593 declared
+// the reviewer's scope-4 audit (2026-08-10) found that 68 of 1,593 declared
 // cases invoke ZERO production behaviour — they read implementation files and
 // assert regexes, token order, or comments. All 68 would stay green if the named
 // behaviour became unreachable while the matched source spelling survived.
@@ -141,7 +141,7 @@ describe('tests_adjacent tiers — behaviour, not source text', () => {
   });
 
   it('★ but an IMPORTS edge does NOT clear it — file evidence cannot discharge a symbol caveat', async () => {
-    // ef-manager's granularity rule. `import_linked` is a true claim about the FILE;
+    // the field test's granularity rule. `import_linked` is a true claim about the FILE;
     // `tests_unverified_for_symbol` is a claim about the SYMBOL. File-level evidence
     // cannot discharge it at any file size.
     const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));

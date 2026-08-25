@@ -1,6 +1,6 @@
 // THE COUNT WAS OVER PATHS AND CLAIMED TO BE OVER EDGES.
 //
-// ⛔ FIELD REPORT (ef-manager, 2026-08-19, build 754223f). `graph_impact(symbol:
+// ⛔ FIELD REPORT (the field test, 2026-08-19, build 754223f). `graph_impact(symbol:
 // "renderPacketLines")` at the default depth=3 rendered five EDGE rows, two of them
 // byte-identical, and then stated `[5 edges found …]`. There are FOUR distinct edges.
 //
@@ -13,7 +13,7 @@
 // `depth` in the distinct key — so one edge reachable by two paths of different lengths
 // survives twice. There is no edge-level visited set.
 //
-// ★★ THIS IS THE PROMOTION SHAPE FOR THE THIRD TIME, and ef-manager is right that it is no
+// ★★ THIS IS THE PROMOTION SHAPE FOR THE THIRD TIME, and the field test is right that it is no
 // longer incidental: a cosmetic repeat becomes a FALSE ASSERTION the moment something states a
 // count over the list. I deduped the packet NEXT list at emission this morning; its sibling
 // emitter states a number over an un-deduped list.
@@ -90,7 +90,7 @@ describe('graph_impact edge accounting', () => {
   }, 20_000);
 
   it('★★★ depth=1 and depth=3 agree about the edges they share', async () => {
-    // ef-manager's own discriminator: the duplicate appeared only at depth 3. If the two depths
+    // the field test's own discriminator: the duplicate appeared only at depth 3. If the two depths
     // disagree about an edge's existence, the walk is counting traversals, not edges.
     repoRoot = await diamondRepo();
     const shallow = await graphImpact({ repoRoot, symbol: 'target', depth: 1 });

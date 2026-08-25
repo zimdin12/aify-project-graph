@@ -6,7 +6,7 @@
 // English word — `files`, `file`, `repo`, `read`. The document contained the WORD; we recorded an
 // edge to the FUNCTION.
 //
-// graph-senior-dev's ruling was DELETE AND REDERIVE: "remove every edge emitted by the legacy
+// the reviewer's ruling was DELETE AND REDERIVE: "remove every edge emitted by the legacy
 // mentions extractor from the consumable graph and rebuild under a new extractor version." Their
 // invariant: a stored doc edge must carry a recoverable source span and a deterministic resolution
 // path to exactly one node.
@@ -236,7 +236,7 @@ describe('miss buckets name the reason, not the rule that refused', () => {
   it('★★★ an AMBIGUOUS basename is not reported as an unindexed path', async () => {
     // ⛔ FOURTH LYING BUCKET, AND IT WAS INSIDE THE SPLIT BUILT TO STOP BUCKETS LYING.
     //
-    // ef-manager graded `path_not_indexed = 228` on this repo: 28 of them were bare basenames
+    // the field test graded `path_not_indexed = 228` on this repo: 28 of them were bare basenames
     // whose file IS in the graph at two or more paths — `server.js`, `render.js`, `extract.js`,
     // `schema.js`. rule 1 correctly refuses an ambiguous basename rather than picking one, but
     // its refusal and its no-such-file both return null, so ambiguity had nowhere to go.
@@ -308,7 +308,7 @@ describe('RULE 3 IS DELETED — 0.9311 on held-out data, against a 0.95 floor', 
   // because the deleted rule's own tests are the cheapest guard against it being reintroduced by
   // someone who reads the shape argument and finds it persuasive. It IS persuasive. It is wrong.
   //
-  // THE MEASUREMENT. Graded blind by ef-manager on three corpora that had never been indexed —
+  // THE MEASUREMENT. Graded blind in field testing on three corpora that had never been indexed —
   // graphify b14b52e9, agent-understand-anything 32944829, codegraph c6aaa203 — because the
   // previous 0.972 came from the corpus the rule had been tuned against three times.
   //
@@ -395,7 +395,7 @@ describe('the recoverable-source-span invariant', () => {
     // perfectly and cite a line the token does not appear on, and every grader reading
     // doc:line -> symbol would score it correct because they judge the resolution.
     //
-    // ef-manager ran it as a one-off over the 71 live edges (0 of 71 missing) while grading rule
+    // the field test ran it as a one-off over the 71 live edges (0 of 71 missing) while grading rule
     // 3, and it is exactly the check that would catch an off-by-one in the scanner, a fence
     // toggle drifting the line counter, or a re-scan on stale content. Every one of those breaks
     // the promise the layer exists to make while leaving the resolution untouched.
@@ -460,7 +460,7 @@ describe('the recoverable-source-span invariant', () => {
 // They are ordinary English words. Scoped to that file they are three unambiguous methods.
 //
 // ⭐⭐ AND IT IS WHY THIS RULE SURVIVED THE GRADING THAT KILLED RULE 3. Both surviving rules put a
-// STRUCTURAL ANCHOR ADJACENT TO THE TOKEN — a path in scope, or a `Class.` prefix. ef-manager
+// STRUCTURAL ANCHOR ADJACENT TO THE TOKEN — a path in scope, or a `Class.` prefix. the field test
 // regraded all 125 surviving edges at full source text after finding their first pass had used
 // ±85-character windows; 63 of the 125 had been truncated and ZERO verdicts moved. The anchor is
 // adjacent by construction, so even a cut sentence carried the deciding evidence. Rule 3's only
@@ -575,7 +575,7 @@ describe('a code span names ONE thing, and the thing is at its head', () => {
   });
 
   it('★★★ DECLARATION KEYWORDS are skipped — naive head position drops a real reference', () => {
-    // ⛔ THE VERSION I PROPOSED WOULD HAVE DROPPED A TRUE POSITIVE, and ef-manager measured that
+    // ⛔ THE VERSION I PROPOSED WOULD HAVE DROPPED A TRUE POSITIVE, and the field test measured that
     // before I applied it rather than after:
     //
     //     `npm rebuild better-sqlite3`               head `npm`     -> the FP, correctly dropped

@@ -5,7 +5,7 @@
 // its own edges" became provider-blind — a C++ collect entitled to delete TypeScript evidence. The
 // comment never stopped being true-looking; it stopped being true.
 //
-// ef-manager ran the search that rule implies and found three more deletes with the same
+// the field test ran the search that rule implies and found three more deletes with the same
 // structure, all currently sound for the same reason cpp-clangd# was sound until it was not:
 //
 //     analysis/doc-links.js         DELETE ... relation='LINKS_TO' AND extractor LIKE 'doc_link:%'

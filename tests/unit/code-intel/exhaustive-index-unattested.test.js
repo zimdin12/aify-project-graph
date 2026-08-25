@@ -1,6 +1,6 @@
 // ⛔⛔⛔ REMEDY 3 — 100% COMPILE-DB MEMBERSHIP IS NOT PROOF CLANGD INDEXED THE TU.
 //
-// graph-senior-dev executed this against real clangd/clang-cl 22.1.6 on committed 7a46e4c,
+// the reviewer executed this against real clangd/clang-cl 22.1.6 on committed 7a46e4c,
 // AFTER the coverage fix landed:
 //   include/api.h defines target(); src/visible.cpp and src/hidden.cpp each call it.
 //   BOTH are in compile_commands — 2 on disk, 2 covered, ratio 1, censusFresh true.
@@ -31,7 +31,7 @@
 // ⚠ SCOPED TO WHAT WAS EXECUTED. The grant site is only reachable when `coverage.complete` is
 // true, which is the C++/clangd path. Non-cpp callers pass no coverage and were already
 // downgraded by the fail-closed gate. This does not extend a clangd finding to tsserver —
-// the same discipline graph-senior-dev applied to my localization/reference over-extension.
+// the same discipline the reviewer applied to my localization/reference over-extension.
 import { describe, it, expect } from 'vitest';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { buildReferencesEvidence } from '../../../mcp/stdio/query/verbs/code_intel_live.js';

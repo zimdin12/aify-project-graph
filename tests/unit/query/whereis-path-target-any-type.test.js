@@ -1,6 +1,6 @@
 // THE FIX THAT UNDER-ENUMERATED, IN THE FUNCTION WHOSE COMMENT WARNS ABOUT UNDER-ENUMERATING.
 //
-// ⛔ FIELD REPORT (ef-manager, 2026-08-19, against 528a68c). The path-target branch probes
+// ⛔ FIELD REPORT (the field test, 2026-08-19, against 528a68c). The path-target branch probes
 // `type IN ('File','Directory')`. This graph also holds 69 `Document` and 54 `Config` nodes —
 // 123 real indexed files on disk — and every one of them still answered `NO MATCH`:
 //
@@ -62,7 +62,7 @@ describe('graph_whereis given a path that is indexed', () => {
     }, 20_000);
   }
 
-  // The two ef-manager found in the field. 123 nodes in our own graph.
+  // The two the field test found in the field. 123 nodes in our own graph.
   for (const type of ['Document', 'Config']) {
     it(`★★★ does not claim absence for an indexed ${type} node`, async () => {
       repoRoot = await repoWithNode({ type, label: 'notes.md', filePath: 'docs/notes.md' });

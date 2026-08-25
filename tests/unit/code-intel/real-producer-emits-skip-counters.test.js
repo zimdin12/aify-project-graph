@@ -2,7 +2,7 @@
 //
 // skip-counters-provider-boundary.test.js registers a FAKE provider that fabricates the
 // session object, then asserts the counters come out of the collect verb. That proves
-// FORWARDING and nothing else. graph-senior-dev-hermes made the point by mutating the real
+// FORWARDING and nothing else. review, hermes session made the point by mutating the real
 // producer instead of the fake one: after all real measurements, immediately before
 // cpp-clangd's returned envelope, set both counters to ZERO while leaving every increment
 // site untouched. Across the boundary test, the downstream round-trip test, and the

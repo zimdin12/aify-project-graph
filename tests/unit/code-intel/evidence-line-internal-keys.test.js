@@ -1,6 +1,6 @@
 // AN INTERNAL METADATA KEY RENDERED AS AN OPERATION WITH NO STATUS.
 //
-// ⛔ ef-manager reported `_session=undefined` in the EVIDENCE banner on every echoes packet,
+// ⛔ the field test reported `_session=undefined` in the EVIDENCE banner on every echoes packet,
 // in both modes, and RE-RAISED IT after it survived two rounds of fixes — asking the right
 // question: deliberately deferred, or lost?
 //

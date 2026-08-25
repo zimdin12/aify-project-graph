@@ -59,7 +59,7 @@ agent find more true call sites — the missing third is an agent-thoroughness p
 a retrieval one."*
 
 ⛔ **PRECISION AND EXHAUSTIVENESS ARE ORTHOGONAL — do not let one become the other.**
-`graph-senior-dev`'s correction, 2026-08-19, and it is load-bearing: precision says every
+`the reviewer`'s correction, 2026-08-19, and it is load-bearing: precision says every
 *returned* caller is real; `exhaustive` asserts that **none was omitted**, which is a recall
 claim. The ~0.66 recall above is evidence **against** promoting precision into a completeness
 attestation. Their P0 fixture had perfect precision and false exhaustiveness at the same time —
@@ -113,7 +113,7 @@ independently confirms that LOCATE does not need us. And CodeCompass took G3 ado
 
 ⇒ **Tool descriptions and prompt placement are currently worth more measured points than
 index quality.** That is load-bearing engineering, not documentation — and it is the same
-conclusion ef-manager reached from the field on the same day, independently, via the
+conclusion the field test reached from the field on the same day, independently, via the
 schema-description asymmetry.
 
 ---

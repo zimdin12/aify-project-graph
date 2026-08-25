@@ -1,6 +1,6 @@
 // THE DISTRIBUTION, NOT THE TOTALS — AND THE DRIFT, NOT THE DISTRIBUTION.
 //
-// ⭐ ef-manager hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
+// ⭐ the field test hand-wrote `SELECT type, count(*) FROM nodes GROUP BY type` in THREE separate
 // review rounds, because nothing exposed it, and it produced a finding every time: four dead
 // declaration types, the 67%-unreachable figure, and echoes' 183 `Symbol` + 1 `BuildTest` nodes
 // that `graph_whereis` silently cannot return.
@@ -76,7 +76,7 @@ describe('the census reports the distribution and the drift', () => {
   }, 20_000);
 
   it('★★★ an undeclared RELATION and an undeclared PROVENANCE are surfaced too', async () => {
-    // ⛔ ONE OF THE THREE DIRECTIONS WAS EXERCISED AND TWO WERE NOT. ef-manager measured the live
+    // ⛔ ONE OF THE THREE DIRECTIONS WAS EXERCISED AND TWO WERE NOT. the field test measured the live
     // census: `present_but_undeclared` is EMPTY for node types, relations AND provenance on the
     // only corpus it has run against. My fixture covered the node-type direction with a
     // `Wormhole`; the relation and provenance directions had no fixture and no field instance —

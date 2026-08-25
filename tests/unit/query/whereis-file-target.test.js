@@ -1,6 +1,6 @@
 // TWO VERBS, ONE NODE, OPPOSITE ANSWERS ON WHETHER IT EXISTS.
 //
-// ⛔ FIELD REPORT (ef-manager). graph_whereis(symbol: "engine/rendering/GpuMaterialPalette.h")
+// ⛔ FIELD REPORT (the field test). graph_whereis(symbol: "engine/rendering/GpuMaterialPalette.h")
 // returned "NO MATCH", while graph_packet resolved the same path fine. Both verbs, same repo,
 // same node, contradicting each other about existence.
 //
@@ -85,7 +85,7 @@ describe('graph_whereis given a file path', () => {
 //     ALSO IN — showing 1 of 1:
 //     - mcp/stdio/query/verbs/packet.js
 // Three statements that cannot all be sensible together: the target is called a SYMBOL, said to
-// be defined nowhere, and then listed as a place it appears. ef-manager: "reads as a bug in the
+// be defined nowhere, and then listed as a place it appears. the field test: "reads as a bug in the
 // tool", and they are right — a reader cannot tell whether the packet failed or the repo is odd.
 //
 // ★ A file is not defined anywhere; it IS somewhere. So the label is wrong, the DEFINED IN

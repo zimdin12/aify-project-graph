@@ -1,6 +1,6 @@
 // ⛔ AN EMPTY DOC SECTION MEANT TWO DIFFERENT THINGS AND SAID NEITHER.
 //
-// ef-manager found it while grading the ranking on other corpora: a repo with 15,628 nodes, 50,527
+// the field test found it while grading the ranking on other corpora: a repo with 15,628 nodes, 50,527
 // edges and ZERO Document nodes, whose AGENTS.md, CLAUDE.md and README.md all exist on disk. The
 // brief's doc section rendered EMPTY — indistinguishable from a repo that genuinely has no
 // documents, when the real state was that the doc layer had never ingested any.
@@ -54,7 +54,7 @@ describe('the doc section distinguishes its three states', () => {
     // The renderer knows the GRAPH holds zero Document nodes. It does not know whether the
     // REPOSITORY holds any: a document-free repo produces the identical input. Calling that an
     // ingestion gap and prescribing a re-index infers a cause from absence, in the same breath as
-    // a sentence saying not to — and ef-manager's field evidence killed the remedy too, since the
+    // a sentence saying not to — and the field test's field evidence killed the remedy too, since the
     // motivating repo's three root documents PASS the historical predicate.
     const md = renderMarkdown(baseData({ ...view([], 0, 0) }));
     const s = section(md);

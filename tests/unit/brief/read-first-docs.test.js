@@ -139,7 +139,7 @@ describe('the brief picks orienting documents by evidence, not by name', () => {
     //
     // It read "doc→doc links alone do not qualify a document as orienting", and it passed because
     // the candidate query joined from the candidate to a NON-Document target — so a document could
-    // not be a candidate unless it referenced code. graph-senior-dev executed the consequence:
+    // not be a candidate unless it referenced code. the reviewer executed the consequence:
     //
     //     other.md LINKS_TO docs/index.md, and the index has no outgoing code edge
     //     -> result: [{"file":"other.md","why":"root-level document; ... position, not evidence"}]
@@ -165,7 +165,7 @@ describe('the brief picks orienting documents by evidence, not by name', () => {
 // superseded-plan problem returns: coverage alone put a four-month-old v1 plan (36 code refs) above
 // README (27) on this repo. So recency is the second ordered signal.
 //
-// ★ ef-manager REFUTED THE OBVIOUS ALTERNATIVE WITH DATA BEFORE PROPOSING THIS ONE. Their
+// ★ the field test REFUTED THE OBVIOUS ALTERNATIVE WITH DATA BEFORE PROPOSING THIS ONE. Their
 // hypothesis was that a stale document's references fail to resolve. Measured, it ANTI-CORRELATES:
 // four-month-old plans resolve at 65-86% while documents updated this month resolve at 28-29%,
 // because resolution rate is a GENRE signal — a plan is nearly all code references, a README is
@@ -227,7 +227,7 @@ describe('recency decides when no document is treated as canonical', () => {
   }, 30_000);
 });
 
-// ⛔ THE HOSTILE WITNESSES graph-senior-dev EXECUTED AGAINST 900b7bb, kept as tests so the two
+// ⛔ THE HOSTILE WITNESSES the reviewer EXECUTED AGAINST 900b7bb, kept as tests so the two
 // defects cannot return quietly.
 describe('the ranking sees the whole population and only its own authority', () => {
   it('★★★ recency ranks EVERY candidate, not a pre-truncated sample', async () => {
@@ -304,7 +304,7 @@ describe('the ranking sees the whole population and only its own authority', () 
   }, 30_000);
 
   it('★★★ a stale top answer DISCLOSES how much of the corpus is newer', async () => {
-    // ⛔ ef-manager field-tested the ranking on echoes_of_the_fallen, whose CLAUDE.md line 3 says
+    // ⛔ the field test field-tested the ranking on echoes_of_the_fallen, whose CLAUDE.md line 3 says
     // verbatim "Read AGENTS.md first" — so the answer is written down, not judged:
     //
     //     rank 1  docs/contracts/worldbuffer-authority.md   2026-04-27

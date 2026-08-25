@@ -16,7 +16,7 @@ grow. Nine ways of returning a confident wrong "nothing calls this" were removed
 
 ### 2026-08-25 — six ways to return a confident empty caller set, and an adoption number
 
-**The shape all of these share** (sc-manager, field-probing sand_castle): *"an empty caller
+**The shape all of these share** (the field fleet, field-probing sand_castle): *"an empty caller
 set from a TU that never compiled is byte-identical to a TU with no callers."* That is the
 most expensive output this product can produce, on the one question grep cannot answer.
 
@@ -364,7 +364,7 @@ Sand Castle reported their Hermes managed agents couldn't see graph verbs at all
 
 - **`install.hermes.md` documented the wrong config entirely.** The JSON-patch fallback wrote `~/.config/hermes/hermes.json` → `mcpServers`. Hermes actually reads **`$HERMES_HOME/config.yaml`** (default `~/.hermes/config.yaml`) under a top-level **`mcp_servers`** key — YAML, not JSON. Anyone following the fallback produced a file Hermes never reads. Corrected in `install.hermes.md`, `README.md`, and the marketplace `runtime_configs` metadata.
 - **Documented the `platform_toolsets` filter.** Hermes exposes each MCP server as a dynamic toolset `mcp-<server>`; if a profile enables an explicit allowlist, the server connects fine but its tools are filtered out of the session. This gotcha was already recorded in our own plan doc (P0-6, marked DONE) but had never actually shipped into the install steps.
-- **Made that step conditional after a live counter-example.** sc-manager's config dump showed the server registered with **no** `platform_toolsets` section at all — so the allowlist wasn't the cause there, and blind-creating `cli: [hermes-cli, mcp-aify-project-graph]` would have RESTRICTED their session to those two toolsets and dropped whatever else loaded by default. Step 2b now appends only when an allowlist already exists, and explicitly says not to create one otherwise. (Root cause for that specific fleet is still open — likely the managed wrapper profile, not config.)
+- **Made that step conditional after a live counter-example.** the field fleet's config dump showed the server registered with **no** `platform_toolsets` section at all — so the allowlist wasn't the cause there, and blind-creating `cli: [hermes-cli, mcp-aify-project-graph]` would have RESTRICTED their session to those two toolsets and dropped whatever else loaded by default. Step 2b now appends only when an allowlist already exists, and explicitly says not to create one otherwise. (Root cause for that specific fleet is still open — likely the managed wrapper profile, not config.)
 
 ### 2026-07-10 — Sand Castle field report: staleness CTA, fixable pointer, path-arg parity
 
@@ -377,7 +377,7 @@ From a heavy 10-commit / 5-agent session where the index sat 166 commits behind 
 
 ### 2026-06-19 — compile-DB probe: prefer native over foreign + pin env (Sand Castle follow-up)
 
-Standing up the recommended `build-win-clangd` Windows DB didn't help — APG kept using the WSL `build/`. Root cause (sc-manager's diagnosis): the probe picked the candidate with the most first-party entries, so a foreign (Linux/WSL) DB with more entries beat the native one — and `build-win-clangd` wasn't even in the probe list. Three fixes:
+Standing up the recommended `build-win-clangd` Windows DB didn't help — APG kept using the WSL `build/`. Root cause (the field fleet's diagnosis): the probe picked the candidate with the most first-party entries, so a foreign (Linux/WSL) DB with more entries beat the native one — and `build-win-clangd` wasn't even in the probe list. Three fixes:
 
 - **`build-win-clangd` / `build-clangd` / `build-win` are now probed** (and listed first). The dir our own foreign-DB guidance tells users to create was never discovered — now it is.
 - **On win32, a NATIVE (non-foreign) compile DB beats a foreign (Linux/WSL) one regardless of entry count.** Host clangd can only compile the native DB, so a foreign DB with more entries still truncates — preferring it was backwards. Now `build-win-clangd/` wins over a WSL `build/` without touching the latter. Verified on the real sand_castle (now selects `build-win-clangd`, 441 entries, foreign=false).

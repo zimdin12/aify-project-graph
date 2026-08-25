@@ -9,7 +9,7 @@
 // sharing one canonical key clear BOTH ambiguity guards, reach `matched`, and are sliced to
 // 3 by pickPrimarySymbol. Canonical uniqueness is not row uniqueness.
 //
-// graph-senior-dev-hermes refuted it by EXECUTION on tree 2fcb7537: 9 `Class` rows, one
+// review, hermes session refuted it by EXECUTION on tree 2fcb7537: 9 `Class` rows, one
 // label, one file → object result, `symbols.length` 3, population 9, `referenced_in` 6, no
 // ambiguity string. The restored fields read 9 / true on that input.
 //
@@ -24,7 +24,7 @@
 //   9 rows / one key       -> matched, total 9, truncated TRUE   (the refuting case)
 //   60 rows / one key      -> NO matched block; refuses via AMBIGUOUS BY TRUNCATION
 //
-// ⚠ The first version of this file was itself vacuous, and in the exact way dev warned
+// ⚠ The first version of this file was itself vacuous, and in the exact way the reviewer warned
 // about: its second case opened with `if (typeof res === 'string' || !res?.matched) return;`
 // — and since this fixture always produces the string, the case returned before asserting
 // anything. A bare early return is a green result that checked nothing. Every branch below
@@ -88,7 +88,7 @@ const asText = (o) => (typeof o === 'string' ? o : JSON.stringify(o));
 
 describe('the expensive path states its candidate count where multiplicity happens', () => {
   it('★★ ABOVE THE RETRIEVAL CAP it states uncertainty, not the cap', async () => {
-    // ⛔ dev's withheld population: 60 definitions produced
+    // ⛔ the reviewer's withheld population: 60 definitions produced
     // "AMBIGUOUS MATCH … 50 concrete candidates found". `rows` is the LIMIT-50 page, so
     // the grouping counted identities among the first fifty and reported it as the
     // population — the cap-as-total defect reproduced ON THE PATH I MOVED THE CONTRACT
@@ -111,7 +111,7 @@ describe('the expensive path states its candidate count where multiplicity happe
   }, 30_000);
 
   it('★★ a page that COLLAPSES to one identity is not proof of uniqueness', async () => {
-    // dev's sharper point. buildAmbiguousMatchMessage returns null when the retrieved rows
+    // the reviewer's sharper point. buildAmbiguousMatchMessage returns null when the retrieved rows
     // resolve to a single identity, and everything downstream then treats the symbol as
     // unambiguous. With retrieval CAPPED that is a statement about the 50 rows we looked
     // at, not the 10 we never fetched — absence of contrary evidence read as evidence of
@@ -165,7 +165,7 @@ describe('the expensive path states its candidate count where multiplicity happe
   }, 30_000);
 
   it('★★ CONTROL 2 of 3 — NINE rows collapsing to ONE canonical key still reach `matched`, and must disclose 9', async () => {
-    // ⇒ THE REFUTING CASE, replayed from graph-senior-dev-hermes's executed counterexample.
+    // ⇒ THE REFUTING CASE, replayed from review, hermes session's executed counterexample.
     // Nine rows, one label, one file: canonical grouping sees a single identity, both
     // ambiguity guards pass, and pickPrimarySymbol slices the sample to 3. If the deleted
     // fields were restored wrongly — or deleted again — this is the arm that fails.

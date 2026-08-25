@@ -13,7 +13,7 @@
 // witnessed, and it STILL read as reassuring — **a number with a caveat is still a number.** Only
 // naming the missing rung fixed that. This file exists so the empty rungs stay visible.
 //
-// ⛔ AND THERE IS NO TARGET. graph-senior-dev's ruling: *"do not bulk-author 35 case/expect pairs
+// ⛔ AND THERE IS NO TARGET. the reviewer's ruling: *"do not bulk-author 35 case/expect pairs
 // and do not optimize toward 35/35. A target denominator would turn schema completion into
 // manufactured agreement."* Retirement is a correct ruling, not a denominator loss to hide.
 //
@@ -51,7 +51,7 @@ const ledger = () => JSON.parse(readFileSync(join(SPEC_DIR, LEDGER_FILE), 'utf8'
 
 describe('the witness migration ledger accounts for every declared spec', () => {
   it('★★★ the frozen baseline records what was true at b216323, and is not rewritten', () => {
-    // ⛔ IMMUTABLE. graph-senior-dev: *"do not rewrite history by calling pre-v3 declarations
+    // ⛔ IMMUTABLE. the reviewer: *"do not rewrite history by calling pre-v3 declarations
     // runnable."* If this ever needs to change, it is a new baseline with a new commit, not an
     // edit that makes the old numbers look better.
     const { frozenAt } = ledger();
@@ -121,7 +121,7 @@ describe('the witness migration ledger accounts for every declared spec', () => 
   it('★★★ the EXCLUSIVE state ledger sums to the declared population', () => {
     // ⛔⛔ I REPORTED A LADDER THAT COUNTED G8 TWICE AND SUMMED TO 36. I wrote
     // "1 runnable · 1 failure_observed_unattributed" for a single spec in a single state.
-    // graph-senior-dev caught it: the five states are EXCLUSIVE, so they must sum to the
+    // the reviewer caught it: the five states are EXCLUSIVE, so they must sum to the
     // population and nothing else. A ladder that double-counts inflates progress by construction.
     const entries = Object.values(ledger().entries);
     const count = (s) => entries.filter((v) => v.state === s).length;

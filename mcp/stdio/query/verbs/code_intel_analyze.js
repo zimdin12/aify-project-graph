@@ -26,7 +26,7 @@ function errorResponse(code, message, extra = {}) {
 
 // ⛔ THIS WAS A SECOND, INDEPENDENT COMPILE-DB DISCOVERY — a four-entry hardcoded list
 // (root, build/, build-linux/, cmake-build-debug/) that had drifted away from the real one.
-// Found by sc-manager on sand_castle, where it reported compile_db_missing while TWO compile
+// Found in the field on sand_castle, where it reported compile_db_missing while TWO compile
 // DBs sat in the repo, because neither `build-clangd-native` nor `build-win-clangd` was on its
 // list. It also ignored APG_COMPILE_DB — our own documented escape hatch — and ignored the
 // normalized DB that `doctor` had itself written at .aify-graph/code-intel/compile_commands.json.

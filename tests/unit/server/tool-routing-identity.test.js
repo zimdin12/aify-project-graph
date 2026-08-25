@@ -1,6 +1,6 @@
 // THE NAME A CALLER ASKS FOR MUST REACH THE VERB THAT NAME MEANS.
 //
-// graph-senior-dev-hermes misbound `graph_collect_code_intel` to `graphHealth` in the
+// review, hermes session misbound `graph_collect_code_intel` to `graphHealth` in the
 // server's tool table and the boundary + server-toolset suites stayed 19/19 GREEN. Every
 // test that exercises a verb imports it DIRECTLY — which proves the verb works and says
 // nothing about whether the RPC registry hands that name to that function.
@@ -121,7 +121,7 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
         response: reply,
         invoked: (r) => r?.result != null || r?.error != null,
         // ⚠ WAS `() => route.mustMatch.test(text)` — a closure over `text`, reading nothing
-        // from its argument. dev's finding, and my own helper now rejects it: a predicate
+        // from its argument. the reviewer's finding, and my own helper now rejects it: a predicate
         // that ignores the response cannot be evidence about the response.
         identity: (r) => route.mustMatch.test(JSON.stringify(r ?? {})),
         // ⚠ WAS an ABSENCE test (`r.error == null && !isError`), which is true of anything
@@ -178,7 +178,7 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
     //
     // It used to read: "a lookalike receives the same request and can echo anything in it.
     // What it CANNOT do is BEHAVE like the runner across calls." That was false, and
-    // graph-senior-dev-hermes refuted it by execution on ccb1093/8d2e184: in an isolated
+    // review, hermes session refuted it by execution on ccb1093/8d2e184: in an isolated
     // detached worktree they replaced only the `graph_collect_code_intel` registry handler
     // with an inline function that never called graphCollectCodeIntel, never called
     // runCollection, never obtained a provider, and never imported or persisted anything —
@@ -202,7 +202,7 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
     // clangd, which CI does not have." A cause cannot refer to a carrier that does not exist.
     //
     // ⇒ TWO SEPARATELY TYPED ABSENCES, measured 2026-08-12, neither generalisable to an
-    // environment nobody has inspected (dev's correction — I had collapsed them into one):
+    // environment nobody has inspected (the reviewer's correction — I had collapsed them into one):
     //
     //   (1) NO APPLICABLE LOCAL LANGUAGE-SERVER CAPABILITY OBSERVED. clangd,
     //       typescript-language-server, pyright, pyright-langserver and tsserver all probe
@@ -213,7 +213,7 @@ describe('the MCP registry routes each tool NAME to its own verb', () => {
     //
     // Neither absence implies the other, and neither is a property of the code under test.
     // ★ A gap excused by a constraint that does not exist is an unexamined gap wearing a
-    // reason — and I only looked because dev said to probe before finalising ABSENT rather
+    // reason — and I only looked because the reviewer said to probe before finalising ABSENT rather
     // than assume. The probe falsified my own stated cause.
     //
     // NAMED CLOSER (per dev, and capability admission must be MEASURED, not inferred — a

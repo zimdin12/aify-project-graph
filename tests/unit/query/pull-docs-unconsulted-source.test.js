@@ -1,6 +1,6 @@
 // ⛔ "NO DOCUMENTS, EXHAUSTIVELY" OVER TWELVE REAL DOCUMENTS.
 //
-// ef-manager, field-testing 6c2edb3 from the user's seat. They picked the best case in the repo —
+// the field test, field-testing 6c2edb3 from the user's seat. They picked the best case in the repo —
 // `mcp/stdio/server-instructions.js`, 12 inbound authored doc links, more than any other file —
 // and asked the verb an agent can actually reach:
 //
@@ -18,9 +18,9 @@
 //      list was not cut short — and a list nobody populated is `truncated: false`, therefore
 //      "proven". So the completeness machinery certified an absence it had never checked.
 //
-// ⚠ WHY THIS OUTRANKED EVERYTHING ELSE IN THE QUEUE. ef-manager: "an unreachable feature costs an
+// ⚠ WHY THIS OUTRANKED EVERYTHING ELSE IN THE QUEUE. the field test: "an unreachable feature costs an
 // agent nothing — they never learn it existed. A reachable verb saying 'no documents,
-// exhaustively' ACTIVELY TERMINATES the search." That search is Steven's compacted sc-manager
+// exhaustively' ACTIVELY TERMINATES the search." That search is Steven's compacted the field fleet
 // trying to remember the design doc exists. Before the doc layer landed, the graph had nothing to
 // be wrong about; after it, the graph held the answer and the front door denied it.
 import { describe, it, expect, afterEach } from 'vitest';
@@ -122,7 +122,7 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
   }, 60_000);
 
   it('★★★ REACHABLE-BY-ARGUMENT IS NOT REACHABLE — a default-layer pull discloses the docs it hid', async () => {
-    // ⛔ ef-manager, after verifying the fix worked, re-ran the SAME call with `layers` omitted —
+    // ⛔ the field test, after verifying the fix worked, re-ran the SAME call with `layers` omitted —
     // what an agent gets who reaches for the right verb without knowing the layer names. The
     // defaults are code/functionality/tasks/activity. Docs is not among them. The response
     // carried zero documents and nothing anywhere in it named a docs layer or hinted one existed.
@@ -134,7 +134,7 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
     const out = JSON.parse(await graphPull({ repoRoot: repo, node: 'src/terrain.js' }));
     // ⛔⛔ THIS TEST USED TO ASSERT `out.layers.docs` WAS UNDEFINED, with the comment "defaults are
     // unchanged — this is a disclosure, not a new default". That decision is SUPERSEDED, and the
-    // reason is in ef-manager's own sentence three lines above: an agent who reaches correctly and
+    // reason is in the field test's own sentence three lines above: an agent who reaches correctly and
     // does not know to type layers:["docs"] gets the same nothing.
     //
     // A pointer whose entire purpose is to make you ASK AGAIN for something we could have handed
@@ -163,7 +163,7 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
   }, 60_000);
 
   it('★★★ an empty docs answer distinguishes a TRUE zero from a BROKEN one', async () => {
-    // ⛔ ef-manager's residual on my own fix: "the morning bug returned items:[] + exhaustive:true
+    // ⛔ the field test's residual on my own fix: "the morning bug returned items:[] + exhaustive:true
     // over 12 real edges. The true zero I used as a control returns items:[] + exhaustive:true.
     // You fixed the data; you did not make the failure distinguishable from the success."
     //
@@ -235,7 +235,7 @@ describe('graph_pull docs — an unasked source is not an absence', () => {
 
 describe('the disclosure sentence agrees with its own counts — PROPERTY, not instances', () => {
   // ⛔ MY GRAMMAR FIX MATCHED A LIST OF THREE AND MISSED THE FOURTH CLAUSE IN THE SAME SENTENCE.
-  // ef-manager gave three examples — "1 do both", "1 only mention", "1 link" — and the leading
+  // the field test gave three examples — "1 do both", "1 only mention", "1 link" — and the leading
   // clause "1 document(s) relate" was the fourth member of the same class, untouched.
   //
   // Their diagnosis is the reason this test is shaped the way it is: "a defect report enumerating
@@ -334,7 +334,7 @@ describe('the disclosure sentence agrees with its own counts — PROPERTY, not i
 });
 
 describe('graph_pull resolves nodes that EXIST — "unresolved" is not "no docs"', () => {
-  // ⛔ ef-manager, census over the whole graph: 78 of 266 non-File doc-edge targets answered
+  // ⛔ the field test, census over the whole graph: 78 of 266 non-File doc-edge targets answered
   //     graph_pull("README.md") -> {"kind":"unresolved","value":"README.md"}
   // for a Document node with FIVE documents pointing at it. `.mcp.json` had nine.
   //
@@ -384,7 +384,7 @@ describe('graph_pull resolves nodes that EXIST — "unresolved" is not "no docs"
   }, 60_000);
 
   it('★★★ the code layer no longer asserts absence about a node that is present', async () => {
-    // ⛔ THE SECOND SITE, and ef-manager scoped it correctly: fixing the resolver alone IS enough
+    // ⛔ THE SECOND SITE, and the field test scoped it correctly: fixing the resolver alone IS enough
     // to surface the docs disclosure, because this gate fails soft. But those same nodes would
     // then be told "file not in graph" about a file that IS in the graph — the identical false
     // claim one layer down, on exactly the population just fixed. It is the ASSERTION, not the
@@ -393,7 +393,7 @@ describe('graph_pull resolves nodes that EXIST — "unresolved" is not "no docs"
     const out = JSON.parse(await graphPull({
       repoRoot: repo, node: 'docs/design.md', layers: ['code'],
     }));
-    // ⛔ AND THE KEY IS NO LONGER `error`. ef-manager: "This is not an error. It is a correct,
+    // ⛔ AND THE KEY IS NO LONGER `error`. the field test: "This is not an error. It is a correct,
     // complete answer to a question that does not apply to the node. The prose was fixed to stop
     // asserting a failure; the field name still asserts one, and a consumer branching on the
     // presence of `error` will treat 78 healthy nodes as 78 failures."
@@ -421,7 +421,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
   // and the one case where a pointer is the right answer rather than a stand-in for one.
   // Everything these tests pin — the noun, the three-way split, the reconciliation — is
   // unchanged; only the route that reaches it is.
-  // ⛔ ef-manager, from the user's seat: "12 document(s) reference this file." MENTIONS is
+  // ⛔ the field test, from the user's seat: "12 document(s) reference this file." MENTIONS is
   // Document→SYMBOL; LINKS_TO is Document→FILE. The count mixed both and attached the result to
   // the noun "this file". Proven on dedup-records.js — one document, CHANGELOG.md, which never
   // names that file; it names the SYMBOL dedupCollectionRecords.
@@ -471,7 +471,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
   }, 60_000);
 
   it('★★★ NEGATIVE CONTROL — a link-only file stays correct after the fix', async () => {
-    // ⚠ ef-manager: "A fix that makes the 83 right and quietly breaks the 166 that were already
+    // ⚠ the field test: "A fix that makes the 83 right and quietly breaks the 166 that were already
     // right is a worse build, and only a negative control catches it." server-instructions.js is
     // their real-world instance — 12 documents, all LINKS_TO, zero MENTIONS, verified including
     // the two rows truncated past the display limit.
@@ -483,7 +483,7 @@ describe('docs_not_shown — the noun, and the denominator', () => {
   }, 60_000);
 
   it('★★★ the SILENCE of the entries figure depends on MENTIONS having no line — pinned', async () => {
-    // ⛔ ef-manager cross-tabbed all 350 files with doc edges and found that 16 of the 19 where
+    // ⛔ the field test cross-tabbed all 350 files with doc edges and found that 16 of the 19 where
     // documents == layer-rows agree BY CONSTRUCTION, not by coincidence: MENTIONS edges carry no
     // source_line (2527 of 2527 are zero; LINKS_TO is 477 of 477 non-zero). With the fourth field
     // of the layer tuple constant, a mention-only file collapses to one row per document as a

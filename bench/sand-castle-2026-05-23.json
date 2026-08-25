@@ -1,5 +1,5 @@
 {
-  "_comment": "Plan #18 C — first real-data A/B against Sand Castle. Three queries with ground truth locked by graph-senior-dev on 2026-05-23. Run with: node scripts/bench-ab.mjs --config bench/sand-castle-2026-05-23.json --runs 4 --resolve-templates. Requires real Claude credits (~30-60 min wall-clock, ~$15-30 USD at Opus 4.7 pricing depending on token sizes). DO NOT run without explicit dashboard spend-ok. --dry-run is safe.",
+  "_comment": "Plan #18 C — first real-data A/B against Sand Castle. Three queries with ground truth locked in review on 2026-05-23. Run with: node scripts/bench-ab.mjs --config bench/sand-castle-2026-05-23.json --runs 4 --resolve-templates. Requires real Claude credits (~30-60 min wall-clock, ~$15-30 USD at Opus 4.7 pricing depending on token sizes). DO NOT run without explicit dashboard spend-ok. --dry-run is safe.",
   "name": "apg-vs-no-graph on Sand Castle, 2026-05-23",
   "runs": 4,
   "timeoutMs": 600000,

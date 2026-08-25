@@ -6,7 +6,7 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 
 // ⛔ `filesProcessedLatestCollection: null` MEANT TWO DIFFERENT THINGS.
 //
-// ef-manager, field-testing v0.7.0 on echoes: "filesProcessedLatestCollection null and
+// the field test, field-testing v0.7.0 on echoes: "filesProcessedLatestCollection null and
 // filesInScopeLatestCollection null. A per-collection disclosure that reads null tells a reader
 // nothing about whether supersession ran."
 //

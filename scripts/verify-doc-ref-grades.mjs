@@ -13,7 +13,7 @@
 // recompute and compare.
 //
 // ⚠ TWO SCHEMAS, ON PURPOSE, AND NEITHER IS REWRITTEN. My frozen artifact uses lowercase verdicts
-// on an `admitted` array with `pins`; ef-manager's standalone grades use uppercase verdicts on an
+// on an `admitted` array with `pins`; the field test's standalone grades use uppercase verdicts on an
 // `edges` array with `graded_at_commit`. Normalising theirs by editing it would mean me altering
 // another party's evidence, which defeats the point of it being another party's. So the READER
 // adapts, and the adapter is here where it can be tested rather than in each consumer.

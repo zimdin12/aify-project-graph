@@ -198,7 +198,7 @@ describe('graph_packet — schema invariants', () => {
     // Steers the agent to the symbol-context verbs.
     expect(out).toMatch(/graph_pull\(node="WorldBufferDomain"\)/);
     // ⚠ THIS USED TO ASSERT code_intel_hierarchy UNCONDITIONALLY, which pinned a defect rather
-    // than a behaviour. ef-manager found in the field that the line was emitted for JavaScript
+    // than a behaviour. the field test found in the field that the line was emitted for JavaScript
     // symbols (it is a compiler-backed verb), for FILE PATHS in a parameter named `symbol`, and
     // on repos where graph_health had just said no code-intel collection exists — so the verb
     // had nothing to answer with. This fixture has no collection, so the honest output omits it.
