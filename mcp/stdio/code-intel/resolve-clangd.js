@@ -12,6 +12,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { withHidden } from '../util/exec.js';
 import { hostToWsl } from './compile-db.js';
+import { clangdChildEnv } from './msvc-env.js';
 
 const WIN_LLVM_CLANGD = 'C:/Program Files/LLVM/bin/clangd.exe';
 
@@ -239,5 +240,14 @@ export function buildClangdSpawn({ compileDb, env = process.env, detect = detect
   if (compileDb && compileDb.found && compileDb.normalizedDir) {
     args.push(`--compile-commands-dir=${compileDb.normalizedDir}`);
   }
-  return { command, args };
+  // ⛔ WITHOUT THIS, EVERY TU INCLUDING A STANDARD HEADER RETURNS AN EMPTY CALLER SET, quietly.
+  // Measured 2026-08-25: 2 references vs 0 on identical TUs differing only by `#include <cstddef>`,
+  // status "ok" on both. clang-cl locates the MSVC STL through INCLUDE, and a clangd child inherits
+  // whatever the MCP server was launched with — on a normal shell, nothing. `--query-driver=*`
+  // above does NOT cover it; that interrogates a GCC-style driver and supplies no MSVC paths.
+  //
+  // The headers were never missing. On this machine <cstddef> and <chrono> sit in
+  // VC/Tools/MSVC/14.43.34604/include the whole time — clangd was simply never told where.
+  const { env: childEnv, msvc } = clangdChildEnv({ base: env });
+  return { command, args, env: childEnv, msvc };
 }
