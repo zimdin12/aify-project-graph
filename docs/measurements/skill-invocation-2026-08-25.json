@@ -1,0 +1,46 @@
+{
+  "what": "Skill INVOCATIONS (Skill tool_use blocks), ours vs everyone else, across all transcripts.",
+  "controls": {
+    "anySkillInvocation": 136,
+    "negativeControl": 0,
+    "passed": true,
+    "note": null,
+    "unparseableLines": 5
+  },
+  "population": {
+    "sessions": 22,
+    "nestedTranscripts": 1059
+  },
+  "ourSkills": {
+    "shipped": 17,
+    "distinctInvoked": 5,
+    "totalCalls": 9,
+    "sessionsWithAny": 2,
+    "nestedWithAny": 0,
+    "perSkill": {
+      "aify-project-graph": 3,
+      "graph-build-all": 2,
+      "graph-dashboard": 2,
+      "graph-build-tasks": 1,
+      "cpp-inner-loop": 1
+    },
+    "neverInvoked": [
+      "blast-radius",
+      "find-the-doc",
+      "graph-anchor-drift",
+      "graph-build-briefs",
+      "graph-build-functionality",
+      "graph-build-intelligence",
+      "graph-feature-edit",
+      "graph-guide",
+      "graph-pull-context",
+      "graph-task-edit",
+      "graph-walk-bugs",
+      "safe-to-delete"
+    ]
+  },
+  "otherSkills": {
+    "distinct": 24,
+    "totalCalls": 127
+  }
+}
