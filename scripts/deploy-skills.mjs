@@ -38,29 +38,38 @@ const HOME = homedir();
  * what the docs and environment name, and any other that EXISTS is reported as a possible shadow
  * rather than ignored.
  */
+// ⭐ EVERY CANDIDATE ROOT THAT EXISTS IS A TARGET — not one "selected" root with the others flagged
+// as shadows. Operator ruling, and it is the better design: if all live roots carry current content
+// then it stops mattering which one the runtime reads, and they cannot silently drift apart. The
+// earlier version deployed to one root and WARNED about the other, which left a real stale copy on
+// disk and made every run carry a caveat nobody could act on.
+//
+// ⚠ It also means NOTHING IS DELETED. Replacing the skill directories we own leaves anything else
+// in that root untouched, which the shadow-and-delete approach could not promise.
+//
+// install.hermes.md already records why this matters, measured 2026-08-07: HERMES_HOME was
+// %LOCALAPPDATA%\hermes while BOTH documented defaults were wrong, so an install "reported success"
+// into a directory Hermes never reads. Its own note — "agreeing with yourself is not the same as
+// being right" — is exactly the failure a single-root deploy reproduces.
 const RUNTIMES = [
   {
     runtime: 'claude-code',
     sourceRoot: join(REPO, 'integrations', 'claude-code'),
-    selected: join(HOME, '.claude', 'skills'),
     candidates: [join(HOME, '.claude', 'skills')],
   },
   {
     runtime: 'codex',
     sourceRoot: join(REPO, 'integrations', 'codex'),
-    selected: join(process.env.CODEX_HOME || join(HOME, '.codex'), 'skills'),
     candidates: [join(HOME, '.codex', 'skills'), join(process.env.CODEX_HOME || join(HOME, '.codex'), 'skills')],
   },
   {
     runtime: 'hermes',
     sourceRoot: join(REPO, 'integrations', 'hermes'),
-    selected: join(process.env.HERMES_HOME || join(HOME, '.hermes'), 'skills'),
     candidates: [join(HOME, '.hermes', 'skills'), join(process.env.HERMES_HOME || join(HOME, '.hermes'), 'skills')],
   },
   {
     runtime: 'cursor',
     sourceRoot: join(REPO, 'integrations', 'cursor'),
-    selected: join(HOME, '.cursor', 'skills'),
     candidates: [join(HOME, '.cursor', 'skills')],
   },
 ];
@@ -113,57 +122,67 @@ for (const rt of RUNTIMES) {
     continue;
   }
 
-  const shadow = detectShadowRoots({ selected: rt.selected, candidates: rt.candidates, existsFn: existsSync });
+  // Deduplicated, because two candidates can resolve to the same directory when the env var simply
+  // repeats the default — deploying twice would be harmless but double-counts the population.
+  const liveRoots = [...new Set(rt.candidates)].filter((p) => existsSync(p));
 
-  if (!existsSync(rt.selected)) {
+  if (liveRoots.length === 0) {
     // ⚠ ITS OWN STATE. A runtime that is not installed here has nothing to deploy, which is NOT the
     // same as being in sync — and must never be counted toward success. It is reported so the
     // reader can see exactly what the "everything is deployed" claim does and does not cover.
     report.push({
       runtime: rt.runtime, state: 'runtime_not_installed', ok: null,
-      selected: rt.selected, sources: sources.length,
+      candidates: rt.candidates, sources: sources.length,
       note: 'no install root on this host — nothing deployed, and this is NOT counted as in-sync',
-      shadows: shadow.shadows,
     });
     continue;
   }
 
   anyRootPresent = true;
-  let rows = classifyAll(sources, rt.selected);
-  let deployed = 0;
-  let refused = 0;
+  const rootReports = [];
 
-  if (!CHECK_ONLY) {
-    for (const r of rows) {
-      if (r.ok) continue;
-      if ((r.state === 'diverged' || r.state === 'unreadable') && !FORCE) { refused += 1; continue; }
-      const src = sources.find((s) => s.name === r.name);
-      const dest = join(rt.selected, r.name, 'SKILL.md');
-      mkdirSync(dirname(dest), { recursive: true });
-      writeFileSync(dest, readFileSync(src.path, 'utf8'));
-      deployed += 1;
+  for (const root of liveRoots) {
+    let rows = classifyAll(sources, root);
+    let deployed = 0;
+    let refused = 0;
+
+    if (!CHECK_ONLY) {
+      for (const r of rows) {
+        if (r.ok) continue;
+        if ((r.state === 'diverged' || r.state === 'unreadable') && !FORCE) { refused += 1; continue; }
+        const src = sources.find((s) => s.name === r.name);
+        const dest = join(root, r.name, 'SKILL.md');
+        mkdirSync(dirname(dest), { recursive: true });
+        writeFileSync(dest, readFileSync(src.path, 'utf8'));
+        deployed += 1;
+      }
+      // ⭐ RE-CLASSIFY FROM DISK. The verdict must come from reading the artifact back, never from
+      // the fact that a write call returned without throwing.
+      rows = classifyAll(sources, root);
     }
-    // ⭐ RE-CLASSIFY FROM DISK. The verdict must come from reading the artifact back, never from the
-    // fact that a write call returned without throwing.
-    rows = classifyAll(sources, rt.selected);
+
+    const summary = summariseDeployment(rows);
+    if (!summary.ok) overallOk = false;
+    rootReports.push({
+      root, ok: summary.ok, deployed, refused, total: summary.total, byState: summary.byState,
+      failures: summary.failures.map((f) => ({ name: f.name, state: f.state, sourceBytes: f.sourceBytes, installedBytes: f.installedBytes })),
+    });
   }
 
-  const summary = summariseDeployment(rows);
-  // ⚠ A shadow root does not fail the deployment, but it BOUNDS the claim — so it is carried on the
-  // row rather than mentioned in prose that a machine reader will not see.
-  if (!summary.ok) overallOk = false;
+  // ⭐ COVERAGE CONTROL, not a warning. Now that every live root is a target, an uncovered candidate
+  // should be IMPOSSIBLE — so this asserts it rather than assuming it. If a root ever exists and is
+  // not deployed to, that is a defect in this list, and it fails the run instead of printing a
+  // caveat nobody can act on.
+  const uncovered = detectShadowRoots({ selected: null, candidates: rt.candidates, existsFn: (p) => existsSync(p) && !liveRoots.includes(p) });
+  if (uncovered.shadows.length > 0) overallOk = false;
 
   report.push({
     runtime: rt.runtime,
     state: 'checked',
-    ok: summary.ok,
-    selected: rt.selected,
-    deployed,
-    refused,
-    byState: summary.byState,
-    total: summary.total,
-    shadowedBy: shadow.shadows,
-    failures: summary.failures.map((f) => ({ name: f.name, state: f.state, sourceBytes: f.sourceBytes, installedBytes: f.installedBytes })),
+    ok: rootReports.every((r) => r.ok) && uncovered.shadows.length === 0,
+    rootsCovered: liveRoots,
+    uncoveredRoots: uncovered.shadows,
+    roots: rootReports,
   });
 }
 

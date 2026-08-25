@@ -146,6 +146,37 @@ describe('detectShadowRoots — a second install root can silently shadow the on
     expect(r.ok).toBe(true);
   });
 
+  it('⭐ USED AS A COVERAGE CONTROL — an existing root that is NOT a deploy target is a defect', () => {
+    // ⛔ THIS IS HOW PRODUCTION CALLS IT NOW, and the earlier tests did not cover this shape.
+    //
+    // The first design deployed to ONE "selected" root per runtime and WARNED about the others.
+    // The operator rejected that: the warning was unactionable, and it left a genuinely stale copy
+    // on disk — ~/.hermes/skills at 26,012 bytes against a 34,212-byte source, with three skills
+    // never installed there at all. Every live root is now a TARGET instead, so the two Hermes
+    // directories cannot drift apart and it stops mattering which one the runtime reads.
+    //
+    // ⇒ With all live roots covered, an uncovered candidate should be IMPOSSIBLE — so this asserts
+    // it rather than assuming it, and the run FAILS instead of printing a caveat nobody can act on.
+    const allRoots = ['/a/skills', '/b/skills'];
+    const covered = ['/a/skills', '/b/skills'];
+    const clean = detectShadowRoots({
+      selected: null,
+      candidates: allRoots,
+      existsFn: (p) => allRoots.includes(p) && !covered.includes(p),
+    });
+    expect(clean.shadows, 'every live root is a target, so nothing is uncovered').toEqual([]);
+    expect(clean.ok).toBe(true);
+
+    // And it must be able to SAY NO: a root that exists but was left out of the target list.
+    const missed = detectShadowRoots({
+      selected: null,
+      candidates: allRoots,
+      existsFn: (p) => allRoots.includes(p) && !['/a/skills'].includes(p),
+    });
+    expect(missed.shadows, 'a live root left out of the deploy targets must surface').toEqual(['/b/skills']);
+    expect(missed.ok).toBe(false);
+  });
+
   it('⛔ the SELECTED root is never reported as shadowing itself', () => {
     // A self-shadow would make every deployment permanently caveated and train the reader to
     // ignore the field — the boy-who-cried-wolf failure that makes a real warning invisible.
