@@ -17,31 +17,12 @@
 
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join, dirname, extname } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { openExistingDb } from '../mcp/stdio/storage/db.js';
+import { LANGUAGE_TIERS, languageOf } from './lib/source-languages.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-/**
- * Extensions each language tier claims. `lsp` means a language server exists and edges can be
- * compiler-verified; `heuristic` means tree-sitter only — those graphs can never carry `[lsp✓]`
- * and can never license an absence claim.
- */
-const LANG_TIERS = {
-  cpp:        { tier: 'lsp',       ext: ['.cpp', '.cc', '.cxx', '.h', '.hpp', '.hh'] },
-  c:          { tier: 'heuristic', ext: ['.c'] },
-  python:     { tier: 'lsp',       ext: ['.py'] },
-  typescript: { tier: 'lsp',       ext: ['.ts', '.tsx'] },
-  javascript: { tier: 'lsp',       ext: ['.js', '.mjs', '.cjs', '.jsx'] },
-  php:        { tier: 'heuristic', ext: ['.php'] },
-  go:         { tier: 'heuristic', ext: ['.go'] },
-  java:       { tier: 'heuristic', ext: ['.java'] },
-  rust:       { tier: 'heuristic', ext: ['.rs'] },
-  ruby:       { tier: 'heuristic', ext: ['.rb'] },
-};
-const EXT_TO_LANG = new Map();
-for (const [lang, def] of Object.entries(LANG_TIERS)) for (const e of def.ext) EXT_TO_LANG.set(e, lang);
 
 const trackedFiles = (root) => execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26 })
   .split('\n').map((s) => s.trim()).filter(Boolean);
@@ -55,7 +36,7 @@ function audit(root) {
     const tracked = trackedFiles(root);
     const sourceByLang = new Map();
     for (const f of tracked) {
-      const lang = EXT_TO_LANG.get(extname(f).toLowerCase());
+      const lang = languageOf(f);
       if (!lang) continue;
       if (!sourceByLang.has(lang)) sourceByLang.set(lang, new Set());
       sourceByLang.get(lang).add(f.replace(/\\/g, '/'));
@@ -87,7 +68,7 @@ function audit(root) {
       const missed = [...files].filter((f) => !indexed.has(f));
       coverage.push({
         language: lang,
-        tier: LANG_TIERS[lang].tier,
+        tier: LANGUAGE_TIERS[lang].tier,
         sourceFiles: files.size,
         indexedFiles: hit.length,
         coverage: files.size ? Number((hit.length / files.size).toFixed(3)) : null,
@@ -141,18 +122,37 @@ if (roots.length === 0) { console.error('usage: node scripts/audit-graph-quality
 
 const results = roots.map(audit);
 
-// ⛔ CONTROL: at least one repo must have produced a non-empty graph, or the audit is measuring its
-// own inability to open a database and every "0%" below is about the instrument, not the product.
-const anyIndexed = results.some((r) => r.totals && r.totals.indexedSourceFiles > 0);
+// ⛔ CONTROL, TIGHTENED AFTER REVIEW. The first version asked only whether ANY repo produced a
+// non-empty graph — which would let three broken arms plus one good graph exit 0 and be published
+// as a four-repo result. "At least one worked" is not a control for a claim about four.
+//
+// ⇒ Every NAMED arm must be present, openable and non-empty. Otherwise the aggregate is refused and
+// the run reports a PARTIAL corpus, naming which arms failed.
+const perArm = results.map((r) => ({
+  root: r.root,
+  usable: Boolean(r.totals && r.totals.indexedSourceFiles > 0),
+  reason: r.error || (r.totals?.indexedSourceFiles ? null : 'graph present but no source files indexed'),
+}));
+const unusable = perArm.filter((a) => !a.usable);
+const allArmsUsable = unusable.length === 0;
 
 console.log(JSON.stringify({
   what: 'Graph quality measured against the source tree each graph was built from.',
   controls: {
-    anyRepoIndexed: anyIndexed,
-    passed: anyIndexed,
-    note: anyIndexed ? null : 'CONTROL FAILED — no repo produced an indexed file; read nothing below as a finding.',
+    declaredArms: roots.length,
+    usableArms: perArm.filter((a) => a.usable).length,
+    allArmsUsable,
+    passed: allArmsUsable,
+    unusableArms: unusable,
+    note: allArmsUsable ? null
+      : 'PARTIAL CORPUS — the aggregate is refused. Findings hold only for the arms listed as usable.',
   },
+  // ⚠ SCOPE OF THE COVERAGE FIGURE, stated where the figure is, not in prose further down.
+  // `coverage: 1` means every tracked file with a recognised extension produced AT LEAST ONE
+  // non-directory, non-external node. It does NOT establish full-file extraction, and it says
+  // nothing about within-file recall — whether every call inside those files was found.
+  coverageMeans: 'tracked recognised-extension files with >=1 non-directory/non-external node; NOT within-file recall',
   results,
 }, null, 2));
 
-process.exit(anyIndexed ? 0 : 1);
+process.exit(allArmsUsable ? 0 : 1);
