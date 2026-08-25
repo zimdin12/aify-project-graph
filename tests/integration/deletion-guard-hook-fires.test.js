@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -123,5 +123,72 @@ describe('the deletion guard hook, driven as a real process', () => {
       cwd: dir, input: 'not json at all', encoding: 'utf8',
       env: { ...process.env, CLAUDE_PROJECT_DIR: dir }, timeout: 30000,
     })).not.toThrow();
+  });
+});
+
+// ⭐ THE DECISION LOG IS WHAT MAKES A FIELD TEST POSSIBLE AT ALL.
+//
+// This hook's contract is silence on almost every path, so "we enabled it and nothing bad happened"
+// is indistinguishable from "it never ran once". The exit criterion for the whole feature is a
+// measured FIRE RATE, and a rate needs a denominator.
+//
+// ⛔ THE FIRST VERSION LOGGED ONLY AFTER THE PRE-FILTER, so it would have recorded fires per
+// DELETION rather than fires per EDIT — a different and much larger number wearing the same name.
+// That is the wrong-noun error this project has paid for repeatedly: sound arithmetic, unearned
+// noun. These tests pin the denominator, not just the numerator.
+describe('the decision log — the denominator, not only the firings', () => {
+  const logPath = () => join(dir, '.aify-graph', 'hook-decisions.jsonl');
+  const readLog = () => readFileSync(logPath(), 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+
+  it('⭐ records a FIRING decision', () => {
+    writeFileSync(join(dir, 'src', 'lib.js'), '// target removed\n');
+    runHook(editPayload());
+    const rows = readLog();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].fired).toBe(true);
+    expect(rows[0].reason).toBe('deleted_symbol_has_callers');
+    expect(rows[0].findings).toBe(1);
+  });
+
+  it('⭐⭐ RECORDS THE SILENT DECISIONS TOO — without these there is no rate', () => {
+    // An edit that deletes nothing is the overwhelmingly common case and IS the denominator.
+    writeFileSync(join(dir, 'src', 'lib.js'), 'export function target() {\n  return 99;\n}\n');
+    runHook(editPayload());
+    const rows = readLog();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].fired).toBe(false);
+    expect(rows[0].reason).toBe('nothing_deleted');
+  });
+
+  it('⭐ a fire rate can actually be computed from a mixed run', () => {
+    // Three edits, one of which deletes a called symbol. If the silent ones were unlogged this
+    // would read as 1/1 = 100% instead of 1/3 — the same figure, the wrong population.
+    writeFileSync(join(dir, 'src', 'lib.js'), 'export function target() {\n  return 2;\n}\n');
+    runHook(editPayload());
+    writeFileSync(join(dir, 'src', 'lib.js'), 'export function target() {\n  return 3;\n}\n');
+    runHook(editPayload());
+    writeFileSync(join(dir, 'src', 'lib.js'), '// target removed\n');
+    runHook(editPayload());
+
+    const rows = readLog();
+    expect(rows).toHaveLength(3);
+    expect(rows.filter((r) => r.fired)).toHaveLength(1);
+    const rate = rows.filter((r) => r.fired).length / rows.length;
+    expect(rate).toBeCloseTo(1 / 3, 5);
+  });
+
+  it('⛔ a non-edit tool is logged too — it is part of what the hook was asked about', () => {
+    runHook({ tool_name: 'Bash', tool_input: { command: 'ls' } });
+    const rows = readLog();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].reason).toBe('not_an_edit_tool');
+  });
+
+  it('⛔ the log records NO source text — only the decision', () => {
+    writeFileSync(join(dir, 'src', 'lib.js'), '// target removed\n');
+    runHook(editPayload());
+    const raw = readFileSync(logPath(), 'utf8');
+    expect(raw).not.toContain('export function');
+    expect(Object.keys(readLog()[0]).sort()).toEqual(['findings', 'fired', 'reason', 'ts']);
   });
 });
