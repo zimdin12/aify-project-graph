@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   classifyInstallation,
   summariseDeployment,
+  detectShadowRoots,
   DEPLOYMENT_STATES,
 } from '../../../scripts/lib/skill-deployment.mjs';
 
@@ -109,6 +110,52 @@ describe('classifyInstallation — every outcome is a NAMED state, never a silen
       classifyInstallation({ source: src('a'), installed: { path: 'i', error: 'EACCES', mtimeMs: 1000 } }).state,
     ]);
     expect([...produced].sort()).toEqual([...DEPLOYMENT_STATES].sort());
+  });
+});
+
+describe('detectShadowRoots — a second install root can silently shadow the one you deployed to', () => {
+  // ⛔ MEASURED ON THIS MACHINE, and it falsified my own report. I told the reviewer the non-Claude
+  // runtimes had an EMPTY declared population. They do not: Codex has 14 of our skills installed
+  // and Hermes has 14 across TWO roots at DIFFERENT vintages —
+  //
+  //     ~/.hermes/skills/...              26,012 bytes
+  //     $HERMES_HOME/skills/...           26,963 bytes
+  //
+  // Which one Hermes reads depends on an environment variable. Deploying to one and reporting
+  // "in sync" is a claim about a file, not about what an agent will load.
+  const exists = (set) => (p) => set.includes(p);
+
+  it('⭐ reports an alternate root that exists alongside the selected one', () => {
+    const r = detectShadowRoots({
+      selected: '/appdata/hermes/skills',
+      candidates: ['/appdata/hermes/skills', '/home/.hermes/skills'],
+      existsFn: exists(['/appdata/hermes/skills', '/home/.hermes/skills']),
+    });
+    expect(r.shadows).toEqual(['/home/.hermes/skills']);
+    expect(r.ok).toBe(false);
+    expect(r.detail).toMatch(/shadow/i);
+  });
+
+  it('a candidate that does NOT exist is not a shadow', () => {
+    const r = detectShadowRoots({
+      selected: '/appdata/hermes/skills',
+      candidates: ['/appdata/hermes/skills', '/home/.hermes/skills'],
+      existsFn: exists(['/appdata/hermes/skills']),
+    });
+    expect(r.shadows).toEqual([]);
+    expect(r.ok).toBe(true);
+  });
+
+  it('⛔ the SELECTED root is never reported as shadowing itself', () => {
+    // A self-shadow would make every deployment permanently caveated and train the reader to
+    // ignore the field — the boy-who-cried-wolf failure that makes a real warning invisible.
+    const r = detectShadowRoots({
+      selected: '/a/skills',
+      candidates: ['/a/skills'],
+      existsFn: exists(['/a/skills']),
+    });
+    expect(r.shadows).toEqual([]);
+    expect(r.ok).toBe(true);
   });
 });
 

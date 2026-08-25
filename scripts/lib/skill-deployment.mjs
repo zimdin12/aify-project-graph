@@ -85,6 +85,34 @@ export function classifyInstallation({ source, installed, name }) {
 }
 
 /**
+ * A runtime's install root, and whether anything else could shadow it.
+ *
+ * ⛔ WHY SHADOWS ARE A FIRST-CLASS RESULT AND NOT A FOOTNOTE. Measured on this machine, Hermes has
+ * TWO roots carrying our skills at DIFFERENT vintages — `~/.hermes/skills` at 26,012 bytes and
+ * `$HERMES_HOME/skills` at 26,963. Which one the runtime actually reads depends on an environment
+ * variable, so deploying to one and reporting success is a claim about a file, not about what the
+ * agent will read. A deployment that cannot see the second copy will keep reporting green while an
+ * agent loads the other one.
+ *
+ * @param {{selected: string, candidates: string[], existsFn: (p: string) => boolean}} args
+ */
+export function detectShadowRoots({ selected, candidates, existsFn }) {
+  const shadows = (candidates || [])
+    .filter((c) => c && c !== selected)
+    .filter((c) => existsFn(c));
+  return {
+    selected,
+    shadows,
+    // ⚠ NOT an error on its own — an alternate root may be a harmless leftover. It IS a caveat that
+    // must travel with any "deployment is in sync" claim, because it bounds what that claim covers.
+    ok: shadows.length === 0,
+    detail: shadows.length
+      ? `${shadows.length} alternate root(s) also exist and may shadow the selected one: ${shadows.join(', ')}`
+      : 'no alternate roots found',
+  };
+}
+
+/**
  * Roll rows up into one verdict.
  *
  * ⛔ FAILS CLOSED IN BOTH DIRECTIONS. Any non-success state fails the whole deployment, and an
