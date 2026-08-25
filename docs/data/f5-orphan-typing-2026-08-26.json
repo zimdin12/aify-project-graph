@@ -1,0 +1,228 @@
+{
+  "symbolOrphans": {
+    "total": 34,
+    "byFile": {
+      "docs/conf.py": [
+        {
+          "label": "project",
+          "line": 6
+        },
+        {
+          "label": "copyright",
+          "line": 7
+        },
+        {
+          "label": "author",
+          "line": 8
+        },
+        {
+          "label": "master_doc",
+          "line": 13
+        },
+        {
+          "label": "default_role",
+          "line": 14
+        },
+        {
+          "label": "extensions",
+          "line": 15
+        },
+        {
+          "label": "autodoc_member_order",
+          "line": 24
+        },
+        {
+          "label": "autodoc_typehints",
+          "line": 25
+        },
+        {
+          "label": "autodoc_preserve_defaults",
+          "line": 26
+        },
+        {
+          "label": "extlinks",
+          "line": 27
+        },
+        {
+          "label": "intersphinx_mapping",
+          "line": 31
+        },
+        {
+          "label": "myst_enable_extensions",
+          "line": 34
+        },
+        {
+          "label": "myst_heading_anchors",
+          "line": 35
+        },
+        {
+          "label": "html_theme",
+          "line": 39
+        },
+        {
+          "label": "html_theme_options",
+          "line": 40
+        },
+        {
+          "label": "html_context",
+          "line": 41
+        },
+        {
+          "label": "html_sidebars",
+          "line": 50
+        },
+        {
+          "label": "singlehtml_sidebars",
+          "line": 54
+        },
+        {
+          "label": "html_static_path",
+          "line": 55
+        },
+        {
+          "label": "html_favicon",
+          "line": 56
+        },
+        {
+          "label": "html_logo",
+          "line": 57
+        },
+        {
+          "label": "html_show_sourcelink",
+          "line": 59
+        }
+      ],
+      "examples/complex/complex/commands/cmd_init.py": [
+        {
+          "label": "cli",
+          "line": 6
+        }
+      ],
+      "examples/inout/inout.py": [
+        {
+          "label": "cli",
+          "line": 4
+        }
+      ],
+      "examples/naval/naval.py": [
+        {
+          "label": "mine_set",
+          "line": 51
+        },
+        {
+          "label": "mine_remove",
+          "line": 67
+        }
+      ],
+      "examples/repo/repo.py": [
+        {
+          "label": "cli",
+          "line": 26
+        }
+      ],
+      "src/click/decorators.py": [
+        {
+          "label": "command",
+          "line": 168
+        },
+        {
+          "label": "group",
+          "line": 293
+        }
+      ],
+      "src/click/parser.py": [
+        {
+          "label": "V",
+          "line": 48
+        }
+      ],
+      "src/click/termui.py": [
+        {
+          "label": "prompt",
+          "line": 168
+        },
+        {
+          "label": "progressbar",
+          "line": 443
+        },
+        {
+          "label": "edit",
+          "line": 848
+        },
+        {
+          "label": "_getchar",
+          "line": 944
+        }
+      ]
+    },
+    "labels": [
+      "project",
+      "copyright",
+      "author",
+      "master_doc",
+      "default_role",
+      "extensions",
+      "autodoc_member_order",
+      "autodoc_typehints",
+      "autodoc_preserve_defaults",
+      "extlinks",
+      "intersphinx_mapping",
+      "myst_enable_extensions",
+      "myst_heading_anchors",
+      "html_theme",
+      "html_theme_options",
+      "html_context",
+      "html_sidebars",
+      "singlehtml_sidebars",
+      "html_static_path",
+      "html_favicon",
+      "html_logo",
+      "html_show_sourcelink",
+      "cli",
+      "cli",
+      "mine_set",
+      "mine_remove",
+      "cli",
+      "command",
+      "group",
+      "V",
+      "prompt",
+      "progressbar",
+      "edit",
+      "_getchar"
+    ]
+  },
+  "fileOrphans": {
+    "total": 7,
+    "rows": [
+      {
+        "label": "conf.py",
+        "path": "docs/conf.py"
+      },
+      {
+        "label": "colors.py",
+        "path": "examples/colors/colors.py"
+      },
+      {
+        "label": "cli.py",
+        "path": "examples/complex/complex/cli.py"
+      },
+      {
+        "label": "cmd_init.py",
+        "path": "examples/complex/complex/commands/cmd_init.py"
+      },
+      {
+        "label": "inout.py",
+        "path": "examples/inout/inout.py"
+      },
+      {
+        "label": "validation.py",
+        "path": "examples/validation/validation.py"
+      },
+      {
+        "label": "types.pyi",
+        "path": "file:///c%3A/Docker/aify-project-graph/node_modules/pyright/dist/typeshed-fallback/stdlib/types.pyi"
+      }
+    ]
+  }
+}
