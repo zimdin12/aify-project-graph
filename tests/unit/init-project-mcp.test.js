@@ -237,3 +237,52 @@ describe('config parsing safety', () => {
       .toThrow(/is not valid JSON/);
   });
 });
+
+// ⭐ THE MID-TASK REACH LEVER'S INSTALL PATH. The rule logic behind this hook existed, was tested,
+// and was described in the roadmap as "LIVE" while having ZERO production callers — "live" meant
+// the logic ran, not that anything invoked it. Shipping a hook with no way to install it would be
+// that same defect one layer out, so the install path is tested as its own thing.
+//
+// ⚠ OPT-IN by design. The roadmap records placement of this hook as the operator's decision, and it
+// is more intrusive than the SessionStart hint: it injects text mid-task rather than once at start.
+// A measured-low fire rate (4.8% upper bound vs 85.5% for the disqualified variant) argues for
+// OFFERING it, not for enabling it on someone's behalf.
+describe('mergeDeletionGuardHook — the PostToolUse install path', () => {
+  it('adds a PostToolUse entry scoped to the editing tools', async () => {
+    const { mergeDeletionGuardHook } = await import('../../scripts/init-project-mcp.mjs');
+    const r = mergeDeletionGuardHook({}, '/plugin');
+    expect(r.added).toBe(true);
+    const group = r.settings.hooks.PostToolUse[0];
+    expect(group.matcher).toBe('Edit|Write|MultiEdit');
+    expect(group.hooks[0].command).toContain('post-edit-deletion-guard.mjs');
+  });
+
+  it('⛔ IDEMPOTENT EVEN WHEN THE PLUGIN ROOT MOVES — identity is the script name', () => {
+    // The command embeds an absolute path. Matching on the whole string would install a SECOND copy
+    // every time the repo is cloned elsewhere, and a hook that fires twice per edit turns a rare
+    // signal into noise — which is the one failure mode this whole rule was measured to avoid.
+    return import('../../scripts/init-project-mcp.mjs').then(({ mergeDeletionGuardHook }) => {
+      const first = mergeDeletionGuardHook({}, '/plugin-a');
+      const second = mergeDeletionGuardHook(first.settings, '/somewhere-completely-different');
+      expect(second.added).toBe(false);
+      expect(second.settings.hooks.PostToolUse).toHaveLength(1);
+    });
+  });
+
+  it('coexists with the SessionStart hint rather than replacing it', async () => {
+    const { mergeDeletionGuardHook, mergeSessionStartHook } = await import('../../scripts/init-project-mcp.mjs');
+    const withGuard = mergeDeletionGuardHook({}, '/plugin');
+    const withBoth = mergeSessionStartHook(withGuard.settings, '/plugin');
+    expect(Object.keys(withBoth.settings.hooks).sort()).toEqual(['PostToolUse', 'SessionStart']);
+    expect(withBoth.settings.hooks.PostToolUse).toHaveLength(1);
+    expect(withBoth.settings.hooks.SessionStart).toHaveLength(1);
+  });
+
+  it('⛔ preserves unrelated settings and unrelated hooks', async () => {
+    const { mergeDeletionGuardHook } = await import('../../scripts/init-project-mcp.mjs');
+    const existing = { model: 'opus', hooks: { PreToolUse: [{ hooks: [{ type: 'command', command: 'somebody-elses.sh' }] }] } };
+    const r = mergeDeletionGuardHook(existing, '/plugin');
+    expect(r.settings.model).toBe('opus');
+    expect(r.settings.hooks.PreToolUse[0].hooks[0].command).toBe('somebody-elses.sh');
+  });
+});

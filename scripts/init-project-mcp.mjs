@@ -166,18 +166,55 @@ function sessionHintCommand(pluginRoot) {
  * session-start-hint.mjs hook is already wired. Preserves all other hooks/keys.
  * Returns { settings, added }.
  */
-export function mergeSessionStartHook(existing, pluginRoot) {
+/**
+ * Merge one hook entry into a settings object, idempotently.
+ *
+ * ⚠ IDENTITY IS THE SCRIPT FILENAME, not the whole command string. The command embeds an absolute
+ * plugin path, so matching on the full string would install a SECOND copy of the same hook every
+ * time the repo moves — and a hook that fires twice per edit is how a rare signal becomes noise.
+ */
+function mergeHookEntry(existing, { event, scriptName, command, matcher }) {
   const next = { ...(existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {}) };
   const hooks = { ...(next.hooks && typeof next.hooks === 'object' && !Array.isArray(next.hooks) ? next.hooks : {}) };
-  const sessionStart = Array.isArray(hooks.SessionStart) ? [...hooks.SessionStart] : [];
-  const already = sessionStart.some((group) => Array.isArray(group?.hooks)
-    && group.hooks.some((h) => typeof h?.command === 'string' && h.command.includes('session-start-hint.mjs')));
+  const list = Array.isArray(hooks[event]) ? [...hooks[event]] : [];
+  const already = list.some((group) => Array.isArray(group?.hooks)
+    && group.hooks.some((h) => typeof h?.command === 'string' && h.command.includes(scriptName)));
   if (!already) {
-    sessionStart.push({ hooks: [{ type: 'command', command: sessionHintCommand(pluginRoot) }] });
+    const group = { hooks: [{ type: 'command', command }] };
+    if (matcher) group.matcher = matcher;
+    list.push(group);
   }
-  hooks.SessionStart = sessionStart;
+  hooks[event] = list;
   next.hooks = hooks;
   return { settings: next, added: !already };
+}
+
+export function mergeSessionStartHook(existing, pluginRoot) {
+  return mergeHookEntry(existing, {
+    event: 'SessionStart',
+    scriptName: 'session-start-hint.mjs',
+    command: sessionHintCommand(pluginRoot),
+  });
+}
+
+/**
+ * The PostToolUse deletion guard: fires ONLY when an edit deleted an exported declaration that
+ * still has compiler-verified callers.
+ *
+ * ⚠ OPT-IN, unlike the SessionStart hint, and deliberately. The roadmap records placement of this
+ * hook as the operator's decision, and it is the more intrusive of the two: it injects text into a
+ * session mid-task rather than once at the start. Measured fire rate is 4.8% of edits (upper
+ * bound) against 85.5% for the "here are the callers" variant that was disqualified — but a
+ * measured-low rate is an argument for offering it, not for enabling it on someone's behalf.
+ */
+export function mergeDeletionGuardHook(existing, pluginRoot) {
+  const script = path.join(pluginRoot, 'scripts', 'hooks', 'post-edit-deletion-guard.mjs');
+  return mergeHookEntry(existing, {
+    event: 'PostToolUse',
+    scriptName: 'post-edit-deletion-guard.mjs',
+    command: `node "${script}"`,
+    matcher: 'Edit|Write|MultiEdit',
+  });
 }
 
 function approvalNoteFor(runtime) {
