@@ -4,6 +4,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { toRepoRelative } from '../../ingest/code-intel/paths.js';
 import { inferLanguage, normalizeLanguage } from '../../code-intel/backends.js';
 import { codeIntelDiagnostics } from './code_intel_live.js';
+import { prepareCompileDb } from '../../code-intel/compile-db.js';
 
 const DEFAULT_TIMEOUT_MS = 120000;
 const MAX_TIMEOUT_MS = 10 * 60 * 1000;
@@ -23,14 +24,51 @@ function errorResponse(code, message, extra = {}) {
   return { status: 'error', errors: [{ code, message, hint: HINTS[code] || '', ...extra }] };
 }
 
+// ⛔ THIS WAS A SECOND, INDEPENDENT COMPILE-DB DISCOVERY — a four-entry hardcoded list
+// (root, build/, build-linux/, cmake-build-debug/) that had drifted away from the real one.
+// Found by sc-manager on sand_castle, where it reported compile_db_missing while TWO compile
+// DBs sat in the repo, because neither `build-clangd-native` nor `build-win-clangd` was on its
+// list. It also ignored APG_COMPILE_DB — our own documented escape hatch — and ignored the
+// normalized DB that `doctor` had itself written at .aify-graph/code-intel/compile_commands.json.
+//
+// ⇒ Deleted rather than extended. Extending it would have left two lists to keep in sync, which
+// is how it drifted in the first place. prepareCompileDb is now the single discovery path, so
+// this verb inherits derived candidates, toolchain-mismatch detection and the external-root
+// check for free — and can never again disagree with `doctor` about which DB exists.
+//
+// ⚠ AND THE CONSEQUENCE THAT MATTERED MORE THAN THE MISS: on compile_db_missing this verb
+// returned BYTE-IDENTICAL output for a real source and a fabricated `ZzzNotARealSource.cpp`.
+// A probe that cannot return ABSENT cannot return PRESENT, so every answer it gave in that
+// repo carried zero information.
 function findCompileDb(projectRoot) {
-  const candidates = [
-    path.join(projectRoot, 'compile_commands.json'),
-    path.join(projectRoot, 'build', 'compile_commands.json'),
-    path.join(projectRoot, 'build-linux', 'compile_commands.json'),
-    path.join(projectRoot, 'cmake-build-debug', 'compile_commands.json')
-  ];
-  return candidates.find(p => fs.existsSync(p)) || null;
+  let db = null;
+  try {
+    db = prepareCompileDb({ projectRoot });
+  } catch {
+    return null; // fail closed — the caller reports compile_db_missing
+  }
+  if (!db?.found) return null;
+  // Prefer the NORMALIZED copy: host-path-translated and unity-expanded, which is what clangd
+  // and clang-tidy are given everywhere else. Fall back to the raw DB if it was not written.
+  const normalized = db.normalizedPath;
+  if (normalized && fs.existsSync(normalized)) return normalized;
+  return db.sourcePath ?? null;
+}
+
+// The DB this verb is about to analyze against may be one clangd cannot compile. Surface that
+// with the result instead of returning diagnostics that look authoritative — a clean analyze
+// over a DB whose TUs fail is the green null this project keeps re-finding.
+function compileDbWarnings(projectRoot) {
+  let db = null;
+  try {
+    db = prepareCompileDb({ projectRoot });
+  } catch {
+    return [];
+  }
+  if (!db?.found) return [];
+  return (db.diagnostics || []).filter((d) => (
+    d.code === 'toolchain_mismatch' || d.code === 'compile_db_external_root' || d.code === 'foreign_toolchain'
+  ));
 }
 
 function normalizeFiles(files = []) {
@@ -295,12 +333,16 @@ export async function codeIntelAnalyze({
   }
 
   const notCollected = fileResults.filter(f => f.status !== 'ok').length;
+  // A DB clangd cannot compile produces a clean-looking analyze whose diagnostics mean nothing.
+  // Carry the selection warnings out with the result so the caller cannot mistake quiet for OK.
+  const dbWarnings = compileDbWarnings(repoRoot);
   return {
     status: notCollected > 0 ? 'partial' : 'ok',
     language,
     mode,
     files: fileResults,
     diagnostics,
+    ...(dbWarnings.length ? { compileDbWarnings: dbWarnings } : {}),
     summary: { files: requestedFiles.length, ...summarize(diagnostics), notCollected },
     telemetry: {
       operation: 'analyze',

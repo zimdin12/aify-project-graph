@@ -87,7 +87,16 @@ describe('code_intel_analyze', () => {
     expect(result.summary.errors).toBe(1);
     expect(calls[0].command).toBe('clang-tidy');
     expect(calls[0].args).toContain('-p');
-    expect(calls[0].args).toContain(repoRoot);
+    // This used to assert `toContain(repoRoot)`, which held only because tmpRepo() happens to put
+    // compile_commands.json AT the repo root — the fixture path and the DB's directory were the
+    // same string. analyze now consumes the NORMALIZED DB (host-path-translated and
+    // unity-expanded), the same one clangd is given, because findCompileEntry matches by absolute
+    // path and a WSL-path entry (`/mnt/c/...`) never matches a requested Windows file. So the path
+    // legitimately changed. Assert the PROPERTY that actually matters instead, which is a stronger
+    // check than the original: -p names a directory that really holds a compile DB.
+    const pDir = calls[0].args[calls[0].args.indexOf('-p') + 1];
+    expect(pDir).toBeTruthy();
+    expect(fs.existsSync(path.join(pDir, 'compile_commands.json'))).toBe(true);
   });
 
   it('runs compile syntax checks from compile_commands.json with destructive flags removed', async () => {
