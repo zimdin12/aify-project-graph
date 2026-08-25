@@ -103,6 +103,24 @@ function handle(msg) {
       if (process.env.FAKE_LSP_HIERARCHY_EMPTY === '1') {
         notify('textDocument/publishDiagnostics', { uri: msg.params.textDocument.uri, diagnostics: [] });
       }
+      // A file named `unresolved.<ext>` publishes an UNRESOLVED-INCLUDE diagnostic, in clangd's
+      // exact phrasing. Added 2026-08-25 because the translationUnitFailed guard's FIRING half was
+      // unprovable: the field test could not produce a TU that fails to compile, and this fixture
+      // could only emit "use of undeclared identifier" — a severity-1 error the matcher correctly
+      // IGNORES. So the guard was observed firing once by hand and pinned by nothing.
+      //
+      // Keeping `bad.<ext>` beside it is deliberate: it is the NEGATIVE control. A hard error that
+      // is not an include failure must NOT trip the guard, or the flag means "something went
+      // wrong" rather than "this TU has no AST".
+      if (/unresolved\.\w+$/.test(msg.params.textDocument.uri || '')) {
+        notify('textDocument/publishDiagnostics', {
+          uri: msg.params.textDocument.uri,
+          diagnostics: [{
+            range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
+            severity: 1, message: "'cstddef' file not found"
+          }]
+        });
+      }
       // Emit a fake diagnostic for any file named `bad.<ext>` (bad.cpp/bad.ts/bad.py)
       // so multi-language tests can exercise the diagnostics path.
       if (/bad\.\w+$/.test(msg.params.textDocument.uri || '')) {
