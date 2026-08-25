@@ -1,0 +1,59 @@
+{
+  "what": "Is `degraded === true` equivalent to `cause !== null` on buildReferencesEvidence?",
+  "checked": 1134,
+  "controls": {
+    "sawDegradedTrue": 798,
+    "sawDegradedFalse": 336,
+    "bothOutcomesObserved": true
+  },
+  "distinctCauses": [
+    "cold_index",
+    "coverage_unknown",
+    "definition_only",
+    "index_population_unattested",
+    "partial_compile_db_coverage",
+    "partial_tsconfig_scope",
+    "python_dynamic_dispatch",
+    "stale_index",
+    "timeout",
+    "unknown"
+  ],
+  "violationCount": 336,
+  "violationShapes": [
+    "invariant:degraded=false,cause=unknown"
+  ],
+  "sample": [
+    {
+      "kind": "invariant",
+      "degraded": false,
+      "cause": "unknown",
+      "freshness": "fresh",
+      "callsiteCount": 0,
+      "defCount": 0,
+      "resultState": "found"
+    },
+    {
+      "kind": "invariant",
+      "degraded": false,
+      "cause": "unknown",
+      "freshness": "fresh",
+      "callsiteCount": 0,
+      "defCount": 0,
+      "resultState": "found",
+      "coverage": null
+    },
+    {
+      "kind": "invariant",
+      "degraded": false,
+      "cause": "unknown",
+      "freshness": "fresh",
+      "callsiteCount": 0,
+      "defCount": 0,
+      "resultState": "found",
+      "coverage": {
+        "complete": true
+      }
+    }
+  ],
+  "verdict": "NOT EQUIVALENT — dropping the `degraded &&` term WOULD CHANGE BEHAVIOUR"
+}

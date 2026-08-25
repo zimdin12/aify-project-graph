@@ -50,10 +50,27 @@ did for about a minute.
 if (evidence.degraded && evidence.cause && !STANDING_CAUSES.has(evidence.cause)) { … }
 ```
 
-It is the sticky-degraded tracker, and it already **requires `cause`** alongside the boolean. So
-dev's step 5 — *migrate sticky telemetry to named cause classification, not either boolean* — is a
-smaller change than it sounds: the branch can drop the `degraded &&` term and read `cause` alone
-without altering its behaviour, because `cause` is non-null exactly when `degraded` is true.
+It is the sticky-degraded tracker, and it already **requires `cause`** alongside the boolean.
+
+⛔ **RETRACTED 2026-08-25 — I CLAIMED THIS WAS A NO-OP AND IT IS NOT.** The original text here said
+dev's step 5 was *"smaller than it sounds: the branch can drop the `degraded &&` term and read
+`cause` alone without altering its behaviour, because `cause` is non-null exactly when `degraded`
+is true."* I read that off the code. I did not exercise it.
+
+**MEASURED** (`scripts/check-evidence-invariant.mjs`, 1,134 reachable combinations, both outcomes
+observed as controls — 798 degraded-true, 336 degraded-false):
+
+    violations: 336 of 1,134 (29.6%)
+    every one the same shape:  degraded: false  ·  cause: 'unknown'
+
+That state is deliberate — `ready: false, degraded: false, cause: 'unknown'`, *"usable result;
+readiness signal missing"*. The answer is usable, nothing is degraded, `exhaustive` is withheld,
+and the reason is named.
+
+⇒ **Dropping the `degraded &&` term would make the sticky-degraded tracker fire on results that
+are NOT degraded.** Step 5 is therefore **larger** than I told dev, not smaller, and the
+equivalence is a precondition that must be re-established — not assumed — before any step treats
+the two fields as interchangeable. The checker is kept as an instrument for exactly that.
 
 ## `operationallyDegraded` HAS crossed a release boundary
 
@@ -77,12 +94,16 @@ is met.
 
 ## Next steps, in dev's order
 
-1. bump an explicit evidence-contract version — **not started**
-2. census — **this document**
+1. bump an explicit evidence-contract version — ✅ `e0fbddd`, `contractVersion: 1`
+2. census — ✅ this document
 3. absence authority to `exhaustive === true` only — already true in practice; needs asserting
 4. diagnosis/rendering to `cause` — one branch, above
-5. sticky telemetry to named cause — smaller than expected, see above
-6. `degraded` retained as deprecated output — not started
-7. `operationallyDegraded` deprecated (it shipped) — not started
+5. sticky telemetry to named cause — ⛔ **LARGER than I first claimed.** `cause` is NOT a drop-in
+   for `degraded && cause`; see the retraction above. Needs a real classification, not a term
+   deletion.
+6. `degraded` retained as deprecated output — ✅ `e0fbddd`, `DEPRECATED_EVIDENCE_FIELDS`
+7. `operationallyDegraded` deprecated (it shipped) — ✅ `e0fbddd`
 8. delete both in the versioned contract, **with an old-reader hostile test proving an unknown
-   schema REFUSES rather than reading a missing boolean as healthy** — not started
+   schema REFUSES rather than reading a missing boolean as healthy** — test written in advance at
+   `tests/unit/query/evidence-contract-version.test.js`; the deletion itself is not started and is
+   blocked on step 5.
