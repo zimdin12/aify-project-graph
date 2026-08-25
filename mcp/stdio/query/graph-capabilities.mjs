@@ -39,20 +39,39 @@ export function graphCapabilities({
   collectionAvailable = false,
   language = null,
   languageHasServer = true,
+  integrity = null,
 } = {}) {
+  // ⛔ AN INTERRUPTED INDEX LEAVES A GRAPH THAT PASSES EVERY OTHER CHECK. Observed: a `graph_index`
+  // killed mid-write left click holding 90 nodes — Document 43, Directory 25, Config 22 — and ZERO
+  // code nodes, while the file existed, opened cleanly, carried a plausible count, and health
+  // reported it as indexed.
+  //
+  // `writeManifest` writes to a temp file and renames atomically, so the manifest is replaced only
+  // at the END of a successful run: an interrupted one leaves the DATABASE mangled while the
+  // MANIFEST still describes the previous good state. The two disagree and nothing compared them —
+  // every available check reads one side or the other, which is several checks sharing one blind
+  // spot, i.e. one check.
+  //
+  // ⚠ A HALF-WRITTEN GRAPH CANNOT SUPPORT ORIENTATION EITHER, so this is not merely an absence
+  // concern. And it is one more VALUE in `reason`, a field a reader already consults, rather than a
+  // second place to look.
+  const incomplete = isIndexIncomplete(integrity);
+
   // Orientation — "where does this live, what is near it, what does this module contain" — is
-  // served by structural extraction and does not need a compiler. It is genuinely usable here.
-  const orientationUsable = indexed === true;
+  // served by structural extraction and does not need a compiler. It is genuinely usable here,
+  // UNLESS the graph itself is half-written.
+  const orientationUsable = indexed === true && !incomplete;
 
   // ⛔ ABSENCE AUTHORITY FAILS CLOSED, AND ON EVERY CLAUSE. "No callers" is the claim that deletes
   // code. It requires verified edges AND a collection that covered the repo — a partial collection
   // makes an empty caller set a floor, not a fact.
   const hasVerified = Number.isInteger(compilerVerifiedEdges) && compilerVerifiedEdges > 0;
   const coverageComplete = coverage?.complete === true;
-  const absenceAuthority = Boolean(indexed && collectionAvailable && hasVerified && coverageComplete);
+  const absenceAuthority = Boolean(indexed && !incomplete && collectionAvailable && hasVerified && coverageComplete);
 
   let reason = null;
   if (!indexed) reason = 'not_indexed';
+  else if (incomplete) reason = 'index_incomplete';
   else if (!languageHasServer) reason = 'no_language_server';
   else if (!collectionAvailable) reason = 'no_collection';
   else if (!hasVerified) reason = 'trust_spine_empty';
@@ -65,17 +84,23 @@ export function graphCapabilities({
     reason,
     // ⚠ NAMED so a reader is never left to infer what to do from a boolean. `null` only when the
     // capability is already satisfied — never as a shrug.
-    nextAction: absenceAuthority ? null : nextActionFor(reason, language, languageHasServer),
+    nextAction: absenceAuthority ? null : nextActionFor(reason, language, languageHasServer, integrity),
     // Stated inline because the distinction is the entire point of this object.
     note: 'orientationUsable and absenceAuthority are independent. `trust` measures how completely '
       + 'extraction resolved its own references; it does NOT mean any edge was compiler-checked.',
   };
 }
 
-function nextActionFor(reason, language, languageHasServer) {
+function nextActionFor(reason, language, languageHasServer, integrity = null) {
   switch (reason) {
     case 'not_indexed':
       return 'graph_index() to build the graph';
+    case 'index_incomplete':
+      // ⚠ NAMES THE DISAGREEMENT, ASSERTS NO CAUSE. An interrupted index and a hand-edited database
+      // are indistinguishable from here, so this reports the two numbers and stops.
+      return 'graph_index({ force: true }) — this graph is partial: the manifest describes '
+        + `${integrity?.manifestNodes ?? '?'} nodes and the database holds `
+        + `${integrity?.dbNodes ?? '?'}. Treat every answer from it as a floor, including orientation.`;
     case 'no_language_server':
       // ⛔ HONEST DEAD END. Telling a PHP user to run a collection would send them to a command
       // that cannot help, and a remedy that cannot work is worse than naming the limit.
@@ -91,4 +116,35 @@ function nextActionFor(reason, language, languageHasServer) {
     default:
       return languageHasServer ? 'graph_collect_code_intel({ scope: "all" })' : null;
   }
+}
+
+/**
+ * Did an index fail to finish writing this graph?
+ *
+ * TWO SIGNALS, AND THE PAIR IS REQUIRED — either alone is ambiguous:
+ *   · the manifest's counts disagree with what the database holds. The manifest is renamed
+ *     atomically at the END of a successful index, so a disagreement means the run did not finish.
+ *   · zero code nodes in an otherwise non-empty graph — the exact shape observed.
+ *
+ * ⚠ A DOCS-ONLY REPOSITORY LEGITIMATELY HAS NO CODE NODES and is not degraded. So the zero-code
+ * signal never fires on its own: it requires the manifest to claim MORE than the database holds.
+ *
+ * ⚠ UNKNOWN REFUSES TO ACCUSE. Absent counts return false — a graph is not called broken because
+ * its integrity could not be read. That direction is deliberate: the opposite would fail every
+ * older graph whose manifest predates these fields.
+ */
+function isIndexIncomplete(integrity) {
+  if (!integrity) return false;
+  const { manifestNodes, dbNodes, manifestEdges, dbEdges, codeNodes } = integrity;
+  const known = Number.isInteger(manifestNodes) && Number.isInteger(dbNodes);
+  if (!known) return false;
+
+  // The database holding FEWER than the manifest promised is the interrupted-write signature.
+  // More is not: a collection legitimately adds nodes after the index that wrote the manifest.
+  const shortOfManifest = dbNodes < manifestNodes
+    || (Number.isInteger(manifestEdges) && Number.isInteger(dbEdges) && dbEdges < manifestEdges);
+  if (!shortOfManifest) return false;
+
+  // Short AND stripped of code is the observed failure. Short alone could be a pruned collection.
+  return Number.isInteger(codeNodes) ? codeNodes === 0 : true;
 }

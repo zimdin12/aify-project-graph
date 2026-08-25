@@ -58,13 +58,18 @@ const DIRTY_LIST_CAP = 25;
  * Returns null when the graph cannot say — and null must never be read as "has a server", which is
  * why the caller treats an unknown language as "do not invent a permanent limit".
  */
+// ⛔ ONE OWNER. This list decides both the primary language and whether the graph still holds any
+// code at all; two copies would drift and the integrity check would quietly stop firing.
+const CODE_NODE_TYPES = Object.freeze(['Function', 'Method', 'Class', 'Interface', 'Type', 'Symbol', 'Test']);
+const CODE_NODE_TYPE_SET = new Set(CODE_NODE_TYPES);
+
 function dominantGraphLanguage(dbPath) {
   try {
     const db = openExistingDb(dbPath);
     try {
       const row = db.get(`SELECT language, COUNT(*) c FROM nodes
         WHERE language IS NOT NULL AND language <> ''
-          AND type IN ('Function','Method','Class','Interface','Type','Symbol','Test')
+          AND type IN (${CODE_NODE_TYPES.map((t) => `'${t}'`).join(',')})
         GROUP BY language ORDER BY c DESC LIMIT 1`);
       return row?.language ?? null;
     } finally { db.close(); }
@@ -373,18 +378,43 @@ export async function graphHealth({ repoRoot }) {
   let nodes = manifest?.nodes ?? 0;
   let census = [];
   let edges = manifest?.edges ?? 0;
+  // ⛔ A CONTROL THAT PASSES FOR THE WRONG REASON. Below, `nodes`/`edges` fall back to the MANIFEST
+  // when the database cannot be opened — so comparing them to the manifest would compare it to
+  // itself and always agree. The integrity check must only run on counts genuinely read from the
+  // database, and this flag is the difference.
+  let dbCountsRead = false;
   try {
     const db = openExistingDb(dbPath);
     try {
       nodes = db.get('SELECT count(*) AS c FROM nodes').c;
       edges = db.get('SELECT count(*) AS c FROM edges').c;
       census = db.all('SELECT type, count(*) AS c FROM nodes GROUP BY type ORDER BY c DESC');
+      dbCountsRead = true;
     } finally {
       db.close();
     }
   } catch {
     // fall through with manifest values
   }
+
+  // ⛔ NOTHING COMPARED THE MANIFEST TO THE DATABASE. `writeManifest` renames atomically at the END
+  // of a successful index, so an interrupted run leaves the manifest describing the LAST GOOD state
+  // while the database holds whatever the killed run managed to write. Observed: click left with 90
+  // nodes — Document 43, Directory 25, Config 22 — and zero code nodes, with the file present,
+  // opening cleanly, carrying a plausible count, and health reporting it indexed. Every check
+  // available read one side or the other, which is several checks sharing one blind spot.
+  //
+  // ⚠ Positive control, taken on the pinned corpus in the same pass: healthy graphs agree EXACTLY —
+  // fmt 6735/14855, click 2572/13618, fast-route 489/1343, p-queue 184/384. A mismatch is signal.
+  const capabilitiesIntegrity = dbCountsRead && manifest
+    ? {
+      manifestNodes: Number.isInteger(manifest.nodes) ? manifest.nodes : null,
+      dbNodes: nodes,
+      manifestEdges: Number.isInteger(manifest.edges) ? manifest.edges : null,
+      dbEdges: edges,
+      codeNodes: census.reduce((a, r) => a + (CODE_NODE_TYPE_SET.has(r.type) ? r.c : 0), 0),
+    }
+    : null;
 
   // Overlay health
   const functionality = hasOverlay(repoRoot) ? loadFunctionality(repoRoot) : { features: [] };
@@ -936,6 +966,15 @@ export async function graphHealth({ repoRoot }) {
   // claims completeness in its name, so neither is renamed; flagged here so the next
   // reader knows the audit happened rather than was skipped.
   if (manifestStatus !== 'ok') verdicts.push(`previous-run-did-not-finish: status=${manifestStatus} (run graph_index(force=true))`);
+  // ⛔ THE CASE THE LINE ABOVE CANNOT SEE. `manifestStatus` comes from the manifest, and an
+  // interrupted index never rewrites the manifest — so the run that failed hardest is the one that
+  // leaves status='ok'. This reads the DATABASE instead and reports the disagreement.
+  if (capabilitiesIntegrity && graphCapabilities({ indexed: true, integrity: capabilitiesIntegrity }).reason === 'index_incomplete') {
+    verdicts.push(`index-incomplete: the manifest describes ${capabilitiesIntegrity.manifestNodes} nodes `
+      + `but the database holds ${capabilitiesIntegrity.dbNodes}, and none of them is code. A previous `
+      + `index did not finish writing. Run graph_index(force=true); until then every answer, `
+      + `orientation included, is a floor.`);
+  }
   if (stale) verdicts.push(`stale: indexed ${manifest.commit.slice(0,7)}, HEAD ${head.slice(0,7)}`);
   else verdicts.push('fresh');
 
@@ -1437,6 +1476,7 @@ export async function graphHealth({ repoRoot }) {
   // holds a language per node, so it can answer before anything is collected.
   const primaryLanguage = codeIntel?.language ?? dominantGraphLanguage(dbPath);
   const capabilities = graphCapabilities({
+    integrity: capabilitiesIntegrity,
     indexed: true,
     compilerVerifiedEdges: codeIntel?.lspVerifiedEdges ?? 0,
     collectionAvailable: codeIntel?.available === true,

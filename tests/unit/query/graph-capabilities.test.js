@@ -145,3 +145,109 @@ describe('every refusal carries an action a reader can take', () => {
     expect(granted.length).toBeLessThan(states.length - granted.length);
   });
 });
+
+// ⛔ F8 — AN INTERRUPTED INDEX LEAVES A GRAPH THAT PASSES EVERY OTHER CHECK.
+//
+// Observed on the pinned corpus: a `graph_index` killed mid-write left click holding 90 nodes
+// (Document 43, Directory 25, Config 22) and ZERO code nodes, while the file existed, opened
+// cleanly, carried a plausible count, and health reported it indexed.
+//
+// `writeManifest` renames atomically at the END of a successful run, so the manifest keeps
+// describing the last good state while the database is mangled — and nothing compared the two.
+//
+// ⭐ POSITIVE CONTROL, measured on all four arms in the same pass: healthy graphs agree EXACTLY
+// (fmt 6735/14855, click 2572/13618, fast-route 489/1343, p-queue 184/384), so a mismatch is a real
+// signal rather than ordinary drift. The `HEALTHY` case below is that control in test form: without
+// it, every assertion here is satisfied by a function that calls every graph broken.
+describe('graphCapabilities — an incomplete index is reported, and only when it IS one', () => {
+  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true } };
+
+  it('⭐ POSITIVE CONTROL: a graph whose counts agree keeps every capability', () => {
+    const c = graphCapabilities({ ...FULL, integrity: { manifestNodes: 2572, dbNodes: 2572, manifestEdges: 13618, dbEdges: 13618, codeNodes: 1904 } });
+    expect(c.orientationUsable).toBe(true);
+    expect(c.absenceAuthority).toBe(true);
+    expect(c.reason).toBeNull();
+  });
+
+  it('⛔ THE OBSERVED SHAPE: manifest 2,572 / database 90 / zero code nodes', () => {
+    const c = graphCapabilities({ ...FULL, integrity: { manifestNodes: 2572, dbNodes: 90, manifestEdges: 13618, dbEdges: 0, codeNodes: 0 } });
+    expect(c.orientationUsable).toBe(false);
+    expect(c.absenceAuthority).toBe(false);
+    expect(c.reason).toBe('index_incomplete');
+  });
+
+  it('⛔ ORIENTATION FAILS TOO — a half-written graph cannot answer "what is near this" either', () => {
+    // The narrower fix would have failed only absenceAuthority. But the observed graph had NO code
+    // nodes at all, so "what does this module contain" is wrong, not merely incomplete.
+    const c = graphCapabilities({ indexed: true, integrity: { manifestNodes: 2572, dbNodes: 90, codeNodes: 0 } });
+    expect(c.orientationUsable).toBe(false);
+  });
+
+  it('⛔ the nextAction says REINDEX and names both counts — never "run a collection"', () => {
+    // The first cut of this fix let `index_incomplete` fall through to the default branch, which
+    // told the operator to run a 60-second collection on a graph that needed rebuilding. Executing
+    // it caught that; reading it had not.
+    const { nextAction } = graphCapabilities({ ...FULL, integrity: { manifestNodes: 2572, dbNodes: 90, codeNodes: 0 } });
+    expect(nextAction).toMatch(/graph_index/);
+    // A bare negative here would pass just as happily if the regex were dead. The canaries prove
+    // it fires on the wrong remedy and stays silent on the right one.
+    expectAbsentWithLiveMatcher(
+      /graph_collect_code_intel/,
+      { forbidden: 'graph_collect_code_intel({ scope: "all" }) to build the trust spine', allowed: 'graph_index({ force: true })' },
+      nextAction,
+      'a partial graph must be told to reindex, never to collect',
+    );
+    expect(nextAction).toContain('2572');
+    expect(nextAction).toContain('90');
+  });
+
+  it('⛔ index_incomplete OUTRANKS every other reason — an unusable graph explains itself first', () => {
+    // A partial PHP graph must not be told its problem is the missing language server.
+    const c = graphCapabilities({ indexed: true, languageHasServer: false, language: 'php', collectionAvailable: false, integrity: { manifestNodes: 489, dbNodes: 12, codeNodes: 0 } });
+    expect(c.reason).toBe('index_incomplete');
+  });
+
+  describe('⛔ it must not accuse a graph that is merely SMALL, EMPTY, or UNMEASURED', () => {
+    it('a docs-only repository with zero code nodes and agreeing counts is fine', () => {
+      // The zero-code signal alone would condemn every legitimate documentation tree. It fires only
+      // paired with the database holding LESS than the manifest promised.
+      const c = graphCapabilities({ indexed: true, integrity: { manifestNodes: 90, dbNodes: 90, codeNodes: 0 } });
+      expect(c.orientationUsable).toBe(true);
+      expect(c.reason).not.toBe('index_incomplete');
+    });
+
+    it('a graph holding MORE than the manifest promised is not partial', () => {
+      // A collection legitimately adds nodes after the index that wrote the manifest.
+      const c = graphCapabilities({ indexed: true, integrity: { manifestNodes: 2393, dbNodes: 2566, codeNodes: 0 } });
+      expect(c.orientationUsable).toBe(true);
+    });
+
+    it('UNKNOWN REFUSES TO ACCUSE: absent integrity, and manifests predating these fields', () => {
+      expect(graphCapabilities({ indexed: true }).orientationUsable).toBe(true);
+      expect(graphCapabilities({ indexed: true, integrity: null }).orientationUsable).toBe(true);
+      expect(graphCapabilities({ indexed: true, integrity: { manifestNodes: null, dbNodes: 90, codeNodes: 0 } }).orientationUsable).toBe(true);
+    });
+
+    it('short of the manifest but still HOLDING CODE is not condemned on that evidence alone', () => {
+      // Short alone could be a pruned collection. The pair is required.
+      const c = graphCapabilities({ indexed: true, integrity: { manifestNodes: 2572, dbNodes: 2100, codeNodes: 1500 } });
+      expect(c.orientationUsable).toBe(true);
+    });
+  });
+
+  it('⭐ it DISCRIMINATES: exactly one of these six states is called incomplete', () => {
+    // Each negative above passes individually for a function that never fires. Counting both
+    // outcomes in one pass is the cheapest proof this is not simply inert.
+    const states = [
+      { manifestNodes: 2572, dbNodes: 90, codeNodes: 0 },        // the observed defect
+      { manifestNodes: 2572, dbNodes: 2572, codeNodes: 1904 },   // healthy
+      { manifestNodes: 90, dbNodes: 90, codeNodes: 0 },          // docs-only
+      { manifestNodes: 2393, dbNodes: 2566, codeNodes: 0 },      // post-collection growth
+      { manifestNodes: 2572, dbNodes: 2100, codeNodes: 1500 },   // short but holding code
+      { manifestNodes: null, dbNodes: 90, codeNodes: 0 },        // unmeasured
+    ];
+    const fired = states.filter((integrity) => graphCapabilities({ indexed: true, integrity }).reason === 'index_incomplete');
+    expect(fired).toHaveLength(1);
+    expect(fired[0].dbNodes).toBe(90);
+  });
+});
