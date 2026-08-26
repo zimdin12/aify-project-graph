@@ -18,6 +18,21 @@
 import { join } from 'node:path';
 import { buildPaths } from '../query/verbs/path.js';
 import { edgeClass } from '../storage/edge-classes.js';
+import { CALL_FAMILY } from '../storage/taxonomy.js';
+
+// ⛔ FAN-IN IS "WHAT DEPENDS ON THIS", AND ROUTED EDGES ARE DEPENDENCIES. These queries counted
+// only CALLS and REFERENCES, so on a Laravel / NestJS / Express / Flask application the handlers and
+// middleware — reached by INVOKES and PASSES_THROUGH, which this repo's own framework ingesters
+// emit — scored a fan-in of ZERO and never ranked. The symbols such an app is organised around were
+// exactly the ones its hub list could not see.
+//
+// ⚠ NO CORPUS COULD CATCH IT: zero INVOKES and zero PASSES_THROUGH edges exist across the four
+// pinned third-party repos AND this project's own graph, because none is a web app on a supported
+// framework. The relations are not dead vocabulary; the corpus cannot express them.
+//
+// ⇒ CALL_FAMILY, derived, not a fifth hand-written list. It is exactly these four relations, and it
+// grows if the taxonomy does.
+const CALL_FAMILY_SQL = CALL_FAMILY.map((r) => `'${r}'`).join(',');
 
 // Module constants moved with the functions that read them — a constant is as much a
 // dependency as a call, and the extraction planner only enumerated imports and functions.
@@ -235,7 +250,7 @@ export function hubs(db, limit = 5) {
             count(e.from_id) AS fan_in
      FROM nodes n JOIN edges e ON e.to_id = n.id
      WHERE n.type IN ('Function', 'Method', 'Class', 'Interface')
-       AND e.relation IN ('CALLS', 'REFERENCES')
+       AND e.relation IN (${CALL_FAMILY_SQL})
        AND n.label NOT IN (${stop})
      GROUP BY n.id
      ORDER BY fan_in DESC LIMIT $limit`, { limit: limit * 3 });
@@ -706,7 +721,7 @@ export function risks(db, limit = 3) {
   const rows = q(db,
     `SELECT n.file_path AS file, count(e.from_id) AS fan
      FROM nodes n JOIN edges e ON e.to_id = n.id
-     WHERE e.relation IN ('CALLS', 'REFERENCES')
+     WHERE e.relation IN (${CALL_FAMILY_SQL})
        AND n.file_path IS NOT NULL
        AND n.file_path != ''
        AND n.file_path != '.'

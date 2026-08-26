@@ -1,6 +1,21 @@
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { communitySummary } from '../../analysis/communities.js';
+import { CALL_FAMILY } from '../../storage/taxonomy.js';
+
+// ⛔ FAN-IN IS "WHAT DEPENDS ON THIS", AND ROUTED EDGES ARE DEPENDENCIES. These queries counted
+// only CALLS and REFERENCES, so on a Laravel / NestJS / Express / Flask application the handlers and
+// middleware — reached by INVOKES and PASSES_THROUGH, which this repo's own framework ingesters
+// emit — scored a fan-in of ZERO and never ranked. The symbols such an app is organised around were
+// exactly the ones its hub list could not see.
+//
+// ⚠ NO CORPUS COULD CATCH IT: zero INVOKES and zero PASSES_THROUGH edges exist across the four
+// pinned third-party repos AND this project's own graph, because none is a web app on a supported
+// framework. The relations are not dead vocabulary; the corpus cannot express them.
+//
+// ⇒ CALL_FAMILY, derived, not a fifth hand-written list. It is exactly these four relations, and it
+// grows if the taxonomy does.
+const CALL_FAMILY_SQL = CALL_FAMILY.map((r) => `'${r}'`).join(',');
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 
 // Filter out noise from report output
@@ -58,7 +73,7 @@ export async function graphReport({ repoRoot, top_k = 20 }) {
       `SELECT n.label, n.type, n.file_path, count(e.from_id) AS fan_in
        FROM nodes n JOIN edges e ON e.to_id = n.id
        WHERE n.type IN ('Function', 'Method', 'Class', 'Interface')
-       AND e.relation IN ('CALLS', 'REFERENCES')
+       AND e.relation IN (${CALL_FAMILY_SQL})
        AND n.label NOT IN ('close','open','read','write','get','set','json',
          'log','print','send','parse','init','run','test','str','int','len',
          '__init__','__str__','__repr__','raise_for_status','toString')

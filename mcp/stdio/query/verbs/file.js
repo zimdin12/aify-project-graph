@@ -3,6 +3,9 @@ import { openExistingDb } from '../../storage/db.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { provenanceRankSql } from '../lsp-evidence.js';
+// ⚠ Set-equal to what was written out by hand here; centralised so it cannot drift from
+// graph_callers/graph_preflight the way preflight's copy did.
+import { CALL_FAMILY } from '../../storage/taxonomy.js';
 import { renderProvenanceTag } from '../renderer.js';
 
 /**
@@ -84,7 +87,7 @@ function graphFileInner(db, fileNode, top_k) {
        FROM edges e
        JOIN nodes n ON n.id = e.from_id
        JOIN nodes t ON t.id = e.to_id
-       WHERE e.to_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH')
+       WHERE e.to_id IN (${placeholders}) AND e.relation IN (${CALL_FAMILY.map((r) => `'${r}'`).join(',')})
        AND n.file_path != $path
        ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT $limit`,
       { ...params, path: fileNode.file_path }
@@ -102,7 +105,7 @@ function graphFileInner(db, fileNode, top_k) {
        FROM edges e
        JOIN nodes n ON n.id = e.to_id
        JOIN nodes t ON t.id = e.from_id
-       WHERE e.from_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH')
+       WHERE e.from_id IN (${placeholders}) AND e.relation IN (${CALL_FAMILY.map((r) => `'${r}'`).join(',')})
        AND n.file_path != $path
        ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT $limit`,
       { ...params, path: fileNode.file_path }
