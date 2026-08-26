@@ -34,6 +34,7 @@
 // authority and no record. SELECTION IS NOT CUSTODY AUTHORITY. A gate with a documented bypass is
 // a gate that will be bypassed by whoever is in a hurry, which on this path is usually me.
 // Exit:   0 measured · 1 an arm failed its own checks · 2 bad spec · 3 subject not clean
+//         4 another run holds the lock, or an observable arm is present · 5 publication refused
 
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -87,6 +88,49 @@ export function canonicalise(members) {
   // exactly what they can read.
   const text = `${sorted.map((k) => k.split(SEP).join('\t')).join('\n')}\n`;
   return { text, hash: sha256(text), count: sorted.length };
+}
+
+// ── publication ───────────────────────────────────────────────────────────────
+
+/**
+ * Move staged evidence into the repository, or refuse.
+ *
+ * ⛔ REFUSE, NOT OVERWRITE. The destination may already hold the last accepted receipt and its
+ * difference files. If any of those bytes are not what that receipt recorded, something else has
+ * touched them — a half-finished rerun, a manual edit, a restored backup — and silently overwriting
+ * would erase the only evidence that anything was wrong. The prior receipt's own `published` list is
+ * the authority for what should be there.
+ *
+ * @returns {{ok: boolean, reason?: string, replaced: Array, published: Array}}
+ */
+export function publishEvidence({ stagingDir, publishDir, priorReceipt }) {
+  const staged = readdirSync(stagingDir).filter((f) => !f.startsWith('graph-'));
+  const expected = new Map((priorReceipt?.published ?? []).map((p) => [p.name, p.sha256]));
+
+  if (existsSync(publishDir)) {
+    for (const name of readdirSync(publishDir)) {
+      const current = sha256(readFileSync(join(publishDir, name), 'utf8'));
+      if (!expected.has(name)) {
+        return { ok: false, reason: `${name} is present but the last accepted receipt does not list it`, replaced: [], published: [] };
+      }
+      if (expected.get(name) !== current) {
+        return { ok: false, reason: `${name} does not hold the bytes the last accepted receipt recorded`, replaced: [], published: [] };
+      }
+    }
+  }
+
+  mkdirSync(publishDir, { recursive: true });
+  const replaced = [];
+  const published = [];
+  for (const name of staged) {
+    const from = join(stagingDir, name);
+    const bytes = readFileSync(from, 'utf8');
+    const to = join(publishDir, name);
+    if (existsSync(to)) replaced.push({ name, priorSha256: expected.get(name) ?? null });
+    writeFileSync(to, bytes);
+    published.push({ name, sha256: sha256(bytes) });
+  }
+  return { ok: true, replaced, published };
 }
 
 // ── one arm, in its own disposable worktree ───────────────────────────────────
@@ -388,10 +432,18 @@ function main(argv) {
   // discarded file is still useful — it is what a re-run must reproduce — but the reader is told
   // which it is rather than assuming a file is there.
   const retain = new Set(spec.retain ?? ['diffs']);
+  // ⛔ NOTHING IS WRITTEN INTO MAIN DURING THE RUN. Earlier versions wrote the receipt and difference
+  // files straight into docs/evidence as the arms produced them, so a kill mid-run left main holding
+  // a HALF-REPLACED authoritative receipt. That is not theoretical: a reviewer observed exactly that
+  // state — three modified evidence files from a rerun that had overwritten the accepted receipt
+  // before publication.
+  //
+  // ⇒ Everything stages in a run-owned directory outside the repository. Publication is a separate,
+  // explicit step that happens only after BOTH arms reach validated terminal closure, and it REFUSES
+  // rather than overwrites if the destination does not hold the bytes the last accepted receipt
+  // recorded. A killed run leaves typed debt outside production and main untouched.
   const durable = Boolean(spec.evidenceDir);
-  const evidenceDir = durable
-    ? resolve(repo, spec.evidenceDir)
-    : mkdtempSync(join(tmpdir(), 'apg-ab-evidence-'));
+  const evidenceDir = mkdtempSync(join(tmpdir(), 'apg-ab-staging-'));
   mkdirSync(evidenceDir, { recursive: true });
 
   const arms = [];
@@ -481,11 +533,46 @@ function main(argv) {
   };
 
   const outPath = argv.includes('--out') ? argv[argv.indexOf('--out') + 1] : spec.out;
-  if (outPath) {
-    mkdirSync(dirname(resolve(repo, outPath)), { recursive: true });
-    writeFileSync(resolve(repo, outPath), `${JSON.stringify(receipt, null, 2)}\n`);
+
+  // ⛔ PUBLICATION ONLY AFTER BOTH ARMS ARE TERMINAL. A run whose arm failed its own checks publishes
+  // NOTHING: its numbers are not evidence, and replacing the last accepted receipt with them would
+  // destroy the only good record to make room for a bad one.
+  if (failed.length === 0 && durable && outPath) {
+    const publishDir = resolve(repo, spec.evidenceDir);
+    const priorReceiptPath = resolve(repo, outPath);
+    const priorReceipt = existsSync(priorReceiptPath)
+      ? JSON.parse(readFileSync(priorReceiptPath, 'utf8'))
+      : null;
+
+    // The receipt names what it is about to publish, so the NEXT run can tell whether the
+    // destination still holds those bytes. Written into staging first, then imported with everything
+    // else — the receipt is not a special case that skips its own protocol.
+    receipt.published = readdirSync(evidenceDir)
+      .filter((f) => !f.startsWith('graph-'))
+      .map((name) => ({ name, sha256: sha256(readFileSync(join(evidenceDir, name), 'utf8')) }));
+    const receiptName = 'receipt.json';
+    writeFileSync(join(evidenceDir, receiptName), `${JSON.stringify(receipt, null, 2)}\n`);
+    receipt.published.push({ name: receiptName, sha256: sha256(readFileSync(join(evidenceDir, receiptName), 'utf8')) });
+
+    const imported = publishEvidence({ stagingDir: evidenceDir, publishDir, priorReceipt });
+    if (!imported.ok) {
+      console.error(`REFUSED to publish: ${imported.reason}`);
+      console.error(`  staged evidence is preserved at ${evidenceDir}`);
+      console.error('  resolve the destination by hand; publication never overwrites bytes it cannot account for.');
+      return 5;
+    }
+    receipt.publication = {
+      publishDir: spec.evidenceDir,
+      replaced: imported.replaced,
+      published: imported.published,
+      stagedAt: evidenceDir,
+    };
+    mkdirSync(dirname(priorReceiptPath), { recursive: true });
+    writeFileSync(priorReceiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
+    process.stderr.write(`[ab] published ${imported.published.length} artifacts -> ${spec.evidenceDir}\n`);
     process.stderr.write(`[ab] receipt -> ${outPath}\n`);
-    process.stderr.write(`[ab] raw membership retained in ${evidenceDir} (${readdirSync(evidenceDir).length} files)\n`);
+  } else if (failed.length > 0) {
+    process.stderr.write(`[ab] NOT PUBLISHED — an arm failed; staged evidence kept at ${evidenceDir}\n`);
   }
   console.log(JSON.stringify(receipt, null, 2));
 
