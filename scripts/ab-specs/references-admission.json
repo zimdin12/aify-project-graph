@@ -28,5 +28,6 @@
     "mcp/stdio/freshness/unresolved-categorization.js",
     "mcp/stdio/freshness/unresolved-metrics.js",
     "scripts/ab-arm-worker.mjs"
-  ]
+  ],
+  "evidenceDir": "docs/evidence/ab-references-admission"
 }

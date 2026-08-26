@@ -39,6 +39,10 @@ import { mainRepoWorkspace, openArmWorkspace, disposeArmWorkspace, ARM_WORKTREE_
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 
+// The in-memory set-key separator, mirroring the worker. Never written to a durable file — see
+// canonicalise, and the control-byte guard it would otherwise trip.
+const SEP = String.fromCharCode(1);
+
 // ── set comparison ────────────────────────────────────────────────────────────
 
 /**
@@ -62,7 +66,13 @@ export function diffSets(a, b) {
  */
 export function canonicalise(members) {
   const sorted = [...members].sort();
-  const text = `${sorted.join('\n')}\n`;
+  // ⛔ THE DURABLE FORM IS TAB-SEPARATED, NOT THE IN-MEMORY ONE. Set keys join their fields with
+  // U+0001 because that byte cannot occur in an id, a label or a path — but this repository has a
+  // guard that FAILS on any tracked file containing a raw control byte, so writing the keys verbatim
+  // would produce evidence that cannot be committed. Tab is permitted by that guard and is likewise
+  // absent from every field here. The hash is of the WRITTEN form, so what a reader recomputes is
+  // exactly what they can read.
+  const text = `${sorted.map((k) => k.split(SEP).join('\t')).join('\n')}\n`;
   return { text, hash: sha256(text), count: sorted.length };
 }
 
@@ -212,9 +222,19 @@ function main(argv) {
     return 3;
   }
 
-  // ⛔ EVIDENCE IS WRITTEN OUTSIDE THE WORKTREES IT DESCRIBES — a receipt cannot sit inside the tree
-  // it claims already contained it.
-  const evidenceDir = mkdtempSync(join(tmpdir(), 'apg-ab-evidence-'));
+  // ⛔ EVIDENCE MUST BE DURABLE, AND A TEMP PATH IS NOT AN ADDRESS. The first version wrote the
+  // membership into an OS temp directory and recorded that path in the receipt — so the hashes named
+  // artifacts the next reboot deletes, and a reader had nothing to recompute them against. Review
+  // asked for the populations to be RETAINED, and a pointer at scratch is not retention.
+  //
+  // ⚠ It is still written OUTSIDE the arm worktrees it describes, because those are disposed, and
+  // the receipt is committed AFTER the run as a child of the subject — a receipt cannot sit inside
+  // the tree it claims already contained it.
+  const durable = Boolean(spec.evidenceDir);
+  const evidenceDir = durable
+    ? resolve(repo, spec.evidenceDir)
+    : mkdtempSync(join(tmpdir(), 'apg-ab-evidence-'));
+  mkdirSync(evidenceDir, { recursive: true });
 
   const arms = [];
   for (const arm of spec.arms) {
@@ -258,7 +278,11 @@ function main(argv) {
     },
     platform: { node: process.version, platform: process.platform, arch: process.arch },
     heldFixed: 'both arms are detached worktrees of the SAME subject commit; only arm A carries the transport',
-    evidenceDir,
+    evidenceDir: durable ? spec.evidenceDir : evidenceDir,
+    // ⚠ SAY WHICH IT IS. A hash naming a file nobody kept is a claim, not evidence.
+    evidenceRetention: durable
+      ? 'retained alongside this receipt and committed with it'
+      : 'EPHEMERAL temp directory — the hashes are reproducible from the subject commit, the files are not retained',
     arms: arms.map(({ graph, ...rest }) => rest),
     comparison: diffEvidence,
     verdict: failed.length > 0 ? 'INVALID — an arm failed its own checks' : 'measured',
