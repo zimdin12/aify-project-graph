@@ -665,6 +665,24 @@ export function isReservedCallee(label, language) {
   return set ? set.has(String(label ?? '')) : false;
 }
 
+/**
+ * Is this label impossible as an External target, whatever else is true of the ref?
+ *
+ * ⛔ THE TWO CHECKS ABOVE ARE TRUTHS ABOUT THE LABEL, NOT MATERIALIZATION POLICY, and that
+ * distinction is the whole reason this function exists separately from shouldMaterializeExternal.
+ * `entries()]` is not a symbol and `new` is not a callee — those facts hold no matter how the edge
+ * came to be. COMMON_NAMES and the per-relation rules below are a different kind of statement: they
+ * say a node is not WORTH creating, which is only ever a question at creation time.
+ *
+ * The split matters because a gate on creation alone was measurably not enough — see the call site
+ * in resolveRefs.
+ */
+export function isImpossibleExternalTarget(label, language) {
+  if (!isPlausibleExternalName(label)) return true;
+  if (isReservedCallee(label, language)) return true;
+  return false;
+}
+
 // Decide whether an unresolved ref should be materialized as an External
 // terminal node or left in dirtyEdges. Dev's rule (from design discussion):
 //  - CALLS: always materialize. Terminal hop in trace output.
@@ -682,10 +700,9 @@ function shouldMaterializeExternal(ref) {
   if (!ref.from_id || !ref.target) return false;
   const label = normalizeExternalTarget(ref.target);
   if (!label) return false;
-  // ⛔ Before anything else: a fragment is not a symbol. See PLAUSIBLE_EXTERNAL above.
-  if (!isPlausibleExternalName(label)) return false;
-  // ⛔ And a reserved word cannot be called — in the language that reserves it. See isReservedCallee.
-  if (isReservedCallee(label, ref.language || ref.extractor)) return false;
+  // ⛔ Before anything else, the label-truths: a fragment is not a symbol and a reserved word is not
+  // a callee. Shared with the re-binding path in resolveRefs so one predicate governs both.
+  if (isImpossibleExternalTarget(label, ref.language || ref.extractor)) return false;
   if (COMMON_NAMES.has(label)) return false;
   if (ref.relation === 'CALLS') return true;
   if (ref.relation === 'PASSES_THROUGH') return true;
@@ -802,7 +819,35 @@ export function resolveRefs({ db, refs, importContext = null }) {
       continue;
     }
 
-    const targetNode = resolveTarget(ref, resolvers, importContext);
+    // ⛔ A GATE ON CREATION IS NOT A GATE ON THE EDGE.
+    //
+    // shouldMaterializeExternal is consulted only when resolveTarget finds nothing. But
+    // buildResolvers queries the nodes table with no type restriction, so findByLabel returns
+    // External nodes that are ALREADY in the graph — including every fragment created before the
+    // gate existed. Measured on this repository: 526 CALLS edges point at an External label
+    // containing `(`, a shape no language permits in a name.
+    //
+    // ⭐ PROVEN, both arms in one pass: with a node labelled `execFileSync('git',` seeded into the
+    // graph, an identical ref produced an edge to it and the gate never ran; with the same ref
+    // against an empty graph the gate refused and the ref went to unresolved. So the residue was
+    // not historical — every re-index of the file that produced a fragment re-attached to it.
+    //
+    // Nulling the match here drops the ref into the branch below, where the same label meets the
+    // same predicate and is refused. Only the label-truths apply: whether a node is WORTH creating
+    // says nothing about an edge to one that already exists.
+    //
+    // ⚠ THAT NARROWING IS A DESIGN CHOICE WITH NO OBSERVABLE DIFFERENCE TODAY, and saying so is more
+    // useful than implying a test guards it. The other half of shouldMaterializeExternal is
+    // COMMON_NAMES, and resolveTarget already applies a STRICTER rule to those names above — it
+    // declines a label match for a common name unless it is uniquely in the ref's own file, which an
+    // External node (file_path '') can never be. So calling the whole gate here would behave
+    // identically. The narrow predicate is still the right one to call, because it is the one whose
+    // reason survives if that earlier rule ever changes.
+    let targetNode = resolveTarget(ref, resolvers, importContext);
+    if (targetNode?.node?.type === 'External'
+      && isImpossibleExternalTarget(targetNode.node.label, ref.language || ref.extractor)) {
+      targetNode = null;
+    }
     if (!targetNode) {
       if (symbolicChain || shouldMaterializeExternal(ref)) {
         const externalNode = createExternalNode(ref);

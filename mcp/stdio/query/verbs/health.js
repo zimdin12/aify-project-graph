@@ -710,10 +710,16 @@ export async function graphHealth({ repoRoot }) {
     // never as a new field, and counted cheaply by label shape rather than by rebuilding anything.
     const fragmentExternals = countFragmentExternals(dbPath);
     if (fragmentExternals > 0) {
+      // ⛔ THE SECOND SENTENCE USED TO READ "Incremental reindexing does NOT remove them", which was
+      // true when it was written and is now false. Refs used to RE-BIND to these nodes — resolveRefs
+      // gated creation but not binding — so every re-index refreshed their edges and the orphan
+      // sweep could never collect them. With that gate closed they drain as each referencing file is
+      // next re-indexed. A forced index is still the way to clear them all at once, so the advice is
+      // unchanged; only the claim about what happens without it had to be corrected.
       verdicts.push(`stale-externals: ${fragmentExternals} External nodes carry parse-fragment labels `
         + `(e.g. "entries()]"). They inflate counts and can never resolve. A full rebuild of this `
-        + `same commit produces none. `
-        + `Incremental reindexing does NOT remove them — run graph_index(force=true) to clear.`);
+        + `same commit produces none. They now drain as each referencing file is re-indexed — `
+        + `run graph_index(force=true) to clear them all at once.`);
     }
 
     const searchable = new Set(SEARCH_TYPES);
