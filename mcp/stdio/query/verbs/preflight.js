@@ -8,6 +8,15 @@ import { buildTrustLine, provenanceRankSql } from '../lsp-evidence.js';
 import { renderProvenanceTag } from '../renderer.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { missScopeNote } from '../miss-scope.js';
+// ⛔ DERIVED, NOT RESTATED. These four relation lists were written out by hand — three copies of
+// CALL_FAMILY and one near-miss of IMPACT_FAMILY — in the file whose whole job is answering "is this
+// safe to change". taxonomy.js exists precisely so a verb cannot quietly answer a narrower question
+// than it claims: graph_callers walks EXECUTION_FAMILY and preflight counts CALL_FAMILY, and because
+// neither named its population the two CONTRADICTED each other on the same symbol
+// (graph_callers("Class2") -> NO CALLERS, graph_preflight("Class2") -> CALLERS 1 total).
+import { CALL_FAMILY, IMPACT_FAMILY } from '../../storage/taxonomy.js';
+
+const asSqlList = (family) => family.map((r) => `'${r}'`).join(',');
 
 // The declaration types preflight resolves over. Named so the miss message can state the
 // population it actually searched instead of implying the repository.
@@ -38,7 +47,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
 
     // 2. Count callers
     const callerCount = db.get(
-      "SELECT count(*) AS c FROM edges WHERE to_id = $id AND relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')",
+      `SELECT count(*) AS c FROM edges WHERE to_id = $id AND relation IN (${asSqlList(CALL_FAMILY)})`,
       { id: node.id }
     ).c;
 
@@ -52,7 +61,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
     const topCallers = db.all(
       `SELECT n.label, n.file_path, e.source_line, e.relation, e.confidence, e.provenance
        FROM edges e JOIN nodes n ON n.id = e.from_id
-       WHERE e.to_id = $id AND e.relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')
+       WHERE e.to_id = $id AND e.relation IN (${asSqlList(CALL_FAMILY)})
        ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT 5`,
       { id: node.id }
     );
@@ -61,14 +70,14 @@ export async function graphPreflight({ repoRoot, symbol }) {
     // lsp axis below reflects the full caller set, not just the top 5 shown.
     const incomingProvenance = db.all(
       `SELECT e.provenance FROM edges e
-       WHERE e.to_id = $id AND e.relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')`,
+       WHERE e.to_id = $id AND e.relation IN (${asSqlList(CALL_FAMILY)})`,
       { id: node.id }
     );
 
     // 4. Impact count by type
     const impactByType = db.all(
       `SELECT relation, count(*) AS c FROM edges
-       WHERE to_id = $id AND relation IN ('CALLS','REFERENCES','USES_TYPE','TESTS')
+       WHERE to_id = $id AND relation IN (${asSqlList(IMPACT_FAMILY)})
        GROUP BY relation`,
       { id: node.id }
     );
