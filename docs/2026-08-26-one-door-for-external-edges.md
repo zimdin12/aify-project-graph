@@ -457,22 +457,32 @@ top of that list looks alarming — `node:fs/promises` (170), `node:fs/promises.
 only because `/` is absent from the character class.
 
 ⛔ **And that reading would have been wrong.** The question is not whether the shape rule rejects
-them; it is whether the shape rule is what EXCLUDES them:
+them; it is whether the shape rule is what EXCLUDES them. `IMPORTS` is not in the admission table at
+any shape, so a slash-shaped import is refused by RELATION regardless.
 
-| | count |
-|---|---|
-| fragment-shaped targets, `IMPORTS` | **803** |
-| fragment-shaped targets, `CALLS` | 30 |
+**Two snapshots, at different indexed commits. They are different populations and are not averaged.**
 
-`IMPORTS` is not in the admission table, so those 803 are refused by RELATION regardless of their
-shape. The shape rule is not the binding constraint for 96% of the population.
+| snapshot | `IMPORTS` | `CALLS` | admissible targets |
+|---|---|---|---|
+| unretained diagnostic run (probe deleted its own sidecar) | 803 | 30 | `})` ×29, `system()` ×1 |
+| independently reproducible at `bd35dcf` | 824 | 9 | `'` ×4, `})` ×5 |
 
-The 30 that *are* in an admissible relation are `})` (29) and `system()` (1) — genuine parse
-fragments, correctly refused.
+⛔ **The first row is an UNRETAINED SNAPSHOT and cannot be recovered.** The probe removed its temp
+directory, so no sidecar, hash, indexed commit or executable query survives for it — the exact counts
+are not independently checkable and are recorded as diagnostic only. The second row was taken from
+the full sidecar at indexed commit `bd35dcf`, sidecar sha256
+`5a8712a0237bf3fd2b78cce96df64071e07772f0e078d6248bb9210577f42da0`.
 
-⇒ **On this repository the gap's live population is zero.** It remains real in principle — a C++ or
-Ruby codebase would exercise it, and this repo contains neither — but it is not costing this graph a
-single edge, and the alarming-looking 803 are a different mechanism wearing the same shape.
+⇒ **The claim ceiling is therefore qualitative, not numeric: in both observed snapshots, zero
+legitimate names had their mint blocked SOLELY by shape.** Every admissible-relation target in either
+run was a genuine parse fragment. The exact figures moved between runs because the indexed source
+moved, which is precisely why the magnitude is not offered as a number.
+
+⚠ **And "this repository contains neither C++ nor Ruby" was false**: five `.cpp` fixtures are tracked
+(Ruby is genuinely absent, 0 files). The correct statement is the measured one — *neither measured
+admissible-ref population contained a legitimate C++/Ruby/punctuation target; C++ fixture files exist
+here but did not exercise this branch.* A language being present does not mean one of these names
+reaches this producer and route, so the gap **could** be exercised elsewhere, not **would**.
 
 ⇒ **The near-miss is the lesson.** "833 legitimate names are being refused" was one step away from
 being written down. The control that stopped it was asking which relation each ref was in — the same
