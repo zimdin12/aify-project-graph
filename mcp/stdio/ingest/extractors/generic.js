@@ -44,11 +44,27 @@ function buildImportTargets(node, source, rule, filePath) {
   return normalized;
 }
 
+// ⛔ THE MEMBER SEPARATOR IS SPLIT FIRST, AND THE ORDER IS THE WHOLE FIX.
+//
+// This took the FIRST whitespace-delimited token and then the leaf of that. For a method chained
+// onto a constructor the first token is the `new` keyword, so `new Foo(1).bar()` produced target
+// `new` — a callee nothing calls — AND SILENTLY LOST `bar`. Measured on a fresh full index of this
+// repository at 6d2d699: 96 CALLS edges targeted `new`, each one standing where a real method-call
+// edge belonged. `new Foo().a().b()` produced `new`, `new` and `Foo`, losing both `a` and `b`.
+//
+// ⚠ IT IS THE LOST EDGE THAT MATTERS, not the junk one. A stub target is visible in a census; a
+// missing call is invisible by construction, and `graph_callers` on the real method simply answered
+// with silence.
+//
+// Splitting on `::`/`->`/`.` first takes `bar` from `new Foo(1).bar`, and the trailing-token pass
+// then strips any qualifier left on that final segment. The whitespace strip dates to the extractor's
+// first commit with no test pinning it and no defect naming it.
 function normalizeCallTarget(text) {
   const raw = text.trim();
-  const stripped = raw.split(/\s+/u)[0];
-  const parts = stripped.split(/::|->|\./u);
-  return parts[parts.length - 1] ?? raw;
+  const parts = raw.split(/::|->|\./u);
+  const leaf = (parts[parts.length - 1] ?? raw).trim();
+  const tokens = leaf.split(/\s+/u);
+  return tokens[tokens.length - 1] ?? leaf;
 }
 
 function buildCallTarget({ text, node, source, owner, config }) {
