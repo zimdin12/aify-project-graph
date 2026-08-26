@@ -1,0 +1,41 @@
+{
+  "schema": "ab-graph-effect/normal-completion@1",
+  "runId": "abmta2iqflhsqvfk-B-type-like-only",
+  "priorManifestSha256": "43dafec3d392fe16cbf4fd1d86f60ae965a479b19064aa994fb459651445f669",
+  "subjectCommit": "5911d9b41b7f790e11bc8e0b3dd97e0bf13d6af5",
+  "subjectTree": "6e303c3ba4e3cc653e39c32bad96b8b7ee8f655c",
+  "worktree": "C:\\Docker\\aify-project-graph\\.self-review-worktrees\\ab-abmta2iqflhsqvfk-B-type-like-only\\subject",
+  "transportedFile": null,
+  "executedBytes": {
+    "mcp/stdio/ingest/external-admission.js": "c32124165f96f5e0d384355edcef6915c7e807f27789b2c3a8ea8cfc2fbabd4d",
+    "mcp/stdio/ingest/resolver.js": "85f606d602edde165f1b3e5a8f756452243c2fc8dfafae0fe2a4b191cfa5d8eb",
+    "mcp/stdio/freshness/unresolved-categorization.js": "595d39aabe1fdff3823aae130322a5dcf34916ff77fbf27663a036469639d1e5",
+    "mcp/stdio/freshness/unresolved-metrics.js": "d84e798dab45f5df6e8a9d2860ff7faca6cb150240ed4dc7a273a24877a7ccde",
+    "scripts/ab-arm-worker.mjs": "4aacecb466698fd962c4bf8386dd2bfc807657d6acc187b19c66c1ce1a4e7147"
+  },
+  "child": {
+    "code": 0,
+    "signal": null
+  },
+  "cleanupResults": [
+    {
+      "step": "remove-deps-junction",
+      "ok": true
+    },
+    {
+      "step": "remove-registration",
+      "ok": true
+    },
+    {
+      "step": "remove-directory",
+      "ok": true
+    },
+    {
+      "step": "prune",
+      "ok": true
+    }
+  ],
+  "evidenceStagedAt": "C:\\Docker\\aify-project-graph\\docs\\evidence\\ab-references-admission",
+  "closedAt": "2026-08-26T12:27:58.095Z",
+  "authorityClass": "NORMAL_COMPLETION — the owning run disposed its own arm; no orphan confirmation involved"
+}

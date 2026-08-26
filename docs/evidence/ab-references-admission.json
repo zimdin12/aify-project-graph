@@ -2,8 +2,8 @@
   "spec": "scripts/ab-specs/references-admission.json",
   "question": "What does refusing a bare-lowercase REFERENCES terminal do to the graph?",
   "subject": {
-    "commit": "db095490572639c71d62e640d7e5d7d0ee309605",
-    "tree": "567b8a726cab965a0bd468bf0dd462f6fd7e8fa1",
+    "commit": "5911d9b41b7f790e11bc8e0b3dd97e0bf13d6af5",
+    "tree": "6e303c3ba4e3cc653e39c32bad96b8b7ee8f655c",
     "cleanAtRun": true,
     "dirtyPathsDisclosed": []
   },
@@ -66,17 +66,17 @@
       "membership": {
         "retained": false,
         "nodesFile": null,
-        "nodesSha256": "0e254807a4ad60922fb00651b0fac5124f93cb8d398221789c2ba0d2dd91090e",
-        "nodesCount": 8160,
+        "nodesSha256": "2f14783083c592b3741336554f6837ff85612b7c0b77fa56d6fea38e7984e603",
+        "nodesCount": 8167,
         "edgesFile": null,
-        "edgesSha256": "dc78c471413057c68b665a87079ad830a771698e04affed25a53fccd2e44679c",
-        "edgesCount": 27295
+        "edgesSha256": "376cfe451b0758f54c5e5b215f72bc61a836b2856820f3b422b44b652b56a362",
+        "edgesCount": 27318
       },
       "counts": {
-        "nodes": 8160,
-        "edges": 27295,
+        "nodes": 8167,
+        "edges": 27318,
         "byRelation": {
-          "CALLS": 9071,
+          "CALLS": 9085,
           "CONTAINS": 1080,
           "DECLARES_BINDING": 1,
           "DEFINES": 2495,
@@ -85,17 +85,17 @@
           "IMPORTS": 1458,
           "LINKS_TO": 602,
           "MENTIONS": 34,
-          "REFERENCES": 12536,
+          "REFERENCES": 12545,
           "TESTS": 3,
           "USES_TYPE": 8
         },
         "externalByRelation": {
-          "CALLS": 5882,
+          "CALLS": 5891,
           "EXTENDS": 6,
-          "REFERENCES": 10428,
+          "REFERENCES": 10437,
           "USES_TYPE": 2
         },
-        "dirtyEdgeCount": 10664,
+        "dirtyEdgeCount": 10670,
         "trustDirtyEdgeCount": 38
       },
       "failures": []
@@ -138,17 +138,17 @@
       "membership": {
         "retained": false,
         "nodesFile": null,
-        "nodesSha256": "2caf516fbd367366288cf057bbc2ad1baa1ccecd06368fed8d382cfc19aa815b",
-        "nodesCount": 5285,
+        "nodesSha256": "461ddf934899347a03c9a8e8d2a96f209929258120b72ef65b8189b5c56f2886",
+        "nodesCount": 5289,
         "edgesFile": null,
-        "edgesSha256": "db6590524cba15f363c51faa70197ce4dec07aca627e01f204b1030b123af05d",
-        "edgesCount": 17521
+        "edgesSha256": "cdffdffde8772f783edf7319c4e293c1b931f97310989c654d22f586459aa4e9",
+        "edgesCount": 17535
       },
       "counts": {
-        "nodes": 5285,
-        "edges": 17521,
+        "nodes": 5289,
+        "edges": 17535,
         "byRelation": {
-          "CALLS": 9071,
+          "CALLS": 9085,
           "CONTAINS": 1080,
           "DECLARES_BINDING": 1,
           "DEFINES": 2495,
@@ -162,12 +162,12 @@
           "USES_TYPE": 8
         },
         "externalByRelation": {
-          "CALLS": 5882,
+          "CALLS": 5891,
           "EXTENDS": 6,
           "REFERENCES": 654,
           "USES_TYPE": 2
         },
-        "dirtyEdgeCount": 38706,
+        "dirtyEdgeCount": 38757,
         "trustDirtyEdgeCount": 38
       },
       "failures": []
@@ -177,9 +177,9 @@
     "retained": true,
     "sets": {
       "nodes-only-in-A": {
-        "count": 2875,
+        "count": 2878,
         "file": "nodes-only-in-A.txt",
-        "sha256": "de292fc893a251eae58f5ddaae885aab1bf91ff438cface5d6fcb77058f853f1"
+        "sha256": "bad04901a9f24f4da9a40bd13030cf3165bd3e2942c6a7779c1e772795248d69"
       },
       "nodes-only-in-B": {
         "count": 0,
@@ -187,9 +187,9 @@
         "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
       },
       "edges-only-in-A": {
-        "count": 9774,
+        "count": 9783,
         "file": "edges-only-in-A.txt",
-        "sha256": "e6fc0a57f258bf8bab11fadbca8350d6f337de44e1fe707c1d5b39211555768b"
+        "sha256": "153af7f9b3b311345bc6d849a23986a759cfee20c291f4b94dd2db9fbf32078f"
       },
       "edges-only-in-B": {
         "count": 0,

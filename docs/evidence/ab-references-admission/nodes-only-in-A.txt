@@ -74,6 +74,7 @@ external:06b70c31393ff43d	External	dirtyFeatureMatches
 external:06f5d5a072e04e9a	External	readOrder
 external:07290a370546f7b9	External	baseCost
 external:072aadf15dcfb68e	External	isContinuation
+external:072d307e682ec4f3	External	closure
 external:0736b7e2c9afaa27	External	declaredScope
 external:074ad8519a198137	External	untrackedDirtyCount
 external:075c46f7ccad961b	External	alternative
@@ -328,6 +329,7 @@ external:1da45e08ae8934d1	External	communityId
 external:1db27030d175fa13	External	field
 external:1e05f77552b564d9	External	allNames
 external:1e074d7044dfbe9b	External	outcome
+external:1e0d3a631c8172c9	External	armRunId
 external:1e0d8b14b5d0a8ac	External	bytes
 external:1e10f60fbe2106ad	External	ep
 external:1e681a61f4cf3337	External	passes
@@ -1558,6 +1560,7 @@ external:8cc10f36b723e58c	External	decoratorRe
 external:8d09ccb798bfe2cf	External	clangCl
 external:8d24eaeb67050b6c	External	latencyMs
 external:8d3e7a47db39c48f	External	overlayQuality
+external:8d42cb07422eae04	External	lockFd
 external:8d50cb618c454a0a	External	featuresWithDependsOn
 external:8d5bce447eee0c04	External	batch
 external:8d73ceea8cd15713	External	texts
