@@ -77,3 +77,49 @@ is a real trade on a seam with 118 call sites, so it goes to review before it go
 
 Nothing here is claimed as fixed. What is claimed is that the window is real, that it is reachable
 from a first-party verb, and that the measurement is reproducible.
+
+---
+
+## Review ruling, and what was built
+
+An outside review answered the three asks. Two of its claims were checked rather than accepted:
+
+- **Option B is dead, on concrete grounds.** `collect_code_intel.js:333` opens the reader seam with
+  `readonly: false` — verified, and it is the only such site. Pinning a WAL read snapshot on every
+  handle would make that write-capable path fail with `SQLITE_BUSY_SNAPSHOT`. B was rejected for a
+  reason stronger than the WAL-growth worry I raised.
+- **The preferred closure is C, not A:** one outer `BEGIN IMMEDIATE` across the whole full rebuild,
+  with `SAVEPOINT`s preserving per-chunk failure isolation, so a raw reader sees the complete old
+  graph until COMMIT and the complete new one after. That closes both findings without depending on
+  marker timing, manifest timing, or caller discipline.
+
+**What is committed here is A, and A NARROWS THE WINDOW WITHOUT CLOSING IT.** A handle opened before
+the wipe that selects after it still reads the empty tables. That is the honest label, and it is not
+a closure of either finding above.
+
+Built: a marker written into the database inside the same transaction as the wipe; a fail-closed
+refusal at `openExistingDb`; a graceful blocker in `inspectReadFreshness` so the normal path gets a
+message rather than an exception. The refusal names cause, age, holding process and remedy, because a
+bare closed door teaches people to route around the guard.
+
+Evidence: 7 unit tests, all four mutants killed (guard disabled, marker always null, remedy line
+removed, clear made a no-op). Full suite green at this tree — 388 files, 3,148 passed, 4 skipped,
+exit 0, 476s.
+
+⚠ **The suite's green says nothing about the marker path.** No pre-existing test sets the marker, so
+the run proves only that the marker-absent path is unbroken.
+
+## Open, and honestly unfinished
+
+1. **C is not built.** It is the preferred fix and it is the one that would let either finding be
+   called closed.
+2. **The reviewer's swallowed-throw warning is UNTESTED.** The concern is that helpers which catch
+   DB-open errors and substitute zeros could convert this refusal into a second false absence. A
+   hostile sweep across every derived verb entry point was written and **timed out at ten minutes
+   without returning** — so the answer is unknown, not clean. It must be re-run before A is trusted.
+3. **The residual race is unproven.** The reviewer rightly demands a negative control: open a handle
+   before the wipe, cross it, then select. If that test comes back green, the "narrows only" claim is
+   wrong in one direction or the test is void.
+4. `allowDuringRebuild` is a broad boolean, which is the shape that becomes a permanently-set flag.
+   The review asks for a named diagnostic capability with zero callers if possible; currently only
+   `read_freshness` uses it, and `graph_health` was measured still answering without it.

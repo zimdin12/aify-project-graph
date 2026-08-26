@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { openDb } from '../storage/db.js';
+import { markRebuildStarted, clearRebuildMarker } from '../storage/rebuild-marker.js';
 import { SCHEMA_VERSION } from '../storage/schema.js';
 import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/nodes.js';
 import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
@@ -423,7 +424,14 @@ export async function ensureFresh({
       await writeManifest(graphDir, { ...manifest, status: 'indexing' });
 
       if (fullRebuild) {
-        db.exec('DELETE FROM edges; DELETE FROM nodes;');
+        // ⭐ THE MARKER AND THE WIPE COMMIT TOGETHER OR NOT AT ALL. Setting the marker in a separate
+        // statement would leave exactly the gap this fixes: a reader that checks, finds nothing, and
+        // then reads the emptied tables. better-sqlite3 transactions are synchronous, and both of
+        // these are, so they can share one.
+        db.transaction(() => {
+          markRebuildStarted(db, { now: Date.now(), pid: process.pid });
+          db.exec('DELETE FROM edges; DELETE FROM nodes;');
+        })();
       }
 
       clearSpecialNodes(db);
@@ -913,6 +921,12 @@ export async function ensureFresh({
         docLinks: docLinkResult,
         docRefs: docRefResult,
       };
+      // ⭐ CLEARED BEFORE the manifest says 'ok', not after. A reader that sees a finished manifest
+      // must never then be refused by a marker still standing; the opposite order — refusing for a
+      // few extra milliseconds after the graph is whole — is the safe one to get wrong.
+      // A rebuild that THREW leaves the marker set on purpose: the graph really is half-built, and
+      // the refusal names graph_index(force=true) as the way out.
+      clearRebuildMarker(db);
       await writeManifest(graphDir, nextManifest);
       await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
 

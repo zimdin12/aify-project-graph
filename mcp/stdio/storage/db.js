@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { readRebuildMarker, GraphRebuildInProgressError } from './rebuild-marker.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createSchema } from './schema.js';
@@ -76,10 +77,25 @@ export function vacuumWithIncrementalUpgrade(db) {
   return h.pragma('auto_vacuum', { simple: true });
 }
 
-export function openExistingDb(dbPath, { readonly = true } = {}) {
+// ⛔ THE GUARD IS HERE BECAUSE THERE ARE 118 READER CALL SITES AND 59 FRESHNESS CALL SITES.
+// A remedy applied at the call sites is an enumeration, and an enumeration is a list someone must
+// remember to update. Every reader opens through this function, and the rebuild writes through
+// `openDb`, so refusing here cannot deadlock the writer that sets the marker.
+//
+// `allowDuringRebuild` is the forced door for the readers that must see a half-built graph in order
+// to REPORT on it — graph_health above all, which is the verb a reader calls to find out why.
+export function openExistingDb(dbPath, { readonly = true, allowDuringRebuild = false } = {}) {
   if (!existsSync(dbPath)) {
     throw new Error(`graph DB does not exist: ${dbPath}`);
   }
   const db = new Database(dbPath, { readonly, fileMustExist: true });
-  return wrapDb(db);
+  const wrapped = wrapDb(db);
+  if (!allowDuringRebuild) {
+    const marker = readRebuildMarker(wrapped);
+    if (marker) {
+      db.close();
+      throw new GraphRebuildInProgressError(marker, Date.now());
+    }
+  }
+  return wrapped;
 }
