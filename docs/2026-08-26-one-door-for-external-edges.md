@@ -293,3 +293,64 @@ defects were coupled, so that transport is no longer a single meaningful variabl
 an unbound observation rather than restated, and the receipt in
 `docs/evidence/ab-references-admission.json` carries what replaced it: arm objects, exact commit and
 tree, transports, probes, reset verification by hash, liveness, and raw counts.
+
+
+---
+
+# Fourth review: the carrier itself was unsafe and unbound
+
+The narrow trust classifier and the source payload were **approved**. The A/B carrier was blocked on
+three counts, all correct.
+
+## It mutated the checkout the team works in
+
+The harness wrote the transported file into the main working tree and restored it afterwards,
+verifying by hash. **A hard kill between those two points leaves mutant production bytes in main**,
+and a check that only runs after the child returns cannot close that.
+
+This repository already had the answer — `scripts/lib/arm-workspace.mjs`, whose `mainRepoWorkspace`
+has *no working write at all*, so a mutation aimed at main throws rather than being discouraged. I
+built a weaker second transport beside it instead of using it. Arms are now disposable detached
+worktrees opened through that machinery, which also disables hooks (this repo's post-checkout
+reindexes a new worktree and would race the arm).
+
+## The receipt named a commit the run did not execute
+
+It claimed commit `40bc05a`, tree `6d3daf12` — while the run happened on a **dirty checkout whose
+seven uncommitted paths included the harness itself and all three source files under measurement**.
+
+⇒ **A commit id plus a list of dirty paths is disclosure, not identity.** "Exact commit+tree" was
+false. The harness now refuses a dirty subject (exit 3, verified firing on its own uncommitted bytes)
+and records a sha256 for every governed file *as the arm executed it*, plus node version and
+platform. The sequence is now: commit the harness, run from that exact object, commit the receipt as
+a child naming its measured parent.
+
+## It discarded the populations it compared
+
+It committed totals and ten samples, then deleted the scratch holding the sets — so `edgesOnlyInB=0`
+could not be checked by anyone. Each arm now writes canonical **sorted** membership for nodes and
+edges with a sha256 apiece, and the set differences are written and hashed the same way.
+
+## And chasing a single node found the harness labelling itself
+
+The first bound run reported **one** node present only in arm B. It was
+`Directory | ab-B-type-like-only` — the arm's own worktree root. Each arm indexes its own worktree,
+and the roots were named after the arms, so **the two inputs differed by the harness's own labels**.
+
+One node in 8,150 changes no conclusion, but "both arms index the same input" is the invariant this
+harness exists to enforce, and it was false. Fixed with a constant leaf name under a per-arm parent.
+Found only because every counter that moved had to be explained.
+
+## The measurement, now bound
+
+Subject `fa10019a19b0`, tree `43621261542f`, **clean at run**, node v22.20.0 / win32 / x64.
+
+| arm | exit | nodes | edges | REFERENCES → External |
+|---|---|---|---|---|
+| A: admit every REFERENCES terminal | 0 | 8,151 | 27,259 | 10,451 |
+| B: as committed (type-like only) | 0 | 5,278 | 17,461 | 653 |
+
+`nodesOnlyInA` 2,873 · `nodesOnlyInB` **0** · `edgesOnlyInA` 9,798 · `edgesOnlyInB` **0**, each set
+written out and hashed. Governed-file hashes differ between the arms in exactly one file — the
+transported one — which is the control that the arms differed in nothing else. Both arms disposed
+completely; no worktree registration survived.

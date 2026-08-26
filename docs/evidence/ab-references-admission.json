@@ -2,8 +2,8 @@
   "spec": "scripts/ab-specs/references-admission.json",
   "question": "What does refusing a bare-lowercase REFERENCES terminal do to the graph?",
   "subject": {
-    "commit": "bb15c06de5cd1cc5f906bced94586eb8e8616c72",
-    "tree": "624857d9f0734ede81c8a5c66e759a097bf16346",
+    "commit": "fa10019a19b094933c0f985efbd5477afbbb0697",
+    "tree": "43621261542f81d513c29f334d279d2b35b0dbc6",
     "cleanAtRun": true,
     "dirtyPathsDisclosed": []
   },
@@ -13,7 +13,7 @@
     "arch": "x64"
   },
   "heldFixed": "both arms are detached worktrees of the SAME subject commit; only arm A carries the transport",
-  "evidenceDir": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-ab-evidence-GAooAA",
+  "evidenceDir": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-ab-evidence-TUpyHh",
   "arms": [
     {
       "name": "A-admit-all-references",
@@ -52,15 +52,15 @@
       ],
       "membership": {
         "nodesFile": "arm-A-admit-all-references.nodes.txt",
-        "nodesSha256": "d09d475d92b2afe91f048987d4363fa08720b82f9f96703bc5c9692c5709839c",
-        "nodesCount": 8150,
+        "nodesSha256": "84ec836378de055d1dfa837cc0880760affd410ac265c723ba1bc402d2af2e58",
+        "nodesCount": 8151,
         "edgesFile": "arm-A-admit-all-references.edges.txt",
-        "edgesSha256": "1f04b5d38c77206a04c23210ab0c420f870fe311919458d44c2a45cf6394f099",
-        "edgesCount": 27258
+        "edgesSha256": "3689b35d5de576925475503189ac4f93ae91287fbe8ba4906361890b39b44975",
+        "edgesCount": 27259
       },
       "counts": {
-        "nodes": 8150,
-        "edges": 27258,
+        "nodes": 8151,
+        "edges": 27259,
         "byRelation": {
           "CALLS": 9056,
           "CONTAINS": 1078,
@@ -69,7 +69,7 @@
           "EXTENDS": 6,
           "IMPLEMENTS": 1,
           "IMPORTS": 1456,
-          "LINKS_TO": 600,
+          "LINKS_TO": 601,
           "MENTIONS": 33,
           "REFERENCES": 12523,
           "TESTS": 3,
@@ -123,15 +123,15 @@
       ],
       "membership": {
         "nodesFile": "arm-B-type-like-only.nodes.txt",
-        "nodesSha256": "601728e137253252d409c2b4d166d1a30cd46e0c02ff65088cb89d8b8faef617",
-        "nodesCount": 5277,
+        "nodesSha256": "3da1a0baf112a95eef0599d0cf5649cb09f1c7537eee393248605bd114b41cde",
+        "nodesCount": 5278,
         "edgesFile": "arm-B-type-like-only.edges.txt",
-        "edgesSha256": "36bb0295f03a761fbbe0b75583e1f74b22e9138aa2569bb1b4836f54634893a0",
-        "edgesCount": 17460
+        "edgesSha256": "cd2f571945dc2a3570ee171fd9e3a93cdca39f84a3e91c717aadebea021766b2",
+        "edgesCount": 17461
       },
       "counts": {
-        "nodes": 5277,
-        "edges": 17460,
+        "nodes": 5278,
+        "edges": 17461,
         "byRelation": {
           "CALLS": 9056,
           "CONTAINS": 1078,
@@ -140,7 +140,7 @@
           "EXTENDS": 6,
           "IMPLEMENTS": 1,
           "IMPORTS": 1456,
-          "LINKS_TO": 600,
+          "LINKS_TO": 601,
           "MENTIONS": 33,
           "REFERENCES": 2725,
           "TESTS": 3,
@@ -159,12 +159,12 @@
     }
   ],
   "comparison": {
-    "nodesOnlyInA": 2874,
-    "nodesOnlyInB": 1,
+    "nodesOnlyInA": 2873,
+    "nodesOnlyInB": 0,
     "edgesOnlyInA": 9798,
     "edgesOnlyInB": 0,
     "edgesOnlyInAFile": "edges-only-in-A.txt",
-    "edgesOnlyInASha256": "fc5e720aeaf6029f465db101daf93396b097cc8c051b485a0b16d9b80bd86473",
+    "edgesOnlyInASha256": "8b2d2823587977aa95078631bd28a1c35e006fa92ef19bfd2942ffb58e35e9a7",
     "edgesOnlyInBFile": "edges-only-in-B.txt",
     "edgesOnlyInBSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
   },
