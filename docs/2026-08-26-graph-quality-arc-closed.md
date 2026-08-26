@@ -39,7 +39,7 @@ deletion-guard hook; and the hook's fire rate made re-derivable on any repositor
 
 ## What was abandoned, and why
 
-Six hypotheses died. Each cost less than the work it prevented.
+Seven hypotheses died. Each cost less than the work it prevented.
 
 1. **"Skill descriptions are entry-point-shaped, blocking mid-task reach."** Measured all 17: the 5
    keyed on *"when the user asks"* are genuinely user-initiated operations where that is correct.
@@ -59,6 +59,11 @@ Six hypotheses died. Each cost less than the work it prevented.
 6. **"The importer's `upsertExternalNode` needs the same guard."** It is reachable but has produced
    zero External nodes here, and its label comes from an LSP qname rather than tree-sitter text. No
    evidence, so no speculative guard.
+7. **"An older extractor left the fragment nodes."** Asserted in a shipped diagnostic and
+   withdrawn. The replacement hypothesis — that incremental runs re-mint them from carried-forward
+   refs — failed too: 814 of the 818 implausible carried targets are `IMPORTS`, which never
+   materialise as External nodes, and are module specifiers rather than fragments. Only 4 are
+   `CALLS`. The verdict now claims no cause and states only what is measured.
 
 ---
 
