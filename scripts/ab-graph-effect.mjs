@@ -69,7 +69,12 @@ export function canonicalise(members) {
 // ── one arm, in its own disposable worktree ───────────────────────────────────
 
 function runArm({ repo, spec, arm, evidenceDir, subjectCommit }) {
-  const armPath = join(repo, ARM_WORKTREE_ROOT, `ab-${arm.name}`);
+  // ⛔ THE ARM'S OWN DIRECTORY NAME IS PART OF THE INPUT, and naming it after the arm made the two
+  // inputs different. Each arm indexes its own worktree, so the worktree ROOT becomes a Directory
+  // node — and with `ab-A-...` / `ab-B-...` roots the comparison reported one node present only in
+  // arm B that was nothing but the harness labelling itself. A constant leaf under a per-arm parent
+  // keeps the paths distinct on disk while the indexed tree is byte-identical.
+  const armPath = join(repo, ARM_WORKTREE_ROOT, `ab-${arm.name}`, 'subject');
   const failures = [];
   let payload = null;
   let transport = null;
@@ -79,7 +84,7 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit }) {
 
   // ⛔ Fail closed on a stale registration rather than reusing whatever is already there.
   if (existsSync(armPath)) disposeArmWorkspace(repo, armPath);
-  mkdirSync(join(repo, ARM_WORKTREE_ROOT), { recursive: true });
+  mkdirSync(join(repo, ARM_WORKTREE_ROOT, `ab-${arm.name}`), { recursive: true });
 
   const opened = openArmWorkspace(repo, subjectCommit, armPath);
   const ws = opened.workspace;

@@ -1,0 +1,172 @@
+{
+  "spec": "scripts/ab-specs/references-admission.json",
+  "question": "What does refusing a bare-lowercase REFERENCES terminal do to the graph?",
+  "subject": {
+    "commit": "bb15c06de5cd1cc5f906bced94586eb8e8616c72",
+    "tree": "624857d9f0734ede81c8a5c66e759a097bf16346",
+    "cleanAtRun": true,
+    "dirtyPathsDisclosed": []
+  },
+  "platform": {
+    "node": "v22.20.0",
+    "platform": "win32",
+    "arch": "x64"
+  },
+  "heldFixed": "both arms are detached worktrees of the SAME subject commit; only arm A carries the transport",
+  "evidenceDir": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-ab-evidence-GAooAA",
+  "arms": [
+    {
+      "name": "A-admit-all-references",
+      "describes": "every REFERENCES terminal admitted, including bare local names",
+      "worktree": "disposable detached worktree at the subject commit",
+      "dependencyTransport": "JUNCTION -> C:\\Docker\\aify-project-graph\\node_modules (shared, mutable)",
+      "probe": "AB-ARM-A-admit-all-references",
+      "governedFileSha256": {
+        "mcp/stdio/ingest/external-admission.js": "39d8cc2d2c7382492954546a6e75bb7ea00070b90d1e6188c366f1c921890389",
+        "mcp/stdio/ingest/resolver.js": "85f606d602edde165f1b3e5a8f756452243c2fc8dfafae0fe2a4b191cfa5d8eb",
+        "mcp/stdio/freshness/unresolved-categorization.js": "595d39aabe1fdff3823aae130322a5dcf34916ff77fbf27663a036469639d1e5",
+        "mcp/stdio/freshness/unresolved-metrics.js": "d84e798dab45f5df6e8a9d2860ff7faca6cb150240ed4dc7a273a24877a7ccde",
+        "scripts/ab-arm-worker.mjs": "4aacecb466698fd962c4bf8386dd2bfc807657d6acc187b19c66c1ce1a4e7147"
+      },
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "disposal": [
+        {
+          "step": "remove-deps-junction",
+          "ok": true
+        },
+        {
+          "step": "remove-registration",
+          "ok": true
+        },
+        {
+          "step": "remove-directory",
+          "ok": true
+        },
+        {
+          "step": "prune",
+          "ok": true
+        }
+      ],
+      "membership": {
+        "nodesFile": "arm-A-admit-all-references.nodes.txt",
+        "nodesSha256": "d09d475d92b2afe91f048987d4363fa08720b82f9f96703bc5c9692c5709839c",
+        "nodesCount": 8150,
+        "edgesFile": "arm-A-admit-all-references.edges.txt",
+        "edgesSha256": "1f04b5d38c77206a04c23210ab0c420f870fe311919458d44c2a45cf6394f099",
+        "edgesCount": 27258
+      },
+      "counts": {
+        "nodes": 8150,
+        "edges": 27258,
+        "byRelation": {
+          "CALLS": 9056,
+          "CONTAINS": 1078,
+          "DECLARES_BINDING": 1,
+          "DEFINES": 2493,
+          "EXTENDS": 6,
+          "IMPLEMENTS": 1,
+          "IMPORTS": 1456,
+          "LINKS_TO": 600,
+          "MENTIONS": 33,
+          "REFERENCES": 12523,
+          "TESTS": 3,
+          "USES_TYPE": 8
+        },
+        "externalByRelation": {
+          "CALLS": 5871,
+          "EXTENDS": 6,
+          "REFERENCES": 10451,
+          "USES_TYPE": 2
+        },
+        "dirtyEdgeCount": 10648,
+        "trustDirtyEdgeCount": 38
+      },
+      "failures": []
+    },
+    {
+      "name": "B-type-like-only",
+      "describes": "as committed: only type-like REFERENCES terminals are admitted",
+      "worktree": "disposable detached worktree at the subject commit",
+      "dependencyTransport": "JUNCTION -> C:\\Docker\\aify-project-graph\\node_modules (shared, mutable)",
+      "probe": null,
+      "governedFileSha256": {
+        "mcp/stdio/ingest/external-admission.js": "c32124165f96f5e0d384355edcef6915c7e807f27789b2c3a8ea8cfc2fbabd4d",
+        "mcp/stdio/ingest/resolver.js": "85f606d602edde165f1b3e5a8f756452243c2fc8dfafae0fe2a4b191cfa5d8eb",
+        "mcp/stdio/freshness/unresolved-categorization.js": "595d39aabe1fdff3823aae130322a5dcf34916ff77fbf27663a036469639d1e5",
+        "mcp/stdio/freshness/unresolved-metrics.js": "d84e798dab45f5df6e8a9d2860ff7faca6cb150240ed4dc7a273a24877a7ccde",
+        "scripts/ab-arm-worker.mjs": "4aacecb466698fd962c4bf8386dd2bfc807657d6acc187b19c66c1ce1a4e7147"
+      },
+      "exit": {
+        "code": 0,
+        "signal": null
+      },
+      "disposal": [
+        {
+          "step": "remove-deps-junction",
+          "ok": true
+        },
+        {
+          "step": "remove-registration",
+          "ok": true
+        },
+        {
+          "step": "remove-directory",
+          "ok": true
+        },
+        {
+          "step": "prune",
+          "ok": true
+        }
+      ],
+      "membership": {
+        "nodesFile": "arm-B-type-like-only.nodes.txt",
+        "nodesSha256": "601728e137253252d409c2b4d166d1a30cd46e0c02ff65088cb89d8b8faef617",
+        "nodesCount": 5277,
+        "edgesFile": "arm-B-type-like-only.edges.txt",
+        "edgesSha256": "36bb0295f03a761fbbe0b75583e1f74b22e9138aa2569bb1b4836f54634893a0",
+        "edgesCount": 17460
+      },
+      "counts": {
+        "nodes": 5277,
+        "edges": 17460,
+        "byRelation": {
+          "CALLS": 9056,
+          "CONTAINS": 1078,
+          "DECLARES_BINDING": 1,
+          "DEFINES": 2493,
+          "EXTENDS": 6,
+          "IMPLEMENTS": 1,
+          "IMPORTS": 1456,
+          "LINKS_TO": 600,
+          "MENTIONS": 33,
+          "REFERENCES": 2725,
+          "TESTS": 3,
+          "USES_TYPE": 8
+        },
+        "externalByRelation": {
+          "CALLS": 5871,
+          "EXTENDS": 6,
+          "REFERENCES": 653,
+          "USES_TYPE": 2
+        },
+        "dirtyEdgeCount": 38785,
+        "trustDirtyEdgeCount": 38
+      },
+      "failures": []
+    }
+  ],
+  "comparison": {
+    "nodesOnlyInA": 2874,
+    "nodesOnlyInB": 1,
+    "edgesOnlyInA": 9798,
+    "edgesOnlyInB": 0,
+    "edgesOnlyInAFile": "edges-only-in-A.txt",
+    "edgesOnlyInASha256": "fc5e720aeaf6029f465db101daf93396b097cc8c051b485a0b16d9b80bd86473",
+    "edgesOnlyInBFile": "edges-only-in-B.txt",
+    "edgesOnlyInBSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  "verdict": "measured"
+}
