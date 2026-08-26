@@ -26,3 +26,9 @@ tests/fixtures/packet-routes/.aify-graph/graph.sqlite*
 !tests/fixtures/packet-routes/.aify-graph/
 !tests/fixtures/packet-routes/.aify-graph/*.json
 .candidate-attempts/
+
+# disposable per-arm worktrees and their custody manifests. Runtime state, never content —
+# and leaving them tracked made an ORPHANED ARM read as a dirty tree, so the harness
+# diagnosed a custody failure as 'commit your changes first'.
+.self-review-worktrees/
+.self-review-arms/

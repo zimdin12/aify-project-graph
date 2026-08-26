@@ -235,6 +235,19 @@ function main(argv) {
   // a mutation aimed at the working checkout throw instead of merely being discouraged.
   mainRepoWorkspace(repo);
 
+  // ⛔ PRE-ENTRY DISCOVERY: any observable arm REFUSES the run. arm-isolation's BLOCKS_NEW_RUN
+  // contains EVERY state on purpose — stale means abandonment is UNPROVED, not proved — and only an
+  // externally confirmed orphan is ever deletable. This harness previously swept the path clean on
+  // entry instead, which is the exact defect that machinery exists to prevent.
+  const observed = findArms(repo).filter((a) => BLOCKS_NEW_RUN.has(a.state));
+  if (observed.length > 0 && !argv.includes('--allow-observed-arms')) {
+    console.error('REFUSED: observable arm workspaces are present; their staleness does not prove abandonment.');
+    observed.forEach((a) => console.error(`  ${a.runId ?? '?'} ${a.state}: ${a.detail ?? ''}`));
+    console.error('Resolve them through the custody path (external confirmation + closure) before measuring.');
+    return 4;
+  }
+
+
   const dirtyPaths = git('status', '--porcelain').split(/\r?\n/).filter(Boolean);
   const subjectCommit = git('rev-parse', 'HEAD');
   const subjectTree = git('rev-parse', 'HEAD^{tree}');
@@ -275,18 +288,6 @@ function main(argv) {
     ? resolve(repo, spec.evidenceDir)
     : mkdtempSync(join(tmpdir(), 'apg-ab-evidence-'));
   mkdirSync(evidenceDir, { recursive: true });
-
-  // ⛔ PRE-ENTRY DISCOVERY: any observable arm REFUSES the run. arm-isolation's BLOCKS_NEW_RUN
-  // contains EVERY state on purpose — stale means abandonment is UNPROVED, not proved — and only an
-  // externally confirmed orphan is ever deletable. This harness previously swept the path clean on
-  // entry instead, which is the exact defect that machinery exists to prevent.
-  const observed = findArms(repo).filter((a) => BLOCKS_NEW_RUN.has(a.state));
-  if (observed.length > 0 && !argv.includes('--allow-observed-arms')) {
-    console.error('REFUSED: observable arm workspaces are present; their staleness does not prove abandonment.');
-    observed.forEach((a) => console.error(`  ${a.runId ?? '?'} ${a.state}: ${a.detail ?? ''}`));
-    console.error('Resolve them through the custody path (external confirmation + closure) before measuring.');
-    return 4;
-  }
 
   const arms = [];
   for (const arm of spec.arms) {
