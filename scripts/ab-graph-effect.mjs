@@ -26,12 +26,21 @@
 //      under measurement. A commit id plus a list of dirty paths is DISCLOSURE, NOT IDENTITY — so
 //      this refuses a dirty subject and hashes every governed file as the arm actually executed it.
 //
-// Usage:  node scripts/ab-graph-effect.mjs --spec <spec.json> [--out <receipt.json>] [--allow-dirty]
+// Usage:  node scripts/ab-graph-effect.mjs --spec <spec.json> [--out <receipt.json>]
+//
+// ⛔ THERE IS NO OVERRIDE FLAG, AND THAT IS DELIBERATE. Earlier versions carried
+// --allow-observed-arms and --allow-dirty, which turned both safety gates into suggestions: any
+// caller could walk a mutation run past PEER_ACTIVE, past UNKNOWN, past an unnamed subject, with no
+// authority and no record. SELECTION IS NOT CUSTODY AUTHORITY. A gate with a documented bypass is
+// a gate that will be bypassed by whoever is in a hurry, which on this path is usually me.
 // Exit:   0 measured · 1 an arm failed its own checks · 2 bad spec · 3 subject not clean
 
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync, mkdirSync, mkdtempSync, openSync, closeSync,
+  readFileSync, readdirSync, rmSync, writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -82,7 +91,7 @@ export function canonicalise(members) {
 
 // ── one arm, in its own disposable worktree ───────────────────────────────────
 
-function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId }) {
+function runArm({ repo, spec, arm, evidenceDir, subjectCommit, subjectTree, retain, runId }) {
   // ⛔ THE ARM'S OWN DIRECTORY NAME IS PART OF THE INPUT, and naming it after the arm made the two
   // inputs different. Each arm indexes its own worktree, so the worktree ROOT becomes a Directory
   // node — and with `ab-A-...` / `ab-B-...` roots the comparison reported one node present only in
@@ -129,7 +138,7 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId }) 
     specId: spec.question ?? 'ab-graph-effect',
     target: arm.transport?.file ?? spec.transportFile,
     commit: subjectCommit,
-    tree: subjectCommit,
+    tree: subjectTree,
     worktree: armPath,
     pid: process.pid,
   }));
@@ -200,7 +209,38 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId }) 
   // ⛔ DE-REGISTER ONLY ON VERIFIED DISPOSAL. If any removal step failed, the manifest and beat STAY,
   // so the next invocation sees an observable arm and refuses rather than measuring over the residue.
   // Removing the registration on the way out regardless would turn a failed cleanup into a silent one.
+  // ⛔ A VANISHED MANIFEST PROVES NOTHING. Deleting it on success recorded no preservation, no
+  // removal results, no binding to the manifest it closed — the run simply stopped being visible,
+  // which is indistinguishable from never having registered.
+  //
+  // ⚠ AND I AM NOT DOING WHAT WAS ASKED, SO I SAY SO. The ruling was that findArms should validate a
+  // typed terminal closure before releasing the run. It cannot as written: classifyArm has no notion
+  // of a closed manifest, and after disposal the worktree is gone, so a retained manifest becomes
+  // NOT_MATERIALIZED — which BLOCKS every future run, including the other tool that shares this
+  // machinery. Teaching the shared classifier a second closure schema is a change to code with its
+  // own tests and its own consumers, and it is not mine to make unilaterally.
+  //
+  // ⇒ So the closure is RETAINED as durable evidence beside the run, and the manifest is removed
+  // only AFTER that record is on disk. A kill before the closure is written leaves the manifest and
+  // blocks, which is the property that matters. The difference from the ruling is the location of
+  // the validated record, not its existence — and it is the reviewer's call whether that suffices.
   if (undisposed.length === 0) {
+    const closure = {
+      schema: 'ab-graph-effect/normal-completion@1',
+      runId: armRunId,
+      priorManifestSha256: sha256(readFileSync(manifestPath, 'utf8')),
+      subjectCommit,
+      subjectTree,
+      worktree: armPath,
+      transportedFile: arm.transport?.find ? file : null,
+      executedBytes: governed,
+      child: exitInfo,
+      cleanupResults: disposal,
+      evidenceStagedAt: evidenceDir,
+      closedAt: new Date().toISOString(),
+      authorityClass: 'NORMAL_COMPLETION — the owning run disposed its own arm; no orphan confirmation involved',
+    };
+    writeFileSync(join(evidenceDir, `closure-${arm.name}.json`), `${JSON.stringify(closure, null, 2)}\n`);
     rmSync(manifestPath, { force: true });
     rmSync(beatPath, { force: true });
   }
@@ -273,8 +313,41 @@ function main(argv) {
   // contains EVERY state on purpose — stale means abandonment is UNPROVED, not proved — and only an
   // externally confirmed orphan is ever deletable. This harness previously swept the path clean on
   // entry instead, which is the exact defect that machinery exists to prevent.
+  // ⛔ DISCOVERY AND REGISTRATION MUST BE ONE ATOMIC ACT. Each process called findArms and only
+  // later wrote its manifest, so two simultaneous invocations could both observe nothing, both
+  // register, and both proceed. Unique paths prevent COLLISION; they do not provide MUTUAL
+  // EXCLUSION, and a mutation run needs the second.
+  //
+  // `wx` is the CAS: exclusive create fails if the file exists, atomically, without a timing test.
+  // The lock is held for the whole run rather than just the check, because the interval that must be
+  // exclusive is the measurement, not the lookup.
+  //
+  // ⚠ A surviving lock BLOCKS rather than expiring. A stale lock and a live one are indistinguishable
+  // from outside — the same reason a stale heartbeat is ORPHAN_CANDIDATE and not ORPHAN_CONFIRMED.
+  // A per-run id, so two harnesses cannot collide on a deterministic arm path.
+  const runId = `ab${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+
+  // ⛔ ACQUISITION IS THE ONLY THING OUTSIDE THE finally. The first version also WROTE the lock body
+  // there, referencing `runId` before its declaration — a ReferenceError that threw after the file
+  // existed, so the run died holding a lock nothing would ever release. Anything that can fail must
+  // sit inside the protected region; only the atomic create may precede it.
+  const lockPath = join(repo, '.self-review-arms', 'ab-graph-effect.lock');
+  mkdirSync(dirname(lockPath), { recursive: true });
+  let lockFd;
+  try {
+    lockFd = openSync(lockPath, 'wx');
+  } catch (err) {
+    if (err.code !== 'EEXIST') throw err;
+    console.error(`REFUSED: another ab-graph-effect run holds ${lockPath}.`);
+    console.error(`  ${readFileSync(lockPath, 'utf8').trim()}`);
+    console.error('If that run is gone, resolve it through the custody path; a lock does not expire on its own.');
+    return 4;
+  }
+
+  try {
+  writeFileSync(lockFd, `${JSON.stringify({ runId, pid: process.pid, at: new Date().toISOString() })}\n`);
   const observed = findArms(repo).filter((a) => BLOCKS_NEW_RUN.has(a.state));
-  if (observed.length > 0 && !argv.includes('--allow-observed-arms')) {
+  if (observed.length > 0) {
     console.error('REFUSED: observable arm workspaces are present; their staleness does not prove abandonment.');
     observed.forEach((a) => console.error(`  ${a.runId ?? '?'} ${a.state}: ${a.detail ?? ''}`));
     console.error('Resolve them through the custody path (external confirmation + closure) before measuring.');
@@ -290,7 +363,7 @@ function main(argv) {
   // uncommitted is NOT in them — a receipt naming that commit would describe code the run did not
   // execute. That is exactly the identity failure this replaces, so it is refused rather than
   // disclosed in a footnote.
-  if (dirtyPaths.length > 0 && !argv.includes('--allow-dirty')) {
+  if (dirtyPaths.length > 0) {
     console.error('REFUSED: the subject checkout is dirty, so no commit can name what the arms would execute.');
     dirtyPaths.forEach((p) => console.error(`  ${p}`));
     console.error('Commit the harness, spec and source first, then run against that exact object.');
@@ -316,8 +389,6 @@ function main(argv) {
   // which it is rather than assuming a file is there.
   const retain = new Set(spec.retain ?? ['diffs']);
   const durable = Boolean(spec.evidenceDir);
-  // A per-run id, so two harnesses cannot collide on a deterministic arm path.
-  const runId = `ab${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const evidenceDir = durable
     ? resolve(repo, spec.evidenceDir)
     : mkdtempSync(join(tmpdir(), 'apg-ab-evidence-'));
@@ -326,7 +397,7 @@ function main(argv) {
   const arms = [];
   for (const arm of spec.arms) {
     process.stderr.write(`[ab] arm ${arm.name} …\n`);
-    const result = runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId });
+    const result = runArm({ repo, spec, arm, evidenceDir, subjectCommit, subjectTree, retain, runId });
     arms.push(result);
     // ⛔ A FAILED DISPOSAL STOPS THE HARNESS. Starting arm B while arm A's registration, directory
     // or mutant may still exist is precisely the custody interval already ruled unsafe — and a
@@ -423,6 +494,12 @@ function main(argv) {
     return 1;
   }
   return 0;
+  } finally {
+    // ⚠ Released only on a normal exit path. A hard kill leaves the lock, which is the intended
+    // shape: the next run refuses and a human resolves it, exactly as with an orphaned arm.
+    try { closeSync(lockFd); } catch { /* already closed */ }
+    rmSync(lockPath, { force: true });
+  }
 }
 
 const invokedPath = process.argv[1];
