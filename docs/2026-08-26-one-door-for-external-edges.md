@@ -343,14 +343,39 @@ Found only because every counter that moved had to be explained.
 
 ## The measurement, now bound
 
-Subject `fa10019a19b0`, tree `43621261542f`, **clean at run**, node v22.20.0 / win32 / x64.
+Subject `126d5ecdda02`, **clean at run**, node v22.20.0 / win32 / x64.
 
 | arm | exit | nodes | edges | REFERENCES → External |
 |---|---|---|---|---|
-| A: admit every REFERENCES terminal | 0 | 8,151 | 27,259 | 10,451 |
-| B: as committed (type-like only) | 0 | 5,278 | 17,461 | 653 |
+| A: admit every REFERENCES terminal | 0 | 8,154 | 27,270 | 10,451 |
+| B: as committed (type-like only) | 0 | 5,278 | 17,468 | 653 |
 
-`nodesOnlyInA` 2,873 · `nodesOnlyInB` **0** · `edgesOnlyInA` 9,798 · `edgesOnlyInB` **0**, each set
-written out and hashed. Governed-file hashes differ between the arms in exactly one file — the
-transported one — which is the control that the arms differed in nothing else. Both arms disposed
-completely; no worktree registration survived.
+`nodesOnlyInA` 2,876 · `nodesOnlyInB` **0** · `edgesOnlyInA` 9,802 · `edgesOnlyInB` **0**. Governed-file
+hashes differ between the arms in exactly one file — the transported one — which is the control that
+the arms differed in nothing else. Both arms disposed completely; no worktree registration survived.
+
+⚠ The counts move by single digits between runs at different subject commits, because the harness and
+its spec are themselves files in the tree being indexed. That is disclosed rather than smoothed: each
+receipt names the exact subject it measured.
+
+## Retention, declared rather than accidental
+
+Two further defects in the carrier, both mine, both about the artifacts the receipt *names*.
+
+**A temp path is not an address.** The membership was written to an OS temp directory whose path went
+into the receipt — so every hash named an artifact the next reboot deletes, and a reader had nothing
+to recompute against. Review asked for the populations to be RETAINED; a pointer at scratch is not
+retention.
+
+**And they could not have been committed anyway.** Set keys join their fields with U+0001, and this
+repository has a guard that fails on any tracked file containing a raw control byte — the same guard
+that caught a tracked file being deleted with plain `rm` earlier the same day. The durable form is
+tab-separated, which that guard permits and which is equally absent from every field. The hash is of
+the *written* form, so what a reader recomputes is exactly what they can read.
+
+**Retention is now an explicit policy**, because both extremes are wrong: keeping everything adds
+~15MB to a repository whose `.git` is 13MB and whose largest tracked evidence file is 178KB, while
+keeping nothing reproduces the defect above. The default retains the **set differences** — which are
+what the claims are about, 1.2MB — and drops the per-arm membership. Every artifact records
+`retained: true|false`, so a hash with `retained: false` is visibly a re-run target rather than a
+file you can open.
