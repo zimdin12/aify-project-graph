@@ -359,8 +359,21 @@ function buildResolvers(db) {
       const candidates = pool.filter((n) => (seen.has(n.id) ? false : seen.add(n.id)));
       // ⛔ NO CROSS-FAMILY REUSE when the ref's family is known. Minting the family-canonical
       // terminal is the correct fallback; borrowing another language's is not.
+      //
+      // ⛔ AND AN UNKNOWN FAMILY REUSES ONLY AN UNKNOWN ONE. The first version let an unknown-family
+      // ref take ANY unique candidate, including one with a known language — the same false
+      // cross-language identity the line above refuses, arrived at from the other side. Minting is
+      // the fail-safe direction: a duplicate terminal claims nothing, a wrong reuse claims that two
+      // languages' symbols are one.
+      //
+      // ⚠ ZERO MEASURED EFFECT ON THIS REPOSITORY, and the reason is worth recording rather than
+      // leaving for someone to rediscover: of 38,708 unresolved refs, NONE carries a `language`
+      // field and ALL carry `extractor`, so `refLanguageFamily` resolves through its fallback and
+      // never returns 'unknown' here. This branch is a guard for a producer that sets neither, not a
+      // fix for anything observed — and it is shipped only because its wrong direction is the
+      // recoverable one.
       const compatible = family === 'unknown'
-        ? candidates
+        ? candidates.filter((n) => languageFamily(n.language) === 'unknown')
         : candidates.filter((n) => languageFamily(n.language) === family);
       if (compatible.length === 0) return null;
 

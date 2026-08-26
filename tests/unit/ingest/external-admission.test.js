@@ -203,6 +203,52 @@ describe('external admission — one owner for every External-bound edge', () =>
       expect(edges[0].to_id).toBe('fn:real');
     });
 
+    it('⛔ an UNKNOWN-family ref does not borrow a known-language terminal either', () => {
+      // The mirror of B2, from the other side. The first version of the lookup let an unknown-family
+      // ref take any unique candidate — including one with a known language — which is the same
+      // false cross-language identity, arrived at from the opposite direction.
+      //
+      // ⚠ ZERO OBSERVED POPULATION, and that is stated rather than hidden: of 38,708 unresolved refs
+      // on this repository NONE carries a `language` field and ALL carry `extractor`, so
+      // refLanguageFamily resolves through its fallback and never returns 'unknown'. This is a guard
+      // for a producer that sets neither, shipped because its wrong direction — an extra terminal —
+      // is the recoverable one.
+      upsertNode(db, {
+        id: 'external:php-only', type: 'External', label: 'Shared', file_path: '',
+        start_line: 0, end_line: 0, language: 'php', confidence: 0.5,
+        structural_fp: '', dependency_fp: '', extra: { external: true },
+      });
+      const { nodes, edges } = resolveRefs({
+        db,
+        refs: [{
+          from_id: 'fn:caller', relation: 'CALLS', target: 'Shared',
+          source_file: 'src/a.js', source_line: 9, confidence: 0.7, provenance: 'EXTRACTED',
+        }],
+      });
+      expect(edges).toHaveLength(1);
+      expect(edges[0].to_id, 'must not assert cross-language identity').not.toBe('external:php-only');
+      expect(nodes.filter((n) => n.type === 'External')).toHaveLength(1);
+    });
+
+    it('⭐ CONTROL: an unknown-family ref DOES reuse an unknown-language terminal', () => {
+      // Without this, the assertion above is satisfied by never reusing anything for unknown refs,
+      // which would be a different defect wearing the same green.
+      upsertNode(db, {
+        id: 'external:unknown-lang', type: 'External', label: 'Shared', file_path: '',
+        start_line: 0, end_line: 0, language: '', confidence: 0.5,
+        structural_fp: '', dependency_fp: '', extra: { external: true },
+      });
+      const { nodes, edges } = resolveRefs({
+        db,
+        refs: [{
+          from_id: 'fn:caller', relation: 'CALLS', target: 'Shared',
+          source_file: 'src/a.js', source_line: 10, confidence: 0.7, provenance: 'EXTRACTED',
+        }],
+      });
+      expect(edges[0].to_id, 'a same-unknown terminal is the one it may reuse').toBe('external:unknown-lang');
+      expect(nodes.filter((n) => n.type === 'External'), 'nothing minted').toHaveLength(0);
+    });
+
     it('⛔ the `external:` id convention this check relies on is pinned', () => {
       // The to_id check is a string-prefix test rather than a lookup, for cost. That is only sound
       // while both producers mint ids with this prefix, so the convention is asserted rather than
