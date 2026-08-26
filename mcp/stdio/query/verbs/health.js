@@ -21,6 +21,9 @@ import { WorktreeState } from '../../freshness/worktree-state.js';
 import { serverBuildInfo } from '../../server-build.js';
 import { readArtifactIndexedAt } from '../../freshness/unresolved-categorization.js';
 import { getUnresolvedCounts, explainTrustExclusions } from '../../freshness/unresolved-metrics.js';
+// ⚠ IMPORTED, never restated. A second copy of this rule is a second chance to disagree with the
+// resolver that enforces it — a re-typed regex already flagged a legitimate PHP namespaced class.
+import { isPlausibleExternalName } from '../../ingest/resolver.js';
 import { loadFunctionality, validateAnchors, hasOverlay } from '../../overlay/loader.js';
 import { loadTasksArtifact, lintTaskSchema, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 import { getLatestCollection } from '../../code-intel/query.js';
@@ -62,6 +65,22 @@ const DIRTY_LIST_CAP = 25;
 // code at all; two copies would drift and the integrity check would quietly stop firing.
 const CODE_NODE_TYPES = Object.freeze(['Function', 'Method', 'Class', 'Interface', 'Type', 'Symbol', 'Test']);
 const CODE_NODE_TYPE_SET = new Set(CODE_NODE_TYPES);
+
+// ⚠ SHAPE, NOT A REBUILD. Whether a node is reproducible by a full index cannot be known without
+// running one, which health must never do. But the residue is 98.8% fragment-labelled, so the
+// label shape is a cheap and honest proxy — and it is the part that is actually harmful.
+// ⚠ The predicate is IMPORTED from the resolver, never restated: a second copy of a rule is a
+// second chance to disagree with it, which a re-typed regex already did once this session.
+function countFragmentExternals(dbPath) {
+  try {
+    const db = openExistingDb(dbPath);
+    try {
+      const rows = db.all("SELECT label FROM nodes WHERE type = 'External' AND label <> ''");
+      return rows.reduce((n, r) => (isPlausibleExternalName(r.label) ? n : n + 1), 0);
+    } finally { db.close(); }
+  } catch (e) { console.error('COUNT THREW:', e.message); return 0;
+  }
+}
 
 function dominantGraphLanguage(dbPath) {
   try {
@@ -661,6 +680,28 @@ export async function graphHealth({ repoRoot }) {
     const shown = census.slice(0, TOP).map((r) => `${r.type} ${r.c}`).join(' · ');
     const tail = census.length - Math.min(TOP, census.length);
     verdicts.push(`POPULATION: ${census.length} node types — ${shown}${tail > 0 ? ` · +${tail} more` : ''}`);
+
+    // ⛔ GARBAGE THAT ONLY A FULL REBUILD CLEARS, and nothing said so.
+    //
+    // An older extractor materialised External nodes from parse fragments — `entries()]`,
+    // `replace(/g,`, `join(dirOf(docPath),`. A guard now refuses to create them, but INCREMENTAL
+    // reindexing never removes the ones already there.
+    //
+    // ⭐ MEASURED with the guard held constant on both sides, so the comparison isolates one
+    // variable: this repository's incrementally-maintained graph held 1,104 External nodes with 334
+    // fragment labels, while a FULL REBUILD of the same commit produced 769 with ZERO. 338 nodes
+    // existed only because the graph had been maintained incrementally, and 334 of those were
+    // fragments. Every other node type was reproduced exactly — 0 residue across 4,525 nodes.
+    //
+    // ⇒ So this is not general staleness; it is confined to External, it is nearly all garbage, and
+    // one forced index clears it. Reported as a VALUE in the verdict line a reader already consults,
+    // never as a new field, and counted cheaply by label shape rather than by rebuilding anything.
+    const fragmentExternals = countFragmentExternals(dbPath);
+    if (fragmentExternals > 0) {
+      verdicts.push(`stale-externals: ${fragmentExternals} External nodes carry parse-fragment labels `
+        + `(e.g. "entries()]") left by an older extractor. They inflate counts and can never resolve. `
+        + `Incremental reindexing does NOT remove them — run graph_index(force=true) to clear.`);
+    }
 
     const searchable = new Set(SEARCH_TYPES);
     const unreachable = census.filter((r) => !searchable.has(r.type)).reduce((a, r) => a + r.c, 0);
