@@ -133,6 +133,9 @@ export const nestjsPlugin = createFrameworkPlugin({
             relation: 'PASSES_THROUGH', target: chain[0],
             source_file: rp, source_line: r.line,
             confidence: 0.72, provenance: 'INFERRED', extractor: 'nestjs',
+            // ⚠ The framework tag is not a language; the resolver prefers this. Without it a
+            // hard-gated ref cannot match any candidate and materialises an External stub.
+            language: 'typescript',
           });
           for (let i = 0; i < chain.length - 1; i += 1) {
             refs.push({
@@ -140,6 +143,9 @@ export const nestjsPlugin = createFrameworkPlugin({
               relation: 'PASSES_THROUGH', target: chain[i + 1],
               source_file: rp, source_line: r.line,
               confidence: 0.72, provenance: 'INFERRED', extractor: 'nestjs',
+            // ⚠ The framework tag is not a language; the resolver prefers this. Without it a
+            // hard-gated ref cannot match any candidate and materialises an External stub.
+            language: 'typescript',
             });
           }
           refs.push({
@@ -147,6 +153,9 @@ export const nestjsPlugin = createFrameworkPlugin({
             relation: 'PASSES_THROUGH', target: r.handler,
             source_file: rp, source_line: r.line,
             confidence: 0.72, provenance: 'INFERRED', extractor: 'nestjs',
+            // ⚠ The framework tag is not a language; the resolver prefers this. Without it a
+            // hard-gated ref cannot match any candidate and materialises an External stub.
+            language: 'typescript',
           });
         }
       }

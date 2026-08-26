@@ -124,6 +124,9 @@ export const nodeWebPlugin = createFrameworkPlugin({
             relation: 'PASSES_THROUGH', target: r.middlewares[0],
             source_file: rp, source_line: r.line,
             confidence: 0.72, provenance: 'INFERRED', extractor: 'node-web',
+            // ⚠ `lang` is computed per file above and was being dropped here; the resolver
+            // reads it in preference to the framework tag. See _plugin_utils.invokesRef.
+            language: lang,
           });
           for (let i = 0; i < r.middlewares.length - 1; i += 1) {
             refs.push({
@@ -131,6 +134,9 @@ export const nodeWebPlugin = createFrameworkPlugin({
               relation: 'PASSES_THROUGH', target: r.middlewares[i + 1],
               source_file: rp, source_line: r.line,
               confidence: 0.72, provenance: 'INFERRED', extractor: 'node-web',
+            // ⚠ `lang` is computed per file above and was being dropped here; the resolver
+            // reads it in preference to the framework tag. See _plugin_utils.invokesRef.
+            language: lang,
             });
           }
           refs.push({
@@ -138,6 +144,9 @@ export const nodeWebPlugin = createFrameworkPlugin({
             relation: 'PASSES_THROUGH', target: r.handler,
             source_file: rp, source_line: r.line,
             confidence: 0.72, provenance: 'INFERRED', extractor: 'node-web',
+            // ⚠ `lang` is computed per file above and was being dropped here; the resolver
+            // reads it in preference to the framework tag. See _plugin_utils.invokesRef.
+            language: lang,
           });
         }
       }

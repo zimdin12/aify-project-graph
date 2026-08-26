@@ -115,6 +115,23 @@ export function invokesRef({ node, target, extractor, sourceFile, sourceLine = 1
     confidence,
     provenance: 'INFERRED',
     extractor,
+    // ⛔ THE FRAMEWORK NAME IS NOT A LANGUAGE, AND THE RESOLVER WAS READING IT AS ONE.
+    //
+    // `filterByLanguageFamily` computes `languageFamily(ref.extractor)`, and `languageFamily`
+    // returns its input unchanged for anything it does not recognise. So `extractor: 'node-web'`
+    // produced the family "node-web", which matches no candidate — and INVOKES/PASSES_THROUGH are
+    // hard-gated relations, so the filter returned [] and every routed target was materialised as
+    // an `External` stub instead of binding to the function two files away.
+    //
+    // ⛔⛔ MEASURED: on a real Express app indexed by the real pipeline, 4 of 4 routed symbols
+    // existed as BOTH a Function node and an unlinked External twin. Enumerated across every
+    // framework extractor tag in this repo, `laravel` was the ONLY one that resolved — because
+    // someone hit this once and added a single `['laravel', 'php']` entry to the language map,
+    // leaving nine others. A hand-written map is a defect with a delay on it.
+    //
+    // ⇒ The plugin already KNOWS the language — it computed it per file and put it on this very
+    // node. Carrying it on the ref derives the answer instead of restating it in a lookup table.
+    language: node.language ?? '',
   };
 }
 

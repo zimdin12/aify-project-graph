@@ -82,11 +82,27 @@ const HARD_GATED_RELATIONS = new Set([
 // name-based resolution is gated.
 const BRIDGE_RELATIONS = new Set(['LOADS_SHADER']);
 
+// ⛔ AN EXTRACTOR TAG IS NOT A LANGUAGE. `languageFamily` returns its input unchanged for anything
+// it does not recognise, so a FRAMEWORK tag ('node-web', 'nestjs', 'django', 'rails', 'spring',
+// 'qt', 'cmake', 'shader-bindings') became its own private "family" that matches no real node. With
+// INVOKES and PASSES_THROUGH hard-gated, the filter returned [] and every routed target was
+// materialised as an External stub beside the real function it should have bound to.
+//
+// Enumerated across every framework tag in this repo, `laravel` was the ONLY one that resolved —
+// there is a lone `['laravel', 'php']` entry in the map with the comment "Laravel plugin emits
+// routes as PHP". One framework was fixed by name and nine were left.
+//
+// ⇒ Prefer a LANGUAGE the ref carries explicitly. Plugins already compute it per file; the fallback
+// to `extractor` keeps every existing ref behaving exactly as before.
+function refLanguageFamily(ref) {
+  return languageFamily(ref.language || ref.extractor);
+}
+
 function filterByLanguageFamily(matches, ref) {
   if (!matches || matches.length === 0) return matches;
   // Known cross-family bridges are exempt — don't gate them.
   if (BRIDGE_RELATIONS.has(ref.relation)) return matches;
-  const refFamily = languageFamily(ref.extractor);
+  const refFamily = refLanguageFamily(ref);
   if (refFamily === 'unknown') return matches;
   const sameFamily = matches.filter((m) => languageFamily(m.language) === refFamily);
   if (sameFamily.length > 0) return sameFamily;
@@ -597,7 +613,9 @@ function shouldMaterializeExternal(ref) {
 
 function createExternalNode(ref, rawTarget = ref.target) {
   const label = normalizeExternalTarget(rawTarget);
-  const family = languageFamily(ref.extractor);
+  // Same preference as the gate above, so a materialised External carries the language the
+  // ref actually claimed rather than a framework name.
+  const family = refLanguageFamily(ref);
   const id = `external:${createHash('sha1').update(`${family}:${label}`).digest('hex').slice(0, 16)}`;
   return {
     id,
@@ -643,6 +661,12 @@ export function resolveRefs({ db, refs, importContext = null }) {
       source_file: ref.source_file,
       relation: ref.relation,
       extractor: ref.extractor,
+      // ⛔ CARRIED, BECAUSE THIS RE-WRAP SILENTLY DROPPED IT. Rebuilding a ref here without
+      // `language` sent the synthetic one back through the family gate with only the framework tag
+      // to go on — so the FIRST and INTERMEDIATE links of a middleware chain kept materialising as
+      // External while the last one bound correctly. Executing the real indexer is what showed the
+      // split; reading the fix looked complete.
+      language: ref.language,
     }, resolvers, importContext);
   }
 

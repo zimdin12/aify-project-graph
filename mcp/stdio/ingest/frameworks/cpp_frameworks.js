@@ -74,6 +74,8 @@ function extractQtSignals(content, rp) {
       relation: 'CALLS', target: m[1],
       source_file: rp, source_line: lineOf(content, m.index),
       confidence: 0.72, provenance: 'INFERRED', extractor: 'qt',
+      // ⚠ 'qt' is a framework, not a language — see resolver.refLanguageFamily.
+      language: 'cpp',
     });
   }
 
@@ -87,6 +89,8 @@ function extractQtSignals(content, rp) {
       relation: 'CALLS', target: m[2],
       source_file: rp, source_line: lineOf(content, m.index),
       confidence: 0.7, provenance: 'INFERRED', extractor: 'qt',
+      // ⚠ 'qt' is a framework, not a language — see resolver.refLanguageFamily.
+      language: 'cpp',
     });
   }
 
@@ -99,6 +103,8 @@ function extractQtSignals(content, rp) {
       relation: 'CALLS', target: m[2],
       source_file: rp, source_line: lineOf(content, m.index),
       confidence: 0.7, provenance: 'INFERRED', extractor: 'qt',
+      // ⚠ 'qt' is a framework, not a language — see resolver.refLanguageFamily.
+      language: 'cpp',
     });
   }
 
