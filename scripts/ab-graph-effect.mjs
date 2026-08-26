@@ -30,13 +30,16 @@
 // Exit:   0 measured · 1 an arm failed its own checks · 2 bad spec · 3 subject not clean
 
 import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { mainRepoWorkspace, openArmWorkspace, disposeArmWorkspace, ARM_WORKTREE_ROOT } from './lib/arm-workspace.mjs';
-import { findArms, BLOCKS_NEW_RUN } from './lib/arm-isolation.mjs';
+import {
+  findArms, BLOCKS_NEW_RUN, armManifest, writeManifest, writeBeat,
+  manifestPathFor, heartbeatPathFor,
+} from './lib/arm-isolation.mjs';
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 
@@ -109,6 +112,29 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId }) 
   }
   mkdirSync(dirname(armPath), { recursive: true });
 
+  // ⛔ REGISTER BEFORE THE WORKTREE EXISTS, NOT AFTER. This harness consumed findArms for discovery
+  // while writing no manifest of its own, so it could see everyone else's arms and nobody could see
+  // its own — a concurrent run would have measured straight through a live mutation.
+  //
+  // ⚠ THE ORDER IS THE WHOLE SAFETY PROPERTY. A manifest written first and removed only after
+  // VERIFIED disposal means a kill at any point leaves an observable ORPHAN_CANDIDATE. Registering
+  // after creation would leave a window where the worktree exists and nothing declares it.
+  const armRunId = `${runId}-${arm.name}`;
+  const runToken = randomUUID();
+  const manifestPath = manifestPathFor(repo, armRunId);
+  const beatPath = heartbeatPathFor(repo, armRunId);
+  writeManifest(manifestPath, armManifest({
+    runId: armRunId,
+    runToken,
+    specId: spec.question ?? 'ab-graph-effect',
+    target: arm.transport?.file ?? spec.transportFile,
+    commit: subjectCommit,
+    tree: subjectCommit,
+    worktree: armPath,
+    pid: process.pid,
+  }));
+  writeBeat(beatPath, { runToken, seq: 0 });
+
   const opened = openArmWorkspace(repo, subjectCommit, armPath);
   const ws = opened.workspace;
   transport = opened.transport;
@@ -170,6 +196,14 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId }) 
   // ⚠ A partial disposal is reported, not swallowed: a surviving registration blocks the next run.
   const undisposed = (disposal ?? []).filter((d) => !d.ok);
   if (undisposed.length > 0) failures.push(`disposal incomplete: ${JSON.stringify(undisposed)}`);
+
+  // ⛔ DE-REGISTER ONLY ON VERIFIED DISPOSAL. If any removal step failed, the manifest and beat STAY,
+  // so the next invocation sees an observable arm and refuses rather than measuring over the residue.
+  // Removing the registration on the way out regardless would turn a failed cleanup into a silent one.
+  if (undisposed.length === 0) {
+    rmSync(manifestPath, { force: true });
+    rmSync(beatPath, { force: true });
+  }
 
   let membership = null;
   if (payload) {
