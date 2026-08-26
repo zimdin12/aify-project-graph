@@ -604,6 +604,29 @@ function normalizeExternalTarget(target) {
     .replace(/^["'<]+|[>"']+$/g, '');
 }
 
+// ⛔ A NAME, OR NOTHING. Nothing checked that a materialised External LOOKED like a symbol, so when
+// a parser handed back a fragment the graph grew a node labelled `entries()]`, `replace(/\\/g,` or
+// `join(dirOf(docPath),`. Measured on this repository: 329 of 1,104 External nodes — 29.8% — were
+// fragments of that shape, about 5% of every labelled node in the graph.
+//
+// Those nodes are pure noise. Nothing can ever resolve to them, no edge to one is a real call, they
+// appear in searches and censuses, and they were the bulk of the AMBIGUOUS tier's damage: 23.3% of
+// sampled AMBIGUOUS CALLS edges pointed at one.
+//
+// ⚠ THE RULE IS DERIVED FROM THE OBSERVED POPULATION, not invented. Applied to the 1,104 existing
+// External labels it accepts 775 — `slice`, `readFileSync`, `Map`, `createGraph` — and rejects 329,
+// every one a fragment. Separators that appear in real names are allowed: `.` and `::` for members,
+// `\` for PHP namespaces, `-` for CSS-ish identifiers, `@` for scoped packages.
+//
+// ⚠ REFUSING IS NOT LOSING. The ref stays in the unresolved list, which is the honest record. A node
+// labelled `entries()]` is not more information than an unresolved ref; it is less, because it looks
+// like a finding.
+const PLAUSIBLE_EXTERNAL = /^[A-Za-z_$@\\][A-Za-z0-9_$@\\.:-]*$/;
+
+export function isPlausibleExternalName(label) {
+  return PLAUSIBLE_EXTERNAL.test(String(label ?? ''));
+}
+
 // Decide whether an unresolved ref should be materialized as an External
 // terminal node or left in dirtyEdges. Dev's rule (from design discussion):
 //  - CALLS: always materialize. Terminal hop in trace output.
@@ -621,6 +644,8 @@ function shouldMaterializeExternal(ref) {
   if (!ref.from_id || !ref.target) return false;
   const label = normalizeExternalTarget(ref.target);
   if (!label) return false;
+  // ⛔ Before anything else: a fragment is not a symbol. See PLAUSIBLE_EXTERNAL above.
+  if (!isPlausibleExternalName(label)) return false;
   if (COMMON_NAMES.has(label)) return false;
   if (ref.relation === 'CALLS') return true;
   if (ref.relation === 'PASSES_THROUGH') return true;
