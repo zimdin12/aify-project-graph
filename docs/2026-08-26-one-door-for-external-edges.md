@@ -379,3 +379,65 @@ keeping nothing reproduces the defect above. The default retains the **set diffe
 what the claims are about, 1.2MB — and drops the per-arm membership. Every artifact records
 `retained: true|false`, so a hash with `retained: false` is visibly a re-run target rather than a
 file you can open.
+
+
+---
+
+# Fifth review: custody, an unbound worker, and a claim covering half its populations
+
+The classifier and source fixes stayed approved, and the reviewer independently recomputed the
+retained edge-difference bytes and confirmed they match. Five blockers on the carrier, all mine.
+
+## The custody comment said one thing and the code did the opposite
+
+Entry read `if (existsSync(armPath)) disposeArmWorkspace(...)` under a comment claiming it *failed
+closed*. It did the reverse: a hard-killed run leaves exactly that path, and the next invocation
+**deleted it** — destroying the mutant evidence of the crash before anything proved the run
+abandoned. A deterministic path also let a second harness delete a first harness's **live** arm.
+
+`arm-isolation.mjs` already encodes the right rule: `BLOCKS_NEW_RUN` contains *every* state, because
+stale means abandonment is **unproved**, and only an externally confirmed orphan is ever deletable.
+Nothing is disposed on entry now, and any observable arm refuses the run.
+
+⛔ **And the gate was unreachable in the very case it exists for.** An orphaned arm leaves untracked
+directories, which made the tree dirty — so the *dirty-subject* gate fired first and told the
+operator to "commit the harness" when the real condition was an orphan. Custody is now diagnosed
+first, and the arm directories are gitignored as the runtime state they are. Found by trying to watch
+the gate refuse rather than assuming it would.
+
+## The recorded worker was not the worker that ran
+
+The arm hashed **its own** copy of `ab-arm-worker.mjs` as a governed file while launching the **main
+checkout's** copy. So `governedFileSha256` named bytes that did not execute. On a clean subject the
+two are equal, which is exactly why it survived — **an identity that is only accidentally correct is
+not an identity.**
+
+## The receipt claimed node differences it never wrote
+
+It reported `nodesOnlyInA` and `nodesOnlyInB` while retaining only the edge files, so "the set
+differences are retained" was false for half the populations it named, and the node counts were
+uncheckable. All four difference sets are now canonicalised, written and hashed under one policy.
+
+## The claim ceiling now travels with the claim
+
+Both arms junction to the same mutable `node_modules`. That was disclosed — but disclosure is not a
+limit, and sequential use of one mutable path does not prove its bytes were identical between arms.
+The receipt now carries `closureInventoried: false`, the `package-lock` hash, and an explicit
+ceiling: **paired observation under one disclosed dependency carrier**, not a hermetic result.
+
+## The measurement, at `db0954905726`
+
+| arm | exit | nodes | edges |
+|---|---|---|---|
+| A: admit every REFERENCES terminal | 0 | 8,160 | 27,295 |
+| B: as committed (type-like only) | 0 | 5,285 | 17,521 |
+
+| difference set | count | verified |
+|---|---|---|
+| `nodes-only-in-A` | 2,875 | hash recomputed ✓ |
+| `nodes-only-in-B` | **0** | hash recomputed ✓ |
+| `edges-only-in-A` | 9,774 | hash recomputed ✓ |
+| `edges-only-in-B` | **0** | hash recomputed ✓ |
+
+All four retained (1.3MB), row counts checked against the claimed counts, zero raw control bytes, and
+I recomputed every published hash against the committed files rather than asserting they match.

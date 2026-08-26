@@ -2,8 +2,8 @@
   "spec": "scripts/ab-specs/references-admission.json",
   "question": "What does refusing a bare-lowercase REFERENCES terminal do to the graph?",
   "subject": {
-    "commit": "126d5ecdda02f481873713a4ad54deb75dee3957",
-    "tree": "6ad9ad79ca0f95b81500d42bb29276dc7ffa507e",
+    "commit": "db095490572639c71d62e640d7e5d7d0ee309605",
+    "tree": "567b8a726cab965a0bd468bf0dd462f6fd7e8fa1",
     "cleanAtRun": true,
     "dirtyPathsDisclosed": []
   },
@@ -13,6 +13,12 @@
     "arch": "x64"
   },
   "heldFixed": "both arms are detached worktrees of the SAME subject commit; only arm A carries the transport",
+  "closure": {
+    "closureInventoried": false,
+    "dependencyCarrier": "shared mutable node_modules junction from the main checkout",
+    "packageLockSha256": "85d63ae7415dd4a677fe8b7f828769b970117b789c58a3308129cb21e2c24c43",
+    "claimCeiling": "paired observation under one disclosed mutable dependency carrier"
+  },
   "evidenceDir": "docs/evidence/ab-references-admission",
   "evidenceRetention": {
     "policy": [
@@ -60,36 +66,36 @@
       "membership": {
         "retained": false,
         "nodesFile": null,
-        "nodesSha256": "b83384402192dae25304e1ce8d9e7bc88b854444af871b0f6104106688e97607",
-        "nodesCount": 8154,
+        "nodesSha256": "0e254807a4ad60922fb00651b0fac5124f93cb8d398221789c2ba0d2dd91090e",
+        "nodesCount": 8160,
         "edgesFile": null,
-        "edgesSha256": "4f1aa19a7be399ab34446f07784d32a8d795b7bdfa494832d97f50c462a0de2d",
-        "edgesCount": 27270
+        "edgesSha256": "dc78c471413057c68b665a87079ad830a771698e04affed25a53fccd2e44679c",
+        "edgesCount": 27295
       },
       "counts": {
-        "nodes": 8154,
-        "edges": 27270,
+        "nodes": 8160,
+        "edges": 27295,
         "byRelation": {
-          "CALLS": 9061,
-          "CONTAINS": 1078,
+          "CALLS": 9071,
+          "CONTAINS": 1080,
           "DECLARES_BINDING": 1,
-          "DEFINES": 2493,
+          "DEFINES": 2495,
           "EXTENDS": 6,
           "IMPLEMENTS": 1,
-          "IMPORTS": 1456,
+          "IMPORTS": 1458,
           "LINKS_TO": 602,
           "MENTIONS": 34,
-          "REFERENCES": 12527,
+          "REFERENCES": 12536,
           "TESTS": 3,
           "USES_TYPE": 8
         },
         "externalByRelation": {
-          "CALLS": 5874,
+          "CALLS": 5882,
           "EXTENDS": 6,
-          "REFERENCES": 10455,
+          "REFERENCES": 10428,
           "USES_TYPE": 2
         },
-        "dirtyEdgeCount": 10650,
+        "dirtyEdgeCount": 10664,
         "trustDirtyEdgeCount": 38
       },
       "failures": []
@@ -132,51 +138,65 @@
       "membership": {
         "retained": false,
         "nodesFile": null,
-        "nodesSha256": "3c30223f27cc97c00f8511478e58653e01c6d8ecf552fce407b9f03114ecfe32",
-        "nodesCount": 5278,
+        "nodesSha256": "2caf516fbd367366288cf057bbc2ad1baa1ccecd06368fed8d382cfc19aa815b",
+        "nodesCount": 5285,
         "edgesFile": null,
-        "edgesSha256": "26ae61844fded92188f07660c71390126f00f931b167307d570e89bc95023a59",
-        "edgesCount": 17468
+        "edgesSha256": "db6590524cba15f363c51faa70197ce4dec07aca627e01f204b1030b123af05d",
+        "edgesCount": 17521
       },
       "counts": {
-        "nodes": 5278,
-        "edges": 17468,
+        "nodes": 5285,
+        "edges": 17521,
         "byRelation": {
-          "CALLS": 9061,
-          "CONTAINS": 1078,
+          "CALLS": 9071,
+          "CONTAINS": 1080,
           "DECLARES_BINDING": 1,
-          "DEFINES": 2493,
+          "DEFINES": 2495,
           "EXTENDS": 6,
           "IMPLEMENTS": 1,
-          "IMPORTS": 1456,
+          "IMPORTS": 1458,
           "LINKS_TO": 602,
           "MENTIONS": 34,
-          "REFERENCES": 2725,
+          "REFERENCES": 2762,
           "TESTS": 3,
           "USES_TYPE": 8
         },
         "externalByRelation": {
-          "CALLS": 5874,
+          "CALLS": 5882,
           "EXTENDS": 6,
-          "REFERENCES": 653,
+          "REFERENCES": 654,
           "USES_TYPE": 2
         },
-        "dirtyEdgeCount": 38812,
+        "dirtyEdgeCount": 38706,
         "trustDirtyEdgeCount": 38
       },
       "failures": []
     }
   ],
   "comparison": {
-    "nodesOnlyInA": 2876,
-    "nodesOnlyInB": 0,
-    "edgesOnlyInA": 9802,
-    "edgesOnlyInB": 0,
     "retained": true,
-    "edgesOnlyInAFile": "edges-only-in-A.txt",
-    "edgesOnlyInASha256": "77b220fbf26cf3b250c3d8143553f78103806fa78e662b4efd10dfdcbbaac8d1",
-    "edgesOnlyInBFile": "edges-only-in-B.txt",
-    "edgesOnlyInBSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    "sets": {
+      "nodes-only-in-A": {
+        "count": 2875,
+        "file": "nodes-only-in-A.txt",
+        "sha256": "de292fc893a251eae58f5ddaae885aab1bf91ff438cface5d6fcb77058f853f1"
+      },
+      "nodes-only-in-B": {
+        "count": 0,
+        "file": "nodes-only-in-B.txt",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      },
+      "edges-only-in-A": {
+        "count": 9774,
+        "file": "edges-only-in-A.txt",
+        "sha256": "e6fc0a57f258bf8bab11fadbca8350d6f337de44e1fe707c1d5b39211555768b"
+      },
+      "edges-only-in-B": {
+        "count": 0,
+        "file": "edges-only-in-B.txt",
+        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+      }
+    }
   },
   "verdict": "measured"
 }
