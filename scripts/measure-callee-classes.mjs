@@ -40,7 +40,8 @@ export function isBareCall(line, label) {
  * MEMBER  — proven a member call. A rule that refuses this label destroys a real edge.
  * BARE    — in call position with no receiver. Ambiguous by construction: `readFileSync(...)` and
  *           `catch (e)` are the same shape, and nothing on the line separates them.
- * NEITHER — the label never appears in call position. Evidence the target is not a callee at all.
+ * NEITHER — the label never appears in call position ON THIS LINE. See CHAIN_WINDOW below: that is
+ *           NOT the same as "not a callee", because a chain can span lines.
  */
 export function classify(line, label) {
   if (isMemberCall(line, label)) return 'MEMBER';
@@ -64,10 +65,27 @@ export function controlFailures() {
   must(classify('const s = readFileSync(p);', 'readFileSync') === 'BARE', 'direct call not detected');
   must(classify('return myOwnJoin(a);', 'Join') === 'NEITHER', 'suffix match should not count as a call');
   must(classify('// we merely mention catch here', 'catch') === 'NEITHER', 'a prose mention is not a call');
+  // ⛔ The widened window must EXPLAIN a real split chain and must NOT explain a name that is absent.
+  // A window wide enough to explain everything would make the residual vanish for the wrong reason.
+  const chain = ['return rows', '  .slice(0, 5)', '  .map(toRow);'].join('\n');
+  must(isMemberCall(chain, 'slice'), 'a chain split across lines is not recognised in the window');
+  must(!isMemberCall(chain, 'zzNotARealSymbolAnywhere'), 'the window explains a name that is absent');
   return failures;
 }
 
 // ── measurement ───────────────────────────────────────────────────────────────
+
+// ⛔ A ONE-LINE CLASSIFIER CANNOT SEE A CHAIN THAT SPANS LINES, AND MOST NEITHER RESULTS ARE THAT.
+//
+// `return rows` / `  .slice(0, 5)` records source_line at the FIRST line, where `.slice(` does not
+// appear. Measured after the chained-constructor fix: of 103 one-line NEITHER results, 88 have the
+// member call within the next few lines and only 15 do not. Reporting 103 as "not a callee" would
+// have overstated the defect population by roughly seven times.
+//
+// ⚠ So the window is a DISCLOSURE, not a reclassification. NEITHER stays NEITHER; the report says
+// how many of them are explained this way, because the alternative is a number that reads as a
+// defect count and is not one.
+const CHAIN_WINDOW = 8;
 
 function lineReader(repoRoot) {
   const cache = new Map();
@@ -94,15 +112,28 @@ export function measure({ repoRoot, dbPath }) {
   } finally { db.close(); }
 
   const readLine = lineReader(repoRoot);
+  const readWindow = (file, line) => {
+    const out = [];
+    for (let i = line; i < line + CHAIN_WINDOW; i += 1) {
+      const l = readLine(file, i);
+      if (l === null) break;
+      out.push(l);
+    }
+    return out.join('\n');
+  };
   const byLabel = new Map();
   const totals = { MEMBER: 0, BARE: 0, NEITHER: 0 };
   let unreadable = 0;
+  let chainExplained = 0;
 
   for (const row of rows) {
     const line = readLine(row.file, row.line);
     if (line === null) { unreadable += 1; continue; }
     const cls = classify(line, row.label);
     totals[cls] += 1;
+    if (cls === 'NEITHER' && isMemberCall(readWindow(row.file, row.line), row.label)) {
+      chainExplained += 1;
+    }
     if (!byLabel.has(row.label)) byLabel.set(row.label, { MEMBER: 0, BARE: 0, NEITHER: 0, samples: {} });
     const entry = byLabel.get(row.label);
     entry[cls] += 1;
@@ -114,6 +145,7 @@ export function measure({ repoRoot, dbPath }) {
     examined: rows.length - unreadable,
     unreadable,
     totals,
+    chainExplained,
     byLabel,
   };
 }
@@ -145,6 +177,8 @@ function main(argv) {
       examined: result.examined,
       unreadable: result.unreadable,
       totals: result.totals,
+      chainExplained: result.chainExplained,
+      notCalleeAfterWindow: result.totals.NEITHER - result.chainExplained,
     }, null, 2));
     return 0;
   }
@@ -153,7 +187,9 @@ function main(argv) {
   console.log(`${result.examined} ${result.unit} (unreadable ${result.unreadable})\n`);
   console.log(`  MEMBER  ${String(MEMBER).padStart(5)}  proven a member call — refusing these destroys real edges`);
   console.log(`  BARE    ${String(BARE).padStart(5)}  call position, no receiver — AMBIGUOUS, cannot be split here`);
-  console.log(`  NEITHER ${String(NEITHER).padStart(5)}  never in call position — evidence the target is not a callee`);
+  console.log(`  NEITHER ${String(NEITHER).padStart(5)}  not in call position ON ITS LINE`);
+  console.log(`     of which ${result.chainExplained} are a member call spread over more than one line —`);
+  console.log(`     so the population this points at is ${NEITHER - result.chainExplained}, not ${NEITHER}`);
 
   const worst = [...result.byLabel]
     .filter(([, e]) => e.NEITHER > 0)
@@ -172,6 +208,12 @@ function main(argv) {
   return 0;
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// ⛔ argv[1] IS UNDEFINED when this module is imported from an eval context (`node --input-type=
+// module -e "import ..."`), and pathToFileURL(undefined) THROWS — so importing the predicates for a
+// one-off measurement crashed before a single line ran. The repo has been bitten by this guard's
+// other failure mode before (a two-slash `file://` never matching Node's three), where the symptom
+// was silence rather than a stack trace. Guard the argument, not just the comparison.
+const invokedPath = process.argv[1];
+if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
   process.exit(main(process.argv.slice(2)));
 }
