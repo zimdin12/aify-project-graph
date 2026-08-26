@@ -460,7 +460,8 @@ only because `/` is absent from the character class.
 them; it is whether the shape rule is what EXCLUDES them. `IMPORTS` is not in the admission table at
 any shape, so a slash-shaped import is refused by RELATION regardless.
 
-**Two snapshots, at different indexed commits. They are different populations and are not averaged.**
+**Two snapshots, at different indexing states; only the second has a retained indexed identity. They
+are different populations and are not averaged.**
 
 | snapshot | `IMPORTS` | `CALLS` | admissible targets |
 |---|---|---|---|
@@ -475,8 +476,16 @@ the full sidecar at indexed commit `bd35dcf`, sidecar sha256
 
 ⇒ **The claim ceiling is therefore qualitative, not numeric: in both observed snapshots, zero
 legitimate names had their mint blocked SOLELY by shape.** Every admissible-relation target in either
-run was a genuine parse fragment. The exact figures moved between runs because the indexed source
-moved, which is precisely why the magnitude is not offered as a number.
+run was a genuine parse fragment. The exact figures differ across snapshots taken after the indexed
+source had moved; the unretained first snapshot does not license a causal attribution, which is
+precisely why the magnitude is not offered as a number.
+
+⛔ **That sentence used to read "the figures moved BECAUSE the indexed source moved" — an asserted
+cause, in the very paragraph explaining why the number could not be checked.** Source movement is
+disclosed context, not proof that it rather than some other uncontrolled difference produced the
+change, and with no retained first identity nothing can distinguish them. This is the third asserted
+cause in this arc: "the extractor read `catch (e)` as a call site" (false, and a guard was built on
+it), "an older extractor left the fragment nodes" (withdrawn), and this one.
 
 ⚠ **And "this repository contains neither C++ nor Ruby" was false**: five `.cpp` fixtures are tracked
 (Ruby is genuinely absent, 0 files). The correct statement is the measured one — *neither measured
