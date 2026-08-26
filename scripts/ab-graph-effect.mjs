@@ -26,7 +26,7 @@
 //      under measurement. A commit id plus a list of dirty paths is DISCLOSURE, NOT IDENTITY — so
 //      this refuses a dirty subject and hashes every governed file as the arm actually executed it.
 //
-// Usage:  node scripts/ab-graph-effect.mjs --spec <spec.json> [--out <receipt.json>]
+// Usage:  node scripts/ab-graph-effect.mjs --spec <spec.json> [--out <receipt.json>] [--publish]
 //
 // ⛔ THERE IS NO OVERRIDE FLAG, AND THAT IS DELIBERATE. Earlier versions carried
 // --allow-observed-arms and --allow-dirty, which turned both safety gates into suggestions: any
@@ -107,8 +107,19 @@ export function publishEvidence({ stagingDir, publishDir, priorReceipt }) {
   const staged = readdirSync(stagingDir).filter((f) => !f.startsWith('graph-'));
   const expected = new Map((priorReceipt?.published ?? []).map((p) => [p.name, p.sha256]));
 
+  // ⛔ SET EQUALITY, NOT SUBSET. This iterated the destination and checked each file was EXPECTED —
+  // so a previously accepted artifact that had been DELETED passed silently. Executed against the
+  // old code: a prior receipt naming kept.txt and missing.txt, a destination holding only kept.txt,
+  // and publication proceeded. "The destination must still hold exactly those bytes" was false in
+  // the direction nobody checks, because a missing file produces no row to inspect.
   if (existsSync(publishDir)) {
-    for (const name of readdirSync(publishDir)) {
+    const actual = new Set(readdirSync(publishDir));
+    for (const name of expected.keys()) {
+      if (!actual.has(name)) {
+        return { ok: false, reason: `${name} was accepted previously and is now MISSING from the destination`, replaced: [], published: [] };
+      }
+    }
+    for (const name of actual) {
       const current = sha256(readFileSync(join(publishDir, name), 'utf8'));
       if (!expected.has(name)) {
         return { ok: false, reason: `${name} is present but the last accepted receipt does not list it`, replaced: [], published: [] };
@@ -121,14 +132,25 @@ export function publishEvidence({ stagingDir, publishDir, priorReceipt }) {
 
   mkdirSync(publishDir, { recursive: true });
   const replaced = [];
-  const published = [];
   for (const name of staged) {
-    const from = join(stagingDir, name);
-    const bytes = readFileSync(from, 'utf8');
     const to = join(publishDir, name);
     if (existsSync(to)) replaced.push({ name, priorSha256: expected.get(name) ?? null });
-    writeFileSync(to, bytes);
-    published.push({ name, sha256: sha256(bytes) });
+    writeFileSync(to, readFileSync(join(stagingDir, name), 'utf8'));
+  }
+
+  // ⛔ READBACK FROM THE CONSUMED OBJECT, NOT FROM WHAT WAS SENT. The published hashes used to be
+  // computed from the STAGED bytes, so "every artifact verified" described the thing written, never
+  // the thing a reader would open. writeFileSync returning is transport, not confirmation — a
+  // truncated write, a full disk or a filter driver all return normally.
+  const published = [];
+  for (const name of staged) {
+    published.push({ name, sha256: sha256(readFileSync(join(publishDir, name), 'utf8')) });
+  }
+  const stagedSet = new Set(staged);
+  for (const name of readdirSync(publishDir)) {
+    if (!stagedSet.has(name)) {
+      return { ok: false, reason: `after publication ${name} is present but was not staged`, replaced, published };
+    }
   }
   return { ok: true, replaced, published };
 }
@@ -537,7 +559,13 @@ function main(argv) {
   // ⛔ PUBLICATION ONLY AFTER BOTH ARMS ARE TERMINAL. A run whose arm failed its own checks publishes
   // NOTHING: its numbers are not evidence, and replacing the last accepted receipt with them would
   // destroy the only good record to make room for a bad one.
-  if (failed.length === 0 && durable && outPath) {
+  // ⛔ PUBLICATION IS OPT-IN. Most runs of this harness verify the HARNESS, not the subject, and
+  // publishing by default rewrote ~1.3MB of tracked evidence every time — forcing a commit or a
+  // revert after each verification, and inviting exactly the half-replaced state this protocol
+  // exists to prevent. This NARROWS the write path rather than widening it: without --publish
+  // nothing reaches the repository at all, and the staging location is reported instead.
+  const wantsPublish = argv.includes('--publish');
+  if (failed.length === 0 && durable && outPath && wantsPublish) {
     const publishDir = resolve(repo, spec.evidenceDir);
     const priorReceiptPath = resolve(repo, outPath);
     const priorReceipt = existsSync(priorReceiptPath)
@@ -573,6 +601,9 @@ function main(argv) {
     process.stderr.write(`[ab] receipt -> ${outPath}\n`);
   } else if (failed.length > 0) {
     process.stderr.write(`[ab] NOT PUBLISHED — an arm failed; staged evidence kept at ${evidenceDir}\n`);
+  } else {
+    process.stderr.write('[ab] measured, NOT published (pass --publish to write into the repository)\n');
+    process.stderr.write(`[ab] staged evidence at ${evidenceDir}\n`);
   }
   console.log(JSON.stringify(receipt, null, 2));
 
