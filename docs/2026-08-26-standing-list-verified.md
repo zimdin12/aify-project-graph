@@ -8,7 +8,7 @@ happened when each was checked.
 |---|---|---|
 | F2 — `positionGuessSkipped` unit | **closed** | the reader-facing hint states it: *"BOTH ARE COUNTS OF SYMBOLS, not files"* (`collect_code_intel.js:371`) |
 | F3 — cpp `compile_db_missing` preflight | **closed** | present in `compile-db.js`, `runner.js`, `code_intel_analyze.js` and `init-project-mcp.mjs` — including project init, which was the ask |
-| F6 — EXTRACTED vs AMBIGUOUS rendered | **UNTESTABLE HERE** — see below | executed |
+| F6 — EXTRACTED vs AMBIGUOUS rendered | **closed** — answered on the pinned corpus | executed on `fmt` |
 | F7 — stale lock names no cause/expiry/remedy | **closed** | executed against a genuinely held lock |
 | F8 — interrupted index silently degraded | **closed** | `index-incomplete` verdict in `health.js` and `graph-capabilities.mjs` |
 | `graph_callers` ambiguous false-zero | **not a defect** | executed; see `2026-08-26-ambiguous-match-is-not-a-false-zero.md` |
@@ -56,3 +56,41 @@ and strip the banner before testing.
 ⛔ **My first F7 probe could not reproduce the condition.** A bare directory is not a lock the library
 recognises, so "no error" said nothing about the error path. Always ask whether the setup actually
 created the state under test before reading its silence.
+
+
+---
+
+## F6, answered — and my "this needs a decision" was wrong
+
+I wrote that answering F6 needed a third-party corpus and was therefore a cost decision for Steven.
+**That was wrong, and the answer was in the same prompt I was reading.** The corpus is *pinned*, and
+`scripts/testbed.mjs --setup` reconstructs it at those exact commits. Deleted is not the same as
+unavailable when the tooling and the pins are committed.
+
+Rebuilt and verified — `--verify` reports `pinMatch: {commit: true, tree: true}`, `sourceUnmodified:
+true` for every arm.
+
+### The result
+
+Our own repository cannot place an EXTRACTED and an AMBIGUOUS edge on the same single-definition
+target, and neither can `click`, `fast-route` or `p-queue` — all three report zero such targets. Only
+`fmt` (pinned at `e27cc20bd93a4e280fb9268d41cd131069a9c73f`) could exhibit the condition, which is
+why all four were run rather than the first one that answered.
+
+On `fmt`, `AssertionFailure` carries 14 EXTRACTED and 1 AMBIGUOUS incoming call:
+
+    EDGE HasOneFailure→AssertionFailure    CALLS test/gtest/gmock-gtest-all.cc:2349 conf=0.60
+    EDGE AssertionFailure→AssertionFailure CALLS test/gtest/gmock-gtest-all.cc:2705 conf=0.60 prov=AMBIGUOUS
+
+Distinct trailing shapes across the rendered lines: `["conf=0.60", "conf=0.60 prov=AMBIGUOUS"]`.
+
+⇒ **AMBIGUOUS edges carry `prov=AMBIGUOUS`; EXTRACTED edges carry nothing. The pair IS
+distinguishable, and F6 is closed.** The original note also said both tiers "all carry conf=0.95 in
+click" — on `fmt` they are `conf=0.60`, so that figure was corpus-specific and is not restated.
+
+### Reproducible, unlike the last unretained snapshot
+
+The corpus was deleted again afterwards per the standing instruction, and the host was at 97% disk.
+That is safe here in a way an earlier temp-directory snapshot was not: this finding replays from
+committed, pinned tooling — `node scripts/testbed.mjs --setup`, then query `fmt` for
+`AssertionFailure`. The pins are the retention.
