@@ -441,3 +441,62 @@ ceiling: **paired observation under one disclosed dependency carrier**, not a he
 
 All four retained (1.3MB), row counts checked against the claimed counts, zero raw control bytes, and
 I recomputed every published hash against the committed files rather than asserting they match.
+
+
+---
+
+# The "legitimate names refused at mint" gap, measured
+
+Both the reviewer and I listed this as an open gap: the mint-time shape rule rejects `operator()`,
+`save!`, `café`, `#private` and `@scope/pkg`, so legitimate names never become terminals. Neither of
+us had sized it.
+
+On a fresh index of this repository, 833 unresolved refs carry a target the shape rule rejects. The
+top of that list looks alarming — `node:fs/promises` (170), `node:fs/promises.mkdtemp` (149),
+`node:fs/promises.rm` (149), a path-qualified `registerProvider` — every one a real name, rejected
+only because `/` is absent from the character class.
+
+⛔ **And that reading would have been wrong.** The question is not whether the shape rule rejects
+them; it is whether the shape rule is what EXCLUDES them:
+
+| | count |
+|---|---|
+| fragment-shaped targets, `IMPORTS` | **803** |
+| fragment-shaped targets, `CALLS` | 30 |
+
+`IMPORTS` is not in the admission table, so those 803 are refused by RELATION regardless of their
+shape. The shape rule is not the binding constraint for 96% of the population.
+
+The 30 that *are* in an admissible relation are `})` (29) and `system()` (1) — genuine parse
+fragments, correctly refused.
+
+⇒ **On this repository the gap's live population is zero.** It remains real in principle — a C++ or
+Ruby codebase would exercise it, and this repo contains neither — but it is not costing this graph a
+single edge, and the alarming-looking 803 are a different mechanism wearing the same shape.
+
+⇒ **The near-miss is the lesson.** "833 legitimate names are being refused" was one step away from
+being written down. The control that stopped it was asking which relation each ref was in — the same
+discipline as naming the field a number came from and the noun it is attached to, separately.
+
+---
+
+# Carrier disposition
+
+The A/B carrier is **HELD as a bounded observation, not A/B authority**, pending a scope decision.
+
+What the instrument licenses: on the named subject and the disclosed mutable dependency carrier, a
+one-directional delta of roughly 9,800 edges.
+
+What it does **not** license: hermeticity, atomic publication, exclusive cross-tool custody,
+externally replayable terminal closure, or authoritative magnitude.
+
+Six defects remain open in it, none downgraded: sequential writes can half-publish (B2); the readback
+is reasoned but unwitnessed, since the staged-byte mutant survives without fault injection (B3); the
+nested receipt excludes itself while only the outer object lists all seven, so "self-describing" was
+an overstatement (B4); the normal-completion closure is not consumed by `findArms`, which owns the
+`CLOSED` dispatch and validates it — my claim that it could not was simply wrong and is withdrawn
+(B5); the run lock is tool-local and invisible to the shared custody layer (B6); refused staging is
+addressed at an OS temp path (B7).
+
+The source and admission behaviour this instrument measured is accepted independently and is not
+blocked by any of it.
