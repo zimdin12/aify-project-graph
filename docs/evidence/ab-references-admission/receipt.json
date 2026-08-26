@@ -223,45 +223,6 @@
     {
       "name": "nodes-only-in-B.txt",
       "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-    },
-    {
-      "name": "receipt.json",
-      "sha256": "ef045ccf0cdf5af99c59f39fa3a64afeb2a136aec598b957db78804333b5128c"
     }
-  ],
-  "publication": {
-    "publishDir": "docs/evidence/ab-references-admission",
-    "replaced": [],
-    "published": [
-      {
-        "name": "closure-A-admit-all-references.json",
-        "sha256": "3b5f9f8604076df446b599bcd023d3c7ef1bffe18f983db5d5ef3f05bb1ebe69"
-      },
-      {
-        "name": "closure-B-type-like-only.json",
-        "sha256": "3dec39534a96b95c432695916872d0e6cbc1775f3fa8d19b3ba9b1ce191281d4"
-      },
-      {
-        "name": "edges-only-in-A.txt",
-        "sha256": "31f4bacfd6ca06b86c56e9fec852a5bca3012ca48988202683b80dce1f35a80e"
-      },
-      {
-        "name": "edges-only-in-B.txt",
-        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-      },
-      {
-        "name": "nodes-only-in-A.txt",
-        "sha256": "68110d3372577be25bccf7147c76c19ad0717494a05a197ff6dc08eab68b32ed"
-      },
-      {
-        "name": "nodes-only-in-B.txt",
-        "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
-      },
-      {
-        "name": "receipt.json",
-        "sha256": "ef045ccf0cdf5af99c59f39fa3a64afeb2a136aec598b957db78804333b5128c"
-      }
-    ],
-    "stagedAt": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-ab-staging-IsFdsU"
-  }
+  ]
 }
