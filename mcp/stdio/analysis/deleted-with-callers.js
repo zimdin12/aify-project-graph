@@ -117,10 +117,23 @@ function callersOf(db, name, declaredIn, editedFiles) {
   // spelled like Node's fs function — reported SEVENTY callers. Deleting `has` reported 193. Every
   // `x.has(y)` in the corpus had been attributed to one `has` node by the extractor.
   //
-  //     whole-graph CALLS/REFERENCES/IMPORTS provenance:
+  //     whole-graph CALLS/REFERENCES/IMPORTS provenance, WHEN THAT WAS WRITTEN:
   //         EXTRACTED     12024      tree-sitter heuristic, resolved by label
   //         AMBIGUOUS      1028
   //         LSP_VERIFIED     19      compiler-resolved
+  //
+  // ⚠ THAT 19 IS NO LONGER TRUE AND THE CORRECTION MATTERS, because 19 reads as "this rule is dead"
+  // and would stop a reader from ever enabling it. Re-measured 2026-08-26 on this repository:
+  //
+  //         EXTRACTED     12433      LSP_VERIFIED   2379  (15.5%)      AMBIGUOUS   555
+  //
+  // ⛔⛔ AND THE FIGURE DEPENDS ENTIRELY ON WHETHER A COLLECTION HAS RUN, not on the code. Measured
+  // by executing it: a FRESHLY INDEXED graph of this same repository holds 12,837 EXTRACTED, 1,230
+  // AMBIGUOUS and **ZERO** verified edges. `graph_index` alone can never make this rule speak;
+  // `graph_collect_code_intel` is what changes the answer.
+  //
+  // ⇒ So "how often does this fire" is not a property of the hook. It is a property of the GRAPH it
+  // is pointed at, and any statement of its value has to name which graph.
   //
   // ⇒ A hook is UNBIDDEN and cannot be cheaply checked, so it may only make claims its evidence
   // supports. "You removed X and it has 70 callers" built on heuristic label matches is the most

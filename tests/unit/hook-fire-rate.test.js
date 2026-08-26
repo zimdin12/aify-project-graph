@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { measure, controlFailure, isCountedPath } from '../../scripts/measure-hook-fire-rate.mjs';
+import { measure, controlFailure, isCountedPath, verifiedEdgeCoverage } from '../../scripts/measure-hook-fire-rate.mjs';
 
 // ⛔ A RATE NOBODY CAN RE-DERIVE IS A CLAIM, NOT A MEASUREMENT.
 //
@@ -79,6 +79,20 @@ describe('the hook fire-rate measurement', () => {
     expect(r.unit).toMatch(/file-change/i);
     expect(r.unit, 'it must say it is NOT an edit').toMatch(/NOT an edit/i);
     expect(r.bound).toMatch(/upper/i);
+  });
+
+  it('⛔ THE PRECONDITION TRAVELS WITH THE RATE, because the rate alone misleads', () => {
+    // ⛔ MEASURED BY EXECUTION: a freshly-indexed graph of this repository holds 12,837 EXTRACTED
+    // and 1,230 AMBIGUOUS call edges and ZERO verified ones, while the same repository's COLLECTED
+    // graph holds 2,379 (15.5%). `callersOf` counts only LSP_VERIFIED edges, so the hook is SILENT
+    // BY CONSTRUCTION until a collection has run.
+    //
+    // ⇒ "2.2% of file-changes could fire" beside a graph with no verified edges is a true number
+    // producing a false impression. The result object carries the precondition so it cannot be
+    // separated from the figure when quoted.
+    const r = measure({ repo: '/no/such/repo', commits: 1, git: () => '' });
+    expect(r, 'the field must exist even when unknown').toHaveProperty('verifiedEdges');
+    expect(verifiedEdgeCoverage('/no/such/repo'), 'no graph means UNKNOWN, never assumed clean').toBeNull();
   });
 
   it('⛔ an empty history yields a NULL rate, never a division by zero', () => {
