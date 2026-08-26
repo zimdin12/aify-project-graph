@@ -627,6 +627,44 @@ export function isPlausibleExternalName(label) {
   return PLAUSIBLE_EXTERNAL.test(String(label ?? ''));
 }
 
+// ⛔ A KEYWORD IS NOT A CALLEE — BUT ONLY IN THE LANGUAGE THAT RESERVES IT.
+//
+// Measured on this repository with a control (`readFileSync` returns 119, so the query can find
+// real callees): 100 of 11,350 CALLS edges — 0.88% — target an External node labelled `new` (94) or
+// `catch` (6). Every one is JavaScript-source. Nothing calls `new`; the extractor read `new Foo()`
+// and `catch (e)` as call sites. `graph_callers("new")` would confidently return 94 callers.
+//
+// They survive the shape check above because `new` IS a valid identifier shape, and they are not in
+// COMMON_NAMES (verified: `new`=false, `catch`=false).
+//
+// ⚠ AND THIS MUST BE PER-LANGUAGE, WHICH IS THE WHOLE DIFFICULTY. `Foo.new(...)` is an ordinary
+// method call in Ruby, and `Foo::new` exists in C++. A flat keyword denylist would delete real edges
+// in both — the same "same word, two meanings" trap that has cost this project before. So the set is
+// keyed by language family and Ruby is deliberately absent from it.
+//
+// ⚠ A hand-written list is normally a defect with a delay on it. It is acceptable here for one
+// reason: a language's reserved words are fixed by its specification, not by anything in this repo,
+// so there is no registry to derive from and nothing that can drift underneath it.
+const RESERVED_CALLEES = new Map([
+  ['js_ts', new Set(['new', 'catch', 'typeof', 'delete', 'void', 'return', 'throw', 'await', 'yield',
+    'if', 'for', 'while', 'switch', 'function', 'class', 'const', 'let', 'var', 'in', 'of'])],
+  ['php', new Set(['new', 'catch', 'echo', 'print', 'require', 'include', 'throw', 'return'])],
+  ['python', new Set(['lambda', 'yield', 'return', 'raise', 'assert', 'del', 'pass', 'import'])],
+  ['c_cpp', new Set(['catch', 'throw', 'return', 'sizeof', 'typeof'])],
+  // ⚠ RUBY IS ABSENT ON PURPOSE: `new` is a real method there, and so are many words other
+  // languages reserve. Absent means "gate nothing", which is the safe direction.
+]);
+
+/**
+ * Is this label a reserved word in the ref's own language, and therefore impossible as a callee?
+ * Unknown languages gate nothing — the fail-open direction is correct here, because a wrong
+ * REJECTION deletes a real edge while a wrong acceptance only leaves one already-tolerated stub.
+ */
+export function isReservedCallee(label, language) {
+  const set = RESERVED_CALLEES.get(languageFamily(language));
+  return set ? set.has(String(label ?? '')) : false;
+}
+
 // Decide whether an unresolved ref should be materialized as an External
 // terminal node or left in dirtyEdges. Dev's rule (from design discussion):
 //  - CALLS: always materialize. Terminal hop in trace output.
@@ -646,6 +684,8 @@ function shouldMaterializeExternal(ref) {
   if (!label) return false;
   // ⛔ Before anything else: a fragment is not a symbol. See PLAUSIBLE_EXTERNAL above.
   if (!isPlausibleExternalName(label)) return false;
+  // ⛔ And a reserved word cannot be called — in the language that reserves it. See isReservedCallee.
+  if (isReservedCallee(label, ref.language || ref.extractor)) return false;
   if (COMMON_NAMES.has(label)) return false;
   if (ref.relation === 'CALLS') return true;
   if (ref.relation === 'PASSES_THROUGH') return true;
