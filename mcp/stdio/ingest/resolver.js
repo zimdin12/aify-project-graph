@@ -118,7 +118,28 @@ function filterByLanguageFamily(matches, ref) {
 // COMMON_NAMES moved to ./denylist.js (shared with the unresolved-categorization
 // scoreboard so the two can't drift). Imported above.
 
-const SYMBOLIC_CHAIN_RELATIONS = new Set(['PASSES_THROUGH', 'INVOKES']);
+// ⛔ WHICH RELATIONS MAY NAME THEIR SOURCE INSTEAD OF POINTING AT IT.
+//
+// A ref with `from_target` (a NAME) and no `from_id` is rejected outright unless its relation is
+// listed here — before any resolution is attempted. That silently discarded every Qt signal edge:
+// `cpp_frameworks` emits `emit progressChanged()` as CALLS from the ENCLOSING FUNCTION'S NAME, which
+// is exactly this shape. Its refs reached the dirty-edge sidecar carrying a correct
+// `language: 'cpp'` and were never looked at, so the language fix that unblocked five other
+// frameworks could not help this one — a SECOND gate behind the first.
+//
+// ⭐ BLAST RADIUS MEASURED BEFORE CHANGING IT, with the probe positive-controlled in the same pass:
+//
+//     fmt 1,894 dirty edges · click 3,298 · fast-route 163 · p-queue 86 · this repo 18,194
+//       -> symbolic-source refs of ANY relation: 0
+//     qt fixture (CONTROL)  -> 2, both CALLS, both from extractor 'qt'
+//
+// ⇒ Adding CALLS changes nothing on any repository measured; it affects only repos using Qt. The
+// zeros are real rather than a dead probe, because the control found the two it was meant to.
+//
+// ⚠ AND THE BINDING IT ENABLES IS THE CORRECT ONE: `emit progressChanged(50)` inside `runTask()`
+// resolves to Method:runTask -> Method:progressChanged, which is what that code does. A source that
+// fails to resolve still mints an External node, exactly as CALLS targets already do.
+const SYMBOLIC_CHAIN_RELATIONS = new Set(['PASSES_THROUGH', 'INVOKES', 'CALLS']);
 const INHERITED_MEMBER_RELATIONS = new Set(['CALLS', 'INVOKES', 'PASSES_THROUGH']);
 const CLASSLIKE_TYPES = new Set(['Class', 'Interface', 'Type']);
 // Node types that can OWN an out-of-line member (for reverse-CONTAINS resolution).

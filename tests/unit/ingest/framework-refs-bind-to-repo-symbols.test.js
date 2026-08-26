@@ -189,3 +189,83 @@ describe('framework refs bind to repo-local symbols, not External stubs', () => 
     expect(nodes.filter((n) => n.type === 'External')).toHaveLength(0);
   });
 });
+
+// ⛔ A SECOND GATE, BEHIND THE FIRST. Carrying a language unblocked five frameworks and did nothing
+// for Qt, because a ref whose SOURCE is a name (`from_target`, no `from_id`) is rejected outright
+// unless its relation is in SYMBOLIC_CHAIN_RELATIONS — and CALLS was not. `cpp_frameworks` emits
+// `emit progressChanged()` as CALLS from the enclosing function NAME, exactly that shape, so its
+// refs reached the dirty-edge sidecar carrying a correct `language: cpp` and were never looked at.
+//
+// ⭐ BLAST RADIUS MEASURED BEFORE THE CHANGE, probe positive-controlled in the same pass:
+// symbolic-source refs of any relation across fmt (1,894 dirty edges), click (3,298), fast-route
+// (163), p-queue (86) and this repo (18,194) = ZERO; the qt fixture = 2, both CALLS. The zeros are
+// real rather than a dead probe because the control found the two it was meant to.
+//
+// ⚠ AND THE TWO EARLY FAILURES WERE FIXTURE PROPERTIES, NOT THE CHANGE. A class member declared
+// in-class AND defined out-of-line yields TWO nodes of the same label, which is genuinely ambiguous;
+// a bare prototype yields no node at all. With both sides defined once, 2 of 3 edges bind and the
+// undefined third correctly stays External.
+describe('a CALLS ref may name its source — the Qt signal shape', () => {
+  let dir;
+  let db;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'apg-symcalls-'));
+    db = openDb(join(dir, 'graph.sqlite'));
+    const fn = (id, label) => ({
+      id, type: 'Function', label, file_path: 'src/worker.cpp', start_line: 1, end_line: 3,
+      language: 'cpp', confidence: 1, structural_fp: '', dependency_fp: '', extra: {},
+    });
+    upsertNode(db, fn('fn:run', 'runTask'));
+    upsertNode(db, fn('fn:progress', 'progressChanged'));
+  });
+
+  afterEach(() => {
+    try { db.close(); } catch { /* already closed */ }
+    try { rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+  });
+
+  const qtRef = (target) => ({
+    from_target: 'runTask', from_label: 'runTask',
+    relation: 'CALLS', target,
+    source_file: 'src/worker.cpp', source_line: 9,
+    confidence: 0.72, provenance: 'INFERRED', extractor: 'qt', language: 'cpp',
+  });
+
+  it('⛔ binds BOTH ends when both are defined in the repository', () => {
+    const { edges, nodes } = resolveRefs({ db, refs: [qtRef('progressChanged')] });
+    expect(edges).toHaveLength(1);
+    expect(edges[0].from_id, 'the named SOURCE must resolve, not become a stub').toBe('fn:run');
+    expect(edges[0].to_id).toBe('fn:progress');
+    expect(nodes.filter((n) => n.type === 'External')).toHaveLength(0);
+  });
+
+  it('⭐ NEGATIVE CONTROL: an undefined target still becomes External', () => {
+    // A signal only declared, never defined, has no node to bind to. External is the right answer,
+    // and the fix must not manufacture a binding for it.
+    const { edges, nodes } = resolveRefs({ db, refs: [qtRef('thirdPartySignal')] });
+    expect(edges[0].from_id).toBe('fn:run');
+    const external = nodes.filter((n) => n.type === 'External');
+    expect(external).toHaveLength(1);
+    expect(external[0].label).toBe('thirdPartySignal');
+  });
+
+  it('⛔ THE GATE STILL GATES — a relation outside the set is still refused a named source', () => {
+    // Opening it for CALLS must not open it for everything. USES_TYPE with a symbolic source has to
+    // stay unresolved, or the set has stopped meaning anything.
+    const { edges } = resolveRefs({ db, refs: [{ ...qtRef('progressChanged'), relation: 'USES_TYPE' }] });
+    expect(edges).toHaveLength(0);
+  });
+
+  it('⭐ IT DISCRIMINATES: of three refs, exactly the two resolvable ones bind fully', () => {
+    const { edges } = resolveRefs({
+      db,
+      refs: [qtRef('progressChanged'), qtRef('thirdPartySignal'), { ...qtRef('progressChanged'), relation: 'USES_TYPE' }],
+    });
+    const bound = edges.filter((e) => e.from_id === 'fn:run' && e.to_id === 'fn:progress');
+    const stubbed = edges.filter((e) => String(e.to_id).startsWith('external:'));
+    expect(bound).toHaveLength(1);
+    expect(stubbed).toHaveLength(1);
+    expect(edges).toHaveLength(2);
+  });
+});
