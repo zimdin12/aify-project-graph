@@ -12,6 +12,9 @@ import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { noMatchMessage } from '../did-you-mean.js';
+// ⚠ Shared with graph_callees, which has the identical defect mirrored onto outgoing edges.
+// One owner: fixing one verb and pasting into the other is how the two drift apart.
+import { unsearchedRelationNote } from '../unsearched-scope.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -19,64 +22,6 @@ const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 // the other, never listed — the moment a relation joins CALL_FAMILY it belongs here automatically,
 // and a hand-written copy would silently stop covering it.
 const UNSEARCHED_RELATIONS = Object.freeze(CALL_FAMILY.filter((r) => !EXECUTION_FAMILY.includes(r)));
-
-/**
- * Does the graph hold edges this verb never looked at?
- *
- * ⛔ "NO CALLERS" WAS AN ABSENCE CLAIM WHOSE POPULATION WAS INVISIBLE. graph_callers walks the
- * STRICT call graph (CALLS / INVOKES / PASSES_THROUGH) — a deliberate, documented choice. But the
- * message said "NO CALLERS", and the trust caveat beneath it speaks only about EVIDENCE DEPTH
- * ("heuristic, not exhaustive, verify with rg"), never about RELATION SCOPE. So a reader learns the
- * list might be short and never learns that a whole relation was never consulted.
- *
- * ⛔⛔ MEASURED THROUGH THE VERB ON FOUR PINNED REPOSITORIES: 381 labels carry a REFERENCES edge and
- * no execution edge — click 272, fast-route 68, p-queue 26, fmt 15 — and graph_callers answers
- * "NO CALLERS" for the great majority of them. Worse, graph_preflight counts the wider family, so
- * the two verbs CONTRADICT each other on the same symbol in the same graph:
- *
- *     graph_callers("Class2")    ->  NO CALLERS for "Class2"
- *     graph_preflight("Class2")  ->  CALLERS 1 total
- *
- * ⇒ This is the LINKS_TO precedent recorded in taxonomy.js — "nothing in the receipt could tell
- * 'the list was cut short' from 'a source was never consulted'" — committed again in a second verb.
- * The graph already held the answer; the verb simply never said which question it had asked.
- *
- * ⚠ It reports a COUNT and a POINTER, never the edges themselves. Widening what graph_callers
- * RETURNS would make it a different verb; the defect is the silence, not the scope.
- */
-function unsearchedRelationNote(db, placeholders, params, symbol) {
-  if (UNSEARCHED_RELATIONS.length === 0) return '';
-  try {
-    const rows = db.all(
-      `SELECT relation, count(*) AS c FROM edges
-       WHERE to_id IN (${placeholders})
-         AND relation IN (${UNSEARCHED_RELATIONS.map((r) => `'${r}'`).join(',')})
-       GROUP BY relation ORDER BY c DESC`,
-      params
-    );
-    const total = rows.reduce((a, r) => a + r.c, 0);
-    if (total === 0) return '';
-    const detail = rows.map((r) => `${r.c} ${r.relation}`).join(', ');
-    return `${'\n'}SCOPE: this verb searched the strict call graph (${EXECUTION_RELATIONS.join('/')}) `
-      + `and did NOT search ${UNSEARCHED_RELATIONS.join('/')} — of which this graph holds ${detail} `
-      + `pointing at "${symbol}". So "no callers" here does NOT mean "nothing uses it" — `
-      // ⚠ NAMES ONLY graph_impact. The first draft also offered graph_preflight, which the DEFAULT
-      // TOOL PROFILE DOES NOT LIST — the repo's own remedy-reachability guard caught it. A remedy
-      // naming a verb the reader cannot call costs them a round trip to discover it was not for
-      // them, which is worse than naming one option.
-      + `graph_impact answers "who touches this" across the wider family.`;
-  } catch {
-    // ⚠ SILENT ONLY ON A FAILED LOOKUP. A genuine zero returns '' at the `total === 0` branch above,
-    // for the honest reason that there is nothing to report — the two paths are separate so a broken
-    // query cannot masquerade as a clean absence.
-    //
-    // ⛔ AND THIS CATCH ALREADY HID A REAL DEFECT ONCE: the call sat after an `await`, so the
-    // enclosing `finally` had closed the database and every invocation threw. The output was
-    // byte-identical to having no feature at all. A fail-silent path cannot be verified by looking
-    // at it — the test below drives it and asserts the line is PRESENT.
-    return '';
-  }
-}
 
 // Hard ceiling on caller edges pulled from SQL. Distinct from the `top_k` display
 // budget: past THIS the rows were never fetched, so the trust banner cannot claim
@@ -150,7 +95,13 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       // pending — any db access AFTER an await here fails with "The database connection is not
       // open". Placed after the await, the scope note threw on every call and its catch returned
       // '', so the feature was inert and the output looked exactly as it had before.
-      const scope = unsearchedRelationNote(db, placeholders, params, symbol);
+      const scope = unsearchedRelationNote({
+        db, column: 'to_id', placeholders, params, symbol,
+        searched: EXECUTION_RELATIONS, unsearched: UNSEARCHED_RELATIONS,
+        // ⚠ graph_impact, NOT graph_preflight: the default tool profile does not list preflight,
+        // and the repo's remedy-reachability guard rejects pointing a reader at an uncallable verb.
+        remedy: 'graph_impact answers "who touches this" across the wider family.',
+      });
       let line = '';
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot }); }
       catch { /* defensive */ }

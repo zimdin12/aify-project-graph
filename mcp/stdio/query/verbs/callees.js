@@ -7,12 +7,19 @@ import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
-import { EXECUTION_FAMILY } from '../../storage/taxonomy.js';
+import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
 import { noMatchMessage } from '../did-you-mean.js';
+// ⚠ Shared with graph_callers. This verb is the exact MIRROR — same narrowing, outgoing
+// instead of incoming — so it gets the same owner rather than a pasted copy that can drift.
+import { unsearchedRelationNote } from '../unsearched-scope.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
+
+// ⛔ DERIVED BY SUBTRACTION, never listed — a relation joining CALL_FAMILY is covered with no edit.
+// Measured on click: 71 of 88 "NO CALLEES" answers (81%) had unsearched OUTGOING edges.
+const UNSEARCHED_RELATIONS = Object.freeze(CALL_FAMILY.filter((r) => !EXECUTION_FAMILY.includes(r)));
 
 export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, file }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
@@ -27,6 +34,12 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (ambiguity) return ambiguity;
     const root = selectBestRoot(sources);
     const sourceIds = [root.id];
+    // ⚠ HOISTED. These were declared inside the depth<=1 branch, so the absence path below could not
+    // see them. The scope note needs the same target set the query used — reconstructing it there
+    // would be a second implementation of "which nodes is this about".
+    const scopePlaceholders = sourceIds.map((_, i) => `$s${i}`).join(',');
+    const scopeParams = {};
+    sourceIds.forEach((id, i) => { scopeParams[`s${i}`] = id; });
 
     let edges;
     if (depth <= 1) {
@@ -92,10 +105,23 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
 
     // I1 — gate the absence claim on exhaustive evidence (see callers.js).
     const absence = async (msg) => {
+      // ⛔ BEFORE THE FIRST AWAIT. Callers `return` this promise, so the enclosing
+      // `finally { db.close() }` has already run by the time an awaited continuation resumes — a db
+      // read placed after the await throws on every call and the catch returns '', leaving the
+      // feature inert with output byte-identical to not existing. That happened in graph_callers,
+      // and is why this note is computed first here.
+      const scope = unsearchedRelationNote({
+        db, column: 'from_id', placeholders: scopePlaceholders, params: scopeParams, symbol,
+        searched: EXECUTION_RELATIONS, unsearched: UNSEARCHED_RELATIONS,
+        // ⚠ graph_neighbors is not in the default tool profile — and neither is graph_callees, so
+        // the remedy-reachability invariant ("a LISTED verb must not name an UNLISTED one") permits
+        // it: anyone who reached this verb already has the full toolset.
+        remedy: 'graph_neighbors shows every relation on this symbol, in both directions.',
+      });
       let line = '';
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callees', db, repoRoot }); }
       catch { /* defensive */ }
-      return prefixReadWarnings(msg + line, freshness.warnings);
+      return prefixReadWarnings(msg + line + scope, freshness.warnings);
     };
 
     if (edges.length === 0 && overrideEdges.length === 0) return absence(`NO CALLEES for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);

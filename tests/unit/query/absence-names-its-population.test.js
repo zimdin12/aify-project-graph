@@ -9,6 +9,7 @@ import { upsertNode } from '../../../mcp/stdio/storage/nodes.js';
 import { upsertEdge } from '../../../mcp/stdio/storage/edges.js';
 import { graphCallers } from '../../../mcp/stdio/query/verbs/callers.js';
 import { graphPreflight } from '../../../mcp/stdio/query/verbs/preflight.js';
+import { graphCallees } from '../../../mcp/stdio/query/verbs/callees.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../../mcp/stdio/storage/taxonomy.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
@@ -153,5 +154,64 @@ describe('an absence claim names the population it searched', () => {
     // A REFERENCES-only symbol is counted, which is exactly what EXECUTION_FAMILY alone would miss.
     expect(out).toMatch(/^CALLERS 1 total/m);
     expect(out).toMatch(/test_uses_it/);
+  });
+
+  // ⛔ ONE FIX IS NOT A SWEEP. graph_callees is the EXACT MIRROR of graph_callers — same narrowing
+  // to the strict call graph, applied to OUTGOING edges — and it carried the identical defect.
+  // Measured on click before the fix: 71 of 88 "NO CALLEES" answers (81%) had unsearched outgoing
+  // edges.
+  //
+  // ⭐ THE SWEEP WAS PREREGISTERED AND TWO OF THREE CANDIDATES WERE ABANDONED, which is the point of
+  // preregistering it:
+  //   · graph_impact  — what it does not search on a NO IMPACT symbol is DEFINES (28), CONTAINS (12)
+  //                     and IMPORTS (1). Structural containment is not blast radius; excluding it is
+  //                     correct. NOT a defect.
+  //   · graph_neighbors — searches NEIGHBOR_FAMILY, i.e. every relation, so nothing is unsearched.
+  //                     ⚠ It also produced ZERO absence claims in the sample, so it is an EMPTY
+  //                     population and cannot be reported as a passing control either.
+  describe('graph_callees — the mirror, fixed from the same owner', () => {
+    it('⛔ names the outgoing relations it did not search', async () => {
+      // test_uses_it REFERENCES a class and calls nothing — the at-risk shape, outgoing.
+      const out = String(await graphCallees({ repoRoot, symbol: 'test_uses_it' }));
+      expect(out).toMatch(/^NO CALLEES/m);
+      expect(out).toMatch(/^SCOPE: /m);
+      expect(out).toMatch(/1 REFERENCES/);
+    });
+
+    it('⛔ the misreading it forestalls is DIRECTION-SPECIFIC, not a shared phrase', async () => {
+      // Incoming absence risks a wrongly-safe DELETE ("nothing uses it"); outgoing absence risks a
+      // wrongly-isolated symbol ("it uses nothing"). One phrasing for both would be wrong for one.
+      const callees = String(await graphCallees({ repoRoot, symbol: 'test_uses_it' }));
+      const callers = String(await graphCallers({ repoRoot, symbol: 'ReferencedOnly' }));
+      expect(callees).toContain('it uses nothing');
+      expect(callers).toContain('nothing uses it');
+      expect(callees).toContain('out of');
+      expect(callers).toContain('pointing at');
+    });
+
+    it('⭐ NEGATIVE CONTROL: no outgoing edge in either family → no scope line', async () => {
+      const out = String(await graphCallees({ repoRoot, symbol: 'TrulyUnused' }));
+      expect(out).toMatch(/^NO CALLEES/m);
+      expectAbsentWithLiveMatcher(
+        /^SCOPE: /m,
+        {
+          forbidden: 'SCOPE: this verb searched the strict call graph (CALLS/INVOKES/PASSES_THROUGH)',
+          allowed: 'TRUST: absence is from the heuristic graph and is NOT exhaustive',
+        },
+        out,
+        'a symbol with no outgoing edge in the wider family must not be given a scope caveat',
+      );
+    });
+
+    it('⛔ both verbs answer from ONE owner — a pasted copy would drift', async () => {
+      // Not a style preference: graph_callees was fixed only because the sweep looked for the
+      // mirror. Two copies is how the next relation added to CALL_FAMILY reaches one verb and not
+      // the other.
+      const callers = String(await graphCallers({ repoRoot, symbol: 'ReferencedOnly' }));
+      const callees = String(await graphCallees({ repoRoot, symbol: 'test_uses_it' }));
+      const shared = /^SCOPE: this verb searched the strict call graph \(CALLS\/INVOKES\/PASSES_THROUGH\) and did NOT search REFERENCES/m;
+      expect(callers).toMatch(shared);
+      expect(callees).toMatch(shared);
+    });
   });
 });
