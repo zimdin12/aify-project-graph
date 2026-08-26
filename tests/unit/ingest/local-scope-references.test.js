@@ -1,14 +1,21 @@
-// Regression test for Fix A: REFERENCES refs with bare-lowercase targets
-// that don't resolve to any graph node are local-scope false-positives
-// (loop vars, local params, etc.). They inflate the unresolved-edges count
-// and corrupt TRUST without being fixable. Skipped silently when they
-// can't resolve AND don't match any label.
+// REFERENCES refs with bare-lowercase targets that resolve to nothing are local-scope
+// false-positives — loop vars, local params. They are not fixable, and counting them as unresolved
+// made TRUST read worse than reality. Measured: 425/500 unresolved refs on lc-api, 60/500 on apg.
 //
-// Measured impact: 425/500 unresolved refs on lc-api and 60/500 on apg
-// were this shape. Dropping them makes unresolvedEdges honest.
+// ⛔ THEY USED TO BE DROPPED SILENTLY, AND THAT WAS A DEFECT AN OUTSIDE REVIEW CAUGHT. Executed, a
+// bare lowercase REFERENCES produced edges 0 AND unresolved 0 — the resolver had made a typed
+// refusal decision and then erased every trace of it, while the module comment and commit message
+// both claimed refusals were never silent.
+//
+// ⇒ "NOT TRUST-RELEVANT" MUST NOT BE IMPLEMENTED AS "DID NOT HAPPEN". The ref is now RETAINED in
+// the unresolved carrier with its `refusedReason`, and the categorizer buckets it as
+// `external-by-design:admission-refused` so the trust denominator is unchanged AND the exclusion is
+// published by explainTrustExclusions. The honest count and the visible decision are both preserved;
+// this test now pins that, where it used to pin the erasure.
 
 import { describe, expect, it } from 'vitest';
 import { resolveRefs } from '../../../mcp/stdio/ingest/resolver.js';
+import { countTrustRelevantDirtyEdges } from '../../../mcp/stdio/freshness/unresolved-metrics.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -34,7 +41,7 @@ function insertNode(db, node) {
 }
 
 describe('resolver — local-scope REFERENCES filter', () => {
-  it('silently drops bare-lowercase REFERENCE to unknown label (local var)', () => {
+  it('⛔ RETAINS a refused bare-lowercase REFERENCE as a typed record, not silence', () => {
     withTempDb((db) => {
       insertNode(db, { id: 'fn1', type: 'Function', label: 'doSomething', file_path: 'src/a.js' });
 
@@ -52,7 +59,13 @@ describe('resolver — local-scope REFERENCES filter', () => {
       });
 
       expect(edges).toHaveLength(0);
-      expect(unresolved).toHaveLength(0); // silently dropped, not inflating counts
+      // Retained, with the reason the admission owner gave — the record is the evidence.
+      expect(unresolved).toHaveLength(1);
+      expect(unresolved[0].refusedReason).toBe('references-bare-local-name');
+      // ⭐ AND THE OTHER HALF, which is the entire justification for retaining it: visible, but not
+      // counted against trust. Without this assertion the change would trade a silent drop for an
+      // inflated trust denominator — the very thing the original silent drop existed to prevent.
+      expect(countTrustRelevantDirtyEdges(unresolved)).toBe(0);
     });
   });
 

@@ -93,6 +93,16 @@ const CLASSIFIERS = [
   // denylisted bucket BEFORE the fixable shapes below, so the scoreboard stops
   // counting `parse`/`log`/`__dirname` as actionable. Shares the exact list with
   // the resolver (ingest/denylist.js) so the two can't drift.
+  // ⛔ AN ADMISSION REFUSAL IS A DECISION, NOT A FIXABLE GAP — and it must be VISIBLE without being
+  // trust-relevant. resolveRefs used to erase these refs entirely to keep the trust banner honest,
+  // which made a typed refusal indistinguishable from a ref nobody considered. They are now retained
+  // in the unresolved carrier and excluded here instead, so `explainTrustExclusions` reports them by
+  // count and the denominator stays visible. Placed BEFORE the fixable buckets, which would
+  // otherwise classify a refused bare local name as actionable.
+  {
+    bucket: 'external-by-design:admission-refused',
+    test: (r) => Boolean(r?.refusedReason),
+  },
   {
     bucket: 'denylisted-by-design:common-name',
     test: (r) => (r.relation === 'CALLS' || r.relation === 'REFERENCES')

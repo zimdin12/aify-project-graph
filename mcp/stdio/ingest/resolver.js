@@ -30,6 +30,10 @@ function normalizeRows(rows = []) {
   return rows.map(normalizeNode);
 }
 
+// The External lookup must see rows that mergeRows deliberately drops, so it reads through this
+// unfiltered alias rather than the funnel that enforces the exclusion.
+const normalizeRowsRaw = normalizeRows;
+
 // Language-family groupings. Candidates in the same family are preferred over
 // candidates in another family when resolving code-like relations (CALLS,
 // EXTENDS, etc.). Keeps PHP `DB::table()` from resolving to a CSS `.table`
@@ -327,17 +331,52 @@ function buildResolvers(db) {
     // real target into two stubs and throw away the higher-provenance one. Matching on the label the
     // ref actually carries finds whichever already exists.
     findExternalCandidate(ref) {
+      // ⛔ MATCHING ON THE REF'S LABEL ALONE WAS BOTH TOO NARROW AND TOO WIDE, and review proved
+      // both halves by execution.
+      //
+      //  TOO NARROW: the code-intel importer stores the LEAF as `label` and the full qualified name
+      //  in `extra.qname`. A C++ ref targeting `std::vector::push_back` therefore matched nothing
+      //  and minted a duplicate beside the collection's node — the exact identity fork this lookup
+      //  exists to prevent. My own test missed it because it used the leaf as the target, which is
+      //  the convenient case.
+      //
+      //  TOO WIDE: the old fallback returned `all[0]` when no same-family candidate existed, so a
+      //  JavaScript ref reused a PHP terminal. A wrong REUSE is not the safe direction — it asserts
+      //  that two languages' APIs are one symbol, which a duplicate never does.
       const label = normalizeExternalTarget(ref?.target);
       if (!label) return null;
-      const pending = (pendingByLabel.get(label) ?? []).filter((n) => n.type === 'External');
-      const stored = normalizeRows(findByLabel.all(label)).filter((n) => n.type === 'External');
       const family = refLanguageFamily(ref);
-      const all = [...pending, ...stored];
-      if (all.length === 0) return null;
-      // Prefer a candidate whose language family matches the ref, so a PHP `catch` terminal is not
-      // handed to a JavaScript ref. Falls back to any, because a wrong REUSE is a shared stub while
-      // a wrong MINT is a duplicate identity, and the former is the recoverable one.
-      return all.find((n) => languageFamily(n.language) === family) ?? all[0];
+      const leaf = label.split(/::|->|\./u).filter(Boolean).at(-1) ?? label;
+
+      const pool = [
+        ...(pendingByLabel.get(label) ?? []),
+        ...(leaf !== label ? (pendingByLabel.get(leaf) ?? []) : []),
+        ...normalizeRowsRaw(findByLabel.all(label)),
+        ...(leaf !== label ? normalizeRowsRaw(findByLabel.all(leaf)) : []),
+      ].filter((n) => n?.type === 'External');
+
+      const seen = new Set();
+      const candidates = pool.filter((n) => (seen.has(n.id) ? false : seen.add(n.id)));
+      // ⛔ NO CROSS-FAMILY REUSE when the ref's family is known. Minting the family-canonical
+      // terminal is the correct fallback; borrowing another language's is not.
+      const compatible = family === 'unknown'
+        ? candidates
+        : candidates.filter((n) => languageFamily(n.language) === family);
+      if (compatible.length === 0) return null;
+
+      // 1. Exact qualified identity, when the ref carries one. This is the only match that is
+      //    self-evidently the same symbol rather than the same spelling.
+      const byQname = compatible.filter((n) => (n.extra?.qname ?? '') === label);
+      if (byQname.length === 1) return byQname[0];
+
+      // 2. Exact label identity, but ONLY when it is unique. An arbitrary first row across several
+      //    same-leaf qnames is a coin toss wearing the costume of a decision.
+      const byLabel = compatible.filter((n) => n.label === label);
+      if (byLabel.length === 1) return byLabel[0];
+
+      // 3. Ambiguous, or leaf-only. Mint the family-canonical terminal instead of guessing; that id
+      //    is deterministic, so every ambiguous ref converges on the same shared node.
+      return null;
     },
     findByExactQname(candidate) {
       return mergeRows(
@@ -758,11 +797,40 @@ export function resolveRefs({ db, refs, importContext = null }) {
         // hardens a path with no product. A repo whose framework refs fail to resolve their owner
         // would exercise it, and this note is what to check first if fragments ever appear as
         // sources.
+        // ⛔ THIS MINT USED TO BYPASS ADMISSION ENTIRELY, so a symbolic chain whose owner did not
+        // resolve could introduce a NEW fragment as a SOURCE node — not the disclosed
+        // pre-existing-fragment gap, an actual new one. It crosses the same door now, with the side
+        // named so the two directions are distinguishable in the refusal record.
+        const sourceVerdict = admitExternalEdge({
+          ref: { ...ref, target: ref.from_target },
+          symbolicChain: true,
+          side: 'source',
+        });
+        if (sourceVerdict.decision !== ADMIT) {
+          unresolved.push(refusalRecord(ref, sourceVerdict.reason));
+          continue;
+        }
         const sourceExternal = createExternalNode(ref, ref.from_target);
         registerNode(sourceExternal);
         fromId = sourceExternal.id;
       } else {
         fromId = ownerNode.node.id;
+      }
+    }
+
+    // ⛔ A PRE-RESOLVED to_id CAN NAME AN External, AND THIS BRANCH USED TO EMIT WITHOUT ASKING —
+    // so "every External-bound edge crosses admission" was false for it. Both producers mint ids
+    // with the `external:` prefix, so the check costs a string comparison rather than a lookup, and
+    // a test pins that convention so it cannot drift silently.
+    if (ref.to_id && String(ref.to_id).startsWith('external:')) {
+      const verdict = admitExternalEdge({
+        ref,
+        candidate: { label: ref.target ?? '', language: ref.language ?? '' },
+        symbolicChain,
+      });
+      if (verdict.decision !== ADMIT) {
+        unresolved.push(refusalRecord(ref, verdict.reason));
+        continue;
       }
     }
 
@@ -792,10 +860,8 @@ export function resolveRefs({ db, refs, importContext = null }) {
       // A symbolic chain names its own source and is exempt from admission, unchanged — see
       // SYMBOLIC_CHAIN_RELATIONS. Everything else crosses admitExternalEdge exactly once, whether it
       // reuses a terminal that exists or mints one.
-      const candidate = symbolicChain ? null : resolvers.findExternalCandidate(ref);
-      const { decision, reason } = symbolicChain
-        ? { decision: ADMIT, reason: 'symbolic-chain' }
-        : admitExternalEdge({ ref, candidate });
+      const candidate = resolvers.findExternalCandidate(ref);
+      const { decision, reason } = admitExternalEdge({ ref, candidate, symbolicChain });
 
       if (decision === ADMIT) {
         const externalNode = candidate ?? createExternalNode(ref);
@@ -813,23 +879,17 @@ export function resolveRefs({ db, refs, importContext = null }) {
         continue;
       }
 
-      // Local-scope REFERENCES filter: bare lowercase single-token targets whose label doesn't exist
-      // anywhere in the graph are almost certainly local variables / parameters, not cross-scope
-      // references. Dropping them from `unresolved` too keeps the trust=weak count honest rather
-      // than inflating it with noise that will never be fixable. Measured on lc-api: 425/500
-      // unresolved refs were this shape; on apg: 60/500.
+      // ⛔ A LOCAL-SCOPE FILTER USED TO `continue` HERE, ERASING THE REFUSAL BEFORE IT WAS RECORDED.
+      // Executed: a bare lowercase REFERENCES produced edges 0 AND unresolved 0, so the typed
+      // decision this function had just made left no trace anywhere — while the commit message, the
+      // module comment and the doc all claimed refusals were never silent. The one test that
+      // "proved" it used an unlisted TESTS relation, whose uppercase target sidestepped this filter
+      // entirely: it passed for the wrong reason.
       //
-      // ⚠ `findByLabel` no longer sees External nodes, which SHARPENS this rather than changing its
-      // intent: a fabricated stub named after a property access used to make a local variable look
-      // resolvable. The extractor fix in e9ec81a demonstrated exactly that, where removing bogus
-      // terminals dropped 514 REFERENCES the filter should always have caught.
-      if (
-        ref.relation === 'REFERENCES'
-        && /^[a-z][a-zA-Z0-9_]*$/.test(ref.target ?? '')
-        && resolvers.findByLabel(ref.target).length === 0
-      ) {
-        continue;
-      }
+      // The filter's PURPOSE was sound — these refs are local variables and counting them as
+      // unresolved made the trust banner read worse than reality. But "not trust-relevant" must not
+      // be implemented as "did not happen". The record is kept, and the categorizer excludes its
+      // reason from the trust denominator where that exclusion is already published.
       // ⛔ A REFUSAL IS EVIDENCE AND MUST SURVIVE. Nothing here may turn REFUSE into a silent
       // absence — an edge that was refused for a stated reason is a different fact from one that was
       // never considered.

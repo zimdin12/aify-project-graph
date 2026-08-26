@@ -166,12 +166,15 @@ describe('cross-file resolver', () => {
     ]);
   });
 
-  it('materializes qualified REFERENCES as External, silently drops local-scope bare-name REFERENCES', () => {
-    // Bare-lowercase REFERENCES targets that don't match any label in the
-    // graph are local-scope false-positives (loop vars, params, etc.). They
-    // shouldn't pollute dirtyEdges — they will never resolve and they
-    // inflate the trust=weak count on every real repo. Behavior changed
-    // 2026-04-21: silently drop rather than add to unresolved.
+  it('materializes qualified REFERENCES as External, and RECORDS the refusal of a bare local name', () => {
+    // Bare-lowercase REFERENCES targets matching no label are local-scope false-positives (loop
+    // vars, params). They will never resolve and they inflated the trust=weak count on every real
+    // repo, so 2026-04-21 dropped them silently.
+    //
+    // ⛔ THE SILENCE WAS THE DEFECT. Review executed this shape and got edges 0 AND unresolved 0 —
+    // a typed refusal with no trace, while the code claimed refusals were never silent. The ref is
+    // now retained with its `refusedReason` and excluded from the TRUST denominator by the
+    // categorizer instead, which keeps the count honest without pretending nothing happened.
     const refs = [
       {
         from_id: 'file:foo',
@@ -187,7 +190,7 @@ describe('cross-file resolver', () => {
         from_id: 'file:foo',
         from_label: 'Foo.php',
         relation: 'REFERENCES',
-        target: 'something_lowercase', // local var — dropped silently
+        target: 'something_lowercase', // local var — refused, and the refusal is recorded
         source_file: 'app/Foo.php',
         source_line: 6,
         confidence: 0.6,
@@ -198,7 +201,8 @@ describe('cross-file resolver', () => {
     expect(result.nodes).toEqual([
       expect.objectContaining({ type: 'External', label: 'Illuminate\\Cache\\CacheManager' }),
     ]);
-    expect(result.unresolved).toEqual([]); // local-scope silently dropped
+    expect(result.unresolved).toHaveLength(1);
+    expect(result.unresolved[0].refusedReason).toBe('references-bare-local-name');
   });
 
   it('materializes unresolved CALLS as External terminal nodes', () => {

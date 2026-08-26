@@ -41,14 +41,20 @@ function referencesTypeLike(label) {
 // `join(dirOf(docPath),`. Measured on this repository: 329 of 1,104 External nodes — 29.8% — were
 // fragments of that shape, about 5% of every labelled node in the graph.
 //
-// Those nodes are pure noise. Nothing can ever resolve to them, no edge to one is a real call, they
-// appear in searches and censuses, and they were the bulk of the AMBIGUOUS tier's damage: 23.3% of
-// sampled AMBIGUOUS CALLS edges pointed at one.
+// The fragments among them are noise: nothing resolves to them and they inflate searches and
+// censuses. They were the bulk of the AMBIGUOUS tier's damage — 23.3% of sampled AMBIGUOUS CALLS
+// edges pointed at one. ⚠ But "rejected by this pattern" and "noise" are not the same set; see the
+// limit stated below.
 //
-// ⚠ THE RULE IS DERIVED FROM THE OBSERVED POPULATION, not invented. Applied to the 1,104 existing
-// External labels it accepts 775 — `slice`, `readFileSync`, `Map`, `createGraph` — and rejects 329,
-// every one a fragment. Separators that appear in real names are allowed: `.` and `::` for members,
-// `\` for PHP namespaces, `-` for CSS-ish identifiers, `@` for scoped packages.
+// ⚠ THE RULE IS DERIVED FROM THE OBSERVED POPULATION of THIS repository, not from any language's
+// grammar, and that is its limit. Applied to the 1,104 External labels present when it was written it
+// accepted 775 and rejected 329, all fragments HERE.
+//
+// ⛔ IT ALSO REJECTS LEGITIMATE NAMES, and saying otherwise is what got an earlier guard reverted:
+// `operator()`, `operator<<`, `~Widget` (C++), `save!`, `empty?`, `[]` (Ruby), `café` (Python),
+// `#private` (JavaScript) and `@scope/pkg` — the last despite an earlier version of this comment
+// claiming scoped packages were allowed, when `/` is not in the character class at all. So a
+// rejected label is NOT "noise" as a class; it is a label this pattern cannot vouch for.
 //
 // ⚠ REFUSING IS NOT LOSING. The ref stays in the unresolved list, which is the honest record. A node
 // labelled `entries()]` is not more information than an unresolved ref; it is less, because it looks
@@ -68,8 +74,12 @@ export function isPlausibleExternalName(label) {
  * @returns {{decision: string, reason: string}} — always typed, never a bare boolean, because a
  *          REFUSE has to survive into the unresolved record rather than becoming a silent absence.
  */
-export function admitExternalEdge({ ref, candidate = null }) {
-  if (!ref?.from_id) return { decision: REFUSE, reason: 'no-source' };
+export function admitExternalEdge({ ref, candidate = null, symbolicChain = false, side = 'target' }) {
+  // ⛔ A symbolic chain used to skip this function entirely, which made "one door for every
+  // External-bound edge" false: its target got an unconditional ADMIT and its missing source owner
+  // was minted with no shape policy at all, so a NEW fragment could enter the graph that way. It is
+  // now an INPUT to the one decision rather than a detour around it — the same pattern as `minting`.
+  if (!symbolicChain && !ref?.from_id) return { decision: REFUSE, reason: 'no-source' };
   const label = String(candidate?.label ?? ref?.target ?? '').trim();
   if (!label) return { decision: REFUSE, reason: 'empty-label' };
 
@@ -82,14 +92,26 @@ export function admitExternalEdge({ ref, candidate = null }) {
   // ⚠ SO THE FRAGMENT RESIDUE IS STILL ADMITTED HERE WHEN IT ALREADY EXISTS, AND THAT IS THE KNOWN
   // REMAINING GAP. Separating `execFileSync('git',` from `operator()` cannot be done from a stripped
   // label — proven, at the cost of a revert. It needs the producer's typed form (constructor /
-  // member / operator / qualified), which this signature already accepts as `ref.targetForm` and
-  // which no producer emits yet. When they do, the check belongs here and nowhere else.
+  // member / operator / qualified).
+  //
+  // ⛔ AND `targetForm` IS NOT AN IMPLEMENTED SEAM. Nothing reads it, no producer writes it, and
+  // JavaScript silently accepting an extra property on a ref object is not a contract. Saying "the
+  // signature already accepts it" overstated a plan as a mechanism; it is a plan.
   const minting = candidate === null;
   if (minting && !isPlausibleExternalName(label)) {
     return { decision: REFUSE, reason: 'fragment-shape-not-minted' };
   }
   if (minting && COMMON_NAMES.has(label)) {
     return { decision: REFUSE, reason: 'common-name-not-worth-minting' };
+  }
+
+  // ⚠ THE RELATION TABLE IS EXEMPTED FOR A SYMBOLIC CHAIN, AND THAT EXEMPTION IS NAMED RATHER THAN
+  // IMPLICIT. A chain names its own source (Qt `emit signal()`, framework route hops), and its
+  // relation set — PASSES_THROUGH / INVOKES / CALLS — is an execution story that predates this
+  // table. What it does NOT get is an exemption from the shape policy above, which is the half that
+  // was letting new fragments in.
+  if (symbolicChain) {
+    return { decision: ADMIT, reason: `symbolic-chain:${side}` };
   }
 
   if (ref.relation === 'REFERENCES') {

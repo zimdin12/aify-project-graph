@@ -113,6 +113,107 @@ describe('external admission — one owner for every External-bound edge', () =>
     });
   });
 
+  describe('the doors an outside review found still open', () => {
+    it('⛔ B2: a JavaScript ref does NOT reuse a PHP terminal of the same name', () => {
+      // The old lookup preferred same-family and then fell back to `all[0]`, which I had rationalised
+      // as "a wrong reuse is a shared stub, a wrong mint is a duplicate identity — the former is
+      // recoverable". That was backwards. A wrong REUSE asserts that two languages' APIs are one
+      // symbol; a duplicate never claims anything false.
+      upsertNode(db, {
+        id: 'external:php-shared', type: 'External', label: 'Shared', file_path: '',
+        start_line: 0, end_line: 0, language: 'php', confidence: 0.5,
+        structural_fp: '', dependency_fp: '', extra: { external: true },
+      });
+      const { nodes, edges } = run('CALLS', 'Shared');
+      expect(edges).toHaveLength(1);
+      expect(edges[0].to_id, 'must not borrow the PHP terminal').not.toBe('external:php-shared');
+      expect(nodes.filter((n) => n.type === 'External'), 'it mints its own family-canonical one')
+        .toHaveLength(1);
+    });
+
+    it('⛔ B4a: a symbolic chain no longer mints a NEW fragment', () => {
+      // symbolicChain used to skip admission entirely — unconditional ADMIT, and the missing source
+      // owner minted before any policy ran. So "one door for every External-bound edge" was false,
+      // and this was not the disclosed pre-existing-fragment gap but a brand new fragment entering
+      // the graph.
+      const { nodes, edges } = resolveRefs({
+        db,
+        refs: [{
+          from_target: 'MissingOwner', relation: 'CALLS', target: "execFileSync('git',",
+          source_file: 'src/a.js', source_line: 4, confidence: 0.7,
+          provenance: 'EXTRACTED', extractor: 'javascript', language: 'javascript',
+        }],
+      });
+      expect(edges, 'a fragment target is refused on the symbolic path too').toHaveLength(0);
+      expect(nodes.map((n) => n.label), 'and no fragment node is created')
+        .not.toContain("execFileSync('git',");
+    });
+
+    it('⭐ CONTROL: a symbolic chain with a REAL target still works', () => {
+      // Qt `emit signal()` and framework route hops depend on this path. Without this control the
+      // test above is satisfied by breaking symbolic chains altogether.
+      const { edges } = resolveRefs({
+        db,
+        refs: [{
+          from_target: 'MissingOwner', relation: 'CALLS', target: 'progressChanged',
+          source_file: 'src/a.js', source_line: 5, confidence: 0.7,
+          provenance: 'EXTRACTED', extractor: 'javascript', language: 'javascript',
+        }],
+      });
+      expect(edges, 'a legitimate symbolic chain must still produce its edge').toHaveLength(1);
+    });
+
+    it('⛔ B4b: a pre-resolved to_id naming an External is not a way round admission', () => {
+      // The early `ref.to_id` branch emitted without asking what kind of node it pointed at.
+      upsertNode(db, {
+        id: 'external:seedlower', type: 'External', label: 'lowerlocal', file_path: '',
+        start_line: 0, end_line: 0, language: 'js_ts', confidence: 0.5,
+        structural_fp: '', dependency_fp: '', extra: { external: true },
+      });
+      const { edges, unresolved } = resolveRefs({
+        db,
+        refs: [{
+          from_id: 'fn:caller', relation: 'REFERENCES', target: 'lowerlocal',
+          to_id: 'external:seedlower',
+          source_file: 'src/a.js', source_line: 6, confidence: 0.7,
+          provenance: 'EXTRACTED', extractor: 'javascript', language: 'javascript',
+        }],
+      });
+      expect(edges).toHaveLength(0);
+      expect(unresolved[0]?.refusedReason).toBe('references-bare-local-name');
+    });
+
+    it('⭐ CONTROL: a pre-resolved to_id naming a REAL node still binds untouched', () => {
+      // Admission must only intercept ids that name an External. If this failed, every
+      // already-resolved edge in the pipeline would be re-adjudicated.
+      upsertNode(db, {
+        id: 'fn:real', type: 'Function', label: 'realThing', file_path: 'src/b.js',
+        start_line: 1, end_line: 3, language: 'javascript', confidence: 1,
+        structural_fp: '', dependency_fp: '', extra: {},
+      });
+      const { edges } = resolveRefs({
+        db,
+        refs: [{
+          from_id: 'fn:caller', relation: 'REFERENCES', target: 'realThing', to_id: 'fn:real',
+          source_file: 'src/a.js', source_line: 7, confidence: 0.7,
+          provenance: 'EXTRACTED', extractor: 'javascript', language: 'javascript',
+        }],
+      });
+      expect(edges).toHaveLength(1);
+      expect(edges[0].to_id).toBe('fn:real');
+    });
+
+    it('⛔ the `external:` id convention this check relies on is pinned', () => {
+      // The to_id check is a string-prefix test rather than a lookup, for cost. That is only sound
+      // while both producers mint ids with this prefix, so the convention is asserted rather than
+      // assumed — if a producer changes it, this fails instead of the door quietly reopening.
+      const { nodes } = run('CALLS', 'someBrandNewExternalName');
+      const minted = nodes.filter((n) => n.type === 'External');
+      expect(minted).toHaveLength(1);
+      expect(minted[0].id.startsWith('external:')).toBe(true);
+    });
+  });
+
   describe('a real declaration always beats a same-leaf terminal', () => {
     it('⭐ the concrete node wins even when a stub of the same name exists', () => {
       // This is what excluding External from ordinary resolution buys, and it is the reason the fix
