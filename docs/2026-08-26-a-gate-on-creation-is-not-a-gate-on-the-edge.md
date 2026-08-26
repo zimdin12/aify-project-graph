@@ -151,3 +151,8 @@ were not re-indexed in the window.
 
 ⛔ **Attribution is NOT claimed.** I hold no per-file before-values for the edited files, and the full
 suite ran in the same window. The direction is what drain predicts; that is all this shows.
+
+⭐ **The instrument behind these counts was checked afterwards**, because they are all edge counts:
+three full indexes of `8f61239` produce byte-identical node and edge sets, with a comparator control.
+So the differences above are not extraction noise — though that check covers the tree-sitter path
+only, and says nothing about the LSP path. See `docs/2026-08-26-is-an-edge-count-reproducible.md`.
