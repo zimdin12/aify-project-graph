@@ -24,6 +24,44 @@ const STANDARD_RESOURCE_ACTIONS = [
   { method: 'DELETE', suffix: '/:id',      action: 'destroy' },
 ];
 
+// `articles` -> `ArticlesController`; `admin/users` -> `UsersController`. Rails names the class after
+// the resource, so the qualified target the resolver needs is derivable rather than guessable.
+// ⚠ The namespace segment is dropped on purpose: the resolver matches a qname SUFFIX, and
+// `UsersController.index` is already specific enough to beat the denylist.
+function controllerClassName(controller) {
+  const last = String(controller ?? '').split('/').pop() ?? '';
+  const camel = last.split('_').filter(Boolean).map((p) => p[0].toUpperCase() + p.slice(1)).join('');
+  return camel ? `${camel}Controller` : '';
+}
+
+// ⛔ `#` IS A COMMENT MARKER IN RUBY *AND* THE CONTROLLER/ACTION SEPARATOR IN A RAILS ROUTE.
+//
+// The previous `rawLine.replace(/#.*$/, '')` truncated `get 'dashboard', to: 'admin_reports#index'`
+// to `get 'dashboard', to: 'admin_reports` — so `parseExplicitRoute` matched nothing and EVERY
+// explicit `to:` route silently produced no Route node at all. `resources :articles` contains no
+// `#`, which is the only reason anything worked.
+//
+// ⭐ MEASURED: a fixture containing one explicit route and nothing else produced ZERO refs, while
+// the same file with `resources` produced eight. Two forms of the same feature, one of them
+// entirely invisible.
+//
+// ⇒ Only a `#` OUTSIDE a quoted string starts a comment. Tracked rather than pattern-matched,
+// because a regex cannot see quote state.
+function stripRubyComment(rawLine) {
+  let quote = null;
+  for (let i = 0; i < rawLine.length; i += 1) {
+    const ch = rawLine[i];
+    if (quote) {
+      if (ch === '\\') { i += 1; continue; } // an escaped char inside a string is never a delimiter
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === "'" || ch === '"') { quote = ch; continue; }
+    if (ch === '#') return rawLine.slice(0, i);
+  }
+  return rawLine;
+}
+
 function parseExplicitRoute(line) {
   // `get '/x', to: 'users#index'` or `get '/x' => 'users#index'`
   const m = line.match(/^\s*(get|post|put|patch|delete|head|options|match)\s+['"]([^'"]+)['"].*?(?:to:\s*|=>\s*)['"]([a-z_][a-z0-9_\/]*)#([a-z_]+)['"]/i);
@@ -71,7 +109,7 @@ function parseRoutes(content, file) {
 
   for (let i = 0; i < lines.length; i += 1) {
     const rawLine = lines[i];
-    const line = rawLine.replace(/#.*$/, ''); // strip trailing comment
+    const line = stripRubyComment(rawLine);
 
     const scope = parseScope(line);
     if (scope) { scopeStack.push(scope); continue; }
@@ -143,11 +181,22 @@ export const railsPlugin = createFrameworkPlugin({
         const label = `${r.method} ${r.path}`;
         const node = routeNode({ filePath: rp, label, language: 'ruby', startLine: r.line });
         nodes.push(node);
-        // Controller targets look like `users#index` → handler=`UsersController#index`.
-        // We emit the action identifier alone (the resolver will match
-        // it against Method nodes by label).
+        // ⛔ THE BARE ACTION NAME CANNOT RESOLVE, AND THE COMMENT HERE USED TO SAY IT WOULD.
+        //
+        // It read: "We emit the action identifier alone (the resolver will match it against Method
+        // nodes by label)." But label matching is exactly what the COMMON_NAMES denylist blocks —
+        // and `index`, `create` and `update` are ON it, being three of the seven standard Rails
+        // actions and among the most-used names in any codebase.
+        //
+        // ⭐ MEASURED on a real Rails fixture indexed by the real pipeline: `resources :articles`
+        // produced 8 route nodes and exactly ONE bound edge (`show`). `index` was defined in the
+        // controller and still did not bind.
+        //
+        // ⇒ The plugin KNOWS the controller — it is right there in `r.controller` — so there is no
+        // need to guess by bare label. `laravel.js` already emits `${controller}.${action}` for
+        // exactly this reason; this now matches it.
         refs.push(invokesRef({
-          node, target: r.action, extractor: 'rails',
+          node, target: `${controllerClassName(r.controller)}.${r.action}`, extractor: 'rails',
           sourceFile: rp, sourceLine: r.line,
         }));
       }
