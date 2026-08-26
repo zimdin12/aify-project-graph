@@ -123,3 +123,48 @@ the run proves only that the marker-absent path is unbroken.
 4. `allowDuringRebuild` is a broad boolean, which is the shape that becomes a permanently-set flag.
    The review asks for a named diagnostic capability with zero callers if possible; currently only
    `read_freshness` uses it, and `graph_health` was measured still answering without it.
+
+---
+
+## The reviewer's warning, tested — and the shape it actually took
+
+The review warned that a central throw could be swallowed by helpers that catch DB-open errors and
+substitute defaults, manufacturing a second false absence. Tested with a hostile sweep over verb
+entry points **derived from exports**, marker set and cleared with the row count asserted in the same
+pass: **25 of 40 verbs refuse, naming the rebuild. Zero convert the refusal into "no results."**
+
+The warning was right, but not in the form either of us predicted. Three findings:
+
+**1. My own coverage claim was false.** I wrote that every reader opens through `openExistingDb`.
+`census.js:128` opened through `openDb` — the *writer* seam — and so never met the guard at all. It
+answered 2,922 bytes of counts under a set marker while 24 other verbs refused. A census is a claim
+about what exists, so it is the worst possible verb to answer from a half-built graph. It only ever
+called `db.all()`, so the writable handle was wrong on its own terms. Switched, and the population
+moved 24 → 25 by measurement, not assumption.
+
+**2. Three blanket `catch {}` sites absorbed the refusal** — `packet.js:606`, `packet.js:895`,
+`packet-symbol.js:111`. Each was written for a real reason ("never block the packet on evidence
+lookup", "never make orientation fail"), and each was right about the case it was written for. None
+of them distinguished a slow lookup from a graph that had just been emptied.
+
+**3. The one that matters: an honest producer, a laundering consumer.**
+`graph_consequences` refuses correctly and returns the refusal *as prose*. `graph_packet` reached
+`else if (typeof raw === 'string')`, filed that prose as its consequences payload, and its renderer
+printed **`STATUS: known to graph`** — an existence claim assembled out of a refusal.
+
+⇒ The guard fired. The producer was honest. The consumer inverted it into the opposite claim. Nothing
+was caught or dropped; a refusal was simply indistinguishable from data because both are strings.
+**A refusal that a consumer can read as data is not a refusal.** Closed by exporting the banner from
+the producer so the consumer matches the producer's own literal rather than a copy that drifts.
+
+⚠ **My first "0 swallowed" reading was too narrow and I am correcting it here.** The sweep asked only
+whether the refusal became a literal "no results", so it scored packet as fine. It also counted
+argument-validation errors as substantive answers, which meant `graphExplore`, `graphPacket` and
+`graphPull` were never exercised at all — they were listed as benign while never having run. Given
+valid arguments, two refused and one did not. **A verb that rejects my arguments has told me nothing
+about the question I asked.**
+
+Evidence: 11 tests, 8 mutants killed across both rounds. Full suite green — 388 files, 3,152 passed,
+4 skipped, exit 0, 510s. The remaining 15 non-refusers are the 7 LSP-backed `codeIntel*` verbs, which
+do not read the graph tables, plus `graph_index` and `graph_collect_code_intel`, which must run
+during a rebuild by definition.

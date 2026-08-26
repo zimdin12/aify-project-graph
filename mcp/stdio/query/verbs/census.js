@@ -23,7 +23,7 @@
 // expect, DIFF the declared vocabulary against the observed one, in both directions.
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { openDb } from '../../storage/db.js';
+import { openExistingDb } from '../../storage/db.js';
 import { NODE_TYPES, RELATIONS, EDGE_PROVENANCE_TYPES } from '../../storage/taxonomy.js';
 
 /**
@@ -125,7 +125,19 @@ export async function graphCensus({ repoRoot }) {
       summary: 'No graph at .aify-graph/graph.sqlite. Run graph_index().',
     };
   }
-  const db = openDb(dbPath);
+  // ⛔ `openExistingDb`, NOT `openDb`. This verb only ever calls `db.all()`, so a writable handle was
+  // wrong on its own terms — but it also meant a census could be counted straight out of a
+  // half-built graph. A full rebuild empties the node and edge tables before refilling them, and
+  // this verb reports counts: it is the single worst place to answer from that window, because a
+  // census IS a claim about what exists. Measured: it answered 2,922 bytes during a marked rebuild
+  // while 24 other verbs correctly refused.
+  let db;
+  try {
+    db = openExistingDb(dbPath);
+  } catch (err) {
+    if (err?.code !== 'GRAPH_REBUILD_IN_PROGRESS') throw err;
+    return { indexed: false, rebuildInProgress: true, summary: err.message };
+  }
   try {
     return { indexed: true, ...buildCensus(db) };
   } finally {

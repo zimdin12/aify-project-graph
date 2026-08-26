@@ -6,13 +6,14 @@
 // Each test below names the bug it would catch. Every one of them was watched going RED against a
 // mutated implementation before being kept.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { openDb, openExistingDb } from '../../../mcp/stdio/storage/db.js';
 import {
   readRebuildMarker, markRebuildStarted, clearRebuildMarker, rebuildInProgressMessage,
+  isRebuildRefusalText, rethrowIfRebuildInProgress,
 } from '../../../mcp/stdio/storage/rebuild-marker.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
@@ -100,5 +101,70 @@ describe('the refusal tells the reader how to get out of it', () => {
       message(),
       'the refusal must not be phrased as an empty result',
     );
+  });
+});
+
+// A CENSUS IS A CLAIM ABOUT WHAT EXISTS, so answering one from a half-built graph is the worst
+// version of this defect. `graph_census` opened through `openDb` — the WRITER seam — and so bypassed
+// the guard entirely: measured answering 2,922 bytes during a marked rebuild while 24 other verbs
+// refused. This is also the test that would have caught my own false coverage claim, that every
+// reader opens through `openExistingDb`.
+describe('graph_census cannot count a half-built graph', () => {
+  it('refuses, naming the rebuild, instead of reporting counts', async () => {
+    const { graphCensus } = await import('../../../mcp/stdio/query/verbs/census.js');
+    // graph_census resolves <repoRoot>/.aify-graph/graph.sqlite, so the fixture needs the real
+    // layout. Without it the verb takes its "no graph here" path and the assertion below would be
+    // testing nothing — which is exactly what happened on the first run of this test.
+    const repo = mkdtempSync(join(tmpdir(), 'apg-census-'));
+    const graphDir = join(repo, '.aify-graph');
+    mkdirSync(graphDir, { recursive: true });
+    const censusDbPath = join(graphDir, 'graph.sqlite');
+    const w = openDb(censusDbPath);
+    // A census needs something to count, or a zero result would be indistinguishable from a refusal.
+    w.run(`INSERT INTO nodes (id, type, label, file_path) VALUES ('n1', 'Function', 'seeded', 'a.js')`);
+    markRebuildStarted(w, { now: Date.now(), pid: 11 });
+    w.close();
+
+    const marked = await graphCensus({ repoRoot: repo });
+    expect(marked.rebuildInProgress, 'a census taken mid-rebuild must refuse').toBe(true);
+    expect(marked.summary).toMatch(/GRAPH REBUILD IN PROGRESS/);
+
+    // POSITIVE CONTROL, same test: with the marker cleared the very same call counts the seeded row.
+    const w2 = openDb(censusDbPath);
+    clearRebuildMarker(w2);
+    w2.close();
+    const clean = await graphCensus({ repoRoot: repo });
+    rmSync(repo, { recursive: true, force: true });
+    expect(clean.indexed, 'the same call must succeed once the rebuild clears').toBe(true);
+  });
+});
+
+// THE GUARD FIRED, THE PRODUCER WAS HONEST, AND THE CONSUMER INVERTED IT.
+// `graph_consequences` refuses correctly and returns the refusal as prose. `graph_packet` filed that
+// prose as its consequences payload and rendered "STATUS: known to graph" — an existence claim built
+// out of a refusal, measured under a set marker. These tests hold the producer and the consumer to
+// the same literal, which is the regression that would silently reopen it.
+describe('a refusal must not be mistakable for data', () => {
+  it('the consumer recognises the exact text the producer emits', () => {
+    // Catches: the banner drifting on one side. Nothing else links these two modules, so drift is
+    // silent and reopens the laundering path with every test still green.
+    const produced = rebuildInProgressMessage({ startedAt: Date.now(), pid: 3 }, Date.now());
+    expect(isRebuildRefusalText(produced), 'the consumer must match what the producer actually emits').toBe(true);
+  });
+
+  it('does not mistake an ordinary ambiguous-match string for a refusal', () => {
+    // Catches: an over-broad sniffer that would swallow real degrade-path answers. "AMBIGUOUS MATCH"
+    // is symbol-name ambiguity — a different meaning of a word that already cost me a void result.
+    expect(isRebuildRefusalText('AMBIGUOUS MATCH: 6 definitions named c_str')).toBe(false);
+    expect(isRebuildRefusalText(null)).toBe(false);
+    expect(isRebuildRefusalText({ rebuild: true })).toBe(false);
+  });
+
+  it('a blanket rescue re-raises the rebuild error and swallows nothing else', () => {
+    // Catches: `catch {}` sites absorbing the refusal and answering anyway — three of them did.
+    const rebuild = Object.assign(new Error('x'), { code: 'GRAPH_REBUILD_IN_PROGRESS' });
+    expect(() => rethrowIfRebuildInProgress(rebuild)).toThrow(/x/);
+    expect(() => rethrowIfRebuildInProgress(new Error('a slow symbol lookup'))).not.toThrow();
+    expect(() => rethrowIfRebuildInProgress(undefined)).not.toThrow();
   });
 });

@@ -17,6 +17,10 @@
 
 export const REBUILD_MARKER_TABLE = 'rebuild_state';
 
+// The first line of the refusal, exported so consumers match the PRODUCER's literal instead of
+// keeping a copy that drifts. See `isRebuildRefusalText` below for why a consumer needs it at all.
+export const REBUILD_REFUSAL_BANNER = 'GRAPH REBUILD IN PROGRESS';
+
 export function ensureRebuildMarkerTable(db) {
   db.exec(`CREATE TABLE IF NOT EXISTS ${REBUILD_MARKER_TABLE} (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -60,7 +64,7 @@ export function rebuildInProgressMessage({ startedAt, pid }, now) {
   const mins = Math.floor(ageMs / 60000);
   const age = mins >= 1 ? `${mins} minute(s)` : `${Math.floor(ageMs / 1000)} second(s)`;
   return [
-    'GRAPH REBUILD IN PROGRESS — this read is refused rather than answered from a half-built graph.',
+    `${REBUILD_REFUSAL_BANNER} — this read is refused rather than answered from a half-built graph.`,
     `The rebuild started ${age} ago${pid == null ? '' : ` in process ${pid}`}.`,
     'A full rebuild empties the node and edge tables before refilling them, so a read taken now can',
     'report zero callers, zero results, or a partial count as though it were the answer.',
@@ -78,4 +82,23 @@ export class GraphRebuildInProgressError extends Error {
     this.startedAt = marker.startedAt;
     this.pid = marker.pid;
   }
+}
+
+// ⛔ A BLANKET `catch {}` WILL SWALLOW THE REFUSAL AND ANSWER ANYWAY.
+// Measured: `graph_packet` caught this error at its degrade path and still reported
+// "STATUS: known to graph" during a marked rebuild — an EXISTENCE claim sourced from a graph that
+// may have been mid-wipe. A refusal that any caller can accidentally discard is not a guard, so
+// every rescue site that means "carry on without this optional lookup" must re-raise this one.
+export function rethrowIfRebuildInProgress(err) {
+  if (err?.code === 'GRAPH_REBUILD_IN_PROGRESS') throw err;
+}
+
+// ⛔ A REFUSAL RETURNED AS A STRING IS INDISTINGUISHABLE FROM DATA, AND A CONSUMER WILL LAUNDER IT.
+// `graph_consequences` refuses correctly and returns the refusal as text. `graph_packet` took that
+// text as its consequences payload, and its renderer turned it into "STATUS: known to graph" — the
+// exact opposite claim, from a graph that may have been mid-wipe. The producer was honest and the
+// consumer inverted it, so the check has to live at the consumer until these verbs return typed
+// results rather than prose.
+export function isRebuildRefusalText(value) {
+  return typeof value === 'string' && value.includes(REBUILD_REFUSAL_BANNER);
 }

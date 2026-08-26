@@ -23,6 +23,7 @@
 // declarations and had to be minimized back to 16.
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
+import { rethrowIfRebuildInProgress } from '../../storage/rebuild-marker.js';
 import { resolveSymbolWithTotal, languageCensusExact } from './symbol_lookup.js';
 
 // Definitions grouped by language, over ALL nodes rather than the displayed slice.
@@ -108,7 +109,12 @@ export function resolveFeatureForSymbolCheap(repoRoot, functionality, symbol) {
     return { feature: null, locationsTotal: resolvedTotal, locationsByLanguage: census, locationsCensusExact: censusIsExact, locations: nodes.slice(0, 3).map((n) => ({
       file: n.file_path, line: n.start_line, type: n.type,
     })) };
-  } catch {
+  } catch (err) {
+    // "Never make orientation fail" is right for a slow or unmappable symbol. It is wrong for a
+    // graph that is mid-rebuild: returning null here sends the caller down a path that prints
+    // "STATUS: known to graph" — an EXISTENCE claim — sourced from tables that may have just been
+    // emptied. Measured: graph_packet still made that claim under a set rebuild marker.
+    rethrowIfRebuildInProgress(err);
     return null; // fall through to the budgeted path; never make orientation fail
   } finally {
     try { db?.close(); } catch { /* already closed */ }
