@@ -637,51 +637,25 @@ export function isPlausibleExternalName(label) {
 // They survive the shape check above because `new` IS a valid identifier shape, and they are not in
 // COMMON_NAMES (verified: `new`=false, `catch`=false).
 //
-// ⚠ AND THIS MUST BE PER-LANGUAGE, WHICH IS THE WHOLE DIFFICULTY. `Foo.new(...)` is an ordinary
-// method call in Ruby, and `Foo::new` exists in C++. A flat keyword denylist would delete real edges
-// in both — the same "same word, two meanings" trap that has cost this project before. So the set is
-// keyed by language family and Ruby is deliberately absent from it.
+// ⛔⛔ WITHDRAWN 2026-08-26 AFTER REVIEW: THE RESERVED-CALLEE RULE WAS FALSE, AND IT DELETED REAL EDGES.
 //
-// ⚠ A hand-written list is normally a defect with a delay on it. It is acceptable here for one
-// reason: a language's reserved words are fixed by its specification, not by anything in this repo,
-// so there is no registry to derive from and nothing that can drift underneath it.
-const RESERVED_CALLEES = new Map([
-  ['js_ts', new Set(['new', 'catch', 'typeof', 'delete', 'void', 'return', 'throw', 'await', 'yield',
-    'if', 'for', 'while', 'switch', 'function', 'class', 'const', 'let', 'var', 'in', 'of'])],
-  ['php', new Set(['new', 'catch', 'echo', 'print', 'require', 'include', 'throw', 'return'])],
-  ['python', new Set(['lambda', 'yield', 'return', 'raise', 'assert', 'del', 'pass', 'import'])],
-  ['c_cpp', new Set(['catch', 'throw', 'return', 'sizeof', 'typeof'])],
-  // ⚠ RUBY IS ABSENT ON PURPOSE: `new` is a real method there, and so are many words other
-  // languages reserve. Absent means "gate nothing", which is the safe direction.
-]);
-
-/**
- * Is this label a reserved word in the ref's own language, and therefore impossible as a callee?
- * Unknown languages gate nothing — the fail-open direction is correct here, because a wrong
- * REJECTION deletes a real edge while a wrong acceptance only leaves one already-tolerated stub.
- */
-export function isReservedCallee(label, language) {
-  const set = RESERVED_CALLEES.get(languageFamily(language));
-  return set ? set.has(String(label ?? '')) : false;
-}
-
-/**
- * Is this label impossible as an External target, whatever else is true of the ref?
- *
- * ⛔ THE TWO CHECKS ABOVE ARE TRUTHS ABOUT THE LABEL, NOT MATERIALIZATION POLICY, and that
- * distinction is the whole reason this function exists separately from shouldMaterializeExternal.
- * `entries()]` is not a symbol and `new` is not a callee — those facts hold no matter how the edge
- * came to be. COMMON_NAMES and the per-relation rules below are a different kind of statement: they
- * say a node is not WORTH creating, which is only ever a question at creation time.
- *
- * The split matters because a gate on creation alone was measurably not enough — see the call site
- * in resolveRefs.
- */
-export function isImpossibleExternalTarget(label, language) {
-  if (!isPlausibleExternalName(label)) return true;
-  if (isReservedCallee(label, language)) return true;
-  return false;
-}
+// A guard here refused a language's reserved words as callees ("nothing calls `new`"). An outside
+// review falsified it, and the counter-evidence is in this repository:
+//
+//   `promise.catch(() => null)` is an ordinary member call, and the extractor emits target `catch`
+//   for it. Five of the six `catch` CALLS edges were real .catch() calls, at lsp-client.js:207,
+//   cpp-clangd.js:148, lsp-collect.js:192, lock.js:22 and lsp-evidence.js:299. `o.delete()`,
+//   `o.new()` and PHP member calls named `print`/`include` are legal for the same reason.
+//
+// ⛔ THE ROOT ERROR WAS AN ASSERTED CAUSE. I wrote "the extractor read `new Foo()` and `catch (e)`
+// as call sites" from inspection of the LABELS alone. It was true for `new` (every site is
+// `new Date()` / `new RegExp()`) and FALSE for `catch`, and I never checked the second half before
+// building a rule on it.
+//
+// ⛒ AND IT IS NOT FIXABLE HERE. After member-target normalization the resolver sees the bare
+// string `catch`; `catch (e)` and `promise.catch()` are indistinguishable at this point. The
+// distinction exists only where the syntax does, in the extractor. Any future attempt belongs there,
+// never in a predicate over a stripped label.
 
 // Decide whether an unresolved ref should be materialized as an External
 // terminal node or left in dirtyEdges. Dev's rule (from design discussion):
@@ -700,9 +674,13 @@ function shouldMaterializeExternal(ref) {
   if (!ref.from_id || !ref.target) return false;
   const label = normalizeExternalTarget(ref.target);
   if (!label) return false;
-  // ⛔ Before anything else, the label-truths: a fragment is not a symbol and a reserved word is not
-  // a callee. Shared with the re-binding path in resolveRefs so one predicate governs both.
-  if (isImpossibleExternalTarget(label, ref.language || ref.extractor)) return false;
+  // ⛔ A SHAPE POLICY FOR CREATION, NOT A TRUTH ABOUT THE LABEL — and the difference is why the
+  // reserved-word half of this was withdrawn. See PLAUSIBLE_EXTERNAL: it is an ASCII pattern derived
+  // from THIS repository's observed fragments, and review showed it also rejects `operator()`,
+  // `save!`, `empty?`, `café`, `#private` and `@scope/pkg`. Declining to MINT a stub for those is a
+  // tolerable cost, because the ref survives in `unresolved`; refusing an EDGE on the same pattern is
+  // not, because that deletes evidence. So it stays here at creation and nowhere else.
+  if (!isPlausibleExternalName(label)) return false;
   if (COMMON_NAMES.has(label)) return false;
   if (ref.relation === 'CALLS') return true;
   if (ref.relation === 'PASSES_THROUGH') return true;
@@ -834,35 +812,26 @@ export function resolveRefs({ db, refs, importContext = null }) {
       continue;
     }
 
-    // ⛔ A GATE ON CREATION IS NOT A GATE ON THE EDGE.
+    // ⛔⛔ THE RE-BINDING GATE THAT STOOD HERE WAS REVERTED 2026-08-26 AFTER REVIEW.
     //
-    // shouldMaterializeExternal is consulted only when resolveTarget finds nothing. But
-    // buildResolvers queries the nodes table with no type restriction, so findByLabel returns
-    // External nodes that are ALREADY in the graph — including every fragment created before the
-    // gate existed. Measured on this repository: 526 CALLS edges point at an External label
-    // containing `(`, a shape no language permits in a name.
+    // The defect it addressed is real and still open: shouldMaterializeExternal governs CREATION,
+    // but buildResolvers queries `nodes` with no type restriction, so a ref can bind to an External
+    // that already exists and no admission rule runs at all. Demonstrated two ways —
+    //   · a parse fragment (`execFileSync('git',`) survives re-index by re-binding, which made the
+    //     residue self-perpetuating and stickier than a legitimate node;
+    //   · a REFERENCES ref to a bare lowercase name gets 0 edges with no pre-existing External and
+    //     1 edge when the stub is already there, so pre-existence ELEVATES a ref that policy refuses.
     //
-    // ⭐ PROVEN, both arms in one pass: with a node labelled `execFileSync('git',` seeded into the
-    // graph, an identical ref produced an edge to it and the gate never ran; with the same ref
-    // against an empty graph the gate refused and the ref went to unresolved. So the residue was
-    // not historical — every re-index of the file that produced a fragment re-attached to it.
+    // ⛒ THE FIX WAS WRONG EVEN THOUGH THE DEFECT IS REAL. It refused edges using a label pattern
+    // presented as a universal truth, and that pattern rejects `operator()`, `save!`, `#private` and
+    // `@scope/pkg`. On this path a wrong rejection DELETES A REAL EDGE — the exact failure mode
+    // preregistered as worse than the one being fixed. Reverting restores the known defect in place
+    // of an unbounded one.
     //
-    // Nulling the match here drops the ref into the branch below, where the same label meets the
-    // same predicate and is refused. Only the label-truths apply: whether a node is WORTH creating
-    // says nothing about an edge to one that already exists.
-    //
-    // ⚠ THAT NARROWING IS A DESIGN CHOICE WITH NO OBSERVABLE DIFFERENCE TODAY, and saying so is more
-    // useful than implying a test guards it. The other half of shouldMaterializeExternal is
-    // COMMON_NAMES, and resolveTarget already applies a STRICTER rule to those names above — it
-    // declines a label match for a common name unless it is uniquely in the ref's own file, which an
-    // External node (file_path '') can never be. So calling the whole gate here would behave
-    // identically. The narrow predicate is still the right one to call, because it is the one whose
-    // reason survives if that earlier rule ever changes.
-    let targetNode = resolveTarget(ref, resolvers, importContext);
-    if (targetNode?.node?.type === 'External'
-      && isImpossibleExternalTarget(targetNode.node.label, ref.language || ref.extractor)) {
-      targetNode = null;
-    }
+    // ⇒ The successor must define ONE admission policy for External-bound edges covering creation and
+    // binding together, and must not decide it from a stripped label. Recorded in
+    // docs/2026-08-26-a-gate-on-creation-is-not-a-gate-on-the-edge.md.
+    const targetNode = resolveTarget(ref, resolvers, importContext);
     if (!targetNode) {
       if (symbolicChain || shouldMaterializeExternal(ref)) {
         const externalNode = createExternalNode(ref);

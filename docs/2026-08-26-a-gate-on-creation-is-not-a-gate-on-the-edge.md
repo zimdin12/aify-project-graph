@@ -1,5 +1,10 @@
 # A gate on creation is not a gate on the edge
 
+> ⛔⛔ **REVERTED 2026-08-26 AFTER REVIEW. The defect below is real; the fix was not, and it deleted
+> real edges.** `graph-senior-dev` falsified the central predicate and I reproduced every blocker.
+> Read this document as a record of a defect that is STILL OPEN plus a fix that was withdrawn — not
+> as a description of current behaviour. Corrections are marked inline and summarised at the end.
+
 2026-08-26. Found by measuring the live graph with no hypothesis, after two arcs had been declared
 closed and every remaining item was human-gated.
 
@@ -40,8 +45,12 @@ actually re-processed in both arms:
 
 | Arm | fragment edges | fragment node | control external | re-indexed? |
 |---|---|---|---|---|
-| HEAD (no re-bind gate) | **1 — survived** | 1 | 0 (drained) | yes |
-| With the gate | **0 — drained** | 0 | 0 (drained) | yes |
+| `67d0364` (no re-bind gate) | **1 — survived** | 1 | 0 (drained) | yes |
+| working tree with the gate (became `c0dae75`) | **0 — drained** | 0 | 0 (drained) | yes |
+
+⛔ **Arm naming corrected after review.** This table first called the ungated arm "HEAD", but neither
+reviewed commit is that object — the ungated resolver is `67d0364`. Naming an arm by a moving label
+rather than by the exact object it was is how an experiment becomes unreplayable.
 
 The HEAD row is the defect in one line: the fragment survived the re-index while a legitimate
 unreferenced External did not.
@@ -127,8 +136,17 @@ Closing the re-binding hole raised the obvious next question: what *other* path 
 | Impossible External as an edge target | CALLS = 716 |
 | *Control:* symbolic-chain relations touching any External | CALLS = **5,976** |
 
-The control matters: without it, "zero sources" would be indistinguishable from a relation set nobody
-uses. The relations are heavily used — the source-side line simply produced nothing here.
+⛔⛔ **THAT CONTROL WAS INVALID AND IS WITHDRAWN.** `symbolicChain` requires `ref.from_target &&
+!ref.to_id`. The 5,976 counts External *targets* on relations in `SYMBOLIC_CHAIN_RELATIONS`, and that
+set includes ordinary CALLS — so every one of them can occur without the symbolic-chain branch ever
+executing. It proves the relations are used; it says nothing about whether
+`createExternalNode(ref, ref.from_target)` is reachable. **A control that passes for the wrong reason
+is not a control**, and this is the fourth instance of that shape in one session.
+
+What survives is only the raw observation: **no External node currently appears as a `from_id`.** The
+causal sentence "the source-side line simply produced nothing here" is NOT established. A valid
+control has to inject refs satisfying `from_target && !to_id`, show owner resolution missing, and show
+that line executing.
 
 **So: no guard.** The same call already made for the importer's `upsertExternalNode` — reachable,
 zero product, no evidence, therefore no speculative hardening. Recorded in a comment at the line so
@@ -156,3 +174,65 @@ suite ran in the same window. The direction is what drain predicts; that is all 
 three full indexes of `8f61239` produce byte-identical node and edge sets, with a comparator control.
 So the differences above are not extraction noise — though that check covers the tree-sitter path
 only, and says nothing about the LSP path. See `docs/2026-08-26-is-an-edge-count-reproducible.md`.
+
+---
+
+# Review outcome: not approvable, reverted
+
+`graph-senior-dev` reviewed `c0dae75` and `8f61239` with a brief asking him to falsify rather than
+confirm. He did. Every blocker below was reproduced independently on this machine before acting.
+
+## What was wrong
+
+**1. The reserved-callee premise was false, and it deleted real edges.** `promise.catch(() => null)`
+is an ordinary member call and the extractor emits target `catch`. Five of the six `catch` CALLS
+edges in this repository are real:
+
+    mcp/stdio/code-intel/lsp-client.js:207          earlySpawnError.catch(() => { ... })
+    mcp/stdio/code-intel/providers/cpp-clangd.js:148  getHeadCommit(projectRoot).catch(() => null)
+    mcp/stdio/code-intel/providers/lsp-collect.js:192 getHeadCommit(projectRoot).catch(() => null)
+    mcp/stdio/freshness/lock.js:22                 await prior.catch(() => {})
+    mcp/stdio/query/lsp-evidence.js:299            getHeadCommit(repoRoot).catch(() => null)
+
+The root error was an **asserted cause**. I wrote "the extractor read `new Foo()` and `catch (e)` as
+call sites" from the labels alone. It is true for `new` — every site is `new Date()` or
+`new RegExp()` — and false for `catch`, and I built a rule on it without checking the second half.
+After member-target normalization the resolver sees the bare string `catch`; `catch (e)` and
+`promise.catch()` are indistinguishable there. **That distinction exists only in the extractor, where
+the syntax is.**
+
+**2. The shape pattern is not a language-independent truth.** Executed against the exported
+predicate, every one of these was rejected: `operator()`, `operator<<`, `~Widget` (C++); `save!`,
+`empty?`, `foo=`, `[]` (Ruby); `café` (Python); `#private`, `@scope/pkg` (JavaScript). Driven through
+the real re-bind path, Ruby `save!` and C++ `operator()` each produced `edges 0, unresolved 1` — the
+exact failure mode preregistered as worse than the defect being fixed. The comment claiming a label
+containing `(` is "a shape no language permits in a name" is plainly false for `operator()`.
+
+**3. The truth/policy split was not the whole design.** Creation policy also governs whether an edge
+to an unresolved terminal is worth asserting, and pre-existence must not elevate a ref that policy
+refuses. Reproduced: a `REFERENCES` ref to a bare lowercase name yields **0 edges** with no
+pre-existing External and **1 edge** when the stub is already there.
+
+**4. The sweep missed the test carrier.** `health-stale-externals.test.js` still told the old false
+story — "an older extractor materialised" them — which had been withdrawn from the shipped message in
+`852e2e4`. I swept source and docs and never opened the tests, so a dead explanation survived in an
+executable authority carrier while the code moved on twice. I had written *"grepping one exact
+sentence is not a sweep"* the cycle before and still swept by grep.
+
+## What was done
+
+The reserved-callee rule and the re-binding gate are **removed**. The shape check survives only where
+it began — at node **creation** — and is now labelled as policy, not truth: refusing to mint a stub
+leaves the ref in `unresolved`, whereas refusing an edge destroys evidence.
+
+`tests/unit/ingest/legitimate-callees-are-not-refused.test.js` replaces the two test files that
+pinned the false rules. It asserts **anti-targets** — names that must keep working — and one of its
+cases deliberately pins the still-open re-binding defect so the successor gets a failing marker
+rather than a silent regression. Both withdrawn rules were re-applied as mutants and both killed it.
+
+## What is still open
+
+The re-binding defect is **real and unfixed**. Reverting restores a known bounded defect in place of
+an unbounded one. The successor must define **one admission policy for External-bound edges covering
+creation and binding together**, decided from something other than a stripped label, and must fix the
+bogus `new`-constructor and `catch`-clause targets at the extractor where syntax context exists.

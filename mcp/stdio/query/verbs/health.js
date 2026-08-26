@@ -700,10 +700,12 @@ export async function graphHealth({ repoRoot }) {
     // Closed in c0dae75, proven through the real pipeline with the resolver as the only variable.
     // See docs/2026-08-26-a-gate-on-creation-is-not-a-gate-on-the-edge.md.
     //
-    // ⇒ AND THAT FIX FALSIFIED WHAT THIS COMMENT AND THE MESSAGE BELOW BOTH CLAIMED — that
-    // incremental reindexing does not remove them. It now does, as each referencing file is next
-    // re-indexed. Verified true is not verified forever: changing behaviour means re-reading every
-    // claim about that behaviour, not only the tests.
+    // ⛔ AND THE FIX WAS REVERTED THE SAME DAY AFTER REVIEW. The re-binding CAUSE above stands and is
+    // proven; the GATE that acted on it did not, because it refused edges on a label pattern that
+    // also rejects `operator()`, `save!` and `#private`, and on that path a wrong rejection deletes a
+    // real edge. So the residue is self-perpetuating again, by choice: a known bounded defect in
+    // place of an unbounded one. The successor must define one admission policy covering creation
+    // AND binding, and must not decide it from a stripped label.
     //
     // ⭐ MEASURED 2026-08-26, BEFORE c0dae75 — a dated reading, not a live one, and the numbers have
     // since moved as the residue drains (1,097 / 329 later the same day). With the guard held
@@ -718,16 +720,22 @@ export async function graphHealth({ repoRoot }) {
     // never as a new field, and counted cheaply by label shape rather than by rebuilding anything.
     const fragmentExternals = countFragmentExternals(dbPath);
     if (fragmentExternals > 0) {
-      // ⛔ THE SECOND SENTENCE USED TO READ "Incremental reindexing does NOT remove them", which was
-      // true when it was written and is now false. Refs used to RE-BIND to these nodes — resolveRefs
-      // gated creation but not binding — so every re-index refreshed their edges and the orphan
-      // sweep could never collect them. With that gate closed they drain as each referencing file is
-      // next re-indexed. A forced index is still the way to clear them all at once, so the advice is
-      // unchanged; only the claim about what happens without it had to be corrected.
-      verdicts.push(`stale-externals: ${fragmentExternals} External nodes carry parse-fragment labels `
-        + `(e.g. "entries()]"). They inflate counts and can never resolve. A full rebuild of this `
-        + `same commit produces none. They now drain as each referencing file is re-indexed — `
-        + `run graph_index(force=true) to clear them all at once.`);
+      // ⛔ THIS SENTENCE HAS NOW BEEN WRONG IN BOTH DIRECTIONS, WHICH IS THE LESSON. It first said
+      // incremental reindexing does not remove them (true). c0dae75 made that false and it was
+      // corrected. That fix was then reverted after review, so it is true again. A claim about
+      // behaviour is only as durable as the behaviour, and this one changed twice in a day.
+      //
+      // ⚠ AND THE NOUN IS NOW WEAKER ON PURPOSE. The count is a LABEL-SHAPE classification, and
+      // review showed the same pattern rejects `operator()`, `save!`, `#private` and `@scope/pkg`.
+      // Most of what it counts here is genuine parse residue, but "parse-fragment labels ... can
+      // never resolve" asserted more than a shape check can support, so the wording now says what
+      // was actually measured and admits what it cannot separate.
+      verdicts.push(`stale-externals: ${fragmentExternals} External nodes carry labels that are not `
+        + `plausible symbol names (e.g. "entries()]"). A full rebuild of this same commit produces `
+        + `none, so they inflate counts without adding reach. Incremental reindexing does NOT remove `
+        + `them — run graph_index(force=true) to clear. `
+        + `⚠ Counted by label shape, which can also flag legal names such as C++ operator() or Ruby `
+        + `save! — on a C++ or Ruby repository treat this as a pointer to check, not a defect count.`);
     }
 
     const searchable = new Set(SEARCH_TYPES);

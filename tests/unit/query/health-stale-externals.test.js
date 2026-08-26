@@ -6,11 +6,24 @@ import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
-// ⛔ GARBAGE THAT ONLY A FULL REBUILD CLEARS, AND NOTHING SAID SO.
+// ⛔ GARBAGE A FULL REBUILD CLEARS, AND NOTHING SAID SO.
 //
-// An older extractor materialised External nodes from parse fragments — `entries()]`,
-// `replace(/g,`, `join(dirOf(docPath),`. A guard now refuses to create them, but INCREMENTAL
-// reindexing never removes the ones already present.
+// External nodes carry labels that are not plausible symbol names — `entries()]`, `replace(/g,`,
+// `join(dirOf(docPath),`. A guard refuses to create them, but INCREMENTAL reindexing does not remove
+// the ones already present.
+//
+// ⛔⛔ THIS FILE CARRIED A FALSE EXPLANATION LONGER THAN THE CODE DID, AND THAT IS THE POINT. It said
+// "an older extractor materialised" them. That cause was asserted, never tested, withdrawn from the
+// shipped message in 852e2e4 — and left standing HERE. When I later swept for the claims a fix had
+// falsified, I grepped source and docs and never opened the tests, so the dead explanation survived
+// in an executable authority carrier while the code around it had moved on twice. A reviewer found
+// it, not me.
+//
+// ⭐ THE CAUSE IS NOW ESTABLISHED: refs RE-BIND to these nodes. resolveRefs gates creation but not
+// binding, and buildResolvers queries `nodes` with no type restriction, so every re-index refreshes
+// their edges and the orphan sweep never collects them. The gate that acted on this was REVERTED
+// after review (it refused edges on a label pattern that also rejects `operator()` and `save!`), so
+// the residue is self-perpetuating by choice until one admission policy covers creation AND binding.
 //
 // ⭐ MEASURED WITH THE GUARD HELD CONSTANT ON BOTH SIDES, so the comparison isolates exactly one
 // variable — full rebuild versus incrementally maintained:
@@ -28,7 +41,7 @@ import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 // that is actually harmful, and the predicate is IMPORTED from the resolver rather than restated.
 
 
-describe('graph_health reports External nodes an older extractor left behind', () => {
+describe('graph_health reports External nodes whose labels are not plausible names', () => {
   let repoRoot;
 
   const seed = async (labels) => {
@@ -68,7 +81,7 @@ describe('graph_health reports External nodes an older extractor left behind', (
     expect(summary, 'and it must name the remedy').toMatch(/graph_index\(force=true\)/);
   });
 
-  it('⛔ IT CLAIMS NO CAUSE — two explanations were tested and both failed', async () => {
+  it('⛔ IT NAMES NO CAUSE IN THE MESSAGE — the two guesses failed; the real one was found later', async () => {
     // ⛔ THE FIRST VERSION OF THIS MESSAGE SHIPPED "left by an older extractor". That was asserted,
     // never substantiated, and withdrawn. The replacement hypothesis failed too: incremental runs
     // carry forward 818 implausible targets, but 814 are IMPORTS (which never materialise as
