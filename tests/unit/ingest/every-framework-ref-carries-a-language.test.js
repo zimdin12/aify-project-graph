@@ -55,10 +55,11 @@ const FIXTURES = {
   },
   'laravel.js': {
     'composer.json': '{"require":{"laravel/framework":"^11.0"}}',
-    // ⚠ `Route::middleware(...)->post(...)` is what triggers laravel's PASSES_THROUGH chain. The
-    // bare `Route::post` form reaches only INVOKES, and a mutant deleting a middleware language
-    // survived against it.
-    'routes/web.php': "<?php\nRoute::post('/orders', [OrderController::class, 'store']);\nRoute::middleware(['auth', 'throttle'])->group(function () {\n    Route::get('/admin', [AdminController::class, 'index']);\n});\n",
+    // ⚠ THE MIDDLEWARE CHAIN NEEDS RESOLVABLE TOKENS, not just a `Route::middleware(...)` call.
+    // String aliases like 'auth' resolve only through a Kernel alias map; with no Kernel the chain
+    // is correctly dropped, so a fixture using them reached the INVOKES site ONLY and a mutant
+    // deleting a middleware language survived. `Foo::class` tokens resolve on their own.
+    'routes/web.php': "<?php\nRoute::post('/orders', [OrderController::class, 'store']);\nRoute::middleware([Authenticate::class, ThrottleRequests::class])->group(function () {\n    Route::get('/admin', [AdminController::class, 'index']);\n});\n",
   },
   'rails.js': {
     Gemfile: "gem 'rails'",
@@ -112,13 +113,12 @@ describe('every framework plugin declares a language on the refs the resolver ha
   // nothing is a broken fixture, not an exemption.
   const NO_HARD_GATED_REFS = new Set(['shader_bindings.js', 'cmake.js', 'virtual_overrides.js']);
 
-  // ⚠ A DECLARED GAP, NOT A SILENT ONE. laravel's middleware-chain PASSES_THROUGH refs are the one
-  // language-carrying site no fixture here reaches: `Route::middleware([...])` was tried grouped,
-  // grouped with `::class` tokens, and inline, and all three emit only the INVOKES ref. The chain
-  // appears to need conventional groups from a Kernel file. A mutant deleting that site's language
-  // therefore SURVIVES this guard — the other four sites' mutants are killed.
-  // ⇒ Recorded here rather than left to be rediscovered, because an unstated gap in a green guard
-  // reads as coverage.
+  // ⭐ THE GAP DECLARED HERE EARLIER IS NOW CLOSED, and closing it found a defect. laravel's
+  // middleware-chain PASSES_THROUGH site was unreachable by every fixture form tried, because
+  // `parseMiddlewareTokens` STRIPPED the `::class` suffix — the only marker distinguishing a class
+  // token from an alias string — so `Route::middleware([Authenticate::class])` resolved to nothing.
+  // The suffix is preserved now, and this fixture reaches the site.
+  // ⇒ Declaring the gap rather than hiding it is what led to the defect being found at all.
 
   it('⭐ POSITIVE CONTROL: EVERY fixtured plugin emits hard-gated refs, not just some', async () => {
     // ⛔ THE FIRST VERSION OF THIS CONTROL SUMMED ACROSS PLUGINS and required the TOTAL to exceed a

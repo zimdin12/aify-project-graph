@@ -105,10 +105,27 @@ function parseGroupMap(block) {
   return groups;
 }
 
+// ⛔ THE `::class` MARKER IS THE ONLY THING THAT DISTINGUISHES A CLASS TOKEN FROM AN ALIAS STRING,
+// AND STRIPPING IT HERE THREW THAT AWAY. Both kinds land in one flat list, so a bare
+// `Route::middleware([Authenticate::class])` — the ordinary Laravel idiom, with the class imported
+// at the top of the file — arrived at `normalizeMiddlewareTarget` as plain `Authenticate`. That
+// function recognises a class only by a backslash or a `::class` suffix, so the token matched
+// neither, fell through to `[]`, and the whole middleware chain was silently dropped.
+//
+// ⭐ MEASURED, four configurations, in one pass:
+//     bare Foo::class, no Kernel            -> 0 chain refs   <- the defect
+//     fully-qualified \App\...::class       -> 3
+//     string aliases + Kernel alias map     -> 3
+//     string aliases, NO Kernel (CONTROL)   -> 0   <- CORRECT: without an alias map 'auth' is
+//                                                     genuinely unresolvable, and must stay so
+//
+// The first and last both produced zero for completely different reasons, which is exactly why the
+// control matters: it is what shows the zero is a defect rather than honest ignorance.
 function parseMiddlewareTokens(expression) {
   const tokens = [];
   for (const match of expression.matchAll(/['"]([^'"]+)['"]/gu)) tokens.push(match[1]);
-  for (const match of expression.matchAll(/([\\A-Za-z_][\\A-Za-z0-9_]*)::class/gu)) tokens.push(match[1]);
+  // ⚠ Keep the suffix. `classBaseName` strips it again downstream, so nothing else has to change.
+  for (const match of expression.matchAll(/([\\A-Za-z_][\\A-Za-z0-9_]*)::class/gu)) tokens.push(`${match[1]}::class`);
   return [...new Set(tokens)];
 }
 
