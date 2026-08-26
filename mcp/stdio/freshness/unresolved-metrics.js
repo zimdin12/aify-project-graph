@@ -55,7 +55,16 @@ export function explainTrustExclusions(dirtyEdges = []) {
       reason = `relation_excluded:${ref.relation}`;
     } else {
       const bucket = classifyUnresolvedRef(ref);
-      if (bucket.startsWith('external-by-design:')) reason = 'external-by-design';
+      // ⛔ THE FAMILY NAME ALONE HID THE POPULATION IT WAS SUPPOSED TO PUBLISH. Every
+      // `external-by-design:*` bucket collapsed to one row, so an admission refusal was
+      // indistinguishable from an npm package or a node builtin — and a commit message claiming
+      // "explainTrustExclusions now publishes the count" was false for the named population, because
+      // the reader could not tell which count it was.
+      //
+      // Admission refusals keep their full bucket name; the rest keep the family summary they had,
+      // so no existing reader loses a row it was already consuming.
+      if (bucket.startsWith('external-by-design:admission-refused')) reason = bucket;
+      else if (bucket.startsWith('external-by-design:')) reason = 'external-by-design';
       else if (bucket.startsWith('shape-issue:')) reason = 'shape-issue';
       else if (bucket.startsWith('denylisted-by-design:')) reason = 'denylisted-by-design';
     }

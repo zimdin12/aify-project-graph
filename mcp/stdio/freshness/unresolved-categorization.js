@@ -93,15 +93,30 @@ const CLASSIFIERS = [
   // denylisted bucket BEFORE the fixable shapes below, so the scoreboard stops
   // counting `parse`/`log`/`__dirname` as actionable. Shares the exact list with
   // the resolver (ingest/denylist.js) so the two can't drift.
-  // ⛔ AN ADMISSION REFUSAL IS A DECISION, NOT A FIXABLE GAP — and it must be VISIBLE without being
-  // trust-relevant. resolveRefs used to erase these refs entirely to keep the trust banner honest,
-  // which made a typed refusal indistinguishable from a ref nobody considered. They are now retained
-  // in the unresolved carrier and excluded here instead, so `explainTrustExclusions` reports them by
-  // count and the denominator stays visible. Placed BEFORE the fixable buckets, which would
-  // otherwise classify a refused bare local name as actionable.
+  // ⛔⛔ ONE REASON, NAMED — NOT `Boolean(refusedReason)`. The first version of this bucket matched
+  // ANY refusal, and it was fail-OPEN in the worst possible place: every reason the admission owner
+  // might ever add would be removed from the trust denominator before anyone decided whether it was
+  // a product defect.
+  //
+  // ⭐ AND THE MEASURED HARM WAS NOT HYPOTHETICAL. On this repository the blanket test took
+  // trustDirtyEdgeCount from 27,957 to ZERO — the single most load-bearing number in the product,
+  // silently dead, in a commit whose message claimed the denominator was unchanged.
+  //
+  // ⭐ MEASURED, which is why this is narrow. Of the four reasons the owner currently emits, the
+  // pre-existing classifiers already handle three correctly, and only ONE moves the denominator:
+  //
+  //     references-bare-local-name      28,070   ->  27,919 trust-relevant  (fixable:reference-short-name)
+  //     common-name-not-worth-minting    5,057   ->       0  (denylisted-by-design:common-name)
+  //     relation-not-admitted:IMPORTS    4,739   ->       2  (external-by-design:npm / node-builtin)
+  //     fragment-shape-not-minted          833   ->      36  (mostly external-by-design:node-builtin)
+  //
+  // So only the local-name class needs an exclusion; it is the population the old silent drop
+  // existed for. Everything else FALLS THROUGH to the classifiers below, which is the fail-closed
+  // direction: an unrecognised future reason lands in `fixable:` or `unclassified` and stays
+  // TRUST-RELEVANT until someone classifies it deliberately.
   {
-    bucket: 'external-by-design:admission-refused',
-    test: (r) => Boolean(r?.refusedReason),
+    bucket: 'external-by-design:admission-refused-local-name',
+    test: (r) => r?.refusedReason === 'references-bare-local-name',
   },
   {
     bucket: 'denylisted-by-design:common-name',

@@ -1,0 +1,25 @@
+{
+  "question": "What does refusing a bare-lowercase REFERENCES terminal do to the graph?",
+  "note": "Arm A admits every REFERENCES terminal; arm B is the code as committed, which admits only type-like names. Both arms index the SAME working tree, so the only variable is the transport. The `find` string must match exactly once or the arm fails rather than reporting a null. NOTE: an earlier version of this spec toggled the mergeRows External exclusion instead and measured ZERO — correctly, because after 40bc05a the stubs that bypass would elevate are never minted in the first place. The two defects were coupled, so that transport is no longer a single meaningful variable at this commit. Recorded rather than deleted.",
+  "livenessLabel": "admitExternalEdge",
+  "out": "docs/evidence/ab-references-admission.json",
+  "arms": [
+    {
+      "name": "A-admit-all-references",
+      "describes": "every REFERENCES terminal admitted, including bare local names",
+      "transport": {
+        "file": "mcp/stdio/ingest/external-admission.js",
+        "find": "      : { decision: REFUSE, reason: 'references-bare-local-name' };",
+        "replace": "      : { decision: ADMIT, reason: 'AB-ARM-A-admit-all-references' };",
+        "probe": "AB-ARM-A-admit-all-references"
+      }
+    },
+    {
+      "name": "B-type-like-only",
+      "describes": "as committed: only type-like REFERENCES terminals are admitted",
+      "transport": {
+        "file": "mcp/stdio/ingest/external-admission.js"
+      }
+    }
+  ]
+}

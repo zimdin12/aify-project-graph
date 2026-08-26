@@ -219,3 +219,77 @@ The earlier "what is still open" named one. The full set:
 3. `targetForm` is **not an implemented seam**. Nothing reads it and no producer writes it. JavaScript
    accepting an extra property on an object is not a contract, and saying "the signature already
    accepts it" overstated a plan as a mechanism.
+
+
+---
+
+# Third review: the trust signal was dead, and both my A/B runs were void
+
+`graph-senior-dev` accepted the four resolver fixes and both production evidence arms, and blocked on
+the trust consumer. He was right, and the production magnitude was worse than his probe showed.
+
+## I killed the trust signal and said the opposite
+
+The refusal bucket tested `Boolean(refusedReason)` — every refusal, present and future, removed from
+the trust denominator. **Measured on a full index of this repository:**
+
+| classifier | `trustDirtyEdgeCount` |
+|---|---|
+| blanket bucket (as shipped in `40bc05a`) | **0** — the signal was dead |
+| no bucket at all | 27,957 — inflated by local names |
+| one named reason (correct) | **38** |
+
+`trust` is the field that gates whether an agent believes anything else in the product, and a commit
+of mine zeroed it while its message asserted the denominator was unchanged.
+
+⛔ **And it was fail-OPEN in the worst place**: any reason the admission owner might add later would
+leave the denominator before anyone judged whether it marked a defect.
+
+**The correct rule is narrow, and measurement is why.** Of the four reasons currently emitted, the
+pre-existing classifiers already handle three:
+
+| reason | count | trust-relevant under the existing rules |
+|---|---|---|
+| `references-bare-local-name` | 28,070 | 27,919 — needs the exclusion |
+| `common-name-not-worth-minting` | 5,057 | 0 (`denylisted-by-design:common-name`) |
+| `relation-not-admitted:IMPORTS` | 4,739 | 2 (`external-by-design:npm` / `node-builtin`) |
+| `fragment-shape-not-minted` | 833 | 36 (mostly `external-by-design:node-builtin`) |
+
+So the bucket names **one** reason; everything else falls through, and an unclassified future reason
+stays trust-relevant. A test pins that directly.
+
+## "explainTrustExclusions publishes the count" was false
+
+It collapsed every `external-by-design:*` bucket into a single row, so an admission refusal was
+indistinguishable from an npm package. Admission refusals now keep their full bucket name — the
+reader sees `external-by-design:admission-refused-local-name  28,072` — while other families keep the
+summary row they already had.
+
+## Both A/B runs were void, and the harness committed the failure it warns about
+
+The carrier I built ran two arms in one process. **Node loads a module once per process**, so both
+arms executed the code as it was at startup. The edit landed on disk, the probe found it there, the
+file parsed — and the measurement was of nothing.
+
+That is the "mutation landed but changed nothing" failure named in the harness's own header, three
+lines above the code that committed it. **A probe that checks the FILE does not establish that the
+RUNNING code changed.** Each arm now runs in its own process (`scripts/ab-arm-worker.mjs`).
+
+With that fixed, the same spec measures a real effect:
+
+| arm | nodes | edges | REFERENCES → External |
+|---|---|---|---|
+| A: admit every REFERENCES terminal | 8,144 | 27,241 | 10,435 |
+| B: as committed (type-like only) | 5,280 | 17,459 | 653 |
+
+**+9,782 edges and +2,864 stub nodes** that the rule prevents — with 0 edges present only in arm B,
+so the effect is one-directional.
+
+## The −180 claim is withdrawn
+
+That figure came from toggling the `mergeRows` exclusion, and it is not reproducible at this commit —
+correctly, because `e9ec81a` removed the fabricated stubs that the bypass used to elevate. The two
+defects were coupled, so that transport is no longer a single meaningful variable. It is withdrawn as
+an unbound observation rather than restated, and the receipt in
+`docs/evidence/ab-references-admission.json` carries what replaced it: arm objects, exact commit and
+tree, transports, probes, reset verification by hash, liveness, and raw counts.

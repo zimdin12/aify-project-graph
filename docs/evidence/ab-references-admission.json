@@ -1,0 +1,170 @@
+{
+  "spec": "scripts/ab-specs/references-admission.json",
+  "question": "What does refusing a bare-lowercase REFERENCES terminal do to the graph?",
+  "identity": {
+    "commit": "40bc05abedd7b5431bf2f3707ce2f7ccaa28030e",
+    "tree": "6d3daf12283d3d9a40449ad8d6297a30697c9f12",
+    "dirtyPaths": [
+      "M mcp/stdio/freshness/unresolved-categorization.js",
+      " M mcp/stdio/freshness/unresolved-metrics.js",
+      " M mcp/stdio/ingest/resolver.js",
+      "?? docs/evidence/ab-references-admission.json",
+      "?? scripts/ab-arm-worker.mjs",
+      "?? scripts/ab-graph-effect.mjs",
+      "?? scripts/ab-specs/"
+    ]
+  },
+  "heldFixed": "working tree; both arms index the same files, differing only by the named transport",
+  "arms": [
+    {
+      "name": "A-admit-all-references",
+      "describes": "every REFERENCES terminal admitted, including bare local names",
+      "mutation": "edit written",
+      "probe": "AB-ARM-A-admit-all-references",
+      "reset": "byte-identical",
+      "counts": {
+        "nodes": 8144,
+        "edges": 27241,
+        "byRelation": {
+          "CALLS": 9057,
+          "CONTAINS": 1082,
+          "DECLARES_BINDING": 1,
+          "DEFINES": 2492,
+          "EXTENDS": 6,
+          "IMPLEMENTS": 1,
+          "IMPORTS": 1453,
+          "LINKS_TO": 599,
+          "MENTIONS": 33,
+          "REFERENCES": 12506,
+          "TESTS": 3,
+          "USES_TYPE": 8
+        },
+        "externalByRelation": {
+          "CALLS": 5873,
+          "EXTENDS": 6,
+          "REFERENCES": 10435,
+          "USES_TYPE": 2
+        },
+        "dirtyEdgeCount": 10632,
+        "trustDirtyEdgeCount": 38
+      },
+      "indexedCommit": "40bc05abedd7b5431bf2f3707ce2f7ccaa28030e",
+      "failures": []
+    },
+    {
+      "name": "B-type-like-only",
+      "describes": "as committed: only type-like REFERENCES terminals are admitted",
+      "mutation": "baseline — no edit",
+      "probe": null,
+      "reset": "byte-identical",
+      "counts": {
+        "nodes": 5280,
+        "edges": 17459,
+        "byRelation": {
+          "CALLS": 9057,
+          "CONTAINS": 1082,
+          "DECLARES_BINDING": 1,
+          "DEFINES": 2492,
+          "EXTENDS": 6,
+          "IMPLEMENTS": 1,
+          "IMPORTS": 1453,
+          "LINKS_TO": 599,
+          "MENTIONS": 33,
+          "REFERENCES": 2724,
+          "TESTS": 3,
+          "USES_TYPE": 8
+        },
+        "externalByRelation": {
+          "CALLS": 5873,
+          "EXTENDS": 6,
+          "REFERENCES": 653,
+          "USES_TYPE": 2
+        },
+        "dirtyEdgeCount": 38703,
+        "trustDirtyEdgeCount": 38
+      },
+      "indexedCommit": "40bc05abedd7b5431bf2f3707ce2f7ccaa28030e",
+      "failures": []
+    }
+  ],
+  "comparison": {
+    "nodesOnlyInA": 2864,
+    "nodesOnlyInB": 0,
+    "edgesOnlyInA": 9782,
+    "edgesOnlyInB": 0,
+    "sampleEdgesOnlyInA": [
+      [
+        "5b69106c51e3ed9e3b8000e2281140cdc820c53d",
+        "external:026b3e98aec6943d",
+        "REFERENCES",
+        "bin/apg.js",
+        "7"
+      ],
+      [
+        "5b69106c51e3ed9e3b8000e2281140cdc820c53d",
+        "external:986a40de9ffeb90c",
+        "REFERENCES",
+        "bin/apg.js",
+        "7"
+      ],
+      [
+        "5b69106c51e3ed9e3b8000e2281140cdc820c53d",
+        "external:5d05856bf058d860",
+        "REFERENCES",
+        "bin/apg.js",
+        "16"
+      ],
+      [
+        "5b69106c51e3ed9e3b8000e2281140cdc820c53d",
+        "external:4827499dc069480d",
+        "REFERENCES",
+        "bin/apg.js",
+        "17"
+      ],
+      [
+        "38b03e36ef2247da6605a73c118285fbfe22f47a",
+        "external:bdcc8d08f7ac3a1b",
+        "REFERENCES",
+        "mcp/stdio/analysis/communities.js",
+        "28"
+      ],
+      [
+        "38b03e36ef2247da6605a73c118285fbfe22f47a",
+        "external:db6473d2bc4677c5",
+        "REFERENCES",
+        "mcp/stdio/analysis/communities.js",
+        "29"
+      ],
+      [
+        "38b03e36ef2247da6605a73c118285fbfe22f47a",
+        "external:79a5b5cfb8a39b83",
+        "REFERENCES",
+        "mcp/stdio/analysis/communities.js",
+        "33"
+      ],
+      [
+        "38b03e36ef2247da6605a73c118285fbfe22f47a",
+        "external:fb5538c85936f91f",
+        "REFERENCES",
+        "mcp/stdio/analysis/communities.js",
+        "35"
+      ],
+      [
+        "38b03e36ef2247da6605a73c118285fbfe22f47a",
+        "external:ea1ac816db1a674a",
+        "REFERENCES",
+        "mcp/stdio/analysis/communities.js",
+        "42"
+      ],
+      [
+        "38b03e36ef2247da6605a73c118285fbfe22f47a",
+        "external:10178dce4a087e17",
+        "REFERENCES",
+        "mcp/stdio/analysis/communities.js",
+        "43"
+      ]
+    ],
+    "sampleEdgesOnlyInB": []
+  },
+  "verdict": "measured"
+}
