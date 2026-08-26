@@ -255,6 +255,9 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
           source_line: 1,
           confidence: 0.75,
           provenance: 'INFERRED',
+          // ⚠ Carried explicitly so this plugin no longer depends on the legacy
+          // ['laravel','php'] entry in the resolver language map.
+          language: 'php',
           extractor: 'laravel',
         });
 
@@ -275,6 +278,9 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
           source_line: 1,
           confidence: 0.72,
           provenance: 'INFERRED',
+          // ⚠ Carried explicitly so this plugin no longer depends on the legacy
+          // ['laravel','php'] entry in the resolver language map.
+          language: 'php',
           extractor: 'laravel',
         });
 
@@ -289,6 +295,9 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
             confidence: 0.72,
             provenance: 'INFERRED',
             extractor: 'laravel',
+            // ⚠ Carried explicitly so this plugin no longer depends on the legacy
+            // ['laravel','php'] entry in the resolver language map.
+            language: 'php',
           });
         }
 
@@ -301,6 +310,9 @@ export const laravelRoutesPlugin = createFrameworkPlugin({
           source_line: 1,
           confidence: 0.72,
           provenance: 'INFERRED',
+          // ⚠ Carried explicitly so this plugin no longer depends on the legacy
+          // ['laravel','php'] entry in the resolver language map.
+          language: 'php',
           extractor: 'laravel',
         });
       }

@@ -122,6 +122,9 @@ function dependsEdgesForHandler(content, handlerName, file, extractor) {
       source_line: (content.slice(0, m.index).match(/\n/g) || []).length + 1,
       confidence: 0.72,
       provenance: 'INFERRED',
+      // ⚠ The framework tag is not a language; the resolver prefers this field. Without it a
+      // hard-gated ref cannot match any candidate and materialises an External stub.
+      language: 'python',
       extractor,
     });
   }

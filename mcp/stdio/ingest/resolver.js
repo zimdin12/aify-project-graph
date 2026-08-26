@@ -58,7 +58,9 @@ function languageFamily(lang) {
 // owner is guaranteed same-language) are allowed to fall through to cross-
 // family matches — that's how `#include "Engine.h"` can point at a File
 // node whose language bucket doesn't match.
-const HARD_GATED_RELATIONS = new Set([
+// ⚠ EXPORTED so the framework-plugin guard tests against the resolver's OWN set rather than a
+// copy that can drift. A relation added here is covered by that test the same day.
+export const HARD_GATED_RELATIONS = new Set([
   'CALLS', 'INVOKES', 'PASSES_THROUGH', 'EXTENDS', 'IMPLEMENTS', 'USES_TYPE', 'TESTS', 'REFERENCES',
 ]);
 
