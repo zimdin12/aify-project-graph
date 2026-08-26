@@ -36,6 +36,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { mainRepoWorkspace, openArmWorkspace, disposeArmWorkspace, ARM_WORKTREE_ROOT } from './lib/arm-workspace.mjs';
+import { findArms, BLOCKS_NEW_RUN } from './lib/arm-isolation.mjs';
 
 const sha256 = (text) => createHash('sha256').update(text).digest('hex');
 
@@ -78,13 +79,13 @@ export function canonicalise(members) {
 
 // ── one arm, in its own disposable worktree ───────────────────────────────────
 
-function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain }) {
+function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId }) {
   // ⛔ THE ARM'S OWN DIRECTORY NAME IS PART OF THE INPUT, and naming it after the arm made the two
   // inputs different. Each arm indexes its own worktree, so the worktree ROOT becomes a Directory
   // node — and with `ab-A-...` / `ab-B-...` roots the comparison reported one node present only in
   // arm B that was nothing but the harness labelling itself. A constant leaf under a per-arm parent
   // keeps the paths distinct on disk while the indexed tree is byte-identical.
-  const armPath = join(repo, ARM_WORKTREE_ROOT, `ab-${arm.name}`, 'subject');
+  const armPath = join(repo, ARM_WORKTREE_ROOT, `ab-${runId}-${arm.name}`, 'subject');
   const failures = [];
   let payload = null;
   let transport = null;
@@ -92,9 +93,21 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain }) {
   let disposal = null;
   let exitInfo = null;
 
-  // ⛔ Fail closed on a stale registration rather than reusing whatever is already there.
-  if (existsSync(armPath)) disposeArmWorkspace(repo, armPath);
-  mkdirSync(join(repo, ARM_WORKTREE_ROOT, `ab-${arm.name}`), { recursive: true });
+  // ⛔⛔ THIS LINE USED TO READ `if (existsSync(armPath)) disposeArmWorkspace(...)` UNDER A COMMENT
+  // CLAIMING IT FAILED CLOSED. It did the opposite: a prior hard-killed run leaves exactly that
+  // path, and the next invocation DELETED it — destroying the mutant evidence of the crash before
+  // anything proved the run abandoned. A deterministic path also meant a second harness could delete
+  // a FIRST harness's live arm.
+  //
+  // ⇒ Nothing is disposed on entry. Pre-entry discovery happens once in main(), where any observable
+  // arm REFUSES the run outright — matching arm-isolation.mjs, in which every ARM_STATE blocks and
+  // only an externally confirmed ORPHAN may ever be deleted. The path carries a per-run id so two
+  // harnesses cannot collide on it at all.
+  if (existsSync(armPath)) {
+    failures.push(`REFUSED: ${armPath} already exists — an observable arm is never disposed automatically`);
+    return { name: arm.name, describes: arm.describes, failures, graph: null, counts: null };
+  }
+  mkdirSync(dirname(armPath), { recursive: true });
 
   const opened = openArmWorkspace(repo, subjectCommit, armPath);
   const ws = opened.workspace;
@@ -130,8 +143,14 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain }) {
       mkdirSync(graphDir, { recursive: true });
       exitInfo = { code: 0, signal: null };
       try {
+        // ⛔ THE ARM'S OWN WORKER, NOT THE MAIN CHECKOUT'S. This launched
+        // `join(repo, 'scripts/ab-arm-worker.mjs')` while hashing the ARM's copy as a governed file
+        // — so `governedFileSha256` named bytes that were not the bytes that ran. On a clean subject
+        // the two are equal, which is exactly why it survived: the receipt proved the arm copy and a
+        // concurrent edit to main could have split them after identity was captured. An identity
+        // that is only accidentally correct is not an identity.
         execFileSync(process.execPath, [
-          join(repo, 'scripts/ab-arm-worker.mjs'), ws.root, graphDir, outFile, spec.livenessLabel ?? '',
+          ws.path('scripts/ab-arm-worker.mjs'), ws.root, graphDir, outFile, spec.livenessLabel ?? '',
         ], { stdio: ['ignore', 'ignore', 'pipe'], timeout: spec.timeoutMs ?? 900000 });
         payload = JSON.parse(readFileSync(outFile, 'utf8'));
       } catch (err) {
@@ -250,15 +269,38 @@ function main(argv) {
   // which it is rather than assuming a file is there.
   const retain = new Set(spec.retain ?? ['diffs']);
   const durable = Boolean(spec.evidenceDir);
+  // A per-run id, so two harnesses cannot collide on a deterministic arm path.
+  const runId = `ab${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   const evidenceDir = durable
     ? resolve(repo, spec.evidenceDir)
     : mkdtempSync(join(tmpdir(), 'apg-ab-evidence-'));
   mkdirSync(evidenceDir, { recursive: true });
 
+  // ⛔ PRE-ENTRY DISCOVERY: any observable arm REFUSES the run. arm-isolation's BLOCKS_NEW_RUN
+  // contains EVERY state on purpose — stale means abandonment is UNPROVED, not proved — and only an
+  // externally confirmed orphan is ever deletable. This harness previously swept the path clean on
+  // entry instead, which is the exact defect that machinery exists to prevent.
+  const observed = findArms(repo).filter((a) => BLOCKS_NEW_RUN.has(a.state));
+  if (observed.length > 0 && !argv.includes('--allow-observed-arms')) {
+    console.error('REFUSED: observable arm workspaces are present; their staleness does not prove abandonment.');
+    observed.forEach((a) => console.error(`  ${a.runId ?? '?'} ${a.state}: ${a.detail ?? ''}`));
+    console.error('Resolve them through the custody path (external confirmation + closure) before measuring.');
+    return 4;
+  }
+
   const arms = [];
   for (const arm of spec.arms) {
     process.stderr.write(`[ab] arm ${arm.name} …\n`);
-    arms.push(runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain }));
+    const result = runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain, runId });
+    arms.push(result);
+    // ⛔ A FAILED DISPOSAL STOPS THE HARNESS. Starting arm B while arm A's registration, directory
+    // or mutant may still exist is precisely the custody interval already ruled unsafe — and a
+    // `finally` that attempted cleanup is not a closure. Retain what exists; require governed
+    // cleanup before another mutation arm runs.
+    if (result.failures.some((f) => f.startsWith('disposal incomplete'))) {
+      console.error(`[ab] STOPPING: arm ${arm.name} did not reach terminal closure; no further arm will start.`);
+      break;
+    }
   }
 
   const failed = arms.filter((a) => a.failures.length > 0);
@@ -270,24 +312,28 @@ function main(argv) {
 
   let diffEvidence = null;
   if (comparison) {
-    const onlyA = canonicalise(comparison.edges.onlyA);
-    const onlyB = canonicalise(comparison.edges.onlyB);
+    // ⛔ ALL FOUR CLAIMED DIFFERENCE SETS, NOT TWO. The receipt asserted `nodesOnlyInA` and
+    // `nodesOnlyInB` while only ever writing the EDGE files, so "the set differences are retained"
+    // was false for half the populations it claimed — and nobody could check the node counts at all.
+    // A retention policy that silently covers some of what it names is worse than none, because the
+    // reader has no way to tell which half they are holding.
     const keepDiffs = retain.has('diffs');
-    if (keepDiffs) {
-      writeFileSync(join(evidenceDir, 'edges-only-in-A.txt'), onlyA.text);
-      writeFileSync(join(evidenceDir, 'edges-only-in-B.txt'), onlyB.text);
+    const sets = [
+      ['nodes-only-in-A', comparison.nodes.onlyA],
+      ['nodes-only-in-B', comparison.nodes.onlyB],
+      ['edges-only-in-A', comparison.edges.onlyA],
+      ['edges-only-in-B', comparison.edges.onlyB],
+    ];
+    diffEvidence = { retained: keepDiffs, sets: {} };
+    for (const [name, members] of sets) {
+      const canon = canonicalise(members);
+      if (keepDiffs) writeFileSync(join(evidenceDir, `${name}.txt`), canon.text);
+      diffEvidence.sets[name] = {
+        count: canon.count,
+        file: keepDiffs ? `${name}.txt` : null,
+        sha256: canon.hash,
+      };
     }
-    diffEvidence = {
-      nodesOnlyInA: comparison.nodes.onlyA.length,
-      nodesOnlyInB: comparison.nodes.onlyB.length,
-      edgesOnlyInA: onlyA.count,
-      edgesOnlyInB: onlyB.count,
-      retained: keepDiffs,
-      edgesOnlyInAFile: keepDiffs ? 'edges-only-in-A.txt' : null,
-      edgesOnlyInASha256: onlyA.hash,
-      edgesOnlyInBFile: keepDiffs ? 'edges-only-in-B.txt' : null,
-      edgesOnlyInBSha256: onlyB.hash,
-    };
   }
 
   const receipt = {
@@ -301,6 +347,19 @@ function main(argv) {
     },
     platform: { node: process.version, platform: process.platform, arch: process.arch },
     heldFixed: 'both arms are detached worktrees of the SAME subject commit; only arm A carries the transport',
+    // ⛔ THE CLAIM CEILING TRAVELS WITH THE CLAIM. Both arms junction to the SAME mutable
+    // node_modules in the main checkout. That is disclosed in `dependencyTransport`, but disclosure
+    // is not a limit: sequential use of one mutable path is not proof its bytes were identical
+    // between arms. Nothing here inventories that closure, so the strongest thing this receipt can
+    // support is a PAIRED OBSERVATION under one shared dependency carrier — not a hermetic result.
+    closure: {
+      closureInventoried: false,
+      dependencyCarrier: 'shared mutable node_modules junction from the main checkout',
+      packageLockSha256: existsSync(join(repo, 'package-lock.json'))
+        ? sha256(readFileSync(join(repo, 'package-lock.json'), 'utf8'))
+        : null,
+      claimCeiling: 'paired observation under one disclosed mutable dependency carrier',
+    },
     evidenceDir: durable ? spec.evidenceDir : evidenceDir,
     // ⚠ SAY WHICH IT IS. A hash naming a file nobody kept is a claim, not evidence.
     evidenceRetention: {
