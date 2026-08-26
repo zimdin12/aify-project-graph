@@ -1,6 +1,6 @@
 {
   "question": "What does refusing a bare-lowercase REFERENCES terminal do to the graph?",
-  "note": "Arm A admits every REFERENCES terminal; arm B is the code as committed, which admits only type-like names. Both arms index the SAME working tree, so the only variable is the transport. The `find` string must match exactly once or the arm fails rather than reporting a null. NOTE: an earlier version of this spec toggled the mergeRows External exclusion instead and measured ZERO — correctly, because after 40bc05a the stubs that bypass would elevate are never minted in the first place. The two defects were coupled, so that transport is no longer a single meaningful variable at this commit. Recorded rather than deleted.",
+  "note": "Arm A admits every REFERENCES terminal; arm B is the code as committed, which admits only type-like names. Both arms index the SAME working tree, so the only variable is the transport. The `find` string must match exactly once or the arm fails rather than reporting a null. NOTE: an earlier version of this spec toggled the mergeRows External exclusion instead and measured ZERO — correctly, because after 40bc05a the stubs that bypass would elevate are never minted in the first place. The two defects were coupled, so that transport is no longer a single meaningful variable at this commit. Recorded rather than deleted. ARMS ARE DISPOSABLE DETACHED WORKTREES of the subject commit, not the main checkout: a hard kill must never be able to leave mutant bytes in the tree the team works in. The run refuses a dirty subject, because a commit id cannot name uncommitted bytes.",
   "livenessLabel": "admitExternalEdge",
   "out": "docs/evidence/ab-references-admission.json",
   "arms": [
@@ -21,5 +21,12 @@
         "file": "mcp/stdio/ingest/external-admission.js"
       }
     }
+  ],
+  "governedFiles": [
+    "mcp/stdio/ingest/external-admission.js",
+    "mcp/stdio/ingest/resolver.js",
+    "mcp/stdio/freshness/unresolved-categorization.js",
+    "mcp/stdio/freshness/unresolved-metrics.js",
+    "scripts/ab-arm-worker.mjs"
   ]
 }
