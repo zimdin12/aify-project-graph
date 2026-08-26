@@ -68,6 +68,34 @@ describe('graph_health reports External nodes an older extractor left behind', (
     expect(summary, 'and it must name the remedy').toMatch(/graph_index\(force=true\)/);
   });
 
+  it('⛔ IT CLAIMS NO CAUSE — two explanations were tested and both failed', async () => {
+    // ⛔ THE FIRST VERSION OF THIS MESSAGE SHIPPED "left by an older extractor". That was asserted,
+    // never substantiated, and withdrawn. The replacement hypothesis failed too: incremental runs
+    // carry forward 818 implausible targets, but 814 are IMPORTS (which never materialise as
+    // External nodes) and are module specifiers like `node:fs/promises`, not fragments — only 4 are
+    // CALLS, which cannot account for 334.
+    //
+    // ⇒ A mechanism that WOULD explain a number is not thereby the mechanism. This pins the
+    // message to what is measured, so a plausible-sounding cause cannot drift back in.
+    await seed(['readFileSync', 'entries()]', 'map((t)']);
+    const { summary } = await graphHealth({ repoRoot });
+
+    expect(summary, 'the measured facts must remain').toMatch(/stale-externals: 2 External/);
+    // ⚠ THE WHOLE PHRASE. Asserting only /full rebuild/ let a mutant gutting the claim survive,
+    // because those two words remain in the preceding template line even when the fact does not.
+    expect(summary, 'the verified comparison that justifies the remedy')
+      .toMatch(/full rebuild of this same commit produces none/i);
+    expectAbsentWithLiveMatcher(
+      /older extractor|because|caused by/i,
+      {
+        forbidden: 'left by an older extractor',
+        allowed: 'A full rebuild of this same commit produces none.',
+      },
+      summary,
+      'the verdict must not assert a cause nobody has established',
+    );
+  });
+
   it('⭐ NEGATIVE CONTROL: a graph of clean External names says nothing', async () => {
     // Without this the assertion above is satisfied by a verdict that always fires.
     await seed(['readFileSync', 'createGraph', 'Map', 'App\\Http\\Controllers\\Foo', 'Foo.bar']);

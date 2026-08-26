@@ -683,9 +683,21 @@ export async function graphHealth({ repoRoot }) {
 
     // ⛔ GARBAGE THAT ONLY A FULL REBUILD CLEARS, and nothing said so.
     //
-    // An older extractor materialised External nodes from parse fragments — `entries()]`,
-    // `replace(/g,`, `join(dirOf(docPath),`. A guard now refuses to create them, but INCREMENTAL
-    // reindexing never removes the ones already there.
+    // Some External nodes carry parse-fragment labels — `entries()]`, `replace(/g,`,
+    // `join(dirOf(docPath),`. A guard now refuses to create them, and incremental reindexing does
+    // not remove the ones already present.
+    //
+    // ⛔ NO CAUSE IS CLAIMED, AND THAT IS DELIBERATE. Two explanations were tested and BOTH failed:
+    //   · "an older extractor left them" — asserted first, never substantiated. It shipped in this
+    //     message and was withdrawn.
+    //   · "incremental runs re-mint them from carried-forward unresolved refs" — the carry-forward
+    //     list holds 818 implausible targets, but 814 are IMPORTS, which never materialise as
+    //     External nodes at all, and they are module specifiers like `node:fs/promises` rather than
+    //     fragments. Only 4 are CALLS. That cannot account for 334.
+    //
+    // ⇒ A mechanism that WOULD explain the number is not thereby the mechanism. What is measured:
+    // they exist, they can never resolve, and a full rebuild of the same commit produces none. The
+    // message says exactly that and no more.
     //
     // ⭐ MEASURED with the guard held constant on both sides, so the comparison isolates one
     // variable: this repository's incrementally-maintained graph held 1,104 External nodes with 334
@@ -699,7 +711,8 @@ export async function graphHealth({ repoRoot }) {
     const fragmentExternals = countFragmentExternals(dbPath);
     if (fragmentExternals > 0) {
       verdicts.push(`stale-externals: ${fragmentExternals} External nodes carry parse-fragment labels `
-        + `(e.g. "entries()]") left by an older extractor. They inflate counts and can never resolve. `
+        + `(e.g. "entries()]"). They inflate counts and can never resolve. A full rebuild of this `
+        + `same commit produces none. `
         + `Incremental reindexing does NOT remove them — run graph_index(force=true) to clear.`);
     }
 
