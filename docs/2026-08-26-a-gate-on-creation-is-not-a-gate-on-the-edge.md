@@ -105,3 +105,49 @@ a distinction that nothing guards.
   re-indexed, or at once under `graph_index(force=true)`.
 - 738 is the count of edges whose `to_id` is a node the predicate rejects. It is not "edges this
   change removes", and it is a figure about this repository's graph on this date, not a rate.
+
+## The third creation path, measured and deliberately not guarded
+
+Closing the re-binding hole raised the obvious next question: what *other* path reaches
+`createExternalNode`? There is one, and it consults no gate at all.
+
+- **Source side.** When a symbolic chain has no resolvable owner, `createExternalNode(ref,
+  ref.from_target)` runs with no plausibility check on that line.
+- **Target side.** `if (symbolicChain || shouldMaterializeExternal(ref))` — the `||` short-circuits,
+  so a symbolic chain never reaches the gate.
+
+`SYMBOLIC_CHAIN_RELATIONS` is `PASSES_THROUGH`, `INVOKES`, `CALLS` — not an obscure set.
+
+**Measured before deciding**, with the control that makes the zero readable in the same pass:
+
+| Question | Reading |
+|---|---|
+| External nodes appearing as the `from_id` of any edge | **0** |
+| Impossible External as an edge source | NONE |
+| Impossible External as an edge target | CALLS = 716 |
+| *Control:* symbolic-chain relations touching any External | CALLS = **5,976** |
+
+The control matters: without it, "zero sources" would be indistinguishable from a relation set nobody
+uses. The relations are heavily used — the source-side line simply produced nothing here.
+
+**So: no guard.** The same call already made for the importer's `upsertExternalNode` — reachable,
+zero product, no evidence, therefore no speculative hardening. Recorded in a comment at the line so
+the next reader neither overlooks it nor hardens a path with no product. A repository whose framework
+refs fail to resolve their owner would exercise it, and that note says what to check first.
+
+## The drain, observed in production
+
+Between the measurement that found this defect and the one taken after the fix shipped, on the same
+live graph with the same predicate:
+
+| | before `c0dae75` | after |
+|---|---|---|
+| External nodes impossible as a target | 336 | 329 |
+| Edges pointing at one | 738 | 716 |
+| …of those, labels containing `(` | 526 | 510 |
+
+Every row in the top-15 by source file is byte-identical across the two readings, so those files
+were not re-indexed in the window.
+
+⛔ **Attribution is NOT claimed.** I hold no per-file before-values for the edited files, and the full
+suite ran in the same window. The direction is what drain predicts; that is all this shows.

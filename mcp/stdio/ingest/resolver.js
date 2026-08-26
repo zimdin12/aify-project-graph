@@ -797,6 +797,21 @@ export function resolveRefs({ db, refs, importContext = null }) {
           unresolved.push(ref);
           continue;
         }
+        // ⚠ THE THIRD WAY TO CREATE AN External, AND IT CONSULTS NO GATE — checked 2026-08-26 while
+        // closing the re-binding hole, and deliberately left alone. This line takes ref.from_target
+        // straight to createExternalNode with no plausibility check, and the target side below
+        // short-circuits the gate the same way (`symbolicChain || shouldMaterializeExternal`).
+        //
+        // ⭐ MEASURED before deciding: ZERO External nodes in this repository's graph appear as the
+        // from_id of any edge at all, so this line has produced nothing here. The control that makes
+        // that zero readable is in the same measurement — the symbolic-chain relations do reach
+        // External nodes 5,976 times on the TARGET side, so the relation set is very much in use.
+        //
+        // ⇒ No evidence, so no speculative guard — the same call already made for the importer's
+        // upsertExternalNode. Recorded rather than fixed so the next reader neither overlooks it nor
+        // hardens a path with no product. A repo whose framework refs fail to resolve their owner
+        // would exercise it, and this note is what to check first if fragments ever appear as
+        // sources.
         const sourceExternal = createExternalNode(ref, ref.from_target);
         registerNode(sourceExternal);
         fromId = sourceExternal.id;

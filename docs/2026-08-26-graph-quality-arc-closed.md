@@ -63,7 +63,14 @@ Seven hypotheses died. Each cost less than the work it prevented.
    withdrawn. The replacement hypothesis — that incremental runs re-mint them from carried-forward
    refs — failed too: 814 of the 818 implausible carried targets are `IMPORTS`, which never
    materialise as External nodes, and are module specifiers rather than fragments. Only 4 are
-   `CALLS`. The verdict now claims no cause and states only what is measured.
+   `CALLS`. The verdict claimed no cause and stated only what is measured.
+
+   **RESOLVED the same day, in `c0dae75`.** Declining to guess was right, and the answer came
+   from a different question — not *where did these come from* but *what path reaches them*.
+   Refs **re-bound** to fragments already in the graph, because the creation guard is consulted
+   only when `resolveTarget` finds nothing and `buildResolvers` queries nodes with no type
+   restriction. That refreshed their edges and starved the orphan sweep. See
+   `docs/2026-08-26-a-gate-on-creation-is-not-a-gate-on-the-edge.md`.
 
 ---
 

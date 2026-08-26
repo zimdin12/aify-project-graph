@@ -681,25 +681,33 @@ export async function graphHealth({ repoRoot }) {
     const tail = census.length - Math.min(TOP, census.length);
     verdicts.push(`POPULATION: ${census.length} node types — ${shown}${tail > 0 ? ` · +${tail} more` : ''}`);
 
-    // ⛔ GARBAGE THAT ONLY A FULL REBUILD CLEARS, and nothing said so.
+    // ⛔ GARBAGE A REBUILD CLEARS AT ONCE, and nothing said so.
     //
     // Some External nodes carry parse-fragment labels — `entries()]`, `replace(/g,`,
-    // `join(dirOf(docPath),`. A guard now refuses to create them, and incremental reindexing does
-    // not remove the ones already present.
+    // `join(dirOf(docPath),`. A guard refuses to create them.
     //
-    // ⛔ NO CAUSE IS CLAIMED, AND THAT IS DELIBERATE. Two explanations were tested and BOTH failed:
-    //   · "an older extractor left them" — asserted first, never substantiated. It shipped in this
-    //     message and was withdrawn.
-    //   · "incremental runs re-mint them from carried-forward unresolved refs" — the carry-forward
-    //     list holds 818 implausible targets, but 814 are IMPORTS, which never materialise as
-    //     External nodes at all, and they are module specifiers like `node:fs/promises` rather than
-    //     fragments. Only 4 are CALLS. That cannot account for 334.
+    // ⭐ THE CAUSE IS NOW ESTABLISHED, AND THIS COMMENT USED TO SAY IT WAS NOT. Two explanations were
+    // tested and both failed ("an older extractor left them"; "incremental runs re-mint them from
+    // carried-forward refs" — 814 of 818 implausible carried targets are IMPORTS, which never
+    // materialise as External nodes). Declining to guess was right, and the third answer came from a
+    // different question — not *where did these come from* but *what path reaches them*:
     //
-    // ⇒ A mechanism that WOULD explain the number is not thereby the mechanism. What is measured:
-    // they exist, they can never resolve, and a full rebuild of the same commit produces none. The
-    // message says exactly that and no more.
+    //   resolveRefs consulted the creation guard ONLY when resolveTarget found nothing, and
+    //   buildResolvers queries the nodes table with no type restriction. So refs RE-BOUND to
+    //   fragments already present, which refreshed their edges, which starved the orphan sweep.
+    //   The residue was self-perpetuating, and a fragment was stickier than a legitimate node.
     //
-    // ⭐ MEASURED with the guard held constant on both sides, so the comparison isolates one
+    // Closed in c0dae75, proven through the real pipeline with the resolver as the only variable.
+    // See docs/2026-08-26-a-gate-on-creation-is-not-a-gate-on-the-edge.md.
+    //
+    // ⇒ AND THAT FIX FALSIFIED WHAT THIS COMMENT AND THE MESSAGE BELOW BOTH CLAIMED — that
+    // incremental reindexing does not remove them. It now does, as each referencing file is next
+    // re-indexed. Verified true is not verified forever: changing behaviour means re-reading every
+    // claim about that behaviour, not only the tests.
+    //
+    // ⭐ MEASURED 2026-08-26, BEFORE c0dae75 — a dated reading, not a live one, and the numbers have
+    // since moved as the residue drains (1,097 / 329 later the same day). With the guard held
+    // constant on both sides, so the comparison isolates one
     // variable: this repository's incrementally-maintained graph held 1,104 External nodes with 334
     // fragment labels, while a FULL REBUILD of the same commit produced 769 with ZERO. 338 nodes
     // existed only because the graph had been maintained incrementally, and 334 of those were
