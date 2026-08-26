@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
 import { resolveImportSpecifier, probeWithExtensions } from './import-resolution.js';
 import { COMMON_NAMES } from './denylist.js';
+import { admitExternalEdge, refusalRecord, ADMIT } from './external-admission.js';
+
+// Re-exported so existing importers keep one source of truth for the shape predicate.
+export { isPlausibleExternalName } from './external-admission.js';
 
 function parseExtra(node) {
   if (!node?.extra) return {};
@@ -294,11 +298,19 @@ function buildResolvers(db) {
     }
   }
 
+  // ⛔ AN External IS AN UNRESOLVED TERMINAL, NOT DECLARATION EVIDENCE, so it must never compete in
+  // the same candidate pool as a File/Function/Method/Class node. Every row-returning lookup funnels
+  // through here, which is why the exclusion lives here and not at a call site: a bind-site check
+  // leaves every future lookup branch able to return an External before policy runs, which is the
+  // defect being closed.
+  //
+  // The dedicated External lookup is findExternalCandidate below.
   function mergeRows(dbRows = [], extraRows = []) {
     const out = [];
     const seen = new Set();
     for (const row of [...dbRows, ...extraRows]) {
       if (!row?.id || seen.has(row.id)) continue;
+      if (row.type === 'External') continue;
       seen.add(row.id);
       out.push(row);
     }
@@ -306,6 +318,27 @@ function buildResolvers(db) {
   }
 
   return {
+    // ⛔ THE DEDICATED EXTERNAL LOOKUP — the only way an External reaches a binding decision now that
+    // mergeRows excludes them from ordinary resolution.
+    //
+    // ⚠ IT REUSES rather than re-mints, and that matters for identity. The code-intel importer
+    // creates External nodes with qname-derived ids while the tree-sitter path derives them from
+    // family+label, so "filter External out, then always call createExternalNode" would fork one
+    // real target into two stubs and throw away the higher-provenance one. Matching on the label the
+    // ref actually carries finds whichever already exists.
+    findExternalCandidate(ref) {
+      const label = normalizeExternalTarget(ref?.target);
+      if (!label) return null;
+      const pending = (pendingByLabel.get(label) ?? []).filter((n) => n.type === 'External');
+      const stored = normalizeRows(findByLabel.all(label)).filter((n) => n.type === 'External');
+      const family = refLanguageFamily(ref);
+      const all = [...pending, ...stored];
+      if (all.length === 0) return null;
+      // Prefer a candidate whose language family matches the ref, so a PHP `catch` terminal is not
+      // handed to a JavaScript ref. Falls back to any, because a wrong REUSE is a shared stub while
+      // a wrong MINT is a duplicate identity, and the former is the recoverable one.
+      return all.find((n) => languageFamily(n.language) === family) ?? all[0];
+    },
     findByExactQname(candidate) {
       return mergeRows(
         normalizeRows(findByExactQname.all(candidate)),
@@ -604,39 +637,6 @@ function normalizeExternalTarget(target) {
     .replace(/^["'<]+|[>"']+$/g, '');
 }
 
-// ⛔ A NAME, OR NOTHING. Nothing checked that a materialised External LOOKED like a symbol, so when
-// a parser handed back a fragment the graph grew a node labelled `entries()]`, `replace(/\\/g,` or
-// `join(dirOf(docPath),`. Measured on this repository: 329 of 1,104 External nodes — 29.8% — were
-// fragments of that shape, about 5% of every labelled node in the graph.
-//
-// Those nodes are pure noise. Nothing can ever resolve to them, no edge to one is a real call, they
-// appear in searches and censuses, and they were the bulk of the AMBIGUOUS tier's damage: 23.3% of
-// sampled AMBIGUOUS CALLS edges pointed at one.
-//
-// ⚠ THE RULE IS DERIVED FROM THE OBSERVED POPULATION, not invented. Applied to the 1,104 existing
-// External labels it accepts 775 — `slice`, `readFileSync`, `Map`, `createGraph` — and rejects 329,
-// every one a fragment. Separators that appear in real names are allowed: `.` and `::` for members,
-// `\` for PHP namespaces, `-` for CSS-ish identifiers, `@` for scoped packages.
-//
-// ⚠ REFUSING IS NOT LOSING. The ref stays in the unresolved list, which is the honest record. A node
-// labelled `entries()]` is not more information than an unresolved ref; it is less, because it looks
-// like a finding.
-const PLAUSIBLE_EXTERNAL = /^[A-Za-z_$@\\][A-Za-z0-9_$@\\.:-]*$/;
-
-export function isPlausibleExternalName(label) {
-  return PLAUSIBLE_EXTERNAL.test(String(label ?? ''));
-}
-
-// ⛔ A KEYWORD IS NOT A CALLEE — BUT ONLY IN THE LANGUAGE THAT RESERVES IT.
-//
-// Measured on this repository with a control (`readFileSync` returns 119, so the query can find
-// real callees): 100 of 11,350 CALLS edges — 0.88% — target an External node labelled `new` (94) or
-// `catch` (6). Every one is JavaScript-source. Nothing calls `new`; the extractor read `new Foo()`
-// and `catch (e)` as call sites. `graph_callers("new")` would confidently return 94 callers.
-//
-// They survive the shape check above because `new` IS a valid identifier shape, and they are not in
-// COMMON_NAMES (verified: `new`=false, `catch`=false).
-//
 // ⛔⛔ WITHDRAWN 2026-08-26 AFTER REVIEW: THE RESERVED-CALLEE RULE WAS FALSE, AND IT DELETED REAL EDGES.
 //
 // A guard here refused a language's reserved words as callees ("nothing calls `new`"). An outside
@@ -657,42 +657,10 @@ export function isPlausibleExternalName(label) {
 // distinction exists only where the syntax does, in the extractor. Any future attempt belongs there,
 // never in a predicate over a stripped label.
 
-// Decide whether an unresolved ref should be materialized as an External
-// terminal node or left in dirtyEdges. Dev's rule (from design discussion):
-//  - CALLS: always materialize. Terminal hop in trace output.
-//  - PASSES_THROUGH: always materialize. Middleware / framework hops are part
-//    of the execution story even when the implementation lives outside repo.
-//  - USES_TYPE: always materialize. High-signal; DI targets, facade classes,
-//    etc. are real dependencies even if the framework source is excluded.
-//  - REFERENCES: materialize only when target is clearly type-like to avoid
-//    flooding with bare-name noise. "Type-like" = has a namespace/class
-//    separator (\, ., ::) or starts with an uppercase segment.
-//  - Other relations: leave dirty.
-// Also skips COMMON_NAMES (close/open/get/etc.) to prevent hundreds of
-// External nodes all labeled "get".
-function shouldMaterializeExternal(ref) {
-  if (!ref.from_id || !ref.target) return false;
-  const label = normalizeExternalTarget(ref.target);
-  if (!label) return false;
-  // ⛔ A SHAPE POLICY FOR CREATION, NOT A TRUTH ABOUT THE LABEL — and the difference is why the
-  // reserved-word half of this was withdrawn. See PLAUSIBLE_EXTERNAL: it is an ASCII pattern derived
-  // from THIS repository's observed fragments, and review showed it also rejects `operator()`,
-  // `save!`, `empty?`, `café`, `#private` and `@scope/pkg`. Declining to MINT a stub for those is a
-  // tolerable cost, because the ref survives in `unresolved`; refusing an EDGE on the same pattern is
-  // not, because that deletes evidence. So it stays here at creation and nowhere else.
-  if (!isPlausibleExternalName(label)) return false;
-  if (COMMON_NAMES.has(label)) return false;
-  if (ref.relation === 'CALLS') return true;
-  if (ref.relation === 'PASSES_THROUGH') return true;
-  if (ref.relation === 'USES_TYPE') return true;
-  if (ref.relation === 'REFERENCES') {
-    if (/[\\.]|::/.test(label)) return true;
-    const firstSeg = label.split(/[\\.::]/)[0] ?? '';
-    if (firstSeg && firstSeg[0] >= 'A' && firstSeg[0] <= 'Z') return true;
-    return false;
-  }
-  return false;
-}
+// ⛔ shouldMaterializeExternal WAS DELETED HERE. Its policy now lives in ONE place,
+// external-admission.js, because the defect it was part of was not where the gate sat but that a
+// SECOND door existed at all. Leaving a dead predicate beside the live one is how two rules that
+// must agree stop agreeing.
 
 function createExternalNode(ref, rawTarget = ref.target) {
   const label = normalizeExternalTarget(rawTarget);
@@ -812,30 +780,26 @@ export function resolveRefs({ db, refs, importContext = null }) {
       continue;
     }
 
-    // ⛔⛔ THE RE-BINDING GATE THAT STOOD HERE WAS REVERTED 2026-08-26 AFTER REVIEW.
+    // ⛔ CONCRETE FIRST, THEN ONE ADMISSION DOOR FOR EVERYTHING EXTERNAL.
     //
-    // The defect it addressed is real and still open: shouldMaterializeExternal governs CREATION,
-    // but buildResolvers queries `nodes` with no type restriction, so a ref can bind to an External
-    // that already exists and no admission rule runs at all. Demonstrated two ways —
-    //   · a parse fragment (`execFileSync('git',`) survives re-index by re-binding, which made the
-    //     residue self-perpetuating and stickier than a legitimate node;
-    //   · a REFERENCES ref to a bare lowercase name gets 0 edges with no pre-existing External and
-    //     1 edge when the stub is already there, so pre-existence ELEVATES a ref that policy refuses.
-    //
-    // ⛒ THE FIX WAS WRONG EVEN THOUGH THE DEFECT IS REAL. It refused edges using a label pattern
-    // presented as a universal truth, and that pattern rejects `operator()`, `save!`, `#private` and
-    // `@scope/pkg`. On this path a wrong rejection DELETES A REAL EDGE — the exact failure mode
-    // preregistered as worse than the one being fixed. Reverting restores the known defect in place
-    // of an unbounded one.
-    //
-    // ⇒ The successor must define ONE admission policy for External-bound edges covering creation and
-    // binding together, and must not decide it from a stripped label. Recorded in
-    // docs/2026-08-26-a-gate-on-creation-is-not-a-gate-on-the-edge.md.
+    // resolveTarget can no longer return an External at all (mergeRows filters them), so a real
+    // first-party declaration always wins over a same-leaf terminal, and no future lookup branch can
+    // accidentally hand back a stub before policy runs. That is the structural half of the fix: the
+    // previous defect was not that the gate was in the wrong place, it was that a second door
+    // existed at all.
     const targetNode = resolveTarget(ref, resolvers, importContext);
     if (!targetNode) {
-      if (symbolicChain || shouldMaterializeExternal(ref)) {
-        const externalNode = createExternalNode(ref);
-        registerNode(externalNode);
+      // A symbolic chain names its own source and is exempt from admission, unchanged — see
+      // SYMBOLIC_CHAIN_RELATIONS. Everything else crosses admitExternalEdge exactly once, whether it
+      // reuses a terminal that exists or mints one.
+      const candidate = symbolicChain ? null : resolvers.findExternalCandidate(ref);
+      const { decision, reason } = symbolicChain
+        ? { decision: ADMIT, reason: 'symbolic-chain' }
+        : admitExternalEdge({ ref, candidate });
+
+      if (decision === ADMIT) {
+        const externalNode = candidate ?? createExternalNode(ref);
+        if (!candidate) registerNode(externalNode);
         edges.push({
           from_id: fromId,
           to_id: externalNode.id,
@@ -848,15 +812,17 @@ export function resolveRefs({ db, refs, importContext = null }) {
         });
         continue;
       }
-      // Local-scope REFERENCES filter: bare lowercase single-token targets
-      // whose label doesn't exist anywhere in the graph are almost certainly
-      // local variables / parameters, not cross-scope references. They'd be
-      // dropped from edges by the materialization guard above anyway — we
-      // just also skip adding them to unresolved so they don't inflate the
-      // trust=weak / unresolved-edges count with noise that will never be
-      // fixable. Measured on lc-api: 425/500 unresolved refs were this
-      // shape; on apg: 60/500. Dropping them honestly reports what's
-      // actually actionable.
+
+      // Local-scope REFERENCES filter: bare lowercase single-token targets whose label doesn't exist
+      // anywhere in the graph are almost certainly local variables / parameters, not cross-scope
+      // references. Dropping them from `unresolved` too keeps the trust=weak count honest rather
+      // than inflating it with noise that will never be fixable. Measured on lc-api: 425/500
+      // unresolved refs were this shape; on apg: 60/500.
+      //
+      // ⚠ `findByLabel` no longer sees External nodes, which SHARPENS this rather than changing its
+      // intent: a fabricated stub named after a property access used to make a local variable look
+      // resolvable. The extractor fix in e9ec81a demonstrated exactly that, where removing bogus
+      // terminals dropped 514 REFERENCES the filter should always have caught.
       if (
         ref.relation === 'REFERENCES'
         && /^[a-z][a-zA-Z0-9_]*$/.test(ref.target ?? '')
@@ -864,7 +830,10 @@ export function resolveRefs({ db, refs, importContext = null }) {
       ) {
         continue;
       }
-      unresolved.push(ref);
+      // ⛔ A REFUSAL IS EVIDENCE AND MUST SURVIVE. Nothing here may turn REFUSE into a silent
+      // absence — an edge that was refused for a stated reason is a different fact from one that was
+      // never considered.
+      unresolved.push(refusalRecord(ref, reason));
       continue;
     }
 
