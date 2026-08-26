@@ -30,6 +30,54 @@ import { prepareCompileDb } from '../code-intel/compile-db.js';
 
 const LSP_PROVENANCE = 'LSP_VERIFIED';
 
+// ⛔ CONFIDENCE IS NOT AN EVIDENCE TIER, AND SORTING BY IT INVERTED THE TIERS. Measured on click:
+//
+//     EXTRACTED     n=10976   conf 0.75..1.00  (avg 0.933)
+//     LSP_VERIFIED  n=1460    conf 0.95..0.95  (avg 0.950)
+//     AMBIGUOUS     n=1145    conf 0.75..0.95  (avg 0.930)
+//
+// The ranges OVERLAP and the averages are indistinguishable, so `ORDER BY confidence DESC LIMIT n`
+// ranks a heuristic edge exactly as highly as a compiler-verified one — the whole set ties at 0.95
+// and SQLite breaks the tie arbitrarily.
+//
+// ⛔ THE CONSEQUENCE, ON THE VERB THAT ANSWERS "IS THIS SAFE TO CHANGE":
+// `graph_preflight("Context")` rendered five EXTRACTED callers, all from test files, while 124
+// LSP_VERIFIED callers existed on that same symbol in that same graph. The verified evidence was
+// not missing — it lost a coin toss and was never shown.
+//
+// ⇒ Rank by TIER first, confidence second. One owner for the order, and the SQL is GENERATED from
+// it rather than restated as a CASE a maintainer must remember to update in two languages.
+const PROVENANCE_RANK = Object.freeze({
+  LSP_VERIFIED: 3,   // compiler ground truth
+  EXTRACTED: 2,      // the AST said so
+  INFERRED: 1,       // framework synthesis
+  AMBIGUOUS: 1,      // heuristic name resolution — several candidates matched
+});
+
+// ⚠ UNKNOWN SORTS LAST, NOT FIRST. A provenance this build has never heard of is not promoted above
+// evidence we can vouch for; the fail-closed direction is the one that cannot manufacture trust.
+export function provenanceRank(p) {
+  return PROVENANCE_RANK[p] ?? 0;
+}
+
+/**
+ * SQL expression ranking a provenance column, generated from `PROVENANCE_RANK` above.
+ *
+ * ⚠ The column name is interpolated, so it must be a literal from our own source — never a value
+ * that reached us from a caller. Every current call site passes a hardcoded `e.provenance`.
+ *
+ * Use as: `ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC`
+ */
+export function provenanceRankSql(column) {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/.test(column)) {
+    throw new Error(`provenanceRankSql: refusing to interpolate ${JSON.stringify(column)}`);
+  }
+  const cases = Object.entries(PROVENANCE_RANK)
+    .map(([name, rank]) => `WHEN '${name}' THEN ${rank}`)
+    .join(' ');
+  return `(CASE ${column} ${cases} ELSE 0 END)`;
+}
+
 // True if any edge in the result is clangd ground truth.
 export function hasLspVerifiedEdge(edges = []) {
   return edges.some((e) => e?.provenance === LSP_PROVENANCE);

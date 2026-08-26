@@ -4,7 +4,8 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, provenanceRankSql } from '../lsp-evidence.js';
+import { renderProvenanceTag } from '../renderer.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { missScopeNote } from '../miss-scope.js';
 
@@ -41,12 +42,18 @@ export async function graphPreflight({ repoRoot, symbol }) {
       { id: node.id }
     ).c;
 
-    // 3. Top 5 callers with labels
+    // 3. Top 5 callers with labels.
+    //
+    // ⛔ TIER FIRST, CONFIDENCE SECOND. Ordering by confidence alone showed five EXTRACTED callers,
+    // all from test files, for the symbol Context — while 124 LSP_VERIFIED callers existed on that
+    // same symbol in that same graph. Every candidate ties at conf=0.95, so the tie-break was
+    // arbitrary and the compiler-verified evidence simply lost it. On the verb that answers "is this
+    // safe to change", the strongest evidence available has to be the evidence shown.
     const topCallers = db.all(
       `SELECT n.label, n.file_path, e.source_line, e.relation, e.confidence, e.provenance
        FROM edges e JOIN nodes n ON n.id = e.from_id
        WHERE e.to_id = $id AND e.relation IN ('CALLS','REFERENCES','INVOKES','PASSES_THROUGH')
-       ORDER BY e.confidence DESC LIMIT 5`,
+       ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT 5`,
       { id: node.id }
     );
 
@@ -127,7 +134,10 @@ export async function graphPreflight({ repoRoot, symbol }) {
     // Callers
     lines.push(`CALLERS ${callerCount} total${topCallers.length > 0 ? ' (top 5):' : ''}`);
     for (const c of topCallers) {
-      lines.push(`  ${c.label} ${c.relation} ${c.file_path}:${c.source_line} conf=${Number(c.confidence ?? 1).toFixed(2)}`);
+      // ⛔ THE ROW ALREADY CARRIED `provenance` AND THE RENDERER THREW IT AWAY. Selected on line 46,
+      // dropped here — so a heuristic caller and a compiler-verified one printed as the same string.
+      // Eight verbs route through the shared tag; this one hand-rolled its line and lost it.
+      lines.push(`  ${c.label} ${c.relation} ${c.file_path}:${c.source_line} conf=${Number(c.confidence ?? 1).toFixed(2)}${renderProvenanceTag(c.provenance)}`);
     }
     lines.push('');
 

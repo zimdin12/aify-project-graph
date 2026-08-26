@@ -36,7 +36,7 @@ export function renderNodeLine(n) {
 // marker `[lsp✓]` so an agent can tell verified edges from heuristic ones at
 // a glance — even in compact mode, where EXTRACTED is silenced for terseness.
 const LSP_VERIFIED_MARKER = '[lsp✓]';
-function renderProvenanceTag(p) {
+export function renderProvenanceTag(p) {
   if (!p || p === 'EXTRACTED') return '';
   if (p === 'LSP_VERIFIED') return ` ${LSP_VERIFIED_MARKER}`;
   return ` prov=${p}`;

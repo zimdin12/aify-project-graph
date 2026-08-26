@@ -2,6 +2,8 @@ import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { normalizePathArg } from '../../util/paths.js';
+import { provenanceRankSql } from '../lsp-evidence.js';
+import { renderProvenanceTag } from '../renderer.js';
 
 /**
  * Everything about one file in a single call.
@@ -84,13 +86,13 @@ function graphFileInner(db, fileNode, top_k) {
        JOIN nodes t ON t.id = e.to_id
        WHERE e.to_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH')
        AND n.file_path != $path
-       ORDER BY e.confidence DESC LIMIT $limit`,
+       ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT $limit`,
       { ...params, path: fileNode.file_path }
     );
     if (incoming.length > 0) {
       lines.push(`CALLED BY ${incoming.length} external edges:`);
       for (const e of incoming) {
-        lines.push(`  ${e.from_label ?? '?'} -> ${e.to_label ?? '?'} ${e.relation} ${e.from_file}:${e.source_line} conf=${Number(e.confidence ?? 1).toFixed(2)}`);
+        lines.push(`  ${e.from_label ?? '?'} -> ${e.to_label ?? '?'} ${e.relation} ${e.from_file}:${e.source_line} conf=${Number(e.confidence ?? 1).toFixed(2)}${renderProvenanceTag(e.provenance)}`);
       }
     }
 
@@ -102,13 +104,13 @@ function graphFileInner(db, fileNode, top_k) {
        JOIN nodes t ON t.id = e.from_id
        WHERE e.from_id IN (${placeholders}) AND e.relation IN ('CALLS', 'REFERENCES', 'INVOKES', 'PASSES_THROUGH')
        AND n.file_path != $path
-       ORDER BY e.confidence DESC LIMIT $limit`,
+       ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT $limit`,
       { ...params, path: fileNode.file_path }
     );
     if (outgoing.length > 0) {
       lines.push(`CALLS OUT ${outgoing.length} external edges:`);
       for (const e of outgoing) {
-        lines.push(`  ${e.from_label ?? '?'} -> ${e.to_label ?? '?'} ${e.relation} ${e.to_file}:${e.source_line} conf=${Number(e.confidence ?? 1).toFixed(2)}`);
+        lines.push(`  ${e.from_label ?? '?'} -> ${e.to_label ?? '?'} ${e.relation} ${e.to_file}:${e.source_line} conf=${Number(e.confidence ?? 1).toFixed(2)}${renderProvenanceTag(e.provenance)}`);
       }
     }
   }
