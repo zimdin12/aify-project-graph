@@ -1,6 +1,6 @@
 ---
 name: graph-pull-context
-description: Use when the user asks for everything connected to a file, feature, task, or symbol. Wraps `graph_pull` with intent-based layer selection and turns the JSON into a short cross-layer summary plus a read-next list.
+description: "Use before changing a file, feature or task you did not write — when you need to know what ELSE is attached to it: the open task nobody mentioned, the contract it is named in, the feature it belongs to. Answers the question and says plainly when the answer is thin."
 ---
 
 # What else is attached to this?

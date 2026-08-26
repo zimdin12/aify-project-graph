@@ -5,6 +5,25 @@
 // preserving each runtime's own YAML frontmatter (which may legitimately differ
 // in quoting or runtime-specific fields).
 //
+// ⛔ THE DESCRIPTION IS SYNCED TOO, BECAUSE IT IS NOT DECORATION — IT IS THE REACH SURFACE.
+//
+// An agent reads the description to decide whether to invoke the skill at all, so a better
+// description IS the feature. Preserving it per runtime meant every improvement stranded in the
+// canonical tree, and `--check` reported "skills in sync" while it had:
+//
+//     graph-anchor-drift   claude-code names the failure mode ("reports NOTHING GOVERNS THIS —
+//                          the answer looks the same as a genuinely unowned file"); the other
+//                          three carried the older generic text
+//     graph-pull-context   same shape
+//
+// So codex, cursor and hermes agents were deciding whether to invoke these skills from the WEAKER
+// text, and the checker was structurally unable to say so.
+//
+// ⚠ MEASURED BEFORE CHANGING IT: across all four trees the ONLY frontmatter keys are `name` and
+// `description` — the "runtime-specific fields" the rationale above protects do not exist today.
+// Quoting differences are real, so the canonical description LINE is written verbatim, which makes
+// quoting canonical too and removes one more axis of drift.
+//
 // Pairs with tests/unit/integrations/skill-parity.test.js — when that test
 // fails on body drift, run this. Idempotent.
 //
@@ -20,6 +39,32 @@ const CANONICAL = 'claude-code';
 const TARGETS = ['codex', 'cursor', 'hermes'];
 
 const FRONTMATTER = /^---\n[\s\S]*?\n---\n/;
+
+// ⚠ EVERY shipped description is a single line — verified across all 68 (4 runtimes x 17 docs)
+// before this was written. A YAML block scalar or a wrapped value would silently defeat a
+// line-based swap, so this returns null for anything that is not one line and the caller reports
+// it rather than mangling the file.
+function descriptionLine(frontmatter) {
+  const lines = frontmatter.split('\n');
+  const index = lines.findIndex((l) => /^description:/.test(l));
+  if (index < 0) return null;
+  if (/^description:\s*[|>]/.test(lines[index])) return null;  // block scalar
+  if (/^\s+\S/.test(lines[index + 1] ?? '')) return null;      // wrapped continuation line
+  return { index, text: lines[index], lines };
+}
+
+// Replace the target's description line with the canonical one. Returns the frontmatter unchanged
+// when they already agree, and null when either side is not a simple single-line description —
+// never a partial edit.
+function withCanonicalDescription(targetFm, canonicalFm) {
+  const canon = descriptionLine(canonicalFm);
+  const mine = descriptionLine(targetFm);
+  if (!canon || !mine) return null;
+  if (mine.text === canon.text) return targetFm;
+  const lines = [...mine.lines];
+  lines[mine.index] = canon.text;
+  return lines.join('\n');
+}
 
 const splitDoc = (text) => {
   const normalized = text.replace(/\r\n/g, '\n');
@@ -39,7 +84,8 @@ const check = process.argv.includes('--check');
 const drifted = [];
 
 for (const rel of docs) {
-  const canonicalBody = splitDoc(readFileSync(join(INTEGRATIONS, CANONICAL, rel), 'utf8')).body;
+  const canonicalDoc = splitDoc(readFileSync(join(INTEGRATIONS, CANONICAL, rel), 'utf8'));
+  const canonicalBody = canonicalDoc.body;
   for (const runtime of TARGETS) {
     const path = join(INTEGRATIONS, runtime, rel);
     if (!existsSync(path)) {
@@ -56,10 +102,17 @@ for (const rel of docs) {
     }
     const current = readFileSync(path, 'utf8');
     const { frontmatter, body } = splitDoc(current);
-    if (body === canonicalBody && current === frontmatter + body) continue;
+    const synced = withCanonicalDescription(frontmatter, canonicalDoc.frontmatter);
+    if (synced === null) {
+      // Not a simple single-line description on one side or the other. Report rather than edit —
+      // a partial frontmatter rewrite is worse than a named refusal.
+      drifted.push(`${runtime}/${rel} (DESCRIPTION NOT SINGLE-LINE — fix by hand)`);
+      continue;
+    }
+    if (body === canonicalBody && current === synced + body) continue;
 
-    drifted.push(`${runtime}/${rel}`);
-    if (!check) writeFileSync(path, frontmatter + canonicalBody, 'utf8');
+    drifted.push(`${runtime}/${rel}${synced !== frontmatter ? ' (description)' : ''}`);
+    if (!check) writeFileSync(path, synced + canonicalBody, 'utf8');
   }
 }
 

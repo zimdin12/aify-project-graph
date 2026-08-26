@@ -1,6 +1,6 @@
 ---
 name: graph-build-briefs
-description: "Use when the user wants to regenerate the brief files (`.aify-graph/brief.{md,agent.md,onboard.md,plan.md,json}`) and unresolved categorization WITHOUT re-indexing the code graph or proposing functionality changes. Common case: user hand-edited `functionality.json` or `tasks.json` and wants briefs to reflect the change. Also fine after a `graph_index(force=true)` when you want fresh briefs immediately."
+description: Use when the user wants to regenerate the brief files (`.aify-graph/brief.{md,agent.md,onboard.md,plan.md,json}`) and unresolved categorization WITHOUT re-indexing the code graph or proposing functionality changes. Common case: user hand-edited `functionality.json` or `tasks.json` and wants briefs to reflect the change. Also fine after a `graph_index(force=true)` when you want fresh briefs immediately.
 ---
 
 # You changed the overlay and the briefs still say the old thing

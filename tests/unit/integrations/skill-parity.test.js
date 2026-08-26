@@ -8,6 +8,19 @@
 // These are cheap structural guards so a hand-edit to one tree can't silently
 // ship three stale copies. Frontmatter is allowed to differ per runtime
 // (quoting style, runtime-specific fields); the BODY is the contract.
+//
+// ⛔ 2026-08-26 — AND THAT EXEMPTION HID THE ONE FIELD THAT DECIDES ADOPTION.
+//
+// `description` lives in the frontmatter, and an agent reads it to decide whether to invoke the
+// skill AT ALL. Exempting it meant every description improvement stranded in the canonical tree
+// while `sync-skills.mjs --check` reported "skills in sync" and exited 0. Measured: 3 of 16 skills
+// carried a materially better description in claude-code than in codex/cursor/hermes —
+// graph-anchor-drift and graph-pull-context had been rewritten to name their failure mode, and the
+// other three trees still shipped the older generic text.
+//
+// ⇒ THE BODY IS NOT THE ONLY CONTRACT. The description is the reach surface, so it is asserted
+// here too. Genuinely runtime-specific frontmatter stays exempt — measured across all four trees,
+// the only keys in use are `name` and `description`.
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -131,5 +144,61 @@ describe('shipped integration skills', () => {
         expect(fm[1], `${rt}/${name} frontmatter description`).toMatch(/^description:\s*\S+/m);
       }
     }
+  });
+});
+
+// ⛔ THE REACH SURFACE. See the header: exempting `description` let improvements strand in the
+// canonical tree for as long as nobody diffed by hand.
+describe('the description is synced too, not just the body', () => {
+  // Every shipped doc: the top-level skill plus one per skills/<name>/.
+  const shippedDocs = () => ['skill/SKILL.md', ...skillNames().map((n) => `skills/${n}/SKILL.md`)];
+
+  const descriptionOf = (text) => {
+    const m = /^---\n([\s\S]*?)\n---\n/.exec(text);
+    if (!m) return null;
+    const line = m[1].split('\n').find((l) => /^description:/.test(l));
+    if (!line) return null;
+    // Compare the VALUE, not the line: quoting style is a legitimate per-runtime difference and
+    // asserting on it would fail for a reason that does not affect a single agent.
+    return line.replace(/^description:\s*/, '').replace(/^["']|["']$/g, '').trim();
+  };
+
+  it('⭐ POSITIVE CONTROL: every shipped doc HAS a single-line description', () => {
+    // Without this the comparison below is satisfied by null === null on every pair.
+    let found = 0;
+    for (const runtime of RUNTIMES) {
+      for (const rel of shippedDocs()) {
+        const path = join(INTEGRATIONS, runtime, rel);
+        if (!existsSync(path)) continue;
+        const d = descriptionOf(readNormalized(path));
+        expect(d, `${runtime}/${rel} has no usable description`).toBeTruthy();
+        found += 1;
+      }
+    }
+    expect(found, 'no docs examined — the enumeration is broken').toBeGreaterThan(40);
+  });
+
+  it('⛔ every runtime ships the SAME description as the canonical tree', () => {
+    const drifted = [];
+    for (const rel of shippedDocs()) {
+      const canon = descriptionOf(readNormalized(join(INTEGRATIONS, CANONICAL, rel)));
+      for (const runtime of RUNTIMES) {
+        if (runtime === CANONICAL) continue;
+        const path = join(INTEGRATIONS, runtime, rel);
+        if (!existsSync(path)) continue;
+        if (descriptionOf(readNormalized(path)) !== canon) drifted.push(`${runtime}/${rel}`);
+      }
+    }
+    expect(drifted, 'an agent decides whether to invoke a skill from its description, so a stale '
+      + 'one is a stale feature. Run: node scripts/sync-skills.mjs').toEqual([]);
+  });
+
+  it('⛔ QUOTING STYLE IS STILL ALLOWED TO DIFFER — the value is the contract', () => {
+    // Guards the fix from over-reaching. Asserting on the raw LINE would fail on quoting, which no
+    // agent can observe, and would make this test noisy for a difference that is not a difference.
+    const quoted = 'description: "a b c"';
+    const bare = 'description: a b c';
+    const value = (l) => l.replace(/^description:\s*/, '').replace(/^["']|["']$/g, '').trim();
+    expect(value(quoted)).toBe(value(bare));
   });
 });

@@ -1,6 +1,6 @@
 ---
 name: graph-anchor-drift
-description: Use when feature anchors may be stale after renames, moves, or deletes. Compares the current diff (or chosen git range) against `.aify-graph/functionality.json`, proposes targeted anchor fixes, and never writes without confirmation.
+description: "Use after renames, moves or deletes, or when a feature list comes back thinner than you expected. A feature whose anchors point at files that moved silently reports NOTHING GOVERNS THIS — the answer looks the same as a genuinely unowned file, and that is the expensive failure. Proposes evidence-backed fixes and never writes without confirmation."
 ---
 
 # When the feature map starts lying by omission
