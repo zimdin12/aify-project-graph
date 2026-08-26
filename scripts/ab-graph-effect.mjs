@@ -78,7 +78,7 @@ export function canonicalise(members) {
 
 // ── one arm, in its own disposable worktree ───────────────────────────────────
 
-function runArm({ repo, spec, arm, evidenceDir, subjectCommit }) {
+function runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain }) {
   // ⛔ THE ARM'S OWN DIRECTORY NAME IS PART OF THE INPUT, and naming it after the arm made the two
   // inputs different. Each arm indexes its own worktree, so the worktree ROOT becomes a Directory
   // node — and with `ab-A-...` / `ab-B-...` roots the comparison reported one node present only in
@@ -156,17 +156,26 @@ function runArm({ repo, spec, arm, evidenceDir, subjectCommit }) {
   if (payload) {
     const nodes = canonicalise(payload.nodes);
     const edges = canonicalise(payload.edges);
-    writeFileSync(join(evidenceDir, `arm-${arm.name}.nodes.txt`), nodes.text);
-    writeFileSync(join(evidenceDir, `arm-${arm.name}.edges.txt`), edges.text);
+    const keep = retain.has('membership');
+    if (keep) {
+      writeFileSync(join(evidenceDir, `arm-${arm.name}.nodes.txt`), nodes.text);
+      writeFileSync(join(evidenceDir, `arm-${arm.name}.edges.txt`), edges.text);
+    }
     membership = {
-      nodesFile: `arm-${arm.name}.nodes.txt`,
+      // ⚠ `retained: false` means the hash is what a RE-RUN must reproduce, not a file you can open.
+      // Saying which is the whole point; a hash that silently names nothing is the defect this
+      // policy exists to prevent.
+      retained: keep,
+      nodesFile: keep ? `arm-${arm.name}.nodes.txt` : null,
       nodesSha256: nodes.hash,
       nodesCount: nodes.count,
-      edgesFile: `arm-${arm.name}.edges.txt`,
+      edgesFile: keep ? `arm-${arm.name}.edges.txt` : null,
       edgesSha256: edges.hash,
       edgesCount: edges.count,
     };
   }
+  // The worker's intermediate duplicates the membership above; it is never the durable artifact.
+  rmSync(join(evidenceDir, `arm-${arm.name}.raw.json`), { force: true });
 
   return {
     name: arm.name,
@@ -230,6 +239,16 @@ function main(argv) {
   // ⚠ It is still written OUTSIDE the arm worktrees it describes, because those are disposed, and
   // the receipt is committed AFTER the run as a child of the subject — a receipt cannot sit inside
   // the tree it claims already contained it.
+  // ⛔ RETENTION IS A DECLARED POLICY, NOT AN ACCIDENT OF WHAT SURVIVED. Keeping everything would
+  // add ~15MB to a repository whose .git is 13MB and whose largest tracked artifact is 178KB — 40x
+  // any existing evidence file, for populations that are reproducible from the named subject by the
+  // committed harness. Keeping nothing repeats the defect this replaced, where a hash pointed at a
+  // temp path.
+  //
+  // ⇒ So the policy is explicit, and every artifact records whether it was RETAINED. A hash on a
+  // discarded file is still useful — it is what a re-run must reproduce — but the reader is told
+  // which it is rather than assuming a file is there.
+  const retain = new Set(spec.retain ?? ['diffs']);
   const durable = Boolean(spec.evidenceDir);
   const evidenceDir = durable
     ? resolve(repo, spec.evidenceDir)
@@ -239,7 +258,7 @@ function main(argv) {
   const arms = [];
   for (const arm of spec.arms) {
     process.stderr.write(`[ab] arm ${arm.name} …\n`);
-    arms.push(runArm({ repo, spec, arm, evidenceDir, subjectCommit }));
+    arms.push(runArm({ repo, spec, arm, evidenceDir, subjectCommit, retain }));
   }
 
   const failed = arms.filter((a) => a.failures.length > 0);
@@ -253,16 +272,20 @@ function main(argv) {
   if (comparison) {
     const onlyA = canonicalise(comparison.edges.onlyA);
     const onlyB = canonicalise(comparison.edges.onlyB);
-    writeFileSync(join(evidenceDir, 'edges-only-in-A.txt'), onlyA.text);
-    writeFileSync(join(evidenceDir, 'edges-only-in-B.txt'), onlyB.text);
+    const keepDiffs = retain.has('diffs');
+    if (keepDiffs) {
+      writeFileSync(join(evidenceDir, 'edges-only-in-A.txt'), onlyA.text);
+      writeFileSync(join(evidenceDir, 'edges-only-in-B.txt'), onlyB.text);
+    }
     diffEvidence = {
       nodesOnlyInA: comparison.nodes.onlyA.length,
       nodesOnlyInB: comparison.nodes.onlyB.length,
       edgesOnlyInA: onlyA.count,
       edgesOnlyInB: onlyB.count,
-      edgesOnlyInAFile: 'edges-only-in-A.txt',
+      retained: keepDiffs,
+      edgesOnlyInAFile: keepDiffs ? 'edges-only-in-A.txt' : null,
       edgesOnlyInASha256: onlyA.hash,
-      edgesOnlyInBFile: 'edges-only-in-B.txt',
+      edgesOnlyInBFile: keepDiffs ? 'edges-only-in-B.txt' : null,
       edgesOnlyInBSha256: onlyB.hash,
     };
   }
@@ -280,9 +303,13 @@ function main(argv) {
     heldFixed: 'both arms are detached worktrees of the SAME subject commit; only arm A carries the transport',
     evidenceDir: durable ? spec.evidenceDir : evidenceDir,
     // ⚠ SAY WHICH IT IS. A hash naming a file nobody kept is a claim, not evidence.
-    evidenceRetention: durable
-      ? 'retained alongside this receipt and committed with it'
-      : 'EPHEMERAL temp directory — the hashes are reproducible from the subject commit, the files are not retained',
+    evidenceRetention: {
+      policy: [...retain],
+      durableDirectory: durable,
+      note: durable
+        ? 'retained artifacts are committed with this receipt; a hash with retained:false is what a re-run must reproduce, not a file you can open'
+        : 'EPHEMERAL temp directory — nothing here is retained; every hash is a re-run target only',
+    },
     arms: arms.map(({ graph, ...rest }) => rest),
     comparison: diffEvidence,
     verdict: failed.length > 0 ? 'INVALID — an arm failed its own checks' : 'measured',
