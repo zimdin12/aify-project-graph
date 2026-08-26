@@ -125,7 +125,12 @@ function callersOf(db, name, declaredIn, editedFiles) {
   // ⚠ THAT 19 IS NO LONGER TRUE AND THE CORRECTION MATTERS, because 19 reads as "this rule is dead"
   // and would stop a reader from ever enabling it. Re-measured 2026-08-26 on this repository:
   //
-  //         EXTRACTED     12433      LSP_VERIFIED   2379  (15.5%)      AMBIGUOUS   555
+  //         EXTRACTED     12433      LSP_VERIFIED   2379  (15.4%)      AMBIGUOUS   555
+  //
+  // ⚠ DATED, because the last figure here went stale and read as a verdict. This one was taken on
+  // 2026-08-26 and the share moves with every reindex and every collection. Re-derive it with
+  // `node scripts/measure-hook-fire-rate.mjs`, which reports it beside the fire rate for exactly
+  // this reason, rather than quoting the number above.
   //
   // ⛔⛔ AND THE FIGURE DEPENDS ENTIRELY ON WHETHER A COLLECTION HAS RUN, not on the code. Measured
   // by executing it: a FRESHLY INDEXED graph of this same repository holds 12,837 EXTRACTED, 1,230
