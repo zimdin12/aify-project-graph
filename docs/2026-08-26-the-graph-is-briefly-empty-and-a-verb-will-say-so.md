@@ -168,3 +168,82 @@ Evidence: 11 tests, 8 mutants killed across both rounds. Full suite green — 38
 4 skipped, exit 0, 510s. The remaining 15 non-refusers are the 7 LSP-backed `codeIntel*` verbs, which
 do not read the graph tables, plus `graph_index` and `graph_collect_code_intel`, which must run
 during a rebuild by definition.
+
+---
+
+## Closed: one transaction for the whole rebuild
+
+Both findings at the top of this document are now closed, and the interim marker guard has been
+**deleted** rather than kept.
+
+### What changed
+
+`RebuildTransaction` (`mcp/stdio/storage/rebuild-transaction.js`) owns one `BEGIN IMMEDIATE` around
+the entire rebuild. The wipe, every extraction chunk, resolution, virtual overrides, doc links and
+doc refs all land inside it, and a single `COMMIT` publishes them together. The extraction loop's
+per-chunk failure isolation is preserved by savepoints: `ROLLBACK TO` discards one chunk without
+discarding the rebuild, which is what the old `COMMIT`/`BEGIN` pair bought — minus the publishing.
+
+`db.transaction(fn)` could not do this: better-sqlite3 transaction functions are synchronous and a
+rebuild awaits filesystem, extraction and LSP work throughout. A transaction is a property of the
+connection, not of a callback, so the boundary is issued directly and one object owns its lifecycle.
+The nested `db.transaction()` calls inside the span keep working unchanged — better-sqlite3 converts
+them to savepoints automatically once a transaction is open.
+
+The doc-link miss sidecar was moved past the commit. Written where it was, it would have described
+doc links that a rollback discards: a durable file asserting a state the database never reached.
+
+### Measured
+
+Same subject, same probe, controls in the same pass. The control that matters is that the rebuild
+**changed** something — with an identical before and after count, a constant reading would have
+proven nothing:
+
+| | before this change | after |
+|---|---|---|
+| distinct edge counts seen by a concurrent reader | `[8306, 0, 30, 1594]` | `[8317, 8324]` |
+| samples reading ZERO | 12 of 195 | **0 of 204** |
+| values that were neither complete state | 3 | **0** |
+| `graph_callers` empty-answer leaks | 2 of 3 runs | **0 of 2 valid runs** |
+
+Cost, measured rather than argued: peak `-wal` **5.5 MB against a 5.5 MB database** — proportional to
+the rebuild and released at commit — and 6.0s wall time. Crash safety: a `SIGKILL` delivered **with
+5.5 MB of uncommitted WAL in flight** left the previous graph intact at exactly 8,324 edges.
+
+### The marker was removed, not kept
+
+Once the rebuild is atomic, a marker written inside that transaction can never be seen by another
+connection. Measured: **364 samples of a real rebuild, the marker never once observable**, while the
+positive control confirmed the probe could see one set by hand.
+
+⇒ The guard shipped in `cee5ac6` could no longer fire. An unreachable guard that looks like
+protection is worse than none — this repository has been bitten by that exact shape three times — so
+the marker, its table, the `openExistingDb` refusal, the `read_freshness` branch and the packet
+laundering plumbing were all deleted. What replaced it is a test of the real mechanism: every
+assertion in `rebuild-transaction.test.js` observes from a **second connection**, because what the
+writer's own handle sees was never the question.
+
+`census.js` keeps its move from `openDb` to `openExistingDb`. That was correct on its own terms — a
+verb that only calls `db.all()` should not hold a writable handle — independent of any guard.
+
+### Two probe failures worth keeping
+
+⛔ **A kill test that proved nothing.** The first crash-safety run killed the rebuild after a fixed
+4 seconds and reported the graph intact. Peak WAL for that run was **0.0 MB** — nothing had been
+written yet, so the graph survived because there was nothing to survive. The fix was a precondition:
+kill only once more than 1 MB of WAL is in flight, and print whether that precondition held.
+
+⛔ **A verb race against a rebuild that never ran.** Three runs reported `EDGESx2112` with no
+refusals, which read like a product improvement. The rebuilds had exited **1** — an earlier `SIGKILL`
+left a stale write lock, and every run failed on it after burning the retry budget. The probe now
+prints the child's exit code and marks a non-zero run VOID. With real rebuilds the sequence is
+`EDGESx4 -> REFx2416 -> EDGESx2` and no empties. **An exit code I did not look at is an experiment I
+did not run.**
+
+### Mutants that survive, stated rather than implied
+
+Four of six killed. `commitChunk` doing a real `COMMIT` initially **survived**, because the assertion
+counted rows and the count is 1 in both worlds; it was rewritten to assert *which* node an outside
+reader sees, and now kills it. Still surviving: omitting `RELEASE` after `ROLLBACK TO` (a savepoint
+stack leak — a resource cost, not a behaviour change) and using deferred `BEGIN` instead of
+`BEGIN IMMEDIATE` (a two-writer collision property a single-connection test cannot observe).

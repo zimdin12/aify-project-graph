@@ -2,7 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { openDb } from '../storage/db.js';
-import { markRebuildStarted, clearRebuildMarker } from '../storage/rebuild-marker.js';
+import { RebuildTransaction } from '../storage/rebuild-transaction.js';
 import { SCHEMA_VERSION } from '../storage/schema.js';
 import { upsertNode, getNodesByFile, deleteNode, countNodes } from '../storage/nodes.js';
 import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
@@ -423,15 +423,17 @@ export async function ensureFresh({
       // Mark manifest as indexing BEFORE mutating DB — crash safety
       await writeManifest(graphDir, { ...manifest, status: 'indexing' });
 
+      // ⭐ ONE TRANSACTION FOR THE WHOLE REBUILD. Everything from here to the commit near the end
+      // is unpublished: a concurrent reader keeps seeing the complete PREVIOUS graph under WAL
+      // snapshot isolation, and sees the complete new one the instant this commits. The wipe used to
+      // autocommit here, which is what let a reader observe zero edges and a verb report zero
+      // callers. Applies to incremental runs too — a partially-reprocessed file set is just as wrong
+      // to publish as a partially-rebuilt one, and one path is easier to keep honest than two.
+      const rebuildTxn = new RebuildTransaction(db);
+      rebuildTxn.begin();
+      try {
       if (fullRebuild) {
-        // ⭐ THE MARKER AND THE WIPE COMMIT TOGETHER OR NOT AT ALL. Setting the marker in a separate
-        // statement would leave exactly the gap this fixes: a reader that checks, finds nothing, and
-        // then reads the emptied tables. better-sqlite3 transactions are synchronous, and both of
-        // these are, so they can share one.
-        db.transaction(() => {
-          markRebuildStarted(db, { now: Date.now(), pid: process.pid });
-          db.exec('DELETE FROM edges; DELETE FROM nodes;');
-        })();
+        db.exec('DELETE FROM edges; DELETE FROM nodes;');
       }
 
       clearSpecialNodes(db);
@@ -511,7 +513,7 @@ export async function ensureFresh({
 
       // Extract in bounded chunks so a mid-run failure only loses the current chunk.
       let chunkSize = 0;
-      db.raw.exec('BEGIN');
+      rebuildTxn.beginChunk();
       try {
       for (const relPath of filesToProcess) {
         try {
@@ -597,9 +599,12 @@ export async function ensureFresh({
           pendingFingerprints.set(relPath, fileStructuralFingerprint(extracted));
           chunkSize += 1;
           if (chunkSize >= EXTRACTION_CHUNK_SIZE) {
-            db.raw.exec('COMMIT');
+            // Releasing a savepoint keeps the rows without publishing them. commitPending() still
+            // promotes the JS-side refs/fingerprints at the same event as the SQL, preserving the
+            // invariant that durable state and the database cannot disagree.
+            rebuildTxn.commitChunk();
             commitPending();
-            db.raw.exec('BEGIN');
+            rebuildTxn.beginChunk();
             chunkSize = 0;
           }
         } catch (err) {
@@ -640,17 +645,19 @@ export async function ensureFresh({
           if (!pendingFiles.includes(relPath) && relPath) {
             skipped.push({ file: relPath, phase: 'chunk_rollback', reason });
           }
-          try { db.raw.exec('ROLLBACK'); } catch { /* already unwound */ }
+          // ROLLBACK TO discards THIS CHUNK only; the rest of the rebuild survives, which is what
+          // the old COMMIT/BEGIN pair bought at the price of publishing every 500 files.
+          rebuildTxn.rollbackChunk();
           discardPending();
-          db.raw.exec('BEGIN');
+          rebuildTxn.beginChunk();
           chunkSize = 0;
         }
       }
 
-      db.raw.exec('COMMIT');
+      rebuildTxn.commitChunk();
       commitPending();
       } catch (err) {
-        try { db.raw.exec('ROLLBACK'); } catch {}
+        rebuildTxn.rollback();
         throw err;
       }
 
@@ -811,6 +818,7 @@ export async function ensureFresh({
       // ⚠ AND THE OUTCOME IS RECORDED RATHER THAN SWALLOWED. The catch below keeps a failure
       // non-fatal, but a caught-and-forgotten failure is indistinguishable from a repo with no
       // documents. The stats reach the manifest so the absence has a stated cause.
+      let pendingDocLinkMisses = null;
       let docLinkResult = { added: 0, documents: 0 };
       try {
         const r = await detectDocLinks(db, repoRoot);
@@ -819,7 +827,10 @@ export async function ensureFresh({
         // capped with an UNCAPPED count beside it. Full list to a sidecar, a small sample and the
         // true total to the manifest, so the cap can never make the loss look smaller than it is.
         const { misses, ...counts } = r;
-        await writeDocLinkMissSidecar(graphDir, misses);
+        // ⛔ DEFERRED PAST THE COMMIT. Written here it would describe doc links that a rollback
+        // later discards — a durable file asserting a state the database never reached. The
+        // database and the artifacts beside it must be promoted by the SAME event.
+        pendingDocLinkMisses = misses;
         docLinkResult = {
           ...counts,
           missCount: misses.length,
@@ -926,7 +937,12 @@ export async function ensureFresh({
       // few extra milliseconds after the graph is whole — is the safe one to get wrong.
       // A rebuild that THREW leaves the marker set on purpose: the graph really is half-built, and
       // the refusal names graph_index(force=true) as the way out.
-      clearRebuildMarker(db);
+      // ⭐ THE ONLY MOMENT THE NEW GRAPH BECOMES VISIBLE. Everything above was unpublished, so a
+      // reader was seeing the complete previous graph the whole time rather than a torn one.
+      // Ordered before the manifest and the sidecars deliberately: durable file state must never
+      // describe a graph the database has not committed, and a rollback below writes neither.
+      rebuildTxn.commit();
+      if (pendingDocLinkMisses !== null) await writeDocLinkMissSidecar(graphDir, pendingDocLinkMisses);
       await writeManifest(graphDir, nextManifest);
       await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
 
@@ -998,6 +1014,13 @@ export async function ensureFresh({
         cosmeticSkipped: cosmeticSkippedFiles.length,
       };
       return result;
+      } catch (err) {
+        // A rebuild that throws publishes NOTHING: the previous graph survives intact, and no
+        // manifest or sidecar is written to claim otherwise. rollback() is a no-op once committed,
+        // so a failure in a post-commit step still propagates without discarding the new graph.
+        rebuildTxn.rollback();
+        throw err;
+      }
     } finally {
       db.close();
     }

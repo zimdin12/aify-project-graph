@@ -131,13 +131,7 @@ export async function graphCensus({ repoRoot }) {
   // this verb reports counts: it is the single worst place to answer from that window, because a
   // census IS a claim about what exists. Measured: it answered 2,922 bytes during a marked rebuild
   // while 24 other verbs correctly refused.
-  let db;
-  try {
-    db = openExistingDb(dbPath);
-  } catch (err) {
-    if (err?.code !== 'GRAPH_REBUILD_IN_PROGRESS') throw err;
-    return { indexed: false, rebuildInProgress: true, summary: err.message };
-  }
+  const db = openExistingDb(dbPath);
   try {
     return { indexed: true, ...buildCensus(db) };
   } finally {

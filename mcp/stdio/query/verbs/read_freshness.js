@@ -4,7 +4,6 @@ import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { loadManifest } from '../../freshness/manifest.js';
-import { readRebuildMarker, rebuildInProgressMessage } from '../../storage/rebuild-marker.js';
 import { openExistingDb } from '../../storage/db.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
 import { staleProcessWarning, staleProcessBlocker } from '../../server-build.js';
@@ -152,34 +151,9 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
     });
   }
 
-  // ⭐ THE MARKER IS READ BEFORE THE MANIFEST BRANCH BELOW, AND FROM THE DATABASE ITSELF.
-  // The manifest is a second substrate, and consulting it is precisely what let a rebuild slip
-  // between the check and the read — `graph_callers` rendered a caller set of zero in 2 of 3 measured
-  // runs. `openExistingDb` refuses on this marker too; that refusal is the backstop for the race,
-  // and this branch is the graceful path so a reader gets a message instead of an exception.
-  try {
-    const markerDb = openExistingDb(dbPath, { allowDuringRebuild: true });
-    let marker = null;
-    try {
-      marker = readRebuildMarker(markerDb);
-    } finally {
-      markerDb.close();
-    }
-    if (marker) {
-      return freshnessResult({
-        blocker: rebuildInProgressMessage(marker, Date.now()),
-        graphDir,
-        dbPath,
-        manifest,
-      });
-    }
-  } catch {
-    // An unreadable database is handled by the branches below, which already fail closed.
-  }
-
   let alreadyIndexedFiles = null;
   try {
-    const db = openExistingDb(dbPath, { allowDuringRebuild: true });
+    const db = openExistingDb(dbPath);
     try {
       alreadyIndexedFiles = db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).length;
     } finally {

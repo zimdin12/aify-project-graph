@@ -1,5 +1,4 @@
 import Database from 'better-sqlite3';
-import { readRebuildMarker, GraphRebuildInProgressError } from './rebuild-marker.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createSchema } from './schema.js';
@@ -77,25 +76,15 @@ export function vacuumWithIncrementalUpgrade(db) {
   return h.pragma('auto_vacuum', { simple: true });
 }
 
-// ⛔ THE GUARD IS HERE BECAUSE THERE ARE 118 READER CALL SITES AND 59 FRESHNESS CALL SITES.
-// A remedy applied at the call sites is an enumeration, and an enumeration is a list someone must
-// remember to update. Every reader opens through this function, and the rebuild writes through
-// `openDb`, so refusing here cannot deadlock the writer that sets the marker.
-//
-// `allowDuringRebuild` is the forced door for the readers that must see a half-built graph in order
-// to REPORT on it — graph_health above all, which is the verb a reader calls to find out why.
-export function openExistingDb(dbPath, { readonly = true, allowDuringRebuild = false } = {}) {
+// A READER NEEDS NO REBUILD GUARD: the rebuild publishes in ONE transaction, so under WAL every
+// reader holds a complete snapshot — the previous graph until the commit, the new one after.
+// A runtime marker was tried here first and MEASURED UNOBSERVABLE once the rebuild became atomic
+// (364 samples of a real rebuild, never once set), so it was removed rather than left as decoration.
+// The invariant is enforced by tests/unit/storage/rebuild-transaction.test.js instead.
+export function openExistingDb(dbPath, { readonly = true } = {}) {
   if (!existsSync(dbPath)) {
     throw new Error(`graph DB does not exist: ${dbPath}`);
   }
   const db = new Database(dbPath, { readonly, fileMustExist: true });
-  const wrapped = wrapDb(db);
-  if (!allowDuringRebuild) {
-    const marker = readRebuildMarker(wrapped);
-    if (marker) {
-      db.close();
-      throw new GraphRebuildInProgressError(marker, Date.now());
-    }
-  }
-  return wrapped;
+  return wrapDb(db);
 }

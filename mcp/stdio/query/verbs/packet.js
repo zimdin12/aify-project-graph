@@ -38,7 +38,6 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
 import { getPacketTokenBudget } from '../response-budget.js';
 import { openExistingDb } from '../../storage/db.js';
-import { rethrowIfRebuildInProgress, isRebuildRefusalText } from '../../storage/rebuild-marker.js';
 import { resolveSymbolWithTotal, languageCensusExact } from './symbol_lookup.js';
 // Slice 2: the symbol-route data helpers now live in their own authority. `buildSymbolPointerPacket`
 // stays here and keeps calling them — only the definitions moved.
@@ -597,11 +596,6 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
         if (typeof raw === 'object') mapped = raw;
         else if (typeof raw === 'string' && raw.trim().startsWith('{')) {
           mapped = JSON.parse(raw);
-        } else if (isRebuildRefusalText(raw)) {
-          // ⛔ NOT A DEGRADE CASE. graph_consequences refused because the graph is mid-rebuild, and
-          // that refusal arrives as prose like every other string here. Filed as consequences it
-          // renders as "STATUS: known to graph" — an existence claim built out of a refusal.
-          return raw;
         } else if (typeof raw === 'string') {
           // AMBIGUOUS MATCH / NO MATCH come back as human-readable strings;
           // keep them for the symbol-pointer degrade path.
@@ -609,11 +603,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
         }
       }
       if (mapped) symbolConsequences = mapped;
-    } catch (err) {
-      // The degrade path is for a missing or unmappable symbol, NOT for a graph that is mid-rebuild.
-      rethrowIfRebuildInProgress(err);
-      /* otherwise fall through to degrade path */
-    }
+    } catch {/* fall through to degrade path */}
 
     const featureHit = mapped?.features_touching?.[0];
     if (featureHit) {
@@ -902,12 +892,7 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
     if (block && (block.available || block.reason === 'no_collection')) {
       lines.push(renderEvidenceBlock(block));
     }
-  } catch (err) {
-    // "Never block the packet on evidence lookup" was written about a missing collection. A rebuild
-    // in progress is a different fact and must not be absorbed by it.
-    rethrowIfRebuildInProgress(err);
-    /* never block the packet on evidence lookup */
-  }
+  } catch { /* never block the packet on evidence lookup */ }
 
   // Cross-link footer (low-salience-wall tie-in, Code-Intel v2 / P1-2+P1-3).
   // graph_packet is a verb agents ALREADY reach for, so a one-line pointer here
