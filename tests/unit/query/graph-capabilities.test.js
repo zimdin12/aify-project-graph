@@ -290,11 +290,29 @@ describe('absence authority requires a CURRENT collection, not just a complete o
     expect(c.reason).toBe('collection_stale');
   });
 
-  it('fails closed when collection currency is unknown', () => {
+  it('fails closed when collection currency is unknown, under its OWN reason', () => {
     // Catches: treating an unsupplied or unknowable commit as currency. Null is not evidence.
     const c = graphCapabilities({ ...complete });
     expect(c.absenceAuthority, 'unknown currency must not grant authority').toBe(false);
-    expect(c.reason).toBe('collection_stale');
+    expect(c.reason, 'unknown is a different fact from known-stale').toBe('collection_currency_unknown');
+  });
+
+  it('does not assert an older commit when no comparison was possible', () => {
+    // ⛔ THE BUG THIS TEST EXISTS FOR WAS MINE, an hour after writing the clause. Collapsing unknown
+    // into collection_stale made the refusal claim the collection "was taken at an older commit" in
+    // exactly the state where nothing could be compared — and prescribe a re-collect that cannot
+    // help, since HEAD is unreadable in a non-git checkout no matter how many collections run.
+    const c = graphCapabilities({ ...complete });
+    expectAbsentWithLiveMatcher(
+      /taken at an older commit/i,
+      {
+        forbidden: 'the collection is complete but was taken at an older commit, so every file',
+        allowed: 'the currency of the collection could not be established — either it predates',
+      },
+      c.nextAction,
+      'an unknown currency must not be reported as a known staleness',
+    );
+    expect(c.nextAction, 'and it must still say what the caller set is worth').toMatch(/FLOOR/);
   });
 
   it('names the cause and a remedy rather than only refusing', () => {
@@ -309,5 +327,47 @@ describe('absence authority requires a CURRENT collection, not just a complete o
     // Catches: the new clause jumping the precedence order and hiding an empty trust spine.
     const c = graphCapabilities({ ...complete, compilerVerifiedEdges: 0, collectionCurrent: false });
     expect(c.reason).toBe('trust_spine_empty');
+  });
+});
+
+// A BINARY STALENESS FLAG ON AN ACTIVE REPOSITORY IS ALWAYS ON, AND AN ALWAYS-ON WARNING IS IGNORED.
+// collection_stale fires after a single commit — correct, because that file's evidence is genuinely
+// gone — but "stale" reads identically whether one covered file changed or fifty. The verdict stays
+// binary because the authority question is binary; the magnitude goes in the message.
+describe('the staleness message carries how much decayed', () => {
+  const stale = {
+    indexed: true, collectionAvailable: true, language: 'cpp', languageHasServer: true,
+    coverage: { complete: true }, compilerVerifiedEdges: 1054, collectionCurrent: false,
+  };
+
+  it('states the decay when it is known', () => {
+    // Catches: an always-on warning with no way to tell a nudge from an emergency.
+    const c = graphCapabilities({ ...stale, collectionFilesCovered: 88, collectionFilesChanged: 50 });
+    expect(c.nextAction).toMatch(/50 of 88 covered files have changed/);
+  });
+
+  it('degrades cleanly when it is not known, without an empty aside', () => {
+    // Catches: rendering "(null of null …)" or a stray empty parenthesis when the numbers are absent.
+    const c = graphCapabilities({ ...stale });
+    expect(c.nextAction).toMatch(/lost its verified evidence\. Caller sets/);
+    expectAbsentWithLiveMatcher(
+      /\(\s*(null|undefined|NaN|)\s*(of)?\s*(null|undefined|NaN|)?\s*covered files/,
+      {
+        forbidden: 'evidence (null of null covered files have changed). Caller sets',
+        allowed: 'evidence (50 of 88 covered files have changed). Caller sets',
+      },
+      c.nextAction,
+      'an unknown decay must be omitted, not rendered as empty values',
+    );
+  });
+
+  it('the verdict does not change with the magnitude — only the message does', () => {
+    // Catches: a threshold sneaking in. One changed covered file is still lost evidence.
+    const one = graphCapabilities({ ...stale, collectionFilesCovered: 88, collectionFilesChanged: 1 });
+    const many = graphCapabilities({ ...stale, collectionFilesCovered: 88, collectionFilesChanged: 88 });
+    expect(one.absenceAuthority).toBe(false);
+    expect(many.absenceAuthority).toBe(false);
+    expect(one.reason).toBe(many.reason);
+    expect(one.nextAction).toMatch(/1 of 88/);
   });
 });

@@ -77,3 +77,29 @@ blocked anything.
 ⛔ **The lesson worth keeping: a deferral inherits its blocker.** "Rule B is inert" was measured once
 and then carried for eight days as a standing fact while the underlying number moved by two orders of
 magnitude. A blocker made of a measurement expires when the measurement does.
+
+---
+
+## Correction: I compared the hook against the wrong alternative
+
+Reviewing this the same day, the risk section above overstates its case. It judges 2.77% coverage
+against a *complete* checker and concludes the silence is dangerous. The hook's real alternative is
+**not having it**, and that is 0% coverage with 100% silence.
+
+So the hook does not introduce silence. It reduces it from 100% to 97.23%, and every warning it does
+emit is compiler-verified — the provenance gate is real, `deleted-with-callers.js:159` filters
+`e.provenance = 'LSP_VERIFIED'` (checked, because a message claiming "compiler-verified" over
+heuristic edges would have been the worst defect in the product). It cannot cry wolf, it never blocks,
+and it exits 0 on every path.
+
+⇒ **Enable it.** Against its actual counterfactual it is a strict gain: some true warnings instead of
+none.
+
+What survives from the original concern is narrower and worth stating plainly: a guard that exists
+teaches reliance. Before the hook, silence after a deletion meant nothing and everyone knew it;
+afterwards, silence can be misread as a clean check. That is a **calibration** problem, answered by
+stating the hook's coverage where a reader will meet it — not a reason to withhold the warnings.
+
+⛔ **The error worth keeping: I measured a partial guard against a perfect one.** Any incomplete
+signal looks reckless from that angle, and almost every real signal is incomplete. The comparison
+that decides whether to ship is always against what happens without it.

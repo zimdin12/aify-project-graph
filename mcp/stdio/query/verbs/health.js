@@ -14,6 +14,42 @@ import { getBackend } from '../../code-intel/backends.js';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+
+// HOW MUCH OF THE COLLECTION'S EVIDENCE HAS ALREADY DECAYED.
+//
+// The salvage gate drops verified evidence per FILE: a covered file that changed since the
+// collection loses it on the next rebuild. So the honest magnitude is "how many of the files this
+// collection covered have changed", not "how many commits have passed" — 121 commits that touch no
+// covered file destroy nothing, and one that rewrites forty covered files destroys a great deal.
+//
+// Returns nulls rather than zeros when it cannot tell. A zero here would read as "nothing decayed",
+// which is the permissive answer, and this feeds the message a reader consults before deleting code.
+function collectionDecay(db, latest, head, repoRoot) {
+  const unknown = { filesCovered: null, filesChangedSinceCollection: null };
+  if (!latest?.collectionId || !latest?.indexedCommit || !head || !repoRoot) return unknown;
+  try {
+    const covered = db.all(
+      'SELECT DISTINCT file FROM code_intel_records WHERE collection_id = $cid',
+      { cid: latest.collectionId },
+    ).map((r) => r.file).filter(Boolean);
+    if (covered.length === 0) return unknown;
+    const out = execFileSync(
+      'git',
+      ['-C', repoRoot, 'diff', '--name-only', `${latest.indexedCommit}..${head}`],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+    const changed = new Set(out.split(/\r?\n/).map((l) => l.trim()).filter(Boolean));
+    // Records may store OS-native separators; git always reports forward slashes.
+    const norm = (f) => String(f).replace(/\\/gu, '/');
+    return {
+      filesCovered: covered.length,
+      filesChangedSinceCollection: covered.filter((f) => changed.has(norm(f))).length,
+    };
+  } catch {
+    return unknown;
+  }
+}
+
 import { computeCoverage } from '../coverage-denominator.js';
 import { openExistingDb } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
@@ -495,6 +531,7 @@ export async function graphHealth({ repoRoot }) {
           // the pair is self-explaining rather than requiring the drift verdict.
           compileDbHash: latest.compileDbHash,
           indexedCommit: latest.indexedCommit,
+          ...collectionDecay(db, latest, head, repoRoot),
           collectedAt: latest.collectedAt,
           // ⛔ SCOPE, BECAUSE A COLLECTION EXISTING IS NOT A COLLECTION COVERING ANYTHING.
           // Three states, and `unknown` must never read as `complete`: a collection stored
@@ -1562,6 +1599,8 @@ export async function graphHealth({ repoRoot }) {
     collectionCurrent: (codeIntel?.indexedCommit && head)
       ? codeIntel.indexedCommit === head
       : null,
+    collectionFilesCovered: codeIntel?.filesCovered ?? null,
+    collectionFilesChanged: codeIntel?.filesChangedSinceCollection ?? null,
     language: primaryLanguage,
     languageHasServer: languageHasLspBackend(primaryLanguage),
   });

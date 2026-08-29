@@ -30,6 +30,8 @@
  * @param {object|null} args.coverage          the collection's own coverage record, if any
  * @param {boolean} args.collectionAvailable   has a collection ever been imported
  * @param {boolean|null} args.collectionCurrent  is the collection's commit still HEAD (null = unknown)
+ * @param {number|null} args.collectionFilesCovered  files the collection covered (null = unknown)
+ * @param {number|null} args.collectionFilesChanged  how many of those have changed since
  * @param {string|null} args.language          primary language, when known
  * @param {boolean} args.languageHasServer     does a language server exist for it
  */
@@ -39,6 +41,8 @@ export function graphCapabilities({
   coverage = null,
   collectionAvailable = false,
   collectionCurrent = null,
+  collectionFilesCovered = null,
+  collectionFilesChanged = null,
   language = null,
   languageHasServer = true,
   integrity = null,
@@ -93,7 +97,14 @@ export function graphCapabilities({
   else if (!collectionAvailable) reason = 'no_collection';
   else if (!hasVerified) reason = 'trust_spine_empty';
   else if (!coverageComplete) reason = 'collection_partial';
-  else if (!collectionIsCurrent) reason = 'collection_stale';
+  // ⛔ KNOWN-STALE AND UNKNOWN-CURRENCY ARE DIFFERENT FACTS AND GET DIFFERENT REASONS.
+  // Both deny authority — unknown fails closed — but only one of them knows why. Collapsing them
+  // made the refusal assert "taken at an older commit" in the state where no comparison was
+  // possible at all, and prescribe a re-collect that cannot help: in a non-git checkout HEAD is
+  // unreadable no matter how many collections are run. WorktreeState already models this with
+  // `headKnown`, and non-git checkouts are supported.
+  else if (collectionCurrent === false) reason = 'collection_stale';
+  else if (collectionCurrent !== true) reason = 'collection_currency_unknown';
 
   return {
     orientationUsable,
@@ -102,14 +113,22 @@ export function graphCapabilities({
     reason,
     // ⚠ NAMED so a reader is never left to infer what to do from a boolean. `null` only when the
     // capability is already satisfied — never as a shrug.
-    nextAction: absenceAuthority ? null : nextActionFor(reason, language, languageHasServer, integrity),
+    nextAction: absenceAuthority
+      ? null
+      : nextActionFor(reason, language, languageHasServer, integrity,
+        { collectionFilesCovered, collectionFilesChanged }),
     // Stated inline because the distinction is the entire point of this object.
     note: 'orientationUsable and absenceAuthority are independent. `trust` measures how completely '
       + 'extraction resolved its own references; it does NOT mean any edge was compiler-checked.',
   };
 }
 
-function nextActionFor(reason, language, languageHasServer, integrity = null) {
+// ⛔ A BINARY STALENESS FLAG ON AN ACTIVE REPOSITORY IS ALWAYS ON, AND AN ALWAYS-ON WARNING IS
+// IGNORED. `collection_stale` fires after a single commit — correct, because that file's evidence is
+// genuinely gone — but "stale" reads the same whether one covered file changed or fifty. The verdict
+// stays binary because the authority question is binary; the MAGNITUDE goes in the message, so a
+// reader can tell a nudge from an emergency. One more value in a field they already read.
+function nextActionFor(reason, language, languageHasServer, integrity = null, decay = {}) {
   switch (reason) {
     case 'not_indexed':
       return 'graph_index() to build the graph';
@@ -131,11 +150,21 @@ function nextActionFor(reason, language, languageHasServer, integrity = null) {
     case 'collection_partial':
       return 'graph_collect_code_intel({ scope: "all" }) to finish coverage; per symbol, read '
         + 'evidence.exhaustive on code_intel_references rather than inferring from this summary';
+    case 'collection_currency_unknown':
+      // ⚠ NAMES THE TWO CANDIDATES AND ASSERTS NEITHER. One is fixable by re-collecting, the other
+      // is not fixable at all, so promising a single remedy would be wrong half the time.
+      return 'the currency of the collection could not be established — either it predates commit '
+        + 'tracking (re-collect fixes that) or HEAD is unreadable here, as in a non-git checkout '
+        + '(re-collecting cannot fix that). Caller sets are a FLOOR either way; verify with rg '
+        + 'before any delete or rename';
     case 'collection_stale':
       // Names what decayed and why, because "re-collect" without a cause reads as ceremony.
       return 'graph_collect_code_intel({ scope: "all" }) — the collection is complete but was taken '
-        + 'at an older commit, so every file changed since then has lost its verified evidence. '
-        + 'Caller sets are a FLOOR until it is retaken; verify with rg before any delete or rename';
+        + 'at an older commit, so every file changed since then has lost its verified evidence'
+        + (Number.isInteger(decay.collectionFilesChanged) && Number.isInteger(decay.collectionFilesCovered)
+          ? ` (${decay.collectionFilesChanged} of ${decay.collectionFilesCovered} covered files have changed)`
+          : '')
+        + '. Caller sets are a FLOOR until it is retaken; verify with rg before any delete or rename';
     default:
       return languageHasServer ? 'graph_collect_code_intel({ scope: "all" })' : null;
   }
