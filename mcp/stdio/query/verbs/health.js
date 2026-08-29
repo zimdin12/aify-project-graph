@@ -1557,6 +1557,11 @@ export async function graphHealth({ repoRoot }) {
     compilerVerifiedEdges: codeIntel?.lspVerifiedEdges ?? 0,
     collectionAvailable: codeIntel?.available === true,
     coverage: codeIntel?.coverage ?? null,
+    // The collection's own commit against HEAD. Null when either is unknown, which denies absence
+    // authority rather than assuming currency.
+    collectionCurrent: (codeIntel?.indexedCommit && head)
+      ? codeIntel.indexedCommit === head
+      : null,
     language: primaryLanguage,
     languageHasServer: languageHasLspBackend(primaryLanguage),
   });

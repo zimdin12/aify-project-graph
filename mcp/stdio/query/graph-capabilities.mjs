@@ -29,6 +29,7 @@
  * @param {boolean} args.indexed               is there a graph at all
  * @param {object|null} args.coverage          the collection's own coverage record, if any
  * @param {boolean} args.collectionAvailable   has a collection ever been imported
+ * @param {boolean|null} args.collectionCurrent  is the collection's commit still HEAD (null = unknown)
  * @param {string|null} args.language          primary language, when known
  * @param {boolean} args.languageHasServer     does a language server exist for it
  */
@@ -37,6 +38,7 @@ export function graphCapabilities({
   indexed = false,
   coverage = null,
   collectionAvailable = false,
+  collectionCurrent = null,
   language = null,
   languageHasServer = true,
   integrity = null,
@@ -67,7 +69,22 @@ export function graphCapabilities({
   // makes an empty caller set a floor, not a fact.
   const hasVerified = Number.isInteger(compilerVerifiedEdges) && compilerVerifiedEdges > 0;
   const coverageComplete = coverage?.complete === true;
-  const absenceAuthority = Boolean(indexed && !incomplete && collectionAvailable && hasVerified && coverageComplete);
+  // ⛔ A COMPLETE COLLECTION IS NOT A CURRENT ONE, and `coverage.complete` describes the collection
+  // AT COLLECTION TIME — a frozen fact about a moving corpus. After the collection's commit, every
+  // file that changed loses its verified evidence on the next rebuild (the per-file salvage gate
+  // drops it rather than re-stamp shifted line numbers), so the spine erodes while `complete` still
+  // reads true. Measured on this repository: 121 commits past its collection, one reindex took the
+  // spine from 1,943 verified edges to 1,054 — and absenceAuthority was still being granted.
+  //
+  // `lsp-evidence` already calls this correctly per evidence block: with HEAD moved it renders "the
+  // set is a FLOOR, not exhaustive". This flag disagreed with it, and of the two surfaces this is the
+  // one a reader consults before deleting code.
+  //
+  // Unknown fails closed, like every other clause here: null is not evidence of currency.
+  const collectionIsCurrent = collectionCurrent === true;
+  const absenceAuthority = Boolean(
+    indexed && !incomplete && collectionAvailable && hasVerified && coverageComplete && collectionIsCurrent,
+  );
 
   let reason = null;
   if (!indexed) reason = 'not_indexed';
@@ -76,6 +93,7 @@ export function graphCapabilities({
   else if (!collectionAvailable) reason = 'no_collection';
   else if (!hasVerified) reason = 'trust_spine_empty';
   else if (!coverageComplete) reason = 'collection_partial';
+  else if (!collectionIsCurrent) reason = 'collection_stale';
 
   return {
     orientationUsable,
@@ -113,6 +131,11 @@ function nextActionFor(reason, language, languageHasServer, integrity = null) {
     case 'collection_partial':
       return 'graph_collect_code_intel({ scope: "all" }) to finish coverage; per symbol, read '
         + 'evidence.exhaustive on code_intel_references rather than inferring from this summary';
+    case 'collection_stale':
+      // Names what decayed and why, because "re-collect" without a cause reads as ceremony.
+      return 'graph_collect_code_intel({ scope: "all" }) — the collection is complete but was taken '
+        + 'at an older commit, so every file changed since then has lost its verified evidence. '
+        + 'Caller sets are a FLOOR until it is retaken; verify with rg before any delete or rename';
     default:
       return languageHasServer ? 'graph_collect_code_intel({ scope: "all" })' : null;
   }

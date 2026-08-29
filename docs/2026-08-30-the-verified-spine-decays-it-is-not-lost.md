@@ -86,3 +86,46 @@ against files carrying verified edges and called the difference loss — reporti
 a `.d.ts` of pure declarations at the top. **A record is a symbol; an edge is a relationship.** A file
 can hold thousands of records and legitimately produce no call edges at all. The falsifier fired, and
 it was the instrument that was wrong, not the code. Records are not edges.
+
+---
+
+## The decay was granting authority it had not earned
+
+Tracing the decay into its consumers found a live defect. `graphCapabilities.absenceAuthority` — the
+flag a reader consults before deleting code — required `coverage.complete`, and **`coverage.complete`
+is a frozen fact about a moving corpus.** It describes the collection at collection time. Nothing in
+the function could express whether that collection was still current; there was no such argument.
+
+Measured directly, with controls in the same call:
+
+    POSITIVE CONTROL fresh complete collection   -> absenceAuthority: true  | reason: null
+    NEGATIVE CONTROL no verified edges           -> absenceAuthority: false | reason: trust_spine_empty
+    121-commit-old, 46%-decayed spine            -> absenceAuthority: TRUE  | reason: null
+
+⇒ A repository could be 121 commits past its collection, having lost 46% of its verified spine on the
+last rebuild, and still be told its caller sets were authoritative enough to delete against.
+
+**Two surfaces were contradicting each other on the same fact.** `lsp-evidence.js:300` already made
+this exact comparison and rendered *"the set is a FLOOR, not exhaustive"* once HEAD moved. The
+capability flag disagreed — and of the two, it is the one read before a deletion.
+
+### Reachable, not merely constructible
+
+Checked before fixing, because a defect in code nothing calls is a different and smaller thing:
+`graph_health` is a production caller and passes real `coverage`, so any repository with a complete
+collection and any subsequent commit hits this. This one happens to be spared only because its
+coverage is *partial*, which denies authority for a different reason.
+
+### The fix
+
+A `collectionCurrent` input, and a `collection_stale` clause that denies absence authority. It fails
+closed on unknown, like every other clause in that module: null is not evidence of currency. The
+`nextAction` names the cause rather than just prescribing a command — *"complete but taken at an older
+commit, so every file changed since then has lost its verified evidence; caller sets are a FLOOR
+until it is retaken"*.
+
+Five tests, three mutants killed (the clause dropped from the conjunction; unknown treated as
+current; the new reason jumping the precedence order and masking an empty trust spine). Three
+pre-existing tests changed, and deliberately not weakened: each constructs a fully healthy graph, and
+"fully healthy" now includes a current collection, so they state that rather than tolerate its
+absence. Full suite green — 3,158 passed, 4 skipped, exit 0.

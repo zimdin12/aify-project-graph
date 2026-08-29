@@ -51,6 +51,9 @@ describe('graphCapabilities — orientation and absence authority are INDEPENDEN
     // The positive control. A predicate that never grants is as useless as one that always does.
     const c = graphCapabilities({
       indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true },
+      // A complete collection taken at an older commit no longer grants authority, so the state that
+      // means "every clause holds" now has to say the collection is current too.
+      collectionCurrent: true,
     });
     expect(c.absenceAuthority).toBe(true);
     expect(c.reason).toBeNull();
@@ -134,7 +137,9 @@ describe('every refusal carries an action a reader can take', () => {
 
   it('⭐ says NO more often than YES across the state space — not a rubber stamp', () => {
     const states = [
-      { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true } },
+      // collectionCurrent added when this clause landed: a complete collection taken at an older
+      // commit no longer grants authority, so the one granting state must now also be current.
+      { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true },
       { indexed: false },
       { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: false },
       { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: true, coverage: { complete: true } },
@@ -160,7 +165,7 @@ describe('every refusal carries an action a reader can take', () => {
 // signal rather than ordinary drift. The `HEALTHY` case below is that control in test form: without
 // it, every assertion here is satisfied by a function that calls every graph broken.
 describe('graphCapabilities — an incomplete index is reported, and only when it IS one', () => {
-  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true } };
+  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true };
 
   it('⭐ POSITIVE CONTROL: a graph whose counts agree keeps every capability', () => {
     const c = graphCapabilities({ ...FULL, integrity: { manifestNodes: 2572, dbNodes: 2572, manifestEdges: 13618, dbEdges: 13618, codeNodes: 1904 } });
@@ -249,5 +254,60 @@ describe('graphCapabilities — an incomplete index is reported, and only when i
     const fired = states.filter((integrity) => graphCapabilities({ indexed: true, integrity }).reason === 'index_incomplete');
     expect(fired).toHaveLength(1);
     expect(fired[0].dbNodes).toBe(90);
+  });
+});
+
+// A COMPLETE COLLECTION IS NOT A CURRENT ONE.
+// `coverage.complete` is a frozen fact about a moving corpus: it describes the collection at
+// collection time. After that commit, every changed file loses its verified evidence on the next
+// rebuild, because the per-file salvage gate drops it rather than re-stamp shifted line numbers.
+// Measured on this repository — 121 commits past its collection, one reindex took the spine from
+// 1,943 verified edges to 1,054 — while absenceAuthority was still being granted.
+//
+// `lsp-evidence` already renders "the set is a FLOOR, not exhaustive" once HEAD has moved. This flag
+// disagreed with it, and of the two surfaces this is the one read before deleting code.
+describe('absence authority requires a CURRENT collection, not just a complete one', () => {
+  const complete = {
+    indexed: true,
+    collectionAvailable: true,
+    language: 'cpp',
+    languageHasServer: true,
+    coverage: { complete: true },
+    compilerVerifiedEdges: 1054,
+  };
+
+  it('POSITIVE CONTROL: a current, complete collection still grants authority', () => {
+    // Without this the two assertions below would pass on a clause that denies unconditionally.
+    const c = graphCapabilities({ ...complete, collectionCurrent: true });
+    expect(c.absenceAuthority).toBe(true);
+    expect(c.reason).toBeNull();
+  });
+
+  it('denies authority when the collection was taken at an older commit', () => {
+    // Catches: granting "no callers" authority from evidence whose subject has moved.
+    const c = graphCapabilities({ ...complete, collectionCurrent: false });
+    expect(c.absenceAuthority).toBe(false);
+    expect(c.reason).toBe('collection_stale');
+  });
+
+  it('fails closed when collection currency is unknown', () => {
+    // Catches: treating an unsupplied or unknowable commit as currency. Null is not evidence.
+    const c = graphCapabilities({ ...complete });
+    expect(c.absenceAuthority, 'unknown currency must not grant authority').toBe(false);
+    expect(c.reason).toBe('collection_stale');
+  });
+
+  it('names the cause and a remedy rather than only refusing', () => {
+    // Catches: a bare denial. A reason with no next action gets worked around, not acted on.
+    const c = graphCapabilities({ ...complete, collectionCurrent: false });
+    expect(c.nextAction).toMatch(/graph_collect_code_intel/);
+    expect(c.nextAction, 'must say WHY it decayed').toMatch(/older commit/i);
+    expect(c.nextAction, 'must tell the reader what the caller set is worth meanwhile').toMatch(/FLOOR/);
+  });
+
+  it('does not mask a more severe reason that was already firing', () => {
+    // Catches: the new clause jumping the precedence order and hiding an empty trust spine.
+    const c = graphCapabilities({ ...complete, compilerVerifiedEdges: 0, collectionCurrent: false });
+    expect(c.reason).toBe('trust_spine_empty');
   });
 });
