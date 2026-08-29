@@ -91,7 +91,14 @@ Recorded from the audit that opened this arc:
 
 ## Open, and not closed by this arc
 
-- **F4 (PHP language server)** is blocked on a licence, not engineering — Steven's call.
+- **F4 (PHP language server)** — ⚠ this line said "blocked on a licence, not engineering". Corrected
+  2026-08-30: there are TWO independent gates and only one is a licence. Bundling intelephense (the
+  only Node-implemented server) is a licence question; every open-source server — phpactor is MIT —
+  is blocked instead by the absence of a PHP runtime on this host, re-verified today. A licence
+  cannot be negotiated, a runtime can be installed, so the tractable gate is the runtime and the
+  licence leaves the critical path entirely. F4 is also a CAPABILITY gap, not a correctness one: the
+  false-confidence half closed with F1, and `getBackend('php')` returns null against four positive
+  controls. See docs/2026-08-30-f4-php-is-gated-on-a-runtime-not-a-licence.md.
 - **rails / spring** now have end-to-end fixtures; every framework does.
 - `module_tree.js` still holds a hand-written `DEFINES`/`CONTAINS` pair — two uses in one file, left
   deliberately as low drift risk.
