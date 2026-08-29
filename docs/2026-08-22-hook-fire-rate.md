@@ -127,3 +127,16 @@ wrote before running it against real data.
 Nothing, and that is now a smaller decision than it was. Whichever surface a hook lands on, there is
 no content to put in it yet. ⏳ Placement remains Steven's call; **the prerequisite is verified call
 edges, which is a code-intel coverage question, not a hook question.**
+
+---
+
+⚠ **RE-MEASURED 2026-08-30 — the "19 verified edges" premise above is FALSIFIED.** The same graph now
+carries 981 `LSP_VERIFIED` CALLS edges, giving Rule B a real protectable population of 71 callable
+declarations (38 with two or more verified callers). Rule B is no longer inert.
+
+But the risk moved. Rule B still cannot cry wolf, and that was never the exposure: at **2.77% of
+2,566 callable declarations**, its SILENCE is uninformative 97.23% of the time and will be learned as
+"no warning, safe to delete" — a false absence delivered while someone is deleting code. And the
+reach is not stable: the verified spine decays with commits since collection, 1943 → 1054 in one
+reindex. ⇒ The hook's prerequisite and the spine's decay are the same item, and the remedy is a
+re-collect policy. See docs/2026-08-30-the-hook-prerequisite-changed-and-so-did-the-risk.md.
