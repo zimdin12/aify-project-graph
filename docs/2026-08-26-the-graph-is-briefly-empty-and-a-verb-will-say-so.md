@@ -247,3 +247,46 @@ counted rows and the count is 1 in both worlds; it was rewritten to assert *whic
 reader sees, and now kills it. Still surviving: omitting `RELEASE` after `ROLLBACK TO` (a savepoint
 stack leak — a resource cost, not a behaviour change) and using deferred `BEGIN` instead of
 `BEGIN IMMEDIATE` (a two-writer collision property a single-connection test cannot observe).
+
+---
+
+## The refusal outlived its reason
+
+`read_freshness` deferred every verb for the whole rebuild on manifest status `indexing`. That was
+correct while a rebuild published in pieces — a reader past its guard could land on an emptied table.
+Once the rebuild became one transaction, the justification went with it, and the refusal was left
+standing on a premise that was no longer true.
+
+**The refusal was triggered by an event that changes nothing about the data being read.** One second
+before a rebuild starts, that same snapshot is served without complaint; a rebuild beginning in
+another process does not retroactively make the previous graph less true. And it is now a *complete*
+graph, not a torn one.
+
+Staleness still does its job underneath: the manifest carries the OLD commit until the rebuild
+commits, so a graph genuinely behind HEAD is still reported behind, and `staleNotFoundCaveat` still
+qualifies every "not found" built on it. Nothing about absence claims got weaker — the same caveat
+machinery runs on the same inputs.
+
+⛔ **One case still refuses, and it is the case this whole arc was about.** A first-ever index has
+nothing committed, so the snapshot a reader would receive is EMPTY, and answering "no callers" out of
+an empty graph is exactly the false absence being eliminated. That branch fails closed:
+`alreadyIndexedFiles` is `null` when the count could not be taken at all, and `null` does not pass a
+`> 0` test.
+
+Measured against a real rebuild (child exit 0 asserted, so the race is not against a rebuild that
+never ran):
+
+| | before | after |
+|---|---|---|
+| verb behaviour during a rebuild | `REFx2416` — refused every call | `EDGESx82` — answered every call |
+| empty-answer leaks | 0 | 0 |
+
+The call count falls because each call now does real work instead of returning a cheap blocker.
+
+Four tests, three mutants killed (blanket refusal restored; an unknown file count treated as
+servable; the warning dropped). Full suite green: 389 files, 3,152 passed, 4 skipped, exit 0.
+
+⚠ **The repo's own guard caught me on the way in.** My positive control used a bare `not.toMatch`,
+and `negative-assertions-are-controlled` failed the suite for it — baseline 154, mine made 155. It
+was right: a silent matcher proves nothing until it has been shown it can fire and that it does not
+fire on neighbouring text. Converted to `expectAbsentWithLiveMatcher`.

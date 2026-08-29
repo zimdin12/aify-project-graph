@@ -163,7 +163,27 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
     // Leave null — the caller still gets the incomplete blocker below.
   }
 
-  if (manifest.status === 'indexing') {
+  // ⭐ A REBUILD RUNNING SOMEWHERE ELSE IS NOT A REASON TO REFUSE A COMPLETE ANSWER.
+  //
+  // This branch used to defer every verb for the whole rebuild. That was right when a rebuild
+  // published in pieces: a reader could land on an emptied table and render zero callers, measured
+  // in 2 of 3 runs. Since `a36b770` the rebuild commits exactly once, so a concurrent reader holds
+  // the complete PREVIOUS graph under WAL snapshot isolation — measured across a real rebuild as
+  // [8317, 8324] with no intermediate value ever observed.
+  //
+  // ⇒ The refusal was triggered by an event that changes nothing about the data being read. One
+  // second before the rebuild began, this same snapshot was served without complaint, and it is no
+  // less true now. Staleness is still computed below against the manifest's commit — which is still
+  // the OLD commit until the rebuild commits — so a graph that is genuinely behind HEAD is reported
+  // behind, and `staleNotFoundCaveat` still qualifies every "not found" built on it.
+  //
+  // ⛔ EXCEPT WHEN THERE IS NO PREVIOUS GRAPH TO SERVE. A first-ever index has nothing committed
+  // yet, so the snapshot a reader would get is EMPTY — and answering "no callers" out of an empty
+  // graph is precisely the false absence this whole change exists to prevent. That case still
+  // refuses, and it fails closed: `alreadyIndexedFiles` is null when the count could not be taken,
+  // and null is not a number greater than zero.
+  const rebuildInProgress = manifest.status === 'indexing';
+  if (rebuildInProgress && !(alreadyIndexedFiles > 0)) {
     return freshnessResult({
       blocker: buildIncompleteMessage({ verbName, alreadyIndexedFiles, pendingFiles: null }),
       graphDir,
@@ -173,6 +193,14 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   }
 
   const warnings = [];
+  if (rebuildInProgress) {
+    // One more VALUE in the field a reader already consults, not one more field to learn.
+    warnings.push(
+      `a rebuild is in progress; this answer comes from the completed previous snapshot `
+      + `(${alreadyIndexedFiles} files), which is consistent but predates the rebuild — `
+      + 'retry after it finishes if you are about to act on it.',
+    );
+  }
   // STALE PROCESS FIRST. If this server is executing code that is no longer on
   // disk, every answer below is suspect — including the freshness answers. It used
   // to be reported only by graph_health, so a reader who never called that verb
