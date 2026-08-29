@@ -74,9 +74,14 @@ export class RebuildTransaction {
     this.#chunkOpen = false;
   }
 
-  // Discards this chunk's rows and nothing else. RELEASE after ROLLBACK TO is required: ROLLBACK TO
-  // rewinds to the savepoint but LEAVES IT ON THE STACK, so without the release each failed chunk
-  // would leak a savepoint and the stack would grow for the length of the run.
+  // Discards this chunk's rows and nothing else.
+  //
+  // ⚠ THE `RELEASE` IS DEFENSIVE, AND ITS EFFECT IS NOT BEHAVIOURALLY OBSERVABLE — measured. ROLLBACK
+  // TO rewinds to the savepoint but leaves it on the stack, so omitting the release lets the stack
+  // grow for the length of the run. 5,000 rollbacks without it raised no error and left the data
+  // identical, so this is a resource claim, not a correctness one, and no test below can kill a
+  // mutant that removes it. Kept because an unbounded stack on a very large rebuild is a cost with
+  // no upside, and said plainly rather than dressed up as a guard.
   rollbackChunk() {
     this.#require('open', 'rollbackChunk');
     if (!this.#chunkOpen) throw new Error('no chunk savepoint is open');

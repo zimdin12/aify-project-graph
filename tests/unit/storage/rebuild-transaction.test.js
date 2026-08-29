@@ -96,9 +96,11 @@ describe('chunk savepoints isolate a failure without publishing', () => {
     expect(visibleIds(), 'only the surviving chunk lands, all at once').toEqual(['chunk-1-kept']);
   });
 
-  it('releasing a rolled-back savepoint keeps the stack flat across many failures', () => {
-    // Catches: ROLLBACK TO without RELEASE. SQLite leaves the savepoint on the stack, so a long run
-    // with repeated chunk failures would grow it for the length of the rebuild.
+  it('survives many consecutive chunk failures and still commits the survivor', () => {
+    // ⚠ NAMED FOR WHAT IT ACTUALLY CHECKS. An earlier name claimed this kept the savepoint stack
+    // flat, which it never measured: 5,000 rollbacks with no RELEASE raise no error and leave the
+    // data identical, so removing the RELEASE is a mutant no test here can kill. What this does
+    // check is that repeated chunk failures leave the transaction usable and the survivor lands.
     const txn = new RebuildTransaction(writer);
     txn.begin();
     for (let i = 0; i < 50; i += 1) {
@@ -143,5 +145,32 @@ describe('the state machine fails closed', () => {
     txn.commit();
     expect(txn.rollback(), 'nothing left to unwind').toBe(false);
     expect(nodeCount(), 'the committed graph must survive a stray rollback').toBe(2);
+  });
+});
+
+describe('the transaction takes its write lock up front', () => {
+  it('makes a second writer fail at BEGIN, not after it has done work', () => {
+    // Catches: plain `BEGIN` instead of `BEGIN IMMEDIATE`. A deferred transaction takes its write
+    // lock at the first write, so two rebuilds can both begin and only collide later, halfway
+    // through their work. Measured difference: with IMMEDIATE the second writer is refused at BEGIN;
+    // deferred, it begins happily and is refused at the first insert.
+    const second = openDb(dbPath);
+    second.raw.pragma('busy_timeout = 0');
+    const txn = new RebuildTransaction(writer);
+    txn.begin();
+    // ⛔ DO NOT WRITE FIRST. An earlier version seeded a row here, and that write takes the lock on
+    // its own — so the second writer was refused whichever BEGIN the first had used, and the mutant
+    // survived. The whole difference lives in the window BEFORE the first write.
+
+    let failedAtBegin = false;
+    try { second.raw.exec('BEGIN IMMEDIATE'); } catch { failedAtBegin = true; }
+    expect(failedAtBegin, 'the conflict must surface at BEGIN, before the second run does any work')
+      .toBe(true);
+
+    try { second.raw.exec('ROLLBACK'); } catch { /* never began */ }
+    second.close();
+    seed('holder');
+    txn.commit();
+    expect(nodeCount()).toBe(2);
   });
 });
