@@ -25,6 +25,30 @@ export const DERIVED_OR_DROPPED = Object.freeze({
 // Producer key -> column, where the names differ. camelCase on the wire, snake_case in SQL.
 const RENAMED = Object.freeze({ refusedReason: 'refused_reason', importMap: 'import_map_json' });
 
+// ⭐ ONE OWNER FOR THE IDENTITY KEY, because the duplicate numbers are load-bearing.
+//
+// "2,547 keys repeat, 32,562 distinct" is the evidence that the table must NOT dedup — and a count
+// of distinct anything is meaningless without the definition of distinct. Reviewer caught that the
+// committed attestation carried the numbers while the definition lived only in an untracked test,
+// so the headline figures were not independently reproducible from the frozen carrier alone.
+//
+// Both the attestation generator and the parity test import THIS, so the two cannot drift. The
+// field ORDER is part of the definition: a different order is a different canonical encoding.
+export const IDENTITY_KEY_FIELDS = Object.freeze([
+  'from_id', 'from_target', 'to_id', 'target', 'relation', 'source_file', 'source_line',
+]);
+
+// U+0001 as the separator: it cannot occur in a path, a symbol name or a relation, so no field
+// value can forge a boundary. It is written as an ESCAPE below rather than as a literal control
+// byte — this repository's own scanner rejects raw control bytes in tracked files, and a
+// separator nobody can see in a diff is a separator nobody can review. My first version of this
+// constant WAS a literal, and it smuggled a raw NUL into the comment beside it.
+export const IDENTITY_KEY_SEPARATOR = '\u0001';
+
+export function identityKey(ref) {
+  return IDENTITY_KEY_FIELDS.map((f) => (ref[f] ?? '')).join(IDENTITY_KEY_SEPARATOR);
+}
+
 /**
  * Project one producer ref onto the table's columns.
  *
@@ -87,10 +111,16 @@ export function hydrateRef(row) {
  * Replace the whole unresolved population. Caller MUST run this inside the rebuild transaction so
  * it commits or rolls back with the graph it describes.
  *
- * ⛔ DELETE-THEN-INSERT, NEVER UPSERT. There is no unique key and there must not be one: measured on
- * the frozen carrier, 2,547 identity keys repeat with multiplicity up to 15, so 35,906 rows hold
- * only 32,562 distinct identities. Any upsert or unique constraint would drop 3,344 rows and report
- * success — deduplication as an accidental migration.
+ * ⛔ DELETE-THEN-INSERT, NEVER UPSERT. There is no key to upsert ON and there must not be one:
+ * measured on the frozen carrier, 2,547 CANONICAL identity keys repeat with multiplicity up to 15,
+ * so 35,906 rows hold only 32,562 distinct identities. An upsert keyed by that canonical identity —
+ * or a UNIQUE on a materialised non-null key column — would drop 3,344 rows and report success.
+ *
+ * ⚠ NOT "any unique constraint". identityKey() maps missing/null to '', SQLite does not: under
+ * UNIQUE, NULLs compare distinct. Executed: identical NULL-bearing rows under UNIQUE(a,b,c) with
+ * INSERT OR REPLACE retained 2; the same rows without NULLs retained 1. `from_target` and `to_id`
+ * are absent from all 35,906 live rows, so a natural UNIQUE over the identity columns would discard
+ * nothing. Same measured loss, different mechanism — and the mechanism is what a reader acts on.
  */
 export function replaceUnresolvedRefs(db, refs) {
   ensurePublicationTables(db);

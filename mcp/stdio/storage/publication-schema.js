@@ -19,10 +19,21 @@
 // Scale was checked before choosing, not after: the live unresolved population is 35,906 rows /
 // 11.3 MB of JSON rewritten every run. That is ordinary SQLite and tiny beside code_intel_records.
 
-// ⛔ SURROGATE ROW ID, AND NO UNIQUE CONSTRAINT ANYWHERE. Measured on the frozen carrier before this
-// table existed: 2,547 identity keys appear more than once, max multiplicity 15, so 35,906 rows
-// collapse to 32,562 distinct keys. A unique constraint or INSERT OR REPLACE would silently discard
+// ⛔ SURROGATE ROW ID, AND NO DEDUPLICATION ANYWHERE. Measured on the frozen carrier before this
+// table existed: 2,547 CANONICAL identity keys appear more than once, max multiplicity 15, so
+// 35,906 rows collapse to 32,562 distinct keys. Deduplicating by that canonical key would discard
 // 3,344 rows and report success — deduplication as an accidental migration.
+//
+// ⚠ SAY WHICH KEY, BECAUSE THE SQL AND THE CANONICAL KEY DISAGREE. `identityKey()` normalises a
+// missing or null field to an empty string; SQLite does NOT — under UNIQUE, NULLs compare distinct.
+// Reviewer executed it: two identical rows carrying NULL under `UNIQUE(a,b,c)` with INSERT OR
+// REPLACE retained 2 rows, while the same rows with no NULLs retained 1. On this population
+// `from_target` and `to_id` are absent from ALL 35,906 rows and project to SQL NULL, so a natural
+// UNIQUE across the seven identity columns would discard nothing at all.
+//
+// The loss is real and the number is right; the cause is deduplication BY THE CANONICAL KEY — a
+// materialised non-null key column under UNIQUE, or an upsert keyed by that identity. I had written
+// it as a property of "a unique constraint", which is a different claim about a different mechanism.
 //
 // ⛔ AND THE COLUMNS ARE THE RESOLVER CONTRACT, NOT THE CURRENT RENDERERS. `from_target`, `to_id`
 // and `language` appear in ZERO of the 35,906 live rows on this repository and are still live
