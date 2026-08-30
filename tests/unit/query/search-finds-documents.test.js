@@ -183,6 +183,9 @@ describe('a document is findable by its TITLE, not only by its filename', () => 
     const out = await graphSearch({ repoRoot, query: 'flaky downstream', limit: 10 });
     expect(nodesIn(out).some((l) => / document /.test(l)), 'the doc must be reachable by default')
       .toBe(true);
-    expect(out, 'and the widening is disclosed, never silent').toMatch(/WIDENED/);
+    // ⚠ No success-path caveat is asserted here. An earlier version required a WIDENED banner on
+    // every document hit; the ★★★ control in doc-topic-reachability forbids a permanent caveat on a
+    // successful search, and it is right — the population is named on the ZERO, where it decides
+    // something.
   }, 30_000);
 });

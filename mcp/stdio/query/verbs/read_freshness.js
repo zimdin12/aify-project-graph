@@ -57,6 +57,28 @@ export function staleNotFoundCaveat(freshness) {
   ].join('\n');
 }
 
+// ⛔ A BLOCKER RETURNED AS A STRING IS INDISTINGUISHABLE FROM DATA, AND A CONSUMER WILL LAUNDER IT.
+//
+// Reviewer executed this against an EMPTY graph with manifest status:indexing — a first index in
+// flight. `graph_packet` bypasses inspectReadFreshness, called `graph_consequences`, received the
+// GRAPH REBUILD INCOMPLETE text, and filed it down the "any informative string is ambiguity" branch:
+//
+//     SYMBOL: newSymbol
+//     STATUS: known to graph; AMBIGUOUS — feature mapping NOT CHECKED
+//
+// There is no such symbol. A refusal became a positive existence claim, at the moment the graph knew
+// least. This repository has now hit that exact shape twice, so the predicate lives HERE, beside the
+// banners it matches, and both sides share one literal instead of a copy that drifts.
+export const FRESHNESS_BLOCKER_BANNERS = Object.freeze([
+  'GRAPH REBUILD INCOMPLETE',
+  'GRAPH SCHEMA MISMATCH',
+]);
+
+export function isFreshnessBlockerText(value) {
+  return typeof value === 'string'
+    && FRESHNESS_BLOCKER_BANNERS.some((banner) => value.includes(banner));
+}
+
 function buildIncompleteMessage({ verbName, alreadyIndexedFiles = null, pendingFiles = null }) {
   const scope = pendingFiles == null
     ? (alreadyIndexedFiles == null
@@ -65,7 +87,7 @@ function buildIncompleteMessage({ verbName, alreadyIndexedFiles = null, pendingF
     : `${alreadyIndexedFiles ?? 0} files already indexed, ${pendingFiles} still pending.`;
 
   return [
-    `GRAPH REBUILD INCOMPLETE — ${verbName} is deferred to avoid mutating the graph during a read.`,
+    `${FRESHNESS_BLOCKER_BANNERS[0]} — ${verbName} is deferred to avoid mutating the graph during a read.`,
     scope,
     'Run graph_index(force=true) before relying on live cross-file graph answers on this repo.',
     'Until then, use briefs/static artifacts for orientation and verify in source files.',
@@ -74,7 +96,7 @@ function buildIncompleteMessage({ verbName, alreadyIndexedFiles = null, pendingF
 
 function buildSchemaMismatchMessage({ verbName, schemaVersion }) {
   return [
-    `GRAPH SCHEMA MISMATCH — ${verbName} only reads completed snapshots and will not auto-migrate them.`,
+    `${FRESHNESS_BLOCKER_BANNERS[1]} — ${verbName} only reads completed snapshots and will not auto-migrate them.`,
     `Graph schema=${schemaVersion ?? 1}, runtime schema=${SCHEMA_VERSION}.`,
     'Run graph_index(force=true) to rebuild this repo on the current schema.',
   ].join('\n');

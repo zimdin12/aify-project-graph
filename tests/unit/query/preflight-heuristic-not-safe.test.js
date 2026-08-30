@@ -45,6 +45,12 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       crossModule: false,
       confidence: 1.0,
       callersHaveLspEvidence: true,
+      // ⚠ ADDED 2026-08-30. SAFE now also requires a CURRENT collection: evidence that was ground
+      // truth at collection time is not ground truth after the files it covered have changed. This
+      // is a positive control for the legitimate proceed path, so it must state every condition that
+      // path requires — otherwise the new gate would make SAFE unreachable and these controls would
+      // be the thing that noticed.
+      collectionCurrent: true,
     });
     expect(d.tier).toBe('SAFE');
     expect(d.reason).toMatch(/lsp-verified/);
@@ -59,6 +65,12 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       crossModule: false,
       confidence: 1.0,
       callersHaveLspEvidence: true,
+      // ⚠ ADDED 2026-08-30. SAFE now also requires a CURRENT collection: evidence that was ground
+      // truth at collection time is not ground truth after the files it covered have changed. This
+      // is a positive control for the legitimate proceed path, so it must state every condition that
+      // path requires — otherwise the new gate would make SAFE unreachable and these controls would
+      // be the thing that noticed.
+      collectionCurrent: true,
     });
     expect(d.tier).toBe('SAFE');
     expect(d.reason).toMatch(/proceed/);
@@ -74,6 +86,12 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       crossModule: false,
       confidence: 1.0,
       callersHaveLspEvidence: true,
+      // ⚠ ADDED 2026-08-30. SAFE now also requires a CURRENT collection: evidence that was ground
+      // truth at collection time is not ground truth after the files it covered have changed. This
+      // is a positive control for the legitimate proceed path, so it must state every condition that
+      // path requires — otherwise the new gate would make SAFE unreachable and these controls would
+      // be the thing that noticed.
+      collectionCurrent: true,
     });
     expect(d.tier).toBe('REVIEW');
   });
@@ -130,7 +148,46 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       crossModule: false,
       confidence: 1.0,
       callersHaveLspEvidence: true,
+      // ⚠ ADDED 2026-08-30. SAFE now also requires a CURRENT collection: evidence that was ground
+      // truth at collection time is not ground truth after the files it covered have changed. This
+      // is a positive control for the legitimate proceed path, so it must state every condition that
+      // path requires — otherwise the new gate would make SAFE unreachable and these controls would
+      // be the thing that noticed.
+      collectionCurrent: true,
     });
     expect(d.tier).toBe('SAFE');
+  });
+});
+
+// ⛔ A SAFETY CURRENCY NO SAFETY CONSUMER READS IS NOT A GATE.
+// absenceAuthority was hardened to require a current collection and then had exactly two production
+// files: its definition and graph_health. THIS verb prints "DECISION: SAFE ... proceed" before
+// someone deletes a symbol, and consumed neither it nor collection currency. Reviewer executed both
+// stale and unknown-currency collections: health denied absence authority while preflight still said
+// SAFE, its own trust line calling the caller set a FLOOR in the same output.
+describe('computeDecision — SAFE requires evidence that is still current', () => {
+  const verified = {
+    callerCount: 0, testCount: 0, dirtyCount: 0, crossModule: false, confidence: 1.0,
+    callersHaveLspEvidence: true,
+  };
+
+  it('a collection taken at an older commit is never SAFE', () => {
+    const d = computeDecision({ ...verified, collectionCurrent: false });
+    expect(d.tier).toBe('REVIEW');
+    expect(d.reason, 'and it says WHY, not just no').toMatch(/older commit/);
+    expect(d.reason, 'and what the caller set is worth meanwhile').toMatch(/floor/i);
+  });
+
+  it('unknown currency fails closed, under its own wording', () => {
+    // null is what a non-git checkout or a collection predating commit tracking produces. Unknown is
+    // not evidence of currency, and it must not be reported as known staleness either.
+    const d = computeDecision({ ...verified, collectionCurrent: null });
+    expect(d.tier).toBe('REVIEW');
+    expect(d.reason).toMatch(/could not be established/);
+  });
+
+  it('POSITIVE CONTROL: a current collection still reaches SAFE', () => {
+    // Without this the gate above could deny unconditionally and every assertion here would pass.
+    expect(computeDecision({ ...verified, collectionCurrent: true }).tier).toBe('SAFE');
   });
 });

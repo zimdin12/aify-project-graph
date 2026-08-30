@@ -7,6 +7,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { buildTrustLine, provenanceRankSql } from '../lsp-evidence.js';
 import { renderProvenanceTag } from '../renderer.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
+import { getLatestCollection } from '../../code-intel/query.js';
 import { missScopeNote } from '../miss-scope.js';
 // ⛔ DERIVED, NOT RESTATED. These four relation lists were written out by hand — three copies of
 // CALL_FAMILY and one near-miss of IMPACT_FAMILY — in the file whose whole job is answering "is this
@@ -114,6 +115,31 @@ export async function graphPreflight({ repoRoot, symbol }) {
         coverageComplete = false; coverageReason = cov.reason || '';
       }
     } catch { /* defensive — treat as complete */ }
+    // ⛔ A SAFETY CURRENCY NO SAFETY CONSUMER READS IS NOT A GATE.
+    //
+    // `absenceAuthority` was hardened to require a CURRENT collection, and then had exactly two
+    // production files: its own definition and graph_health. This verb — the one that prints
+    // "DECISION: SAFE ... proceed" before someone deletes a symbol — imported neither it nor
+    // collection currency. Reviewer executed both stale and unknown-currency collections: health
+    // correctly denied absence authority while preflight still said SAFE, its own trust line calling
+    // the caller set a FLOOR in the same output.
+    //
+    // The evidence gates above ask whether clangd verified the callers and whether the compile DB
+    // covered the repo. Neither asks WHEN. A collection taken 121 commits ago satisfies both and is
+    // exactly the case where a file that changed since has lost its evidence.
+    //
+    // Unknown fails closed, like every other clause in this decision: a currency that cannot be
+    // established is not currency.
+    let collectionCurrent = null;
+    try {
+      // Reuses the HEAD this verb already observed via inspectReadFreshness — this file's own rule
+      // is one git observation per read, not two.
+      const latest = getLatestCollection(db);
+      if (latest?.indexedCommit && freshness.head) {
+        collectionCurrent = latest.indexedCommit === freshness.head;
+      }
+    } catch { /* leave null — unknown, and unknown does not grant SAFE */ }
+
     const decision = computeDecision({
       callerCount,
       testCount: tests.length,
@@ -123,6 +149,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
       callersHaveLspEvidence,
       coverageComplete,
       coverageReason,
+      collectionCurrent,
     });
 
     // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis (cohesion
@@ -187,7 +214,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
   }
 }
 
-export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false, coverageComplete = true, coverageReason = '' }) {
+export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false, coverageComplete = true, coverageReason = '', collectionCurrent = null }) {
   // CONFIRM: many callers + cross-module OR weak trust
   if (callerCount > 5 && crossModule) {
     return { tier: 'CONFIRM', reason: `${callerCount} callers across module boundaries — confirm change scope with user before editing.` };
@@ -231,6 +258,23 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
     return {
       tier: 'REVIEW',
       reason: `${callerCount} lsp-verified caller(s), but the compile DB only PARTIALLY covers this repo (${remedy}) — the caller set is a floor; verify with code_intel_references / rg before deleting/changing signature.`,
+    };
+  }
+
+  // ⛔ EVIDENCE THAT WAS GROUND TRUTH AT COLLECTION TIME IS NOT GROUND TRUTH NOW.
+  // The gates above establish that clangd verified these callers and that the compile DB covered
+  // the repo. Neither asks WHEN it did so. Every file changed since the collection has lost its
+  // verified evidence on the next rebuild, so a stale collection makes this caller set a floor in
+  // exactly the way the coverage gate above guards against. `null` is unknown and fails closed.
+  if (collectionCurrent !== true) {
+    const why = collectionCurrent === false
+      ? 'the code-intel collection was taken at an older commit, so files changed since then have lost their verified evidence'
+      : 'the currency of the code-intel collection could not be established';
+    return {
+      tier: 'REVIEW',
+      reason: `${callerCount} lsp-verified caller(s), but ${why} — the caller set is a floor; `
+        + 're-run graph_collect_code_intel, or verify with code_intel_references / rg before '
+        + 'deleting or changing the signature.',
     };
   }
 

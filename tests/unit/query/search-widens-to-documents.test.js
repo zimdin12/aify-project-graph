@@ -48,12 +48,10 @@ afterEach(() => { rmSync(repo, { recursive: true, force: true }); });
 const search = (args) => graphSearch({ repoRoot: repo, ...args }).then(String);
 
 describe('a discovery question reaches the document layer on the DEFAULT path', () => {
-  it('finds a document when no code matches, and says it widened', async () => {
+  it('finds a document when no code matches', async () => {
     // Catches the founding defect: 230 documents indexed and the default search reporting NO RESULTS.
     const out = await search({ query: 'The goal' });
     expect(out, 'the document must be returned').toMatch(/THE-GOAL\.md/);
-    expect(out, 'and the widening must be disclosed, not silent').toMatch(/WIDENED/);
-    expect(out, 'with its recall floor stated').toMatch(/FILENAME, TITLE and HEADINGS/);
   });
 
   it('reaches a document by a HEADING, not just its title', async () => {
@@ -97,7 +95,8 @@ describe('the widening belongs to whoever caused the narrowing', () => {
     // call whose answer is already computed — the non-terminating shape this file warns about.
     const out = await search({ query: 'zzzz-no-such-topic-anywhere' });
     expect(out).toMatch(/NO RESULTS/);
-    expect(out, 'the zero must name the population actually searched').toMatch(/Document\/Directory\/Config nodes were searched too/);
+    expect(out, 'the zero must name the population actually searched')
+      .toMatch(/Document\/Directory\/Config nodes were searched/);
     expectAbsentWithLiveMatcher(
       /kind="all"/,
       { forbidden: 'Next: graph_search(query="x", kind="all") to include docs/configs', allowed: 'Next: graph_pull for cross-layer context on a known node.' },

@@ -71,7 +71,7 @@ describe('graph_search zero-result cause attribution', () => {
     repoRoot = await repo();
     const out = await graphSearch({ repoRoot, query: ABSENT });
     expect(out, 'the reader must learn what scope was actually searched, never silence')
-      .toMatch(/searched too|DEFAULTS to kind/i);
+      .toMatch(/were searched|DEFAULTS to kind/i);
   }, 20_000);
 
   it('★★★ kind="all" is the WIDEST setting and must not be reported as narrowing', async () => {

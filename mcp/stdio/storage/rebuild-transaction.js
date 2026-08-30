@@ -102,13 +102,26 @@ export class RebuildTransaction {
   // check at every call site. Returns whether it actually unwound anything.
   rollback() {
     if (this.#state !== 'open') return false;
+    let failure = null;
     try {
       this.#db.raw.exec('ROLLBACK');
-    } catch {
-      // Already unwound by SQLite — a statement error can abort the transaction on its own.
+    } catch (err) {
+      // A statement error can abort the transaction on its own, in which case ROLLBACK throws
+      // because there is nothing left to unwind — that is success, not failure.
+      failure = err;
+    }
+    // ⛔ DO NOT CALL THIS FAIL-CLOSED WITHOUT ASKING SQLITE. The first version swallowed every
+    // ROLLBACK error and marked the object closed regardless, so a transaction that was STILL OPEN
+    // would be reported as unwound — the object's own state lying about the database's. `inTransaction`
+    // is the authority here; the exception is not, because the commonest exception means the
+    // transaction had already ended.
+    const stillOpen = this.#db.raw.inTransaction === true;
+    this.#chunkOpen = false;
+    if (stillOpen) {
+      // Leave state 'open' so a caller cannot mistake this for a clean unwind, and surface the cause.
+      throw failure ?? new Error('ROLLBACK did not end the transaction; it is still open');
     }
     this.#state = 'closed';
-    this.#chunkOpen = false;
     return true;
   }
 

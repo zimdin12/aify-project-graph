@@ -38,6 +38,7 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { assessOverlayBuild, overlayNotBuiltHint } from '../../overlay/quality.js';
 import { getPacketTokenBudget } from '../response-budget.js';
 import { openExistingDb } from '../../storage/db.js';
+import { isFreshnessBlockerText } from './read_freshness.js';
 import { resolveSymbolWithTotal, languageCensusExact } from './symbol_lookup.js';
 // Slice 2: the symbol-route data helpers now live in their own authority. `buildSymbolPointerPacket`
 // stays here and keeps calling them — only the definitions moved.
@@ -596,6 +597,14 @@ async function graphPacketInner({ repoRoot, target, mode = 'orient', budget = nu
         if (typeof raw === 'object') mapped = raw;
         else if (typeof raw === 'string' && raw.trim().startsWith('{')) {
           mapped = JSON.parse(raw);
+        } else if (isFreshnessBlockerText(raw)) {
+          // ⛔ NOT A DEGRADE CASE — A REFUSAL. graph_consequences declined because the graph is
+          // mid-rebuild or schema-mismatched, and that refusal arrives as prose like every other
+          // string here. Filed as consequences it renders "STATUS: known to graph", which the
+          // reviewer executed against an EMPTY graph for a symbol that does not exist. This verb
+          // deliberately bypasses inspectReadFreshness, so the blocker has to be caught on the way
+          // back in or nothing stops it.
+          return raw;
         } else if (typeof raw === 'string') {
           // AMBIGUOUS MATCH / NO MATCH come back as human-readable strings;
           // keep them for the symbol-pointer degrade path.

@@ -174,3 +174,36 @@ describe('the transaction takes its write lock up front', () => {
     expect(nodeCount()).toBe(2);
   });
 });
+
+// ⛔ THE OBJECT'S STATE MUST NOT LIE ABOUT THE DATABASE'S.
+// rollback() used to swallow every ROLLBACK error and mark itself closed regardless, so a
+// transaction that was still open would be reported as cleanly unwound. `inTransaction` is the
+// authority; the exception is not, because the commonest exception means the transaction had
+// already ended on its own.
+describe('rollback reports what actually happened', () => {
+  it('a normal rollback ends the transaction and says so', () => {
+    const txn = new RebuildTransaction(writer);
+    txn.begin();
+    seed('doomed');
+    expect(txn.rollback()).toBe(true);
+    expect(writer.raw.inTransaction, 'and SQLite agrees it ended').toBe(false);
+  });
+
+  it('treats an already-aborted transaction as unwound, not as a failure', () => {
+    // A statement error can abort the transaction on its own; ROLLBACK then throws because there is
+    // nothing left to unwind. That is success, and the old code was right about this case.
+    const txn = new RebuildTransaction(writer);
+    txn.begin();
+    writer.raw.exec('ROLLBACK');            // ended out from under the object
+    expect(() => txn.rollback()).not.toThrow();
+    expect(writer.raw.inTransaction).toBe(false);
+  });
+
+  it('POSITIVE CONTROL: rollback after commit is still a no-op', () => {
+    const txn = new RebuildTransaction(writer);
+    txn.begin();
+    seed('published');
+    txn.commit();
+    expect(txn.rollback()).toBe(false);
+  });
+});

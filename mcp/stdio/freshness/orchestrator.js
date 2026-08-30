@@ -278,25 +278,29 @@ export async function ensureFresh({
       const toolingMismatch = (manifest.extractorVersion ?? '0.0.0') !== EXTRACTOR_VERSION
         || (manifest.parserBundleVersion ?? '0.0.0') !== PARSER_BUNDLE_VERSION;
 
-      // Crash-recovery: if the previous run wrote `status: 'indexing'` and
-      // crashed before flipping to `'ok'`, the chunked-commit code has
-      // already preserved some nodes in SQLite. We can resume from that
-      // partial state instead of wiping and starting over — but only when
-      // the schema/commit still match. Cross-file refs emitted by
-      // previously-processed files were held in JS at crash time and are
-      // lost, so the resumed graph will have complete nodes/DEFINES/CONTAINS
-      // but potentially incomplete CALLS/IMPORTS/EXTENDS for pre-crash
-      // files. A follow-up `force=true` gives a clean graph.
-      const existingNodeCount = countNodes(db);
-      const canResumeFromPartial = !force
-        && !schemaMismatch
-        && !toolingMismatch
-        && manifest.status === 'indexing'
-        && manifest.commit
-        && manifest.commit === commit
-        && existingNodeCount > 0;
+      // ⛔ PARTIAL RESUME IS DEAD, AND ITS PREMISE DIED WITH THE CHUNKED COMMITS.
+      //
+      // This used to read: "the chunked-commit code has already preserved some nodes in SQLite. We
+      // can resume from that partial state instead of wiping and starting over." That was true while
+      // the rebuild committed every 500 files. Since the rebuild became ONE transaction, a killed
+      // run rolls back to the COMPLETE OLD GRAPH — there is no partial state to resume, and the old
+      // graph's File rows are not "already processed chunks".
+      //
+      // Reviewer executed the consequence on the atomic build: recovery treated every old File row
+      // as done, filtered them all out, and returned indexed:true with processedFiles:[] while the
+      // manifest stayed `indexing` forever — a repository that can never re-index itself, reporting
+      // success.
+      //
+      //     source now: newFn | DB after simulated killed atomic rebuild: oldFn
+      //     recovery log: 1 files already indexed, 0 pending
+      //     result: indexed:true, processedFiles:[]   manifest: still indexing
+      //
+      // ⇒ A `status: indexing` manifest now means exactly one thing: the last run did not finish,
+      // so whatever is in the database is the PREVIOUS complete graph and the rebuild must be redone
+      // from source. The clause is already in `fullRebuild` below; deleting the resume path is what
+      // lets it fire.
 
-      const fullRebuild = !canResumeFromPartial && (force
+      const fullRebuild = (force
         || manifestState.status !== 'ok'
         || !manifest.commit
         // An indexed commit git cannot resolve is no more usable than an absent one, directly above.
@@ -307,7 +311,6 @@ export async function ensureFresh({
 
       const effectiveIgnoredDirs = loadEffectiveIgnoredDirs(repoRoot);
       let filesToProcess;
-      let resumedFromPartial = false;
       // Set when a full rebuild wiped the LSP trust spine and the stored
       // collection was too stale to restore — the agent must re-collect.
       let trustSpineDropped = null;
@@ -321,22 +324,6 @@ export async function ensureFresh({
       let preservedFingerprints = null;
       if (fullRebuild) {
         filesToProcess = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
-      } else if (canResumeFromPartial) {
-        const alreadyProcessed = new Set(
-          db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).map((row) => row.file_path),
-        );
-        if (!allowLargePartialResume) {
-          const deferredResult = buildDeferredPartialResumeResult({ db, manifest, commit });
-          deferredResult.alreadyProcessedFiles = alreadyProcessed.size;
-          freshCache.set(repoRoot, { ts: Date.now(), commit: commit ?? undefined, result: deferredResult });
-          return deferredResult;
-        }
-        const allFiles = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
-        filesToProcess = allFiles.filter((relPath) => !alreadyProcessed.has(relPath));
-        resumedFromPartial = true;
-        // Intentional console warning: callers/agents should know cross-file
-        // refs for pre-crash files may be incomplete until next force rebuild.
-        console.warn(`[aify-project-graph] Resuming crashed rebuild: ${alreadyProcessed.size} files already indexed, ${filesToProcess.length} pending. Run graph_index(force=true) for a clean rebuild if cross-file edges look incomplete.`);
       } else {
         // P1-6 tiered rebuild: classify each DIRECTLY-changed file as
         // cosmetic (structural fingerprint unchanged → keep nodes/edges, skip
@@ -420,18 +407,24 @@ export async function ensureFresh({
         return noopResult;
       }
 
-      // Mark manifest as indexing BEFORE mutating DB — crash safety
-      await writeManifest(graphDir, { ...manifest, status: 'indexing' });
-
       // ⭐ ONE TRANSACTION FOR THE WHOLE REBUILD. Everything from here to the commit near the end
       // is unpublished: a concurrent reader keeps seeing the complete PREVIOUS graph under WAL
       // snapshot isolation, and sees the complete new one the instant this commits. The wipe used to
       // autocommit here, which is what let a reader observe zero edges and a verb report zero
       // callers. Applies to incremental runs too — a partially-reprocessed file set is just as wrong
       // to publish as a partially-rebuilt one, and one path is easier to keep honest than two.
+      //
+      // ⛔ ACQUIRE THE TRANSACTION BEFORE MARKING THE MANIFEST, AND BEGIN INSIDE THE TRY.
+      // The manifest used to be written `indexing` first, with `begin()` outside the guarded block.
+      // A BUSY or I/O failure on BEGIN then left the complete old database beside an `indexing`
+      // manifest — a state nothing ever cleared, which fed straight into the stale-serving and
+      // recovery paths. Nothing may claim a rebuild is under way until one actually is, and if
+      // marking the manifest fails the transaction must not stay open.
       const rebuildTxn = new RebuildTransaction(db);
-      rebuildTxn.begin();
       try {
+        rebuildTxn.begin();
+        // Mark manifest as indexing only once the write lock is genuinely held — crash safety.
+        await writeManifest(graphDir, { ...manifest, status: 'indexing' });
       if (fullRebuild) {
         db.exec('DELETE FROM edges; DELETE FROM nodes;');
       }
@@ -1009,7 +1002,8 @@ export async function ensureFresh({
         sweepCounts: special.counts ?? null,
         docLinks: docLinkResult,
         docRefs: docRefResult,
-        resumedFromPartial,
+        // Always false: partial resume was removed when the rebuild became atomic.
+        resumedFromPartial: false,
         trustSpineDropped,
         cosmeticSkipped: cosmeticSkippedFiles.length,
       };

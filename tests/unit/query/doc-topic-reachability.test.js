@@ -279,8 +279,10 @@ describe('a zero result discloses what was actually searched', () => {
     repoRoot = await topicRepo();
     const out = await graphSearch({ repoRoot, query: 'denoiser' });
     expect(out).toMatch(/NO RESULTS/);
+    // Matches the CLAIM (documents were in the population and matched nothing), not one phrasing of
+    // it — an assertion pinned to exact prose fails on every honest rewording.
     expect(out, 'the reader must learn documents were covered and still empty')
-      .toMatch(/Document\/Directory\/Config nodes were searched too/);
+      .toMatch(/Document\/Directory\/Config nodes were searched/);
     expect(out, 'and what the document recall floor is').toMatch(/FILENAME, TITLE and HEADINGS/);
     // ⛔ AND IT MUST NOT OFFER A WIDENING IT ALREADY PERFORMED — the non-terminating shape this
     // file's neighbours warn about: a remedy whose answer is already computed.
