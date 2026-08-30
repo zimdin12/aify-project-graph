@@ -1,0 +1,116 @@
+{
+  "purpose": "Semantic ref shapes that the live 35,906-row carrier on this repository does NOT contain, frozen BEFORE the unresolved_refs table existed so the migration is measured against producer contracts rather than against its own output.",
+  "why": "The frozen real carrier proves the migration preserves what this repo happens to emit today. It cannot prove the resolver seams it never exercises. from_target, to_id and language appear in ZERO of the 35,906 live rows, and population zero is not contract absence — each is a live producer path. Sourced from the producers named below, not invented.",
+  "shapes": [
+    {
+      "name": "symbolic source, no from_id",
+      "producer": "mcp/stdio/ingest/frameworks/cpp_frameworks.js:73 (qt signal/slot)",
+      "why": "The source is a symbol the extractor found in text, with no node id yet. from_target IS the source identity here, and after from_label is dropped it is also the display.",
+      "ref": {
+        "from_target": "MainWindow::onReady",
+        "relation": "CALLS",
+        "target": "handleData",
+        "source_file": "src/mainwindow.cpp",
+        "source_line": 128,
+        "confidence": 0.72,
+        "provenance": "INFERRED",
+        "extractor": "qt"
+      }
+    },
+    {
+      "name": "pre-resolved destination, to_id present",
+      "producer": "mcp/stdio/ingest/code-intel/importer.js:136 (clangd synthesis)",
+      "why": "The destination is already a known node, so target is not the identity — to_id is. A migration that keyed on target alone would lose the binding.",
+      "ref": {
+        "from_id": "aa11bb22cc33dd44ee55ff6677889900aabbccdd",
+        "to_id": "ff00ee11dd22cc33bb44aa5566778899aabbccdd",
+        "relation": "CALLS",
+        "target": "resolveTarget",
+        "source_file": "mcp/stdio/ingest/resolver.js",
+        "source_line": 214,
+        "confidence": 0.99,
+        "provenance": "LSP_VERIFIED",
+        "extractor": "clangd",
+        "language": "cpp"
+      }
+    },
+    {
+      "name": "language carried on the ref",
+      "producer": "mcp/stdio/ingest/code-intel/importer.js:77",
+      "why": "language rides the record from the collection. Absent from every live row here, and load-bearing wherever a resolver must not cross language families.",
+      "ref": {
+        "from_id": "1122334455667788990011223344556677889900",
+        "relation": "USES_TYPE",
+        "target": "std::vector",
+        "source_file": "src/buffer.cpp",
+        "source_line": 44,
+        "confidence": 0.95,
+        "provenance": "LSP_VERIFIED",
+        "extractor": "clangd",
+        "language": "cpp"
+      }
+    },
+    {
+      "name": "importMap evidence, JS import resolution",
+      "producer": "mcp/stdio/ingest/js-import-evidence.js:44 — shape copied from a real carrier row",
+      "why": "Rare (66 of 35,906) and load-bearing: it is resolution EVIDENCE, not presentation, so it must survive as a typed column rather than being treated as a display extra.",
+      "ref": {
+        "from_id": "6dea8dcda81897b297f2639bafdbcb46e103892a",
+        "relation": "REFERENCES",
+        "target": "fs",
+        "source_file": "mcp/stdio/code-intel/compile-db.js",
+        "source_line": 540,
+        "confidence": 0.9,
+        "provenance": "EXTRACTED",
+        "extractor": "javascript",
+        "importMap": { "fs": { "source": "node:fs", "exportedName": "default" } }
+      }
+    },
+    {
+      "name": "provenance absent entirely — typed absence, not a default",
+      "producer": "observed on 2 of 35,906 live rows (decorators extractor)",
+      "why": "The key is MISSING, not null. A migration that writes a default provenance would manufacture a confidence the producer never claimed.",
+      "ref": {
+        "from_id": "dbb260e89eefac660e05e5ad0191fe350387ca19",
+        "relation": "REFERENCES",
+        "target": "action",
+        "source_file": "tests/fixtures/ingest/tiny-typescript/decorators.js",
+        "source_line": 3,
+        "confidence": 0.75,
+        "extractor": "decorators"
+      }
+    },
+    {
+      "name": "refused ref carrying its reason",
+      "producer": "mcp/stdio/ingest/external-admission.js via resolver refusal",
+      "why": "refused_reason is read by unresolved-categorization to bucket a ref as external-by-design. Dropping or defaulting it silently reclassifies the trust denominator — that exact field zeroed the trust signal 27,957 -> 0 once already.",
+      "ref": {
+        "from_id": "99887766554433221100998877665544332211aa",
+        "relation": "REFERENCES",
+        "target": "readFileSync",
+        "source_file": "mcp/stdio/query/verbs/health.js",
+        "source_line": 91,
+        "confidence": 0.6,
+        "provenance": "EXTRACTED",
+        "extractor": "javascript",
+        "refusedReason": "references-bare-local-name"
+      }
+    },
+    {
+      "name": "exact duplicate of the row above",
+      "producer": "the live carrier: 2,547 identity keys appear more than once, max multiplicity 15",
+      "why": "The table uses a surrogate row id and must NOT dedup. Keyed on identity alone, 35,906 rows collapse to 32,562 — a migration with a unique constraint would silently drop 3,344 rows and report success.",
+      "ref": {
+        "from_id": "99887766554433221100998877665544332211aa",
+        "relation": "REFERENCES",
+        "target": "readFileSync",
+        "source_file": "mcp/stdio/query/verbs/health.js",
+        "source_line": 91,
+        "confidence": 0.6,
+        "provenance": "EXTRACTED",
+        "extractor": "javascript",
+        "refusedReason": "references-bare-local-name"
+      }
+    }
+  ]
+}

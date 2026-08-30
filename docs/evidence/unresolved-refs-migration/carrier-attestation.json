@@ -1,0 +1,52 @@
+{
+  "purpose": "Immutable legacy carrier for the unresolved-refs SQLite migration parity test.",
+  "frozenAt": "2026-08-30T19:25:09.689Z",
+  "carrier": {
+    "path": "docs/evidence/unresolved-refs-migration/dirty-edges.full.frozen.json",
+    "bytes": 11297429,
+    "sha256": "a236bd80921541b28370ad8e52e85290702914976b9c152cf273ceccf4b43724",
+    "rowCount": 35906,
+    "envelopeShape": {
+      "keys": [
+        "count",
+        "writtenAt",
+        "dirtyEdges"
+      ],
+      "rowsUnder": "dirtyEdges"
+    },
+    "envelopeCountField": 35906,
+    "envelopeWrittenAt": "2026-08-30T19:09:41.180Z"
+  },
+  "fieldPopulation": {
+    "from_id": 35906,
+    "from_label": 35906,
+    "relation": 35906,
+    "target": 35906,
+    "source_file": 35906,
+    "source_line": 35906,
+    "confidence": 35906,
+    "provenance": 35904,
+    "extractor": 35906,
+    "refusedReason": 35906,
+    "importMap": 66
+  },
+  "duplicateMultiplicity": {
+    "distinctIdentityKeys": 32562,
+    "identityKeysAppearingMoreThanOnce": 2547,
+    "maxMultiplicity": 15,
+    "note": "The table uses a surrogate row id and must preserve this multiset exactly. Deduplication would be an accidental migration."
+  },
+  "producedBy": {
+    "manifestCommit": "1050fb55b7bff20e3f00c3f6f5ac9d8636d1a343",
+    "manifestIndexedAt": "2026-08-30T19:09:41.089Z",
+    "manifestStatus": "ok"
+  },
+  "instrumentTree": {
+    "head": "1050fb55b7bff20e3f00c3f6f5ac9d8636d1a343",
+    "dirtyPaths": 1
+  },
+  "reviewerCensus": {
+    "rowCount": 35885,
+    "note": "graph-senior-dev measured 35,885 on an earlier index state. The difference from this frozen 35,906 is exactly why the carrier had to be frozen rather than read live."
+  }
+}
