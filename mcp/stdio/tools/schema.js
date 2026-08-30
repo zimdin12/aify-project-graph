@@ -408,7 +408,7 @@ export const TOOLS = [
       properties: {
         query: { type: 'string', description: 'Partial symbol name, or a natural-language description in semantic mode.' },
         mode: { type: 'string', enum: ['lexical', 'semantic'], default: 'lexical', description: 'lexical = name match; semantic = embedding similarity (find by meaning).' },
-        kind: { type: 'string', enum: ['code', 'all'], default: 'code', description: 'code or all node kinds.' },
+        kind: { type: 'string', enum: ['code', 'all'], default: 'code', description: 'code (default) or all. Leave unset for discovery: documents are included automatically for prose queries and when a code search finds nothing. Setting "code" suppresses that.' },
         type: { type: 'string', description: 'Optional node type filter.' },
         file: { type: 'string', description: 'Optional file path prefix.' },
         limit: { type: 'integer', default: 20, description: 'Max results.' },
