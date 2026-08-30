@@ -42,6 +42,44 @@ function scoreNode(node, query) {
   else if (label.startsWith(q)) score += 300;
   else if (label.includes(q)) score += 100;
 
+  // ⛔ THE SCORER ONLY EVER COMPARED AGAINST THE WHOLE QUERY STRING, SO AMONG DOCUMENTS THE ORDER
+  // WAS ARBITRARY. Measured on the pinned corpus: for the query "parameter types", click's
+  // `parameter-types.md` and its `api.md` both scored exactly 100 — same type bonus, and neither
+  // label contains the full phrase "parameter types" — so the document that answers the question
+  // lost to one that does not, by tie-break. Same for "shell completion" against
+  // `shell-completion.md`. The right document was IN the candidate set both times and ranked below.
+  //
+  // Tokens are what a prose query is actually made of. This counts how many of them the node's own
+  // name, title and headings carry, which is a measure of how well it matched rather than whether it
+  // matched at all.
+  //
+  // ⚠ DELIBERATELY SMALLER THAN THE TYPE BONUS. Code still outranks documents overall — that
+  // ordering is the existing design and this does not touch it. This orders candidates WITHIN a
+  // type, which is exactly where the tie was.
+  // ⚠ AND WHERE THE TOKEN SITS DECIDES WHAT IT IS WORTH — measured, because a flat token count did
+  // NOT fix the case above. For "parameter types", `api.md` carries both tokens across its twelve
+  // headings and `parameter-types.md` carries both in its NAME; counting tokens alone scored them
+  // equally and the wrong one still won. A name or title is a claim about the WHOLE document; a
+  // heading is a claim about one section of it. That is this repo's own adjacent-not-ambient rule,
+  // the property that separated the doc→symbol rules which survived held-out grading from the one
+  // deleted at 0.9311.
+  const queryTokens = q.split(/\s+/u).filter((t) => t.length > 2);
+  if (queryTokens.length > 1) {
+    let named = label;
+    let sectioned = '';
+    try {
+      const extra = node.extra ? JSON.parse(node.extra) : null;
+      if (extra) {
+        named += ` ${String(extra.title ?? '').toLowerCase()}`;
+        sectioned = (extra.headings ?? []).join(' ').toLowerCase();
+      }
+    } catch { /* a node without parseable extra scores on its label alone */ }
+    for (const t of queryTokens) {
+      if (named.includes(t)) score += 200;
+      else if (sectioned.includes(t)) score += 40;
+    }
+  }
+
   // Fan-in as tiebreaker (from confidence as proxy)
   score += (node.confidence ?? 0) * 10;
 
@@ -274,14 +312,71 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
       matchClause = docText('$q');
       params.q = `%${normalizedQuery}%`;
     }
-    const clauses = [matchClause, ...baseClauses];
+    // ⭐ A PROSE QUESTION IS A DISCOVERY QUESTION, AND CODE WAS SHADOWING THE ANSWER.
+    //
+    // Widening only when code finds NOTHING fixes the smaller half. Measured against the pinned
+    // corpus with questions registered before indexing: of ten discovery questions, one returned
+    // nothing at all and FIVE returned code only — "context", "arguments", "parameter types" each
+    // matched some symbol, so the design document that answers them was never reached. A doc that
+    // exists and is never shown is unreachable for the same reason a missing one is.
+    //
+    // A multi-token query is not a symbol lookup. `EXACT_SYMBOL_RE` cannot match anything containing
+    // a space, so tokens.length > 1 already means the caller asked in prose — and prose is how an
+    // agent asks when it remembers the topic and has lost the filename, which is the whole scenario.
+    //
+    // ⛔ STILL ONLY WHEN THE NARROWING WAS OURS, and still not a promotion of filler: documents ride
+    // the same match clause as everything else, and `reserveForWidened` promotes nothing when nothing
+    // matched. Code keeps its +1000 ranking bonus; the reservation only stops docs being buried
+    // below every function, which is inclusion the reader cannot reach.
+    const proseQuery = tokens.length > 1 && !kindSupplied && !type;
+    const effectiveKind = proseQuery ? 'all' : kind;
+    const { clauses: effBaseClauses, params: effBaseParams } = proseQuery
+      ? buildSearchFilters({ type, file, kind: 'all' })
+      : { clauses: baseClauses, params: baseParams };
+    Object.assign(params, effBaseParams);
+    const clauses = [matchClause, ...effBaseClauses];
     const where = clauses.join(' AND ');
-    const hits = db.all(
+    let hits = db.all(
       `SELECT * FROM nodes WHERE ${where}
         ORDER BY CASE WHEN type IN (${codeTypeList}) THEN 0 ELSE 1 END
         LIMIT ${SQL_CANDIDATE_CAP}`,
       params,
     );
+
+    // ⭐ THE DEFAULT EXCLUSION IS OURS, SO A ZERO CAUSED BY IT IS OURS TO UNDO.
+    //
+    // THE-GOAL names documents as the base layer and the product's problem as DISCOVERY — "my agent
+    // asked me where the game design doc is; he has worked on the project for 2 months". Measured on
+    // this repository: 230 documents indexed, and "the goal", "why is the rebuild one transaction"
+    // and "PHP language server decision" ALL returned NO RESULTS, because kind defaults to "code"
+    // and that excludes Document nodes. The founding question failed on the default path.
+    //
+    // The message already named the narrowing and gave the exact remedy call, which is honest — but
+    // THE-GOAL also says "a disclosure nobody acts on is slop", and the remedy costs a round trip to
+    // an agent whose whole problem is that it no longer remembers the document exists. Measured:
+    // that message has been delivered ZERO times across 1,078 transcripts on this machine.
+    //
+    // ⛔ ONLY WHEN THE NARROWING WAS OURS. A caller who passed kind="code" asked for code and gets
+    // code; widening under them would answer a question they did not ask. `kindSupplied` exists
+    // precisely to tell those two apart.
+    const narrowedByDefault = !type && !kindSupplied;
+    let autoWidened = false;
+    let widenAttempted = false;
+    if (hits.length === 0 && narrowedByDefault) {
+      widenAttempted = true;
+      const { clauses: wideBase, params: wideParams } = buildSearchFilters({ type, file, kind: 'all' });
+      const wideWhere = [matchClause, ...wideBase].join(' AND ');
+      const wideHits = db.all(
+        `SELECT * FROM nodes WHERE ${wideWhere}
+          ORDER BY CASE WHEN type IN (${codeTypeList}) THEN 0 ELSE 1 END
+          LIMIT ${SQL_CANDIDATE_CAP}`,
+        { ...params, ...wideParams },
+      );
+      if (wideHits.length > 0) {
+        hits = wideHits;
+        autoWidened = true;
+      }
+    }
 
     // ⛔ `kind:"all"` IS THE CALLER EXPLICITLY ASKING FOR DOCS, AND THEY WERE UNREACHABLE.
     // Measured on this repo: `graph_search("plan", kind:"all")` ranked the eleven docs/*plan*.md
@@ -300,7 +395,9 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     // it reserved space for nothing and the test still failed. A promotion that can only pick
     // from the winners promotes nobody.
     const reserveForWidened = (rankedList) => {
-      if (kind !== 'all') return rankedList.slice(0, limit);
+      // `effectiveKind`, not `kind`: a prose query searches the widened population, so its documents
+      // need the same reservation or they sit below every function and are never seen.
+      if (effectiveKind !== 'all') return rankedList.slice(0, limit);
       // ⚠ PROMOTE WHAT THE WIDENING ADMITS, not merely "not code". My first version reserved for
       // any non-CODE_TYPES node, and on a real query the slot went to a TEST FILE — which the
       // default kind='code' already returns, so the reservation bought the caller nothing. The
@@ -361,7 +458,12 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
       // Attributed to the verb, with the widening move named. Suppressed when the caller already
       // widened, because re-suggesting the setting they just passed is a remedy that cannot
       // change the answer — the same non-terminating shape as the did-you-mean loop.
-      const defaultNarrowed = !type && !kindSupplied;
+      // ⛔ A REMEDY ALREADY TRIED IS NOT A REMEDY. When the default narrowing was undone
+      // automatically above and the widened search ALSO found nothing, the exclusion is not the
+      // cause of this zero — and telling the reader to set kind="all" sends them to a call whose
+      // answer we have already computed. This file names that shape a few lines down: "re-suggesting
+      // the setting they just passed is a remedy that cannot change the answer".
+      const defaultNarrowed = !type && !kindSupplied && !widenAttempted;
       // ⛔ A ZERO MUST NAME THE POPULATION IT SEARCHED, OR IT READS AS A CLAIM ABOUT THE REPOSITORY.
       //
       // the field test, field-testing the heading index on their own corpus: `denoiser` returned
@@ -398,9 +500,17 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
         defaultNarrowed
           ? 'Note: this verb DEFAULTS to kind="code", which excludes Document/Directory/Config/External nodes — you did not set that.'
           : '',
+        widenAttempted
+          ? 'Scope: code found nothing, so Document/Directory/Config nodes were searched too and also '
+            + 'matched nothing. Documents match on FILENAME, TITLE and HEADINGS only — a topic '
+            + 'discussed in a body but never in a heading is not reachable here, so this is NOT '
+            + 'evidence the topic is absent. Fall back to grep for body text.'
+          : '',
         // graph_find is not in the default profile, so naming it spent a round trip to
         // discover it was unreachable. graph_pull is the listed cross-layer verb.
-        kind === 'all'
+        // `widenAttempted` counts as already-widened: the widened search ran and returned nothing,
+        // so offering kind="all" would send the reader to a call whose answer is already known.
+        (kind === 'all' || widenAttempted)
           ? `Next: graph_pull for cross-layer context on a known node.`
           : `Next: graph_search(query="${normalizedQuery}", kind="all") to include docs/configs, or graph_pull for cross-layer context on a known node.`,
       ].filter(Boolean).join(' ');
@@ -448,7 +558,18 @@ export async function graphSearch({ repoRoot, query, type, file, kind: kindArg, 
     const shownNote = dropped > 0 || sqlCapNote
       ? `\nSHOWING ${scored.length} of ${hits.length}${hits.length >= SQL_CANDIDATE_CAP ? '+' : ''} matches.`
       : '';
-    return prefixReadWarnings(rendered + shownNote + sqlCapNote, freshnessWarnings);
+    // Widening silently would trade one dishonesty for another: the reader must know the population
+    // they got is not the population the verb defaults to, and what its recall floor is.
+    // ⛔ BOTH ROUTES INTO THE WIDER POPULATION MUST DISCLOSE IT, and adding the prose route silently
+    // was a regression this test caught: a multi-token query now searches documents from the START
+    // (it never reaches the widen-on-zero branch), so keying the note off `autoWidened` alone made
+    // the commonest discovery path the one that says nothing.
+    const widenedNote = (autoWidened || (proseQuery && effectiveKind === 'all'))
+      ? `${'\n'}WIDENED: this searched Document/Directory/Config nodes too `
+        + '(kind="all"). Documents are matched on FILENAME, TITLE and HEADINGS only — bodies are not '
+        + 'indexed, so this is a floor, not a complete match set.'
+      : '';
+    return prefixReadWarnings(rendered + shownNote + sqlCapNote + widenedNote, freshnessWarnings);
   } finally {
     db.close();
   }

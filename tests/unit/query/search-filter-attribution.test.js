@@ -63,10 +63,15 @@ describe('graph_search zero-result cause attribution', () => {
     // ⚠ The first version of this assertion matched /kind="all"/ and PASSED against the unfixed
     // code — because the pre-existing "Next:" line already contains that string. It was testing
     // the presence of a suggestion, not the presence of an attribution. Match the attribution.
+    // ⚠ CONTRACT CHANGED 2026-08-30. The intent — never go silent about the scope — is unchanged and
+    // is what this still checks. What changed is WHICH scope there is to disclose: the default now
+    // widens to documents when code finds nothing, so the honest disclosure is no longer "a default
+    // excluded docs" but "documents were searched too and also matched nothing". Asserting the old
+    // wording would now pin a description of a narrowing that no longer happens.
     repoRoot = await repo();
     const out = await graphSearch({ repoRoot, query: ABSENT });
-    expect(out, 'the reader must learn a DEFAULT excluded docs/configs, not that they set one')
-      .toMatch(/default/i);
+    expect(out, 'the reader must learn what scope was actually searched, never silence')
+      .toMatch(/searched too|DEFAULTS to kind/i);
   }, 20_000);
 
   it('★★★ kind="all" is the WIDEST setting and must not be reported as narrowing', async () => {

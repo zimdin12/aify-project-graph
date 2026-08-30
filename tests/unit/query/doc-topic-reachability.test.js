@@ -266,19 +266,30 @@ describe('a zero result discloses what was actually searched', () => {
     expect(out, 'and give the fallback that does search bodies').toMatch(/grep/i);
   }, 20_000);
 
-  it('★★★⛔ the DEFAULT kind="code" does NOT get it — one explanation per population', async () => {
-    // ⚠ THE OVER-CORRECTION GUARD. A code search already tells the reader documents were excluded
-    // entirely; adding a second explanation for a population they did not ask about is the noise
-    // that trains people to stop reading the block where the real warning lives.
+  // ⚠ CONTRACT CHANGED 2026-08-30. This previously asserted that a DEFAULTED search must NOT explain
+  // the document population — "one explanation per population", the over-correction guard against
+  // noise that trains people to stop reading the warning block.
+  //
+  // That guard was right while documents were NOT SEARCHED on the default path: explaining a
+  // population you did not look at is noise. The default now widens to documents when code finds
+  // nothing, so the population IS searched — and describing what was searched is no longer a second
+  // explanation, it is the only accurate account of the zero. The guard's own principle, one
+  // explanation per population searched, is what now requires this line rather than forbids it.
+  it('★★★ a zero after widening names the population that was ACTUALLY searched', async () => {
     repoRoot = await topicRepo();
     const out = await graphSearch({ repoRoot, query: 'denoiser' });
     expect(out).toMatch(/NO RESULTS/);
+    expect(out, 'the reader must learn documents were covered and still empty')
+      .toMatch(/Document\/Directory\/Config nodes were searched too/);
+    expect(out, 'and what the document recall floor is').toMatch(/FILENAME, TITLE and HEADINGS/);
+    // ⛔ AND IT MUST NOT OFFER A WIDENING IT ALREADY PERFORMED — the non-terminating shape this
+    // file's neighbours warn about: a remedy whose answer is already computed.
     expectAbsentWithLiveMatcher(
-      /FILENAME, TITLE and HEADINGS only/,
-      { forbidden: 'Scope searched for documents: FILENAME, TITLE and HEADINGS only.',
-        allowed: 'Note: this verb DEFAULTS to kind="code".' },
+      /kind="all"/,
+      { forbidden: 'Next: graph_search(query="denoiser", kind="all") to include docs/configs',
+        allowed: 'Next: graph_pull for cross-layer context on a known node.' },
       out,
-      'a code search must not explain a document population the caller did not ask for',
+      'a widening already performed must not be suggested as the next step',
     );
   }, 20_000);
 

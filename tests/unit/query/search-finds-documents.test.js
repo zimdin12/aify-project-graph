@@ -153,12 +153,36 @@ describe('a document is findable by its TITLE, not only by its filename', () => 
     expect(nodesIn(out), 'no legitimate answer means no answer').toEqual([]);
   }, 30_000);
 
-  it('★★★ the title match does not fire for the DEFAULT kind, only where docs were asked for', async () => {
-    // The control on scope. Widening what a code search returns would trade one wrong behaviour
-    // for another, and `kind:"code"` excludes Documents by type regardless of what matched.
+  // ⚠ CONTRACT CHANGED 2026-08-30, and this test previously asserted the opposite.
+  //
+  // It read: "the title match does not fire for the DEFAULT kind, only where docs were asked for —
+  // widening what a code search returns would trade one wrong behaviour for another". That reasoning
+  // holds for a caller who ASKED for code, and the case below still pins it. It does not hold for the
+  // default, because the default was never the caller's request: the verb chose it.
+  //
+  // What moved: THE-GOAL names DISCOVERY as the product ("my agent asked me where the game design
+  // doc is; he has worked on the project for 2 months") and documents as the base layer. Measured on
+  // this repository, 230 documents indexed and "the goal", "why is the rebuild one transaction" and
+  // "PHP language server decision" ALL returned NO RESULTS on the default path. The founding question
+  // failed. Measured on the pinned corpus, 4 of 10 pre-registered discovery questions reached a
+  // document only once the default widened.
+  //
+  // The distinction this rests on is one the source already made: `kind` is destructured without a
+  // default precisely so a caller-supplied 'code' can be told from the chosen one.
+  it('★★★ an EXPLICIT kind="code" caller is never widened — the scope control survives', async () => {
+    repoRoot = await repoWithTitledDoc();
+    const out = await graphSearch({ repoRoot, query: 'flaky downstream', kind: 'code', limit: 10 });
+    expect(nodesIn(out).filter((l) => / document /.test(l)), 'a code search someone ASKED for stays a code search')
+      .toEqual([]);
+  }, 30_000);
+
+  it('★★★ but a DEFAULTED search reaches the document — the founding question', async () => {
+    // Catches a revert to the old contract, which made 230 indexed documents unreachable from the
+    // only surface an agent calls without being told to.
     repoRoot = await repoWithTitledDoc();
     const out = await graphSearch({ repoRoot, query: 'flaky downstream', limit: 10 });
-    expect(nodesIn(out).filter((l) => / document /.test(l)), 'code search stays a code search')
-      .toEqual([]);
+    expect(nodesIn(out).some((l) => / document /.test(l)), 'the doc must be reachable by default')
+      .toBe(true);
+    expect(out, 'and the widening is disclosed, never silent').toMatch(/WIDENED/);
   }, 30_000);
 });
