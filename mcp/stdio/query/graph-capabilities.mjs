@@ -1,3 +1,4 @@
+import { ATTESTATION } from '../storage/publication-schema.js';
 // What can this graph's answers ACTUALLY support? Reported separately from `trust`, because one
 // word cannot carry two independent facts.
 //
@@ -46,6 +47,7 @@ export function graphCapabilities({
   language = null,
   languageHasServer = true,
   integrity = null,
+  attestation = null,
 } = {}) {
   // ⛔ AN INTERRUPTED INDEX LEAVES A GRAPH THAT PASSES EVERY OTHER CHECK. Observed: a `graph_index`
   // killed mid-write left click holding 90 nodes — Document 43, Directory 25, Config 22 — and ZERO
@@ -86,13 +88,31 @@ export function graphCapabilities({
   //
   // Unknown fails closed, like every other clause here: null is not evidence of currency.
   const collectionIsCurrent = collectionCurrent === true;
+
+  // ⛔ AN UNATTESTED GRAPH CANNOT SUPPORT AN ABSENCE CLAIM, WHATEVER ELSE IS TRUE OF IT.
+  // Every clause below this one asks how good the evidence is. This one asks whether the graph in
+  // front of us is the graph the manifest is describing — and if that cannot be established, the
+  // quality of the evidence is a question about something else.
+  //
+  // ⚠ NOT SUPPLIED IS ITS OWN STATE, AND IT DENIES. A caller that forgets to pass the attestation
+  // gets `attestation_unknown`, not a pass: the alternative is a gate that silently opens for every
+  // caller written before it existed, which is the fail-open default this project keeps removing.
+  const attested = attestation === ATTESTATION.ATTESTED;
+
   const absenceAuthority = Boolean(
-    indexed && !incomplete && collectionAvailable && hasVerified && coverageComplete && collectionIsCurrent,
+    indexed && !incomplete && attested
+    && collectionAvailable && hasVerified && coverageComplete && collectionIsCurrent,
   );
 
   let reason = null;
   if (!indexed) reason = 'not_indexed';
   else if (incomplete) reason = 'index_incomplete';
+  // ⚠ ORDERED AFTER index_incomplete DELIBERATELY. A half-written graph is the more specific and
+  // more actionable diagnosis, and health.js already probes this function for exactly that reason
+  // with no attestation to hand.
+  else if (attestation === ATTESTATION.LEGACY_UNATTESTED) reason = 'legacy_unattested';
+  else if (attestation === ATTESTATION.NEVER_COMPLETED) reason = 'never_completed';
+  else if (attestation === ATTESTATION.GENERATION_MISMATCH) reason = 'generation_mismatch';
   else if (!languageHasServer) reason = 'no_language_server';
   else if (!collectionAvailable) reason = 'no_collection';
   else if (!hasVerified) reason = 'trust_spine_empty';
@@ -105,9 +125,19 @@ export function graphCapabilities({
   // `headKnown`, and non-git checkouts are supported.
   else if (collectionCurrent === false) reason = 'collection_stale';
   else if (collectionCurrent !== true) reason = 'collection_currency_unknown';
+  // ⛔ LAST, BECAUSE IT IS A FACT ABOUT THE CALLER AND NOT ABOUT THE GRAPH. It still DENIES — an
+  // authority nobody asked to verify is not granted — but it must not outrank a real diagnosis.
+  // Placed first, it masked `no_collection` and `trust_spine_empty` on every caller written before
+  // it existed, and an existing test named "does not mask a more severe reason that was already
+  // firing" caught it immediately. A caller bug reported in place of a graph state sends the next
+  // reader to rebuild a healthy index.
+  else if (!attested) reason = 'attestation_unknown';
 
   return {
     orientationUsable,
+    // Reported, not merely consumed: a reader who is denied authority must be able to see WHICH
+    // of the four states denied it without re-deriving the comparison themselves.
+    attestation,
     compilerVerifiedEdges: Number.isInteger(compilerVerifiedEdges) ? compilerVerifiedEdges : 0,
     absenceAuthority,
     reason,
@@ -138,6 +168,29 @@ function nextActionFor(reason, language, languageHasServer, integrity = null, de
       return 'graph_index({ force: true }) — this graph is partial: the manifest describes '
         + `${integrity?.manifestNodes ?? '?'} nodes and the database holds `
         + `${integrity?.dbNodes ?? '?'}. Treat every answer from it as a floor, including orientation.`;
+    // ⚠ THREE STATES, THREE REMEDIES. They all deny authority, and telling a reader the wrong one
+    // sends them to a command that cannot help — which is worse than saying nothing, because they
+    // will believe it worked.
+    case 'legacy_unattested':
+      return 'graph_index() — this graph was built before publication was attested, so there is no '
+        + 'way to check that its contents match what the manifest claims. Orientation is unaffected; '
+        + 'absence claims ("no callers") are a FLOOR until one rebuild publishes a generation.';
+    case 'never_completed':
+      // NOT the same as legacy, and deliberately not worded like it: the table exists, so the
+      // question WAS asked, and the answer is that nothing has ever been published into it.
+      return 'graph_index() — the graph carries a publication record that has never been completed '
+        + '(generation 0). This is an empty graph presenting as a real one; treat every answer, '
+        + 'orientation included, as describing nothing.';
+    case 'generation_mismatch':
+      // The crash window: the database committed and the manifest write did not follow.
+      return 'graph_index() — the database and the manifest name DIFFERENT generations, so a '
+        + 'rebuild committed and its manifest never landed. The graph itself is whole and '
+        + 'orientation is safe; it is unattested, which is recoverable by re-running the index.';
+    case 'attestation_unknown':
+      // ⛔ A CALLER-SIDE FAULT, SAID AS ONE. Reporting this as legacy would blame the graph for a
+      // caller that never asked the question, and the next person would rebuild a healthy index.
+      return 'the caller did not supply an attestation, so authority is denied without any claim '
+        + 'about this graph. This is a bug in the calling verb, not a state of the index.';
     case 'no_language_server':
       // ⛔ HONEST DEAD END. Telling a PHP user to run a collection would send them to a command
       // that cannot help, and a remedy that cannot work is worse than naming the limit.

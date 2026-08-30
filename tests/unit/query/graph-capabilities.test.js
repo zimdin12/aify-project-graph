@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { ATTESTATION } from '../../../mcp/stdio/storage/publication-schema.js';
 import { graphCapabilities } from '../../../mcp/stdio/query/graph-capabilities.mjs';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
@@ -54,6 +55,9 @@ describe('graphCapabilities — orientation and absence authority are INDEPENDEN
       // A complete collection taken at an older commit no longer grants authority, so the state that
       // means "every clause holds" now has to say the collection is current too.
       collectionCurrent: true,
+      // And an unattested graph cannot support an absence claim at all, so "every clause" now
+      // includes the publication generation agreeing with the manifest.
+      attestation: ATTESTATION.ATTESTED,
     });
     expect(c.absenceAuthority).toBe(true);
     expect(c.reason).toBeNull();
@@ -139,7 +143,10 @@ describe('every refusal carries an action a reader can take', () => {
     const states = [
       // collectionCurrent added when this clause landed: a complete collection taken at an older
       // commit no longer grants authority, so the one granting state must now also be current.
-      { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true },
+      // attestation added the same way: an unattested graph cannot support an absence claim, so the
+      // single granting state has to satisfy that clause as well. The COUNT is what this test is
+      // about — one YES against four NOs — and adding a clause must not quietly turn it into zero.
+      { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED },
       { indexed: false },
       { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: false },
       { indexed: true, compilerVerifiedEdges: 0, collectionAvailable: true, coverage: { complete: true } },
@@ -165,7 +172,7 @@ describe('every refusal carries an action a reader can take', () => {
 // signal rather than ordinary drift. The `HEALTHY` case below is that control in test form: without
 // it, every assertion here is satisfied by a function that calls every graph broken.
 describe('graphCapabilities — an incomplete index is reported, and only when it IS one', () => {
-  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true };
+  const FULL = { indexed: true, compilerVerifiedEdges: 1410, collectionAvailable: true, coverage: { complete: true }, collectionCurrent: true, attestation: ATTESTATION.ATTESTED };
 
   it('⭐ POSITIVE CONTROL: a graph whose counts agree keeps every capability', () => {
     const c = graphCapabilities({ ...FULL, integrity: { manifestNodes: 2572, dbNodes: 2572, manifestEdges: 13618, dbEdges: 13618, codeNodes: 1904 } });
@@ -274,6 +281,7 @@ describe('absence authority requires a CURRENT collection, not just a complete o
     languageHasServer: true,
     coverage: { complete: true },
     compilerVerifiedEdges: 1054,
+    attestation: ATTESTATION.ATTESTED,
   };
 
   it('POSITIVE CONTROL: a current, complete collection still grants authority', () => {
@@ -369,5 +377,89 @@ describe('the staleness message carries how much decayed', () => {
     expect(many.absenceAuthority).toBe(false);
     expect(one.reason).toBe(many.reason);
     expect(one.nextAction).toMatch(/1 of 88/);
+  });
+});
+
+// ⛔ AN UNATTESTED GRAPH CANNOT SUPPORT AN ABSENCE CLAIM.
+//
+// Every other clause in this function asks how GOOD the evidence is. This one asks whether the
+// graph in front of the reader is the graph the manifest is describing. If that cannot be
+// established, the quality of the evidence is a question about something else entirely.
+//
+// ⚠ FOUR STATES, AND COLLAPSING ANY TWO GRANTS SOMETHING UNEARNED — or, worse, prescribes a remedy
+// that cannot work. `legacy_unattested` means the question cannot be asked of this graph and one
+// rebuild fixes it forever. `never_completed` means the question WAS asked and nothing has ever
+// been published. `generation_mismatch` means a rebuild committed and its manifest never landed.
+// `attestation_unknown` is not about the graph at all — it is a caller that forgot to ask.
+describe('publication attestation gates the claim that deletes code', () => {
+  const attestedBase = {
+    indexed: true,
+    compilerVerifiedEdges: 1054,
+    collectionAvailable: true,
+    coverage: { complete: true },
+    collectionCurrent: true,
+  };
+
+  it('POSITIVE CONTROL: an attested graph with every other clause satisfied still grants authority', () => {
+    // ⛔ WITHOUT THIS EVERY DENIAL BELOW IS WORTHLESS. A gate whose closed state is permanent is
+    // not fail-closed, it is off, and it would pass all four refusals while never opening.
+    const c = graphCapabilities({ ...attestedBase, attestation: ATTESTATION.ATTESTED });
+    expect(c.absenceAuthority).toBe(true);
+    expect(c.reason).toBeNull();
+    expect(c.attestation).toBe(ATTESTATION.ATTESTED);
+  });
+
+  for (const [state, reason] of [
+    [ATTESTATION.LEGACY_UNATTESTED, 'legacy_unattested'],
+    [ATTESTATION.NEVER_COMPLETED, 'never_completed'],
+    [ATTESTATION.GENERATION_MISMATCH, 'generation_mismatch'],
+  ]) {
+    it(`⛔ ${state} denies authority under its OWN reason`, () => {
+      const c = graphCapabilities({ ...attestedBase, attestation: state });
+      expect(c.absenceAuthority, 'every other clause holds, so only attestation can be denying').toBe(false);
+      expect(c.reason).toBe(reason);
+      expect(c.nextAction, 'a refusal without a remedy is a dead end').toBeTruthy();
+    });
+  }
+
+  it('⛔ the three denials do NOT share a remedy — each names what actually happened', () => {
+    // Collapsing them would send a reader to a command that cannot help. `never_completed` in
+    // particular must not read like `legacy_unattested`: one is an old graph, the other is an empty
+    // graph presenting as a real one.
+    const actions = [ATTESTATION.LEGACY_UNATTESTED, ATTESTATION.NEVER_COMPLETED, ATTESTATION.GENERATION_MISMATCH]
+      .map((a) => graphCapabilities({ ...attestedBase, attestation: a }).nextAction);
+    expect(new Set(actions).size, 'three states, three messages').toBe(3);
+    expect(actions[1]).toMatch(/generation 0|never been (completed|published)/i);
+    expect(actions[2]).toMatch(/DIFFERENT generations|manifest never landed/i);
+  });
+
+  it('⛔ orientation SURVIVES an unattested graph — the denial is scoped to absence claims', () => {
+    // Denying orientation here would be over-correction: a legacy graph is still perfectly good at
+    // "where does this live". Only the claim that deletes code needs the attestation.
+    for (const a of [ATTESTATION.LEGACY_UNATTESTED, ATTESTATION.GENERATION_MISMATCH]) {
+      const c = graphCapabilities({ ...attestedBase, attestation: a });
+      expect(c.orientationUsable, `${a} must not disable orientation`).toBe(true);
+    }
+  });
+
+  it('⛔ a caller that supplies NOTHING is denied, under a reason that blames the CALLER', () => {
+    const c = graphCapabilities(attestedBase);
+    expect(c.absenceAuthority, 'the default must not be a silent pass').toBe(false);
+    expect(c.reason).toBe('attestation_unknown');
+    expectAbsentWithLiveMatcher(
+      /\b(legacy|generation 0|older commit)\b/i,
+      { forbidden: 'this graph is legacy', allowed: 'the caller did not supply an attestation' },
+      c.nextAction,
+      'a caller-side omission must not be reported as a fact about the graph',
+    );
+  });
+
+  it('⛔ attestation_unknown does NOT mask a more specific graph state', () => {
+    // Ordered last deliberately. Placed first it reported a caller bug in place of a real
+    // diagnosis, and an existing test in this file caught it within one run.
+    const c = graphCapabilities({ indexed: true, collectionAvailable: false });
+    expect(c.reason, 'a missing collection is a fact about the graph and outranks a caller omission')
+      .toBe('no_collection');
+    expect(c.absenceAuthority, 'it still denies — it just does not get to explain').toBe(false);
   });
 });

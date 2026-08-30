@@ -110,6 +110,46 @@ export function readGraphGeneration(db) {
   }
 }
 
+// ⛔ FOUR STATES, AND COLLAPSING ANY TWO OF THEM GRANTS AUTHORITY SOMETHING HAS NOT EARNED.
+//
+//   attested             the database and the manifest name the same completed generation
+//   legacy_unattested    no graph_generation table — built before it existed. We cannot check.
+//   never_completed      the table exists at generation 0: created, but no rebuild ever committed
+//   generation_mismatch  both known and DIFFERENT — the crash window between commit and manifest
+//
+// ⚠ `legacy_unattested` AND `never_completed` ARE NOT THE SAME FACT, however similar they look
+// from a denial. Legacy means the question cannot be asked of this graph and a rebuild will fix it
+// permanently. Generation 0 means the question WAS asked and the answer is that nothing has ever
+// been published — an empty graph presenting as a real one. They need different words because they
+// need different remedies, and a reader who is told the wrong one acts on it.
+export const ATTESTATION = Object.freeze({
+  ATTESTED: 'attested',
+  LEGACY_UNATTESTED: 'legacy_unattested',
+  NEVER_COMPLETED: 'never_completed',
+  GENERATION_MISMATCH: 'generation_mismatch',
+});
+
+/**
+ * Compare what the database committed against what the manifest claims.
+ *
+ * ⛔ EVERY UNKNOWN FAILS CLOSED UNDER ITS OWN WORDING. A missing table is not reported as a
+ * mismatch, and a mismatch is not reported as legacy: both deny, but only one of them knows why,
+ * and the remedy differs. This is the whole comparison the unit collapses to — one integer against
+ * one integer — so it must not quietly widen into a guess.
+ *
+ * @param {number|null|undefined} dbGeneration        from readGraphGeneration (null = no table)
+ * @param {number|null|undefined} manifestGeneration  the manifest's own claim
+ */
+export function classifyAttestation({ dbGeneration, manifestGeneration } = {}) {
+  if (dbGeneration === null || dbGeneration === undefined) return ATTESTATION.LEGACY_UNATTESTED;
+  if (!Number.isInteger(dbGeneration)) return ATTESTATION.GENERATION_MISMATCH;
+  if (dbGeneration === 0) return ATTESTATION.NEVER_COMPLETED;
+  // A manifest with no generation against a database that HAS one is a mismatch, not legacy: the
+  // database is past the upgrade and the manifest is behind it, which is precisely the crash window.
+  if (manifestGeneration !== dbGeneration) return ATTESTATION.GENERATION_MISMATCH;
+  return ATTESTATION.ATTESTED;
+}
+
 /** Caller is responsible for running this INSIDE the rebuild transaction. */
 export function bumpGraphGeneration(db) {
   ensurePublicationTables(db);

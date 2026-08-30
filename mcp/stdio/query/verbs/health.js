@@ -53,6 +53,7 @@ function collectionDecay(db, latest, head, repoRoot) {
 import { computeCoverage } from '../coverage-denominator.js';
 import { openExistingDb } from '../../storage/db.js';
 import { readUnresolvedRefs } from '../../storage/unresolved-refs.js';
+import { classifyAttestation, readGraphGeneration, ATTESTATION } from '../../storage/publication-schema.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { serverBuildInfo } from '../../server-build.js';
@@ -386,6 +387,21 @@ export function buildNextActions(s) {
   }
 
   return out.slice(0, 3);
+}
+
+
+// The publication comparison, in one place, with the handle closed. Returns a typed state rather
+// than a boolean so a denial can say WHICH of the four it is — legacy, never completed, torn, or a
+// caller that never asked.
+function attestationOf(dbPath, manifest) {
+  if (!existsSync(dbPath)) return ATTESTATION.LEGACY_UNATTESTED;
+  const db = openExistingDb(dbPath);
+  try {
+    return classifyAttestation({
+      dbGeneration: readGraphGeneration(db),
+      manifestGeneration: manifest?.generation ?? null,
+    });
+  } finally { db.close(); }
 }
 
 export async function graphHealth({ repoRoot }) {
@@ -1617,6 +1633,19 @@ export async function graphHealth({ repoRoot }) {
     collectionFilesChanged: codeIntel?.filesChangedSinceCollection ?? null,
     language: primaryLanguage,
     languageHasServer: languageHasLspBackend(primaryLanguage),
+    // ⭐ THE PUBLICATION COMPARISON — one integer from the database against one from the manifest.
+    //
+    // ⚠ THE ORDER IS THE POINT. The manifest was read before this database read, so a rebuild
+    // committing in between shows up as a MISMATCH and denies authority. Reading the manifest AFTER
+    // the database would silently absorb that commit and report a graph that agrees with itself
+    // only because the two reads straddled the publication.
+    //
+    // ⚠ AND THE LIMIT, STATED. This pins nothing but its own read: graph_health opens a fresh
+    // handle for each of its sections, so its counts elsewhere are not inside this snapshot. That
+    // is tolerable HERE because health reports rather than claims absence — the verbs that answer
+    // "no callers" are the ones that must wrap their whole read in withExistingSnapshot, and they
+    // are a separate change. Saying so beats implying a consistency this call does not provide.
+    attestation: attestationOf(dbPath, manifest),
   });
 
   return {
