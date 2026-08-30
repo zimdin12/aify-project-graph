@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildUnresolvedCategorization, classifyUnresolvedRef, renderUnresolvedCategorizationReport } from '../../../mcp/stdio/freshness/unresolved-categorization.js';
 import { countTrustRelevantDirtyEdges } from '../../../mcp/stdio/freshness/unresolved-metrics.js';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { replaceUnresolvedRefs } from '../../../mcp/stdio/storage/unresolved-refs.js';
 
 describe('unresolved categorization', () => {
   let repoRoot;
@@ -19,27 +21,70 @@ describe('unresolved categorization', () => {
     }
   });
 
-  it('prefers the full dirty-edges sidecar over the manifest sample', async () => {
+  // ⚠ THIS TEST USED TO SEED A SIDECAR FILE AND ASSERT source === 'sidecar'. The population moved
+  // into the database, so the fixture moved with it — but the PROPERTY is unchanged and deliberately
+  // so: the full population must beat the manifest's 500-row sample. Relabelling the assertion to
+  // 'table' without moving the fixture would have been a test rewritten to match the code rather
+  // than a property re-proved against it.
+  const seedTable = (rows) => {
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try { replaceUnresolvedRefs(db, rows); } finally { db.close(); }
+  };
+
+  it('prefers the full unresolved table over the manifest sample', async () => {
     await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
       commit: 'abc123',
       indexedAt: '2026-04-23T00:00:00.000Z',
       dirtyEdges: [{ relation: 'CALLS', target: 'onlySample', source_file: 'src/a.js', source_line: 1, extractor: 'javascript' }],
       dirtyEdgeCount: 2,
     }));
-    await writeFile(join(repoRoot, '.aify-graph', 'dirty-edges.full.json'), JSON.stringify({
-      count: 2,
-      writtenAt: '2026-04-23T00:00:00.000Z',
-      dirtyEdges: [
-        { relation: 'CALLS', target: 'realOne', source_file: 'src/a.js', source_line: 1, extractor: 'javascript' },
-        { relation: 'REFERENCES', target: 'realTwo', source_file: 'src/b.js', source_line: 2, extractor: 'javascript' },
-      ],
-    }));
+    seedTable([
+      { from_id: 'src/a.js::caller', relation: 'CALLS', target: 'realOne', source_file: 'src/a.js', source_line: 1, extractor: 'javascript' },
+      { from_id: 'src/b.js::caller', relation: 'REFERENCES', target: 'realTwo', source_file: 'src/b.js', source_line: 2, extractor: 'javascript' },
+    ]);
 
     const out = await buildUnresolvedCategorization({ repoRoot });
-    expect(out.source).toBe('sidecar');
+    expect(out.source).toBe('table');
     expect(out.total).toBe(2);
     expect(out.sample_size).toBe(2);
     expect(out.samples['fixable:call-short-name'][0].target).toBe('realOne');
+  });
+
+  it('⛔ an EMPTY table is authoritative — it does not fall back to the manifest sample', async () => {
+    // ⭐ THE DISCRIMINATION THE FILE COULD NOT EXPRESS. `readDirtyEdgesSidecar` returned [] both for
+    // "genuinely nothing unresolved" and for "the file was corrupt", so an empty answer and a failed
+    // read were the same value. A present-but-empty table means the last rebuild committed and found
+    // nothing; consulting the manifest here would resurrect a stale sample as if it were current.
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123',
+      indexedAt: '2026-04-23T00:00:00.000Z',
+      dirtyEdges: [{ relation: 'CALLS', target: 'staleSample', source_file: 'src/a.js', source_line: 1, extractor: 'javascript' }],
+      dirtyEdgeCount: 1,
+    }));
+    seedTable([]);
+
+    const out = await buildUnresolvedCategorization({ repoRoot });
+    expect(out.source).toBe('table');
+    expect(out.total).toBe(0);
+    expect(JSON.stringify(out.samples), 'a stale manifest row must not reappear as current')
+      .not.toMatch(/staleSample/);
+  });
+
+  it('POSITIVE CONTROL: a LEGACY graph with no table still reports the manifest sample, labelled', async () => {
+    // Without this the table branch could be unconditional and the two tests above would prove
+    // nothing about preference — only that the table path exists.
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123',
+      indexedAt: '2026-04-23T00:00:00.000Z',
+      dirtyEdges: [{ relation: 'CALLS', target: 'onlySample', source_file: 'src/a.js', source_line: 1, extractor: 'javascript' }],
+      dirtyEdgeCount: 37,
+    }));
+
+    const out = await buildUnresolvedCategorization({ repoRoot });
+    expect(out.source, 'a graph with no table must say which floor it is quoting').toBe('manifest-sample');
+    expect(out.total, 'the uncapped count, not the sample size').toBe(37);
+    expect(out.sample_size).toBe(1);
+    expect(out.capped, 'and it must say the number it reported is not the population').toBe(true);
   });
 
   it('classifies unresolved CONTAINS with empty target as a shape issue', () => {
@@ -112,7 +157,7 @@ describe('unresolved categorization', () => {
 
   it('render turns a non-zero fixable count into an actionable pointer (field report #4a)', () => {
     const withFixable = renderUnresolvedCategorizationReport({
-      repoRoot: '/repo', total: 3, source: 'sidecar', capped: false, sample_size: 3,
+      repoRoot: '/repo', total: 3, source: 'table', capped: false, sample_size: 3,
       summary: { external: 0, denylisted: 0, fixable: 2, shapeIssues: 0, unclassified: 1 },
       buckets: { 'fixable:call-short-name': 2, unclassified: 1 },
       samples: {},
@@ -122,7 +167,7 @@ describe('unresolved categorization', () => {
 
     // No fixable → no pointer noise on the happy path.
     const noFixable = renderUnresolvedCategorizationReport({
-      repoRoot: '/repo', total: 1, source: 'sidecar', capped: false, sample_size: 1,
+      repoRoot: '/repo', total: 1, source: 'table', capped: false, sample_size: 1,
       summary: { external: 1, denylisted: 0, fixable: 0, shapeIssues: 0, unclassified: 0 },
       buckets: { 'external-by-design:npm': 1 },
       samples: {},

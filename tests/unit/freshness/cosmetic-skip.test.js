@@ -201,8 +201,13 @@ describe('P1-6 cosmetic-vs-structural change classification', () => {
 
   it('treats a changed file with no stored fingerprint (e.g. legacy graph) as STRUCTURAL', async () => {
     const ensureFresh = await seed();
-    // Remove the sidecar to simulate a graph indexed before P1-6 existed.
-    await rm(join(repoRoot, '.aify-graph', 'structural-fp.json'), { force: true });
+    // ⚠ SIMULATE THE LEGACY STATE WHERE IT NOW LIVES. This deleted structural-fp.json, which was
+    // the right move while fingerprints were a file — and became INERT the moment they moved into
+    // the transaction: the file was gone, the table still had the fingerprint, the fast path fired,
+    // and a test written to prove the conservative branch was silently exercising the other one.
+    // It failed loudly rather than passing vacuously only because the assertion is on a count.
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try { db.exec('DROP TABLE structural_fingerprints'); } finally { db.close(); }
 
     // Pure body edit that WOULD be cosmetic — but without a stored fp we must
     // conservatively re-extract.

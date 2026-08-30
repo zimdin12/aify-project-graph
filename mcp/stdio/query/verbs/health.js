@@ -52,6 +52,7 @@ function collectionDecay(db, latest, head, repoRoot) {
 
 import { computeCoverage } from '../coverage-denominator.js';
 import { openExistingDb } from '../../storage/db.js';
+import { readUnresolvedRefs } from '../../storage/unresolved-refs.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { serverBuildInfo } from '../../server-build.js';
@@ -1017,14 +1018,21 @@ export async function graphHealth({ repoRoot }) {
         remedy: 'run graph_index() to regenerate .aify-graph/unresolved-categorization.json, then re-read this field.',
       };
     }
-    const fullPath = join(graphDir, 'dirty-edges.full.json');
-    if (existsSync(fullPath)) {
-      try {
-        const raw = JSON.parse(readFileSync(fullPath, 'utf8'));
-        const edges = Array.isArray(raw) ? raw : (raw?.dirtyEdges ?? raw?.edges ?? []);
-        if (edges.length > 0) return explainTrustExclusions(edges);
-      } catch { /* fall through to the sample, labelled */ }
+    // ⛔ THIS READ THE SIDECAR BY PATH, NOT THROUGH THE SIDECAR MODULE. A search for consumers by
+    // import name found three call sites and missed this one entirely, so it would have been left
+    // reading a file nothing writes any more — enumerate by FILENAME, not by importer.
+    //
+    // ⭐ AND `edges.length > 0` WAS A REAL DEFECT. A full set that is legitimately EMPTY fell
+    // through to the sample path and was reported with "dirty-edges.full.json is missing" — a
+    // file-absence story told about a graph with genuinely zero unresolved refs. null (legacy, we
+    // do not know) and [] (committed, nothing unresolved) are different answers, and the table is
+    // the first thing here able to tell them apart.
+    let storedRefs = null;
+    if (existsSync(dbPath)) {
+      const refsDb = openExistingDb(dbPath);
+      try { storedRefs = readUnresolvedRefs(refsDb); } finally { refsDb.close(); }
     }
+    if (storedRefs !== null) return explainTrustExclusions(storedRefs);
     const sample = manifest?.dirtyEdges ?? [];
     const basis = explainTrustExclusions(sample);
     if (!basis) return null;
@@ -1033,10 +1041,16 @@ export async function graphHealth({ repoRoot }) {
       computed_over: 'SAMPLE',
       sample_size: sample.length,
       true_total: unresolvedEdges,
+      // ⚠ THE REASON HAD TO CHANGE WITH THE MECHANISM. This said "dirty-edges.full.json is
+      // missing", naming a file that is no longer written — a reader who went looking for it would
+      // have found a stale one or nothing, and either way learned the wrong thing about why the
+      // number is a floor. The population now lives in the graph, so the honest reason is that this
+      // graph predates the table.
       sample_warning:
-        `dirty-edges.full.json is missing, so this breakdown was computed over a ${sample.length}-edge SAMPLE `
-        + `of ${unresolvedEdges} — the proportions may not hold and the counts definitely do not. `
-        + 'Re-run graph_index to regenerate the full set.',
+        'this graph has no unresolved_refs table (indexed before it existed), so this breakdown was '
+        + `computed over the manifest's ${sample.length}-edge SAMPLE of ${unresolvedEdges} — the `
+        + 'proportions may not hold and the counts definitely do not. '
+        + 'Re-run graph_index to publish the full set into the graph.',
     };
   })();
   // ★ status:'ok' MEANS THE RUN FINISHED, NOT THAT IT READ EVERYTHING.

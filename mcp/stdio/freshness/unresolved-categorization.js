@@ -1,6 +1,7 @@
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { readDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
+import { openExistingDb } from '../storage/db.js';
+import { readUnresolvedRefs } from '../storage/unresolved-refs.js';
 import { loadManifest } from './manifest.js';
 import { readJsonCappedSafe } from '../util/json.js';
 import { COMMON_NAMES, JS_RUNTIME_GLOBALS } from '../ingest/denylist.js';
@@ -192,10 +193,26 @@ export function categorizeRefs(refs) {
 export async function buildUnresolvedCategorization({ repoRoot }) {
   const graphDir = join(repoRoot, '.aify-graph');
   const { manifest } = await loadManifest(graphDir);
-  const sidecar = await readDirtyEdgesSidecar(graphDir);
-  const refs = sidecar ?? (manifest.dirtyEdges ?? []);
-  const source = sidecar !== null ? 'sidecar' : 'manifest-sample';
-  const total = sidecar !== null
+
+  // ⭐ THE TABLE IS THE AUTHORITY, INCLUDING WHEN IT IS EMPTY. `readUnresolvedRefs` returns null
+  // only when the table does not exist — a LEGACY graph — and an empty array when the graph
+  // genuinely has no unresolved refs. The reader this replaced could not tell those apart: it
+  // returned [] for a corrupt file and reserved null for ENOENT, so a failed read was published
+  // as the claim "nothing unresolved here", which is a statement about the repository.
+  //
+  // ⚠ `source` NAMES WHICH ONE, and the values are deliberately distinct rather than a single
+  // relabel: a consumer that cannot tell a table read from a 500-row sample cannot tell a
+  // measurement from a floor.
+  const dbPath = join(graphDir, 'graph.sqlite');
+  let stored = null;
+  if (existsSync(dbPath)) {
+    const db = openExistingDb(dbPath);
+    try { stored = readUnresolvedRefs(db); } finally { db.close(); }
+  }
+
+  const refs = stored ?? (manifest.dirtyEdges ?? []);
+  const source = stored !== null ? 'table' : 'manifest-sample';
+  const total = stored !== null
     ? refs.length
     : (manifest.dirtyEdgeCount ?? refs.length);
   const categorization = categorizeRefs(refs);
