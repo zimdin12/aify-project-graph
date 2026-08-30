@@ -88,3 +88,46 @@ export function openExistingDb(dbPath, { readonly = true } = {}) {
   const db = new Database(dbPath, { readonly, fileMustExist: true });
   return wrapDb(db);
 }
+
+/**
+ * Run `fn` against a PINNED read snapshot: every read inside sees one instant of the database.
+ *
+ * ⛔ THE BUG THIS EXISTS FOR IS CHECK-THEN-ACT, AND IT SURVIVES ATOMIC PUBLICATION.
+ * A reader that asks "is this graph attested?" and then asks "what does it contain?" makes two
+ * reads. Publication being one transaction guarantees each read is internally whole — it does NOT
+ * stop a commit landing BETWEEN them. So the check can pass against generation N and the data can
+ * come from N+1, and every individual read was correct. Nothing in the result would look wrong.
+ *
+ * Under WAL a read transaction fixes the snapshot at its first read and holds it until it ends, so
+ * the generation check and the data reads become one observation of one graph.
+ *
+ * ⛔ READONLY, ALWAYS, AND NOT NEGOTIABLE BY THE CALLER. A pinned WRITE handle raises
+ * SQLITE_BUSY_SNAPSHOT the moment another connection commits — collect_code_intel.js opens with
+ * `readonly: false` and would start failing under exactly the concurrency this is meant to survive.
+ * There is deliberately no option to pass a writable handle: the safe thing must not be optional.
+ *
+ * ⚠ THE SNAPSHOT PINS THE DATABASE, NOT THE MANIFEST. The manifest is a separate file and a
+ * separate read; it must be read BEFORE the snapshot opens, so that a commit landing in between
+ * shows up as a generation mismatch (refuse) rather than being silently absorbed.
+ */
+export function withExistingSnapshot(dbPath, fn) {
+  const db = openExistingDb(dbPath, { readonly: true });
+  try {
+    db.raw.exec('BEGIN');
+    // Pin the snapshot HERE rather than leaving it to whatever `fn` happens to read first.
+    // A deferred BEGIN acquires nothing until something reads, so without this the window the
+    // function exists to close stays open for as long as `fn` does non-database work — reading a
+    // manifest, awaiting a lock, formatting a response. Mutation-tested: removing this line makes
+    // a commit landing before the callback's first read visible inside the snapshot.
+    db.raw.prepare('SELECT 1 FROM sqlite_master LIMIT 1').get();
+    return fn(db);
+  } finally {
+    // ⚠ NO EXPLICIT ROLLBACK, DELIBERATELY. Closing the connection ends the read transaction and
+    // releases the snapshot, so a ROLLBACK here would be a line that reads like a safeguard while
+    // changing nothing. Measured, not assumed: a mutant that removed the ROLLBACK and kept only
+    // this close() SURVIVED the whole suite, including the case where the callback throws. Rather
+    // than leave ceremony that a future reader would trust, the ceremony is gone and the reason is
+    // written down.
+    db.close();
+  }
+}
