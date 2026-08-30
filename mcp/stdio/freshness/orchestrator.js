@@ -9,8 +9,14 @@ import { upsertEdge, deleteEdgesByFile, countEdges } from '../storage/edges.js';
 import { getHeadCommit, getDirtyFileEntries, getChangedFiles } from './git.js';
 import { appendAll } from '../util/append-all.js';
 import { loadManifest, writeManifest } from './manifest.js';
-import { readDirtyEdgesSidecar, writeDirtyEdgesSidecar } from './dirty-edges-sidecar.js';
-import { readStructuralFpSidecar, writeStructuralFpSidecar } from './structural-fp-sidecar.js';
+import {
+  readUnresolvedRefs, replaceUnresolvedRefs,
+  readStructuralFingerprints, replaceStructuralFingerprints,
+} from '../storage/unresolved-refs.js';
+import { bumpGraphGeneration } from '../storage/publication-schema.js';
+import {
+  readLegacyUnresolvedSidecar, readManifestAsMigrationSource, chooseCarryForwardSource,
+} from './legacy-unresolved-bridge.js';
 import { fileStructuralFingerprint } from '../ingest/fingerprint.js';
 import { countTrustRelevantDirtyEdges } from './unresolved-metrics.js';
 import { withWriteLock } from './lock.js';
@@ -300,6 +306,25 @@ export async function ensureFresh({
       // from source. The clause is already in `fullRebuild` below; deleting the resume path is what
       // lets it fire.
 
+      // ⭐ THE CARRY-FORWARD SOURCE IS DECIDED BEFORE THE REBUILD MODE, not discovered halfway
+      // through it. An unreadable legacy authority is a REASON to rebuild from source: by the time
+      // the old code reached its sidecar read, extraction had already begun and the only available
+      // move was to continue with whatever could be read — which is how a failed read became a
+      // smaller, confident answer.
+      //
+      // ⚠ The legacy file is read ONLY when the table is absent. It is 11.3 MB on this repository
+      // and re-reading it on every rebuild forever would be a permanent cost for a one-time ramp.
+      const tableRefs = readUnresolvedRefs(db);
+      const legacySource = tableRefs === null
+        ? await readLegacyUnresolvedSidecar(graphDir)
+        : { state: 'absent' };
+      const manifestSource = tableRefs === null
+        ? readManifestAsMigrationSource(manifest)
+        : { state: 'absent' };
+      const carrySource = chooseCarryForwardSource({
+        tableRefs, legacy: legacySource, manifestSource,
+      });
+
       const fullRebuild = (force
         || manifestState.status !== 'ok'
         || !manifest.commit
@@ -307,7 +332,11 @@ export async function ensureFresh({
         || deltaUnavailable
         || manifest.status === 'indexing'
         || schemaMismatch
-        || toolingMismatch);
+        || toolingMismatch
+        // ⛔ AN UNREADABLE UNRESOLVED POPULATION FORCES A REBUILD FROM SOURCE. Continuing
+        // incrementally would silently drop every ref the corrupt artifact was holding, and the
+        // resulting count looks like convergence rather than loss.
+        || carrySource.tier === 'force-full');
 
       const effectiveIgnoredDirs = loadEffectiveIgnoredDirs(repoRoot);
       let filesToProcess;
@@ -336,7 +365,12 @@ export async function ensureFresh({
         // have a STORED fingerprint to compare against AND the freshly-computed
         // one matches exactly. New files (no stored fp), deleted/missing files,
         // unparseable files, or any error → treated as structural (full handle).
-        const storedFps = await readStructuralFpSidecar(graphDir);
+        // ⛔ A MISSING MAP DISABLES THE FAST PATH; A STALE VALID ONE LIES. The sidecar this replaces
+        // could be restored from a backup and believed: reviewer produced cosmeticSkipped:1,
+        // processedFiles:[], source shapeA, DB shapeB. Read from the table it cannot be stale,
+        // because it commits and rolls back with the graph it describes. null is a legacy graph,
+        // and an empty map merely costs a re-extraction — conservative, and self-healing.
+        const storedFps = readStructuralFingerprints(db) ?? new Map();
         const dirtyEntryMap = new Map(dirtyEntries.map((entry) => [entry.path, entry]));
         const structuralChanged = [];
         const cosmetic = [];
@@ -462,10 +496,11 @@ export async function ensureFresh({
       // resolution can retry them. Full rebuilds intentionally start from
       // source truth only. Also drop stale refs whose source file is ignored,
       // missing, or being reprocessed in this run.
-      const sidecarEdges = await readDirtyEdgesSidecar(graphDir);
+      // The tier was chosen before the rebuild mode; `force-full` already turned fullRebuild on, so
+      // rows is never null here. `?? []` is a guard, not a fallback with an opinion.
       const carryForward = fullRebuild
         ? []
-        : (sidecarEdges !== null ? sidecarEdges : (manifest.dirtyEdges ?? [])).filter((ref) => (
+        : (carrySource.rows ?? []).filter((ref) => (
           shouldCarryForwardRef(ref, repoRoot, effectiveIgnoredDirs, filesToProcess)
         ));
       const refs = [...specialPlugins.refs, ...carryForward];
@@ -934,39 +969,56 @@ export async function ensureFresh({
       // reader was seeing the complete previous graph the whole time rather than a torn one.
       // Ordered before the manifest and the sidecars deliberately: durable file state must never
       // describe a graph the database has not committed, and a rollback below writes neither.
-      rebuildTxn.commit();
-      if (pendingDocLinkMisses !== null) await writeDocLinkMissSidecar(graphDir, pendingDocLinkMisses);
-      await writeManifest(graphDir, nextManifest);
-      await writeDirtyEdgesSidecar(graphDir, resolved.unresolved);
-
-      // P1-6: persist the per-file structural fingerprints. On a full rebuild
-      // the freshly-computed set is authoritative. On an incremental run we
-      // start from the preserved (stored) map — keeping fingerprints for
-      // cosmetic-skipped and untouched files — and overlay the files we just
+      // P1-6: the per-file structural fingerprints. On a full rebuild the freshly-computed set is
+      // authoritative. On an incremental run we start from the preserved (stored) map — keeping
+      // fingerprints for cosmetic-skipped and untouched files — and overlay the files we just
       // re-extracted, pruning any that were deleted this run.
-      try {
-        const nextFingerprints = preservedFingerprints
-          ? new Map(preservedFingerprints)
-          : new Map();
-        for (const [filePath, fp] of computedFingerprints) {
-          nextFingerprints.set(filePath, fp);
-        }
-        if (!fullRebuild) {
-          // Drop fingerprints for files that no longer have a File node (the
-          // loop deletes nodes for missing/ignored files as it goes).
-          const liveFiles = new Set(
-            db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File' AND file_path != ''`)
-              .map((row) => row.file_path),
-          );
-          for (const filePath of [...nextFingerprints.keys()]) {
-            if (!liveFiles.has(filePath)) nextFingerprints.delete(filePath);
-          }
-        }
-        await writeStructuralFpSidecar(graphDir, nextFingerprints);
-      } catch {
-        // Sidecar write is best-effort: a failure just disables the cosmetic
-        // fast-path next run (everything treated structural) — never fatal.
+      //
+      // ⛔ THE `catch {}` THAT WRAPPED THIS IS GONE, AND ITS REMOVAL IS THE POINT. As a sidecar the
+      // write was best-effort: a failure merely disabled the cosmetic fast path next run, which was
+      // conservative because an ABSENT map makes every file structural. Inside the transaction that
+      // reasoning inverts — swallowing a failure would COMMIT a graph whose fingerprint table is
+      // half-written, and a half-written map is not absent. A rebuild that cannot write its own
+      // fingerprints has a real database problem, and rolling the whole thing back is now the safe
+      // direction precisely because one commit publishes everything.
+      const nextFingerprints = preservedFingerprints
+        ? new Map(preservedFingerprints)
+        : new Map();
+      for (const [filePath, fp] of computedFingerprints) {
+        nextFingerprints.set(filePath, fp);
       }
+      if (!fullRebuild) {
+        // Drop fingerprints for files that no longer have a File node (the loop deletes nodes for
+        // missing/ignored files as it goes).
+        const liveFiles = new Set(
+          db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File' AND file_path != ''`)
+            .map((row) => row.file_path),
+        );
+        for (const filePath of [...nextFingerprints.keys()]) {
+          if (!liveFiles.has(filePath)) nextFingerprints.delete(filePath);
+        }
+      }
+
+      // ⭐ EVERYTHING THE GRAPH CLAIMS ABOUT ITSELF IS WRITTEN BEFORE THE SAME COMMIT.
+      // These used to be three separate promotion events — COMMIT the database, WRITE the sidecars
+      // best-effort, WRITE the manifest ok — so a failure between any two left an artifact
+      // describing a graph that did not exist. They are now one event. There is nothing to keep in
+      // sync because there is nothing separate to sync.
+      replaceUnresolvedRefs(db, resolved.unresolved);
+      replaceStructuralFingerprints(db, nextFingerprints);
+      const generation = bumpGraphGeneration(db);
+
+      // ⭐ THE ONLY MOMENT THE NEW GRAPH BECOMES VISIBLE. Everything above was unpublished, so a
+      // reader saw the complete previous graph the whole time rather than a torn one.
+      rebuildTxn.commit();
+
+      if (pendingDocLinkMisses !== null) await writeDocLinkMissSidecar(graphDir, pendingDocLinkMisses);
+      // ⚠ THE MANIFEST IS WRITTEN LAST AND NAMES THE GENERATION THAT COMMITTED.
+      // If the process dies in this window the database is at N+1 while the manifest still says N,
+      // a reader sees the mismatch and refuses: the graph is whole but unattested, which is
+      // recoverable and loses nothing. The reverse order would publish a claim about a graph that
+      // had not committed, which is the defect this whole unit exists to make unconstructible.
+      await writeManifest(graphDir, { ...nextManifest, generation });
 
       const result = {
         indexed: true,
