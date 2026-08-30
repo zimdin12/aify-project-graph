@@ -12,8 +12,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { bumpGraphGeneration } from '../../../mcp/stdio/storage/publication-schema.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
-import { inspectReadFreshness } from '../../../mcp/stdio/query/verbs/read_freshness.js';
+import { inspectReadFreshness, isFreshnessBlockerText } from '../../../mcp/stdio/query/verbs/read_freshness.js';
 import { SCHEMA_VERSION } from '../../../mcp/stdio/storage/schema.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
@@ -21,14 +22,21 @@ let repo; let graphDir;
 
 const writeManifest = (status, extra = {}) => writeFileSync(
   join(graphDir, 'manifest.json'),
-  JSON.stringify({ status, schemaVersion: SCHEMA_VERSION, commit: 'a'.repeat(40), ...extra }),
+  // generation 1 by default so the manifest agrees with the seeded database; a test that wants a
+  // torn publication passes its own.
+  JSON.stringify({ status, schemaVersion: SCHEMA_VERSION, commit: 'a'.repeat(40), generation: 1, ...extra }),
 );
-const seedFiles = (n) => {
+// ⚠ SEEDS AN ATTESTED GRAPH. Serving the previous snapshot during a rebuild rests on that snapshot
+// being COMPLETE, which is a property of graphs this code published — so the permission is now
+// conditional on a publication record, and a fixture that omits one is testing the refusal instead.
+// `attested: false` produces the legacy shape deliberately, for the tests that want it.
+const seedFiles = (n, { attested = true } = {}) => {
   const db = openDb(join(graphDir, 'graph.sqlite'));
   for (let i = 0; i < n; i += 1) {
     db.run(`INSERT INTO nodes (id, type, label, file_path) VALUES ($id, 'File', $id, $id)`,
       { id: `f${i}.js` });
   }
+  if (attested) bumpGraphGeneration(db);
   db.close();
 };
 
@@ -88,5 +96,63 @@ describe('a rebuild in progress', () => {
       f.warnings.join(' '),
       'a settled graph must not claim a rebuild is running',
     );
+  });
+});
+
+// ⛔ SERVING THE PREVIOUS SNAPSHOT RESTS ON IT BEING COMPLETE — WHICH ONLY THIS CODE GUARANTEES.
+//
+// The permission above is justified by "a rebuild commits exactly once, so a concurrent reader
+// holds the complete previous graph". That is a property of graphs THIS code published. A graph
+// with no publication record was last written by the three-event ordering — commit, then sidecars,
+// then manifest — and may itself be a torn state from a run that died between two of them. Nothing
+// on disk can tell us, which is what legacy_unattested means.
+//
+// ⚠ THE REFUSAL IS TEMPORARY AND THE PERMISSION IS THE DEFAULT. Outside a rebuild, legacy graphs are
+// still served — refusing always would make the tool unusable on every graph that exists today.
+// Here the cost is one deferred read and the remedy is guaranteed to produce an attested graph.
+describe('a rebuild over a graph we cannot attest', () => {
+  it('POSITIVE CONTROL: an ATTESTED graph mid-rebuild is still served', () => {
+    // ⛔ THE DENIALS BELOW ARE WORTHLESS WITHOUT THIS. A gate that closed for every rebuild would be
+    // the old blanket refusal wearing a new reason, and every refusal test would still pass.
+    seedFiles(3);
+    writeManifest('indexing');
+    return inspectReadFreshness({ repoRoot: repo, verbName: 'graph_callers' }).then((f) => {
+      expect(f.blocker, 'an attested previous snapshot must still be served').toBeNull();
+    });
+  });
+
+  it('⛔ a LEGACY graph mid-rebuild is refused, under its own banner', async () => {
+    seedFiles(3, { attested: false });
+    writeManifest('indexing', { generation: undefined });
+    const f = await inspectReadFreshness({ repoRoot: repo, verbName: 'graph_callers' });
+    expect(f.blocker, 'a snapshot we cannot confirm complete must not be served').toBeTruthy();
+    expect(f.blocker).toMatch(/GRAPH UNATTESTED DURING REBUILD/);
+    expect(f.blocker, 'and it says which state, not merely that something is wrong')
+      .toMatch(/no publication record/);
+  });
+
+  it('⛔ a TORN publication mid-rebuild is refused, and not described as merely old', async () => {
+    // The database committed a generation the manifest never named. Telling this reader their graph
+    // is "old" would be wrong and would hide a genuine torn publication.
+    seedFiles(3);
+    writeManifest('indexing', { generation: 99 });
+    const f = await inspectReadFreshness({ repoRoot: repo, verbName: 'graph_callers' });
+    expect(f.blocker).toMatch(/DIFFERENT generations/);
+    expectAbsentWithLiveMatcher(
+      /no publication record/,
+      { forbidden: 'this graph has no publication record', allowed: 'name DIFFERENT generations' },
+      f.blocker,
+      'a torn publication must not be reported as a legacy graph',
+    );
+  });
+
+  it('⛔ the refusal is recognisable to isFreshnessBlockerText — a refusal must not read as data', () => {
+    // graph_packet filed an unparsed refusal as a FINDING once and printed "STATUS: known to graph"
+    // for a symbol that did not exist. A new blocker without its banner reopens that exact hole.
+    seedFiles(3, { attested: false });
+    writeManifest('indexing', { generation: undefined });
+    return inspectReadFreshness({ repoRoot: repo, verbName: 'graph_callers' }).then((f) => {
+      expect(isFreshnessBlockerText(f.blocker)).toBe(true);
+    });
   });
 });

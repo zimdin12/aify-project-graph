@@ -5,6 +5,7 @@ import { ensureFresh } from '../../freshness/orchestrator.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { openExistingDb } from '../../storage/db.js';
+import { ATTESTATION, classifyAttestation, readGraphGeneration } from '../../storage/publication-schema.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
 import { staleProcessWarning, staleProcessBlocker } from '../../server-build.js';
 
@@ -72,11 +73,43 @@ export function staleNotFoundCaveat(freshness) {
 export const FRESHNESS_BLOCKER_BANNERS = Object.freeze([
   'GRAPH REBUILD INCOMPLETE',
   'GRAPH SCHEMA MISMATCH',
+  // ⛔ A DISTINCT BANNER, NOT A REUSED ONE. `graph_packet` files a refusal it cannot parse as a
+  // FINDING — the defect that produced "STATUS: known to graph" from a refusal — so every blocker
+  // has to be recognisable by `isFreshnessBlockerText`. Adding a message without adding its banner
+  // is how a refusal becomes data again.
+  'GRAPH UNATTESTED DURING REBUILD',
 ]);
 
 export function isFreshnessBlockerText(value) {
   return typeof value === 'string'
     && FRESHNESS_BLOCKER_BANNERS.some((banner) => value.includes(banner));
+}
+
+// ⚠ EACH STATE KEEPS ITS OWN WORDING, because each says something different about what the reader
+// would have been handed. Collapsing them would tell a reader with a torn publication that their
+// graph is merely old.
+function buildUnattestedRebuildMessage({ verbName, attestation, alreadyIndexedFiles = null }) {
+  const why = attestation === ATTESTATION.LEGACY_UNATTESTED
+    ? 'this graph has no publication record, so the snapshot underneath the rebuild cannot be '
+      + 'confirmed complete — it was last written by an ordering that could leave a partial graph behind'
+    : attestation === ATTESTATION.NEVER_COMPLETED
+      ? 'this graph has never completed a publication (generation 0), so there is no previous '
+        + 'snapshot to serve — only an empty one'
+      : attestation === ATTESTATION.GENERATION_MISMATCH
+        ? 'the database and the manifest name DIFFERENT generations, so the snapshot underneath the '
+          + 'rebuild is not the one the manifest describes'
+        : 'the publication state of this graph could not be established, so the snapshot underneath '
+          + 'the rebuild cannot be confirmed complete';
+  const scope = alreadyIndexedFiles == null
+    ? ''
+    : ` The previous snapshot holds ${alreadyIndexedFiles} files, but its completeness is exactly what cannot be checked.`;
+  return [
+    `${FRESHNESS_BLOCKER_BANNERS[2]} — ${verbName} is deferred until the rebuild finishes.`,
+    `${why}.${scope}`,
+    'An ATTESTED graph is served from its previous snapshot during a rebuild, so this is not a '
+      + 'blanket refusal: it lifts permanently as soon as one rebuild publishes a generation.',
+    'Retry after the rebuild completes.',
+  ].join('\n');
 }
 
 function buildIncompleteMessage({ verbName, alreadyIndexedFiles = null, pendingFiles = null }) {
@@ -173,16 +206,28 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
     });
   }
 
+  // ⭐ ONE OPEN, TWO FACTS. The file count and the publication generation are read from the SAME
+  // handle, so they describe the same database. A second open would have been a second observation
+  // with a race between them — and its error branch would have been unreachable dead code, because
+  // the first open already gates on the file being readable. A mutant that flipped that branch to
+  // fail-open SURVIVED the suite, which is how the second open was found and removed.
   let alreadyIndexedFiles = null;
+  let attestation = ATTESTATION.LEGACY_UNATTESTED;
   try {
     const db = openExistingDb(dbPath);
     try {
       alreadyIndexedFiles = db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).length;
+      attestation = classifyAttestation({
+        dbGeneration: readGraphGeneration(db),
+        manifestGeneration: manifest?.generation ?? null,
+      });
     } finally {
       db.close();
     }
   } catch {
-    // Leave null — the caller still gets the incomplete blocker below.
+    // ⛔ UNREADABLE LEAVES BOTH AT THEIR REFUSING VALUES: the count stays null (not a number greater
+    // than zero) and the attestation stays LEGACY_UNATTESTED. A database we could not open is not an
+    // attested one, and the caller gets a blocker below either way.
   }
 
   // ⭐ A REBUILD RUNNING SOMEWHERE ELSE IS NOT A REASON TO REFUSE A COMPLETE ANSWER.
@@ -205,9 +250,41 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   // refuses, and it fails closed: `alreadyIndexedFiles` is null when the count could not be taken,
   // and null is not a number greater than zero.
   const rebuildInProgress = manifest.status === 'indexing';
+
+  // ⚠ ORDERED BEFORE THE ATTESTATION GATE BELOW, and this is the third time in this unit that a new
+  // denial had to be moved behind a more specific one. An empty graph mid-rebuild is BOTH unattested
+  // and empty; "there is no previous snapshot at all" is the sharper fact and the one a first index
+  // needs to hear, so the provenance message must not take its place.
   if (rebuildInProgress && !(alreadyIndexedFiles > 0)) {
     return freshnessResult({
       blocker: buildIncompleteMessage({ verbName, alreadyIndexedFiles, pendingFiles: null }),
+      graphDir,
+      dbPath,
+      manifest,
+    });
+  }
+
+
+  // ⛔ AND EXCEPT WHEN WE CANNOT ATTEST WHAT WE WOULD BE SERVING.
+  //
+  // The permission above rests entirely on "the previous graph is COMPLETE, because a rebuild
+  // commits exactly once". That is a property of graphs this code published. A graph with no
+  // publication record was last written by the three-event ordering — commit, then sidecars, then
+  // manifest — and may itself be a torn state from a run that died between two of those events.
+  // Nothing on disk can tell us, which is precisely what `legacy_unattested` means.
+  //
+  // ⇒ Serving it while a rebuild is running would be answering out of a snapshot we cannot check,
+  // at the one moment when a checkable answer is minutes away. Outside a rebuild we still serve
+  // legacy graphs — refusing always would make the tool unusable on every graph that exists today —
+  // but here the refusal is cheap, temporary, and the remedy is guaranteed to produce an attested
+  // graph rather than merely a different unattested one.
+  //
+  // ⚠ THE POSITIVE CONTROL MATTERS MORE THAN THE DENIAL. An attested graph mid-rebuild still
+  // serves its previous snapshot, exactly as it did before this clause. A gate that closed for
+  // every rebuild would be the old blanket refusal wearing a new reason.
+  if (rebuildInProgress && attestation !== ATTESTATION.ATTESTED) {
+    return freshnessResult({
+      blocker: buildUnattestedRebuildMessage({ verbName, attestation, alreadyIndexedFiles }),
       graphDir,
       dbPath,
       manifest,
