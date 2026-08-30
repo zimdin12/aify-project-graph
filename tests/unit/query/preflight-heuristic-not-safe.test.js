@@ -51,6 +51,12 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // path requires — otherwise the new gate would make SAFE unreachable and these controls would
       // be the thing that noticed.
       collectionCurrent: true,
+      // ⚠ ADDED with the interim containment. SAFE now also requires ONE current collection over an
+      // UNCHANGED eligible corpus. These are positive controls for the legitimate proceed path, so
+      // they must state every condition that path requires — otherwise the new gates would make SAFE
+      // unreachable and these controls are exactly what would notice.
+      evidenceUnion: false,
+      eligibleDirty: 0,
     });
     expect(d.tier).toBe('SAFE');
     expect(d.reason).toMatch(/lsp-verified/);
@@ -71,6 +77,12 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // path requires — otherwise the new gate would make SAFE unreachable and these controls would
       // be the thing that noticed.
       collectionCurrent: true,
+      // ⚠ ADDED with the interim containment. SAFE now also requires ONE current collection over an
+      // UNCHANGED eligible corpus. These are positive controls for the legitimate proceed path, so
+      // they must state every condition that path requires — otherwise the new gates would make SAFE
+      // unreachable and these controls are exactly what would notice.
+      evidenceUnion: false,
+      eligibleDirty: 0,
     });
     expect(d.tier).toBe('SAFE');
     expect(d.reason).toMatch(/proceed/);
@@ -92,6 +104,12 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // path requires — otherwise the new gate would make SAFE unreachable and these controls would
       // be the thing that noticed.
       collectionCurrent: true,
+      // ⚠ ADDED with the interim containment. SAFE now also requires ONE current collection over an
+      // UNCHANGED eligible corpus. These are positive controls for the legitimate proceed path, so
+      // they must state every condition that path requires — otherwise the new gates would make SAFE
+      // unreachable and these controls are exactly what would notice.
+      evidenceUnion: false,
+      eligibleDirty: 0,
     });
     expect(d.tier).toBe('REVIEW');
   });
@@ -154,6 +172,12 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // path requires — otherwise the new gate would make SAFE unreachable and these controls would
       // be the thing that noticed.
       collectionCurrent: true,
+      // ⚠ ADDED with the interim containment. SAFE now also requires ONE current collection over an
+      // UNCHANGED eligible corpus. These are positive controls for the legitimate proceed path, so
+      // they must state every condition that path requires — otherwise the new gates would make SAFE
+      // unreachable and these controls are exactly what would notice.
+      evidenceUnion: false,
+      eligibleDirty: 0,
     });
     expect(d.tier).toBe('SAFE');
   });
@@ -168,7 +192,8 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
 describe('computeDecision — SAFE requires evidence that is still current', () => {
   const verified = {
     callerCount: 0, testCount: 0, dirtyCount: 0, crossModule: false, confidence: 1.0,
-    callersHaveLspEvidence: true,
+    // The other SAFE preconditions held constant so each test below varies ONE thing — currency.
+    callersHaveLspEvidence: true, evidenceUnion: false, eligibleDirty: 0,
   };
 
   it('a collection taken at an older commit is never SAFE', () => {
@@ -189,5 +214,45 @@ describe('computeDecision — SAFE requires evidence that is still current', () 
   it('POSITIVE CONTROL: a current collection still reaches SAFE', () => {
     // Without this the gate above could deny unconditionally and every assertion here would pass.
     expect(computeDecision({ ...verified, collectionCurrent: true }).tier).toBe('SAFE');
+  });
+});
+
+// ⛔ INTERIM CONTAINMENT, agreed with review and labelled temporary in the source.
+// The right discriminator is BYTE IDENTITY — a collection recording the exact eligible-file
+// membership and per-file digest it was taken from, so SAFE stays reachable in a dirty worktree
+// whose bytes the collection actually read. Until that exists these deny.
+describe('computeDecision — evidence must be ONE current generation over an unchanged corpus', () => {
+  const current = {
+    callerCount: 0, testCount: 0, dirtyCount: 0, crossModule: false, confidence: 1.0,
+    callersHaveLspEvidence: true, collectionCurrent: true,
+  };
+
+  it('evidence spanning more than one collection is never SAFE', () => {
+    // Coverage is counted across EVERY live collection while currency checks only the latest, so a
+    // small current collection can certify what older ones supplied.
+    const d = computeDecision({ ...current, evidenceUnion: true, eligibleDirty: 0 });
+    expect(d.tier).toBe('REVIEW');
+    expect(d.reason).toMatch(/MORE THAN ONE collection/);
+  });
+
+  it('a dirty eligible source file is never SAFE — a caller can live in any of them', () => {
+    const d = computeDecision({ ...current, evidenceUnion: false, eligibleDirty: 3 });
+    expect(d.tier).toBe('REVIEW');
+    expect(d.reason).toMatch(/3 eligible source file/);
+  });
+
+  it('unknown fails closed on both, under their own wording', () => {
+    // null is what an unreadable collection table or an uninspectable worktree produces. Neither may
+    // be reported as the known-bad case — that would assert a cause nothing established.
+    expect(computeDecision({ ...current, evidenceUnion: null, eligibleDirty: 0 }).reason)
+      .toMatch(/could not be established/);
+    expect(computeDecision({ ...current, evidenceUnion: false, eligibleDirty: null }).reason)
+      .toMatch(/could not be inspected/);
+  });
+
+  it('POSITIVE CONTROL: one current collection over a clean eligible corpus still reaches SAFE', () => {
+    // Without this the two gates above could deny unconditionally — which is the failure mode that
+    // put them here: a gate whose closed state is permanent is not fail-closed, it is off.
+    expect(computeDecision({ ...current, evidenceUnion: false, eligibleDirty: 0 }).tier).toBe('SAFE');
   });
 });

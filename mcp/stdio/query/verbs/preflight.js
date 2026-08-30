@@ -8,6 +8,9 @@ import { buildTrustLine, provenanceRankSql } from '../lsp-evidence.js';
 import { renderProvenanceTag } from '../renderer.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { getLatestCollection } from '../../code-intel/query.js';
+// Eligibility is DERIVED from the real backend registry, never a parallel extension list — a
+// hand-written map was wrong about C here once already (the registry aliases c -> cpp).
+import { inferLanguage, getBackend } from '../../code-intel/backends.js';
 import { missScopeNote } from '../miss-scope.js';
 // ⛔ DERIVED, NOT RESTATED. These four relation lists were written out by hand — three copies of
 // CALL_FAMILY and one near-miss of IMPACT_FAMILY — in the file whose whole job is answering "is this
@@ -131,12 +134,43 @@ export async function graphPreflight({ repoRoot, symbol }) {
     // Unknown fails closed, like every other clause in this decision: a currency that cannot be
     // established is not currency.
     let collectionCurrent = null;
+    let evidenceUnion = null;
+    let eligibleDirty = null;
     try {
       // Reuses the HEAD this verb already observed via inspectReadFreshness — this file's own rule
       // is one git observation per read, not two.
       const latest = getLatestCollection(db);
       if (latest?.indexedCommit && freshness.head) {
         collectionCurrent = latest.indexedCommit === freshness.head;
+      }
+
+      // ⛔ ONE CURRENT COLLECTION CANNOT CERTIFY A UNION OF MANY. `coverage.complete` counts
+      // records across EVERY live collection, while currency compares HEAD to the LATEST one only —
+      // so a small, current, targeted collection can vouch for coverage that older collections
+      // actually supplied. Mixed generations are not one body of evidence.
+      const contributing = db.all(
+        'SELECT COUNT(DISTINCT collection_id) AS n FROM code_intel_records',
+      )[0]?.n;
+      evidenceUnion = Number.isInteger(contributing) ? contributing > 1 : null;
+
+      // ⛔ SCOPED TO THE ELIGIBLE EVIDENCE CORPUS, NOT THE WHOLE WORKTREE, AND DERIVED FROM THE
+      // REAL REGISTRY. A dirty README cannot hide a caller; a dirty .cpp can. Measured on this
+      // machine: the only repo with a clean tree was the IDLE one, and the repo two agents were
+      // working in had six dirty eligible files — a whole-worktree gate is open exactly when nobody
+      // needs it and closed exactly when someone does.
+      //
+      // ⚠ CONSERVATIVE AND TEMPORARY, by agreement. The right discriminator is BYTE IDENTITY: a
+      // collection recording the exact eligible-file membership and per-file digest it was taken
+      // from, so SAFE stays reachable in a dirty worktree when the evidence was taken from those
+      // exact bytes. Until that exists, any dirty or newly untracked eligible source denies SAFE.
+      //
+      // ⛔ AND NOT "the symbol's own module". Bounding unknown callers by the graph's known
+      // neighbourhood is circular — an unseen caller can live in any eligible translation unit.
+      if (freshness.dirtyFilesKnown === true) {
+        eligibleDirty = (freshness.dirtyFiles ?? []).filter((f) => {
+          const lang = inferLanguage(f);
+          return Boolean(lang && getBackend(lang));
+        }).length;
       }
     } catch { /* leave null — unknown, and unknown does not grant SAFE */ }
 
@@ -150,6 +184,8 @@ export async function graphPreflight({ repoRoot, symbol }) {
       coverageComplete,
       coverageReason,
       collectionCurrent,
+      evidenceUnion,
+      eligibleDirty,
     });
 
     // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis (cohesion
@@ -214,7 +250,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
   }
 }
 
-export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false, coverageComplete = true, coverageReason = '', collectionCurrent = null }) {
+export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false, coverageComplete = true, coverageReason = '', collectionCurrent = null, evidenceUnion = null, eligibleDirty = null }) {
   // CONFIRM: many callers + cross-module OR weak trust
   if (callerCount > 5 && crossModule) {
     return { tier: 'CONFIRM', reason: `${callerCount} callers across module boundaries — confirm change scope with user before editing.` };
@@ -275,6 +311,37 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
       reason: `${callerCount} lsp-verified caller(s), but ${why} — the caller set is a floor; `
         + 're-run graph_collect_code_intel, or verify with code_intel_references / rg before '
         + 'deleting or changing the signature.',
+    };
+  }
+
+  // ⛔ EVIDENCE FROM MORE THAN ONE COLLECTION IS NOT ONE BODY OF EVIDENCE. Coverage is counted
+  // across every live collection while currency is checked against the latest only, so a small
+  // current collection can certify what older ones supplied. `null` is unknown and fails closed.
+  if (evidenceUnion !== false) {
+    return {
+      tier: 'REVIEW',
+      reason: evidenceUnion === true
+        ? `${callerCount} lsp-verified caller(s), but the evidence spans MORE THAN ONE collection and `
+          + 'only the latest was checked for currency — re-run graph_collect_code_intel({ scope: "all" }) '
+          + 'so one generation covers the repo, or verify with code_intel_references / rg.'
+        : `${callerCount} lsp-verified caller(s), but the number of collections behind that evidence `
+          + 'could not be established — verify with code_intel_references / rg before deleting or '
+          + 'changing the signature.',
+    };
+  }
+
+  // ⛔ A DIRTY ELIGIBLE SOURCE FILE CAN HOLD A CALLER THE COLLECTION NEVER SAW.
+  // Conservative and temporary: byte identity is the right discriminator and would keep SAFE
+  // reachable in a dirty worktree whose bytes the collection actually read. Until then, deny.
+  if (eligibleDirty !== 0) {
+    return {
+      tier: 'REVIEW',
+      reason: eligibleDirty === null
+        ? `${callerCount} lsp-verified caller(s), but the working tree could not be inspected, so `
+          + 'uncollected source cannot be ruled out — verify with code_intel_references / rg.'
+        : `${callerCount} lsp-verified caller(s), but ${eligibleDirty} eligible source file(s) differ `
+          + 'from what was collected — a caller can live in any of them. Re-collect, or verify with '
+          + 'code_intel_references / rg before deleting or changing the signature.',
     };
   }
 
