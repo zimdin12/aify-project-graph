@@ -122,3 +122,51 @@ describe('a graph published before the aggregate columns is still attested', () 
     } finally { db.close(); }
   });
 });
+
+// ⛔ A COMPARISON THAT DID NOT HAPPEN IS NOT A COMPARISON THAT FAILED.
+//
+// loadManifest degrades a corrupt or missing manifest to defaults, and defaultManifest() carries no
+// `generation`. Both therefore arrived as manifestGeneration=null against a healthy database and
+// were classified GENERATION_MISMATCH — which tells a reader "a rebuild committed and its manifest
+// never landed". For a corrupt manifest the rebuild committed AND its manifest landed; the file was
+// damaged afterwards. For an absent one nothing whatever is known about a crash window.
+//
+// ⭐ REPRODUCED BEFORE IT WAS FIXED, on a copy of this repository's real 164 MB graph and through
+// the real graph_health verb rather than a hand-rebuilt call: intact -> attested, corrupt ->
+// generation_mismatch, missing -> generation_mismatch. The intact control is what made the other
+// two evidence rather than a reading of the source.
+describe('an unreadable manifest is its own state, not a torn publication', () => {
+  it('POSITIVE CONTROL: a readable manifest that agrees is still ATTESTED', () => {
+    // Without this, manifestUsable could deny unconditionally and every case below would pass while
+    // the state was simply unreachable in the affirmative.
+    expect(classifyAttestation({ dbGeneration: 7, manifestGeneration: 7, manifestUsable: true }))
+      .toBe(ATTESTATION.ATTESTED);
+  });
+
+  it('⛔ an unreadable manifest is MANIFEST_UNUSABLE, never GENERATION_MISMATCH', () => {
+    const got = classifyAttestation({ dbGeneration: 7, manifestGeneration: null, manifestUsable: false });
+    expect(got).toBe(ATTESTATION.MANIFEST_UNUSABLE);
+    expect(got, 'asserting a crash window nothing established').not.toBe(ATTESTATION.GENERATION_MISMATCH);
+  });
+
+  it('⛔ it does not mask LEGACY — with no table there is nothing to compare either side of', () => {
+    // Ordering matters: a graph with no generation table AND an unreadable manifest is legacy, and
+    // one rebuild fixes both halves. Reporting the manifest problem first would send a reader to
+    // the less fundamental of the two.
+    expect(classifyAttestation({ dbGeneration: null, manifestGeneration: null, manifestUsable: false }))
+      .toBe(ATTESTATION.LEGACY_UNATTESTED);
+  });
+
+  it('⛔ a READABLE manifest that disagrees is still a genuine mismatch', () => {
+    // The other half of the discrimination. If manifestUsable swallowed this case the fix would
+    // have removed a real signal while removing a false one.
+    expect(classifyAttestation({ dbGeneration: 8, manifestGeneration: 7, manifestUsable: true }))
+      .toBe(ATTESTATION.GENERATION_MISMATCH);
+  });
+
+  it('defaults to usable, so a caller that never learned about this cannot silently deny', () => {
+    // Omission means "I passed you a real manifest", which every pre-existing caller was doing
+    // truthfully. Only a caller that KNOWS the read failed says so.
+    expect(classifyAttestation({ dbGeneration: 7, manifestGeneration: 7 })).toBe(ATTESTATION.ATTESTED);
+  });
+});

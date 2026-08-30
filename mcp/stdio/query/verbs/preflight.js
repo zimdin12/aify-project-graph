@@ -193,6 +193,9 @@ export async function graphPreflight({ repoRoot, symbol }) {
       attestation: classifyAttestation({
         dbGeneration: readGraphGeneration(db),
         manifestGeneration: manifest?.manifest?.generation ?? null,
+        // ⚠ `manifest` here is loadManifest's RESULT, not the manifest — so .status is the read
+        // outcome. This verb held it all along and never looked at it.
+        manifestUsable: manifest?.status === 'ok',
       }),
     });
 
@@ -308,6 +311,10 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
     [ATTESTATION.GENERATION_MISMATCH]:
       'the database and the manifest name DIFFERENT generations, so a rebuild committed and its '
       + 'manifest never landed — the caller set may be from either graph',
+    [ATTESTATION.MANIFEST_UNUSABLE]:
+      'the graph manifest could not be read (missing or corrupt), so the database generation could '
+      + 'not be compared against anything — the comparison did not happen, which is not the same as '
+      + 'it failing',
   };
   if (KNOWN_UNATTESTED[attestation]) {
     return {

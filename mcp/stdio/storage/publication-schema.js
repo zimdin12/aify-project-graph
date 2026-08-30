@@ -167,6 +167,17 @@ export const ATTESTATION = Object.freeze({
   LEGACY_UNATTESTED: 'legacy_unattested',
   NEVER_COMPLETED: 'never_completed',
   GENERATION_MISMATCH: 'generation_mismatch',
+  // ⛔ THE COMPARISON COULD NOT BE MADE, WHICH IS NOT THE SAME AS THE TWO SIDES DISAGREEING.
+  // loadManifest degrades a corrupt or missing manifest to defaults, and defaultManifest() carries
+  // no `generation`. So both arrived here as manifestGeneration=null against a healthy database and
+  // were reported as GENERATION_MISMATCH — telling a reader "a rebuild committed and its manifest
+  // never landed" when for a corrupt manifest the rebuild committed AND its manifest landed, and
+  // for an absent one nothing is known about any crash window at all.
+  //
+  // Reproduced on a copy of the real graph before this was written: intact -> attested/null,
+  // corrupt -> generation_mismatch, missing -> generation_mismatch. The intact control is what
+  // makes those two evidence rather than a reading of the code.
+  MANIFEST_UNUSABLE: 'manifest_unusable',
 });
 
 /**
@@ -179,9 +190,16 @@ export const ATTESTATION = Object.freeze({
  *
  * @param {number|null|undefined} dbGeneration        from readGraphGeneration (null = no table)
  * @param {number|null|undefined} manifestGeneration  the manifest's own claim
+ * @param {boolean} manifestUsable  false when loadManifest could not read it (corrupt/missing).
+ *                  Defaults TRUE, because every existing caller that passes a real manifest is
+ *                  telling the truth by omission; a caller that KNOWS the read failed must say so.
  */
-export function classifyAttestation({ dbGeneration, manifestGeneration } = {}) {
+export function classifyAttestation({ dbGeneration, manifestGeneration, manifestUsable = true } = {}) {
+  // Legacy first: with no table there is nothing to compare against, whatever the manifest is
+  // doing, and one rebuild fixes both halves.
   if (dbGeneration === null || dbGeneration === undefined) return ATTESTATION.LEGACY_UNATTESTED;
+  // Then: could we read the other side at all? A missing comparison is not a failed comparison.
+  if (manifestUsable === false) return ATTESTATION.MANIFEST_UNUSABLE;
   if (!Number.isInteger(dbGeneration)) return ATTESTATION.GENERATION_MISMATCH;
   if (dbGeneration === 0) return ATTESTATION.NEVER_COMPLETED;
   // A manifest with no generation against a database that HAS one is a mismatch, not legacy: the

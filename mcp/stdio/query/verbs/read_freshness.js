@@ -98,8 +98,11 @@ function buildUnattestedRebuildMessage({ verbName, attestation, alreadyIndexedFi
       : attestation === ATTESTATION.GENERATION_MISMATCH
         ? 'the database and the manifest name DIFFERENT generations, so the snapshot underneath the '
           + 'rebuild is not the one the manifest describes'
-        : 'the publication state of this graph could not be established, so the snapshot underneath '
-          + 'the rebuild cannot be confirmed complete';
+        : attestation === ATTESTATION.MANIFEST_UNUSABLE
+          ? 'the graph manifest could not be read (missing or corrupt), so the snapshot underneath '
+            + 'the rebuild cannot be compared against anything that claims to describe it'
+          : 'the publication state of this graph could not be established, so the snapshot underneath '
+            + 'the rebuild cannot be confirmed complete';
   const scope = alreadyIndexedFiles == null
     ? ''
     : ` The previous snapshot holds ${alreadyIndexedFiles} files, but its completeness is exactly what cannot be checked.`;

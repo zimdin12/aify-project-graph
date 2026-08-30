@@ -113,6 +113,7 @@ export function graphCapabilities({
   else if (attestation === ATTESTATION.LEGACY_UNATTESTED) reason = 'legacy_unattested';
   else if (attestation === ATTESTATION.NEVER_COMPLETED) reason = 'never_completed';
   else if (attestation === ATTESTATION.GENERATION_MISMATCH) reason = 'generation_mismatch';
+  else if (attestation === ATTESTATION.MANIFEST_UNUSABLE) reason = 'manifest_unusable';
   else if (!languageHasServer) reason = 'no_language_server';
   else if (!collectionAvailable) reason = 'no_collection';
   else if (!hasVerified) reason = 'trust_spine_empty';
@@ -186,6 +187,15 @@ function nextActionFor(reason, language, languageHasServer, integrity = null, de
       return 'graph_index() — the database and the manifest name DIFFERENT generations, so a '
         + 'rebuild committed and its manifest never landed. The graph itself is whole and '
         + 'orientation is safe; it is unattested, which is recoverable by re-running the index.';
+    case 'manifest_unusable':
+      // ⛔ THE COMPARISON DID NOT HAPPEN. Reported as generation_mismatch until it was reproduced on
+      // a copy of the real graph, which meant telling a reader a rebuild had committed without its
+      // manifest — a crash window nothing established. The remedy is the same command; the claim is
+      // not, and the claim is what a reader acts on.
+      return 'graph_index() — the graph manifest could not be read (missing or corrupt), so its '
+        + 'generation could not be compared against the database. This says nothing about whether '
+        + 'the graph itself is torn: the comparison did not happen. Orientation is unaffected; '
+        + 'absence claims are a FLOOR until a rebuild writes a manifest that can be read.';
     case 'attestation_unknown':
       // ⛔ A CALLER-SIDE FAULT, SAID AS ONE. Reporting this as legacy would blame the graph for a
       // caller that never asked the question, and the next person would rebuild a healthy index.

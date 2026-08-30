@@ -393,13 +393,14 @@ export function buildNextActions(s) {
 // The publication comparison, in one place, with the handle closed. Returns a typed state rather
 // than a boolean so a denial can say WHICH of the four it is — legacy, never completed, torn, or a
 // caller that never asked.
-function attestationOf(dbPath, manifest) {
+function attestationOf(dbPath, manifest, manifestUsable = true) {
   if (!existsSync(dbPath)) return ATTESTATION.LEGACY_UNATTESTED;
   const db = openExistingDb(dbPath);
   try {
     return classifyAttestation({
       dbGeneration: readGraphGeneration(db),
       manifestGeneration: manifest?.generation ?? null,
+      manifestUsable,
     });
   } finally { db.close(); }
 }
@@ -417,7 +418,12 @@ export async function graphHealth({ repoRoot }) {
     };
   }
 
-  const { manifest } = await loadManifest(graphDir);
+  // ⚠ THE LOAD STATUS IS KEPT, and the name collision below is why it was not.
+  // `manifestLoad.status` is whether the FILE could be read; `manifest.status` a line later is the
+  // manifest's own ok/indexing field. Two different facts one line apart sharing a word, and
+  // discarding the first meant a corrupt manifest was classified as a torn publication.
+  const manifestLoad = await loadManifest(graphDir);
+  const { manifest } = manifestLoad;
   const manifestStatus = manifest?.status ?? 'ok';
   // ⛔ THE DIAGNOSTIC VERB IS THE LAST PLACE A FAILED QUERY MAY READ AS A MEASUREMENT. This is the
   // verb an agent calls to decide whether to trust everything else, and it used to answer a failed
@@ -1645,7 +1651,7 @@ export async function graphHealth({ repoRoot }) {
     // is tolerable HERE because health reports rather than claims absence — the verbs that answer
     // "no callers" are the ones that must wrap their whole read in withExistingSnapshot, and they
     // are a separate change. Saying so beats implying a consistency this call does not provide.
-    attestation: attestationOf(dbPath, manifest),
+    attestation: attestationOf(dbPath, manifest, manifestLoad.status === 'ok'),
   });
 
   return {
