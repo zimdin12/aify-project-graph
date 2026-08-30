@@ -6,6 +6,7 @@ import { buildUnresolvedCategorization, classifyUnresolvedRef, renderUnresolvedC
 import { countTrustRelevantDirtyEdges } from '../../../mcp/stdio/freshness/unresolved-metrics.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { replaceUnresolvedRefs } from '../../../mcp/stdio/storage/unresolved-refs.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 describe('unresolved categorization', () => {
   let repoRoot;
@@ -66,8 +67,12 @@ describe('unresolved categorization', () => {
     const out = await buildUnresolvedCategorization({ repoRoot });
     expect(out.source).toBe('table');
     expect(out.total).toBe(0);
-    expect(JSON.stringify(out.samples), 'a stale manifest row must not reappear as current')
-      .not.toMatch(/staleSample/);
+    expectAbsentWithLiveMatcher(
+      /staleSample/,
+      { forbidden: '{"target":"staleSample"}', allowed: '{"target":"realOne"}' },
+      JSON.stringify(out.samples),
+      'a stale manifest row must not reappear as current',
+    );
   });
 
   it('POSITIVE CONTROL: a LEGACY graph with no table still reports the manifest sample, labelled', async () => {

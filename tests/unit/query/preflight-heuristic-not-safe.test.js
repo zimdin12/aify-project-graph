@@ -8,6 +8,8 @@
 
 import { describe, expect, it } from 'vitest';
 import { computeDecision } from '../../../mcp/stdio/query/verbs/preflight.js';
+import { ATTESTATION } from '../../../mcp/stdio/storage/publication-schema.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 describe('computeDecision — heuristic caller set is never SAFE-to-proceed', () => {
   it('0 callers, heuristic-only → REVIEW (not SAFE), points at code_intel_references', () => {
@@ -57,6 +59,11 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // unreachable and these controls are exactly what would notice.
       evidenceUnion: false,
       eligibleDirty: 0,
+      // ⚠ ADDED with the publication gate, and held CONSTANT across this file. SAFE now also
+      // requires that the graph the caller set came from is the graph the manifest describes.
+      // Every test here varies one OTHER thing, so this stays satisfied — otherwise the new
+      // gate would make SAFE unreachable and these positive controls are what would notice.
+      attestation: ATTESTATION.ATTESTED,
     });
     expect(d.tier).toBe('SAFE');
     expect(d.reason).toMatch(/lsp-verified/);
@@ -83,6 +90,11 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // unreachable and these controls are exactly what would notice.
       evidenceUnion: false,
       eligibleDirty: 0,
+      // ⚠ ADDED with the publication gate, and held CONSTANT across this file. SAFE now also
+      // requires that the graph the caller set came from is the graph the manifest describes.
+      // Every test here varies one OTHER thing, so this stays satisfied — otherwise the new
+      // gate would make SAFE unreachable and these positive controls are what would notice.
+      attestation: ATTESTATION.ATTESTED,
     });
     expect(d.tier).toBe('SAFE');
     expect(d.reason).toMatch(/proceed/);
@@ -110,6 +122,11 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // unreachable and these controls are exactly what would notice.
       evidenceUnion: false,
       eligibleDirty: 0,
+      // ⚠ ADDED with the publication gate, and held CONSTANT across this file. SAFE now also
+      // requires that the graph the caller set came from is the graph the manifest describes.
+      // Every test here varies one OTHER thing, so this stays satisfied — otherwise the new
+      // gate would make SAFE unreachable and these positive controls are what would notice.
+      attestation: ATTESTATION.ATTESTED,
     });
     expect(d.tier).toBe('REVIEW');
   });
@@ -178,6 +195,11 @@ describe('computeDecision — heuristic caller set is never SAFE-to-proceed', ()
       // unreachable and these controls are exactly what would notice.
       evidenceUnion: false,
       eligibleDirty: 0,
+      // ⚠ ADDED with the publication gate, and held CONSTANT across this file. SAFE now also
+      // requires that the graph the caller set came from is the graph the manifest describes.
+      // Every test here varies one OTHER thing, so this stays satisfied — otherwise the new
+      // gate would make SAFE unreachable and these positive controls are what would notice.
+      attestation: ATTESTATION.ATTESTED,
     });
     expect(d.tier).toBe('SAFE');
   });
@@ -194,6 +216,7 @@ describe('computeDecision — SAFE requires evidence that is still current', () 
     callerCount: 0, testCount: 0, dirtyCount: 0, crossModule: false, confidence: 1.0,
     // The other SAFE preconditions held constant so each test below varies ONE thing — currency.
     callersHaveLspEvidence: true, evidenceUnion: false, eligibleDirty: 0,
+    attestation: ATTESTATION.ATTESTED,
   };
 
   it('a collection taken at an older commit is never SAFE', () => {
@@ -225,6 +248,7 @@ describe('computeDecision — evidence must be ONE current generation over an un
   const current = {
     callerCount: 0, testCount: 0, dirtyCount: 0, crossModule: false, confidence: 1.0,
     callersHaveLspEvidence: true, collectionCurrent: true,
+    attestation: ATTESTATION.ATTESTED,
   };
 
   it('evidence spanning more than one collection is never SAFE', () => {
@@ -254,5 +278,69 @@ describe('computeDecision — evidence must be ONE current generation over an un
     // Without this the two gates above could deny unconditionally — which is the failure mode that
     // put them here: a gate whose closed state is permanent is not fail-closed, it is off.
     expect(computeDecision({ ...current, evidenceUnion: false, eligibleDirty: 0 }).tier).toBe('SAFE');
+  });
+});
+
+// ⛔ THE VERB THAT PRINTS "DECISION: SAFE — PROCEED" MUST ASK WHOSE GRAPH IT IS READING.
+//
+// Every gate above weighs how good the evidence is. This one asks whether the graph the evidence
+// came out of has ever been published, and whether what is on disk matches what claims to describe
+// it. An unattested graph can be internally perfect and still be answering about a different corpus.
+//
+// The precedent is exact and recent: absenceAuthority was hardened to require a current collection
+// and then had two production consumers, neither of them this verb — health denied authority while
+// preflight said SAFE in the same breath. A gate no safety consumer reads is not a gate.
+describe('computeDecision — SAFE requires a graph the manifest actually describes', () => {
+  const otherwiseSafe = {
+    callerCount: 0, testCount: 0, dirtyCount: 0, crossModule: false, confidence: 1.0,
+    callersHaveLspEvidence: true, collectionCurrent: true, evidenceUnion: false, eligibleDirty: 0,
+  };
+
+  it('POSITIVE CONTROL: an attested graph with every other clause satisfied still reaches SAFE', () => {
+    // ⛔ WITHOUT THIS THE FOUR DENIALS BELOW PROVE NOTHING. A gate whose closed state is permanent
+    // is not fail-closed, it is off — and it would satisfy every refusal while never opening.
+    const d = computeDecision({ ...otherwiseSafe, attestation: ATTESTATION.ATTESTED });
+    expect(d.tier).toBe('SAFE');
+  });
+
+  for (const [state, phrase] of [
+    [ATTESTATION.LEGACY_UNATTESTED, /predates publication attestation/],
+    [ATTESTATION.NEVER_COMPLETED, /generation 0/],
+    [ATTESTATION.GENERATION_MISMATCH, /DIFFERENT generations/],
+  ]) {
+    it(`⛔ ${state} is never SAFE, and says which state it is`, () => {
+      const d = computeDecision({ ...otherwiseSafe, attestation: state });
+      expect(d.tier, 'every other clause holds, so only attestation can be denying').toBe('REVIEW');
+      expect(d.reason).toMatch(phrase);
+    });
+  }
+
+  it('⛔ the three denials do NOT share a message — each remedy differs', () => {
+    const reasons = [ATTESTATION.LEGACY_UNATTESTED, ATTESTATION.NEVER_COMPLETED, ATTESTATION.GENERATION_MISMATCH]
+      .map((a) => computeDecision({ ...otherwiseSafe, attestation: a }).reason);
+    expect(new Set(reasons).size, 'three states, three messages').toBe(3);
+  });
+
+  it('⛔ an attestation nobody established fails closed, under its OWN wording', () => {
+    // Not reported as any of the three known states: that would assert a fault in the graph that
+    // nothing found, and the next reader would rebuild a healthy index on the strength of it.
+    const d = computeDecision(otherwiseSafe);
+    expect(d.tier).toBe('REVIEW');
+    expect(d.reason).toMatch(/publication state of this graph was not established/);
+    expectAbsentWithLiveMatcher(
+      /\b(predates|generation 0|DIFFERENT generations)\b/,
+      { forbidden: 'this graph predates attestation', allowed: 'the publication state was not established' },
+      d.reason,
+      'unknown must not borrow the wording of a state that was actually diagnosed',
+    );
+  });
+
+  it('⛔ an unknown attestation does NOT mask a more specific evidence failure', () => {
+    // Ordered last deliberately. Placed with the three known states it reported "unattested" on
+    // every caller written before the parameter existed, hiding the heuristic-caller-set reason —
+    // the identical mistake made in graph-capabilities minutes earlier, caught by its own tests.
+    const d = computeDecision({ ...otherwiseSafe, callersHaveLspEvidence: false });
+    expect(d.reason, 'a heuristic caller set is a real finding and outranks a caller omission')
+      .toMatch(/heuristic, not exhaustive/);
   });
 });

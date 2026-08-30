@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import {
   readLegacyUnresolvedSidecar, readManifestAsMigrationSource, chooseCarryForwardSource,
 } from '../../../mcp/stdio/freshness/legacy-unresolved-bridge.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const CARRIER = join(process.cwd(),
   'docs/evidence/unresolved-refs-migration/dirty-edges.full.frozen.json');
@@ -146,7 +147,12 @@ describe('the manifest is a migration source only when PROVABLY complete', () =>
     const r = readManifestAsMigrationSource({ dirtyEdges: [{ target: 'a' }] });
     expect(r.state).toBe('invalid');
     expect(r.reason).toMatch(/completeness unknown/);
-    expect(r.reason, 'unknown must not borrow the truncated wording').not.toMatch(/truncated|sample of/);
+    expectAbsentWithLiveMatcher(
+      /truncated|sample of/,
+      { forbidden: 'a 500-row sample of 35906 — truncated', allowed: 'dirtyEdgeCount absent — completeness unknown' },
+      r.reason,
+      'unknown must not borrow the wording of the known-bad case',
+    );
   });
 
   it('an empty population with a zero count is valid, not unknown', () => {

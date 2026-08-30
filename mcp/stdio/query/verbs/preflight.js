@@ -1,3 +1,4 @@
+import { ATTESTATION, classifyAttestation, readGraphGeneration } from '../../storage/publication-schema.js';
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
@@ -186,6 +187,13 @@ export async function graphPreflight({ repoRoot, symbol }) {
       collectionCurrent,
       evidenceUnion,
       eligibleDirty,
+      // ⭐ THE PUBLICATION COMPARISON. `manifest` was loaded above, BEFORE this database read, so a
+      // rebuild committing in between reads as a mismatch and denies SAFE. The reverse order would
+      // absorb that commit silently and let the two reads agree only because they straddled it.
+      attestation: classifyAttestation({
+        dbGeneration: readGraphGeneration(db),
+        manifestGeneration: manifest?.manifest?.generation ?? null,
+      }),
     });
 
     // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis (cohesion
@@ -250,7 +258,7 @@ export async function graphPreflight({ repoRoot, symbol }) {
   }
 }
 
-export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false, coverageComplete = true, coverageReason = '', collectionCurrent = null, evidenceUnion = null, eligibleDirty = null }) {
+export function computeDecision({ callerCount, testCount, dirtyCount, crossModule, confidence, callersHaveLspEvidence = false, coverageComplete = true, coverageReason = '', collectionCurrent = null, evidenceUnion = null, eligibleDirty = null, attestation = null }) {
   // CONFIRM: many callers + cross-module OR weak trust
   if (callerCount > 5 && crossModule) {
     return { tier: 'CONFIRM', reason: `${callerCount} callers across module boundaries — confirm change scope with user before editing.` };
@@ -276,6 +284,39 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
   // exhaustive (cross-TU dispatch is undercounted), so an empty/heuristic-only
   // caller set must NEVER read as "SAFE — proceed / safe to delete". Downgrade
   // to REVIEW and point at code_intel_references for a trustworthy check.
+  // ⛔ BEFORE ASKING HOW GOOD THE EVIDENCE IS, ASK WHETHER THIS IS THE GRAPH THE MANIFEST DESCRIBES.
+  // Every gate below weighs evidence quality. This one asks whether the thing the evidence was read
+  // out of has ever been published, and whether what is on disk matches what claims to describe it.
+  // An unattested graph can be internally perfect and still be answering about a different corpus.
+  //
+  // ⚠ EACH STATE KEEPS ITS OWN WORDING. `legacy_unattested` is fixed by one rebuild forever;
+  // `never_completed` means nothing was ever published and the caller set is describing nothing;
+  // `generation_mismatch` means a rebuild committed and its manifest never landed. Telling a reader
+  // the wrong one sends them to a command that cannot help, and they will believe it worked.
+  //
+  // ⚠ ONLY THE THREE KNOWN STATES ARE CHECKED HERE. "Not supplied" is a fact about the CALLER and
+  // is checked last, beside SAFE — placed here it masked the heuristic-caller-set reason on every
+  // caller written before this parameter existed, which is the same mistake I had just made in
+  // graph-capabilities and which its own tests caught within one run.
+  const KNOWN_UNATTESTED = {
+    [ATTESTATION.LEGACY_UNATTESTED]:
+      'this graph predates publication attestation, so there is no way to check that its contents '
+      + 'match what the manifest claims',
+    [ATTESTATION.NEVER_COMPLETED]:
+      'this graph carries a publication record that was never completed (generation 0) — nothing has '
+      + 'ever been published into it, so the caller set describes nothing',
+    [ATTESTATION.GENERATION_MISMATCH]:
+      'the database and the manifest name DIFFERENT generations, so a rebuild committed and its '
+      + 'manifest never landed — the caller set may be from either graph',
+  };
+  if (KNOWN_UNATTESTED[attestation]) {
+    return {
+      tier: 'REVIEW',
+      reason: `${callerCount} caller(s), but ${KNOWN_UNATTESTED[attestation]} — run graph_index(), `
+        + 'or verify with code_intel_references / rg before deleting or changing the signature.',
+    };
+  }
+
   if (!callersHaveLspEvidence) {
     return {
       tier: 'REVIEW',
@@ -342,6 +383,21 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
         : `${callerCount} lsp-verified caller(s), but ${eligibleDirty} eligible source file(s) differ `
           + 'from what was collected — a caller can live in any of them. Re-collect, or verify with '
           + 'code_intel_references / rg before deleting or changing the signature.',
+    };
+  }
+
+  // ⛔ AND FINALLY: AN ATTESTATION NOBODY ESTABLISHED IS NOT AN ATTESTATION.
+  // Every specific diagnosis has had its turn above, so this can no longer mask one. It still
+  // DENIES — a caller that never asked whether the graph is the one the manifest describes has not
+  // earned SAFE — and it says plainly that this is a gap in the check rather than a fault found in
+  // the graph, so nobody rebuilds a healthy index on the strength of it.
+  if (attestation !== ATTESTATION.ATTESTED) {
+    return {
+      tier: 'REVIEW',
+      reason: `${callerCount} lsp-verified caller(s), but the publication state of this graph was `
+        + 'not established, so it cannot be ruled out that the caller set came from a graph the '
+        + 'manifest does not describe — verify with code_intel_references / rg before deleting or '
+        + 'changing the signature.',
     };
   }
 
