@@ -4,6 +4,7 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { openExistingDb } from '../../storage/db.js';
+import { ATTESTATION, classifyAttestation, readGraphPublication } from '../../storage/publication-schema.js';
 import { hasOverlay, loadFunctionality } from '../../overlay/loader.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 
@@ -28,6 +29,10 @@ export async function graphStatus({ repoRoot }) {
   // that hasn't rewritten the manifest yet).
   let liveNodes = null;
   let liveEdges = null;
+  // ⛔ THE DEFAULT IS THE REFUSING VALUE. If the database cannot be opened below, this verb has
+  // seen only one side and must say so rather than inherit the manifest's word for it.
+  let generationState = ATTESTATION.LEGACY_UNATTESTED;
+  let dbCounts = null;
   const dbPath = join(graphDir, 'graph.sqlite');
   if (existsSync(dbPath)) {
     try {
@@ -35,6 +40,21 @@ export async function graphStatus({ repoRoot }) {
       try {
         liveNodes = db.get('SELECT count(*) AS c FROM nodes').c;
         liveEdges = db.get('SELECT count(*) AS c FROM edges').c;
+        // ⭐ THIS VERB CAN ACTUALLY COMPARE, so it must. The comment above already concedes that
+        // the DB can be fresher than the manifest; until now that was reported as a nicety about
+        // node counts, while the unresolved counts beside it were taken from the manifest with
+        // nothing saying which graph they described.
+        //
+        // ⛔ AND A MANIFEST CANNOT ATTEST ITSELF. Reviewer's caution, and it is the whole point: a
+        // manifest naming its own generation is one side of a two-sided comparison. Only a reader
+        // holding BOTH substrates can tell attested from torn, which is why this happens here,
+        // inside the handle, and not wherever the counts are formatted.
+        const publication = readGraphPublication(db);
+        generationState = classifyAttestation({
+          dbGeneration: publication === null ? null : publication.generation,
+          manifestGeneration: manifest?.generation ?? null,
+        });
+        dbCounts = publication?.counts ?? null;
       } finally {
         db.close();
       }
@@ -60,6 +80,14 @@ export async function graphStatus({ repoRoot }) {
     unresolvedEdges,
     trustUnresolvedEdges,
     dirtyEdgeCount: unresolvedEdges,
+    // ⚠ WHICH GRAPH THOSE COUNTS DESCRIBE, beside the counts themselves. On a legacy or torn graph
+    // this verb used to print an unresolved count with nothing qualifying it, and a reader has no
+    // other way to tell a measurement from a number copied out of a file that may not match.
+    generationState,
+    // The transactionally-committed aggregates, when the publishing run recorded them. null means
+    // the graph predates them — NOT zero, which would be a measurement nobody took.
+    dbUnresolvedCount: dbCounts?.unresolved ?? null,
+    dbTrustUnresolvedCount: dbCounts?.trustUnresolved ?? null,
     unresolvedBy: summarizeUnresolved(
       manifest.dirtyEdges ?? [],
       unresolvedEdges,

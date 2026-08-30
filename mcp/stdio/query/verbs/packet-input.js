@@ -176,6 +176,25 @@ export function snapshotLine(brief, manifest, repoRoot) {
   const stale = indexed !== '?' && head !== '?' && indexed !== head ? ' STALE' : '';
   // ⛔ `??` AND NOT `||`. A genuinely clean tree is 0, and `0 || "?"` is "?" — which would report
   // UNKNOWN for the commonest honest state and destroy the field while looking like a fix.
+  // ⛔ THIS LINE CARRIES NO PUBLICATION STATE, AND THE GAP IS NAMED RATHER THAN PAPERED OVER.
+  //
+  // I appended ` gen=${generationState}` here first and reverted it. Two reasons, the second being
+  // the one that matters. The shape of this line is pinned by a producer/guard PAIR — a volatile
+  // line exclusion strips it from artifacts and a test asserts the two agree on the exact format —
+  // so extending it is a coupled change. Survivable.
+  //
+  // But it also printed `gen=unchecked_static` against this repository's live graph, which is
+  // ATTESTED at generation 6, because this function is handed a brief and a manifest and no
+  // database. The honest "I hold one substrate" answer would therefore appear on nearly every
+  // HEALTHY snapshot, and a warning that fires constantly is one nobody reads — it would have
+  // buried the real signal rather than raised it.
+  //
+  // ⚠ SO THE STATE IS ABSENT HERE, NOT SILENTLY ASSUMED. `trust=` below is derived from a manifest
+  // count this function cannot attest, and that is a KNOWN LIMIT of the SNAPSHOT line, not a
+  // solved problem: graph_status and graph_health both hold a database and report generationState
+  // properly, and a reader who needs the guarantee should ask one of them. Closing it here means
+  // threading the state through the brief artifact into packet, which is a separate change and has
+  // not been made.
   return `SNAPSHOT: indexed=${shortSha(indexed)} head=${shortSha(head)} dirty=${dirty ?? "?"} trust=${trust}${stale}`;
 }
 

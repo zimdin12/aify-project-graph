@@ -34,6 +34,7 @@ import { openDb } from '../storage/db.js';
 import { computeTrustLevel } from '../query/verbs/health.js';
 import { getDirtyFilesSync } from '../freshness/git.js';
 import { getUnresolvedCounts } from '../freshness/unresolved-metrics.js';
+import { ATTESTATION, classifyAttestation, readGraphPublication } from '../storage/publication-schema.js';
 import { loadFunctionality, validateAnchors, hasOverlay, featuresForFile, validateFeatureEdges } from '../overlay/loader.js';
 import { loadIntelligenceOverlays, summarizeArchitectureLayers } from '../intelligence/overlays.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality, taskFeatureRefs, taskLinkStrength, taskLinkStrengthCounts } from '../overlay/quality.js';
@@ -67,18 +68,34 @@ function repoSnapshot(db, repoRoot) {
   // bench 2026-04-21: brief said "19046 unresolved" while index said 5227;
   // this fix aligns the two.
   let unresolvedEdges = 0;
+  // ⛔ THE REFUSING VALUE IS THE DEFAULT. A brief that could not read the manifest, or was built
+  // over a graph whose publication cannot be checked, must not present its trust line as though it
+  // had been verified. `unchecked_static` is reserved for a reader holding only ONE substrate;
+  // this function has `db`, so it can do the real comparison and usually will.
+  let generationState = ATTESTATION.LEGACY_UNATTESTED;
   try {
     const manifestPath = join(repoRoot, '.aify-graph', 'manifest.json');
     if (existsSync(manifestPath)) {
       const raw = JSON.parse(readFileSync(manifestPath, 'utf8'));
       unresolvedEdges = getUnresolvedCounts(raw).trust;
+      // ⭐ BOTH SUBSTRATES, SO THE CLAIM IS EARNED. Reviewer's rule: a manifest naming its own
+      // generation is one side of a two-sided comparison, and a static reader must never
+      // manufacture `attested` from it. This one has the database in hand.
+      generationState = classifyAttestation({
+        dbGeneration: readGraphPublication(db)?.generation ?? null,
+        manifestGeneration: raw?.generation ?? null,
+      });
     }
   } catch {
-    // Fall through with 0; the trust line will then say "ok".
+    // ⚠ NOT "fall through with 0 and say ok". A failed read leaves unresolvedEdges at 0, which the
+    // trust threshold reads as HEALTHY — a fail-open default in the field that gates whether an
+    // agent believes anything else. The state below carries the doubt the number cannot.
   }
   // Shared with graph_health — single source of truth for thresholds.
   const trustLevel = computeTrustLevel(unresolvedEdges);
-  return { files: totalFiles, symbols: totalNodes, edges: totalEdges, languages: langs, unresolvedEdges, trustLevel };
+  // ⚠ generationState TRAVELS WITH THE NUMBER IT QUALIFIES. A consumer that receives the count
+  // without it is back to reading a figure whose graph cannot be checked.
+  return { files: totalFiles, symbols: totalNodes, edges: totalEdges, languages: langs, unresolvedEdges, trustLevel, generationState };
 }
 
 // Universal public-API detector. Returns a list of {name, location, kind}

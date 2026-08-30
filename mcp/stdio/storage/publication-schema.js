@@ -81,19 +81,59 @@ const STRUCTURAL_FINGERPRINTS_TABLE_SQL = `
 // ⚠ `generation` starts at 1. A database with the table but generation 0 never completed a rebuild
 // under this code, which is a different fact from a database with no table at all (legacy), and the
 // two must not be collapsed.
+// ⛔ THE AGGREGATES LIVE HERE, WITH THE GENERATION, BECAUSE THEY ARE PUBLISHED BY ITS COMMIT.
+//
+// The manifest keeps a copy of both counts and ten production call sites read it. I argued that was
+// safe because every consumer sits behind an attestation gate. Reviewer disproved the premise by
+// census: graph_status, the brief generator and packet-input read manifest counts with NO gate at
+// all, so on a legacy or torn graph they print an unresolved count with nothing saying the graph it
+// came from cannot be checked.
+//
+// ⇒ The manifest copy stays — it is what makes a static brief cheap — but it is a DENORMALISED COPY
+// and no longer the authority. The authority is this row, written inside the same transaction as
+// the rows it counts, so a reader holding one snapshot gets the generation and the aggregates as
+// one fact rather than two that must be trusted to agree.
+//
+// ⚠ AND THE COUNT ITSELF WAS NEVER THE EXPENSE. I objected that a COUNT over 36,000 rows behind ten
+// hot paths would be costly and never measured it; reviewer did: 0.0117 ms per prepared count. The
+// real cost is opening the database and re-running trust classification, which is exactly what one
+// committed aggregate row avoids.
 const GRAPH_GENERATION_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS graph_generation (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     generation INTEGER NOT NULL,
-    committed_at TEXT NOT NULL
+    committed_at TEXT NOT NULL,
+    unresolved_count INTEGER,
+    trust_unresolved_count INTEGER
   );
 `;
+
+// ⚠ EXISTING GRAPHS HAVE THE TABLE WITHOUT THE COLUMNS. A graph published between the first
+// generation commit and this one carries generation N and no aggregates; ADD COLUMN is the only
+// in-place upgrade SQLite offers, and it must be idempotent because ensurePublicationTables runs on
+// every open. NULL aggregates are then a THIRD state — attested, but with counts this row never
+// recorded — and readers must not read NULL as zero.
+const GENERATION_AGGREGATE_COLUMNS = ['unresolved_count', 'trust_unresolved_count'];
+
+function ensureGenerationAggregateColumns(db) {
+  let existing;
+  try {
+    existing = new Set(db.all('PRAGMA table_info(graph_generation)').map((r) => r.name));
+  } catch {
+    return;   // table not there yet; the CREATE above will include the columns
+  }
+  for (const col of GENERATION_AGGREGATE_COLUMNS) {
+    if (existing.has(col)) continue;
+    try { db.exec(`ALTER TABLE graph_generation ADD COLUMN ${col} INTEGER`); } catch { /* raced */ }
+  }
+}
 
 export function ensurePublicationTables(db) {
   // Accepts both a raw better-sqlite3 Database and the wrapped db from db.js — both expose .exec.
   db.exec(UNRESOLVED_REFS_TABLE_SQL);
   db.exec(STRUCTURAL_FINGERPRINTS_TABLE_SQL);
   db.exec(GRAPH_GENERATION_TABLE_SQL);
+  ensureGenerationAggregateColumns(db);
 }
 
 /**
@@ -151,14 +191,73 @@ export function classifyAttestation({ dbGeneration, manifestGeneration } = {}) {
 }
 
 /** Caller is responsible for running this INSIDE the rebuild transaction. */
-export function bumpGraphGeneration(db) {
+export function bumpGraphGeneration(db, { unresolvedCount = null, trustUnresolvedCount = null } = {}) {
   ensurePublicationTables(db);
   const current = readGraphGeneration(db) ?? 0;
   const next = current + 1;
   db.run(
-    `INSERT INTO graph_generation (id, generation, committed_at) VALUES (1, $g, $t)
-     ON CONFLICT(id) DO UPDATE SET generation = $g, committed_at = $t`,
-    { g: next, t: new Date().toISOString() },
+    `INSERT INTO graph_generation (id, generation, committed_at, unresolved_count, trust_unresolved_count)
+     VALUES (1, $g, $t, $u, $tu)
+     ON CONFLICT(id) DO UPDATE SET generation = $g, committed_at = $t,
+       unresolved_count = $u, trust_unresolved_count = $tu`,
+    {
+      g: next,
+      t: new Date().toISOString(),
+      u: Number.isInteger(unresolvedCount) ? unresolvedCount : null,
+      tu: Number.isInteger(trustUnresolvedCount) ? trustUnresolvedCount : null,
+    },
   );
   return next;
+}
+
+/**
+ * The generation AND the aggregates it published, from one read.
+ *
+ * ⛔ THREE STATES IN ONE RETURN, AND NONE OF THEM IS ZERO BY DEFAULT.
+ *   null                              no table — a legacy graph
+ *   { generation, counts: null }      attested, but published before the aggregates existed
+ *   { generation, counts: {...} }     attested with counts committed alongside the rows
+ *
+ * A NULL aggregate is not zero. A graph published between the first generation commit and the
+ * column addition carries a real generation and no counts, and reporting that as "0 unresolved"
+ * would be a fabricated measurement — the exact shape of every fail-open default this unit removes.
+ */
+export function readGraphPublication(db) {
+  // ⛔ THE GENERATION IS READ WITHOUT THE NEW COLUMNS, AND THIS IS NOT A STYLE CHOICE.
+  // My first version selected all three in one statement. On any graph published BEFORE the
+  // aggregate columns existed that statement throws "no such column", the catch returns null, and
+  // an ATTESTED graph is reported as LEGACY — authority withdrawn from a graph that had earned it,
+  // by a schema addition. Measured on this repository's live graph: generation 6, attested, and my
+  // change made it read legacy_unattested until its next rebuild.
+  //
+  // Every test I had written created a fresh database with the new columns, so all of them passed.
+  // The only thing that caught it was running against the real graph, which is the substrate the
+  // tests cannot stand in for.
+  let row;
+  try {
+    row = db.all('SELECT generation FROM graph_generation WHERE id = 1')[0];
+  } catch {
+    return null;   // no table = legacy
+  }
+  if (!row) return { generation: 0, counts: null };
+
+  // The aggregates are a SEPARATE, OPTIONAL read. A graph published between the generation commit
+  // and the column addition is attested with no counts — the third state, and it must survive.
+  let agg = null;
+  try {
+    agg = db.all(
+      'SELECT unresolved_count, trust_unresolved_count FROM graph_generation WHERE id = 1',
+    )[0] ?? null;
+  } catch {
+    agg = null;   // columns not present on this graph yet
+  }
+  const hasCounts = agg !== null
+    && Number.isInteger(agg.unresolved_count)
+    && Number.isInteger(agg.trust_unresolved_count);
+  return {
+    generation: row.generation,
+    counts: hasCounts
+      ? { unresolved: agg.unresolved_count, trustUnresolved: agg.trust_unresolved_count }
+      : null,
+  };
 }

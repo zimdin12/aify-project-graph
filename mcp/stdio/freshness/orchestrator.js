@@ -349,7 +349,7 @@ export async function ensureFresh({
       let cosmeticSkippedFiles = [];
       // Carry-forward fp map: stored structural fingerprints for files we did
       // NOT re-extract this run (cosmetic skips + untouched files), so the
-      // sidecar stays complete after an incremental run.
+      // fingerprint table stays complete after an incremental run.
       let preservedFingerprints = null;
       if (fullRebuild) {
         filesToProcess = await listRepoFiles(repoRoot, repoRoot, effectiveIgnoredDirs);
@@ -404,7 +404,7 @@ export async function ensureFresh({
           });
 
         // Preserve stored fingerprints for the cosmetic-skipped files so the
-        // rewritten sidecar stays complete (they keep their old, still-correct
+        // rewritten table stays complete (they keep their old, still-correct
         // structural fp).
         preservedFingerprints = storedFps;
       }
@@ -507,7 +507,7 @@ export async function ensureFresh({
       const existingFiles = [];
       // P1-6: structural fingerprints computed for files we (re-)extract this
       // run. Merged with preserved fingerprints (cosmetic + untouched files)
-      // before the sidecar is written.
+      // and written inside the rebuild transaction.
       const computedFingerprints = new Map();
       // Files this run DELETED from the graph and then failed to re-extract. Not an
       // error log — a corpus attestation. See the comment at the read/parse catches.
@@ -924,9 +924,11 @@ export async function ensureFresh({
         parserBundleVersion: PARSER_BUNDLE_VERSION,
         dirtyFiles: [],
         // Manifest keeps a 500-row SAMPLE for breakdown queries (status/health).
-        // The full authoritative list goes to the sidecar below — this prevents
-        // the manifest from ballooning on huge unresolved backlogs while still
-        // preserving all state for next-run carry-forward.
+        // ⚠ THE FULL AUTHORITATIVE LIST IS IN THE unresolved_refs TABLE, published by the same
+        // commit as the graph. This comment used to say "the sidecar below" and there is no
+        // sidecar below — a present-tense pointer at deleted code, sitting directly above the
+        // field it describes, which is the worst place for one. The cap still exists for the same
+        // reason: the manifest is read by every verb on every call and must not balloon.
         dirtyEdges: resolved.unresolved.length > 500
           ? resolved.unresolved.slice(0, 500)
           : resolved.unresolved,
@@ -1006,7 +1008,14 @@ export async function ensureFresh({
       // sync because there is nothing separate to sync.
       replaceUnresolvedRefs(db, resolved.unresolved);
       replaceStructuralFingerprints(db, nextFingerprints);
-      const generation = bumpGraphGeneration(db);
+      // ⭐ THE AGGREGATES ARE PUBLISHED BY THE SAME COMMIT AS THE ROWS THEY COUNT.
+      // The manifest keeps a copy below and ten call sites read it, three of them with no
+      // attestation gate at all — so the copy cannot be the authority. This row is, and it is
+      // written from the SAME array that replaceUnresolvedRefs just wrote.
+      const generation = bumpGraphGeneration(db, {
+        unresolvedCount: resolved.unresolved.length,
+        trustUnresolvedCount: trustDirtyEdgeCount,
+      });
 
       // ⭐ THE ONLY MOMENT THE NEW GRAPH BECOMES VISIBLE. Everything above was unpublished, so a
       // reader saw the complete previous graph the whole time rather than a torn one.
