@@ -24,15 +24,35 @@ import { execFileSync } from 'node:child_process';
 //
 // Returns nulls rather than zeros when it cannot tell. A zero here would read as "nothing decayed",
 // which is the permissive answer, and this feeds the message a reader consults before deleting code.
-function collectionDecay(db, latest, head, repoRoot) {
-  const unknown = { filesCovered: null, filesChangedSinceCollection: null };
-  if (!latest?.collectionId || !latest?.indexedCommit || !head || !repoRoot) return unknown;
+//
+// ⛔ THIS WAS ONE FUNCTION AND IT RAN GIT INSIDE A PINNED READ SNAPSHOT. graph_health called it
+// from within captureExistingSnapshot, so the WAL reader stayed open across an execFileSync — the
+// precise design this repository rejected, done in the function whose whole purpose was to read
+// every authority input at one instant. The comment beside the call even justified it: reading
+// these together IS the window being closed, so the fix looked deliberate and the cost was invisible.
+//
+// ⇒ Split by substrate. `collectionCoveredFiles` is pure database and is safe under a pin;
+// `decayFromCoveredFiles` takes the list it produced and does the git work with no handle open.
+
+/** The files a collection covered, straight from the graph. Pure DB — safe inside a pinned read. */
+export function collectionCoveredFiles(db, latest) {
+  if (!latest?.collectionId) return null;
   try {
-    const covered = db.all(
+    return db.all(
       'SELECT DISTINCT file FROM code_intel_records WHERE collection_id = $cid',
       { cid: latest.collectionId },
     ).map((r) => r.file).filter(Boolean);
-    if (covered.length === 0) return unknown;
+  } catch {
+    return null;
+  }
+}
+
+/** git diff plus arithmetic over an ALREADY-READ file list. Takes no database handle, by design. */
+export function decayFromCoveredFiles(covered, latest, head, repoRoot) {
+  const unknown = { filesCovered: null, filesChangedSinceCollection: null };
+  if (!latest?.indexedCommit || !head || !repoRoot) return unknown;
+  try {
+    if (!Array.isArray(covered) || covered.length === 0) return unknown;
     const out = execFileSync(
       'git',
       ['-C', repoRoot, 'diff', '--name-only', `${latest.indexedCommit}..${head}`],
@@ -69,7 +89,8 @@ import { prepareCompileDb } from '../../code-intel/compile-db.js';
 import { resolveClangCl } from '../../code-intel/resolve-clangd.js';
 import { refreshMechanismVerdict } from '../../freshness/refresh-verdict.js';
 import { SEARCH_TYPES } from './whereis.js';
-import { eligibleFileCount, coveredFileCount, LANGUAGE_FILE_EXTENSIONS } from './collect_code_intel.js';
+import { eligibleFilePaths, coveredFilePaths, countInCorpus,
+  LANGUAGE_FILE_EXTENSIONS } from './collect_code_intel.js';
 
 // Cap for file lists in the health response. The counts stay exact; only the
 // sample is bounded. See the dirtyFiles comment below for why this exists.
@@ -498,22 +519,30 @@ export async function graphHealth({ repoRoot }) {
       nodes: db.get('SELECT count(*) AS c FROM nodes').c,
       edges: db.get('SELECT count(*) AS c FROM edges').c,
       census: db.all('SELECT type, count(*) AS c FROM nodes GROUP BY type ORDER BY c DESC'),
-      // ⭐ THE COLLECTION AND EVERY NUMBER DERIVED FROM IT, TOGETHER. collectionDecay,
-      // eligibleFileCount and coveredFileCount are the inputs to coverage and currency — the exact
-      // fields absenceAuthority weighs — so reading them at a different instant from the attestation
-      // is the window this consolidation closes.
+      // ⭐ THE COLLECTION AND EVERY ROW DERIVED FROM IT, TOGETHER — BUT ROWS ONLY.
+      //
+      // ⛔ THIS BLOCK USED TO CALL collectionDecay, eligibleFileCount and coveredFileCount, and all
+      // three do external work: the first shells out to `git diff`, the other two walk the
+      // filesystem through loadEffectiveIgnoredDirs. That held the WAL reader open across a
+      // subprocess and a directory walk — the design captureExistingSnapshot exists to avoid, done
+      // inside the very consolidation meant to make the authority reads safe. The comment here made
+      // it look deliberate, because the property it named (one instant) was real; the property it
+      // broke (nothing external under a pin) was not mentioned, so nothing prompted a check.
+      //
+      // ⇒ Take the ROWS here. The git diff, the ignore-rule filtering and the arithmetic all happen
+      // after this snapshot closes, over these immutable lists.
       ...(() => {
         let latest = null;
         try { latest = getLatestCollection(db); } catch { return { latestCollection: null }; }
         if (!latest) return { latestCollection: null };
         const exts = LANGUAGE_FILE_EXTENSIONS[latest.language] ?? [];
-        let decay = {};
-        let liveEligible = null;
-        let covered = null;
-        try { decay = collectionDecay(db, latest, head, repoRoot) ?? {}; } catch { decay = {}; }
-        try { liveEligible = eligibleFileCount(db, { exts, repoRoot }); } catch { liveEligible = null; }
-        try { covered = coveredFileCount(db, { exts, repoRoot }); } catch { covered = null; }
-        return { latestCollection: latest, collectionDecayFacts: decay, liveEligible, covered };
+        let collectionFiles = null;
+        let eligiblePaths = null;
+        let coveredPaths = null;
+        try { collectionFiles = collectionCoveredFiles(db, latest); } catch { collectionFiles = null; }
+        try { eligiblePaths = eligibleFilePaths(db, { exts }); } catch { eligiblePaths = null; }
+        try { coveredPaths = coveredFilePaths(db); } catch { coveredPaths = null; }
+        return { latestCollection: latest, exts, collectionFiles, eligiblePaths, coveredPaths };
       })(),
       language: (() => {
         try {
@@ -525,6 +554,27 @@ export async function graphHealth({ repoRoot }) {
       })(),
       publication: readGraphPublication(db),
     }));
+    // ⭐ THE SNAPSHOT IS CLOSED HERE. Everything below runs against the lists it returned, never
+    // against the database — the git diff, the ignore-rule filtering, the coverage arithmetic. The
+    // authority object is CONSTRUCTED from that immutable carrier rather than being read across it,
+    // so no reopened handle can contribute a fact from a different graph.
+    const { collectionFiles, eligiblePaths, coveredPaths, exts, ...captured } = authority;
+    authority = {
+      ...captured,
+      ...(captured.latestCollection
+        ? {
+          collectionDecayFacts:
+            decayFromCoveredFiles(collectionFiles, captured.latestCollection, head, repoRoot) ?? {},
+          liveEligible: eligiblePaths === null ? null : countInCorpus(eligiblePaths, { repoRoot }),
+          // ⚠ EMPTY EXTENSIONS MEANS UNANSWERABLE, NOT ZERO — the same rule countInCorpus keeps.
+          // `coveredFileCount` refused an empty `exts` before doing anything, and dropping that
+          // guard here would turn "we cannot say which files count" into "none of them do".
+          covered: (coveredPaths === null || !Array.isArray(exts) || exts.length === 0)
+            ? null
+            : countInCorpus(coveredPaths, { repoRoot, exts }),
+        }
+        : {}),
+    };
     nodes = authority.nodes;
     edges = authority.edges;
     census = authority.census;
