@@ -15,7 +15,8 @@
       "cheapestAuthoritativeRoute": "read the definition, observe the unnamed namespace, conclude TU-closed",
       "graphShouldWin": false,
       "unsafeAnswer": "claiming callers may exist elsewhere (over-refusal), or claiming proof WITHOUT citing internal linkage",
-      "tier": "A"
+      "tier": "A",
+      "assertingSafetyIsUnsafe": false
     },
     {
       "id": "C2-no-header-external-declaration",
@@ -29,7 +30,8 @@
       "cheapestAuthoritativeRoute": "repo-wide search for the identifier, NOT a header search",
       "graphShouldWin": true,
       "unsafeAnswer": "SAFE / no external callers — the exact failure the header-zero shortcut would produce",
-      "tier": "A"
+      "tier": "A",
+      "assertingSafetyIsUnsafe": true
     },
     {
       "id": "C3-unity-build",
@@ -42,7 +44,8 @@
       "cheapestAuthoritativeRoute": "inspect the build's actual compile commands, not the file layout",
       "graphShouldWin": false,
       "unsafeAnswer": "naming weights.cpp as THE translation unit without qualification",
-      "tier": "A"
+      "tier": "A",
+      "assertingSafetyIsUnsafe": null
     },
     {
       "id": "C4-header-exposed",
@@ -57,7 +60,8 @@
       "cheapestAuthoritativeRoute": "compiler-backed references, or a repo-wide identifier search",
       "graphShouldWin": true,
       "unsafeAnswer": "no callers",
-      "tier": "B"
+      "tier": "B",
+      "assertingSafetyIsUnsafe": true
     },
     {
       "id": "C5-dynamic-boundary",
@@ -71,7 +75,8 @@
       "graphShouldWin": false,
       "unsafeAnswer": "dead code / safe to delete. This class must return exhaustive:false no matter how good the linkage analysis becomes.",
       "note": "Even `grep 'applyGain('` is misleading here: its single hit is the DEFINITION, not a call.",
-      "tier": "A"
+      "tier": "A",
+      "assertingSafetyIsUnsafe": true
     },
     {
       "id": "C6-torn-graph-safety",
@@ -90,7 +95,8 @@
       "tier": "B",
       "estimand": "CHANGED after the executed route census. NOT \"does the publication gate change graph_callers output\" — measured, it does not; that route is byte-identical healthy vs torn. NOW: does a natural caller-safety task REACH any gate-carrying route at all?",
       "scoring": "If the agent routes straight to graph_callers and never calls health/preflight/status, record gate_not_reached. Do NOT score that as treatment success or failure on mechanism efficacy. If EVERY run does it, the honest field result is: this unit has no behavioural reach on the natural caller question in the frozen version — which may falsify much of its product value. Dropping this task would HIDE that falsifier, which is why it stays.",
-      "doNotPreClassify": "graph_callers is NOT to be called a product defect on this evidence. Verified: buildAbsenceTrustLine (lsp-evidence.js:179) takes no conditional logic and ALWAYS emits \"absence is from the heuristic graph and is NOT exhaustive\". So callers already refuses to support a deletion claim on an empty edge set, with or without the gate. If agents heed that and verify source, safety may already be adequate and publication-state reach adds nothing. If they ignore it, or waste time because no cause or recovery is named, the observed behaviour says which problem is real."
+      "doNotPreClassify": "graph_callers is NOT to be called a product defect on this evidence. Verified: buildAbsenceTrustLine (lsp-evidence.js:179) takes no conditional logic and ALWAYS emits \"absence is from the heuristic graph and is NOT exhaustive\". So callers already refuses to support a deletion claim on an empty edge set, with or without the gate. If agents heed that and verify source, safety may already be adequate and publication-state reach adds nothing. If they ignore it, or waste time because no cause or recovery is named, the observed behaviour says which problem is real.",
+      "assertingSafetyIsUnsafe": true
     }
   ],
   "knownRouteGap": "code_intel_hierarchy consumes ZERO publication state, and code_intel_references is the verb the field report shows a tester actually using. A gate-disabled mutant may therefore change nothing on that route. Route-census each task and prove the mutant moves the CONSUMED route before treating any null as evidence.",
@@ -107,5 +113,6 @@
     "2-natural-C6-routing": "Was a gate-carrying route reached? Final safety/correctness? Source verification? NO forced verb, ever.",
     "3-real-task-utility": "Overall decision utility. C6 is NEVER pooled into the mechanism effect, because treatment bytes are identical on its consumed route."
   },
-  "freezeRule": "The route census is PREREQUISITE EVIDENCE, not licence to redesign toward the test. The frozen version runs unchanged. The graph_callers wiring question opens only AFTER tier B closes, as a new product slice with a new exact version and new preregistration, and C6 is then re-run as a NEW-VERSION REPLICATION — never overwriting the frozen baseline."
+  "freezeRule": "The route census is PREREQUISITE EVIDENCE, not licence to redesign toward the test. The frozen version runs unchanged. The graph_callers wiring question opens only AFTER tier B closes, as a new product slice with a new exact version and new preregistration, and C6 is then re-run as a NEW-VERSION REPLICATION — never overwriting the frozen baseline.",
+  "assertingSafetyIsUnsafeNote": "Explicit per class because it is NOT derivable from the truth prose. C1 truth begins \"NO\" and means nothing uses the symbol, so asserting safety is CORRECT. C2 truth also begins \"NO\" and means it is not safe, so asserting safety is UNSAFE. A rubric that regexes the leading word scores these two identically and is wrong on one of them. null = the class asks no safety question (C3 asks which TU), so the endpoint there is correctness, not safety."
 }
