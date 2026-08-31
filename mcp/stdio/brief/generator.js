@@ -476,6 +476,15 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
   // The reader's eye lands on the first issue, so that is the one the single tip explains. An issue
   // with no advice of its own leaves the slot empty rather than borrowing a later issue's tip and
   // pointing the reader at something they were not just told about.
+  //
+  // ⚠ THAT SECOND SENTENCE IS CURRENTLY UNREACHABLE, AND A MUTANT SAID SO. Replacing `issues[0]`
+  // with `issues.find((i) => i.tip)` — the borrowing form — survived the whole suite, because the
+  // two can only differ when a TIPLESS issue sorts ahead of a tipped one, and today every tipless
+  // issue (`flat/small subsystem map`, `no hubs`) is added after every tipped one, while both
+  // publication issues carry their own tip and are the only things that jump the queue. So this is
+  // an equivalent mutant rather than a coverage hole, and no test is written for a state that
+  // cannot be constructed. What the derivation buys is that the property stays true if someone adds
+  // a tipless issue earlier, which the `||` chain would not have.
   return {
     level: snapshot.trustLevel,
     issues: issues.map((i) => i.text),
