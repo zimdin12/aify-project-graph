@@ -1,0 +1,233 @@
+{
+  "purpose": "FROZEN compiler-mode ground truth for the routing/utility A/B. Positive scope claims are bound to an exact compiler, an exact command row, exact source bytes and a clean compile.",
+  "heuristicGraphIsNotTheKey": "The no-compile-DB extraction is a LIVENESS CONTROL. `exhaustive` being impossible in that mode is the expected negative control, never a finding.",
+  "toolchain": {
+    "clangCl": "clang version 22.1.6 (https://github.com/llvm/llvm-project fc4aad7b5db3fff421df9a9637605b9ca5667881)",
+    "clangd": "clangd version 22.1.6 (https://github.com/llvm/llvm-project fc4aad7b5db3fff421df9a9637605b9ca5667881)",
+    "llvmNm": "llvm-nm, compatible with GNU nm"
+  },
+  "sourceBytes": {
+    "weights.cpp": "17879e903f3d20a1",
+    "pipeline.cpp": "c4ffb5f1d6edc0a7",
+    "bundle.cpp": "6ffde47d406cd719",
+    "normalize.h": "ce3470c453cae973",
+    "normalize.cpp": "bd909c99edd1b6e5",
+    "stage.cpp": "0a69f9117f7086cb",
+    "gain.cpp": "fb0bd2746e236cc2"
+  },
+  "modes": {
+    "none": {
+      "translationUnits": [],
+      "sourceBytesIdenticalToBaseline": true,
+      "compiles": [],
+      "allCompilesClean": null,
+      "objectsProduced": [],
+      "compilerProvenLinkage": {}
+    },
+    "separate": {
+      "translationUnits": [
+        "weights.cpp",
+        "pipeline.cpp",
+        "normalize.cpp",
+        "stage.cpp",
+        "gain.cpp"
+      ],
+      "sourceBytesIdenticalToBaseline": true,
+      "compiles": [
+        {
+          "file": "weights.cpp",
+          "command": "clang-cl /std:c++17 /c src/weights.cpp",
+          "ok": true,
+          "diagnostics": ""
+        },
+        {
+          "file": "pipeline.cpp",
+          "command": "clang-cl /std:c++17 /c src/pipeline.cpp",
+          "ok": true,
+          "diagnostics": ""
+        },
+        {
+          "file": "normalize.cpp",
+          "command": "clang-cl /std:c++17 /c src/normalize.cpp",
+          "ok": true,
+          "diagnostics": ""
+        },
+        {
+          "file": "stage.cpp",
+          "command": "clang-cl /std:c++17 /c src/stage.cpp",
+          "ok": true,
+          "diagnostics": ""
+        },
+        {
+          "file": "gain.cpp",
+          "command": "clang-cl /std:c++17 /c src/gain.cpp",
+          "ok": true,
+          "diagnostics": ""
+        }
+      ],
+      "allCompilesClean": true,
+      "objectsProduced": [
+        "gain.obj",
+        "normalize.obj",
+        "pipeline.obj",
+        "stage.obj",
+        "weights.obj"
+      ],
+      "compilerProvenLinkage": {
+        "applyByIndex": {
+          "linkage": "external",
+          "mangled": "?applyByIndex@@YAHHH@Z",
+          "object": "gain.obj"
+        },
+        "applyGain": {
+          "linkage": "internal",
+          "mangled": "?applyGain@?A0xECFE7822@@YAHH@Z",
+          "object": "gain.obj"
+        },
+        "normalizeInput": {
+          "linkage": "external",
+          "mangled": "?normalizeInput@@YAHH@Z",
+          "object": "stage.obj"
+        },
+        "computeWeight": {
+          "linkage": "external",
+          "mangled": "?computeWeight@@YAHH@Z",
+          "object": "weights.obj"
+        },
+        "runWeighting": {
+          "linkage": "external",
+          "mangled": "?runWeighting@@YAHXZ",
+          "object": "pipeline.obj"
+        },
+        "runNormalize": {
+          "linkage": "external",
+          "mangled": "?runNormalize@@YAHXZ",
+          "object": "stage.obj"
+        },
+        "deriveScale": {
+          "linkage": "external",
+          "mangled": "?deriveScale@@YAHH@Z",
+          "object": "weights.obj"
+        },
+        "scaleFactor": {
+          "linkage": "internal",
+          "mangled": "?scaleFactor@?A0xE73217D6@@YAHH@Z",
+          "object": "weights.obj"
+        }
+      }
+    },
+    "unity": {
+      "translationUnits": [
+        "bundle.cpp",
+        "normalize.cpp",
+        "stage.cpp",
+        "gain.cpp"
+      ],
+      "sourceBytesIdenticalToBaseline": true,
+      "compiles": [
+        {
+          "file": "bundle.cpp",
+          "command": "clang-cl /std:c++17 /c src/bundle.cpp",
+          "ok": true,
+          "diagnostics": ""
+        },
+        {
+          "file": "normalize.cpp",
+          "command": "clang-cl /std:c++17 /c src/normalize.cpp",
+          "ok": true,
+          "diagnostics": ""
+        },
+        {
+          "file": "stage.cpp",
+          "command": "clang-cl /std:c++17 /c src/stage.cpp",
+          "ok": true,
+          "diagnostics": ""
+        },
+        {
+          "file": "gain.cpp",
+          "command": "clang-cl /std:c++17 /c src/gain.cpp",
+          "ok": true,
+          "diagnostics": ""
+        }
+      ],
+      "allCompilesClean": true,
+      "objectsProduced": [
+        "bundle.obj",
+        "gain.obj",
+        "normalize.obj",
+        "stage.obj"
+      ],
+      "compilerProvenLinkage": {
+        "computeWeight": {
+          "linkage": "external",
+          "mangled": "?computeWeight@@YAHH@Z",
+          "object": "bundle.obj"
+        },
+        "deriveScale": {
+          "linkage": "external",
+          "mangled": "?deriveScale@@YAHH@Z",
+          "object": "bundle.obj"
+        },
+        "runWeighting": {
+          "linkage": "external",
+          "mangled": "?runWeighting@@YAHXZ",
+          "object": "bundle.obj"
+        },
+        "scaleFactor": {
+          "linkage": "internal",
+          "mangled": "?scaleFactor@?A0xBFD6C649@@YAHH@Z",
+          "object": "bundle.obj"
+        },
+        "applyByIndex": {
+          "linkage": "external",
+          "mangled": "?applyByIndex@@YAHHH@Z",
+          "object": "gain.obj"
+        },
+        "applyGain": {
+          "linkage": "internal",
+          "mangled": "?applyGain@?A0xECFE7822@@YAHH@Z",
+          "object": "gain.obj"
+        },
+        "normalizeInput": {
+          "linkage": "external",
+          "mangled": "?normalizeInput@@YAHH@Z",
+          "object": "stage.obj"
+        },
+        "runNormalize": {
+          "linkage": "external",
+          "mangled": "?runNormalize@@YAHXZ",
+          "object": "stage.obj"
+        }
+      }
+    }
+  },
+  "controls": {
+    "repeatedExternVisibleAcrossSeparateTUs": {
+      "claim": "in separate mode, weights.cpp and pipeline.cpp are DISTINCT TUs and both compile, so the repeated-extern caller is a real cross-TU reference",
+      "pass": true
+    },
+    "unityIsOneTUAndNothingDoubleCompiled": {
+      "claim": "in unity mode ONLY bundle.cpp is a TU; weights.cpp and pipeline.cpp are not compiled separately, so no source is compiled twice",
+      "pass": true
+    },
+    "internalSymbolEarnsOnlyTUScope": {
+      "claim": "scaleFactor is INTERNAL and computeWeight is EXTERNAL, decided by the compiler and read from the object symbol table — not inferred from `namespace {` in the source",
+      "observed": {
+        "scaleFactor": "internal",
+        "computeWeight": "external"
+      },
+      "pass": true
+    },
+    "modeSwitchChangesAuthorityNotSource": {
+      "claim": "switching TU mode changes the expected authority outcome while source bytes stay identical",
+      "sourceIdenticalAcrossModes": true,
+      "tuPopulationDiffers": true,
+      "pass": true
+    },
+    "noneModeWithholdsExhaustiveness": {
+      "claim": "the no-compile-DB mode declares NO translation units, so no compiler-backed scope claim is available — the expected negative control",
+      "pass": true
+    }
+  },
+  "allControlsPass": true
+}
