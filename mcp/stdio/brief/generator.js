@@ -438,7 +438,21 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
   if (hubsArr.length === 0) {
     issues.push('no hubs — repo may be too small to rank');
   }
-  return { level: snapshot.trustLevel, issues, tip };
+  // ⛔ AN UNATTESTED GRAPH GETS AN ISSUE, NOT A SILENT PASS. `trustLevel` is computed from the
+  // unresolved count alone, and that count comes from a manifest whose graph may not be the one it
+  // describes. Reviewer's finding was that generationState was computed in repoSnapshot and then
+  // discarded by every renderer, so the source comment claiming it "travels with the number" was
+  // false and a legacy or torn brief printed ordinary trust.
+  //
+  // It joins `issues` rather than replacing `level` deliberately: the trust LEVEL is a real
+  // measurement of resolution completeness and stays what it is. What changes is that the reader is
+  // told the graph behind it cannot be checked.
+  if (snapshot.generationState && snapshot.generationState !== 'attested') {
+    issues.unshift(`publication ${snapshot.generationState} — this graph's contents could not be `
+      + 'verified against the manifest describing it, so the trust figure is unattested');
+    tip = tip || 'graph_index({ force: true }) to publish a generation this brief can be checked against';
+  }
+  return { level: snapshot.trustLevel, issues, tip, generationState: snapshot.generationState ?? null };
 }
 
 // ---------- renderers ----------

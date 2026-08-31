@@ -125,7 +125,14 @@ export function renderMarkdown(data) {
   const langStr = snapshot.languages.map(l => `${l.name} (${l.files})`).join(', ');
   lines.push(`- ${snapshot.files} files, ${snapshot.symbols} symbols, ${snapshot.edges} edges`);
   if (langStr) lines.push(`- Languages: ${langStr}`);
-  lines.push(`- Trust: **${health.level}**${health.issues.length ? ' — ' + health.issues[0] : ''}`);
+  // ⚠ THE FULL BRIEF IS A THIRD SURFACE, and it renders trust differently from the compact ones.
+  // A test asserting only the JSON and the agent brief passed while this line still printed an
+  // unqualified level — three renderers, and patching two of them is the same partial fix as
+  // wiring one consumer.
+  const publicationNote = health.generationState && health.generationState !== 'attested'
+    ? ` (publication=${health.generationState})`
+    : '';
+  lines.push(`- Trust: **${health.level}**${publicationNote}${health.issues.length ? ' — ' + health.issues[0] : ''}`);
   lines.push('');
 
   if (entries.length) {
@@ -320,7 +327,7 @@ export function renderAgentMarkdown(data) {
   const lines = [];
   const _age = briefAgeLine(data.manifestIndexedAt);
   if (_age) lines.push(_age);
-  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
+  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}${health.generationState && health.generationState !== 'attested' ? ` publication=${health.generationState}` : ''}`);
   // SNAPSHOT line: lets brief-only agents see indexed-vs-HEAD drift without
   // a live verb call. STALE marker when commits diverge.
   if (manifestCommit) {
@@ -494,7 +501,7 @@ export function renderOnboardAgentMarkdown(data) {
   const lines = [];
   const _age = briefAgeLine(data.manifestIndexedAt);
   if (_age) lines.push(_age);
-  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
+  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}${health.generationState && health.generationState !== 'attested' ? ` publication=${health.generationState}` : ''}`);
   const langStr = snapshot.languages.slice(0, 3).map(l => l.name).join(',');
   if (langStr) lines.push(`LANG: ${langStr}`);
   if (tooling && tooling.length) lines.push(`TOOLING: ${tooling.join(', ')}`);
@@ -574,7 +581,7 @@ export function renderPlanAgentMarkdown(data) {
   const completedByFeature = completedTaskCountsByFeature(tasksArtifact);
   const _age = briefAgeLine(data.manifestIndexedAt);
   if (_age) lines.push(_age);
-  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}`);
+  lines.push(`REPO: ${snapshot.files}f ${snapshot.symbols}s ${snapshot.edges}e trust=${health.level}${health.generationState && health.generationState !== 'attested' ? ` publication=${health.generationState}` : ''}`);
   // FEATURES now carries action-bearing data: primary file + test anchor +
   // caller count. Agent can see "for this feature, open X, tests are at Y,
   // touching Z symbols will ripple to N callers" without another tool call.
@@ -751,7 +758,15 @@ export function renderJson(data, repoRoot) {
       symbols: snapshot.symbols,
       edges: snapshot.edges,
       languages: snapshot.languages,
-      trust: { level: health.level, unresolved_edges: snapshot.unresolvedEdges, issues: health.issues },
+      // ⚠ publication TRAVELS WITH THE TRUST FIGURE. It was computed and dropped here, so a
+      // consumer parsing repo.trust could not tell a verified graph from one whose contents were
+      // never checked against the manifest describing them.
+      trust: {
+        level: health.level,
+        unresolved_edges: snapshot.unresolvedEdges,
+        issues: health.issues,
+        publication: health.generationState ?? null,
+      },
     },
     entrypoints: entries,
     subsystems: subs,
