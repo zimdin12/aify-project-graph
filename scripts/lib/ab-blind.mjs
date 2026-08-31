@@ -1,78 +1,132 @@
-// ARM BLINDING — one declared rule, applied to BOTH arms, before anything reaches an agent.
+// ARM BLINDING — an EXACT allowlist, applied identically to both arms, before anything reaches an
+// agent.
 //
-// ⛔ THE LEAK I MISSED, AND IT WAS TOTAL. Excluding `server` from the mechanical contrast was fine
-// for computing whether the mutant changes a route. It said nothing about what the AGENT sees — and
-// the agent sees the real tool response. Measured on the actual mutant arm:
+// ⛔ THE LEAK. Excluding `server` from the mechanical contrast fixed the SCORER's view and left the
+// AGENT's view untouched. The agent sees the real tool response, and on the real mutant arm it read
+// buildId "<SHA>+1dirty", loadedDirtyFiles ["mcp/stdio/storage/publication-schema.js"], and a note
+// saying the process loaded uncommitted files and its behaviour should not be diffed. That names
+// the modified file, and that file is the mechanism under test.
 //
-//   buildId          "<SHA>+1dirty"
-//   loadedDirtyFiles ["mcp/stdio/storage/publication-schema.js"]
-//   loadedDirtyNote  "⚠ This process loaded 1 UNCOMMITTED file(s) ... Do NOT diff its behaviour"
+// ⛔ AND THEN I OVER-CORRECTED. My second version deleted every key whose NAME appeared in a list,
+// recursively. Measured on a real graph_health response it removed SIX paths where only TWO are the
+// identity carrier — including the top-level `commit`, which is the commit the graph was indexed
+// from. That is task evidence, not arm metadata. A blinder that erases the answer changes the task
+// instead of hiding the arm, and it would have done so silently.
 //
-// That does not merely reveal WHICH arm the agent is in. It names the file that was modified, and
-// that file is the publication schema — the mechanism under test. An agent reading it is told the
-// answer and warned not to trust the arm it is in. No blind comparison survives that.
+// ⇒ So: an exact list of JSON PATHS and exact prose carriers. No key-name matching, no general
+// regexes, and every call reports precisely what it removed so a caller can assert non-overreach.
 //
-// ⭐ THE RULE, AND WHY IT IS SYMMETRIC. Prefer separate CLEAN builds: each arm its own commit in its
-// own disposable worktree, so no process runs uncommitted code and no `+dirty` cue exists to leak.
-// Where a field still cannot be equalised — a differing commit SHA is unavoidable when the arms ARE
-// different commits — it is normalised to a constant HERE, identically for both arms. Normalising
-// only the treatment arm would replace one cue with another.
-//
-// ⚠ THIS BLINDS DELIVERY, NOT SCORING. The raw, unblinded response is what gets archived as
-// evidence. Blinding is applied on the path to the agent so the agent cannot infer its arm; a
-// scorer or a human reading transcripts afterwards should see everything.
-
-/** Fields that identify the build a response came from, and therefore the arm. */
-export const ARM_IDENTIFYING_FIELDS = Object.freeze([
-  'buildId', 'commit', 'loadedDirtyFiles', 'loadedDirtyNote', 'startedAt', 'treeDirtyNow',
-  'staleSignals', 'staleProcess',
-]);
-
-const BLINDED = '<blinded-for-arm-comparison>';
+// ⚠ TWO TIERS, TWO ESTIMANDS, per review:
+//   NATIVE FIELD TIER   — clean separate commits/builds are MANDATORY. The dirty carriers are then
+//                         absent naturally and this blinder must be a NO-OP beyond neutral build
+//                         identity. If it removes anything else, the arms were not clean and the
+//                         run is void.
+//   MECHANISM TIER      — normalisation is permitted, and the result is a DIFFERENT estimand that
+//                         must be reported separately, never pooled with the native tier.
+import { createHash } from 'node:crypto';
 
 /**
- * Replace every arm-identifying field with one constant, wherever it appears.
+ * The ONLY paths this may remove. Exact, dotted, no wildcards.
  *
- * ⚠ Recursive on purpose: `server` is nested inside graph_health's response today, and a future
- * verb may nest build metadata somewhere else. A rule that only knows one path is a rule that stops
- * working the moment the shape changes, silently and in the unblinding direction.
+ * ⚠ `server.commit` is deliberately ABSENT. Two arms built from different commits legitimately
+ * differ there, and erasing it would also erase a fact an agent may need. Equalising it is the
+ * runner's job (clean builds), not the blinder's.
  */
-export function blindArmCues(value) {
-  if (Array.isArray(value)) return value.map(blindArmCues);
-  if (value && typeof value === 'object') {
-    const out = {};
-    for (const [k, v] of Object.entries(value)) {
-      // ⛔ DELETED, NOT OVERWRITTEN — and my first version overwrote. Replacing the VALUE leaves the
-      // KEY, and the key is the cue: the control arm has no `loadedDirtyFiles` at all, so a
-      // treatment arm carrying `loadedDirtyFiles: "<blinded>"` still announces that it had dirty
-      // files. My own detector caught it, because it searches the serialised payload for the field
-      // NAME rather than for a value. Removing the key makes both arms the same shape.
-      if (ARM_IDENTIFYING_FIELDS.includes(k)) continue;
-      out[k] = blindArmCues(v);
-    }
-    return out;
-  }
-  if (typeof value === 'string') {
-    // Text surfaces carry the same cues in prose — the dirty note is a sentence, not a field.
-    return value
-      .replace(/\b[0-9a-f]{7,40}\+\d+dirty\b/gi, BLINDED)
-      .replace(/loaded \d+ UNCOMMITTED file\(s\)[^\n]*/gi, BLINDED);
-  }
-  return value;
+export const IDENTITY_CARRIER_PATHS = Object.freeze([
+  'server.buildId',
+  'server.loadedDirtyFiles',
+  'server.loadedDirtyNote',
+]);
+
+/**
+ * Exact prose carriers, anchored to the sentence the server actually emits.
+ *
+ * ⚠ NARROW ON PURPOSE. A general /dirty/i would strike any task text mentioning a dirty worktree,
+ * which is legitimate content in this domain. Each pattern here reproduces the emitted sentence and
+ * varies only where the server varies it.
+ */
+export const IDENTITY_PROSE = Object.freeze([
+  /This process loaded \d+ UNCOMMITTED file\(s\)[^."]*\./g,
+  /\b[0-9a-f]{7,40}\+\d+dirty\b/g,
+]);
+
+const sha = (v) => createHash('sha256').update(typeof v === 'string' ? v : JSON.stringify(v)).digest('hex');
+
+const getPath = (obj, path) => path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+
+function deletePath(obj, path) {
+  const parts = path.split('.');
+  const last = parts.pop();
+  const parent = parts.reduce((o, k) => (o == null ? o : o[k]), obj);
+  if (parent && typeof parent === 'object' && last in parent) { delete parent[last]; return true; }
+  return false;
 }
 
 /**
- * Does this agent-visible payload still carry a cue that identifies the arm?
+ * Blind one agent-visible payload.
  *
- * @returns {string[]} the cues found — EMPTY means blind. Callers must treat a non-empty result as
- *                     a hard stop, not a warning: an unblinded pilot is not a pilot.
+ * @returns {{blinded, removedPaths: string[], proseHits: number, hashBefore: string, hashAfter: string}}
+ *          `removedPaths` is the audit trail: a caller asserts it is a subset of the preregistered
+ *          carrier, which is what makes "we only removed the arm identity" checkable rather than
+ *          claimed.
+ */
+export function blindArmCues(payload) {
+  const hashBefore = sha(payload);
+  const blinded = JSON.parse(JSON.stringify(payload ?? null));
+  const removedPaths = [];
+  for (const p of IDENTITY_CARRIER_PATHS) {
+    if (deletePath(blinded, p)) removedPaths.push(p);
+  }
+  let proseHits = 0;
+  const scrubProse = (v) => {
+    if (Array.isArray(v)) return v.map(scrubProse);
+    if (v && typeof v === 'object') {
+      for (const k of Object.keys(v)) v[k] = scrubProse(v[k]);
+      return v;
+    }
+    if (typeof v === 'string') {
+      let out = v;
+      for (const re of IDENTITY_PROSE) {
+        out = out.replace(re, () => { proseHits += 1; return ''; });
+      }
+      return out;
+    }
+    return v;
+  };
+  const result = typeof blinded === 'string' ? scrubProse(blinded) : scrubProse(blinded);
+  return { blinded: result, removedPaths, proseHits, hashBefore, hashAfter: sha(result) };
+}
+
+/**
+ * Cues still present in a payload. EMPTY means blind.
+ *
+ * ⚠ Searches the FINAL SERIALISED BYTES, because that is what the agent receives — a cue that
+ * survives serialisation is a cue, wherever it sat in the object.
  */
 export function findArmCues(payload) {
   const text = typeof payload === 'string' ? payload : JSON.stringify(payload ?? '');
   const cues = [];
-  if (/\+\d+dirty/i.test(text)) cues.push('+Ndirty build id');
-  if (/loadedDirtyFiles/i.test(text)) cues.push('loadedDirtyFiles');
-  if (/loadedDirtyNote/i.test(text)) cues.push('loadedDirtyNote');
-  if (/UNCOMMITTED file\(s\)/i.test(text)) cues.push('uncommitted-file note');
+  if (/\+\d+dirty/.test(text)) cues.push('+Ndirty build id');
+  if (/loadedDirtyFiles/.test(text)) cues.push('loadedDirtyFiles');
+  if (/loadedDirtyNote/.test(text)) cues.push('loadedDirtyNote');
+  if (/UNCOMMITTED file\(s\)/.test(text)) cues.push('uncommitted-file note');
   return cues;
+}
+
+/**
+ * NATIVE TIER GATE. On clean separate builds the carriers are absent naturally, so blinding must
+ * remove NOTHING but neutral build identity.
+ *
+ * @returns {{clean: boolean, removedPaths: string[], reason: string|null}}
+ */
+export function assertNativeTierClean(payload) {
+  const { removedPaths, proseHits } = blindArmCues(payload);
+  const dirtyCarriers = removedPaths.filter((p) => p !== 'server.buildId');
+  const clean = dirtyCarriers.length === 0 && proseHits === 0;
+  return {
+    clean,
+    removedPaths,
+    reason: clean ? null
+      : `native tier requires clean builds, but the payload carried ${[...dirtyCarriers, proseHits ? 'dirty prose' : null].filter(Boolean).join(', ')} — the arms were not built clean and this run is void`,
+  };
 }

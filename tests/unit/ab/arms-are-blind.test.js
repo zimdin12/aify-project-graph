@@ -1,19 +1,25 @@
-// ⛔ AN UNBLINDED PILOT IS NOT A PILOT.
+// ⛔ AN UNBLINDED PILOT IS NOT A PILOT — AND AN OVER-BLINDED ONE MEASURES A DIFFERENT TASK.
 //
-// Excluding `server` from the mechanical contrast was correct for computing whether the mutant
-// changes a route, and it said NOTHING about what the agent sees. The agent sees the real tool
-// response, and on the real mutant arm that response read:
+// Two defects, both mine, both in this one file's subject:
 //
-//   buildId "<SHA>+1dirty", loadedDirtyFiles ["mcp/stdio/storage/publication-schema.js"],
-//   and a note saying the process loaded uncommitted files and its behaviour should not be diffed.
+//   1. Excluding `server` from the mechanical contrast fixed the SCORER's view and left the AGENT's
+//      view exposed. The real mutant arm told the agent buildId "<SHA>+1dirty", named
+//      publication-schema.js in loadedDirtyFiles, and warned it not to diff its own behaviour. That
+//      names the mechanism under test.
+//   2. My fix then deleted every key whose NAME matched a list, recursively. Measured on a real
+//      graph_health response that removed SIX paths where only TWO are the identity carrier —
+//      including the TOP-LEVEL `commit`, which is the commit the graph was indexed from. Erasing it
+//      changes the task rather than hiding the arm.
 //
-// That names the modified file, and the modified file IS the mechanism under test. Every one of
-// these cases exists because I did not think of this until review named it.
+// Shape equality is necessary; content non-overreach is the other half. Both are tested here.
 import { describe, it, expect } from 'vitest';
-import { blindArmCues, findArmCues, ARM_IDENTIFYING_FIELDS } from '../../../scripts/lib/ab-blind.mjs';
+import {
+  blindArmCues, findArmCues, assertNativeTierClean, IDENTITY_CARRIER_PATHS,
+} from '../../../scripts/lib/ab-blind.mjs';
 
 // The shape actually observed on the mutant arm, not an invented one.
 const MUTANT_RESPONSE = {
+  commit: 'feedface',                       // the GRAPH's indexed commit — task evidence
   summary: 'nodes=24 edges=23',
   server: {
     version: '0.7.1',
@@ -25,7 +31,8 @@ const MUTANT_RESPONSE = {
   },
 };
 
-const CONTROL_RESPONSE = {
+const CLEAN_RESPONSE = {
+  commit: 'feedface',
   summary: 'nodes=24 edges=23',
   server: {
     version: '0.7.1',
@@ -35,11 +42,10 @@ const CONTROL_RESPONSE = {
   },
 };
 
-describe('no agent-visible payload identifies its arm', () => {
+describe('blinding removes the arm identity and nothing else', () => {
   it('POSITIVE CONTROL: the detector finds every cue in the real mutant response', () => {
     // ⛔ FIRST, because every assertion below is "no cues found". A detector that cannot see a cue
-    // reports the same clean result as a correctly blinded payload, and this exact failure — a
-    // probe that cannot return PRESENT — is why the pilot needs it proven before it is trusted.
+    // reports the same clean result as a correctly blinded payload.
     const cues = findArmCues(MUTANT_RESPONSE);
     expect(cues).toContain('+Ndirty build id');
     expect(cues).toContain('loadedDirtyFiles');
@@ -47,59 +53,87 @@ describe('no agent-visible payload identifies its arm', () => {
     expect(cues).toContain('uncommitted-file note');
   });
 
-  it('⛔ blinding removes every cue from the mutant response', () => {
-    expect(findArmCues(blindArmCues(MUTANT_RESPONSE))).toEqual([]);
+  it('⛔ blinding removes every cue from the FINAL SERIALISED BYTES', () => {
+    const { blinded } = blindArmCues(MUTANT_RESPONSE);
+    expect(findArmCues(JSON.stringify(blinded))).toEqual([]);
   });
 
-  it('⛔ the SAME rule is applied to the control — normalising one arm only swaps one cue for another', () => {
-    // If blinding ran only on the treatment arm, "this response has no buildId" would itself
-    // identify the arm. Symmetry is the whole property.
-    const blindedMutant = blindArmCues(MUTANT_RESPONSE);
-    const blindedControl = blindArmCues(CONTROL_RESPONSE);
-    // Identifying fields are REMOVED from both, so neither arm can be told apart by their presence,
-    // their absence, or their value.
-    expect(Object.keys(blindedMutant.server).sort()).toEqual(Object.keys(blindedControl.server).sort());
-    expect('buildId' in blindedMutant.server).toBe(false);
-    expect('loadedDirtyFiles' in blindedMutant.server).toBe(false);
-    expect(blindedMutant.server.version).toBe(blindedControl.server.version);
-  });
-
-  it('⛔ after blinding, the two arms are INDISTINGUISHABLE outside the mechanism', () => {
-    // The remaining difference must be graph behaviour, not build metadata. Here the two responses
-    // carry identical summaries, so blinded they must be byte-identical.
-    expect(JSON.stringify(blindArmCues(MUTANT_RESPONSE)))
-      .toBe(JSON.stringify(blindArmCues(CONTROL_RESPONSE)));
-  });
-
-  it('⛔ cues hidden in PROSE are caught, not just in fields', () => {
-    // The dirty note is a sentence. A rule that only knows field names would leave it in a summary
-    // string, and the agent reads the summary.
-    const prose = 'Everything looks fine. ⚠ This process loaded 2 UNCOMMITTED file(s) — abc1234+2dirty.';
-    expect(findArmCues(prose).length).toBeGreaterThan(0);
-    expect(findArmCues(blindArmCues(prose))).toEqual([]);
-  });
-
-  it('⛔ blinding is RECURSIVE — a cue nested anywhere is still a cue', () => {
-    // `server` is nested inside graph_health today. A rule that only knows one path stops working
-    // the moment the response shape changes, silently and in the unblinding direction.
-    const nested = { a: { b: { c: { buildId: 'deadbeef+3dirty' } } } };
-    expect(findArmCues(blindArmCues(nested))).toEqual([]);
-  });
-
-  it('blinding does NOT touch the fields the benchmark actually measures', () => {
-    // ⛔ A blinding rule that erased the answer would make every arm look identical and the pilot
-    // would report no effect — a null produced by the instrument rather than by the world.
-    const withFinding = { summary: 'nodes=24', trustBasis: { total_unresolved: 7 }, generationState: 'generation_mismatch' };
-    const blinded = blindArmCues(withFinding);
+  it('⛔ NEGATIVE CONTROL: legitimate lookalike keys and prose SURVIVE', () => {
+    // ⭐ THE HALF I GOT WRONG. A blinder that erases task evidence looks identical to one that works.
+    // Every field here resembles a carrier and is legitimate content an agent may need.
+    const legitimate = {
+      commit: 'feedface',                                  // graph's indexed commit
+      manifestCommit: 'cafebabe',
+      headCommit: 'deadbeef',
+      latestCollection: { indexedCommit: '0badf00d', filesProcessed: 3 },
+      server: { version: '0.7.1', commit: 'abc1234', staleSignals: { commitMoved: false } },
+      summary: 'The worktree is dirty and 2 files changed since the collection.',
+      trustBasis: { total_unresolved: 7 },
+      generationState: 'generation_mismatch',
+    };
+    const { blinded, removedPaths } = blindArmCues(legitimate);
+    expect(removedPaths, 'nothing here is an identity carrier').toEqual([]);
+    expect(blinded).toEqual(legitimate);
+    // Named individually, because an equality check would pass if the whole object were returned
+    // untouched for the wrong reason.
+    expect(blinded.commit).toBe('feedface');
+    expect(blinded.latestCollection.indexedCommit).toBe('0badf00d');
+    expect(blinded.server.commit).toBe('abc1234');
+    expect(blinded.summary, 'legitimate prose about a dirty worktree must survive')
+      .toMatch(/worktree is dirty/);
     expect(blinded.trustBasis.total_unresolved).toBe(7);
     expect(blinded.generationState).toBe('generation_mismatch');
-    expect(blinded.summary).toBe('nodes=24');
   });
 
-  it('the identifying-field list is non-empty and names what was actually observed', () => {
-    expect(ARM_IDENTIFYING_FIELDS.length).toBeGreaterThan(4);
-    for (const f of ['buildId', 'loadedDirtyFiles', 'loadedDirtyNote']) {
-      expect(ARM_IDENTIFYING_FIELDS).toContain(f);
-    }
+  it('⛔ the removed population is EXACTLY the preregistered carrier, and it is audited', () => {
+    // The audit trail is what makes "we only removed the arm identity" checkable rather than
+    // claimed. My recursive version could not have produced this list.
+    const { removedPaths } = blindArmCues(MUTANT_RESPONSE);
+    expect(removedPaths.sort()).toEqual(
+      ['server.buildId', 'server.loadedDirtyFiles', 'server.loadedDirtyNote'].sort());
+    for (const p of removedPaths) expect(IDENTITY_CARRIER_PATHS).toContain(p);
+  });
+
+  it('⛔ the TOP-LEVEL commit survives — this is the over-reach that was measured and fixed', () => {
+    const { blinded } = blindArmCues(MUTANT_RESPONSE);
+    expect(blinded.commit, 'the graph indexed commit is task evidence, not arm metadata').toBe('feedface');
+    expect(blinded.server.commit, 'equalising build commits is the runner\'s job, not the blinder\'s').toBe('abc1234');
+    expect(blinded.server.staleSignals).toEqual({ commitMoved: false, sourceEdited: true });
+  });
+
+  it('pre/post hashes are reported so a change can be proven rather than asserted', () => {
+    const r = blindArmCues(MUTANT_RESPONSE);
+    expect(r.hashBefore).toMatch(/^[0-9a-f]{64}$/);
+    expect(r.hashAfter).toMatch(/^[0-9a-f]{64}$/);
+    expect(r.hashBefore).not.toBe(r.hashAfter);
+
+    const untouched = blindArmCues({ summary: 'nothing to remove' });
+    expect(untouched.hashBefore, 'a no-op must leave the hash identical').toBe(untouched.hashAfter);
+  });
+
+  it('⛔ NATIVE TIER: a dirty payload is VOID, not silently normalised', () => {
+    // Clean separate builds are mandatory there. If the blinder has real work to do, the arms were
+    // not built clean, and normalising it away would hide that rather than fix it.
+    const verdict = assertNativeTierClean(MUTANT_RESPONSE);
+    expect(verdict.clean).toBe(false);
+    expect(verdict.reason).toMatch(/were not built clean|void/);
+  });
+
+  it('POSITIVE CONTROL: a genuinely clean payload passes the native-tier gate', () => {
+    // ⛔ Without this the gate could be permanently closed, which is off rather than fail-closed.
+    const verdict = assertNativeTierClean(CLEAN_RESPONSE);
+    expect(verdict.clean).toBe(true);
+    expect(verdict.reason).toBeNull();
+  });
+
+  it('blinding does NOT touch the fields the benchmark measures', () => {
+    const withFinding = {
+      summary: 'nodes=24',
+      trustBasis: { total_unresolved: 7 },
+      generationState: 'generation_mismatch',
+    };
+    const { blinded, removedPaths } = blindArmCues(withFinding);
+    expect(removedPaths).toEqual([]);
+    expect(blinded).toEqual(withFinding);
   });
 });
