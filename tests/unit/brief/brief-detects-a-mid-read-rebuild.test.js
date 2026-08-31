@@ -196,3 +196,39 @@ describe('a brief is published only if it describes one graph', () => {
     }
   });
 });
+
+// ⛔ THE RECEIPT HAS TO REACH THE READER, OR IT IS COMPUTED AND DISCARDED AGAIN.
+//
+// generateBrief's refusal lands in `result.artifacts.briefs`, which is true and invisible: a reader
+// scanning the top of a graph_index response sees that the call succeeded — and it did, the GRAPH
+// is fine. What is not fine is that the brief on disk still describes an older graph while looking
+// freshly regenerated. graph_index is also the ONE caller where this is likely, because a rebuild is
+// exactly what makes an assembly straddle.
+describe('graph_index surfaces a refused brief where it can be seen', () => {
+  it('⛔ a refusal reaches nextAction, not only the artifacts sub-object', async () => {
+    commitInto = repo;
+    straddlesRemaining = 99;
+    const { graphIndex } = await import('../../../mcp/stdio/query/verbs/index.js');
+    const out = await graphIndex({ repoRoot: repo });
+    expect(out.artifacts.briefs.published, 'the fixture must actually have refused').toBe(false);
+    expect(String(out.nextAction ?? ''), 'the refusal must be surfaced where a scanner looks')
+      .toMatch(/brief was NOT regenerated/);
+  });
+
+  it('POSITIVE CONTROL: an undisturbed index adds no such note', async () => {
+    // ⛔ Without this the note could be unconditional, and a warning on every index is one nobody
+    // reads — which is the failure this note exists to avoid.
+    const { graphIndex } = await import('../../../mcp/stdio/query/verbs/index.js');
+    const out = await graphIndex({ repoRoot: repo });
+    expect(out.artifacts.briefs.published).toBe(true);
+    expectAbsentWithLiveMatcher(
+      /brief was NOT regenerated/,
+      {
+        forbidden: 'the brief was NOT regenerated — a rebuild committed during each assembly attempt',
+        allowed: 'run graph_collect_code_intel — this rebuild dropped the [lsp✓] trust spine',
+      },
+      String(out.nextAction ?? ''),
+      'a successful index warned about a refusal that never happened',
+    );
+  });
+});

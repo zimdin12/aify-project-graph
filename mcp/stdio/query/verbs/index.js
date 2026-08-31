@@ -22,6 +22,23 @@ export async function graphIndex({ repoRoot, paths, force = false }) {
 
   try {
     result.artifacts.briefs = generateBrief({ repoRoot });
+    // ⛔ A REFUSAL BURIED IN artifacts.briefs IS A REFUSAL NOBODY READS, and this is the one caller
+    // where it is likely: a rebuild is exactly what makes a brief assembly straddle. The receipt
+    // says published:false, but a reader scanning the top of the response sees only that graph_index
+    // succeeded — and it did; the GRAPH is fine. What is not fine is that the brief on disk still
+    // describes an older graph while looking like it was just regenerated.
+    //
+    // Surfaced the same way trustSpineDropped is, a few lines above, because it is the same shape:
+    // the agent that just ran this call is the one who can act on it.
+    if (result.artifacts.briefs?.published === false) {
+      const note = 'the brief was NOT regenerated — a rebuild committed during each assembly '
+        + 'attempt, so every candidate was read from two graphs and all were discarded. The brief '
+        + 'on disk is unchanged and now describes an older graph. Re-run graph_index() once the '
+        + 'graph stops moving.';
+      // Append rather than overwrite: an existing nextAction is about the graph itself, which
+      // outranks a stale artifact, and dropping either one to make room loses a real fact.
+      result.nextAction = result.nextAction ? `${result.nextAction} — also, ${note}` : note;
+    }
   } catch (err) {
     result.artifacts.briefs = { error: err.message };
   }
