@@ -1023,7 +1023,7 @@ AssertionError: bare not.toMatch count is 155, baseline 154. A NEW bare negative
     101|     ].join(' ')).toBeLessThanOrEqual(BASELINE_TOTAL);
        |                  ^
     102|   });
-    103| 
+    103|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 
