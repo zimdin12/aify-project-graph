@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { bumpGraphGeneration } from '../../../mcp/stdio/storage/publication-schema.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { generateBrief } from '../../../mcp/stdio/brief/generator.js';
 import { readFileSync } from 'node:fs';
@@ -32,6 +33,16 @@ function seedEdges(db, rows) {
       { source_file: '', confidence: 1.0, ...r },
     );
   }
+}
+
+// Publish a generation into a hand-seeded fixture graph and return it, so a hand-written manifest
+// can NAME it. These fixtures build their graph with seedNodes rather than through the orchestrator,
+// so they carry no graph_generation table at all — which reads as legacy_unattested, puts the
+// publication issue at the front of the trust line, and quietly turns an unrelated fixture into an
+// unattested-graph test. Publishing one makes the case under test the one the test is named after.
+function publishedGeneration(root) {
+  const db = openDb(join(root, '.aify-graph', 'graph.sqlite'));
+  try { return bumpGraphGeneration(db); } finally { db.close(); }
 }
 
 describe('brief/generator', () => {
@@ -849,6 +860,12 @@ describe('brief/generator', () => {
           status: 'ok', dirtyFiles: [],
           dirtyEdges: [], // sampled (capped) list can be empty
           dirtyEdgeCount: 2500, // > 2000 threshold → weak
+          // ⛔ THE GENERATION IS NOT DECORATION HERE. Without it this hand-written manifest names no
+          // generation, the graph reads as unattested, and the publication issue takes the front of
+          // the issue list — so the tip explains THAT rather than the unresolved count this test
+          // exists to check. The fixture was silently testing a torn graph. Pin it to whatever the
+          // database actually published so the case under test is the weak-trust one.
+          generation: publishedGeneration(repoRoot),
         }),
       );
 

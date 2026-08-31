@@ -397,8 +397,21 @@ function primaryLangExt(snapshot) {
 // ---------- trust/health (A1 item #10) ----------
 
 function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy) {
+  // ⛔ ONE TIP SLOT, SIX ISSUES, AND THE PRECEDENCE WAS A REMEMBERED ORDERING.
+  //
+  // This was `let tip = ''` followed by six `tip = tip || ...` lines, so whichever issue happened to
+  // be checked first owned the advice. It went wrong the moment a publication issue arrived: those
+  // unshift to the FRONT of the list because they are the reason to doubt everything else, but
+  // their tips were written LAST, so they could only ever appear when no other issue existed. A
+  // brief read across a live rebuild advised the reader to go find an entrypoint.
+  //
+  // ⇒ Carry each issue WITH its own advice and derive the tip from the one the reader sees first.
+  // The two surfaces then cannot disagree about what matters most, because there is only one
+  // ordering and both read from it.
   const issues = [];
-  let tip = '';
+  const add = (text, tip = '') => issues.push({ text, tip });
+  const addFirst = (text, tip = '') => issues.unshift({ text, tip });
+
   if (snapshot.unresolvedEdges > 2000) {
     // Coarse cause breakdown so agents know WHICH verbs are most affected:
     // CALLS-heavy means cross-file call graphs are unreliable; IMPORTS-heavy
@@ -415,28 +428,27 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
     // ⇒ Say the share, and name the remainder rather than leaving it silent. "top 2 of 9" plus
     // an explicit "others" is checkable by the reader against the numbers printed next to it.
     const suffix = describeUnresolvedBreakdown(unresolvedBy?.byRelation);
-    issues.push(`${snapshot.unresolvedEdges} unresolved edges${suffix}`);
-    tip = 'prefer direct file reads for cross-file impact questions';
+    add(`${snapshot.unresolvedEdges} unresolved edges${suffix}`,
+      'prefer direct file reads for cross-file impact questions');
   }
   if (overlayHealth?.broken?.length) {
     const ids = overlayHealth.broken.map(b => b.feature.id).slice(0, 3).join(', ');
-    issues.push(`${overlayHealth.broken.length} features with stale anchors (${ids})`);
-    tip = tip || 'functionality overlay may be out of date; verify feature→code links before trusting';
+    add(`${overlayHealth.broken.length} features with stale anchors (${ids})`,
+      'functionality overlay may be out of date; verify feature→code links before trusting');
   }
   if (brokenFeatureEdges?.length) {
     const preview = brokenFeatureEdges.slice(0, 3).map(e => `${e.from}→${e.to}`).join(', ');
-    issues.push(`${brokenFeatureEdges.length} feature edges point at missing features (${preview})`);
-    tip = tip || 'clean up depends_on/related_to references in functionality.json';
+    add(`${brokenFeatureEdges.length} feature edges point at missing features (${preview})`,
+      'clean up depends_on/related_to references in functionality.json');
   }
   if (entries.length === 0) {
-    issues.push('no entrypoints detected');
-    tip = tip || 'use README or package.json to find entry';
+    add('no entrypoints detected', 'use README or package.json to find entry');
   }
   if (subs.length < 3) {
-    issues.push('flat/small subsystem map');
+    add('flat/small subsystem map');
   }
   if (hubsArr.length === 0) {
-    issues.push('no hubs — repo may be too small to rank');
+    add('no hubs — repo may be too small to rank');
   }
   // ⛔ AN UNATTESTED GRAPH GETS AN ISSUE, NOT A SILENT PASS. `trustLevel` is computed from the
   // unresolved count alone, and that count comes from a manifest whose graph may not be the one it
@@ -447,12 +459,29 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
   // It joins `issues` rather than replacing `level` deliberately: the trust LEVEL is a real
   // measurement of resolution completeness and stays what it is. What changes is that the reader is
   // told the graph behind it cannot be checked.
-  if (snapshot.generationState && snapshot.generationState !== 'attested') {
-    issues.unshift(`publication ${snapshot.generationState} — this graph's contents could not be `
-      + 'verified against the manifest describing it, so the trust figure is unattested');
-    tip = tip || 'graph_index({ force: true }) to publish a generation this brief can be checked against';
+  if (snapshot.generationState === 'straddled_rebuild') {
+    // ⚠ A DIFFERENT FACT FROM AN UNATTESTED GRAPH, AND IT GETS DIFFERENT WORDS. The graph may be
+    // perfectly attested; the problem is that a rebuild COMMITTED WHILE THIS BRIEF WAS BEING READ,
+    // so its sections describe two graphs. Regenerating fixes it; rebuilding does not — rebuilding
+    // is what caused it.
+    addFirst('publication straddled_rebuild — a rebuild committed while this brief was being '
+      + 'assembled, so its sections were read from two different graphs',
+      'regenerate the brief; the graph itself may be fine');
+  } else if (snapshot.generationState && snapshot.generationState !== 'attested') {
+    addFirst(`publication ${snapshot.generationState} — this graph's contents could not be `
+      + 'verified against the manifest describing it, so the trust figure is unattested',
+      'graph_index({ force: true }) to publish a generation this brief can be checked against');
   }
-  return { level: snapshot.trustLevel, issues, tip, generationState: snapshot.generationState ?? null };
+
+  // The reader's eye lands on the first issue, so that is the one the single tip explains. An issue
+  // with no advice of its own leaves the slot empty rather than borrowing a later issue's tip and
+  // pointing the reader at something they were not just told about.
+  return {
+    level: snapshot.trustLevel,
+    issues: issues.map((i) => i.text),
+    tip: issues[0]?.tip ?? '',
+    generationState: snapshot.generationState ?? null,
+  };
 }
 
 // ---------- renderers ----------
@@ -462,6 +491,24 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
 export function generateBrief({ repoRoot }) {
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
+    // ⛔ ONE CAPTURE IS NOT ACHIEVABLE IN THIS FUNCTION, so it does not pretend otherwise.
+    //
+    // Every other authority reader in this unit was closed by reading the manifest, opening ONE
+    // pinned snapshot, and taking every fact from it. The prescription does not reach here, and the
+    // reason is a substrate CYCLE rather than an ordering nobody found:
+    //
+    //   docPaths            <- the DATABASE
+    //   documentRecency()   <- SHELLS OUT TO GIT for exactly those paths
+    //   linkedDocumentCandidates / readFirst <- the DATABASE AGAIN, using that recency
+    //
+    // DB -> git -> DB cannot be wrapped in one snapshot without holding a WAL read open across a
+    // subprocess, which is the cost captureExistingSnapshot exists to avoid. Two captures would put
+    // the commit window back exactly where it was, and hide it better.
+    //
+    // ⇒ So the brief records the published generation at BOTH ENDS of its graph reads. It cannot
+    // promise its sections describe one graph; it can refuse to claim they do when they did not.
+    // That is a weaker guarantee than atomicity and a stronger one than silence.
+    const generationAtStart = readGraphPublication(db)?.generation ?? null;
     const snapshot = repoSnapshot(db, repoRoot);
     const entries = entryPoints(db, repoRoot);
     const subs = subsystems(db);
@@ -525,7 +572,16 @@ export function generateBrief({ repoRoot }) {
     const enrichedRisks = enrichRisksForPlanning(db, risksArr, overlay.features);
 
     const unresolvedBy = summarizeUnresolvedFromManifest(repoRoot);
-    const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy);
+    // THE STRADDLE CHECK, TAKEN BEFORE THE TRUST FIGURE IS COMPUTED. Every read feeding the
+    // snapshot counts and the unresolved figures is behind us; if the generation moved while they
+    // ran, they did not all describe the same graph, and the trust line must not present them as
+    // though they did.
+    const generationAtEnd = readGraphPublication(db)?.generation ?? null;
+    const straddledRebuild = generationAtStart !== generationAtEnd;
+    const health = trust(
+      straddledRebuild ? { ...snapshot, generationState: 'straddled_rebuild' } : snapshot,
+      entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy,
+    );
     const coverage = briefCoverage(subs, overlayHealth);
     const { paths, hiddenCount: pathsHiddenCount } = extractPaths(db, exports, 5);
     // Pull indexedAt + commit from the manifest so brief.json carries them
