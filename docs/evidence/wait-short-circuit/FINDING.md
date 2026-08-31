@@ -34,7 +34,7 @@ With the short-circuit in place:
 | 2 | 2,826 ms | **0** |
 | 3 | 2,143 ms | **1** |
 
-The wait was not buying an attestation. It was buying **determinism**. Removing it makes the
+The wait was not buying an attestation — it was load-bearing for CALLER RECOVERY in this experiment. Removing it makes the
 reference resolution a race: the same query on the same bytes returns a caller sometimes and
 no caller other times.
 
@@ -55,6 +55,11 @@ optimising.
 - the readiness FLAG is unreachable without a compile DB — confirmed
 - the WAIT is still load-bearing without one — clangd needs the time to resolve, even though
   it never declares itself ready
+
+⚠ CLAIM LIMIT, per review. This sample proves NO-WAIT is nondeterministic and loses callers. It
+does NOT prove the wait *guarantees* determinism: the waited/no-DB arm was not repeated here. The
+supportable claim is "the wait was load-bearing for caller recovery in this experiment", not "the
+wait buys determinism" as an established universal.
 - the agent's report was accurate about the flag and its cost, and its conclusion that the
   wait was therefore waste does not follow
 

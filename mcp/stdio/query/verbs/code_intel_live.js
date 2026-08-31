@@ -372,8 +372,8 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
   //
   // ⚠ THIS CHANGES THE CAUSE STRING ONLY. An earlier attempt tried to SKIP the wait in this case
   // and was rejected by its own experiment: without the wait, reference resolution becomes a race
-  // (refs=0, refs=0, refs=1 on identical bytes). The wait buys determinism, not attestation, so it
-  // stays. See docs/evidence/wait-short-circuit/FINDING.md.
+  // (refs=0, refs=0, refs=1 on identical bytes). The wait was load-bearing for caller recovery, so it
+  // stays. NOT a proven determinism guarantee — the waited arm was not repeated. See docs/evidence/wait-short-circuit/FINDING.md.
   //
   // Signature of "no DB at all", as measured rather than assumed — contrast with a PARTIAL DB,
   // which reports partial:true and a non-zero firstPartyCount:

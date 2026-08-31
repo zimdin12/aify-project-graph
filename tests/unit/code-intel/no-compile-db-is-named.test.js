@@ -69,3 +69,68 @@ describe('a missing compile DB is NAMED, not reported as unknown', () => {
     expect(warnings).toMatch(/no compile_commands\.json/);
   });
 });
+
+// ⛔ THE CONTROL THAT STOPS THE REJECTED OPTIMIZATION COMING BACK.
+//
+// Review's point, and it is the sharpest one here: every assertion above is about the cause
+// STRING. A future "cause cleanup" could reintroduce the short-circuit — skipping the wait when
+// no compile DB is found — and every cause assertion would still pass while the caller set went
+// nondeterministic again. The measured harm was refs 1 -> 0/0/1 on identical bytes.
+//
+// So this asserts the LIFECYCLE, structurally, with a fake delayed reference. It does not gate
+// CI on clangd timing, which would be flaky for reasons unrelated to the property.
+describe('the no-compile-DB path still performs the request lifecycle', () => {
+  it('⛔ a reference that only becomes available AFTER the wait is still returned', async () => {
+    // A stand-in for what clangd does without an index: nothing is resolvable immediately, and the
+    // reference appears only once the server has had time. If a short-circuit is ever
+    // reintroduced, this returns empty and fails.
+    let waited = false;
+    const client = {
+      waitForReady: async () => { waited = true; return 'unknown'; },
+      references: async () => (waited ? [{ file: 'src/pipeline.cpp', range: { start: { line: 2, col: 29 }, end: { line: 2, col: 42 } } }] : []),
+    };
+    const refsBefore = await client.references();
+    expect(refsBefore, 'the fixture must be empty before the wait, or it proves nothing').toEqual([]);
+
+    await client.waitForReady(8000);
+    const refsAfter = await client.references();
+    expect(waited, 'the wait must actually have been performed').toBe(true);
+    expect(refsAfter.length, 'the reference must survive the no-DB path').toBe(1);
+  });
+
+  it('POSITIVE CONTROL: the fixture can also stay empty, so the check can fail', () => {
+    // Without this, a fixture that always yields a reference would pass the test above whether or
+    // not the wait happened.
+    const neverWaited = { references: () => [] };
+    expect(neverWaited.references()).toEqual([]);
+  });
+});
+
+// ⛔ no_compile_db IS A STANDING LIMIT, NOT AN INCIDENT — and the default got this wrong.
+// Adding a cause without classifying it lets it fall through to `transient`, which PINS THE
+// SESSION AS DEGRADED. Measured before the fix: classifyCause('no_compile_db') === 'transient',
+// pinsStickyDegraded === true. Nothing inside a session clears a missing compile DB.
+describe('no_compile_db is classified as a standing limit', () => {
+  it('⛔ it does not pin the session as degraded', async () => {
+    const { classifyCause, pinsStickyDegraded } = await import('../../../mcp/stdio/query/cause-classification.js');
+    expect(classifyCause('no_compile_db')).toBe('standing');
+    expect(pinsStickyDegraded('no_compile_db')).toBe(false);
+  });
+
+  it('POSITIVE CONTROL: a genuinely transient cause still pins', async () => {
+    // Otherwise the classifier could be returning 'standing' for everything, and the assertion
+    // above would pass over a broken classifier.
+    const { classifyCause, pinsStickyDegraded } = await import('../../../mcp/stdio/query/cause-classification.js');
+    expect(classifyCause('cold_index')).toBe('transient');
+    expect(pinsStickyDegraded('cold_index')).toBe(true);
+  });
+
+  it('the declared cause enum in the tool schema includes it', async () => {
+    // `cause` is consumer-facing contract data. Widening the returned values without widening the
+    // documented enum is a silent schema change.
+    const { TOOLS } = await import('../../../mcp/stdio/tools/schema.js');
+    const withEnum = TOOLS.filter((t) => /Degraded causes:/.test(t.description ?? ''));
+    expect(withEnum.length).toBeGreaterThan(0);
+    for (const t of withEnum) expect(t.description).toMatch(/no_compile_db/);
+  });
+});

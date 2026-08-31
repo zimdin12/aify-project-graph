@@ -171,7 +171,7 @@ export const TOOLS = [
   {
     name: 'code_intel_definitions',
     handler: codeIntelDefinitions,
-    description: 'Live definitions across TUs for a symbol at a position. Pass warmupFiles[] when the definition lives in a TU clangd has not seen yet (background-index disabled). Returns {status, freshness, warmedFiles, definitions[], evidence:{ready,degraded,cause,confidence,fallback,exhaustive,warnings}, telemetry, noValueAdded? (deprecated compat shim)}. CONTRACT: evidence.exhaustive===true means this is THE definition (no degraded cause masking a missing one). Degraded causes: cold_index|timeout|stale_index|unknown.',
+    description: 'Live definitions across TUs for a symbol at a position. Pass warmupFiles[] when the definition lives in a TU clangd has not seen yet (background-index disabled). Returns {status, freshness, warmedFiles, definitions[], evidence:{ready,degraded,cause,confidence,fallback,exhaustive,warnings}, telemetry, noValueAdded? (deprecated compat shim)}. CONTRACT: evidence.exhaustive===true means this is THE definition (no degraded cause masking a missing one). Degraded causes: cold_index|timeout|stale_index|no_compile_db|unknown. no_compile_db is a STANDING limit, not an incident: no compile_commands.json was found, so readiness and exhaustiveness can never be established for this repo and raising waitForReadyMs will not change it — returned locations are still real, but treat them as a FLOOR.',
     schema: {
       type: 'object',
       properties: {

@@ -26,7 +26,12 @@
  * `cold_index` so it never surfaces, and (b) pin the session degraded forever with a fact that
  * describes the tool rather than the request. That bug was caught by a test, not by reading.
  */
-const STANDING = new Set(['index_population_unattested']);
+// ⛔ `no_compile_db` IS STANDING, AND THE DEFAULT WOULD HAVE GOT IT WRONG. Adding a cause without
+// classifying it lets it fall through to `transient`, which PINS THE SESSION AS DEGRADED — and a
+// missing compile_commands.json is not an incident a later good result can clear. Nothing that
+// happens inside the session clears it; only generating a compile DB does. Measured before the fix:
+// classifyCause('no_compile_db') === 'transient', pinsStickyDegraded === true.
+const STANDING = new Set(['index_population_unattested', 'no_compile_db']);
 
 /**
  * Explicitly SELECTED behaviour. Nothing happened *to* the request.
