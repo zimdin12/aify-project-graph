@@ -136,8 +136,13 @@ export function dedupeEvidenceProse(ev) {
   return warnings.length === ev.warnings.length ? ev : { ...ev, warnings };
 }
 
-function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resultState, coverage }) {
-  const warnings = [];
+function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resultState, coverage, shapeWarnings = [] }) {
+  // ⛔ SHAPE WARNINGS ATTACH ONLY TO AN EMPTY CALLER SET. A field agent's sharpest complaint was
+  // that the identical caveat block renders whether or not it bears on the decision, "which trains
+  // me to skim it in the one case where it decides everything". A shape that might hide a caller is
+  // irrelevant to a result that already FOUND one. Guarded here rather than at the call site so a
+  // future branch cannot leak it into a non-empty answer.
+  const warnings = (callsiteCount === 0 && Array.isArray(shapeWarnings)) ? [...shapeWarnings] : [];
   // FALSE-EXHAUSTIVE GUARD (2026-06-02): a fresh index + >=1 callsite is NOT
   // enough to claim exhaustive. clangd's references only sees TUs its index
   // covers; when the compile DB is foreign (Linux/WSL DB on a host clangd) or a
@@ -889,9 +894,20 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
   let coverage = null;
   try { coverage = computeCoverage({ language: lang, projectRoot: repoRoot, file }); }
   catch { coverage = { complete: false, partial: true, kind: 'unknown', foreignToolchain: false, unityUnexpanded: false, reason: 'coverage detection failed — treating as partial (fail-closed)' }; }
+  // ⚠ COMPUTED ONLY WHEN THE SET IS EMPTY, so the scan costs nothing on the common path. An empty
+  // caller set is rare and high-stakes; a found caller needs no shape disclosure.
+  let shapeWarnings = [];
+  if (callsiteLocations.length === 0) {
+    try {
+      const { shapeWarningsForEmptyResult } = await import('../../code-intel/shape-detectors.js');
+      const { listRepoSourceFiles } = await import('../../code-intel/shape-detectors.js');
+      shapeWarnings = shapeWarningsForEmptyResult({ files: listRepoSourceFiles(repoRoot) });
+    } catch { shapeWarnings = []; }
+  }
+
   const evidence = buildReferencesEvidence({
     freshness, callsiteCount: callsiteLocations.length, defCount: definitionLocations.length || defLocations.length, resultState, coverage,
-    contractVersion: contract.version,
+    contractVersion: contract.version, shapeWarnings,
   });
 
   // ⛔ AN EMPTY CALLER SET FROM A TU THAT NEVER COMPILED IS BYTE-IDENTICAL TO A TU WITH NO

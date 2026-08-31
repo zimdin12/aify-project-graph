@@ -12,6 +12,7 @@
 // Preregistered populations, identity rules, claim ceilings and controls:
 // docs/evidence/shape-detectors/PREREGISTRATION.md
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 
 export const IMPL_EXTS = Object.freeze(['.c', '.cc', '.cpp', '.cxx', '.c++']);
@@ -119,6 +120,71 @@ export function detectIncludedImplementationFile({ files, readFile = (f) => fs.r
     });
   }
   return dedupe(findings, (f) => `${f.detector}|${f.includedFrom}|${f.includedFile}`);
+}
+
+/**
+ * The C/C++ source population, from git.
+ *
+ * ⚠ GIT-TRACKED ONLY, and that is the preregistered population — not a filesystem walk. A walk
+ * would pull in build outputs and vendored trees that the graph itself excludes, so the detector
+ * would be scanning a different repo than every other instrument here.
+ *
+ * ⚠ BOUNDED. A repo with more sources than the cap returns [] rather than a truncated sample: a
+ * partial scan would make "no candidate shapes found" mean "none in the first N files", which is
+ * the silent-scope-narrowing failure an agent named as the more expensive one.
+ */
+export function listRepoSourceFiles(repoRoot, { cap = 2000, exec } = {}) {
+  if (!repoRoot) return [];
+  try {
+    const run = exec ?? ((args) => execFileSync('git', args,
+      { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }));
+    const out = run(['ls-files']);
+    const all = String(out).split(/\r?\n/).map((l) => l.trim()).filter(Boolean)
+      .filter((f) => isImpl(f) || isHeader(f))
+      .map((f) => path.join(repoRoot, f));
+    return all.length > cap ? [] : all;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Run both detectors and render them as warning lines for an EMPTY caller set.
+ *
+ * ⛔ EMPTY RESULTS ONLY, DELIBERATELY. A field agent's complaint was that the same caveat block
+ * renders whether or not it bears on the decision — "which trains me to skim it in the one case
+ * where it decides everything." A shape that might hide a caller is irrelevant to a result that
+ * already FOUND one, and attaching it there would manufacture exactly that wallpaper.
+ *
+ * Another agent asked what a zero would have to show to be distrusted correctly. Its first answer
+ * was "construct coverage stated as what it does NOT model". This is that, scoped to the two
+ * shapes we can actually detect.
+ *
+ * ⚠ Returns [] on any failure. A detector that throws must not take down a caller set that is
+ * otherwise valid — these are advisory, and advisory failures fail quiet.
+ */
+export function shapeWarningsForEmptyResult({ files, readFile } = {}) {
+  if (!Array.isArray(files) || files.length === 0) return [];
+  try {
+    const lines = [];
+    for (const f of detectExternWithoutHeader({ files, ...(readFile ? { readFile } : {}) })) {
+      lines.push(`CANDIDATE SHAPE (not a proven caller): "${f.spelling}" is declared \`extern\` in `
+        + `${f.declaredIn} and appears in ${f.alsoIn.join(', ')}, but in none of the ${f.headersScanned} `
+        + 'header(s) scanned. A header/include-graph route would not connect them. This is a spelling '
+        + 'match, not a resolved binding — comments, strings and inactive #if branches are in scope. '
+        + 'Inspect the source before treating an empty caller set as an absence.');
+    }
+    for (const f of detectIncludedImplementationFile({ files, ...(readFile ? { readFile } : {}) })) {
+      lines.push(`CANDIDATE SHAPE (not a proven build fact): ${f.includedFrom}:${f.line} textually `
+        + `includes the implementation file "${f.includedFile}". The build may use unity/jumbo `
+        + 'translation units, so per-file compile assumptions may not match it. The build system was '
+        + 'NOT consulted. Inspect the actual compile commands before treating an empty caller set as '
+        + 'an absence.');
+    }
+    return lines;
+  } catch {
+    return [];
+  }
 }
 
 function dedupe(findings, keyOf) {

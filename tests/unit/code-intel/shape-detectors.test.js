@@ -167,3 +167,65 @@ describe('detector 2: implementation file textually included', () => {
     expect(out).toHaveLength(1);
   });
 });
+
+// ⛔ WIRED IS THE HALF THAT KEEPS GETTING SKIPPED IN THIS REPO. Detectors nobody calls are the
+// "zero production callers" defect I have hit repeatedly this session, so the consumer route is
+// tested as its own property, not assumed from the fact that a function exists.
+describe('shape warnings reach an EMPTY caller set, and only an empty one', () => {
+  it('⛔ an empty result carries the candidate shapes', async () => {
+    const { buildReferencesEvidence } = await import('../../../mcp/stdio/query/verbs/code_intel_live.js');
+    const ev = buildReferencesEvidence({
+      freshness: 'unknown', callsiteCount: 0, defCount: 1, resultState: 'not_found_after_retry',
+      coverage: undefined,
+      shapeWarnings: ['CANDIDATE SHAPE (not a proven caller): "computeWeight" ...'],
+    });
+    expect(ev.warnings.join(' ')).toMatch(/CANDIDATE SHAPE/);
+  });
+
+  it('⛔ POSITIVE CONTROL: a NON-empty result does NOT carry them', async () => {
+    // A field agent's sharpest complaint: the same caveat renders whether or not it bears on the
+    // decision, "which trains me to skim it in the one case where it decides everything". A shape
+    // that might hide a caller is irrelevant once a caller is found.
+    const { buildReferencesEvidence } = await import('../../../mcp/stdio/query/verbs/code_intel_live.js');
+    const ev = buildReferencesEvidence({
+      freshness: 'unknown', callsiteCount: 1, defCount: 1, resultState: 'found',
+      coverage: undefined,
+      shapeWarnings: ['CANDIDATE SHAPE (not a proven caller): "computeWeight" ...'],
+    });
+    expect(ev.warnings.join(' ')).not.toMatch(/CANDIDATE SHAPE/);
+  });
+
+  it('the renderer produces a line per candidate, with the ceiling in the text', async () => {
+    const { shapeWarningsForEmptyResult } = await import('../../../mcp/stdio/code-intel/shape-detectors.js');
+    const files = { 'src/weights.cpp': 'int computeWeight(int x){return x*2;}',
+      'src/pipeline.cpp': 'extern int computeWeight(int);\nint r(){return computeWeight(21);}',
+      'src/bundle.cpp': '#include "weights.cpp"' };
+    const out = shapeWarningsForEmptyResult({ files: Object.keys(files), readFile: (f) => files[f] });
+    expect(out.length).toBe(2);
+    expect(out.join(' ')).toMatch(/not a proven caller/);
+    expect(out.join(' ')).toMatch(/not a proven build fact/);
+    expect(out.join(' ')).toMatch(/build system was NOT consulted/);
+  });
+
+  it('⛔ a detector failure returns [] rather than taking down a valid caller set', async () => {
+    const { shapeWarningsForEmptyResult } = await import('../../../mcp/stdio/code-intel/shape-detectors.js');
+    const out = shapeWarningsForEmptyResult({
+      files: ['src/a.cpp'], readFile: () => { throw new Error('unreadable'); },
+    });
+    expect(out).toEqual([]);
+  });
+
+  it('⛔ an over-cap repo returns [] rather than a truncated sample', async () => {
+    // A partial scan would make "no candidate shapes found" mean "none in the first N files" —
+    // the silent scope-narrowing an agent named as the more expensive failure.
+    const { listRepoSourceFiles } = await import('../../../mcp/stdio/code-intel/shape-detectors.js');
+    const many = Array.from({ length: 30 }, (_, i) => `src/f${i}.cpp`).join('\n');
+    expect(listRepoSourceFiles('/repo', { cap: 10, exec: () => many })).toEqual([]);
+  });
+
+  it('POSITIVE CONTROL: an under-cap repo returns its sources', async () => {
+    const { listRepoSourceFiles } = await import('../../../mcp/stdio/code-intel/shape-detectors.js');
+    const out = listRepoSourceFiles('/repo', { cap: 10, exec: () => 'src/a.cpp\nsrc/b.h\nREADME.md' });
+    expect(out.length, 'non-source files are filtered out').toBe(2);
+  });
+});
