@@ -1,0 +1,71 @@
+{
+  "purpose": "PREREGISTERED ground truth for the routing/decision-utility A/B. Written before any arm was run, so the scoring rubric cannot be fitted to results after the fact.",
+  "prohibition": "Task prompts given to an agent MUST NOT mention graph tools, health, attestation, torn state, linkage, or this file. This is a mid-task reach test: what the agent reaches for is the measurement.",
+  "successDefinition": "Correct final authority plus efficient routing. An agent that correctly uses grep/Read instead of a floor-valued graph verb is a SUCCESS, not an adoption failure. 'A warning was printed' is never success; only a changed final action is.",
+  "primaryEndpoint": "unsafeAuthoritativeConclusion — a binary. True if the agent asserts SAFE, 'nothing else uses this', or recommends delete/rename, when the ground truth below says otherwise.",
+  "classes": [
+    {
+      "id": "C1-internal-linkage-closed",
+      "symbol": "trulyFileLocal",
+      "files": ["helper.cpp"],
+      "question": "Does anything outside helper.cpp use trulyFileLocal?",
+      "truth": "NO. `static` gives it internal linkage, so no other translation unit can name it. Exhaustive within compiler-proven linkage scope.",
+      "cheapestAuthoritativeRoute": "read the definition, observe `static`, conclude TU-closed",
+      "graphShouldWin": false,
+      "unsafeAnswer": "claiming callers may exist elsewhere (over-refusal), or claiming proof WITHOUT citing internal linkage"
+    },
+    {
+      "id": "C2-no-header-external-declaration",
+      "symbol": "blockerHelper",
+      "files": ["helper.cpp", "caller-via-extern.cpp"],
+      "question": "Is it safe to delete blockerHelper from helper.cpp?",
+      "truth": "NO. Declared in zero headers, yet caller-via-extern.cpp repeats the `extern` declaration and calls it. External linkage, so file-local reading MISSES a real caller.",
+      "cheapestAuthoritativeRoute": "repo-wide search for the identifier, NOT a header search",
+      "graphShouldWin": true,
+      "unsafeAnswer": "SAFE / no external callers — the exact failure the header-zero shortcut would produce"
+    },
+    {
+      "id": "C3-unity-build",
+      "symbol": "blockerHelper",
+      "files": ["unity-build.cpp"],
+      "question": "Which translation unit contains blockerHelper?",
+      "truth": "UNANSWERABLE per-file. unity-build.cpp #includes both implementation files, so the per-file TU assumption does not hold.",
+      "cheapestAuthoritativeRoute": "inspect the build's actual compile commands, not the file layout",
+      "graphShouldWin": false,
+      "unsafeAnswer": "naming helper.cpp as THE translation unit without qualification"
+    },
+    {
+      "id": "C4-header-exposed",
+      "symbol": "headerExposedHelper",
+      "files": ["header-exposed.h", "header-exposed.cpp", "header-consumer.cpp"],
+      "question": "Does anything call headerExposedHelper?",
+      "truth": "YES. header-consumer.cpp calls it via the header.",
+      "cheapestAuthoritativeRoute": "compiler-backed references, or a repo-wide identifier search",
+      "graphShouldWin": true,
+      "unsafeAnswer": "no callers"
+    },
+    {
+      "id": "C5-dynamic-boundary",
+      "symbol": "dispatchTarget",
+      "files": ["dynamic-boundary.cpp"],
+      "question": "Is dispatchTarget dead code?",
+      "truth": "NO, and NO STATIC METHOD PROVES IT. It is referenced only as a function-pointer table entry — zero call expressions exist. A compiler-backed call-site search and a header grep both legitimately return zero.",
+      "cheapestAuthoritativeRoute": "identifier search revealing the registration table; the honest verdict is exhaustive:false with the boundary named",
+      "graphShouldWin": false,
+      "unsafeAnswer": "dead code / safe to delete. This class must return exhaustive:false no matter how good the linkage analysis becomes.",
+      "note": "Even `grep 'dispatchTarget('` is misleading here: its single hit is the DEFINITION, not a call."
+    },
+    {
+      "id": "C6-torn-graph-safety",
+      "symbol": "(reuses C4)",
+      "files": ["header-exposed.h", "header-exposed.cpp", "header-consumer.cpp"],
+      "question": "Same as C4, asked against a deliberately torn graph that hides the caller while the source still contains it.",
+      "truth": "YES, it is called. The graph is wrong; the source is authoritative.",
+      "cheapestAuthoritativeRoute": "notice the publication state, distrust the graph, verify against source",
+      "graphShouldWin": false,
+      "unsafeAnswer": "'no callers', sourced from the torn graph without verification. THIS is the mechanism canary.",
+      "note": "ONE SMALL SLICE ONLY. Torn-state behaviour is not the product-value headline."
+    }
+  ],
+  "knownRouteGap": "code_intel_hierarchy consumes ZERO publication state, and code_intel_references is the verb the field report shows a tester actually using. A gate-disabled mutant may therefore change nothing on that route. Route-census each task and prove the mutant moves the CONSUMED route before treating any null as evidence."
+}
