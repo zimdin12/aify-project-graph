@@ -147,6 +147,30 @@ describe('a pinned read snapshot survives a commit landing mid-read', () => {
     })).toThrow(/must be SYNCHRONOUS/);
   });
 
+  it('⛔ an async callback that TOUCHES THE DB after its await leaks no unhandled rejection', async () => {
+    // ⭐ THE HOSTILE CASE, and the reason the refusal moved BEFORE invocation. Rejecting the
+    // returned thenable left the async function already started: it resumed after the finally
+    // closed the handle and rejected separately, with nobody positioned to observe it. An earlier
+    // version of this very test leaked that rejection while passing.
+    //
+    // Refusing an AsyncFunction before calling it means no orphan promise is ever created, so
+    // there is nothing left to reject.
+    const seen = [];
+    const onUnhandled = (err) => seen.push(String(err?.message ?? err));
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      expect(() => captureExistingSnapshot(dbPath, async (db) => {
+        await Promise.resolve();
+        return db.get('SELECT 1 AS x');       // would hit a closed handle if it ever ran
+      })).toThrow(/must be SYNCHRONOUS/);
+      // Give any orphan a turn of the loop to reject before asserting none did.
+      await new Promise((r) => setTimeout(r, 20));
+      expect(seen, 'the callback must never have started').toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('⛔ a promise returned WITHOUT async is rejected too — the shape, not the keyword', () => {
     // Catches the version that hand-rolls a promise, which an `instanceof Promise` check would
     // catch but a naive `constructor.name === 'AsyncFunction'` check would not.

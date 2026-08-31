@@ -1,6 +1,7 @@
 import { writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { openExistingDb } from '../storage/db.js';
+import { captureExistingSnapshot } from '../storage/db.js';
+import { classifyAttestation, readGraphPublication } from '../storage/publication-schema.js';
 import { readUnresolvedRefs } from '../storage/unresolved-refs.js';
 import { loadManifest } from './manifest.js';
 import { readJsonCappedSafe } from '../util/json.js';
@@ -203,15 +204,37 @@ export async function buildUnresolvedCategorization({ repoRoot }) {
   // ⚠ `source` NAMES WHICH ONE, and the values are deliberately distinct rather than a single
   // relabel: a consumer that cannot tell a table read from a 500-row sample cannot tell a
   // measurement from a floor.
+  // ⭐ THE ROWS AND THE PUBLICATION FROM ONE PINNED INSTANT.
+  //
+  // This opened the table independently of the manifest read above, then emitted table rows beside
+  // the manifest's graph_commit and graph_indexed_at with no comparison between them. A commit
+  // landing in between attributes NEW refs to the OLD commit — an artifact describing a graph that
+  // did not produce it, which is the defect this whole unit exists to make unconstructible.
+  //
+  // ⚠ A read failure over a PRESENT table now throws rather than reporting legacy. Here that must
+  // not kill the artifact: the categorization is a report, so an unreadable table is recorded as
+  // its own source rather than silently downgraded to the manifest sample.
   const dbPath = join(graphDir, 'graph.sqlite');
   let stored = null;
+  let publication = null;
+  let tableUnreadable = false;
   if (existsSync(dbPath)) {
-    const db = openExistingDb(dbPath);
-    try { stored = readUnresolvedRefs(db); } finally { db.close(); }
+    try {
+      const captured = captureExistingSnapshot(dbPath, (db) => ({
+        rows: readUnresolvedRefs(db),
+        publication: readGraphPublication(db),
+      }));
+      stored = captured.rows;
+      publication = captured.publication;
+    } catch {
+      tableUnreadable = true;
+    }
   }
 
   const refs = stored ?? (manifest.dirtyEdges ?? []);
-  const source = stored !== null ? 'table' : 'manifest-sample';
+  const source = tableUnreadable
+    ? 'table-unreadable'
+    : (stored !== null ? 'table' : 'manifest-sample');
   const total = stored !== null
     ? refs.length
     : (manifest.dirtyEdgeCount ?? refs.length);
@@ -222,6 +245,13 @@ export async function buildUnresolvedCategorization({ repoRoot }) {
     graph_commit: manifest.commit ?? null,
     graph_indexed_at: manifest.indexedAt ?? null,
     source,
+    // ⚠ THE PUBLICATION STATE TRAVELS WITH THE ARTIFACT. Without it a consumer reads counts and a
+    // graph_commit side by side with no way to know whether the graph those rows came from is the
+    // one that commit describes.
+    generationState: classifyAttestation({
+      dbGeneration: publication === null ? null : publication.generation,
+      manifestGeneration: manifest?.generation ?? null,
+    }),
     total,
     sample_size: refs.length,
     capped: source === 'manifest-sample' && total > refs.length,

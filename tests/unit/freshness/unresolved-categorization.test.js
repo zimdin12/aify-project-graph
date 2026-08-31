@@ -6,6 +6,7 @@ import { buildUnresolvedCategorization, classifyUnresolvedRef, renderUnresolvedC
 import { countTrustRelevantDirtyEdges } from '../../../mcp/stdio/freshness/unresolved-metrics.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { replaceUnresolvedRefs } from '../../../mcp/stdio/storage/unresolved-refs.js';
+import { bumpGraphGeneration } from '../../../mcp/stdio/storage/publication-schema.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 describe('unresolved categorization', () => {
@@ -90,6 +91,40 @@ describe('unresolved categorization', () => {
     expect(out.total, 'the uncapped count, not the sample size').toBe(37);
     expect(out.sample_size).toBe(1);
     expect(out.capped, 'and it must say the number it reported is not the population').toBe(true);
+  });
+
+  it('⛔ the artifact carries the publication state beside its commit', async () => {
+    // The artifact emits table rows next to graph_commit and graph_indexed_at taken from the
+    // manifest. Without a generation comparison a consumer cannot tell whether the graph those rows
+    // came from is the one that commit describes — new refs attributed to an old commit.
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123', indexedAt: '2026-04-23T00:00:00.000Z', generation: 1,
+      dirtyEdges: [], dirtyEdgeCount: 0,
+    }));
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      bumpGraphGeneration(db, { unresolvedCount: 0, trustUnresolvedCount: 0 });   // generation 1
+      replaceUnresolvedRefs(db, []);
+    } finally { db.close(); }
+
+    expect((await buildUnresolvedCategorization({ repoRoot })).generationState).toBe('attested');
+  });
+
+  it('⛔ a graph whose generation disagrees is NOT reported as attested', async () => {
+    // ⛔ The positive control above proves the field can say yes; this proves it can say no. One
+    // without the other is a constant dressed as a measurement.
+    await writeFile(join(repoRoot, '.aify-graph', 'manifest.json'), JSON.stringify({
+      commit: 'abc123', indexedAt: '2026-04-23T00:00:00.000Z', generation: 9,
+      dirtyEdges: [], dirtyEdgeCount: 0,
+    }));
+    const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
+    try {
+      bumpGraphGeneration(db, { unresolvedCount: 0, trustUnresolvedCount: 0 });   // generation 1
+      replaceUnresolvedRefs(db, []);
+    } finally { db.close(); }
+
+    expect((await buildUnresolvedCategorization({ repoRoot })).generationState)
+      .toBe('generation_mismatch');
   });
 
   it('classifies unresolved CONTAINS with empty target as a shape issue', () => {

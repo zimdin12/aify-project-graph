@@ -122,6 +122,24 @@ export function openExistingDb(dbPath, { readonly = true } = {}) {
  * them: anything that escapes and is used after close is the same defect wearing a carrier.
  */
 export function captureExistingSnapshot(dbPath, capture) {
+  // ⛔ REFUSED BEFORE IT IS INVOKED, NOT AFTER IT RETURNS.
+  //
+  // Rejecting the returned thenable was not enough: by then the async function has already STARTED.
+  // It resumes after the finally has closed the handle, touches a dead connection, and produces a
+  // separate unhandled rejection that no caller is positioned to observe. My own test for this
+  // leaked exactly that — ten tests passing while vitest reported "The database connection is not
+  // open" as a loose error attached to nothing.
+  //
+  // Not invoking it at all means no orphan exists. The thenable check below stays as the second
+  // line for a synchronous function that hand-rolls a promise, which this check cannot see.
+  if (capture?.constructor?.name === 'AsyncFunction') {
+    throw new Error(
+      'captureExistingSnapshot: the capture callback must be SYNCHRONOUS, and an async function is '
+      + 'refused before it runs. An async callback either resumes after the handle closes or holds '
+      + 'a WAL read transaction open across unrelated awaits. Capture plain data, close, then do '
+      + 'async work on it.',
+    );
+  }
   const db = openExistingDb(dbPath, { readonly: true });
   try {
     db.raw.exec('BEGIN');
