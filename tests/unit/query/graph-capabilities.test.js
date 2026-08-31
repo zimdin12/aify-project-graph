@@ -463,3 +463,46 @@ describe('publication attestation gates the claim that deletes code', () => {
     expect(c.absenceAuthority, 'it still denies — it just does not get to explain').toBe(false);
   });
 });
+
+// ⛔ A REMEDY THAT CANNOT WORK IS WORSE THAN NAMING THE LIMIT.
+//
+// Every unattested remedy said "graph_index()". Measured on a real legacy graph: graph_index()
+// returned indexed:true / processed:0 and left it legacy, because the verb defaults to force:false
+// and an unchanged or body-only-changed repository takes the all-cosmetic no-op path, which returns
+// before publication. graph_index({force:true}) published generation 1.
+//
+// So a user following the printed advice would see success, see no change, and conclude the tool
+// was broken. The positive control below is the case where the bare form IS correct — there is no
+// graph to no-op over — which is why this asserts per state rather than banning the bare string.
+describe('the unattested remedies name a command that actually publishes', () => {
+  const base = {
+    indexed: true, compilerVerifiedEdges: 1054, collectionAvailable: true,
+    coverage: { complete: true }, collectionCurrent: true,
+  };
+
+  for (const state of [
+    ATTESTATION.LEGACY_UNATTESTED,
+    ATTESTATION.NEVER_COMPLETED,
+    ATTESTATION.GENERATION_MISMATCH,
+    ATTESTATION.MANIFEST_UNUSABLE,
+  ]) {
+    it(`⛔ ${state} tells the reader to force the rebuild`, () => {
+      const { nextAction } = graphCapabilities({ ...base, attestation: state });
+      expect(nextAction, 'a no-op rebuild cannot fix an unattested graph').toMatch(/force: true/);
+    });
+  }
+
+  it('POSITIVE CONTROL: not_indexed still says the BARE form, and correctly', () => {
+    // ⛔ Without this the fix would read as "always say force:true", which is wrong: with no graph
+    // at all there is nothing to no-op over, and telling someone to force a build that has never
+    // happened adds a flag for no reason.
+    const { nextAction } = graphCapabilities({ indexed: false });
+    expect(nextAction).toMatch(/graph_index\(\) to build the graph/);
+    expectAbsentWithLiveMatcher(
+      /force: true/,
+      { forbidden: 'graph_index({ force: true })', allowed: 'graph_index() to build the graph' },
+      nextAction,
+      'a first build needs no force flag',
+    );
+  });
+});

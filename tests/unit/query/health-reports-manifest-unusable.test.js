@@ -20,6 +20,7 @@ import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { bumpGraphGeneration } from '../../../mcp/stdio/storage/publication-schema.js';
 import { SCHEMA_VERSION } from '../../../mcp/stdio/storage/schema.js';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 let repo; let graphDir;
 
@@ -72,7 +73,14 @@ describe('graph_health passes the manifest LOAD STATUS, not just the manifest', 
     // means a future refactor that reintroduces the wording is caught even if the enum survives.
     writeManifest(goodManifest().slice(0, 60));
     const out = await graphHealth({ repoRoot: repo });
-    expect(out.capabilities.nextAction).not.toMatch(/manifest never landed/);
-    expect(out.capabilities.nextAction).not.toMatch(/DIFFERENT generations/);
+    expectAbsentWithLiveMatcher(
+      /manifest never landed|DIFFERENT generations/,
+      {
+        forbidden: 'a rebuild committed and its manifest never landed',
+        allowed: 'the graph manifest could not be read (missing or corrupt)',
+      },
+      out.capabilities.nextAction,
+      'a read failure must not be described as a torn publication',
+    );
   });
 });

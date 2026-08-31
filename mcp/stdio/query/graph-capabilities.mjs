@@ -172,19 +172,27 @@ function nextActionFor(reason, language, languageHasServer, integrity = null, de
     // ⚠ THREE STATES, THREE REMEDIES. They all deny authority, and telling a reader the wrong one
     // sends them to a command that cannot help — which is worse than saying nothing, because they
     // will believe it worked.
+    //
+    // ⛔ AND EVERY ONE OF THEM SAYS force: true, WHICH IS NOT DECORATION. graph_index() defaults to
+    // force:false, and an incremental run over an unchanged (or body-only-changed) repository takes
+    // the all-cosmetic no-op path and returns `indexed: true` WITHOUT publishing anything. Measured:
+    // on a legacy graph, graph_index() reported indexed:true / processed:0 and left the graph
+    // legacy; graph_index({force:true}) published generation 1. So the bare form was a remedy that
+    // cannot work for the commonest case — a user would run it, see success, see no change, and
+    // conclude the tool was broken. That is worse than printing nothing at all.
     case 'legacy_unattested':
-      return 'graph_index() — this graph was built before publication was attested, so there is no '
+      return 'graph_index({ force: true }) — this graph was built before publication was attested, so there is no '
         + 'way to check that its contents match what the manifest claims. Orientation is unaffected; '
         + 'absence claims ("no callers") are a FLOOR until one rebuild publishes a generation.';
     case 'never_completed':
       // NOT the same as legacy, and deliberately not worded like it: the table exists, so the
       // question WAS asked, and the answer is that nothing has ever been published into it.
-      return 'graph_index() — the graph carries a publication record that has never been completed '
+      return 'graph_index({ force: true }) — the graph carries a publication record that has never been completed '
         + '(generation 0). This is an empty graph presenting as a real one; treat every answer, '
         + 'orientation included, as describing nothing.';
     case 'generation_mismatch':
       // The crash window: the database committed and the manifest write did not follow.
-      return 'graph_index() — the database and the manifest name DIFFERENT generations, so a '
+      return 'graph_index({ force: true }) — the database and the manifest name DIFFERENT generations, so a '
         + 'rebuild committed and its manifest never landed. The graph itself is whole and '
         + 'orientation is safe; it is unattested, which is recoverable by re-running the index.';
     case 'manifest_unusable':
@@ -192,7 +200,7 @@ function nextActionFor(reason, language, languageHasServer, integrity = null, de
       // a copy of the real graph, which meant telling a reader a rebuild had committed without its
       // manifest — a crash window nothing established. The remedy is the same command; the claim is
       // not, and the claim is what a reader acts on.
-      return 'graph_index() — the graph manifest could not be read (missing or corrupt), so its '
+      return 'graph_index({ force: true }) — the graph manifest could not be read (missing or corrupt), so its '
         + 'generation could not be compared against the database. This says nothing about whether '
         + 'the graph itself is torn: the comparison did not happen. Orientation is unaffected; '
         + 'absence claims are a FLOOR until a rebuild writes a manifest that can be read.';

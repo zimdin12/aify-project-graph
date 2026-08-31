@@ -319,7 +319,12 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
   if (KNOWN_UNATTESTED[attestation]) {
     return {
       tier: 'REVIEW',
-      reason: `${callerCount} caller(s), but ${KNOWN_UNATTESTED[attestation]} — run graph_index(), `
+      // ⛔ force:true, because the bare form is a remedy that cannot work here. graph_index()
+      // defaults to force:false, and an unchanged or body-only-changed repository takes the
+      // all-cosmetic no-op path: measured on a legacy graph it returned indexed:true /
+      // processed:0 and published nothing, leaving the graph exactly as unattested as before.
+      reason: `${callerCount} caller(s), but ${KNOWN_UNATTESTED[attestation]} — run `
+        + 'graph_index({ force: true }), '
         + 'or verify with code_intel_references / rg before deleting or changing the signature.',
     };
   }
