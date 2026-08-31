@@ -1,0 +1,54 @@
+{
+  "purpose": "Does the gate-disabled mutant change the routes the census identified? Second half of the pre-run precondition.",
+  "mutation": "classifyPublication returns ATTESTATION.ATTESTED unconditionally — the narrowest disable at the classifier, leaving every schema unchanged.",
+  "appliedTo": "the working tree, then reverted; the tree was fully committed first so the revert could not eat uncommitted work.",
+  "excludedFromComparison": {
+    "field": "server",
+    "why": "process build metadata, not graph behaviour. ANY source mutation dirties the tree and the staleness instrument correctly reports buildId +1dirty and names the changed file. Excluding it is not hiding a difference — it is removing an artifact of how the mutant was applied."
+  },
+  "rows": [
+    {
+      "state": "healthy",
+      "verb": "graph_health",
+      "differs": false
+    },
+    {
+      "state": "healthy",
+      "verb": "graph_status",
+      "differs": false
+    },
+    {
+      "state": "healthy",
+      "verb": "graph_preflight",
+      "differs": false
+    },
+    {
+      "state": "torn",
+      "verb": "graph_health",
+      "differs": true
+    },
+    {
+      "state": "torn",
+      "verb": "graph_status",
+      "differs": true
+    },
+    {
+      "state": "torn",
+      "verb": "graph_preflight",
+      "differs": true
+    }
+  ],
+  "controls": {
+    "mutantIsRealContrastOnTorn": {
+      "pass": true,
+      "verbsDiffering": [
+        "graph_health",
+        "graph_status",
+        "graph_preflight"
+      ]
+    },
+    "mutantIsInertOnHealthy": {
+      "pass": true
+    }
+  }
+}
