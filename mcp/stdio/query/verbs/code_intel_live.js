@@ -362,7 +362,35 @@ function buildReferencesEvidenceInner({ freshness, callsiteCount, defCount, resu
       exhaustive: false, fallback: 'pass warmupFiles[] (callers + headers), or wait_for_ready, then retry; absence not safe until evidence.ready=true', warnings
     };
   }
-  // freshness='unknown' with callsites — server gave us data, just no readiness signal
+  // freshness='unknown' with callsites — server gave us data, just no readiness signal.
+  //
+  // ⛔ BUT "unknown" WAS OFTEN A LIE OF OMISSION, AND A FIELD AGENT PAID 26,627 ms FOR IT. It
+  // passed waitForReadyMs:25000 on a repo with no compile_commands.json, waited the full budget,
+  // and was told `cause: "unknown"` — while the SAME response already carried the coverage reason
+  // "no compile_commands.json — clangd has no index". The cause was not unknown to us. We simply
+  // did not consult the object we were already holding.
+  //
+  // ⚠ THIS CHANGES THE CAUSE STRING ONLY. An earlier attempt tried to SKIP the wait in this case
+  // and was rejected by its own experiment: without the wait, reference resolution becomes a race
+  // (refs=0, refs=0, refs=1 on identical bytes). The wait buys determinism, not attestation, so it
+  // stays. See docs/evidence/wait-short-circuit/FINDING.md.
+  //
+  // Signature of "no DB at all", as measured rather than assumed — contrast with a PARTIAL DB,
+  // which reports partial:true and a non-zero firstPartyCount:
+  //     no DB    complete:false partial:false firstPartyCount:0 kind:'compile_db'
+  //     partial  complete:false partial:true  firstPartyCount:5 kind:'compile_db'
+  if (coverage && coverage.kind === 'compile_db' && coverage.complete === false
+      && coverage.partial === false && coverage.firstPartyCount === 0) {
+    return {
+      ready: false, degraded: false, cause: 'no_compile_db', confidence: 'medium',
+      exhaustive: false,
+      fallback: 'no compile_commands.json was found, so clangd has no index and readiness can '
+        + 'never be reported for this repo — raising waitForReadyMs will not change that. Results '
+        + 'already returned are real; only COMPLETENESS is unattested. Generate a compile DB '
+        + '(-DCMAKE_EXPORT_COMPILE_COMMANDS=ON) before any absence-dependent decision.',
+      warnings,
+    };
+  }
   return {
     ready: false, degraded: false, cause: 'unknown', confidence: 'medium',
     exhaustive: false, fallback: 'absence claims unsafe without readiness signal; result is otherwise usable', warnings
