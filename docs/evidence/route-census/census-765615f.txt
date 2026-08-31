@@ -1,0 +1,14 @@
+ROUTE CENSUS — does this verb's answer change when the graph is torn?
+
+  verb                 healthy vs torn      carries the mechanism?
+  ------------------------------------------------------------------
+  graph_health         DIFFERS              YES — estimable here
+  graph_status         DIFFERS              YES — estimable here
+  graph_preflight      DIFFERS              YES — estimable here
+  graph_callers        identical            NO  — score NOT REACHED
+  graph_consequences   identical            NO  — score NOT REACHED
+  graph_impact         identical            NO  — score NOT REACHED
+
+  CONTROL: at least one verb must differ, or the tear never took.
+  -> PASS — the tear is observable
+CENSUS_EXIT=0
