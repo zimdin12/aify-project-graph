@@ -6,66 +6,97 @@
   "classes": [
     {
       "id": "C1-internal-linkage-closed",
-      "symbol": "trulyFileLocal",
-      "files": ["helper.cpp"],
-      "question": "Does anything outside helper.cpp use trulyFileLocal?",
-      "truth": "NO. `static` gives it internal linkage, so no other translation unit can name it. Exhaustive within compiler-proven linkage scope.",
-      "cheapestAuthoritativeRoute": "read the definition, observe `static`, conclude TU-closed",
+      "symbol": "scaleFactor",
+      "files": [
+        "corpus/weights.cpp"
+      ],
+      "question": "Does anything outside weights.cpp use scaleFactor?",
+      "truth": "NO. It sits in an UNNAMED NAMESPACE, which gives internal linkage, so no other translation unit can name it. Exhaustive within compiler-proven linkage scope.",
+      "cheapestAuthoritativeRoute": "read the definition, observe the unnamed namespace, conclude TU-closed",
       "graphShouldWin": false,
-      "unsafeAnswer": "claiming callers may exist elsewhere (over-refusal), or claiming proof WITHOUT citing internal linkage"
+      "unsafeAnswer": "claiming callers may exist elsewhere (over-refusal), or claiming proof WITHOUT citing internal linkage",
+      "tier": "A"
     },
     {
       "id": "C2-no-header-external-declaration",
-      "symbol": "blockerHelper",
-      "files": ["helper.cpp", "caller-via-extern.cpp"],
-      "question": "Is it safe to delete blockerHelper from helper.cpp?",
-      "truth": "NO. Declared in zero headers, yet caller-via-extern.cpp repeats the `extern` declaration and calls it. External linkage, so file-local reading MISSES a real caller.",
+      "symbol": "computeWeight",
+      "files": [
+        "corpus/weights.cpp",
+        "corpus/pipeline.cpp"
+      ],
+      "question": "Is it safe to delete computeWeight from weights.cpp?",
+      "truth": "NO. Declared in zero headers, yet pipeline.cpp repeats the `extern` declaration and calls it. External linkage, so file-local reading MISSES a real caller.",
       "cheapestAuthoritativeRoute": "repo-wide search for the identifier, NOT a header search",
       "graphShouldWin": true,
-      "unsafeAnswer": "SAFE / no external callers — the exact failure the header-zero shortcut would produce"
+      "unsafeAnswer": "SAFE / no external callers — the exact failure the header-zero shortcut would produce",
+      "tier": "A"
     },
     {
       "id": "C3-unity-build",
-      "symbol": "blockerHelper",
-      "files": ["unity-build.cpp"],
-      "question": "Which translation unit contains blockerHelper?",
-      "truth": "UNANSWERABLE per-file. unity-build.cpp #includes both implementation files, so the per-file TU assumption does not hold.",
+      "symbol": "computeWeight",
+      "files": [
+        "corpus/bundle.cpp"
+      ],
+      "question": "Which translation unit contains computeWeight?",
+      "truth": "UNANSWERABLE per-file. bundle.cpp #includes both implementation files, so the per-file TU assumption does not hold.",
       "cheapestAuthoritativeRoute": "inspect the build's actual compile commands, not the file layout",
       "graphShouldWin": false,
-      "unsafeAnswer": "naming helper.cpp as THE translation unit without qualification"
+      "unsafeAnswer": "naming weights.cpp as THE translation unit without qualification",
+      "tier": "A"
     },
     {
       "id": "C4-header-exposed",
-      "symbol": "headerExposedHelper",
-      "files": ["header-exposed.h", "header-exposed.cpp", "header-consumer.cpp"],
-      "question": "Does anything call headerExposedHelper?",
-      "truth": "YES. header-consumer.cpp calls it via the header.",
+      "symbol": "normalizeInput",
+      "files": [
+        "corpus/normalize.h",
+        "corpus/normalize.cpp",
+        "corpus/stage.cpp"
+      ],
+      "question": "Does anything call normalizeInput?",
+      "truth": "YES. stage.cpp calls it via the header.",
       "cheapestAuthoritativeRoute": "compiler-backed references, or a repo-wide identifier search",
       "graphShouldWin": true,
-      "unsafeAnswer": "no callers"
+      "unsafeAnswer": "no callers",
+      "tier": "B"
     },
     {
       "id": "C5-dynamic-boundary",
-      "symbol": "dispatchTarget",
-      "files": ["dynamic-boundary.cpp"],
-      "question": "Is dispatchTarget dead code?",
-      "truth": "NO, and NO STATIC METHOD PROVES IT. It is referenced only as a function-pointer table entry — zero call expressions exist. A compiler-backed call-site search and a header grep both legitimately return zero.",
+      "symbol": "applyGain",
+      "files": [
+        "corpus/gain.cpp"
+      ],
+      "question": "Is applyGain dead code?",
+      "truth": "NO, and NO STATIC METHOD PROVES IT. It sits in an unnamed namespace and is referenced only as a function-pointer table entry — zero call expressions exist. A compiler-backed call-site search and a header grep both legitimately return zero.",
       "cheapestAuthoritativeRoute": "identifier search revealing the registration table; the honest verdict is exhaustive:false with the boundary named",
       "graphShouldWin": false,
       "unsafeAnswer": "dead code / safe to delete. This class must return exhaustive:false no matter how good the linkage analysis becomes.",
-      "note": "Even `grep 'dispatchTarget('` is misleading here: its single hit is the DEFINITION, not a call."
+      "note": "Even `grep 'applyGain('` is misleading here: its single hit is the DEFINITION, not a call.",
+      "tier": "A"
     },
     {
       "id": "C6-torn-graph-safety",
       "symbol": "(reuses C4)",
-      "files": ["header-exposed.h", "header-exposed.cpp", "header-consumer.cpp"],
+      "files": [
+        "corpus/normalize.h",
+        "corpus/normalize.cpp",
+        "corpus/stage.cpp"
+      ],
       "question": "Same as C4, asked against a deliberately torn graph that hides the caller while the source still contains it.",
       "truth": "YES, it is called. The graph is wrong; the source is authoritative.",
       "cheapestAuthoritativeRoute": "notice the publication state, distrust the graph, verify against source",
       "graphShouldWin": false,
       "unsafeAnswer": "'no callers', sourced from the torn graph without verification. THIS is the mechanism canary.",
-      "note": "ONE SMALL SLICE ONLY. Torn-state behaviour is not the product-value headline."
+      "note": "ONE SMALL SLICE ONLY. Torn-state behaviour is not the product-value headline.",
+      "tier": "B"
     }
   ],
-  "knownRouteGap": "code_intel_hierarchy consumes ZERO publication state, and code_intel_references is the verb the field report shows a tester actually using. A gate-disabled mutant may therefore change nothing on that route. Route-census each task and prove the mutant moves the CONSUMED route before treating any null as evidence."
+  "knownRouteGap": "code_intel_hierarchy consumes ZERO publication state, and code_intel_references is the verb the field report shows a tester actually using. A gate-disabled mutant may therefore change nothing on that route. Route-census each task and prove the mutant moves the CONSUMED route before treating any null as evidence.",
+  "tiers": {
+    "A": "PURPOSE-BUILT QUALIFICATION. Classes 1,2,3,5. Answers only: can the proposed rule distinguish the mechanisms at all? Failure here BLOCKS the feature. Success here is NOT evidence of field value and must never be reported as such.",
+    "B": "REAL PINNED SNAPSHOTS. Classes 4,6. This is the product-value estimate: route, adoption, decision utility. Ground truth frozen before runs and independently refereed.",
+    "analysisRule": "Report per tier, per class, per runtime. NEVER average synthetic and real into one \"X% better\" headline. Synthetic cases are adversarial coverage; real cases are the efficacy estimate. Hermes and Claude Code reported separately, never pooled."
+  },
+  "corpusHygiene": "Only corpus/ is copied into an arm. Filenames, symbol names and comments were ALL rewritten because the first version announced its own answers — files were named caller-via-extern.cpp, unity-build.cpp and header-exposed.cpp, and symbols were trulyFileLocal and headerExposedHelper. The corpus now carries ZERO comments: a comment explaining the case is a comment giving away the case. The answer key lives OUTSIDE corpus/.",
+  "notReachedRule": "If an agent naturally routes to code_intel_references, which consumes no publication state, record NOT REACHED and neither credit nor blame attestation. That no-reach outcome is itself product evidence. Do NOT modify prompts to force a consuming verb in tier B; a separate, explicitly labelled mechanism-route probe may force it, but cannot stand in for natural adoption.",
+  "keyIntegrity": "⚠ The key initially said `static` for C1 and C5 while the corpus used UNNAMED NAMESPACES, and still named header-consumer.cpp after that file had been renamed to stage.cpp. Both were caught by re-reading the corpus bytes against the key rather than trusting the key. An answer key that misdescribes its own corpus scores every arm wrongly and looks perfectly consistent while doing it."
 }
