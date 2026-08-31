@@ -1,0 +1,226 @@
+{
+  "takenAt": "2026-08-31T23:50:07.238Z",
+  "root": "C:/Docker/apg-m0b-arm1",
+  "groundTruthSymbols": 16,
+  "nodesExtracted": 14,
+  "distinctCanonicalKeys": 14,
+  "tally": {
+    "MATCHED": 10,
+    "FORKED": 2,
+    "ABSORBED_DISCLOSED": 1,
+    "ABSENT_FROM_GRAPH": 3
+  },
+  "absentFromGraph": [
+    "beta::Widget",
+    "beta::Widget::render()",
+    "::externally_declared(int)"
+  ],
+  "linkageModelled": false,
+  "graded": [
+    {
+      "id": "alpha::Widget",
+      "shape": "",
+      "verdict": "MATCHED",
+      "keys": [
+        "Class:src.shapes.Widget"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.h:5"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "alpha::Widget::render()",
+      "shape": "P3 decl+def, one symbol",
+      "verdict": "FORKED",
+      "keys": [
+        "Method:src.shapes.Widget.render",
+        "Method:Widget.render"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.h:7",
+        "src/shapes.cpp:6"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "alpha::Widget::measure(int) const",
+      "shape": "P3 decl+def, one symbol",
+      "verdict": "FORKED",
+      "keys": [
+        "Method:src.shapes.Widget.measure",
+        "Method:Widget.measure"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.h:8",
+        "src/shapes.cpp:8"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "alpha::configure(int)",
+      "shape": "P2 free function decl+def, one symbol",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.shapes.configure"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.cpp:11"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "alpha::clamp(int)",
+      "shape": "P1 overload A",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.shapes.clamp"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.cpp:14"
+      ],
+      "absorbedBy": [
+        "src/shapes.cpp:14"
+      ]
+    },
+    {
+      "id": "alpha::clamp(double)",
+      "shape": "P1 overload B — DISTINCT from overload A",
+      "verdict": "ABSORBED_DISCLOSED",
+      "keys": [],
+      "sharedWith": [],
+      "nodeSites": [],
+      "absorbedBy": [
+        "src/shapes.cpp:14"
+      ]
+    },
+    {
+      "id": "alpha::identity<T>(T)",
+      "shape": "P7 template",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.shapes.identity"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.h:19"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "alpha::operator==(const Widget&, const Widget&)",
+      "shape": "P7 operator",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.shapes.operator=="
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.cpp:17"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "beta::Widget",
+      "shape": "P4 same leaf name as alpha::Widget, DIFFERENT symbol",
+      "verdict": "ABSENT_FROM_GRAPH",
+      "keys": [],
+      "sharedWith": [],
+      "nodeSites": [],
+      "absorbedBy": []
+    },
+    {
+      "id": "beta::Widget::render()",
+      "shape": "P4 DISTINCT from alpha::Widget::render()",
+      "verdict": "ABSENT_FROM_GRAPH",
+      "keys": [],
+      "sharedWith": [],
+      "nodeSites": [],
+      "absorbedBy": []
+    },
+    {
+      "id": "::externally_declared(int)",
+      "shape": "P6 declared twice, defined nowhere in this corpus — ONE symbol",
+      "verdict": "ABSENT_FROM_GRAPH",
+      "keys": [],
+      "sharedWith": [],
+      "nodeSites": [],
+      "absorbedBy": []
+    },
+    {
+      "id": "helper(int) [internal, shapes.cpp]",
+      "shape": "P5 static twin A",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.shapes.helper"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.cpp:29"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "helper(int) [internal, other.cpp]",
+      "shape": "P5 static twin B — DISTINCT from twin A",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.other.helper"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/other.cpp:5"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "hidden(int) [internal, anonymous namespace, other.cpp]",
+      "shape": "P5 anonymous-namespace twin",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.other.hidden"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/other.cpp:9"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "use_helper(int)",
+      "shape": "",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.shapes.use_helper"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/shapes.cpp:31"
+      ],
+      "absorbedBy": []
+    },
+    {
+      "id": "other_use(int)",
+      "shape": "",
+      "verdict": "MATCHED",
+      "keys": [
+        "Function:src.other.other_use"
+      ],
+      "sharedWith": [],
+      "nodeSites": [
+        "src/other.cpp:12"
+      ],
+      "absorbedBy": []
+    }
+  ],
+  "controls": {
+    "liveness_nodesExtracted": true,
+    "positive_someSymbolMatched": true,
+    "negative_fabricatedSiteIsMissing": true
+  }
+}

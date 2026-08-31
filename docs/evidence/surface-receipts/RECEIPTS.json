@@ -1,0 +1,608 @@
+{
+  "takenAt": "2026-08-31T23:37:55.211Z",
+  "repoHead": "946bdeeb1912e5ed77e349d06bcc44344f05af26",
+  "node": "v22.20.0",
+  "platform": "win32",
+  "profiles": [
+    {
+      "profile": "lean",
+      "listedCount": 6,
+      "listedNames": [
+        "graph_watch",
+        "graph_health",
+        "graph_packet",
+        "graph_consequences",
+        "graph_change_plan",
+        "graph_pull"
+      ],
+      "serverEmittedBytes": {
+        "toolsListResult": 11771,
+        "instructions": 13880,
+        "toolsListPlusInstructions": 25651
+      },
+      "schemaShareOfToolsList": 0.58,
+      "perTool": [
+        {
+          "name": "graph_packet",
+          "descriptionBytes": 1435,
+          "inputSchemaBytes": 2275,
+          "totalBytes": 3805
+        },
+        {
+          "name": "graph_pull",
+          "descriptionBytes": 798,
+          "inputSchemaBytes": 1767,
+          "totalBytes": 2662
+        },
+        {
+          "name": "graph_consequences",
+          "descriptionBytes": 786,
+          "inputSchemaBytes": 1180,
+          "totalBytes": 2067
+        },
+        {
+          "name": "graph_health",
+          "descriptionBytes": 867,
+          "inputSchemaBytes": 224,
+          "totalBytes": 1185
+        },
+        {
+          "name": "graph_change_plan",
+          "descriptionBytes": 66,
+          "inputSchemaBytes": 884,
+          "totalBytes": 1046
+        },
+        {
+          "name": "graph_watch",
+          "descriptionBytes": 401,
+          "inputSchemaBytes": 497,
+          "totalBytes": 989
+        }
+      ],
+      "controls": {
+        "absentNameIsAbsent": true,
+        "absentNameRaw": {
+          "name": "graph_this_verb_is_not_registered_m0a",
+          "state": "absent",
+          "code": -32601,
+          "message": "unknown tool: graph_this_verb_is_not_registered_m0a"
+        },
+        "listedNameIsRegistered": true,
+        "listedNameRaw": {
+          "name": "graph_watch",
+          "state": "registered",
+          "code": -32602,
+          "message": "Invalid params: argument 'repo' targets a sensitive path"
+        }
+      },
+      "stderr": ""
+    },
+    {
+      "profile": "default",
+      "listedCount": 16,
+      "listedNames": [
+        "graph_index",
+        "graph_health",
+        "graph_census",
+        "graph_packet",
+        "code_intel_references",
+        "code_intel_hierarchy",
+        "graph_collect_code_intel",
+        "graph_consequences",
+        "graph_dashboard",
+        "graph_search",
+        "graph_whereis",
+        "graph_callers",
+        "graph_impact",
+        "graph_trace",
+        "graph_explore",
+        "graph_pull"
+      ],
+      "serverEmittedBytes": {
+        "toolsListResult": 25539,
+        "instructions": 13880,
+        "toolsListPlusInstructions": 39419
+      },
+      "schemaShareOfToolsList": 0.6969,
+      "perTool": [
+        {
+          "name": "graph_packet",
+          "descriptionBytes": 436,
+          "inputSchemaBytes": 2275,
+          "totalBytes": 2806
+        },
+        {
+          "name": "code_intel_hierarchy",
+          "descriptionBytes": 420,
+          "inputSchemaBytes": 1924,
+          "totalBytes": 2448
+        },
+        {
+          "name": "code_intel_references",
+          "descriptionBytes": 600,
+          "inputSchemaBytes": 1580,
+          "totalBytes": 2283
+        },
+        {
+          "name": "graph_pull",
+          "descriptionBytes": 418,
+          "inputSchemaBytes": 1767,
+          "totalBytes": 2276
+        },
+        {
+          "name": "graph_collect_code_intel",
+          "descriptionBytes": 406,
+          "inputSchemaBytes": 1631,
+          "totalBytes": 2143
+        },
+        {
+          "name": "graph_census",
+          "descriptionBytes": 960,
+          "inputSchemaBytes": 754,
+          "totalBytes": 1805
+        },
+        {
+          "name": "graph_consequences",
+          "descriptionBytes": 481,
+          "inputSchemaBytes": 1180,
+          "totalBytes": 1760
+        },
+        {
+          "name": "graph_whereis",
+          "descriptionBytes": 541,
+          "inputSchemaBytes": 998,
+          "totalBytes": 1633
+        },
+        {
+          "name": "graph_search",
+          "descriptionBytes": 56,
+          "inputSchemaBytes": 1441,
+          "totalBytes": 1588
+        },
+        {
+          "name": "graph_explore",
+          "descriptionBytes": 383,
+          "inputSchemaBytes": 1004,
+          "totalBytes": 1481
+        },
+        {
+          "name": "graph_impact",
+          "descriptionBytes": 133,
+          "inputSchemaBytes": 949,
+          "totalBytes": 1173
+        },
+        {
+          "name": "graph_trace",
+          "descriptionBytes": 398,
+          "inputSchemaBytes": 526,
+          "totalBytes": 1017
+        },
+        {
+          "name": "graph_callers",
+          "descriptionBytes": 403,
+          "inputSchemaBytes": 478,
+          "totalBytes": 974
+        },
+        {
+          "name": "graph_dashboard",
+          "descriptionBytes": 56,
+          "inputSchemaBytes": 786,
+          "totalBytes": 936
+        },
+        {
+          "name": "graph_health",
+          "descriptionBytes": 440,
+          "inputSchemaBytes": 224,
+          "totalBytes": 758
+        },
+        {
+          "name": "graph_index",
+          "descriptionBytes": 59,
+          "inputSchemaBytes": 281,
+          "totalBytes": 431
+        }
+      ],
+      "controls": {
+        "absentNameIsAbsent": true,
+        "absentNameRaw": {
+          "name": "graph_this_verb_is_not_registered_m0a",
+          "state": "absent",
+          "code": -32601,
+          "message": "unknown tool: graph_this_verb_is_not_registered_m0a"
+        },
+        "listedNameIsRegistered": true,
+        "listedNameRaw": {
+          "name": "graph_index",
+          "state": "registered",
+          "code": -32602,
+          "message": "Invalid params: argument 'repo' targets a sensitive path"
+        }
+      },
+      "stderr": ""
+    },
+    {
+      "profile": "code-intel",
+      "listedCount": 11,
+      "listedNames": [
+        "graph_health",
+        "graph_packet",
+        "code_intel_diagnostics",
+        "code_intel_references",
+        "code_intel_definitions",
+        "code_intel_hover",
+        "code_intel_replay",
+        "code_intel_analyze",
+        "code_intel_symbols",
+        "code_intel_hierarchy",
+        "graph_collect_code_intel"
+      ],
+      "serverEmittedBytes": {
+        "toolsListResult": 22158,
+        "instructions": 13880,
+        "toolsListPlusInstructions": 36038
+      },
+      "schemaShareOfToolsList": 0.6052,
+      "perTool": [
+        {
+          "name": "graph_packet",
+          "descriptionBytes": 1435,
+          "inputSchemaBytes": 2275,
+          "totalBytes": 3805
+        },
+        {
+          "name": "code_intel_references",
+          "descriptionBytes": 1100,
+          "inputSchemaBytes": 1580,
+          "totalBytes": 2783
+        },
+        {
+          "name": "graph_collect_code_intel",
+          "descriptionBytes": 980,
+          "inputSchemaBytes": 1631,
+          "totalBytes": 2717
+        },
+        {
+          "name": "code_intel_hierarchy",
+          "descriptionBytes": 597,
+          "inputSchemaBytes": 1924,
+          "totalBytes": 2625
+        },
+        {
+          "name": "code_intel_definitions",
+          "descriptionBytes": 793,
+          "inputSchemaBytes": 1142,
+          "totalBytes": 2037
+        },
+        {
+          "name": "code_intel_replay",
+          "descriptionBytes": 484,
+          "inputSchemaBytes": 1203,
+          "totalBytes": 1783
+        },
+        {
+          "name": "code_intel_diagnostics",
+          "descriptionBytes": 631,
+          "inputSchemaBytes": 964,
+          "totalBytes": 1697
+        },
+        {
+          "name": "code_intel_hover",
+          "descriptionBytes": 254,
+          "inputSchemaBytes": 1148,
+          "totalBytes": 1498
+        },
+        {
+          "name": "code_intel_analyze",
+          "descriptionBytes": 331,
+          "inputSchemaBytes": 810,
+          "totalBytes": 1239
+        },
+        {
+          "name": "graph_health",
+          "descriptionBytes": 867,
+          "inputSchemaBytes": 224,
+          "totalBytes": 1185
+        },
+        {
+          "name": "code_intel_symbols",
+          "descriptionBytes": 159,
+          "inputSchemaBytes": 510,
+          "totalBytes": 767
+        }
+      ],
+      "controls": {
+        "absentNameIsAbsent": true,
+        "absentNameRaw": {
+          "name": "graph_this_verb_is_not_registered_m0a",
+          "state": "absent",
+          "code": -32601,
+          "message": "unknown tool: graph_this_verb_is_not_registered_m0a"
+        },
+        "listedNameIsRegistered": true,
+        "listedNameRaw": {
+          "name": "graph_health",
+          "state": "registered",
+          "code": -32602,
+          "message": "Invalid params: argument 'repo' targets a sensitive path"
+        }
+      },
+      "stderr": ""
+    },
+    {
+      "profile": "full",
+      "listedCount": 32,
+      "listedNames": [
+        "graph_status",
+        "graph_index",
+        "graph_watch",
+        "graph_health",
+        "graph_census",
+        "graph_packet",
+        "code_intel_diagnostics",
+        "code_intel_references",
+        "code_intel_definitions",
+        "code_intel_hover",
+        "code_intel_symbols",
+        "code_intel_hierarchy",
+        "graph_collect_code_intel",
+        "graph_consequences",
+        "graph_explain_diff",
+        "graph_dashboard",
+        "graph_digest",
+        "graph_search",
+        "graph_whereis",
+        "graph_file",
+        "graph_shader",
+        "graph_onboard",
+        "graph_tour",
+        "graph_callers",
+        "graph_callees",
+        "graph_neighbors",
+        "graph_impact",
+        "graph_path",
+        "graph_trace",
+        "graph_explore",
+        "graph_pull",
+        "graph_find"
+      ],
+      "serverEmittedBytes": {
+        "toolsListResult": 45754,
+        "instructions": 13880,
+        "toolsListPlusInstructions": 59634
+      },
+      "schemaShareOfToolsList": 0.7065,
+      "perTool": [
+        {
+          "name": "graph_packet",
+          "descriptionBytes": 436,
+          "inputSchemaBytes": 2275,
+          "totalBytes": 2806
+        },
+        {
+          "name": "code_intel_hierarchy",
+          "descriptionBytes": 420,
+          "inputSchemaBytes": 1924,
+          "totalBytes": 2448
+        },
+        {
+          "name": "code_intel_references",
+          "descriptionBytes": 600,
+          "inputSchemaBytes": 1580,
+          "totalBytes": 2283
+        },
+        {
+          "name": "graph_pull",
+          "descriptionBytes": 418,
+          "inputSchemaBytes": 1767,
+          "totalBytes": 2276
+        },
+        {
+          "name": "graph_collect_code_intel",
+          "descriptionBytes": 406,
+          "inputSchemaBytes": 1631,
+          "totalBytes": 2143
+        },
+        {
+          "name": "code_intel_definitions",
+          "descriptionBytes": 793,
+          "inputSchemaBytes": 1142,
+          "totalBytes": 2037
+        },
+        {
+          "name": "graph_explain_diff",
+          "descriptionBytes": 357,
+          "inputSchemaBytes": 1513,
+          "totalBytes": 1967
+        },
+        {
+          "name": "graph_census",
+          "descriptionBytes": 960,
+          "inputSchemaBytes": 754,
+          "totalBytes": 1805
+        },
+        {
+          "name": "graph_consequences",
+          "descriptionBytes": 481,
+          "inputSchemaBytes": 1180,
+          "totalBytes": 1760
+        },
+        {
+          "name": "code_intel_diagnostics",
+          "descriptionBytes": 631,
+          "inputSchemaBytes": 964,
+          "totalBytes": 1697
+        },
+        {
+          "name": "graph_whereis",
+          "descriptionBytes": 541,
+          "inputSchemaBytes": 998,
+          "totalBytes": 1633
+        },
+        {
+          "name": "graph_search",
+          "descriptionBytes": 56,
+          "inputSchemaBytes": 1441,
+          "totalBytes": 1588
+        },
+        {
+          "name": "code_intel_hover",
+          "descriptionBytes": 254,
+          "inputSchemaBytes": 1148,
+          "totalBytes": 1498
+        },
+        {
+          "name": "graph_explore",
+          "descriptionBytes": 383,
+          "inputSchemaBytes": 1004,
+          "totalBytes": 1481
+        },
+        {
+          "name": "graph_path",
+          "descriptionBytes": 160,
+          "inputSchemaBytes": 1189,
+          "totalBytes": 1438
+        },
+        {
+          "name": "graph_digest",
+          "descriptionBytes": 356,
+          "inputSchemaBytes": 871,
+          "totalBytes": 1318
+        },
+        {
+          "name": "graph_shader",
+          "descriptionBytes": 135,
+          "inputSchemaBytes": 1071,
+          "totalBytes": 1297
+        },
+        {
+          "name": "graph_tour",
+          "descriptionBytes": 228,
+          "inputSchemaBytes": 926,
+          "totalBytes": 1245
+        },
+        {
+          "name": "graph_neighbors",
+          "descriptionBytes": 60,
+          "inputSchemaBytes": 1054,
+          "totalBytes": 1208
+        },
+        {
+          "name": "graph_impact",
+          "descriptionBytes": 133,
+          "inputSchemaBytes": 949,
+          "totalBytes": 1173
+        },
+        {
+          "name": "graph_onboard",
+          "descriptionBytes": 88,
+          "inputSchemaBytes": 878,
+          "totalBytes": 1058
+        },
+        {
+          "name": "graph_file",
+          "descriptionBytes": 77,
+          "inputSchemaBytes": 886,
+          "totalBytes": 1052
+        },
+        {
+          "name": "graph_trace",
+          "descriptionBytes": 398,
+          "inputSchemaBytes": 526,
+          "totalBytes": 1017
+        },
+        {
+          "name": "graph_find",
+          "descriptionBytes": 258,
+          "inputSchemaBytes": 646,
+          "totalBytes": 995
+        },
+        {
+          "name": "graph_watch",
+          "descriptionBytes": 401,
+          "inputSchemaBytes": 497,
+          "totalBytes": 989
+        },
+        {
+          "name": "graph_status",
+          "descriptionBytes": 138,
+          "inputSchemaBytes": 754,
+          "totalBytes": 983
+        },
+        {
+          "name": "graph_callers",
+          "descriptionBytes": 403,
+          "inputSchemaBytes": 478,
+          "totalBytes": 974
+        },
+        {
+          "name": "graph_dashboard",
+          "descriptionBytes": 56,
+          "inputSchemaBytes": 786,
+          "totalBytes": 936
+        },
+        {
+          "name": "code_intel_symbols",
+          "descriptionBytes": 159,
+          "inputSchemaBytes": 510,
+          "totalBytes": 767
+        },
+        {
+          "name": "graph_health",
+          "descriptionBytes": 440,
+          "inputSchemaBytes": 224,
+          "totalBytes": 758
+        },
+        {
+          "name": "graph_callees",
+          "descriptionBytes": 79,
+          "inputSchemaBytes": 478,
+          "totalBytes": 650
+        },
+        {
+          "name": "graph_index",
+          "descriptionBytes": 59,
+          "inputSchemaBytes": 281,
+          "totalBytes": 431
+        }
+      ],
+      "controls": {
+        "absentNameIsAbsent": true,
+        "absentNameRaw": {
+          "name": "graph_this_verb_is_not_registered_m0a",
+          "state": "absent",
+          "code": -32601,
+          "message": "unknown tool: graph_this_verb_is_not_registered_m0a"
+        },
+        "listedNameIsRegistered": true,
+        "listedNameRaw": {
+          "name": "graph_status",
+          "state": "registered",
+          "code": -32602,
+          "message": "Invalid params: argument 'repo' targets a sensitive path"
+        }
+      },
+      "stderr": ""
+    }
+  ],
+  "registry": {
+    "moduleDeclaredCount": 43,
+    "carrierRegisteredCount": 43,
+    "carrierAbsent": [],
+    "inconclusive": [],
+    "controlAbsentNameIsAbsent": true
+  },
+  "unlistedUnderEveryProfile": [
+    "graph_lookup",
+    "graph_report",
+    "graph_overview",
+    "graph_hotspots",
+    "graph_cycles",
+    "graph_module_tree",
+    "graph_preflight",
+    "graph_summary"
+  ],
+  "controls": {
+    "profilesDifferFromEachOther": true,
+    "distinctListings": 4
+  }
+}

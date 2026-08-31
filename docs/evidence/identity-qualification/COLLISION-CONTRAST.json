@@ -1,0 +1,24 @@
+{
+  "takenAt": "2026-08-31T23:50:56.530Z",
+  "root": "C:/Docker/apg-m0b-arm1",
+  "baselineCount": 14,
+  "mutantCount": 17,
+  "appeared": [
+    {
+      "site": "src/shapes.h:27",
+      "qname": "src.shapes.Gadget",
+      "type": "Class"
+    },
+    {
+      "site": "src/shapes.h:29",
+      "qname": "src.shapes.Gadget.render",
+      "type": "Method"
+    },
+    {
+      "site": "src/shapes.cpp:24",
+      "qname": "Gadget.render",
+      "type": "Method"
+    }
+  ],
+  "verdict": "IDENTITY COLLISION — the parser saw these symbols in both runs; the identity key discarded them in the baseline"
+}
