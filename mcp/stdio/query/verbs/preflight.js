@@ -1,6 +1,6 @@
 import { ATTESTATION, classifyPublication, readGraphPublication } from '../../storage/publication-schema.js';
 import { join } from 'node:path';
-import { openExistingDb } from '../../storage/db.js';
+import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
@@ -44,63 +44,91 @@ export async function graphPreflight({ repoRoot, symbol }) {
   // This used to be loaded on line 99, in the middle of the database work — the wrong side of the
   // pin, and across an await while an ordinary handle was held open.
   const manifest = await loadManifest(join(repoRoot, '.aify-graph'));
-  const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
-  try {
-    // 1. Find the symbol
-    // The population was written as a SQL string literal, so the miss message could not name
-    // what it had searched even in principle. One array, used for both.
+  const dbPath = join(repoRoot, '.aify-graph', 'graph.sqlite');
+
+  // ⭐ EVERY INPUT TO THE DECISION, FROM ONE PINNED INSTANT.
+  //
+  // This verb prints "DECISION: SAFE — proceed" before someone deletes a symbol. Its conclusion
+  // depends on WHICH graph answered, so the caller rows, the evidence-currency rows and the
+  // publication verdict that authorises them must be one observation. Read from an ordinary handle
+  // they were merely sequential: a rebuild committing between the caller count and the generation
+  // check would let a new manifest attest old caller data, and every individual read was correct.
+  //
+  // ⚠ Presentation reads are deliberately NOT in here. The impact breakdown and the trust line are
+  // cosmetic; pinning them would only lengthen the window the snapshot is held open, and a
+  // WAL reader held across rendering is the cost this design exists to avoid.
+  const decisionInputs = captureExistingSnapshot(dbPath, (db) => {
     const nodes = resolveSymbol(db, symbol, PREFLIGHT_TYPES.map((t) => `'${t}'`).join(','));
     if (nodes.length === 0) {
-      const base = `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`;
-      const scope = missScopeNote(db, { types: PREFLIGHT_TYPES, what: 'declaration types' });
-      return scope ? `${base}\n${scope}` : base;
+      return { miss: { base: `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`,
+        scope: missScopeNote(db, { types: PREFLIGHT_TYPES, what: 'declaration types' }) } };
     }
     const ambiguity = buildAmbiguousMatchMessage(symbol, nodes);
-    if (ambiguity) return ambiguity;
+    if (ambiguity) return { ambiguity };
     const node = selectBestRoot(nodes);
 
-    // 2. Count callers
     const callerCount = db.get(
       `SELECT count(*) AS c FROM edges WHERE to_id = $id AND relation IN (${asSqlList(CALL_FAMILY)})`,
-      { id: node.id }
+      { id: node.id },
     ).c;
-
-    // 3. Top 5 callers with labels.
-    //
-    // ⛔ TIER FIRST, CONFIDENCE SECOND. Ordering by confidence alone showed five EXTRACTED callers,
-    // all from test files, for the symbol Context — while 124 LSP_VERIFIED callers existed on that
-    // same symbol in that same graph. Every candidate ties at conf=0.95, so the tie-break was
-    // arbitrary and the compiler-verified evidence simply lost it. On the verb that answers "is this
-    // safe to change", the strongest evidence available has to be the evidence shown.
     const topCallers = db.all(
       `SELECT n.label, n.file_path, e.source_line, e.relation, e.confidence, e.provenance
        FROM edges e JOIN nodes n ON n.id = e.from_id
        WHERE e.to_id = $id AND e.relation IN (${asSqlList(CALL_FAMILY)})
        ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT 5`,
-      { id: node.id }
+      { id: node.id },
     );
-
-    // HEADLINE trust evidence — all incoming caller edges' provenance, so the
-    // lsp axis below reflects the full caller set, not just the top 5 shown.
     const incomingProvenance = db.all(
       `SELECT e.provenance FROM edges e
        WHERE e.to_id = $id AND e.relation IN (${asSqlList(CALL_FAMILY)})`,
-      { id: node.id }
+      { id: node.id },
     );
+    const tests = db.all(
+      `SELECT n.label, n.file_path FROM edges e
+       JOIN nodes n ON n.id = e.from_id
+       WHERE e.to_id = $id AND e.relation = 'TESTS' LIMIT 5`,
+      { id: node.id },
+    );
+
+    // Evidence currency, from the same instant as the rows it qualifies.
+    let latestCollection = null;
+    let contributingCollections = null;
+    try {
+      latestCollection = getLatestCollection(db);
+      contributingCollections = db.all(
+        'SELECT COUNT(DISTINCT collection_id) AS n FROM code_intel_records',
+      )[0]?.n ?? null;
+    } catch { /* leave null — unknown, and unknown does not grant SAFE */ }
+
+    return {
+      node, callerCount, topCallers, incomingProvenance, tests,
+      latestCollection, contributingCollections,
+      publication: readGraphPublication(db),
+    };
+  });
+
+  if (decisionInputs.miss) {
+    const { base, scope } = decisionInputs.miss;
+    return scope ? `${base}
+${scope}` : base;
+  }
+  if (decisionInputs.ambiguity) return decisionInputs.ambiguity;
+
+  const {
+    node, callerCount, topCallers, incomingProvenance, tests,
+    latestCollection, contributingCollections, publication: publicationHere,
+  } = decisionInputs;
+
+  // A SEPARATE, SHORT-LIVED handle for presentation only. Nothing read here reaches the decision.
+  const db = openExistingDb(dbPath);
+  try {
+    // Symbol, callers and tests came from the pinned capture above.
 
     // 4. Impact count by type
     const impactByType = db.all(
       `SELECT relation, count(*) AS c FROM edges
        WHERE to_id = $id AND relation IN (${asSqlList(IMPACT_FAMILY)})
        GROUP BY relation`,
-      { id: node.id }
-    );
-
-    // 5. Test coverage
-    const tests = db.all(
-      `SELECT n.label, n.file_path FROM edges e
-       JOIN nodes n ON n.id = e.from_id
-       WHERE e.to_id = $id AND e.relation = 'TESTS' LIMIT 5`,
       { id: node.id }
     );
 
@@ -146,20 +174,17 @@ export async function graphPreflight({ repoRoot, symbol }) {
     let eligibleDirty = null;
     try {
       // Reuses the HEAD this verb already observed via inspectReadFreshness — this file's own rule
-      // is one git observation per read, not two.
-      const latest = getLatestCollection(db);
-      if (latest?.indexedCommit && freshness.head) {
-        collectionCurrent = latest.indexedCommit === freshness.head;
+      // is one git observation per read, not two. The collection itself came from the pinned
+      // capture, so the currency verdict and the caller rows it qualifies share one instant.
+      if (latestCollection?.indexedCommit && freshness.head) {
+        collectionCurrent = latestCollection.indexedCommit === freshness.head;
       }
 
       // ⛔ ONE CURRENT COLLECTION CANNOT CERTIFY A UNION OF MANY. `coverage.complete` counts
       // records across EVERY live collection, while currency compares HEAD to the LATEST one only —
       // so a small, current, targeted collection can vouch for coverage that older collections
       // actually supplied. Mixed generations are not one body of evidence.
-      const contributing = db.all(
-        'SELECT COUNT(DISTINCT collection_id) AS n FROM code_intel_records',
-      )[0]?.n;
-      evidenceUnion = Number.isInteger(contributing) ? contributing > 1 : null;
+      evidenceUnion = Number.isInteger(contributingCollections) ? contributingCollections > 1 : null;
 
       // ⛔ SCOPED TO THE ELIGIBLE EVIDENCE CORPUS, NOT THE WHOLE WORKTREE, AND DERIVED FROM THE
       // REAL REGISTRY. A dirty README cannot hide a caller; a dirty .cpp can. Measured on this
@@ -182,9 +207,6 @@ export async function graphPreflight({ repoRoot, symbol }) {
       }
     } catch { /* leave null — unknown, and unknown does not grant SAFE */ }
 
-    // Read from the handle this verb already holds, so the publication verdict and the caller rows
-    // it authorises come out of one connection rather than two opens with a commit window between.
-    const publicationHere = readGraphPublication(db);
     const decision = computeDecision({
       callerCount,
       testCount: tests.length,

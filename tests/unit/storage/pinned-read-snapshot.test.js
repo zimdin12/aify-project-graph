@@ -133,9 +133,17 @@ describe('a pinned read snapshot survives a commit landing mid-read', () => {
     // so it failed with "The database connection is not open" — and an async callback that DID work
     // would be worse, holding a WAL read open across git or LSP awaits. Rejecting a thenable makes
     // the WAL-pinning shape unreachable rather than merely discouraged.
-    expect(() => captureExistingSnapshot(dbPath, async (db) => {
+    // ⚠ THE CALLBACK MUST NOT TOUCH `db` AFTER ITS AWAIT, and that is not a detail. My first
+    // version did — `await Promise.resolve(); return db.get(...)` — and while the rejection below
+    // fired correctly, the orphaned async function kept running, reached a handle the finally had
+    // already closed, and produced an UNHANDLED REJECTION. Ten tests passed and vitest reported
+    // "The database connection is not open" as a loose error attached to nothing.
+    //
+    // The test proving we reject async callbacks was leaking the exact failure it documents. What
+    // is under test is the THENABLE being refused, not what an abandoned promise goes on to do.
+    expect(() => captureExistingSnapshot(dbPath, async () => {
       await Promise.resolve();
-      return db.get('SELECT 1 AS x');
+      return 'never reaches the caller';
     })).toThrow(/must be SYNCHRONOUS/);
   });
 
