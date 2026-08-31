@@ -44,6 +44,13 @@ export const IDENTITY_CARRIER_PATHS = Object.freeze([
  * ⚠ NARROW ON PURPOSE. A general /dirty/i would strike any task text mentioning a dirty worktree,
  * which is legitimate content in this domain. Each pattern here reproduces the emitted sentence and
  * varies only where the server varies it.
+ *
+ * ⚠ CONTINGENCY, NOT VERIFIED DEFENCE — measured, not assumed. Across the real captured responses
+ * every prose cue sits at `server.buildId` or `server.loadedDirtyNote`, both removed by the path
+ * allowlist above, so these patterns fire ZERO times on production bytes (proseHits: 0). Nothing
+ * outside server-build.js propagates the note into a summary or verdict line today. They are
+ * exercised only by a synthetic case. That makes them defence for a shape that does not currently
+ * occur — worth keeping, not worth counting as tested.
  */
 export const IDENTITY_PROSE = Object.freeze([
   /This process loaded \d+ UNCOMMITTED file\(s\)[^."]*\./g,

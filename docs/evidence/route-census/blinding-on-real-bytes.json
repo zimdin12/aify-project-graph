@@ -1,0 +1,107 @@
+{
+  "purpose": "Blinder verified against the ACTUAL captured mutant responses, not a hand-written fixture.",
+  "subject": "gate-mutant dump produced by scripts/ab-gate-dump.mjs under the gate-disabled mutant",
+  "rows": [
+    {
+      "state": "healthy",
+      "verb": "graph_health",
+      "cuesBefore": [
+        "+Ndirty build id",
+        "loadedDirtyFiles",
+        "loadedDirtyNote",
+        "uncommitted-file note"
+      ],
+      "cuesAfter": [],
+      "removedPaths": [
+        "server.buildId",
+        "server.loadedDirtyFiles",
+        "server.loadedDirtyNote"
+      ],
+      "proseHits": 0,
+      "bytesBefore": 4746,
+      "bytesAfter": 4375,
+      "hashBefore": "e1e095775d2a087e",
+      "hashAfter": "34d7feef5c4b0df2"
+    },
+    {
+      "state": "healthy",
+      "verb": "graph_status",
+      "cuesBefore": [],
+      "cuesAfter": [],
+      "removedPaths": [],
+      "proseHits": 0,
+      "bytesBefore": 860,
+      "bytesAfter": 860,
+      "hashBefore": "1ce8ea6c44898810",
+      "hashAfter": "1ce8ea6c44898810"
+    },
+    {
+      "state": "healthy",
+      "verb": "graph_preflight",
+      "cuesBefore": [],
+      "cuesAfter": [],
+      "removedPaths": [],
+      "proseHits": 0,
+      "bytesBefore": 957,
+      "bytesAfter": 957,
+      "hashBefore": "edb5a25dd78805ae",
+      "hashAfter": "edb5a25dd78805ae"
+    },
+    {
+      "state": "torn",
+      "verb": "graph_health",
+      "cuesBefore": [
+        "+Ndirty build id",
+        "loadedDirtyFiles",
+        "loadedDirtyNote",
+        "uncommitted-file note"
+      ],
+      "cuesAfter": [],
+      "removedPaths": [
+        "server.buildId",
+        "server.loadedDirtyFiles",
+        "server.loadedDirtyNote"
+      ],
+      "proseHits": 0,
+      "bytesBefore": 4746,
+      "bytesAfter": 4375,
+      "hashBefore": "e1e095775d2a087e",
+      "hashAfter": "34d7feef5c4b0df2"
+    },
+    {
+      "state": "torn",
+      "verb": "graph_status",
+      "cuesBefore": [],
+      "cuesAfter": [],
+      "removedPaths": [],
+      "proseHits": 0,
+      "bytesBefore": 860,
+      "bytesAfter": 860,
+      "hashBefore": "1ce8ea6c44898810",
+      "hashAfter": "1ce8ea6c44898810"
+    },
+    {
+      "state": "torn",
+      "verb": "graph_preflight",
+      "cuesBefore": [],
+      "cuesAfter": [],
+      "removedPaths": [],
+      "proseHits": 0,
+      "bytesBefore": 957,
+      "bytesAfter": 957,
+      "hashBefore": "edb5a25dd78805ae",
+      "hashAfter": "edb5a25dd78805ae"
+    }
+  ],
+  "findings": {
+    "verbsCarryingArmCues": [
+      "healthy.graph_health",
+      "torn.graph_health"
+    ],
+    "onlyGraphHealthLeaks": true,
+    "cuesSurvivingBlinding": 0,
+    "removalsOutsideAllowlist": [],
+    "proseScrubberFiredOnRealBytes": false
+  },
+  "proseStatus": "CONTINGENCY, NOT VERIFIED DEFENCE. Every prose cue observed sits at server.buildId or server.loadedDirtyNote, both removed by the path allowlist, so the prose patterns never fire on real bytes. They are exercised only by a synthetic case where the note appears inside a summary string — a shape the server does not currently produce (nothing outside server-build.js propagates it). Not dead code; not tested against production shape either."
+}
