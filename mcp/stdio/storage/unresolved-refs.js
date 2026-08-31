@@ -133,15 +133,46 @@ export function replaceUnresolvedRefs(db, refs) {
   return refs.length;
 }
 
-export function readUnresolvedRefs(db) {
+/**
+ * Is a table actually present? Asked of sqlite_master, not inferred from a query that threw.
+ *
+ * ⛔ THE DISTINCTION THIS EXISTS FOR. `readUnresolvedRefs` used to catch EVERY error and return
+ * null, and null's contract is "no table, this is a legacy graph". Reviewer executed the
+ * counter-case and I reproduced it: a PRESENT table holding one row with corrupt
+ * `import_map_json` reads as null, because hydrateRef's JSON.parse throws. The caller then treats
+ * a corrupt table as an absent one, falls through to the legacy sidecar, and resurrects stale rows
+ * as though they were current.
+ *
+ * Absence is now ESTABLISHED rather than inferred. Anything else is a typed failure.
+ */
+function tableExists(db, name) {
   try {
-    return db.all(`SELECT ${UNRESOLVED_REF_COLUMNS.join(', ')} FROM unresolved_refs ORDER BY id`)
-      .map(hydrateRef);
+    return db.all(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = $n", { n: name },
+    ).length > 0;
   } catch {
-    // Table absent = a legacy graph. NULL-ish, not empty: an empty array here would read as "this
-    // graph has no unresolved refs", which is a claim about the repository rather than about us.
+    // ⛔ IF sqlite_master ITSELF CANNOT BE READ the handle is unusable, and we know nothing about
+    // any table. Reporting "absent" here would be the same laundering one level down.
     return null;
   }
+}
+
+/**
+ * @returns {object[]}  the rows, when the table is present and readable
+ * @returns {null}      the table does not exist — a LEGACY graph
+ * @throws              the table exists and could not be read. A caller that wants to survive this
+ *                      must catch it deliberately; it must never arrive disguised as legacy.
+ */
+export function readUnresolvedRefs(db) {
+  const present = tableExists(db, 'unresolved_refs');
+  if (present === false) return null;          // established absence: legacy graph
+  if (present === null) {
+    throw new Error('unresolved_refs: the database could not be queried at all (sqlite_master '
+      + 'unreadable), so table presence is unknown — this is not a legacy graph');
+  }
+  // Present. Any failure from here is a failure to READ a table we know exists, and it propagates.
+  return db.all(`SELECT ${UNRESOLVED_REF_COLUMNS.join(', ')} FROM unresolved_refs ORDER BY id`)
+    .map(hydrateRef);
 }
 
 export function replaceStructuralFingerprints(db, fingerprints) {
@@ -156,11 +187,21 @@ export function replaceStructuralFingerprints(db, fingerprints) {
   return fingerprints instanceof Map ? fingerprints.size : fingerprints.length;
 }
 
+/**
+ * @returns {Map}   the stored fingerprints
+ * @returns {null}  the table does not exist — a legacy graph; the cosmetic fast path DISABLES
+ * @throws          the table exists and could not be read. Same rule as the refs above: a read
+ *                  failure over a present table must not wear the legacy answer's clothes, because
+ *                  legacy merely disables an optimisation while corruption means the fingerprints
+ *                  being trusted may be wrong.
+ */
 export function readStructuralFingerprints(db) {
-  try {
-    const rows = db.all('SELECT file_path, fingerprint FROM structural_fingerprints');
-    return new Map(rows.map((r) => [r.file_path, r.fingerprint]));
-  } catch {
-    return null;   // legacy graph — the cosmetic fast path must DISABLE, not guess
+  const present = tableExists(db, 'structural_fingerprints');
+  if (present === false) return null;
+  if (present === null) {
+    throw new Error('structural_fingerprints: the database could not be queried at all, so table '
+      + 'presence is unknown — this is not a legacy graph');
   }
+  const rows = db.all('SELECT file_path, fingerprint FROM structural_fingerprints');
+  return new Map(rows.map((r) => [r.file_path, r.fingerprint]));
 }

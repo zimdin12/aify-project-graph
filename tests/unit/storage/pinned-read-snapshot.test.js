@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { openDb, openExistingDb, withExistingSnapshot } from '../../../mcp/stdio/storage/db.js';
+import { openDb, openExistingDb, captureExistingSnapshot } from '../../../mcp/stdio/storage/db.js';
 import { bumpGraphGeneration, readGraphGeneration } from '../../../mcp/stdio/storage/publication-schema.js';
 
 let dir; let dbPath;
@@ -46,7 +46,7 @@ function commitNewGeneration() {
 
 describe('a pinned read snapshot survives a commit landing mid-read', () => {
   it('⛔ the generation check and the data reads see the SAME graph', () => {
-    const observed = withExistingSnapshot(dbPath, (db) => {
+    const observed = captureExistingSnapshot(dbPath, (db) => {
       const generationBefore = readGraphGeneration(db);
       const nodesBefore = db.all('SELECT id FROM nodes').map((r) => r.id);
 
@@ -87,11 +87,11 @@ describe('a pinned read snapshot survives a commit landing mid-read', () => {
   it('the snapshot is released when the callback returns — the next one sees the new graph', () => {
     // A snapshot that outlived its call would pin the WAL open and hand every later reader a
     // frozen graph, which is a worse failure than the one being fixed.
-    withExistingSnapshot(dbPath, (db) => {
+    captureExistingSnapshot(dbPath, (db) => {
       commitNewGeneration();
       return readGraphGeneration(db);
     });
-    const after = withExistingSnapshot(dbPath, (db) => ({
+    const after = captureExistingSnapshot(dbPath, (db) => ({
       generation: readGraphGeneration(db),
       nodes: db.all('SELECT id FROM nodes').map((r) => r.id),
     }));
@@ -100,17 +100,17 @@ describe('a pinned read snapshot survives a commit landing mid-read', () => {
   });
 
   it('a throwing callback still releases the snapshot', () => {
-    expect(() => withExistingSnapshot(dbPath, () => { throw new Error('boom'); })).toThrow(/boom/);
+    expect(() => captureExistingSnapshot(dbPath, () => { throw new Error('boom'); })).toThrow(/boom/);
     // If the failed call had leaked its transaction, this write would block or the read below
     // would be stale.
     commitNewGeneration();
-    expect(withExistingSnapshot(dbPath, (db) => readGraphGeneration(db))).toBe(2);
+    expect(captureExistingSnapshot(dbPath, (db) => readGraphGeneration(db))).toBe(2);
   });
 
   it('⛔ the handle is READ-ONLY — a pinned writer would hit SQLITE_BUSY_SNAPSHOT', () => {
     // collect_code_intel.js opens with readonly:false. If this helper ever accepted a writable
     // handle, that caller would start failing under exactly the concurrency it exists to survive.
-    expect(() => withExistingSnapshot(dbPath, (db) => {
+    expect(() => captureExistingSnapshot(dbPath, (db) => {
       db.run("INSERT INTO nodes (id, type, label, file_path) VALUES ('n3', 'File', 'c.js', 'c.js')");
     })).toThrow(/readonly/i);
   });
@@ -120,7 +120,7 @@ describe('a pinned read snapshot survives a commit landing mid-read', () => {
     // this helper exists to close stays open for however long the callback spends on non-database
     // work — reading a manifest, awaiting a lock, formatting a response. The commit below happens
     // before the callback's FIRST read, so it is only excluded if the snapshot was already taken.
-    const seen = withExistingSnapshot(dbPath, (db) => {
+    const seen = captureExistingSnapshot(dbPath, (db) => {
       commitNewGeneration();
       return db.all('SELECT id FROM nodes').map((r) => r.id);
     });
@@ -128,7 +128,31 @@ describe('a pinned read snapshot survives a commit landing mid-read', () => {
       .toEqual(['n1']);
   });
 
+  it('⛔ an ASYNC capture callback is REJECTED, not awaited', () => {
+    // Reviewer executed the misuse: the finally closes the handle before an async callback resumes,
+    // so it failed with "The database connection is not open" — and an async callback that DID work
+    // would be worse, holding a WAL read open across git or LSP awaits. Rejecting a thenable makes
+    // the WAL-pinning shape unreachable rather than merely discouraged.
+    expect(() => captureExistingSnapshot(dbPath, async (db) => {
+      await Promise.resolve();
+      return db.get('SELECT 1 AS x');
+    })).toThrow(/must be SYNCHRONOUS/);
+  });
+
+  it('⛔ a promise returned WITHOUT async is rejected too — the shape, not the keyword', () => {
+    // Catches the version that hand-rolls a promise, which an `instanceof Promise` check would
+    // catch but a naive `constructor.name === 'AsyncFunction'` check would not.
+    expect(() => captureExistingSnapshot(dbPath, () => Promise.resolve(1)))
+      .toThrow(/must be SYNCHRONOUS/);
+  });
+
+  it('POSITIVE CONTROL: a synchronous callback returning plain data still works', () => {
+    // ⛔ Without this the rejection could be unconditional and every case above would pass while
+    // the helper was simply broken.
+    expect(captureExistingSnapshot(dbPath, (db) => db.get('SELECT 1 AS x').x)).toBe(1);
+  });
+
   it('the callback return value is passed through', () => {
-    expect(withExistingSnapshot(dbPath, () => 'result')).toBe('result');
+    expect(captureExistingSnapshot(dbPath, () => 'result')).toBe('result');
   });
 });

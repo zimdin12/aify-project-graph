@@ -90,44 +90,56 @@ export function openExistingDb(dbPath, { readonly = true } = {}) {
 }
 
 /**
- * Run `fn` against a PINNED read snapshot: every read inside sees one instant of the database.
+ * CAPTURE every database-derived fact a claim depends on, from ONE pinned snapshot, synchronously.
  *
  * ⛔ THE BUG THIS EXISTS FOR IS CHECK-THEN-ACT, AND IT SURVIVES ATOMIC PUBLICATION.
- * A reader that asks "is this graph attested?" and then asks "what does it contain?" makes two
- * reads. Publication being one transaction guarantees each read is internally whole — it does NOT
- * stop a commit landing BETWEEN them. So the check can pass against generation N and the data can
- * come from N+1, and every individual read was correct. Nothing in the result would look wrong.
+ * A reader that asks "is this graph attested?" and then "what does it contain?" makes two reads.
+ * Publication being one transaction guarantees each read is internally whole — it does NOT stop a
+ * commit landing BETWEEN them. So the check can pass against generation N and the data can come
+ * from N+1, and every individual read was correct. Nothing in the result would look wrong.
  *
- * Under WAL a read transaction fixes the snapshot at its first read and holds it until it ends, so
- * the generation check and the data reads become one observation of one graph.
+ * ⛔ SYNCHRONOUS ONLY, AND THE NAME SAYS CAPTURE FOR A REASON.
+ * The first version was `withExistingSnapshot` and accepted any callback. Reviewer executed the
+ * obvious misuse:
  *
- * ⛔ READONLY, ALWAYS, AND NOT NEGOTIABLE BY THE CALLER. A pinned WRITE handle raises
- * SQLITE_BUSY_SNAPSHOT the moment another connection commits — collect_code_intel.js opens with
- * `readonly: false` and would start failing under exactly the concurrency this is meant to survive.
- * There is deliberately no option to pass a writable handle: the safe thing must not be optional.
+ *     await withExistingSnapshot(p, async (db) => { await Promise.resolve(); return db.get(...); })
+ *     -> "The database connection is not open"
  *
- * ⚠ THE SNAPSHOT PINS THE DATABASE, NOT THE MANIFEST. The manifest is a separate file and a
- * separate read; it must be read BEFORE the snapshot opens, so that a commit landing in between
- * shows up as a generation mismatch (refuse) rather than being silently absorbed.
+ * because `finally` closes the handle before an async callback resumes. Worse than the error: an
+ * async callback that DID work would hold a WAL read transaction open across git, LSP or filesystem
+ * awaits, pinning the write-ahead log for as long as an unrelated subprocess took.
+ *
+ * ⇒ The contract is: read the manifest FIRST (it is a different substrate), then capture every DB
+ * fact the eventual claim uses in one synchronous callback, then close, then do async work on the
+ * captured plain data. A thenable return is rejected rather than awaited, because silently awaiting
+ * it is how the WAL-pinning version comes back.
+ *
+ * ⛔ READONLY, NOT NEGOTIABLE BY THE CALLER. A pinned WRITE handle raises SQLITE_BUSY_SNAPSHOT the
+ * moment another connection commits — collect_code_intel.js opens with `readonly: false` and would
+ * start failing under exactly the concurrency this is meant to survive.
+ *
+ * ⚠ RETURN PLAIN DATA. Rows and scalars, never the handle, a prepared statement, or a closure over
+ * them: anything that escapes and is used after close is the same defect wearing a carrier.
  */
-export function withExistingSnapshot(dbPath, fn) {
+export function captureExistingSnapshot(dbPath, capture) {
   const db = openExistingDb(dbPath, { readonly: true });
   try {
     db.raw.exec('BEGIN');
-    // Pin the snapshot HERE rather than leaving it to whatever `fn` happens to read first.
-    // A deferred BEGIN acquires nothing until something reads, so without this the window the
-    // function exists to close stays open for as long as `fn` does non-database work — reading a
-    // manifest, awaiting a lock, formatting a response. Mutation-tested: removing this line makes
-    // a commit landing before the callback's first read visible inside the snapshot.
+    // Pin HERE rather than at whatever the callback reads first. A deferred BEGIN acquires nothing
+    // until something reads, so without this the window stays open for as long as the callback
+    // spends on non-database work. Mutation-tested: removing this line makes a commit landing
+    // before the callback's first read visible inside the snapshot.
     db.raw.prepare('SELECT 1 FROM sqlite_master LIMIT 1').get();
-    return fn(db);
+    const captured = capture(db);
+    if (captured !== null && typeof captured?.then === 'function') {
+      throw new Error(
+        'captureExistingSnapshot: the capture callback must be SYNCHRONOUS. It returned a thenable, '
+        + 'which would either resume after the handle closed or hold a WAL read transaction open '
+        + 'across unrelated awaits. Capture plain data here, close, then do async work on it.',
+      );
+    }
+    return captured;
   } finally {
-    // ⚠ NO EXPLICIT ROLLBACK, DELIBERATELY. Closing the connection ends the read transaction and
-    // releases the snapshot, so a ROLLBACK here would be a line that reads like a safeguard while
-    // changing nothing. Measured, not assumed: a mutant that removed the ROLLBACK and kept only
-    // this close() SURVIVED the whole suite, including the case where the callback throws. Rather
-    // than leave ceremony that a future reader would trust, the ceremony is gone and the reason is
-    // written down.
     db.close();
   }
 }
