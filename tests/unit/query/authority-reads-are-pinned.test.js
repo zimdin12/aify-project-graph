@@ -15,6 +15,7 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const calls = [];
@@ -122,6 +123,65 @@ describe('the verbs that grant or withhold authority read through the pinned own
       out,
       'an attested graph was described with an unattested reason',
     );
+  });
+
+  it('⛔ a NO MATCH from an unattested graph says so — an absence is the sharpest claim', async () => {
+    // ⭐ REVIEWER FOUND THIS AND I REPRODUCED IT. preflight resolved the symbol BEFORE reading the
+    // publication, so the miss and ambiguity branches returned before classification ever ran.
+    // On a torn graph:
+    //
+    //   existing symbol -> "DECISION: REVIEW ... DIFFERENT generations"
+    //   missing symbol  -> "NO MATCH for ghost" and nothing else
+    //
+    // The least attested answer got the least qualification. A NO MATCH is an absence claim, which
+    // is the action class this whole unit protects.
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    try { db.run('UPDATE graph_generation SET generation = generation + 1'); } finally { db.close(); }
+
+    const { graphPreflight } = await import('../../../mcp/stdio/query/verbs/preflight.js');
+    const out = String(await graphPreflight({ repoRoot: repo, symbol: 'ghost-that-does-not-exist' }));
+    expect(out, 'the miss must still be reported').toMatch(/NO MATCH/);
+    expect(out, 'and it must name the publication state').toMatch(/GENERATION_MISMATCH/);
+    expect(out, 'and say what that means for the absence')
+      .toMatch(/not evidence the symbol is gone/);
+  });
+
+  it('POSITIVE CONTROL: a NO MATCH from an ATTESTED graph carries no such warning', async () => {
+    // ⛔ Without this the note could be unconditional — and a qualifier on every miss is one nobody
+    // reads, which would bury the case that matters.
+    const { graphPreflight } = await import('../../../mcp/stdio/query/verbs/preflight.js');
+    const out = String(await graphPreflight({ repoRoot: repo, symbol: 'ghost-that-does-not-exist' }));
+    expect(out).toMatch(/NO MATCH/);
+    expectAbsentWithLiveMatcher(
+      /THIS GRAPH IS [A-Z_]+:/,
+      {
+        forbidden: 'AND THIS GRAPH IS GENERATION_MISMATCH: its contents could not be verified',
+        allowed: 'NO MATCH for "ghost". Try graph_search to find similar names.',
+      },
+      out,
+      'an attested graph must not warn about its own publication',
+    );
+  });
+
+  it('⛔ an AMBIGUOUS match from an unattested graph carries the verdict too', async () => {
+    // A surviving mutant showed the ambiguity branch was untested. It is the same early return as
+    // the miss — it leaves before the decision is built — and an ambiguity is a claim about what
+    // this graph contains, made from a graph nobody verified.
+    writeFileSync(join(repo, 'src', 'dup.js'), 'export function target() { return 2; }\n');
+    execFileSync('git', ['-C', repo, 'add', '-A'], { encoding: 'utf8', stdio: 'pipe' });
+    execFileSync('git', ['-C', repo, 'commit', '-qm', 'dup'], { encoding: 'utf8', stdio: 'pipe' });
+    const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+    await ensureFresh({ repoRoot: repo, force: true });
+
+    const db = openDb(join(repo, '.aify-graph', 'graph.sqlite'));
+    try { db.run('UPDATE graph_generation SET generation = generation + 1'); } finally { db.close(); }
+
+    const { graphPreflight } = await import('../../../mcp/stdio/query/verbs/preflight.js');
+    const out = String(await graphPreflight({ repoRoot: repo, symbol: 'target' }));
+    // Either branch is acceptable as a RESULT — what is not acceptable is answering without the
+    // verdict, so assert the verdict rather than which branch was taken.
+    expect(out, 'the publication state must reach every early return')
+      .toMatch(/GENERATION_MISMATCH|DIFFERENT generations/);
   });
 
   it('POSITIVE CONTROL: the spy records nothing when no verb runs', () => {

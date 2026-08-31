@@ -314,7 +314,30 @@ export async function ensureFresh({
       //
       // ⚠ The legacy file is read ONLY when the table is absent. It is 11.3 MB on this repository
       // and re-reading it on every rebuild forever would be a permanent cost for a one-time ramp.
-      const tableRefs = readUnresolvedRefs(db);
+      // ⛔ THE DELIBERATE CATCH THE STORAGE LAYER'S OWN DOCSTRING DEMANDS, AND WHICH I DID NOT WRITE.
+      //
+      // readUnresolvedRefs now THROWS when the table exists but cannot be read, so a corrupt row
+      // stops masquerading as a legacy graph. Its docstring says "a caller that wants to survive
+      // this must catch it deliberately" — and this caller did not, so the throw propagated out of
+      // ensureFresh and EVERY rebuild failed. Measured on a real graph with one corrupted
+      // import_map_json:
+      //
+      //     incremental rebuild -> THREW
+      //     force: true rebuild -> THREW
+      //
+      // A graph that can never self-heal is worse than the defect the throw fixed, and the rebuild
+      // is precisely the repair: replaceUnresolvedRefs DELETEs and re-INSERTs the whole table.
+      //
+      // ⇒ Unreadable is a REASON TO REBUILD FROM SOURCE, not a reason to abort. The throw still does
+      // its job — it stops the failure being read as "legacy, carry the sidecar forward" — and this
+      // catch converts it into the one action that fixes it.
+      let tableRefs = null;
+      let tableUnreadable = null;
+      try {
+        tableRefs = readUnresolvedRefs(db);
+      } catch (err) {
+        tableUnreadable = String(err?.message ?? err);
+      }
       const legacySource = tableRefs === null
         ? await readLegacyUnresolvedSidecar(graphDir)
         : { state: 'absent' };
@@ -325,7 +348,14 @@ export async function ensureFresh({
         // distinguishes an absent field from a recorded zero.
         ? readManifestAsMigrationSource(manifestState.parsed)
         : { state: 'absent' };
-      const carrySource = chooseCarryForwardSource({
+      const carrySource = tableUnreadable !== null
+        ? {
+          tier: 'force-full',
+          rows: null,
+          reason: `the unresolved_refs table exists but could not be read (${tableUnreadable}) — `
+            + 'its population is unknown, and a full rebuild replaces the table outright',
+        }
+        : chooseCarryForwardSource({
         tableRefs, legacy: legacySource, manifestSource,
         // ⛔ "NOTHING ANYWHERE" MEANS DIFFERENT THINGS ON A NEW GRAPH AND AN EXISTING ONE. A first
         // index has no unresolved history because none has been built; a legacy install predating
@@ -333,8 +363,8 @@ export async function ensureFresh({
         // Reporting the second as an authoritative zero is false absence reached by running out of
         // places to look. The manifest's own commit is the discriminator: a graph that has been
         // indexed has one.
-        graphIndexed: Boolean(manifest?.commit),
-      });
+          graphIndexed: Boolean(manifest?.commit),
+        });
 
       const fullRebuild = (force
         || manifestState.status !== 'ok'
@@ -381,6 +411,17 @@ export async function ensureFresh({
         // processedFiles:[], source shapeA, DB shapeB. Read from the table it cannot be stale,
         // because it commits and rolls back with the graph it describes. null is a legacy graph,
         // and an empty map merely costs a re-extraction — conservative, and self-healing.
+        // ⚠ NO CATCH HERE, AND THAT IS MEASURED RATHER THAN ASSUMED. I added one by symmetry with the
+        // refs above, then could not construct a case where it helps. This read is a plain SELECT
+        // with no parsing, so bad DATA cannot make it throw; only SCHEMA damage can — and schema
+        // damage breaks replaceStructuralFingerprints on the write side moments later, which
+        // ensurePublicationTables cannot repair because CREATE TABLE IF NOT EXISTS does not add
+        // columns to an existing table.
+        //
+        // So the catch could swallow the read and the rebuild would die anyway. A guard that cannot
+        // rescue the state it guards is decoration, and the same reasoning retired an explicit
+        // ROLLBACK in storage/db.js earlier: unprovable defensive code goes, with the measurement
+        // written where it stood.
         const storedFps = readStructuralFingerprints(db) ?? new Map();
         const dirtyEntryMap = new Map(dirtyEntries.map((entry) => [entry.path, entry]));
         const structuralChanged = [];

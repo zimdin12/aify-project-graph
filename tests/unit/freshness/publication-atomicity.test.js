@@ -244,6 +244,33 @@ describe('the graph and everything describing it are published by ONE commit', (
         .toContain('newcomer');
     });
 
+    it('⛔ a CORRUPT unresolved table still rebuilds — the repair must not need the thing it repairs', async () => {
+      // ⭐ A REGRESSION I INTRODUCED AND CAUGHT ONLY BY PROBING A REAL GRAPH. readUnresolvedRefs was
+      // changed to THROW when the table exists but cannot be read, so corruption stops
+      // masquerading as a legacy graph. Its docstring says a caller wanting to survive that must
+      // catch it deliberately — and this caller did not, so the throw escaped ensureFresh and
+      // EVERY rebuild failed, including force:true. A graph that can never self-heal is worse than
+      // the defect the throw fixed, and the rebuild IS the repair: the table is deleted and
+      // rewritten outright.
+      await seed();
+      const db = openDb(GRAPH(repoRoot));
+      try {
+        db.run("UPDATE unresolved_refs SET import_map_json = '{not valid json' "
+          + 'WHERE id = (SELECT MIN(id) FROM unresolved_refs)');
+      } finally { db.close(); }
+
+      await writeFile(join(repoRoot, 'src', 'newcomer.js'), 'export function newcomer() { return 7; }\n');
+      getHeadCommit.mockResolvedValue('head-1');
+      const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+      // The assertion is that this RESOLVES. Before the deliberate catch it rejected.
+      await ensureFresh({ repoRoot });
+
+      const after = readPublished(repoRoot);
+      expect(after.refs, 'the rebuild replaced the table, so it reads cleanly again').not.toBeNull();
+      expect(after.functions, 'and it rebuilt from source rather than carrying anything forward')
+        .toContain('newcomer');
+    });
+
     it('POSITIVE CONTROL: a VALID legacy sidecar does NOT force a rebuild', async () => {
       // Without this the escalation could be permanently on and the two denials above would prove
       // nothing — a gate whose closed state never lifts is off, not fail-closed.

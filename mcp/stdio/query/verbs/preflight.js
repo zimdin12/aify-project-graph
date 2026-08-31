@@ -58,13 +58,26 @@ export async function graphPreflight({ repoRoot, symbol }) {
   // cosmetic; pinning them would only lengthen the window the snapshot is held open, and a
   // WAL reader held across rendering is the cost this design exists to avoid.
   const decisionInputs = captureExistingSnapshot(dbPath, (db) => {
+    // ⛔ THE PUBLICATION IS READ FIRST, BEFORE THE SYMBOL, AND CARRIED ON EVERY RETURN.
+    //
+    // It used to be read at the END of this capture, so the NO MATCH and ambiguity branches
+    // returned before it existed and the classification never ran. Executed on a torn graph
+    // (database ahead of the manifest):
+    //
+    //   existing symbol -> "DECISION: REVIEW ... DIFFERENT generations"
+    //   missing symbol  -> "NO MATCH for ghost" and nothing else
+    //
+    // A NO MATCH is an ABSENCE CLAIM, which is the action class this unit exists to protect. The
+    // early return meant the least attested answer got the least qualification.
+    const publication = readGraphPublication(db);
+
     const nodes = resolveSymbol(db, symbol, PREFLIGHT_TYPES.map((t) => `'${t}'`).join(','));
     if (nodes.length === 0) {
-      return { miss: { base: `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`,
+      return { publication, miss: { base: `NO MATCH for "${symbol}". Try graph_search(query="${symbol}") to find similar names.`,
         scope: missScopeNote(db, { types: PREFLIGHT_TYPES, what: 'declaration types' }) } };
     }
     const ambiguity = buildAmbiguousMatchMessage(symbol, nodes);
-    if (ambiguity) return { ambiguity };
+    if (ambiguity) return { publication, ambiguity };
     const node = selectBestRoot(nodes);
 
     const callerCount = db.get(
@@ -103,16 +116,36 @@ export async function graphPreflight({ repoRoot, symbol }) {
     return {
       node, callerCount, topCallers, incomingProvenance, tests,
       latestCollection, contributingCollections,
-      publication: readGraphPublication(db),
+      publication,
     };
   });
 
+  // ⭐ CLASSIFY BEFORE EMITTING ANY ANSWER, including the ones that leave early. An absence from a
+  // graph whose publication cannot be checked has to say so, or the reader is told a symbol does
+  // not exist on the authority of a graph nobody verified.
+  const publicationState = classifyPublication({
+    dbGeneration: decisionInputs.publication === null ? null : decisionInputs.publication.generation,
+    manifestGeneration: manifest?.manifest?.generation ?? null,
+    manifestUsable: manifest?.status === 'ok',
+    dbCounts: decisionInputs.publication?.counts ?? null,
+    manifestCounts: {
+      unresolved: manifest?.manifest?.dirtyEdgeCount ?? null,
+      trustUnresolved: manifest?.manifest?.trustDirtyEdgeCount ?? null,
+    },
+  });
+  const unattestedNote = publicationState === ATTESTATION.ATTESTED
+    ? ''
+    : `
+⚠ AND THIS GRAPH IS ${publicationState.toUpperCase()}: its contents could not be verified `
+      + 'against the manifest describing them, so this absence is not evidence the symbol is gone. '
+      + 'Run graph_index({ force: true }).';
+
   if (decisionInputs.miss) {
     const { base, scope } = decisionInputs.miss;
-    return scope ? `${base}
-${scope}` : base;
+    return (scope ? `${base}
+${scope}` : base) + unattestedNote;
   }
-  if (decisionInputs.ambiguity) return decisionInputs.ambiguity;
+  if (decisionInputs.ambiguity) return decisionInputs.ambiguity + unattestedNote;
 
   const {
     node, callerCount, topCallers, incomingProvenance, tests,
@@ -228,16 +261,8 @@ ${scope}` : base;
       //
       // ⚠ `manifest` here is loadManifest's RESULT, not the manifest — so .status is the read
       // outcome. This verb held it all along and never looked at it.
-      attestation: classifyPublication({
-        dbGeneration: publicationHere === null ? null : publicationHere.generation,
-        manifestGeneration: manifest?.manifest?.generation ?? null,
-        manifestUsable: manifest?.status === 'ok',
-        dbCounts: publicationHere?.counts ?? null,
-        manifestCounts: {
-          unresolved: manifest?.manifest?.dirtyEdgeCount ?? null,
-          trustUnresolved: manifest?.manifest?.trustDirtyEdgeCount ?? null,
-        },
-      }),
+      // The same verdict the early returns above used — computed once, from one capture.
+      attestation: publicationState,
     });
 
     // HEADLINE trust line — lsp-verified/lsp-partial/heuristic axis (cohesion
