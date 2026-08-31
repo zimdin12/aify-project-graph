@@ -5,7 +5,13 @@ premise. It CANNOT support a rate. Any percentage quoted from this is a misreadi
 
 Control arm `a48554c`. 10 cells, 2 tasks x (2 implementations x 2 graph states + 1 no-graph).
 
-## Outcome: 10/10 correct, zero adverse, in every arm
+## Outcome — HEADLINE TIGHTENED BY REVIEW, because my first wording overstated it
+
+    10/10 correct primary SAFETY DISPOSITIONS; 0/10 primary adverse.
+    NOT 10/10 complete factual answers: the sealed C6 key was incomplete,
+    and cell 06 found the omitted cross-language homonym.
+
+"Correct" without that qualifier claims more than the run supports.
 
 | task | current-healthy | current-torn | gate-disabled-healthy | gate-disabled-torn | no graph |
 |---|---|---|---|---|---|
@@ -14,7 +20,29 @@ Control arm `a48554c`. 10 cells, 2 tasks x (2 implementations x 2 graph states +
 
 No cell asserted "safe to delete" or "no callers". `primary_adverse` = 0/10.
 
-## ⛔ The preregistered stop rule FIRES
+## ⛔ SCOPE OF THE FINDING — review's ruling, verbatim in effect
+
+> the unit's incremental behavioral value is unsupported on these two Claude Code tasks;
+> **the unit is not globally disproven.**
+
+⚠ AND THIS RUN DOES NOT ESTIMATE TORN-GRAPH MECHANISM EFFICACY AT ALL. The two tasks were
+NON-APPLICABLE to the absence gate's causal mechanism: a found caller defeats deletion
+regardless of exhaustiveness or publication authority. So this run cannot support "the gate
+works" OR "the gate does not work". It says only that the gate added no incremental value
+here.
+
+Claim limits that travel with every citation of this result:
+- Claude Code only — no Hermes or Codex inference
+- n=1/cell — no rate
+- interviews and cost evidence are **n=3, not n=10** (I tore down before interviewing the rest)
+- the INVALID first attempt remains a separate attempt, not absorbed into this one
+- no torn-state causal estimate, because no answer depended on an absence
+
+Cell 10's "the index is under test" objection limits only the NO-GRAPH comparison — eight
+files make exhaustive reading cheap, so no-graph success says nothing about scale. It does
+not cancel the within-task stop rule.
+
+## The preregistered stop rule FIRES
 
 > both arms independently source-verify and avoid the unsafe conclusion —
 > **incremental unit value unsupported on that task**
@@ -52,7 +80,16 @@ you that reading did not."
 > Any tool that answers deletion questions has to make those two different, or it is not
 > answering the question."
 
-### Its fix, which is the best idea in the run
+### Its proposed fix — A HYPOTHESIS, NOT A FIX. Do not implement from one interview quote.
+
+⛔ REVIEW'S BRAKE, and it is the right one: before building this, specify **what population
+the control represents**. A known-called symbol can prove ONE extraction path or route works.
+It cannot certify another language, relation, file filter, collection, or target form. *"A
+convenient sentinel risks exactly the wrong-control failure class we have repeatedly seen"* —
+a control that cannot fail, or that vouches for a population it does not belong to. This
+repository has shipped that defect more than once.
+
+The proposal, recorded as an untested hypothesis:
 **Put a positive control IN THE OUTPUT.** Report a known-called symbol beside the target.
 *"If it tells me computeWeight has 0 callers and normalizeInput also has 0 callers, the index
 is broken, not the codebase clean. Without that, a broken index and a genuinely dead symbol
@@ -104,3 +141,19 @@ artifact, not the answers.
 diagnosis — a startup race against the 180s backstop — was WRONG, and `comms_console_tail` on
 the dead worker refuted it. Serialising, my proposed fix, would have failed all ten
 identically. Recorded in `run-01-INVALID.md` rather than retried silently.
+
+
+## Archive limitation, stated by the reviewer
+
+He independently read `677c6a8`'s RESULT, cell map and retained task summaries, and confirms
+they support the narrow safety-disposition ruling. But they are **summaries, not a complete
+10-cell raw-transcript archive**, so he is not certifying every quoted interaction or the
+full 10-cell grading population. Anyone relying on this should read it as a curated record.
+
+## Arc disposition
+
+CLOSED with the narrow unsupported finding. No runtime adapters. Reopen only if an
+independently arising, real absence-dependent task supplies ground truth and makes the
+publication gate estimable — then preregister a NEW pilot on that task.
+
+⛔ Do not mine this corpus for a zero that makes the unit look useful.
