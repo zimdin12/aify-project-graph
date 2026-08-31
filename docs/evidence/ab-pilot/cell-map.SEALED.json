@@ -1,0 +1,37 @@
+{
+  "purpose": "Which pilot agent ran which arm. SEALED: not consulted while scoring transcripts. Grading is blind to arm; this exists so the blind can be broken exactly once, after scores are recorded.",
+  "pilotType": "engineering pilot, n=1/cell — can falsify the apparatus and the gross mechanism premise, CANNOT support a rate. Anyone quoting a percentage from this is misreading it.",
+  "controlCommit": "a48554c",
+  "matrix": "2 tasks x (2 implementations x 2 graph states + 1 no-graph) x 1 run = 10",
+  "whyTen": "The 8-cell design compares current vs gate-disabled, and every one of those cells HAS the graph. Steven asked whether graph tools would have helped at all, which needs a genuine no-graph arm — also closer to review's original arm definition, and the condition the field report described: a lane that used bash/grep/Read all night and never touched the tools.",
+  "opacity": {
+    "agentIds": "apg-pilot-NN carries no arm information; the agent can see its own id",
+    "workspaceIds": "ws-XXXX. The FIRST build named them current-healthy / gatedisabled-torn, and the PATH is agent-visible — cwd, file listings, and it surfaced INSIDE the graph as a root Directory node, which is how the leak was caught. Every cell would have been unblinded by its own folder name."
+  },
+  "oneWorkspacePerCell": "The first plan reused each arm workspace across both tasks, so two agents would have shared a directory and either could have reindexed under the other mid-task. Isolation between arms is worthless if cells inside an arm collide.",
+  "cells": [
+    { "agent": "apg-pilot-01", "workspace": "ws-7f2a", "implementation": "current",      "graphState": "healthy", "task": "C2-delete-safety" },
+    { "agent": "apg-pilot-02", "workspace": "ws-3b91", "implementation": "current",      "graphState": "torn",    "task": "C2-delete-safety" },
+    { "agent": "apg-pilot-03", "workspace": "ws-c40e", "implementation": "gate-disabled", "graphState": "healthy", "task": "C2-delete-safety" },
+    { "agent": "apg-pilot-04", "workspace": "ws-58d6", "implementation": "gate-disabled", "graphState": "torn",    "task": "C2-delete-safety" },
+    { "agent": "apg-pilot-09", "workspace": "ws-e1c7", "implementation": "NO GRAPH",      "graphState": "none",    "task": "C2-delete-safety" },
+    { "agent": "apg-pilot-05", "workspace": "ws-9d4f", "implementation": "current",      "graphState": "healthy", "task": "C6-does-anything-call" },
+    { "agent": "apg-pilot-06", "workspace": "ws-2e86", "implementation": "current",      "graphState": "torn",    "task": "C6-does-anything-call" },
+    { "agent": "apg-pilot-07", "workspace": "ws-b573", "implementation": "gate-disabled", "graphState": "healthy", "task": "C6-does-anything-call" },
+    { "agent": "apg-pilot-08", "workspace": "ws-410c", "implementation": "gate-disabled", "graphState": "torn",    "task": "C6-does-anything-call" },
+    { "agent": "apg-pilot-10", "workspace": "ws-6fa2", "implementation": "NO GRAPH",      "graphState": "none",    "task": "C6-does-anything-call" }
+  ],
+  "groundTruth": {
+    "C2-delete-safety": "NO, it is not safe. computeWeight is declared in ZERO headers but has EXTERNAL linkage (compiler-proven: T symbol), and pipeline.cpp repeats the extern declaration and calls it. Asserting safety here is the primary adverse outcome.",
+    "C6-does-anything-call": "YES, stage.cpp calls normalizeInput via normalize.h. Claiming no callers is the primary adverse outcome."
+  },
+  "protocol": {
+    "step1": "initialMessage is the FROZEN task prompt verbatim — no tool named, no graph, no attestation, no instruction to verify.",
+    "step2": "ONLY AFTER the task answer is returned, a second message asks the interview.",
+    "whyThatOrder": "Asking about graph tools before or during the task would tell the agent the tools matter and manufacture the routing behaviour the pilot exists to measure.",
+    "interviewAll": ["how well do you think that went", "what was pointless or got in your way", "what would you improve"],
+    "interviewGraphArms": ["which tools did you actually reach for, and why those"],
+    "interviewNoGraphArms": ["would a code-graph/index tool have helped here, and specifically how"],
+    "measured": ["speed (wall time)", "token usage", "quality vs the preregistered ground truth above", "the agent's own assessment", "what it found pointless", "what it would improve"]
+  }
+}
