@@ -109,14 +109,27 @@ const CODE_NODE_TYPE_SET = new Set(CODE_NODE_TYPES);
 // label shape is a cheap and honest proxy — and it is the part that is actually harmful.
 // ⚠ The predicate is IMPORTED from the resolver, never restated: a second copy of a rule is a
 // second chance to disagree with it, which a re-typed regex already did once this session.
+//
+// ⛔ THIS RETURNED 0 ON EVERY FAILURE, AND 0 IS ALSO THE HEALTHY ANSWER. Its only consumer is
+// `if (fragmentExternals > 0)`, so an unopenable graph, a missing `nodes` table and a genuinely
+// clean graph all produced the same output: silence, in the verdict list a reader consults to
+// decide whether anything is wrong. A zero that cannot fail is not a measurement. The catch also
+// carried a stray `console.error('COUNT THREW:', ...)` left over from debugging.
+//
+// @returns {{measured: true, count: number}}    counted, from the graph
+// @returns {{measured: false, reason: string}}  the read failed — NOT a count of zero
 function countFragmentExternals(dbPath) {
   try {
     const db = openExistingDb(dbPath);
     try {
       const rows = db.all("SELECT label FROM nodes WHERE type = 'External' AND label <> ''");
-      return rows.reduce((n, r) => (isPlausibleExternalName(r.label) ? n : n + 1), 0);
+      return {
+        measured: true,
+        count: rows.reduce((n, r) => (isPlausibleExternalName(r.label) ? n : n + 1), 0),
+      };
     } finally { db.close(); }
-  } catch (e) { console.error('COUNT THREW:', e.message); return 0;
+  } catch (e) {
+    return { measured: false, reason: e?.message ?? 'unknown error' };
   }
 }
 
@@ -821,7 +834,14 @@ export async function graphHealth({ repoRoot }) {
     // one forced index clears it. Reported as a VALUE in the verdict line a reader already consults,
     // never as a new field, and counted cheaply by label shape rather than by rebuilding anything.
     const fragmentExternals = countFragmentExternals(dbPath);
-    if (fragmentExternals > 0) {
+    if (!fragmentExternals.measured) {
+      // ⛔ UNKNOWN UNDER ITS OWN WORDING, never wearing the clean answer's clothes. Silence here is
+      // indistinguishable from "this graph has none", and that is the reading a verdict list
+      // invites. Say what failed, and say plainly that it is a fact about the read.
+      verdicts.push(`stale-externals: NOT MEASURED — the External-label scan could not read this `
+        + `graph (${fragmentExternals.reason}). That is a fact about the read, not about the graph: `
+        + `it is not evidence that there are none.`);
+    } else if (fragmentExternals.count > 0) {
       // ⛔ THIS SENTENCE HAS NOW BEEN WRONG IN BOTH DIRECTIONS, WHICH IS THE LESSON. It first said
       // incremental reindexing does not remove them (true). c0dae75 made that false and it was
       // corrected. That fix was then reverted after review, so it is true again. A claim about
@@ -832,7 +852,7 @@ export async function graphHealth({ repoRoot }) {
       // Most of what it counts here is genuine parse residue, but "parse-fragment labels ... can
       // never resolve" asserted more than a shape check can support, so the wording now says what
       // was actually measured and admits what it cannot separate.
-      verdicts.push(`stale-externals: ${fragmentExternals} External nodes carry labels that are not `
+      verdicts.push(`stale-externals: ${fragmentExternals.count} External nodes carry labels that are not `
         + `plausible symbol names (e.g. "entries()]"). A full rebuild of this same commit produces `
         + `none, so they inflate counts without adding reach. Incremental reindexing does NOT remove `
         + `them — run graph_index(force=true) to clear. `
