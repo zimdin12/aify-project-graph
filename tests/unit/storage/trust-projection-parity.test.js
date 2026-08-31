@@ -28,6 +28,7 @@ import {
   classifyUnresolvedRef, CLASSIFIER_INPUT_FIELDS,
 } from '../../../mcp/stdio/freshness/unresolved-categorization.js';
 import { explainTrustExclusions } from '../../../mcp/stdio/freshness/unresolved-metrics.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const CARRIER = join(process.cwd(), 'docs', 'evidence', 'unresolved-refs-migration',
   'dirty-edges.full.frozen.json');
@@ -185,6 +186,18 @@ describe('the trust projection reads exactly what the classifiers consume', () =
     // it is whatever the working graph happens to hold today.
     expect(existsSync(CARRIER)).toBe(true);
     expect(CARRIER).toMatch(/frozen/);
-    expect(CARRIER).not.toMatch(/\.aify-graph/);
+    // ⛔ THE RATCHET CAUGHT THIS AS A BARE not.toMatch, and it was right to. A negative assertion
+    // whose matcher is wrong is silent: if the pattern could never match anything, this passes over
+    // a path that points straight at the live graph. The helper proves the matcher CAN fire and
+    // that it is not so broad it fires on the legitimate value.
+    expectAbsentWithLiveMatcher(
+      /[\\/]\.aify-graph[\\/]/,
+      {
+        forbidden: 'C:/Docker/aify-project-graph/.aify-graph/dirty-edges.full.json',
+        allowed: 'C:/Docker/aify-project-graph/docs/evidence/unresolved-refs-migration/dirty-edges.full.frozen.json',
+      },
+      CARRIER,
+      'the parity carrier is being read from the LIVE graph directory, not the frozen copy',
+    );
   });
 });
