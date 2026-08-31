@@ -65,6 +65,15 @@ export async function graphStatus({ repoRoot }) {
         generationState = classifyPublication({
           dbGeneration: publication === null ? null : publication.generation,
           manifestGeneration: manifest?.generation ?? null,
+          // ⛔ THE LOAD STATUS, WHICH THIS VERB DESTRUCTURED AND THEN IGNORED. `mStatus` is whether
+          // the FILE could be read; without it an unreadable manifest arrives as generation=null
+          // and is reported as a torn publication — a crash window nothing established.
+          //
+          // Found by running the full state matrix against copies of the real graph: health said
+          // manifest_unusable and status said generation_mismatch for the same input. Two consumers
+          // of one classifier disagreeing is the same wiring gap as everywhere else in this unit,
+          // and no unit test compared them because each was tested alone.
+          manifestUsable: mStatus === 'ok',
           dbCounts: publication?.counts ?? null,
           manifestCounts: {
             unresolved: manifest?.dirtyEdgeCount ?? null,

@@ -90,6 +90,22 @@ describe('the verbs detect a manifest copy that drifted from the committed aggre
       .toBe('aggregate_mismatch');
   });
 
+  it('⛔ health and status agree on the state — two consumers, one classifier', async () => {
+    // ⭐ FOUND BY THE FULL STATE MATRIX, NOT BY A UNIT TEST. Run against copies of the real graph,
+    // an unreadable manifest produced health=manifest_unusable and status=generation_mismatch for
+    // the SAME input: status destructured loadManifest's status and never passed it on. Each verb
+    // was tested alone and neither test could see the disagreement.
+    //
+    // status telling a reader "a rebuild committed and its manifest never landed" when the manifest
+    // was merely unreadable is the wrong-cause defect this unit keeps removing, arriving through a
+    // consumer that had not been wired rather than through the classifier.
+    writeFileSync(join(graphDir, 'manifest.json'), '{ this is not json');
+    const h = (await graphHealth({ repoRoot: repo })).capabilities.attestation;
+    const s = (await graphStatus({ repoRoot: repo })).generationState;
+    expect(h, 'health must name the read failure').toBe('manifest_unusable');
+    expect(s, 'and status must not call the same input a torn publication').toBe(h);
+  });
+
   it('⛔ drifting ONLY the trust count is caught — it is the load-bearing half', async () => {
     const p = join(graphDir, 'manifest.json');
     const m = JSON.parse(readFileSync(p, 'utf8'));
