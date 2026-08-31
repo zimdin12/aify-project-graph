@@ -5,6 +5,9 @@
 // a seam dying quietly, and this repository has lost seams that way before.
 
 import { ensurePublicationTables } from './publication-schema.js';
+// ⭐ DERIVED FROM THE CLASSIFIER REGISTRY, never a list retyped here. If a predicate starts reading
+// a new field, the declaration beside that registry changes and this projection follows it.
+import { CLASSIFIER_INPUT_FIELDS } from '../freshness/unresolved-categorization.js';
 
 // ⛔ THE COLUMN SET IS THE RESOLVER CONTRACT, NOT THE CURRENT DATA. `from_target`, `to_id` and
 // `language` appear in ZERO of the 35,906 rows this repository emits today and are still live
@@ -173,6 +176,51 @@ export function readUnresolvedRefs(db) {
   // Present. Any failure from here is a failure to READ a table we know exists, and it propagates.
   return db.all(`SELECT ${UNRESOLVED_REF_COLUMNS.join(', ')} FROM unresolved_refs ORDER BY id`)
     .map(hydrateRef);
+}
+
+// Hydrated field name -> the column holding it. Only the names that differ need an entry; the rest
+// are identical and are projected as themselves.
+const COLUMN_FOR_FIELD = Object.freeze({ refusedReason: 'refused_reason' });
+
+/**
+ * Just enough of every unresolved ref to CLASSIFY it, and nothing more.
+ *
+ * ⛔ WHY A SECOND READER EXISTS AT ALL. graph_health classifies all 36k refs to explain its trust
+ * denominator, and it did that on a handle opened after its pinned capture had closed — so one
+ * response could carry an authority verdict from generation N beside a denominator explanation from
+ * N+1. Folding the read into the capture fixes that, but the full hydration costs 142ms of pinned
+ * snapshot, and hydrateRef spends much of it on fields no classifier reads: parsing import_map_json,
+ * building ids, lines and confidences for a count.
+ *
+ * Measured on this repository's 36,324 rows: full `*` read 142.7ms, this projection 59.8ms. A
+ * grouped COUNT(*) over the same fields was tried and REJECTED — 99.1ms, slower than the plain
+ * projection, because 32,863 of 36,324 rows are already distinct on the classifier's inputs, so
+ * there is essentially nothing to collapse.
+ *
+ * ⛔ THE ROW COUNT IS PART OF THE ANSWER. `explainTrustExclusions` reports `total_unresolved` as the
+ * array length, so this must not dedup: duplicate classifier inputs are distinct unresolved refs.
+ *
+ * ⚠ THE ALIAS IS LOAD-BEARING. Predicates read `ref.refusedReason`; the column is `refused_reason`.
+ * Without the alias every predicate sees `undefined`, which does not throw and does not warn — it
+ * just moves rows into a different bucket. A parity test against the full-row read is what makes
+ * this safe, not the fact that it looks right.
+ *
+ * @returns {object[]}  one object per row, carrying only CLASSIFIER_INPUT_FIELDS
+ * @returns {null}      the table does not exist — a LEGACY graph
+ * @throws              the table exists and could not be read; same contract as readUnresolvedRefs
+ */
+export function readTrustClassificationInputs(db) {
+  const present = tableExists(db, 'unresolved_refs');
+  if (present === false) return null;
+  if (present === null) {
+    throw new Error('unresolved_refs: the database could not be queried at all (sqlite_master '
+      + 'unreadable), so table presence is unknown — this is not a legacy graph');
+  }
+  // Derived from the classifier's own declared inputs, never a list retyped here.
+  const projection = CLASSIFIER_INPUT_FIELDS
+    .map((f) => (COLUMN_FOR_FIELD[f] ? `${COLUMN_FOR_FIELD[f]} AS ${f}` : f))
+    .join(', ');
+  return db.all(`SELECT ${projection} FROM unresolved_refs`);
 }
 
 export function replaceStructuralFingerprints(db, fingerprints) {

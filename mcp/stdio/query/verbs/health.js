@@ -72,7 +72,7 @@ export function decayFromCoveredFiles(covered, latest, head, repoRoot) {
 
 import { computeCoverage } from '../coverage-denominator.js';
 import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
-import { readUnresolvedRefs } from '../../storage/unresolved-refs.js';
+import { readTrustClassificationInputs } from '../../storage/unresolved-refs.js';
 import { classifyPublication, readGraphPublication, ATTESTATION } from '../../storage/publication-schema.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
@@ -553,6 +553,21 @@ export async function graphHealth({ repoRoot }) {
         } catch { return null; }
       })(),
       publication: readGraphPublication(db),
+      // ⭐ THE TRUST DENOMINATOR'S EVIDENCE, FROM THE SAME INSTANT AS THE VERDICT THAT USES IT.
+      //
+      // ⚠ A DELIBERATE CATCH, and it must not launder. readTrustClassificationInputs returns null
+      // ONLY for an established absence (no table — a legacy graph) and THROWS when the table is
+      // present but unreadable. Those are different facts, and health must not report a corrupt
+      // table as a legacy one. A throw here would lose the whole capture — every count, the
+      // publication — over one diagnostic, so it is caught and typed instead.
+      // ⛔ THREE STATES, AND MY FIRST VERSION COLLAPSED TWO OF THEM. It caught the throw and
+      // returned null — but null MEANS "no table, a legacy graph", so a corrupt table would have
+      // fallen through to a message telling the reader this graph was indexed before the table
+      // existed. That is a read failure wearing the known-good case's clothes, in the exact place
+      // this unit exists to prevent it, written directly beneath a comment saying not to.
+      trustRefs: (() => {
+        try { return readTrustClassificationInputs(db); } catch (e) { return { unreadable: e?.message ?? 'unknown error' }; }
+      })(),
     }));
     // ⭐ THE SNAPSHOT IS CLOSED HERE. Everything below runs against the lists it returned, never
     // against the database — the git diff, the ignore-rule filtering, the coverage arithmetic. The
@@ -1161,10 +1176,30 @@ export async function graphHealth({ repoRoot }) {
     // file-absence story told about a graph with genuinely zero unresolved refs. null (legacy, we
     // do not know) and [] (committed, nothing unresolved) are different answers, and the table is
     // the first thing here able to tell them apart.
-    let storedRefs = null;
-    if (existsSync(dbPath)) {
-      const refsDb = openExistingDb(dbPath);
-      try { storedRefs = readUnresolvedRefs(refsDb); } finally { refsDb.close(); }
+    // ⛔ THIS OPENED ITS OWN HANDLE, AFTER THE PINNED CAPTURE HAD CLOSED. One health response could
+    // then carry an authority verdict read at generation N beside the explanation of its own trust
+    // denominator read at N+1 — two true statements about two graphs, printed as one. The rows now
+    // come from the same capture as the publication that attests them, and the CLASSIFICATION runs
+    // here, outside the snapshot: nothing is classified while pinned.
+    //
+    // ⚠ `undefined` is not `null` here. `authority.trustRefs` is null for a legacy graph (no table)
+    // and an ARRAY for any graph that has one, including an empty one. undefined means the capture
+    // itself failed, which is the manifest-fallback path below, not a legacy graph.
+    const storedRefs = authority?.trustRefs ?? null;
+    if (storedRefs && !Array.isArray(storedRefs)) {
+      // Present and unreadable. Under its OWN wording — not the legacy story below, which would
+      // tell the reader this graph predates a table it demonstrably has.
+      return {
+        total_unresolved: null,
+        trust_relevant: null,
+        excluded: null,
+        classification: 'UNREADABLE',
+        consequence: `the unresolved_refs table EXISTS but could not be read (${storedRefs.unreadable}), `
+          + 'so none of the unresolved refs could be classified and the trust verdict above is a '
+          + 'FLOOR, not a measurement. This is a fact about the read, not about the graph, and it is '
+          + 'NOT the same as a graph indexed before the table existed.',
+        remedy: 'run graph_index({ force: true }) to rewrite the table, then re-read this field.',
+      };
     }
     if (storedRefs !== null) return explainTrustExclusions(storedRefs);
     const sample = manifest?.dirtyEdges ?? [];

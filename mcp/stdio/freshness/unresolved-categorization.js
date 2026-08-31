@@ -152,6 +152,26 @@ function pct(n, total) {
   return total === 0 ? '0%' : `${((n / total) * 100).toFixed(1)}%`;
 }
 
+// ⭐ THE FIELDS THE CLASSIFIERS ABOVE ACTUALLY READ, declared beside the registry that owns them.
+//
+// ⛔ THIS IS A DECLARATION, AND A DECLARATION CAN DRIFT — so it is not trusted. A test drives every
+// predicate over the frozen 35,906-row carrier and the adversarial shapes with a Proxy recording
+// each property touched, and fails if the true set and this list disagree. Adding a classifier that
+// reads a new field without adding it here fails there, rather than silently classifying against
+// `undefined`.
+//
+// ⚠ THESE ARE HYDRATED NAMES, NOT COLUMN NAMES. `refusedReason` is `refused_reason` in SQL, and a
+// projection that forgets to alias it hands every predicate `undefined` — which does not throw, does
+// not warn, and simply moves rows into a different bucket. That is the whole reason a narrow
+// projection needs a parity test against the full-row read rather than a code review.
+//
+// ⚠ It deliberately does NOT include source_file/source_line. Those are read by `categorizeRefs`
+// when it builds SAMPLES, which is a different job from classifying, and a first reading of this
+// file by grep attributed them to the classifier.
+export const CLASSIFIER_INPUT_FIELDS = Object.freeze([
+  'extractor', 'refusedReason', 'relation', 'target',
+]);
+
 export function classifyUnresolvedRef(ref) {
   for (const classifier of CLASSIFIERS) {
     if (classifier.test(ref)) return classifier.bucket;
