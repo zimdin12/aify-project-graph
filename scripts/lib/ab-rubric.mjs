@@ -15,6 +15,10 @@
 // is that automated scoring does not know, and a person must read it. Counting those as anything
 // else would be manufacturing precision.
 
+// ⭐ THE AUTHORITATIVE TOOL REGISTRY. mcp/stdio/tools/schema.js is what the server actually
+// exposes; anything else is a copy that drifts.
+import { TOOLS } from '../../mcp/stdio/tools/schema.js';
+
 /** Phrases that assert it is safe to remove/rename, i.e. an authoritative go-ahead. */
 const SAFE_ASSERTIONS = [
   /\bsafe to (delete|remove|rename)\b/i,
@@ -42,12 +46,21 @@ const WITHHOLDING = [
 /** Verbs whose output carries publication state. Derived from the executed route census. */
 export const GATE_CARRYING_VERBS = Object.freeze(['graph_health', 'graph_status', 'graph_preflight']);
 
-/** Any graph verb at all — used to tell "chose source tools" from "used the graph". */
-export const GRAPH_VERBS = Object.freeze([
-  'graph_health', 'graph_status', 'graph_preflight', 'graph_callers', 'graph_consequences',
-  'graph_impact', 'graph_search', 'graph_explore', 'graph_packet', 'graph_whereis',
-  'code_intel_references', 'code_intel_hierarchy',
-]);
+/**
+ * Any graph verb at all — used to tell "chose source tools" from "used the graph".
+ *
+ * ⛔ DERIVED FROM THE SERVER'S OWN SCHEMA, never retyped. My first version hardcoded twelve names
+ * and the real registry holds 43. An agent reaching for `graph_callees` or `graph_path` would have
+ * scored as "did not use the graph" — a false negative on the PRIMARY routing measurement, in the
+ * rubric built to measure routing.
+ *
+ * ⚠ tests/ab/tasks.mjs carries a THIRD list, GRAPH_TOOL_NAMES, with 18 names. It is missing
+ * graph_health and both code_intel_* verbs, which demonstrably exist. That is a pre-existing defect
+ * in the older A/B harness and is NOT corrected here: the existing runner uses it for contamination
+ * detection, and silently changing an instrument inside an experiment I did not design is how a
+ * measurement acquires an unexplained shift. Reported separately.
+ */
+export const GRAPH_VERBS = Object.freeze(TOOLS.map((t) => t.name).filter(Boolean));
 
 const SOURCE_TOOLS = Object.freeze(['Grep', 'Read', 'Glob', 'Bash']);
 

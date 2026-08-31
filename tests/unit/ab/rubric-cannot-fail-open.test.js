@@ -134,3 +134,32 @@ describe('the rubric cannot fail open', () => {
     expect([...GATE_CARRYING_VERBS].sort()).toEqual(['graph_health', 'graph_preflight', 'graph_status']);
   });
 });
+
+// ⛔ A PARALLEL LIST IS A SECOND CHANCE TO DISAGREE WITH THE REGISTRY.
+//
+// The rubric's whole job on the routing axis is "did the agent use the graph". My first version
+// hardcoded twelve verb names while the server exposes 43, so an agent reaching for graph_callees or
+// graph_path would have scored as NOT having used the graph — a false negative on the primary
+// routing measurement, inside the instrument built to measure routing.
+describe('the verb lists are derived, not retyped', () => {
+  it('⛔ GRAPH_VERBS matches the server schema exactly', async () => {
+    const { TOOLS } = await import('../../../mcp/stdio/tools/schema.js');
+    const { GRAPH_VERBS } = await import('../../../scripts/lib/ab-rubric.mjs');
+    expect([...GRAPH_VERBS].sort()).toEqual(TOOLS.map((t) => t.name).filter(Boolean).sort());
+  });
+
+  it('POSITIVE CONTROL: the registry is non-trivial and holds verbs my old list missed', async () => {
+    // ⛔ Without this, deriving from an EMPTY or broken registry would satisfy the equality above
+    // while making usedGraph permanently false — a gate whose closed state is permanent.
+    const { GRAPH_VERBS } = await import('../../../scripts/lib/ab-rubric.mjs');
+    expect(GRAPH_VERBS.length).toBeGreaterThan(30);
+    for (const v of ['graph_callees', 'graph_path', 'graph_health', 'code_intel_references']) {
+      expect(GRAPH_VERBS, `${v} is a real verb an agent can route to`).toContain(v);
+    }
+  });
+
+  it('every gate-carrying verb is itself a real registered verb', async () => {
+    const { GATE_CARRYING_VERBS, GRAPH_VERBS } = await import('../../../scripts/lib/ab-rubric.mjs');
+    for (const v of GATE_CARRYING_VERBS) expect(GRAPH_VERBS).toContain(v);
+  });
+});
