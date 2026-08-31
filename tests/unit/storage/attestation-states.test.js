@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
-import { ATTESTATION, classifyAttestation, readGraphPublication, bumpGraphGeneration } from '../../../mcp/stdio/storage/publication-schema.js';
+import { ATTESTATION, classifyAttestation, readGraphPublication, bumpGraphGeneration, classifyPublication } from '../../../mcp/stdio/storage/publication-schema.js';
 
 describe('classifyAttestation separates four states that look alike from a denial', () => {
   it('POSITIVE CONTROL: matching generations are ATTESTED', () => {
@@ -168,5 +168,66 @@ describe('an unreadable manifest is its own state, not a torn publication', () =
     // Omission means "I passed you a real manifest", which every pre-existing caller was doing
     // truthfully. Only a caller that KNOWS the read failed says so.
     expect(classifyAttestation({ dbGeneration: 7, manifestGeneration: 7 })).toBe(ATTESTATION.ATTESTED);
+  });
+});
+
+// ⛔ THE GENERATION ATTESTS WHICH GRAPH, NOT WHAT WAS COPIED OUT OF IT.
+//
+// The manifest holds a denormalised copy of two aggregates the database owns, read by ten call
+// sites. It is tempting to reason: generations agree, therefore the manifest describes this graph,
+// therefore its counts are this graph's counts. The first step is sound; the last does not follow.
+//
+// ⭐ REPRODUCED IN PRODUCTION BEFORE THIS EXISTED. Generations matching at 1, DB aggregate 2/2,
+// manifest tampered to 9/9:
+//     graph_status : generationState=attested | dirtyEdgeCount=9 | dbUnresolvedCount=2
+//     graph_health : attestation=attested
+// A test compared the numbers by hand and passed while nothing in production did. Tested is not
+// implemented, and that gap is the whole reason classifyPublication exists.
+describe('a drifted manifest copy is not attested', () => {
+  const agree = {
+    dbGeneration: 4, manifestGeneration: 4,
+    dbCounts: { unresolved: 100, trustUnresolved: 7 },
+    manifestCounts: { unresolved: 100, trustUnresolved: 7 },
+  };
+
+  it('POSITIVE CONTROL: matching generation AND matching counts is ATTESTED', () => {
+    // ⛔ Without this every denial below would be satisfied by a classifier that never attests.
+    expect(classifyPublication(agree)).toBe(ATTESTATION.ATTESTED);
+  });
+
+  it('⛔ the unresolved count drifting is AGGREGATE_MISMATCH, under a matching generation', () => {
+    const got = classifyPublication({ ...agree, manifestCounts: { unresolved: 107, trustUnresolved: 7 } });
+    expect(got).toBe(ATTESTATION.AGGREGATE_MISMATCH);
+    expect(got, 'the generations agree, so this must NOT report as a torn publication')
+      .not.toBe(ATTESTATION.GENERATION_MISMATCH);
+  });
+
+  it('⛔ the TRUST count drifting alone is caught too — it is the load-bearing half', () => {
+    // trustDirtyEdgeCount gates whether an agent believes anything else, and a blanket refusal once
+    // took it from 27,957 to zero in a commit claiming the denominator was unchanged.
+    expect(classifyPublication({ ...agree, manifestCounts: { unresolved: 100, trustUnresolved: 0 } }))
+      .toBe(ATTESTATION.AGGREGATE_MISMATCH);
+  });
+
+  it('⛔ aggregates the run never recorded are UNRECORDED, not zero and not a mismatch', () => {
+    // A graph published before the aggregate columns. There is no second operand to compare, so the
+    // comparison did not happen — reporting mismatch would assert a drift nothing established, and
+    // reporting attested would certify a copy nothing checked.
+    const got = classifyPublication({ ...agree, dbCounts: null });
+    expect(got).toBe(ATTESTATION.AGGREGATES_UNRECORDED);
+    expect(got).not.toBe(ATTESTATION.AGGREGATE_MISMATCH);
+    expect(got).not.toBe(ATTESTATION.ATTESTED);
+  });
+
+  it('⛔ a generation problem still outranks a count problem', () => {
+    // Ordering: with the generations disagreeing the counts are not the finding, and a reader sent
+    // to investigate drift would be chasing a symptom of the torn publication above it.
+    expect(classifyPublication({
+      ...agree, manifestGeneration: 3, manifestCounts: { unresolved: 999, trustUnresolved: 999 },
+    })).toBe(ATTESTATION.GENERATION_MISMATCH);
+  });
+
+  it('⛔ a manifest that could not be read outranks both', () => {
+    expect(classifyPublication({ ...agree, manifestUsable: false })).toBe(ATTESTATION.MANIFEST_UNUSABLE);
   });
 });

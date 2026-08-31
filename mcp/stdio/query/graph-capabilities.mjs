@@ -114,6 +114,8 @@ export function graphCapabilities({
   else if (attestation === ATTESTATION.NEVER_COMPLETED) reason = 'never_completed';
   else if (attestation === ATTESTATION.GENERATION_MISMATCH) reason = 'generation_mismatch';
   else if (attestation === ATTESTATION.MANIFEST_UNUSABLE) reason = 'manifest_unusable';
+  else if (attestation === ATTESTATION.AGGREGATE_MISMATCH) reason = 'aggregate_mismatch';
+  else if (attestation === ATTESTATION.AGGREGATES_UNRECORDED) reason = 'aggregates_unrecorded';
   else if (!languageHasServer) reason = 'no_language_server';
   else if (!collectionAvailable) reason = 'no_collection';
   else if (!hasVerified) reason = 'trust_spine_empty';
@@ -204,6 +206,20 @@ function nextActionFor(reason, language, languageHasServer, integrity = null, de
         + 'generation could not be compared against the database. This says nothing about whether '
         + 'the graph itself is torn: the comparison did not happen. Orientation is unaffected; '
         + 'absence claims are a FLOOR until a rebuild writes a manifest that can be read.';
+    case 'aggregate_mismatch':
+      // ⛔ THE GENERATION AGREES AND THE NUMBERS DO NOT. That combination is worse than a plain
+      // mismatch, because every generation-only check passes and the reader is handed a confident
+      // count the graph does not support.
+      return 'graph_index({ force: true }) — the manifest unresolved counts do NOT match the '
+        + 'aggregates the graph committed, even though both name the same generation. The manifest '
+        + 'copy has drifted from the rows; any count read from it is describing a population this '
+        + 'graph does not hold.';
+    case 'aggregates_unrecorded':
+      // ⚠ UNKNOWN, AND SAID AS UNKNOWN. Not "the counts are zero" and not "they disagree" — the
+      // publishing run never recorded them, so there is no second operand to compare against.
+      return 'graph_index({ force: true }) — this graph was published before the committed count '
+        + 'aggregates existed, so the manifest counts cannot be checked against anything. They '
+        + 'may well be right; nothing here can establish that.';
     case 'attestation_unknown':
       // ⛔ A CALLER-SIDE FAULT, SAID AS ONE. Reporting this as legacy would blame the graph for a
       // caller that never asked the question, and the next person would rebuild a healthy index.

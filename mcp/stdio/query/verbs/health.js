@@ -51,9 +51,9 @@ function collectionDecay(db, latest, head, repoRoot) {
 }
 
 import { computeCoverage } from '../coverage-denominator.js';
-import { openExistingDb } from '../../storage/db.js';
+import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
 import { readUnresolvedRefs } from '../../storage/unresolved-refs.js';
-import { classifyAttestation, readGraphGeneration, ATTESTATION } from '../../storage/publication-schema.js';
+import { classifyPublication, readGraphPublication, ATTESTATION } from '../../storage/publication-schema.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { serverBuildInfo } from '../../server-build.js';
@@ -395,14 +395,23 @@ export function buildNextActions(s) {
 // caller that never asked.
 function attestationOf(dbPath, manifest, manifestUsable = true) {
   if (!existsSync(dbPath)) return ATTESTATION.LEGACY_UNATTESTED;
-  const db = openExistingDb(dbPath);
-  try {
-    return classifyAttestation({
-      dbGeneration: readGraphGeneration(db),
-      manifestGeneration: manifest?.generation ?? null,
-      manifestUsable,
-    });
-  } finally { db.close(); }
+  // ⭐ ONE PINNED SNAPSHOT for the generation AND the aggregates it published. Read separately they
+  // can straddle a commit and return generation N with aggregates N+1 — the same check-then-act
+  // window one level down from the one this whole unit exists to close.
+  //
+  // ⚠ The manifest was loaded BEFORE this call, deliberately: a commit landing between the two
+  // reads then shows up as a mismatch and denies, rather than being absorbed silently.
+  const publication = captureExistingSnapshot(dbPath, (db) => readGraphPublication(db));
+  return classifyPublication({
+    dbGeneration: publication === null ? null : publication.generation,
+    manifestGeneration: manifest?.generation ?? null,
+    manifestUsable,
+    dbCounts: publication?.counts ?? null,
+    manifestCounts: {
+      unresolved: manifest?.dirtyEdgeCount ?? null,
+      trustUnresolved: manifest?.trustDirtyEdgeCount ?? null,
+    },
+  });
 }
 
 export async function graphHealth({ repoRoot }) {

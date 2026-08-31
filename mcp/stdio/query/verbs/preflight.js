@@ -1,4 +1,4 @@
-import { ATTESTATION, classifyAttestation, readGraphGeneration } from '../../storage/publication-schema.js';
+import { ATTESTATION, classifyPublication, readGraphPublication } from '../../storage/publication-schema.js';
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
@@ -175,6 +175,9 @@ export async function graphPreflight({ repoRoot, symbol }) {
       }
     } catch { /* leave null — unknown, and unknown does not grant SAFE */ }
 
+    // Read from the handle this verb already holds, so the publication verdict and the caller rows
+    // it authorises come out of one connection rather than two opens with a commit window between.
+    const publicationHere = readGraphPublication(db);
     const decision = computeDecision({
       callerCount,
       testCount: tests.length,
@@ -190,12 +193,21 @@ export async function graphPreflight({ repoRoot, symbol }) {
       // ⭐ THE PUBLICATION COMPARISON. `manifest` was loaded above, BEFORE this database read, so a
       // rebuild committing in between reads as a mismatch and denies SAFE. The reverse order would
       // absorb that commit silently and let the two reads agree only because they straddled it.
-      attestation: classifyAttestation({
-        dbGeneration: readGraphGeneration(db),
+      // ⭐ THE FULL VERDICT, from the SAME handle the caller rows came out of. Comparing generations
+      // alone let a drifted manifest copy reach SAFE: the generation attests which graph, not what
+      // was copied out of it, and every count behind this decision comes from that copy.
+      //
+      // ⚠ `manifest` here is loadManifest's RESULT, not the manifest — so .status is the read
+      // outcome. This verb held it all along and never looked at it.
+      attestation: classifyPublication({
+        dbGeneration: publicationHere === null ? null : publicationHere.generation,
         manifestGeneration: manifest?.manifest?.generation ?? null,
-        // ⚠ `manifest` here is loadManifest's RESULT, not the manifest — so .status is the read
-        // outcome. This verb held it all along and never looked at it.
         manifestUsable: manifest?.status === 'ok',
+        dbCounts: publicationHere?.counts ?? null,
+        manifestCounts: {
+          unresolved: manifest?.manifest?.dirtyEdgeCount ?? null,
+          trustUnresolved: manifest?.manifest?.trustDirtyEdgeCount ?? null,
+        },
       }),
     });
 
@@ -315,6 +327,13 @@ export function computeDecision({ callerCount, testCount, dirtyCount, crossModul
       'the graph manifest could not be read (missing or corrupt), so the database generation could '
       + 'not be compared against anything — the comparison did not happen, which is not the same as '
       + 'it failing',
+    [ATTESTATION.AGGREGATE_MISMATCH]:
+      'the manifest unresolved counts do not match the aggregates the graph committed, even '
+      + 'though both name the same generation — the copy has drifted from the rows, so any count '
+      + 'behind this decision describes a population the graph does not hold',
+    [ATTESTATION.AGGREGATES_UNRECORDED]:
+      'this graph was published before committed count aggregates existed, so the manifest counts '
+      + 'behind this decision cannot be checked against anything',
   };
   if (KNOWN_UNATTESTED[attestation]) {
     return {

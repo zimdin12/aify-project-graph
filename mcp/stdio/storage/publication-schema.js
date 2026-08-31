@@ -178,6 +178,23 @@ export const ATTESTATION = Object.freeze({
   // corrupt -> generation_mismatch, missing -> generation_mismatch. The intact control is what
   // makes those two evidence rather than a reading of the code.
   MANIFEST_UNUSABLE: 'manifest_unusable',
+  // ⛔ THE GENERATION ATTESTS WHICH GRAPH, NOT WHAT WAS COPIED OUT OF IT.
+  // The manifest holds a denormalised copy of two aggregates the database owns, and ten call sites
+  // read that copy. It was tempting to reason: generations agree, therefore the manifest describes
+  // this graph, therefore its counts are this graph's counts. The first step is sound; the last does
+  // not follow. Reviewer executed the gap and I reproduced it — generations matching at 1, DB
+  // aggregate 2/2, manifest tampered to 9/9:
+  //
+  //     graph_status : generationState=attested | dirtyEdgeCount=9 | dbUnresolvedCount=2
+  //     graph_health : attestation=attested
+  //
+  // Two contradictory numbers printed side by side under the word attested. A test compared them by
+  // hand and passed; nothing in production performed the comparison. Tested is not implemented.
+  AGGREGATE_MISMATCH: 'aggregate_mismatch',
+  // Attested generation, but the publishing run recorded no aggregates — a graph published between
+  // the generation commit and the aggregate columns. NOT zero, and not a mismatch: the comparison
+  // has no second operand. Unknown fails closed like every other clause here.
+  AGGREGATES_UNRECORDED: 'aggregates_unrecorded',
 });
 
 /**
@@ -205,6 +222,41 @@ export function classifyAttestation({ dbGeneration, manifestGeneration, manifest
   // A manifest with no generation against a database that HAS one is a mismatch, not legacy: the
   // database is past the upgrade and the manifest is behind it, which is precisely the crash window.
   if (manifestGeneration !== dbGeneration) return ATTESTATION.GENERATION_MISMATCH;
+  return ATTESTATION.ATTESTED;
+}
+
+/**
+ * The FULL publication verdict: which graph, and whether what the manifest copied out of it still
+ * matches what the graph committed.
+ *
+ * ⛔ ONE CLASSIFICATION, NOT TWO CHECKS A CALLER MIGHT FORGET TO COMBINE. classifyAttestation
+ * answers "is this the graph the manifest describes". That question passing is exactly what made
+ * the count drift invisible: every consumer stopped there. This is what authority consumers call.
+ *
+ * ⚠ ALL INPUTS MUST COME FROM ONE PINNED SNAPSHOT plus one manifest read taken BEFORE it. Passing
+ * a generation from one read and aggregates from another reintroduces the check-then-act window
+ * this exists to close.
+ *
+ * @param {number|null} dbGeneration
+ * @param {number|null} manifestGeneration
+ * @param {boolean} manifestUsable
+ * @param {{unresolved:number,trustUnresolved:number}|null} dbCounts  committed aggregates, or null
+ * @param {{unresolved:number|null,trustUnresolved:number|null}} manifestCounts  the copied values
+ */
+export function classifyPublication({
+  dbGeneration, manifestGeneration, manifestUsable = true, dbCounts = null, manifestCounts = {},
+} = {}) {
+  const generationState = classifyAttestation({ dbGeneration, manifestGeneration, manifestUsable });
+  if (generationState !== ATTESTATION.ATTESTED) return generationState;
+
+  // The generation agrees. Now the part that agreement does not cover.
+  if (dbCounts === null) return ATTESTATION.AGGREGATES_UNRECORDED;
+
+  const copied = manifestCounts ?? {};
+  const sameUnresolved = copied.unresolved === dbCounts.unresolved;
+  const sameTrust = copied.trustUnresolved === dbCounts.trustUnresolved;
+  if (!sameUnresolved || !sameTrust) return ATTESTATION.AGGREGATE_MISMATCH;
+
   return ATTESTATION.ATTESTED;
 }
 

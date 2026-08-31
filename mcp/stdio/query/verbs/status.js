@@ -4,7 +4,7 @@ import { loadManifest } from '../../freshness/manifest.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { openExistingDb } from '../../storage/db.js';
-import { ATTESTATION, classifyAttestation, readGraphPublication } from '../../storage/publication-schema.js';
+import { ATTESTATION, classifyPublication, readGraphPublication } from '../../storage/publication-schema.js';
 import { hasOverlay, loadFunctionality } from '../../overlay/loader.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
 
@@ -50,9 +50,19 @@ export async function graphStatus({ repoRoot }) {
         // holding BOTH substrates can tell attested from torn, which is why this happens here,
         // inside the handle, and not wherever the counts are formatted.
         const publication = readGraphPublication(db);
-        generationState = classifyAttestation({
+        // ⛔ THE FULL VERDICT, NOT JUST WHICH GRAPH. Comparing generations alone is exactly what
+        // let a drifted manifest copy read as attested: reviewer tampered the counts, left the
+        // generations matching, and this verb printed dirtyEdgeCount=9 beside dbUnresolvedCount=2
+        // under the word attested. The generation attests WHICH graph; it says nothing about what
+        // was copied out of it.
+        generationState = classifyPublication({
           dbGeneration: publication === null ? null : publication.generation,
           manifestGeneration: manifest?.generation ?? null,
+          dbCounts: publication?.counts ?? null,
+          manifestCounts: {
+            unresolved: manifest?.dirtyEdgeCount ?? null,
+            trustUnresolved: manifest?.trustDirtyEdgeCount ?? null,
+          },
         });
         dbCounts = publication?.counts ?? null;
       } finally {
@@ -80,14 +90,18 @@ export async function graphStatus({ repoRoot }) {
     unresolvedEdges,
     trustUnresolvedEdges,
     dirtyEdgeCount: unresolvedEdges,
-    // ⚠ WHICH GRAPH THOSE COUNTS DESCRIBE, beside the counts themselves. On a legacy or torn graph
-    // this verb used to print an unresolved count with nothing qualifying it, and a reader has no
-    // other way to tell a measurement from a number copied out of a file that may not match.
+    // ⚠ WHICH GRAPH THOSE COUNTS DESCRIBE, beside the counts themselves.
     generationState,
-    // The transactionally-committed aggregates, when the publishing run recorded them. null means
-    // the graph predates them — NOT zero, which would be a measurement nobody took.
-    dbUnresolvedCount: dbCounts?.unresolved ?? null,
-    dbTrustUnresolvedCount: dbCounts?.trustUnresolved ?? null,
+    // ⛔ ONE AUTHORITATIVE COUNT, NOT TWO CONTRADICTORY ONES. This used to publish the manifest copy
+    // and the committed aggregate as separate fields, so a drifted graph printed both and left the
+    // reader to notice. Reviewer's ruling and it is obviously right: when the graph committed an
+    // aggregate, THAT is the count; the manifest copy is a cache of it, and where they disagree the
+    // disagreement is the finding, not a second number to display.
+    //
+    // null means the publishing run recorded no aggregate — the graph predates them. NOT zero,
+    // which would be a measurement nobody took.
+    committedUnresolvedCount: dbCounts?.unresolved ?? null,
+    committedTrustUnresolvedCount: dbCounts?.trustUnresolved ?? null,
     unresolvedBy: summarizeUnresolved(
       manifest.dirtyEdges ?? [],
       unresolvedEdges,
