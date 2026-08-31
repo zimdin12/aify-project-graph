@@ -33,24 +33,42 @@ export async function loadManifest(graphDir) {
       : DEFAULT_JSON_MAX_BYTES;
     const { size } = await stat(manifestPath);
     if (size > cap) {
-      return { status: 'corrupt', manifest: defaultManifest() };
+      return { status: 'corrupt', manifest: defaultManifest(), parsed: null };
     }
     const raw = await readFile(manifestPath, 'utf8');
+    const parsed = JSON.parse(raw);
     return {
       status: 'ok',
-      manifest: { ...defaultManifest(), ...JSON.parse(raw) },
+      manifest: { ...defaultManifest(), ...parsed },
+      // ⛔ WHAT THE FILE ACTUALLY SAID, BESIDE WHAT THE DEFAULTS SUPPLIED.
+      //
+      // The defaults are right for every ordinary reader — a missing count should behave as 0 so no
+      // caller has to handle undefined. They are catastrophic for one question: "did this manifest
+      // ever record an unresolved population?" A legacy manifest written before dirtyEdgeCount
+      // existed comes back as `dirtyEdgeCount: 0, dirtyEdges: []`, which the migration source then
+      // certifies as PROVABLY COMPLETE AND EMPTY — a claim that this graph has zero unresolved refs,
+      // manufactured entirely by defaultManifest().
+      //
+      // Measured: a manifest holding only {commit,indexedAt,status,schemaVersion} produced
+      //     migration source -> {"state":"valid","rows":[],"count":0}
+      //
+      // So anything deciding whether EVIDENCE EXISTS must read `parsed`, not `manifest`. The
+      // distinction is absence versus a filled-in zero, and only the raw object still has it.
+      parsed,
     };
   } catch (error) {
     if (error?.code === 'ENOENT') {
       return {
         status: 'missing',
         manifest: defaultManifest(),
+        parsed: null,
       };
     }
 
     return {
       status: 'corrupt',
       manifest: defaultManifest(),
+      parsed: null,
     };
   }
 }

@@ -319,10 +319,21 @@ export async function ensureFresh({
         ? await readLegacyUnresolvedSidecar(graphDir)
         : { state: 'absent' };
       const manifestSource = tableRefs === null
-        ? readManifestAsMigrationSource(manifest)
+        // ⛔ THE RAW PARSE, NOT THE DEFAULTED MANIFEST. defaultManifest() supplies dirtyEdgeCount:0
+        // and dirtyEdges:[], so a legacy manifest that never recorded a population reads as
+        // "provably complete and empty" — a zero nobody measured. Only the parsed object still
+        // distinguishes an absent field from a recorded zero.
+        ? readManifestAsMigrationSource(manifestState.parsed)
         : { state: 'absent' };
       const carrySource = chooseCarryForwardSource({
         tableRefs, legacy: legacySource, manifestSource,
+        // ⛔ "NOTHING ANYWHERE" MEANS DIFFERENT THINGS ON A NEW GRAPH AND AN EXISTING ONE. A first
+        // index has no unresolved history because none has been built; a legacy install predating
+        // dirtyEdgeCount has an indexed graph, a real population, and no surviving record of it.
+        // Reporting the second as an authoritative zero is false absence reached by running out of
+        // places to look. The manifest's own commit is the discriminator: a graph that has been
+        // indexed has one.
+        graphIndexed: Boolean(manifest?.commit),
       });
 
       const fullRebuild = (force

@@ -215,6 +215,35 @@ describe('the graph and everything describing it are published by ONE commit', (
       expect(after.functions).toContain('newcomer');
     });
 
+    it('⛔ an INDEXED graph with no surviving ref authority anywhere forces the rebuild', async () => {
+      // ⭐ FOUND BY A SURVIVING MUTANT, AND IT IS THE FOURTH TIME IN THIS UNIT. The bridge's own
+      // tests cover graphIndexed thoroughly; nothing covered the ORCHESTRATOR passing it, so
+      // changing that argument to false changed nothing any test could see.
+      //
+      // The state itself: a legacy install predating dirtyEdgeCount has an indexed graph, a real
+      // unresolved population, and no record of it — no table, no sidecar, no manifest count.
+      // Treating that as an authoritative zero is false absence reached by running out of places to
+      // look. It must rebuild from source instead.
+      await seed();
+      const db = openDb(GRAPH(repoRoot));
+      try { db.exec('DROP TABLE unresolved_refs'); } finally { db.close(); }
+      // No sidecar is written, and the manifest loses the count that would otherwise witness it.
+      const manifestPath = MANIFEST(repoRoot);
+      const m = JSON.parse(await readFile(manifestPath, 'utf8'));
+      delete m.dirtyEdgeCount;
+      delete m.dirtyEdges;
+      await writeFile(manifestPath, JSON.stringify(m));
+
+      await writeFile(join(repoRoot, 'src', 'newcomer.js'), 'export function newcomer() { return 7; }\n');
+      getHeadCommit.mockResolvedValue('head-1');
+      const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+      await ensureFresh({ repoRoot });
+
+      const after = readPublished(repoRoot);
+      expect(after.functions, 'a full rebuild walks the repository and finds the new file')
+        .toContain('newcomer');
+    });
+
     it('POSITIVE CONTROL: a VALID legacy sidecar does NOT force a rebuild', async () => {
       // Without this the escalation could be permanently on and the two denials above would prove
       // nothing — a gate whose closed state never lifts is off, not fail-closed.

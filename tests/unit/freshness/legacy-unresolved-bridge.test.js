@@ -70,6 +70,33 @@ describe('the legacy sidecar reads as a typed state, never as an answer about th
       .toBeUndefined();
   });
 
+  it('⛔ an envelope with NO count is invalid — the witness must be present to be consulted', async () => {
+    // The guard read `typeof declared === 'number'`, so a missing count walked past the very check
+    // that exists to catch truncation. A witness consulted only when it happens to be there is not
+    // a witness, and an envelope that cannot establish its own completeness must say so.
+    writeSidecar({ writtenAt: 'x', dirtyEdges: [{ target: 'a' }] });
+    const r = await readLegacyUnresolvedSidecar(dir);
+    expect(r.state).toBe('invalid');
+    expect(r.reason).toMatch(/no count/);
+  });
+
+  it('⛔ a NON-INTEGER count is invalid — a string 999 is not a measurement', async () => {
+    // Executed by the reviewer: {"count":"999", one row} read as VALID. A count that cannot be
+    // compared numerically cannot witness anything, and coercing it would invent a comparison.
+    for (const count of ['999', null, 1.5, true]) {
+      writeSidecar({ count, writtenAt: 'x', dirtyEdges: [{ target: 'a' }] });
+      const r = await readLegacyUnresolvedSidecar(dir);
+      expect(r.state, `count=${JSON.stringify(count)}`).toBe('invalid');
+      expect(r.reason).toMatch(/not an integer|no count/);
+    }
+  });
+
+  it('POSITIVE CONTROL: an integer count that matches is still VALID', async () => {
+    // ⛔ Without this the tightened guard could reject everything and every case above would pass.
+    writeSidecar({ count: 1, writtenAt: 'x', dirtyEdges: [{ target: 'a' }] });
+    expect((await readLegacyUnresolvedSidecar(dir)).state).toBe('valid');
+  });
+
   it('⛔ a count/rows mismatch is INVALID — a truncated write parses as valid JSON', async () => {
     // The rows that survive a truncation look perfectly well formed. The declared count is the only
     // thing in the file that knows how many there should have been.
@@ -224,13 +251,29 @@ describe('the tier chain refuses rather than degrades', () => {
     expect(r.rows).toBeNull();
   });
 
-  it('nothing anywhere is genuinely empty, not a refusal', () => {
+  it('nothing anywhere on a NEVER-INDEXED graph is genuinely empty, not a refusal', () => {
     // POSITIVE CONTROL ON THE REFUSAL: if this returned force-full too, the gate would be closed
     // permanently and would prove nothing about the cases above.
+    //
+    // ⚠ AND IT IS SPECIFICALLY THE FIRST-INDEX CASE. A graph that has never been indexed has no
+    // unresolved history because none has been built — nothing is missing.
     const r = chooseCarryForwardSource({
-      tableRefs: null, legacy: absent, manifestSource: absent,
+      tableRefs: null, legacy: absent, manifestSource: absent, graphIndexed: false,
     });
     expect(r.tier).toBe('none');
     expect(r.rows).toEqual([]);
+  });
+
+  it('⛔ nothing anywhere on an INDEXED graph is UNKNOWN, and forces a full rebuild', () => {
+    // The same inputs, one fact different. A legacy install predating dirtyEdgeCount has an indexed
+    // graph, a real unresolved population, and no surviving record of it — reporting that as an
+    // authoritative zero is false absence reached by running out of places to look rather than by
+    // measuring. This is the distinction the tier chain could not previously express.
+    const r = chooseCarryForwardSource({
+      tableRefs: null, legacy: absent, manifestSource: absent, graphIndexed: true,
+    });
+    expect(r.tier).toBe('force-full');
+    expect(r.rows, 'no rows to carry, and none invented').toBeNull();
+    expect(r.reason).toMatch(/unknown, not zero/);
   });
 });

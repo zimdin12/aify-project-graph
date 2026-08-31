@@ -54,11 +54,31 @@ export async function readLegacyUnresolvedSidecar(graphDir) {
     return { state: 'invalid', reason: 'envelope has no dirtyEdges array' };
   }
 
-  // ⭐ THE ENVELOPE CARRIES ITS OWN COUNT, SO CHECK IT. A file truncated mid-write parses as valid
-  // JSON far more often than intuition suggests, and the rows that survive look perfectly well
-  // formed. The count is the only thing in the file that knows how many there should have been.
+  // ⭐ THE ENVELOPE CARRIES ITS OWN COUNT, AND IT IS THE ONLY COMPLETENESS WITNESS THERE IS.
+  // A file truncated mid-write parses as valid JSON far more often than intuition suggests, and the
+  // rows that survive look perfectly well formed. The declared count is the only thing in the file
+  // that knows how many there should have been.
+  //
+  // ⛔ SO ITS ABSENCE IS A REFUSAL, NOT A PASS. This guard read `typeof declared === 'number'`,
+  // which meant a missing count and a string count both walked straight past the check that exists
+  // to catch truncation. Reviewer executed both and I reproduced them:
+  //
+  //     {"dirtyEdges":[one row]}              -> valid
+  //     {"count":"999","dirtyEdges":[one]}    -> valid
+  //
+  // A witness that is only consulted when it happens to be present is not a witness. An envelope
+  // without a usable count cannot establish its own completeness, and the whole point of this
+  // reader is that it can say so.
   const declared = parsed.count;
-  if (typeof declared === 'number' && declared !== parsed.dirtyEdges.length) {
+  if (!Number.isInteger(declared)) {
+    return {
+      state: 'invalid',
+      reason: declared === undefined
+        ? 'envelope has no count — completeness cannot be established'
+        : `envelope count is not an integer (${JSON.stringify(declared)}) — completeness cannot be established`,
+    };
+  }
+  if (declared !== parsed.dirtyEdges.length) {
     return {
       state: 'invalid',
       reason: `envelope count ${declared} !== ${parsed.dirtyEdges.length} rows present`,
@@ -107,7 +127,7 @@ export function readManifestAsMigrationSource(manifest) {
  * one, which is the precise failure this replaces: the loss is invisible and looks like progress.
  * Rebuilding from source is expensive and always correct.
  */
-export function chooseCarryForwardSource({ tableRefs, legacy, manifestSource }) {
+export function chooseCarryForwardSource({ tableRefs, legacy, manifestSource, graphIndexed = false }) {
   if (tableRefs !== null) return { tier: 'table', rows: tableRefs };
 
   if (legacy.state === 'valid') return { tier: 'legacy-sidecar', rows: legacy.rows };
@@ -120,7 +140,23 @@ export function chooseCarryForwardSource({ tableRefs, legacy, manifestSource }) 
     return { tier: 'force-full', rows: null, reason: `manifest ${manifestSource.reason}` };
   }
 
-  // Nothing anywhere — a graph with no unresolved history at all. That is genuinely empty, not
-  // unknown: there is no artifact claiming otherwise, so there is nothing to refuse over.
+  // ⛔ NOTHING ANYWHERE IS ONLY EMPTY ON A GRAPH THAT HAS NEVER BEEN INDEXED.
+  //
+  // This returned `none` with rows [] unconditionally, reasoning that with no artifact claiming
+  // otherwise there was nothing to refuse over. That is right for a FIRST index — which is a full
+  // rebuild anyway — and wrong for an existing graph: a legacy install predating dirtyEdgeCount has
+  // an indexed graph, a real unresolved population, and no surviving record of it. Reporting that
+  // as an authoritative zero is the same false-absence this unit exists to remove, arrived at by
+  // running out of places to look rather than by measuring.
+  //
+  // `graphIndexed` distinguishes them. Unknown fails closed, as everywhere else here.
+  if (graphIndexed) {
+    return {
+      tier: 'force-full',
+      rows: null,
+      reason: 'this graph is indexed but no unresolved-ref authority survives anywhere (no table, '
+        + 'no sidecar, no manifest count) — its population is unknown, not zero',
+    };
+  }
   return { tier: 'none', rows: [] };
 }
