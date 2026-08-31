@@ -4,8 +4,8 @@ import { execFileSync } from 'node:child_process';
 import { ensureFresh } from '../../freshness/orchestrator.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { loadManifest } from '../../freshness/manifest.js';
-import { openExistingDb } from '../../storage/db.js';
-import { ATTESTATION, classifyAttestation, readGraphGeneration } from '../../storage/publication-schema.js';
+import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
+import { ATTESTATION, classifyAttestation, readGraphPublication } from '../../storage/publication-schema.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
 import { staleProcessWarning, staleProcessBlocker } from '../../server-build.js';
 
@@ -217,16 +217,35 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
   let alreadyIndexedFiles = null;
   let attestation = ATTESTATION.LEGACY_UNATTESTED;
   try {
-    const db = openExistingDb(dbPath);
-    try {
-      alreadyIndexedFiles = db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).length;
-      attestation = classifyAttestation({
-        dbGeneration: readGraphGeneration(db),
-        manifestGeneration: manifest?.generation ?? null,
-      });
-    } finally {
-      db.close();
-    }
+    // ⭐ PINNED, NOT MERELY SHARED. One handle already meant the two facts came from one connection;
+    // it did NOT stop a rebuild committing between the two statements, which is the whole
+    // check-then-act window. Under a capture they are one observation of one instant.
+    //
+    // ⚠ The manifest was read ABOVE, before this — deliberately. A commit landing between the
+    // manifest read and this pin shows up as a generation mismatch and refuses, rather than being
+    // absorbed by two reads that straddle it.
+    const captured = captureExistingSnapshot(dbPath, (db) => ({
+      files: db.all(`SELECT DISTINCT file_path FROM nodes WHERE type = 'File'`).length,
+      publication: readGraphPublication(db),
+    }));
+    alreadyIndexedFiles = captured.files;
+    // ⛔ THE GENERATION COMPARISON, NOT THE FULL INTEGRITY VERDICT — and the difference is the
+    // question this gate asks. Here it is "is the snapshot underneath the rebuild the graph the
+    // manifest describes?", which the generation answers completely. Whether the manifest's COPIED
+    // COUNTS still match the committed aggregates is a different property, and it bears on claims
+    // made FROM those numbers, not on whether the snapshot is coherent.
+    //
+    // I wired classifyPublication here first and it refused a perfectly good graph whose publishing
+    // run predated the aggregate columns: unrecorded counts are unknown, unknown denies, and a
+    // reader lost a complete previous snapshot over a property this decision does not depend on.
+    // Over-denial is not the safe direction when the cost is refusing correct answers.
+    //
+    // ⇒ Authority consumers (absenceAuthority, preflight SAFE) call classifyPublication because
+    // they act on the numbers. This one calls classifyAttestation because it acts on identity.
+    attestation = classifyAttestation({
+      dbGeneration: captured.publication === null ? null : captured.publication.generation,
+      manifestGeneration: manifest?.generation ?? null,
+    });
   } catch {
     // ⛔ UNREADABLE LEAVES BOTH AT THEIR REFUSING VALUES: the count stays null (not a number greater
     // than zero) and the attestation stays LEGACY_UNATTESTED. A database we could not open is not an

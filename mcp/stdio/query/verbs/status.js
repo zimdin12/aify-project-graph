@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { loadManifest } from '../../freshness/manifest.js';
 import { WorktreeState } from '../../freshness/worktree-state.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { openExistingDb } from '../../storage/db.js';
+import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
 import { ATTESTATION, classifyPublication, readGraphPublication } from '../../storage/publication-schema.js';
 import { hasOverlay, loadFunctionality } from '../../overlay/loader.js';
 import { loadTasksArtifact, summarizeDirtySeams, summarizeOverlayQuality } from '../../overlay/quality.js';
@@ -36,10 +36,17 @@ export async function graphStatus({ repoRoot }) {
   const dbPath = join(graphDir, 'graph.sqlite');
   if (existsSync(dbPath)) {
     try {
-      const db = openExistingDb(dbPath);
-      try {
-        liveNodes = db.get('SELECT count(*) AS c FROM nodes').c;
-        liveEdges = db.get('SELECT count(*) AS c FROM edges').c;
+      // ⭐ ONE PINNED OBSERVATION. These counts and the publication verdict beside them must
+      // describe the same instant: reporting nodes from one moment and a generation from another is
+      // the check-then-act window, and this verb prints both side by side as though they agreed.
+      const captured = captureExistingSnapshot(dbPath, (db) => ({
+        nodes: db.get('SELECT count(*) AS c FROM nodes').c,
+        edges: db.get('SELECT count(*) AS c FROM edges').c,
+        publication: readGraphPublication(db),
+      }));
+      {
+        liveNodes = captured.nodes;
+        liveEdges = captured.edges;
         // ⭐ THIS VERB CAN ACTUALLY COMPARE, so it must. The comment above already concedes that
         // the DB can be fresher than the manifest; until now that was reported as a nicety about
         // node counts, while the unresolved counts beside it were taken from the manifest with
@@ -49,7 +56,7 @@ export async function graphStatus({ repoRoot }) {
         // manifest naming its own generation is one side of a two-sided comparison. Only a reader
         // holding BOTH substrates can tell attested from torn, which is why this happens here,
         // inside the handle, and not wherever the counts are formatted.
-        const publication = readGraphPublication(db);
+        const publication = captured.publication;
         // ⛔ THE FULL VERDICT, NOT JUST WHICH GRAPH. Comparing generations alone is exactly what
         // let a drifted manifest copy read as attested: reviewer tampered the counts, left the
         // generations matching, and this verb printed dirtyEdgeCount=9 beside dbUnresolvedCount=2
@@ -65,8 +72,6 @@ export async function graphStatus({ repoRoot }) {
           },
         });
         dbCounts = publication?.counts ?? null;
-      } finally {
-        db.close();
       }
     } catch {
       // fall through — use manifest numbers

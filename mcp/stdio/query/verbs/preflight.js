@@ -1,6 +1,7 @@
 import { ATTESTATION, classifyPublication, readGraphPublication } from '../../storage/publication-schema.js';
 import { join } from 'node:path';
 import { openExistingDb } from '../../storage/db.js';
+import { loadManifest } from '../../freshness/manifest.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
@@ -35,6 +36,14 @@ export async function graphPreflight({ repoRoot, symbol }) {
   if (!symbol) return 'ERROR: symbol parameter is required';
   const freshness = await inspectReadFreshness({ repoRoot, verbName: 'graph_preflight' });
   if (freshness.blocker) return freshness.blocker;
+  // ⭐ THE MANIFEST FIRST, AND THE ORDER IS THE POINT. It is a different substrate, so it cannot be
+  // inside the database snapshot. Read BEFORE the pin, a rebuild committing in between shows up as
+  // a generation mismatch and denies; read after, the two reads straddle the commit and agree only
+  // because they were taken on opposite sides of it.
+  //
+  // This used to be loaded on line 99, in the middle of the database work — the wrong side of the
+  // pin, and across an await while an ordinary handle was held open.
+  const manifest = await loadManifest(join(repoRoot, '.aify-graph'));
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // 1. Find the symbol
@@ -96,8 +105,6 @@ export async function graphPreflight({ repoRoot, symbol }) {
     );
 
     // 6. Trust: count unresolved edges in the same file
-    const manifest = await import('../../freshness/manifest.js')
-      .then(m => m.loadManifest(join(repoRoot, '.aify-graph')));
     const { trust: dirtyCount } = getUnresolvedCounts(manifest.manifest);
 
     // 7. Cross-module check
