@@ -393,17 +393,12 @@ export function buildNextActions(s) {
 // The publication comparison, in one place, with the handle closed. Returns a typed state rather
 // than a boolean so a denial can say WHICH of the four it is — legacy, never completed, torn, or a
 // caller that never asked.
-function attestationOf(dbPath, manifest, manifestUsable = true) {
-  if (!existsSync(dbPath)) return ATTESTATION.LEGACY_UNATTESTED;
-  // ⭐ ONE PINNED SNAPSHOT for the generation AND the aggregates it published. Read separately they
-  // can straddle a commit and return generation N with aggregates N+1 — the same check-then-act
-  // window one level down from the one this whole unit exists to close.
-  //
-  // ⚠ The manifest was loaded BEFORE this call, deliberately: a commit landing between the two
-  // reads then shows up as a mismatch and denies, rather than being absorbed silently.
-  const publication = captureExistingSnapshot(dbPath, (db) => readGraphPublication(db));
+function attestationFrom(publication, manifest, manifestUsable = true) {
+  // ⛔ NO HANDLE OF ITS OWN. This opened the database a second time, so the attestation described a
+  // different instant from the evidence it was authorising — reviewer's exact finding. The
+  // publication now arrives from the single authority capture taken above.
   return classifyPublication({
-    dbGeneration: publication === null ? null : publication.generation,
+    dbGeneration: publication === null || publication === undefined ? null : publication.generation,
     manifestGeneration: manifest?.generation ?? null,
     manifestUsable,
     dbCounts: publication?.counts ?? null,
@@ -469,17 +464,58 @@ export async function graphHealth({ repoRoot }) {
   // when the database cannot be opened — so comparing them to the manifest would compare it to
   // itself and always agree. The integrity check must only run on counts genuinely read from the
   // database, and this flag is the difference.
+  // ⛔ EVERY INPUT TO absenceAuthority FROM ONE PINNED SNAPSHOT.
+  //
+  // These reads used to come from three separate opens: the counts here, the collection and
+  // verified-edge total further down, the publication in its own capture. Attestation was pinned
+  // and the evidence it authorised was not, so a rebuild committing between them let health certify
+  // evidence from generation N with an attestation from N+1.
+  //
+  // ⚠ I HAD WRITTEN THAT THIS WAS TOLERABLE "because health REPORTS rather than claims absence".
+  // That was a rationalisation and the reviewer was right to reject it: graphCapabilities
+  // .absenceAuthority IS the repository-level absence claim, the field consulted before someone
+  // deletes code. Rendering something does not lower the authority of the field being rendered.
+  //
+  // Presentation-only reads (overlay anchors, storage size) stay outside — pinning them would hold
+  // a WAL reader open across work that gates nothing.
   let dbCountsRead = false;
+  let authority = null;
   try {
-    const db = openExistingDb(dbPath);
-    try {
-      nodes = db.get('SELECT count(*) AS c FROM nodes').c;
-      edges = db.get('SELECT count(*) AS c FROM edges').c;
-      census = db.all('SELECT type, count(*) AS c FROM nodes GROUP BY type ORDER BY c DESC');
-      dbCountsRead = true;
-    } finally {
-      db.close();
-    }
+    authority = captureExistingSnapshot(dbPath, (db) => ({
+      nodes: db.get('SELECT count(*) AS c FROM nodes').c,
+      edges: db.get('SELECT count(*) AS c FROM edges').c,
+      census: db.all('SELECT type, count(*) AS c FROM nodes GROUP BY type ORDER BY c DESC'),
+      // ⭐ THE COLLECTION AND EVERY NUMBER DERIVED FROM IT, TOGETHER. collectionDecay,
+      // eligibleFileCount and coveredFileCount are the inputs to coverage and currency — the exact
+      // fields absenceAuthority weighs — so reading them at a different instant from the attestation
+      // is the window this consolidation closes.
+      ...(() => {
+        let latest = null;
+        try { latest = getLatestCollection(db); } catch { return { latestCollection: null }; }
+        if (!latest) return { latestCollection: null };
+        const exts = LANGUAGE_FILE_EXTENSIONS[latest.language] ?? [];
+        let decay = {};
+        let liveEligible = null;
+        let covered = null;
+        try { decay = collectionDecay(db, latest, head, repoRoot) ?? {}; } catch { decay = {}; }
+        try { liveEligible = eligibleFileCount(db, { exts, repoRoot }); } catch { liveEligible = null; }
+        try { covered = coveredFileCount(db, { exts, repoRoot }); } catch { covered = null; }
+        return { latestCollection: latest, collectionDecayFacts: decay, liveEligible, covered };
+      })(),
+      language: (() => {
+        try {
+          return db.get(
+            "SELECT language, count(*) AS c FROM nodes WHERE language IS NOT NULL AND language != ''"
+            + ' GROUP BY language ORDER BY c DESC LIMIT 1',
+          )?.language ?? null;
+        } catch { return null; }
+      })(),
+      publication: readGraphPublication(db),
+    }));
+    nodes = authority.nodes;
+    edges = authority.edges;
+    census = authority.census;
+    dbCountsRead = true;
   } catch {
     // fall through with manifest values
   }
@@ -543,9 +579,11 @@ export async function graphHealth({ repoRoot }) {
   // versa. Plan #3.
   let codeIntel = { available: false, reason: 'no_collection' };
   try {
-    const db = openExistingDb(dbPath);
-    try {
-      const latest = getLatestCollection(db);
+    {
+      // ⭐ THE COLLECTION COMES FROM THE AUTHORITY CAPTURE, not a fresh open. lspVerifiedEdges and
+      // coverage feed absenceAuthority directly, so reading them at a different instant from the
+      // attestation is the exact window this consolidation closes.
+      const latest = authority?.latestCollection ?? null;
       if (latest) {
         codeIntel = {
           available: true,
@@ -563,7 +601,8 @@ export async function graphHealth({ repoRoot }) {
           // the pair is self-explaining rather than requiring the drift verdict.
           compileDbHash: latest.compileDbHash,
           indexedCommit: latest.indexedCommit,
-          ...collectionDecay(db, latest, head, repoRoot),
+          // From the same pinned instant as the collection itself — see the authority capture.
+          ...(authority?.collectionDecayFacts ?? {}),
           collectedAt: latest.collectedAt,
           // ⛔ SCOPE, BECAUSE A COLLECTION EXISTING IS NOT A COLLECTION COVERING ANYTHING.
           // Three states, and `unknown` must never read as `complete`: a collection stored
@@ -582,10 +621,7 @@ export async function graphHealth({ repoRoot }) {
           // denominator we cannot establish is UNKNOWN, and `complete` stays null so health warns
           // rather than asserting coverage over a number it could not compute.
           coverage: (() => {
-            const liveEligible = eligibleFileCount(db, {
-              exts: LANGUAGE_FILE_EXTENSIONS[latest.language] ?? [],
-              repoRoot,
-            });
+            const liveEligible = authority?.liveEligible ?? null;
             const eligible = liveEligible ?? latest.filesEligible ?? null;
             // ⛔ AND THE NUMERATOR HAD THE SAME PROBLEM, INTRODUCED BY MY OWN PRUNE GUARDS.
             // `latest.filesProcessed` was a fair proxy while the prune left exactly ONE collection
@@ -599,10 +635,7 @@ export async function graphHealth({ repoRoot }) {
             // A true statement about a collection read as a statement about the repository — the
             // same noun error as `filesTotal` being the scope's denominator, three commits after
             // fixing the denominator half of this very ratio.
-            const covered = coveredFileCount(db, {
-              exts: LANGUAGE_FILE_EXTENSIONS[latest.language] ?? [],
-              repoRoot,
-            });
+            const covered = authority?.covered ?? null;
             const processed = covered ?? latest.filesProcessed ?? null;
             return {
               filesProcessed: processed,
@@ -667,7 +700,7 @@ export async function graphHealth({ repoRoot }) {
           refsCleanNotFound: latest.refsCleanNotFound,
         };
       }
-    } finally { db.close(); }
+    }
   } catch { /* leave codeIntel as not-available */ }
 
   let storage = { measured: false, reason: 'open_failed' };
@@ -1632,7 +1665,9 @@ export async function graphHealth({ repoRoot }) {
   //
   // ⇒ The fact that matters BEFORE a collection was only knowable AFTER one. The graph already
   // holds a language per node, so it can answer before anything is collected.
-  const primaryLanguage = codeIntel?.language ?? dominantGraphLanguage(dbPath);
+  // From the same capture as the evidence it describes. dominantGraphLanguage(dbPath) opened its own
+  // handle, so the language qualifying a caller set could come from a different graph than the set.
+  const primaryLanguage = codeIntel?.language ?? authority?.language ?? null;
   const capabilities = graphCapabilities({
     integrity: capabilitiesIntegrity,
     indexed: true,
@@ -1660,7 +1695,9 @@ export async function graphHealth({ repoRoot }) {
     // is tolerable HERE because health reports rather than claims absence — the verbs that answer
     // "no callers" are the ones that must wrap their whole read in withExistingSnapshot, and they
     // are a separate change. Saying so beats implying a consistency this call does not provide.
-    attestation: attestationOf(dbPath, manifest, manifestLoad.status === 'ok'),
+    // ⚠ When the capture itself failed there is no publication to compare, and that is not an
+    // attested graph. undefined flows to LEGACY_UNATTESTED, which denies.
+    attestation: attestationFrom(authority?.publication, manifest, manifestLoad.status === 'ok'),
   });
 
   return {
