@@ -202,19 +202,58 @@ export function splitCollectBudget(budgetMs) {
  * ⚠ NULL ON FAILURE OR EMPTY, NEVER 0. A zero denominator makes any ratio read as total coverage,
  * which is the failure this number exists to prevent.
  */
+/**
+ * The DISTINCT file paths matching these extensions, straight from the graph. NOTHING ELSE.
+ *
+ * ⛔ SPLIT OUT SO A PINNED READ CAN BE SHORT. `eligibleFileCount` reads the database AND calls
+ * loadEffectiveIgnoredDirs, which walks the filesystem. graph_health called it inside
+ * captureExistingSnapshot, so the WAL reader stayed open across that filesystem work — the exact
+ * cost the pinned-snapshot helper exists to avoid, in the function that consolidated the authority
+ * reads. A caller that needs this under a pin takes the ROWS there and filters after it closes.
+ *
+ * @returns {string[]} the paths, unfiltered
+ * @returns {null}     no extensions to match — the caller asked nothing answerable
+ */
+export function eligibleFilePaths(db, { exts }) {
+  if (!Array.isArray(exts) || exts.length === 0) return null;
+  const clauses = exts.map((_, i) => `file_path LIKE $e${i}`).join(' OR ');
+  const params = Object.fromEntries(exts.map((e, i) => [`e${i}`, `%${e}`]));
+  return db.all(
+    `SELECT DISTINCT file_path AS f FROM nodes WHERE file_path != '' AND (${clauses})`,
+    params,
+  ).map((r) => r.f);
+}
+
+/** Every DISTINCT file holding code-intel evidence, straight from the graph. NOTHING ELSE. */
+export function coveredFilePaths(db) {
+  return db.all(
+    "SELECT DISTINCT file AS f FROM code_intel_records WHERE file IS NOT NULL AND file != ''",
+  ).map((r) => r.f);
+}
+
+/**
+ * Narrow an ALREADY-READ path list to the corpus. Filesystem work, no database handle — the other
+ * half of the split above, and the half that must run after a snapshot closes.
+ *
+ * ⚠ NULL ON EMPTY, NEVER 0, for the same reason the counts below do: a zero denominator makes any
+ * ratio read as total coverage.
+ */
+export function countInCorpus(paths, { repoRoot, exts = null }) {
+  if (!Array.isArray(paths)) return null;
+  // The same derived exclusion the sweep and the collector use, so "is this file in the corpus"
+  // keeps having ONE answer rather than a third opinion here.
+  const ignored = loadEffectiveIgnoredDirs(repoRoot);
+  const n = paths
+    .filter((f) => (exts === null ? true : exts.some((e) => String(f).toLowerCase().endsWith(e))))
+    .filter((f) => !pathContainsIgnoredDir(f, ignored)).length;
+  return n > 0 ? n : null;
+}
+
 export function eligibleFileCount(db, { exts, repoRoot }) {
   try {
-    if (!Array.isArray(exts) || exts.length === 0) return null;
-    const clauses = exts.map((_, i) => `file_path LIKE $e${i}`).join(' OR ');
-    const params = Object.fromEntries(exts.map((e, i) => [`e${i}`, `%${e}`]));
-    // The same derived exclusion the sweep and the collector use, so "is this file in the corpus"
-    // keeps having ONE answer rather than a third opinion here.
-    const ignored = loadEffectiveIgnoredDirs(repoRoot);
-    const n = db.all(
-      `SELECT DISTINCT file_path AS f FROM nodes WHERE file_path != '' AND (${clauses})`,
-      params,
-    ).map((r) => r.f).filter((f) => !pathContainsIgnoredDir(f, ignored)).length;
-    return n > 0 ? n : null;
+    const paths = eligibleFilePaths(db, { exts });
+    if (paths === null) return null;
+    return countInCorpus(paths, { repoRoot });
   } catch {
     return null;
   }
@@ -244,13 +283,7 @@ export function eligibleFileCount(db, { exts, repoRoot }) {
 export function coveredFileCount(db, { exts, repoRoot }) {
   try {
     if (!Array.isArray(exts) || exts.length === 0) return null;
-    const ignored = loadEffectiveIgnoredDirs(repoRoot);
-    const n = db.all(
-      "SELECT DISTINCT file AS f FROM code_intel_records WHERE file IS NOT NULL AND file != ''",
-    ).map((r) => r.f)
-      .filter((f) => exts.some((e) => f.toLowerCase().endsWith(e)))
-      .filter((f) => !pathContainsIgnoredDir(f, ignored)).length;
-    return n > 0 ? n : null;
+    return countInCorpus(coveredFilePaths(db), { repoRoot, exts });
   } catch {
     return null;
   }
