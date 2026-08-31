@@ -459,15 +459,7 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
   // It joins `issues` rather than replacing `level` deliberately: the trust LEVEL is a real
   // measurement of resolution completeness and stays what it is. What changes is that the reader is
   // told the graph behind it cannot be checked.
-  if (snapshot.generationState === 'straddled_rebuild') {
-    // ⚠ A DIFFERENT FACT FROM AN UNATTESTED GRAPH, AND IT GETS DIFFERENT WORDS. The graph may be
-    // perfectly attested; the problem is that a rebuild COMMITTED WHILE THIS BRIEF WAS BEING READ,
-    // so its sections describe two graphs. Regenerating fixes it; rebuilding does not — rebuilding
-    // is what caused it.
-    addFirst('publication straddled_rebuild — a rebuild committed while this brief was being '
-      + 'assembled, so its sections were read from two different graphs',
-      'regenerate the brief; the graph itself may be fine');
-  } else if (snapshot.generationState && snapshot.generationState !== 'attested') {
+  if (snapshot.generationState && snapshot.generationState !== 'attested') {
     addFirst(`publication ${snapshot.generationState} — this graph's contents could not be `
       + 'verified against the manifest describing it, so the trust figure is unattested',
       'graph_index({ force: true }) to publish a generation this brief can be checked against');
@@ -497,7 +489,15 @@ function trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdg
 
 // ---------- main ----------
 
-export function generateBrief({ repoRoot }) {
+// Assemble a complete brief IN MEMORY and report whether the graph moved underneath it.
+//
+// ⛔ THIS DOES NOT WRITE. Splitting assembly from publication is the whole point: a brief whose
+// sections were read from two graphs is known-invalid, and the caller must be able to throw it away
+// before anything reaches the canonical directory. While the two were one function, the only
+// available response to a detected straddle was to publish it with a warning attached — which asks
+// the next reader to notice prose and regenerate by hand, and leaves an invalid artifact in the
+// place everything else trusts.
+function assembleBrief({ repoRoot }) {
   const db = openDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     // ⛔ ONE CAPTURE IS NOT ACHIEVABLE IN THIS FUNCTION, so it does not pretend otherwise.
@@ -587,10 +587,12 @@ export function generateBrief({ repoRoot }) {
     // though they did.
     const generationAtEnd = readGraphPublication(db)?.generation ?? null;
     const straddledRebuild = generationAtStart !== generationAtEnd;
-    const health = trust(
-      straddledRebuild ? { ...snapshot, generationState: 'straddled_rebuild' } : snapshot,
-      entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy,
-    );
+    // ⚠ THE STRADDLE IS NOT FED INTO trust(), DELIBERATELY. It used to be, so the rendered brief
+    // carried `publication straddled_rebuild` in its trust line — but a straddled assembly is now
+    // discarded rather than published, so that wording could only ever appear on output nobody
+    // receives. The fact travels in the returned receipt instead, which is where a caller can act
+    // on it. A branch whose only consumer is a discarded render is not defence in depth.
+    const health = trust(snapshot, entries, subs, hubsArr, overlayHealth, brokenFeatureEdges, unresolvedBy);
     const coverage = briefCoverage(subs, overlayHealth);
     const { paths, hiddenCount: pathsHiddenCount } = extractPaths(db, exports, 5);
     // Pull indexedAt + commit from the manifest so brief.json carries them
@@ -678,10 +680,6 @@ export function generateBrief({ repoRoot }) {
     const json = renderJson(data, repoRoot);
     const jsonStr = JSON.stringify(json, null, 2);
 
-    // Cache-discipline: only write when content actually changed. Keeping the
-    // file mtime stable when content is unchanged preserves downstream tool
-    // prefix caches that may key on file contents/hashes.
-    const outDir = join(repoRoot, '.aify-graph');
     const writes = {
       'brief.md': md,
       'brief.agent.md': agentMd,
@@ -689,17 +687,12 @@ export function generateBrief({ repoRoot }) {
       'brief.plan.md': planMd,
       'brief.json': jsonStr,
     };
-    let changed = 0;
-    for (const [name, content] of Object.entries(writes)) {
-      const path = join(outDir, name);
-      const prev = existsSync(path) ? readFileSync(path, 'utf8') : null;
-      if (prev !== content) {
-        writeFileSync(path, content);
-        changed++;
-      }
-    }
 
     return {
+      straddledRebuild,
+      generationAtStart,
+      generationAtEnd,
+      writes,
       md_bytes: md.length,
       agent_bytes: agentMd.length,
       onboard_bytes: onboardMd.length,
@@ -709,7 +702,6 @@ export function generateBrief({ repoRoot }) {
       agent_tokens_est: Math.ceil(agentMd.length / 4),
       onboard_tokens_est: Math.ceil(onboardMd.length / 4),
       plan_tokens_est: Math.ceil(planMd.length / 4),
-      files_changed: changed,
       // Anchor validation summary so the CLI + callers can print a loud
       // warning when anchors are broken. Replaces the "silent `broken: []`"
       // failure mode that made "all good" indistinguishable from "not checked".
@@ -728,6 +720,72 @@ export function generateBrief({ repoRoot }) {
   } finally {
     db.close();
   }
+}
+
+// How many times to assemble before giving up. Two, not more: the retry happens AFTER the commit
+// that spoiled attempt 1, so a single rebuild stabilises it. A graph being rebuilt continuously is
+// a real condition, and grinding through attempts would only spend time to reach the same refusal.
+const MAX_ASSEMBLY_ATTEMPTS = 2;
+
+/**
+ * Assemble a brief and publish it ONLY if it describes one graph.
+ *
+ * ⛔ DETECTION HAS TO GATE PUBLICATION, OR IT IS JUST A LABEL ON A BAD ARTIFACT. The first version
+ * of this detected the straddle correctly and then wrote the mixed brief into `.aify-graph` with a
+ * warning in its trust line. That publishes a known-invalid artifact into the directory every other
+ * tool treats as authoritative, and delegates the fix to whoever next reads the prose carefully
+ * enough to notice. Review was right to refuse it.
+ *
+ * ⇒ Assemble, validate, and only then write. A straddled attempt is DISCARDED whole and retried.
+ * If it straddles again, nothing is written at all: any brief already on disk stays byte-for-byte
+ * as it was, and if there was none there still is none. A stale brief that honestly describes some
+ * earlier graph is strictly better than a fresh one that describes no graph.
+ *
+ * ⚠ This holds no WAL reader across git. Each attempt is an independent assembly with its own
+ * short-lived handle, which is why retry is the cheap answer here and pinning is not.
+ *
+ * @returns {{published: true, attempts: number, files_changed: number, ...}}
+ * @returns {{published: false, straddledRebuild: true, attempts: number, generations: number[]}}
+ */
+export function generateBrief({ repoRoot }) {
+  const straddles = [];
+  for (let attempt = 1; attempt <= MAX_ASSEMBLY_ATTEMPTS; attempt++) {
+    const assembled = assembleBrief({ repoRoot });
+    if (assembled.straddledRebuild) {
+      // Discard everything this attempt rendered. Nothing has been written, so there is nothing to
+      // undo — which is the property that makes discarding safe rather than a partial rollback.
+      straddles.push([assembled.generationAtStart, assembled.generationAtEnd]);
+      continue;
+    }
+    const outDir = join(repoRoot, '.aify-graph');
+    // Cache-discipline: only write when content actually changed. Keeping the file mtime stable
+    // when content is unchanged preserves downstream tool prefix caches that may key on contents.
+    let changed = 0;
+    for (const [name, content] of Object.entries(assembled.writes)) {
+      const path = join(outDir, name);
+      const prev = existsSync(path) ? readFileSync(path, 'utf8') : null;
+      if (prev !== content) {
+        writeFileSync(path, content);
+        changed++;
+      }
+    }
+    const { writes, straddledRebuild, generationAtStart, generationAtEnd, ...result } = assembled;
+    return { ...result, published: true, attempts: attempt, files_changed: changed };
+  }
+
+  // ⛔ TYPED REFUSAL, NOT A THROW AND NOT A SILENT ZERO. A caller that ignores this writes nothing
+  // and loses nothing; a caller that reads it can say why the brief on disk is older than the
+  // graph. Reporting `files_changed: 0` alone would be indistinguishable from "already up to date".
+  return {
+    published: false,
+    straddledRebuild: true,
+    attempts: MAX_ASSEMBLY_ATTEMPTS,
+    generations: straddles,
+    files_changed: 0,
+    reason: `a rebuild committed during each of ${MAX_ASSEMBLY_ATTEMPTS} assembly attempts, so every `
+      + 'brief built was read from two different graphs. Nothing was written: any existing brief is '
+      + 'unchanged. Re-run once the graph stops moving.',
+  };
 }
 
 // ⛔ EXTRACTED SO IT CAN BE RUN, NOT READ. This computation lived inline in the brief builder,
