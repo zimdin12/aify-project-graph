@@ -9,6 +9,7 @@
 // still fire, and it must disclose why — a detector that silently dropped them would be claiming a
 // precision it does not have.
 import { describe, it, expect } from 'vitest';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import {
   detectExternWithoutHeader, detectIncludedImplementationFile,
 } from '../../../mcp/stdio/code-intel/shape-detectors.js';
@@ -92,7 +93,13 @@ describe('detector 1: extern declaration with no header', () => {
       'src/pipeline.cpp': 'extern int computeWeight(int);\nint runWeighting() { return computeWeight(21); }',
     });
     const blob = JSON.stringify(out);
-    expect(blob).not.toMatch(/defeats every/i);
+    expectAbsentWithLiveMatcher(
+      /defeats every/i,
+      { forbidden: 'this defeats every include-graph query',
+        allowed: 'this shape may make header/include-graph routing incomplete' },
+      blob,
+      'the forbidden overclaim must never reach a finding',
+    );
     expect(out[0].nonClaims).toContain('not a proven call edge');
     expect(out[0].nonClaims).toContain('not proof that the graph missed anything');
   });
@@ -157,7 +164,13 @@ describe('detector 2: implementation file textually included', () => {
     const out = run(detectIncludedImplementationFile, { 'src/bundle.cpp': '#include "weights.cpp"' });
     expect(out[0].risk).toMatch(/may use unity/);
     expect(out[0].nonClaims).toContain('not proof this is a unity build — the build system was not consulted');
-    expect(JSON.stringify(out)).not.toMatch(/defeats every/i);
+    expectAbsentWithLiveMatcher(
+      /defeats every/i,
+      { forbidden: 'this defeats every include-graph query',
+        allowed: 'the build may use unity/jumbo translation units' },
+      JSON.stringify(out),
+      'the forbidden overclaim must never reach a finding',
+    );
   });
 
   it('findings dedupe on includedFrom + includedFile', () => {
@@ -192,7 +205,13 @@ describe('shape warnings reach an EMPTY caller set, and only an empty one', () =
       coverage: undefined,
       shapeWarnings: ['CANDIDATE SHAPE (not a proven caller): "computeWeight" ...'],
     });
-    expect(ev.warnings.join(' ')).not.toMatch(/CANDIDATE SHAPE/);
+    expectAbsentWithLiveMatcher(
+      /CANDIDATE SHAPE/,
+      { forbidden: 'CANDIDATE SHAPE (not a proven caller): "computeWeight" is declared extern',
+        allowed: 'no compile_commands.json — clangd has no index' },
+      ev.warnings.join(' '),
+      'shape warnings must not attach to a result that already FOUND a caller',
+    );
   });
 
   it('the renderer produces a line per candidate, with the ceiling in the text', async () => {
