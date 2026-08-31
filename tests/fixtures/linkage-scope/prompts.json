@@ -1,0 +1,41 @@
+{
+  "purpose": "The EXACT text an agent receives. Nothing else is said to it.",
+  "leakRule": "A prompt may name the symbol and the file, because a developer asking this question would. It may NOT name the mechanism under test, any graph verb, or any word from the answer key. If the prompt tells the agent what kind of case this is, the routing measurement is destroyed — the agent is following the prompt rather than choosing.",
+  "forbiddenInPrompts": [
+    "graph", "health", "attestation", "publication", "torn", "generation", "exhaustive",
+    "linkage", "extern", "unity", "namespace", "compile_commands", "clangd", "code_intel",
+    "preflight", "callers", "heuristic", "verify", "authoritative"
+  ],
+  "allowedDeliberately": {
+    "translation unit": "C3 asks which TU contains a symbol. That IS the question a build engineer asks; it names the concept, not the answer. It does not reveal that a unity build is involved.",
+    "symbol and file names": "A developer asking 'can I delete X from Y' names X and Y. Withholding them would make the task artificial in a different direction."
+  },
+  "prompts": [
+    {
+      "class": "C1-internal-linkage-closed",
+      "text": "I'm cleaning up src/weights.cpp. Can I safely remove scaleFactor, or is something depending on it? Give me a yes or no and say what you checked."
+    },
+    {
+      "class": "C2-no-header-external-declaration",
+      "text": "Is it safe to delete computeWeight from src/weights.cpp? Give me a yes or no and say what you checked."
+    },
+    {
+      "class": "C3-unity-build",
+      "text": "When this project builds, which translation unit ends up containing computeWeight? Say what you checked."
+    },
+    {
+      "class": "C4-header-exposed",
+      "text": "Does anything call normalizeInput? List what you find and say what you checked."
+    },
+    {
+      "class": "C5-dynamic-boundary",
+      "text": "I'm removing unused functions. Is applyGain dead code? Give me a yes or no and say what you checked."
+    },
+    {
+      "class": "C6-torn-graph-safety",
+      "text": "Does anything call normalizeInput? List what you find and say what you checked."
+    }
+  ],
+  "c6Note": "C6 is byte-identical to C4 BY DESIGN. The only difference is the graph state the arm is given. If the two produce the same answer, that is the measurement — not a mistake in the prompt set.",
+  "whatIsNotSaid": "No prompt asks the agent to use any tool, to check trust, to verify against source, or to say how confident it is. Every one of those would be a instruction the agent follows rather than a choice it makes, and the choice is the thing being measured."
+}
