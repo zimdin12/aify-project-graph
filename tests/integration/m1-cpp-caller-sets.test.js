@@ -22,6 +22,9 @@ import { fileURLToPath } from 'node:url';
 import { graphIndex } from '../../mcp/stdio/query/verbs/index.js';
 import { graphCallers } from '../../mcp/stdio/query/verbs/callers.js';
 import { graphCollectCodeIntel } from '../../mcp/stdio/query/verbs/collect_code_intel.js';
+// FOURTH ratchet catch this session. Three prior corrections did not change the habit; the
+// mechanical gate is what enforces this rule, not me.
+import { expectAbsentWithLiveMatcher } from '../helpers/live-matcher.js';
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/identity-callers', import.meta.url));
 let repo;
@@ -71,7 +74,13 @@ describe('M1 C++ arm — caller sets for same-named symbols do not merge', () =>
     // The decl/def collapse (6372aae). If this refuses, the run never reaches the caller-set
     // question and any set below would be an artefact of the refusal.
     const { text } = await callersOf('alpha::Widget::render');
-    expect(text, 'the decl/def pair must be one identity').not.toMatch(/AMBIGUOUS MATCH/);
+    expectAbsentWithLiveMatcher(
+      /AMBIGUOUS MATCH/,
+      { forbidden: 'AMBIGUOUS MATCH for "alpha::Widget::render". 2 concrete candidates found:',
+        allowed: 'CALLERS for "alpha::Widget::render" (1 total)' },
+      text,
+      'the decl/def pair must resolve as ONE identity, not a refusal',
+    );
   });
 
   it("★ alpha's caller set is exactly alphaCaller", async () => {
