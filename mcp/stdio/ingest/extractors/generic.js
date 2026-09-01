@@ -430,8 +430,22 @@ export function extractFile({ filePath, source, config }) {
         // and auto-incrementing would hide it.
         const { startByte, endByte } = siteSpanOf(node);
         const siteId = codeSymbolSiteId({ language: config.language, filePath, startByte, endByte });
+        // ⛔ THIS REFUSES. An earlier version only PUSHED the duplicate onto a returned array and
+        // carried on — and that array had zero readers anywhere in the tree, so extraction still
+        // fell through to the old merge branch and the duplicate was swallowed exactly as before.
+        // A returned field nobody consumes is not a report and not a refusal; it is the
+        // unreachable-remedy shape this project keeps rediscovering. Measured across 782 files:
+        // zero undeclared duplicates, so failing closed here costs nothing today and cannot
+        // silently start merging tomorrow.
         if (symbolsById.has(siteId)) {
           duplicateSites.push({ filePath, label: name, type: detectedType, startByte, endByte, rule: symbolRule.type });
+          const err = new Error(`undeclared duplicate symbol site in ${filePath}: "${name}" at bytes `
+            + `${startByte}-${endByte} (rule ${symbolRule.type}) mints an id already emitted. An emitter that `
+            + 'intends several symbols from one span must pass an explicit local slot; an undeclared '
+            + 'duplicate is an extractor defect and is refused rather than merged.');
+          err.code = 'APG_DUPLICATE_SYMBOL_SITE';
+          err.duplicateSites = duplicateSites;
+          throw err;
         }
         const createdNode = makeBaseNode({
           id: siteId,
@@ -447,6 +461,11 @@ export function extractFile({ filePath, source, config }) {
             signature,
             decorators: [],
             parent_class: parentClassLabel,
+            // The occurrence's address, carried as row metadata. Line numbers cannot order two
+            // sites declared on ONE line, and the structural fingerprint needs a deterministic
+            // order to tell same-shape twins apart.
+            site_start_byte: startByte,
+            site_end_byte: endByte,
             // What the extractor BELIEVES this occurrence is. A sibling field, never an id input:
             // hashing a classification would remint the site whenever the classification improved.
             // `unknown` is valid; absence must never be read as "definition".

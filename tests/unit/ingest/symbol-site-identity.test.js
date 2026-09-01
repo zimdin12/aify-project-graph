@@ -26,6 +26,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractFile } from '../../../mcp/stdio/ingest/extractors/generic.js';
 import { getLanguageConfig } from '../../../mcp/stdio/ingest/languages/index.js';
+import { fileStructuralFingerprint } from '../../../mcp/stdio/ingest/fingerprint.js';
 
 const REPO = fileURLToPath(new URL('../../..', import.meta.url));
 const FIXTURE = join(REPO, 'tests', 'fixtures', 'identity-hostile');
@@ -149,6 +150,48 @@ describe('step A — every extracted occurrence survives as its own site row', (
     // Liveness. If the fixture stopped parsing, every assertion above would pass vacuously on
     // empty arrays — except the two that demand specific lines, which is why those exist.
     expect(fixtureSymbols('shapes.cpp').length).toBeGreaterThan(4);
+  });
+});
+
+describe('the structural fingerprint must not go false-COSMETIC on same-shape twins', () => {
+  // ⛔ REPRODUCED, THEN FIXED. Owner SHAPE alone was not enough: two local helpers named `expand`
+  // in one file share qname and signature, so moving a call between them left the file
+  // fingerprint identical — cosmetic-skip would then keep the caller edge on the wrong twin.
+  // "No worse than the pre-existing limitation" is not a ceiling when the limitation IS the
+  // hostile class step A repairs. Each node now carries an ordinal among nodes of its exact
+  // shape, ordered by byte span.
+  const lines = (...rows) => `${rows.join('\n')}\n`;
+  const TWIN_A = lines(
+    'function w1(){ function expand(a){ helper(); return a; } }',
+    'function w2(){ function expand(a){ return a; } }',
+  );
+  const TWIN_B = lines(
+    'function w1(){ function expand(a){ return a; } }',
+    'function w2(){ function expand(a){ helper(); return a; } }',
+  );
+  const fp = (source) => fileStructuralFingerprint(
+    extractFile({ filePath: 'src/t.js', source, config: getLanguageConfig('src/t.js') }),
+  );
+
+  it('⛔ moving a call BETWEEN identical-shape twins is STRUCTURAL', () => {
+    expect(fp(TWIN_A)).not.toBe(fp(TWIN_B));
+  });
+
+  it('⛔ and the owner-change case review found stays structural', () => {
+    expect(fp(lines('function a(){ helper(); }', 'function b(){ }')))
+      .not.toBe(fp(lines('function a(){ }', 'function b(){ helper(); }')));
+  });
+
+  it('POSITIVE CONTROL: a comment insertion is still COSMETIC', () => {
+    // The whole point of ordering by ordinal rather than by id. Without this the fix would be
+    // indistinguishable from reverting to positional ids, which fingerprints every comment as a
+    // structural change and disables cosmetic-skip.
+    expect(fp(TWIN_A)).toBe(fp(`// a note
+${TWIN_A}`));
+  });
+
+  it('POSITIVE CONTROL: identical source fingerprints identically', () => {
+    expect(fp(TWIN_A)).toBe(fp(TWIN_A));
   });
 });
 

@@ -89,13 +89,38 @@ export function fileStructuralFingerprint(extracted) {
   // have the same shape, so moving a call BETWEEN THEM is still invisible here. That is strictly
   // no worse than the pre-existing `symbolShapes` limitation, and it is not "lossless" — the word
   // is avoided deliberately.
-  const ownerShape = new Map(nodes.map((node) => [node.id, JSON.stringify({
+  // ⛔ OWNER SHAPE ALONE WAS STILL FALSE-COSMETIC ON THE EXACT CLASS THIS REPAIRS. Two local twins
+  // named `expand` in one file share qname AND signature, so moving a call BETWEEN them left the
+  // fingerprint identical — reproduced, with the control (removing the call entirely) changing it.
+  // "No worse than the pre-existing limitation" is not an acceptable ceiling when the limitation
+  // is the hostile class being repaired.
+  //
+  // ⇒ Each node also carries an ORDINAL among the nodes sharing its exact shape, ordered by source
+  // position. A comment insertion shifts every offset but preserves ORDER, so cosmetic edits stay
+  // cosmetic; same-shape twins stay distinct; reordering twins reads as structural, which is
+  // conservative re-work and therefore allowed. A false structural costs work. A false cosmetic
+  // silently keeps an edge on the wrong function.
+  const shapeOf = (node) => JSON.stringify({
     type: node.type,
     label: node.label ?? '',
     qname: node.extra?.qname ?? '',
     signature: node.extra?.signature ?? '',
     parentClass: node.extra?.parent_class ?? '',
-  })]));
+  });
+  const groups = new Map();
+  for (const node of nodes) {
+    const shape = shapeOf(node);
+    if (!groups.has(shape)) groups.set(shape, []);
+    groups.get(shape).push(node);
+  }
+  const ownerShape = new Map();
+  for (const [shape, members] of groups) {
+    // Byte span orders sites declared on one line, which line numbers cannot.
+    members
+      .slice()
+      .sort((a, b) => (a.extra?.site_start_byte ?? a.start_line ?? 0) - (b.extra?.site_start_byte ?? b.start_line ?? 0))
+      .forEach((node, ordinal) => ownerShape.set(node.id, `${shape}#${ordinal}`));
+  }
   const refShapes = refs
     .filter((ref) => ref && ref.relation)
     .map((ref) => JSON.stringify({
