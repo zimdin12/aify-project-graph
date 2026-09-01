@@ -146,7 +146,17 @@ Every one of these is a measured failure from M0b, not a hypothetical:
 6. operators, templates and qualifiers covered;
 7. **the collision-rename mutant loses its 14 → 17 delta** — the sharpest single check, because it
    is the exact contrast that proved the defect;
-8. no dangling or old-id edges after rebuild.
+8. no dangling or old-id edges after rebuild;
+9. **zero merge metadata in the rebuilt graph** — `overload_signatures` population 0, `overloads`
+   population 0, every overload occurrence its own row with its own `extra.signature`. A weaker
+   predicate ("no `overload_signatures` without `overloads`") would still permit the disclosed
+   two-signature merge, which is the old lossy model with better metadata. Merge metadata surviving
+   step A **is** evidence the repair failed.
+
+Once item 9 holds and the schema gate forces old graphs to rebuild, `mergesOverloads`, the
+self-edge downgrade branch, and the callee renderer's "ONE node merging N overloads" note are
+**deleted**, not retained as unreachable compatibility code — see
+`docs/evidence/identity-qualification/PRODUCTION-FALSE-EDGE.md`.
 
 ⛔ **P2 is not step A's to claim.** Free-function header declarations produce no node at all today —
 that is an extraction omission, not an identity defect, and identity repair may not report it as
