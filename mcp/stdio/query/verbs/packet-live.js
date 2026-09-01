@@ -22,7 +22,36 @@
 // ⇒ So enrichLive is covered by unit tests that mutate it, and the guard coverage for this slice
 // is reported as what it is — 2 of 3 by the guard, the third by its own tests — rather than
 // rolled into one number that would imply the corpus reaches something it cannot.
-export const LIVE_BUDGET_MS = 2000;
+// ⛔ A HARD-WIRED BUDGET MADE THE SUITE'S GREEN/RED VERDICT DEPEND ON MACHINE LOAD.
+//
+// This bounds a symbol→feature lookup whose own measured cost is 601ms on a 3958-node repo and
+// 4316ms on a 12126-node one (see packet.js). On a busy machine the lookup crosses 2000ms, packet
+// takes its timeout branch, and any test asserting on the CONTENT fails. Measured today: the full
+// suite ran 680s / 2120s / 2693s on the same tree, with 0 / 2 / 10 failures — failures scaling with
+// duration, every one of them budget-shaped.
+//
+// That is worse than a slow test. "Full suite green before push" is the gate this project relies on,
+// and a load-dependent verdict makes a real regression indistinguishable from contention: three
+// separate investigations today ended in "it was load", which is exactly the signal-destroying
+// outcome the gate exists to prevent.
+//
+// ⚠ The DEFAULT IS UNCHANGED, so product behaviour is identical. Only the environment may raise it,
+// because a value that varies by environment belongs in configuration rather than in a constant.
+// A non-numeric or non-positive value falls back to the default rather than disabling the budget —
+// an unbounded lookup is the defect this budget exists to prevent, and a typo must not create one.
+export const DEFAULT_LIVE_BUDGET_MS = 2000;
+
+/**
+ * Resolve the budget from a raw environment value. PURE — inputs in, value out — so it is testable
+ * without module-cache tricks; a first attempt re-imported the module with a cache-busting query
+ * string, which the bundler rejects outright.
+ */
+export function resolveLiveBudget(raw, fallback = DEFAULT_LIVE_BUDGET_MS) {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+export const LIVE_BUDGET_MS = resolveLiveBudget(process.env.APG_LIVE_BUDGET_MS);
 
 export async function withTimeout(promise, ms) {
   let timer;
