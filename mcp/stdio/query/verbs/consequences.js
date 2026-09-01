@@ -26,6 +26,8 @@ import { isTaskOpen } from '../../overlay/task-status.js';
 import { summarizeDirtySeams, taskLinkStrength } from '../../overlay/quality.js';
 import { computeTrustLevel } from './health.js';
 import { buildAmbiguousMatchMessage, resolveSymbolWithTotal } from './symbol_lookup.js';
+// Shared with the absence trust line, so the structured field and the prose sentence cannot drift.
+import { spineCoverage } from '../lsp-evidence.js';
 import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
 
 // Class names often appear multiple times — forward declarations in
@@ -1132,6 +1134,21 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
           remedy: null,
         };
       })(),
+      // ⛔ THE OVERLAY REMEDY POINTS AT THESE FIELDS, AND NOTHING STATED THEIR OWN COVERAGE.
+      //
+      // When the overlay is unmapped, `overlay_coverage.remedy` above tells the reader to "treat the
+      // observed fields (callers, importers, documents_mentioning, tests_adjacent) as the whole
+      // answer". So the verb directs an agent to the STRUCTURAL side at exactly the moment the
+      // curated side is empty — while nothing said those fields come from a spine that, measured on
+      // this repository, covered 73 of 627 eligible files.
+      //
+      // Mirrors overlay_coverage's {cause, consequence, remedy} contract deliberately: a STRUCTURED
+      // field an agent can branch on, not another paragraph. The plan warns that recreating the
+      // warning wall the pilot agents skimmed would undo M2's own purpose.
+      //
+      // Derived from the shared `spineCoverage`, which also backs the prose clause in
+      // buildAbsenceTrustLine — two copies of a trust statement would drift.
+      structural_coverage: spineCoverage(db),
       co_consumer_files: coConsumerFiles,
       open_tasks_on_those_features: tasks,
       // ★ ONLY WHEN IT SAYS SOMETHING open_tasks DOES NOT.

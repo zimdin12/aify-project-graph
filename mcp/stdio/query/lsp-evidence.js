@@ -191,6 +191,61 @@ export const HEURISTIC_TRUST_LINE =
 //
 // ⚠ NAMES ONLY WHAT IT READ. No collection row → say that. A cpp collection with no compile-db hash
 // → the standing no_compile_db limit. Anything else → no clause at all, rather than a guess.
+// ⛔ ONE SOURCE OF TRUTH FOR THE SPINE'S SCOPE. `graph_consequences` needs the same facts as a
+// STRUCTURED field (it mirrors `overlay_coverage {cause, consequence, remedy}`), and the prose
+// clause below needs them as a sentence. Two copies of a trust statement drifting apart is exactly
+// what this module's header says it exists to prevent, so both derive from here.
+//
+// ⚠ SYNCHRONOUS. Callers `return` a promise while their enclosing `finally { db.close() }` runs, so
+// any db read must happen before the first await — see callers.js:93.
+//
+// ⚠ Returns `null` when nothing can be read, never a reassuring default.
+export function spineCoverage(db) {
+  if (!db) return null;
+  let latest = null;
+  try { latest = getLatestCollection(db); } catch { return null; }
+  if (!latest) {
+    return {
+      collection: null, language: null, files_processed: null, files_eligible: null,
+      cause: 'no_code_intel_collection',
+      consequence: 'No code-intel collection exists for this repository, so NO structural edge here is '
+        + 'compiler-verified. Callers, importers and co-consumers are heuristic only, and an empty one '
+        + 'is evidence about the SPINE, not about the code.',
+      remedy: 'run graph_collect_code_intel to build the trust spine.',
+    };
+  }
+  let cpp = null;
+  try { cpp = getLatestCollection(db, { language: 'cpp' }); } catch { /* leave cpp unknown */ }
+  if (cpp && !cpp.compileDbHash) {
+    return {
+      collection: cpp.collectionId ?? null, language: 'cpp',
+      files_processed: cpp.filesProcessed ?? null, files_eligible: cpp.filesEligible ?? null,
+      cause: 'no_compile_db',
+      consequence: 'The C++ collection ran with no compile_commands.json, so clangd resolved no call. '
+        + 'Structural results are a FLOOR and an empty one cannot license a deletion.',
+      remedy: 'generate a compile DB with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON, then re-collect.',
+    };
+  }
+  // ⚠ UNKNOWN STAYS UNKNOWN — null, never 0 and never "all". A fabricated denominator would let a
+  // reader compute a completeness figure nobody measured.
+  const processed = latest.filesProcessed;
+  const eligible = latest.filesEligible;
+  const known = Number.isFinite(processed) && Number.isFinite(eligible) && eligible > 0;
+  return {
+    collection: latest.collectionId ?? null, language: latest.language ?? null,
+    files_processed: known ? processed : null, files_eligible: known ? eligible : null,
+    cause: known && processed < eligible ? 'partial_spine_coverage' : (known ? null : 'coverage_unrecorded'),
+    consequence: known
+      ? `The newest code-intel collection is ${latest.language} and processed ${processed} of ${eligible} `
+        + 'eligible files. Structural fields are compiler-verified only inside that set; outside it they are heuristic.'
+      : `The newest code-intel collection is ${latest.language} but did not record its file coverage, `
+        + 'so how much of the repository it covers is UNKNOWN.',
+    remedy: known && processed < eligible
+      ? 'run graph_collect_code_intel with scope:"all" to cover the remainder.'
+      : null,
+  };
+}
+
 function spineScopeClause(db, noun) {
   let latest = null;
   try { latest = getLatestCollection(db); } catch { return ''; }
