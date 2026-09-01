@@ -81,6 +81,14 @@ describe('an absence claim names the spine that covered it', () => {
       noun: 'callers', db: { get() { throw new Error('db closed'); }, all() { return []; } },
     });
     expect(line).toMatch(/NOT exhaustive/);
-    expect(line).not.toMatch(/SCOPE:/);
+    // ⚠ SECOND TIME IN ONE SESSION. I wrote a bare `not.toMatch` here after using the live matcher
+    // four tests above, and the ratchet caught it — again. A bare negative passes identically when
+    // the output is clean and when the matcher is dead.
+    expectAbsentWithLiveMatcher(
+      /SCOPE:/,
+      { forbidden: ' SCOPE: no code-intel collection exists', allowed: 'TRUST: absence is from the heuristic graph' },
+      line,
+      'a db error must not emit a scope clause it could not read',
+    );
   });
 });
