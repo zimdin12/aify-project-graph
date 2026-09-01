@@ -121,10 +121,12 @@
   },
   {
    "verb": "find",
-   "absence": false,
+   "absence": true,
    "literalAbsence": false,
-   "scopeProducersReached": [],
-   "verdict": "N_A_NO_ABSENCE_PATH"
+   "scopeProducersReached": [
+    "staleNotFoundCaveat"
+   ],
+   "verdict": "HAS_SCOPE"
   },
   {
    "verb": "health",
@@ -275,8 +277,10 @@
    "verb": "read_freshness",
    "absence": true,
    "literalAbsence": true,
-   "scopeProducersReached": [],
-   "verdict": "NO_SCOPE"
+   "scopeProducersReached": [
+    "staleNotFoundCaveat"
+   ],
+   "verdict": "HAS_SCOPE"
   },
   {
    "verb": "report",
@@ -289,8 +293,10 @@
    "verb": "search",
    "absence": true,
    "literalAbsence": true,
-   "scopeProducersReached": [],
-   "verdict": "NO_SCOPE"
+   "scopeProducersReached": [
+    "staleNotFoundCaveat"
+   ],
+   "verdict": "HAS_SCOPE"
   },
   {
    "verb": "shader",
@@ -338,8 +344,10 @@
    "verb": "trace",
    "absence": true,
    "literalAbsence": true,
-   "scopeProducersReached": [],
-   "verdict": "NO_SCOPE"
+   "scopeProducersReached": [
+    "buildAbsenceTrustLine"
+   ],
+   "verdict": "HAS_SCOPE"
   },
   {
    "verb": "watch",
@@ -353,6 +361,7 @@
    "absence": true,
    "literalAbsence": false,
    "scopeProducersReached": [
+    "staleNotFoundCaveat",
     "noMatchMessage"
    ],
    "verdict": "HAS_SCOPE"

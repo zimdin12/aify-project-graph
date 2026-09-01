@@ -134,3 +134,53 @@ is a self-report about the graph, `search`/`whereis` are locators, `packet`/`pul
 The plan warns that recreating the warning wall the pilot agents skimmed would undo M2's own
 purpose, so the per-verb question is what decision each answer's reader is actually making — not
 whether a clause can be attached.
+
+## ADDENDUM 3 — the census was blind to the LOCATORS' scope producer too
+
+⛔ **SECOND DRIFT, SAME CAUSE.** `staleNotFoundCaveat` has been the locators' absence-scope producer
+all along: it tells a reader the index is N commits behind — or that staleness **could not be
+determined** — and that a "not found" is therefore NOT proof the symbol does not exist. The census's
+hand-kept producer list never knew, so it reported `search` and `whereis` as gaps that were already
+covered. First `spineCoverage`, now this: a hand-maintained list under-reports every time something
+is added without editing it.
+
+⚠ **THE SCOPE THAT MATTERS DEPENDS ON THE QUESTION**, which is why one producer list was always
+going to be wrong:
+
+| absence | bounded by | producer |
+|---|---|---|
+| "no callers / no path / nothing breaks" | the compiler-verified SPINE | `buildAbsenceTrustLine`, `spineCoverage` |
+| "no such name" | the INDEX and its freshness | `staleNotFoundCaveat` |
+
+Demanding spine coverage from `graph_search` would be the wrong noun.
+
+**Re-measured:**
+
+| | |
+|---|---|
+| absence-shaped verb files | 25 |
+| BOUNDED (evidence or index scope) | **10** |
+| bounded AND default-listed | **6 of 16** — `callers`, `consequences`, `impact`, `search`, `trace`, `whereis` |
+| unbounded AND default-listed | **4** — `explore`, `health`, `packet`, `pull` |
+
+## M2 status — the action/absence-authorising population is covered
+
+The plan's authoritative stop condition is *"structured contracts at every action or
+absence-authorising result"*, and it corrects its own title, which said "in every result" — a 43-verb
+rewrite that would recreate the warning wall the pilot agents skimmed.
+
+Every verb whose emptiness authorises a change now bounds it:
+
+| verb | an empty answer would authorise | bounded by |
+|---|---|---|
+| `graph_callers` | "no callers → safe to delete" | evidence |
+| `graph_impact` | "no impact → safe to change" | evidence |
+| `graph_consequences` | "nothing breaks → safe to edit" | evidence |
+| `graph_trace` | "no path → A does not reach B" | evidence |
+| `graph_search` / `graph_whereis` | "no such symbol → I will create it" | index |
+
+⚠ **NOT CLAIMED: that M2 is finished.** Four default-listed verbs remain unbounded — `explore`,
+`health`, `packet`, `pull` — and that is a JUDGEMENT, not a measurement: they orient or self-report
+rather than authorise. If an agent is observed treating an empty `graph_explore` as evidence of
+absence, that judgement is wrong and the verb needs bounding. Nothing here measures how agents
+actually read them; that is M5's question.

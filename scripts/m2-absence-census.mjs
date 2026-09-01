@@ -35,8 +35,21 @@ const ABSENCE_RE = /NO [A-Z][A-Z ]+|NO MATCH|no match|not found|no edges found|n
 //   EVIDENCE scope  — what the answer was computed FROM (the spine, its coverage, the compile DB)
 //   NAME help       — noMatchMessage, "did you mean", which is not a scope statement at all
 //   RELATION scope  — unsearchedRelationNote, which relations were never consulted
+// ⛔ SECOND DRIFT, SAME CAUSE. `staleNotFoundCaveat` has been the locators' absence-scope producer
+// all along — it tells a reader the index is N commits behind, or that staleness could not be
+// determined, and that a "not found" is therefore NOT proof the symbol does not exist. The census
+// never knew, so it reported search/whereis as gaps that were already covered. A hand-kept list
+// under-reports every time something is added without editing it; this is the second time in one
+// session, after `spineCoverage`.
+//
+// ⚠ AND THE SCOPE THAT MATTERS DEPENDS ON THE QUESTION. An edge-based absence ("no callers") is
+// bounded by the compiler-verified SPINE. A locator absence ("no such name") is bounded by the
+// INDEX and its freshness. Demanding spine coverage from graph_search would be the wrong noun.
 const EVIDENCE_SCOPE_PRODUCERS = ['buildAbsenceTrustLine', 'spineCoverage'];
-const SCOPE_PRODUCERS = [...EVIDENCE_SCOPE_PRODUCERS, 'unsearchedRelationNote', 'noMatchMessage'];
+const INDEX_SCOPE_PRODUCERS = ['staleNotFoundCaveat'];
+const SCOPE_PRODUCERS = [
+  ...EVIDENCE_SCOPE_PRODUCERS, ...INDEX_SCOPE_PRODUCERS, 'unsearchedRelationNote', 'noMatchMessage',
+];
 
 const reachedProducers = (code) =>
   SCOPE_PRODUCERS.filter((p) => new RegExp(`\\b${p}\\s*\\(`).test(code));
@@ -88,9 +101,16 @@ for (const r of by('HAS_SCOPE')) console.log(`  ${r.verb.padEnd(24)} ${JSON.stri
 
 // ⛔ THE NUMBER THAT GOVERNS M2 IS EVIDENCE SCOPE, NOT ANY SCOPE. Counting noMatchMessage as
 // "has scope" would conflate name help with a statement about what the answer was computed from.
-const evidence = rows.filter((r) => r.scopeProducersReached.some((p) => EVIDENCE_SCOPE_PRODUCERS.includes(p)));
-console.log(`\n=== EVIDENCE SCOPE (the M2 number): ${evidence.length} of ${rows.filter((r) => r.absence).length} absence-shaped ===`);
-for (const r of evidence) console.log(`  ${r.verb.padEnd(24)} ${JSON.stringify(r.scopeProducersReached)}`);
+const BOUNDING = [...EVIDENCE_SCOPE_PRODUCERS, ...INDEX_SCOPE_PRODUCERS];
+const bounded = rows.filter((r) => r.scopeProducersReached.some((p) => BOUNDING.includes(p)));
+const absenceRows = rows.filter((r) => r.absence);
+console.log(`\n=== BOUNDED ABSENCE (the M2 number): ${bounded.length} of ${absenceRows.length} absence-shaped ===`);
+for (const r of bounded) {
+  const kind = r.scopeProducersReached.some((p) => EVIDENCE_SCOPE_PRODUCERS.includes(p)) ? 'evidence' : 'index';
+  console.log(`  ${r.verb.padEnd(24)} ${kind.padEnd(9)} ${JSON.stringify(r.scopeProducersReached)}`);
+}
+console.log('\n=== UNBOUNDED absence-shaped (no evidence and no index scope) ===');
+for (const r of absenceRows.filter((r) => !bounded.includes(r))) console.log(`  ${r.verb}`);
 
 fs.writeFileSync(path.join(REPO, 'docs/evidence/m2-absence-census/census.json'),
   JSON.stringify({ registryTools: toolNames.length, filesScanned: rows.length, rows }, null, 1), 'utf8');
