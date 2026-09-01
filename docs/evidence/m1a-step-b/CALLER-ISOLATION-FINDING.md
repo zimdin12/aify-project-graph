@@ -103,11 +103,16 @@ every arm unnoticed — the same class of dead instrument this arm had just demo
 
 ### ⛔ The unresolved method target is NOT a C++ problem
 
-The third row is the one that generalises the finding. In the **JavaScript** fixture, a plain
-function call binds to a concrete `Function` node, while a method call on the same objects in the
-same file lands on an `External` stub. So the gap is not the C++ toolchain or a missing compile
-database — **method-call edges do not bind to method definitions in this pipeline at all**, in
-either language tested.
+The third row is the one that widens the finding. In the **JavaScript** fixture, a plain function
+call binds to a concrete `Function` node, while a method call on the same objects in the same file
+lands on an `External` stub. So the gap is not specific to the C++ toolchain.
+
+⚠ **Scope, stated before the claim.** Observed: **in these two fixtures, across the call shapes
+tested, plain function calls bound concretely and method calls did not.** That is two fixtures and
+two call shapes. It is NOT a census of relations, languages, or call forms, so it does not support
+"method-call edges never bind in this pipeline" — an earlier version of this finding said exactly
+that, and the population to justify it was never measured. A relation/language census would be
+needed to widen it further, and none exists.
 
 That is upstream of identity and independent of it: no amount of partition quality can produce a
 caller set for a method whose call edges terminate on a stub. It blocks M1's "qualified candidates
@@ -124,8 +129,8 @@ search for `render` returns four hits with nothing to say two of them are a diff
 semantically correct — decl/def forks remain, so post-B lists alpha twice and beta twice, and that
 exact defect is stated rather than dressed up. No claim about C++ caller attribution at all.
 
-**Next binding defect:** method-call edges terminating on External stubs — in **both** languages
-tested, not only C++, and not caused by a missing compile database. That is upstream of identity
+**Next binding defect:** method-call edges terminating on External stubs — observed in both
+fixtures tested, not only the C++ one, and not caused by a missing compile database. That is upstream of identity
 and blocks any caller-set claim regardless of how good the partition gets. It is not step B's to
 fix, and it means M1's "return the qualified candidates **with their caller sets**" cannot complete
 on this evidence.
