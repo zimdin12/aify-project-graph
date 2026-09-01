@@ -340,6 +340,17 @@ function extractCppFunctionSymbol({ node, source }) {
         name,
         parentClass,
         parentClassQname,
+        // ⚠ AST-DERIVED CANONICAL SEGMENTS — NOT VERBATIM SOURCE SPELLING.
+        // `extractQualifiedScopeSegments` has a `template_type` branch that recurses into the
+        // `name` field, so `W<T>::render` yields the segment `W`. The authority below claims the
+        // segments came from walking qualified_identifier/template_type nodes; it does NOT claim
+        // byte preservation. If a consumer ever needs exact spelling or template arguments, that
+        // is a separate per-segment field with its own named normalization, not an inference from
+        // this authority.
+        writtenQualifier: scopeChain.map((segment) => ({
+          segment,
+          authority: 'cpp_qualified_identifier_ast',
+        })),
         type: 'Method',
         // ⚠ EXACTLY WHAT `name` USED TO BE — the nested `name` field, not the whole declarator.
         // My first attempt passed the full qualified text, which produced `a::W::~W` where the
@@ -399,6 +410,16 @@ function extractCppFunctionSymbol({ node, source }) {
       name: qualifiedMatch[2],
       parentClass,
       parentClassQname: scopeChain.join('.'),
+      // ⚠ A DIFFERENT AUTHORITY, BECAUSE A DIFFERENT THING PRODUCED IT. These segments came from
+      // the regex above splitting declarator TEXT on `::`, not from walking the AST. Stamping
+      // them with the AST authority would assert AST identity, template handling and completeness
+      // that this path does not provide — and a step-C consumer weighing provenance would never
+      // see the difference. The carrier is emitted rather than omitted: omitting it would collapse
+      // "a text-derived qualifier was observed" into "no written-qualifier evidence exists".
+      writtenQualifier: scopeChain.map((segment) => ({
+        segment,
+        authority: 'cpp_declarator_regex_fallback',
+      })),
       type: 'Method',
     };
   }

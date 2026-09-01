@@ -543,6 +543,20 @@ export function extractFile({ filePath, source, config }) {
             ...(lexicalScope.length
               ? { lexical_scope: lexicalScope.map((segment) => ({ segment, authority: 'lexical_ast' })) }
               : {}),
+            // ⚠ THE SIBLING CARRIER, AND THE REASON THERE ARE TWO. `alpha::Widget::render` and
+            // `namespace alpha { void Widget::render() }` converge on the same qname; only these
+            // two fields record WHERE `alpha` came from. Before this existed the distinction was
+            // read off the ABSENCE of `lexical_scope` — which is an inference by a reader, not a
+            // source recorded by the producer, and it silently fails the moment anything else can
+            // also produce an absent lexical scope.
+            //
+            // ⚠ ABSENT, NEVER `[]`, exactly like its sibling: absent means this source supplied
+            // nothing. The two are separate fields rather than one array because concatenating
+            // them would destroy the distinction step C exists to weigh; per-segment authority is
+            // kept anyway so provenance survives projection into any later shape.
+            ...(symbolInfo?.writtenQualifier?.length
+              ? { written_qualifier: symbolInfo.writtenQualifier }
+              : {}),
             // What the extractor BELIEVES this occurrence is. A sibling field, never an id input:
             // hashing a classification would remint the site whenever the classification improved.
             // `unknown` is valid; absence must never be read as "definition".
