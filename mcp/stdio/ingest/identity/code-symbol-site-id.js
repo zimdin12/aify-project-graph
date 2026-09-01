@@ -74,13 +74,23 @@ export function codeSymbolSiteId({ language, filePath, startByte, endByte, emitt
  *
  * ⚠ Deliberately NOT the whole node. Hashing the full span would remint a symbol's id on every
  * body edit, which `tests/unit/ingest/fingerprint-stability.test.js` has protected against since
- * long before this module existed — a body-only edit moves `dependency_fp` and nothing else.
- * Stability is not *required* for correctness here (a changed file's rows are deleted and rebuilt
- * wholesale), but discarding a property the repo already holds, as a side effect of an unrelated
- * repair, would be a silent regression rather than a decision.
+ * long before this module existed. Stability is not *required* for correctness here (a changed
+ * file's rows are deleted and rebuilt wholesale), but discarding a property the repo already holds,
+ * as a side effect of an unrelated repair, would be a silent regression rather than a decision.
  *
- * ⚠ WHAT IT STILL DOES NOT SURVIVE: an edit EARLIER IN THE FILE shifts every later offset, so ids
- * below the edit move. That is inherent to positional identity and is stated, not hidden.
+ * ⛔ THE PROMISE IS NARROWER THAN THE FIRST DRAFT OF THIS COMMENT CLAIMED, and review measured the
+ * gap. Body-edit stability holds ONLY where the matched node exposes its body directly — a
+ * `function` declaration, a method, a Python `def`, a C++ definition. It does NOT hold for an
+ * INDIRECT declarator: `export const run = () => { ... }` matches a lexical declaration whose
+ * `body` field is on a nested arrow, so the trim finds nothing and a body edit remints the id.
+ * Measured: TS arrow remints, JS `function` and Python `def` do not.
+ *
+ * Supporting indirect declarators is possible but is not a step-A correctness requirement, so the
+ * claim is narrowed rather than the unit expanded. Writing the broader promise and leaving the
+ * narrower code is how a comment starts describing something nobody built.
+ *
+ * ⚠ AND IT NEVER SURVIVES AN EDIT EARLIER IN THE FILE: that shifts every later offset, so ids
+ * below the edit move. Inherent to positional identity, stated rather than hidden.
  */
 export function siteSpanOf(node) {
   const startByte = node?.startIndex ?? 0;

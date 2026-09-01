@@ -85,10 +85,6 @@ export function fileStructuralFingerprint(extracted) {
   // ⇒ The owner is carried by its SHAPE rather than its id: position-independent, so a comment
   // insertion does not read as structural, while an owner change still does.
   //
-  // ⚠ RESIDUAL, STATED RATHER THAN CLAIMED AWAY: two local twins with the same qname and signature
-  // have the same shape, so moving a call BETWEEN THEM is still invisible here. That is strictly
-  // no worse than the pre-existing `symbolShapes` limitation, and it is not "lossless" — the word
-  // is avoided deliberately.
   // ⛔ OWNER SHAPE ALONE WAS STILL FALSE-COSMETIC ON THE EXACT CLASS THIS REPAIRS. Two local twins
   // named `expand` in one file share qname AND signature, so moving a call BETWEEN them left the
   // fingerprint identical — reproduced, with the control (removing the call entirely) changing it.

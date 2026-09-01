@@ -668,7 +668,18 @@ export async function ensureFresh({
           try {
             extracted = extractFile({ filePath: relPath, source, config });
           } catch (err) {
-            skipped.push({ file: relPath, phase: 'parse', reason: String(err?.message ?? err).slice(0, 120) });
+            // ⛔ THE TYPE MUST SURVIVE THE BOUNDARY. This used to persist only
+            // `{phase:'parse', reason}`, dropping `err.code` — so an extractor REFUSAL
+            // (a duplicate symbol site, which is a defect we must see) was indistinguishable
+            // from a syntax error in a vendored file, which is routine. A typed error whose
+            // type is discarded one frame later is not a typed contract; the test that
+            // asserted the code at the throw site was true and irrelevant.
+            skipped.push({
+              file: relPath,
+              phase: 'extract',
+              code: err?.code ?? 'EXTRACTION_FAILED',
+              reason: String(err?.message ?? err).slice(0, 120),
+            });
             continue;
           }
 

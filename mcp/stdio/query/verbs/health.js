@@ -1234,7 +1234,12 @@ export async function graphHealth({ repoRoot }) {
   // reported and holes were not.
   const skippedCount = Number(manifest.skippedFileCount ?? 0);
   if (skippedCount > 0) {
-    const sample = (manifest.skippedFiles ?? []).slice(0, 3).map((s) => `${s.file} (${s.phase})`).join(', ');
+    // ⛔ THE CODE IS RENDERED, NOT JUST THE PHASE. An extractor REFUSAL (a duplicate symbol site —
+    // our defect, and one an agent must not read as normal) and a syntax error in a vendored file
+    // are both "extract" phase. Without the code they are the same line to a reader, which is the
+    // typed reason dying one frame short of anyone who could act on it.
+    const sample = (manifest.skippedFiles ?? []).slice(0, 3)
+      .map((s) => `${s.file} (${s.phase}${s.code ? `: ${s.code}` : ''})`).join(', ');
     verdicts.push(
       `⛔ INCOMPLETE CORPUS — ${skippedCount} file(s) were DELETED from the graph and could not be re-extracted, `
       + `so any "not found" / "no callers" result may be an artefact of the hole rather than a fact about the code. `

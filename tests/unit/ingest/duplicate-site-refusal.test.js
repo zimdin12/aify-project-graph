@@ -33,9 +33,13 @@ describe('an undeclared duplicate symbol site is REFUSED', () => {
       .toThrow(/undeclared duplicate symbol site/i);
   });
 
-  it('⛔ the refusal is TYPED, so a caller can tell it from a parse failure', async () => {
-    // The orchestrator catches extraction errors and records a skipped file with its reason, which
-    // is attested and counted. An untyped throw would be indistinguishable from a syntax error.
+  it('⛔ the refusal carries a code AT THE THROW — see the transport test for the consumer', async () => {
+    // ⚠ AN EARLIER VERSION OF THIS TEST CLAIMED THE CODE LET A CALLER DISTINGUISH THE REFUSAL.
+    // That was true here and false where it mattered: the orchestrator caught every extraction
+    // error and persisted only {phase:'parse', reason}, dropping err.code. A typed error whose
+    // type is discarded one frame later is not a typed contract, and this test asserting it at the
+    // throw site was correct and irrelevant. The transport is now covered separately, in
+    // tests/unit/freshness/extract-refusal-transport.test.js.
     const { extractFile, getLanguageConfig } = await load();
     const source = 'function alpha() { return 1; }\nfunction beta() { return 2; }\n';
     let caught;
