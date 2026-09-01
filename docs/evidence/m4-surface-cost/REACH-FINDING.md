@@ -106,3 +106,38 @@ it with a confident number.
 ⚠ **What this does NOT say:** that subagent reach does not matter. It says the measured 0.8% was
 graph-calls-per-ALL-subagents, and that figure conflates "the graph was skipped" with "no MCP tool
 was relevant". Those demand different fixes and the data cannot yet separate them.
+
+## ⛔ CORRECTION 2 — the adoption rate was measured on a CONTAMINATED population
+
+Labelling each top-level session by its opening dispatch (the ≥6-task-shape work M4 requires)
+showed the 31 sessions are not 31 independent shapes:
+
+| population | sessions | with a graph call | rate |
+|---|---|---|---|
+| `apg-pilot-01..10` — the graph pilot fleet | 10 | 8 | 80% |
+| `eval-baseline` / `eval-augmented` arms | 3 | 2 | 67% |
+| **all other sessions** | **18** | **6** | **33.3%** |
+| *published above, pooled* | *31* | *16* | *51.6%* |
+
+**Thirteen of the 31 were agents dispatched to run graph experiments.** Measuring adoption on a
+population that includes agents *instructed to use the tool* inflated the figure by 18 points.
+The organic rate is **33.3%**, not 51.6%.
+
+⇒ This is the instrument contaminating its own measurement, and it is exactly what M4's
+≥6-task-shape requirement exists to prevent: one shape (the pilot) supplied a third of the
+denominator and dominated the result.
+
+⚠ **FLAG, NOT A CLAIM.** The pilot fleet's 80% closely resembles a previously recorded "80%
+adoption where the server is installed". Whether that earlier figure shares this contamination is
+**not established here** and would need its own population check before either number is reused.
+
+⚠ n=18 organic sessions on one machine remains a small, non-general denominator. The correction
+says the pooled figure was wrong; it does not establish 33.3% as a reliable rate.
+
+## Task shapes — M4's requirement, still NOT met
+
+Labelling the openings gives roughly: agent-dispatch coordination (comms), the graph pilot,
+eval arms, project onboarding/registration, game/modding help, and repo triage. That is around six
+*labels*, but ten of the sessions collapse into ONE shape and the rest are thin — several shapes
+have a single session. **The distribution is not measured over ≥6 shapes with usable weight in
+each**, so M4's stop condition remains unmet on this half.
