@@ -368,7 +368,12 @@ describe('packet authority boundaries', () => {
       // constant — a second source of truth for a budget — or the facade importing its own
       // island's internals. Exporting the minimum that genuinely crosses is the rule; here the
       // minimum is three.
-      'packet-live.js': ['LIVE_BUDGET_MS', 'enrichLive', 'withTimeout'],
+      // A NEW EXPORT HERE IS A REVIEWED EVENT, and these two are that review. The budget became
+      // configuration so the suite's verdict could not depend on machine load; `resolveLiveBudget`
+      // is the pure resolver (inputs in, value out) and `DEFAULT_LIVE_BUDGET_MS` is the shipped
+      // default the product still uses. Both are read by tests that pin the default and prove the
+      // environment is actually consulted.
+      'packet-live.js': ['DEFAULT_LIVE_BUDGET_MS', 'LIVE_BUDGET_MS', 'enrichLive', 'resolveLiveBudget', 'withTimeout'],
       // ⭐ SLICE 4, PRE-REGISTERED BEFORE THE FILE EXISTED.
       //
       // ⚠ ONLY `clampToBudget` CROSSES. dev: "clampToBudget(text, ...) is an exported

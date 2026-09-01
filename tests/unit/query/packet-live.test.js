@@ -19,7 +19,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { LIVE_BUDGET_MS, withTimeout, enrichLive } from '../../../mcp/stdio/query/verbs/packet-live.js';
+import { LIVE_BUDGET_MS, DEFAULT_LIVE_BUDGET_MS, withTimeout, enrichLive } from '../../../mcp/stdio/query/verbs/packet-live.js';
 
 describe('withTimeout', () => {
   it('★★★ returns the value when the promise wins', async () => {
@@ -92,7 +92,18 @@ describe('enrichLive', () => {
     // ⚠ It is referenced by both this island and the facade's budgeted symbol lookup. A second
     // literal would be a second source of truth for the same budget, and the two would drift —
     // which is why the constant crosses the module boundary rather than being duplicated.
-    expect(LIVE_BUDGET_MS).toBe(2000);
+    // ⚠ THE PIN MOVED TO THE DEFAULT, AND THE INTENT IS UNCHANGED. The budget is now resolved from
+    // APG_LIVE_BUDGET_MS so the SUITE'S verdict cannot depend on machine load (measured: one
+    // unchanged tree ran 680s/2120s/2693s with 0/2/10 failures, all budget-shaped). The harness
+    // raises it, so LIVE_BUDGET_MS here is the harness value, not the product's.
+    //
+    // What this test exists to protect is "ONE named source of truth, not a literal buried in a
+    // branch" — so it pins the shipped DEFAULT, which is what the product uses and what a second
+    // literal would drift from. `live-budget-is-configurable.test.js` proves the env is actually
+    // read, in a child process, because an in-process assertion cannot tell a read env from an
+    // ignored one.
+    expect(DEFAULT_LIVE_BUDGET_MS, 'the product default must not drift').toBe(2000);
+    expect(LIVE_BUDGET_MS, 'the effective budget stays a positive number').toBeGreaterThan(0);
   });
 
   it('★★★ the timeout message names the budget it exceeded', async () => {

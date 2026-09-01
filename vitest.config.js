@@ -62,10 +62,22 @@ export default defineConfig({
     // regression becomes indistinguishable from contention, and three separate investigations in
     // that session ended in "it was load".
     //
-    // ⚠ THIS LOSES NO COVERAGE. No test asserts the lookup is FAST; they assert what it returns.
-    // Raising the harness budget removes a confound rather than weakening an assertion, and the
-    // PRODUCT default is untouched at 2000ms — `live-budget-is-configurable.test.js` pins that,
-    // and reads it in a child process because the constant resolves at module load.
-    env: { APG_PACKET_SEAL_STRICT: '1', APG_LIVE_BUDGET_MS: '30000' },
+    // ⛔ AND THE VALUE IS BOUNDED ON BOTH SIDES — "loses no coverage" was WRONG at 30000ms.
+    //
+    // Two classes of test pull in opposite directions:
+    //   CONTENT tests need the lookup to COMPLETE, so the budget must exceed a real lookup.
+    //   TIMEOUT tests (packet-timeout-not-absence) MOCK A HANG FOREVER to prove a timeout is not
+    //     reported as an absence, so they fire at exactly the budget — and at 30000ms that blew
+    //     their own 20s test limit, turning four real assertions into test timeouts. Those tests DO
+    //     assert on latency behaviour, which is the coverage I claimed did not exist.
+    //
+    // 8000ms satisfies both: above any realistic fixture lookup (measured 601ms on a 3958-node
+    // repo, and these fixtures are far smaller) even under the 4x load seen today, and below the
+    // 20000ms test timeout so a mocked hang still fires inside it.
+    //
+    // The PRODUCT default is untouched at 2000ms — `live-budget-is-configurable.test.js` pins it in
+    // a child process, because the constant resolves at module load and an in-process assertion
+    // cannot tell a read environment from an ignored one.
+    env: { APG_PACKET_SEAL_STRICT: '1', APG_LIVE_BUDGET_MS: '8000' },
   },
 });

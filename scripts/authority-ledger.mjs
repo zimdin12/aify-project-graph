@@ -82,8 +82,12 @@ export const AUTHORITIES = {
     ],
   },
   'packet:live': {
-    why: 'time-bounded enrichment from other verbs',
-    declarations: ['LIVE_BUDGET_MS', 'withTimeout', 'enrichLive'],
+    why: 'time-bounded enrichment from other verbs, and the budget that bounds it',
+    // ⚠ `DEFAULT_LIVE_BUDGET_MS` and `resolveLiveBudget` joined this authority when the budget
+    // became configuration. They belong here rather than in a new authority: the budget IS what
+    // makes this enrichment time-bounded, so its default and its resolver are the same concern as
+    // the constant they produce. Splitting them out would put one budget under two owners.
+    declarations: ['DEFAULT_LIVE_BUDGET_MS', 'resolveLiveBudget', 'LIVE_BUDGET_MS', 'withTimeout', 'enrichLive'],
   },
   'packet:symbol-route': {
     why: 'the symbol-route DATA helpers — population attestation and the cheap symbol->feature '
