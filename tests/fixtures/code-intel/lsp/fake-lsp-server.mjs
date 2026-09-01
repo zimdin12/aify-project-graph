@@ -156,19 +156,25 @@ function handle(msg) {
       // COMMENT satisfied.
       if (process.env.FAKE_LSP_MANY_REFS === '1') {
         const n = Number(process.env.FAKE_LSP_MANY_REFS_COUNT || 2050);
-        return reply(msg.id, Array.from({ length: n }, (_, i) => ({
+        // ⚠ EVERY reference must be a COHERENT location. This previously emitted lines
+        // 0..2049 into a TWO-LINE file, so all but two were out of bounds. Nothing checked,
+        // so the cap was being exercised with locations that could never be real. They now
+        // all point at the genuine call site `ns::foo(7)` on line 1, characters 23..26 —
+        // repetition is what a per-symbol cap is about, and it also exercises document reuse.
+        return reply(msg.id, Array.from({ length: n }, () => ({
           uri: otherUri,
-          range: { start: { line: i, character: 2 }, end: { line: i, character: 5 } },
+          range: { start: { line: 1, character: 23 }, end: { line: 1, character: 26 } },
         })));
       }
       return reply(msg.id, [
-        { uri: otherUri, range: { start: { line: 4, character: 2 }, end: { line: 4, character: 5 } } }
+        // line 4 did not exist in a two-line file; the real call site is line 1, chars 23..26.
+        { uri: otherUri, range: { start: { line: 1, character: 23 }, end: { line: 1, character: 26 } } }
       ]);
     }
     case 'textDocument/definition': {
       const uri = msg.params.textDocument.uri;
       return reply(msg.id, [
-        { uri, range: { start: { line: 0, character: 5 }, end: { line: 0, character: 8 } } }
+        { uri, range: { start: { line: 0, character: 20 }, end: { line: 0, character: 23 } } }
       ]);
     }
     case 'textDocument/hover': {
@@ -207,7 +213,10 @@ function handle(msg) {
         ]);
       }
       return reply(msg.id, [
-        { name: 'foo', kind: 12, range: { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } }, selectionRange: { start: { line: 0, character: 5 }, end: { line: 0, character: 8 } } }
+        // ⚠ characters 20..23 are literally `foo` in `namespace ns { void foo(int x) {} }`.
+        // This fixture previously claimed 5..8, which is `pac` inside `namespace` — it named one
+        // symbol and pointed at another. Nothing checked, so nothing complained.
+        { name: 'foo', kind: 12, range: { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } }, selectionRange: { start: { line: 0, character: 20 }, end: { line: 0, character: 23 } } }
       ]);
     }
     // ── L4: call hierarchy ───────────────────────────────────────

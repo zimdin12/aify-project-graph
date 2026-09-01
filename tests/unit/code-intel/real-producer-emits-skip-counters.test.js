@@ -39,7 +39,12 @@ async function collect(env, operations = ['symbols']) {
   const provider = realProviderWith(env);
   return provider.collect({
     projectRoot: fixtureRepo,
-    files: ['src/main.cpp'],
+    // ⚠ src/main.cpp DOES NOT EXIST in this fixture repo, and is absent from its compile DB.
+    // The fake LSP answers any URI, so the reference payload was being recorded against a
+    // file that was never there. Nothing read the document, so nothing objected. Collecting a
+    // file that actually exists changes nothing about what is asserted — the cap must still be
+    // provoked on the REAL producer — it only stops the fixture claiming a file into being.
+    files: ['src/foo.cpp'],
     operations,
     budgetMs: 20_000,
   });
