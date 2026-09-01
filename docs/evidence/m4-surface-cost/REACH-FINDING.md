@@ -65,3 +65,40 @@ would not move either number.
 **Not narrowing.** The measured distribution argues against the premise that motivated it. If effort
 goes anywhere from here, the evidence points at mid-task and subagent reach — 0.8% — rather than at
 the size of the listed set.
+
+## ⛔ CORRECTION — "0.8% of subagents" was the wrong denominator (same day)
+
+M4's remaining action is *"either narrow the default toolset or improve routing"*. Narrowing was
+refuted above. Before doing routing work, one question decides whether **routing** is even the right
+noun: were the graph tools available to those subagents at all?
+
+Discriminator: did the subagent call ANY `mcp__` tool? A transcript calling other MCP tools proves
+the MCP surface was present and the graph was passed over. Measured over the same corpus:
+
+| | |
+|---|---|
+| subagent transcripts | 1,086 |
+| using **no MCP tool of any kind** | **1,069 (98.4%)** |
+| using any MCP tool | 17 |
+| …of those, using the graph | **9 (53%)** |
+
+Other MCP servers subagents did use: `aify-comms` 20,656 calls, `chrome-devtools` 1,075,
+`playwright` 22, `claude_ai_Hugging_Face` 20 — concentrated in those few transcripts.
+
+Controls, same pass: **POSITIVE** Bash/Read/Grep = 112,794 calls (the parser sees tool calls);
+**NEGATIVE** a fabricated tool name = 0 (the matcher is not over-broad).
+
+⇒ **The graph is not being passed over.** Among subagents that use MCP at all, the graph is used by
+roughly half. The binding constraint is that **subagent work almost never involves MCP tools** —
+1,069 of 1,086 transcripts use none. Optimising graph salience for that population would be
+improving a menu nobody opens.
+
+⚠ **Claim ceiling.** This counts tool CALLS, not tool DEFINITIONS. "No MCP call" is **UNKNOWN
+availability**, never proof the tools were absent — a subagent doing a file edit needs no MCP tool
+whether or not one was offered. The 9-of-17 conditional rests on a denominator of **17**, which is
+far too small to carry a rate; it is reported to show the ORIGINAL framing was wrong, not to replace
+it with a confident number.
+
+⚠ **What this does NOT say:** that subagent reach does not matter. It says the measured 0.8% was
+graph-calls-per-ALL-subagents, and that figure conflates "the graph was skipped" with "no MCP tool
+was relevant". Those demand different fixes and the data cannot yet separate them.
