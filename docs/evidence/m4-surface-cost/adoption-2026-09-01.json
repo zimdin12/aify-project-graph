@@ -1,0 +1,308 @@
+{
+  "what": "MEASURED graph-verb invocations across every Claude Code transcript on this machine.",
+  "carrier": {
+    "root": "C:/Users/Administrator/.claude/projects",
+    "projectDirs": 19
+  },
+  "controls": {
+    "positive": {
+      "names": [
+        "Bash",
+        "Read",
+        "Grep"
+      ],
+      "count": 84962,
+      "passed": true
+    },
+    "negative": {
+      "name": "mcp__aify-project-graph__graph_nonexistent_control_zzz",
+      "count": 0,
+      "passed": true
+    },
+    "ranInSamePass": true,
+    "unparseableLines": 5,
+    "unparseableDetail": [
+      {
+        "project": "C--Docker-aify-comms",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Docker-aify-comms\\651b895f-a564-4d3a-8e0b-27f8429b1dd0.jsonl",
+        "line": 31196,
+        "bytes": 5870,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Docker-aify-comms",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Docker-aify-comms\\651b895f-a564-4d3a-8e0b-27f8429b1dd0.jsonl",
+        "line": 103429,
+        "bytes": 3137,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Users-Administrator-AppData-Roaming--minecraft",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Users-Administrator-AppData-Roaming--minecraft\\aed32f2b-ac5d-49e0-99f8-249d1fe22f36.jsonl",
+        "line": 25666,
+        "bytes": 2095,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Users-Administrator-sand-castle",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Users-Administrator-sand-castle\\502989ba-6e2f-4358-95e0-1a4b340c2579.jsonl",
+        "line": 219318,
+        "bytes": 3967,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      },
+      {
+        "project": "C--Users-Administrator-sand-castle",
+        "file": "C:\\Users\\Administrator\\.claude\\projects\\C--Users-Administrator-sand-castle\\dfa159ae-46e9-4e47-8e7e-ceb1f456519d.jsonl",
+        "line": 18592,
+        "bytes": 11023,
+        "error": "Unexpected token '\u0000', \"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\"... is not valid JSON"
+      }
+    ]
+  },
+  "topLevelSessions": {
+    "noun": "A transcript an agent session actually ran. Comparable to the published \"% of sessions that never invoke a query tool\".",
+    "sessions": 31,
+    "sessionsWithAtLeastOneGraphCall": 16,
+    "sessionsWithZeroGraphCalls": 15,
+    "adoptionRateSessions": 0.5161290322580645,
+    "graphCalls": 362
+  },
+  "subagentSidechains": {
+    "noun": "Nested transcripts spawned BY a session. Real invocations, but not sessions anyone chose to start. NOT comparable to the published figure.",
+    "transcripts": 1088,
+    "withAtLeastOneGraphCall": 9,
+    "graphCalls": 55,
+    "topVerbs": {
+      "code_intel_references": 11,
+      "graph_whereis": 8,
+      "graph_search": 6,
+      "graph_callers": 6,
+      "code_intel_hierarchy": 5,
+      "graph_explore": 3,
+      "graph_trace": 3,
+      "graph_packet": 3,
+      "graph_impact": 2,
+      "graph_consequences": 2
+    }
+  },
+  "perVerb": {
+    "graph_health": 89,
+    "graph_whereis": 42,
+    "code_intel_references": 38,
+    "graph_packet": 37,
+    "graph_consequences": 36,
+    "graph_index": 26,
+    "graph_callers": 26,
+    "graph_collect_code_intel": 20,
+    "graph_search": 14,
+    "graph_pull": 10,
+    "graph_trace": 6,
+    "graph_explore": 6,
+    "code_intel_hierarchy": 5,
+    "graph_status": 2,
+    "graph_impact": 2,
+    "graph_find": 1,
+    "graph_digest": 1,
+    "graph_dashboard": 1
+  },
+  "perProject": [
+    {
+      "project": "C--Docker-aify-comfyui",
+      "sessions": 1,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Docker-aify-comms",
+      "sessions": 6,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Docker-aify-llamacpp-router",
+      "sessions": 1,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Docker-aify-project-graph",
+      "sessions": 4,
+      "sessionsWithGraphCall": 3,
+      "adoptionRate": 0.75,
+      "graphCalls": 28,
+      "topVerbs": {
+        "graph_whereis": 14,
+        "graph_health": 11,
+        "graph_status": 1,
+        "graph_index": 1,
+        "graph_callers": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-2e86",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 6,
+      "topVerbs": {
+        "graph_callers": 5,
+        "graph_health": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-3b91",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 2,
+      "topVerbs": {
+        "graph_health": 1,
+        "code_intel_references": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-410c",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 9,
+      "topVerbs": {
+        "graph_callers": 6,
+        "code_intel_references": 2,
+        "graph_health": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-58d6",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 1,
+      "topVerbs": {
+        "code_intel_references": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-6fa2",
+      "sessions": 1,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-7f2a",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 2,
+      "topVerbs": {
+        "graph_health": 1,
+        "code_intel_references": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-9d4f",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 10,
+      "topVerbs": {
+        "graph_callers": 7,
+        "code_intel_references": 2,
+        "graph_health": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-b573",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 4,
+      "topVerbs": {
+        "code_intel_references": 2,
+        "graph_health": 1,
+        "graph_callers": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-c40e",
+      "sessions": 1,
+      "sessionsWithGraphCall": 1,
+      "adoptionRate": 1,
+      "graphCalls": 2,
+      "topVerbs": {
+        "graph_health": 1,
+        "code_intel_references": 1
+      }
+    },
+    {
+      "project": "C--Docker-apg-ab-arms-ws-e1c7",
+      "sessions": 1,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Users-Administrator",
+      "sessions": 1,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Users-Administrator-AppData-Roaming--minecraft",
+      "sessions": 1,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Users-Administrator-echoes-of-the-fallen",
+      "sessions": 2,
+      "sessionsWithGraphCall": 2,
+      "adoptionRate": 1,
+      "graphCalls": 206,
+      "topVerbs": {
+        "graph_health": 42,
+        "graph_packet": 33,
+        "graph_consequences": 31,
+        "graph_whereis": 28,
+        "graph_search": 14,
+        "code_intel_references": 13
+      }
+    },
+    {
+      "project": "C--Users-Administrator-projects",
+      "sessions": 1,
+      "sessionsWithGraphCall": 0,
+      "adoptionRate": 0,
+      "graphCalls": 0,
+      "topVerbs": {}
+    },
+    {
+      "project": "C--Users-Administrator-sand-castle",
+      "sessions": 4,
+      "sessionsWithGraphCall": 3,
+      "adoptionRate": 0.75,
+      "graphCalls": 92,
+      "topVerbs": {
+        "graph_health": 29,
+        "graph_index": 18,
+        "graph_collect_code_intel": 16,
+        "code_intel_references": 15,
+        "graph_consequences": 5,
+        "graph_packet": 4
+      }
+    }
+  ]
+}
