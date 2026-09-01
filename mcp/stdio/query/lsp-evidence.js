@@ -205,8 +205,31 @@ function spineScopeClause(db, noun) {
     return ` SCOPE: the C++ collection ran with no compile_commands.json, so clangd resolved no`
       + ` call and this absence is a FLOOR — generate one with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.`;
   }
-  return ` SCOPE: the newest code-intel collection is ${latest.language}; ${noun} in languages or`
-    + ` files it did not cover are heuristic only.`;
+  // ⛔ NAME THE COVERAGE, NOT JUST THE LANGUAGE. Measured on this repository, the newest collection
+  // processed 73 of 627 eligible files. An agent asking for callers got an absence answer backed by
+  // that spine and was told only "heuristic" — the identical wording a fully-covered repo produces.
+  // The same shape is already recorded in the importer: a run covering 0.6% of the repo silenced
+  // graph_health's only code-intel warning.
+  //
+  // ⚠ THE NOUNS ARE NOT INTERCHANGEABLE, and the schema says so. `files_in_scope` is what the run
+  // SET OUT to collect — a scope:"files" run with three paths reports 3 of 3 and reads as complete.
+  // `files_eligible` is how many the provider COULD collect, and is "the only one that makes
+  // coverage mean anything". So the ratio is processed / ELIGIBLE, never processed / in-scope.
+  //
+  // ⚠ AND IT IS COVERAGE BY THIS COLLECTION, NOT BY THE GRAPH. Earlier collections may still
+  // contribute edges, so their union is a different and larger number. A claim about
+  // trustworthiness names the surface it governs — the over-broad true statement is the defect
+  // recorded in surfaces-agree-on-scope.test.js.
+  //
+  // ⚠ UNKNOWN STAYS UNKNOWN. A collection that did not record its coverage gets no ratio: a
+  // fabricated denominator would let a reader compute a completeness figure that was never measured.
+  const processed = latest.filesProcessed;
+  const eligible = latest.filesEligible;
+  const coverage = (Number.isFinite(processed) && Number.isFinite(eligible) && eligible > 0)
+    ? `, which processed ${processed} of ${eligible} eligible files`
+    : ', whose file coverage was not recorded';
+  return ` SCOPE: the newest code-intel collection is ${latest.language}${coverage};`
+    + ` anything outside it is heuristic only.`;
 }
 
 export async function buildAbsenceTrustLine({ noun = 'edges', db } = {}) {

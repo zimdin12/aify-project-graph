@@ -75,6 +75,48 @@ describe('an absence claim names the spine that covered it', () => {
     expect(line).toMatch(/newest code-intel collection is typescript/);
   });
 
+  it('★ names the COVERAGE, using eligible as the denominator', async () => {
+    // Measured on this repository: the newest collection processed 73 of 627 eligible files, and
+    // the absence line said only "heuristic" — indistinguishable from a fully-covered repo.
+    const line = await buildAbsenceTrustLine({
+      noun: 'callers',
+      db: dbWith({ latest: { ...TS_COLL, files_processed: 73, files_in_scope: 73, files_eligible: 627 } }),
+    });
+    expect(line).toMatch(/processed 73 of 627 eligible files/);
+  });
+
+  it('⛔ the denominator is ELIGIBLE, never IN-SCOPE', async () => {
+    // A scope:"files" run with three paths reports 3 of 3 and reads as COMPLETE. Using in-scope
+    // would turn a 3-file sample of a 627-file repo into a claim of total coverage.
+    const line = await buildAbsenceTrustLine({
+      noun: 'callers',
+      db: dbWith({ latest: { ...TS_COLL, files_processed: 3, files_in_scope: 3, files_eligible: 627 } }),
+    });
+    expect(line, 'must report against the repo population').toMatch(/processed 3 of 627 eligible files/);
+    expectAbsentWithLiveMatcher(
+      /3 of 3/,
+      { forbidden: 'processed 3 of 3 eligible files', allowed: 'processed 3 of 627 eligible files' },
+      line,
+      'the run\'s own scope must never become the coverage denominator',
+    );
+  });
+
+  it('⛔ UNKNOWN coverage yields NO ratio, not a fabricated one', async () => {
+    // A collection that never recorded coverage must not license a completeness figure. Null is
+    // not zero and it is not "all".
+    const line = await buildAbsenceTrustLine({
+      noun: 'callers',
+      db: dbWith({ latest: { ...TS_COLL, files_processed: null, files_in_scope: null, files_eligible: null } }),
+    });
+    expect(line).toMatch(/file coverage was not recorded/);
+    expectAbsentWithLiveMatcher(
+      /processed \d+ of \d+/,
+      { forbidden: 'processed 73 of 627 eligible files', allowed: 'whose file coverage was not recorded' },
+      line,
+      'an unrecorded coverage must not be rendered as a number',
+    );
+  });
+
   it('a throwing db degrades to the base caveat rather than losing the warning', async () => {
     // Fail-safe: the trust line is the last thing that may disappear on an error path.
     const line = await buildAbsenceTrustLine({
