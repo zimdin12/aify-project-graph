@@ -1,0 +1,140 @@
+[
+ {
+  "pair": 1,
+  "order": "AB",
+  "load": {
+   "nodeProcesses": 137
+  },
+  "A": {
+   "status": "pass",
+   "wallMs": 16595,
+   "fileMs": 13994,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  },
+  "B": {
+   "status": "pass",
+   "wallMs": 15385,
+   "fileMs": 12784,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  }
+ },
+ {
+  "pair": 2,
+  "order": "BA",
+  "load": {
+   "nodeProcesses": 137
+  },
+  "B": {
+   "status": "pass",
+   "wallMs": 15717,
+   "fileMs": 13256,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  },
+  "A": {
+   "status": "fail",
+   "wallMs": 22334,
+   "fileMs": null,
+   "failed": 1,
+   "passed": 5,
+   "budgetAssertionFailed": true
+  }
+ },
+ {
+  "pair": 3,
+  "order": "AB",
+  "load": {
+   "nodeProcesses": 135
+  },
+  "A": {
+   "status": "fail",
+   "wallMs": 33439,
+   "fileMs": null,
+   "failed": 2,
+   "passed": 4,
+   "budgetAssertionFailed": true
+  },
+  "B": {
+   "status": "pass",
+   "wallMs": 27545,
+   "fileMs": 22836,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  }
+ },
+ {
+  "pair": 4,
+  "order": "BA",
+  "load": {
+   "nodeProcesses": 135
+  },
+  "B": {
+   "status": "fail",
+   "wallMs": 29388,
+   "fileMs": null,
+   "failed": 1,
+   "passed": 5,
+   "budgetAssertionFailed": true
+  },
+  "A": {
+   "status": "fail",
+   "wallMs": 27473,
+   "fileMs": null,
+   "failed": 1,
+   "passed": 5,
+   "budgetAssertionFailed": true
+  }
+ },
+ {
+  "pair": 5,
+  "order": "AB",
+  "load": {
+   "nodeProcesses": 135
+  },
+  "A": {
+   "status": "pass",
+   "wallMs": 22186,
+   "fileMs": 18176,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  },
+  "B": {
+   "status": "pass",
+   "wallMs": 21928,
+   "fileMs": 18256,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  }
+ },
+ {
+  "pair": 6,
+  "order": "BA",
+  "load": {
+   "nodeProcesses": 135
+  },
+  "B": {
+   "status": "pass",
+   "wallMs": 21882,
+   "fileMs": 18361,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  },
+  "A": {
+   "status": "pass",
+   "wallMs": 22084,
+   "fileMs": 18360,
+   "failed": 0,
+   "passed": 6,
+   "budgetAssertionFailed": false
+  }
+ }
+]
