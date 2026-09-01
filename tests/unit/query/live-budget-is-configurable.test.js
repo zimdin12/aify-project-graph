@@ -53,3 +53,35 @@ describe('the live lookup budget is configuration, not a constant', () => {
     expect(LIVE_BUDGET_MS).toBe(resolveLiveBudget(process.env.APG_LIVE_BUDGET_MS));
   });
 });
+
+// ⛔ THE CENTRAL CLAIM WAS UNTESTED, AND A MUTANT PROVED IT.
+//
+// Replacing `resolveLiveBudget(process.env.APG_LIVE_BUDGET_MS)` with the bare constant — so the
+// environment is ignored entirely — SURVIVED every test above. The "derived from the resolver"
+// assertion compares LIVE_BUDGET_MS against resolveLiveBudget(process.env.APG_LIVE_BUDGET_MS), and
+// with the variable unset BOTH SIDES ARE 2000. It passes whatever the code does: a tautology, the
+// same shape as an earlier assertion in this repo that compared an array against itself.
+//
+// The constant is resolved at MODULE LOAD, so the only honest proof is a process that already has
+// the variable set. A child process is the instrument; nothing else observes the real wiring.
+describe('the environment is actually read at module load', () => {
+  it('★ a child process with APG_LIVE_BUDGET_MS set sees the raised budget', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const { fileURLToPath } = await import('node:url');
+    const modUrl = new URL('../../../mcp/stdio/query/verbs/packet-live.js', import.meta.url).href;
+    const script = `import('${modUrl}').then((m) => console.log(String(m.LIVE_BUDGET_MS)));`;
+
+    const read = (env) => execFileSync(process.execPath, ['--input-type=module', '-e', script], {
+      encoding: 'utf8', env: { ...process.env, ...env },
+    }).trim();
+
+    // POSITIVE CONTROL: the same child, unset, must show the default — otherwise a child that
+    // always printed 9000 would "pass" the assertion below for the wrong reason.
+    const withoutEnv = read({ APG_LIVE_BUDGET_MS: '' });
+    expect(withoutEnv, 'unset must yield the shipped default').toBe('2000');
+
+    const withEnv = read({ APG_LIVE_BUDGET_MS: '9000' });
+    expect(withEnv, 'the module must READ the environment, not just export a constant').toBe('9000');
+    expect(withEnv).not.toBe(withoutEnv);
+  }, 60000);
+});
