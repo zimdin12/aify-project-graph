@@ -1,6 +1,6 @@
 {
-  "takenAt": "2026-08-31T23:50:56.530Z",
-  "root": "C:/Docker/apg-m0b-arm1",
+  "takenAt": "2026-09-01T00:00:19.330Z",
+  "root": "tests/fixtures/identity-hostile",
   "baselineCount": 14,
   "mutantCount": 17,
   "appeared": [

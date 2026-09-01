@@ -1,0 +1,1523 @@
+{
+  "takenAt": "2026-09-01T00:01:52.303Z",
+  "arm": "arm3-bounded-cpp-smoke",
+  "root": "C:/Docker/apg-m0b-corpus",
+  "filesScanned": 22,
+  "controls": {
+    "symbolsExtracted": 389,
+    "distinctKeys": 389,
+    "positive_someKeyIsUnique": true,
+    "uniqueKeyCount": 389,
+    "negative_absentSpellingIsZero": true,
+    "liveness_extractionProducedSymbols": true,
+    "extractionErrors": []
+  },
+  "mergedOverloadsWithinFile": [
+    {
+      "key": "Method:src.better_sqlite3.Database.ThrowSqliteError",
+      "label": "ThrowSqliteError",
+      "file": "src/better_sqlite3.hpp",
+      "definitionsCollapsed": 2,
+      "signatures": [
+        "ThrowSqliteError (Addon * addon, sqlite3 * db_handle)",
+        "ThrowSqliteError (Addon * addon, char const * message, int code)"
+      ],
+      "lines": [
+        204,
+        206
+      ],
+      "disclosedBy": "extra.overload_signatures"
+    }
+  ],
+  "crossFileKeyCollisions": [],
+  "forkCandidates": [
+    {
+      "label": "Init",
+      "keys": [
+        "Method:src.better_sqlite3.Database.Init",
+        "Method:src.better_sqlite3.Statement.Init",
+        "Method:src.better_sqlite3.StatementIterator.Init",
+        "Method:src.better_sqlite3.Backup.Init",
+        "Function:src.language.Init",
+        "Method:LookaheadIterator.Init",
+        "Method:src.lookaheaditerator.LookaheadIterator.Init",
+        "Function:src.node.Init",
+        "Method:Parser.Init",
+        "Method:src.parser.Parser.Init",
+        "Method:Query.Init",
+        "Method:src.query.Query.Init",
+        "Method:Tree.Init",
+        "Method:src.tree.Tree.Init",
+        "Method:TreeCursor.Init",
+        "Method:src.tree_cursor.TreeCursor.Init"
+      ],
+      "sites": [
+        {
+          "file": "src/better_sqlite3.hpp",
+          "line": 176,
+          "key": "Method:src.better_sqlite3.Database.Init"
+        },
+        {
+          "file": "src/better_sqlite3.hpp",
+          "line": 320,
+          "key": "Method:src.better_sqlite3.Statement.Init"
+        },
+        {
+          "file": "src/better_sqlite3.hpp",
+          "line": 396,
+          "key": "Method:src.better_sqlite3.StatementIterator.Init"
+        },
+        {
+          "file": "src/better_sqlite3.hpp",
+          "line": 446,
+          "key": "Method:src.better_sqlite3.Backup.Init"
+        },
+        {
+          "file": "src/language.cc",
+          "line": 101,
+          "key": "Function:src.language.Init"
+        },
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 12,
+          "key": "Method:LookaheadIterator.Init"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 12,
+          "key": "Method:src.lookaheaditerator.LookaheadIterator.Init"
+        },
+        {
+          "file": "src/node.cc",
+          "line": 1013,
+          "key": "Function:src.node.Init"
+        },
+        {
+          "file": "src/parser.cc",
+          "line": 112,
+          "key": "Method:Parser.Init"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 13,
+          "key": "Method:src.parser.Parser.Init"
+        },
+        {
+          "file": "src/query.cc",
+          "line": 34,
+          "key": "Method:Query.Init"
+        },
+        {
+          "file": "src/query.h",
+          "line": 14,
+          "key": "Method:src.query.Query.Init"
+        },
+        {
+          "file": "src/tree.cc",
+          "line": 25,
+          "key": "Method:Tree.Init"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 15,
+          "key": "Method:src.tree.Tree.Init"
+        },
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 13,
+          "key": "Method:TreeCursor.Init"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 14,
+          "key": "Method:src.tree_cursor.TreeCursor.Init"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Log",
+      "keys": [
+        "Method:src.better_sqlite3.Database.Log",
+        "Method:Logger.Log",
+        "Method:src.logger.Logger.Log"
+      ],
+      "sites": [
+        {
+          "file": "src/better_sqlite3.hpp",
+          "line": 208,
+          "key": "Method:src.better_sqlite3.Database.Log"
+        },
+        {
+          "file": "src/logger.cc",
+          "line": 12,
+          "key": "Method:Logger.Log"
+        },
+        {
+          "file": "src/logger.h",
+          "line": 14,
+          "key": "Method:src.logger.Logger.Log"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Next",
+      "keys": [
+        "Method:src.better_sqlite3.StatementIterator.Next",
+        "Method:LookaheadIterator.Next",
+        "Method:src.lookaheaditerator.LookaheadIterator.Next"
+      ],
+      "sites": [
+        {
+          "file": "src/better_sqlite3.hpp",
+          "line": 412,
+          "key": "Method:src.better_sqlite3.StatementIterator.Next"
+        },
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 117,
+          "key": "Method:LookaheadIterator.Next"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 25,
+          "key": "Method:src.lookaheaditerator.LookaheadIterator.Next"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Make",
+      "keys": [
+        "Method:Logger.Make",
+        "Method:src.logger.Logger.Make"
+      ],
+      "sites": [
+        {
+          "file": "src/logger.cc",
+          "line": 61,
+          "key": "Method:Logger.Make"
+        },
+        {
+          "file": "src/logger.h",
+          "line": 12,
+          "key": "Method:src.logger.Logger.Make"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "LookaheadIterator",
+      "keys": [
+        "Method:LookaheadIterator.LookaheadIterator",
+        "Class:src.lookaheaditerator.LookaheadIterator"
+      ],
+      "sites": [
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 28,
+          "key": "Method:LookaheadIterator.LookaheadIterator"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 10,
+          "key": "Class:src.lookaheaditerator.LookaheadIterator"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "NewInstance",
+      "keys": [
+        "Method:LookaheadIterator.NewInstance",
+        "Method:src.lookaheaditerator.LookaheadIterator.NewInstance",
+        "Method:Tree.NewInstance",
+        "Method:src.tree.Tree.NewInstance",
+        "Method:TreeCursor.NewInstance",
+        "Method:src.tree_cursor.TreeCursor.NewInstance"
+      ],
+      "sites": [
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 54,
+          "key": "Method:LookaheadIterator.NewInstance"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 13,
+          "key": "Method:src.lookaheaditerator.LookaheadIterator.NewInstance"
+        },
+        {
+          "file": "src/tree.cc",
+          "line": 55,
+          "key": "Method:Tree.NewInstance"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 16,
+          "key": "Method:src.tree.Tree.NewInstance"
+        },
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 48,
+          "key": "Method:TreeCursor.NewInstance"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 15,
+          "key": "Method:src.tree_cursor.TreeCursor.NewInstance"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CurrentType",
+      "keys": [
+        "Method:LookaheadIterator.CurrentType",
+        "Method:src.lookaheaditerator.LookaheadIterator.CurrentType"
+      ],
+      "sites": [
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 77,
+          "key": "Method:LookaheadIterator.CurrentType"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 28,
+          "key": "Method:src.lookaheaditerator.LookaheadIterator.CurrentType"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CurrentTypeId",
+      "keys": [
+        "Method:LookaheadIterator.CurrentTypeId",
+        "Method:src.lookaheaditerator.LookaheadIterator.CurrentTypeId"
+      ],
+      "sites": [
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 82,
+          "key": "Method:LookaheadIterator.CurrentTypeId"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 27,
+          "key": "Method:src.lookaheaditerator.LookaheadIterator.CurrentTypeId"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Reset",
+      "keys": [
+        "Method:LookaheadIterator.Reset",
+        "Method:src.lookaheaditerator.LookaheadIterator.Reset",
+        "Method:Parser.Reset",
+        "Method:src.parser.Parser.Reset",
+        "Method:TreeCursor.Reset",
+        "Method:src.tree_cursor.TreeCursor.Reset"
+      ],
+      "sites": [
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 87,
+          "key": "Method:LookaheadIterator.Reset"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 23,
+          "key": "Method:src.lookaheaditerator.LookaheadIterator.Reset"
+        },
+        {
+          "file": "src/parser.cc",
+          "line": 301,
+          "key": "Method:Parser.Reset"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 30,
+          "key": "Method:src.parser.Parser.Reset"
+        },
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 141,
+          "key": "Method:TreeCursor.Reset"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 34,
+          "key": "Method:src.tree_cursor.TreeCursor.Reset"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "ResetState",
+      "keys": [
+        "Method:LookaheadIterator.ResetState",
+        "Method:src.lookaheaditerator.LookaheadIterator.ResetState"
+      ],
+      "sites": [
+        {
+          "file": "src/lookaheaditerator.cc",
+          "line": 104,
+          "key": "Method:LookaheadIterator.ResetState"
+        },
+        {
+          "file": "src/lookaheaditerator.h",
+          "line": 24,
+          "key": "Method:src.lookaheaditerator.LookaheadIterator.ResetState"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "StartIndex",
+      "keys": [
+        "Function:src.node.StartIndex",
+        "Method:TreeCursor.StartIndex",
+        "Method:src.tree_cursor.TreeCursor.StartIndex"
+      ],
+      "sites": [
+        {
+          "file": "src/node.cc",
+          "line": 432,
+          "key": "Function:src.node.StartIndex"
+        },
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 203,
+          "key": "Method:TreeCursor.StartIndex"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 46,
+          "key": "Method:src.tree_cursor.TreeCursor.StartIndex"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "EndIndex",
+      "keys": [
+        "Function:src.node.EndIndex",
+        "Method:TreeCursor.EndIndex",
+        "Method:src.tree_cursor.TreeCursor.EndIndex"
+      ],
+      "sites": [
+        {
+          "file": "src/node.cc",
+          "line": 445,
+          "key": "Function:src.node.EndIndex"
+        },
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 208,
+          "key": "Method:TreeCursor.EndIndex"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 47,
+          "key": "Method:src.tree_cursor.TreeCursor.EndIndex"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "StartPosition",
+      "keys": [
+        "Function:src.node.StartPosition",
+        "Method:TreeCursor.StartPosition",
+        "Method:src.tree_cursor.TreeCursor.StartPosition"
+      ],
+      "sites": [
+        {
+          "file": "src/node.cc",
+          "line": 458,
+          "key": "Function:src.node.StartPosition"
+        },
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 123,
+          "key": "Method:TreeCursor.StartPosition"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 31,
+          "key": "Method:src.tree_cursor.TreeCursor.StartPosition"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "EndPosition",
+      "keys": [
+        "Function:src.node.EndPosition",
+        "Method:TreeCursor.EndPosition",
+        "Method:src.tree_cursor.TreeCursor.EndPosition"
+      ],
+      "sites": [
+        {
+          "file": "src/node.cc",
+          "line": 470,
+          "key": "Function:src.node.EndPosition"
+        },
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 129,
+          "key": "Method:TreeCursor.EndPosition"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 32,
+          "key": "Method:src.tree_cursor.TreeCursor.EndPosition"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Parser",
+      "keys": [
+        "Method:Parser.Parser",
+        "Class:src.parser.Parser"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 136,
+          "key": "Method:Parser.Parser"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 11,
+          "key": "Class:src.parser.Parser"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "SetLanguage",
+      "keys": [
+        "Method:Parser.SetLanguage",
+        "Method:src.parser.Parser.SetLanguage"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 177,
+          "key": "Method:Parser.SetLanguage"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 21,
+          "key": "Method:src.parser.Parser.SetLanguage"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Parse",
+      "keys": [
+        "Method:Parser.Parse",
+        "Method:src.parser.Parser.Parse"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 186,
+          "key": "Method:Parser.Parse"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 22,
+          "key": "Method:src.parser.Parser.Parse"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "IncludedRanges",
+      "keys": [
+        "Method:Parser.IncludedRanges",
+        "Method:src.parser.Parser.IncludedRanges"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 221,
+          "key": "Method:Parser.IncludedRanges"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 23,
+          "key": "Method:src.parser.Parser.IncludedRanges"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "TimeoutMicros",
+      "keys": [
+        "Method:Parser.TimeoutMicros",
+        "Method:src.parser.Parser.TimeoutMicros"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 234,
+          "key": "Method:Parser.TimeoutMicros"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 25,
+          "key": "Method:src.parser.Parser.TimeoutMicros"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "SetTimeoutMicros",
+      "keys": [
+        "Method:Parser.SetTimeoutMicros",
+        "Method:src.parser.Parser.SetTimeoutMicros"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 239,
+          "key": "Method:Parser.SetTimeoutMicros"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 26,
+          "key": "Method:src.parser.Parser.SetTimeoutMicros"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GetLogger",
+      "keys": [
+        "Method:Parser.GetLogger",
+        "Method:src.parser.Parser.GetLogger"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 249,
+          "key": "Method:Parser.GetLogger"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 27,
+          "key": "Method:src.parser.Parser.GetLogger"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "SetLogger",
+      "keys": [
+        "Method:Parser.SetLogger",
+        "Method:src.parser.Parser.SetLogger"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 258,
+          "key": "Method:Parser.SetLogger"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 28,
+          "key": "Method:src.parser.Parser.SetLogger"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "PrintDotGraphs",
+      "keys": [
+        "Method:Parser.PrintDotGraphs",
+        "Method:src.parser.Parser.PrintDotGraphs"
+      ],
+      "sites": [
+        {
+          "file": "src/parser.cc",
+          "line": 278,
+          "key": "Method:Parser.PrintDotGraphs"
+        },
+        {
+          "file": "src/parser.h",
+          "line": 29,
+          "key": "Method:src.parser.Parser.PrintDotGraphs"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Query",
+      "keys": [
+        "Method:Query.Query",
+        "Class:src.query.Query"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 58,
+          "key": "Method:Query.Query"
+        },
+        {
+          "file": "src/query.h",
+          "line": 12,
+          "key": "Class:src.query.Query"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GetPredicates",
+      "keys": [
+        "Method:Query.GetPredicates",
+        "Method:src.query.Query.GetPredicates"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 116,
+          "key": "Method:Query.GetPredicates"
+        },
+        {
+          "file": "src/query.h",
+          "line": 26,
+          "key": "Method:src.query.Query.GetPredicates"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Matches",
+      "keys": [
+        "Method:Query.Matches",
+        "Method:src.query.Query.Matches"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 168,
+          "key": "Method:Query.Matches"
+        },
+        {
+          "file": "src/query.h",
+          "line": 24,
+          "key": "Method:src.query.Query.Matches"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Captures",
+      "keys": [
+        "Method:Query.Captures",
+        "Method:src.query.Query.Captures"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 255,
+          "key": "Method:Query.Captures"
+        },
+        {
+          "file": "src/query.h",
+          "line": 25,
+          "key": "Method:src.query.Query.Captures"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "DisableCapture",
+      "keys": [
+        "Method:Query.DisableCapture",
+        "Method:src.query.Query.DisableCapture"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 349,
+          "key": "Method:Query.DisableCapture"
+        },
+        {
+          "file": "src/query.h",
+          "line": 27,
+          "key": "Method:src.query.Query.DisableCapture"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "DisablePattern",
+      "keys": [
+        "Method:Query.DisablePattern",
+        "Method:src.query.Query.DisablePattern"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 356,
+          "key": "Method:Query.DisablePattern"
+        },
+        {
+          "file": "src/query.h",
+          "line": 28,
+          "key": "Method:src.query.Query.DisablePattern"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "IsPatternGuaranteedAtStep",
+      "keys": [
+        "Method:Query.IsPatternGuaranteedAtStep",
+        "Method:src.query.Query.IsPatternGuaranteedAtStep"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 362,
+          "key": "Method:Query.IsPatternGuaranteedAtStep"
+        },
+        {
+          "file": "src/query.h",
+          "line": 29,
+          "key": "Method:src.query.Query.IsPatternGuaranteedAtStep"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "IsPatternRooted",
+      "keys": [
+        "Method:Query.IsPatternRooted",
+        "Method:src.query.Query.IsPatternRooted"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 367,
+          "key": "Method:Query.IsPatternRooted"
+        },
+        {
+          "file": "src/query.h",
+          "line": 30,
+          "key": "Method:src.query.Query.IsPatternRooted"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "IsPatternNonLocal",
+      "keys": [
+        "Method:Query.IsPatternNonLocal",
+        "Method:src.query.Query.IsPatternNonLocal"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 372,
+          "key": "Method:Query.IsPatternNonLocal"
+        },
+        {
+          "file": "src/query.h",
+          "line": 31,
+          "key": "Method:src.query.Query.IsPatternNonLocal"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "StartIndexForPattern",
+      "keys": [
+        "Method:Query.StartIndexForPattern",
+        "Method:src.query.Query.StartIndexForPattern"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 377,
+          "key": "Method:Query.StartIndexForPattern"
+        },
+        {
+          "file": "src/query.h",
+          "line": 32,
+          "key": "Method:src.query.Query.StartIndexForPattern"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "EndIndexForPattern",
+      "keys": [
+        "Method:Query.EndIndexForPattern",
+        "Method:src.query.Query.EndIndexForPattern"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 382,
+          "key": "Method:Query.EndIndexForPattern"
+        },
+        {
+          "file": "src/query.h",
+          "line": 33,
+          "key": "Method:src.query.Query.EndIndexForPattern"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "DidExceedMatchLimit",
+      "keys": [
+        "Method:Query.DidExceedMatchLimit",
+        "Method:src.query.Query.DidExceedMatchLimit"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 387,
+          "key": "Method:Query.DidExceedMatchLimit"
+        },
+        {
+          "file": "src/query.h",
+          "line": 34,
+          "key": "Method:src.query.Query.DidExceedMatchLimit"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "MatchLimit",
+      "keys": [
+        "Method:Query.MatchLimit",
+        "Method:src.query.Query.MatchLimit"
+      ],
+      "sites": [
+        {
+          "file": "src/query.cc",
+          "line": 392,
+          "key": "Method:Query.MatchLimit"
+        },
+        {
+          "file": "src/query.h",
+          "line": 35,
+          "key": "Method:src.query.Query.MatchLimit"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Tree",
+      "keys": [
+        "Method:Tree.Tree",
+        "Class:src.tree.Tree"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 44,
+          "key": "Method:Tree.Tree"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 13,
+          "key": "Class:src.tree.Tree"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "Edit",
+      "keys": [
+        "Method:Tree.Edit",
+        "Method:src.tree.Tree.Edit"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 88,
+          "key": "Method:Tree.Edit"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 32,
+          "key": "Method:src.tree.Tree.Edit"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "RootNode",
+      "keys": [
+        "Method:Tree.RootNode",
+        "Method:src.tree.Tree.RootNode"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 127,
+          "key": "Method:Tree.RootNode"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 33,
+          "key": "Method:src.tree.Tree.RootNode"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "RootNodeWithOffset",
+      "keys": [
+        "Method:Tree.RootNodeWithOffset",
+        "Method:src.tree.Tree.RootNodeWithOffset"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 131,
+          "key": "Method:Tree.RootNodeWithOffset"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 34,
+          "key": "Method:src.tree.Tree.RootNodeWithOffset"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GetChangedRanges",
+      "keys": [
+        "Method:Tree.GetChangedRanges",
+        "Method:src.tree.Tree.GetChangedRanges"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 143,
+          "key": "Method:Tree.GetChangedRanges"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 37,
+          "key": "Method:src.tree.Tree.GetChangedRanges"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GetIncludedRanges",
+      "keys": [
+        "Method:Tree.GetIncludedRanges",
+        "Method:src.tree.Tree.GetIncludedRanges"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 163,
+          "key": "Method:Tree.GetIncludedRanges"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 38,
+          "key": "Method:src.tree.Tree.GetIncludedRanges"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GetEditedRange",
+      "keys": [
+        "Method:Tree.GetEditedRange",
+        "Method:src.tree.Tree.GetEditedRange"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 178,
+          "key": "Method:Tree.GetEditedRange"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 36,
+          "key": "Method:src.tree.Tree.GetEditedRange"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "PrintDotGraph",
+      "keys": [
+        "Method:Tree.PrintDotGraph",
+        "Method:src.tree.Tree.PrintDotGraph"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 233,
+          "key": "Method:Tree.PrintDotGraph"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 35,
+          "key": "Method:src.tree.Tree.PrintDotGraph"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CacheNode",
+      "keys": [
+        "Method:Tree.CacheNode",
+        "Method:src.tree.Tree.CacheNode"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 285,
+          "key": "Method:Tree.CacheNode"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 39,
+          "key": "Method:src.tree.Tree.CacheNode"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CacheNodes",
+      "keys": [
+        "Method:Tree.CacheNodes",
+        "Method:src.tree.Tree.CacheNodes"
+      ],
+      "sites": [
+        {
+          "file": "src/tree.cc",
+          "line": 296,
+          "key": "Method:Tree.CacheNodes"
+        },
+        {
+          "file": "src/tree.h",
+          "line": 40,
+          "key": "Method:src.tree.Tree.CacheNodes"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "TreeCursor",
+      "keys": [
+        "Method:TreeCursor.TreeCursor",
+        "Class:src.tree_cursor.TreeCursor"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 56,
+          "key": "Method:TreeCursor.TreeCursor"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 12,
+          "key": "Class:src.tree_cursor.TreeCursor"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoFirstChild",
+      "keys": [
+        "Method:TreeCursor.GotoFirstChild",
+        "Method:src.tree_cursor.TreeCursor.GotoFirstChild"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 60,
+          "key": "Method:TreeCursor.GotoFirstChild"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 23,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoFirstChild"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoLastChild",
+      "keys": [
+        "Method:TreeCursor.GotoLastChild",
+        "Method:src.tree_cursor.TreeCursor.GotoLastChild"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 65,
+          "key": "Method:TreeCursor.GotoLastChild"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 24,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoLastChild"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoParent",
+      "keys": [
+        "Method:TreeCursor.GotoParent",
+        "Method:src.tree_cursor.TreeCursor.GotoParent"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 70,
+          "key": "Method:TreeCursor.GotoParent"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 25,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoParent"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoNextSibling",
+      "keys": [
+        "Method:TreeCursor.GotoNextSibling",
+        "Method:src.tree_cursor.TreeCursor.GotoNextSibling"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 75,
+          "key": "Method:TreeCursor.GotoNextSibling"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 26,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoNextSibling"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoPreviousSibling",
+      "keys": [
+        "Method:TreeCursor.GotoPreviousSibling",
+        "Method:src.tree_cursor.TreeCursor.GotoPreviousSibling"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 80,
+          "key": "Method:TreeCursor.GotoPreviousSibling"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 27,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoPreviousSibling"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoDescendant",
+      "keys": [
+        "Method:TreeCursor.GotoDescendant",
+        "Method:src.tree_cursor.TreeCursor.GotoDescendant"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 85,
+          "key": "Method:TreeCursor.GotoDescendant"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 28,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoDescendant"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoFirstChildForIndex",
+      "keys": [
+        "Method:TreeCursor.GotoFirstChildForIndex",
+        "Method:src.tree_cursor.TreeCursor.GotoFirstChildForIndex"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 95,
+          "key": "Method:TreeCursor.GotoFirstChildForIndex"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 29,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoFirstChildForIndex"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "GotoFirstChildForPosition",
+      "keys": [
+        "Method:TreeCursor.GotoFirstChildForPosition",
+        "Method:src.tree_cursor.TreeCursor.GotoFirstChildForPosition"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 110,
+          "key": "Method:TreeCursor.GotoFirstChildForPosition"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 30,
+          "key": "Method:src.tree_cursor.TreeCursor.GotoFirstChildForPosition"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CurrentNode",
+      "keys": [
+        "Method:TreeCursor.CurrentNode",
+        "Method:src.tree_cursor.TreeCursor.CurrentNode"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 135,
+          "key": "Method:TreeCursor.CurrentNode"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 33,
+          "key": "Method:src.tree_cursor.TreeCursor.CurrentNode"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "ResetTo",
+      "keys": [
+        "Method:TreeCursor.ResetTo",
+        "Method:src.tree_cursor.TreeCursor.ResetTo"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 148,
+          "key": "Method:TreeCursor.ResetTo"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 35,
+          "key": "Method:src.tree_cursor.TreeCursor.ResetTo"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "NodeType",
+      "keys": [
+        "Method:TreeCursor.NodeType",
+        "Method:src.tree_cursor.TreeCursor.NodeType"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 154,
+          "key": "Method:TreeCursor.NodeType"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 37,
+          "key": "Method:src.tree_cursor.TreeCursor.NodeType"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "NodeTypeId",
+      "keys": [
+        "Method:TreeCursor.NodeTypeId",
+        "Method:src.tree_cursor.TreeCursor.NodeTypeId"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 159,
+          "key": "Method:TreeCursor.NodeTypeId"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 38,
+          "key": "Method:src.tree_cursor.TreeCursor.NodeTypeId"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "NodeStateId",
+      "keys": [
+        "Method:TreeCursor.NodeStateId",
+        "Method:src.tree_cursor.TreeCursor.NodeStateId"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 164,
+          "key": "Method:TreeCursor.NodeStateId"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 39,
+          "key": "Method:src.tree_cursor.TreeCursor.NodeStateId"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "NodeIsNamed",
+      "keys": [
+        "Method:TreeCursor.NodeIsNamed",
+        "Method:src.tree_cursor.TreeCursor.NodeIsNamed"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 169,
+          "key": "Method:TreeCursor.NodeIsNamed"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 40,
+          "key": "Method:src.tree_cursor.TreeCursor.NodeIsNamed"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "NodeIsMissing",
+      "keys": [
+        "Method:TreeCursor.NodeIsMissing",
+        "Method:src.tree_cursor.TreeCursor.NodeIsMissing"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 174,
+          "key": "Method:TreeCursor.NodeIsMissing"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 41,
+          "key": "Method:src.tree_cursor.TreeCursor.NodeIsMissing"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CurrentFieldId",
+      "keys": [
+        "Method:TreeCursor.CurrentFieldId",
+        "Method:src.tree_cursor.TreeCursor.CurrentFieldId"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 179,
+          "key": "Method:TreeCursor.CurrentFieldId"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 42,
+          "key": "Method:src.tree_cursor.TreeCursor.CurrentFieldId"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CurrentFieldName",
+      "keys": [
+        "Method:TreeCursor.CurrentFieldName",
+        "Method:src.tree_cursor.TreeCursor.CurrentFieldName"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 187,
+          "key": "Method:TreeCursor.CurrentFieldName"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 43,
+          "key": "Method:src.tree_cursor.TreeCursor.CurrentFieldName"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CurrentDepth",
+      "keys": [
+        "Method:TreeCursor.CurrentDepth",
+        "Method:src.tree_cursor.TreeCursor.CurrentDepth"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 195,
+          "key": "Method:TreeCursor.CurrentDepth"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 44,
+          "key": "Method:src.tree_cursor.TreeCursor.CurrentDepth"
+        }
+      ],
+      "linkageModelled": false
+    },
+    {
+      "label": "CurrentDescendantIndex",
+      "keys": [
+        "Method:TreeCursor.CurrentDescendantIndex",
+        "Method:src.tree_cursor.TreeCursor.CurrentDescendantIndex"
+      ],
+      "sites": [
+        {
+          "file": "src/tree_cursor.cc",
+          "line": 199,
+          "key": "Method:TreeCursor.CurrentDescendantIndex"
+        },
+        {
+          "file": "src/tree_cursor.h",
+          "line": 45,
+          "key": "Method:src.tree_cursor.TreeCursor.CurrentDescendantIndex"
+        }
+      ],
+      "linkageModelled": false
+    }
+  ]
+}

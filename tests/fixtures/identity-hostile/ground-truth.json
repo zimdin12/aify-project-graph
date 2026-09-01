@@ -1,0 +1,29 @@
+{
+  "_": "M0b arm 1 — FROZEN GROUND TRUTH, written from the C++ source before the extractor ran on it.",
+  "_identityRule": "A distinct symbol is a distinct (fully-qualified name, parameter signature, linkage) triple. A declaration and its definition are ONE symbol. Two overloads are TWO. A static function in a.cpp and one in b.cpp sharing a spelling are TWO.",
+  "_gradedBy": "direct reading of the C++, not by any field the extractor produced",
+  "distinctSymbols": [
+    { "id": "alpha::Widget", "kind": "class", "linkage": "external", "sites": ["src/shapes.h:5"] },
+    { "id": "alpha::Widget::render()", "kind": "method", "linkage": "external", "sites": ["src/shapes.h:7", "src/shapes.cpp:6"], "shape": "P3 decl+def, one symbol" },
+    { "id": "alpha::Widget::measure(int) const", "kind": "method", "linkage": "external", "sites": ["src/shapes.h:8", "src/shapes.cpp:8"], "shape": "P3 decl+def, one symbol" },
+    { "id": "alpha::configure(int)", "kind": "function", "linkage": "external", "sites": ["src/shapes.h:12", "src/shapes.cpp:11"], "shape": "P2 free function decl+def, one symbol" },
+    { "id": "alpha::clamp(int)", "kind": "function", "linkage": "external", "sites": ["src/shapes.h:15", "src/shapes.cpp:14"], "shape": "P1 overload A" },
+    { "id": "alpha::clamp(double)", "kind": "function", "linkage": "external", "sites": ["src/shapes.h:16", "src/shapes.cpp:15"], "shape": "P1 overload B — DISTINCT from overload A" },
+    { "id": "alpha::identity<T>(T)", "kind": "function_template", "linkage": "external", "sites": ["src/shapes.h:19"], "shape": "P7 template" },
+    { "id": "alpha::operator==(const Widget&, const Widget&)", "kind": "function", "linkage": "external", "sites": ["src/shapes.h:20", "src/shapes.cpp:17"], "shape": "P7 operator" },
+    { "id": "beta::Widget", "kind": "class", "linkage": "external", "sites": ["src/shapes.h:27"], "shape": "P4 same leaf name as alpha::Widget, DIFFERENT symbol" },
+    { "id": "beta::Widget::render()", "kind": "method", "linkage": "external", "sites": ["src/shapes.h:29", "src/shapes.cpp:24"], "shape": "P4 DISTINCT from alpha::Widget::render()" },
+    { "id": "::externally_declared(int)", "kind": "function", "linkage": "external", "sites": ["src/shapes.h:35", "src/other.cpp:15"], "shape": "P6 declared twice, defined nowhere in this corpus — ONE symbol" },
+    { "id": "helper(int) [internal, shapes.cpp]", "kind": "function", "linkage": "internal", "sites": ["src/shapes.cpp:29"], "shape": "P5 static twin A" },
+    { "id": "helper(int) [internal, other.cpp]", "kind": "function", "linkage": "internal", "sites": ["src/other.cpp:5"], "shape": "P5 static twin B — DISTINCT from twin A" },
+    { "id": "hidden(int) [internal, anonymous namespace, other.cpp]", "kind": "function", "linkage": "internal", "sites": ["src/other.cpp:9"], "shape": "P5 anonymous-namespace twin" },
+    { "id": "use_helper(int)", "kind": "function", "linkage": "external", "sites": ["src/shapes.cpp:31"] },
+    { "id": "other_use(int)", "kind": "function", "linkage": "external", "sites": ["src/other.cpp:12"] }
+  ],
+  "expectedDistinctSymbolCount": 16,
+  "_notes": [
+    "16 distinct symbols across 3 files. A carrier with sound identity produces 16 groups, each holding every site of exactly one symbol.",
+    "The two hardest pairs are deliberate: alpha::clamp(int) vs alpha::clamp(double) must NOT merge, and alpha::Widget::render() vs beta::Widget::render() must NOT merge.",
+    "The two hardest joins are also deliberate: each decl/def pair must NOT fork."
+  ]
+}

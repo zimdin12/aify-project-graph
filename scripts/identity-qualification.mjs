@@ -268,7 +268,15 @@ async function main() {
   for (const r of results) summarise(r);
   const dir = path.join(REPO, 'docs', 'evidence', 'identity-qualification');
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'RESULTS.json'), `${JSON.stringify({ takenAt: new Date().toISOString(), results }, null, 2)}\n`, 'utf8');
+  // ⛔ ONE FILE PER ARM, BECAUSE A SINGLE `RESULTS.json` ALREADY DESTROYED AN ARM'S EVIDENCE.
+  // A later run for a different arm overwrote the previous arm's raw results, and the corpus had
+  // been deleted by then — so a finding briefly cited numbers that no file supported. The output
+  // path now carries the arm name, so two arms cannot occupy one slot.
+  for (const r of results) {
+    const safe = r.arm.replace(/[^a-zA-Z0-9._-]/g, '_');
+    fs.writeFileSync(path.join(dir, `RESULTS.${safe}.json`),
+      `${JSON.stringify({ takenAt: new Date().toISOString(), ...r }, null, 2)}\n`, 'utf8');
+  }
 }
 
 await main();

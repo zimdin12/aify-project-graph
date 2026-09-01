@@ -32,9 +32,14 @@ full      tools/list        32   (11 hidden even from full)
 agent's DEFAULT affordance — agents under-pick from big lists." The gating I proposed to
 investigate already exists and already shipped.
 
-The usage observation stands (3 verbs reached). The DENOMINATOR does not. It is registry-usage, not
-"3 of 43 billed affordances", and it cannot carry a standing-tax claim until M0a produces a real
-per-runtime receipt — the host deferred-tool search may inject a different catalogue again.
+The usage observation stands (3 verbs reached). The DENOMINATOR does not: it is registry-usage, not
+"3 of 43 billed affordances".
+
+✅ **M0a HAS SINCE PRODUCED THE RECEIPT, so this gate is CLOSED** — and it did not go the way the
+worry expected. The host's deferred-tool search injected **exactly** the `default` listing, same 16
+names. The real per-session bill is `tools/list` **plus** an `instructions` payload that is
+identical under every profile and, at `lean`, larger than the listing itself. A standing-tax claim
+is now measurable; what it must be measured against is that pair, not the registry.
 
 ### The rule both no-graph agents reached independently
 
@@ -62,31 +67,54 @@ That is the product thesis in one line, and it tells us where value is:
 
 Ordered so each milestone is defensible on its own, and cheap A/B only at milestones.
 
-### M0a — Actual surface receipts  `[before any surface claim]`
+### M0a — Actual surface receipts  ✅ DONE  `docs/evidence/surface-receipts/`
 
-Freeze, per runtime and profile: exact names the real tools/list carrier returns; schema
-bytes/tokens injected at session start; the ToolSearch response population for the pilot query; the
-registered-but-unlisted population; and which of those each usage count had access to.
+Taken from the live protocol, not a module read: a spawned server, a real `initialize`, a real
+`tools/list`, per profile. lean 6 / default 16 / code-intel 11 / full 32; registry **43 registered,
+0 absent, 0 inconclusive at the carrier**, so "gating is listing only" is proven rather than
+asserted. Controls (negative, positive, differential) all PASS, and callability is probed with an
+argument the sensitive-path gate refuses so no handler ever runs.
 
-### M0b — Identity qualification, no agents, no product code  `[blocks M1]`
+Two numbers changed. `instructions` is **13,880 bytes on every profile** — it does not vary with
+the toolset, and at `lean` it is larger than the entire tools/list. And "80% is schema" was too
+high: 69.7% default, 70.6% full, 58.0% lean.
 
-⛔ **M1 ASSUMED THE GRAPH OWNS CANONICAL IDENTITY. IT DOES NOT.** Verified in symbol_lookup.js:
-`canonicalSymbolKey` returns `type:qname`, so **overloads with different signatures collapse into
-one key**, and the fallback `type:label:file_path` **splits a declaration from its definition**.
-"Canonical" overclaims a heuristic grouping key, and attaching caller sets to those groups would
-attach them to false groups.
+Host-side receipt (n=1, manual, kept distinct from the protocol carrier): this Claude Code
+session's deferred index held the same 16 names as the `default` listing. The **8 verbs unlisted
+under every profile including `full`** are callable at the protocol and unreachable in a runtime
+that defers tools behind a search step.
 
-On pinned real repos, execute current ambiguity behaviour against a hostile identity population
-with frozen ground truth: overloads sharing a qname; declaration + definition of one external
-symbol; repeated extern across TUs; same leaf name in different namespaces; static and
-anonymous-namespace twins; templates and operators; cross-language homonyms; a high-frequency name
-whose candidates exceed retrieval caps. Measure merges, forks, caller attribution, truncation,
-bytes, latency.
+Dead hypothesis, recorded dead: the instructions advertise **0** verbs that are not registered.
+Open candidate for M4, not acted on: 4 of the default-16 (`graph_census`, `graph_dashboard`,
+`graph_trace`, `graph_explore`, 5,239 of 25,539 bytes) are never named in the routing text.
 
-**If the carrier is sound on that population, build M1. If not, M1 becomes identity REPAIR rather
-than richer rendering of false groups.**
+### M0b — Identity qualification  ✅ DONE — THE CARRIER FAILED  `docs/evidence/identity-qualification/`
 
-### M1a — Typed identity contract  `[top ask from n=3 interviews]`
+⛔ **M1 ASSUMED THE GRAPH OWNS CANONICAL IDENTITY. IT DOES NOT, AND THE MEASUREMENT IS WORSE THAN
+THE OBJECTION.** Three arms, claims separated: synthetic mechanism (frozen ground truth, scale
+claim zero), large non-C++ scale, and a bounded 22-file natural-C++ observation that is explicitly
+**not** a prevalence estimate.
+
+Arm 1, 16 ground-truth symbols, all controls PASS: **MATCHED 10 · FORKED 2 · ABSORBED_DISCLOSED 1
+· ABSENT_FROM_GRAPH 3**, `linkage` modelled nowhere.
+
+- **A declaration and its definition get two different keys** — and the shipped comment in
+  `buildAmbiguousMatchMessage` claims the opposite. The implementation-side key carries no
+  namespace and no file, so the same asymmetry causes the fork *and* a cross-namespace collision.
+- **Two classes sharing a leaf name in different namespaces: the second is deleted**, and nothing
+  records it. `extra.overloads` only fires when signatures differ — identical signatures are
+  exactly the collision case, so the disclosure is blind where it is needed.
+- Mechanism **measured, not assumed**: renaming only the second class takes the corpus from 14 to
+  17 nodes. Identity collision, not a parser gap.
+
+Arm 2 (this APG snapshot): the machinery behaves — sub-ms latency, ambiguity fires correctly — but
+the **50-row retrieval cap is unreachable** here (busiest name has 37 definitions), so it stays
+unqualified. Arm 3: 69 decl/def key asymmetries across 22 real files, same shape as arm 1.
+
+**⇒ M1a is identity REPAIR, not richer rendering. No prevalence claim for C++ exists; that gap is
+carried into M5, which must state its own prevalence noun.**
+
+### M1a — Identity REPAIR, then the typed contract  `[re-aimed by M0b]`
 
 > "Never key the answer on the name. Key it on resolved symbol identity. Return N distinct symbols
 > named X, each with its own caller list, tagged with language, linkage and canonical name. A flat
@@ -95,7 +123,10 @@ than richer rendering of false groups.**
 This is the one thing grep structurally cannot do, and we half-do it today: `graph_callers` refuses
 an ambiguous bare name (good) but the refusal is a dead end rather than an answer.
 
-- **Ship:** ambiguity returns the qualified candidates WITH their caller sets, not just a refusal.
+- ⛔ **BLOCKED ON REPAIR.** M0b proved the groups are wrong before any rendering happens, and one
+  colliding symbol is deleted before a key is computed at all. Repair first: scope-bearing
+  identity, then the contract below.
+- **Ship (after repair):** ambiguity returns the qualified candidates WITH their caller sets.
 - **Why it matters:** on the pilot corpus the collision was the finding. An agent that got "2
   callers" without knowing they were 2 symbols would have renamed the wrong one.
 - `identity`: compiler-resolved ID/signature when available, else `extracted_candidate` — **never
@@ -184,8 +215,8 @@ dispositions were graded; interview and cost evidence is n=3.
 ## Order (revised with review, agreed)
 
 ```
-M0a actual runtime/profile surface receipts   | parallel
-M0b no-agent scale/identity qualification     |
+M0a actual runtime/profile surface receipts   | DONE
+M0b no-agent scale/identity qualification     | DONE — carrier FAILED
 M1a identity contract
 M1b bounded per-identity answers
 M2  action/absence contracts
