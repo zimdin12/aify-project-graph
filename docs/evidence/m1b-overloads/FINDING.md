@@ -52,11 +52,12 @@ not evidence about current code, so it was re-measured.
 
 ## Not fixed here, and why
 
-Adding the signature to the canonical key would separate overloads — and would also change grouping
-for **every** symbol in the graph, which is the blast radius the plan measured at "11 newly-ambiguous
-labels repo-wide" for a much smaller change. That is a design decision with a migration, not a
-reversible default, and the reviewer is unavailable. Recorded as the open half rather than
-half-attempted.
+⛔ **THIS PARAGRAPH WAS WRONG AND IS SUPERSEDED BY THE MEASUREMENT BELOW.** It read: adding the
+signature to the canonical key "would also change grouping for **every** symbol in the graph".
+Measured, it would change **5 of 3,842 groups (0.13%)** — I asserted a blast radius instead of
+measuring one, in a document about unearned claims. The conclusion (do not ship it) survives, but
+for a DIFFERENT and better reason: signature-in-key re-forks decl/def. Left visible rather than
+deleted.
 
 ⚠ Nothing here says overload collapse is common in real code, or that it has ever misled an agent.
 One fixture, built to be hostile. What it establishes is that the stop condition is not met.
