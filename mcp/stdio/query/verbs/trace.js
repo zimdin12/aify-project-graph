@@ -23,7 +23,7 @@ import { openExistingDb } from '../../storage/db.js';
 import { resolveSymbol } from './symbol_lookup.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
 import {
   countGraphNodes,
   getSourceBundleBudget,
@@ -340,9 +340,22 @@ export async function graphTrace({ repoRoot, from, to, max_hops = 7 }) {
       body = renderFailure({ db, repoRoot, fromNode, toNode, maxHops, budget });
     }
 
+    // ⛔ "NO STATIC PATH" IS AN ABSENCE CLAIM AND IT WAS GETTING THE PRESENCE CAVEAT.
+    //
+    // Both branches called buildTrustLine. With `trustEdges` empty — which is exactly the no-path
+    // case — that returns HEURISTIC_TRUST_LINE, whose warning is about OVERCOUNTING: tree-sitter
+    // "resolves calls BY NAME, so a common name" collides. That is the right caveat for a result
+    // that CONTAINS edges and the wrong one for a result that contains none.
+    //
+    // A reader here is deciding whether A reaches B, and "no path" reads as licence to change A.
+    // What they need is the spine's SCOPE — was there a collection, how much of the repo did it
+    // cover, was there a compile DB — not a caution about name collisions in edges we did not
+    // return. buildAbsenceTrustLine carries that; buildTrustLine never did.
     let trustLine = '';
     try {
-      trustLine = '\n\n' + await buildTrustLine({ edges: trustEdges, db, repoRoot });
+      trustLine = '\n\n' + (pathSteps
+        ? await buildTrustLine({ edges: trustEdges, db, repoRoot })
+        : await buildAbsenceTrustLine({ noun: 'path', db, repoRoot }));
     } catch { /* defensive — never block on trust-line failure */ }
 
     return prefixReadWarnings(body + trustLine, freshness.warnings);
