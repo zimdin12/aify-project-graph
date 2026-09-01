@@ -174,6 +174,15 @@ function normalizeCppCallTarget({ text, owner }) {
 // keyword — renaming `~GameHUD` to `GameHUD`, i.e. to its own class.
 const CPP_NAME_NODE_TYPES = ['identifier', 'field_identifier', 'qualified_identifier', 'destructor_name', 'operator_name'];
 
+// Declarator text that LOOKS qualified. This is deliberately the same shape as the regex fallback
+// that used to CONSUME it, so the refusal covers exactly the population that branch once accepted
+// rather than a narrower guess at it.
+// ⚠ Exported ONLY so the refusal contract is testable at all. The branch it guards is not
+// reachable through `extractFile` in any probed shape, so a test that went through extraction
+// could neither exercise the refusal nor kill a mutant that removed it. Testing the predicate
+// directly is weaker than testing a route, and is labelled as such where it is used.
+export const QUALIFIED_DECLARATOR_TEXT_RE = /(?:^|[\s*&])(?:[A-Za-z_][\w]*::)+~?[A-Za-z_]\w*\s*\(/u;
+
 function findCppNamedDeclarator(node) {
   if (!node) return null;
   if (CPP_NAME_NODE_TYPES.includes(node.type)) return node;
@@ -402,27 +411,28 @@ function extractCppFunctionSymbol({ node, source }) {
   }
 
   const declaratorText = nodeText(declarator, source);
-  const qualifiedMatch = declaratorText.match(/(?:^|[\s*&])((?:[A-Za-z_][\w]*::)+)(~?[A-Za-z_]\w*)\s*\(/u);
-  if (qualifiedMatch) {
-    const scopeChain = qualifiedMatch[1].replace(/::$/u, '').split('::').filter(Boolean);
-    const parentClass = scopeChain.at(-1) ?? '';
-    return {
-      name: qualifiedMatch[2],
-      parentClass,
-      parentClassQname: scopeChain.join('.'),
-      // ⚠ A DIFFERENT AUTHORITY, BECAUSE A DIFFERENT THING PRODUCED IT. These segments came from
-      // the regex above splitting declarator TEXT on `::`, not from walking the AST. Stamping
-      // them with the AST authority would assert AST identity, template handling and completeness
-      // that this path does not provide — and a step-C consumer weighing provenance would never
-      // see the difference. The carrier is emitted rather than omitted: omitting it would collapse
-      // "a text-derived qualifier was observed" into "no written-qualifier evidence exists".
-      writtenQualifier: scopeChain.map((segment) => ({
-        segment,
-        authority: 'cpp_declarator_regex_fallback',
-      })),
-      type: 'Method',
-    };
-  }
+
+  // ⛔ THE QUALIFIED REGEX FALLBACK IS DELETED, AND THIS REFUSES IN ITS PLACE.
+  //
+  // There used to be a second producer of qualifier segments here: a regex splitting declarator
+  // TEXT on `::`. It was removed because NO INPUT REACHED IT. 28 shapes were probed — plain,
+  // templated, destructor, operator, conversion operator, ctor-with-init-list, const/ref-qualified,
+  // trailing return, function-pointer and array returns, nested classes, anonymous namespaces,
+  // macro-prefixed declarators and several deliberately malformed. Every qualified shape was caught
+  // by the AST branch above; every macro-mangled shape produced no qualified symbol at all.
+  //
+  // A producer no input reaches cannot be killed by mutating it: the mutant that stamped its
+  // segments with the AST authority was pre-registered as expected-inert, run, and SURVIVED. So it
+  // could never carry a positive path, a discriminating control, or a defensible semantic claim,
+  // while still enlarging the authority surface every downstream consumer has to reason about.
+  //
+  // ⚠ FAIL CLOSED, NOT THROUGH. Text that still LOOKS qualified must not fall through to the
+  // unqualified matcher below and quietly become a top-level Function — that would turn
+  // `Widget::render` into a free function named `render`, inventing a symbol that does not exist
+  // and hiding the extraction gap. Refusing yields no symbol, which is recoverable and visible.
+  // If a real input ever needs regex recovery, reintroduce it with that exact reachable fixture,
+  // a typed lower authority, and a killable differential — not on the strength of this comment.
+  if (QUALIFIED_DECLARATOR_TEXT_RE.test(declaratorText)) return null;
 
   const nameMatch = declaratorText.match(/(~?[A-Za-z_]\w*)\s*\(/u);
   if (!nameMatch) return null;

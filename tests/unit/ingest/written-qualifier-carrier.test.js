@@ -22,6 +22,7 @@
 import { describe, it, expect } from 'vitest';
 import { extractFile } from '../../../mcp/stdio/ingest/extractors/generic.js';
 import { getLanguageConfig } from '../../../mcp/stdio/ingest/languages/index.js';
+import { QUALIFIED_DECLARATOR_TEXT_RE } from '../../../mcp/stdio/ingest/languages/cpp.js';
 
 function symbolsOf(filePath, source) {
   const result = extractFile({ filePath, source, config: getLanguageConfig(filePath) });
@@ -103,57 +104,57 @@ describe('written_qualifier — the second evidence source', () => {
   });
 });
 
-describe('⛔ the regex fallback authority is currently UNREACHABLE through extractFile', () => {
-  // cpp.js has a SECOND producer of qualifier segments: a regex over declarator text, kept for
-  // "shapes the AST cannot resolve". It stamps `cpp_declarator_regex_fallback` rather than the AST
-  // authority, because segments split out of text are not segments walked out of a tree.
-  //
-  // ⛔ No input found so far reaches it. 28 shapes were probed — plain, templated, destructor,
-  // operator, conversion operator, ctor-with-init-list, const/ref-qualified, trailing return,
-  // function-pointer and array returns, nested classes, anonymous namespaces, macro-prefixed
-  // declarators, and several deliberately malformed ones. Every qualified shape was caught by the
-  // AST branch; every macro-mangled shape produced no qualified symbol at all.
-  //
-  // ⚠ CLAIM CEILING: "no input among the probed shapes reaches it", NOT "unreachable in general".
-  // This is a tripwire, not a proof. If a future change to the AST branch lets the fallback fire,
-  // this test fails and the fallback stops being untested-by-assumption.
-  const SHAPES = [
-    ['plain', 'void Widget::render() {}'],
-    ['templated owner', 'template <typename T> void Widget<T>::render() {}'],
-    ['destructor', 'Widget::~Widget() {}'],
-    ['operator', 'void Widget::operator<<(int x) {}'],
-    ['conversion operator', 'Widget::operator int() const {}'],
-    ['ctor init list', 'Widget::Widget() : x_(0) {}'],
-    ['const member', 'int Widget::value() const {}'],
-    ['ref qualified', 'void Widget::render() & {}'],
-    ['trailing return', 'auto Widget::render() -> void {}'],
-    ['function ptr return', 'void (*Widget::getCb())() {}'],
-    ['array return', 'int (&Widget::grid())[4] {}'],
-    ['nested class', 'void Outer::Inner::run() {}'],
-    ['anonymous namespace', 'namespace { void Widget::render() {} }'],
-    ['macro return type', 'API_EXPORT void Widget::render() {}'],
-    ['macro noexcept', 'MYAPI void Widget::render() noexcept {}'],
-    ['pointer return + macro', 'MYAPI char* Widget::name() {}'],
-  ];
 
-  it('no probed shape emits the fallback authority', () => {
-    const authorities = SHAPES.flatMap(([, source]) =>
-      symbolsOf('src/probe.cpp', source).flatMap((node) =>
-        (node.extra?.written_qualifier ?? []).map((entry) => entry.authority),
-      ),
-    );
-    expect(authorities).not.toContain('cpp_declarator_regex_fallback');
+describe('the qualified regex fallback is DELETED, and qualified declarator text now refuses', () => {
+  // A second producer of qualifier segments used to live here: a regex splitting declarator TEXT
+  // on the scope operator. It was deleted because NO INPUT REACHED IT across 28 probed shapes, and
+  // a producer no input reaches cannot be killed by mutating it — the mutant stamping its segments
+  // with the AST authority was pre-registered as expected-inert, run, and SURVIVED.
+  //
+  // Deleting it fails CLOSED: text that still looks qualified yields no symbol rather than falling
+  // through to the unqualified matcher and quietly becoming a top-level Function. That would invent
+  // a free function named `render` out of `Widget::render` and hide the extraction gap entirely.
+  //
+  // ⚠ CEILING — THIS TESTS THE GUARD, NOT A ROUTE. The refusal fires on exactly the condition the
+  // deleted fallback consumed, so it sits on the same unreachable path. No extraction-level test
+  // can exercise it, and a mutant deleting the refusal would survive for that same reason. The
+  // predicate is asserted directly and labelled as the weaker evidence it is. What DOES carry
+  // weight is the whole-corpus C++ differential recorded in the finding: the deletion changed no
+  // extracted C++ symbol.
+
+  it('DENIAL: the guard matches declarator text that looks qualified', () => {
+    for (const text of ['void Widget::render()', 'MYAPI void a::B::c()', 'int Outer::Inner::run() const', 'Widget::~Widget()']) {
+      expect(QUALIFIED_DECLARATOR_TEXT_RE.test(text), text).toBe(true);
+    }
   });
 
-  it('POSITIVE CONTROL: the probe corpus does produce carriers, so the zero above is a real zero', () => {
-    // Without this, deleting the carrier entirely would make the assertion above pass. An empty
-    // authority list cannot contain the fallback value either.
-    const authorities = SHAPES.flatMap(([, source]) =>
+  it('POSITIVE CONTROL: the guard does NOT match genuinely unqualified declarators', () => {
+    // Without this the guard could match everything, refuse everything, and still pass above.
+    for (const text of ['void standalone()', 'int main(int argc)', 'static void helper()']) {
+      expect(QUALIFIED_DECLARATOR_TEXT_RE.test(text), text).toBe(false);
+    }
+  });
+
+  it('POSITIVE CONTROL: the retained UNQUALIFIED fallback still names a plain shape', () => {
+    const [fn] = symbolsOf('src/plain.cpp', 'void standalone() {}');
+    expect(fn.label).toBe('standalone');
+    expect(fn.type).toBe('Function');
+  });
+
+  it('POSITIVE CONTROL: qualified definitions still extract through the AST branch', () => {
+    const [fn] = symbolsOf('src/q.cpp', 'void Widget::render() {}');
+    expect(fn.type).toBe('Method');
+    expect(fn.extra.written_qualifier).toEqual([
+      { segment: 'Widget', authority: 'cpp_qualified_identifier_ast' },
+    ]);
+  });
+
+  it('the deleted authority value is emitted by nothing', () => {
+    const sources = ['void Widget::render() {}', 'void standalone() {}', 'Widget::~Widget() {}', 'void Outer::Inner::run() {}'];
+    const authorities = sources.flatMap((source) =>
       symbolsOf('src/probe.cpp', source).flatMap((node) =>
-        (node.extra?.written_qualifier ?? []).map((entry) => entry.authority),
-      ),
-    );
-    expect(authorities.length).toBeGreaterThan(10);
-    expect(new Set(authorities)).toEqual(new Set(['cpp_qualified_identifier_ast']));
+        (node.extra?.written_qualifier ?? []).map((entry) => entry.authority)));
+    expect(authorities.length).toBeGreaterThan(2);
+    expect(authorities).not.toContain('cpp_declarator_regex_fallback');
   });
 });

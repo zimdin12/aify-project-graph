@@ -60,14 +60,18 @@ function configFor(checkout, filePath) {
 // from each checkout's own config would move the population itself — pre-B declares `lexicalScope`
 // nowhere, so every C++ file would enter the pre-B population and leave the post-B one, and that
 // membership change would swamp the differential it is supposed to expose.
-function optedOutCandidates(local) {
+function selectCandidates(local, mode) {
+  // `canonical` = every language that did NOT opt in to step B (gate 1).
+  // `cpp`       = the languages that DID, used to show the qualified-fallback deletion changed no
+  //               extracted C++ symbol. Both are DERIVED from the config, never listed.
+  const wantOptedIn = mode === 'cpp';
   return execFileSync('git', ['ls-files'], { cwd: REPO, encoding: 'utf8' })
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
     .filter((filePath) => {
       const config = configFor(local, filePath);
-      return Boolean(config) && !config.lexicalScope;
+      return Boolean(config) && Boolean(config.lexicalScope) === wantOptedIn;
     });
 }
 
@@ -147,6 +151,65 @@ function sitePopulation(checkout) {
   return rows;
 }
 
+// ⛔ THE SERIALIZER USED TO DESTROY THE CONTENT IT WAS COMPARING.
+//
+// It was `JSON.stringify(row, Object.keys(row).sort())`. An ARRAY replacer applies at EVERY level,
+// so a nested `{segment, authority}` had both keys filtered out and serialized as `{}`. Two
+// carriers with completely different content produced byte-identical output and compared EQUAL:
+//   {segment:'alpha',authority:'lexical_ast'} vs {segment:'BETA',authority:'DIFFERENT'} -> both `[{}]`
+// So the gate compared carrier PRESENCE while reporting content parity. The negative control did
+// not catch it because it mutated the serialized TEXT — downstream of the defect, where the damage
+// has already happened. A control below the fault cannot see the fault.
+//
+// This canonicalizer sorts OBJECT keys only and preserves ARRAY order, because scope segments are
+// ordered outermost-first and a swap is a real difference. It refuses rather than coerces:
+// `undefined` would silently vanish and collapse absent-versus-present, which is the exact
+// distinction these carriers exist to make.
+function canonicalize(value, seen) {
+  if (value === null) return null;
+  const type = typeof value;
+  if (type === 'string' || type === 'boolean') return value;
+  if (type === 'number') {
+    if (!Number.isFinite(value)) throw new TypeError(`non-finite number in canonical row: ${value}`);
+    return value;
+  }
+  if (type !== 'object') throw new TypeError(`unsupported value in canonical row: ${type}`);
+  if (seen.has(value)) throw new TypeError('cycle in canonical row');
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) return value.map((item) => canonicalize(item, seen));
+    const out = {};
+    for (const key of Object.keys(value).sort()) {
+      if (value[key] === undefined) {
+        throw new TypeError(`undefined value at key "${key}" — absent and undefined must not collapse`);
+      }
+      out[key] = canonicalize(value[key], seen);
+    }
+    return out;
+  } finally {
+    seen.delete(value);
+  }
+}
+
+const canonicalJson = (row) => JSON.stringify(canonicalize(row, new Set()));
+
+// Identity-bearing rows must be unique, so equal carrier bytes on two different nodes cannot
+// cancel out through a multiset comparison. Ref rows are deliberately exempt: the same call
+// appearing twice is real multiplicity, not a duplicate record.
+function refuseDuplicateIdentities(rows) {
+  const seen = new Map();
+  for (const row of rows) {
+    if (row.kind === 'ref') continue;
+    const key = row.kind === 'node' ? `node:${row.path}:${row.id}` : `file:${row.path}`;
+    if (seen.has(key)) {
+      process.stderr.write(`REFUSED: duplicate row identity ${key}; comparison would be ambiguous\n`);
+      process.exit(4);
+    }
+    seen.set(key, true);
+  }
+  return rows;
+}
+
 // A differential over an empty population is indistinguishable from one with no differences.
 // Fail closed rather than emit nothing and let `diff` report success.
 function refuseEmpty(rows, what) {
@@ -158,7 +221,7 @@ function refuseEmpty(rows, what) {
 }
 
 const [mode, checkoutPath] = process.argv.slice(2);
-if (!['sites', 'canonical'].includes(mode) || !checkoutPath) {
+if (!['sites', 'canonical', 'cpp'].includes(mode) || !checkoutPath) {
   process.stderr.write('usage: step-b-identity-differential.mjs <sites|canonical> <checkout-path>\n');
   process.exit(2);
 }
@@ -171,9 +234,11 @@ if (mode === 'sites') {
   process.stdout.write(`${rows.sort().join('\n')}\n`);
   process.stderr.write(`sites=${rows.length}\n`);
 } else {
-  const candidates = refuseEmpty(optedOutCandidates(local), 'candidate list');
-  const rows = refuseEmpty(canonicalRows(checkout, candidates), 'canonical population');
-  const serialized = rows.map((row) => JSON.stringify(row, Object.keys(row).sort())).sort();
+  const candidates = refuseEmpty(selectCandidates(local, mode), `${mode} candidate list`);
+  const rows = refuseDuplicateIdentities(
+    refuseEmpty(canonicalRows(checkout, candidates), `${mode} population`),
+  );
+  const serialized = rows.map(canonicalJson).sort();
   process.stdout.write(`${serialized.join('\n')}\n`);
   const tally = rows.reduce((acc, row) => {
     const key = row.kind === 'file' ? `file:${row.disposition}` : row.kind;
