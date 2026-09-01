@@ -56,3 +56,33 @@ green, not on an argument.
 A determinism probe on the live path: the same test, N runs, under controlled load, recording
 `result_state` each time. If `not_found_after_retry` appears at a rate that tracks load, the retry
 is implicated; if it appears at a fixed low rate regardless, it is something else. Not run.
+
+## A proposed gate that REJECTED ITSELF: mechanical doc-drift detection
+
+Written state decayed five times in one session — the plan claimed shipped work was unpushed and
+cited a figure its own evidence file retracts; memory claimed a shipped milestone was held; my own
+census under-reported twice from a hand-kept list. Code has mechanical gates for this class (the
+negative-assertion ratchet, the cause vocabulary, the authority ledger, the export allowlist, all of
+which fired today). Documentation has none, so a gate looked obviously worth building.
+
+**Then I checked whether it would have caught any of the five. It would have caught zero.**
+
+The obvious gate is a numeric one — verify counts cited in docs against the live registry. Measured:
+docs cite `of 43` and `of 16`, and the live values ARE 43 and 16. **The counts were never wrong.**
+
+| what actually failed | a count-gate catches it? |
+|---|---|
+| "IN FLIGHT, NOT PUSHED" on shipped work | no — a STATUS, not a number |
+| a retracted figure still cited | no — the number was real; its STANDING was stale |
+| memory saying HOLD after shipping | no — a STATUS |
+| a hand-kept producer list drifting | no — code drift, not doc drift |
+| four wrong denominators | no — fresh analysis errors, not decay |
+
+⇒ **Not shipped.** Every feature must earn its place, and this one earns nothing against the defects
+that actually occurred. The failures were judgement and staleness in PROSE — a status outliving the
+fact, a retraction not propagating — which no cheap mechanical check reaches.
+
+⚠ What DID work, and is free: **re-deriving status from the artifact before acting on it** (git for
+"is it pushed", the evidence file for "is this figure still standing", the live registry for a
+producer list). Four of the five were caught that way, in the cycle that would otherwise have acted
+on them.
