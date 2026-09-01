@@ -60,3 +60,35 @@ half-attempted.
 
 ⚠ Nothing here says overload collapse is common in real code, or that it has ever misled an agent.
 One fixture, built to be hostile. What it establishes is that the stop condition is not met.
+
+## The cheaper fix was explored and DOES NOT WORK — measured, not assumed
+
+I first recorded "needs a design decision" as a judgement. Then I looked for a smaller, reversible
+fix and measured whether it holds. It does not, and the reason is specific.
+
+**Blast radius, measured first** (the plan set this precedent at "11 newly-ambiguous labels"):
+**5 of 3,842 canonical groups (0.13%)** contain members with differing signatures, and 4 of the 5
+are test/fixture symbols. Positive control: 2,244 rows carry a signature, so the scan was not blind.
+Small enough to be safe — but the measured benefit *on this repo* is near zero, and 0.13% in a Node
+repo is **not** evidence that overloads are rare in the C++ the tool targets. Different noun.
+
+**The attractive fix: add the signature to the canonical key.** Overloads differ by signature, so
+they would split; decl/def would survive if they shared one. Measured on `identity-callers`:
+
+```
+def   src/widgets.cpp:4   signature="Widget::render()"   ← carries the written qualifier
+decl  src/widgets.h:8     signature="render()"           ← bare
+```
+
+⛔ **They do NOT share a signature.** Adding it to the key would re-fork decl/def, undoing `6372aae`.
+
+**The refinement — key on the parameter list only** (`()` vs `()` matches; `(int value)` vs
+`(double value)` differs) — is fragile for a C++-specific reason: parameter NAMES may legitimately
+differ between declaration and definition (`int clamp(int value);` vs `int clamp(int v) {...}`),
+which forks decl/def again. Matching parameter TYPES would be correct, and that is parsing, not
+string comparison.
+
+⇒ **Still open, now for a measured reason.** The next attempt does not need to rediscover that
+signature-in-key breaks decl/def, or that parameter-name divergence defeats the text-based
+shortcut. What it needs is a type-level parameter identity, or a different authority for
+equivalence — which is what step C ("proven equivalence + linkage") was always for.
