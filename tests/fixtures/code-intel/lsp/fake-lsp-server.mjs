@@ -173,6 +173,32 @@ function handle(msg) {
     }
     case 'textDocument/definition': {
       const uri = msg.params.textDocument.uri;
+      // ── Modes for the lsp-collect admission tests. Env-gated and default-off, so the cpp
+      // fixtures that share this server are untouched.
+      if (process.env.FAKE_LSP_OUT_OF_REPO === '1') {
+        // A definition resolving OUTSIDE the repository — what pyright does for site-packages and
+        // typeshed. lsp-collect must SCOPE-SKIP this, not refuse it.
+        return reply(msg.id, [{
+          uri: 'file:///C:/definitely-elsewhere/vendor/dep.js',
+          range: { start: { line: 0, character: 0 }, end: { line: 0, character: 3 } },
+        }]);
+      }
+      if (process.env.FAKE_LSP_INCOHERENT === '1') {
+        // In-repo URI, but a range far beyond the end of a small file: structurally decodable,
+        // document-incoherent. lsp-collect must REFUSE this.
+        return reply(msg.id, [{
+          uri,
+          range: { start: { line: 9000, character: 0 }, end: { line: 9000, character: 3 } },
+        }]);
+      }
+      if (process.env.FAKE_LSP_DEF_RANGE) {
+        // Explicit range for callers whose fixture is not the cpp one. The DEFAULT range below is
+        // tuned to `namespace ns { void foo(int x) {} }`, where `foo` sits at characters 20..23;
+        // pointing that at a TypeScript fixture lands on `() {` and is correctly refused as a
+        // token mismatch. Padding the source to fit would hide why.
+        const [l, a, b] = String(process.env.FAKE_LSP_DEF_RANGE).split(',').map(Number);
+        return reply(msg.id, [{ uri, range: { start: { line: l, character: a }, end: { line: l, character: b } } }]);
+      }
       return reply(msg.id, [
         { uri, range: { start: { line: 0, character: 20 }, end: { line: 0, character: 23 } } }
       ]);
