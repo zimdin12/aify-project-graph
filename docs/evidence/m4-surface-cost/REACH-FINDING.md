@@ -62,9 +62,13 @@ would not move either number.
 
 ## What this licenses
 
-**Not narrowing.** The measured distribution argues against the premise that motivated it. If effort
-goes anywhere from here, the evidence points at mid-task and subagent reach — 0.8% — rather than at
-the size of the listed set.
+**Not narrowing.** The measured distribution argues against the premise that motivated it.
+
+⚠ **THE NEXT SENTENCE OF THIS SECTION WAS SUPERSEDED THE SAME DAY.** It read: "the evidence
+points at mid-task and subagent reach — 0.8% — rather than at the size of the listed set." That
+0.8% is graph-calls-per-ALL-subagents and is the WRONG DENOMINATOR — see the correction below.
+It is left visible rather than deleted, because a superseded claim quietly removed is how a
+document starts disagreeing with its own evidence.
 
 ## ⛔ CORRECTION — "0.8% of subagents" was the wrong denominator (same day)
 
