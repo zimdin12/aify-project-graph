@@ -88,7 +88,11 @@ import { writeDocLinkMissSidecar } from './doc-link-miss-sidecar.js';
 //
 // ⚠ The cost is one full rebuild per repository on upgrade. That is the honest price of the
 // change; the alternative is a feature that reports success and does nothing.
-export const EXTRACTOR_VERSION = '0.4.0';
+// 0.5.0 — code symbol SITE identity. Every extracted occurrence gets its own id derived from its
+// exact byte span, so a second symbol spelled like the first is no longer deleted. Old and new
+// identities must not coexist in one attested generation, and a drift here already forces a clean
+// full rebuild below.
+export const EXTRACTOR_VERSION = '0.5.0';
 export const PARSER_BUNDLE_VERSION = '2026.04.16';
 // Plugin-emitted node types that the per-file extraction loop must NOT reap.
 // They're attributed to non-source files (a Route to routes/web.php, a

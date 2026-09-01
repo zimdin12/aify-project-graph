@@ -52,9 +52,16 @@ export function fileStructuralFingerprint(extracted) {
   // line numbers — moving a function up/down by editing another body must not
   // count as structural. Includes parent_class + member relation so adding or
   // removing a class member flips the fingerprint.
+  //
+  // ⛔ `node.id` WAS IN HERE AND HAD TO COME OUT. It was harmless while ids were name-derived —
+  // it carried type + file + qname, all of which are already listed below. Now that a code symbol
+  // site id is its BYTE SPAN, including it smuggles position into a fingerprint whose own comment
+  // above says position must not count as structural: inserting a comment shifts every later
+  // offset, every id moves, and the file reads as structurally changed. That would silently
+  // disable cosmetic-skip on every commit that touches a comment — measured context: 91% of
+  // reindexes on this repo already take 15s or more.
   const symbolShapes = nodes
     .map((node) => JSON.stringify({
-      id: node.id,
       type: node.type,
       label: node.label ?? '',
       qname: node.extra?.qname ?? '',
@@ -67,11 +74,13 @@ export function fileStructuralFingerprint(extracted) {
   // Full set of outgoing structural refs: {relation, from_id, target}. Catches
   // the call-set-change case — adding/removing a call (or any ref) changes this
   // set even when every signature is identical.
+  //
+  // ⛔ `from_id` IS OUT FOR THE SAME REASON — it is a symbol site id, so it moves with position.
+  // `fromTarget` and `target` are names and carry the structural content this set exists to catch.
   const refShapes = refs
     .filter((ref) => ref && ref.relation)
     .map((ref) => JSON.stringify({
       relation: ref.relation,
-      from: ref.from_id ?? '',
       fromTarget: ref.from_target ?? '',
       target: ref.target ?? '',
     }))

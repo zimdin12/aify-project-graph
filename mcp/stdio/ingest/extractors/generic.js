@@ -2,6 +2,7 @@ import { basename, extname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { dependencyFingerprint, structuralFingerprint } from '../fingerprint.js';
 import { nodeText, parseSource } from '../walker.js';
+import { codeSymbolSiteId, siteKindOf, siteSpanOf } from '../identity/code-symbol-site-id.js';
 
 function stableId(parts) {
   return createHash('sha1').update(parts.join('::')).digest('hex');
@@ -243,6 +244,10 @@ function isReferenceCandidate({ node, owner, ancestors, config, source }) {
   return true;
 }
 
+// ⚠ `id` IS AN EXPLICIT INPUT, NOT A DEFAULT WITH AN ESCAPE HATCH. Code symbol sites pass a
+// `codeSymbolSiteId`; File and Module nodes pass nothing and keep the legacy name-derived scheme,
+// which must stay byte-identical. Making the caller say which it wants is the point — the four
+// copies of `stableId` in this tree are what a silent default would hide.
 function makeBaseNode({
   type,
   label,
@@ -252,10 +257,11 @@ function makeBaseNode({
   language,
   confidence,
   extra,
+  id,
 }) {
   const qname = extra.qname ?? `${language}:${filePath}:${label}`;
   return {
-    id: stableId([type, filePath, qname]),
+    id: id ?? stableId([type, filePath, qname]),
     type,
     label,
     file_path: filePath,
@@ -405,7 +411,19 @@ export function extractFile({ filePath, source, config }) {
           ? `${parentClassQname}.${name}`
           : `${moduleLabel}.${name}`;
         const signature = buildSignature(node, source, symbolRule);
+        // SITE IDENTITY. The occurrence's ADDRESS — exact byte span in a normalised repo-relative
+        // path — never its name, signature or scope. `emitterSlot` breaks a tie only if two
+        // symbols are emitted from one exact span; it stays 0 in practice, and it is local to the
+        // span rather than a traversal ordinal, so identity never depends on visit order.
+        const { startByte, endByte } = siteSpanOf(node);
+        let emitterSlot = 0;
+        let siteId = codeSymbolSiteId({ language: config.language, filePath, startByte, endByte });
+        while (symbolsById.has(siteId)) {
+          emitterSlot += 1;
+          siteId = codeSymbolSiteId({ language: config.language, filePath, startByte, endByte, emitterSlot });
+        }
         const createdNode = makeBaseNode({
+          id: siteId,
           type: detectedType,
           label: name,
           filePath,
@@ -418,6 +436,10 @@ export function extractFile({ filePath, source, config }) {
             signature,
             decorators: [],
             parent_class: parentClassLabel,
+            // What the extractor BELIEVES this occurrence is. A sibling field, never an id input:
+            // hashing a classification would remint the site whenever the classification improved.
+            // `unknown` is valid; absence must never be read as "definition".
+            site_kind: siteKindOf(node),
             // Which RULE produced this node. `type` is derived (see above) and
             // cannot answer this; storing it makes extraction provenance readable
             // rather than inferable.

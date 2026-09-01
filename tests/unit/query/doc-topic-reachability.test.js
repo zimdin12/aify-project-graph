@@ -219,7 +219,11 @@ describe('the extractor output shape and EXTRACTOR_VERSION move together', () =>
       'If `shape` changed, deployed graphs will NOT re-extract and the change is inert on every '
       + 'existing repository. Bump EXTRACTOR_VERSION in freshness/orchestrator.js and update this '
       + 'expectation in the same edit — that is the whole point of pinning them together.')
-      .toEqual({ shape: 'headings,summary,title', version: '0.4.0' });
+      // 0.5.0 — code symbol SITE identity (M1a step A). The Document shape is UNCHANGED; the
+      // version moved because every code-symbol id changed and deployed graphs must re-extract.
+      // The guard firing on a version bump with no shape change is the cheap direction of its
+      // asymmetry, and updating the pin here is the guard working, not being worked around.
+      .toEqual({ shape: 'headings,summary,title', version: '0.5.0' });
   });
 
   it('★★★ POSITIVE CONTROL: the shape really does move when a field appears', async () => {
