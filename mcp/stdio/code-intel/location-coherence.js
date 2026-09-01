@@ -102,18 +102,44 @@ function leafOf(name) {
 // defaulting it to a direct read would restore one filesystem read per Location — the very defect
 // the snapshot exists to remove — silently, in whichever caller forgot to pass it. A caller that
 // forgets now fails loudly instead.
-export function admitLocation(location, { expectedToken, readDocument } = {}) {
-  if (typeof readDocument !== 'function') {
-    throw new TypeError('admitLocation requires a readDocument (the collection-owned document snapshot)');
-  }
-  const shape = readShape(location);
-  if (!shape) {
-    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.UNKNOWN_SHAPE, uri: null };
-  }
-  if (!rangeSyntaxOk(shape.range)) {
-    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.INVALID_RANGE_SYNTAX, uri: shape.uri };
-  }
+// ★ PHASE 2 MARKER. A provider decides whether a structurally-valid Location is IN SCOPE for its
+// graph. cpp-clangd admits external paths as absolute-path evidence; lsp-collect refuses them,
+// because a pyright definition resolving into site-packages is a real fact about the wider world
+// and not a node in THIS graph.
+//
+// ⛔ A SCOPE-SKIPPED LOCATION IS NEITHER COHERENT NOR INCOHERENT. It never becomes evidence and it
+// must never be counted as a refusal — conflating "outside our graph" with "invalid" turns a
+// policy into an accusation about the producer.
+export const SCOPE_ELIGIBLE = 'eligible';
 
+// ── PHASE 1: structural decode. No I/O. ────────────────────────────────────────────────────────
+export function decodeLocation(location) {
+  const shape = readShape(location);
+  if (!shape) return { ok: false, reason: LOCATION_REASONS.UNKNOWN_SHAPE, uri: null };
+  if (!rangeSyntaxOk(shape.range)) {
+    return { ok: false, reason: LOCATION_REASONS.INVALID_RANGE_SYNTAX, uri: shape.uri };
+  }
+  return { ok: true, uri: shape.uri, range: shape.range };
+}
+
+// ── PHASE 3: document coherence. Exactly one read, via the collection-owned snapshot. ──────────
+export function verifyDocument({ uri, range }, { expectedToken, readDocument } = {}) {
+  if (typeof readDocument !== 'function') {
+    throw new TypeError('verifyDocument requires a readDocument (the collection-owned document snapshot)');
+  }
+  const shape = { uri, range };
+  return documentVerdict(shape, { expectedToken, readDocument });
+}
+
+export function admitLocation(location, { expectedToken, readDocument } = {}) {
+  const decoded = decodeLocation(location);
+  if (!decoded.ok) {
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: decoded.reason, uri: decoded.uri };
+  }
+  return verifyDocument(decoded, { expectedToken, readDocument });
+}
+
+function documentVerdict(shape, { expectedToken, readDocument }) {
   const target = readTarget(shape.uri, readDocument);
   if (target.kind === 'not_a_file_uri') {
     return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.NOT_A_FILE_URI, uri: shape.uri };
@@ -160,7 +186,7 @@ export function admitLocation(location, { expectedToken, readDocument } = {}) {
  * exact reason and membership, bound to the method that produced it, so a filtered-to-zero result
  * can never present itself as a clean absence.
  */
-export function admitLocations(locations, { method, expectedToken, readDocument } = {}) {
+export function admitLocations(locations, { method, expectedToken, readDocument, scope } = {}) {
   const list = Array.isArray(locations) ? locations : (locations ? [locations] : []);
   // ⚠ `locationValidationRequests` counts every Location OFFERED to the validator. It is a LARGER
   // population than the snapshot's accesses: a Location refused on shape, on range syntax, or on
@@ -170,12 +196,32 @@ export function admitLocations(locations, { method, expectedToken, readDocument 
   const admitted = [];
   const refused = [];
   const unavailable = [];
+  const scopeSkipped = [];
   for (const location of list) {
-    const verdict = admitLocation(location, { expectedToken, readDocument });
+    // PHASE 1 — structural decode, no I/O.
+    const decoded = decodeLocation(location);
+    if (!decoded.ok) {
+      refused.push({ method: method ?? null, reason: decoded.reason, uri: decoded.uri });
+      continue;
+    }
+    // PHASE 2 — provider scope. Runs BEFORE any read: reversed, the guard would read every
+    // document it was always going to discard, which on the ts/pyright path means every
+    // site-packages and typeshed file pyright resolves into.
+    const verdictScope = scope ? scope(decoded.uri) : SCOPE_ELIGIBLE;
+    if (verdictScope !== SCOPE_ELIGIBLE) {
+      scopeSkipped.push({
+        method: method ?? null,
+        uri: decoded.uri,
+        reason: typeof verdictScope === 'string' ? verdictScope : (verdictScope?.reason ?? 'out_of_scope'),
+      });
+      continue;
+    }
+    // PHASE 3 — document coherence, one read via the collection-owned snapshot.
+    const verdict = verifyDocument(decoded, { expectedToken, readDocument });
     const row = { method: method ?? null, reason: verdict.reason, uri: verdict.uri, ...(verdict.detail ? { detail: verdict.detail } : {}) };
     if (verdict.outcome === ADMISSION.ADMITTED) admitted.push(location);
     else if (verdict.outcome === ADMISSION.REFUSED_INVALID) refused.push(row);
     else unavailable.push(row);
   }
-  return { admitted, refused, unavailable, locationValidationRequests, examined: list.length };
+  return { admitted, refused, unavailable, scopeSkipped, locationValidationRequests, examined: list.length };
 }

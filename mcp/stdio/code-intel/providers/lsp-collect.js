@@ -15,6 +15,8 @@ import { LspClient } from '../lsp-client.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
 import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness } from '../collect-ledger.js';
+import { admitLocations, SCOPE_ELIGIBLE } from '../location-coherence.js';
+import { createDocumentSnapshot } from '../document-snapshot.js';
 
 function realpath(p) {
   try { return fs.realpathSync.native(p); } catch { return p; }
@@ -321,6 +323,18 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
   // without saying so would replace a wrong answer with an unexplained gap, so the count travels
   // with the collection: a reader can see the caller set is a floor for a NAMED reason.
   let outOfRepoSkipped = 0;
+  // ⚠ THIS COLLECTION'S OWN SNAPSHOT. Not shared with another provider and never with another
+  // collection — a snapshot that outlived a collection would validate an edited file against
+  // pre-edit bytes, which the no-eviction contract exists to prevent.
+  const documentSnapshot = createDocumentSnapshot();
+  const readDocument = (f) => documentSnapshot.read(f);
+  // PHASE 2, this provider's policy. A location outside the repository is a real fact about the
+  // wider world and NOT a node in this graph: pyright resolves imports into installed
+  // site-packages and its own typeshed stubs. Refusing them here is deliberate, and it is a SCOPE
+  // decision — never a coherence refusal.
+  const scope = (uri) => (relativizeUri(uri, realRoot) ? SCOPE_ELIGIBLE : 'out_of_repo');
+  const incoherentLocations = [];
+  const unverifiedLocations = [];
   let anyResult = false;
 
   try {
@@ -389,8 +403,12 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
         }
         if (requestedOps.has('definitions')) {
           try {
-            const defs = (await client.definition(uri, pos)) || [];
-            for (const d of (Array.isArray(defs) ? defs : [defs])) {
+            const defsRaw = (await client.definition(uri, pos)) || [];
+            const defGate = admitLocations(defsRaw, { method: 'textDocument/definition', expectedToken: qname, readDocument, scope });
+            for (const r of defGate.refused) incoherentLocations.push({ ...r, qname });
+            for (const r of defGate.unavailable) unverifiedLocations.push({ ...r, qname });
+            outOfRepoSkipped += defGate.scopeSkipped.length;
+            for (const d of defGate.admitted) {
               if (!d?.uri) continue;
               // A definition that resolves OUTSIDE the repository is real information, but it is
               // not a node in THIS graph. pyright resolves imports into the operator's installed
@@ -417,6 +435,12 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
               // the import is O(records). A silently capped set read as "no other
               // callers" is the false-completeness failure this codebase exists to
               // prevent.
+              const refGate = admitLocations(refs, { method: 'textDocument/references', expectedToken: qname, readDocument, scope });
+              for (const r of refGate.refused) incoherentLocations.push({ ...r, qname });
+              for (const r of refGate.unavailable) unverifiedLocations.push({ ...r, qname });
+              outOfRepoSkipped += refGate.scopeSkipped.length;
+              refs = refGate.admitted;
+              // Gated BEFORE truncation, so a refusal can never be hidden by the per-symbol cap.
               const kept = refs.slice(0, MAX_REFS_PER_SYMBOL);
               const droppedRefs = refs.length - kept.length;
               if (droppedRefs > 0) refsTruncatedSymbols += 1;
@@ -502,6 +526,14 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
       // What was never asked — see the guards above. Without these a coverage
       // percentage over this collection reads as a rate when it is a FLOOR.
       positionGuessSkipped, anonymousSkipped, refsTruncatedSymbols, outOfRepoSkipped,
+      // Coherence and resource accounting. A filtered-to-zero result reporting success is
+      // indistinguishable from "this symbol genuinely has no definition", so refusals travel with
+      // the result rather than being counted and discarded.
+      documentSnapshot: documentSnapshot.stats(),
+      incoherentLocationsRefused: incoherentLocations.length,
+      incoherentLocations,
+      unverifiedLocationsExcluded: unverifiedLocations.length,
+      unverifiedLocations,
       filesProcessed, filesTotal: files.length,
       // Resume state — resumedFrom climbing toward enumeratedTotal is the
       // convergence signal; filesProcessed resets every call and cannot show it.
