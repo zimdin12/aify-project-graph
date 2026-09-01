@@ -1,0 +1,19 @@
+=== CARRIER IDENTITY (recorded before collection) ===
+fixture root (environment disclosure): C:/Users/Administrator/AppData/Local/Temp/apg-clangd-qual
+
+source bytes:
+  a1e811f1ba5972478b4febfa3a4b89423d43c94fdabbc5ce4ba02d52e932d29f  src/callers.cpp
+  685a0957a08724fcbc8889e1d1c4b909e8b5ff9b39e9d57f3864353636953b56  src/widgets.cpp
+  fdbb2213670a19dc1aea3226fccd5a977067c149585aad6ae238f9930564e386  src/widgets.h
+
+compile_commands.json:
+  sha256 8d5becad63056153632c1e95ddae55441e7197e3482dc7fb75cb1bf29285ac9c
+  bytes  1379
+
+toolchain:
+  clangd   clangd version 22.1.6 (https://github.com/llvm/llvm-project fc4aad7b5db3fff421df9a9637605b9ca5667881)
+  clangd   sha256 ad7fd474a36291377467966f920b350b4aa684b65e74623f8b8a38a9ced601f0
+  clang-cl clang version 22.1.6 (https://github.com/llvm/llvm-project fc4aad7b5db3fff421df9a9637605b9ca5667881)
+  clang-cl sha256 f168b58c0f1c38f21b04c1d43a487a7ec73553c42526d26d1190efe05c07239a
+  cmake    cmake version 4.3.3
+  ninja    1.13.2

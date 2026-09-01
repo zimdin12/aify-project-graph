@@ -1,0 +1,14 @@
+[
+{
+  "directory": "C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP -IC:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-clangd-qual\\src /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /FoCMakeFiles\\identity_callers.dir\\src\\widgets.cpp.obj /FdCMakeFiles\\identity_callers.dir\\identity_callers.pdb -c -- C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-clangd-qual\\src\\widgets.cpp",
+  "file": "C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/src/widgets.cpp",
+  "output": "C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/build/CMakeFiles/identity_callers.dir/src/widgets.cpp.obj"
+},
+{
+  "directory": "C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/build",
+  "command": "C:\\PROGRA~1\\LLVM\\bin\\clang-cl.exe  /nologo -TP -IC:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-clangd-qual\\src /DWIN32 /D_WINDOWS /EHsc /Zi /Ob0 /Od /RTC1 -std:c++17 -MDd /FoCMakeFiles\\identity_callers.dir\\src\\callers.cpp.obj /FdCMakeFiles\\identity_callers.dir\\identity_callers.pdb -c -- C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\apg-clangd-qual\\src\\callers.cpp",
+  "file": "C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/src/callers.cpp",
+  "output": "C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/build/CMakeFiles/identity_callers.dir/src/callers.cpp.obj"
+}
+]
