@@ -1,0 +1,64 @@
+
+============================================================================
+=== pre-B   C:/Docker/apg-preb
+============================================================================
+  ARGS top_k=20 depth=1 file=(none) edge_fetch_cap=100
+  CONTROL extraction  : 2 CALLS refs -> 'render' from ["alphaCaller","betaCaller"]
+  CONTROL caller nodes: ["alphaCaller","betaCaller"]
+      alphaCaller   -> type=External  qname=null                         (no file)
+      betaCaller    -> type=External  qname=null                         (no file)
+  ATTRIBUTION UNAVAILABLE: ALL_TARGETS_UNRESOLVED
+      edges=2 concrete=0 byTargetType={"External":2} callersWithConcreteEdge=[]
+      ⛔ Any "caller absent" below is the EDGE LAYER, not namespace isolation.
+  --- population 1: TARGET SELECTION (shipped candidate identities) ---
+      alpha::Widget::render    disposition=REFUSED_AMBIGUOUS  renderedCallers=[] selectedTargets=0
+      beta::Widget::render     disposition=REFUSED_AMBIGUOUS  renderedCallers=[] selectedTargets=0
+      render                   disposition=REFUSED_AMBIGUOUS  renderedCallers=[] selectedTargets=0
+  --- raw: bare query ---
+      | AMBIGUOUS MATCH for "render". 2 concrete candidates found:
+      | - Widget::render src/widgets.cpp:4
+      | - src::widgets::Widget::render src/widgets.h:8
+      | Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.
+  --- raw: alpha-qualified ---
+      | AMBIGUOUS MATCH for "alpha::Widget::render". 2 concrete candidates found:
+      | - Widget::render src/widgets.cpp:4
+      | - src::widgets::Widget::render src/widgets.h:8
+      | These are DISTINCT definitions (same name, different namespace/file) — class qualification did not disambiguate. Add more namespace qualification (Namespace::Class::method) or query one file to avoid overstating impact.
+
+============================================================================
+=== post-B   C:\Docker\aify-project-graph\
+============================================================================
+  ARGS top_k=20 depth=1 file=(none) edge_fetch_cap=100
+  CONTROL extraction  : 2 CALLS refs -> 'render' from ["alphaCaller","betaCaller"]
+  CONTROL caller nodes: ["alphaCaller","betaCaller"]
+      alphaCaller   -> type=External  qname=null                         (no file)
+      betaCaller    -> type=External  qname=null                         (no file)
+  ATTRIBUTION UNAVAILABLE: ALL_TARGETS_UNRESOLVED
+      edges=2 concrete=0 byTargetType={"External":2} callersWithConcreteEdge=[]
+      ⛔ Any "caller absent" below is the EDGE LAYER, not namespace isolation.
+  --- population 1: TARGET SELECTION (shipped candidate identities) ---
+      alpha::Widget::render    disposition=REFUSED_AMBIGUOUS  renderedCallers=[] selectedTargets=0
+      beta::Widget::render     disposition=REFUSED_AMBIGUOUS  renderedCallers=[] selectedTargets=0
+      render                   disposition=REFUSED_AMBIGUOUS  renderedCallers=[] selectedTargets=0
+  --- raw: bare query ---
+      | AMBIGUOUS MATCH for "render". 4 concrete candidates found:
+      | - alpha::Widget::render src/widgets.cpp:4
+      | - beta::Widget::render src/widgets.cpp:8
+      | - src::widgets::alpha::Widget::render src/widgets.h:8
+      | - src::widgets::beta::Widget::render src/widgets.h:15
+      | Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.
+  --- raw: alpha-qualified ---
+      | AMBIGUOUS MATCH for "alpha::Widget::render". 2 concrete candidates found:
+      | - alpha::Widget::render src/widgets.cpp:4
+      | - src::widgets::alpha::Widget::render src/widgets.h:8
+      | These are DISTINCT definitions (same name, different namespace/file) — class qualification did not disambiguate. Add more namespace qualification (Namespace::Class::method) or query one file to avoid overstating impact.
+
+============================================================================
+=== POSITIVE CONTROL — the predicate must be able to say AVAILABLE
+============================================================================
+      alphaCaller   -> type=Function  src/alpha.js
+      betaCaller    -> type=Function  src/beta.js
+  ATTRIBUTION AVAILABLE: EVERY_EXPECTED_CALLER_HAS_A_CONCRETE_TARGET
+      edges=2 concrete=2 byTargetType={"Function":2} callersWithConcreteEdge=["alphaCaller","betaCaller"]
+  ✓ predicate discriminates
+  same fixture, METHOD call 'render': UNAVAILABLE — edges=2 concrete=0 byTargetType={"External":2} callersWithConcreteEdge=[]

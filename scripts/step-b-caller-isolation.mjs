@@ -1,22 +1,18 @@
 #!/usr/bin/env node
 // Step B's production-consumer arm, end to end through the shipped verb.
 //
-// PREREGISTERED DISPOSITIONS (fixed before execution, so the result cannot choose the gate):
+// PREREGISTERED DISPOSITIONS (fixed before the first execution, so the result could not choose
+// the gate). The transcript landed on B.
 //   A. Caller isolation succeeds -> B closes extraction/partition AND the consumer claim.
-//   B. Isolation fails but shipped output moves from namespace-CONFLATED to namespace-PURE
-//      candidates/refusal -> B closes as a prerequisite with a bounded identity-presentation
-//      claim and NO caller-set correctness. Name-keyed edge fanout becomes the next defect.
-//   C. No shipped output changes at all -> the partition finding closes only the internal
-//      extractor substep. Record "carrier produced; no load-bearing consumer demonstrated".
+//   B. Isolation fails but shipped output moves namespace-CONFLATED to namespace-PURE candidate
+//      identities -> B closes as a prerequisite, bounded identity-presentation claim, NO
+//      caller-set correctness.
+//   C. Nothing observable changes -> partition finding closes only the internal extractor substep.
 //
 // TWO POPULATIONS, REPORTED SEPARATELY:
-//   1. TARGET SELECTION — which node ids/qnames the verb resolves the symbol to.
-//   2. EDGE ATTRIBUTION — which callers are attached to those targets, in the SHIPPED output.
-// If selection isolates while both caller sets stay identical, that is B working and edge
-// binding unsound — not "isolation failed".
-//
-// ⚠ Membership is parsed from rendered OUTPUT LINES and reported beside an INDEPENDENT database
-// census, so renderer truncation or an ambiguity refusal cannot masquerade as caller exclusion.
+//   1. TARGET SELECTION  — which candidate identities the shipped verb renders.
+//   2. EDGE ATTRIBUTION  — which callers attach to those targets.
+// Collapsing them would hide where a failure lives.
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -24,16 +20,18 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
-const FIXTURE = path.join(REPO, 'tests/fixtures/identity-callers');
+const CPP_FIXTURE = path.join(REPO, 'tests/fixtures/identity-callers');
+const JS_FIXTURE = path.join(REPO, 'tests/fixtures/identity-callers-js');
 const EXPECTED_CALLERS = ['alphaCaller', 'betaCaller'];
+const DEFINITION_TYPES = new Set(['Method', 'Function']);
 const TOP_K = 20;
 const DEPTH = 1;
 const FILE_FILTER = undefined;
-const EDGE_FETCH_CAP = 100; // mirrors callers.js; recorded so a cap hit cannot look like exclusion
+const EDGE_FETCH_CAP = 100; // mirrors callers.js (not exported); recorded, never asserted on
 
-function buildRepo() {
+function buildRepo(fixture) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-callers-'));
-  fs.cpSync(FIXTURE, dir, { recursive: true });
+  fs.cpSync(fixture, dir, { recursive: true });
   const git = (...args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' });
   git('init', '-q');
   git('config', 'user.email', 'test@test');
@@ -41,6 +39,30 @@ function buildRepo() {
   git('add', '.');
   git('-c', 'commit.gpgsign=false', 'commit', '-qm', 'init');
   return dir;
+}
+
+// ⛔ FAIL-CLOSED ELIGIBILITY. An edge that EXISTS is not an edge that REACHES A DEFINITION.
+//
+// The first run of this arm passed two controls — "CALLS edges exist" and "both caller nodes
+// exist" — while proving nothing about attribution, because every edge terminated on an
+// unresolved External stub. Non-empty is not relevant. This returns a TYPED verdict with exact
+// counts and membership, never a pass/fail, so an arm that cannot measure attribution says so
+// instead of reporting a caller absence that belongs to the edge layer.
+function attributionEligibility(edges, expectedCallers) {
+  const concrete = edges.filter((e) => DEFINITION_TYPES.has(e.ttype));
+  const covered = expectedCallers.filter((caller) =>
+    concrete.some((e) => e.caller === caller));
+  const byType = edges.reduce((acc, e) => {
+    acc[e.ttype ?? 'null'] = (acc[e.ttype ?? 'null'] ?? 0) + 1;
+    return acc;
+  }, {});
+  const detail = `edges=${edges.length} concrete=${concrete.length} byTargetType=${JSON.stringify(byType)} callersWithConcreteEdge=${JSON.stringify(covered)}`;
+  if (edges.length === 0) return { status: 'UNAVAILABLE', reason: 'NO_EDGES', detail };
+  if (concrete.length === 0) return { status: 'UNAVAILABLE', reason: 'ALL_TARGETS_UNRESOLVED', detail };
+  if (covered.length < expectedCallers.length) {
+    return { status: 'UNAVAILABLE', reason: 'CALLER_WITHOUT_CONCRETE_EDGE', detail };
+  }
+  return { status: 'AVAILABLE', reason: 'EVERY_EXPECTED_CALLER_HAS_A_CONCRETE_TARGET', detail };
 }
 
 function classify(text) {
@@ -51,100 +73,125 @@ function classify(text) {
   return 'CALLERS_LISTED';
 }
 
-// Membership from rendered LINES, not a whole-text substring: a name appearing inside a hint or a
-// candidate list is not the same as it being rendered as a caller edge.
-function membershipFromOutput(text) {
+// Membership from rendered LINES, not whole-text substring: a name inside a candidate list or a
+// retry hint is not the same as it being rendered as a caller edge.
+function membershipFromOutput(text, callers) {
   const lines = text.split('\n');
-  const present = new Set();
-  for (const caller of EXPECTED_CALLERS) {
+  return callers.filter((caller) => {
     const re = new RegExp(`(^|[^A-Za-z0-9_])${caller}([^A-Za-z0-9_]|$)`);
-    if (lines.some((line) => re.test(line) && !/AMBIGUOUS|Retry|candidates/.test(line))) present.add(caller);
-  }
-  return [...present].sort();
+    return lines.some((line) => re.test(line) && !/AMBIGUOUS|Retry|candidates/.test(line));
+  }).sort();
 }
 
-async function arm(checkoutRoot, label) {
+async function loadArm(checkoutRoot) {
   const at = (rel) => pathToFileURL(path.join(checkoutRoot, rel)).href;
-  const { extractFile } = await import(at('mcp/stdio/ingest/extractors/generic.js'));
-  const { getLanguageConfig } = await import(at('mcp/stdio/ingest/languages/index.js'));
-  const { graphIndex } = await import(at('mcp/stdio/query/verbs/index.js'));
-  const { graphCallers } = await import(at('mcp/stdio/query/verbs/callers.js'));
-  const { expandClassRollupTargets } = await import(at('mcp/stdio/query/verbs/target_rollup.js'));
-  const { openDb } = await import(at('mcp/stdio/storage/db.js'));
+  return {
+    extractFile: (await import(at('mcp/stdio/ingest/extractors/generic.js'))).extractFile,
+    getLanguageConfig: (await import(at('mcp/stdio/ingest/languages/index.js'))).getLanguageConfig,
+    graphIndex: (await import(at('mcp/stdio/query/verbs/index.js'))).graphIndex,
+    graphCallers: (await import(at('mcp/stdio/query/verbs/callers.js'))).graphCallers,
+    expandClassRollupTargets: (await import(at('mcp/stdio/query/verbs/target_rollup.js'))).expandClassRollupTargets,
+    openDb: (await import(at('mcp/stdio/storage/db.js'))).openDb,
+  };
+}
 
-  console.log(`\n${'='.repeat(76)}\n=== ${label}   ${checkoutRoot}\n${'='.repeat(76)}`);
-  console.log(`  ARGS top_k=${TOP_K} depth=${DEPTH} file=${FILE_FILTER ?? '(none)'} edge_fetch_cap=${EDGE_FETCH_CAP}`);
-
-  // ── CONTROL 1 (pre-import): the CALLS refs must exist at EXTRACTION ───────────────────────
-  const callersPath = 'src/callers.cpp';
-  const callersSrc = fs.readFileSync(path.join(FIXTURE, callersPath), 'utf8');
-  const extracted = extractFile({ filePath: callersPath, source: callersSrc, config: getLanguageConfig(callersPath) });
-  const nodeById = new Map((extracted.nodes ?? []).map((n) => [n.id, n]));
-  const renderRefs = (extracted.refs ?? []).filter((r) => r.relation === 'CALLS' && r.target === 'render');
-  const extractedCallers = [...new Set(renderRefs.map((r) => nodeById.get(r.from_id)?.label ?? '?'))].sort();
-  console.log(`  CONTROL extraction : ${renderRefs.length} CALLS refs -> 'render' from ${JSON.stringify(extractedCallers)}`);
-  const extractionOk = renderRefs.length >= 2 && EXPECTED_CALLERS.every((c) => extractedCallers.includes(c));
-  if (!extractionOk) console.log('  ⛔ EXTRACTION CONTROL FAILED — nothing below can be trusted');
-
-  const repoRoot = buildRepo();
-  await graphIndex({ repoRoot });
-  const db = openDb(path.join(repoRoot, '.aify-graph', 'graph.sqlite'));
-
-  // ── CONTROL 2 (post-import): caller NODES exist, and the edge population is non-empty ─────
-  const callerNodes = db.all(
-    `SELECT label, id FROM nodes WHERE label IN ('alphaCaller','betaCaller') ORDER BY label`,
-  );
-  const callerNodeLabels = [...new Set(callerNodes.map((r) => r.label))].sort();
-  console.log(`  CONTROL caller nodes: ${JSON.stringify(callerNodeLabels)}`);
-  const nodesOk = EXPECTED_CALLERS.every((c) => callerNodeLabels.includes(c));
-  if (!nodesOk) console.log('  ⛔ A CALLER NODE IS MISSING — a later absence would be node extraction, not edge admission');
-
-  const edges = db.all(
+function edgesInto(db, label) {
+  return db.all(
     `SELECT src.label AS caller, tgt.id AS tid, tgt.type AS ttype,
             json_extract(tgt.extra,'$.qname') AS tq, tgt.file_path AS tf
        FROM edges e JOIN nodes src ON src.id = e.from_id JOIN nodes tgt ON tgt.id = e.to_id
-      WHERE e.relation = 'CALLS' AND tgt.label = 'render' ORDER BY src.label, tq`,
+      WHERE e.relation = 'CALLS' AND tgt.label = $label
+      ORDER BY src.label, tq`,
+    { label },
   );
-  console.log(`  CONTROL persisted   : ${edges.length} CALLS edges into a node labelled 'render'${edges.length >= EDGE_FETCH_CAP ? '  ⚠ AT/OVER FETCH CAP' : ''}`);
-  for (const e of edges) console.log(`      ${String(e.caller).padEnd(13)} -> type=${String(e.ttype).padEnd(9)} qname=${String(e.tq).padEnd(30)} ${e.tf || '(no file)'}`);
-  if (edges.length === 0) console.log('  ⛔ EDGE POPULATION EMPTY — isolation cannot be earned from this arm');
+}
 
-  // ── POPULATION 1: TARGET SELECTION ───────────────────────────────────────────────────────
-  console.log('  --- population 1: TARGET SELECTION ---');
-  for (const symbol of ['alpha::Widget::render', 'beta::Widget::render']) {
-    let picked = { targetIds: [] };
-    try { picked = expandClassRollupTargets(db, symbol) ?? picked; } catch (error) { console.log(`      ${symbol} THREW ${error.message}`); }
-    const qnames = (picked.targetIds ?? []).map((id) =>
-      db.get("SELECT json_extract(extra,'$.qname') AS q FROM nodes WHERE id = $id", { id })?.q ?? '(none)').sort();
-    console.log(`      ${symbol.padEnd(24)} -> ${qnames.length} target(s) ${JSON.stringify(qnames)}`);
+async function arm(checkoutRoot, label) {
+  const api = await loadArm(checkoutRoot);
+  console.log(`\n${'='.repeat(76)}\n=== ${label}   ${checkoutRoot}\n${'='.repeat(76)}`);
+  console.log(`  ARGS top_k=${TOP_K} depth=${DEPTH} file=${FILE_FILTER ?? '(none)'} edge_fetch_cap=${EDGE_FETCH_CAP}`);
+
+  // ── CONTROL 1 (pre-import): the CALLS refs exist at EXTRACTION ────────────────────────────
+  const callersPath = 'src/callers.cpp';
+  const callersSrc = fs.readFileSync(path.join(CPP_FIXTURE, callersPath), 'utf8');
+  const extracted = api.extractFile({ filePath: callersPath, source: callersSrc, config: api.getLanguageConfig(callersPath) });
+  const nodeById = new Map((extracted.nodes ?? []).map((n) => [n.id, n]));
+  const renderRefs = (extracted.refs ?? []).filter((r) => r.relation === 'CALLS' && r.target === 'render');
+  const extractedCallers = [...new Set(renderRefs.map((r) => nodeById.get(r.from_id)?.label ?? '?'))].sort();
+  console.log(`  CONTROL extraction  : ${renderRefs.length} CALLS refs -> 'render' from ${JSON.stringify(extractedCallers)}`);
+  if (!(renderRefs.length >= 2 && EXPECTED_CALLERS.every((c) => extractedCallers.includes(c)))) {
+    console.log('  ⛔ EXTRACTION CONTROL FAILED — nothing below can be trusted');
   }
 
-  // ── POPULATION 2: EDGE ATTRIBUTION, from the SHIPPED output ──────────────────────────────
-  console.log('  --- population 2: EDGE ATTRIBUTION (shipped graph_callers) ---');
+  const repoRoot = buildRepo(CPP_FIXTURE);
+  await api.graphIndex({ repoRoot });
+  const db = api.openDb(path.join(repoRoot, '.aify-graph', 'graph.sqlite'));
+
+  // ── CONTROL 2 (post-import): caller NODES exist ───────────────────────────────────────────
+  const callerNodeLabels = [...new Set(db.all(
+    "SELECT label FROM nodes WHERE label IN ('alphaCaller','betaCaller')").map((r) => r.label))].sort();
+  console.log(`  CONTROL caller nodes: ${JSON.stringify(callerNodeLabels)}`);
+  if (!EXPECTED_CALLERS.every((c) => callerNodeLabels.includes(c))) {
+    console.log('  ⛔ A CALLER NODE IS MISSING — a later absence would be node extraction, not edge admission');
+  }
+
+  // ── CONTROL 3: fail-closed attribution eligibility ────────────────────────────────────────
+  const edges = edgesInto(db, 'render');
+  for (const e of edges) console.log(`      ${String(e.caller).padEnd(13)} -> type=${String(e.ttype).padEnd(9)} qname=${String(e.tq).padEnd(28)} ${e.tf || '(no file)'}`);
+  const eligibility = attributionEligibility(edges, EXPECTED_CALLERS);
+  console.log(`  ATTRIBUTION ${eligibility.status}: ${eligibility.reason}`);
+  console.log(`      ${eligibility.detail}`);
+  if (eligibility.status === 'UNAVAILABLE') {
+    console.log('      ⛔ Any "caller absent" below is the EDGE LAYER, not namespace isolation.');
+  }
+
+  // ── POPULATION 1: TARGET SELECTION ────────────────────────────────────────────────────────
+  console.log('  --- population 1: TARGET SELECTION (shipped candidate identities) ---');
   const raw = {};
   for (const symbol of ['alpha::Widget::render', 'beta::Widget::render', 'render']) {
-    const text = String(await graphCallers({ repoRoot, symbol, top_k: TOP_K, depth: DEPTH, file: FILE_FILTER }));
+    const text = String(await api.graphCallers({ repoRoot, symbol, top_k: TOP_K, depth: DEPTH, file: FILE_FILTER }));
     raw[symbol] = text;
-    // independent DB census for the same symbol's selected targets
     let ids = [];
-    try { ids = expandClassRollupTargets(db, symbol)?.targetIds ?? []; } catch { /* recorded above */ }
-    const census = ids.length
-      ? db.all(`SELECT DISTINCT n.label AS caller FROM edges e JOIN nodes n ON n.id = e.from_id
-                 WHERE e.to_id IN (${ids.map((_, i) => `$t${i}`).join(',')}) AND e.relation='CALLS' ORDER BY caller`,
-        Object.fromEntries(ids.map((id, i) => [`t${i}`, id]))).map((r) => r.caller)
-      : [];
-    console.log(`      ${symbol.padEnd(24)} disposition=${classify(text).padEnd(18)} output=${JSON.stringify(membershipFromOutput(text))}  dbCensus=${JSON.stringify(census)}`);
+    try { ids = api.expandClassRollupTargets(db, symbol)?.targetIds ?? []; } catch { /* refusal path */ }
+    console.log(`      ${symbol.padEnd(24)} disposition=${classify(text).padEnd(18)} renderedCallers=${JSON.stringify(membershipFromOutput(text, EXPECTED_CALLERS))} selectedTargets=${ids.length}`);
   }
-
-  console.log('  --- raw output, bare query (truncation and refusals must stay visible) ---');
+  console.log('  --- raw: bare query ---');
   console.log(raw.render.split('\n').map((l) => `      | ${l}`).join('\n'));
-  console.log('  --- raw output, alpha-qualified ---');
+  console.log('  --- raw: alpha-qualified ---');
   console.log(raw['alpha::Widget::render'].split('\n').map((l) => `      | ${l}`).join('\n'));
 
   try { db.close(); } catch { /* already closed */ }
-  try { fs.rmSync(repoRoot, { recursive: true, force: true }); }
-  catch { /* Windows holds the sqlite handle briefly; the temp dir is disposable */ }
+  try { fs.rmSync(repoRoot, { recursive: true, force: true }); } catch { /* Windows handle */ }
+}
+
+// ── POSITIVE CONTROL FOR THE ELIGIBILITY PREDICATE ──────────────────────────────────────────
+// Without this, a predicate that ALWAYS answers UNAVAILABLE would pass every arm unnoticed —
+// which is exactly the failure mode the first run of this script demonstrated. This fixture has
+// a concrete Function target for each expected caller, so the predicate must say AVAILABLE.
+async function positiveControl() {
+  const api = await loadArm(REPO);
+  console.log(`\n${'='.repeat(76)}\n=== POSITIVE CONTROL — the predicate must be able to say AVAILABLE\n${'='.repeat(76)}`);
+  const repoRoot = buildRepo(JS_FIXTURE);
+  await api.graphIndex({ repoRoot });
+  const db = api.openDb(path.join(repoRoot, '.aify-graph', 'graph.sqlite'));
+
+  const helperEdges = [...edgesInto(db, 'alphaHelper'), ...edgesInto(db, 'betaHelper')];
+  for (const e of helperEdges) console.log(`      ${String(e.caller).padEnd(13)} -> type=${String(e.ttype).padEnd(9)} ${e.tf}`);
+  const verdict = attributionEligibility(helperEdges, EXPECTED_CALLERS);
+  console.log(`  ATTRIBUTION ${verdict.status}: ${verdict.reason}`);
+  console.log(`      ${verdict.detail}`);
+  console.log(`  ${verdict.status === 'AVAILABLE' ? '✓ predicate discriminates' : '⛔ PREDICATE IS A DEAD GUARD — it cannot say AVAILABLE'}`);
+
+  // Same fixture, METHOD call rather than a plain function call. Recorded because it shows the
+  // unresolved-target problem is NOT C++-specific: `w.render()` lands on External in JS too.
+  const methodEdges = edgesInto(db, 'render');
+  const methodVerdict = attributionEligibility(methodEdges, EXPECTED_CALLERS);
+  console.log(`  same fixture, METHOD call 'render': ${methodVerdict.status} — ${methodVerdict.detail}`);
+
+  try { db.close(); } catch { /* already closed */ }
+  try { fs.rmSync(repoRoot, { recursive: true, force: true }); } catch { /* Windows handle */ }
 }
 
 await arm(process.argv[2] ?? 'C:/Docker/apg-preb', 'pre-B');
 await arm(REPO, 'post-B');
+await positiveControl();
