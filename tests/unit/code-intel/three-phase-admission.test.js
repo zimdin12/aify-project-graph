@@ -14,6 +14,7 @@
 // a provider that did nothing wrong.
 import { describe, it, expect } from 'vitest';
 import { admitLocations, SCOPE_ELIGIBLE, ADMISSION, LOCATION_REASONS } from '../../../mcp/stdio/code-intel/location-coherence.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const IN_REPO = 'file:///C:/repo/src/one.cpp';
 const EXTERNAL = 'file:///C:/elsewhere/vendor/two.cpp';
@@ -85,7 +86,15 @@ describe('three-phase admission', () => {
     // These three are stated against literals instead.
     expect(reader.seen, 'exactly one document may be opened').toHaveLength(1);
     expect(String(reader.seen[0]), 'the in-scope document is the one read').toMatch(/one\.cpp$/);
-    expect(String(reader.seen[0]), 'the out-of-scope document must never be opened').not.toMatch(/two\.cpp$/);
+    // ⚠ A BARE not.toMatch HERE WOULD PROVE NOTHING. It passes when the output is clean AND when
+    // the matcher is dead, and nothing in a green run separates the two. Asserted over EVERY path
+    // read, not just seen[0], so the prohibition covers the whole read set.
+    expectAbsentWithLiveMatcher(
+      /two\.cpp/,
+      { forbidden: 'C:/elsewhere/vendor/two.cpp', allowed: 'C:/repo/src/one.cpp' },
+      reader.seen.map(String).join('|'),
+      'the out-of-scope document must never be opened',
+    );
   });
 
   it('a structurally invalid Location is REFUSED in phase 1, before scope is even consulted', () => {
