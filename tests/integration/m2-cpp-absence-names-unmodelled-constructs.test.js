@@ -20,6 +20,7 @@ import { graphIndex } from '../../mcp/stdio/query/verbs/index.js';
 import { graphCallers } from '../../mcp/stdio/query/verbs/callers.js';
 import { graphCallees } from '../../mcp/stdio/query/verbs/callees.js';
 import { graphImpact } from '../../mcp/stdio/query/verbs/impact.js';
+import { graphTrace } from '../../mcp/stdio/query/verbs/trace.js';
 import { expectAbsentWithLiveMatcher } from '../helpers/live-matcher.js';
 
 const CPP = fileURLToPath(new URL('../fixtures/identity-hostile', import.meta.url));
@@ -89,4 +90,16 @@ describe('M2 — a real C++ absence names what was not modelled', () => {
     expect(impact, 'this must be the absence path or the assertion is vacuous').toMatch(/NO IMPACT/);
     expect(impact).toMatch(/NOT MODELLED/);
   });
+
+  it('★ graph_trace carries it on NO STATIC PATH — the absence a "safe to remove" call leans on', async () => {
+    // A path can exist through a function pointer the analysis never modelled, so "no static path"
+    // is exactly the absence that needs the caveat.
+    const text = String(await graphTrace({ repoRoot: cppRepo, from: 'alpha::Widget::render', to: 'beta::Widget::render' }));
+    expect(text, 'must be the no-path branch or this asserts nothing').toMatch(/NO STATIC PATH/);
+    expect(text).toMatch(/NOT MODELLED/);
+  });
+
+  // ⚠ graph_neighbors is covered STRUCTURALLY only (the call-site gate), not behaviourally: every
+  // symbol in this fixture has edges, so the fixture cannot reach its absence branch. Stated rather
+  // than implied by a passing file.
 });

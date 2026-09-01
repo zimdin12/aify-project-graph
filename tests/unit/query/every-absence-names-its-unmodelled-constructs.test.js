@@ -48,6 +48,20 @@ describe('every absence claim names what was not modelled', () => {
       .toEqual([]);
   });
 
+  it('⛔ …and passes a VALUE, not the key with nothing behind it', () => {
+    // Mutants S-3 and S-4 (`language: null` in graph_trace and graph_neighbors) SURVIVED the check
+    // above, because `language: null` matches `/language\s*:/` perfectly. The key was present and
+    // the clause could still never fire — wired, and inert.
+    //
+    // A hardcoded null is never legitimate here: every consumer has resolved rows in scope. If a
+    // future one genuinely has no language, this failing is the point — it forces that to be
+    // argued rather than defaulted into silence.
+    const inert = absenceCallSites()
+      .filter((s) => /\blanguage\s*:\s*(null|undefined)\b/.test(s.args))
+      .map((s) => s.file);
+    expect(inert, 'a literal null language makes the construct clause unreachable').toEqual([]);
+  });
+
   it('⛔ NEGATIVE CONTROL: the check can actually fail', () => {
     // The matcher above must be able to say NO. Fed a call site with no `language:`, it has to
     // report it — otherwise the green above proves nothing about the real sources.
