@@ -8,6 +8,8 @@ earlier point in this arc appended interpretation to a receipt twice and had to 
 | subject commit | `c757a3233eefae5a408f8c022ef9755de4708b77` |
 | tree state at run | clean (no untracked, no modified) |
 | VITEST_EXIT | **0** (read from the log at line 1077, not from the harness notification) |
+| raw receipt | `suite-c757a32-GREEN-pushed.txt` |
+| raw receipt sha256 | `baa85d0cbb244a5b9734c9ddb519600494f5f5ea1765b89b5d5fcd83fc711470` |
 | test files | 422 passed |
 | tests | 3547 passed, 4 skipped |
 | failed assertion lines | 0 |
