@@ -68,3 +68,33 @@ M2's stop condition is "every absence-shaped answer carries a scope statement an
 20 of 24 do not. ⚠ The plan also warns that recreating the warning wall the pilot agents skimmed
 would undo M2's own purpose, so the remedy is not to paste the same paragraph into 20 more places —
 the per-verb question is what scope each answer's reader is actually deciding against.
+
+## ADDENDUM — reach: 2 of 16, not 4 of 24
+
+"4 of 24" counts verb SOURCE FILES. The number that governs whether an agent ever benefits is
+different, because the server lists a focused DEFAULT profile and long-tail verbs are not listed at
+all. Both sets derived, neither hand-listed: `DEFAULT_TOOL_NAMES` from `mcp/stdio/server.js`,
+verdicts from `census.json`.
+
+| | |
+|---|---|
+| default-listed tools | **16** |
+| default AND `NO_SCOPE` | 7 — `graph_packet`, `graph_pull`, `graph_consequences`, `graph_trace`, `graph_explore`, `graph_search`, `graph_health` |
+| verbs reaching `buildAbsenceTrustLine` | `callees`, `callers`, `impact`, `neighbors` |
+| **…of those, default-listed** | **`callers`, `impact` — 2** |
+
+⛔ **HALF MY OWN COVERAGE IS UNREACHABLE BY DEFAULT.** `callees` and `neighbors` are not in the
+focused profile, so an agent on the default surface never sees their scope statement. The honest
+reach figure for M2 is **2 of 16 default-listed tools**, not 4 of 24 files.
+
+This is the pattern already recorded as "quality of the unreachable": hardening something without
+first asking who calls it. I wired four call sites because they were the four call sites, not
+because they were the four an agent reaches.
+
+⇒ Priority for the remaining work is the 7 default-listed gaps, and among those the
+**action-authorising** ones first — `graph_consequences` answers "what breaks if I change this",
+so an empty result there green-lights an edit. `graph_pull` / `graph_packet` are orientation,
+`graph_search` is a locator, `graph_health` is a self-report.
+
+⚠ `graph_whereis` shows as HAS_SCOPE in the raw census but reaches only `noMatchMessage`, which is
+name help rather than evidence scope. It is not counted above.
