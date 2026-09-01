@@ -267,7 +267,6 @@ function spineScopeClause(db, noun) {
     return ` SCOPE: the C++ collection ran with no compile_commands.json, so clangd resolved no`
       + ` call and this absence is a FLOOR — generate one with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.`;
   }
-  const latest = { language: c.language, filesProcessed: c.files_processed, filesEligible: c.files_eligible };
   // ⛔ NAME THE COVERAGE, NOT JUST THE LANGUAGE. Measured on this repository, the newest collection
   // processed 73 of 627 eligible files. An agent asking for callers got an absence answer backed by
   // that spine and was told only "heuristic" — the identical wording a fully-covered repo produces.
@@ -286,12 +285,14 @@ function spineScopeClause(db, noun) {
   //
   // ⚠ UNKNOWN STAYS UNKNOWN. A collection that did not record its coverage gets no ratio: a
   // fabricated denominator would let a reader compute a completeness figure that was never measured.
-  const processed = latest.filesProcessed;
-  const eligible = latest.filesEligible;
-  const coverage = (Number.isFinite(processed) && Number.isFinite(eligible) && eligible > 0)
-    ? `, which processed ${processed} of ${eligible} eligible files`
+  // ⛔ NO SECOND RATIO COMPUTATION. The first repair moved the CAUSE branches here but left this
+  // tail recomputing `known` from a shimmed object, so `filesEligible` still appeared twice and the
+  // wrong-noun mutant (denominator becomes IN-SCOPE) reported NOT APPLIED — unverifiable, which is
+  // not the same as passing. `spineCoverage` already decided; this renders its numbers verbatim.
+  const coverage = (c.files_processed !== null && c.files_eligible !== null)
+    ? `, which processed ${c.files_processed} of ${c.files_eligible} eligible files`
     : ', whose file coverage was not recorded';
-  return ` SCOPE: the newest code-intel collection is ${latest.language}${coverage};`
+  return ` SCOPE: the newest code-intel collection is ${c.language}${coverage};`
     + ` anything outside it is heuristic only.`;
 }
 
