@@ -181,7 +181,7 @@ extern-without-header, included `.cpp`, cross-language. Separate "no callers in 
 "no callers", and name the scope: which TUs, which flags, was there a compile DB.
 
 - Partially begun (`no_compile_db`, shape detectors on empty sets).
-- ⏳ **IN FLIGHT, UNVERIFIED, NOT PUSHED — `index.zeroFilesProcessed`.** The collect path could
+- ✅ **LANDED (status corrected 2026-09-01) — `index.zeroFilesProcessed`.** In the tree at `mcp/stdio/code-intel/zero-files-reason.js`, wired into `collect_code_intel.js`, covered by three test files, nothing unpushed. The previous "IN FLIGHT, UNVERIFIED, NOT PUSHED" status was stale.** The collect path could
   return `status:'partial'` having collected nothing with no field saying why, so the integration
   test asserted `expected 0 to be greater than 0`: **the test and the product shared one ambiguous
   failure string**, and a starved clangd was indistinguishable from a broken graph join. The field

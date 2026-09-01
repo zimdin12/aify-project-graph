@@ -1,0 +1,359 @@
+{
+ "registryTools": 43,
+ "filesScanned": 48,
+ "rows": [
+  {
+   "verb": "analytics_verbs",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "callees",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [
+    "buildAbsenceTrustLine",
+    "unsearchedRelationNote",
+    "noMatchMessage"
+   ],
+   "verdict": "HAS_SCOPE"
+  },
+  {
+   "verb": "callers",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [
+    "buildAbsenceTrustLine",
+    "unsearchedRelationNote",
+    "noMatchMessage"
+   ],
+   "verdict": "HAS_SCOPE"
+  },
+  {
+   "verb": "census",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "change_plan",
+   "absence": true,
+   "literalAbsence": false,
+   "scopeProducersReached": [
+    "noMatchMessage"
+   ],
+   "verdict": "HAS_SCOPE"
+  },
+  {
+   "verb": "code_intel_analyze",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "code_intel_hierarchy",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "code_intel_live",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "code_intel_replay",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "collect_code_intel",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "consequences",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "dashboard",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "explain_diff",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "explore",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "file",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "find",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "health",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "impact",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [
+    "buildAbsenceTrustLine",
+    "noMatchMessage"
+   ],
+   "verdict": "HAS_SCOPE"
+  },
+  {
+   "verb": "index",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "lookup",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "module_tree",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "neighbors",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [
+    "buildAbsenceTrustLine"
+   ],
+   "verdict": "HAS_SCOPE"
+  },
+  {
+   "verb": "onboard",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "packet-budget",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet-evidence",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet-input",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet-lists",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet-live",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "packet-overlay",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet-symbol",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet-text-budget",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet-verify",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "packet",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "path",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "preflight",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "pull",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "read_freshness",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "report",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "search",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "shader",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "status",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "summary",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "symbol_lookup",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "target_rollup",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "tour",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "trace",
+   "absence": true,
+   "literalAbsence": true,
+   "scopeProducersReached": [],
+   "verdict": "NO_SCOPE"
+  },
+  {
+   "verb": "watch",
+   "absence": false,
+   "literalAbsence": false,
+   "scopeProducersReached": [],
+   "verdict": "N_A_NO_ABSENCE_PATH"
+  },
+  {
+   "verb": "whereis",
+   "absence": true,
+   "literalAbsence": false,
+   "scopeProducersReached": [
+    "noMatchMessage"
+   ],
+   "verdict": "HAS_SCOPE"
+  }
+ ]
+}
