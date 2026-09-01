@@ -41,8 +41,13 @@ describe('the ambiguous refusal carries each candidate\'s caller set', () => {
     expect(out).toMatch(/beta::Widget::render[\s\S]*?-> 2 callers: betaCaller, betaOther/);
   });
 
-  it('⛔ OPT-OUT CONTROL: without a db handle the refusal is unchanged — no caller sets, no queries', () => {
+  it('⛔ OPT-OUT CONTROL: without a db handle the refusal is unchanged — not asked, not merely failed', () => {
     // If this ever starts enriching, five other verbs silently began paying a query per candidate.
+    //
+    // ⛔ THE SECOND ASSERTION IS THE ONE THAT BITES, and it exists because mutant E-7
+    // (`callerSetsFrom || true`) SURVIVED without it: enrichment ran for every verb, every lookup
+    // threw on the null handle, the catch ate it, and the output was byte-identical to this path.
+    // "Did not ask" and "asked and failed" must not render the same, or the opt-out is untestable.
     const out = buildAmbiguousMatchMessage('render', ROWS);
     expectAbsentWithLiveMatcher(
       /-> \d+ caller/,
@@ -50,6 +55,13 @@ describe('the ambiguous refusal carries each candidate\'s caller set', () => {
         allowed: '- alpha::Widget::render src/alpha.js:2' },
       out,
       'only graph_callers opts in; the shared refusal must not enrich by default',
+    );
+    expectAbsentWithLiveMatcher(
+      /could not be read/,
+      { forbidden: '⚠ Caller sets could not be read for one or more candidates',
+        allowed: 'AMBIGUOUS MATCH for "render". 2 concrete candidates found:' },
+      out,
+      'a verb that never opted in must not report a failed lookup',
     );
   });
 
@@ -86,12 +98,17 @@ describe('the ambiguous refusal carries each candidate\'s caller set', () => {
     expect(out).toMatch(/-> 1 caller: solo/);
   });
 
-  it('a failing caller lookup degrades to the plain listing rather than losing the refusal', () => {
-    // A refusal that cannot be rendered is worse than one without caller sets.
+  it('⛔ a failing lookup keeps the refusal AND says a part is missing — never silently', () => {
+    // A refusal that cannot be rendered is worse than one without caller sets, so the listing
+    // survives. But a swallowed failure would make a broken query indistinguishable from a symbol
+    // with no callers, which is the fail-open shape this repo keeps rediscovering.
     const exploding = { get() { throw new Error('db closed'); }, all() { return []; } };
     const out = buildAmbiguousMatchMessage('render', ROWS, 5, null, { callerSetsFrom: exploding });
     expect(out).toMatch(/AMBIGUOUS MATCH for "render"/);
     expect(out).toMatch(/alpha::Widget::render/);
     expect(out).toMatch(/beta::Widget::render/);
+    expect(out, 'the failure must be stated, not inferred from a missing line')
+      .toMatch(/Caller sets could not be read for one or more candidates/);
+    expect(out).toMatch(/NOT that the symbol has no callers/);
   });
 });

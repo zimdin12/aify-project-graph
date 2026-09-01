@@ -257,6 +257,14 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
   // most three callers. That is the same bullet's other requirement — high-cardinality names must
   // narrow rather than multiplying N x 100 edge fetches into an output wall.
   let callerSets = null;
+  // ⛔ A SWALLOWED FAILURE IS NOT THE SAME AS NOT ASKING, AND A MUTANT PROVED IT.
+  // The first version caught lookup errors and said nothing. Mutant E-7 (`callerSetsFrom || true`,
+  // making enrichment always-on for all six verbs) then SURVIVED: with no db handle every lookup
+  // threw, the catch ate it, and the output was byte-identical to the opt-out path. So the test
+  // could not tell "did not ask" from "asked and failed" — and in production a refactor that broke
+  // the query would silently drop caller sets from every refusal with nothing to show for it.
+  // Recording the failure makes the difference observable in both places at once.
+  let callerSetsFailed = false;
   if (callerSetsFrom) {
     callerSets = new Map();
     for (const row of shown) {
@@ -264,8 +272,9 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
       try {
         callerSets.set(row, renderCallerSummary(summarizeCallersFor(callerSetsFrom, row.id)));
       } catch {
-        // A refusal that cannot be rendered is worse than one without caller sets. Enrichment is
-        // additive: if the lookup fails, the candidate list still stands.
+        // A refusal that cannot be rendered is worse than one without caller sets, so the listing
+        // still stands — but it stands WITH a note saying a part of it is missing.
+        callerSetsFailed = true;
       }
     }
   }
@@ -385,10 +394,17 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
       + ' For a trustworthy absence use code_intel_references (live, per-symbol evidence) or verify with rg.'
     : '';
 
+  // Stated, never silent: a missing caller set must not look like an absent one.
+  const callerSetFailureNote = callerSetsFailed
+    ? '⚠ Caller sets could not be read for one or more candidates — the candidate list below is '
+      + 'unaffected, but any MISSING "->" line means the lookup failed, NOT that the symbol has no callers.'
+    : '';
+
   return [
     headline,
     ...candidates,
     truncationNote,
+    callerSetFailureNote,
     callerSetNote,
     retryHint,
     crossLanguageNote,
