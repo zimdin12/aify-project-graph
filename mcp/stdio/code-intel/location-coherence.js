@@ -162,6 +162,11 @@ export function admitLocation(location, { expectedToken, readDocument } = {}) {
  */
 export function admitLocations(locations, { method, expectedToken, readDocument } = {}) {
   const list = Array.isArray(locations) ? locations : (locations ? [locations] : []);
+  // ⚠ `locationValidationRequests` counts every Location OFFERED to the validator. It is a LARGER
+  // population than the snapshot's accesses: a Location refused on shape, on range syntax, or on
+  // an unparseable URI never reaches a snapshot lookup at all. Reporting one against the other's
+  // denominator is the wrong-noun error this arc keeps producing.
+  const locationValidationRequests = list.length;
   const admitted = [];
   const refused = [];
   const unavailable = [];
@@ -172,5 +177,5 @@ export function admitLocations(locations, { method, expectedToken, readDocument 
     else if (verdict.outcome === ADMISSION.REFUSED_INVALID) refused.push(row);
     else unavailable.push(row);
   }
-  return { admitted, refused, unavailable, examined: list.length };
+  return { admitted, refused, unavailable, locationValidationRequests, examined: list.length };
 }

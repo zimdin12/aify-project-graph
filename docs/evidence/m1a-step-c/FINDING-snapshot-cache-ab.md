@@ -15,15 +15,51 @@ n = 6 pairs, counterbalanced AB/BA, **all pairs run** — no early exit.
 
 ## PRIMARY predicate — filesystem work: **PROVEN**
 
-Measured on the many-reference collection:
+⛔ **CORRECTION TO AN EARLIER VERSION OF THIS SECTION.** It printed "admitted location records 2001"
+beside "cacheHits 2049" as though those shared a denominator. **They do not.** 2 reads + 2049 hits
+is **2051 snapshot accesses**; 2001 is a different population — records surviving the per-symbol
+cap. Sound arithmetic, wrong noun, for the fourth time in this session. Both populations are now
+measured and reconciled separately.
 
-| | |
+### Snapshot access partition — measured
+
+```
+snapshotAccesses = hits + misses
+misses           = capturedDocuments + cachedFailureEntries + countBudgetRefusals
+```
+
+| term | measured |
 |---|---|
-| admitted location records | 2001 |
-| `readsAttempted` | **2** |
-| `cacheHits` | 2049 |
-| `cachedDocuments` | 2 |
-| `retainedBytes` | 101 |
+| `snapshotAccesses` | **2051** |
+| `hits` | 2049 |
+| `misses` | 2 |
+| `missPartition` | captured 2 · cachedFailure 0 · countRefusal 0 |
+| parent equality holds | **true** |
+| miss partition sums | **true** |
+
+For this carrier the narrow equality is exactly **2051 = 2049 hits + 2 captured-document misses**.
+That is measured from the run, not inferred from how the fixture was built.
+
+⚠ `cachedFailureEntries` is the parent term; its subtypes (read/status failure, bytes-budget
+refusal) are reported for diagnosis and are **not** re-added to the parent equality — a
+double-counted subtype makes a broken partition still appear to balance. Every leaf is exercised
+non-vacuously by targeted controls in `snapshot-access-partition.test.js`, because a population with
+three terms at zero balances trivially and proves nothing.
+
+### Record populations — a DIFFERENT denominator
+
+| population | measured |
+|---|---|
+| coherence-eligible locations examined | 2051 |
+| reference records retained after cap | 2000 |
+| definition records retained | 1 |
+| **retained total** | **2001** |
+| references before cap | 2050 |
+| **capped references** | **50** |
+| refused-invalid | 0 |
+| unavailable-unverified | 0 |
+
+**2051 examined = 2001 retained + 50 capped.** Also measured, not inferred.
 
 Repeated eligible Locations for one canonical document produce **one** captured read.
 

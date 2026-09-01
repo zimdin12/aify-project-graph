@@ -81,10 +81,21 @@ export function createDocumentSnapshot({
   // document identities behind these refusals are untracked and must not be implied.
   let countBudgetRefusals = 0;
   let bytesBudgetRefusals = 0;   // cached as a typed failure: consumes a key, retains no content
+  // ★ THE ACCESS PARTITION. Every call to read() is exactly ONE of: a hit, or a miss; and every
+  // miss is exactly one of: a captured document, a cached failure entry, or a count-budget
+  // refusal. The equality is asserted in the tests, not assumed here.
+  //
+  // ⚠ `cachedFailureEntries` is the PARENT term. Its subtypes — read/status failure and
+  // bytes-budget refusal — are reported separately for diagnosis but must NOT be added to the
+  // parent equality again, or the partition double-counts and still appears to sum.
+  let snapshotAccesses = 0;
+  let capturedDocuments = 0;     // successful first reads, retained
+  let readStatusFailures = 0;    // first access ending unreadable or directory; consumes a key
 
   return {
     /** @returns {{status:'ok', text:string}|{status:'unavailable', reason:string}} */
     read(filePath) {
+      snapshotAccesses += 1;
       const key = canonicalKey(filePath, realpath);
 
       const hit = documents.get(key);
@@ -130,6 +141,7 @@ export function createDocumentSnapshot({
         }
         const reason = isDirectory ? SNAPSHOT_REASONS.DIRECTORY : SNAPSHOT_REASONS.UNREADABLE;
         documents.set(key, { ok: false, reason });
+        readStatusFailures += 1;
         return { status: 'unavailable', reason };
       }
 
@@ -143,12 +155,22 @@ export function createDocumentSnapshot({
       }
 
       documents.set(key, { ok: true, text, bytes });
+      capturedDocuments += 1;
       retainedBytes += bytes;
       return { status: 'ok', text };
     },
 
     stats() {
+      const cachedFailureEntries = readStatusFailures + bytesBudgetRefusals;
       return {
+        // ── the partition ────────────────────────────────────────────────────────────────
+        snapshotAccesses,
+        hits: cacheHits,
+        misses: snapshotAccesses - cacheHits,
+        missPartition: { capturedDocuments, cachedFailureEntries, countBudgetRefusals },
+        // subtypes of cachedFailureEntries — for diagnosis, NOT terms of the parent equality
+        cachedFailureSubtypes: { readStatusFailures, bytesBudgetRefusals },
+        // ── raw counters ─────────────────────────────────────────────────────────────────
         readsAttempted,
         statsAttempted,
         // ⚠ NOT `uniqueDocuments`. Count-ceiling refusals are deliberately not retained, so after
