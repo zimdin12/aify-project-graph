@@ -538,6 +538,24 @@ export default {
     { type: 'Type', nodeTypes: ['enum_specifier', 'type_alias_declaration'], field: 'name', confidence: 0.7 },
     { type: 'Module', nodeTypes: ['namespace_definition'], field: 'name', confidence: 0.7 },
   ],
+
+  // ⛔ LEXICAL SCOPE IS OPT-IN PER LANGUAGE, AND DELIBERATELY NOT `parent_class`.
+  //
+  // A `namespace_definition` already produces a Module node above — but a Module never advances
+  // the scope chain in `visit()`, which only advances on Class. So `alpha::W::go` and `beta::W::go`
+  // came out byte-identical: the one thing distinguishing them lived in a node the qname never
+  // consulted.
+  //
+  // ⛔ AND ROUTING IT THROUGH `parent_class` WOULD CORRUPT DATA, not merely misname a field.
+  // generic.js derives `Function` -> `Method` from `parentClassLabel` being truthy, so every free
+  // function inside a namespace would silently become a Method, and that flows on into containment
+  // edges, fingerprints and test detection. Hence a separate channel.
+  //
+  // Only languages that declare this get scope composition; every other language's qnames stay
+  // byte-identical. That is a hard acceptance gate, not an aspiration.
+  lexicalScope: [
+    { nodeTypes: ['namespace_definition'], field: 'name' },
+  ],
   refs: {
     imports: [{ nodeTypes: ['preproc_include'], field: 'path', confidence: 0.6 }],
     calls: [{ nodeTypes: ['call_expression'], field: 'function', confidence: 0.6 }],

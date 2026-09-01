@@ -375,12 +375,26 @@ export function extractFile({ filePath, source, config }) {
     { nodeTypes: ['identifier', 'type_identifier', 'name'] },
   ];
 
-  const visit = (node, owner = null, parentClass = null, depth = 0, ancestors = []) => {
+  const visit = (node, owner = null, parentClass = null, depth = 0, ancestors = [], lexicalScope = []) => {
     if (depth > MAX_VISIT_DEPTH) return;
     const parentNode = ancestors[ancestors.length - 1] ?? null;
     const symbolRule = matchRule(node, config.symbols, parentNode);
     let nextOwner = owner;
     let nextParentClass = parentClass;
+
+    // ⛔ A SEPARATE SCOPE CHANNEL — never `parentClass`. Routing namespaces through parentClass
+    // would flip `Function` to `Method` for every namespaced free function (see resolvedType
+    // below) and carry that into containment edges, fingerprints and test detection. Only
+    // languages that declare `config.lexicalScope` participate; everything else keeps the empty
+    // chain and therefore byte-identical qnames.
+    let nextLexicalScope = lexicalScope;
+    const scopeRule = matchRule(node, config.lexicalScope ?? [], parentNode);
+    if (scopeRule) {
+      const scopeName = nodeText(node.childForFieldName(scopeRule.field ?? 'name'), source).trim();
+      // An anonymous namespace has no name node. It is a real scope, but naming it here would
+      // invent an identifier the source does not contain — linkage is step C's to model.
+      if (scopeName) nextLexicalScope = [...lexicalScope, scopeName];
+    }
 
     if (symbolRule) {
       const symbolInfo = extractSymbolInfo(node, source, symbolRule);
@@ -409,9 +423,40 @@ export function extractFile({ filePath, source, config }) {
           resolvedType,
           parentClass: parentClassLabel,
         }) ? 'Test' : resolvedType;
-        const qname = parentClassQname
-          ? `${parentClassQname}.${name}`
-          : `${moduleLabel}.${name}`;
+        // ⛔ COMPOSED, NOT A FALLBACK — and that distinction is the whole gate.
+        //
+        // `parentClassQname` above is `symbolInfo?.parentClassQname ?? …`, so symbolInfo WINS. For
+        // `namespace alpha { void Widget::render() {} }` the C++ extractor returns `'Widget'` from
+        // the written qualifier, which does not contain `alpha`. A lexical scope offered as a
+        // default after that `??` chain would NEVER FIRE, and the lexical-relative form would keep
+        // failing while the declaration side passed — a gate green on one half of its own case.
+        //
+        // ⚠ ANTI-DOUBLE-PREFIX. `void alpha::Widget::render()` written OUTSIDE the namespace
+        // already carries `alpha` in symbolInfo, so blindly prepending would produce
+        // `alpha.alpha.Widget`. Both forms must converge on one qname, so the prefix is skipped
+        // when the base already opens with it.
+        // ⛔ COMPOSE ONLY ONTO A *WRITTEN QUALIFIER*, NEVER ONTO AN IN-SCOPE CLASS NODE.
+        //
+        // My first version composed onto whatever `parentClassQname` held, guarded by a
+        // `startsWith` check. My own anti-double-prefix control caught it producing
+        // `alpha.src.exp.alpha.Widget.render`: a Class node in scope ALREADY carries the composed
+        // scope in its qname (`src.exp.alpha.Widget`), but the scope sits mid-string after the
+        // module label, so a prefix check cannot see it.
+        //
+        // The two sources are different kinds of thing and only one is scope-relative:
+        //   symbolInfo.parentClassQname  — the qualifier AS WRITTEN (`Widget`), needs the scope
+        //   parentClass.extra.qname      — an absolute qname, already scoped, must be left alone
+        const scopePrefix = lexicalScope.join('.');
+        const parentFromWrittenQualifier = Boolean(symbolInfo?.parentClassQname);
+        const scopedParent = (() => {
+          if (!parentClassQname) return '';
+          if (!scopePrefix || !parentFromWrittenQualifier) return parentClassQname;
+          if (parentClassQname === scopePrefix || parentClassQname.startsWith(`${scopePrefix}.`)) return parentClassQname;
+          return `${scopePrefix}.${parentClassQname}`;
+        })();
+        const qname = scopedParent
+          ? `${scopedParent}.${name}`
+          : `${moduleLabel}.${scopePrefix ? `${scopePrefix}.` : ''}${name}`;
         const signature = buildSignature(node, source, symbolRule);
         // SITE IDENTITY. The occurrence's ADDRESS — exact byte span in a normalised repo-relative
         // path — never its name, signature or scope. `emitterSlot` breaks a tie only if two
@@ -725,7 +770,7 @@ export function extractFile({ filePath, source, config }) {
     }
 
     for (const child of node.namedChildren) {
-      visit(child, nextOwner, nextParentClass, depth + 1, [...ancestors, node]);
+      visit(child, nextOwner, nextParentClass, depth + 1, [...ancestors, node], nextLexicalScope);
     }
   };
 
