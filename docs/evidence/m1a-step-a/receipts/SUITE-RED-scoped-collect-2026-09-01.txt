@@ -1353,7 +1353,7 @@ AssertionError: expected 0 to be greater than 0
     222|     const firstBatch = [...ledger.collected];
     223|     expect(firstBatch.length).toBeGreaterThan(0);
        |                               ^
-    224| 
+    224|
     225|     // Re-run. It must skip what was done, not redo it.
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
@@ -1365,7 +1365,7 @@ AssertionError: expected 0 to be greater than 0
     276|     const afterFirst = verifiedEdgeCount(repo);
     277|     expect(afterFirst).toBeGreaterThan(0);
        |                        ^
-    278| 
+    278|
     279|     const second = await graphCollectCodeIntel({
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
