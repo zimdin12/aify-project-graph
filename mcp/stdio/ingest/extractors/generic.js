@@ -495,7 +495,17 @@ export function extractFile({ filePath, source, config }) {
         const createdNode = makeBaseNode({
           id: siteId,
           type: detectedType,
-          label: name,
+          // ⛔ THE DISPLAY LABEL IS THE SOURCE SPELLING, AND `name` IS NOW THE SEMANTIC TERMINAL.
+          //
+          // Those used to be the same string. Extracting the terminal structurally (so `a::W::~W`
+          // composes to `a.W.~W` instead of `a.W::~W`) changed `name` from `W::~W` to `~W` — and
+          // silently changed every LABEL consumer with it, to fix a QNAME defect. Fixing identity
+          // is not licence to rewrite what the source says a symbol is called.
+          //
+          // So an extractor that knows the written spelling supplies `displayLabel`, and the label
+          // stays byte-identical to its pre-fix value. The odd-looking pair this leaves — label
+          // `W::~W` beside qname `a.W.~W` — is deliberate and stays its own contract.
+          label: symbolInfo?.displayLabel ?? name,
           filePath,
           startLine: lineNumber(node),
           endLine: endLineNumber(node),

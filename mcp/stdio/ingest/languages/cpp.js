@@ -308,8 +308,31 @@ function extractCppFunctionSymbol({ node, source }) {
   const declarator = node.childForFieldName('declarator');
   const namedDeclarator = findCppNamedDeclarator(declarator);
   if (namedDeclarator?.type === 'qualified_identifier') {
-    const scopeChain = extractQualifiedScopeSegments(namedDeclarator.childForFieldName('scope'), source);
-    const name = nodeText(namedDeclarator.childForFieldName('name'), source).trim();
+    // ⛔ THE SCOPE SIDE RECURSED AND THE NAME SIDE DID NOT — that asymmetry was the whole defect.
+    //
+    // This used to read the scope through `extractQualifiedScopeSegments` (which recurses) while
+    // taking the name as raw `nodeText`. tree-sitter NESTS a multi-level qualifier, so for
+    // `a::W::render` the name field is itself a `qualified_identifier` holding `W::render`. At ONE
+    // level that is harmless; at two or more the terminal is never reached and the `::` leaks
+    // straight into the qname (`a.W::render`).
+    //
+    // ⭐ ROUTING THE WHOLE DECLARATOR THROUGH THE RECURSIVE EXTRACTOR FIXES THREE SHAPES AT ONCE,
+    // because that function already knows each of them. Measured before the change:
+    //   a::W::~W          -> a.W::~W            destructor terminal swallowed
+    //   a::W::operator<<  -> a.W::operator<<    operator terminal swallowed
+    //   a::W<T>::render   -> a.W<T>::render     template args NOT stripped on the definition side,
+    //                                           while the DECLARATION side already stripped them
+    // The template case is the tell: `extractQualifiedScopeSegments` has a `template_type` branch,
+    // and the definition path simply never reached it. A "split on the last ::" string fix would
+    // have needed three special cases and still got `<T>` wrong.
+    //
+    // ⚠ The SEGMENTS are kept as distinct objects rather than one flattened string: everything
+    // before the terminal is the WRITTEN QUALIFIER (evidence: source qualification), and the last
+    // is the SEMANTIC TERMINAL. Lexical namespace scope is a separate carrier, so step C can weigh
+    // the two evidence sources rather than seeing one indistinguishable blob.
+    const segments = extractQualifiedScopeSegments(namedDeclarator, source);
+    const name = (segments.at(-1) ?? '').trim();
+    const scopeChain = segments.slice(0, -1);
     const parentClass = scopeChain.at(-1) ?? '';
     const parentClassQname = scopeChain.join('.');
     if (name && parentClass) {
@@ -318,6 +341,12 @@ function extractCppFunctionSymbol({ node, source }) {
         parentClass,
         parentClassQname,
         type: 'Method',
+        // ⚠ EXACTLY WHAT `name` USED TO BE — the nested `name` field, not the whole declarator.
+        // My first attempt passed the full qualified text, which produced `a::W::~W` where the
+        // pre-fix label was `W::~W`. "Preserve the label" means byte-identical to its PRIOR value,
+        // not merely "some source spelling"; a label that changed from one qualified form to a
+        // longer one is still a changed label, and every label consumer would still have moved.
+        displayLabel: nodeText(namedDeclarator.childForFieldName('name'), source).trim(),
       };
     }
   }
