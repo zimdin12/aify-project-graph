@@ -105,6 +105,34 @@ told something false.
 ⚠ **Read this precisely:** the sites are *not* absent. By `symbol_id` all six are addressed
 correctly. The claim is that the **`file` column is wrong**, not that collection missed them.
 
+### Where the fault is NOT — the path layer is exonerated
+
+The stored `raw` payload carries the same wrong value, so this is the **provider's own output** at
+record-construction time, not a storage or query artifact. `cpp-clangd.js` builds it as
+`file: uriToRepoRelative(d.uri, projectRoot)`.
+
+`uriToRepoRelativeSafe` was then tested directly, and it is **correct**:
+
+| input | result |
+|---|---|
+| source URI, **long** root | `{"path":"src/callers.cpp","ok":true}` |
+| source URI, **8.3 short** root | `{"path":"src/callers.cpp","ok":true}` |
+| a genuine system header | `{"path":".../MSVC/14.43.34604/include/vector","ok":false,"reason":"outside_project_root"}` |
+
+It already canonicalizes through realpath — `paths.js` documents this exact 8.3 bug from
+2026-07-30 — and it handles a real system header by returning the full path **ending in a
+filename**. The corrupted value ends at `/include` with **no filename at all**, which no file URI
+produces.
+
+⛔ **Therefore: do not "repair" `paths.js`.** It is not the defect, and changing it would break a
+layer that is currently right. The fault is upstream — the URI the provider receives from, or
+passes to, that call is already a directory.
+
+⚠ **Mechanism NOT established.** Why clangd's definition response carries a directory URI while
+its `range` is simultaneously *correct* (line 5, cols 6–17, exactly `alphaCaller`) is unexplained.
+Establishing it requires capturing the raw LSP response, which has not been done. Everything above
+is observation; the cause is open.
+
 ## ⚠ An instrument defect of mine, in the same run
 
 My first coverage matcher compared **line numbers only** and reported `src/widgets.h:8` as
