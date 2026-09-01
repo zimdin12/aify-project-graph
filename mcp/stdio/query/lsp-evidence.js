@@ -261,11 +261,25 @@ export function spineCoverage(db) {
       remedy: 'run graph_collect_code_intel with scope:"all" to cover the remainder.',
     };
   }
+  // ⛔ PROSE IS CONDITIONAL ON RESULT SHAPE, AND MY FIRST VERSION IGNORED THAT.
+  //
+  // The plan's wording is exact: "structured contracts at every action or absence-authorising
+  // result, WITH PROSE CONDITIONAL ON RESULT SHAPE. Recreating the warning wall the pilot agents
+  // skimmed would undo M2's own purpose." I emitted `consequence` on every branch, so a fully
+  // covered repository paid for a sentence saying nothing was wrong.
+  //
+  // Measured before this change: the field was 445 bytes, 18.1% of the whole graph_consequences
+  // response (~111 estimated tokens), on a surface M4 measured as already expensive. A caveat that
+  // fires when there is nothing to caveat is exactly the wall the plan warns about — and it trains
+  // a reader to skim the block it lives in, which is the note `consequences.js` already makes about
+  // a field that is "always empty".
+  //
+  // ⚠ THE NUMBERS STAY. They are the answer to "what scope was this computed over", which the
+  // reader asked for. Only the WARNING disappears when there is nothing to warn about.
   return {
     ...base, files_processed: processed, files_eligible: eligible,
     cause: null,
-    consequence: `The newest code-intel collection is ${latest.language} and processed ${processed} of `
-      + `${eligible} eligible files — the whole eligible population.`,
+    consequence: null,
     remedy: null,
   };
 }

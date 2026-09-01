@@ -74,10 +74,28 @@ describe('spineCoverage — the structured scope of the trust spine', () => {
     expect(c.remedy).toMatch(/CMAKE_EXPORT_COMPILE_COMMANDS/);
   });
 
-  it('complete coverage carries no cause and no remedy', () => {
+  it('⭐ complete coverage carries the NUMBERS but no prose — the wall is conditional', () => {
+    // The plan: "structured contracts ... WITH PROSE CONDITIONAL ON RESULT SHAPE. Recreating the
+    // warning wall the pilot agents skimmed would undo M2's own purpose." Measured, the field was
+    // 445 bytes / 18.1% of the graph_consequences response, so a sentence saying nothing is wrong
+    // is paid for on every healthy call and trains the reader to skim the block.
     const c = spineCoverage(dbWith({ latest: TS({ files_processed: 627 }) }));
     expect(c.cause, 'a fully covered spine is not a defect').toBeNull();
+    expect(c.consequence, 'no warning when there is nothing to warn about').toBeNull();
     expect(c.remedy).toBeNull();
+    // ⚠ THE NUMBERS SURVIVE. They answer "what scope was this computed over", which is the
+    // question the reader actually asked; only the WARNING is conditional.
+    expect(c.files_processed, 'the scope answer must remain').toBe(627);
+    expect(c.files_eligible).toBe(627);
+    expect(c.language).toBe('typescript');
+  });
+
+  it('⛔ a DEGRADED spine still carries its prose — the conditional must not silence real warnings', () => {
+    // Without this, "omit prose when complete" could become "omit prose always", which would delete
+    // the entire point of the field.
+    const partial = spineCoverage(dbWith({ latest: TS() }));
+    expect(partial.consequence, 'a partial spine must still explain itself').toBeTruthy();
+    expect(partial.remedy).toBeTruthy();
   });
 
   it('a missing or throwing db returns null rather than a reassuring default', () => {
