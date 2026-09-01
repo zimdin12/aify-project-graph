@@ -181,14 +181,42 @@ extern-without-header, included `.cpp`, cross-language. Separate "no callers in 
 "no callers", and name the scope: which TUs, which flags, was there a compile DB.
 
 - Partially begun (`no_compile_db`, shape detectors on empty sets).
+- ⏳ **IN FLIGHT, UNVERIFIED, NOT PUSHED — `index.zeroFilesProcessed`.** The collect path could
+  return `status:'partial'` having collected nothing with no field saying why, so the integration
+  test asserted `expected 0 to be greater than 0`: **the test and the product shared one ambiguous
+  failure string**, and a starved clangd was indistinguishable from a broken graph join. The field
+  now names the mechanism, emitted **only** when `filesProcessed` is the integer 0, derived **only**
+  from typed producer notes — never from scalars. Three of my first values were struck for scalar
+  inference (`filesTotal===0` is this call's *remainder*; `resumedFrom` is a count, not a completion
+  claim; `indexReady===false` is a state, not a cause).
+- ⛔ **C++ `ALREADY_COMPLETE` IS DELIBERATELY UNREACHABLE.** Its witness is `verifiedEdges>0 &&
+  intelRecords>0` over **global** counts, so one unrelated edge would license a ledger claiming
+  hundreds of other files. Per-file binding cannot rescue it: **612 of 640 record-bearing files
+  carry zero `LSP_VERIFIED` edges**, so requiring an edge per claimed file is fail-closed *and inert
+  for 96% of the population*. A converged C++ resume now returns `partial` / `complete:false` /
+  no note ⇒ `ZERO_FILES_CAUSE_UNKNOWN`. **UNKNOWN with the right object beats a reassuring value
+  with the wrong one.**
+- ⚠ **This fixes REPORTING, not the ledger's skip decision** — separate open defect:
+  `docs/evidence/typed-zero-reason/OPEN-DEFECT-ledger-witness-is-global.md`. The 2026-08-20 Sand
+  Castle class is **not** operationally closed.
 - **Stop when:** every absence-shaped answer carries a scope statement an agent can act on.
 
 ### M3 — Freshness that maintains itself  `[Steven's explicit ask]`
 
 The machinery exists but is opt-in and partial.
 
-- **M3a:** decide whether `APG_AUTO_SYNC` should default on. It is a background process, which is
-  why it is opt-in; measure the cost before flipping.
+- **M3a:** ⏸ **HOLD — default-on is neither recommended nor refused, because it is unmeasured in
+  the state that matters.** Evidence: `docs/evidence/auto-sync-cost/FINDING.md`.
+  > The watcher and the post-commit hook use a **shared implementation with demonstrated expensive
+  > behaviour under post-commit input** (median 35.2 s, 91% ≥ 15 s over 482 events). The watcher's
+  > trigger frequency, its dirty-state cost, the `ensureFresh` paths it selects, and its
+  > sustained-rerun behaviour are all **unmeasured**. Default-on remains HELD pending matched
+  > dirty-edit-burst measurements.
+
+  ⚠ The trigger changes the **input state**, not only the frequency: the hook runs with HEAD moved
+  and a clean tree; the watcher runs with HEAD unchanged and bytes dirty mid-edit. Coalescing bounds
+  **queue depth to one**, not duty cycle. ⛔ That evidence file preserves four retracted
+  formulations of my own, each marked inline — do not quote them.
 - **M3b:** ⚠ RENAMED `reconfirm_candidate`. "needs_reconfirm" overclaims: a structural fingerprint
   can prove an anchored span or file CHANGED; it cannot prove that what the anchor DOES changed.
   Only review, compiler or behaviour evidence may promote a candidate to semantic drift. Already

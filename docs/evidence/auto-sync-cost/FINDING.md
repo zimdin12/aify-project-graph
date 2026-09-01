@@ -3,16 +3,62 @@
 Found while investigating why the collision-node population changed under me mid-session. Recorded
 now because it is real data on a real repo, and M3a will need it.
 
+---
+
+## ⛔ READ THIS FIRST — ONLY ONE STATEMENT IN THIS FILE IS THE FINDING
+
+**The current finding is the block quote under "What this now says about M3a", and nothing else.**
+
+This document deliberately preserves **three superseded formulations** of the same claim, because
+the sequence of my errors is more instructive than the destination:
+
+1. "they share a goal, not a code path" — **too weak**, hid a real risk
+2. "the dataset transfers to watcher cost" — **too strong**, invented a measurement never taken
+3. "the same expensive-capable core" — a **noun** re-importing (2) through connotation
+
+⚠ **None of the three may be quoted as the finding.** They are lineage. A reader — or an agent
+grepping this file — who lifts a superseded line will be quoting a claim this document exists to
+retract, which would be a nastier version of the very defect being recorded.
+
+M3a status: **HOLD.**
+
+---
+
 ## ⚠ Two corrections I had to make to my own first reading
 
 **1. It does not block.** I first reported this as "43–88 seconds per commit", which reads as
 latency a developer pays. `.git/hooks/post-commit` ends the invocation with `&` — best-effort,
 **backgrounded**. Nobody waits. The seconds are background CPU/IO, not blocking cost.
 
-**2. It is not `APG_AUTO_SYNC`.** The hook runs `scripts/reindex.mjs` on HEAD movement.
-`APG_AUTO_SYNC` starts a debounced filesystem watcher (`sync/auto-sync.js`) that calls `ensureFresh`
-on change bursts. **They share a goal, not a code path**, and these numbers do not transfer to the
-watcher. So this does *not* answer "should `APG_AUTO_SYNC` default on" — it informs it.
+**2. It is not `APG_AUTO_SYNC`** — but ⛔ **MY ORIGINAL WORDING HERE WAS WRONG AND UNDERSTATED THE
+TRANSFER.**
+
+> ⛔ **RETRACTED — NOT CURRENT — DO NOT QUOTE.** *"they share a goal, not a code path, and these
+> numbers do not transfer to the watcher."* Too weak: it hid a real risk. Read again: `scripts/reindex.mjs:14` imports `ensureFresh` from the orchestrator, and
+`startAutoSync` calls `ensureFresh({ repoRoot })` on each debounced burst. **They share the core
+code path.** What differs is the TRIGGER — HEAD movement versus a 750 ms-debounced file-change
+burst — and the hook's extra brief/categorization pass.
+
+⇒ ⚠ **AND THEN I OVER-CORRECTED.**
+
+> ⛔ **RETRACTED — NOT CURRENT — DO NOT QUOTE.** *"the cost does transfer to the watcher's
+> `ensureFresh` call, and only FREQUENCY does not."* Too strong in the opposite direction: it
+> invented a measurement never taken.
+
+Review caught it: **the trigger changes the INPUT STATE, not merely how often it fires.**
+
+| | HEAD | working tree |
+|---|---|---|
+| post-commit hook | just moved | normally clean |
+| watcher burst | unchanged | **dirty / in-flight mid-edit** |
+
+`ensureFresh` can select different rebuild, dirty-file, fingerprint and cosmetic-skip paths under
+those states. So the measurement below establishes **post-commit `ensureFresh` cost on this repo**
+and makes watcher cost a **credible risk** — it does not establish that a watcher invocation has
+the same distribution, nor that the watcher's incremental path is a minority.
+
+Both of my formulations were overclaims in opposite directions: "no shared code path" hid a real
+risk, "the dataset transfers" invented a measurement I never took.
 
 **3. My first parse conflated two fields.** Grepping `in Nms` returned n=964 from 482 lines, because
 every line carries *two* such fields (reindex, then briefs+categorization), and I read a median off
@@ -46,8 +92,46 @@ typical commit here** — the full-rebuild path is the common outcome, not the e
 That is the claim: *the incremental path is a minority outcome on real commits in this repo.* It is
 **not** a cost-per-commit claim, and it is **not** a recommendation about the auto-sync default.
 
+## What this now says about M3a
+
+The watcher bounds its **queue depth** to one pending rerun: an in-flight sync sets `pendingSync`
+rather than enqueueing. ⚠ That is narrower than what I first wrote:
+
+> ⛔ **RETRACTED — NOT CURRENT — DO NOT QUOTE.** *"bursts cannot pile up."* Reads as a duty-cycle
+> guarantee; the code bounds queue depth only.
+ **Continuous editing can keep setting `pendingSync` during each rerun and sustain repeated
+back-to-back `ensureFresh` calls — coalescing bounds the queue, not the duty cycle or the total
+number of invocations.**
+
+⇒ What M3a can state **now**, and no more than this:
+
+> ✅ **CURRENT FINDING — this block quote, and nothing else in this file.**
+>
+> The watcher and the post-commit hook use a **shared implementation with demonstrated expensive
+> behaviour under post-commit input** (median 35.2 s, 91% ≥ 15 s over 482 events). The watcher's
+> **trigger frequency**, its **dirty-state cost**, the **`ensureFresh` paths it selects**, and its
+> **sustained-rerun behaviour** are all unmeasured. Default-on remains **HELD**, pending matched
+> dirty-edit-burst measurements.
+
+⚠ The phrasing is deliberate.
+
+> ⛔ **RETRACTED — NOT CURRENT — DO NOT QUOTE.** *"the same expensive-capable core."* A noun that
+> re-imports the over-correction through connotation.
+
+That draft can be read as an observation about the WATCHER's cost. Nothing here observed the watcher at all — the
+expense is demonstrated under post-commit input only, and the sentence has to carry that or it
+becomes the third overclaim in this document.
+
+⛔ It is specifically **not** gated on a claimed watcher incremental-rate result. I do not have one,
+and asserting the incremental path is a minority *for the watcher* would be transferring a
+post-commit figure to a state it was never measured in — the same move I have just made twice.
+
 ## Limits
 
 One repo, one machine. Duration is wall-clock on a machine that was also running full test suites
-for part of the span, so the tail is contaminated by my own load. Nothing here measures the
-watcher path, which is what M3a's question is actually about.
+for part of the span, so the tail is contaminated by my own load.
+
+⚠ Nothing here measures the watcher's TRIGGER FREQUENCY, which is the half of M3a that does not
+transfer. (This sentence previously read "nothing here measures the watcher path" — which
+contradicted the correction above once `ensureFresh` was found to be shared. The cost per
+invocation transfers; how often it fires does not.)
