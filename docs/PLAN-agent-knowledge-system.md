@@ -219,14 +219,34 @@ The machinery exists but is opt-in and partial.
   formulations of my own, each marked inline — do not quote them.
 - **M3b:** ⚠ RENAMED `reconfirm_candidate`. "needs_reconfirm" overclaims: a structural fingerprint
   can prove an anchored span or file CHANGED; it cannot prove that what the anchor DOES changed.
-  Only review, compiler or behaviour evidence may promote a candidate to semantic drift. Already
-  measured (af6fc10): per-file fingerprints give a 52.9% false rate, so this needs anchor-scoped
-  hashing or it does not ship. The gap: We detect anchors that BROKE; we never detect claims that
+  Only review, compiler or behaviour evidence may promote a candidate to semantic drift. ⚠ **STATUS CORRECTED 2026-09-01 against the evidence file this bullet cites.** Two things here
+  were stale. (1) The **52.9% figure is RETRACTED** in `GRANULARITY-FINDING.md` itself — it was a
+  model-derived proxy under an unstated edit model, not an observed false rate. What actually
+  disqualifies per-file is STRUCTURAL: `structural_fingerprints` is keyed on `file_path`, so one
+  changed file marks every symbol anchor in it indistinguishably (mean 4.3, median 3 symbols per
+  file). Decisive without any probability. (2) **Anchor-scoped hashing is NOT the remedy** this
+  bullet implies: review rejected it because a hash comparison needs TWO authorities, and
+  reindexing after an edit refreshes the only stored fingerprint — erasing the drift M3b exists to
+  retain. "No migration" was quietly becoming "no baseline". The gap: We detect anchors that BROKE; we never detect claims that
   went OUT OF DATE. A feature whose files were edited but still resolve is never flagged.
   Structural fingerprints are already stored — check granularity first, because per-file would
   produce too many false reconfirms to be useful.
-- **Stop when:** an edit to an anchored span raises a `reconfirm_candidate` at under ~10% false
-  rate. Above that it is an anti-signal and does not ship.
+- **DISPOSITION: HOLD**, and the gap stays open and stated rather than shipped weakly. M3b is held
+  behind (a) M1 identity — ✅ **SHIPPED 2026-09-01** (`0a7a16d`: same-name caller sets proven
+  disjoint; C++ decl/def collapsed to one identity) — and (b) a persisted per-anchor confirmation
+  lineage: identity, commit/tree, normalised body hash, algorithm/version, confirmation time and
+  actor. (b) is NOT built, and it is the remaining blocker.
+- **Stop when — the single ~10% ceiling was SPLIT by review, and the split is right:**
+  - **Carrier correctness: zero tolerance.** A prompt must never name an unchanged population as
+    changed. Identity ambiguity, missing baseline, moved span or unreadable bytes become typed
+    UNKNOWN, never a reconfirm.
+  - **Policy usefulness: no universal ceiling.** Measure on an ADJUDICATED population —
+    `unit = (confirmed anchor identity, subsequent commit)`, truth = a reviewer saying the anchored
+    contract needs reconfirmation — and report TP/FP/FN/TN plus alerts per session and handling
+    cost. `FP/(TP+FP) <= 10%` is a HYPOTHESIS for a non-blocking candidate, not a grounded ceiling.
+  - Emit `anchor_bytes_changed_since_confirmation` / `reconfirm_candidate` — never
+    `claim_out_of_date`. A fingerprint proves bytes changed; it cannot prove what the code DOES
+    changed.
 
 ### M4 — Surface size  `[hypothesis, must be measured first]`
 
