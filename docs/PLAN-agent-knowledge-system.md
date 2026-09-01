@@ -123,9 +123,35 @@ carried into M5, which must state its own prevalence noun.**
 This is the one thing grep structurally cannot do, and we half-do it today: `graph_callers` refuses
 an ambiguous bare name (good) but the refusal is a dead end rather than an answer.
 
-- ⛔ **BLOCKED ON REPAIR.** M0b proved the groups are wrong before any rendering happens, and one
-  colliding symbol is deleted before a key is computed at all. Repair first: scope-bearing
-  identity, then the contract below.
+#### Step A — occurrence/site identity  ✅ SHIPPED `29fc344`  (accepted by review; integration `f3ed77b`)
+
+One id per extracted occurrence, from the declarator's byte span in a normalised repo-relative
+path. Decl and def stay two rows; two overloads stay two rows; the colliding `beta::Widget` is a
+row of its own. `site_kind` travels as a typed sibling field, never an id input — hashing a
+classification would remint a site whenever the classification improved.
+
+Measured on the rebuilt live graph: both `expand` sites now exist, and `graph_callers('expand')`
+returns all four call relationships marked `prov=AMBIGUOUS`. **A false-SPECIFIC answer became a
+true-but-AMBIGUOUS one** — no edge is attributed to a specific wrong site.
+
+⚠ Scored as RETENTION + DENIAL only. The External placeholder those calls land on is
+**name-collapsed unresolved attribution**, not a positive binding, and it is not counted as one.
+
+⚠ An undeclared duplicate site is REFUSED (`APG_DUPLICATE_SYMBOL_SITE`), and the type survives to
+`graph_health` — the first version recorded duplicates in an array with zero readers while
+extraction fell through to the old merge branch.
+
+#### Steps B, C, D — still open
+
+- **B, resolved scope.** Measured, not assumed: lexical `namespace` blocks never reach a qname, so
+  `alpha::W::go` and `beta::W::go` are byte-identical today. Entry criterion: after B they differ.
+- **C, proven equivalence + linkage.** The only authority permitted to merge two sites.
+- **D, `query/semantic identity grouping`** — ⚠ NOT a renderer concern. `canonicalSymbolKey` gates
+  whether seven verbs refuse or proceed, so it is decision control flow. Measured on the fixture it
+  groups **by file**: `measure` (one symbol) fires a false refusal, `clamp` (two overloads) fires
+  none, `render` fires correctly but groups `.cpp` vs `.h` rather than the two namespaces.
+  Fail-closed rule: distinct sites stay distinct groups until C supplies equivalence. Blast radius
+  measured at 11 newly-ambiguous labels repo-wide, so it is not a warning wall.
 - **Ship (after repair):** ambiguity returns the qualified candidates WITH their caller sets.
 - **Why it matters:** on the pilot corpus the collision was the finding. An agent that got "2
   callers" without knowing they were 2 symbols would have renamed the wrong one.
