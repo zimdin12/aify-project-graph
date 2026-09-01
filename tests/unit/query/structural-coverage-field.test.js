@@ -85,3 +85,37 @@ describe('spineCoverage — the structured scope of the trust spine', () => {
     expect(spineCoverage({ get() { throw new Error('closed'); }, all() { return []; } })).toBeNull();
   });
 });
+
+// ⛔ THE CONSUMER, NOT ONLY THE HELPER.
+//
+// A mutant that deleted `structural_coverage` from graph_consequences entirely SURVIVED: every test
+// above drives spineCoverage directly, so none of them noticed the verb had stopped exposing it.
+// That is the same "a shared helper exercised by nobody proves nothing about its consumer" failure
+// that two surviving mutants caught on lsp-collect earlier the same day.
+describe('graph_consequences exposes the field, not just the helper', () => {
+  it('★ structural_coverage is present on a real result, with a cause', async () => {
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const pathMod = await import('node:path');
+    const { execFileSync } = await import('node:child_process');
+    const { fileURLToPath } = await import('node:url');
+    const { graphIndex } = await import('../../../mcp/stdio/query/verbs/index.js');
+    const { graphConsequences } = await import('../../../mcp/stdio/query/verbs/consequences.js');
+
+    const fixture = fileURLToPath(new URL('../../fixtures/identity-callers', import.meta.url));
+    const dir = fs.mkdtempSync(pathMod.join(os.tmpdir(), 'apg-sc-verb-'));
+    try {
+      fs.cpSync(fixture, dir, { recursive: true });
+      const git = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
+      git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
+      git('add', '.'); git('-c', 'commit.gpgsign=false', 'commit', '-qm', 'i');
+      await graphIndex({ repoRoot: dir });
+      const out = await graphConsequences({ repoRoot: dir, target: 'src/widgets.cpp' });
+      expect(out.structural_coverage, 'the verb must expose the field').toBeTruthy();
+      expect(out.structural_coverage.cause, 'and it must name a cause').toBe('no_code_intel_collection');
+      expect(out.structural_coverage.consequence).toMatch(/evidence about the SPINE/);
+    } finally {
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* handle */ }
+    }
+  }, 300000);
+});

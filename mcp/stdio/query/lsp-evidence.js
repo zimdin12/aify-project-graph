@@ -246,20 +246,28 @@ export function spineCoverage(db) {
   };
 }
 
+// ⛔ THIS USED TO BE A SECOND IMPLEMENTATION, AND I CLAIMED IT WAS NOT.
+//
+// When `spineCoverage` was extracted, the commit message said it "backs BOTH this field and the
+// prose clause". It did not — this function kept its own `getLatestCollection` calls and its own
+// branch logic, so the two were PARALLEL implementations of one trust statement, the precise drift
+// this module's header says it exists to prevent. Two mutants reported `NOT APPLIED 2 matches`,
+// and that duplicate-anchor count is what exposed the overclaim.
+//
+// Now it renders `spineCoverage`'s verdict as a sentence and decides nothing itself.
 function spineScopeClause(db, noun) {
-  let latest = null;
-  try { latest = getLatestCollection(db); } catch { return ''; }
-  if (!latest) {
+  const c = spineCoverage(db);
+  if (!c) return '';
+  if (c.cause === 'no_code_intel_collection') {
     // Phrased without the noun so it stays grammatical across callers/callees/impact/neighbors.
     return ` SCOPE: no code-intel collection exists for this repository, so nothing here is`
       + ` compiler-verified — run graph_collect_code_intel to build the trust spine.`;
   }
-  let cpp = null;
-  try { cpp = getLatestCollection(db, { language: 'cpp' }); } catch { /* leave cpp unknown */ }
-  if (cpp && !cpp.compileDbHash) {
+  if (c.cause === 'no_compile_db') {
     return ` SCOPE: the C++ collection ran with no compile_commands.json, so clangd resolved no`
       + ` call and this absence is a FLOOR — generate one with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.`;
   }
+  const latest = { language: c.language, filesProcessed: c.files_processed, filesEligible: c.files_eligible };
   // ⛔ NAME THE COVERAGE, NOT JUST THE LANGUAGE. Measured on this repository, the newest collection
   // processed 73 of 627 eligible files. An agent asking for callers got an absence answer backed by
   // that spine and was told only "heuristic" — the identical wording a fully-covered repo produces.
