@@ -29,6 +29,7 @@ import { prepareCompileDb, enumerateFirstParty } from '../../../mcp/stdio/code-i
 import { writeLedger, readLedger, graphEvidenceWitness } from '../../../mcp/stdio/code-intel/collect-ledger.js';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
 import { ensureCodeIntelRecordsTable } from '../../../mcp/stdio/storage/schema.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 let repoRoot;
 let startupCount;
@@ -227,5 +228,55 @@ describe('a converged C++ resume refuses to claim completion', () => {
     expect(res.session.filesProcessed).toBe(0);
     expect(res.session.remaining).toBe(0);
     expect(res.session.resumedFrom).toBeGreaterThan(0);
+  });
+});
+
+// ⛔ THE WRAPPER LEVEL — where an agent actually meets this.
+//
+// Everything above tests the PROVIDER. These two assertions were owed separately by review,
+// because the provider getting it right does not establish that the summary a caller receives says
+// the same thing. No clangd starts: the provider's refusal returns before spawn, so the real
+// wrapper can be driven here without a language server.
+describe('the wrapper reports the refusal as UNKNOWN, with its denominator', () => {
+  it('⛔ index.zeroFilesProcessed is ZERO_FILES_CAUSE_UNKNOWN with authority none', async () => {
+    const { graphCollectCodeIntel } = await import('../../../mcp/stdio/query/verbs/collect_code_intel.js');
+    const { prepared, enumerated } = convergeLedger();
+    seedUnrelatedGlobalResidue();
+    assertConvergedPrecondition(prepared, enumerated);
+
+    const res = await graphCollectCodeIntel({
+      repoRoot, language: 'cpp', scope: 'all', operations: ['definitions'],
+    });
+    expect(res.index, 'the index block must exist or this asserts on nothing').toBeTruthy();
+    expect(res.index.zeroFilesProcessed).toBeTruthy();
+    expect(res.index.zeroFilesProcessed.reason).toBe('ZERO_FILES_CAUSE_UNKNOWN');
+    expect(res.index.zeroFilesProcessed.authority).toBe('none');
+    // The denominator travels with the reason — a cause without a population is half an answer.
+    expect(res.index.filesProcessed).toBe(0);
+  });
+
+  it('⛔ the response carries NO "already converged" prose reasserting completion', async () => {
+    // `invalidationSkipped` is gated on status === 'ok' (importer.js:677), so `partial` suppresses
+    // it by construction TODAY. Review's point: reading that gate establishes present structure,
+    // not a durable contract — a future importer refactor could reintroduce the contradiction while
+    // every provider test stayed green. So the absence is asserted at the wrapper, with a live
+    // matcher proving the pattern can fire.
+    const { graphCollectCodeIntel } = await import('../../../mcp/stdio/query/verbs/collect_code_intel.js');
+    const { prepared, enumerated } = convergeLedger();
+    seedUnrelatedGlobalResidue();
+    assertConvergedPrecondition(prepared, enumerated);
+
+    const res = await graphCollectCodeIntel({
+      repoRoot, language: 'cpp', scope: 'all', operations: ['definitions'],
+    });
+    expectAbsentWithLiveMatcher(
+      /already converged/i,
+      {
+        forbidden: 'collection walked no files (already converged)',
+        allowed: 'collection walked no files; cause unknown',
+      },
+      JSON.stringify(res),
+      'no field may reassert completion once the provider has refused to claim it',
+    );
   });
 });
