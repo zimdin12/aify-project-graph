@@ -1,0 +1,240 @@
+{
+  "takenAt": "2026-09-01T01:53:01.297Z",
+  "subjects": {
+    "pre": "C:/Docker/apg-probe-pre",
+    "post": "C:/Docker/apg-probe-post"
+  },
+  "reps": 8,
+  "budgetMs": 9000,
+  "loadWorkers": 30,
+  "cpus": 32,
+  "controls": {
+    "positive_eachArmCollectedAtLeastOnce": true
+  },
+  "pre": {
+    "arm": "pre",
+    "n": 8,
+    "collectedAtLeastOne": 7,
+    "zeroRuns": 1,
+    "causes": {
+      "partial_no_files": 1
+    },
+    "medianElapsedMs": 7460
+  },
+  "post": {
+    "arm": "post",
+    "n": 8,
+    "collectedAtLeastOne": 7,
+    "zeroRuns": 1,
+    "causes": {
+      "partial_no_files": 1
+    },
+    "medianElapsedMs": 7204
+  },
+  "byPosition": [
+    {
+      "position": 0,
+      "n": 8,
+      "zeroRuns": 2
+    },
+    {
+      "position": 1,
+      "n": 8,
+      "zeroRuns": 0
+    }
+  ],
+  "runs": [
+    {
+      "rep": 0,
+      "arm": "pre",
+      "position": 0,
+      "status": "partial",
+      "collected": 0,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 3343,
+      "error": null,
+      "cause": "partial_no_files"
+    },
+    {
+      "rep": 0,
+      "arm": "post",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 7204,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 1,
+      "arm": "post",
+      "position": 0,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 10762,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 1,
+      "arm": "pre",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 6627,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 2,
+      "arm": "pre",
+      "position": 0,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 7946,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 2,
+      "arm": "post",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 10370,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 3,
+      "arm": "post",
+      "position": 0,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 5354,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 3,
+      "arm": "pre",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 4161,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 4,
+      "arm": "pre",
+      "position": 0,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 5174,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 4,
+      "arm": "post",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 8397,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 5,
+      "arm": "post",
+      "position": 0,
+      "status": "partial",
+      "collected": 0,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 3154,
+      "error": null,
+      "cause": "partial_no_files"
+    },
+    {
+      "rep": 5,
+      "arm": "pre",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 7920,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 6,
+      "arm": "pre",
+      "position": 0,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 7460,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 6,
+      "arm": "post",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 5473,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 7,
+      "arm": "post",
+      "position": 0,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 4538,
+      "error": null,
+      "cause": "collected"
+    },
+    {
+      "rep": 7,
+      "arm": "pre",
+      "position": 1,
+      "status": "partial",
+      "collected": 1,
+      "denominator": null,
+      "budgetExhausted": null,
+      "elapsedMs": 10574,
+      "error": null,
+      "cause": "collected"
+    }
+  ]
+}
