@@ -147,7 +147,22 @@ describe('producers emit only declared node types', () => {
     // ⚠ A prose caveat decays; a number moves. But a number only moves honestly if it covers the
     // same population the claim does — which is exactly what the "5" got wrong.
     const { computed } = inventory();
-    expect(computed.length, 'explicit property sites AND shorthand emissions').toBe(7);
+    // 7 -> 9 with M1a step A. The tripwire fired correctly and the two new sites are NOT node
+    // emissions, which is why the number moved rather than the gate breaking:
+    //   generic.js  — the `duplicateSites` diagnostic record for a refused duplicate symbol site
+    //   fingerprint.js — the owner SHAPE used to tell same-shape twins apart in refShapes
+    // Neither constructs a graph node. ⚠ They are counted anyway, deliberately: the walk counts
+    // every computed `type` spelling in a producer file, and narrowing it to "real emissions"
+    // would need the walk to decide what a node is — the judgement this gate exists to avoid
+    // making. Raising the number and NAMING the additions keeps the population honest; renaming
+    // the fields to duck the count would have been gaming it.
+    expect(computed.length, 'explicit property sites AND shorthand emissions').toBe(9);
+
+    const paths = computed.map((c) => String(c.file).replace(/\\/g, '/'));
+    expect(paths.filter((p) => /ingest\/extractors\/generic\.js$/.test(p)).length,
+      'generic.js: one shorthand node emission, one makeBaseNode call, one diagnostic record').toBe(3);
+    expect(paths.filter((p) => /ingest\/fingerprint\.js$/.test(p)).length,
+      'fingerprint.js: symbolShapes and the owner shape').toBe(2);
 
     // Both omitted files must be represented, or the count could be right by accident while the
     // walk still missed a whole form.
