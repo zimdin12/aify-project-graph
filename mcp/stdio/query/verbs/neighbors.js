@@ -43,7 +43,7 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
     // I1 — gate the absence claim on exhaustive evidence (see callers.js).
     if (edges.length === 0) {
       let line = '';
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'neighbors', db, repoRoot }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'neighbors', db, repoRoot, language: targets[0]?.language }); }
       catch { /* defensive */ }
       return prefixReadWarnings(
         `NO NEIGHBORS for "${symbol}". The symbol may be isolated. Try graph_whereis(symbol="${symbol}") to confirm it exists, or graph_search(query="${symbol}") for similar names.` + line,

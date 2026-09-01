@@ -98,7 +98,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     // non-exhaustive caveat unless fresh index-ready clangd evidence backs it.
     if (edges.length === 0 && overrideEdges.length === 0) {
       let line = '';
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'impact', db, repoRoot }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'impact', db, repoRoot, language: targets[0]?.language }); }
       catch { /* defensive */ }
       return prefixReadWarnings(
         // `graph_status()` is not in the default tools/list profile, so this told most readers

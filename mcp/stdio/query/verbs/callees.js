@@ -119,7 +119,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
         remedy: 'graph_neighbors shows every relation on this symbol, in both directions.',
       });
       let line = '';
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callees', db, repoRoot }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callees', db, repoRoot, language: sources[0]?.language }); }
       catch { /* defensive */ }
       return prefixReadWarnings(msg + line + scope, freshness.warnings);
     };

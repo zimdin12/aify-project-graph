@@ -18,6 +18,8 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { graphIndex } from '../../mcp/stdio/query/verbs/index.js';
 import { graphCallers } from '../../mcp/stdio/query/verbs/callers.js';
+import { graphCallees } from '../../mcp/stdio/query/verbs/callees.js';
+import { graphImpact } from '../../mcp/stdio/query/verbs/impact.js';
 import { expectAbsentWithLiveMatcher } from '../helpers/live-matcher.js';
 
 const CPP = fileURLToPath(new URL('../fixtures/identity-hostile', import.meta.url));
@@ -72,5 +74,19 @@ describe('M2 — a real C++ absence names what was not modelled', () => {
       text,
       'the construct clause is C/C++ only; a JS repo must not carry it',
     );
+  });
+
+  it('★ THE SWEEP: graph_callees and graph_impact carry it too, not just graph_callers', async () => {
+    // The clause shipped on graph_callers alone. Four other verbs answer absence through the same
+    // helper, and graph_impact is the one an agent asks BEFORE CHANGING SOMETHING — the highest-
+    // stakes absence in the tool. A structural guard proves `language:` is written at each call
+    // site; this proves the clause actually reaches an agent.
+    const callees = String(await graphCallees({ repoRoot: cppRepo, symbol: 'alpha::Widget::render', top_k: 10 }));
+    expect(callees, 'this must be the absence path or the assertion is vacuous').toMatch(/NO CALLEES/);
+    expect(callees).toMatch(/NOT MODELLED/);
+
+    const impact = String(await graphImpact({ repoRoot: cppRepo, symbol: 'alpha::Widget::render', top_k: 10 }));
+    expect(impact, 'this must be the absence path or the assertion is vacuous').toMatch(/NO IMPACT/);
+    expect(impact).toMatch(/NOT MODELLED/);
   });
 });

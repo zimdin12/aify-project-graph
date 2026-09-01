@@ -355,7 +355,7 @@ export async function graphTrace({ repoRoot, from, to, max_hops = 7 }) {
     try {
       trustLine = '\n\n' + (pathSteps
         ? await buildTrustLine({ edges: trustEdges, db, repoRoot })
-        : await buildAbsenceTrustLine({ noun: 'path', db, repoRoot }));
+        : await buildAbsenceTrustLine({ noun: 'path', db, repoRoot, language: fromNodes[0]?.language }));
     } catch { /* defensive — never block on trust-line failure */ }
 
     return prefixReadWarnings(body + trustLine, freshness.warnings);
