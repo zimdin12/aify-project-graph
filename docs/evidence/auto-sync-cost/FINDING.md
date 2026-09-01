@@ -126,7 +126,7 @@ becomes the third overclaim in this document.
 and asserting the incremental path is a minority *for the watcher* would be transferring a
 post-commit figure to a state it was never measured in — the same move I have just made twice.
 
-## Addendum — a MEASURED contention factor (2026-09-01)
+## Addendum — a bounded observed duration ratio under suite overlap (2026-09-01)
 
 Six consecutive idle post-commit reindexes, then two that overlapped a running test suite:
 
@@ -135,12 +135,17 @@ idle        43144  43159  43038  43102  44376  42953 ms     ≈ 43 s, ±1 s
 under load  83387  83791 ms                                  ≈ 83.6 s
 ```
 
-**≈1.94× penalty.** Both clusters are unusually tight, which is what makes this a signal rather
-than scatter — the idle six span 1.4 s and the loaded two span 0.4 s.
+**Observed ratio ≈1.94×.** ⛔ This is an **association under one carrier, not a contention factor
+and not a causal penalty** — an earlier draft called it both, and neither is licensed.
 
-Why it matters for M3a: a watcher fires **during active work**, which is by definition when the
-machine is busy. So the loaded figure, not the idle one, is the relevant order of magnitude for a
-default-on decision.
+⚠ **The groups differ by more than load.** They are different commits against a growing graph:
+6230N/19977E idle versus 6241N/20021E and 6241N/20025E overlapped. Graph size, commit content and
+load all move together, so tight within-group spread (1.4 s and 0.4 s) narrows the *measurement*
+error and removes **none** of that correlated confounding. Two loaded points cannot separate them.
+
+What it bears on for M3a: a watcher fires during active work, so a duration observed under
+concurrent load is *closer to the watcher's operating conditions* than an idle one. That is a
+reason to keep the HOLD, not a figure to plan against.
 
 ⚠ **It does NOT close the HOLD, and it is not the missing measurement.**
 - The competing load was a test suite plus a reindex, **not editing**.
@@ -149,16 +154,18 @@ default-on decision.
   narrows the cost question, not the state question.
 - n=2 under load. The tight spread is suggestive, not a distribution.
 
-⇒ It upgrades "watcher cost is a credible risk" from an assertion to a measured contention factor
-under a *different* input state. The four unmeasured quantities in the current finding are
-unchanged.
+⇒ It shows post-commit `ensureFresh` duration is **associated** with concurrent load on this
+carrier. It does not establish causation, does not measure the watcher, and leaves all four
+unmeasured quantities in the CURRENT FINDING exactly as they were.
 
 ## Limits
 
 One repo, one machine. Duration is wall-clock on a machine that was also running full test suites
 for part of the span, so the tail is contaminated by my own load.
 
-⚠ Nothing here measures the watcher's TRIGGER FREQUENCY, which is the half of M3a that does not
-transfer. (This sentence previously read "nothing here measures the watcher path" — which
-contradicted the correction above once `ensureFresh` was found to be shared. The cost per
-invocation transfers; how often it fires does not.)
+⚠ Nothing here measures the watcher's trigger frequency, its dirty-state cost, the `ensureFresh`
+paths it selects, or its sustained-rerun behaviour. (This sentence previously read "nothing here
+measures the watcher path", which contradicted the correction above once `ensureFresh` was found to
+be shared. ⛔ It then read "the cost per invocation transfers; how often it fires does not" — which
+**restored the retracted overclaim inside the note explaining the retraction**. Retracted again;
+see the CURRENT FINDING for what is actually established.)
