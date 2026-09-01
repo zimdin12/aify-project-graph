@@ -100,12 +100,13 @@ async function arm(checkoutRoot, label) {
   if (!nodesOk) console.log('  ⛔ A CALLER NODE IS MISSING — a later absence would be node extraction, not edge admission');
 
   const edges = db.all(
-    `SELECT src.label AS caller, tgt.id AS tid, json_extract(tgt.extra,'$.qname') AS tq, tgt.file_path AS tf
+    `SELECT src.label AS caller, tgt.id AS tid, tgt.type AS ttype,
+            json_extract(tgt.extra,'$.qname') AS tq, tgt.file_path AS tf
        FROM edges e JOIN nodes src ON src.id = e.from_id JOIN nodes tgt ON tgt.id = e.to_id
       WHERE e.relation = 'CALLS' AND tgt.label = 'render' ORDER BY src.label, tq`,
   );
   console.log(`  CONTROL persisted   : ${edges.length} CALLS edges into a node labelled 'render'${edges.length >= EDGE_FETCH_CAP ? '  ⚠ AT/OVER FETCH CAP' : ''}`);
-  for (const e of edges) console.log(`      ${String(e.caller).padEnd(13)} -> ${String(e.tq).padEnd(34)} ${e.tf}`);
+  for (const e of edges) console.log(`      ${String(e.caller).padEnd(13)} -> type=${String(e.ttype).padEnd(9)} qname=${String(e.tq).padEnd(30)} ${e.tf || '(no file)'}`);
   if (edges.length === 0) console.log('  ⛔ EDGE POPULATION EMPTY — isolation cannot be earned from this arm');
 
   // ── POPULATION 1: TARGET SELECTION ───────────────────────────────────────────────────────
@@ -140,7 +141,9 @@ async function arm(checkoutRoot, label) {
   console.log('  --- raw output, alpha-qualified ---');
   console.log(raw['alpha::Widget::render'].split('\n').map((l) => `      | ${l}`).join('\n'));
 
-  fs.rmSync(repoRoot, { recursive: true, force: true });
+  try { db.close(); } catch { /* already closed */ }
+  try { fs.rmSync(repoRoot, { recursive: true, force: true }); }
+  catch { /* Windows holds the sqlite handle briefly; the temp dir is disposable */ }
 }
 
 await arm(process.argv[2] ?? 'C:/Docker/apg-preb', 'pre-B');
