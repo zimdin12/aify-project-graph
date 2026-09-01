@@ -141,10 +141,12 @@ true-but-AMBIGUOUS one** — no edge is attributed to a specific wrong site.
 `graph_health` — the first version recorded duplicates in an array with zero readers while
 extraction fell through to the old merge branch.
 
-#### Steps B, C, D — still open
+#### Steps B, C, D — **status corrected 2026-09-02**
 
-- **B, resolved scope.** Measured, not assumed: lexical `namespace` blocks never reach a qname, so
-  `alpha::W::go` and `beta::W::go` are byte-identical today. Entry criterion: after B they differ.
+- **B, resolved scope.** ✅ **SHIPPED** (`efa3c15`, `51ef3ca`, `da61a58`; gates 1 & 7 documented in
+  `docs/evidence/m1a-step-b/`). The entry criterion is met: `alpha::W::go` and `beta::W::go` are no
+  longer byte-identical. Verified in git 2026-09-01 — this bullet had described the PRE-B state
+  as current, and a memory index likewise still said step B was on HOLD.
 - **C, proven equivalence + linkage.** The only authority permitted to merge two sites.
 - **D, `query/semantic identity grouping`** — ⚠ NOT a renderer concern. `canonicalSymbolKey` gates
   whether seven verbs refuse or proceed, so it is decision control flow. Measured on the fixture it
@@ -152,7 +154,22 @@ extraction fell through to the old merge branch.
   none, `render` fires correctly but groups `.cpp` vs `.h` rather than the two namespaces.
   Fail-closed rule: distinct sites stay distinct groups until C supplies equivalence. Blast radius
   measured at 11 newly-ambiguous labels repo-wide, so it is not a warning wall.
+  - ✅ **The decl/def half is FIXED** (`6372aae`): `canonicalSymbolKey` strips a module prefix only
+    for rows carrying real namespace qualification (`extra.lexical_scope`, which only C++
+    declares) and only when the prefix matches the module derived from that row's own file path.
+    `alpha::Widget::render` went REFUSED_AMBIGUOUS(2, selectedTargets=0) → one identity; bare
+    `render` went 4 candidates → 2 genuine ones. Dropping the prefix globally was REJECTED: it
+    merges JS classes that differ only by module.
+  - ⛔ **The OVERLOAD half is OPEN.** Measured on `tests/fixtures/identity-hostile`:
+    `clamp(int)` and `clamp(double)` return NO_CALLERS with 0 candidates — no ambiguity signal at
+    all. `canonicalSymbolKey` groups by qname and the SIGNATURE is not in it. Bisected: identical
+    pre/post the decl/def fix, so pre-existing. See `docs/evidence/m1b-overloads/FINDING.md`.
 - **Ship (after repair):** ambiguity returns the qualified candidates WITH their caller sets.
+  ✅ **DONE for the namespace case, both languages** (`9860bdd` JS, `57fb7de` C++):
+  `alpha → {alphaCaller}`, `beta → {betaCaller}`, disjoint, with positive controls proving the
+  sets are non-empty. ⚠ Both fixtures had to be given their PROJECT CONFIG first — the JS one
+  had no package.json/tsconfig.json, the C++ one no compile_commands.json, and both zeros had
+  been recorded as "caller attribution is structurally unavailable".
 - **Why it matters:** on the pilot corpus the collision was the finding. An agent that got "2
   callers" without knowing they were 2 symbols would have renamed the wrong one.
 - `identity`: compiler-resolved ID/signature when available, else `extracted_candidate` — **never
@@ -168,6 +185,10 @@ extraction fell through to the old merge branch.
 - **Stop when:** a hostile fixture proves overloads do NOT collapse and decl/def pairs do NOT fork.
   ⚠ My original acceptance test was too weak: a same-name-different-symbol fixture passes while a
   renderer still collapses overloads and forks decl/def.
+  - ⛔ **HALF MET as of 2026-09-02, and this warning caught a real overclaim.** decl/def do NOT
+    fork (`6372aae`). Overloads DO still collapse. A session closed the namespace fixture and
+    reported "M1 complete" — using exactly the too-weak test this bullet describes. Withdrawn.
+    **M1a is closed; M1b is open on the overload half.**
 
 ### M2 — Contracts at action/absence-authorising results  `[scope corrected]`
 
