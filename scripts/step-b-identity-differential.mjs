@@ -1,22 +1,33 @@
 #!/usr/bin/env node
 // Differential carrier for M1a step B (gates 1 and 7).
 //
-// Step B taught the C++ extractor to carry lexical scope into the qname. Two things had to be
-// shown NOT to move: symbol SITE identity (a byte-span address, gate 7) and the entire non-C++
-// canonical population (gate 1, because `lexicalScope` is opt-in and only cpp.js declares it).
-//
-// Both are differentials, not assertions: the script is pointed at TWO checkouts of this repo and
-// the outputs are compared. Running it against one checkout proves only that it agrees with
-// itself. Usage:
+// Both gates are differentials between TWO checkouts. The checkout supplies only the CODE; the
+// fixture, the tracked-file list, the source bytes AND the population definition all come from
+// this working tree, so the two runs differ in exactly one variable. Running it against a single
+// checkout proves only that the code agrees with itself.
 //
 //   git worktree add --detach ../apg-preb <pre-B commit>
-//   node scripts/step-b-identity-differential.mjs sites     ../apg-preb  > pre.txt
-//   node scripts/step-b-identity-differential.mjs sites     .            > post.txt
-//   diff pre.txt post.txt
+//   node scripts/step-b-identity-differential.mjs canonical ../apg-preb > pre.jsonl
+//   node scripts/step-b-identity-differential.mjs canonical .           > post.jsonl
+//   diff pre.jsonl post.jsonl
 //
 // Modes: `sites` (gate 7, the frozen identity-hostile fixture) and `canonical` (gate 1, every
-// tracked non-C/C++ source). The checkout supplies the CODE; the fixture and file list always
-// come from this working tree, so the two runs differ in exactly one variable.
+// tracked source whose language did NOT opt in to the step-B change).
+//
+// ⚠ FOUR THINGS AN EARLIER VERSION GOT WRONG. They are recorded because each one produced a
+// confident, wrong, GREEN result:
+//   1. `catch { continue }` swallowed every extraction error and ASSUMED both checkouts failed on
+//      the same files. Equal row counts can hide different skipped files — a fail-open instrument
+//      certifying a fail-closed claim. Every candidate now emits exactly one `file` row carrying
+//      its disposition, so a disposition change IS a diff line.
+//   2. Non-C++ was selected with a hand-maintained extension denylist. The population is now
+//      DERIVED — a file is in scope iff its language config does not declare `lexicalScope`,
+//      which is exactly "did not opt in". The derived population is LARGER than the denylist's
+//      (778 vs 774): the list was quietly wrong as well as unmaintainable.
+//   3. Rows were delimiter-joined anonymous tuples with no path. They are canonical JSON now,
+//      path on every row, multiplicity preserved.
+//   4. It emitted `ref.from_target`, which does not exist on a ref: 0 of 65,813 rows non-empty.
+//      It compared nothing while making the compared surface look wider than it was.
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -24,31 +35,111 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const SYMBOL_TYPES = new Set(['Function', 'Method', 'Class', 'Struct', 'Test']);
-const CPP_EXTENSIONS = new Set(['.c', '.cc', '.cpp', '.cxx', '.h', '.hh', '.hpp', '.hxx']);
 
-async function loadExtractor(checkout) {
-  const at = (rel) => pathToFileURL(path.join(checkout, rel)).href;
+async function loadCheckout(root) {
+  const at = (rel) => pathToFileURL(path.join(root, rel)).href;
   const { extractFile } = await import(at('mcp/stdio/ingest/extractors/generic.js'));
   const { getLanguageConfig } = await import(at('mcp/stdio/ingest/languages/index.js'));
   return { extractFile, getLanguageConfig };
 }
 
-function extract({ extractFile, getLanguageConfig }, filePath) {
-  const config = getLanguageConfig(filePath);
-  if (!config) return null;
-  const source = fs.readFileSync(path.join(REPO, filePath), 'utf8');
-  return extractFile({ filePath, source, config });
+// ⚠ `getLanguageConfig` THROWS for an unsupported path rather than returning a falsy value. An
+// earlier version tested `Boolean(config)` and the run died on the first JSON file — and because
+// BOTH sides died, the two output files were empty and `diff` called them EQUAL. The differential
+// reported "identical" from two crashed runs. Hence this wrapper, and hence `refuseEmpty` below:
+// an instrument that cannot distinguish "no differences" from "no data" is not evidence.
+function configFor(checkout, filePath) {
+  try {
+    return checkout.getLanguageConfig(filePath) ?? null;
+  } catch {
+    return null;
+  }
 }
 
-// Gate 7: `<path>:<line>:<site id>` for every symbol in the frozen hostile fixture.
-function sitePopulation(extractor) {
+// The population definition comes from THIS working tree, identically for both runs. Deriving it
+// from each checkout's own config would move the population itself — pre-B declares `lexicalScope`
+// nowhere, so every C++ file would enter the pre-B population and leave the post-B one, and that
+// membership change would swamp the differential it is supposed to expose.
+function optedOutCandidates(local) {
+  return execFileSync('git', ['ls-files'], { cwd: REPO, encoding: 'utf8' })
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((filePath) => {
+      const config = configFor(local, filePath);
+      return Boolean(config) && !config.lexicalScope;
+    });
+}
+
+// One row per candidate, always. `disposition` is the typed outcome, never a silent skip.
+function canonicalRows(checkout, candidates) {
+  const rows = [];
+  for (const filePath of candidates) {
+    const config = configFor(checkout, filePath);
+    if (!config) {
+      rows.push({ kind: 'file', path: filePath, language: null, disposition: 'unsupported' });
+      continue;
+    }
+    let result = null;
+    let failure = null;
+    try {
+      const source = fs.readFileSync(path.join(REPO, filePath), 'utf8');
+      result = checkout.extractFile({ filePath, source, config });
+    } catch (error) {
+      failure = error?.code ?? error?.name ?? 'UNTYPED_ERROR';
+    }
+    if (failure) {
+      rows.push({ kind: 'file', path: filePath, language: config.language, disposition: 'error', error: failure });
+      continue;
+    }
+    const nodes = result.nodes ?? [];
+    const refs = result.refs ?? [];
+    // The classification each checkout made is emitted, so a disagreement between the two shows up
+    // as a diff line rather than being absorbed by a script-internal assertion nobody reads.
+    rows.push({
+      kind: 'file',
+      path: filePath,
+      language: config.language,
+      disposition: 'ok',
+      nodes: nodes.length,
+      refs: refs.length,
+    });
+    for (const node of nodes) {
+      rows.push({
+        kind: 'node',
+        path: filePath,
+        id: node.id,
+        type: node.type,
+        label: node.label,
+        qname: node.extra?.qname ?? null,
+        parent_class: node.extra?.parent_class ?? null,
+        // The two step-B carriers. For an opted-out language both must stay absent; `null` here
+        // records "the field was not present", which is the asserted state rather than a gap.
+        lexical_scope: node.extra?.lexical_scope ?? null,
+        written_qualifier: node.extra?.written_qualifier ?? null,
+      });
+    }
+    for (const ref of refs) {
+      rows.push({
+        kind: 'ref',
+        path: filePath,
+        relation: ref.relation ?? null,
+        from_id: ref.from_id ?? null,
+        target: ref.target ?? null,
+      });
+    }
+  }
+  return rows;
+}
+
+function sitePopulation(checkout) {
   const dir = path.join(REPO, 'tests/fixtures/identity-hostile/src');
   const rows = [];
   for (const file of fs.readdirSync(dir).sort()) {
     const filePath = `src/${file}`;
     const source = fs.readFileSync(path.join(dir, file), 'utf8');
-    const config = extractor.getLanguageConfig(filePath);
-    const result = extractor.extractFile({ filePath, source, config });
+    const config = configFor(checkout, filePath);
+    const result = checkout.extractFile({ filePath, source, config });
     for (const node of result.nodes ?? []) {
       if (SYMBOL_TYPES.has(node.type)) rows.push(`${filePath}:${node.start_line}:${node.id}`);
     }
@@ -56,51 +147,38 @@ function sitePopulation(extractor) {
   return rows;
 }
 
-// Gate 1: the canonical tuple for every node and ref in every tracked non-C/C++ source.
-// ⚠ Ref rows carry three REAL fields — relation, from_id, target. An earlier version of this
-// script also emitted `r.from_target`, which does not exist on a ref: 0 of 65,813 rows were
-// non-empty, so that column compared nothing while making the surface look wider than it was.
-function canonicalPopulation(extractor) {
-  const tracked = execFileSync('git', ['ls-files'], { cwd: REPO, encoding: 'utf8' })
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .filter((file) => !CPP_EXTENSIONS.has(path.extname(file).toLowerCase()));
-
-  const rows = [];
-  let filesExtracted = 0;
-  for (const filePath of tracked) {
-    let result = null;
-    try {
-      result = extract(extractor, filePath);
-    } catch {
-      continue; // unparseable or unsupported here is the same in both checkouts
-    }
-    if (!result) continue;
-    filesExtracted += 1;
-    for (const node of result.nodes ?? []) {
-      rows.push([node.id, node.type, node.label, node.extra?.qname ?? '', node.extra?.parent_class ?? ''].join('|'));
-    }
-    for (const ref of result.refs ?? []) {
-      rows.push(['REF', ref.relation ?? '', ref.from_id ?? '', ref.target ?? ''].join('|'));
-    }
+// A differential over an empty population is indistinguishable from one with no differences.
+// Fail closed rather than emit nothing and let `diff` report success.
+function refuseEmpty(rows, what) {
+  if (rows.length === 0) {
+    process.stderr.write(`REFUSED: ${what} produced 0 rows; an empty population cannot certify anything\n`);
+    process.exit(3);
   }
-  return { rows, filesExtracted };
+  return rows;
 }
 
-const [mode, checkout] = process.argv.slice(2);
-if (!['sites', 'canonical'].includes(mode) || !checkout) {
+const [mode, checkoutPath] = process.argv.slice(2);
+if (!['sites', 'canonical'].includes(mode) || !checkoutPath) {
   process.stderr.write('usage: step-b-identity-differential.mjs <sites|canonical> <checkout-path>\n');
   process.exit(2);
 }
 
-const extractor = await loadExtractor(path.resolve(checkout));
+const local = await loadCheckout(REPO);
+const checkout = await loadCheckout(path.resolve(checkoutPath));
+
 if (mode === 'sites') {
-  const rows = sitePopulation(extractor);
+  const rows = refuseEmpty(sitePopulation(checkout), 'site population');
   process.stdout.write(`${rows.sort().join('\n')}\n`);
   process.stderr.write(`sites=${rows.length}\n`);
 } else {
-  const { rows, filesExtracted } = canonicalPopulation(extractor);
-  process.stdout.write(`${rows.sort().join('\n')}\n`);
-  process.stderr.write(`files=${filesExtracted} rows=${rows.length}\n`);
+  const candidates = refuseEmpty(optedOutCandidates(local), 'candidate list');
+  const rows = refuseEmpty(canonicalRows(checkout, candidates), 'canonical population');
+  const serialized = rows.map((row) => JSON.stringify(row, Object.keys(row).sort())).sort();
+  process.stdout.write(`${serialized.join('\n')}\n`);
+  const tally = rows.reduce((acc, row) => {
+    const key = row.kind === 'file' ? `file:${row.disposition}` : row.kind;
+    acc[key] = (acc[key] ?? 0) + 1;
+    return acc;
+  }, {});
+  process.stderr.write(`candidates=${candidates.length} ${Object.entries(tally).map(([k, v]) => `${k}=${v}`).join(' ')}\n`);
 }
