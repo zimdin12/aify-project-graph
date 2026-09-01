@@ -173,11 +173,23 @@ extraction fell through to the old merge branch.
     See `docs/evidence/m1b-overloads/FINDING-param-list-key.md`; the older `FINDING.md` reached the
     opposite conclusion and is marked superseded in place.
 - **Ship (after repair):** ambiguity returns the qualified candidates WITH their caller sets.
-  ✅ **DONE for the namespace case, both languages** (`9860bdd` JS, `57fb7de` C++):
-  `alpha → {alphaCaller}`, `beta → {betaCaller}`, disjoint, with positive controls proving the
-  sets are non-empty. ⚠ Both fixtures had to be given their PROJECT CONFIG first — the JS one
-  had no package.json/tsconfig.json, the C++ one no compile_commands.json, and both zeros had
-  been recorded as "caller attribution is structurally unavailable".
+  ⛔ **THIS BULLET CARRIED A ✅ FOR THE WRONG CLAIM until 2026-09-02.** It read "DONE for the
+  namespace case, both languages (`9860bdd` JS, `57fb7de` C++)" and cited fixtures showing
+  `alpha → {alphaCaller}`, `beta → {betaCaller}`, disjoint. That is **caller sets being disjoint
+  when queried ONE AT A TIME** — a different statement from *the refusal returns them*. The
+  refusal listed names and locations only, so an agent still spent one call per candidate to
+  learn which one it meant: the dead end this milestone is named for, marked shipped.
+  ✅ **NOW ACTUALLY DONE** (`76675ef`, hardened in `a8d92a7`): each candidate is followed by its
+  own caller set. Verified on this repo's real graph, not only fixtures —
+  `graphDir → 4 callers: snapshotArtifacts, removeArtifacts, publishedGeneration (+1 more)` and
+  a second candidate at `16 callers … (+13 more)`. Bounded as this section's own bullet requires
+  (≤ limit candidates, ≤ 3 names each) so a high-cardinality name narrows instead of fanning out.
+  Opt-in by db handle, and the opt-OUT is tested: five other verbs share this refusal.
+  ⚠ An empty set is scoped ("0 callers in the indexed graph") under one shared FLOOR caveat; a
+  bare per-candidate "0 callers" would be an absence claim stripped of its trust line.
+  ⚠ Both fixtures had to be given their PROJECT CONFIG first — the JS one had no
+  package.json/tsconfig.json, the C++ one no compile_commands.json, and both zeros had been
+  recorded as "caller attribution is structurally unavailable".
 - **Why it matters:** on the pilot corpus the collision was the finding. An agent that got "2
   callers" without knowing they were 2 symbols would have renamed the wrong one.
 - `identity`: compiler-resolved ID/signature when available, else `extracted_candidate` — **never
