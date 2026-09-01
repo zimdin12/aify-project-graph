@@ -10,6 +10,7 @@ import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
 import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness, collectionComplete } from '../collect-ledger.js';
 import { admitLocations } from '../location-coherence.js';
+import { createDocumentSnapshot } from '../document-snapshot.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
 // can take well over the default 10s before the first query resolves.
@@ -424,6 +425,11 @@ export function createCppClangdProvider({ spawn } = {}) {
         // silence about that is how a type-reference became a CALLS [lsp✓] edge.
         let positionGuesses = 0;
       const incoherentLocations = [];
+      // ⚠ ONE SNAPSHOT PER COLLECTION, created here and passed explicitly. Without it the coherence
+      // guard performs one filesystem read PER LOCATION; with it, repeated Locations in one
+      // document share a single captured read. It is deliberately NOT module state: a snapshot
+      // outliving a collection would validate an edited file against pre-edit bytes.
+      const documentSnapshot = createDocumentSnapshot();
       // ⚠ A THIRD STATE, KEPT SEPARATE. 'could not verify' is neither evidence nor absence;
       // folding it into either is how lack of verification becomes authority.
       const unverifiedLocations = [];
@@ -572,7 +578,7 @@ export function createCppClangdProvider({ spawn } = {}) {
                 const defsRaw = (await client.definition(uri, pos)) || [];
                 // ⚠ expectedToken comes from the REQUEST (the symbol we asked about), never from the
                 // returned range — deriving it from the response would make the check self-confirming.
-                const defGate = admitLocations(defsRaw, { method: 'textDocument/definition', expectedToken: qname });
+                const defGate = admitLocations(defsRaw, { method: 'textDocument/definition', expectedToken: qname, readDocument: (f) => documentSnapshot.read(f) });
                 for (const r of defGate.refused) incoherentLocations.push({ ...r, qname });
                 for (const r of defGate.unavailable) unverifiedLocations.push({ ...r, qname });
                 const defs = defGate.admitted;
@@ -698,7 +704,7 @@ export function createCppClangdProvider({ spawn } = {}) {
                   // is a FLOOR, and a downstream "no other callers" read off a
                   // silently-capped set would be exactly the false-completeness
                   // failure this codebase exists to prevent.
-                  const refGate = admitLocations(refs, { method: 'textDocument/references', expectedToken: qname });
+                  const refGate = admitLocations(refs, { method: 'textDocument/references', expectedToken: qname, readDocument: (f) => documentSnapshot.read(f) });
                   for (const r of refGate.refused) incoherentLocations.push({ ...r, qname });
                   for (const r of refGate.unavailable) unverifiedLocations.push({ ...r, qname });
                   refs = refGate.admitted;
@@ -846,6 +852,8 @@ export function createCppClangdProvider({ spawn } = {}) {
           // Refusal accounting. A filtered-to-zero result that reports success is
           // indistinguishable from "this symbol genuinely has no definition", so the exact
           // rejected membership travels with the result, bound to the method that produced it.
+          // Per-collection filesystem accounting, beside the coherence accounting.
+          documentSnapshot: documentSnapshot.stats(),
           incoherentLocationsRefused: incoherentLocations.length,
           incoherentLocations,
           unverifiedLocationsExcluded: unverifiedLocations.length,

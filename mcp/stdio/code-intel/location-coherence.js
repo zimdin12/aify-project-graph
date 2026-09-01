@@ -20,7 +20,6 @@
 // definition site nobody checked, and downstream it is indistinguishable from a verified one.
 //
 // Hence THREE outcomes, never two. "Not proven invalid" is not "valid".
-import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export const ADMISSION = Object.freeze({
@@ -75,18 +74,14 @@ function rangeSyntaxOk(range) {
 // reject `.../include/vector` — a real standard header with no extension and a legitimate
 // definition site. `stat` is consulted ONLY to classify a read failure (directory vs unreadable),
 // never to stand in for the read.
-function readTarget(uri) {
+function readTarget(uri, readDocument) {
   let filePath;
   try { filePath = fileURLToPath(uri); }
   catch { return { kind: 'not_a_file_uri' }; }
-  try {
-    return { kind: 'file', filePath, text: fs.readFileSync(filePath, 'utf8') };
-  } catch (error) {
-    let isDirectory = false;
-    try { isDirectory = fs.statSync(filePath).isDirectory(); } catch { isDirectory = false; }
-    if (isDirectory || error?.code === 'EISDIR') return { kind: 'directory', filePath };
-    return { kind: 'unreadable', filePath, code: error?.code ?? 'UNKNOWN' };
-  }
+  const got = readDocument(filePath);
+  if (got.status === 'ok') return { kind: 'file', filePath, text: got.text };
+  if (got.reason === 'directory_uri') return { kind: 'directory', filePath };
+  return { kind: 'unreadable', filePath, code: got.reason };
 }
 
 // ⚠ THE EXPECTED TOKEN COMES FROM THE REQUEST, NOT FROM THE RETURNED RANGE. Deriving it from the
@@ -103,7 +98,14 @@ function leafOf(name) {
   return (parts[parts.length - 1] ?? '').trim();
 }
 
-export function admitLocation(location, { expectedToken } = {}) {
+// ⚠ `readDocument` IS REQUIRED, not defaulted. It is the collection-owned document snapshot, and
+// defaulting it to a direct read would restore one filesystem read per Location — the very defect
+// the snapshot exists to remove — silently, in whichever caller forgot to pass it. A caller that
+// forgets now fails loudly instead.
+export function admitLocation(location, { expectedToken, readDocument } = {}) {
+  if (typeof readDocument !== 'function') {
+    throw new TypeError('admitLocation requires a readDocument (the collection-owned document snapshot)');
+  }
   const shape = readShape(location);
   if (!shape) {
     return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.UNKNOWN_SHAPE, uri: null };
@@ -112,7 +114,7 @@ export function admitLocation(location, { expectedToken } = {}) {
     return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.INVALID_RANGE_SYNTAX, uri: shape.uri };
   }
 
-  const target = readTarget(shape.uri);
+  const target = readTarget(shape.uri, readDocument);
   if (target.kind === 'not_a_file_uri') {
     return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.NOT_A_FILE_URI, uri: shape.uri };
   }
@@ -158,13 +160,13 @@ export function admitLocation(location, { expectedToken } = {}) {
  * exact reason and membership, bound to the method that produced it, so a filtered-to-zero result
  * can never present itself as a clean absence.
  */
-export function admitLocations(locations, { method, expectedToken } = {}) {
+export function admitLocations(locations, { method, expectedToken, readDocument } = {}) {
   const list = Array.isArray(locations) ? locations : (locations ? [locations] : []);
   const admitted = [];
   const refused = [];
   const unavailable = [];
   for (const location of list) {
-    const verdict = admitLocation(location, { expectedToken });
+    const verdict = admitLocation(location, { expectedToken, readDocument });
     const row = { method: method ?? null, reason: verdict.reason, uri: verdict.uri, ...(verdict.detail ? { detail: verdict.detail } : {}) };
     if (verdict.outcome === ADMISSION.ADMITTED) admitted.push(location);
     else if (verdict.outcome === ADMISSION.REFUSED_INVALID) refused.push(row);

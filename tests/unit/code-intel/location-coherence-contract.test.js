@@ -14,6 +14,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { admitLocation, admitLocations, ADMISSION, LOCATION_REASONS } from '../../../mcp/stdio/code-intel/location-coherence.js';
+import { createDocumentSnapshot } from '../../../mcp/stdio/code-intel/document-snapshot.js';
+
+// The snapshot is REQUIRED, not defaulted — a caller that forgets must fail loudly rather than
+// silently restore one filesystem read per Location. Each test gets a fresh one, as a collection
+// would.
+const reader = () => { const snap = createDocumentSnapshot(); return (f) => snap.read(f); };
 
 let dir;
 let fileUri;
@@ -33,12 +39,12 @@ afterAll(() => { try { rmSync(dir, { recursive: true, force: true }); } catch { 
 describe('location coherence — the frozen contract, predicate by predicate', () => {
   it('POSITIVE CONTROL: a real readable file with a matching token is ADMITTED', () => {
     // Without this the guard could refuse everything and every negative test below would pass.
-    const v = admitLocation({ uri: fileUri, range: RANGE }, { expectedToken: TOKEN });
+    const v = admitLocation({ uri: fileUri, range: RANGE }, { expectedToken: TOKEN, readDocument: reader() });
     expect(v.outcome).toBe(ADMISSION.ADMITTED);
   });
 
   it('a DIRECTORY uri with an identifier range is REFUSED_INVALID', () => {
-    const v = admitLocation({ uri: dirUri, range: RANGE }, { expectedToken: TOKEN });
+    const v = admitLocation({ uri: dirUri, range: RANGE }, { expectedToken: TOKEN, readDocument: reader() });
     expect(v.outcome).toBe(ADMISSION.REFUSED_INVALID);
     expect(v.reason).toBe(LOCATION_REASONS.DIRECTORY_URI);
   });
@@ -46,7 +52,7 @@ describe('location coherence — the frozen contract, predicate by predicate', (
   it('a readable file with a range BEYOND EOF is REFUSED_INVALID', () => {
     const v = admitLocation(
       { uri: fileUri, range: { start: { line: 99, character: 0 }, end: { line: 99, character: 4 } } },
-      { expectedToken: TOKEN },
+      { expectedToken: TOKEN, readDocument: reader() },
     );
     expect(v.outcome).toBe(ADMISSION.REFUSED_INVALID);
     expect(v.reason).toBe(LOCATION_REASONS.RANGE_OUT_OF_BOUNDS);
@@ -57,7 +63,7 @@ describe('location coherence — the frozen contract, predicate by predicate', (
     // case a bounds-only check would wave through.
     const v = admitLocation(
       { uri: fileUri, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } } },
-      { expectedToken: TOKEN },
+      { expectedToken: TOKEN, readDocument: reader() },
     );
     expect(v.outcome).toBe(ADMISSION.REFUSED_INVALID);
     expect(v.reason).toBe(LOCATION_REASONS.TOKEN_MISMATCH);
@@ -66,7 +72,7 @@ describe('location coherence — the frozen contract, predicate by predicate', (
   it('⛔ a MISSING file is UNAVAILABLE_UNVERIFIED and is NOT admitted', () => {
     // The fail-open this guard shipped with once. It must be neither evidence nor absence.
     const missing = pathToFileURL(join(dir, 'does-not-exist.cpp')).toString();
-    const v = admitLocation({ uri: missing, range: RANGE }, { expectedToken: TOKEN });
+    const v = admitLocation({ uri: missing, range: RANGE }, { expectedToken: TOKEN, readDocument: reader() });
     expect(v.outcome).toBe(ADMISSION.UNAVAILABLE_UNVERIFIED);
     expect(v.reason).toBe(LOCATION_REASONS.FILE_STATUS_UNAVAILABLE);
     expect(v.outcome).not.toBe(ADMISSION.ADMITTED);
@@ -76,7 +82,7 @@ describe('location coherence — the frozen contract, predicate by predicate', (
     // Operators, destructors, aliases and macro-origin sites are legitimate unknowns. Tuning a
     // regex until they returned true would be a silent weakening of the contract.
     for (const token of ['operator<<', '~Widget', '']) {
-      const v = admitLocation({ uri: fileUri, range: RANGE }, { expectedToken: token });
+      const v = admitLocation({ uri: fileUri, range: RANGE }, { expectedToken: token, readDocument: reader() });
       expect(v.outcome, `token ${JSON.stringify(token)}`).toBe(ADMISSION.UNAVAILABLE_UNVERIFIED);
       expect(v.reason).toBe(LOCATION_REASONS.TOKEN_UNVERIFIABLE);
     }
@@ -84,14 +90,14 @@ describe('location coherence — the frozen contract, predicate by predicate', (
 
   it('an unknown response shape is REFUSED_INVALID, never coerced into a Location', () => {
     for (const bad of [null, {}, { range: RANGE }, 'nope']) {
-      const v = admitLocation(bad, { expectedToken: TOKEN });
+      const v = admitLocation(bad, { expectedToken: TOKEN, readDocument: reader() });
       expect(v.outcome).toBe(ADMISSION.REFUSED_INVALID);
       expect(v.reason).toBe(LOCATION_REASONS.UNKNOWN_SHAPE);
     }
   });
 
   it('LocationLink is accepted, with uri and range read from the SAME shape', () => {
-    const v = admitLocation({ targetUri: fileUri, targetSelectionRange: RANGE }, { expectedToken: TOKEN });
+    const v = admitLocation({ targetUri: fileUri, targetSelectionRange: RANGE }, { expectedToken: TOKEN, readDocument: reader() });
     expect(v.outcome).toBe(ADMISSION.ADMITTED);
   });
 
@@ -103,7 +109,7 @@ describe('location coherence — the frozen contract, predicate by predicate', (
       { uri: fileUri, range: { start: { line: 99, character: 0 }, end: { line: 99, character: 1 } } }, // EOF
       { uri: fileUri, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 4 } } },   // wrong token
       { uri: missing, range: RANGE },                                                   // unreadable
-    ], { method: 'textDocument/references', expectedToken: TOKEN });
+    ], { method: 'textDocument/references', expectedToken: TOKEN, readDocument: reader() });
 
     expect(gate.admitted).toHaveLength(1);
     expect(gate.admitted[0].uri).toBe(fileUri);
