@@ -247,21 +247,35 @@ export function createCppClangdProvider({ spawn } = {}) {
           enumeratedTotal = files.length;
           files = split.remaining;
 
-          // ⛔ THE PRODUCER ASSERTS CONVERGENCE — THE SUMMARY MUST NEVER INFER IT.
+          // ⛔ THE LEDGER LEFT NO WORK, AND WE CANNOT SAY WHY. THAT IS THE WHOLE STATEMENT.
           //
-          // The witness-checked `readLedger` above is the only place that knows whether prior
-          // coverage is still backed by evidence IN THE GRAPH. A ledger claiming coverage after a
-          // rebuild has been orphaned, and honouring it made this verb a permanent no-op that
-          // reported success (Sand Castle, 2026-08-20: `recordsImported 0 · resumedFrom 200` while
-          // the graph held zero LSP edges — "every field a caller could check read as success").
+          // This branch is NOT an efficiency shortcut. It is the fail-closed representation of
+          // "the accepted ledger left nothing to do, but current evidence lineage cannot authorize
+          // a completion claim" — so it avoids spawning clangd for zero files while REFUSING to
+          // call the collection complete.
           //
-          // Without this return the summary would have to derive completion from `resumedFrom`,
-          // which is a resume COUNT and not a completion claim — reopening that exact hole one
-          // layer up. So the assertion is made HERE, after the witness, or not at all.
+          // ⛔ AN EARLIER VERSION OF THIS BRANCH CLAIMED COMPLETION, AND IT COULD NOT. It emitted
+          // `already_collected`, `complete: true` and `status: 'ok'`, with a message saying "the
+          // graph still holds their evidence". The witness backing that sentence is
+          // `ledgerEvidenceSurvives`, which is `verifiedEdges > 0 && intelRecords > 0` over GLOBAL
+          // counts — one unrelated surviving edge would have licensed a ledger claiming hundreds
+          // of other files. A per-file claim on a two-counter check.
           //
-          // ⚠ AND IT IS MADE BEFORE CLANGD STARTS. There is nothing left to collect, so spawning a
-          // language server to discover that would burn the caller's budget to learn what the
-          // ledger already established.
+          // ⛔ AND PER-FILE BINDING CANNOT RESCUE IT HERE. Measured on this repo's graph: 612 of
+          // 640 record-bearing files carry ZERO `LSP_VERIFIED` edges, so requiring an edge per
+          // claimed file would make the completion claim fail-closed AND INERT for 96% of the
+          // population. Records alone carry no generation or content lineage, so a stale record at
+          // the same path satisfies a filename subset after the source changed.
+          //
+          // ⇒ Until a persisted per-file collection witness exists (collection/generation +
+          // canonical path + evidence membership or hash), NO authoritative note is emitted here.
+          // The summary therefore maps this to `ZERO_FILES_CAUSE_UNKNOWN` with authority `none` —
+          // an honest unknown with the right object, rather than a reassuring value with the wrong
+          // one. That distinction is exactly what the 2026-08-20 incident cost.
+          //
+          // ⚠ THIS REPORTS THE UNCERTAINTY; IT DOES NOT VALIDATE THE LEDGER'S DECISION. Unrelated
+          // global evidence can still let the ledger skip work that should have been recollected.
+          // That remains an OPEN CORRECTNESS DEFECT, recorded separately, and is not closed here.
           if (files.length === 0 && resumedFrom > 0) {
             return {
               schema_version: '0.2',
@@ -276,21 +290,25 @@ export function createCppClangdProvider({ spawn } = {}) {
                 compileDbHash: dbHash,
                 filesProcessed: 0,
                 filesTotal: 0,
+                // The denominators a reader needs to see what the ledger actually claimed.
+                remaining: 0,
                 resumedFrom,
                 enumeratedTotal,
                 resumeLedger: 'active',
-                // ⚠ NOT an unconditional true. This says the ENUMERATED LIST was fully covered.
-                // The compile DB is that list; a source outside it was never offered here, so this
-                // is a claim about the list and not about the repository.
-                complete: true,
+                // ⛔ NEVER omitted and never defaulted to true. Omission would let a consumer
+                // supply its own optimistic default, which is how the original claim survived.
+                complete: false,
               },
               operations: {},
-              status: 'ok',
-              notes: [{
-                code: 'already_collected',
-                message: `nothing left to collect — all ${enumeratedTotal} file(s) in this compile DB are already recorded, and the graph still holds their evidence. Re-running is a no-op.`,
-                hint: 'pass resume:false to force a full re-collect, or files[] to target specific files',
-              }],
+              // ⛔ NOT 'ok'. A success envelope over "we cannot say" is the shape of the original
+              // defect, and `invalidationSkipped: "... already converged"` is gated on status==='ok'
+              // (importer.js:677), so partial also stops that prose independently reasserting
+              // completion downstream.
+              status: 'partial',
+              // ⛔ DELIBERATELY NO NOTE. `already_collected` would claim completion we cannot
+              // authorize, and `no_files` would be a different wrong object — the requested scope
+              // was not empty, the ledger emptied it. Silence here is what produces UNKNOWN.
+              notes: [],
               diagnostics: compileDb.diagnostics || [],
               records: [],
             };
