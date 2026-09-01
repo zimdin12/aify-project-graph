@@ -228,21 +228,45 @@ export function spineCoverage(db) {
   }
   // ⚠ UNKNOWN STAYS UNKNOWN — null, never 0 and never "all". A fabricated denominator would let a
   // reader compute a completeness figure nobody measured.
+  // ⛔ THE CAUSES ARE LITERALS ON PURPOSE — a ternary HID TWO OF THEM FROM THE VOCABULARY GATE.
+  //
+  // `cause-vocabulary.test.js` harvests `cause: '...'` literals across mcp/stdio and requires each
+  // to be documented in SERVER_INSTRUCTIONS, because agents branch on those exact strings. My first
+  // version computed the cause with a ternary, so the harvester saw only ONE of the three new
+  // causes and the other two were undocumented AND invisible to the guard meant to catch that.
+  // Its own header names this class: a checker that cannot see its population will eventually
+  // certify an empty one. Widening the regex would have been the wrong repair — the code should be
+  // legible to the gate, not the gate stretched around the code.
   const processed = latest.filesProcessed;
   const eligible = latest.filesEligible;
   const known = Number.isFinite(processed) && Number.isFinite(eligible) && eligible > 0;
+  const base = { collection: latest.collectionId ?? null, language: latest.language ?? null };
+
+  if (!known) {
+    return {
+      ...base, files_processed: null, files_eligible: null,
+      cause: 'coverage_unrecorded',
+      consequence: `The newest code-intel collection is ${latest.language} but did not record its file `
+        + 'coverage, so how much of the repository it covers is UNKNOWN.',
+      remedy: null,
+    };
+  }
+  if (processed < eligible) {
+    return {
+      ...base, files_processed: processed, files_eligible: eligible,
+      cause: 'partial_spine_coverage',
+      consequence: `The newest code-intel collection is ${latest.language} and processed ${processed} of `
+        + `${eligible} eligible files. Structural fields are compiler-verified only inside that set; `
+        + 'outside it they are heuristic.',
+      remedy: 'run graph_collect_code_intel with scope:"all" to cover the remainder.',
+    };
+  }
   return {
-    collection: latest.collectionId ?? null, language: latest.language ?? null,
-    files_processed: known ? processed : null, files_eligible: known ? eligible : null,
-    cause: known && processed < eligible ? 'partial_spine_coverage' : (known ? null : 'coverage_unrecorded'),
-    consequence: known
-      ? `The newest code-intel collection is ${latest.language} and processed ${processed} of ${eligible} `
-        + 'eligible files. Structural fields are compiler-verified only inside that set; outside it they are heuristic.'
-      : `The newest code-intel collection is ${latest.language} but did not record its file coverage, `
-        + 'so how much of the repository it covers is UNKNOWN.',
-    remedy: known && processed < eligible
-      ? 'run graph_collect_code_intel with scope:"all" to cover the remainder.'
-      : null,
+    ...base, files_processed: processed, files_eligible: eligible,
+    cause: null,
+    consequence: `The newest code-intel collection is ${latest.language} and processed ${processed} of `
+      + `${eligible} eligible files — the whole eligible population.`,
+    remedy: null,
   };
 }
 
