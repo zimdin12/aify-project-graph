@@ -1,5 +1,15 @@
 # M1b is NOT met: overloads collapse. My "M1 complete" claim was an overclaim.
 
+> ⛔ **SUPERSEDED 2026-09-02 — the conclusion below is now WRONG, and the section headed
+> "The cheaper fix was explored and DOES NOT WORK" is the part that was wrong.**
+> M1b's overload half is CLOSED (`2b11170`). The parameter LIST — as opposed to the whole
+> signature — does not carry the decl/def divergence, because that divergence lives entirely
+> in the qualifier prefix before the parenthesis. This document printed both signatures and
+> did not read them that way, then generalised a true statement about the whole signature
+> into a false one about the parameter list, without measuring.
+> Current evidence: `FINDING-param-list-key.md`. Kept in place because a quietly deleted
+> claim is how a directory starts disagreeing with itself.
+
 ## What I claimed, and what is actually true
 
 I reported **"M1 complete on both arms"** after closing the C++ caller-set arm. That was right about
@@ -89,7 +99,7 @@ differ between declaration and definition (`int clamp(int value);` vs `int clamp
 which forks decl/def again. Matching parameter TYPES would be correct, and that is parsing, not
 string comparison.
 
-⇒ **Still open, now for a measured reason.** The next attempt does not need to rediscover that
+⇒ ⛔ **SUPERSEDED — this paragraph is the wrong conclusion.** It read: still open, now for a measured reason. The next attempt does not need to rediscover that
 signature-in-key breaks decl/def, or that parameter-name divergence defeats the text-based
 shortcut. What it needs is a type-level parameter identity, or a different authority for
 equivalence — which is what step C ("proven equivalence + linkage") was always for.

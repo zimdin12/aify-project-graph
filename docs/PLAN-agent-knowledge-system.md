@@ -160,10 +160,18 @@ extraction fell through to the old merge branch.
     `alpha::Widget::render` went REFUSED_AMBIGUOUS(2, selectedTargets=0) → one identity; bare
     `render` went 4 candidates → 2 genuine ones. Dropping the prefix globally was REJECTED: it
     merges JS classes that differ only by module.
-  - ⛔ **The OVERLOAD half is OPEN.** Measured on `tests/fixtures/identity-hostile`:
-    `clamp(int)` and `clamp(double)` return NO_CALLERS with 0 candidates — no ambiguity signal at
-    all. `canonicalSymbolKey` groups by qname and the SIGNATURE is not in it. Bisected: identical
-    pre/post the decl/def fix, so pre-existing. See `docs/evidence/m1b-overloads/FINDING.md`.
+  - ✅ **The OVERLOAD half is now FIXED TOO** (`2b11170`, 2026-09-02). It had returned NO_CALLERS
+    with 0 candidates — no ambiguity signal at all — because `canonicalSymbolKey` groups by qname
+    and overloads share one. Fixed with a second pass: a group subdivides by normalized PARAMETER
+    LIST, and only when EVERY member states its parameters, so a missing signature can never fork a
+    decl/def pair. The whole signature could not be used — decl and def differ by the written
+    qualifier — but that divergence sits entirely BEFORE the parenthesis.
+    Measured: 3 of 6,272 groups fragment (0.048%), all three inspected and correct; mechanism and
+    regression controls both pass. ⛔ Splitting alone was NOT enough: the first working version
+    printed two identical candidate bullets under a hint telling the agent to qualify harder, which
+    no C++ program can do for an overload set. The parameter types are now in the candidate list.
+    See `docs/evidence/m1b-overloads/FINDING-param-list-key.md`; the older `FINDING.md` reached the
+    opposite conclusion and is marked superseded in place.
 - **Ship (after repair):** ambiguity returns the qualified candidates WITH their caller sets.
   ✅ **DONE for the namespace case, both languages** (`9860bdd` JS, `57fb7de` C++):
   `alpha → {alphaCaller}`, `beta → {betaCaller}`, disjoint, with positive controls proving the
@@ -185,10 +193,14 @@ extraction fell through to the old merge branch.
 - **Stop when:** a hostile fixture proves overloads do NOT collapse and decl/def pairs do NOT fork.
   ⚠ My original acceptance test was too weak: a same-name-different-symbol fixture passes while a
   renderer still collapses overloads and forks decl/def.
-  - ⛔ **HALF MET as of 2026-09-02, and this warning caught a real overclaim.** decl/def do NOT
-    fork (`6372aae`). Overloads DO still collapse. A session closed the namespace fixture and
-    reported "M1 complete" — using exactly the too-weak test this bullet describes. Withdrawn.
-    **M1a is closed; M1b is open on the overload half.**
+  - ✅ **MET as of 2026-09-02** (`2b11170`): decl/def do NOT fork (`6372aae`) and overloads do NOT
+    collapse. Both halves are asserted in ONE test file
+    (`tests/integration/m1b-overloads-do-not-collapse.test.js`) precisely so neither can be traded
+    for the other, and 3 consumer mutants confirm the verb fails without each part.
+    ⚠ This bullet's warning had already caught a real overclaim: an earlier session closed the
+    namespace fixture and reported "M1 complete" using exactly the too-weak test described above.
+    ⚠ Claim ceiling: ONE hostile fixture, three files, one compiler. Says nothing about how often
+    overloads are merged in real C++, and the blast radius on a C++ codebase is UNMEASURED.
 
 ### M2 — Contracts at action/absence-authorising results  `[scope corrected]`
 
