@@ -16,7 +16,10 @@ function endLineNumber(node) {
   return node ? node.endPosition.row + 1 : 0;
 }
 
-function moduleNameForPath(filePath) {
+// Exported so the QUERY layer can reverse this exact derivation when deciding whether a stored
+// qname carries a module prefix. Reimplementing it there would let the two drift, and the whole
+// point is that they must agree byte for byte.
+export function moduleNameForPath(filePath) {
   const normalized = filePath.replace(/\\/g, '/');
   const withoutExt = normalized.slice(0, normalized.length - extname(normalized).length);
   return withoutExt

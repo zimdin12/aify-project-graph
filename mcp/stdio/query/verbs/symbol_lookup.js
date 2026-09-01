@@ -19,6 +19,10 @@
 // Returns the row array (possibly empty) the same shape a direct
 // `WHERE label = $label` query would return.
 
+// The SAME derivation ingest used to build the module label, imported rather than reimplemented —
+// a second copy here would drift from the one that produced the stored qnames.
+import { moduleNameForPath } from '../../ingest/extractors/generic.js';
+
 const QUALIFIER_RE = /::|\./;
 
 export function splitQualifiedSymbol(symbol) {
@@ -83,9 +87,45 @@ function parseExtra(row) {
   return row.extra ?? {};
 }
 
+// ⛔ THE C++ DECL/DEF PAIR DID NOT SHARE A KEY, AND THIS FILE CLAIMED IT DID.
+//
+// The two qnames are built by different rules in the extractor. An out-of-line definition
+// (`void Widget::render() {}` inside `namespace alpha`) takes its parent from the qualifier AS
+// WRITTEN — scope-relative, so lexicalScope composes onto it and no module label appears:
+//     src/widgets.cpp  ->  alpha.Widget.render
+// The in-class declaration has no written qualifier, so the parent is the Class node's ABSOLUTE
+// qname, which already carries the module label mid-string where the anti-double-prefix
+// `startsWith` guard cannot see it:
+//     src/widgets.h    ->  src.widgets.alpha.Widget.render
+// One entity, two keys, so `alpha::Widget::render` returned REFUSED_AMBIGUOUS with
+// selectedTargets=0 and no caller set could render even with a perfect edge layer.
+//
+// ⛔ AND THE OBVIOUS REPAIR IS WRONG. Dropping the module prefix unconditionally MERGES genuinely
+// distinct symbols: in JavaScript `src.alpha.Widget.render` and `src.beta.Widget.render` are two
+// real classes differing ONLY by module. Where a language has no namespaces the module prefix is
+// the sole discriminator — load-bearing there, redundant in C++, so the rule cannot be global.
+//
+// ⇒ Strip only for rows carrying REAL namespace qualification (`extra.lexical_scope`, which only
+// C++ declares), and only when the prefix ACTUALLY matches the module derived from that row's own
+// file path by the same function ingest used. A language that overrides its module label (PHP, via
+// moduleFromAst) simply will not match and nothing is stripped — fail-safe, not "true today".
+// In C++ the namespace-qualified name IS the identity, so two headers declaring `n::C::m` are the
+// same entity or an ODR violation; merging them is correct, not lossy.
+function stripModulePrefix(qparts, row, extra) {
+  const scope = extra?.lexical_scope;
+  if (!Array.isArray(scope) || scope.length === 0) return qparts;
+  if (!row?.file_path) return qparts;
+  const moduleParts = normalizeQname(moduleNameForPath(String(row.file_path)));
+  if (moduleParts.length === 0 || moduleParts.length >= qparts.length) return qparts;
+  for (let i = 0; i < moduleParts.length; i += 1) {
+    if (qparts[i] !== moduleParts[i]) return qparts; // no prefix match — leave it alone
+  }
+  return qparts.slice(moduleParts.length);
+}
+
 function canonicalSymbolKey(row) {
   const extra = parseExtra(row);
-  const qparts = normalizeQname(extra?.qname ?? '');
+  const qparts = stripModulePrefix(normalizeQname(extra?.qname ?? ''), row, extra);
   if (qparts.length > 0) return `${row.type ?? 'Symbol'}:${qparts.join('.')}`;
 
   const parentClass = normalizeQualifiedPart(extra?.parent_class ?? '');
