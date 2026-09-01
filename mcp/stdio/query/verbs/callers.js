@@ -103,7 +103,9 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         remedy: 'graph_impact answers "who touches this" across the wider family.',
       });
       let line = '';
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot }); }
+      // The language comes from the resolved target, so the construct-coverage clause appears on a
+      // C/C++ absence and costs zero bytes anywhere else.
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot, language: targets[0]?.language }); }
       catch { /* defensive */ }
       // ⚠ The scope note goes WITH the absence claim, where the reader is deciding whether nothing
       // uses this symbol — not into a separate field they would have to know to consult.
