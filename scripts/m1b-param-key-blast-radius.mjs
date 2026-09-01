@@ -14,7 +14,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { openExistingDb } from '../mcp/stdio/storage/db.js';
 import { canonicalSymbolKey } from '../mcp/stdio/query/verbs/symbol_lookup.js';
-import { normalizedParamList } from '../mcp/stdio/query/param-signature.js';
+import { normalizedParamList, paramListSubKeys } from '../mcp/stdio/query/param-signature.js';
 
 const REPO = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -55,15 +55,15 @@ function analyse(rows, label) {
 
   const withParens = rows.filter((r) => rawParenText(extraOf(r).signature) != null).length;
 
-  // Which of the original groups actually fragment under V2?
+  // Which of the original groups actually fragment under V3 — the SHIPPED rule, where a group
+  // subdivides only when EVERY member states its parameters. V2 (per-row suffix, partial coverage
+  // allowed) is reported alongside so the guard's cost and benefit are both visible.
   const splits = [];
   for (const [key, members] of before) {
     if (members.length < 2) continue;
-    const sub = new Set(members.map((m) => {
-      const s = normalizedParamList(extraOf(m).signature);
-      return s == null ? '(none)' : s;
-    }));
-    if (sub.size > 1) {
+    const subKeys = paramListSubKeys(members.map((m) => extraOf(m).signature));
+    const sub = new Set(subKeys ?? []);
+    if (subKeys) {
       splits.push({
         key,
         members_before: members.length,
@@ -83,9 +83,9 @@ function analyse(rows, label) {
     console.log('⛔ POSITIVE CONTROL FAILED — no row carries a parenthesised signature.');
     console.log('   The scan is BLIND here; a "nothing splits" result from this population is VOID.');
   }
-  console.log(`groups: before=${before.size}  afterV2(names stripped)=${afterV2.size}  afterV1(raw text)=${afterV1.size}`);
+  console.log(`groups: before=${before.size}  afterV2(per-row, no guard)=${afterV2.size}  afterV1(raw text)=${afterV1.size}`);
   const pct = before.size ? ((splits.length / before.size) * 100).toFixed(3) : '0';
-  console.log(`groups that FRAGMENT under V2: ${splits.length} of ${before.size} (${pct}%)`);
+  console.log(`groups that FRAGMENT under V3 (shipped rule): ${splits.length} of ${before.size} (${pct}%)`);
   for (const s of splits) {
     console.log(`  ${s.key}  ${s.members_before} -> ${s.groups_after}`);
     for (const r of s.rows) console.log(`      ${r.at}  sig=${JSON.stringify(r.signature)}  norm=${JSON.stringify(r.normalized)}`);

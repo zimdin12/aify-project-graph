@@ -107,7 +107,10 @@ export function normalizedParamList(signature) {
  * A group subdivides only when EVERY member states its parameters.
  */
 export function paramListSubKeys(signatures) {
-  if (!Array.isArray(signatures) || signatures.length < 2) return null;
+  // NOTE: no separate `length < 2` guard. Mutant M-9 removed one and SURVIVED, which is how it
+  // was found to be decoration: a one-member group yields a one-element set, and the agreement
+  // check below already returns null for it. A guard that cannot fail is deleted, not kept.
+  if (!Array.isArray(signatures)) return null;
   const lists = signatures.map(normalizedParamList);
   if (lists.some((list) => list == null)) return null; // partial coverage: no information
   if (new Set(lists).size <= 1) return null; // every member agrees: nothing to subdivide

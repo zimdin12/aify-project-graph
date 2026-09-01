@@ -22,6 +22,8 @@
 // The SAME derivation ingest used to build the module label, imported rather than reimplemented —
 // a second copy here would drift from the one that produced the stored qnames.
 import { moduleNameForPath } from '../../ingest/extractors/generic.js';
+// Parameter-list identity: the discriminator that separates an overload set from one symbol.
+import { paramListSubKeys } from '../param-signature.js';
 
 const QUALIFIER_RE = /::|\./;
 
@@ -178,18 +180,51 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
   if (concrete.length <= 1) return null;
 
   // Group by canonical definition identity (qname / parent-class+label / file).
-  // Overloads and the C++ decl/def split share a canonical key → one group →
-  // not ambiguous. Genuinely distinct definitions (e.g. `Foo::bar` living in two
-  // namespaces) form separate groups.
-  const groups = new Map();
+  // The C++ decl/def split shares a canonical key → one group → not ambiguous. Genuinely
+  // distinct definitions (e.g. `Foo::bar` living in two namespaces) form separate groups.
+  //
+  // ⛔ AN OVERLOAD SET IS NOT ONE IDENTITY, AND FOR A LONG TIME THIS TREATED IT AS ONE.
+  // `canonicalSymbolKey` groups by qname, and overloads share a qname. So `alpha::clamp(int)`
+  // and `alpha::clamp(double)` produced ONE group, `graph_callers clamp` returned NO CALLERS
+  // with zero candidates, and an agent was answered as though a single symbol existed. That is
+  // the M1 defect class in its worst form — not a refusal an agent can act on, but a false
+  // SPECIFIC answer it cannot tell from a true one.
+  //
+  // Two passes, because a group cannot be subdivided by a property of members that were already
+  // thrown away: the old single loop kept one representative per key and discarded the rest.
+  const buckets = new Map();
   for (const row of concrete) {
     const key = canonicalSymbolKey(row);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(row);
+  }
+
+  const groups = new Map();
+  // ⛔ SPLITTING WITHOUT SAYING WHY PRODUCES A DEAD END, WHICH IS WHAT M1 EXISTS TO REMOVE.
+  // The first version of this change made `clamp` refuse with two candidates that RENDERED
+  // IDENTICALLY — same qualified name, same file, differing only by line — while `alpha::clamp`
+  // refused too. So the retry hint said "add more namespace qualification" when no qualification
+  // in the language could have separated them. A refusal an agent cannot act on is barely better
+  // than the false-specific answer it replaced. This carries the discriminator into the display.
+  const paramSuffixByRow = new Map();
+  const keep = (key, row) => {
     const existing = groups.get(key);
-    if (existing) {
-      if ((row.confidence ?? 0) > (existing.confidence ?? 0)) groups.set(key, row);
+    if (existing && (existing.confidence ?? 0) >= (row.confidence ?? 0)) return;
+    groups.set(key, row);
+  };
+  for (const [key, members] of buckets) {
+    // Returns null unless EVERY member states its parameters and they actually differ, so a
+    // group is never split on missing information — see param-signature.js for the measured
+    // reason that guard exists.
+    const subKeys = paramListSubKeys(members.map((row) => parseExtra(row)?.signature));
+    if (!subKeys) {
+      for (const row of members) keep(key, row);
       continue;
     }
-    groups.set(key, row);
+    members.forEach((row, i) => {
+      paramSuffixByRow.set(row, subKeys[i]);
+      keep(`${key}${subKeys[i]}`, row);
+    });
   }
 
   if (groups.size <= 1) return null;
@@ -204,10 +239,13 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
   // qualification, and tailor the retry hint: if the caller already qualified,
   // tell them class-qualification was not enough — narrow harder.
   const qualified = QUALIFIER_RE.test(symbol);
-  const candidates = [...groups.values()]
-    .sort(candidateSortKey)
-    .slice(0, limit)
-    .map((row) => `- ${displaySymbolCandidate(row)} ${row.file_path}:${row.start_line ?? 0}`);
+  const shown = [...groups.values()].sort(candidateSortKey).slice(0, limit);
+  const candidates = shown
+    .map((row) => `- ${displaySymbolCandidate(row)}${paramSuffixByRow.get(row) ?? ''} ${row.file_path}:${row.start_line ?? 0}`);
+  // An overload set is the one ambiguity that MORE QUALIFICATION CANNOT RESOLVE, so it needs its
+  // own hint rather than the generic "narrow harder" — which would send an agent round a loop it
+  // cannot exit.
+  const overloaded = shown.some((row) => paramSuffixByRow.has(row));
 
   // ★ AMBIGUITY ACROSS LANGUAGES IS A FINDING, NOT A FAILURE TO DISAMBIGUATE.
   //
@@ -231,9 +269,11 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
   );
   const crossLanguage = languages.size > 1;
 
-  const retryHint = qualified
-    ? 'These are DISTINCT definitions (same name, different namespace/file) — class qualification did not disambiguate. Add more namespace qualification (Namespace::Class::method) or query one file to avoid overstating impact.'
-    : 'Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.';
+  const retryHint = overloaded
+    ? 'These are an OVERLOAD SET — same qualified name, DIFFERENT PARAMETER TYPES (shown in parentheses). No amount of namespace qualification separates them, so do NOT retry with a longer name. Scope to one definition with file= plus the line shown above, or use code_intel_references at that position for per-symbol evidence.'
+    : qualified
+      ? 'These are DISTINCT definitions (same name, different namespace/file) — class qualification did not disambiguate. Add more namespace qualification (Namespace::Class::method) or query one file to avoid overstating impact.'
+      : 'Retry with a qualified symbol (Class::method / Namespace::Class::method) or use a file-specific query.';
 
   const crossLanguageNote = crossLanguage
     ? [
