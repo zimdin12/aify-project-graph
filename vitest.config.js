@@ -50,6 +50,22 @@ export default defineConfig({
     // INSIDE graphPacket — which the inventory passed, because that 396-line function calls
     // the renderer elsewhere. Nothing pattern-matched over source can attribute a header to
     // the path that produced it. Executing it can.
-    env: { APG_PACKET_SEAL_STRICT: '1' },
+    // ⛔ AND THE SUITE'S VERDICT MUST NOT DEPEND ON MACHINE LOAD.
+    //
+    // graph_packet bounds a symbol→feature lookup at 2000ms in production. That lookup's own
+    // measured cost is 601ms on a 3958-node repo and 4316ms on a 12126-node one, so on a busy
+    // machine it crosses the line, packet takes its TIMEOUT branch, and every test asserting on
+    // CONTENT fails. Measured on one unchanged tree in a single session: 680s / 2120s / 2693s with
+    // 0 / 2 / 10 failures — failures scaling with duration, all budget-shaped.
+    //
+    // That destroys the signal the "full suite green before push" gate exists to give: a real
+    // regression becomes indistinguishable from contention, and three separate investigations in
+    // that session ended in "it was load".
+    //
+    // ⚠ THIS LOSES NO COVERAGE. No test asserts the lookup is FAST; they assert what it returns.
+    // Raising the harness budget removes a confound rather than weakening an assertion, and the
+    // PRODUCT default is untouched at 2000ms — `live-budget-is-configurable.test.js` pins that,
+    // and reads it in a child process because the constant resolves at module load.
+    env: { APG_PACKET_SEAL_STRICT: '1', APG_LIVE_BUDGET_MS: '30000' },
   },
 });
