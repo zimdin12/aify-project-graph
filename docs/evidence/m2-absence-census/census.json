@@ -86,8 +86,10 @@
    "verb": "consequences",
    "absence": true,
    "literalAbsence": true,
-   "scopeProducersReached": [],
-   "verdict": "NO_SCOPE"
+   "scopeProducersReached": [
+    "spineCoverage"
+   ],
+   "verdict": "HAS_SCOPE"
   },
   {
    "verb": "dashboard",

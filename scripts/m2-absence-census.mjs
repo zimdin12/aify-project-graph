@@ -25,7 +25,18 @@ if (toolNames.length === 0) { console.log('VOID: registry read failed'); process
 // literal is `NO IMPACT — no edges found for ...`, an em-dash where the rule demanded `for` — was
 // filed as having NO absence path while it reached TWO scope producers. A self-contradictory row.
 const ABSENCE_RE = /NO [A-Z][A-Z ]+|NO MATCH|no match|not found|no edges found|no results/;
-const SCOPE_PRODUCERS = ['buildAbsenceTrustLine', 'unsearchedRelationNote', 'noMatchMessage'];
+// ⛔ THIS LIST IS HAND-MAINTAINED AND IT DRIFTED WITHIN ONE SESSION. `spineCoverage` was added to
+// graph_consequences as the structured `structural_coverage` field, and this census kept reporting
+// that verb as NO_SCOPE — my own instrument under-reporting my own progress, which is the
+// parallel-list defect in the tool built to catch that class. A producer added without touching
+// this line is invisible here.
+//
+// ⚠ Not all producers answer the same question, and the FINDING must keep them apart:
+//   EVIDENCE scope  — what the answer was computed FROM (the spine, its coverage, the compile DB)
+//   NAME help       — noMatchMessage, "did you mean", which is not a scope statement at all
+//   RELATION scope  — unsearchedRelationNote, which relations were never consulted
+const EVIDENCE_SCOPE_PRODUCERS = ['buildAbsenceTrustLine', 'spineCoverage'];
+const SCOPE_PRODUCERS = [...EVIDENCE_SCOPE_PRODUCERS, 'unsearchedRelationNote', 'noMatchMessage'];
 
 const reachedProducers = (code) =>
   SCOPE_PRODUCERS.filter((p) => new RegExp(`\\b${p}\\s*\\(`).test(code));
@@ -74,6 +85,12 @@ console.log('\n=== NO_SCOPE (absence-shaped, no scope producer reached) ===');
 for (const r of by('NO_SCOPE')) console.log(`  ${r.verb}`);
 console.log('\n=== HAS_SCOPE ===');
 for (const r of by('HAS_SCOPE')) console.log(`  ${r.verb.padEnd(24)} ${JSON.stringify(r.scopeProducersReached)}`);
+
+// ⛔ THE NUMBER THAT GOVERNS M2 IS EVIDENCE SCOPE, NOT ANY SCOPE. Counting noMatchMessage as
+// "has scope" would conflate name help with a statement about what the answer was computed from.
+const evidence = rows.filter((r) => r.scopeProducersReached.some((p) => EVIDENCE_SCOPE_PRODUCERS.includes(p)));
+console.log(`\n=== EVIDENCE SCOPE (the M2 number): ${evidence.length} of ${rows.filter((r) => r.absence).length} absence-shaped ===`);
+for (const r of evidence) console.log(`  ${r.verb.padEnd(24)} ${JSON.stringify(r.scopeProducersReached)}`);
 
 fs.writeFileSync(path.join(REPO, 'docs/evidence/m2-absence-census/census.json'),
   JSON.stringify({ registryTools: toolNames.length, filesScanned: rows.length, rows }, null, 1), 'utf8');

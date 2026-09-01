@@ -98,3 +98,39 @@ so an empty result there green-lights an edit. `graph_pull` / `graph_packet` are
 
 ⚠ `graph_whereis` shows as HAS_SCOPE in the raw census but reaches only `noMatchMessage`, which is
 name help rather than evidence scope. It is not counted above.
+
+## ADDENDUM 2 — re-measured after `structural_coverage` (and the census had drifted)
+
+⛔ **THE CENSUS UNDER-REPORTED ITS OWN SUBJECT.** Its `SCOPE_PRODUCERS` list is hand-maintained.
+`spineCoverage` was added to `graph_consequences` as the structured `structural_coverage` field, and
+the census kept classifying that verb `NO_SCOPE` — the parallel-list defect, inside the tool built to
+catch that class. Uncorrected it would have had me reporting 18 gaps when one was already closed.
+A producer added without editing that line is invisible here; the list is now split so the FINDING
+can separate the three questions the producers answer:
+
+| producer | answers |
+|---|---|
+| `buildAbsenceTrustLine`, `spineCoverage` | EVIDENCE scope — what the answer was computed FROM |
+| `unsearchedRelationNote` | RELATION scope — which relations were never consulted |
+| `noMatchMessage` | NAME help — "did you mean", not a scope statement at all |
+
+**Current, both sets derived:**
+
+| | |
+|---|---|
+| absence-shaped verb files | 24 |
+| with an EVIDENCE-scope statement | **5** — `callers`, `callees`, `impact`, `neighbors`, `consequences` |
+| default-listed tools | 16 |
+| **…with evidence scope AND default-listed** | **3** — `graph_callers`, `graph_impact`, `graph_consequences` |
+| default-listed gaps remaining | 7 — `explore`, `health`, `packet`, `pull`, `search`, `trace`, `whereis` |
+
+The reach figure moved 2 → 3 of 16, because `graph_consequences` is default-listed and is the one
+verb among the gaps whose empty answer AUTHORISES AN ACTION ("what breaks if I change this").
+`callees` and `neighbors` remain unlisted in the focused profile, so their scope statements are
+still unreachable by default — coverage that exists and is not delivered.
+
+**Not claimed:** that the seven remaining gaps all NEED an evidence-scope statement. `graph_health`
+is a self-report about the graph, `search`/`whereis` are locators, `packet`/`pull` are orientation.
+The plan warns that recreating the warning wall the pilot agents skimmed would undo M2's own
+purpose, so the per-verb question is what decision each answer's reader is actually making — not
+whether a clause can be attached.
