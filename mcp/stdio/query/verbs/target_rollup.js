@@ -7,13 +7,17 @@ function placeholders(values, prefix) {
   };
 }
 
-export function expandClassRollupTargets(db, symbol) {
+// `withCallerSets` is opt-in and only `graph_callers` passes it: its refusal is the one whose
+// subject IS the caller set, so a dead-end list of names is the milestone's named failure there and
+// merely noise in graph_impact or graph_trace.
+export function expandClassRollupTargets(db, symbol, { withCallerSets = false } = {}) {
   // resolveSymbol handles class-qualified forms (C++ `Class::method`,
   // dotted `Class.method`) by falling back to the bare name and
   // disambiguating via extra.qname when the parent is named. Critical
   // for C++ where agents naturally ask `GpuSimFramework::setGravAxis`.
   const targets = resolveSymbol(db, symbol);
-  const ambiguity = buildAmbiguousMatchMessage(symbol, targets);
+  const ambiguity = buildAmbiguousMatchMessage(symbol, targets, 5, null,
+    { callerSetsFrom: withCallerSets ? db : null });
   if (ambiguity) {
     return {
       targets: [],

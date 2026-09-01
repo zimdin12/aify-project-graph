@@ -35,7 +35,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
   if (freshness.blocker) return freshness.blocker;
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
-    const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol);
+    const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol, { withCallerSets: true });
     if (error) return error;
     if (targets.length === 0) return noMatchMessage(db, symbol);
 

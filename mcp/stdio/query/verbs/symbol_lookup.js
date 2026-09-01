@@ -24,6 +24,8 @@
 import { moduleNameForPath } from '../../ingest/extractors/generic.js';
 // Parameter-list identity: the discriminator that separates an overload set from one symbol.
 import { paramListSubKeys } from '../param-signature.js';
+// Caller sets for the ambiguous refusal — opt-in, see the callerSetsFrom note below.
+import { summarizeCallersFor, renderCallerSummary } from '../candidate-callers.js';
 
 const QUALIFIER_RE = /::|\./;
 
@@ -173,7 +175,12 @@ function candidateSortKey(a, b) {
 // uncertainty: at least G identities among 50 of 60 rows, population not established.
 // Inventing a group count for rows nobody grouped would be the same lie in the other
 // direction.
-export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = null) {
+// ★ `callerSetsFrom` IS OPT-IN, AND THAT IS THE DESIGN, NOT AN OVERSIGHT.
+// Six verbs share this refusal. A caller set is the answer for `graph_callers`; for `graph_trace`
+// or `graph_impact` it is noise attached to a question nobody asked, paid for with a query per
+// candidate. So the db handle is passed by the ONE verb whose refusal is about callers, and every
+// other call site is byte-for-byte unchanged.
+export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = null, { callerSetsFrom = null } = {}) {
   if (!symbol) return null;
 
   const concrete = preferConcrete(rows);
@@ -240,8 +247,34 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
   // tell them class-qualification was not enough — narrow harder.
   const qualified = QUALIFIER_RE.test(symbol);
   const shown = [...groups.values()].sort(candidateSortKey).slice(0, limit);
-  const candidates = shown
-    .map((row) => `- ${displaySymbolCandidate(row)}${paramSuffixByRow.get(row) ?? ''} ${row.file_path}:${row.start_line ?? 0}`);
+
+  // ⛔ M1'S ACTUAL STOP CONDITION: "the refusal is a DEAD END; make it return the qualified
+  // candidates WITH their caller sets." Listing names and locations left an agent to issue one
+  // follow-up call per candidate just to learn which one it meant — the plan recorded this as
+  // shipped because the FIXTURES proved the sets were disjoint, which is a different claim.
+  //
+  // Bounded on both axes: at most `limit` candidates are ever shown, and each summary names at
+  // most three callers. That is the same bullet's other requirement — high-cardinality names must
+  // narrow rather than multiplying N x 100 edge fetches into an output wall.
+  let callerSets = null;
+  if (callerSetsFrom) {
+    callerSets = new Map();
+    for (const row of shown) {
+      if (row?.id == null) continue;
+      try {
+        callerSets.set(row, renderCallerSummary(summarizeCallersFor(callerSetsFrom, row.id)));
+      } catch {
+        // A refusal that cannot be rendered is worse than one without caller sets. Enrichment is
+        // additive: if the lookup fails, the candidate list still stands.
+      }
+    }
+  }
+
+  const candidates = shown.map((row) => {
+    const head = `- ${displaySymbolCandidate(row)}${paramSuffixByRow.get(row) ?? ''} ${row.file_path}:${row.start_line ?? 0}`;
+    const summary = callerSets?.get(row);
+    return summary ? `${head}\n    -> ${summary}` : head;
+  });
   // An overload set is the one ambiguity that MORE QUALIFICATION CANNOT RESOLVE, so it needs its
   // own hint rather than the generic "narrow harder" — which would send an agent round a loop it
   // cannot exit.
@@ -334,10 +367,29 @@ export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = 
       + 'population is NOT established (retrieval was capped before grouping):'
     : `AMBIGUOUS MATCH for "${symbol}". ${groups.size} concrete candidates found:`;
 
+  // ⛔ ONE CAVEAT FOR THE LISTING, NOT ONE PER CANDIDATE. A per-candidate "0 callers" printed bare
+  // would be an absence claim stripped of its trust line — the defect `d17f2a2` fixed from the
+  // other side ("a refusal a consumer can read as data is not a refusal"). graph_callers routes
+  // every empty result through absence() for exactly that reason, and this enrichment must not
+  // become a back door around it.
+  //
+  // ⚠ The zero clause is CONDITIONAL on a zero actually being shown. Quoting a phrase the listing
+  // does not contain trains a reader to skim the caveat, and the absence warning is the half that
+  // has to land.
+  const anyZero = callerSets ? [...callerSets.values()].some((s) => s.startsWith('0 callers')) : false;
+  const callerSetNote = callerSets?.size
+    ? '⚠ Caller counts come from the heuristic graph and are a FLOOR, not an exhaustive set.'
+      + (anyZero
+        ? ' "0 callers in the indexed graph" is a statement about THIS INDEX, not about the repository.'
+        : '')
+      + ' For a trustworthy absence use code_intel_references (live, per-symbol evidence) or verify with rg.'
+    : '';
+
   return [
     headline,
     ...candidates,
     truncationNote,
+    callerSetNote,
     retryHint,
     crossLanguageNote,
   ].filter(Boolean).join('\n');

@@ -101,3 +101,25 @@ describe('M1b — an overload set is not one identity', () => {
     expect(lines.length).toBe(2);
   });
 });
+
+// ⛔ THE CONSUMER, NOT THE HELPER. Earlier in this arc a mutant deleting `structural_coverage` from
+// graph_consequences SURVIVED because the helper had tests and the verb that was supposed to call
+// it did not. `buildAmbiguousMatchMessage` enriches only when handed a db, so the `->` line below
+// appears ONLY if graph_callers actually opted in.
+describe('M1 — the refusal is not a dead end: graph_callers opts into caller sets', () => {
+  it('★ each candidate in a real refusal carries its own caller set', async () => {
+    const { text, lines } = await ask('render');
+    expect(lines.length, 'two candidates, or this asserts nothing').toBe(2);
+    const enriched = text.split('\n').map((l) => l.trim()).filter((l) => l.startsWith('->'));
+    expect(enriched.length, 'one caller-set line per shown candidate').toBe(2);
+  });
+
+  it('⛔ an empty caller set is SCOPED and keeps its caveat', async () => {
+    // These fixture symbols have no CALLS edges without a live collection, so this is the ZERO
+    // path — which is the dangerous one: an absence claim a consumer could read as "no callers".
+    const { text } = await ask('render');
+    expect(text).toMatch(/-> 0 callers in the indexed graph/);
+    expect(text).toMatch(/FLOOR, not an exhaustive set/);
+    expect(text).toMatch(/statement about THIS INDEX, not about the repository/);
+  });
+});

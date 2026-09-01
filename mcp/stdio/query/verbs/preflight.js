@@ -6,7 +6,7 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine, provenanceRankSql } from '../lsp-evidence.js';
+import { buildTrustLine } from '../lsp-evidence.js';
 import { renderProvenanceTag } from '../renderer.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { getLatestCollection } from '../../code-intel/query.js';
@@ -14,6 +14,8 @@ import { getLatestCollection } from '../../code-intel/query.js';
 // hand-written map was wrong about C here once already (the registry aliases c -> cpp).
 import { inferLanguage, getBackend } from '../../code-intel/backends.js';
 import { missScopeNote } from '../miss-scope.js';
+// One owner for "who calls this node" — see candidate-callers.js.
+import { summarizeCallersFor } from '../candidate-callers.js';
 // ⛔ DERIVED, NOT RESTATED. These four relation lists were written out by hand — three copies of
 // CALL_FAMILY and one near-miss of IMPACT_FAMILY — in the file whose whole job is answering "is this
 // safe to change". taxonomy.js exists precisely so a verb cannot quietly answer a narrower question
@@ -80,17 +82,10 @@ export async function graphPreflight({ repoRoot, symbol }) {
     if (ambiguity) return { publication, ambiguity };
     const node = selectBestRoot(nodes);
 
-    const callerCount = db.get(
-      `SELECT count(*) AS c FROM edges WHERE to_id = $id AND relation IN (${asSqlList(CALL_FAMILY)})`,
-      { id: node.id },
-    ).c;
-    const topCallers = db.all(
-      `SELECT n.label, n.file_path, e.source_line, e.relation, e.confidence, e.provenance
-       FROM edges e JOIN nodes n ON n.id = e.from_id
-       WHERE e.to_id = $id AND e.relation IN (${asSqlList(CALL_FAMILY)})
-       ORDER BY ${provenanceRankSql('e.provenance')} DESC, e.confidence DESC LIMIT 5`,
-      { id: node.id },
-    );
+    // ⛔ THIS QUERY USED TO LIVE HERE IN FULL, and an identical one lived in callers.js. One
+    // question, two implementations, so a fix to either was invisible to the other. Now there is
+    // one owner (`query/candidate-callers.js`) and both read from it.
+    const { total: callerCount, top: topCallers } = summarizeCallersFor(db, node.id, { limit: 5 });
     const incomingProvenance = db.all(
       `SELECT e.provenance FROM edges e
        WHERE e.to_id = $id AND e.relation IN (${asSqlList(CALL_FAMILY)})`,
