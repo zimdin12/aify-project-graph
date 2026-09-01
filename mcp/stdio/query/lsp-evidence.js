@@ -176,10 +176,44 @@ export const HEURISTIC_TRUST_LINE =
 //   noun — 'callers' | 'callees' | 'neighbors' | 'impact' (for the message).
 // Returns a string (no leading newline) the verb appends on its own line after
 // the bare "NO CALLERS for X" line. ALWAYS the heuristic-not-exhaustive caveat.
-export async function buildAbsenceTrustLine({ noun = 'edges' } = {}) {
+// ⛔ THE CALLERS ALREADY PASSED db AND repoRoot; THIS FUNCTION THREW THEM AWAY.
+//
+// All four call sites (callers / callees / impact / neighbors) invoke this as
+// `buildAbsenceTrustLine({ noun, db, repoRoot })`, but the signature destructured only `noun`, so
+// the line was a constant string. It told a reader to DOUBT the absence without ever naming why,
+// and "doubt this" is what an agent already gets free from grep. The facts were in scope the whole
+// time; nothing consumed them.
+//
+// ⚠ SYNCHRONOUS, AND CALLED BEFORE ANY await. The verbs `return` this promise while their enclosing
+// `finally { db.close() }` runs, so a db read after an await fails with "database connection is not
+// open" — the defect recorded at callers.js:93, where a scope note threw on every call and its
+// catch returned '', leaving the feature inert and the output unchanged.
+//
+// ⚠ NAMES ONLY WHAT IT READ. No collection row → say that. A cpp collection with no compile-db hash
+// → the standing no_compile_db limit. Anything else → no clause at all, rather than a guess.
+function spineScopeClause(db, noun) {
+  let latest = null;
+  try { latest = getLatestCollection(db); } catch { return ''; }
+  if (!latest) {
+    // Phrased without the noun so it stays grammatical across callers/callees/impact/neighbors.
+    return ` SCOPE: no code-intel collection exists for this repository, so nothing here is`
+      + ` compiler-verified — run graph_collect_code_intel to build the trust spine.`;
+  }
+  let cpp = null;
+  try { cpp = getLatestCollection(db, { language: 'cpp' }); } catch { /* leave cpp unknown */ }
+  if (cpp && !cpp.compileDbHash) {
+    return ` SCOPE: the C++ collection ran with no compile_commands.json, so clangd resolved no`
+      + ` call and this absence is a FLOOR — generate one with -DCMAKE_EXPORT_COMPILE_COMMANDS=ON.`;
+  }
+  return ` SCOPE: the newest code-intel collection is ${latest.language}; ${noun} in languages or`
+    + ` files it did not cover are heuristic only.`;
+}
+
+export async function buildAbsenceTrustLine({ noun = 'edges', db } = {}) {
+  const scope = db ? spineScopeClause(db, noun) : '';
   return `TRUST: absence is from the heuristic graph and is NOT exhaustive — `
     + `for a trustworthy "no ${noun}" check use code_intel_references `
-    + `(live clangd, per-symbol evidence), or verify with rg.`;
+    + `(live clangd, per-symbol evidence), or verify with rg.${scope}`;
 }
 
 // Build the single trust line for a result.
