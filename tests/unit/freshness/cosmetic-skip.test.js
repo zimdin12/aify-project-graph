@@ -130,9 +130,30 @@ describe('P1-6 cosmetic-vs-structural change classification', () => {
     const after = withDb(repoRoot, snapshot);
     const runNodeAfter = after.nodes.find((n) => n.type === 'Function' && n.label === 'run');
     expect(runNodeAfter).toBeDefined();
-    // Same id (stable qname) but a different structural fingerprint.
-    expect(runNodeAfter.id).toBe(runNodeBefore.id);
+
+    // ⛔ REWRITTEN FOR SITE IDENTITY: this now tests ATOMIC REMINT, not semantic sameness.
+    //
+    // It used to assert `runNodeAfter.id === runNodeBefore.id` — free under the old name-derived
+    // scheme, and a claim step A is barred from making. A code symbol site id is the occurrence's
+    // declarator ADDRESS, so a signature edit moves it. What matters for correctness is not that
+    // the id survived, but that the rebuild left NO TRACE of the old one: a lingering row or a
+    // dangling edge endpoint is a structurally inconsistent graph, which is far worse than a
+    // changed id.
     expect(runNodeAfter.structural_fp).not.toBe(runNodeBefore.structural_fp);
+
+    const afterIds = new Set(after.nodes.map((n) => n.id));
+    expect(afterIds.has(runNodeBefore.id), 'the old site row must be GONE, not orphaned').toBe(false);
+
+    const danglingEndpoints = after.edges.filter(
+      (e) => e.from_id === runNodeBefore.id || e.to_id === runNodeBefore.id,
+    );
+    expect(danglingEndpoints, 'no edge may still point at the retired site id').toEqual([]);
+
+    // POSITIVE CONTROL: the graph is not simply empty. Every remaining edge endpoint resolves, so
+    // the two assertions above are reading a populated graph rather than passing vacuously.
+    expect(after.nodes.length).toBeGreaterThan(0);
+    const unresolved = after.edges.filter((e) => !afterIds.has(e.from_id) || !afterIds.has(e.to_id));
+    expect(unresolved, 'every edge endpoint must resolve after the rebuild').toEqual([]);
   });
 
   it('treats an ADDED CALL (body-only, no signature change) as STRUCTURAL and adds the new edge (correctness guard)', async () => {

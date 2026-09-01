@@ -45,7 +45,18 @@ describe('extractor fingerprint stability', () => {
     const beforeNode = findNode(before.nodes, 'Function', 'greet');
     const afterNode = findNode(after.nodes, 'Function', 'greet');
 
-    expect(beforeNode.id).toBe(afterNode.id);
+    // ⛔ THE ID RELATION ASSERTION WAS REMOVED HERE, NOT INVERTED.
+    //
+    // It used to require `beforeNode.id === afterNode.id` across a SIGNATURE edit, which the old
+    // name-derived scheme gave for free. A code symbol site id is now the occurrence's declarator
+    // ADDRESS, so editing the parameter list moves it. Site identity makes no claim about symbol
+    // sameness across two source revisions — that is semantic continuity, and it belongs to the
+    // later lineage layer, not to step A.
+    //
+    // ⚠ AND IT IS NOT REPLACED BY `not.toBe`. A stated non-guarantee asserted as inequality would
+    // become a GUARANTEED remint — a different false promise in the opposite direction. Whether
+    // the id moves is simply not this test's subject. What the test is for, the structural
+    // fingerprint moving on a signature change, is retained below.
     expect(beforeNode.structural_fp).not.toBe(afterNode.structural_fp);
   });
 
