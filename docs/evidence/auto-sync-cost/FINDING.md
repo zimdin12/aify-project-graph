@@ -126,6 +126,33 @@ becomes the third overclaim in this document.
 and asserting the incremental path is a minority *for the watcher* would be transferring a
 post-commit figure to a state it was never measured in — the same move I have just made twice.
 
+## Addendum — a MEASURED contention factor (2026-09-01)
+
+Six consecutive idle post-commit reindexes, then two that overlapped a running test suite:
+
+```
+idle        43144  43159  43038  43102  44376  42953 ms     ≈ 43 s, ±1 s
+under load  83387  83791 ms                                  ≈ 83.6 s
+```
+
+**≈1.94× penalty.** Both clusters are unusually tight, which is what makes this a signal rather
+than scatter — the idle six span 1.4 s and the loaded two span 0.4 s.
+
+Why it matters for M3a: a watcher fires **during active work**, which is by definition when the
+machine is busy. So the loaded figure, not the idle one, is the relevant order of magnitude for a
+default-on decision.
+
+⚠ **It does NOT close the HOLD, and it is not the missing measurement.**
+- The competing load was a test suite plus a reindex, **not editing**.
+- The input state is still **post-commit** — clean tree, HEAD moved — not the dirty mid-edit burst
+  the watcher actually sees. That is the same transfer gap retracted twice above; this addendum
+  narrows the cost question, not the state question.
+- n=2 under load. The tight spread is suggestive, not a distribution.
+
+⇒ It upgrades "watcher cost is a credible risk" from an assertion to a measured contention factor
+under a *different* input state. The four unmeasured quantities in the current finding are
+unchanged.
+
 ## Limits
 
 One repo, one machine. Duration is wall-clock on a machine that was also running full test suites
