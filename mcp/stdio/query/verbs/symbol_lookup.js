@@ -123,7 +123,10 @@ function stripModulePrefix(qparts, row, extra) {
   return qparts.slice(moduleParts.length);
 }
 
-function canonicalSymbolKey(row) {
+// Exported ONLY so an instrument can group rows with the SAME function the product uses. A second
+// copy in a measurement script would be the parallel-list defect: it would drift from this one and
+// then measure its own drift. Nothing in production imports it.
+export function canonicalSymbolKey(row) {
   const extra = parseExtra(row);
   const qparts = stripModulePrefix(normalizeQname(extra?.qname ?? ''), row, extra);
   if (qparts.length > 0) return `${row.type ?? 'Symbol'}:${qparts.join('.')}`;

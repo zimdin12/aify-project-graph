@@ -6,7 +6,7 @@
 // `(int value)` with `(int v)` — otherwise a C++ decl/def pair forks and `6372aae` is undone.
 // A normalizer that only did one of those would pass a weaker test and be useless or harmful.
 import { describe, it, expect } from 'vitest';
-import { normalizedParamList } from '../../../mcp/stdio/query/param-signature.js';
+import { normalizedParamList, paramListSubKeys } from '../../../mcp/stdio/query/param-signature.js';
 
 describe('normalizedParamList — parameter identity, not parameter text', () => {
   it('★ DISCRIMINATION: separates overloads that differ by parameter TYPE', () => {
@@ -64,5 +64,31 @@ describe('normalizedParamList — parameter identity, not parameter text', () =>
 
   it('arity alone still separates when types are absent (JS-shaped signatures)', () => {
     expect(normalizedParamList('handler(a, b)')).not.toBe(normalizedParamList('handler(a)'));
+  });
+});
+
+describe('paramListSubKeys — a group subdivides only when every member states its parameters', () => {
+  it('★ splits the overload pair — the property M1b is open on', () => {
+    expect(paramListSubKeys(['clamp(int value)', 'clamp(double value)'])).toEqual(['(int)', '(double)']);
+  });
+
+  it('⛔ PARTIAL COVERAGE NEVER SPLITS — one missing signature keeps the group whole', () => {
+    // The measured shape: our extractor signs `function writeDb(rel, entries)` and leaves
+    // `const writeDb = (rel, entries) => {}` empty. In C++ the same asymmetry across a decl/def
+    // pair would fork one real symbol.
+    expect(paramListSubKeys(['(rel, entries)', ''])).toBeNull();
+    expect(paramListSubKeys(['(rel, entries)', null])).toBeNull();
+    expect(paramListSubKeys(['(rel, entries)', undefined])).toBeNull();
+  });
+
+  it('a group whose members all agree is not subdivided', () => {
+    // `Widget::render()` / `render()` — the decl/def pair. Both normalize to `()`.
+    expect(paramListSubKeys(['Widget::render()', 'render()'])).toBeNull();
+  });
+
+  it('a group of one is never subdivided', () => {
+    expect(paramListSubKeys(['clamp(int value)'])).toBeNull();
+    expect(paramListSubKeys([])).toBeNull();
+    expect(paramListSubKeys(null)).toBeNull();
   });
 });

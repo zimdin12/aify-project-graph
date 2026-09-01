@@ -90,3 +90,26 @@ export function normalizedParamList(signature) {
   if (types.length === 0) return '()';
   return `(${types.join(',')})`;
 }
+
+/**
+ * Sub-keys for the members of ONE already-grouped symbol, or `null` when the group must stay whole.
+ *
+ * ⛔ THE PARTIAL-COVERAGE GUARD IS THE POINT OF THIS FUNCTION, and it comes from a measurement.
+ * The blast-radius scan (docs/evidence/m1b-overloads/FINDING-param-list-key.md) found a group that
+ * fragmented for an arbitrary reason: our extractor records a signature for
+ * `function writeDb(rel, entries)` and an EMPTY one for `const writeDb = (rel, entries) => {…}`.
+ * Those three happened to be distinct symbols, so nothing broke — but the same shape in C++, where
+ * one side of a decl/def pair carries a signature and the other does not, would fork a genuinely
+ * single symbol and undo `6372aae`.
+ *
+ * Treating a missing signature as "no information about this group" rather than as a distinct value
+ * makes that impossible by construction, instead of leaving it as a caveat someone has to remember.
+ * A group subdivides only when EVERY member states its parameters.
+ */
+export function paramListSubKeys(signatures) {
+  if (!Array.isArray(signatures) || signatures.length < 2) return null;
+  const lists = signatures.map(normalizedParamList);
+  if (lists.some((list) => list == null)) return null; // partial coverage: no information
+  if (new Set(lists).size <= 1) return null; // every member agrees: nothing to subdivide
+  return lists;
+}
