@@ -521,6 +521,28 @@ export function extractFile({ filePath, source, config }) {
             // order to tell same-shape twins apart.
             site_start_byte: startByte,
             site_end_byte: endByte,
+            // ⛔ THE LEXICAL SCOPE IS PERSISTED SEPARATELY FROM THE WRITTEN QUALIFIER, and the two
+            // must stay distinguishable. Exact qname equality proves the COMPOSITION is right; it
+            // must not make the two EVIDENCE SOURCES look the same to step C, which has to weigh
+            // them differently:
+            //
+            //   void alpha::Widget::render()                  lexical [], qualifier alpha.Widget
+            //   namespace alpha { void Widget::render() {} }  lexical [alpha], qualifier Widget
+            //
+            // Both compose to `alpha.Widget.render`. A carrier recording "scope = alpha.Widget" for
+            // both would erase exactly the distinction C is built on — the same authority-
+            // flattening as a global witness standing in for per-file evidence.
+            //
+            // ⚠ Each segment carries its OWN authority, and the authority is `lexical_ast` — what
+            // the AST literally contained. It is NOT resolved semantic scope, and does not claim
+            // linkage, using-directives or aliases were considered.
+            //
+            // ⚠ ABSENT rather than empty when there is no lexical scope: absent means "no enclosing
+            // namespace was written", and an empty array would invite a reader to treat the field
+            // as always-present-and-therefore-authoritative. Non-C++ never gets this field at all.
+            ...(lexicalScope.length
+              ? { lexical_scope: lexicalScope.map((segment) => ({ segment, authority: 'lexical_ast' })) }
+              : {}),
             // What the extractor BELIEVES this occurrence is. A sibling field, never an id input:
             // hashing a classification would remint the site whenever the classification improved.
             // `unknown` is valid; absence must never be read as "definition".

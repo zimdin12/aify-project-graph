@@ -125,3 +125,109 @@ describe('step B gate 1 — non-C++ is untouched', () => {
     expect(qnamesOf('src/mod.py', py, 'solo')).toEqual(['src.mod.solo']);
   });
 });
+
+// ⛔ GATE 5 AS THE PREREGISTRATION ACTUALLY WROTE IT — EXACT EQUALITY.
+//
+// The first version of this gate asserted "the lexical form contains alpha" and, separately, "the
+// explicit form contains alpha at most once". Both passed while the product produced
+// `alpha.Widget.render` and `alpha.Widget::render` — two different qnames. A gate split into two
+// half-assertions cannot see a convergence failure, and I reported it green.
+describe('step B gate 5 (EXACT) — the two qualification forms yield the SAME qname', () => {
+  const defQname = (relPath, source) => {
+    const defs = symbolsOf(relPath, source)
+      .filter((n) => n.extra.site_kind === 'definition' && String(n.extra.qname).includes('render'));
+    expect(defs.length, 'exactly one definition must be found, or the comparison is ambiguous').toBe(1);
+    return defs[0].extra.qname;
+  };
+
+  it('⛔ lexical-relative and explicit-global definitions are byte-identical', () => {
+    const lexical = defQname('src/lex.cpp', src(
+      'namespace alpha { class Widget { public: void render(); };',
+      'void Widget::render() {} }',
+    ));
+    const explicit = defQname('src/exp.cpp', src(
+      'namespace alpha { class Widget { public: void render(); }; }',
+      'void alpha::Widget::render() {}',
+    ));
+    expect(lexical).toBe(explicit);
+    // Pinned, so a future change that made both wrong IDENTICALLY could not pass.
+    expect(lexical).toBe('alpha.Widget.render');
+  });
+});
+
+// ⛔ HOSTILE TERMINALS UNDER A NESTED QUALIFIER — where "take the last segment" could misfire.
+//
+// At ONE qualifier level these were already correct; the defect needs two or more, which is when
+// tree-sitter nests the qualified_identifier. The template case is the discriminating one: its
+// DECLARATION side already stripped `<T>` while its definition side did not, proving the two paths
+// had diverged rather than that templates were unhandled.
+describe('step B — nested qualifiers with hostile terminals', () => {
+  const pairs = [
+    ['destructor', src('namespace a { struct W { ~W(); }; }', 'a::W::~W() {}'), 'W::~W', 'a.W.~W'],
+    ['operator', src('namespace a { struct W { void operator<<(int); }; }', 'void a::W::operator<<(int x) {}'), 'W::operator<<', 'a.W.operator<<'],
+    ['template owner', src('namespace a { template<class T> struct W { void render(); }; }', 'template<class T> void a::W<T>::render() {}'), 'W<T>::render', 'a.W.render'],
+  ];
+
+  for (const [what, source, expectedLabel, expectedQname] of pairs) {
+    it(`⛔ ${what}: canonical qname, and the display label is UNCHANGED`, () => {
+      const def = symbolsOf('src/h.cpp', source).find((n) => n.extra.qname === expectedQname);
+      expect(def, `no symbol with qname ${expectedQname}`).toBeTruthy();
+      // The qname is canonicalised; the label keeps its source spelling. Fixing identity is not
+      // licence to move every label consumer — that inconsistency stays its own contract.
+      expect(def.label, 'the display label must be byte-identical to its pre-fix spelling').toBe(expectedLabel);
+    });
+  }
+
+  it('POSITIVE CONTROL: a ONE-level qualifier is unchanged by the fix', () => {
+    // These were already correct before the change. If they moved, the fix reached further than
+    // the nested case it was built for.
+    const one = symbolsOf('src/one.cpp', src('struct W { void render(); };', 'void W::render() {}'));
+    expect(one.filter((n) => n.label === 'render').map((n) => n.extra.qname).sort())
+      .toEqual(['W.render', 'src.one.W.render']);
+  });
+});
+
+// ⛔ THE PERSISTED SCOPE CARRIER — preregistered, and originally NOT IMPLEMENTED.
+//
+// The preregistration promised a sibling field recording lexical scope with provenance so step C
+// could tell extracted scope from guessed scope. The first implementation consumed the transient
+// array and stored nothing, leaving qname as the only carrier — a promise in a design document
+// with no product behind it. Review found it by reading the diff against the preregistration.
+describe('step B — lexical scope is PERSISTED, with per-segment provenance', () => {
+  it('⛔ each segment carries its own authority, not one flattened string', () => {
+    const nested = src('namespace outer { namespace inner { void deep() {} } }');
+    const [fn] = symbolsOf('src/carrier.cpp', nested).filter((n) => n.label === 'deep');
+    expect(fn.extra.lexical_scope).toEqual([
+      { segment: 'outer', authority: 'lexical_ast' },
+      { segment: 'inner', authority: 'lexical_ast' },
+    ]);
+  });
+
+  it('⛔ the two EVIDENCE SOURCES stay distinguishable even though the qnames converge', () => {
+    // This is the whole reason the carrier exists. Both forms yield alpha.Widget.render; only the
+    // carrier records WHERE the `alpha` came from, and step C has to weigh those differently.
+    const lexical = symbolsOf('src/lex.cpp', src(
+      'namespace alpha { class Widget { public: void render(); };', 'void Widget::render() {} }',
+    )).find((n) => n.extra.qname === 'alpha.Widget.render');
+    const explicit = symbolsOf('src/exp.cpp', src(
+      'namespace alpha { class Widget { public: void render(); }; }', 'void alpha::Widget::render() {}',
+    )).find((n) => n.extra.qname === 'alpha.Widget.render');
+
+    expect(lexical.extra.qname).toBe(explicit.extra.qname);
+    // ...and yet:
+    expect(lexical.extra.lexical_scope, 'alpha was LEXICAL here').toEqual([{ segment: 'alpha', authority: 'lexical_ast' }]);
+    expect(explicit.extra.lexical_scope, 'alpha was WRITTEN here — no lexical scope at all').toBeUndefined();
+  });
+
+  it('POSITIVE CONTROL: namespace-free C++ has NO carrier, not an empty one', () => {
+    // Absent means "no enclosing namespace was written". An empty array would invite a reader to
+    // treat the field as always present and therefore authoritative.
+    const [fn] = symbolsOf('src/plain.cpp', src('void standalone() {}')).filter((n) => n.label === 'standalone');
+    expect(fn.extra.lexical_scope).toBeUndefined();
+  });
+
+  it('POSITIVE CONTROL: non-C++ never grows the field', () => {
+    const [js] = symbolsOf('src/mod.js', src('export function alone() { return 1; }')).filter((n) => n.label === 'alone');
+    expect(js.extra.lexical_scope).toBeUndefined();
+  });
+});
