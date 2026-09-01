@@ -1,124 +1,174 @@
-// ⛔ AN LSP LOCATION MUST BE INTERNALLY COHERENT BEFORE IT BECOMES A RECORD.
+// ⛔ AN LSP LOCATION MUST BE POSITIVELY VERIFIED BEFORE IT BECOMES EVIDENCE.
 //
 // Observed at the wire, on the real provider path, from clangd 22.1.6:
 //
 //   uri:   file:///C:/Program%20Files/.../MSVC/14.43.34604/include     <- a DIRECTORY
 //   range: line 4, characters 5-16                                      <- exactly `alphaCaller`
 //
-// Sometimes as the only result, sometimes beside a correct sibling, and in BOTH
-// textDocument/definition and textDocument/references responses. Boundary capture and the six
-// falsified causes are in docs/evidence/m1a-step-c/; the cause is still open.
+// In BOTH textDocument/definition and textDocument/references, sometimes as the only result and
+// sometimes beside a correct sibling. Boundary capture and six falsified causes:
+// docs/evidence/m1a-step-c/. The cause is still open and does not gate this guard.
 //
-// ★ THE OBLIGATION IS OURS, NOT CLANGD'S. clangd is external and has already emitted this. What we
-// control is whether it becomes a definition record that sends an agent to a path it cannot open.
-// A record claiming a symbol is defined *in a directory* is not a lower-confidence answer — it is
-// an answer no consumer can act on, and it would be indistinguishable from a real one downstream.
+// ★ THE OBLIGATION IS OURS, NOT CLANGD'S. What we control is whether an unusable location becomes
+// a record that sends an agent to a path it cannot open.
 //
-// ⚠ THE UNIT OF REFUSAL IS THE LOCATION, NEVER THE MESSAGE. A response mixing one good location
-// with one incoherent one must keep the good one; discarding the message would turn a producer
-// defect into lost evidence.
+// ⛔ AND THE FIRST VERSION OF THIS FILE WAS FAIL-OPEN, WITH THE EXCUSE WRITTEN INTO IT.
+// It admitted any location it could not stat, arguing that refusing "would manufacture absence".
+// That is backwards, and the wrong reasoning sitting in a comment is worse than a silent bug
+// because the next reader is persuaded by it. An explained zero does NOT manufacture absence.
+// Admitting unverified location evidence DOES manufacture authority — the record then claims a
+// definition site nobody checked, and downstream it is indistinguishable from a verified one.
 //
-// ⚠ AND REFUSING IS NOT ENOUGH — IT MUST BE COUNTED. A filtered-to-zero result that reports
-// success is indistinguishable from "this symbol genuinely has no definition", which is the exact
-// absence-claim failure this project keeps rediscovering. Every refusal carries a typed reason and
-// its exact rejected membership, bound to the method that produced it.
+// Hence THREE outcomes, never two. "Not proven invalid" is not "valid".
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const LOCATION_REFUSAL_REASONS = Object.freeze({
+export const ADMISSION = Object.freeze({
+  ADMITTED: 'admitted',
+  REFUSED_INVALID: 'refused_invalid',
+  UNAVAILABLE_UNVERIFIED: 'unavailable_unverified',
+});
+
+export const LOCATION_REASONS = Object.freeze({
+  // REFUSED_INVALID — positively proven incoherent.
   UNKNOWN_SHAPE: 'unknown_shape',
   NOT_A_FILE_URI: 'not_a_file_uri',
   DIRECTORY_URI: 'directory_uri',
-  INVALID_RANGE: 'invalid_range',
+  INVALID_RANGE_SYNTAX: 'invalid_range_syntax',
+  RANGE_OUT_OF_BOUNDS: 'range_out_of_bounds',
+  TOKEN_MISMATCH: 'token_mismatch',
+  // UNAVAILABLE_UNVERIFIED — could not be checked. Not evidence, not absence.
+  FILE_STATUS_UNAVAILABLE: 'file_status_unavailable',
+  TOKEN_UNVERIFIABLE: 'token_unverifiable',
 });
 
 // Accept `Location {uri,range}` and `LocationLink {targetUri,targetRange|targetSelectionRange}`.
-// URI and range are read from the SAME shape — never a URI from one object paired with a range
-// from another, which is the assembly error the coherence contract exists to catch.
+// URI and range come from the SAME shape — never a URI from one object paired with a range from
+// another, which is the assembly error the frozen contract exists to catch.
 function readShape(location) {
   if (!location || typeof location !== 'object') return null;
-  if (typeof location.uri === 'string') {
-    return { uri: location.uri, range: location.range, shape: 'Location' };
-  }
+  if (typeof location.uri === 'string') return { uri: location.uri, range: location.range };
   if (typeof location.targetUri === 'string') {
-    return {
-      uri: location.targetUri,
-      range: location.targetSelectionRange ?? location.targetRange,
-      shape: 'LocationLink',
-    };
+    return { uri: location.targetUri, range: location.targetSelectionRange ?? location.targetRange };
   }
   return null;
 }
 
-function isWellFormedRange(range) {
+function rangeSyntaxOk(range) {
   if (!range || typeof range !== 'object') return false;
-  const { start, end } = range;
-  for (const p of [start, end]) {
+  for (const p of [range.start, range.end]) {
     if (!p || typeof p !== 'object') return false;
     if (!Number.isInteger(p.line) || p.line < 0) return false;
     if (!Number.isInteger(p.character) || p.character < 0) return false;
   }
-  if (end.line < start.line) return false;
-  if (end.line === start.line && end.character < start.character) return false;
+  if (range.end.line < range.start.line) return false;
+  if (range.end.line === range.start.line && range.end.character < range.start.character) return false;
   return true;
 }
 
-// ⚠ DIRECTORY-NESS IS DECIDED BY THE FILESYSTEM, NOT BY THE PATH'S SHAPE.
+// ⚠ ONE READ OF THE TARGET BYTES IS THE AUTHORITY. Not stat-then-assume: the same bytes that
+// decide the file exists also decide whether the range is in bounds and what text it covers.
+// A stat can succeed and the read still fail, and then a bounds check would be asserting against
+// a file nobody opened.
 //
-// A file-extension heuristic would reject `.../include/vector` — a real C++ standard header with
-// no extension, and a legitimate definition site. The positive control in the replay test exists
-// precisely to keep that shortcut out.
-//
-// When the target cannot be stat'd we do NOT refuse. "Unreadable" is a different defect from
-// "incoherent", and inventing a refusal for a path this host simply lacks would manufacture
-// absence — the failure mode this guard is meant to prevent, pointed the other way.
-function classifyTarget(uri) {
+// ⚠ DIRECTORY-NESS IS DECIDED BY THE FILESYSTEM, NOT PATH SHAPE. An extension heuristic would
+// reject `.../include/vector` — a real standard header with no extension and a legitimate
+// definition site. `stat` is consulted ONLY to classify a read failure (directory vs unreadable),
+// never to stand in for the read.
+function readTarget(uri) {
   let filePath;
-  try { filePath = fileURLToPath(uri); } catch { return { kind: 'not_a_file_uri' }; }
+  try { filePath = fileURLToPath(uri); }
+  catch { return { kind: 'not_a_file_uri' }; }
   try {
-    return fs.statSync(filePath).isDirectory()
-      ? { kind: 'directory', filePath }
-      : { kind: 'file', filePath };
-  } catch {
-    return { kind: 'unverifiable', filePath };
+    return { kind: 'file', filePath, text: fs.readFileSync(filePath, 'utf8') };
+  } catch (error) {
+    let isDirectory = false;
+    try { isDirectory = fs.statSync(filePath).isDirectory(); } catch { isDirectory = false; }
+    if (isDirectory || error?.code === 'EISDIR') return { kind: 'directory', filePath };
+    return { kind: 'unreadable', filePath, code: error?.code ?? 'UNKNOWN' };
   }
 }
 
-/**
- * Decide whether one LSP location may become a record.
- * @returns {{admitted:true, uri:string, range:object}|{admitted:false, reason:string, uri:string|null}}
- */
-export function admitLocation(location) {
+// ⚠ THE EXPECTED TOKEN COMES FROM THE REQUEST, NOT FROM THE RETURNED RANGE. Deriving it from the
+// response would make the check self-confirming: whatever came back would identify itself.
+//
+// ⚠ AND IT IS NOT FORCED THROUGH A REGEX TO OBTAIN A BOOLEAN. Operators, destructors, aliases and
+// macro-origin sites are legitimate cases where correspondence cannot be established from a plain
+// identifier. Those are UNAVAILABLE_UNVERIFIED — an honest "not checked" — rather than a
+// manufactured pass or a false mismatch.
+const PLAIN_IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/u;
+
+function leafOf(name) {
+  const parts = String(name ?? '').split('::');
+  return (parts[parts.length - 1] ?? '').trim();
+}
+
+export function admitLocation(location, { expectedToken } = {}) {
   const shape = readShape(location);
   if (!shape) {
-    return { admitted: false, reason: LOCATION_REFUSAL_REASONS.UNKNOWN_SHAPE, uri: null };
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.UNKNOWN_SHAPE, uri: null };
   }
-  if (!isWellFormedRange(shape.range)) {
-    return { admitted: false, reason: LOCATION_REFUSAL_REASONS.INVALID_RANGE, uri: shape.uri };
+  if (!rangeSyntaxOk(shape.range)) {
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.INVALID_RANGE_SYNTAX, uri: shape.uri };
   }
-  const target = classifyTarget(shape.uri);
+
+  const target = readTarget(shape.uri);
   if (target.kind === 'not_a_file_uri') {
-    return { admitted: false, reason: LOCATION_REFUSAL_REASONS.NOT_A_FILE_URI, uri: shape.uri };
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.NOT_A_FILE_URI, uri: shape.uri };
   }
   if (target.kind === 'directory') {
     // The load-bearing case: a directory cannot contain a character-precise identifier span.
-    return { admitted: false, reason: LOCATION_REFUSAL_REASONS.DIRECTORY_URI, uri: shape.uri };
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.DIRECTORY_URI, uri: shape.uri };
   }
-  return { admitted: true, uri: shape.uri, range: shape.range };
+  if (target.kind === 'unreadable') {
+    return {
+      outcome: ADMISSION.UNAVAILABLE_UNVERIFIED,
+      reason: LOCATION_REASONS.FILE_STATUS_UNAVAILABLE,
+      uri: shape.uri,
+      detail: target.code,
+    };
+  }
+
+  // Bounds are checked against the bytes just read, not against a second read or a stat.
+  const lines = target.text.split(/\r?\n/u);
+  const { start, end } = shape.range;
+  if (start.line >= lines.length || end.line >= lines.length) {
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.RANGE_OUT_OF_BOUNDS, uri: shape.uri };
+  }
+  if (start.character > lines[start.line].length || end.character > lines[end.line].length) {
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.RANGE_OUT_OF_BOUNDS, uri: shape.uri };
+  }
+
+  const leaf = leafOf(expectedToken);
+  if (!leaf || !PLAIN_IDENTIFIER.test(leaf)) {
+    return { outcome: ADMISSION.UNAVAILABLE_UNVERIFIED, reason: LOCATION_REASONS.TOKEN_UNVERIFIABLE, uri: shape.uri };
+  }
+  const covered = start.line === end.line
+    ? lines[start.line].slice(start.character, end.character)
+    : lines[start.line].slice(start.character);
+  if (!covered.includes(leaf)) {
+    return { outcome: ADMISSION.REFUSED_INVALID, reason: LOCATION_REASONS.TOKEN_MISMATCH, uri: shape.uri };
+  }
+
+  return { outcome: ADMISSION.ADMITTED, uri: shape.uri, range: shape.range };
 }
 
 /**
- * Partition a response's locations, preserving valid siblings and recording exact rejected
- * membership so a filtered-to-zero result can never present itself as a clean absence.
+ * Partition a response's locations. Valid siblings survive; every non-admitted location keeps its
+ * exact reason and membership, bound to the method that produced it, so a filtered-to-zero result
+ * can never present itself as a clean absence.
  */
-export function admitLocations(locations, { method } = {}) {
+export function admitLocations(locations, { method, expectedToken } = {}) {
   const list = Array.isArray(locations) ? locations : (locations ? [locations] : []);
   const admitted = [];
   const refused = [];
+  const unavailable = [];
   for (const location of list) {
-    const verdict = admitLocation(location);
-    if (verdict.admitted) admitted.push(location);
-    else refused.push({ method: method ?? null, reason: verdict.reason, uri: verdict.uri });
+    const verdict = admitLocation(location, { expectedToken });
+    const row = { method: method ?? null, reason: verdict.reason, uri: verdict.uri, ...(verdict.detail ? { detail: verdict.detail } : {}) };
+    if (verdict.outcome === ADMISSION.ADMITTED) admitted.push(location);
+    else if (verdict.outcome === ADMISSION.REFUSED_INVALID) refused.push(row);
+    else unavailable.push(row);
   }
-  return { admitted, refused, examined: list.length };
+  return { admitted, refused, unavailable, examined: list.length };
 }

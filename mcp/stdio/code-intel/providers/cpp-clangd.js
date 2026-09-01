@@ -424,6 +424,9 @@ export function createCppClangdProvider({ spawn } = {}) {
         // silence about that is how a type-reference became a CALLS [lsp✓] edge.
         let positionGuesses = 0;
       const incoherentLocations = [];
+      // ⚠ A THIRD STATE, KEPT SEPARATE. 'could not verify' is neither evidence nor absence;
+      // folding it into either is how lack of verification becomes authority.
+      const unverifiedLocations = [];
         // Symbols whose relations were DECLINED because their position was
         // guessed, and symbols whose reference set hit the cap.
         let positionGuessSkipped = 0;
@@ -567,8 +570,11 @@ export function createCppClangdProvider({ spawn } = {}) {
             if (requestedOps.has('definitions')) {
               try {
                 const defsRaw = (await client.definition(uri, pos)) || [];
-                const defGate = admitLocations(defsRaw, { method: 'textDocument/definition' });
+                // ⚠ expectedToken comes from the REQUEST (the symbol we asked about), never from the
+                // returned range — deriving it from the response would make the check self-confirming.
+                const defGate = admitLocations(defsRaw, { method: 'textDocument/definition', expectedToken: qname });
                 for (const r of defGate.refused) incoherentLocations.push({ ...r, qname });
+                for (const r of defGate.unavailable) unverifiedLocations.push({ ...r, qname });
                 const defs = defGate.admitted;
                 for (const d of defs) {
                   if (!d?.uri) continue;
@@ -692,8 +698,9 @@ export function createCppClangdProvider({ spawn } = {}) {
                   // is a FLOOR, and a downstream "no other callers" read off a
                   // silently-capped set would be exactly the false-completeness
                   // failure this codebase exists to prevent.
-                  const refGate = admitLocations(refs, { method: 'textDocument/references' });
+                  const refGate = admitLocations(refs, { method: 'textDocument/references', expectedToken: qname });
                   for (const r of refGate.refused) incoherentLocations.push({ ...r, qname });
+                  for (const r of refGate.unavailable) unverifiedLocations.push({ ...r, qname });
                   refs = refGate.admitted;
                   const kept = refs.slice(0, MAX_REFS_PER_SYMBOL);
                   const droppedRefs = refs.length - kept.length;
@@ -841,6 +848,8 @@ export function createCppClangdProvider({ spawn } = {}) {
           // rejected membership travels with the result, bound to the method that produced it.
           incoherentLocationsRefused: incoherentLocations.length,
           incoherentLocations,
+          unverifiedLocationsExcluded: unverifiedLocations.length,
+          unverifiedLocations,
           session: {
             collectedAt,
             indexedCommit,

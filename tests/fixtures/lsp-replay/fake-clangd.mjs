@@ -30,7 +30,15 @@ function resultFor(method) {
   }
   if (method === 'textDocument/documentSymbol') return FRAMES.documentSymbol_id2;
   if (method === 'textDocument/definition') {
-    if (MODE === 'external_system_file') return FRAMES.definition_EXTERNAL_SYSTEM_FILE_must_stay_admissible;
+    // ⚠ The external control points at a file the HARNESS created, not at this host's MSVC
+    // install. An earlier version used `.../include/vector`: it passed here and would have been
+    // environment-dependent elsewhere, and under the completed contract it could not satisfy
+    // token correspondence at all — a control that proves nothing about a valid external location.
+    if (MODE === 'external_readable_file') {
+      const uri = process.env.APG_FAKE_EXTERNAL_URI;
+      const line = Number(process.env.APG_FAKE_EXTERNAL_LINE ?? 0);
+      return [{ uri, range: { start: { line, character: 5 }, end: { line, character: 16 } } }];
+    }
     if (MODE === 'mixed') return FRAMES.references_id6_MIXED_valid_and_invalid;
     return FRAMES.definition_id3_INVALID_directory_uri;
   }
