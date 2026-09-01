@@ -1254,12 +1254,3 @@ SUITE COMPOSITION — quote these three, not one:
    Duration  886.87s (transform 2.60s, setup 0ms, collect 95.47s, tests 677.56s, environment 59ms, prepare 35.78s)
 
 VITEST_EXIT=0
-
-=== HOW TO READ THIS RECEIPT ===
-Authoritative: VITEST_EXIT=0, and the summary "Test Files 417 passed (417) / Tests 3500 passed |
-4 skipped (3504)". That is ZERO FAILED TESTS.
-
-⚠ This file contains 2 lines carrying the token FAIL, both inside PASSING test NAMES. Counting
-lines that contain "FAIL" is not a failure count, and "zero FAIL lines" — which is how I first
-described this run — is a looser claim than the one the evidence supports. The anchored count
-(^ FAIL) is 0; the summary line is the authority.
