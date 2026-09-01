@@ -1,0 +1,1298 @@
+
+ RUN  v3.2.4 C:/Docker/aify-project-graph
+
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/code-intel/providers/cpp-clangd-enumeration.test.js (9 tests) 16192ms
+   ✓ cpp-clangd provider: scope=all enumeration > scope=all reads files from compile_commands.json  1910ms
+   ✓ cpp-clangd provider: scope=all enumeration > discovers compile_commands.json in build-linux directories  1897ms
+   ✓ cpp-clangd provider: scope=all enumeration > scope=all filters out out-of-repo entries instead of throwing  1767ms
+   ✓ cpp-clangd provider: scope=all enumeration > scope=all filters non-C++ extensions like Python files  1715ms
+   ✓ cpp-clangd provider: scope=all enumeration > scope=all dedupes repeated entries  1774ms
+   ✓ cpp-clangd provider: scope=all enumeration > explicit files[] wins over scope=all  1743ms
+   ✓ cpp-clangd provider: scope=all enumeration > scope=all filters build/_deps/vendor/third_party prefixes  1777ms
+   ✓ cpp-clangd provider: scope=all enumeration > scope=all caps at maxFiles and surfaces partial status  1875ms
+   ✓ cpp-clangd provider: scope=all enumeration > scope=all under cap stays status=ok with truncated=false  1732ms
+ ✓ tests/unit/code-intel/live-verbs.test.js (35 tests) 15949ms
+   ✓ code_intel_diagnostics (live) > returns empty diagnostics for clean files  4582ms
+   ✓ code_intel_references (live) > returns symbol-aware refs via fake LSP  1593ms
+   ✓ code_intel_definitions (live) > returns defs at position  1588ms
+   ✓ code_intel_hover (live) > returns hover content + range  1582ms
+   ✓ Plan #14 evidence contract — integration > references with fresh freshness + callsites → NOT exhaustive (index unattested) + compat array preserved  1590ms
+   ✓ Plan #14 evidence contract — integration > definitions with fresh + def found → NOT exhaustive; ready, and precise about WHAT it resolved  1583ms
+   ✓ Plan #14 Step B — cold freshness + cpp prewarm > caller warmupFiles[] disables auto-prewarm (caller_provided source)  1593ms
+   ✓ Plan #14 Step D — sticky degraded references state > clean references results carry a warning while session is in degraded-sticky state  1580ms
+ ✓ tests/integration/server-toolset.test.js (17 tests) 16576ms
+   ✓ server toolset selection > annotates every listed tool with readOnlyHint, true for reads and false for writers  593ms
+   ✓ server toolset selection > ★★★ graph_census is CALLABLE through the real server, not just listed  678ms
+   ✓ server toolset selection > lists the focused ~15-verb default set when no toolset is given (P4-1)  686ms
+   ✓ server toolset selection > keeps a hidden-by-default verb callable when no toolset is given (P4-1)  1268ms
+   ✓ server toolset selection > APG_MCP_TOOLS restricts the default listing to exactly the allowlist (P4-1)  610ms
+   ✓ server toolset selection > APG_MCP_TOOLS gates listing only — omitted verbs stay callable  824ms
+   ✓ server toolset selection > exposes the trimmed coherent full toolset under --toolset=full (R2 cohesion)  502ms
+   ✓ server toolset selection > keeps R2-hidden verbs callable by name in the full profile  1170ms
+   ✓ server toolset selection > exposes the lean-5 verbs in lean mode (v5: adds graph_health for skill alignment)  628ms
+   ✓ server toolset selection > supports lean profile through the environment  565ms
+   ✓ server toolset selection > keeps non-listed verbs callable in lean mode  1831ms
+   ✓ server toolset selection > returns a non-empty server-instructions playbook on initialize (P1-1)  613ms
+   ✓ server toolset selection > defaults lean mode to compact output unless explicitly overridden  1834ms
+   ✓ analytics verbs (P2a) > graph_digest returns a budgeted text summary with the key sections  924ms
+   ✓ analytics verbs (P2a) > graph_overview returns a cluster map  845ms
+   ✓ analytics verbs (P2a) > graph_hotspots ranks god nodes  801ms
+   ✓ analytics verbs (P2a) > graph_cycles reports cycles or honestly says none  803ms
+08:31:24 [vite] (ssr) warning: Invalid URL
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
+08:31:24 [vite] (ssr) warning: Invalid URL
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
+08:31:24 [vite] (ssr) warning: Invalid URL
+  Plugin: vite:dynamic-import-vars
+  File: C:/Docker/aify-project-graph/tests/unit/query/stale-process-not-cached.test.js
+ ✓ tests/unit/query/stale-process-not-cached.test.js (3 tests) 12045ms
+   ✓ staleProcess is re-evaluated, not frozen at first call > ★ reports stale AFTER the tree moves, even though the first call said fresh  5992ms
+   ✓ staleProcess is re-evaluated, not frozen at first call > a fresh process states staleProcess:false rather than omitting it  330ms
+   ✓ staleProcess is re-evaluated, not frozen at first call > immutable identity survives re-evaluation  5722ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/code-intel/providers/lsp-collect-truncation.test.js (7 tests) 11171ms
+   ✓ collectViaLsp — enumeration truncation → partial > marks the collection partial when enumerateFiles reports truncated  1603ms
+   ✓ collectViaLsp — enumeration truncation → partial > stays ok when enumeration is NOT truncated  1608ms
+   ✓ collectViaLsp — enumeration truncation → partial > ★★★ caps the BATCH, not the walk — leftover work is reported, not hidden  1595ms
+   ✓ collectViaLsp — enumeration truncation → partial > ★★★ CONTROL: a corpus that fits under the cap owes nothing and is ok  1588ms
+   ✓ collectViaLsp — enumeration truncation → partial > ★★★ the ENUMERATOR is handed the walk ceiling, never the batch cap  1591ms
+   ✓ collectViaLsp — enumeration truncation → partial > ★★★ a SLICE declares file scope — it walked some files, not the repo  1588ms
+   ✓ collectViaLsp — enumeration truncation → partial > ★★★ CONTROL: a cold full sweep IS repo-wide, or invalidation can never clean up  1597ms
+ ✓ tests/integration/refresh-hooks-e2e.test.js (3 tests) 10089ms
+   ✓ refresh hooks end-to-end > ★ a real commit triggers a real reindex and records the breadcrumb  1334ms
+   ✓ refresh hooks end-to-end > ★ WITHOUT the hooks installed, nothing happens — proving the assertion is bound to the mechanism  8455ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/integration/code-intel/scoped-collect-survives-real.test.js (6 tests) 11810ms
+   ✓ scoped collect survives (real clangd, a/b/c protocol) > a one-file scoped collect does NOT wipe the repo-wide trust spine  2715ms
+   ✓ scoped collect survives (real clangd, a/b/c protocol) > NEGATIVE CONTROL: the same envelope claiming repo-wide authority DOES invalidate  2881ms
+   ✓ scoped collect survives (real clangd, a/b/c protocol) > records repo-relative paths, never raw file:// URIs  1562ms
+   ✓ collect resume actually resumes (real clangd) > a budget-limited scope=all run CONTINUES on re-run instead of repeating  1572ms
+   ✓ resumed slices do not claim repo-wide authority > a resumed call scopes its authority to the files it walked  1623ms
+   ✓ resumed slices do not claim repo-wide authority > a single call that walks the WHOLE enumerated set keeps repo-wide authority  1455ms
+ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
+ATTESTATION DRIFT (1): carrierDerived.fieldPopulation.provenance
+ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
+ATTESTATION DRIFT (1): carrierDerived.carrier.bytes
+ATTESTATION DRIFT (1): carrierDerived.carrier.envelopeWrittenAt
+ATTESTATION DRIFT (1): capture.producedBy.manifestCommit
+ATTESTATION DRIFT (1): capture.instrumentTree.dirtyPaths
+ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.maxMultiplicity
+ATTESTATION DRIFT (1): carrierDerived.carrier.extraClaim
+ATTESTATION DRIFT (1): carrierDerived.duplicateMultiplicity.rowsLostToDeduplication
+ ✓ tests/unit/storage/unresolved-refs-parity.test.js (33 tests) 10477ms
+   ✓ the full frozen carrier survives the round trip > ⭐ all 35,906 rows, with exact duplicate multiplicity and no dedup  3202ms
+   ✓ the full frozen carrier survives the round trip > ⭐ resolver-input parity: values, not just counts  3359ms
+   ✓ --check fails on drift anywhere in the canonical object > POSITIVE CONTROL: the committed attestation passes  355ms
+   ✓ --check fails on drift anywhere in the canonical object > kills the mutant: carrier.bytes  329ms
+   ✓ --check fails on drift anywhere in the canonical object > kills the mutant: carrier.envelopeWrittenAt  327ms
+   ✓ --check fails on drift anywhere in the canonical object > the drift message NAMES the path that differs  311ms
+ ✓ tests/unit/query/evidence-contract-negotiated-end-to-end.test.js (9 tests) 10627ms
+   ✓ negotiated contract, driven through the real references verb > ⭐ CONTROL 1 — an OLD client (no field) receives contract 1 WITH the deprecated booleans  1705ms
+   ✓ negotiated contract, driven through the real references verb > ⭐ CONTROL 2 — a client that ASKS for 2 receives contract 2 with NEITHER boolean  1561ms
+   ✓ negotiated contract, driven through the real references verb > ⭐⭐ CONTROL 3 — a v1 READER REFUSES the real v2 payload rather than reading it as healthy  1575ms
+   ✓ negotiated contract, driven through the real references verb > ⭐ NEGATIVE CONTROL — the same v1 reader ACCEPTS a real v1 payload  1610ms
+   ✓ ⛔ the tool SURFACE and the verb agree — declared means honoured > every tool that declares acceptEvidenceContractVersion actually refuses a bad value  2525ms
+   ✓ ⭐ CONTROL 5 — both verbs negotiate through the SAME owner and cannot drift > and ACCEPTS the identical set it accepts — the positive half  1636ms
+ ✓ tests/integration/code-intel/live-verbs-real.test.js (6 tests) 10312ms
+   ✓ bounded live verbs (real clangd) > diagnostics on a clean fixture returns empty list  1159ms
+   ✓ bounded live verbs (real clangd) > references at foo definition surfaces bar.cpp call site  1994ms
+   ✓ bounded live verbs (real clangd) > hover at foo definition includes a type-like signature  1826ms
+   ✓ bounded live verbs (real clangd) > symbols on foo.cpp returns at least one entry  1314ms
+   ✓ definitionLocations is populated (real clangd) > returns the definition when queried AT the definition  1993ms
+   ✓ definitionLocations is populated (real clangd) > callsites and definitions stay disjoint — the split is not double-counting  2025ms
+ ✓ tests/integration/deprecation-probe.test.js (5 tests) 8515ms
+   ✓ the deprecation probe makes the deletion decision decidable > ★★ every probed verb is CALLABLE but absent from full — hidden-as-redundant, not merely long-tail  3786ms
+   ✓ the deprecation probe makes the deletion decision decidable > ★★ the breadcrumb is DURABLE, and lands OUTSIDE the queried repo  1048ms
+   ✓ the deprecation probe makes the deletion decision decidable > ★★ records the DENOMINATOR — armed sessions, and whether the host could reach these verbs  507ms
+   ✓ the deprecation probe makes the deletion decision decidable > ★ a LISTED verb leaves nothing — the probe must not manufacture its own evidence  1784ms
+   ✓ the deprecation probe makes the deletion decision decidable > ★ the probe does NOT change the response the caller receives  1005ms
+ ✓ tests/unit/storage/trust-projection-parity.test.js (8 tests) 9628ms
+   ✓ the trust projection reads exactly what the classifiers consume > ⛔ the narrow projection classifies EVERY carrier row the same as the full read  3194ms
+   ✓ the trust projection reads exactly what the classifiers consume > ⛔ and the DENOMINATOR it feeds is identical, which is what a reader acts on  3155ms
+   ✓ the trust projection reads exactly what the classifiers consume > ⛔ a MISSING alias would be caught — the parity check can fail  3175ms
+ ✓ tests/unit/brief/brief-detects-a-mid-read-rebuild.test.js (8 tests) 6984ms
+   ✓ a brief is published only if it describes one graph > the stand-in is actually on the path the brief takes  1180ms
+   ✓ a brief is published only if it describes one graph > POSITIVE CONTROL: an undisturbed brief publishes on the first attempt  760ms
+   ✓ a brief is published only if it describes one graph > ⛔ ONE induced straddle is absorbed by the retry, and what lands is clean  828ms
+   ✓ a brief is published only if it describes one graph > ⛔ REPEATED straddles publish nothing and leave a prior brief byte-for-byte  1116ms
+   ✓ a brief is published only if it describes one graph > ⛔ with NO prior brief, repeated straddles leave no canonical artifact at all  836ms
+   ✓ a brief is published only if it describes one graph > the receipt carries the generations it saw, so a caller can say WHY  641ms
+   ✓ graph_index surfaces a refused brief where it can be seen > ⛔ a refusal reaches nextAction, not only the artifacts sub-object  1045ms
+   ✓ graph_index surfaces a refused brief where it can be seen > POSITIVE CONTROL: an undisturbed index adds no such note  577ms
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/integration/code-intel/pyright-real.test.js (3 tests) 7997ms
+   ✓ pyright (real) — live verbs > codeIntelSymbols returns the outline (language inferred from .py)  571ms
+   ✓ pyright (real) — live verbs > codeIntelReferences resolves callers but is NEVER exhaustive (Python dynamic dispatch)  6405ms
+   ✓ pyright (real) — collection > collect(scope:all) yields relative-path records with mtime freshness  1017ms
+ ✓ tests/unit/code-intel/real-producer-emits-skip-counters.test.js (4 tests) 7083ms
+   ✓ the REAL cpp-clangd provider produces the skip counters > ★★ an unplaceable identifier is COUNTED by the producer, not by a fixture  1838ms
+   ✓ the REAL cpp-clangd provider produces the skip counters > ★★ a symbol OVER the reference cap is counted by the producer  1741ms
+   ✓ the REAL cpp-clangd provider produces the skip counters > ★★ and reports ZERO truncations when every symbol is under the cap  1744ms
+   ✓ the REAL cpp-clangd provider produces the skip counters > ★★ and reports ZERO when every identifier IS placeable — not null, not absent  1759ms
+ ✓ tests/unit/query/packet-timeout-not-absence.test.js (3 tests) 7077ms
+   ✓ a feature lookup that times out is not reported as an absence > ★★ NEVER reports "not found" when the lookup merely timed out  2411ms
+   ✓ a feature lookup that times out is not reported as an absence > ★ says explicitly that nothing here means the symbol is absent  2272ms
+   ✓ a feature lookup that times out is not reported as an absence > ★ names the unbudgeted verb that will actually answer  2393ms
+ ✓ tests/unit/query/authority-reads-are-pinned.test.js (9 tests) 7538ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > ⛔ graph_preflight captures its decision inputs  1119ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > ⛔ graph_preflight reads the MANIFEST before the database  972ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > ⛔ graph_status captures its counts and publication together  457ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > ⛔ the freshness gate captures its file count and publication together  792ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > ⛔ an ATTESTED graph must not be described as unattested by preflight  816ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > ⛔ a NO MATCH from an unattested graph says so — an absence is the sharpest claim  859ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > POSITIVE CONTROL: a NO MATCH from an ATTESTED graph carries no such warning  853ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > ⛔ an AMBIGUOUS match from an unattested graph carries the verdict too  1135ms
+   ✓ the verbs that grant or withhold authority read through the pinned owner > POSITIVE CONTROL: the spy records nothing when no verb runs  535ms
+ ✓ tests/unit/scripts/arm-isolation.test.js (30 tests) 7995ms
+   ✓ a hostile kill mid-mutation > ★★★⛔ leaves the MAIN checkout byte-identical, and an ATTRIBUTABLE orphan candidate  398ms
+   ✓ a hostile kill mid-mutation > ★★★⛔ A LIVE PROCESS THAT STOPS BEATING IS NOT DELETABLE — the ruling, exercised  527ms
+   ✓ heartbeats prove token possession, not liveness > ★★★⛔ a malformed or partially-written beat is UNKNOWN, never stale-and-deletable  331ms
+   ✓ classification states are distinct and none of them is a licence > ★★★⛔ a manifest whose worktree was never created is NOT_MATERIALIZED  318ms
+   ✓ classification states are distinct and none of them is a licence > ★★★⛔ A BARE state:CLOSED IS A BYPASS — and my own test used to pin it as correct  339ms
+   ✓ confirmation is bound to the exact bytes it was written about > ★★★⛔ a confirmation missing ANY required field is refused  338ms
+   ✓ confirmation is bound to the exact bytes it was written about > ★★★⛔ A CONFIRMATION FOR MANIFEST BYTES A CANNOT DELETE A REWRITTEN MANIFEST B  375ms
+   ✓ confirmation is bound to the exact bytes it was written about > ★★★⛔ ONE UNKNOWN ARM FREEZES THE WHOLE POPULATION  409ms
+   ✓ evidence is preserved before anything is removed > ★★★ POSITIVE CONTROL: a real file IS hashed  348ms
+   ✓ only a validated closure stops an arm blocking > ★★★⛔ A CLOSURE REPORTING A FAILED REMOVAL STEP STILL BLOCKS  389ms
+   ✓ only a validated closure stops an arm blocking > ★★★⛔ a closure naming a DIFFERENT run cannot close this manifest  377ms
+ ✓ tests/unit/code-intel/providers/cpp-clangd.test.js (10 tests) 6484ms
+   ✓ cpp-clangd provider (fake LSP) > collects definitions, references, and diagnostics from the fixture repo  1743ms
+   ✓ cpp-clangd provider (fake LSP) > warmup precedes collection: warmedFiles count > 0 when batch warmup runs  1869ms
+   ✓ cpp-clangd provider (fake LSP) > P0-1: ample budget + index ready → full ok status, no budget exhaustion  340ms
+   ✓ cpp-clangd provider (fake LSP) > symbol-aware reference behavior: capable-target empty result triggers warm-and-retry  1730ms
+ ✓ tests/unit/brief/document-recency.test.js (7 tests) 1481ms
+   ✓ documentRecency survives real paths and real corpus sizes > ★★★ a population larger than one batch is fully dated  477ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/code-intel/providers/cpp-clangd-overfilter.test.js (4 tests) 5497ms
+   ✓ cpp-clangd overfilter detection (Plan #10d) > skipBuildDepFilter=true rescues unity-build compile DBs  1928ms
+   ✓ cpp-clangd overfilter detection (Plan #10d) > no error when at least one entry survives the filter  1762ms
+   ✓ cpp-clangd overfilter detection (Plan #10d) > skipBuildDepFilter does not affect non-cpp extension filtering or out-of-repo filtering  1756ms
+ ✓ tests/unit/query/whereis-file-target.test.js (10 tests) 6213ms
+   ✓ graph_whereis given a file path > ★★★ does not claim the file is absent when it is indexed  414ms
+   ✓ graph_whereis given a file path > ★★★ a real symbol still resolves — the control  351ms
+   ✓ graph_whereis given a file path > ★★ a genuinely unknown symbol still says NO MATCH  316ms
+   ✓ a file-path target describes itself as a file > ★★★ is labelled FILE, not SYMBOL  542ms
+   ✓ a file-path target describes itself as a file > ★★★ does not ask where a file is DEFINED  705ms
+   ✓ a file-path target describes itself as a file > ★★★ does not list the target as a place the target appears  1005ms
+   ✓ a file-path target describes itself as a file > ★★ a real symbol packet is unchanged — the control  898ms
+   ✓ a file-path target describes itself as a file > ★★★ does not put a file path in a SYMBOLS parameter  970ms
+   ✓ a file-path target describes itself as a file > ★★ a symbol target still gets graph_explore — the control  796ms
+ ✓ tests/unit/query/pull-docs-unconsulted-source.test.js (28 tests) 7200ms
+   ✓ graph_pull docs — an unasked source is not an absence > ★★★ an authored doc→file link REACHES the docs layer  1327ms
+   ✓ graph_pull docs — an unasked source is not an absence > ★★★ REACHABLE-BY-ARGUMENT IS NOT REACHABLE — a default-layer pull discloses the docs it hid  430ms
+   ✓ graph_pull docs — an unasked source is not an absence > ★★★ ...and stays SILENT when there is nothing to disclose  402ms
+   ✓ graph_pull docs — an unasked source is not an absence > ★★★ an empty docs answer distinguishes a TRUE zero from a BROKEN one  304ms
+   ✓ graph_pull resolves nodes that EXIST — "unresolved" is not "no docs" > ★★★ a Document node resolves — not "unresolved"  516ms
+   ✓ graph_pull resolves nodes that EXIST — "unresolved" is not "no docs" > ★★★ a bare DIRECTORY name resolves — the residue the first fix left  300ms
+   ✓ graph_pull resolves nodes that EXIST — "unresolved" is not "no docs" > ★★★ a SYMBOL still outranks a same-named path — precedence preserved  301ms
+   ✓ docs_not_shown — the noun, and the denominator > ★★★ a MENTION-only document is not described as referencing the file  479ms
+   ✓ docs_not_shown — the noun, and the denominator > ★★★ the SILENCE of the entries figure depends on MENTIONS having no line — pinned  389ms
+   ✓ docs_not_shown — the noun, and the denominator > ★★★ the disclosed count and the docs layer do not contradict each other  307ms
+   ✓ the docs layer is REACHABLE without knowing to ask for it > ★★★ POSITIVE CONTROL: the expensive layers are still opt-in  468ms
+ ✓ tests/unit/code-intel/skip-counters-survive-the-write.test.js (6 tests) 1333ms
+   ✓ skip counters survive every layer > ★★ the counters reach graph_health and turn the coverage rate into a FLOOR  549ms
+ ✓ tests/integration/stale-process-reaches-every-verb.test.js (6 tests) 5550ms
+   ✓ a stale process warns through EVERY verb, not just the two that imported it > ★★★ reaches graph_health ON A REPO WITH NO GRAPH — where it used to go silent  603ms
+   ✓ a stale process warns through EVERY verb, not just the two that imported it > ★★★ reaches graph_search, which imported nothing and previously said nothing  623ms
+   ✓ a stale process warns through EVERY verb, not just the two that imported it > ★★★ reaches a STRING-returning verb, the other branch of the notice channel  732ms
+   ✓ a stale process warns through EVERY verb, not just the two that imported it > ★★★ NEGATIVE CONTROL — a current process says nothing, so the warning means something  981ms
+   ✓ a stale process warns through EVERY verb, not just the two that imported it > ★★★ the PROCESS warning is ordered ABOVE the graph-staleness warning  1660ms
+   ✓ a stale process warns through EVERY verb, not just the two that imported it > ★★★ the warning states the process scope, not the repo scope  633ms
+ ✓ tests/unit/query/packet-schema.test.js (14 tests) 4414ms
+   ✓ graph_packet — schema invariants > accepts bare id when explicit prefix not given  400ms
+   ✓ graph_packet — schema invariants > bare symbol genuinely unknown → hard error (honest typo path)  689ms
+   ✓ graph_packet — schema invariants > LIVE line is always present and explicit about state  424ms
+   ✓ graph_packet — schema invariants > supports workflow modes with mode-specific risk hints  312ms
+   ✓ graph_packet — schema invariants > clamps output to budget by dropping tail sections  308ms
+   ✓ graph_packet — schema invariants > renders empty sections as "LABEL: none" instead of omitting (validation gate bug 5)  376ms
+ ✓ tests/unit/freshness/incremental-equals-rebuild.test.js (2 tests) 6801ms
+   ✓ incremental indexing converges to the same graph as a clean rebuild > ★★★ same edit history → identical canonical nodes and edges  3460ms
+   ✓ incremental indexing converges to the same graph as a clean rebuild > ★ and the unresolved sidecar agrees — resolved/unresolved crossings both ways  3339ms
+ ✓ tests/unit/query/consequences-reverse-lookup.test.js (4 tests) 1986ms
+   ✓ graph_consequences — task→file reverse lookup > surfaces feature when task.files_hint references the target file (high-confidence)  738ms
+   ✓ graph_consequences — task→file reverse lookup > matches CamelCase basename in task.title as low-confidence fallback  421ms
+   ✓ graph_consequences — task→file reverse lookup > rejects short lowercase basenames in title-substring match (false-positive guard)  531ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/brief/generator.test.js (33 tests) 6616ms
+   ✓ brief/generator > generateBrief > writes all five artifacts  347ms
+   ✓ brief/generator > generateBrief > surfaces a LOUD ⚠ OVERLAY DEGRADED line for a legacy-format overlay (the field fleet P0 #2)  368ms
+   ✓ brief/generator > generateBrief > brief.plan.md surfaces overlay gaps and dirty seams for planning sessions  309ms
+   ✓ brief/generator > readFirst priority and language filtering (2026-04-20 gap-close) > READ filters by primary language (Python repo puts .py before non-.py)  358ms
+ ✓ tests/unit/query/explore.test.js (4 tests) 1935ms
+   ✓ graph_explore bundling > bundles multiple symbols grouped by file with cat -n source + framing  589ms
+   ✓ graph_explore bundling > reports not-found names in a tail without failing  369ms
+   ✓ graph_explore bundling > all-missing returns a NO MATCH steer  478ms
+   ✓ graph_explore budget truncation > caps the number of file groups via max_files and emits a TRUNCATED tail  499ms
+ ✓ tests/unit/query/stale-collection-not-exhaustive.test.js (4 tests) 2254ms
+   ✓ stale / unresolved collections cannot license exhaustiveness > a collection whose indexed commit is behind HEAD reports lsp-partial, not exhaustive  1268ms
+   ✓ stale / unresolved collections cannot license exhaustiveness > a capped edge fetch cannot claim a complete caller set  349ms
+   ✓ stale / unresolved collections cannot license exhaustiveness > a collection that left many symbols unresolved reports lsp-partial with the ratio  382ms
+ ✓ tests/unit/query/verbs-detect-aggregate-drift.test.js (6 tests) 4012ms
+   ✓ the verbs detect a manifest copy that drifted from the committed aggregates > POSITIVE CONTROL: an untampered graph reports attested from both verbs  841ms
+   ✓ the verbs detect a manifest copy that drifted from the committed aggregates > ⛔ graph_status reports aggregate_mismatch, not attested  734ms
+   ✓ the verbs detect a manifest copy that drifted from the committed aggregates > ⛔ graph_health denies authority and NAMES the drift  576ms
+   ✓ the verbs detect a manifest copy that drifted from the committed aggregates > ⛔ status publishes ONE authoritative count, not two contradictory ones  517ms
+   ✓ the verbs detect a manifest copy that drifted from the committed aggregates > ⛔ health and status agree on the state — two consumers, one classifier  709ms
+   ✓ the verbs detect a manifest copy that drifted from the committed aggregates > ⛔ drifting ONLY the trust count is caught — it is the load-bearing half  633ms
+ ✓ tests/unit/code-intel/degraded-split-persistence.test.js (6 tests) 2023ms
+   ✓ graph_health states the honest headline > ★★ warns that degraded results are NOT evidence of no callers  726ms
+   ✓ graph_health states the honest headline > ★★ and does NOT say that when some absences are clean  400ms
+ ✓ tests/unit/query/whereis-attests-population.test.js (5 tests) 1879ms
+   ✓ graph_whereis attests its population > ★★★ an UNCAPPED result still states the total  500ms
+   ✓ graph_whereis attests its population > ★★★ a CAPPED result still says so, and how to widen — no regression  514ms
+   ✓ graph_whereis attests its population > ★★ a single definition reads as 1 of 1  381ms
+ ✓ tests/unit/query/health-collection-coverage.test.js (4 tests) 2463ms
+   ✓ health reports what a collection COVERS, not that one exists > ★★★ a SCOPED collection warns, naming both real numbers  819ms
+   ✓ health reports what a collection COVERS, not that one exists > ★★★ UNKNOWN coverage warns too — three states, not two  350ms
+   ✓ health reports what a collection COVERS, not that one exists > ★★★ a COMPLETE collection is silent — or the warning is permanent and worthless  790ms
+   ✓ health reports what a collection COVERS, not that one exists > ★★★ files_in_scope is stored SEPARATELY from the eligible population  503ms
+fatal: Needed a single revision
+fatal: Invalid revision range deadbeefdeadbeefdeadbeefdeadbeefdeadbeef..6ff228ebe520dad26d54db7b60672a92fddad365
+ ✓ tests/integration/stale-commit-advances-manifest.test.js (2 tests) 3151ms
+   ✓ a graph whose indexed commit vanished > ★★★ CONTROL — a RESOLVABLE indexed commit reindexes the change  1450ms
+   ✓ a graph whose indexed commit vanished > ★★★ FIXED — an UNRESOLVABLE indexed commit no longer advances over unread code  1700ms
+ ✓ tests/unit/query/consequences.test.js (8 tests) 10056ms
+   ✓ graph_consequences — cross-layer traversal > returns NO MATCH when target is unknown  947ms
+   ✓ graph_consequences — cross-layer traversal > traverses symbol → feature → contracts + tasks  1311ms
+   ✓ graph_consequences — cross-layer traversal > flags no-adjacent-tests as regression risk  856ms
+   ✓ graph_consequences — cross-layer traversal > treats test-file imports of the symbol as adjacent coverage even without resolved TESTS edges  1417ms
+   ✓ graph_consequences — cross-layer traversal > treats cross-directory IMPORTS edges into the defining file as adjacent test coverage  1613ms
+   ✓ graph_consequences — cross-layer traversal > flags orphan code when no feature anchors the symbol  1264ms
+   ✓ graph_consequences — cross-layer traversal > accepts file path as target  1101ms
+   ✓ graph_consequences — cross-layer traversal > surfaces dirty overlap when the target touches currently modified feature files  1546ms
+ ✓ tests/unit/code-intel/hierarchy-verb.test.js (50 tests) 7677ms
+   ✓ code_intel_hierarchy — kind routing > callers → builds an incoming-call tree with file:line hops  520ms
+   ✓ code_intel_hierarchy — kind routing > callees → builds an outgoing-call tree  472ms
+   ✓ code_intel_hierarchy — kind routing > supertypes → walks base types  602ms
+   ✓ code_intel_hierarchy — depth + breadth capping > depth=1 stops after the first level (no grandchildren)  337ms
+   ✓ code_intel_hierarchy — depth + breadth capping > breadthCap=1 keeps one child and reports TRUNCATED  448ms
+   ✓ code_intel_hierarchy — depth + breadth capping > totalCap bounds the whole tree  482ms
+   ✓ code_intel_hierarchy — index-ready vs not-ready banner/evidence > INDEXED + index-ready: lsp-verified banner, but exhaustive is WITHHELD  398ms
+   ✓ code_intel_hierarchy — index-ready vs not-ready banner/evidence > BOUNDED mode → lsp-partial banner + evidence.cause=bounded_mode (never exhaustive)  330ms
+   ✓ code_intel_hierarchy — index-ready vs not-ready banner/evidence > a NOT-READY index still marks returned nodes [lsp✓] — readiness is completeness, not provenance  459ms
+   ✓ code_intel_hierarchy — HIGH-1 empty-tree is NOT exhaustive > index-ready + 0 callers → degraded, cause=no_incoming_unconfirmed, exhaustive=FALSE  660ms
+   ✓ code_intel_hierarchy — error envelopes > hierarchy_unsupported when server does not advertise the provider  1888ms
+   ✓ code_intel_hierarchy — error envelopes > returns an empty (but ok) result when no hierarchy root resolves  331ms
+ ✓ tests/unit/query/absence-names-its-population.test.js (10 tests) 12556ms
+   ✓ an absence claim names the population it searched > ⛔ says NO CALLERS and then names what it did not search  1595ms
+   ✓ an absence claim names the population it searched > ⛔ THE REGRESSION GUARD FOR A FAIL-SILENT BUG: the note survives the async boundary  753ms
+   ✓ an absence claim names the population it searched > ⭐ NEGATIVE CONTROL: a symbol with no edge in either family gets NO scope line  1126ms
+   ✓ an absence claim names the population it searched > ⛔ the skipped relations are DERIVED from the taxonomy, not restated  707ms
+   ✓ an absence claim names the population it searched > ⛔ THE CONTRADICTION IS GONE: the two verbs still differ, and now say why  1382ms
+   ✓ an absence claim names the population it searched > ⛔ preflight counts the WIDER family — derived, so it cannot drift from graph_callers  1881ms
+   ✓ an absence claim names the population it searched > graph_callees — the mirror, fixed from the same owner > ⛔ names the outgoing relations it did not search  745ms
+   ✓ an absence claim names the population it searched > graph_callees — the mirror, fixed from the same owner > ⛔ the misreading it forestalls is DIRECTION-SPECIFIC, not a shared phrase  1696ms
+   ✓ an absence claim names the population it searched > graph_callees — the mirror, fixed from the same owner > ⭐ NEGATIVE CONTROL: no outgoing edge in either family → no scope line  1167ms
+   ✓ an absence claim names the population it searched > graph_callees — the mirror, fixed from the same owner > ⛔ both verbs answer from ONE owner — a pasted copy would drift  1504ms
+ ✓ tests/unit/query/find-searches-document-titles.test.js (5 tests) 5785ms
+   ✓ graph_find reaches documents by their own title > ★★★ a topic that appears ONLY in the title is found  1704ms
+   ✓ graph_find reaches documents by their own title > ★★★ the matched title is RETURNED, not just matched on  616ms
+   ✓ graph_find reaches documents by their own title > ★★★ CONTROL: filename matching still works and is not outranked  1483ms
+   ✓ graph_find reaches documents by their own title > ★★★ SUMMARY is deliberately NOT matched  822ms
+   ✓ graph_find reaches documents by their own title > ★★★ NEGATIVE CONTROL: a word in no title, name or path returns nothing  1158ms
+ ✓ tests/unit/query/pull-map-context.test.js (3 tests) 5389ms
+   ✓ graph_pull — map context signals > returns overlay_quality (OPT-IN) and dirty_overlap for file targets  1871ms
+   ✓ graph_pull — map context signals > resolves feature prefixes consistently  2230ms
+   ✓ graph_pull — map context signals > returns helpful suggestions for unknown prefixed feature nodes  1286ms
+ ✓ tests/unit/query/stale-not-found-caveat.test.js (7 tests) 12997ms
+   ✓ FIX A — stale not-found caveat > STALE index (behind HEAD) > graph_search appends the loud stale caveat with commit count on NO RESULTS  2607ms
+   ✓ FIX A — stale not-found caveat > STALE index (behind HEAD) > graph_whereis appends the stale caveat on NO MATCH  1954ms
+   ✓ FIX A — stale not-found caveat > STALE index (behind HEAD) > graph_find attaches stale_caveat when zero hits across layers  1696ms
+   ✓ FIX A — stale not-found caveat > STALE index (behind HEAD) > does NOT append the caveat when the symbol IS found (stale but present)  2460ms
+   ✓ FIX A — stale not-found caveat > FRESH index (snapshot == HEAD) > graph_search keeps the concise not-found (no stale caveat)  2077ms
+   ✓ FIX A — stale not-found caveat > FRESH index (snapshot == HEAD) > graph_whereis keeps the concise NO MATCH  933ms
+   ✓ FIX A — stale not-found caveat > FRESH index (snapshot == HEAD) > graph_find has no stale_caveat on a fresh index  1269ms
+ ✓ tests/unit/query/ambiguous-not-unmapped.test.js (3 tests) 3802ms
+   ✓ the ambiguous path does not claim a feature mapping it never checked > ★★ NEVER emits the old "no feature mapping" claim — asserted on OUTPUT, not source  1496ms
+   ✓ the ambiguous path does not claim a feature mapping it never checked > ★ says the lookup was NOT CHECKED and that this is not "unmapped"  1259ms
+   ✓ the ambiguous path does not claim a feature mapping it never checked > names the disambiguating next step, not just the same question again  1046ms
+ ✓ tests/unit/query/overlay-coverage-verdict.test.js (3 tests) 9436ms
+   ✓ graph_consequences distinguishes an unmapped target from an unaffected one > an UNMAPPED target says so, and says what the emptiness means  2510ms
+   ✓ graph_consequences distinguishes an unmapped target from an unaffected one > a MAPPED target says its empty lists are a curated claim, not a gap  2064ms
+   ✓ graph_consequences distinguishes an unmapped target from an unaffected one > the two cases are actually distinguishable from each other  4555ms
+ ✓ tests/unit/query/packet-evidence-injection.test.js (13 tests) 11241ms
+   ✓ EVIDENCE injection into non-verify modes > orient: appends EVIDENCE line when code-intel collection is present  499ms
+   ✓ EVIDENCE injection into non-verify modes > orient: appends explicit unavailable line when no collection exists  879ms
+   ✓ EVIDENCE injection into non-verify modes > plan: appends EVIDENCE line when code-intel collection is present  699ms
+   ✓ EVIDENCE injection into non-verify modes > plan: appends explicit unavailable line when no collection exists  697ms
+   ✓ EVIDENCE injection into non-verify modes > debug: appends EVIDENCE line when code-intel collection is present  770ms
+   ✓ EVIDENCE injection into non-verify modes > debug: appends explicit unavailable line when no collection exists  1205ms
+   ✓ EVIDENCE injection into non-verify modes > review: appends EVIDENCE line when code-intel collection is present  644ms
+   ✓ EVIDENCE injection into non-verify modes > review: appends explicit unavailable line when no collection exists  917ms
+   ✓ EVIDENCE injection into non-verify modes > audit: appends EVIDENCE line when code-intel collection is present  909ms
+   ✓ EVIDENCE injection into non-verify modes > audit: appends explicit unavailable line when no collection exists  1012ms
+   ✓ EVIDENCE injection into non-verify modes > verify mode bypasses non-verify injection (no double-EVIDENCE)  469ms
+   ✓ EVIDENCE injection into non-verify modes > budget clamp drops EVIDENCE tail when budget is very small  862ms
+   ✓ EVIDENCE injection into non-verify modes > A/B: with-code-intel vs baseline — provider name surfaces, length stays controlled  1676ms
+ ✓ tests/unit/query/trace.test.js (7 tests) 6703ms
+   ✓ graph_trace success path > renders an ordered hop list with each body inlined cat -n  1247ms
+   ✓ graph_trace max_hops rejection > does NOT return a success path when the target is beyond max_hops  1117ms
+   ✓ graph_trace failure-path inlining > inlines both endpoints + neighbors + destination file-mates instead of 404  1167ms
+   ✓ graph_trace override annotation > crosses an OVERRIDDEN_BY bridge and annotates it INFERRED virtual/override  967ms
+   ✓ trace internals > bfsTrace returns null when the target is unreachable within the cap  608ms
+   ✓ trace internals > bfsTrace finds the 2-hop chain  883ms
+   ✓ trace internals > pickBestPair prefers the connected/definition pair  711ms
+ ✓ tests/unit/query/packet-population-fail-closed.test.js (10 tests) 8728ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★ CHEAP-ROUTE CONSUMER 1 (symbol-pointer / UNRANKED) reports the attested population, not the cap  943ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★★ END-TO-END OVER THE REAL graphConsequences PRODUCER — the arm the others could not be  1648ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★★ THIRD ROUTE — the AMBIGUOUS branch must carry the population it is already reading  976ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★★ FOURTH STATE — above the retrieval cap the population is a FLOOR, not a total  818ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★★ A SECOND LANGUAGE BEYOND THE RETRIEVAL PAGE MUST STILL BE FOUND  1021ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★★ ROUTE IDENTITY — the object-form symbol-pointer branch uses the shared renderer too  651ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★★ BRANCH PARITY — both routes emit the SAME disclosures, from one renderer  2000ms
+   ✓ an unattested population must render as UNKNOWN, never as the sample > ★★ CHEAP-ROUTE CONSUMER 2 (feature branch / DEFINED IN) is wired to the SAME resolver  667ms
+ ✓ tests/integration/verbs.test.js (21 tests) 10827ms
+   ✓ integration: full verb pipeline > graph_index builds the graph  1300ms
+   ✓ integration: full verb pipeline > graph_index refreshes derived artifacts against the same manifest indexedAt  1163ms
+   ✓ integration: full verb pipeline > graph_whereis finds handle_request  627ms
+   ✓ integration: full verb pipeline > graph_whereis returns NO MATCH for unknown symbol  408ms
+   ✓ integration: full verb pipeline > graph_lookup returns the exact definition for a known symbol  346ms
+   ✓ integration: full verb pipeline > graph_search prefers exact hits over broader substring matches  382ms
+   ✓ integration: full verb pipeline > graph_module_tree returns file hierarchy  326ms
+   ✓ integration: full verb pipeline > graph_module_tree caps broad root views with truncation guidance  376ms
+   ✓ integration: full verb pipeline > graph_summary returns digest for User class  598ms
+   ✓ integration: full verb pipeline > graph_report returns project orientation  429ms
+   ✓ integration: full verb pipeline > graph_report respects top_k for repeated sections  856ms
+   ✓ integration: full verb pipeline > graph_path traces execution from handle_request  307ms
+   ✓ integration: full verb pipeline > second graph_index on clean tree still returns indexed=true  684ms
+   ✓ integration: full verb pipeline > force rebuild works  1151ms
+ ✓ tests/integration/deletion-guard-hook-fires.test.js (12 tests) 13735ms
+   ✓ the deletion guard hook, driven as a real process > ⭐⭐ SPEAKS when an exported symbol with callers is deleted  1243ms
+   ✓ the deletion guard hook, driven as a real process > ⛔ SILENT when the deleted symbol has no callers — the ordinary cleanup case  1565ms
+   ✓ the deletion guard hook, driven as a real process > ⛔ SILENT when the edit deleted nothing at all  1194ms
+   ✓ the deletion guard hook, driven as a real process > ⛔ SILENT for a non-edit tool even when the deletion is present on disk  704ms
+   ✓ the deletion guard hook, driven as a real process > ⛔ SILENT outside an APG repo, so it is safe to install globally  920ms
+   ✓ the deletion guard hook, driven as a real process > ⛔ EXITS 0 and stays quiet when the graph database is missing  1074ms
+   ✓ the deletion guard hook, driven as a real process > ⛔ EXITS 0 on a malformed payload rather than failing the edit  1374ms
+   ✓ the decision log — the denominator, not only the firings > ⭐ records a FIRING decision  1248ms
+   ✓ the decision log — the denominator, not only the firings > ⭐⭐ RECORDS THE SILENT DECISIONS TOO — without these there is no rate  947ms
+   ✓ the decision log — the denominator, not only the firings > ⭐ a fire rate can actually be computed from a mixed run  1620ms
+   ✓ the decision log — the denominator, not only the firings > ⛔ a non-edit tool is logged too — it is part of what the hook was asked about  1037ms
+   ✓ the decision log — the denominator, not only the firings > ⛔ the log records NO source text — only the decision  807ms
+stderr | tests/unit/freshness/orchestrator.test.js > freshness orchestrator > A: a forced rebuild at the SAME commit preserves the LSP trust spine
+[aify-project-graph] restored 1 LSP-verified edge(s) from commit-current collection ci-2026-05-09T12-34-56Z-abc123 (rebuild preserved the trust spine)
+
+ ✓ tests/unit/freshness/orchestrator.test.js (16 tests) 7955ms
+   ✓ freshness orchestrator > does a full rebuild when the manifest is missing  467ms
+   ✓ freshness orchestrator > preserves framework Route nodes while reindexing the backing route file  308ms
+   ✓ freshness orchestrator > keeps previously committed chunks when a later file write fails  4492ms
+   ✓ freshness orchestrator > A: a forced rebuild at a DIFFERENT commit does NOT re-stamp stale evidence  324ms
+ ✓ tests/unit/freshness/corpus-attestation.test.js (6 tests) 9377ms
+   ✓ an index that loses files must say so > a clean repo attests ZERO skips — the field must not cry wolf  1465ms
+   ✓ an index that loses files must say so > ★ a file dropped from the graph is counted, named, and its phase recorded  1393ms
+   ✓ an index that loses files must say so > ★★ graph_index does not name a DROPPED file as processed, and discloses in its own response  1487ms
+   ✓ an index that loses files must say so > ★★ graph_health refuses to let status:ok stand alone when the corpus has holes  1956ms
+   ✓ an index that loses files must say so > ★★★ a chunk ROLLBACK attests every file it lost, not just the one that threw  2063ms
+   ✓ an index that loses files must say so > the count is UNCAPPED even though the list is capped  1012ms
+ ✓ tests/unit/query/capture-holds-no-external-work.test.js (5 tests) 9078ms
+   ✓ no verb spawns a subprocess while holding a pinned read snapshot > POSITIVE CONTROL: the instrument sees a subprocess that IS spawned inside a pin  1821ms
+   ✓ no verb spawns a subprocess while holding a pinned read snapshot > ⛔ graph_health runs NO subprocess inside its capture  1989ms
+   ✓ no verb spawns a subprocess while holding a pinned read snapshot > ⛔ the other pinned verbs run no subprocess inside their captures either  2092ms
+   ✓ no verb spawns a subprocess while holding a pinned read snapshot > ⛔ the git work SURVIVES the split — it moved outside the pin, it was not deleted  1955ms
+   ✓ no verb spawns a subprocess while holding a pinned read snapshot > POSITIVE CONTROL: an unchanged range reports no decay  1219ms
+ ✓ tests/unit/code-intel/lsp-client.test.js (20 tests) 3494ms
+   ✓ LspClient (against fake server) > initializes, gets references, and shuts down cleanly  335ms
+   ✓ LspClient (against fake server) > tracks navigation readiness from LSP progress events  682ms
+   ✓ LspClient (against fake server) > waitForIndexReady resolves ready when no progress is ever signalled (index on disk)  308ms
+   ✓ LspClient (against fake server) > returns hover content  521ms
+   ✓ P5-3: clangd orphan self-exit (PPID poll) > is opt-outable via APG_PPID_POLL_MS=0 (no timer started)  443ms
+ ✓ tests/unit/query/packet-cheap-symbol-lookup.test.js (5 tests) 5620ms
+   ✓ graph_packet resolves symbol→feature without the full traversal > ★★ answers a bare symbol even when the expensive verb NEVER returns  488ms
+   ✓ graph_packet resolves symbol→feature without the full traversal > ★★ matches file-glob anchors the same way consequences does  839ms
+   ✓ graph_packet resolves symbol→feature without the full traversal > ★ an exact (non-glob) file anchor matches only the exact path  704ms
+   ✓ graph_packet resolves symbol→feature without the full traversal > ★★ the exact anchor DOES match its exact path — the positive sibling  667ms
+   ✓ graph_packet resolves symbol→feature without the full traversal > ★ a broken database degrades orientation, it does not fail it  2921ms
+ ✓ tests/unit/query/overlay-not-built-hint.test.js (8 tests) 5332ms
+   ✓ FIX B — overlay-not-built hint > all-broken overlay (every anchor resolves:0 — the sand_castle case) > graph_pull(feature:...) returns the OVERLAY NOT BUILT hint instead of empty not-found  523ms
+   ✓ FIX B — overlay-not-built hint > all-broken overlay (every anchor resolves:0 — the sand_castle case) > graph_pull(task:...) also returns the hint when overlay is all-broken  773ms
+   ✓ FIX B — overlay-not-built hint > missing overlay (functionality.json absent) > graph_packet(feature:...) returns the OVERLAY NOT BUILT hint  832ms
+   ✓ FIX B — overlay-not-built hint > missing overlay (functionality.json absent) > graph_pull(feature:...) returns the OVERLAY NOT BUILT hint  333ms
+   ✓ FIX B — overlay-not-built hint > empty overlay (features: []) > graph_packet emits the hint for an empty overlay  880ms
+   ✓ FIX B — overlay-not-built hint > populated overlay (happy path untouched) > graph_packet(feature:core) renders a real packet, NOT the hint  615ms
+   ✓ FIX B — overlay-not-built hint > populated overlay (happy path untouched) > graph_pull(feature:core) returns feature layers, NOT the hint  612ms
+   ✓ FIX B — overlay-not-built hint > populated overlay (happy path untouched) > graph_pull(feature:bogus) on a built overlay still gives the normal not-found (NOT the hint)  763ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/freshness-unknown-at-the-verb.test.js (5 tests) 2377ms
+   ✓ C6 — graph_search may not RULE OUT staleness it never measured > ★★★⛔ THE WORST INSTANCE: "Ruled out: the index is fresh" from a query that never ran  833ms
+   ✓ C6 — graph_search may not RULE OUT staleness it never measured > ★★★ and the reader is TOLD, rather than merely not lied to  435ms
+   ✓ C1/C2 at the shared warning channel every read verb prints through > ★★★⛔ a failed git query DISCLOSES instead of going quiet  765ms
+   ✓ graph_status does not publish an unobserved tree as a clean one > ★★★⛔ dirtyFiles:[] and currentHead:null used to be the whole answer  342ms
+ ✓ tests/unit/query/packet-seal.test.js (15 tests) 2808ms
+   ✓ governed list emission > ★★★ dev v2: a concurrent packet cannot lend its serialization  1727ms
+   ✓ governed list emission > ★★★ the seal is WIRED into the exported entry point  1069ms
+ ✓ tests/unit/freshness/publication-atomicity.test.js (11 tests) 2413ms
+   ✓ the graph and everything describing it are published by ONE commit > POSITIVE CONTROL: a successful rebuild publishes refs, fingerprints and a generation  544ms
+   ✓ the graph and everything describing it are published by ONE commit > a second rebuild advances the generation and replaces the refs  309ms
+ ✓ tests/unit/freshness/manifest-counts-match-the-table.test.js (7 tests) 2034ms
+   ✓ the manifest counts describe the population the table holds > ⭐ dirtyEdgeCount equals the table row count — the uncapped number, not the sample  747ms
+   ✓ the copied counts are checked against the committed aggregates, not trusted > ⭐ all three substrates agree after a rebuild: rows, DB aggregate, manifest copy  443ms
+ ✓ tests/unit/freshness/relative-reporoot.test.js (2 tests) 2241ms
+   ✓ ensureFresh normalizes repoRoot > indexes the same files whether repoRoot is absolute or relative  1275ms
+   ✓ ensureFresh normalizes repoRoot > indexes correctly when repoRoot is '.' (the shape that produced an empty graph)  965ms
+ ✓ tests/unit/storage/vacuum-upgrade.test.js (3 tests) 5115ms
+   ✓ compacting a legacy graph converts it as well as shrinking it > ★★★ the file shrinks AND lands on INCREMENTAL  1738ms
+   ✓ compacting a legacy graph converts it as well as shrinking it > ★★★ the conversion survives closing and reopening the database  1556ms
+   ✓ compacting a legacy graph converts it as well as shrinking it > ★★ a bare VACUUM does NOT convert — the negative control that names the old bug  1819ms
+ ✓ tests/integration/freshness-self-heal.test.js (2 tests) 1628ms
+   ✓ freshness self-heal engine > indexes a newly-committed symbol after HEAD advances (stale → fresh)  1421ms
+ ✓ tests/unit/dashboard/repo-root-wiring.test.js (10 tests) 6659ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ the verb hands the server the CALLER'S repoRoot, not the process cwd  1162ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ a SECOND shutdown joins the first instead of racing it  725ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ a start IN FLIGHT during shutdown does not publish an orphan  313ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ a shutdown does not ERASE a dashboard that started after its snapshot  927ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ a SECOND same-key call joins the in-flight start, it is not told a lie  926ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ a start COMPLETING while teardown is still running releases itself  1054ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ a startup failure reports the STARTUP cause, not the cleanup error  792ms
+   ✓ the dashboard is wired to the repo it is inspecting > ★★ an explicitly-rooted server serves THAT repo's bytes  378ms
+ ✓ tests/unit/brief/brief-carries-publication-state.test.js (5 tests) 6449ms
+   ✓ a brief says whether the graph behind its trust figure was verified > POSITIVE CONTROL: an attested graph reports publication attested and adds no issue  1105ms
+   ✓ a brief says whether the graph behind its trust figure was verified > ⛔ a LEGACY graph carries the state in the JSON trust object  991ms
+   ✓ a brief says whether the graph behind its trust figure was verified > ⛔ a LEGACY graph names it as a trust ISSUE, not merely a field  1208ms
+   ✓ a brief says whether the graph behind its trust figure was verified > ⛔ the trust LEVEL is not falsified — only qualified  1855ms
+   ✓ a brief says whether the graph behind its trust figure was verified > ⛔ the markdown surface shows it too — the JSON is not the only reader  1289ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/eval/regression-invariants.test.js (12 tests | 1 skipped) 7033ms
+   ✓ invariant: graph_impact stays on the recursive impact chain > no edge in result has to_id outside (targetIds ∪ impactSet)  1300ms
+   ✓ invariant: graph_change_plan caller count == graph_callers caller count > both verbs report the same unique-caller count for the same symbol  1226ms
+   ✓ invariant: graph_pull prefix forms are equivalent > bare / colon / slash feature forms resolve to the same feature node  1799ms
+   ✓ invariant: graph_pull prefix forms are equivalent > bare / colon / slash task forms resolve to the same task node  1297ms
+   ✓ invariant: brief trust tier agrees with graph_health trust tier > dirtyEdgeCount=0 → both report "strong"  917ms
+ ✓ tests/unit/query/trace-verification.test.js (2 tests) 2683ms
+   ✓ graph_trace source verification > ★★ the no-path branch does NOT cry wolf on a clean, fresh index  1555ms
+   ✓ graph_trace source verification > ★ but it DOES report an unverified body once the file changes after indexing  1127ms
+ ✓ tests/unit/scripts/reindex-payload.test.js (5 tests) 5365ms
+   ✓ the hook payload refreshes everything a reader depends on > ★★ refreshes graph AND briefs AND categorization together — RUN, not grepped  3641ms
+   ✓ the hook payload refreshes everything a reader depends on > ★★ never fails the git operation — RUN, not grepped  718ms
+   ✓ the hook log survives an early failure > a failing refresh still writes its FAILED line to the hook log  1003ms
+ ✓ tests/integration/shader-bridge.test.js (7 tests) 1840ms
+ ✓ tests/unit/query/whereis-limit-floor.test.js (5 tests) 1717ms
+   ✓ graph_whereis with a limit below one > ★★★ does not answer limit=-1 with an absence claim about a symbol that exists  387ms
+   ✓ graph_whereis with a limit below one > ★★★ limit=1 still answers normally — the floor must not eat the valid boundary  547ms
+ ✓ tests/unit/query/health-population-census.test.js (5 tests) 2855ms
+   ✓ graph_health population census > ★★★ reports the DISTRIBUTION, not just a total  618ms
+   ✓ graph_health population census > ★★★ names the share the search verbs CANNOT return — the contradiction  547ms
+   ✓ graph_health population census > ★★★ names the declaration types that are EMPTY here  386ms
+   ✓ graph_health population census > ★★★ says nothing about emptiness when nothing is empty  540ms
+   ✓ graph_health population census > ★★★ does not list a long tail it only counted  763ms
+fatal: ambiguous argument 'nope-no-such-ref..HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ ✓ tests/unit/query/packet-verify-since.test.js (3 tests) 1832ms
+   ✓ verify mode: since derivation > derives files from since when files[] is empty  769ms
+   ✓ verify mode: since derivation > prefers explicit files[] over since when both are given  629ms
+   ✓ verify mode: since derivation > returns empty files when since points at an invalid ref  432ms
+ ✓ tests/unit/freshness/doc-links-wired.test.js (6 tests) 4965ms
+   ✓ doc→file links survive a real index > ★★★ a design doc that links to a source file gets a LINKS_TO edge with its line  882ms
+   ✓ doc→file links survive a real index > ★★★ the manifest separates a real miss from a deliberate link out of the repo  675ms
+   ✓ doc→file links survive a real index > ★★★ a design doc that links to ANOTHER DOC resolves end to end  873ms
+   ✓ doc→file links survive a real index > ★★★ the full miss ledger reaches disk, and the manifest carries a CAPPED sample beside an UNCAPPED count  815ms
+   ✓ doc→file links survive a real index > ★★★ the manifest states the CORPUS the sweep saw and what it declined  889ms
+   ✓ doc→file links survive a real index > ★★★ a bare filename in prose still produces nothing after a full index  830ms
+ ✓ tests/unit/query/packet-not-found.test.js (7 tests) 4902ms
+   ✓ an unresolvable target on an overlay-less repo > ★★★ says the target was not found — the unreachable error is reachable  851ms
+   ✓ an unresolvable target on an overlay-less repo > ★★★ ALSO names the overlay possibility, because it cannot tell them apart  457ms
+   ✓ an unresolvable target on an overlay-less repo > ★★ the correctly spelled symbol still returns a packet — the control  806ms
+   ✓ an unresolvable target on an overlay-less repo > ★★ an EXPLICIT feature: target with no overlay still says overlay not built  484ms
+   ✓ the compiler-backed NEXT line is conditional > ★★★ absent when no code-intel collection exists  926ms
+   ✓ the compiler-backed NEXT line is conditional > ★★★ PRESENT when a collection exists and the target is symbol-shaped  464ms
+   ✓ the compiler-backed NEXT line is conditional > ★★★ absent for a FILE PATH target even when a collection exists  912ms
+ ✓ tests/unit/query/lsp-verified-surface.test.js (13 tests) 5885ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (a) marks the lsp edge and shows the lsp-verified TRUST line  939ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (b) heuristic-only symbol shows the undercount caveat, not the lsp line  472ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (d) FIX A/B: indexReady=true + ALL-verified result → "index-ready, N callers" attestation  481ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (d2) B4: indexReady=true but MIXED verified+heuristic result → lsp-partial FLOOR, not exhaustive  411ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (e) FIX A/B: indexReady=false → lsp-partial "index NOT ready" banner  692ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (I1) ungated absence claims > graph_callers absence carries the non-exhaustive verify caveat  370ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (I1) ungated absence claims > graph_callees absence carries the non-exhaustive verify caveat  501ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (I1) ungated absence claims > graph_neighbors absence carries the non-exhaustive verify caveat  614ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (I1) ungated absence claims > graph_impact absence carries the non-exhaustive verify caveat  454ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (I1) ungated absence claims > graph_callers absence stays heuristic even with an index-ready collection  493ms
+   ✓ Code-Intel v2 L2b — LSP_VERIFIED surface > (c) lsp-verified edges rank above heuristic edges  456ms
+ ✓ tests/unit/query/provenance-surface.test.js (4 tests) 2860ms
+   ✓ provenance — surfaces in verb output > graph_impact output includes provenance on each edge  842ms
+   ✓ provenance — surfaces in verb output > graph_callers output includes provenance on each edge  655ms
+   ✓ provenance — surfaces in verb output > graph_callees output includes provenance on each edge  629ms
+   ✓ provenance — surfaces in verb output > graph_neighbors output includes provenance on each edge  733ms
+ ✓ tests/unit/query/whereis-miss-scope.test.js (4 tests) 2370ms
+   ✓ graph_whereis miss — the refusal names its population > ★★★ does not present a miss as a bare fact about the repository  706ms
+   ✓ graph_whereis miss — the refusal names its population > ★★★ names the empty types by name, because that is what the reader can act on  458ms
+   ✓ graph_whereis miss — the refusal names its population > ★★★ does not claim a type is empty when it is populated  589ms
+   ✓ graph_whereis miss — the refusal names its population > ★★★ still reports the population basis even when suggestions exist  616ms
+ ✓ tests/integration/mcp-resources.test.js (5 tests) 4220ms
+   ✓ MCP resources — briefs + overlays exposed over stdio > initialize advertises resources capability  937ms
+   ✓ MCP resources — briefs + overlays exposed over stdio > resources/list on a repo with brief.agent.md + functionality.json shows both  803ms
+   ✓ MCP resources — briefs + overlays exposed over stdio > resources/read returns brief content  742ms
+   ✓ MCP resources — briefs + overlays exposed over stdio > resources/read rejects non-aify URIs  780ms
+   ✓ MCP resources — briefs + overlays exposed over stdio > resources/read rejects non-whitelisted filenames  902ms
+ ✓ tests/unit/code-intel/translation-unit-failed-fires.test.js (5 tests) 1792ms
+   ✓ evidence.translationUnitFailed — the firing half > ⛔ does NOT fire on a clean TU — the quiet half, which the field test did confirm  1572ms
+ ✓ tests/unit/query/health-trust-basis-comes-from-the-capture.test.js (4 tests) 4770ms
+   ✓ graph_health's trust basis comes from the captured table, not the manifest sample > ⛔ the basis counts the TABLE population, not the manifest sample  1981ms
+   ✓ graph_health's trust basis comes from the captured table, not the manifest sample > ⛔ and it does not describe itself as computed over a SAMPLE  929ms
+   ✓ graph_health's trust basis comes from the captured table, not the manifest sample > POSITIVE CONTROL: a graph with NO table really does fall back, and says so  761ms
+   ✓ graph_health's trust basis comes from the captured table, not the manifest sample > ⛔ a table that EXISTS but cannot be read says so under its own wording  1099ms
+ ✓ tests/unit/code-intel/converged-resume-refuses-completion.test.js (9 tests) 5118ms
+   ✓ a converged C++ resume refuses to claim completion > ⛔ it does NOT start a language server  573ms
+   ✓ a converged C++ resume refuses to claim completion > ⛔ the envelope is PARTIAL, never ok  482ms
+   ✓ a converged C++ resume refuses to claim completion > ⛔ complete is FALSE and present — omission would let a consumer default it to true  740ms
+   ✓ a converged C++ resume refuses to claim completion > ⛔ NO authoritative note is emitted — silence is what produces UNKNOWN  310ms
+   ✓ a converged C++ resume refuses to claim completion > ⛔ NEGATIVE CONTROL: with the residue ABSENT the ledger resets and the seam IS reached  656ms
+   ✓ a converged C++ resume refuses to claim completion > ⛔ the denominators travel with the refusal  586ms
+   ✓ the wrapper reports the refusal as UNKNOWN, with its denominator > ⛔ index.zeroFilesProcessed is ZERO_FILES_CAUSE_UNKNOWN with authority none  946ms
+   ✓ the wrapper reports the refusal as UNKNOWN, with its denominator > ⛔ the response carries NO "already converged" prose reasserting completion  550ms
+ ✓ tests/unit/code-intel/zero-files-reason-public-output.test.js (5 tests) 3510ms
+   ✓ the typed zero-files reason survives to the public envelope > ⛔ an empty files[] scope surfaces NO_FILES_IN_REQUESTED_SCOPE  503ms
+   ✓ the typed zero-files reason survives to the public envelope > ⛔ the value names WHAT asserted it, so a reader can weigh the claim  744ms
+   ✓ the typed zero-files reason survives to the public envelope > ⛔ it says NOTHING about the repository — only about the requested scope  978ms
+   ✓ the typed zero-files reason survives to the public envelope > POSITIVE CONTROL: the population travels with the reason  937ms
+   ✓ the typed zero-files reason survives to the public envelope > POSITIVE CONTROL: an error envelope keeps its OWN route and grows no zero-files field  346ms
+ ✓ tests/unit/dashboard/shutdown-adversarial-review.test.js (5 tests) 2094ms
+   ✓ withheld shutdown anti-targets > uses one global deadline for multiple callback-never-closes  2025ms
+ ✓ tests/unit/query/tier-identity-behaviour.test.js (6 tests) 4788ms
+   ✓ tests_adjacent tiers — behaviour, not source text > ★ a test file linked only via a DIFFERENT symbol is NOT listed  964ms
+   ✓ tests_adjacent tiers — behaviour, not source text > ★ and the no_test_coverage risk flag FIRES, because the false positive suppressed it  932ms
+   ✓ tests_adjacent tiers — behaviour, not source text > a test file that genuinely references the target IS listed  693ms
+   ✓ tests_adjacent tiers — behaviour, not source text > ★ the unverified caveat is ABSENT on verified linkage  889ms
+   ✓ tests_adjacent tiers — behaviour, not source text > ★ but an IMPORTS edge does NOT clear it — file evidence cannot discharge a symbol caveat  373ms
+   ✓ tests_adjacent tiers — behaviour, not source text > ★ and PRESENT when only a text mention was found  936ms
+ ✓ tests/unit/ingest/resolver.test.js (14 tests) 2846ms
+   ✓ cross-file resolver > resolves against a large node table without any full-table node load  2601ms
+ ✓ tests/unit/query/explain-diff.test.js (6 tests) 4091ms
+   ✓ graph_explain_diff — explain an existing diff > reports no changed files for a clean working tree  596ms
+   ✓ graph_explain_diff — explain an existing diff > CHANGED lists edited symbols; AFFECTED lists a cross-file caller; RISK present  928ms
+   ✓ graph_explain_diff — explain an existing diff > excludes intra-diff edges from AFFECTED (a caller inside a changed file is not "affected")  648ms
+   ✓ graph_explain_diff — explain an existing diff > LAYERS spans the architecture overlay and flags cross_layer risk  727ms
+   ✓ graph_explain_diff — explain an existing diff > writes diff-overlay.json when overlay=true  808ms
+   ✓ graph_explain_diff — explain an existing diff > accepts an explicit files[] list overriding range resolution  383ms
+ ✓ tests/unit/query/ambiguous-symbol-guards.test.js (4 tests) 3222ms
+   ✓ graph verbs — ambiguous unqualified symbol guard > returns AMBIGUOUS MATCH across planning and traversal verbs instead of picking one arbitrarily  1491ms
+   ✓ graph verbs — qualified symbol that STILL resolves to multiple definitions > graph_impact flags the qualified ambiguity instead of unioning both callers (no overstated blast radius)  659ms
+   ✓ graph verbs — qualified symbol that STILL resolves to multiple definitions > siblings (callers/neighbors/path/consequences) also refuse to union distinct qualified defs  735ms
+   ✓ graph verbs — qualified symbol that STILL resolves to multiple definitions > a MORE-qualified symbol disambiguates to one definition (recovery path, not ambiguous)  336ms
+ ✓ tests/unit/query/symbol-total-response-contract.test.js (7 tests) 3529ms
+   ✓ the expensive path states its candidate count where multiplicity happens > ★★ ABOVE THE RETRIEVAL CAP it states uncertainty, not the cap  485ms
+   ✓ the expensive path states its candidate count where multiplicity happens > ★★ the AMBIGUOUS message carries the REAL number of definitions  337ms
+   ✓ the expensive path states its candidate count where multiplicity happens > ★★ a UNIQUE symbol takes the matched route, and it does not claim multiplicity  564ms
+   ✓ the expensive path states its candidate count where multiplicity happens > ★★ CONTROL 1 of 3 — one row, one key: the fields are present and report no truncation  706ms
+   ✓ the expensive path states its candidate count where multiplicity happens > ★★ CONTROL 2 of 3 — NINE rows collapsing to ONE canonical key still reach `matched`, and must disclose 9  536ms
+   ✓ the expensive path states its candidate count where multiplicity happens > ★★ CONTROL 3 of 3 — above the retrieval cap, one key must REFUSE rather than sample  657ms
+ ✓ tests/unit/query/health-response-bounded.test.js (5 tests) 3685ms
+   ✓ graph_health response stays bounded > ★ with nothing TRACKED dirty, omits the names entirely and says why  1344ms
+   ✓ graph_health response stays bounded > ★ with TRACKED files dirty, the capped list comes back  575ms
+   ✓ graph_health response stays bounded > reports truncation on the tracked list too, which had no signal at all  657ms
+   ✓ graph_health response stays bounded > the whole response stays small enough to return inline  595ms
+   ✓ graph_health response stays bounded > still reports the untracked count in the verdict, just not every path  512ms
+ ✓ tests/unit/query/recompile-surface-termination.test.js (5 tests) 2360ms
+   ✓ recompile surface cannot claim a completeness it did not verify > ★★ an exactly-FULL page cannot establish completeness (policy, not omission)  593ms
+   ✓ recompile surface cannot claim a completeness it did not verify > ★★ a page that OVERFLOWS really does lose an includer  429ms
+   ✓ recompile surface cannot claim a completeness it did not verify > ★★ running out of DEPTH is reported separately from running out of FILES  395ms
+   ✓ recompile surface cannot claim a completeness it did not verify > ★★ claims terminated only when the frontier emptied ON ITS OWN  541ms
+   ✓ recompile surface cannot claim a completeness it did not verify > ★★ decides terminality from the graph, not from file extension  401ms
+ ✓ tests/unit/query/health-storage.test.js (7 tests) 2701ms
+   ✓ graph_health reports the storage basis > ★★★ deleted-but-unreclaimed space trips the remedy, and the remedy names the repo  1357ms
+   ✓ graph_health reports the storage basis > ★★ the same graph reports NOT reclaimable under the shipped thresholds  1289ms
+ ✓ tests/unit/query/find-layers-searched.test.js (10 tests) 2727ms
+   ✓ C2/C3 — the tasks layer > ★★★⛔ C2: CORRUPT tasks.json removes `tasks` from layers_searched  439ms
+   ✓ C2/C3 — the tasks layer > ★★★⛔ C2b: MALFORMED tasks.json (parses, no tasks array) is also unclaimed  330ms
+   ✓ C2/C3 — the tasks layer > ★★★ C3 POSITIVE CONTROL: a VALID tasks.json keeps the layer claimed  349ms
+   ✓ C6/C7 — the features layer, whose honesty was being discarded > ★★★⛔ C6: CORRUPT functionality.json removes `features` from layers_searched  381ms
+   ✓ C6/C7 — the features layer, whose honesty was being discarded > ★★★ C7 POSITIVE CONTROL: a VALID functionality.json keeps the layer claimed  415ms
+   ✓ C5/C8 — the failure is contained > ★★★⛔ C8: the layers fail INDEPENDENTLY  363ms
+ ✓ tests/unit/ingest/git-candidates.test.js (11 tests) 1608ms
+   ✓ getGitCandidateFiles > returns a Set with tracked + untracked-not-ignored files in a git repo  338ms
+   ✓ getGitCandidateFiles > normalizes path separators to forward slashes  332ms
+   ✓ getGitCandidateFiles > honors negation rules in .gitignore  370ms
+   ✓ sweep + gitignore negation regression (dev P1#1) > sweep walks a file git ls-files re-includes (.gitignore: *.md + !keep.md inside docs/)  379ms
+ ✓ tests/unit/query/doc-topic-reachability.test.js (17 tests) 3480ms
+   ✓ a topic in a heading is reachable when the caller widens > ★★★⛔ THE QUERY THAT USED TO RETURN NOTHING: exact symbol name, kind="all"  617ms
+   ✓ a topic in a heading is reachable when the caller widens > ★★★⛔ THE DEFAULT kind="code" IS UNCHANGED — no document, and the fast path intact  427ms
+   ✓ a topic in a heading is reachable when the caller widens > ★★★ NEGATIVE CONTROL: a topic in NO heading is still not found  371ms
+   ✓ a zero result discloses what was actually searched > ★★★⛔ kind="all" with no match says bodies are not indexed  569ms
+   ✓ a zero result discloses what was actually searched > ★★★ a zero after widening names the population that was ACTUALLY searched  705ms
+ ✓ tests/unit/sync/auto-sync.test.js (9 tests) 1757ms
+   ✓ startAutoSync sync dispatch > survives ensureFresh throwing (no crash, watcher stays alive)  421ms
+   ✓ startAutoSync sync dispatch > coalesces bursts during an in-flight sync (no concurrent ensureFresh)  715ms
+   ✓ startAutoSync sync dispatch > stop() halts further sync calls  354ms
+ ✓ tests/unit/query/dirty-count-consistency.test.js (3 tests) 1645ms
+   ✓ dirty counts key on tracked modifications > getTrackedDirtyFilesSync excludes untracked files  375ms
+   ✓ dirty counts key on tracked modifications > graph_packet SNAPSHOT reports dirty=0 when only untracked files exist  416ms
+   ✓ dirty counts key on tracked modifications > graph_packet SNAPSHOT does count a real tracked modification  853ms
+ ✓ tests/unit/query/packet-unranked-candidates.test.js (8 tests) 2809ms
+   ✓ the symbol-pointer packet is honest about its candidate list > ★★ any count it prints is the REAL count, never a cap  327ms
+   ✓ the symbol-pointer packet is honest about its candidate list > ★ warns even when NOTHING was truncated but the match is still ambiguous  350ms
+   ✓ the symbol-pointer packet is honest about its candidate list > the FEATURE-matched branch caps too, and it was the silent one > ★★ states 16, not a silent 3  524ms
+   ✓ the symbol-pointer packet is honest about its candidate list > the FEATURE-matched branch caps too, and it was the silent one > ★★ breaks the total down by language, because the spread IS the hazard  345ms
+   ✓ the symbol-pointer packet is honest about its candidate list > the FEATURE-matched branch caps too, and it was the silent one > ★★ names the cross-language duplicate as a FINDING, as consequences already does  356ms
+   ✓ the symbol-pointer packet is honest about its candidate list > the FEATURE-matched branch caps too, and it was the silent one > ★ says none of that when the symbol is defined once  411ms
+ ✓ tests/unit/init-project-mcp.test.js (26 tests) 2573ms
+   ✓ init-project-mcp.mjs — runtime gate > rejects docs-only runtimes with pointer to install.<runtime>.md  447ms
+ ✓ tests/unit/freshness/doc-edges-have-a-deletion-trigger.test.js (3 tests) 3060ms
+   ✓ a document leaving the repo takes its edges with it > ★★★ deleting a document removes its edges, and orphans NOTHING  985ms
+   ✓ a document leaving the repo takes its edges with it > ★★★ deleting the TARGET of a doc edge orphans nothing either  999ms
+   ✓ a document leaving the repo takes its edges with it > ★★★ RENAMING a document moves its edges rather than duplicating them  1075ms
+ ✓ tests/unit/query/whereis-population-routes.test.js (7 tests) 2677ms
+   ✓ every graph_whereis route states the population and its basis > ★★★ expand=true with ONE definition — the route that said nothing at all  337ms
+   ✓ every graph_whereis route states the population and its basis > ★★★ expand=true with MANY definitions — a count with no basis  512ms
+   ✓ every graph_whereis route states the population and its basis > ★★★ the UNCAPPED compact route — no regression  373ms
+   ✓ every graph_whereis route states the population and its basis > ★★★ CONTROL: a same-label non-declaration node does NOT enter the population  391ms
+   ✓ every graph_whereis route states the population and its basis > ★★★ CONTROL: a near-label declaration does NOT enter the population  459ms
+   ✓ every graph_whereis route states the population and its basis > ★★★ the claim is about THIS GRAPH, not about the repository  327ms
+ ✓ tests/unit/toolset-code-intel.test.js (3 tests) 1916ms
+   ✓ --toolset=code-intel > exposes the 5 bounded code_intel_* verbs  682ms
+   ✓ --toolset=code-intel > also exposes graph_packet, graph_health, graph_collect_code_intel  662ms
+   ✓ --toolset=code-intel > does NOT expose discovery/orient verbs like graph_search or graph_report  570ms
+ ✓ tests/unit/query/search-finds-documents.test.js (8 tests) 3239ms
+   ✓ finding a document you forgot existed > ★★★ a multi-word query finds the doc — filenames are not phrases  463ms
+   ✓ finding a document you forgot existed > ★★★ with kind="all" the doc is REACHABLE at the default limit  497ms
+   ✓ a document is findable by its TITLE, not only by its filename > ★★★ a topic that appears ONLY in the title finds the document  386ms
+   ✓ a document is findable by its TITLE, not only by its filename > ★★★ a SINGLE-WORD title query also works — both branches of the predicate  397ms
+   ✓ a document is findable by its TITLE, not only by its filename > ★★★ but a DEFAULTED search reaches the document — the founding question  677ms
+ ✓ tests/unit/query/packet-snapshot-line.test.js (5 tests) 3241ms
+   ✓ the packet SNAPSHOT line > ★★★ is emitted at all — the guard pins its shape, not its existence per route  798ms
+   ✓ the packet SNAPSHOT line > ★★★ STALE is present exactly when indexed differs from head — the case the shape check hid  611ms
+   ✓ the packet SNAPSHOT line > ★★★ its `head` really is git HEAD, abbreviated  811ms
+   ✓ the packet SNAPSHOT line > ★★★ `dirty` tracks TRACKED changes, and the scope is the point  831ms
+ ✓ tests/unit/query/impact-counts-edges-not-paths.test.js (3 tests) 1359ms
+   ✓ graph_impact edge accounting > ★★★ renders each distinct edge once, however many paths reach it  606ms
+   ✓ graph_impact edge accounting > ★★★ depth=1 and depth=3 agree about the edges they share  537ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/health-index-incomplete.test.js (5 tests) 1212ms
+ ✓ tests/unit/query/observed-doc-mentions.test.js (5 tests) 4224ms
+   ✓ documents_mentioning takes the provenance of its edges, and ranks by distinct nodes > ★★ ranks by how many symbols a document actually mentions  889ms
+   ✓ documents_mentioning takes the provenance of its edges, and ranks by distinct nodes > ★★ carries the provenance OF ITS EDGES, and still differs from the overlay field  627ms
+   ✓ documents_mentioning takes the provenance of its edges, and ranks by distinct nodes > ★★★ an OBSERVED doc edge produces an OBSERVED label — the derivation runs both ways  448ms
+   ✓ documents_mentioning takes the provenance of its edges, and ranks by distinct nodes > ★★★ a document mentioning ONE symbol is no longer dropped  939ms
+   ✓ documents_mentioning takes the provenance of its edges, and ranks by distinct nodes > ★★★ the internal provenance carrier never reaches the caller  1319ms
+ ✓ tests/unit/server/tool-routing-identity.test.js (1 test) 3201ms
+   ✓ the MCP registry routes each tool NAME to its own verb > ★★ every probed name returns that verb's own output, not another's  3200ms
+ ✓ tests/unit/query/trace-cpp-declaration.test.js (3 tests) 1346ms
+   ✓ graph_trace on a C++ header/implementation split > ★★ a CALLS hop landing on a DECLARATION renders the DEFINITION body  376ms
+   ✓ graph_trace on a C++ header/implementation split > ★ the same definition is not rendered twice in one trace  468ms
+   ✓ graph_trace on a C++ header/implementation split > ★ when NO definition exists, it says DECLARATION ONLY rather than implying the function is empty  501ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/search-widens-to-documents.test.js (7 tests) 1522ms
+   ✓ a discovery question reaches the document layer on the DEFAULT path > reaches a document by a HEADING, not just its title  330ms
+   ✓ a document that is ABOUT the topic outranks one that merely mentions it > ranks the document NAMED for the topic above the one that only has matching headings  322ms
+ ✓ tests/unit/query/evidence-tier-outranks-confidence.test.js (8 tests) 2771ms
+   ✓ evidence tier outranks confidence, and the tier is visible > the ranking owner > ⛔ the SQL is GENERATED from the same map — not restated in a second language  305ms
+   ✓ evidence tier outranks confidence, and the tier is visible > graph_preflight — the verb that answers "is this safe to change" > ⛔ shows the VERIFIED callers, not the higher-confidence heuristic ones  568ms
+   ✓ evidence tier outranks confidence, and the tier is visible > graph_preflight — the verb that answers "is this safe to change" > ⛔ TAGS the tier — the row already carried provenance and the render dropped it  379ms
+   ✓ evidence tier outranks confidence, and the tier is visible > graph_preflight — the verb that answers "is this safe to change" > ⭐ THE TAG DISCRIMINATES: it is neither always-on nor always-off  471ms
+   ✓ evidence tier outranks confidence, and the tier is visible > graph_file — the same hand-rolled line, the same two defects > ⛔ ranks incoming edges by tier and tags them  329ms
+ ✓ tests/unit/query/graph-watch.test.js (8 tests) 1542ms
+   ✓ graph_watch — debounced re-index > a burst of file writes triggers exactly one graphIndex call within the debounce window  508ms
+   ✓ graph_watch — debounced re-index > a second burst arriving DURING an in-flight reindex coalesces into exactly one trailing run  602ms
+   ✓ graph_watch — debounced re-index > lastRunAt updates after a successful reindex  424ms
+ ✓ tests/unit/dashboard/process-exits-after-dashboard.test.js (1 test) 1933ms
+   ✓ the server process exits after a dashboard has been opened > ★★ closing stdin releases the HTTP listener and the process exits on its own  1932ms
+ ✓ tests/unit/sync/watcher.test.js (11 tests) 1469ms
+   ✓ startWatcher native (non-WSL) operation > debounces a burst of changes into a single onChange call  309ms
+   ✓ startWatcher native (non-WSL) operation > stop() makes subsequent changes silent  524ms
+   ✓ startWatcher native (non-WSL) operation > skips events whose top-level dir is in the ignored set  311ms
+   ✓ startWatcher native (non-WSL) operation > skips events whose NESTED dir is in the ignored set  319ms
+ ✓ tests/unit/freshness/extract-refusal-transport.test.js (4 tests) 4425ms
+   ✓ an extraction refusal keeps its type all the way to a reader > ⛔ the ensureFresh RESPONSE names the file and carries the code  1006ms
+   ✓ an extraction refusal keeps its type all the way to a reader > ⛔ the MANIFEST persists the same typed record  506ms
+   ✓ an extraction refusal keeps its type all the way to a reader > ⛔ graph_health RENDERS the code, so an agent can tell a defect from a syntax error  1170ms
+   ✓ an extraction refusal keeps its type all the way to a reader > POSITIVE CONTROL: a legacy record with no code renders without printing "undefined"  1742ms
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/integration/code-intel/cpp-clangd-real.test.js (1 test) 1867ms
+   ✓ cpp-clangd provider (real clangd) > collects against the fixture repo  1866ms
+ ✓ tests/unit/query/caller-callee-chain.test.js (2 tests) 1671ms
+   ✓ graph_callers / graph_callees — recursive chain only > graph_callers(depth>1) only returns edges that stay on the recursive caller chain  1107ms
+   ✓ graph_callers / graph_callees — recursive chain only > graph_callees(depth>1) only returns edges that stay on the recursive callee chain  564ms
+ ✓ tests/unit/query/health-fragment-count-can-fail.test.js (3 tests) 3568ms
+   ✓ the fragment-external count can say that it failed > POSITIVE CONTROL: a readable graph with no fragments says nothing at all  1751ms
+   ✓ the fragment-external count can say that it failed > POSITIVE CONTROL: a fragment-labelled External IS counted and reported  792ms
+   ✓ the fragment-external count can say that it failed > ⛔ a read that FAILS says NOT MEASURED, and does not wear the clean answer  1025ms
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/integration/code-intel/ts-langserver-real.test.js (4 tests) 2730ms
+   ✓ typescript-language-server (real) — live verbs > codeIntelSymbols returns the file outline (language inferred from .ts)  1493ms
+   ✓ typescript-language-server (real) — collection → importable records > collect(scope:all) yields relative-path symbol/definition/reference records  1136ms
+ ✓ tests/unit/query/search-candidate-page-is-ranked.test.js (3 tests) 2736ms
+   ✓ graph_search candidate page > ★★★ a code-typed match is not lost to storage order before scoring runs  811ms
+   ✓ graph_search candidate page > ★★★ the exact-name fast path is untouched by the ordering change  954ms
+   ✓ graph_search candidate page > ★★★ truncation is still disclosed — narrowing the defect is not removing it  970ms
+ ✓ tests/unit/query/companion-header-tests.test.js (4 tests) 3559ms
+   ✓ graph_consequences — .cpp inherits its header test adjacency > ★ a .cpp target surfaces the test that includes its paired header  885ms
+   ✓ graph_consequences — .cpp inherits its header test adjacency > says the adjacency came via the HEADER, not via this file  1282ms
+   ✓ graph_consequences — .cpp inherits its header test adjacency > a direct include of the queried file still reports the stronger tier  646ms
+   ✓ graph_consequences — .cpp inherits its header test adjacency > a .cpp with no header and no test linkage still reports none  746ms
+ ✓ tests/unit/storage/auto-vacuum.test.js (3 tests) 1204ms
+   ✓ a newly created graph reclaims deleted space > ★★★ freed pages actually return to the file, not just to the freelist  1133ms
+ ✓ tests/unit/query/server-build-identity.test.js (14 tests) 1043ms
+   ✓ server build identity > reports the RUNNING commit as `commit`, the tree separately, and does not cry stale when they agree  513ms
+   ✓ server build identity > ★★ version is captured at LOAD, not read from disk per query  344ms
+ ✓ tests/unit/query/packet-symbol-location.test.js (3 tests) 973ms
+   ✓ symbol-derived packets carry the symbol location > ★ labels the location as the SYMBOL's, not the feature's  348ms
+   ✓ symbol-derived packets carry the symbol location > ★ the no-feature path did not LOSE its location when the other gained one  355ms
+ ✓ tests/unit/query/packet-authority-boundaries.test.js (11 tests) 1301ms
+   ✓ packet authority boundaries > ★★★ the compat re-export is the SAME FUNCTION OBJECT, not an equivalent one  812ms
+ ✓ tests/unit/code-intel-microbench.test.js (11 tests) 1273ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/dirty-unknown-contract.test.js (6 tests) 2397ms
+   ✓ C2 — an honest clean tree still renders numeric zero > ★★★ POSITIVE CONTROL: clean means 0, not ?  459ms
+   ✓ C3 — a genuinely dirty tree still renders a number > ★★★ a TRACKED modification renders as a count, and only the failure path changed  431ms
+   ✓ C3 — a genuinely dirty tree still renders a number > ★★★ UNTRACKED files are still excluded — the original field-report contract holds  598ms
+   ✓ the three states are mutually distinguishable > ★★★⛔ 0, N and ? are three different answers  816ms
+ ✓ tests/unit/query/whereis-path-target-any-type.test.js (6 tests) 2583ms
+   ✓ graph_whereis given a path that is indexed > ★ does not claim absence for an indexed File node  476ms
+   ✓ graph_whereis given a path that is indexed > ★ does not claim absence for an indexed Directory node  509ms
+   ✓ graph_whereis given a path that is indexed > ★★★ does not claim absence for an indexed Document node  672ms
+   ✓ graph_whereis given a path that is indexed > ★★★ does not claim absence for an indexed Config node  323ms
+   ✓ graph_whereis given a path that is indexed > ★★★ a symbol miss that is NOT a path still answers as a symbol miss  377ms
+ ✓ tests/unit/code-intel/skip-counters-provider-boundary.test.js (5 tests) 1677ms
+   ✓ the counters travel from the PROVIDER through the collect verb > ★★ an ENVELOPE claiming a different provider is REJECTED — the sibling of the object check  391ms
+   ✓ the counters travel from the PROVIDER through the collect verb > ★★ what the provider session reports is what the verb reports  738ms
+ ✓ tests/unit/freshness/cosmetic-skip.test.js (5 tests) 1149ms
+   ✓ P1-6 cosmetic-vs-structural change classification > classifies a body-only edit as COSMETIC and leaves nodes/edges byte-identical  394ms
+ ✓ tests/unit/query/dirty-omitted-reconciles.test.js (3 tests) 2910ms
+   ✓ dirtyFilesOmitted matches what was actually printed > ★★ omitted + shown === total, whatever the suppression did  906ms
+   ✓ dirtyFilesOmitted matches what was actually printed > ★ when the list is SUPPRESSED, omitted equals the total — not total minus a cap  948ms
+   ✓ dirtyFilesOmitted matches what was actually printed > ★ a CLEAN repo reports zero on every axis — the count must not invent omissions  1054ms
+ ✓ tests/unit/query/change-plan-cap-is-not-a-count.test.js (2 tests) 1114ms
+   ✓ change_plan reports the population, not the display budget > ★★ SIGNALS states the true test-file count, disclosing the sample  554ms
+   ✓ change_plan reports the population, not the display budget > ★ says nothing about sampling when nothing was sampled  559ms
+ ✓ tests/unit/query/health-dirty-noise.test.js (3 tests) 2105ms
+   ✓ graph_health omits the dirty-file sample when nothing tracked is dirty > ★★ UNTRACKED-only dirt: the sample is suppressed and the summary says why  695ms
+   ✓ graph_health omits the dirty-file sample when nothing tracked is dirty > ★★ the TOTAL is the real count — arithmetic, not spelling  893ms
+   ✓ graph_health omits the dirty-file sample when nothing tracked is dirty > ★ TRACKED dirt IS reported — suppression must not swallow the signal  516ms
+ ✓ tests/unit/query/search-filter-attribution.test.js (6 tests) 2221ms
+   ✓ graph_search zero-result cause attribution > ★★★ a bare call does not blame filters the caller never passed  381ms
+   ✓ graph_search zero-result cause attribution > ★★★ kind="all" is the WIDEST setting and must not be reported as narrowing  363ms
+   ✓ graph_search zero-result cause attribution > ★★★ a caller-supplied type IS reported as narrowing  436ms
+   ✓ graph_search zero-result cause attribution > ★★★ a caller-supplied file IS reported as narrowing  402ms
+   ✓ graph_search zero-result cause attribution > ★★★ "Ruled out" holds only causes actually ruled OUT  380ms
+ ✓ tests/unit/query/read-freshness.test.js (4 tests) 2402ms
+   ✓ read verbs use existing snapshots only > bootstraps a graph on first read when no snapshot exists yet  912ms
+   ✓ read verbs use existing snapshots only > surfaces dirty working-tree warnings while reading the last completed snapshot  690ms
+   ✓ read verbs use existing snapshots only > stale snapshot warning carries the commits-behind count AND a refresh call-to-action (field report #1a)  747ms
+ ✓ tests/integration/injected-surface-enumeration.test.js (4 tests) 1154ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/health.test.js (9 tests) 2412ms
+   ✓ graph_health — synthesis of graph state signals > reports strong trust on a clean graph  417ms
+   ✓ graph_health — synthesis of graph state signals > flags stale unresolved categorization separately from stale briefs  419ms
+   ✓ graph_health — synthesis of graph state signals > surfaces overlay quality and dirty seams when the working tree intersects mapped features  566ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/degraded-split-discriminates.test.js (4 tests) 1125ms
+   ✓ ★ the degraded/clean split discriminates rather than decorating > reports the seeded values instead of a hardcoded shape  375ms
+ ✓ tests/unit/query/virtual-override-surface.test.js (2 tests) 1204ms
+   ✓ virtual-override edges surface in impact/callees (INFERRED) > graph_impact on the base virtual surfaces the override, marked INFERRED  704ms
+   ✓ virtual-override edges surface in impact/callees (INFERRED) > graph_callees on the base virtual follows the override (INFERRED)  499ms
+ ✓ tests/unit/query/change-plan-occurrence-fallback.test.js (1 test) 1034ms
+   ✓ graph_change_plan — weak-trust source-occurrence fallback > does not report SAFE when caller edges are sparse but source occurrences are broad under weak trust  1033ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/freshness/worktree-state.test.js (9 tests) 1053ms
+   ✓ the induction actually reaches the failure path > ★★★⛔ THE INSTRUMENT CHECK: git genuinely fails outside a repo, and succeeds inside one  353ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/health-reports-manifest-unusable.test.js (4 tests) 847ms
+   ✓ graph_health passes the manifest LOAD STATUS, not just the manifest > POSITIVE CONTROL: a readable, agreeing manifest reports ATTESTED  386ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/brief/brief-self-dates.test.js (5 tests) 1128ms
+   ✓ briefs state their own age > the age line is FIRST — a reader who stops after one line still learns it  334ms
+ ✓ tests/unit/query/neighbors-new-relations.test.js (4 tests) 2026ms
+   ✓ graph_neighbors exposes the new edge types via the registry > OVERRIDDEN_BY is now a valid edge_type and returns the override edge  589ms
+   ✓ graph_neighbors exposes the new edge types via the registry > DECLARES_BINDING is queryable and returns the binding edge  562ms
+   ✓ graph_neighbors exposes the new edge types via the registry > LOADS_SHADER is queryable and returns the loader edge  396ms
+   ✓ graph_neighbors exposes the new edge types via the registry > HAS_DIAGNOSTIC is queryable and returns the diagnostic edge  478ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/health-stale-externals.test.js (4 tests) 1012ms
+   ✓ graph_health reports External nodes whose labels are not plausible names > ⛔ it speaks, and counts fragments rather than all External nodes  447ms
+ ✓ tests/unit/query/provenance-surface-pull-path.test.js (2 tests) 1006ms
+   ✓ provenance — graph_pull + graph_path surface it > graph_pull relations layer includes provenance on symbol callers/callees  584ms
+   ✓ provenance — graph_pull + graph_path surface it > graph_path rendered output tags non-EXTRACTED provenance on child rows  421ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/collect-code-intel.test.js (17 tests) 880ms
+   ✓ graph_collect_code_intel > returns a COMPACT SUMMARY (no raw records[]) and imports the full envelope locally  378ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: ambiguous argument 'HEAD': unknown revision or path not in the working tree.
+Use '--' to separate paths from revisions, like this:
+'git <command> [<revision>...] -- [<file>...]'
+ ✓ tests/unit/query/status-unresolved-breakdown.test.js (4 tests) 800ms
+   ✓ graph_status — unresolvedBy coarse breakdown > exposes overlay quality and dirty seam attribution alongside status  380ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/brief/test-system-identification.test.js (3 tests) 928ms
+   ✓ brief names the dominant test system > TESTS anchors come from the C++ suite, not the 3 Python helpers  363ms
+   ✓ brief names the dominant test system > brief.json carries the inventory for programmatic consumers  370ms
+refusing to modify C:\Users\ADMINI~1\AppData\Local\Temp\apg-hookinstall-Zo0vdp\settings.json: it is not valid JSON (Expected property name or '}' in JSON at position 2 (line 1 column 3))
+ ✓ tests/unit/integrations/install-agent-hook.test.js (13 tests) 897ms
+   ✓ install-agent-hook — driven as a real process against real files > ⛔ --check exits 1 when absent and 0 once installed  434ms
+ ✓ tests/unit/query/impact-chain.test.js (1 test) 874ms
+   ✓ graph_impact — recursive chain only > returns only edges on the recursive impact chain, not every outgoing edge from callers  873ms
+ ✓ tests/unit/intelligence/dashboard-endpoint.test.js (22 tests) 1369ms
+   ✓ P2b dashboard analytics endpoints > /api/diff lists changed files that are graph nodes, filtering un-indexed ones  484ms
+ ✓ tests/unit/ingest/doc-links.test.js (31 tests) 1838ms
+   ✓ doc → file links > ★★★ ...and every no-segment spelling refuses, not just the one that was reported  317ms
+ ✓ tests/unit/bench-ab.test.js (5 tests) 508ms
+ ✓ tests/unit/query/zero-result-cause-honesty.test.js (3 tests) 957ms
+   ✓ zero-result paths do not invent a cause > graph_trace failure says CAUSE UNKNOWN when no dispatch site exists  545ms
+ ✓ tests/unit/query/packet-verify.test.js (11 tests) 974ms
+   ✓ graphPacket(mode:verify) > routes verify mode through buildVerifyPacket  406ms
+ ✓ tests/unit/query/remedy-names-a-reachable-verb.test.js (1 test) 561ms
+   ✓ a remedy names a verb the reader can actually call > ★★★ no default-profile verb points the reader at an unlisted verb  560ms
+ ✓ tests/unit/freshness/external-admission-through-reindex.test.js (2 tests) 749ms
+   ✓ external admission survives a real incremental re-index > ⛔ a refused REFERENCES terminal does not survive the re-index, and is then collected  464ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/health-code-intel.test.js (2 tests) 534ms
+   ✓ graph_health.codeIntel > reports codeIntel.available=true after a collection import  302ms
+ ✓ tests/unit/code-intel/no-compile-db-is-named.test.js (11 tests) 632ms
+   ✓ no_compile_db is classified as a standing limit > the declared cause enum in the tool schema includes it  625ms
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/packet-live.test.js (8 tests) 777ms
+   ✓ enrichLive > ★★★ a live verb that THROWS is "unavailable", not silence  742ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/rebuild-serves-previous-snapshot.test.js (8 tests) 912ms
+ ✓ tests/unit/scripts/establish-usage-semantics.test.js (7 tests) 559ms
+ ✓ tests/unit/ingest/doc-refs.test.js (35 tests) 1399ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/health-brief-stale.test.js (2 tests) 529ms
+   ✓ graph_health — brief stale detection > flags briefStaleVsManifest when brief.json graph_indexed_at lags manifest.indexedAt  343ms
+ ✓ tests/unit/code-intel/cli/doctor.test.js (2 tests) 406ms
+   ✓ apg code-intel doctor > reports per-language status for cpp  374ms
+ ✓ tests/unit/overlay/loader.test.js (27 tests) 1163ms
+ ✓ tests/unit/query/tool-listing-contract.test.js (5 tests) 493ms
+ ✓ tests/unit/scripts/g8-receipt-provenance.test.js (13 tests) 139ms
+fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+ ✓ tests/unit/query/one-git-observation-per-read.test.js (6 tests) 603ms
+   ✓ dirtyFilesKnown is measured, not assumed > ★★★⛔ true on a readable tree, false when git cannot be read  597ms
+ ✓ tests/unit/query/packet-occurrence-transforms.test.js (15 tests) 331ms
+   ✓ occurrence transforms and the routes that bypassed them > ★★★ A: the FEATURE-MATCHED branch states its population too  324ms
+ ✓ tests/unit/storage/schema.test.js (6 tests) 1495ms
+   ✓ schema > edges table has all expected columns  311ms
+   ✓ schema > creates indexes on hot query paths  312ms
+ ✓ tests/unit/code-intel/wsl-clangd.test.js (22 tests) 210ms
+ ✓ tests/unit/freshness/legacy-unresolved-bridge.test.js (23 tests) 345ms
+ ✓ tests/unit/storage/producers-emit-only-declared-types.test.js (10 tests) 365ms
+ ✓ tests/unit/query/response-budget.test.js (4 tests) 226ms
+ ✓ tests/unit/no-raw-nul-bytes.test.js (7 tests) 250ms
+ ✓ tests/unit/query/windows-path-args.test.js (6 tests) 389ms
+ ✓ tests/unit/scripts/volatile-line-exclusion.test.js (8 tests) 314ms
+   ✓ the volatile SNAPSHOT line is excluded in every state it can occur in > ★★★⛔ THE PRODUCER AND THE GUARD AGREE — bound to real output, not to my spelling of it  310ms
+ ✓ tests/unit/ingest/code-intel/lsp-graph-edges.test.js (8 tests) 393ms
+ ✓ tests/unit/extractor-labels-have-one-writer.test.js (9 tests) 202ms
+ ✓ tests/unit/server-source-mtime-staleness.test.js (8 tests) 198ms
+ ✓ tests/unit/query/semantic-search.test.js (3 tests) 245ms
+ ✓ tests/unit/ingest/external-admission.test.js (24 tests) 958ms
+ ✓ tests/unit/ingest/framework-refs-bind-to-repo-symbols.test.js (10 tests) 394ms
+ ✓ tests/unit/scripts/arm-workspace.test.js (14 tests) 123ms
+stdout | tests/unit/negative-assertions-are-controlled.test.js > negative assertions must not spread uncontrolled > ★★★ adoption is reported, so "available" is never mistaken for "adopted"
+NEGATIVE ASSERTIONS — controlled: 85 · bare: 154 · 35.6% controlled
+
+ ✓ tests/unit/negative-assertions-are-controlled.test.js (3 tests) 248ms
+ ✓ tests/unit/scripts/install-graph-hook.test.js (9 tests) 87ms
+ ✓ tests/unit/ingest/every-framework-ref-carries-a-language.test.js (3 tests) 153ms
+ ✓ tests/unit/scripts/dependency-carrier.test.js (8 tests) 207ms
+ ✓ tests/unit/storage/pinned-read-snapshot.test.js (11 tests) 561ms
+ ✓ tests/unit/query/code-intel-replay.test.js (11 tests) 512ms
+ ✓ tests/unit/query/stale-warning-actionable.test.js (21 tests) 178ms
+ ✓ tests/unit/code-intel/coverage-first-party-gate.test.js (11 tests | 1 skipped) 270ms
+ ✓ tests/unit/query/class-qualified-lookup.test.js (12 tests) 447ms
+ ✓ tests/unit/analysis/deleted-with-callers.test.js (16 tests) 624ms
+ ✓ tests/unit/ingest/import-evidence-resolution.test.js (19 tests) 378ms
+ ✓ tests/unit/storage/rebuild-transaction.test.js (11 tests) 493ms
+ ✓ tests/unit/code-intel/coverage-ratio-is-a-floor.test.js (7 tests) 224ms
+ ✓ tests/unit/brief/read-first-docs.test.js (13 tests) 514ms
+ ✓ tests/unit/query/find-tokenization.test.js (4 tests) 292ms
+ ✓ tests/unit/graph-identity-differential.test.js (13 tests | 1 skipped) 88ms
+ ✓ tests/unit/intelligence/extract.test.js (11 tests) 335ms
+ ✓ tests/unit/analytics.test.js (23 tests) 368ms
+ ✓ tests/unit/freshness/unresolved-categorization.test.js (12 tests) 211ms
+ ✓ tests/unit/query/truncation-honesty.test.js (4 tests) 480ms
+   ✓ truncation honesty > graph_search reports how many of how many matches it showed  308ms
+ ✓ tests/unit/ingest/legitimate-callees-are-not-refused.test.js (14 tests) 559ms
+ ✓ tests/unit/ingest/sweep-counts.test.js (9 tests) 104ms
+ ✓ tests/unit/freshness/lock-concurrency.test.js (3 tests) 209ms
+ ✓ tests/unit/query/pull-code-intel.test.js (3 tests) 269ms
+ ✓ tests/unit/ingest/external-identity-is-not-forked.test.js (5 tests) 232ms
+ ✓ tests/unit/ingest/virtual-overrides.test.js (9 tests) 402ms
+ ✓ tests/unit/storage/crud.test.js (11 tests) 468ms
+ ✓ tests/unit/ingest/frameworks/rails-target-is-qualified.test.js (11 tests) 92ms
+ ✓ tests/unit/query/callee-call-order.test.js (3 tests) 251ms
+ ✓ tests/unit/query/generated-ranking.test.js (3 tests) 272ms
+ ✓ tests/unit/ingest/sweep.test.js (3 tests) 115ms
+ ✓ tests/unit/code-intel/compile-db.test.js (18 tests) 144ms
+ ✓ tests/unit/storage/fts5-search.test.js (8 tests) 361ms
+ ✓ tests/unit/query/callees-boundary-pointer.test.js (2 tests) 185ms
+ ✓ tests/unit/code-intel/exhaustive-requires-full-population.test.js (5 tests) 143ms
+ ✓ tests/unit/code-intel/compile-db-unity.test.js (10 tests) 86ms
+ ✓ tests/unit/ingest/code-intel/importer-collections.test.js (8 tests) 108ms
+ ✓ tests/unit/code-intel/analyze.test.js (5 tests) 114ms
+ ✓ tests/unit/query/did-you-mean.test.js (8 tests) 324ms
+ ✓ tests/unit/code-intel/empty-collection-cannot-supersede.test.js (7 tests) 279ms
+ ✓ tests/unit/code-intel/compile-db-coverage.test.js (10 tests) 95ms
+ ✓ tests/unit/dashboard/cross-layer-edges.test.js (3 tests) 171ms
+ ✓ tests/unit/ingest/frameworks/laravel-middleware-tokens.test.js (5 tests) 110ms
+ ✓ tests/unit/ingest/frameworks.test.js (8 tests) 102ms
+ ✓ tests/unit/query/eligible-denominator.test.js (4 tests) 216ms
+ ✓ tests/unit/ingest/code-intel/importer-v02.test.js (4 tests) 207ms
+ ✓ tests/unit/code-intel/analyze-compile-db-discovery.test.js (5 tests) 88ms
+ ✓ tests/unit/ingest/duplicate-site-refusal.test.js (3 tests) 97ms
+ ✓ tests/unit/code-intel/collect-ledger-orphaned.test.js (9 tests) 197ms
+ ✓ tests/unit/ingest/generic.test.js (28 tests) 76ms
+ ✓ tests/unit/brief/hubs-count-framework-routed-edges.test.js (5 tests) 229ms
+ ✓ tests/unit/analysis/communities.test.js (4 tests) 247ms
+ ✓ tests/unit/query/source-window-drift.test.js (8 tests) 85ms
+ ✓ tests/unit/query/hotspot-degree-honesty.test.js (4 tests) 267ms
+ ✓ tests/unit/code-intel/extractor-is-an-authority-boundary.test.js (5 tests) 206ms
+ ✓ tests/unit/code-intel/scoped-collect-invalidation.test.js (5 tests) 189ms
+ ✓ tests/unit/query/census-reports-the-distribution.test.js (7 tests) 216ms
+ ✓ tests/unit/query/cause-vocabulary.test.js (4 tests) 64ms
+ ✓ tests/unit/code-intel/compile-db-selection.test.js (15 tests) 125ms
+ ✓ tests/unit/code-intel/evidence-supersession.test.js (5 tests) 204ms
+ ✓ tests/unit/code-intel/selection-selector.test.js (20 tests) 105ms
+ ✓ tests/unit/ingest/file-path-resolution.test.js (4 tests) 174ms
+ ✓ tests/unit/ingest/shader-bindings.test.js (13 tests) 143ms
+ ✓ tests/unit/query/refresh-mechanism-verdict.test.js (8 tests) 75ms
+ ✓ tests/unit/integrations/skill-parity.test.js (10 tests) 85ms
+ ✓ tests/unit/brief/document-producer-invariants.test.js (13 tests) 167ms
+ ✓ tests/unit/query/composite-verbs.test.js (3 tests) 125ms
+ ✓ tests/unit/ingest/django-routes.test.js (11 tests) 92ms
+ ✓ tests/unit/query/collection-disclosure-null-meaning.test.js (4 tests) 170ms
+ ✓ tests/unit/query/packet-evidence.test.js (3 tests) 162ms
+ ✓ tests/unit/ingest/local-scope-references.test.js (4 tests) 193ms
+ ✓ tests/unit/ingest/symbol-site-identity.test.js (16 tests) 68ms
+ ✓ tests/unit/query/change-plan-code-intel.test.js (2 tests) 134ms
+ ✓ tests/unit/util/json.test.js (11 tests) 44ms
+ ✓ tests/unit/code-intel/shape-detectors.test.js (23 tests) 65ms
+ ✓ tests/unit/scripts/attempt-ledger.test.js (22 tests) 78ms
+ ✓ tests/unit/code-intel/importer-aggregates-cause.test.js (4 tests) 178ms
+ ✓ tests/unit/ingest/overload-self-call.test.js (6 tests) 127ms
+ ✓ tests/unit/scripts/ab-publish-evidence.test.js (9 tests) 57ms
+ ✓ tests/unit/storage/attestation-states.test.js (21 tests) 135ms
+ ✓ tests/unit/ingest/external-nodes-are-names.test.js (5 tests) 145ms
+ ✓ tests/unit/ingest/ignored-dirs.test.js (11 tests) 97ms
+ ✓ tests/unit/code-intel/enumerate-first-party.test.js (5 tests) 71ms
+ ✓ tests/unit/code-intel/query.test.js (4 tests) 35ms
+ ✓ tests/unit/code-intel/collect-ledger.test.js (6 tests) 52ms
+ ✓ tests/unit/ingest/lexical-scope-reaches-qname.test.js (18 tests) 36ms
+ ✓ tests/unit/query/tour.test.js (4 tests) 103ms
+ ✓ tests/unit/ingest/cpp-frameworks.test.js (6 tests) 62ms
+ ✓ tests/unit/intelligence/archetype-overview.test.js (2 tests) 101ms
+ ✓ tests/unit/freshness/refresh-breadcrumb.test.js (6 tests) 59ms
+ ✓ tests/unit/code-intel/doc-sync-carrier.test.js (4 tests) 37ms
+ ✓ tests/unit/freshness/git.test.js (6 tests) 48ms
+ ✓ tests/unit/ingest/written-qualifier-carrier.test.js (11 tests) 31ms
+ ✓ tests/unit/query/stale-warning-renders-from-schema.test.js (3 tests) 27ms
+ ✓ tests/unit/scripts/cpp-preflight.test.js (9 tests) 45ms
+ ✓ tests/unit/ingest/wave3-resolution-integration.test.js (1 test) 61ms
+ ✓ tests/unit/scripts/authority-empty-population.test.js (6 tests) 53ms
+ ✓ tests/unit/ingest/code-intel/importer.test.js (2 tests) 98ms
+ ✓ tests/unit/intelligence/brief-integration.test.js (11 tests) 58ms
+ ✓ tests/unit/ingest/cpp-declarator-name.test.js (7 tests) 19ms
+ ✓ tests/unit/query/source-bundle.test.js (9 tests) 33ms
+ ✓ tests/unit/ingest/fingerprint-stability.test.js (8 tests) 25ms
+ ✓ tests/unit/scripts/spec-derivation-classifies.test.js (8 tests) 22ms
+ ✓ tests/unit/query/query.test.js (16 tests) 60ms
+ ✓ tests/unit/ingest/frameworks/cmake.test.js (4 tests) 24ms
+ ✓ tests/unit/code-intel/hierarchy-anchor-diagnosis.test.js (5 tests) 32ms
+ ✓ tests/unit/scripts/anchor-addressability.test.js (13 tests) 31ms
+ ✓ tests/unit/query/stale-warning-claim-schema.test.js (6 tests) 37ms
+ ✓ tests/unit/ingest/language-matrix.test.js (4 tests) 31ms
+ ✓ tests/unit/code-intel/backends.test.js (21 tests) 36ms
+ ✓ tests/unit/ingest/walk-files-honours-gitignore.test.js (3 tests) 34ms
+ ✓ tests/unit/hook-fire-rate.test.js (9 tests) 22ms
+ ✓ tests/unit/code-intel/selection-body-replay.test.js (4 tests) 28ms
+ ✓ tests/unit/ingest/cpp-class-head-macro.test.js (19 tests) 26ms
+ ✓ tests/unit/freshness/lock-error.test.js (8 tests) 21ms
+ ✓ tests/unit/code-intel/relativize-uri.test.js (6 tests) 27ms
+ ✓ tests/unit/query/token-estimate-has-one-constant.test.js (8 tests) 23ms
+ ✓ tests/unit/scripts/hazard-detectors.test.js (16 tests) 19ms
+ ✓ tests/unit/util/append-all.test.js (11 tests) 30ms
+ ✓ tests/unit/ingest/imports-resolution.test.js (4 tests) 18ms
+ ✓ tests/unit/brief/document-evidence-crossproduct.test.js (31 tests) 13ms
+ ✓ tests/unit/ingest/declared-types-are-produced.test.js (3 tests) 16ms
+ ✓ tests/unit/code-intel/msvc-env.test.js (9 tests) 11ms
+ ✓ tests/unit/scripts/baseline-publication.test.js (5 tests) 38ms
+ ✓ tests/unit/ingest/code-intel/schema.test.js (3 tests) 14ms
+ ✓ tests/unit/brief/doc-split-across-surfaces.test.js (38 tests) 13ms
+ ✓ tests/unit/freshness/lock.test.js (2 tests) 9ms
+ ✓ tests/unit/ingest/laravel-plugin.test.js (3 tests) 10ms
+ ✓ tests/unit/freshness/manifest.test.js (3 tests) 22ms
+ ✓ tests/unit/query/framing-not-data.test.js (5 tests) 9ms
+ ✓ tests/unit/query/receipt.test.js (40 tests) 13ms
+ ✓ tests/unit/scripts/receipt-artifacts-decode.test.js (4 tests) 15ms
+ ✓ tests/unit/scripts/gate-receipt.test.js (21 tests) 9ms
+ ✓ tests/unit/intelligence/validators.test.js (20 tests) 8ms
+ ✓ tests/unit/scripts/deletion-guard.test.js (16 tests) 9ms
+ ✓ tests/unit/query/graph-capabilities.test.js (42 tests) 10ms
+ ✓ tests/unit/ingest/code-intel/v02.test.js (12 tests) 8ms
+ ✓ tests/unit/scripts/handle-inventory.test.js (16 tests) 13ms
+ ✓ tests/unit/code-intel/resolve-clangd.test.js (6 tests) 12ms
+ ✓ tests/unit/code-intel/resolve-clang-cl.test.js (7 tests) 7ms
+ ✓ tests/unit/code-intel/cli/serve-lsp.test.js (5 tests) 9ms
+ ✓ tests/unit/code-intel/uri-to-repo-relative.test.js (5 tests) 9ms
+ ✓ tests/unit/security/sensitive-paths.test.js (18 tests) 8ms
+ ✓ tests/unit/ab/prompts-do-not-leak.test.js (9 tests) 7ms
+ ✓ tests/unit/scripts/guard-verdict.test.js (23 tests) 10ms
+ ✓ tests/unit/scripts/migration-ledger.test.js (8 tests) 7ms
+ ✓ tests/unit/intelligence/archetypes.test.js (8 tests) 8ms
+ ✓ tests/unit/ingest/code-intel/fixture-provider.test.js (3 tests) 6ms
+ ✓ tests/unit/storage/code-intel-collections.test.js (2 tests) 7ms
+ ✓ tests/unit/query/evidence-contract-negotiation.test.js (16 tests) 7ms
+ ✓ tests/unit/ab/rubric-cannot-fail-open.test.js (14 tests) 9ms
+ ✓ tests/unit/code-intel/runner.test.js (3 tests) 6ms
+ ✓ tests/unit/integrations/refresh-docs-parity.test.js (10 tests) 8ms
+ ✓ tests/unit/query/evidence-contract-version.test.js (13 tests) 7ms
+ ✓ tests/unit/integrations/verb-count-parity.test.js (15 tests) 7ms
+ ✓ tests/unit/query/absence-authority-is-exhaustive-only.test.js (5 tests) 4ms
+ ✓ tests/unit/code-intel/out-of-repo-locations.test.js (5 tests) 6ms
+ ✓ tests/unit/scripts/refusal-presentation.test.js (6 tests) 7ms
+ ✓ tests/unit/ingest/code-symbol-site-id.test.js (12 tests) 5ms
+ ✓ tests/unit/helpers/route-authority.test.js (8 tests) 5ms
+ ✓ tests/unit/storage/taxonomy.test.js (22 tests) 6ms
+ ✓ tests/unit/scripts/ab-graph-effect.test.js (9 tests) 7ms
+ ✓ tests/unit/query/generated-path.test.js (28 tests) 6ms
+ ✓ tests/unit/query/packet-occurrence.test.js (8 tests) 5ms
+ ✓ tests/unit/integrations/skill-deployment-readback.test.js (17 tests) 5ms
+ ✓ tests/unit/ab/arms-are-blind.test.js (9 tests) 6ms
+ ✓ tests/unit/scripts/candidate-tree-receipt.test.js (13 tests) 5ms
+ ✓ tests/unit/query/health-next-actions.test.js (8 tests) 3ms
+ ✓ tests/unit/ingest/site-identity-unmoved-by-scope.test.js (4 tests) 4ms
+ ✓ tests/unit/code-intel/selection-digest-vectors.test.js (13 tests | 1 skipped) 6ms
+ ✓ tests/unit/code-intel/exhaustive-fail-open.test.js (8 tests) 4ms
+ ✓ tests/unit/code-intel/cli/code-intel-cmd.test.js (4 tests) 7ms
+ ✓ tests/unit/query/dynamic-boundaries.test.js (6 tests) 5ms
+ ✓ tests/unit/code-intel/fatal-include-errors.test.js (7 tests) 4ms
+ ✓ tests/unit/ingest/fingerprint.test.js (5 tests) 6ms
+ ✓ tests/unit/query/preflight-heuristic-not-safe.test.js (23 tests) 5ms
+ ✓ tests/unit/brief/unresolved-share.test.js (4 tests) 3ms
+ ✓ tests/unit/scripts/d2-receipt-provenance.test.js (8 tests) 6ms
+ ✓ tests/unit/scripts/doc-ref-sample-qname.test.js (5 tests) 3ms
+ ✓ tests/unit/security/request-size.test.js (6 tests) 5ms
+ ✓ tests/unit/scripts/carrier-must-hold-across-the-run.test.js (8 tests) 3ms
+ ✓ tests/unit/query/collect-budget-covers-import.test.js (4 tests) 4ms
+ ✓ tests/unit/turn-usage.test.js (13 tests) 7ms
+ ✓ tests/unit/query/candidate-truncation-disclosed.test.js (5 tests) 2ms
+ ✓ tests/unit/summary-grammar.test.js (14 tests) 4ms
+ ✓ tests/unit/code-intel/identifier-position.test.js (11 tests) 4ms
+ ✓ tests/unit/scripts/mutation-control.test.js (11 tests) 4ms
+ ✓ tests/unit/freshness/worktree-redirect.test.js (9 tests) 3ms
+ ✓ tests/unit/intelligence/embeddings.test.js (6 tests) 4ms
+ ✓ tests/unit/overlay/task-status.test.js (6 tests) 4ms
+ ✓ tests/unit/brief/coverage-tier.test.js (6 tests) 5ms
+ ✓ tests/unit/code-intel/guessed-position-not-queried.test.js (5 tests) 3ms
+ ✓ tests/unit/query/cause-classification.test.js (11 tests) 4ms
+ ✓ tests/unit/scripts/callee-classes.test.js (9 tests) 4ms
+ ✓ tests/unit/code-intel/zero-files-processed-reason.test.js (18 tests) 5ms
+ ✓ tests/unit/code-intel/render.test.js (5 tests) 3ms
+ ✓ tests/unit/integrations/skill-safety-contract.test.js (3 tests) 4ms
+ ✓ tests/unit/query/did-you-mean-exact.test.js (5 tests) 3ms
+ ✓ tests/unit/overlay/task-schema-lint.test.js (7 tests) 4ms
+ ✓ tests/unit/query/pull-relations.test.js (2 tests) 4ms
+ ✓ tests/unit/brief/doc-section-three-states.test.js (5 tests) 4ms
+ ✓ tests/unit/query/coverage-denominator.test.js (7 tests) 4ms
+ ✓ tests/unit/ingest/code-intel/paths.test.js (9 tests) 5ms
+ ✓ tests/unit/query/staleness-consequence.test.js (6 tests) 2ms
+ ✓ tests/unit/query/packet-skeletonize.test.js (5 tests) 4ms
+ ✓ tests/unit/ingest/constructor-and-catch-callees.test.js (7 tests) 5ms
+ ✓ tests/unit/scripts/expect-failures-validation.test.js (7 tests) 4ms
+ ✓ tests/unit/server-instructions.test.js (5 tests) 3ms
+ ✓ tests/unit/storage/type-lists-are-subsets-of-the-taxonomy.test.js (5 tests) 5ms
+ ✓ tests/unit/freshness/admission-refusals-fail-closed.test.js (5 tests) 4ms
+ ✓ tests/unit/freshness/trust-spine-per-file-salvage.test.js (4 tests) 3ms
+ ✓ tests/unit/overlay/quality.test.js (2 tests) 5ms
+ ✓ tests/unit/preflight-native.test.js (5 tests) 3ms
+ ✓ tests/unit/code-intel/reset-restores-promoted.test.js (4 tests) 4ms
+ ✓ tests/unit/stale-process-scope.test.js (5 tests) 3ms
+ ✓ tests/unit/query/surfaces-agree-on-scope.test.js (4 tests) 3ms
+stdout | tests/unit/suite-composition.test.js > suite composition — what the green headline actually covers > ★ reports the three denominators separately, so no one number stands for all of them
+
+SUITE COMPOSITION — quote these three, not one:
+  behavioural files : 390
+  mixed files       : 26  (contain source-only cases too — a FLOOR)
+  source-contract   : 4  (cannot fail when behaviour breaks)
+  total             : 420
+
+
+ ✓ tests/unit/suite-composition.test.js (3 tests) 4ms
+ ✓ tests/unit/query/stale-process-refuses.test.js (7 tests) 4ms
+ ✓ tests/unit/ingest/default-argument-not-a-call.test.js (3 tests) 4ms
+ ✓ tests/unit/code-intel/exhaustive-index-unattested.test.js (5 tests) 4ms
+ ✓ tests/unit/query/staleness-banner.test.js (3 tests) 3ms
+ ✓ tests/unit/query/packet-budget.test.js (5 tests) 4ms
+ ✓ tests/unit/query/did-you-mean-leaf.test.js (4 tests) 3ms
+ ✓ tests/unit/code-intel/converged-not-empty.test.js (5 tests) 3ms
+ ✓ tests/unit/code-intel/evidence-line-internal-keys.test.js (3 tests) 3ms
+ ✓ tests/unit/query/verified-edge-language.test.js (4 tests) 3ms
+ ✓ tests/unit/util/exec.test.js (4 tests) 4ms
+ ✓ tests/unit/query/health-consequence-scope.test.js (4 tests) 3ms
+ ✓ tests/unit/query/packet-route-inventory.test.js (2 tests) 5ms
+ ✓ tests/unit/query/fresh-per-call.test.js (6 tests) 3ms
+ ✓ tests/unit/query/record-volume-canary.test.js (5 tests) 3ms
+ ✓ tests/unit/smoke.test.js (1 test) 2ms
+ ✓ tests/unit/test-runner-config.test.js (4 tests) 4ms
+ ✓ tests/unit/query/packet-adaptive-budget.test.js (4 tests) 3ms
+ ✓ tests/unit/freshness/auto-reindex.test.js (2 tests) 3ms
+ ✓ tests/unit/scripts/transport-arm.test.js (1 test) 2ms
+
+ Test Files  420 passed (420)
+      Tests  3533 passed | 4 skipped (3537)
+   Start at  08:30:34
+   Duration  916.03s (transform 2.62s, setup 0ms, collect 97.30s, tests 699.52s, environment 61ms, prepare 37.78s)
+
+VITEST_EXIT=0
