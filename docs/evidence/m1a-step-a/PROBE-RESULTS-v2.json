@@ -1,0 +1,387 @@
+{
+  "takenAt": "2026-09-01T02:06:36.185Z",
+  "subjects": {
+    "pre": {
+      "arm": "pre",
+      "root": "C:/Docker/apg-probe-pre",
+      "commit": "8a3675fef5dde16ffa9cf2630804d3d1b4c93363",
+      "tree": "745212dfa0c281a2cacc76b0f04b47dd35754334",
+      "workingTreeClean": true,
+      "hasStepASiteId": false,
+      "sourcesHashed": [
+        "mcp/stdio/query/verbs/collect_code_intel.js",
+        "mcp/stdio/ingest/extractors/generic.js",
+        "mcp/stdio/ingest/fingerprint.js"
+      ],
+      "sourceHash": "b79dd0408ee2626112b8650a1b8353e6477c297aa20b9921799e237f5a32cfa2"
+    },
+    "post": {
+      "arm": "post",
+      "root": "C:/Docker/apg-probe-post",
+      "commit": "29fc3446c12384cff5e55d7b1cc2e9e84affbd4a",
+      "tree": "153d36a95f526807bf34e0b22bdfde36924df1cb",
+      "workingTreeClean": true,
+      "hasStepASiteId": true,
+      "sourcesHashed": [
+        "mcp/stdio/query/verbs/collect_code_intel.js",
+        "mcp/stdio/ingest/extractors/generic.js",
+        "mcp/stdio/ingest/fingerprint.js"
+      ],
+      "sourceHash": "79d8d4e70c7005f259a68849e7e8bddbc5d0d28d806993606edafbba4dbe2b0f"
+    }
+  },
+  "reps": 4,
+  "budgetMs": 9000,
+  "impossibleBudgetMs": 1,
+  "loadWorkers": 30,
+  "cpus": 32,
+  "instrumentLiveness": {
+    "unreadableFields": [],
+    "fieldsThatChanged": [
+      "status",
+      "indexReady",
+      "budgetExhausted",
+      "filesProcessed"
+    ],
+    "pass": true,
+    "normal": {
+      "budgetMs": 9000,
+      "collected": 2,
+      "cause": "COLLECTED",
+      "elapsedMs": 1825,
+      "error": null,
+      "status": "ok",
+      "indexReady": true,
+      "budgetExhausted": false,
+      "filesProcessed": 2,
+      "filesTotal": 2
+    },
+    "starved": {
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 648,
+      "error": null,
+      "status": "partial",
+      "indexReady": false,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    }
+  },
+  "controls": {
+    "positive_eachArmCollectedAtLeastOnce": true,
+    "negative_impossibleBudgetYieldsZeroBothArms": true,
+    "instrument_fieldsReadableAndDiscriminating": true
+  },
+  "pre": {
+    "subject": {
+      "arm": "pre",
+      "kind": "subject",
+      "n": 4,
+      "zeroRuns": 0,
+      "causes": {},
+      "medianElapsedMs": 8047
+    },
+    "negative_control": {
+      "arm": "pre",
+      "kind": "negative_control",
+      "n": 4,
+      "zeroRuns": 4,
+      "causes": {
+        "BUDGET_EXHAUSTED": 4
+      },
+      "medianElapsedMs": 2766
+    }
+  },
+  "post": {
+    "subject": {
+      "arm": "post",
+      "kind": "subject",
+      "n": 4,
+      "zeroRuns": 0,
+      "causes": {},
+      "medianElapsedMs": 8199
+    },
+    "negative_control": {
+      "arm": "post",
+      "kind": "negative_control",
+      "n": 4,
+      "zeroRuns": 4,
+      "causes": {
+        "BUDGET_EXHAUSTED": 4
+      },
+      "medianElapsedMs": 2813
+    }
+  },
+  "byPosition": [
+    {
+      "position": 0,
+      "n": 4,
+      "zeroRuns": 0
+    },
+    {
+      "position": 1,
+      "n": 4,
+      "zeroRuns": 0
+    }
+  ],
+  "runs": [
+    {
+      "rep": 0,
+      "arm": "pre",
+      "kind": "subject",
+      "position": 0,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 3998,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 0,
+      "arm": "pre",
+      "kind": "negative_control",
+      "position": 0,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 2374,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    },
+    {
+      "rep": 0,
+      "arm": "post",
+      "kind": "subject",
+      "position": 1,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 7411,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 0,
+      "arm": "post",
+      "kind": "negative_control",
+      "position": 1,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 2318,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    },
+    {
+      "rep": 1,
+      "arm": "post",
+      "kind": "subject",
+      "position": 0,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 7878,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 1,
+      "arm": "post",
+      "kind": "negative_control",
+      "position": 0,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 2813,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    },
+    {
+      "rep": 1,
+      "arm": "pre",
+      "kind": "subject",
+      "position": 1,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 5252,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 1,
+      "arm": "pre",
+      "kind": "negative_control",
+      "position": 1,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 2360,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    },
+    {
+      "rep": 2,
+      "arm": "pre",
+      "kind": "subject",
+      "position": 0,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 8047,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 2,
+      "arm": "pre",
+      "kind": "negative_control",
+      "position": 0,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 2766,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    },
+    {
+      "rep": 2,
+      "arm": "post",
+      "kind": "subject",
+      "position": 1,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 8595,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 2,
+      "arm": "post",
+      "kind": "negative_control",
+      "position": 1,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 2585,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    },
+    {
+      "rep": 3,
+      "arm": "post",
+      "kind": "subject",
+      "position": 0,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 8199,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 3,
+      "arm": "post",
+      "kind": "negative_control",
+      "position": 0,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 3284,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    },
+    {
+      "rep": 3,
+      "arm": "pre",
+      "kind": "subject",
+      "position": 1,
+      "budgetMs": 9000,
+      "collected": 1,
+      "cause": "COLLECTED",
+      "elapsedMs": 8619,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 1,
+      "filesTotal": 2
+    },
+    {
+      "rep": 3,
+      "arm": "pre",
+      "kind": "negative_control",
+      "position": 1,
+      "budgetMs": 1,
+      "collected": 0,
+      "cause": "BUDGET_EXHAUSTED",
+      "elapsedMs": 2889,
+      "error": null,
+      "status": "partial",
+      "indexReady": true,
+      "budgetExhausted": true,
+      "filesProcessed": 0,
+      "filesTotal": 2
+    }
+  ]
+}

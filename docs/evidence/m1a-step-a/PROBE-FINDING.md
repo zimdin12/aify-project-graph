@@ -1,22 +1,55 @@
-# Differential probe result — step A did not cause the scoped-collect zero
+# Differential probe — result WITHDRAWN, instrument was broken
 
-Preregistration: `PROBE-PREREGISTRATION.md` (protocol, subjects, controls and the three outcomes
-written before the run). Raw: `PROBE-RESULTS.json`. Harness: `scripts/probe-collect-budget.mjs`.
+Preregistration: `PROBE-PREREGISTRATION.md`. Raw: `PROBE-RESULTS.json`. Harness:
+`scripts/probe-collect-budget.mjs`.
 
-**Outcome (a): rates and causes are equivalent across subjects.** Step A is innocent of this
-failure, and the budget brittleness is recorded below as its own finding rather than absorbed.
+# ⛔ THIS DOCUMENT'S ORIGINAL CONCLUSION IS WITHDRAWN
+
+It claimed **outcome (a): "rates and causes equivalent"**, and the commit that carried it
+(`1a9dd45`) is titled *"clears step A"*. **Neither is supported.** Review checked the artefacts and
+the carrier failed its own preregistered bars.
+
+**The root cause is mine and it is the exact defect this probe existed to remove.** The probe read
+`res.budgetExhausted` and `res.filesWalked ?? res.filesConsidered ?? res.fileCount`. Those
+top-level names **do not exist** on that response — the real fields are nested under `res.index`
+(`index.budgetExhausted`, `index.filesProcessed`, `index.filesTotal`, `index.indexReady`). The `??`
+chain turned every miss into `null` silently, so all 16 runs recorded `denominator: null` and
+`budgetExhausted: null`, and nothing failed.
+
+So `partial_no_files` was never a cause. It was `status === 'partial'` **wearing a cause's name** —
+the same ambiguous surface the probe was built to replace. A fail-open read, inside the instrument
+built to stop a fail-open read, with a causal claim published on top of it.
+
+Two further bars failed, both found by review rather than by me:
+
+- **The negative control never entered the carrier.** It ran in a shell and was reported in prose;
+  `PROBE-RESULTS.controls` holds only the positive control. A prose report is not a control receipt.
+- **Subject identity was never bound.** Results record mutable paths only, and the two probe
+  directories were not git repositories, so the claimed `8a3675f` / `29fc344` bytes could not be
+  read back from the carrier at all. Agreeing `node_modules` realpaths establish a shared
+  dependency set, not source identity.
+
+## What the retained data honestly supports
+
+> Under two **unbound** source directories, counterbalanced order produced **1 zero observation in
+> 8 per arm**, with zeros concentrated in position 0. **Causal mechanism unresolved.**
+
+That is not outcome (a). It does not establish equal causes, and it does not clear step A's exact
+bytes. The HOLD on step-A acceptance stands until a repaired carrier reports.
+
+The numbers below are retained as the record of what was run — read them against the withdrawal
+above, not as a finding.
 
 ## Result
 
 | arm | commit | n | zero runs | cause | median elapsed |
 |---|---|---|---|---|---|
-| pre-step-A | `8a3675f` | 8 | **1** | `partial_no_files` | 7,460 ms |
-| step-A | `29fc344` | 8 | **1** | `partial_no_files` | 7,204 ms |
+| pre-step-A | `8a3675f` (UNVERIFIED — see withdrawal) | 8 | **1** | ⚠ not a cause | 7,460 ms |
+| step-A | `29fc344` (UNVERIFIED — see withdrawal) | 8 | **1** | ⚠ not a cause | 7,204 ms |
 
-Controls: **positive** — both arms collected files in at least one run, so neither arm's zeros are
-an artefact of a broken environment. **Negative** — an impossible budget (`budgetMs: 1`) produced
-`collected: 0` in *both* arms with cause `partial_no_files`, which is the exact signature seen in
-the red suite run, so the probe demonstrably observes the failure it is hunting.
+Controls: **positive** — both arms collected files in at least one run; this one is in the carrier
+and holds. **Negative** — ⚠ ran only in a shell and was never retained in `PROBE-RESULTS.json`, so
+it is **not a control receipt** and is not claimed as one.
 
 ## The signal is POSITION, not subject
 
