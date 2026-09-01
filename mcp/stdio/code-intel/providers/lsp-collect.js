@@ -242,7 +242,9 @@ export async function collectViaLsp({ req, language, providerName, providerVersi
     }
     enumStats = { ...enumStats, batch_cap: maxFiles, batch_remainder: batchRemainder };
   } else {
-    return { ...envelopeBase, session: session0, operations: {}, status: 'ok',
+    // The population is ASSERTED, not left absent — the summary's zero-files reason is emitted
+    // only when the producer says filesProcessed is 0, so without this the note is unreachable.
+    return { ...envelopeBase, session: { ...session0, filesProcessed: 0, filesTotal: 0 }, operations: {}, status: 'ok',
       notes: [{ code: 'no_files', message: `no files to collect: pass files[] or scope=all/changed (scope was ${req.scope || 'unset'})` }],
       records: [] };
   }

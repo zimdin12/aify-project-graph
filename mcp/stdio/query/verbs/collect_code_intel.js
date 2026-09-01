@@ -19,6 +19,7 @@
 // / the DB (graph_pull's code_intel layer).
 
 import { join } from 'node:path';
+import { zeroFilesProcessedReason, ZERO_FILES_REASON_SCHEMA } from '../../code-intel/zero-files-reason.js';
 import { existsSync, mkdirSync } from 'node:fs';
 import { runCollection } from '../../code-intel/runner.js';
 import { registerProvider, getProvider } from '../../code-intel/providers/index.js';
@@ -457,6 +458,10 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
   // hosts/agents that only render errors still get the "run again to complete"
   // signal. status stays 'partial', not 'error'.
   const sess = result.session || {};
+  // Computed ONCE. Two calls would be two things to keep in step, and the drift would be invisible.
+  const zeroFiles = zeroFilesProcessedReason({
+    filesProcessed: sess.filesProcessed, notes: result.notes, complete: sess.complete,
+  });
   const notes = [];
   let budgetNote = null;
   if (sess.budgetExhausted) {
@@ -559,6 +564,14 @@ export async function graphCollectCodeIntel({ repoRoot, language, scope = 'chang
         }
       : null,
     index: {
+      // ⛔ WHY A COLLECTION PROCESSED ZERO FILES — or nothing at all when the population is not
+      // established. Emitted ONLY when filesProcessed is the integer 0, and derived ONLY from the
+      // producer's typed notes: this layer must not reconstruct ledger validity, because the
+      // provider owns the graph-witness check that makes `already_collected` trustworthy.
+      //
+      // Before this, a zero here was indistinguishable from a starved clangd, a converged resume,
+      // an empty scope, and a broken join — one ambiguous surface for four different answers.
+      ...(zeroFiles ? { zeroFilesProcessed: { schema: ZERO_FILES_REASON_SCHEMA, ...zeroFiles } } : {}),
       indexReady: sess.indexReady ?? null,
       mode: sess.mode ?? null,
       budgetExhausted: !!sess.budgetExhausted,

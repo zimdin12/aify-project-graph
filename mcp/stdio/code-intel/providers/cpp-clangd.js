@@ -246,6 +246,55 @@ export function createCppClangdProvider({ spawn } = {}) {
           }
           enumeratedTotal = files.length;
           files = split.remaining;
+
+          // ⛔ THE PRODUCER ASSERTS CONVERGENCE — THE SUMMARY MUST NEVER INFER IT.
+          //
+          // The witness-checked `readLedger` above is the only place that knows whether prior
+          // coverage is still backed by evidence IN THE GRAPH. A ledger claiming coverage after a
+          // rebuild has been orphaned, and honouring it made this verb a permanent no-op that
+          // reported success (Sand Castle, 2026-08-20: `recordsImported 0 · resumedFrom 200` while
+          // the graph held zero LSP edges — "every field a caller could check read as success").
+          //
+          // Without this return the summary would have to derive completion from `resumedFrom`,
+          // which is a resume COUNT and not a completion claim — reopening that exact hole one
+          // layer up. So the assertion is made HERE, after the witness, or not at all.
+          //
+          // ⚠ AND IT IS MADE BEFORE CLANGD STARTS. There is nothing left to collect, so spawning a
+          // language server to discover that would burn the caller's budget to learn what the
+          // ledger already established.
+          if (files.length === 0 && resumedFrom > 0) {
+            return {
+              schema_version: '0.2',
+              collectionId,
+              provider: PROVIDER_NAME,
+              providerVersion: PROVIDER_VERSION,
+              projectRoot,
+              session: {
+                collectedAt,
+                freshnessBasis: 'compile_db_hash',
+                freshnessValue: dbHash,
+                compileDbHash: dbHash,
+                filesProcessed: 0,
+                filesTotal: 0,
+                resumedFrom,
+                enumeratedTotal,
+                resumeLedger: 'active',
+                // ⚠ NOT an unconditional true. This says the ENUMERATED LIST was fully covered.
+                // The compile DB is that list; a source outside it was never offered here, so this
+                // is a claim about the list and not about the repository.
+                complete: true,
+              },
+              operations: {},
+              status: 'ok',
+              notes: [{
+                code: 'already_collected',
+                message: `nothing left to collect — all ${enumeratedTotal} file(s) in this compile DB are already recorded, and the graph still holds their evidence. Re-running is a no-op.`,
+                hint: 'pass resume:false to force a full re-collect, or files[] to target specific files',
+              }],
+              diagnostics: compileDb.diagnostics || [],
+              records: [],
+            };
+          }
         }
       } else {
         // No explicit files[] and scope is neither all/changed: nothing to
@@ -258,7 +307,14 @@ export function createCppClangdProvider({ spawn } = {}) {
           provider: PROVIDER_NAME,
           providerVersion: PROVIDER_VERSION,
           projectRoot,
-          session: { collectedAt, freshnessBasis: 'compile_db_hash', freshnessValue: dbHash, compileDbHash: dbHash },
+          // filesProcessed/filesTotal ARE ASSERTED HERE, and the field they feed is why. The
+          // summary omits its zero-files reason unless the producer states the population is
+          // zero — so without these two lines `no_files` would be typed, correct, and
+          // unreachable by any consumer. Absent is not zero.
+          session: {
+            collectedAt, freshnessBasis: 'compile_db_hash', freshnessValue: dbHash, compileDbHash: dbHash,
+            filesProcessed: 0, filesTotal: 0,
+          },
           operations: {},
           status: 'ok',
           notes: [{
