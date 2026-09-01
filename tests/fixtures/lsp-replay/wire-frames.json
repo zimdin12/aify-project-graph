@@ -1,11 +1,11 @@
 {
   "lineage": {
     "derived_from": "docs/evidence/m1a-step-c/receipts/boundary-capture.jsonl",
-    "receipt_sha256_prefix": "c0e4c322157251fc7a10c359ad691c96",
     "captured_run": "provider path via buildClangdSpawn, raw JSON-RPC intercepted in LspClient before rewriteUris/canonicalUri",
     "clangd": "22.1.6 x86_64-pc-windows-msvc",
     "compile_db_hash": "29412468d4cb3920",
-    "note": "Minimal frames DERIVED from the immutable capture. The receipt is not edited. Request ids below are the ids from that run."
+    "note": "Minimal frames DERIVED from the immutable capture. The receipt is not edited. Request ids below are the ids from that run.",
+    "receipt_sha256": "c0e4c322157251fc7a10c359ad691c96691357fdde9776a6149cba4c5ccc44b1"
   },
   "documentSymbol_id2": [
     {
@@ -14,30 +14,75 @@
       "name": "alphaCaller",
       "location": {
         "uri": "file:///C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/src/callers.cpp",
-        "range": { "start": { "line": 4, "character": 0 }, "end": { "line": 7, "character": 1 } }
+        "range": {
+          "start": {
+            "line": 4,
+            "character": 0
+          },
+          "end": {
+            "line": 7,
+            "character": 1
+          }
+        }
       }
     }
   ],
   "definition_id3_INVALID_directory_uri": [
     {
       "uri": "file:///C:/Program%20Files/Microsoft%20Visual%20Studio/2022/Preview/VC/Tools/MSVC/14.43.34604/include",
-      "range": { "start": { "line": 4, "character": 5 }, "end": { "line": 4, "character": 16 } }
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 5
+        },
+        "end": {
+          "line": 4,
+          "character": 16
+        }
+      }
     }
   ],
   "references_id6_MIXED_valid_and_invalid": [
     {
       "uri": "file:///C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/src/callers.cpp",
-      "range": { "start": { "line": 4, "character": 5 }, "end": { "line": 4, "character": 16 } }
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 5
+        },
+        "end": {
+          "line": 4,
+          "character": 16
+        }
+      }
     },
     {
       "uri": "file:///C:/Program%20Files/Microsoft%20Visual%20Studio/2022/Preview/VC/Tools/MSVC/14.43.34604/include",
-      "range": { "start": { "line": 4, "character": 5 }, "end": { "line": 4, "character": 16 } }
+      "range": {
+        "start": {
+          "line": 4,
+          "character": 5
+        },
+        "end": {
+          "line": 4,
+          "character": 16
+        }
+      }
     }
   ],
   "definition_EXTERNAL_SYSTEM_FILE_must_stay_admissible": [
     {
       "uri": "file:///C:/Program%20Files/Microsoft%20Visual%20Studio/2022/Preview/VC/Tools/MSVC/14.43.34604/include/vector",
-      "range": { "start": { "line": 120, "character": 6 }, "end": { "line": 120, "character": 12 } }
+      "range": {
+        "start": {
+          "line": 120,
+          "character": 6
+        },
+        "end": {
+          "line": 120,
+          "character": 12
+        }
+      }
     }
   ]
 }

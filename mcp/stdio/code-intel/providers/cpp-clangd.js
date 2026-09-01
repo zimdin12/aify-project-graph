@@ -9,6 +9,7 @@ import { buildClangdSpawn } from '../resolve-clangd.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
 import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness, collectionComplete } from '../collect-ledger.js';
+import { admitLocations } from '../location-coherence.js';
 
 // Cold-collect request timeout: a fresh background-index pass over a game repo
 // can take well over the default 10s before the first query resolves.
@@ -422,6 +423,7 @@ export function createCppClangdProvider({ spawn } = {}) {
         // envelope: a clangd answer at a guessed position is not ground truth, and
         // silence about that is how a type-reference became a CALLS [lsp✓] edge.
         let positionGuesses = 0;
+      const incoherentLocations = [];
         // Symbols whose relations were DECLINED because their position was
         // guessed, and symbols whose reference set hit the cap.
         let positionGuessSkipped = 0;
@@ -564,8 +566,11 @@ export function createCppClangdProvider({ spawn } = {}) {
 
             if (requestedOps.has('definitions')) {
               try {
-                const defs = (await client.definition(uri, pos)) || [];
-                for (const d of (Array.isArray(defs) ? defs : [defs])) {
+                const defsRaw = (await client.definition(uri, pos)) || [];
+                const defGate = admitLocations(defsRaw, { method: 'textDocument/definition' });
+                for (const r of defGate.refused) incoherentLocations.push({ ...r, qname });
+                const defs = defGate.admitted;
+                for (const d of defs) {
                   if (!d?.uri) continue;
                   records.push({
                     schema_version: '0.2', collectionId, kind: 'definition',
@@ -687,6 +692,9 @@ export function createCppClangdProvider({ spawn } = {}) {
                   // is a FLOOR, and a downstream "no other callers" read off a
                   // silently-capped set would be exactly the false-completeness
                   // failure this codebase exists to prevent.
+                  const refGate = admitLocations(refs, { method: 'textDocument/references' });
+                  for (const r of refGate.refused) incoherentLocations.push({ ...r, qname });
+                  refs = refGate.admitted;
                   const kept = refs.slice(0, MAX_REFS_PER_SYMBOL);
                   const droppedRefs = refs.length - kept.length;
                   if (droppedRefs > 0) refsTruncatedSymbols += 1;
@@ -828,6 +836,11 @@ export function createCppClangdProvider({ spawn } = {}) {
           provider: PROVIDER_NAME,
           providerVersion: PROVIDER_VERSION,
           projectRoot,
+          // Refusal accounting. A filtered-to-zero result that reports success is
+          // indistinguishable from "this symbol genuinely has no definition", so the exact
+          // rejected membership travels with the result, bound to the method that produced it.
+          incoherentLocationsRefused: incoherentLocations.length,
+          incoherentLocations,
           session: {
             collectedAt,
             indexedCommit,
