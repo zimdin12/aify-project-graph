@@ -65,7 +65,14 @@ zero value: the wrapper returns early on error and emits no `index` block at all
 - `INDEX_NOT_READY` from `indexReady === false`. That is a **state**, not a demonstrated cause of
   zero files. It returns only if a producer explicitly reports it prevented processing file 1.
 
-⚠ Missing or non-integer `filesProcessed` is **UNKNOWN**, never coerced to zero.
+⚠ **Missing or non-integer `filesProcessed` OMITS the field entirely.** ⛔ Amended on review — my
+first rule said "UNKNOWN, never coerced to zero", and that was still wrong: `ZERO_FILES_CAUSE_UNKNOWN`
+**asserts that zero files were processed** and only leaves the cause open. If the wrapper cannot
+establish the population, it cannot assert the population, so it must say nothing here. Any
+unknown-population signal belongs on a separate contract/telemetry channel.
+
+⇒ `ZERO_FILES_CAUSE_UNKNOWN` is reachable **only** when `filesProcessed` is the integer 0 **and**
+no authoritative typed reason applies.
 ⚠ Conflicting reasons emit `UNKNOWN_CONFLICT`, **never a precedence-selected winner**. Picking one
 would mean choosing which explanation to believe, which is the flattering-noun failure in a new form.
 
@@ -80,11 +87,19 @@ The summary layer must **not** reconstruct graph-witness validity. The provider 
 ledger read at `:241-248` but emits only three note codes — `compile_db_all_filtered`, `no_files`,
 `budget_exhausted` — and **no `already_collected`**. Measured, not assumed.
 
-⇒ So `ALREADY_COMPLETE` is currently **unreachable for the C++ provider**, and a converged C++
-resume falls through to `ZERO_FILES_CAUSE_UNKNOWN`. That is the correct fail-closed outcome and is
-asserted in a test rather than left to be discovered. The fix is a **producer** assertion in
-cpp-clangd; inferring it in the wrapper would erase the authority boundary this whole design rests
-on.
+⇒ So `ALREADY_COMPLETE` is currently unreachable for the C++ provider.
+
+⛔ **AND THAT GAP IS CLOSED IN THIS UNIT, NOT DEFERRED.** Amended on review, and the reasoning is
+one I should have reached myself: **the Sand Castle incident is C++.** Shipping the enum while
+leaving that exact provider at `ZERO_FILES_CAUSE_UNKNOWN` would make the new field correct and
+**inert on its strongest known case** — the unreachable-remedy pattern this project keeps
+rediscovering, committed inside the fix for another instance of it.
+
+So cpp-clangd gains the explicit typed note immediately after the witness-checked `readLedger` /
+pending-files result and before clangd startup, when the verified remainder is empty. One producer
+assertion feeding the contract — not semantic expansion, and not inference in the wrapper.
+
+`ZERO_FILES_CAUSE_UNKNOWN` stays correct **only** where a producer genuinely has no authority.
 
 ## Claim ceiling
 
@@ -102,8 +117,12 @@ internals, not a claim that the repository has no callers, and not a completenes
   ledger plus an absent, unreadable or zero graph witness must reset, must **not** emit
   `already_collected`, and therefore must **not** surface `ALREADY_COMPLETE`. **A surviving raw
   `resumedFrom` derivation fails this test**, which is exactly what makes it worth having.
-- **provider asymmetry** — `ALREADY_COMPLETE` is unreachable under cpp-clangd until that producer
-  emits the note; asserted, so the gap is documented rather than discovered.
+- **C++ hostile sequence, end-to-end** — valid ledger + surviving graph witness + exhausted
+  verified remainder ⇒ `ALREADY_COMPLETE`; the **same** ledger with an absent, unreadable or zero
+  witness ⇒ ledger resets, work is processed (or another honest outcome), and `ALREADY_COMPLETE` is
+  **impossible**.
+- **provider asymmetry** — kept **only until the C++ producer note lands**. ⚠ A knowingly temporary
+  gap must not be encoded as the final contract.
 - **consumer** — a call-site test proving the intended decision/render path actually reads the
   field. Without it, placement changes nothing and repeats the true-value-no-reader defect.
 - **envelope shapes** — both cpp-clangd and generic LSP, since their note vocabularies differ.
