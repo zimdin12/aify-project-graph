@@ -1,0 +1,2 @@
+[CANARY] lsp-client instrumented
+[CANARY] cpp-clangd instrumented
