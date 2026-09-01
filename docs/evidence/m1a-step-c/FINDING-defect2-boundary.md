@@ -83,3 +83,46 @@ cause.
 One fixture, one host, one clangd version, one compile DB, one CMake generator. The wire-level
 localization is solid for **this** run; prevalence is unmeasured. Nothing here says how often real
 repositories hit it, and nothing here licenses a repair to any layer downstream of the producer.
+
+---
+
+## Six candidate causes falsified, with controls
+
+The provider reproduces the directory URI reliably — 6 of 6 definition records, across two separate
+runs. A standalone harness driving the same `LspClient` **never** reproduces it. Each difference
+between them was eliminated one variable at a time:
+
+| # | hypothesis | result |
+|---|---|---|
+| 1 | `--query-driver=*` (provider passes it, harness did not) | **falsified** — 0 directory URIs with it, 0 without |
+| 2 | provider `BASE_CLANGD_ARGS` (`--background-index`, `-j=4`, `--pch-storage`, `--limit-results`) | **falsified** — clean with the full set |
+| 3 | opening all files vs one | **falsified** — clean both ways |
+| 4 | background-index warmth / timing | **falsified** — 8 polls at `indexingState=ready`, all clean |
+| 5 | request position | **falsified** — the provider's captured `requestPos` is `{line:4,character:5}`, identical to the clean harness |
+| 6 | the compile DB consumed (source vs normalized) | **falsified** — clean against both directories |
+
+`--query-driver=*` was the most attractive of these: the corrupt URI *is* an MSVC include directory,
+which is exactly what query-driver discovers, and `resolve-clangd.js:238` documents the flag as
+"harmless on native DBs". It looked like a root cause and is not one.
+
+**Still untested:** the child environment from `clangdChildEnv()` and the working directory. The
+mechanism is **not established**, and naming one of these now would be a story.
+
+Six falsified hypotheses is not a cause, but it is not nothing: it forecloses six wrong repairs,
+including the one that reads best in a commit message.
+
+## ⚠ A receipt of mine described the wrong artifact
+
+I preserved `build/compile_commands.json` as the "as-consumed" DB. **clangd never read it.** The
+provider calls `prepareCompileDb`, which writes a normalized copy to
+`.aify-graph/code-intel/compile_commands.json`, and points `--compile-commands-dir` there:
+
+| file | sha256 |
+|---|---|
+| normalized — what clangd actually read | `29412468d4cb3920…` |
+| source — what I preserved and labelled "as consumed" | `8d5becad63056153…` |
+
+The stored records carry `freshness: "compile_db_hash:29412468d4cb3920"`. **The record named the DB
+it consumed, in a field I was already reading, and I preserved a different file anyway.** Both are
+now kept, named for what they are. The earlier receipt is renamed rather than deleted, because a
+receipt that described the wrong artifact is itself part of the record.
