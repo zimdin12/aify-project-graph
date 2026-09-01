@@ -332,6 +332,8 @@ export function extractFile({ filePath, source, config }) {
   const fileLabel = basename(filePath);
   const symbolDeps = new Map();
   const symbolsById = new Map();
+  // Undeclared duplicate spans are REPORTED, never repaired. See the emitter-slot note below.
+  const duplicateSites = [];
 
   const fileNode = makeBaseNode({
     type: 'File',
@@ -415,12 +417,21 @@ export function extractFile({ filePath, source, config }) {
         // path — never its name, signature or scope. `emitterSlot` breaks a tie only if two
         // symbols are emitted from one exact span; it stays 0 in practice, and it is local to the
         // span rather than a traversal ordinal, so identity never depends on visit order.
+        // ⛔ AUTOMATIC COLLISION REPAIR WAS REMOVED, AND IT WAS MAKING THE RESULT TRUE BY
+        // CONSTRUCTION. This used to be `while (symbolsById.has(siteId)) emitterSlot += 1`, which
+        // silently minted a second unique id for a duplicate visit of the SAME occurrence. Under
+        // that loop "0 within-file duplicate ids" could not fail, so the census I ran proved
+        // nothing about distinct source occurrences — review caught it by reading the loop, not
+        // the numbers.
+        //
+        // An emitter that genuinely produces several symbols from one exact span must pass an
+        // EXPLICIT slot, local to that span. An undeclared duplicate is an extractor defect and is
+        // recorded rather than papered over: emitting a phantom row would be a fabricated site,
+        // and auto-incrementing would hide it.
         const { startByte, endByte } = siteSpanOf(node);
-        let emitterSlot = 0;
-        let siteId = codeSymbolSiteId({ language: config.language, filePath, startByte, endByte });
-        while (symbolsById.has(siteId)) {
-          emitterSlot += 1;
-          siteId = codeSymbolSiteId({ language: config.language, filePath, startByte, endByte, emitterSlot });
+        const siteId = codeSymbolSiteId({ language: config.language, filePath, startByte, endByte });
+        if (symbolsById.has(siteId)) {
+          duplicateSites.push({ filePath, label: name, type: detectedType, startByte, endByte, rule: symbolRule.type });
         }
         const createdNode = makeBaseNode({
           id: siteId,
@@ -730,5 +741,5 @@ export function extractFile({ filePath, source, config }) {
     if (extra?.edges) edges.push(...extra.edges);
   }
 
-  return { nodes, edges, refs };
+  return { nodes, edges, refs, duplicateSites };
 }

@@ -109,6 +109,28 @@ describe('step A — every extracted occurrence survives as its own site row', (
     expect(bad.map((n) => `${n.label}@${n.start_line}:${n.extra?.site_kind}`)).toEqual([]);
   });
 
+  it('⛔ site_kind is not merely WELL-TYPED — it must be RIGHT, and it was not', () => {
+    // The assertion above only checks membership of the allowed set. My first `siteKindOf` read
+    // `body` on the matched node and called everything else a declaration, which labelled 634
+    // JavaScript symbols `declaration` across this repo — every `const f = () => {...}`, whose
+    // body hangs off a nested arrow node. A well-typed wrong answer passed that test cleanly.
+    const js = symbolsOf('src/kinds.js', [
+      'function classic() { return 1; }',
+      'const arrow = () => { return 2; };',
+      'const expr = function () { return 3; };',
+    ].join('\n'));
+    expect(js.map((n) => [n.label, n.extra.site_kind])).toEqual([
+      ['classic', 'definition'], ['arrow', 'definition'], ['expr', 'definition'],
+    ]);
+  });
+
+  it('⛔ and a C++ header declaration IS distinguished from its definition', () => {
+    // The case the field exists for. If this collapses to one value the field is decoration.
+    const cpp = symbolsOf('src/x.h', 'class W {\n public:\n  void render();\n};\nvoid W::render() {}\n')
+      .filter((n) => n.label === 'render');
+    expect(cpp.map((n) => n.extra.site_kind)).toEqual(['declaration', 'definition']);
+  });
+
   it('POSITIVE CONTROL: a symbol with one definition still yields exactly one node', () => {
     // Without this, an id scheme that emitted a fresh row per AST visit would pass every
     // assertion above while multiplying every ordinary symbol.

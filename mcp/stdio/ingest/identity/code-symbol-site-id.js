@@ -95,16 +95,45 @@ export function siteSpanOf(node) {
 /**
  * What the extractor currently believes this occurrence is.
  *
- * ⚠ `unknown` IS A VALID ANSWER and is not a failure. What is forbidden is ABSENCE being read as
- * "definition" — the caller must be able to tell "we looked and could not say" from "we never
- * looked". Only a body-bearing node is called a definition; everything else that parsed is a
- * declaration; anything we cannot inspect is unknown.
+ * ⛔ MY FIRST VERSION WAS CONFIDENTLY WRONG, AND WRONG IN THE DIRECTION THIS MODULE WARNS ABOUT.
+ * It read `childForFieldName('body')` on the matched node and called everything else a
+ * DECLARATION. Measured over this repo that labelled 634 JavaScript symbols `declaration` —
+ * including every `const f = () => {...}`, which is a definition whose body hangs off a nested
+ * arrow node rather than the matched declarator. A field that is confidently wrong is worse than
+ * one that says `unknown`: a consumer can act on the first and must check the second.
+ *
+ * The rule now, in order:
+ *   a body anywhere in a SHALLOW subtree  → definition   (catches nested arrow/function bodies)
+ *   otherwise a declaration-shaped node   → declaration  (a C++ header decl genuinely has no body)
+ *   otherwise                             → unknown      (we looked and cannot say)
+ *
+ * ⚠ THE FALLBACK IS `unknown`, NOT `declaration`. Defaulting to a concrete value is how the first
+ * version manufactured 634 false claims, and a guard that answers when it does not know is
+ * decoration.
+ *
+ * ⚠ Depth is bounded at 3 deliberately. An unbounded search would find the body of a lambda used
+ * as a default argument and call a real declaration a definition — trading one confident error
+ * for another.
  */
+const DECLARATION_SHAPED = /declaration|declarator|prototype|signature/i;
+const BODY_SEARCH_DEPTH = 3;
+
+function hasBodyWithin(node, depth) {
+  if (!node || depth < 0) return false;
+  try {
+    if (typeof node.childForFieldName === 'function' && node.childForFieldName('body')) return true;
+    const children = node.namedChildren ?? [];
+    for (const child of children) if (hasBodyWithin(child, depth - 1)) return true;
+  } catch { /* an uninspectable node contributes nothing rather than a verdict */ }
+  return false;
+}
+
 export function siteKindOf(node) {
   if (!node) return 'unknown';
   try {
     if (typeof node.childForFieldName !== 'function') return 'unknown';
-    return node.childForFieldName('body') ? 'definition' : 'declaration';
+    if (hasBodyWithin(node, BODY_SEARCH_DEPTH)) return 'definition';
+    return DECLARATION_SHAPED.test(String(node.type ?? '')) ? 'declaration' : 'unknown';
   } catch {
     return 'unknown';
   }

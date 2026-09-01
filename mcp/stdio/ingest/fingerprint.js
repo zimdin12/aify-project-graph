@@ -75,12 +75,32 @@ export function fileStructuralFingerprint(extracted) {
   // the call-set-change case — adding/removing a call (or any ref) changes this
   // set even when every signature is identical.
   //
-  // ⛔ `from_id` IS OUT FOR THE SAME REASON — it is a symbol site id, so it moves with position.
-  // `fromTarget` and `target` are names and carry the structural content this set exists to catch.
+  // ⛔ DROPPING `from_id` OUTRIGHT WAS A REGRESSION, AND REVIEW CAUGHT IT BY EXECUTING IT.
+  // It carried the ref's OWNER, which nothing else in this set carries — `from_target` is empty on
+  // resolved-owner refs. Measured counterexample: moving `helper()` from `a()` to `b()` left the
+  // fingerprint IDENTICAL, so cosmetic-skip would keep the caller edge on the wrong function. That
+  // is the same class of defect as the identity collision this whole change exists to repair, and
+  // I introduced it while repairing that one.
+  //
+  // ⇒ The owner is carried by its SHAPE rather than its id: position-independent, so a comment
+  // insertion does not read as structural, while an owner change still does.
+  //
+  // ⚠ RESIDUAL, STATED RATHER THAN CLAIMED AWAY: two local twins with the same qname and signature
+  // have the same shape, so moving a call BETWEEN THEM is still invisible here. That is strictly
+  // no worse than the pre-existing `symbolShapes` limitation, and it is not "lossless" — the word
+  // is avoided deliberately.
+  const ownerShape = new Map(nodes.map((node) => [node.id, JSON.stringify({
+    type: node.type,
+    label: node.label ?? '',
+    qname: node.extra?.qname ?? '',
+    signature: node.extra?.signature ?? '',
+    parentClass: node.extra?.parent_class ?? '',
+  })]));
   const refShapes = refs
     .filter((ref) => ref && ref.relation)
     .map((ref) => JSON.stringify({
       relation: ref.relation,
+      fromOwner: ownerShape.get(ref.from_id) ?? String(ref.from_id ?? ''),
       fromTarget: ref.from_target ?? '',
       target: ref.target ?? '',
     }))
