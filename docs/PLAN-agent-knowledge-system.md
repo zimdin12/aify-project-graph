@@ -225,6 +225,28 @@ Such a result states what it did NOT model: indirection, macros, conditional com
 extern-without-header, included `.cpp`, cross-language. Separate "no callers in indexed scope" from
 "no callers", and name the scope: which TUs, which flags, was there a compile DB.
 
+⛔ **THAT SIX-ITEM LIST WAS A HYPOTHESIS, AND TWO OF ITS ITEMS ARE FALSE.** Following the sentence
+above literally would ship a caveat claiming we cannot see things this tool demonstrably CAN — and a
+false caveat corrodes trust in correct results exactly as badly as a missing one does. Every
+construct is now measured, each on its own fixture with a plain call as positive control.
+Evidence: `docs/evidence/m2-construct-coverage/FINDING-what-is-actually-unmodelled.md`.
+
+| construct | heuristic (tree-sitter) | clangd | in the shipped clause? |
+|---|---|---|---|
+| plain call **[CONTROL]** | edge 0.60 | edge 0.95 `[lsp✓]` | — |
+| **extern, no header** | edge 0.60 | edge 0.95 `[lsp✓]` | ⛔ **NO — fully modelled** |
+| **cross-language** | disclosed by the cross-language note, and the note stays SILENT on a same-language duplicate | | ⛔ **NO — disclosed, not unmodelled** |
+| macro-generated call | NO EDGE | NO EDGE | ✅ yes — the only both-tier blind spot |
+| function-pointer call | NO EDGE | edge 0.95 `[lsp✓]` | ✅ yes, but as HEURISTIC-ONLY, not absolute |
+| inactive `#ifdef` branch | edge 0.60 (**overcount**) | NO EDGE | ✅ yes, with the DIRECTION named |
+| `#include`d .cpp (not a TU) | edge 0.60 | NO EDGE | ✅ yes, as a clangd undercount |
+
+⇒ **Only the macro case is blind to both tiers.** Everything else is tier-dependent, and the
+DIRECTION is the actionable part: tree-sitter parses text (so it counts calls that never compile and
+cannot follow a pointer), while clangd only sees what the compile database actually compiles.
+⚠ A mutant that ADDS the `extern` caveat is killed by the suite, so the plan and the product now
+disagree in the safe direction: the code refuses the false claim even if this prose invites it.
+
 - Partially begun (`no_compile_db`, shape detectors on empty sets).
 - ✅ **LANDED (status corrected 2026-09-01) — `index.zeroFilesProcessed`.** In the tree at `mcp/stdio/code-intel/zero-files-reason.js`, wired into `collect_code_intel.js`, covered by three test files, nothing unpushed. The previous "IN FLIGHT, UNVERIFIED, NOT PUSHED" status was stale.** The collect path could
   return `status:'partial'` having collected nothing with no field saying why, so the integration
