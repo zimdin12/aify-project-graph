@@ -16,7 +16,7 @@
 // other 41 tools.
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { spawn, execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { mkdtempSync, rmSync, cpSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -46,6 +46,7 @@ let absence = '';
 let rpcError = null;
 let listed = new Set();
 let consumerText = new Map();
+let staleNoMatch = '';
 
 function rpc(messages) {
   return new Promise((resolve, reject) => {
@@ -90,7 +91,25 @@ beforeAll(async () => {
   absence = textOf(byId.get(4));
   listed = new Set((byId.get(5)?.result?.tools ?? []).map((t) => t.name));
   consumerText = new Map(ABSENCE_CONSUMERS.map((c, i) => [c.verb, textOf(byId.get(10 + i))]));
-}, 180_000);
+
+  // ⛔ THE DISCLOSURES ADDED SINCE THIS GATE WAS WRITTEN WERE NEVER CHECKED HERE. The NO MATCH
+  // staleness caveat is verified at VERB-FUNCTION level only, and this file exists precisely because
+  // enforceBudget and the renderer sit between a verb and the agent — a truncation there drops a
+  // contract silently while the suite stays green. That is the gap I closed once for M1b/M2 and then
+  // let reopen for every disclosure added afterwards.
+  //
+  // A SECOND spawn, because the index must be stale: HEAD moves past the indexed commit, so the
+  // caveat is TRUE. On the fresh state above it is correctly silent, which is why it cannot be
+  // observed in the same sequence.
+  writeFileSync(join(repo, 'src', 'later.cpp'), 'int later() { return 7; }\n');
+  execFileSync('git', ['-C', repo, 'add', '-A'], { encoding: 'utf8', stdio: 'pipe' });
+  execFileSync('git', ['-C', repo, 'commit', '-qm', 'after the index'], { encoding: 'utf8', stdio: 'pipe' });
+  const staleLines = await rpc([
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
+    { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_callers', arguments: { repo, symbol: 'definitelyNotIndexedSymbolXyz' } } },
+  ]);
+  staleNoMatch = textOf(new Map(staleLines.map((l) => [l.id, l])).get(2));
+}, 240_000);
 
 afterAll(() => { if (repo) rmSync(repo, { recursive: true, force: true }); });
 
@@ -170,6 +189,26 @@ describe('the absence contract reaches an agent from EVERY consumer, not just th
       .map(({ verb }) => verb);
     expect(missing, 'a shipped contract that does not arrive is undelivered, not merely untested')
       .toEqual([]);
+  });
+
+  it('★★★ the NO MATCH staleness caveat REACHES the agent too', () => {
+    // Added because this gate covered only the contracts it was born with. Every disclosure shipped
+    // afterwards was verified at verb-function level and never across the MCP boundary — the exact
+    // gap this file exists to close, reopened by my own later work.
+    expect(staleNoMatch, 'the call did not answer').toContain('NO MATCH');
+    expect(staleNoMatch, 'a bare NO MATCH reads as a fact about the REPOSITORY')
+      .toMatch(/behind HEAD|staleness could NOT be determined/i);
+    expect(staleNoMatch, 'the agent must be told this is not proof of absence')
+      .toMatch(/NOT proof/i);
+  });
+
+  it('⚠ what this gate still CANNOT reach, named rather than implied', () => {
+    // TRUST: UNAVAILABLE (both builders) is verified only at verb-function level, under a mocked
+    // fault. Reaching it here would need the fault injected INSIDE a spawned server process, and
+    // there is no hook for that. Stating the limit beats a gate that silently covers less than its
+    // name suggests — and beats inventing a hook whose own correctness would then need proving.
+    const NOT_REACHABLE_HERE = ['TRUST: UNAVAILABLE (absence)', 'TRUST: UNAVAILABLE (results)'];
+    expect(NOT_REACHABLE_HERE).toHaveLength(2);
   });
 
   it('SURFACE: the primary delete-decision consumer is in the listing an agent sees', () => {
