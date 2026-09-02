@@ -1,73 +1,68 @@
-# PROPOSAL — a decision-shaped rubric for M5, derived from measurement rather than invented
+# ⛔ THIS PROPOSAL REINVENTED SOMETHING THAT ALREADY EXISTS. Withdrawn and replaced with the finding.
 
-⚠ **STATUS: PROPOSAL, NOT RUN, NOT APPROVED.** The A/B spends real budget and is Steven's call.
-This costs nothing. It exists so that when the answer comes, the run measures the right thing.
+## What I wrote, and why it was wrong
 
-## Why this is not the invention the preregistration refused
+I proposed a decision-shaped rubric for M5 ("is it safe to delete X", scored from a structured
+`VERDICT:` line) and started implementing it in `scripts/ab-runner.mjs`. I did not first ask
+whether a correct implementation already existed — the question that saved real work one cycle
+earlier, on M2.
 
-`PREREGISTRATION.md` says: *"The rubric for 'better decision' is not settled, and I am not inventing
-one to look complete."* That was right at the time. What is new is that
-`docs/evidence/m2-construct-coverage/FINDING-what-is-actually-unmodelled.md` **measured** where each
-tier sees a call and where it does not. That table makes it possible to construct cases whose
-correct answer is known in advance, instead of guessing at what "better decision" means.
+**It exists, and it is better than what I proposed:**
 
-## The problem with the existing rubric
+- `scripts/lib/ab-rubric.mjs` — a BLIND rubric (never told which arm produced a transcript), whose
+  primary endpoint `unsafeAuthoritativeConclusion` is **three-valued** (`true` / `false` /
+  `ambiguous`), explicitly so it cannot fail open. Mine was binary.
+- It derives the verb list from `mcp/stdio/tools/schema.js` — the real registry, 43 tools — and its
+  header records that an earlier version hardcoded twelve and would have scored an agent reaching
+  for `graph_callees` as "did not use the graph".
+- `tests/fixtures/linkage-scope/ground-truth.json` — PREREGISTERED ground truth with six classes
+  (internal linkage, no-header external declaration, unity build, header-exposed, dynamic boundary,
+  torn graph), plus `successDefinition`, `knownRouteGap`, `notReachedRule`, `freezeRule` and
+  `corpusHygiene`.
+- `tests/unit/ab/rubric-cannot-fail-open.test.js` — pins the branches that must not resolve to
+  "safe", including a hedge followed by a go-ahead.
 
-Both implemented types — `ordered_contains` and `groups` — score whether expected FILE PATHS appear
-in the answer. That is **retrieval**. An agent can retrieve every right file and still conclude the
-wrong thing, and an agent can reach the right conclusion having named a file the rubric did not
-expect. The preregistration already names the failure: *"If the graph arm 'wins' that, the rubric is
-measuring the wrong thing."*
+Its `successDefinition` is sharper than anything in my proposal: *"An agent that correctly uses
+grep/Read instead of a floor-valued graph verb is a SUCCESS, not an adoption failure."*
 
-## The proposed task shape: "is it safe to delete X?"
+My `evaluateDecision` was also in the wrong file — `ab-runner.mjs` calls `main()` at import, so it
+is not importable by a test. **Reverted, uncommitted, gone.**
 
-Each task asks for a verdict and requires it in a STRUCTURED form:
+## ⭐ THE ACTUAL FINDING: the decision rubric is UNREACHABLE
 
-> Answer with a line `VERDICT: SAFE` or `VERDICT: UNSAFE`, then one line naming the evidence.
+```
+grep -rl "ab-rubric.mjs|scoreTranscript"  ->  scripts/lib/ab-rubric.mjs
+                                              tests/unit/ab/rubric-cannot-fail-open.test.js
+grep -rl "linkage-scope" docs/            ->  (nothing)
+```
 
-⛔ **The structured line is not decoration — it is the only defensible way to score this.** Reading a
-verdict out of free prose is a classifier over text, and a classifier over text is what got fooled
-twice in one session this week: a probe of mine read `NO_CALLERS` off a TRUST caveat containing the
-phrase `before any "no callers"`. Asking for the answer beats inferring it.
+**No runner imports it.** `scripts/ab-runner.mjs` — the harness that actually spawns Codex arms —
+uses `ordered_contains` and `groups` from `tests/ab/tasks.mjs`, and never touches `scoreTranscript`.
+The only consumer of the decision rubric is its own unit test.
 
-## Ground truth by SEEDING, because scale and certainty otherwise conflict
+⇒ This is the zero-consumer shape this project has now hit repeatedly: a careful, well-tested
+component that nothing in the product path can reach. The rubric is not missing. **The wiring is.**
 
-M5 exists because fixture-scale results are not trustworthy. But in a real repo, "is it safe to
-delete X" has no certain answer without expensive manual verification.
+⇒ **M5's blocker was misdiagnosed.** `PREREGISTRATION.md` says the rubric "is not settled", and that
+was true of the retrieval rubric in the OLD harness. A settled decision rubric was built afterwards
+and never connected. The remaining work is to run the existing harness through the existing rubric —
+which costs no agent budget to build, only to run.
 
-⇒ **Seed a known-answer symbol into a scratch clone of a real repo.** Scale stays real (the agent
-still faces a repo where reading fails); ground truth is certain because we planted it. The seeded
-construct is chosen from the measured table.
+## The one gap my measurements do identify
 
-## The three cases, and the third is the one that makes this honest
+The six ground-truth classes cover linkage and scope. Searching the key: **`macro` and `ifdef`
+appear nowhere.** From this week's measured table, the macro case is the ONLY construct blind to
+BOTH tiers — which makes it the natural **known-loss control**: a class the graph arm is expected to
+get wrong, so the benchmark cannot consist solely of cases the tool was built to win.
 
-| # | seeded construct | grep-armed agent | graph-armed agent | ground truth |
-|---|---|---|---|---|
-| **A** | `victim()` called ONLY inside an inactive `#ifdef` | finds the call text → says UNSAFE | `code_intel_references` omits it → can say SAFE | **SAFE** |
-| **B** | two same-name symbols in different namespaces, one uncalled | cannot separate the caller sets | M1 identity separates them | **SAFE for the uncalled one** |
-| **C** | `victim()` called ONLY through a macro | misses it → says SAFE | **also misses it** → says SAFE | **UNSAFE** |
+⛔ **That must NOT be added to the frozen key.** Its own `freezeRule` says the census is *"not
+licence to redesign toward the test"* and that the frozen version runs unchanged, with new questions
+opening *"as a new product slice with a new exact version and new preregistration"*. A macro class
+therefore belongs in a NEW version, preregistered separately, after the current one closes — not as
+an edit to a key that was written before any arm ran.
 
-**Case C is a case we KNOW we lose**, and it is in the set deliberately. A rubric containing only
-cases the tool is built to win measures the task selection, not the tool. If the graph arm somehow
-"wins" C, the run is void and something is wrong with the harness or the rubric — that is a
-preregistered void condition, not a happy surprise.
+## What I am not claiming
 
-⚠ Case A is also a test of ADOPTION, not only of the index: the heuristic tier reports the
-inactive-branch call too (overcount), so the graph arm gets A right **only if the agent reaches for
-`code_intel_references`**. That is the purpose statement's second half — the skills that teach an
-agent when to reach for which — and it will be visible in the transcript either way.
-
-## Scoring
-
-`{ verdict, evidence }` per run. A run is CORRECT only when the verdict matches ground truth.
-Naming the evidence is recorded but does NOT gate correctness — an agent that is right for the wrong
-reason is still recorded as right, and the reason is there to be read.
-
-## What this proposal does NOT settle
-
-- **Cost.** Unchanged: 4 repos × 3 tasks × 2 arms × 3 repeats = 72 runs. Steven's call.
-- **Whether seeding is representative.** A planted construct is certain but not typical; nothing
-  here measures how often these shapes occur in real C++. Stated as a limit, not designed around.
-- **Case B's C++ arm** needs a compile DB in the scratch clone, which the seeding step must create.
-- The three cases are C/C++-shaped. A JS/Python arm would need its own constructs, and the measured
-  table does not cover those languages.
+I have not read the full rubric implementation or run it against any transcript. This records what
+exists, that nothing consumes it, and one gap in the class list. Whether the wiring is a small job
+or a large one is unmeasured.
