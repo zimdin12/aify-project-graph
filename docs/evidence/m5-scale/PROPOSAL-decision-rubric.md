@@ -61,8 +61,27 @@ opening *"as a new product slice with a new exact version and new preregistratio
 therefore belongs in a NEW version, preregistered separately, after the current one closes — not as
 an edit to a key that was written before any arm ran.
 
+## Verification of the unreachability claim — upgraded 2026-09-02
+
+⚠ The first version of this finding rested on a filename grep across `scripts/`, `tests/`, `docs/`,
+and I flagged it as such: the reference resolver DECLINED to certify it (`ready:false`,
+`cause:cold_index`), which is the M2 absence contract working correctly. Re-checked over the WHOLE
+repository including dynamic imports:
+
+```
+grep -rn "ab-rubric|scoreTranscript"  (whole repo, all file types)
+  scripts/lib/ab-rubric.mjs                        the definition
+  tests/unit/ab/rubric-cannot-fail-open.test.js    3 static + 3 dynamic imports
+  docs/…                                           prose only
+```
+
+**No runner, no script, no verb imports it.** The only executing consumer is its own unit test. The
+claim now rests on a population that includes `await import()` forms, which the first pass would
+have missed.
+
 ## What I am not claiming
 
-I have not read the full rubric implementation or run it against any transcript. This records what
-exists, that nothing consumes it, and one gap in the class list. Whether the wiring is a small job
-or a large one is unmeasured.
+I have not read the full rubric implementation or run it against any transcript, and I have not
+designed the runner. Whether the wiring is a small job or a large one is UNMEASURED — the
+ground-truth key references a "tier B" whose design I have not located, and inventing one would be
+the same mistake this document already records once.
