@@ -21,7 +21,11 @@ import { spawnSync } from 'node:child_process';
 // shared, because that is the half a relay has no business having its own opinion about.
 import { CLANGD_RESOURCE_ARGS } from '../resolve-clangd.js';
 
-const LANGUAGE_SERVERS = {
+// Exported so a gate can assert the REAL spawn arguments rather than grepping this file for a
+// token. Mutant P-1 removed the spread below and SURVIVED a text-based check, because the import
+// and a comment still mentioned the symbol — wired-but-inert, in the gate built to prevent exactly
+// that.
+export const LANGUAGE_SERVERS = {
   cpp: {
     binary: 'clangd',
     versionArgs: ['--version'],

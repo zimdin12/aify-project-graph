@@ -17,6 +17,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CLANGD_RESOURCE_ARGS } from '../../../mcp/stdio/code-intel/resolve-clangd.js';
+import { LANGUAGE_SERVERS } from '../../../mcp/stdio/code-intel/cli/serve-lsp.js';
 
 const CODE_INTEL = fileURLToPath(new URL('../../../mcp/stdio/code-intel/', import.meta.url));
 
@@ -53,14 +54,29 @@ describe('every clangd spawn path bounds its PCH storage', () => {
     expect(names, 'the main spawn builder must be in the population').toContain('resolve-clangd.js');
   });
 
-  it('★ every spawn site carries the shared resource flags', () => {
-    // Either it names them literally, or it composes the exported list. Both are fine; having
-    // neither is the defect.
-    const missing = filesNamingClangdBinary()
-      .filter((s) => !s.source.includes('CLANGD_RESOURCE_ARGS') && !s.source.includes('--pch-storage='))
-      .map((s) => s.file);
-    expect(missing, 'a clangd spawn without bounded PCH storage fills %TEMP% until the disk dies')
-      .toEqual([]);
+  it('★ every declared language server carries the shared flags IN ITS ACTUAL ARGS', () => {
+    // ⛔ THIS ASSERTS THE VALUE, NOT THE TEXT, AND A MUTANT IS WHY.
+    // The first version of this test scanned each file for the string `CLANGD_RESOURCE_ARGS`.
+    // Mutant P-1 removed the spread from the relay's defaultArgs — restoring the ORIGINAL 84 GB
+    // defect — and SURVIVED, because the import line and a comment still contained the token. A
+    // gate that checks whether a file MENTIONS a symbol cannot see whether the spawn USES it.
+    // Derived over every declared language, so a second server added here is enrolled too.
+    for (const [language, cfg] of Object.entries(LANGUAGE_SERVERS)) {
+      for (const flag of CLANGD_RESOURCE_ARGS) {
+        expect(cfg.defaultArgs,
+          `${language}: spawn args must include ${flag} — without it clangd defaults to disk PCH storage and fills %TEMP%`)
+          .toContain(flag);
+      }
+    }
+  });
+
+  it('⛔ the OTHER spawn path still carries them too — one owner, both sites', () => {
+    // resolve-clangd.js composes CLANGD_RESOURCE_ARGS into BASE_CLANGD_ARGS; its own two tests
+    // assert the built args. This checks the source-level population has not lost the composition,
+    // which is the half a value assertion here cannot reach.
+    const builder = filesNamingClangdBinary().find((s) => s.file === 'resolve-clangd.js');
+    expect(builder.source, 'the builder must compose the shared list, not restate the flags')
+      .toMatch(/\.\.\.CLANGD_RESOURCE_ARGS/);
   });
 
   it('⛔ the shared list actually pins PCH storage to memory', () => {
