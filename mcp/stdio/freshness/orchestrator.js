@@ -1157,8 +1157,24 @@ function shouldCarryForwardRef(ref, repoRoot, ignoredDirs, filesToProcess) {
   return existsSync(join(repoRoot, sourceFile));
 }
 
+// ⛔ DEFER A BRAND-NEW UNTRACKED FILE, NEVER ONE THE GRAPH ALREADY HOLDS.
+//
+// The point of the deferral (00169db, "avoid untracked refresh churn") is to keep scratch files,
+// build output and half-written experiments out of the graph. It was NEVER to freeze a file the
+// graph is already answering questions about.
+//
+// ⚠ REGRESSION, introduced in a665e99 and restored here. The body had become
+// `return Boolean(entry?.untracked)`, which defers EVERY untracked file — and the two unused
+// parameters were the fingerprint of the lost condition. Measured before the fix: a file indexed by a
+// full rebuild, then edited while still untracked, never picked the edit up; `regrAfterEdit` was
+// absent while `regrOriginal` remained. The graph kept answering with content that no longer existed
+// on disk, and every freshness signal stayed green.
+//
+// So: no nodes yet → this file is not ours, leave it alone until it is committed. Nodes already
+// present → we are on the hook for it being right, and a stale answer is worse than a churny one.
 function shouldDeferUntrackedFreshness(db, filePath, entry) {
-  return Boolean(entry?.untracked);
+  if (!entry?.untracked) return false;
+  return getNodesByFile(db, filePath).length === 0;
 }
 
 function clearSpecialNodes(db) {
