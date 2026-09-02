@@ -109,10 +109,17 @@ export function uncommittedSourceClause(freshness) {
   const SHOWN = 3;
   const shown = files.slice(0, SHOWN).map((f) => `${f.path} (${f.why})`).join(', ');
   const more = files.length > SHOWN ? `, +${files.length - SHOWN} more` : '';
-  return `NOTE: ${files.length} uncommitted source file(s) are NOT covered by this answer — `
-    + `${shown}${more}. Untracked files are never indexed and modified files are indexed as they `
-    + 'were at the snapshot, so a symbol defined in one of them is absent here regardless of index '
-    + 'freshness. Commit, or run graph_index({ force: true }), before reading this as "does not exist".';
+  // ⛔ THIS WAS 359 BYTES AND I MEASURED IT ONLY AFTER SHIPPING IT. Against a 96-byte NO MATCH the
+  // caveat was 78.9% of the answer, and 41-46% of an empty-set answer — next to the 445-byte
+  // warning wall this project already had to tear out, whose lesson was that a caveat everyone
+  // skims protects nobody. I had argued at length that it was TRUE and never asked what it COST.
+  //
+  // ⇒ Three things are load-bearing and all three survive: WHICH files (the part that turns a doubt
+  // into something checkable), their state, and a remedy that can change the answer. What went is
+  // the sentence explaining the mechanism — an agent does not need to know why an untracked file is
+  // not indexed, only that it is not. Compressed to four words.
+  return `NOT COVERED: ${shown}${more} — uncommitted, so not indexed. `
+    + 'Commit or graph_index({force:true}) before treating this as absent.';
 }
 
 // ⛔ A BLOCKER RETURNED AS A STRING IS INDISTINGUISHABLE FROM DATA, AND A CONSUMER WILL LAUNDER IT.

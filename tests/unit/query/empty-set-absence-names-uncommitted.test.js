@@ -111,9 +111,9 @@ describe('an empty-set absence names uncommitted files that could hold what it d
       // control that makes every assertion below it mean something, so a matcher that silently
       // could not fire would hollow out the whole test rather than one line of it.
       expectAbsentWithLiveMatcher(
-        /uncommitted source file/i,
+        /NOT COVERED:/,
         {
-          forbidden: 'NOTE: 1 uncommitted source file(s) are NOT covered by this answer',
+          forbidden: 'NOT COVERED: src/x.js (untracked) — uncommitted, so not indexed.',
           allowed: `NO CALLERS for "targetFn". TRUST: absence is from the heuristic graph`,
         },
         clean,
@@ -126,7 +126,7 @@ describe('an empty-set absence names uncommitted files that could hold what it d
       const dirty = String(await mod[fn]({ repoRoot: repo, ...args }));
 
       expect(dirty, 'the uncommitted file must be named').toMatch(/src\/newcaller\.js/);
-      expect(dirty).toMatch(/uncommitted source file/i);
+      expect(dirty).toMatch(/NOT COVERED:/);
     }, 120_000);
   }
 
@@ -144,7 +144,7 @@ describe('an empty-set absence names uncommitted files that could hold what it d
 
     for (const symbol of ['targetFn', 'noSuchSymbolAtAllZzz']) {
       const answer = String(await graphCallers({ repoRoot: repo, symbol }));
-      const hits = (answer.match(/uncommitted source file/gi) ?? []).length;
+      const hits = (answer.match(/NOT COVERED:/g) ?? []).length;
       expect(hits, `"${symbol}" emitted the uncommitted clause ${hits} times`).toBeLessThanOrEqual(1);
     }
   }, 120_000);

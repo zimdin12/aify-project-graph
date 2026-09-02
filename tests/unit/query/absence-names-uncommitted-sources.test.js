@@ -100,9 +100,9 @@ describe('a NO MATCH says when uncommitted sources could explain it', () => {
     expect(answer, 'precondition: still an absence answer').toContain('NO MATCH');
 
     expectAbsentWithLiveMatcher(
-      /uncommitted source file/i,
+      /NOT COVERED:/,
       {
-        forbidden: 'NOTE: 3 uncommitted source file(s) are NOT covered by this answer',
+        forbidden: 'NOT COVERED: src/x.js (untracked) — uncommitted, so not indexed.',
         allowed: 'NO MATCH for "ucNoSuchSymbolZzz". Try graph_search(...) to find similar names.',
       },
       answer,
@@ -133,9 +133,9 @@ describe('a NO MATCH says when uncommitted sources could explain it', () => {
     const answer = String(await graphCallers({ repoRoot: repo, symbol: 'ucNoSuchSymbolZzz' }));
     expect(answer, 'precondition: still an absence answer').toContain('NO MATCH');
     expectAbsentWithLiveMatcher(
-      /uncommitted source file/i,
+      /NOT COVERED:/,
       {
-        forbidden: 'NOTE: 7 uncommitted source file(s) are NOT covered by this answer',
+        forbidden: 'NOT COVERED: src/x.js (untracked) — uncommitted, so not indexed.',
         allowed: 'NO MATCH for "ucNoSuchSymbolZzz". Try graph_search(...) to find similar names.',
       },
       answer,
@@ -148,7 +148,7 @@ describe('a NO MATCH says when uncommitted sources could explain it', () => {
     writeFileSync(join(repo, 'src', 'now-real.js'), 'export function ucLateArrival(){ return 9; }\n');
     const after = String(await graphCallers({ repoRoot: repo, symbol: 'ucNoSuchSymbolZzz' }));
     expect(after, 'one source file among the residue must be picked out, and only it')
-      .toMatch(/1 uncommitted source file/);
+      .toMatch(/NOT COVERED:/);
     expect(after).toMatch(/src\/now-real\.js/);
     expectAbsentWithLiveMatcher(
       /\.json|\.md\b/i,
@@ -160,6 +160,38 @@ describe('a NO MATCH says when uncommitted sources could explain it', () => {
       'the residue must not be listed alongside the real source file',
     );
   }, 120_000);
+
+  it('⛔⛔ THE CLAUSE HAS A BYTE BUDGET, because I already blew it once', () => {
+    // ⛔ SHIPPED AT 359 BYTES AND MEASURED ONLY AFTERWARDS. Against a 96-byte NO MATCH that was
+    // 78.9% of the whole answer; 41-46% of an empty-set answer. The 445-byte warning wall this
+    // project had to tear out is the same order of magnitude, and its lesson was that a caveat
+    // everyone skims protects nobody. I argued at length that the clause was TRUE and never once
+    // asked what it COST — which is exactly how the wall got built the first time.
+    //
+    // ⚠ A BUDGET, NOT A STYLE RULE. Prose creeps back one clarifying sentence at a time, and every
+    // one of them is individually defensible. This fails on the next one.
+    const one = staleNotFoundCaveat({
+      stale: false, uncommittedSources: [{ path: 'src/a.js', why: 'untracked' }],
+    });
+    expect(one.length, `the one-file clause is ${one.length}B; it was cut from 359B to ~140B for a reason`)
+      .toBeLessThanOrEqual(200);
+
+    const three = staleNotFoundCaveat({
+      stale: false,
+      uncommittedSources: [
+        { path: 'src/a.js', why: 'untracked' },
+        { path: 'src/b.js', why: 'modified' },
+        { path: 'src/c.js', why: 'untracked' },
+      ],
+    });
+    expect(three.length, `the three-file clause is ${three.length}B`).toBeLessThanOrEqual(260);
+
+    // ⛔ AND IT MUST STILL SAY THE THREE THINGS THAT EARN THE BYTES. A budget with no floor is
+    // satisfied by deleting the clause, which would pass every assertion above and lose the feature.
+    expect(one, 'names the file — the part that makes the doubt checkable').toMatch(/src\/a\.js/);
+    expect(one, 'names the state').toMatch(/untracked/);
+    expect(one, 'offers an action that can change the answer').toMatch(/commit|graph_index/i);
+  });
 
   it('⛔ an UNOBSERVED tree SAYS SO — null is a failed measurement, not an empty one', () => {
     // ⚠ THIS TEST IS HERE BECAUSE A MUTANT SURVIVED. The first version asserted that null produced
