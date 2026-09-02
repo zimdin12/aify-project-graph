@@ -320,7 +320,20 @@ export const TOOLS = [
   {
     name: 'graph_dashboard',
     handler: graphDashboard,
-    description: 'Open the interactive graph browser. Returns {url, port}.',
+    // ⛔ THE ONLY LISTED VERB THAT ROUTED NOWHERE. Measured 2026-09-02
+    // (docs/evidence/surface-receipts/FINDING-never-named-is-not-unrouted.md): four default-listed
+    // verbs are never named in the instructions, and three of them route themselves in their own
+    // description ("PRIMARY for ..."). This one said what it DOES and never when to reach for it,
+    // in 56 characters, while billing every session.
+    //
+    // ⚠ And the honest routing answer is "not for you". It returns a URL for a HUMAN to open — an
+    // agent cannot act on a port number. Saying so is more useful than pretending it is an agent
+    // tool: it stops an agent considering it for its own work, and tells it the one case that IS
+    // worth doing — surfacing the link when a person asks to SEE the structure.
+    description: 'FOR A HUMAN TO OPEN, not for you — returns {url, port} of an interactive graph '
+      + 'browser. An agent cannot read a rendered page, so do NOT call this to answer your own '
+      + 'question: use graph_packet to orient, graph_trace for a call path, or graph_explore for '
+      + 'source. Call it ONLY when a person asks to SEE the graph, and hand them the URL.',
     schema: {
       type: 'object',
       properties: {
