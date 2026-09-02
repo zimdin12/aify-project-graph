@@ -36,6 +36,19 @@ vi.mock('../../../mcp/stdio/query/verbs/consequences.js', () => ({
   graphConsequences: () => new Promise(() => {}),
 }));
 
+// ⛔ 24.6s OF THIS FILE WAS PURE WAITING, and it was the single most expensive file in the suite.
+// `vitest.config.js` sets APG_LIVE_BUDGET_MS=8000 for the whole run, and this file deliberately hangs
+// the lookup FOREVER so that the budget is what fires — three tests x eight seconds.
+//
+// The hang is the right design and stays: it makes the timeout branch deterministic instead of
+// depending on machine speed (see the note above). What the test does not need is for that budget to
+// be EIGHT SECONDS. A hang exceeds 250ms just as reliably as it exceeds 8000ms.
+//
+// Set BEFORE the dynamic import below, because packet-live.js resolves LIVE_BUDGET_MS once at module
+// load (`export const LIVE_BUDGET_MS = resolveLiveBudget(process.env.APG_LIVE_BUDGET_MS)`), so an env
+// change after import would be INERT — and an inert change here looks exactly like a working one.
+process.env.APG_LIVE_BUDGET_MS = '250';
+
 const { graphPacket } = await import('../../../mcp/stdio/query/verbs/packet.js');
 
 let repoRoot;
