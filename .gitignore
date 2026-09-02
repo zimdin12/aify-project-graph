@@ -2,6 +2,10 @@ node_modules/
 .aify-graph/
 coverage/
 *.log
+# ⛔ …but NEVER under docs/evidence/. A suite log written there is the proof a commit cites;
+# gitignore dropping it silently leaves a claim with no artifact behind it, and the directory
+# listing looks identical either way. Gated by tests/unit/docs/evidence-is-not-ignored.test.js.
+!docs/evidence/**/*.log
 .DS_Store
 vendor/
 .tmp/
