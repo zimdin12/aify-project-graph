@@ -19,6 +19,29 @@ const FRAMES = JSON.parse(fs.readFileSync(path.join(HERE, 'wire-frames.json'), '
 // Which definition payload to serve, chosen by the harness.
 const MODE = process.env.APG_FAKE_CLANGD_MODE || 'invalid_directory';
 
+// ⛔ THE MIXED FRAME'S *VALID* SIBLING MUST POINT AT A FILE THE HARNESS CREATED.
+//
+// As captured, that entry carried a hardcoded absolute URI:
+//   file:///C:/Users/ADMINI~1/AppData/Local/Temp/apg-clangd-qual/src/callers.cpp
+// Nothing creates that path. The test passed on this machine ONLY because a LEAKED temp directory
+// from some earlier run happened to still be there — and it went red the moment that leak was
+// cleaned up (2026-09-02, during the %TEMP% purge). On a fresh machine or in CI it would ALWAYS
+// have failed: `location-coherence.js` classifies an unreadable path as `unreadable` and refuses
+// the location, so "the valid sibling survives" was asserting against a file that did not exist.
+//
+// ⚠ The sibling case above was already fixed for exactly this reason — its comment records that an
+// earlier version pointed at this host's MSVC install and was environment-dependent. The `mixed`
+// case was left behind. One fix is not a sweep.
+//
+// The INVALID entry keeps its captured directory URI: that one is the artefact under test, its
+// wrongness is the point, and it must stay byte-identical to what the real provider sent.
+function mixedFrame() {
+  const frame = FRAMES.references_id6_MIXED_valid_and_invalid;
+  const validUri = process.env.APG_FAKE_VALID_URI;
+  if (!validUri) return frame;
+  return frame.map((entry, index) => (index === 0 ? { ...entry, uri: validUri } : entry));
+}
+
 function send(message) {
   const json = JSON.stringify(message);
   process.stdout.write(`Content-Length: ${Buffer.byteLength(json, 'utf8')}\r\n\r\n${json}`);
@@ -39,11 +62,11 @@ function resultFor(method) {
       const line = Number(process.env.APG_FAKE_EXTERNAL_LINE ?? 0);
       return [{ uri, range: { start: { line, character: 5 }, end: { line, character: 16 } } }];
     }
-    if (MODE === 'mixed') return FRAMES.references_id6_MIXED_valid_and_invalid;
+    if (MODE === 'mixed') return mixedFrame();
     return FRAMES.definition_id3_INVALID_directory_uri;
   }
   if (method === 'textDocument/references') {
-    if (MODE === 'mixed') return FRAMES.references_id6_MIXED_valid_and_invalid;
+    if (MODE === 'mixed') return mixedFrame();
     return [];
   }
   if (method === 'shutdown') return null;

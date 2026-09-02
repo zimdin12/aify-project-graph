@@ -76,6 +76,12 @@ async function collectWith(repoRoot, mode) {
         APG_FAKE_CLANGD_MODE: mode,
         APG_FAKE_EXTERNAL_URI: externalUri,
         APG_FAKE_EXTERNAL_LINE: '0',
+        // The mixed frame's VALID sibling, pointed at the file this harness actually created.
+        // Its captured URI was a hardcoded absolute path that nothing creates; the test passed
+        // only while a LEAKED temp directory from an older run happened to still exist, and it
+        // went red the moment that leak was purged (2026-09-02). A control that depends on
+        // ambient machine state is not a control.
+        APG_FAKE_VALID_URI: pathToFileURL(join(repoRoot, 'src', 'callers.cpp')).href,
       },
     }),
   });
