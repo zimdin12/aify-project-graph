@@ -98,6 +98,31 @@ describe('a remedy never sends an agent to a verb it cannot call', () => {
     expect(namedVerbsIn('run /graph-build-functionality to create the feature map.')).toEqual([]);
   });
 
+  it('⛔ graph_dashboard tells an agent it is NOT for them, and points at verbs that are', () => {
+    // The one LISTED verb whose description routed nowhere: 56 chars saying what it DOES, never when
+    // to reach for it, billed every session. It returns a URL for a HUMAN — an agent cannot read a
+    // rendered page — so the honest routing is "not for you, use these instead".
+    //
+    // ⚠ DELIBERATELY NARROW. There is no crisp rule for "this description routes an agent" that does
+    // not fire on legitimate prose, so this pins ONE verb where the property is unambiguous rather
+    // than inventing a fuzzy detector for all sixteen. scripts/m4-routing-coverage.mjs reports the
+    // rest; it does not judge them.
+    const listed = defaultToolNames();
+    const desc = TOOLS.find((t) => t.name === 'graph_dashboard')?.description ?? '';
+
+    expect(desc, 'an agent must be told this returns something only a person can use')
+      .toMatch(/NOT for you|for a human/i);
+
+    // And the alternatives it offers must themselves be reachable — the same dead-end rule this file
+    // enforces for remedies, applied to the description that replaces one.
+    const alternatives = namedVerbsIn(desc);
+    expect(alternatives.length, 'it must name what to use INSTEAD, or it only says "no"')
+      .toBeGreaterThan(0);
+    expect(alternatives.filter((n) => !listed.has(n)),
+      'pointing an agent at an unlistable verb is the dead end this file exists to prevent')
+      .toEqual([]);
+  });
+
   it('★★★ every remedy reachable from a LISTED verb names only LISTED verbs', () => {
     const listed = defaultToolNames();
     const violations = [];
