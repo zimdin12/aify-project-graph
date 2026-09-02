@@ -293,10 +293,18 @@ The machinery exists but is opt-in and partial.
   ⇒ The 35.2 s / 91%-≥-15 s figures below describe **full rebuilds** (reproduced here at 75 s) and
   do not describe a burst. They no longer argue against default-on; they argue against confusing
   the two.
-  ⛔ **The default is NOT flipped, and the four remaining blockers are not timing questions:**
-  the watcher's own IDLE cost, OVERLAPPING bursts (sustained editing where one arrives mid-sync —
+  ⛔ **The default is NOT flipped. THREE blockers remain — one was retired 2026-09-02**
+  (`docs/evidence/m3-freshness/FINDING-watcher-idle-cost.md`):
+  ✅ the watcher's own IDLE cost — **measured 0.0 ms CPU and +4 KB RSS over 30 s with the watcher
+  confirmed `running`**, against a control arm in the same process and a busy-loop proving the meter
+  could see cost. ⛔ Still open: OVERLAPPING bursts (sustained editing where one arrives mid-sync —
   the normal agent workload, and the one thing single-burst timing cannot reach), WSL/`/mnt` where
   the watcher is default-off for unrelated reasons, and a large C++ repo.
+  ⚠ **And the blocker's own wording was wrong:** "starts a background process for every install"
+  names the wrong thing. `startWatcher` registers ONE recursive `fs.watch` handle **inside the
+  existing server process**, with no polling fallback and deliberately not one watch per directory.
+  No process is spawned, so the "daemon burning cycles" objection is measured at zero; what stays
+  open is behaviour under LOAD, not at rest.
   ⚠ A doubt I raised against my own result — that the TTL fast path had served cached noops and I
   had timed a cache hit — was WRONG, and neither preregistered control could have caught it (`F`
   uses `force:true` and bypasses the cache). Settled by an EFFECT check: the edit reached the graph
