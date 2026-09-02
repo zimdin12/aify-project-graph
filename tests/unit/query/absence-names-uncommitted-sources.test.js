@@ -26,7 +26,8 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { staleNotFoundCaveat } from '../../../mcp/stdio/query/verbs/read_freshness.js';
+import { staleNotFoundCaveat, uncommittedSourceFiles } from '../../../mcp/stdio/query/verbs/read_freshness.js';
+import { WorktreeState } from '../../../mcp/stdio/freshness/worktree-state.js';
 import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 let repo = null;
@@ -160,13 +161,57 @@ describe('a NO MATCH says when uncommitted sources could explain it', () => {
     );
   }, 120_000);
 
-  it('⛔ an UNOBSERVED tree says nothing rather than certifying there is nothing', () => {
-    // null is not []. A git query that never ran cannot report that no uncommitted file explains
-    // the absence — the same rule WorktreeState enforces for trackedDirty and dirtyFilesKnown.
-    expect(staleNotFoundCaveat({ stale: false, uncommittedSources: null })).toBe('');
+  it('⛔ an UNOBSERVED tree SAYS SO — null is a failed measurement, not an empty one', () => {
+    // ⚠ THIS TEST IS HERE BECAUSE A MUTANT SURVIVED. The first version asserted that null produced
+    // '' — silence — which a mutant returning `[]` satisfied just as well, because both were empty.
+    // The producer's tri-state died one function later and nothing noticed.
+    //
+    // Worse, silence was the wrong behaviour: `git status` and `git rev-parse HEAD` fail
+    // independently, so a broken status with a readable HEAD leaves `stale === false`, the
+    // staleness branch quiet, and the dirty-unknown warning dropped with every other warning on the
+    // absence path. A bare NO MATCH backed by a check that never ran.
+    expect(staleNotFoundCaveat({ stale: false, uncommittedSources: null }),
+      'a failed dirty check must not read as a clean tree').toMatch(/could not be read/i);
+
+    // ⛔ THE DISCRIMINATION, in the same pass: an OBSERVED empty tree is silent. Without this the
+    // assertion above is satisfied by a clause that fires unconditionally.
+    expect(staleNotFoundCaveat({ stale: false, uncommittedSources: [] }),
+      'a MEASURED clean tree has nothing to disclose').toBe('');
+    // and a caller that never set the field at all is not a failed measurement either.
+    expect(staleNotFoundCaveat({ stale: false })).toBe('');
     // ⚠ and the stale===null path still gets its OWN caveat, unchanged by this addition.
     expect(staleNotFoundCaveat({ stale: null, uncommittedSources: null }),
       'the unknown-staleness caveat must survive').toMatch(/could NOT be determined/i);
+  });
+
+  it('⛔ the PRODUCER returns null for an unobserved tree — the fail-closed rule itself', () => {
+    // ⚠ THIS TEST EXISTS BECAUSE A MUTANT SURVIVED TWICE. Deleting the producer's
+    // "tree not observed → null" guard passed every test I had, because both of my attempts
+    // asserted on hand-built freshness objects — testing the CONSUMER while the mutant changed the
+    // PRODUCER. A test that cannot see the code it is meant to guard is not a guard.
+    //
+    // WorktreeState takes entriesError directly, so the failed-git-status state is constructible
+    // without breaking a real repo. That matters: this branch is otherwise reachable only when
+    // `git status` fails while `git rev-parse HEAD` succeeds — an index.lock, say — and when BOTH
+    // fail the stale===null caveat masks it upstream. Unreachable-by-accident is exactly how a
+    // fail-open default survives a green suite.
+    const unobserved = new WorktreeState({ head: 'abc123', entries: null, entriesError: 'index.lock' });
+    expect(uncommittedSourceFiles(unobserved),
+      'a failed git status must not be reported as a measured empty tree').toBe(null);
+
+    // ⛔ POSITIVE CONTROL, same call: an OBSERVED tree returns a real (possibly empty) list, so the
+    // assertion above cannot be satisfied by a function that returns null unconditionally.
+    const observedClean = new WorktreeState({ head: 'abc123', entries: [], entriesError: null });
+    expect(uncommittedSourceFiles(observedClean),
+      'a measured clean tree is an empty list, NOT null').toEqual([]);
+
+    const observedDirty = new WorktreeState({
+      head: 'abc123',
+      entries: [{ path: 'src/live.js', untracked: true }, { path: 'notes.md', untracked: true }],
+      entriesError: null,
+    });
+    expect(uncommittedSourceFiles(observedDirty), 'and it discriminates by language config')
+      .toEqual([{ path: 'src/live.js', why: 'untracked' }]);
   });
 
   it('both facts appear together when the index is ALSO behind HEAD', () => {

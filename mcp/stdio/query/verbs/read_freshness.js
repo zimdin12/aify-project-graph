@@ -88,6 +88,23 @@ export function staleNotFoundCaveat(freshness) {
  */
 function uncommittedSourceClause(freshness) {
   const files = freshness.uncommittedSources;
+  // ⛔ null IS A MEASUREMENT THAT FAILED, AND IT USED TO READ AS SILENCE. A mutant that made an
+  // unobserved tree report `[]` instead of `null` SURVIVED the first version of this test file,
+  // because both produced the same empty string — the distinction the producer works to preserve
+  // died one function later.
+  //
+  // ⚠ AND THE SILENCE WAS WRONG ON ITS OWN TERMS. `git status` and `git rev-parse HEAD` fail
+  // INDEPENDENTLY: status can break on an index.lock while HEAD answers fine. Then `stale` is a
+  // measured `false`, the staleness branch above stays quiet, and the "dirty state unknown" warning
+  // does not reach this path either — warnings are dropped on a not-found. A reader got a bare
+  // NO MATCH backed by a check that never ran, which is the same defect this whole clause exists
+  // to remove, one level further in.
+  //
+  // `undefined` stays silent: that is a caller who never set the field, not a failed observation.
+  if (files === null) {
+    return 'NOTE: the working tree could not be read (the git query failed), so uncommitted files '
+      + 'cannot be ruled out as the reason this was not found. Run graph_health() to see why.';
+  }
   if (!Array.isArray(files) || files.length === 0) return '';
   const SHOWN = 3;
   const shown = files.slice(0, SHOWN).map((f) => `${f.path} (${f.why})`).join(', ');
@@ -464,7 +481,7 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
  * killed the count-based version. Ignored directories (.aify-graph, node_modules, build/...) are
  * already excluded upstream by getDirtyFileEntriesSync, so this does not re-apply them.
  */
-function uncommittedSourceFiles(worktree) {
+export function uncommittedSourceFiles(worktree) {
   const untracked = worktree.untrackedPaths;
   const trackedDirty = worktree.trackedDirty;
   if (untracked === null && trackedDirty === null) return null;
