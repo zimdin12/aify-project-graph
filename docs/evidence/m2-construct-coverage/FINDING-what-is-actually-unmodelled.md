@@ -99,3 +99,34 @@ src::audio::audio::applyGain  -> RESOLVED
 ⇒ **Both resolve. No fix warranted.** Recorded so the next reader who notices the doubled segment
 does not re-investigate it, and so that if the retry ever stops resolving, this is the measurement it
 regressed against.
+
+---
+
+## Addendum — the citation defect is REPO-WIDE, and the gate is deliberately narrow
+
+After the plan was found citing evidence by ambiguous bare name (`FINDING.md` -> 9 candidates), the
+same check was run over every markdown file under `docs/`:
+
+```
+docs scanned: 206      distinct citations: 1,000
+AMBIGUOUS bare names:     45   (e.g. server.js x2, laravel.js x2, tsconfig.json x13)
+unresolved as written:   469   (mostly UNDER-QUALIFIED but unique; a few dead)
+```
+
+⇒ **The gate added at `tests/unit/docs/plan-citations-resolve.test.js` covers the PLAN ONLY, and
+that is a decision, not an omission.** Sweeping 514 citations across 206 files was rejected:
+
+- Most are **historical records** (`2026-08-10-one-plan.md`, `code-intel-v2-*`). Rewriting their
+  pointers is churn that changes no agent's decision and destroys the record of what was written
+  at the time.
+- Some genuinely point at **other repositories** (`worldbuffer-authority.md`,
+  `modified-this-frame.md` are echoes docs), where "unresolved here" is correct.
+- `tsconfig.json` has 13 candidates because it is a generic filename — ambiguity there is inherent,
+  not a defect.
+
+⇒ The value is concentrated in the documents an agent is actually routed to: the plan (gated) and
+the current evidence files. **Applying the purpose test to our own documentation**: fixing a
+historical citation does not make an agent's decision better, faster or safer, so it does not ship.
+
+⚠ Recorded so the 45 and the 469 are known numbers rather than an unmeasured mess, and so anyone
+who later wants the gate widened knows the size of what they are taking on.
