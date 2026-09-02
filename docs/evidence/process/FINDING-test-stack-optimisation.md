@@ -74,5 +74,19 @@ redundancy only** — it makes no claim that the suite's coverage is adequate.
 ## What is left, and why I stopped
 
 The remaining top-20 files are LSP/clangd-bound, where the time is real work rather than waiting.
-`server-toolset.test.js` (12.4 s, 17 tests) spawns a server per test and could batch — a real but
-larger refactor, recorded rather than started.
+
+### `server-toolset.test.js` — EXAMINED AND DECLINED, not merely skipped
+
+12.4 s across 13 server spawns (~0.95 s each). Batching them was the obvious saving; it is the wrong
+trade:
+
+- **5 of 13 spawns pass custom startup args** — `--toolset=lean`, `APG_MCP_TOOLS`,
+  `AIFY_GRAPH_OUTPUT`. The server's profile is fixed at startup, so these **cannot** share a process
+  at all.
+- **Several of the remaining 8 call `graph_index`, which mutates.** A shared server would carry one
+  test's state into the next, in the one file whose subject *is* the server process.
+
+⇒ The spawn is part of what is under test, the way the 5.2 s TTL sleep is part of what
+`stale-process-not-cached` test 1 asserts. Trading isolation for ~1% of suite time in an integration
+file about process startup is a bad exchange. **Recorded as declined with the reason, so it is not
+re-opened as an obvious win.**
