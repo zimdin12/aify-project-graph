@@ -5,7 +5,7 @@ import { rankCallees } from '../rank.js';
 import { enforceBudget } from '../budget.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
-import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
@@ -29,7 +29,11 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const sources = resolveSymbol(db, symbol);
-    if (sources.length === 0) return noMatchMessage(db, symbol);
+      // ⛔ A NOT-FOUND IS A CLAIM, AND A STALE INDEX MAKES IT A FALSE ONE. `staleNotFoundCaveat`
+      // is MEASURED (n commits behind HEAD) and SILENT on a fresh index, so it adds no noise on the
+      // happy path — the standard the whereis miss-scope work set: a generic "may be incomplete"
+      // costs the reader as much as a false claim. find/search/whereis already did this; these did not.
+    if (sources.length === 0) return [noMatchMessage(db, symbol), staleNotFoundCaveat(freshness)].filter(Boolean).join('\n');
     const ambiguity = buildAmbiguousMatchMessage(symbol, sources);
     if (ambiguity) return ambiguity;
     const root = selectBestRoot(sources);

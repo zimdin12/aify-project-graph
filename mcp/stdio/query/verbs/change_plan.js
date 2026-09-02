@@ -10,6 +10,7 @@ import { computeDecision } from './preflight.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { expandClassRollupTargets } from './target_rollup.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
+import { missScopeNote } from '../miss-scope.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
 import { buildTrustLine, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
@@ -176,7 +177,13 @@ export async function buildChangePlanWithContext(db, {
   const typesClause = SEARCH_TYPES.map((type) => `'${type}'`).join(',');
   const candidates = resolveSymbol(db, symbol, typesClause);
   if (candidates.length === 0) {
-    return noMatchMessage(db, symbol);
+    // ⛔ A NOT-FOUND IS A CLAIM, AND THIS ONE IS ABOUT A RESTRICTED POPULATION. Unlike callers /
+    // callees / impact — which resolve across ALL node types and get the staleness caveat instead —
+    // this verb searches only SEARCH_TYPES, so the measured fact is WHICH OF THOSE TYPES ARE EMPTY
+    // in this graph. That is the same fact graph_whereis names, and the reason it is a different fix
+    // here rather than the same one applied blindly.
+    return [noMatchMessage(db, symbol), missScopeNote(db, { types: SEARCH_TYPES, what: 'declaration types' })]
+      .filter(Boolean).join('\n');
   }
   const ambiguity = buildAmbiguousMatchMessage(symbol, candidates);
   if (ambiguity) return ambiguity;
