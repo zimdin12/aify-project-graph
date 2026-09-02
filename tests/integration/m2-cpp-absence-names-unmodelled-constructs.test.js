@@ -62,8 +62,8 @@ describe('M2 — a real C++ absence names what was not modelled', () => {
     const text = String(await graphCallers({ repoRoot: cppRepo, symbol: 'alpha::Widget::render', top_k: 10, depth: 1 }));
     expect(text).toMatch(/NOT MODELLED/);
     expect(text).toMatch(/function pointers or std::function/);
-    expect(text).toMatch(/excluded by conditional compilation/);
-    expect(text).toMatch(/invisible to BOTH tiers/);
+    expect(text).toMatch(/and conditional compilation/);
+    expect(text).toMatch(/opposite directions/);
   });
 
   it('⛔ a JavaScript repo pays ZERO bytes for it, through the same verb', async () => {
