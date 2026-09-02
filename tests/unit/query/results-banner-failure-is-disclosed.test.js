@@ -13,7 +13,7 @@
 // ⚠ CEILING: behaviour under an INDUCED fault on one fixture. It does not estimate how often
 // buildTrustLine throws in production, and does not show an agent would act differently.
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
-import { mkdtempSync, rmSync, cpSync } from 'node:fs';
+import { mkdtempSync, rmSync, cpSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +44,13 @@ beforeAll(async () => {
   git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
   git('add', '-A'); git('commit', '-qm', 'init');
   const { ensureFresh } = await import('../../../mcp/stdio/freshness/orchestrator.js');
+  await ensureFresh({ repoRoot: repo });
+
+  // A SECOND commit, so graph_explain_diff has a real range to explain. Without it that verb has no
+  // results path at all and its disclosure could not be exercised.
+  const base = execFileSync('git', ['-C', repo, 'show', 'HEAD:src/shapes.cpp'], { encoding: 'utf8' });
+  writeFileSync(join(repo, 'src', 'shapes.cpp'), `${base}\nint added_fn() { return helper(2); }\n`);
+  git('add', '-A'); git('commit', '-qm', 'second');
   await ensureFresh({ repoRoot: repo });
 
   // The un-faulted banner, obtained with the REAL builder, so "no TRUST" under fault can be told
@@ -93,29 +100,40 @@ describe('a result whose trust banner failed to build', () => {
   // fault rather than reading source text — the suite-composition ratchet refused a source-scan
   // version of this check, with evidence: such tests "cannot fail when the behaviour breaks, and CAN
   // fail when a line is reflowed", which happened three times on 2026-08-11, each on a fix.
+  // ⚠ THIS LIST GREW. The previous version named change_plan and preflight as "cannot be driven by
+  // this fixture" and left their fix verified BY READING ONLY. That was wrong: both emit the banner
+  // from nothing more than a symbol. Reading has falsified three predictions in this project, so a
+  // fix resting on it is exactly the wrong place to stop — checked, and they drive fine.
+  //
+  // `answers` is the marker proving the verb STILL ANSWERED under the fault: a banner bug must not
+  // take the verb down, and each verb words its success line differently.
   const DRIVEN = [
-    { verb: 'graph_callers', module: 'callers.js', fn: 'graphCallers', args: { symbol: CALLED } },
-    { verb: 'graph_callees', module: 'callees.js', fn: 'graphCallees', args: { symbol: 'use_helper' } },
-    { verb: 'graph_impact', module: 'impact.js', fn: 'graphImpact', args: { symbol: CALLED } },
-    { verb: 'graph_neighbors', module: 'neighbors.js', fn: 'graphNeighbors', args: { symbol: CALLED } },
+    { verb: 'graph_callers', module: 'callers.js', fn: 'graphCallers', args: { symbol: CALLED }, answers: /EDGE/ },
+    { verb: 'graph_callees', module: 'callees.js', fn: 'graphCallees', args: { symbol: 'use_helper' }, answers: /EDGE/ },
+    { verb: 'graph_impact', module: 'impact.js', fn: 'graphImpact', args: { symbol: CALLED }, answers: /EDGE/ },
+    { verb: 'graph_neighbors', module: 'neighbors.js', fn: 'graphNeighbors', args: { symbol: CALLED }, answers: /EDGE/ },
+    { verb: 'graph_change_plan', module: 'change_plan.js', fn: 'graphChangePlan', args: { symbol: CALLED }, answers: /CHANGE_PLAN/ },
+    { verb: 'graph_preflight', module: 'preflight.js', fn: 'graphPreflight', args: { symbol: CALLED }, answers: /PREFLIGHT/ },
   ];
-
-  // ⚠ NOT COVERED BEHAVIOURALLY, and named rather than quietly omitted: change_plan, preflight and
-  // explain_diff also disclose now, but this fixture cannot drive their results paths. Their fix is
-  // verified only by reading. That is a real gap, and stating it is better than a source-text gate
-  // that would go green without exercising anything.
-  const NOT_DRIVEN = ['graph_change_plan', 'graph_preflight', 'graph_explain_diff'];
 
   for (const d of DRIVEN) {
     it(`★★★ ${d.verb} TELLS the agent the banner is unavailable`, async () => {
       const { text } = await resultsUnderFault(d.module, d.fn, d.args);
-      // Results still returned: a banner bug must not take the verb down.
-      expect(text, `${d.verb} stopped answering — the fix must not block the verb`).toMatch(/EDGE/);
+      expect(text, `${d.verb} stopped answering — the fix must not block the verb`).toMatch(d.answers);
       expect(text, 'a set with no floor caveat reads as COMPLETE').toMatch(/TRUST: UNAVAILABLE/);
     }, 90_000);
   }
 
-  it('the sites this fixture cannot drive are NAMED, not silently dropped', () => {
-    expect(NOT_DRIVEN).toEqual(['graph_change_plan', 'graph_preflight', 'graph_explain_diff']);
-  });
+  it('★★★ graph_explain_diff discloses too — it returns an OBJECT, not text', async () => {
+    // The seventh site, and the only one whose trust line is a FIELD rather than concatenated text
+    // (`trust: trustLine || null`, explain_diff.js:384). Asserting on the rendered string would have
+    // read "[object Object]" and passed or failed for the wrong reason.
+    threw = 0;
+    const { graphExplainDiff } = await import('../../../mcp/stdio/query/verbs/explain_diff.js');
+    const result = await graphExplainDiff({ repoRoot: repo, range: 'HEAD~1..HEAD' });
+    expect(threw, 'the fault did not fire on this path').toBeGreaterThan(0);
+    expect(result, 'explain_diff stopped answering').toBeTypeOf('object');
+    expect(String(result.trust), 'the trust FIELD must carry the disclosure, not null')
+      .toMatch(/TRUST: UNAVAILABLE/);
+  }, 120_000);
 });
