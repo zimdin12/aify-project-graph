@@ -400,6 +400,22 @@ The machinery exists but is opt-in and partial.
     and is labelled as such — this plan already carries one retracted model-derived proxy (52.9%).
   - ⚠ **Nobody has measured whether claims go stale often enough to matter**, which is what should
     decide between scoping and dropping. Same gap M5 exists to close.
+  - ⛔ **TWO CORRECTIONS 2026-09-03, neither overturning the recommendation**
+    (`docs/evidence/m3-freshness/FINDING-fingerprint-coverage-by-node-type.md`):
+    1. **The file-level trigger is an ASSUMPTION, not a constraint.** `nodes.structural_fp` is
+       written per symbol at `mcp/stdio/ingest/extractors/generic.js:311`, and an incremental index already
+       re-parses changed files — so a symbol-granular comparison has its inputs at no extra parse.
+       The ~77% model follows from a granularity the substrate does not impose. It weakens the
+       STRUCTURAL leg only; the BEHAVIOURAL leg (bodies excluded, so behavioural drift is invisible
+       at any granularity) never depended on granularity and stands alone.
+    2. **`Symbol` nodes have NO fingerprint at all** — 412 of 412 here, created only by
+       `mcp/stdio/ingest/code-intel/importer.js` (3 sites, each writing `structural_fp: ''`). A reconfirm
+       keyed on this field would work for tree-sitter-extracted code and silently exclude every
+       LSP-imported symbol — the clangd spine. Function/Method/Class are 100% covered (3102/3102),
+       so the tree-sitter population is not the problem.
+    ⚠ Neither correction measures a false-reconfirm rate, and whether a claim is ever anchored to a
+    `Symbol` node rather than the `Function` node over the same code is unmeasured, so correction 2
+    may not bite. The recommendation above still stands on the behavioural leg.
 - **Stop when — the single ~10% ceiling was SPLIT by review, and the split is right:**
   - **Carrier correctness: zero tolerance.** A prompt must never name an unchanged population as
     changed. Identity ambiguity, missing baseline, moved span or unreadable bytes become typed
