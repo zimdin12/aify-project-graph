@@ -8,6 +8,7 @@ import { openExistingDb, captureExistingSnapshot } from '../../storage/db.js';
 import { ATTESTATION, classifyAttestation, readGraphPublication } from '../../storage/publication-schema.js';
 import { SCHEMA_VERSION } from '../../storage/schema.js';
 import { staleProcessWarning, staleProcessBlocker } from '../../server-build.js';
+import { hasLanguageConfig } from '../../ingest/languages/index.js';
 
 // Count commits between the indexed snapshot and current HEAD using the same
 // indexed-commit → HEAD basis graph_health uses for its `stale` verdict. We
@@ -47,7 +48,8 @@ export function staleNotFoundCaveat(freshness) {
       'not proof the symbol does not exist. Run graph_health() to see why, then graph_index().',
     ].join('\n');
   }
-  if (!freshness.stale) return '';
+  const uncommitted = uncommittedSourceClause(freshness);
+  if (!freshness.stale) return uncommitted;
   const n = freshness.commitsBehind;
   const behind = n != null
     ? `${n} commit${n === 1 ? '' : 's'} behind HEAD`
@@ -55,7 +57,45 @@ export function staleNotFoundCaveat(freshness) {
   return [
     `NOTE: index is ${behind} — this symbol may be newly added but not yet indexed.`,
     'Run graph_index() and retry; a "not found" here is NOT proof the symbol does not exist.',
-  ].join('\n');
+    // Both facts, never one standing in for the other: a repo can be behind HEAD AND hold
+    // uncommitted sources, and they are fixed by different actions.
+    uncommitted,
+  ].filter(Boolean).join('\n');
+}
+
+/**
+ * The uncommitted-source half of a not-found caveat.
+ *
+ * ⛔ THE GAP THIS CLOSES, MEASURED 2026-09-03. A `graph_callers` for a symbol that does not resolve
+ * returns `NO MATCH for "X". Try graph_search(...)` and NOTHING else — the freshness warnings that
+ * every non-empty result carries are dropped on the absence path in callers/callees/impact, which
+ * return the caveat directly without prefixReadWarnings. Verified against running code with a
+ * positive control: the same repo, same dirty tree, queried for a symbol that EXISTS, returned
+ * "SNAPSHOT WARNINGS - working tree has 1 modified tracked file"; the not-found returned none.
+ *
+ * So an agent that writes a file and asks about a symbol in it is told the symbol does not exist,
+ * with no hint that its own uncommitted work is outside the snapshot. Grep would have found it —
+ * this is one of the few places the graph is strictly WORSE than the tool it competes with, which
+ * is why it earns its bytes.
+ *
+ * ⚠ ONLY ON AN ABSENCE. This is not a staleness warning and must not become one: the 592-untracked
+ * field report is what taught this repo that a warning on every read is noise. It is silent unless
+ * a not-found is being returned AND uncommitted SOURCE files exist to explain it.
+ *
+ * ⛔ SILENT ON UNKNOWN, not reassuring. `uncommittedSources === null` means the tree was never
+ * observed; saying nothing is honest, and the stale===null branch above already tells the reader
+ * that a check did not happen.
+ */
+function uncommittedSourceClause(freshness) {
+  const files = freshness.uncommittedSources;
+  if (!Array.isArray(files) || files.length === 0) return '';
+  const SHOWN = 3;
+  const shown = files.slice(0, SHOWN).map((f) => `${f.path} (${f.why})`).join(', ');
+  const more = files.length > SHOWN ? `, +${files.length - SHOWN} more` : '';
+  return `NOTE: ${files.length} uncommitted source file(s) are NOT covered by this answer — `
+    + `${shown}${more}. Untracked files are never indexed and modified files are indexed as they `
+    + 'were at the snapshot, so a symbol defined in one of them is absent here regardless of index '
+    + 'freshness. Commit, or run graph_index({ force: true }), before reading this as "does not exist".';
 }
 
 // ⛔ A BLOCKER RETURNED AS A STRING IS INDISTINGUISHABLE FROM DATA, AND A CONSUMER WILL LAUNDER IT.
@@ -160,6 +200,10 @@ function freshnessResult(fields) {
     dirtyFilesKnown: false,
     stale: null,
     commitsBehind: null,
+    // ⛔ null, NOT []. Same rule as `dirtyFilesKnown`: these exits ran no git query, so they cannot
+    // report that nothing uncommitted exists. `staleNotFoundCaveat` treats null as "unknown" and
+    // stays silent rather than certifying an absence it never measured.
+    uncommittedSources: null,
     manifest: null,
     ...fields,
   };
@@ -390,10 +434,50 @@ export async function inspectReadFreshness({ repoRoot, verbName }) {
     dirtyFilesKnown: worktree.dirtyKnown,
     stale,
     commitsBehind,
+    // ⭐ THE SAME TWO NUMBERS AS ABOVE, ASKED A DIFFERENT QUESTION. Staleness asks "is the snapshot
+    // behind the source it indexed?" and correctly ignores untracked files — they were never in
+    // the graph, so they cannot make it stale. A NOT-FOUND asks something else: "does this symbol
+    // exist in the repository?" For THAT question, "never in the graph" is precisely the reason
+    // the answer can be false, and a modified tracked file is behind for its own reason.
+    //
+    // ⇒ So the sentence that justifies excluding untracked files from staleness is the sentence
+    // that makes them relevant here. Same measurement, different noun, and the noun decides.
+    uncommittedSources: uncommittedSourceFiles(worktree),
     graphDir,
     dbPath,
     manifest,
   });
+}
+
+/**
+ * Uncommitted files the extractor WOULD have read symbols from — the ones that can make a
+ * "not found" false.
+ *
+ * Two populations, both already measured by the worktree observation above:
+ *   - UNTRACKED: never indexed at all (an incremental run defers them by design).
+ *   - MODIFIED TRACKED: indexed at the snapshot's state, not the state on disk right now.
+ *
+ * ⛔ RETURNS null WHEN THE TREE WAS NOT OBSERVED, never []. An unobserved tree cannot certify that
+ * nothing uncommitted explains an absence.
+ *
+ * ⚠ Filtered by `hasLanguageConfig`, not counted. See that predicate for the field population that
+ * killed the count-based version. Ignored directories (.aify-graph, node_modules, build/...) are
+ * already excluded upstream by getDirtyFileEntriesSync, so this does not re-apply them.
+ */
+function uncommittedSourceFiles(worktree) {
+  const untracked = worktree.untrackedPaths;
+  const trackedDirty = worktree.trackedDirty;
+  if (untracked === null && trackedDirty === null) return null;
+  const seen = new Set();
+  const out = [];
+  for (const [paths, why] of [[untracked, 'untracked'], [trackedDirty, 'modified']]) {
+    for (const p of paths ?? []) {
+      if (seen.has(p) || !hasLanguageConfig(p)) continue;
+      seen.add(p);
+      out.push({ path: p, why });
+    }
+  }
+  return out;
 }
 
 export async function ensureFreshForReadVerb({ repoRoot, verbName }) {

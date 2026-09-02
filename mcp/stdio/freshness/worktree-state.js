@@ -65,6 +65,14 @@ export class WorktreeState {
     return this.entries.length - this.trackedDirty.length;
   }
 
+  // ⛔ null, NOT [] — same reason as `trackedDirty` above. A consumer that turns an unobserved
+  // tree into "no untracked files" would then state, on a not-found, that nothing uncommitted
+  // could explain the absence. That is a claim about the repository built on a git query that
+  // never ran, which is the shape this whole class exists to make unwritable.
+  get untrackedPaths() {
+    return this.dirtyKnown ? this.entries.filter((e) => e.untracked).map((e) => e.path) : null;
+  }
+
   /**
    * TRI-STATE, and the third state is the whole point.
    *
