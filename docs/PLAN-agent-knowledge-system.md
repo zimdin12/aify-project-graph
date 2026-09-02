@@ -424,16 +424,35 @@ Evidence: `docs/evidence/m5-scale/PROPOSAL-decision-rubric.md` (records the with
 - `tests/unit/ab/rubric-cannot-fail-open.test.js` — pins the branches that must not resolve to
   "safe", including a hedge followed by a go-ahead.
 
-⛔ **NOTHING CONSUMES IT.** Verified across the whole repo INCLUDING `await import()` forms: the only
-executing consumer is its own unit test. `scripts/ab-runner.mjs` — the harness that actually spawns
-the arms — scores with `ordered_contains`/`groups`, which measure **retrieval, not decision**.
+⚠ **"NOTHING CONSUMES IT" WAS TRUE WHEN WRITTEN AND IS NOW RETIRED (2026-09-02).** Measured again by
+the same method (whole repo, including `await import()` forms): the rubric now has **two executing
+non-test consumers** — `scripts/linkage-scope-preflight.mjs:96` and `scripts/linkage-scope-runner.mjs:21`.
+`scripts/ab-runner.mjs`, the old harness, still scores with `ordered_contains`/`groups`, which measure
+**retrieval, not decision**, and is not the harness for this experiment.
 
-⇒ **The blocker is WIRING, not rubric design**, and wiring costs no agent budget to build — only to
-run. `docs/evidence/m5-scale/PREREGISTRATION.md`'s "the rubric is not settled" was true of the OLD retrieval harness and is
-stale for the decision one.
-⚠ Two things still open and NOT to be guessed at: the **budget** (4 repos × 3 tasks × 2 arms × 3
-repeats = 72 runs, Steven's call), and a **"tier B"** design the ground-truth key references which I
-could not locate. Inventing that design is the mistake already recorded above.
+✅ **THE WIRING IS BUILT** (`942a246`, evidence `docs/evidence/m5-scale/FINDING-runner-wiring.md`):
+preflight with four controls, per-class corpus materialisation, C6 tearing that **verifies itself and
+refuses if it did not take**, exact prompt text, the unmodified rubric, and reporting per tier / class
+/ runtime / arm with no cross-tier total. Four mutants killed. It runs today on a mock executor and
+spends nothing.
+
+⛔ **ONE thing is still open, and it is NOT a design question: the BUDGET** (4 repos × 3 tasks × 2 arms
+× 3 repeats = 72 runs, Steven's call). No real executor ships, deliberately — writing one is the only
+remaining step that could accidentally spend, and it should wait for that decision.
+
+⛔ **THE "tier B DESIGN I COULD NOT LOCATE" WAS A FALSE BLOCKER** (retired `3691e87`). `tier` is a
+per-class field in the key: tier A = purpose-built qualification (C1, C2, C3, C5), tier B = real
+pinned snapshots (C4, C6). The corpus and `tests/fixtures/linkage-scope/prompts.json` were present the whole time. **I had never
+opened the fixture directory.** This blocked the milestone for several cycles on an unchecked claim,
+which is why a blocker now has to name the artifact it was read from.
+
+⭐ **What the free work already narrowed, before any budget is spent**
+(`docs/evidence/m5-scale/FINDING-route-census-publication-state.md`, `docs/evidence/m5-scale/FINDING-tearing-contrast.md`): on a delete decision the
+graph arm **cannot** produce an authoritative "no callers" — `code_intel_references` is the verb the
+product's own text routes there, `evidence.exhaustive` is never true on that path, and neither it nor
+`code_intel_hierarchy` can reach publication state at all. So the honest question an A/B can settle is
+whether **a floor plus a refusal** beats grep, not whether the graph out-answers grep. Worth knowing
+before authorising the spend.
 ⚠ The key covers linkage and scope; `macro` and `ifdef` appear nowhere in it, and the measured
 construct table makes the macro case the natural **known-loss control**. Per `freezeRule` that
 belongs in a NEW preregistered version, never as an edit to the frozen key.
@@ -476,12 +495,23 @@ M3  freshness/reconfirmation                  | ANSWERED, NOT BUILT
                                               |   M3a cost objection REFUSED; default NOT flipped
                                               |   M3b dispositioned: scope to structural, or drop
 M4  wider-task surface experiment             | HYPOTHESIS REFUTED — do NOT narrow
-M5  expensive scale A/B                       | BLOCKED — budget (72 runs) + a "tier B" design
+M5  expensive scale A/B                       | WIRED, green, spends nothing
+                                              |   BLOCKED on ONE thing: the 72-run budget
 ```
 
-⇒ **M5 is the only row that can still move, and it cannot move here.** The plan's own stop condition
-is now live: M1 and M2 have shipped, so what remains is to find out whether a graph-armed agent
-actually beats a grep-armed one at scale — and to say so plainly if it does not.
+⚠ **THIS ROW CARRIED AN EXPIRED BLOCKER UNTIL 2026-09-02.** It read `budget (72 runs) + a "tier B"
+design`. The tier B design was never missing — `tier` is a per-class field in the key, and the
+corpus and prompts were present the whole time; I had not opened the fixture directory. A summary
+that names an unfixable-looking gate alongside a real one stops work for the wrong reason, so a
+blocker here must now name the artifact it was read from.
+
+⇒ **M5 moved substantially without spending anything**: preflight (4 controls, 3 mutants), a route
+census over the real registry, a preregistered tearing contrast, and the runner itself — all green,
+all mock-driven. What is left is the budget decision and, only after it, a real executor adapter.
+The plan's own stop condition is live: M1 and M2 have shipped, so what remains is to find out whether
+a graph-armed agent actually beats a grep-armed one at scale — and to say so plainly if it does not.
+The free work has already narrowed *what that question can honestly be*: see M5 above on the
+delete-decision route.
 ⚠ Every DONE above is measured on fixtures and this repo. None of it establishes prevalence in real
 C++, and none of it shows a decision changed at scale. That is the single thing M5 exists to supply,
 and the reason no row above should be read as evidence the product works.
