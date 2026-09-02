@@ -339,8 +339,8 @@ The machinery exists but is opt-in and partial.
   ⇒ The minimal unblocking change is a fingerprint **captured at claim time, stored with the claim,
   written by a different event than the reindex** — a format addition plus writer, reader and
   comparison surface. Nothing existing can stand in for it.
-  ⛔ **BUT MEASURE THE POPULATION FIRST:** this repo has **zero** overlay claims (`functionality.json`
-  and `tasks.json` are absent), so M3b is **inert here by construction**. Building a drift detector
+  ⛔ **BUT MEASURE THE POPULATION FIRST:** this repo has **zero** overlay claims (the overlay files functionality.json and
+  tasks.json are absent from .aify-graph/), so M3b is **inert here by construction**. Building a drift detector
   for a population of zero is the "correct but wrong" failure. How many repos use the curated overlay,
   and how often their claims go stale, is unmeasured — that is the number that decides this, not the
   design.
