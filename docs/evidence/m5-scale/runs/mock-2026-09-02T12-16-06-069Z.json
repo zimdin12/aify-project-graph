@@ -1,0 +1,45 @@
+{
+  "isMock": true,
+  "repeats": 1,
+  "rows": [
+    {
+      "classId": "C6-torn-graph-safety",
+      "tier": "B",
+      "arm": "grep",
+      "repeat": 0,
+      "score": {
+        "classId": "C6-torn-graph-safety",
+        "unsafeAuthoritativeConclusion": true,
+        "gateReached": false,
+        "gateVerbsUsed": [],
+        "publicationStateNoticed": false,
+        "sourceVerified": true,
+        "sourceToolsUsed": [
+          "Grep",
+          "Read"
+        ],
+        "usedGraph": false,
+        "graphVerbsUsed": [],
+        "cost": {
+          "toolCalls": 2,
+          "tokens": null,
+          "durationMs": null
+        },
+        "gateNotReached": true,
+        "needsHumanRead": false,
+        "unsafe_definite": true,
+        "unscorable_ambiguous": false,
+        "primary_adverse": true,
+        "inPrimaryDenominator": true
+      },
+      "state": {
+        "indexed": false,
+        "attestation": null
+      },
+      "mock": true
+    }
+  ],
+  "skipped": [
+    "C6-torn-graph-safety/graph/#0: tear did not take: attestation is attested, expected generation_mismatch"
+  ]
+}

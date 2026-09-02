@@ -86,7 +86,7 @@ async function loadExecutor(spec) {
 // The key's analysisRule: "Report per tier, per class, per runtime. NEVER average synthetic and real
 // into one 'X% better' headline." So there is no overall number here to quote. That absence is the
 // design, not an omission.
-function buildReport(rows) {
+export function buildReport(rows) {
   const byTier = {};
   for (const r of rows) {
     const t = (byTier[r.tier] ??= {});
@@ -200,4 +200,4 @@ async function main() {
   console.log(`\nrows written to ${out.slice(REPO.length + 1)}`);
 }
 
-await main();
+if (!process.env.APG_LINKAGE_RUNNER_NO_MAIN) await main();
