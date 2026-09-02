@@ -14,7 +14,7 @@
 // ⚠ The exit code is vitest's own, taken from the child process — not from a pipeline, a wrapper, or
 // a harness summary. A harness notification has twice reported "exit code 0" for a RED suite in this
 // project, so the log carries VITEST_EXIT and the log is the authority.
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { createWriteStream, mkdirSync, copyFileSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -25,6 +25,26 @@ const DEST = join(REPO, 'docs/evidence/suite/latest.log');
 const SCRATCH = join(tmpdir(), `apg-suite-${process.pid}-${Date.now()}.log`);
 
 mkdirSync(dirname(DEST), { recursive: true });
+
+// ⛔ THE LOG MUST NAME THE COMMIT IT IS A VERDICT FOR.
+//
+// The copy lands only when vitest exits, so for the ~11 minutes a run takes, latest.log still holds
+// the PREVIOUS run's complete log — VITEST_EXIT=0 and all. Grepping it mid-run returns last time's
+// pass, and a wait-loop watching for VITEST_EXIT exits instantly on a file that already has one. I
+// read 445/3686 as this run's result for a tree that already contained a new 4-test file; only the
+// counts failing to move exposed it. A stale PASS and a fresh PASS look identical.
+//
+// ⚠ The obvious fix — blank the destination at start — is WRONG HERE, and I wrote it before catching
+// it: latest.log is TRACKED, so writing to it mid-run makes the tree tracked-dirty and turns
+// packet-snapshot-line red. That is the very defect this script exists to prevent.
+//
+// So the file is still written only at the end, and it NAMES ITS COMMIT. A reader checks that header
+// against HEAD: a log for another commit is visibly stale rather than silently authoritative.
+const headAtStart = (() => {
+  try {
+    return execFileSync('git', ['-C', REPO, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  } catch { return 'unknown'; }
+})();
 
 // Strip ANSI: no raw escape codes may reach a tracked file, and a stripped log stays greppable.
 const ANSI = /\x1b\[[0-9;]*m/g;
@@ -40,9 +60,10 @@ child.stderr.on('data', write);
 child.on('close', (code) => {
   out.end();
   out.on('finish', () => {
-    appendFileSync(SCRATCH, `\nVITEST_EXIT=${code}\n`);
+    appendFileSync(SCRATCH, `\nSUITE FOR COMMIT ${headAtStart}\nFINISHED ${new Date().toISOString()}\nVITEST_EXIT=${code}\n`);
     copyFileSync(SCRATCH, DEST);
     console.log(`suite exit ${code} — log copied to docs/evidence/suite/latest.log`);
+    console.log(`verdict is for commit ${headAtStart}`);
     console.log(code === 0
       ? 'GREEN. Commit the log with the work it vouches for, then push.'
       : 'RED. Do not push. Read VITEST_EXIT in the log, not any harness summary.');
