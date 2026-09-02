@@ -21,6 +21,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const VERBS_DIR = join(ROOT, 'mcp/stdio/query/verbs');
@@ -105,8 +106,19 @@ describe('an empty-set absence names uncommitted files that could hold what it d
       expect(clean, `${fn} did not reach its empty-set branch on this fixture — nothing below is about absence`)
         .toMatch(/\bNO [A-Z]{2,}/);
 
-      expect(clean, 'a clean tree has nothing uncommitted to disclose')
-        .not.toMatch(/uncommitted source file/i);
+      // ⛔ A LIVE MATCHER, NOT A BARE not.toMatch — and the repo's ratchet caught me writing the
+      // bare form here, in the same session I used the helper correctly one file over. This is the
+      // control that makes every assertion below it mean something, so a matcher that silently
+      // could not fire would hollow out the whole test rather than one line of it.
+      expectAbsentWithLiveMatcher(
+        /uncommitted source file/i,
+        {
+          forbidden: 'NOTE: 1 uncommitted source file(s) are NOT covered by this answer',
+          allowed: `NO CALLERS for "targetFn". TRUST: absence is from the heuristic graph`,
+        },
+        clean,
+        'a clean tree has nothing uncommitted to disclose',
+      );
 
       // Now the agent writes a caller and does not commit it.
       writeFileSync(join(repo, 'src', 'newcaller.js'),
