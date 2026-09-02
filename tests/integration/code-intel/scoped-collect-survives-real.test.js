@@ -206,10 +206,22 @@ describe.skipIf(!clangdAvailable)('collect resume actually resumes (real clangd)
     // their records, growing the import until a host idle timeout killed it.
     const repo = cppRepo();
 
-    // A budget small enough to stop partway through 3 TUs, but not so small the
-    // index wait eats it entirely.
+    // ⛔ THIS BUDGET WAS 9000ms AND IT MADE THIS TEST A COIN FLIP. The intent below was always
+    // "not so small the index wait eats it entirely" — the arithmetic just never supported it.
+    //
+    // Measured 2026-09-03, this fixture, real clangd: budgetMs 9000 gives the collect phase 5850ms
+    // (IMPORT_BUDGET_SHARE 0.35); the clangd index wait then took 1.1-2.9s depending only on
+    // machine state, and the per-file loop refuses to start a file with less than
+    // BUDGET_TAIL_RESERVE_MS (3000ms) left. So whether ANY file is processed turned on whether the
+    // index wait came in under ~2.85s. It passed at 00:33 and failed at 00:45 on one machine with
+    // no product change on this path between the two runs.
+    //
+    // ⚠ NOTHING BELOW IS WEAKENED. This test never asserted a partial first call — it accepts
+    // 'ok' or 'partial', and every later assertion (resumedFrom, convergence, the empty third run)
+    // holds whether the first call collected one file or all three. What it needs is SOME progress,
+    // which is what the old value could not guarantee. 30000ms tolerates an index wait up to ~16.5s.
     const first = await graphCollectCodeIntel({
-      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 9000,
+      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 30000,
       operations: ['definitions', 'references', 'diagnostics'],
     });
     expect(['ok', 'partial']).toContain(first.status);
@@ -220,7 +232,17 @@ describe.skipIf(!clangdAvailable)('collect resume actually resumes (real clangd)
     expect(Array.isArray(ledger.collected)).toBe(true);
     expect(ledger.dbHash).toBeTruthy();
     const firstBatch = [...ledger.collected];
-    expect(firstBatch.length).toBeGreaterThan(0);
+    // ★ THE FAILURE MESSAGE IS PART OF THE TEST. This assertion previously read
+    // `expected 0 to be greater than 0`, which says nothing about why, and reading it as a resume
+    // defect cost a long investigation before the budget floor turned out to be the whole story.
+    // The envelope already knows: filesProcessed, and a zeroFilesProcessed reason naming the case.
+    expect(firstBatch.length,
+      'the first call recorded NOTHING, so there is no resume point to test. '
+      + `envelope: filesProcessed=${first.index?.filesProcessed} of ${first.index?.filesTotal}, `
+      + `zeroFilesProcessed=${first.index?.zeroFilesProcessed?.reason ?? 'n/a'}, `
+      + `collectMs=${first.timings?.collectMs} of collectBudgetMs=${first.timings?.collectBudgetMs}. `
+      + 'BUDGET_EXHAUSTED_BEFORE_FIRST_FILE means the budget, not the resume logic — raise budgetMs')
+      .toBeGreaterThan(0);
 
     // Re-run. It must skip what was done, not redo it.
     const second = await graphCollectCodeIntel({
@@ -268,13 +290,23 @@ describe.skipIf(!clangdAvailable)('resumed slices do not claim repo-wide authori
   it('a resumed call scopes its authority to the files it walked', async () => {
     const repo = cppRepo();
 
-    // Force a slice: tiny budget stops partway, so call 2 resumes.
-    await graphCollectCodeIntel({
-      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 9000,
+    // ⛔ SAME 9000ms COIN FLIP AS THE TEST ABOVE — see the measurement recorded there. A budget
+    // that leaves less than BUDGET_TAIL_RESERVE_MS after the clangd index wait processes NO file,
+    // so this asserted on edges from a call that had walked nothing.
+    //
+    // ⚠ What this test is about is the AUTHORITY of a resumed call, not the size of the first
+    // slice. Call 2 below still resumes and still must scope its authority to what it walked; the
+    // only thing that changed is that call 1 now reliably walks something to resume from.
+    const firstCall = await graphCollectCodeIntel({
+      repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 30000,
       operations: ['definitions', 'references', 'diagnostics'],
     });
     const afterFirst = verifiedEdgeCount(repo);
-    expect(afterFirst).toBeGreaterThan(0);
+    expect(afterFirst,
+      'the first call produced no verified edges, so there is no authority question to test. '
+      + `envelope: filesProcessed=${firstCall.index?.filesProcessed} of ${firstCall.index?.filesTotal}, `
+      + `zeroFilesProcessed=${firstCall.index?.zeroFilesProcessed?.reason ?? 'n/a'}`)
+      .toBeGreaterThan(0);
 
     const second = await graphCollectCodeIntel({
       repoRoot: repo, language: 'cpp', scope: 'all', budgetMs: 30000,
