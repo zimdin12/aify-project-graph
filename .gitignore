@@ -2,10 +2,13 @@ node_modules/
 .aify-graph/
 coverage/
 *.log
-# ⛔ …but NEVER under docs/evidence/. A suite log written there is the proof a commit cites;
-# gitignore dropping it silently leaves a claim with no artifact behind it, and the directory
-# listing looks identical either way. Gated by tests/unit/docs/evidence-is-not-ignored.test.js.
-!docs/evidence/**/*.log
+# FINISHED suite logs are evidence and must be reachable from git — a commit citing a log that
+# gitignore silently dropped points at nothing, and the directory listing looks identical either way.
+# Only docs/evidence/suite/ is un-ignored, and ONLY completed logs are copied there: writing a live
+# log into the tracked tree made the repo dirty during its own run and turned packet-snapshot-line
+# red. Use scripts/run-suite.mjs, which writes to scratch and copies the finished file.
+# Gated by tests/unit/docs/evidence-is-not-ignored.test.js.
+!docs/evidence/suite/*.log
 .DS_Store
 vendor/
 .tmp/
