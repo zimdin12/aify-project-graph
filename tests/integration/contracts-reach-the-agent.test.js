@@ -202,13 +202,43 @@ describe('the absence contract reaches an agent from EVERY consumer, not just th
       .toMatch(/NOT proof/i);
   });
 
-  it('⚠ what this gate still CANNOT reach, named rather than implied', () => {
-    // TRUST: UNAVAILABLE (both builders) is verified only at verb-function level, under a mocked
-    // fault. Reaching it here would need the fault injected INSIDE a spawned server process, and
-    // there is no hook for that. Stating the limit beats a gate that silently covers less than its
-    // name suggests — and beats inventing a hook whose own correctness would then need proving.
-    const NOT_REACHABLE_HERE = ['TRUST: UNAVAILABLE (absence)', 'TRUST: UNAVAILABLE (results)'];
-    expect(NOT_REACHABLE_HERE).toHaveLength(2);
+  // ⛔ EVERY DISCLOSURE CONSTANT MUST BE CLASSIFIED, AND THE POPULATION IS DERIVED.
+  //
+  // Preregistered: docs/evidence/process/PREREGISTRATION-disclosure-coverage-derives.md
+  //
+  // This gate was written for M1b/M2 and then quietly outgrown: ABSENCE_TRUST_UNAVAILABLE and
+  // RESULTS_TRUST_UNAVAILABLE were both shipped afterwards and neither was ever forced into it.
+  // Nothing complained, because the covered set was a HAND-WRITTEN LIST — the same defect this repo
+  // rejects everywhere else. The population is now taken by IMPORTING the module, so it grows on its
+  // own and a new constant fails until someone decides which set it belongs in.
+  //
+  // ⚠ CEILING: this forces a DECISION, not coverage. A constant in NOT_REACHABLE_HERE is not tested,
+  // only prevented from being forgotten silently.
+  it('★★★ every exported disclosure constant is classified — the list cannot silently fall behind', async () => {
+    const lspEvidence = await import('../../mcp/stdio/query/lsp-evidence.js');
+    const disclosures = Object.keys(lspEvidence).filter((k) => k.endsWith('_UNAVAILABLE'));
+
+    // Exercised across tools/call somewhere in this file.
+    const COVERED = new Set([]);
+    // Cannot be exercised through a SPAWNED server: both are only reachable by inducing a fault in
+    // the trust builders, and there is no hook to inject one inside another process. Verified
+    // instead at verb-function level in tests/unit/query/{contract,results-banner}-failure-*.test.js.
+    const NOT_REACHABLE_HERE = new Set(['ABSENCE_TRUST_UNAVAILABLE', 'RESULTS_TRUST_UNAVAILABLE']);
+
+    // POSITIVE CONTROL: an empty population would pass vacuously — precisely the failure being fixed.
+    expect(disclosures.length, 'no disclosure constants found — the naming rule does not match the module')
+      .toBeGreaterThan(1);
+    expect(disclosures).toContain('ABSENCE_TRUST_UNAVAILABLE');
+    expect(disclosures).toContain('RESULTS_TRUST_UNAVAILABLE');
+
+    // NEGATIVE CONTROL: the check must be able to FAIL. A name in neither set is unclassified.
+    const classify = (names) => names.filter((n) => !COVERED.has(n) && !NOT_REACHABLE_HERE.has(n));
+    expect(classify(['SOMETHING_NEW_UNAVAILABLE']),
+      'the check cannot flag an unclassified constant — it would never fail').toHaveLength(1);
+
+    expect(classify(disclosures),
+      'a disclosure nobody has decided about: add a reachability assertion, or name why it cannot be reached here')
+      .toEqual([]);
   });
 
   it('SURFACE: the primary delete-decision consumer is in the listing an agent sees', () => {
