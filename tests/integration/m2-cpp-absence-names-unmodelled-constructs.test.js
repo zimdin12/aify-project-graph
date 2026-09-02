@@ -61,16 +61,16 @@ describe('M2 — a real C++ absence names what was not modelled', () => {
   it('★ graph_callers passes the language through — the clause reaches the agent', async () => {
     const text = String(await graphCallers({ repoRoot: cppRepo, symbol: 'alpha::Widget::render', top_k: 10, depth: 1 }));
     expect(text).toMatch(/NOT MODELLED/);
-    expect(text).toMatch(/function pointers or std::function/);
-    expect(text).toMatch(/and conditional compilation/);
-    expect(text).toMatch(/opposite directions/);
+    expect(text).toMatch(/macro-generated call is invisible to BOTH tiers/);
+    expect(text).toMatch(/function-pointer calls/);
+    expect(text).toMatch(/inactive #ifdef branch/);
   });
 
   it('⛔ a JavaScript repo pays ZERO bytes for it, through the same verb', async () => {
     const text = String(await graphCallers({ repoRoot: jsRepo, symbol: 'alpha.Widget.render', top_k: 10, depth: 1 }));
     expectAbsentWithLiveMatcher(
       /NOT MODELLED/,
-      { forbidden: 'NOT MODELLED: calls through function pointers or std::function',
+      { forbidden: 'NOT MODELLED: a macro-generated call is invisible to BOTH tiers.',
         allowed: 'absence is from the heuristic graph and is NOT exhaustive' },
       text,
       'the construct clause is C/C++ only; a JS repo must not carry it',
