@@ -328,6 +328,23 @@ The machinery exists but is opt-in and partial.
   Structural fingerprints are already stored — check granularity first, because per-file would
   produce too many false reconfirms to be useful.
 
+  ⭐ **THE BLOCKER IS NOW PRECISE, AND SO IS THE SCOPE QUESTION** (2026-09-02,
+  `docs/evidence/needs-reconfirm/FINDING-what-m3b-actually-needs.md`). There is exactly **one**
+  fingerprint authority and it is deliberate: the SQLite table and `.aify-graph/structural-fp.json`
+  are promoted by the **same commit event** — `orchestrator.js:705-725`, *"the durable state and the
+  database can no longer disagree, because the same event promotes both"* — an invariant written to
+  fix a real rollback defect. ⛔ The JSON has a `writtenAt` and sits outside the DB, so it **reads
+  like** a surviving baseline and is not one; using it would fight that invariant. The overlay
+  carries no fingerprint, hash or capture point at all.
+  ⇒ The minimal unblocking change is a fingerprint **captured at claim time, stored with the claim,
+  written by a different event than the reindex** — a format addition plus writer, reader and
+  comparison surface. Nothing existing can stand in for it.
+  ⛔ **BUT MEASURE THE POPULATION FIRST:** this repo has **zero** overlay claims (`functionality.json`
+  and `tasks.json` are absent), so M3b is **inert here by construction**. Building a drift detector
+  for a population of zero is the "correct but wrong" failure. How many repos use the curated overlay,
+  and how often their claims go stale, is unmeasured — that is the number that decides this, not the
+  design.
+
   ✅ **THE GRANULARITY GATE IS ANSWERED (2026-09-02)** —
   `docs/evidence/m3-freshness/FINDING-fingerprint-granularity-gate.md`. Re-derived from the schema
   and the graph: `structural_fingerprints` is keyed `file_path PRIMARY KEY`, 838 rows, and the
