@@ -50,8 +50,19 @@ function remedyLiterals() {
       if (!entry.name.endsWith('.js')) continue;
       const text = readFileSync(path, 'utf8');
       const owner = /verbName:\s*'([a-z_]+)'/.exec(text)?.[1] ?? null;
-      for (const m of text.matchAll(/remedy:\s*'([^']*)'/g)) {
-        out.push({ file: entry.name, owner, remedy: m[1] });
+      // ⛔ ALL THREE STRUCTURED "WHAT TO DO NEXT" FIELDS, not just `remedy`. They share one semantic —
+      // the action the agent should take — so a pointer in any of them is a dead end on the same
+      // terms. Widened 2026-09-02 after a reconnaissance found `fallback:` and `suggestion:` carrying
+      // verb names and ungated.
+      //
+      // ⚠ AND NO WIDER. A scan of ALL string literals in this layer finds 37 distinct verbs across
+      // 5,061 literals — SQL, cause codes, log text and prose ABOUT a verb, most of it not a pointer
+      // at all. There is no identity rule separating "pointer" from "prose" that does not fire on
+      // legitimate text, so the population stops at fields whose NAME states the semantic.
+      for (const field of ['remedy', 'fallback', 'suggestion']) {
+        for (const m of text.matchAll(new RegExp(`${field}:\\s*'([^']*)'`, 'g'))) {
+          out.push({ file: entry.name, owner, field, remedy: m[1] });
+        }
       }
     }
   };
@@ -90,13 +101,13 @@ describe('a remedy never sends an agent to a verb it cannot call', () => {
   it('★★★ every remedy reachable from a LISTED verb names only LISTED verbs', () => {
     const listed = defaultToolNames();
     const violations = [];
-    for (const { file, owner, remedy } of remedyLiterals()) {
+    for (const { file, owner, field, remedy } of remedyLiterals()) {
       // A verb that is ITSELF unlisted may name another unlisted verb: anyone who reached it already
       // has the full toolset. That exception is the documented one in callees.js:116-119.
       const producerIsListed = owner === null || listed.has(owner);
       if (!producerIsListed) continue;
       for (const named of namedVerbsIn(remedy)) {
-        if (!listed.has(named)) violations.push(`${file} (${owner ?? 'shared'}) -> ${named}`);
+        if (!listed.has(named)) violations.push(`${file}:${field} (${owner ?? 'shared'}) -> ${named}`);
       }
     }
     expect(violations, 'a remedy naming an unlisted verb is a mid-task DEAD END')
