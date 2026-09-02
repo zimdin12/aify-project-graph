@@ -23,7 +23,42 @@ timestamps for three writes), `lastError` stayed `none`, and `indexing`/`pending
 ⇒ **A graph that reports itself fresh while a whole file is missing from it.** For an agent, that is
 the worst shape of wrong: `NO CALLERS` for a symbol that exists, with every freshness signal green.
 
-## The gap is in the WATCHER path, not incremental indexing
+## ⛔ CORRECTION 2026-09-03 — "the gap is in the WATCHER path" was WRONG
+
+The section below concluded the watcher's invocation was at fault. **It is not.** A bisection ran the
+watcher and then called `graphIndex({ force: false })` **directly, in the same process, on the same
+repo**: the new file was still absent. Path resolution was identical (`resolve(repo) === repo`), and
+the watcher's own control passed.
+
+⇒ The watcher is a **victim, not the cause**. It fires correctly on a real event and calls an indexer
+that cannot see the file. What follows is the corrected characterisation.
+
+### The real rule, measured in one sequence
+
+| case | seen by incremental index? |
+|---|---|
+| NEW file, **uncommitted** | **NO** |
+| the same file, after `git add` + commit | yes |
+| MODIFIED tracked file, uncommitted | yes |
+
+### And it is an INCONSISTENCY, not a policy
+
+| the same untracked file | indexed? |
+|---|---|
+| incremental, graph already exists | **no** |
+| **full rebuild (`force: true`) on the same tree** | **yes** |
+| present at the **first** index of a repo | **yes** |
+
+**The same bytes are in or out of the graph depending only on WHEN they arrived.** Excluding untracked
+files would be a defensible policy; this is not that policy, because two of the three paths include
+them.
+
+⚠ **The mechanism is still NOT isolated.** The obvious candidate — `getTrackedDirtyFilesSync`, which
+deliberately drops untracked entries for good, field-reported reasons — is **not used by the indexer**
+(its only consumer is `packet-input.js:154`, for the dirty count). I am not naming a cause I cannot
+point at.
+
+## SUPERSEDED — the original section, kept for the record
 
 The obvious hypothesis — "incremental indexing never adds new files" — is **refuted**. Calling
 `graphIndex({ force: false })` directly, with no watcher:
