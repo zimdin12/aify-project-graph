@@ -314,11 +314,26 @@ The machinery exists but is opt-in and partial.
   byte-span position into a position-free hash, one block below the comment explaining why `node.id`
   had been removed for exactly that reason. It is mapped through `ownerShape` to `shape#ordinal`,
   which survives comment insertions. Reported as no-defect so it is not re-suspected.
-- **DISPOSITION: HOLD**, and the gap stays open and stated rather than shipped weakly. M3b is held
-  behind (a) M1 identity — ✅ **SHIPPED 2026-09-01** (`0a7a16d`: same-name caller sets proven
-  disjoint; C++ decl/def collapsed to one identity) — and (b) a persisted per-anchor confirmation
-  lineage: identity, commit/tree, normalised body hash, algorithm/version, confirmation time and
-  actor. (b) is NOT built, and it is the remaining blocker.
+- ⛔ **DISPOSITION SUPERSEDED 2026-09-02 — "(b) is the remaining blocker" WAS WRONG.** It read: M3b
+  is held behind (a) M1 identity — ✅ SHIPPED (`0a7a16d`) — and (b) a persisted per-anchor
+  confirmation lineage, with **(b) NOT built and the remaining blocker**. Measuring (b)'s SUBSTRATE
+  first changed the question, and building (b) would not have unblocked anything.
+  Evidence: `docs/evidence/m3-freshness/FINDING-m3b-does-not-earn-its-place.md`.
+  - Even with the lineage built, a reconfirm would fire at **file granularity** (mean 4.3 symbols
+    per file) and would miss **behavioural** drift entirely — `ingest/fingerprint.js` excludes
+    bodies by design, so a finer fingerprint does not help: the insensitivity is to BODIES, not to
+    scope.
+  - Against this plan's own purpose test, a signal that fires several times per real change AND
+    misses the common case does not make an agent's decision better. It fails the way the 445-byte
+    warning wall failed — **a caveat that fires too often trains its reader to skim, degrading the
+    signals around it.**
+  - ⇒ **Recommend scoping M3b to STRUCTURAL claims with the granularity stated, or dropping it.**
+    NOT building a behaviour-capable substrate: that is a research project wearing a feature's
+    clothes, and this plan's stop condition says to name that rather than keep building.
+  - ⚠ The ~77% false-reconfirm figure is a MODEL from mean symbols-per-file, not an observed rate,
+    and is labelled as such — this plan already carries one retracted model-derived proxy (52.9%).
+  - ⚠ **Nobody has measured whether claims go stale often enough to matter**, which is what should
+    decide between scoping and dropping. Same gap M5 exists to close.
 - **Stop when — the single ~10% ceiling was SPLIT by review, and the split is right:**
   - **Carrier correctness: zero tolerance.** A prompt must never name an unchanged population as
     changed. Identity ambiguity, missing baseline, moved span or unreadable bytes become typed
