@@ -176,10 +176,17 @@ function candidateSortKey(a, b) {
 // Inventing a group count for rows nobody grouped would be the same lie in the other
 // direction.
 // ★ `callerSetsFrom` IS OPT-IN, AND THAT IS THE DESIGN, NOT AN OVERSIGHT.
-// Six verbs share this refusal. A caller set is the answer for `graph_callers`; for `graph_trace`
-// or `graph_impact` it is noise attached to a question nobody asked, paid for with a query per
-// candidate. So the db handle is passed by the ONE verb whose refusal is about callers, and every
-// other call site is byte-for-byte unchanged.
+// A caller set is the answer for `graph_callers`; for `graph_trace` or `graph_impact` it is noise
+// attached to a question nobody asked, paid for with a query per candidate. So the db handle is
+// passed by the ONE verb whose refusal is about callers, and every other call site is byte-for-byte
+// unchanged.
+//
+// ⚠ THIS SAID "Six verbs share this refusal" AND THE COUNT HAD DRIFTED TO 8 (measured 2026-09-02):
+// callees, change_plan, consequences, neighbors, path and preflight call this directly, and callers
+// and impact reach it through `target_rollup.js`. A hardcoded count in a comment is a defect with a
+// delay on it, and a reader trusting "six" would under-scope a change to shared refusal text. The
+// enumeration that is CHECKED lives in `tests/unit/query/ambiguous-symbol-guards.test.js`, which
+// exercises all eight; derive the set from the callers of this function, never from this comment.
 export function buildAmbiguousMatchMessage(symbol, rows, limit = 5, rowsTotal = null, { callerSetsFrom = null } = {}) {
   if (!symbol) return null;
 
