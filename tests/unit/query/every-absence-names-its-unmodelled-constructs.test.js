@@ -40,6 +40,22 @@ describe('every absence claim names what was not modelled', () => {
     expect(new Set(sites.map((s) => s.file)).size, 'across several verbs').toBeGreaterThan(1);
   });
 
+  it('⛔ COVERAGE CONTROL: every invocation is one the matcher can read', () => {
+    // ⛔ THE FAIL-OPEN THIS CLOSES. The matcher only recognises a call whose argument is an inline
+    // object literal. A consumer written `buildAbsenceTrustLine(opts)` matches NOTHING, so it is
+    // not flagged as missing a language — it is silently not enrolled, and the gate reports green
+    // on a population it never saw. Counting total invocations against matched ones turns that
+    // from invisible into a failure.
+    let invocations = 0;
+    for (const file of readdirSync(VERBS_DIR).filter((f) => f.endsWith('.js'))) {
+      const source = readFileSync(join(VERBS_DIR, file), 'utf8');
+      invocations += [...source.matchAll(/buildAbsenceTrustLine\(/g)].length;
+    }
+    expect(absenceCallSites().length,
+      'an invocation the matcher cannot parse is an unenrolled consumer, not a passing one')
+      .toBe(invocations);
+  });
+
   it('★ every consumer passes a language, so the C/C++ clause can fire', () => {
     const missing = absenceCallSites()
       .filter((s) => !/\blanguage\s*:/.test(s.args))

@@ -202,6 +202,22 @@ const KNOWN_SOURCE_CONTRACT = new Set([
   //     here is a cheap authoring-time smoke test for a wholly new listing function that
   //     never mentions the renderer, and its header now states that limit and the open
   //     obligation instead of claiming coverage of the branch case.
+  'unit/query/every-absence-names-its-unmodelled-constructs.test.js',
+  //   ↳ ⚠ ADDED 2026-09-02, on the same narrow argument as remedy-names-a-reachable-verb:
+  //     THE ARTIFACT UNDER TEST IS THE SET OF CALL SITES. The claim is "every consumer of
+  //     buildAbsenceTrustLine passes a language", and its population includes the consumer
+  //     nobody has written yet — which is the whole point, since the clause shipped on
+  //     graph_callers and four existing verbs were missed. Code that does not exist cannot
+  //     be executed, so an enrolment gate has no runtime surface by construction.
+  //   ⚠ A behavioural version was BUILT and kept, not skipped:
+  //     integration/m2-cpp-absence-names-unmodelled-constructs.test.js drives graph_callers,
+  //     graph_callees, graph_impact and graph_trace on a real indexed C++ fixture. It cannot
+  //     reach graph_neighbors — every symbol in the fixture has edges — which is exactly the
+  //     "drive the misses it can construct and silently pass on the ones it cannot" failure
+  //     this list's 2026-08-19 entry describes. The two halves cover different gaps.
+  //   ⚠ Its own blind spot is STATED and gated: the matcher only reads an inline object
+  //     literal, so a COVERAGE CONTROL asserts matched sites === total invocations. Without
+  //     it, `buildAbsenceTrustLine(opts)` would be unenrolled and reported green.
   'unit/integrations/skill-parity.test.js',
   //   ↳ The artifact under test is markdown we SHIP. There is no code whose behaviour this
   //     stands in for: the four SKILL.md trees are the product, and "these four files agree,
