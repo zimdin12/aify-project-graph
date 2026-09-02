@@ -354,6 +354,30 @@ reached across a wider task set. Then either narrow the default toolset or impro
 - ⚠ Do NOT narrow on this pilot's data. Two tasks cannot license retiring 40 verbs.
 - **Stop when:** we know the per-session cost and the reached-verb distribution over ≥6 task shapes.
 
+⛔ **THE HYPOTHESIS IS REFUTED. DO NOT NARROW.** This section described an untested hypothesis long
+after it had been tested; the measurements lived only in evidence files. Recorded here so the plan
+stops inviting the work.
+Evidence: `docs/evidence/m4-surface-cost/{FINDING,REACH-FINDING}.md`.
+
+- **Cost, measured over the real server** (`selectListedTools` executed, not reconstructed):
+  `default` = **16 tools, 25,539 bytes, 70% SCHEMA**, 24% description. Controls in the same pass:
+  POSITIVE — every profile returned a non-empty list; NEGATIVE — an unrecognised profile falls back
+  to `default` with identical bytes. ⚠ Tokens are an ESTIMATE at 4 bytes/token; no tokenizer ran.
+- **Reach, measured over 1,119 transcripts**: **15 of the 16 listed verbs are reached** (94%). Only
+  `graph_census` never. Agents also invoke **3 UNLISTED** verbs by name (`graph_status`,
+  `graph_find`, `graph_digest`) — so **listing is not what governs reach**, which is the assumption
+  the whole "narrow the surface" idea rests on.
+- ⇒ The original "3 of 43 verbs" framing had **two wrong nouns**: 43 is the REGISTRY (a session is
+  shown 16), and it came from TWO tasks.
+- ⇒ If narrowing is ever revisited, **schema is where the bytes are** — trimming descriptions
+  attacks the smaller 24%.
+
+⚠ **The ≥6-task-shape half of the stop condition is still UNMET** — transcripts are sessions, and
+shape was never labelled. It is left unmet deliberately: the decision it gates (narrowing) has been
+made in the conservative direction on other evidence, so measuring shapes now would be measurement
+with no decision attached. It becomes required again the moment anyone proposes narrowing.
+⚠ **Reach measures INVOCATION, not usefulness.** A reached verb is not a verb that helped.
+
 ### M5 — Scale validation  `[the standing confound]`
 
 Every result we have is from an 8-file corpus, where an agent said "the index is the thing under
