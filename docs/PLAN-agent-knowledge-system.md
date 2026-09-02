@@ -250,8 +250,26 @@ extern-without-header, included `.cpp`, cross-language. Separate "no callers in 
 
 The machinery exists but is opt-in and partial.
 
-- **M3a:** ⏸ **HOLD — default-on is neither recommended nor refused, because it is unmeasured in
-  the state that matters.** Evidence: `docs/evidence/auto-sync-cost/FINDING.md`.
+- **M3a:** ⏸ **STILL HELD, but the COST objection is now refused rather than open.** Measured
+  2026-09-02 in the state that matters — HEAD unchanged, bytes dirty mid-edit — over three
+  interleaved repeats: cosmetic **313 ms**, body-only **36 ms**, signature change **42 ms**, added
+  call **35 ms**, noop **39 ms**, forced rebuild **75,393 ms**. Every preregistered threshold clears
+  by three orders of magnitude, both controls pass, and the decision rule (fixed before the numbers
+  existed) returns RECOMMEND DEFAULT ON **on burst cost**.
+  Evidence: `docs/evidence/m3-freshness/{PREREGISTRATION,FINDING}-auto-sync-burst-cost.md`.
+  ⇒ The 35.2 s / 91%-≥-15 s figures below describe **full rebuilds** (reproduced here at 75 s) and
+  do not describe a burst. They no longer argue against default-on; they argue against confusing
+  the two.
+  ⛔ **The default is NOT flipped, and the four remaining blockers are not timing questions:**
+  the watcher's own IDLE cost, OVERLAPPING bursts (sustained editing where one arrives mid-sync —
+  the normal agent workload, and the one thing single-burst timing cannot reach), WSL/`/mnt` where
+  the watcher is default-off for unrelated reasons, and a large C++ repo.
+  ⚠ A doubt I raised against my own result — that the TTL fast path had served cached noops and I
+  had timed a cache hit — was WRONG, and neither preregistered control could have caught it (`F`
+  uses `force:true` and bypasses the cache). Settled by an EFFECT check: the edit reached the graph
+  (probe nodes 0 → 1 without force, 1 forced, 0 after revert). The missing control is named in the
+  finding: a timing control cannot distinguish work from a cache hit at any number of repeats.
+  Superseded context: `docs/evidence/auto-sync-cost/FINDING.md`.
   > The watcher and the post-commit hook use a **shared implementation with demonstrated expensive
   > behaviour under post-commit input** (median 35.2 s, 91% ≥ 15 s over 482 events). The watcher's
   > trigger frequency, its dirty-state cost, the `ensureFresh` paths it selects, and its
@@ -276,6 +294,26 @@ The machinery exists but is opt-in and partial.
   went OUT OF DATE. A feature whose files were edited but still resolve is never flagged.
   Structural fingerprints are already stored — check granularity first, because per-file would
   produce too many false reconfirms to be useful.
+
+  ✅ **THE GRANULARITY GATE IS ANSWERED (2026-09-02)** —
+  `docs/evidence/m3-freshness/FINDING-fingerprint-granularity-gate.md`. Re-derived from the schema
+  and the graph: `structural_fingerprints` is keyed `file_path PRIMARY KEY`, 838 rows, and the
+  spread is median 3 / mean 4.3 / p90 9 / max 49 symbols per file. ⚠ That **CONFIRMS the figures
+  already in this bullet rather than discovering them** — re-derivation from the artifact, not a
+  new result.
+  ⭐ **What IS new, and it reframes M3b:** `ingest/fingerprint.js` hashes symbol shapes plus the
+  outgoing ref set and **deliberately excludes bodies** — its own header says a
+  body-only/comment/whitespace/literal edit leaves the hash UNCHANGED. So flipping a comparison or
+  changing a constant is invisible unless it also adds or removes a call. That is how a
+  *behavioural* claim goes stale, and **no granularity fixes it**: the insensitivity is to bodies,
+  not to scope, so a per-symbol fingerprint would be equally blind.
+  ⇒ **M3b splits.** STRUCTURAL claims (signature, callers, edges) are servable on this substrate
+  today, at the false-reconfirm rate above. BEHAVIOURAL claims are not servable on it at all, and a
+  finer fingerprint is not the missing piece.
+  ⚠ A suspected defect was checked and NOT found: `from_id` in the ref set looked like it smuggled
+  byte-span position into a position-free hash, one block below the comment explaining why `node.id`
+  had been removed for exactly that reason. It is mapped through `ownerShape` to `shape#ordinal`,
+  which survives comment insertions. Reported as no-defect so it is not re-suspected.
 - **DISPOSITION: HOLD**, and the gap stays open and stated rather than shipped weakly. M3b is held
   behind (a) M1 identity — ✅ **SHIPPED 2026-09-01** (`0a7a16d`: same-name caller sets proven
   disjoint; C++ decl/def collapsed to one identity) — and (b) a persisted per-anchor confirmation
