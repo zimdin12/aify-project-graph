@@ -487,6 +487,40 @@ belongs in a NEW preregistered version, never as an edit to the frozen key.
 
 ---
 
+### M6 — A VERIFIED architecture map  `[candidate, added 2026-09-02 at Steven's request]`
+
+Prompted by `tt-a1i/archify`, inspected rather than assumed
+(`docs/evidence/candidates/CANDIDATE-archify.md`).
+
+**What they do that is right:** agents author a **typed JSON IR**, and the tool deterministically
+compiles it to HTML/SVG. The IR is the agent-facing artifact; the rendering is one view of it. That
+split is reusable and we have no incumbent format competing with it — the feature-map overlay
+(functionality.json) is measured ABSENT on this repo
+(`docs/evidence/needs-reconfirm/FINDING-what-m3b-actually-needs.md`), so adopting an IR costs no
+migration.
+
+⭐ **What they cannot do, and we could.** Their "verifiable" means the diagram is internally
+consistent — schema, layout, route and label checks. It does **not** mean the diagram is true of the
+code; node-level `SRC` evidence is author-declared, not inspected. **We hold a symbol graph**, so a
+map whose nodes and edges are DERIVED from real graph edges, and re-checkable when the code moves, is
+something they structurally cannot offer and grep certainly cannot. That is the defensible shape.
+
+⛔ **Corrections to my own first read, recorded because they were wrong:** I dismissed the rendered
+artifact by arguing our users are agents — that conflates the MAP with the VIEW, and `graph_dashboard`
+is a legitimate view to improve. And I speculated their skill design might solve our **mid-task reach**
+bottleneck; it does not — activation is a user prompt at the entry point, the same activation we
+already have working.
+
+**Ties to M3b:** a diagram is a claim about architecture that goes OUT OF DATE — the same gap M3b
+names, now with a concrete artifact attached to it.
+
+⛔ **NOT STARTED.** The plan's own ordering says prove the substrate before adding a layer, and M5 is
+blocked on the 72-run budget with the stop condition live. Starting this before M5 answers is the
+failure the stop condition exists to prevent. If M5 concludes our value is "orientation and structure
+only", this becomes MORE interesting, not less — an orientation carrier is exactly what it would be.
+
+---
+
 ## How we work
 
 Loop: build → review with dev → test → commit → push. Expensive A/B only at M5 and any later

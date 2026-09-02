@@ -2,10 +2,29 @@
 
 **Logged:** 2026-09-02, at Steven's request. **Status: NOT STARTED, and deliberately so.**
 
-⚠ **I have not inspected the repository.** This is a read of its description — "agent skill for
-beautiful, verifiable architecture, workflow, sequence, data-flow and lifecycle diagrams: self-
-contained HTML with motion and crisp export" — not a review. Every judgement below is provisional
-until someone opens it.
+✅ **INSPECTED 2026-09-02** (repo README via fetch). The description-only read below was revised
+after looking; where it was wrong, the correction is marked. Steven pushed back on the first version
+and was right to.
+
+## What it actually does
+
+- **Agents author a typed JSON IR; Archify deterministically compiles it** to HTML/SVG. The JSON
+  source is kept, with named views and validation receipts. **The IR is the agent-facing artifact;
+  the HTML is a view of it.** That split is the important idea.
+- Five diagram kinds: architecture, workflow, sequence, data flow, lifecycle.
+- **"Verifiable" means INTERNALLY consistent, not true of the code**: schema, layout, HTML/SVG,
+  route and label-to-route clearance checks. Architecture nodes *may* carry author-declared `SRC n`
+  evidence pinned to a commit — **author-controlled, not automatic inspection of a codebase.**
+- Activation is a natural user prompt ("Use Archify to draw: Browser -> API -> Redis").
+
+## ⛔ Two corrections to my first assessment
+
+1. **I dismissed the artifact too quickly.** I argued "our users are agents, so a rendered diagram is
+   out". That conflates the MAP with the VIEW. The mapping is knowledge; the rendering is one view.
+   `graph_dashboard` exists and is used, so making its rendering good is legitimate.
+2. **It is NOT a fix for our mid-task reach problem.** I had speculated it might be. Its activation
+   is user-driven at the entry point — the same activation we already have working. The skill-design
+   lesson I hoped for is not there.
 
 ## The purpose test, applied honestly
 
@@ -16,7 +35,21 @@ Borrowing the output format would be building the thing our own purpose statemen
 
 So: **the artifact is not our product.** Two things inside it might be.
 
-## 1. Skill packaging — aimed at our worst measured weakness
+## ⭐ THE DIFFERENTIATOR THIS EXPOSES
+
+Their diagrams are verifiable **against themselves**. Ours could be verifiable **against the code**:
+we hold a symbol graph, so an architecture map whose nodes are DERIVED from real edges — and can be
+re-checked when the code moves — is something they structurally cannot do and grep certainly cannot.
+
+That also connects to M3b: **a diagram is a claim about architecture that goes out of date.** The
+same "claims that went stale" gap, with a concrete artifact attached to it.
+
+And to feature mapping: the overlay `tests/fixtures/linkage-scope/prompts.json` is not it — the
+overlay this repo would use is functionality.json, which my M3b census measured as **ABSENT here**
+(`docs/evidence/needs-reconfirm/FINDING-what-m3b-actually-needs.md`). There is no incumbent format
+competing with a typed IR, so adopting one costs nothing in migration.
+
+## 1. Skill packaging — REVISED: not the lesson I expected
 
 Our weakest half is exactly the one the purpose statement names second: *"the skills that teach an
 agent when to reach for which."* Measured: 17 skills installed, **9 invocations ever**, 12 never

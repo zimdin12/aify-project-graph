@@ -89,11 +89,33 @@ describe('a result whose trust banner failed to build', () => {
     );
   }, 90_000);
 
-  it('★★★ graph_callers TELLS the agent the banner is unavailable', async () => {
-    const { text } = await resultsUnderFault('callers.js', 'graphCallers', { symbol: CALLED });
-    // Results still returned: a banner bug must not take the verb down.
-    expect(text).toMatch(/EDGE/);
-    expect(text, 'a caller set with no floor caveat reads as COMPLETE')
-      .toMatch(/TRUST: UNAVAILABLE/);
-  }, 90_000);
+  // The verbs whose results path this fixture can actually DRIVE. Each runs the real code under the
+  // fault rather than reading source text — the suite-composition ratchet refused a source-scan
+  // version of this check, with evidence: such tests "cannot fail when the behaviour breaks, and CAN
+  // fail when a line is reflowed", which happened three times on 2026-08-11, each on a fix.
+  const DRIVEN = [
+    { verb: 'graph_callers', module: 'callers.js', fn: 'graphCallers', args: { symbol: CALLED } },
+    { verb: 'graph_callees', module: 'callees.js', fn: 'graphCallees', args: { symbol: 'use_helper' } },
+    { verb: 'graph_impact', module: 'impact.js', fn: 'graphImpact', args: { symbol: CALLED } },
+    { verb: 'graph_neighbors', module: 'neighbors.js', fn: 'graphNeighbors', args: { symbol: CALLED } },
+  ];
+
+  // ⚠ NOT COVERED BEHAVIOURALLY, and named rather than quietly omitted: change_plan, preflight and
+  // explain_diff also disclose now, but this fixture cannot drive their results paths. Their fix is
+  // verified only by reading. That is a real gap, and stating it is better than a source-text gate
+  // that would go green without exercising anything.
+  const NOT_DRIVEN = ['graph_change_plan', 'graph_preflight', 'graph_explain_diff'];
+
+  for (const d of DRIVEN) {
+    it(`★★★ ${d.verb} TELLS the agent the banner is unavailable`, async () => {
+      const { text } = await resultsUnderFault(d.module, d.fn, d.args);
+      // Results still returned: a banner bug must not take the verb down.
+      expect(text, `${d.verb} stopped answering — the fix must not block the verb`).toMatch(/EDGE/);
+      expect(text, 'a set with no floor caveat reads as COMPLETE').toMatch(/TRUST: UNAVAILABLE/);
+    }, 90_000);
+  }
+
+  it('the sites this fixture cannot drive are NAMED, not silently dropped', () => {
+    expect(NOT_DRIVEN).toEqual(['graph_change_plan', 'graph_preflight', 'graph_explain_diff']);
+  });
 });
