@@ -61,3 +61,32 @@ clothes, and the plan's own stop condition says to name that rather than keep bu
 ⚠ What this does NOT establish: that claims go stale often enough to matter at all. Nobody has
 measured that, and it is the question that should decide between (1) and (3). It is the same
 missing measurement M5 exists to supply — whether any of this changes an agent's decision at scale.
+
+---
+
+## Addendum 2026-09-02 — the load-bearing fact, MEASURED at last
+
+Everything above turns on "the fingerprint is body-blind BY DESIGN". I took that from the header
+comment of `ingest/fingerprint.js` — a comment describing INTENT, not evidence of behaviour. That is
+the same move that produced three wrong sentences in the M2 construct document, and this repo keeps
+a memory file called *"a comment is not an instrument"* about it. So it is now driven through the
+real `extractFile` + `fileStructuralFingerprint`:
+
+```
+BASE                        1fe17812489ff4d9
+BASE again (determinism)    1fe17812489ff4d9   <- NEGATIVE CONTROL: identical source, identical hash
+BODY-ONLY edit              1fe17812489ff4d9   <- UNCHANGED
+signature change  [CTRL]    be624851d0e46bf7   <- POSITIVE CONTROL: moved
+added call        [CTRL]    2b6f9706850b2d1b   <- POSITIVE CONTROL: moved
+```
+
+The body-only edit was not cosmetic in any behavioural sense: it **changed a constant from 10 to
+9999 AND flipped `>` to `<`**. The function now returns the opposite answer for almost every input,
+and the fingerprint cannot tell.
+
+⛔ **Both controls are required and both are here.** A hash that never moved would satisfy
+"body-blind" vacuously; a hash that always moved would refute it spuriously. Neither is the case.
+
+⇒ **The disposition above stands, now on measurement.** A reconfirm signal built on this substrate
+cannot see the single most common way a behavioural claim goes stale — someone changing what the
+code does without changing its shape. That is not a tuning problem and no granularity fixes it.
