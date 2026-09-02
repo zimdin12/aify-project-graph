@@ -18,6 +18,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 // A symbol that HAS callers, so the results path runs rather than the absence path.
@@ -77,8 +78,15 @@ describe('a result whose trust banner failed to build', () => {
     // path instead of the results path. Both are excluded here, in the same pass.
     const { text, threw: n } = await resultsUnderFault('callers.js', 'graphCallers', { symbol: CALLED });
     expect(n, 'the banner builder was never called — the fault did not fire').toBeGreaterThan(0);
-    expect(text, 'the query took the ABSENCE path, so it says nothing about the results banner')
-      .not.toMatch(/^NO CALLERS/m);
+    // ⚠ A LIVE matcher, not a bare not.toMatch. The repo ratchets those down because a negative
+    // assertion whose matcher never fires is indistinguishable from a passing one — and my first
+    // version of this line was exactly that bare form, caught by the ratchet.
+    expectAbsentWithLiveMatcher(
+      /^NO CALLERS/m,
+      { forbidden: 'NO CALLERS for "x". Try graph_whereis', allowed: 'EDGE a→b CALLS src/x.cpp:1' },
+      text,
+      'the query took the ABSENCE path, so it says nothing about the results banner',
+    );
   }, 90_000);
 
   it('★★★ graph_callers TELLS the agent the banner is unavailable', async () => {
