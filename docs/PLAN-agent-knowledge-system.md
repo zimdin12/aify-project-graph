@@ -386,6 +386,36 @@ test, not the instrument". We have no evidence at a size where the graph should 
 - **Ship:** the pilot harness pointed at a real repo, at the size where reading fails.
 - **This is the key milestone that earns an expensive A/B.**
 
+⭐ **READ THIS BEFORE BUILDING ANYTHING FOR M5 — a decision rubric ALREADY EXISTS.**
+This section named none of it, and the cost was immediate: on 2026-09-02 I proposed and began
+building a decision rubric from scratch, then found the better one already in the tree and withdrew
+the proposal. The plan pointed at nothing, so the work was re-done.
+Evidence: `docs/evidence/m5-scale/PROPOSAL-decision-rubric.md` (records the withdrawal).
+
+- `scripts/lib/ab-rubric.mjs` — **blind** to which arm produced a transcript; primary endpoint
+  `unsafeAuthoritativeConclusion` is **three-valued** (`true`/`false`/`ambiguous`) so it cannot fail
+  open; verb list derived from the real 43-tool registry, not retyped.
+- `tests/fixtures/linkage-scope/ground-truth.json` — **preregistered** ground truth, 6 classes
+  (internal linkage, no-header extern, unity build, header-exposed, dynamic boundary, torn graph),
+  plus `successDefinition`, `knownRouteGap`, `notReachedRule`, `corpusHygiene` and a **`freezeRule`**
+  that forbids redesigning toward the test.
+- `tests/unit/ab/rubric-cannot-fail-open.test.js` — pins the branches that must not resolve to
+  "safe", including a hedge followed by a go-ahead.
+
+⛔ **NOTHING CONSUMES IT.** Verified across the whole repo INCLUDING `await import()` forms: the only
+executing consumer is its own unit test. `scripts/ab-runner.mjs` — the harness that actually spawns
+the arms — scores with `ordered_contains`/`groups`, which measure **retrieval, not decision**.
+
+⇒ **The blocker is WIRING, not rubric design**, and wiring costs no agent budget to build — only to
+run. `PREREGISTRATION.md`'s "the rubric is not settled" was true of the OLD retrieval harness and is
+stale for the decision one.
+⚠ Two things still open and NOT to be guessed at: the **budget** (4 repos × 3 tasks × 2 arms × 3
+repeats = 72 runs, Steven's call), and a **"tier B"** design the ground-truth key references which I
+could not locate. Inventing that design is the mistake already recorded above.
+⚠ The key covers linkage and scope; `macro` and `ifdef` appear nowhere in it, and the measured
+construct table makes the macro case the natural **known-loss control**. Per `freezeRule` that
+belongs in a NEW preregistered version, never as an edit to the frozen key.
+
 ---
 
 ## How we work
