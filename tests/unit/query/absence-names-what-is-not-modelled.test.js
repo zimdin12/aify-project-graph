@@ -36,8 +36,12 @@ describe('an absence claim names what the analysis structurally cannot see', () 
     // is the actionable part. A reader told "both are blind" would distrust the heuristic set for
     // the wrong reason — its actual failure here is reporting calls that never compile.
     const line = await buildAbsenceTrustLine({ noun: 'callers', language: 'cpp' });
+    // ⛔ BOTH LABELS ARE ASSERTED, and the second one only because a mutant caught its absence.
+    // Removing "(undercount)" left "ONE configuration and omits" intact, so the earlier version of
+    // this test passed while the clangd failure mode had lost its name. Asserting one direction and
+    // not its counterpart is how a two-sided claim rots into a one-sided one.
     expect(line, 'heuristic overcounts inactive branches').toMatch(/INACTIVE branches \(overcount\)/);
-    expect(line, 'clangd omits them').toMatch(/ONE configuration and omits/);
+    expect(line, 'clangd undercounts them').toMatch(/omits\s+them \(undercount\)/);
     expect(line).toMatch(/opposite directions/);
   });
 
