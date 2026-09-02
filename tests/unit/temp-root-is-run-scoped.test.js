@@ -96,3 +96,31 @@ describe('the run-root teardown actually deletes', () => {
     }
   });
 });
+
+// ⛔ AND THE TEARDOWN MUST BE WIRED, NOT MERELY CORRECT. Mutant T-2 deleted `globalSetup` from
+// vitest.config.js and SURVIVED every assertion above: the function still worked when called
+// directly, and nothing called it. Third instance today of the same shape — a component tested in
+// isolation while the consumer that must reach it goes unasserted.
+//
+// This imports the CONFIG OBJECT and reads its value, rather than grepping the file for a string,
+// because a token appearing in a file has twice today failed to mean the code uses it.
+describe('the teardown is registered with vitest, not merely importable', () => {
+  it('⛔ vitest.config.js declares the run-root globalSetup', async () => {
+    // ⚠ Importing the config re-runs its mkdirSync side effect, creating one extra run root that
+    // this run will not tear down. The hourly pruner collects it — stated rather than hidden.
+    const config = (await import('../../vitest.config.js')).default;
+    const declared = [config?.test?.globalSetup ?? []].flat();
+    expect(declared.length, 'no globalSetup declared — nothing deletes the run root').toBeGreaterThan(0);
+    expect(declared.some((entry) => String(entry).includes('temp-root.global')),
+      'the run-root teardown must be among the declared globalSetup entries').toBe(true);
+  });
+
+  it('⛔ and the config actually redirects all three temp variables', async () => {
+    // T-1 covers the observable effect inside a worker; this pins the declaration that produces it,
+    // so a platform whose os.tmpdir() reads a different variable cannot regress silently.
+    const config = (await import('../../vitest.config.js')).default;
+    for (const key of ['TEMP', 'TMP', 'TMPDIR']) {
+      expect(config?.test?.env?.[key], `${key} must point at the run root`).toBeTruthy();
+    }
+  });
+});
