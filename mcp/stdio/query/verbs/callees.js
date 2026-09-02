@@ -6,7 +6,7 @@ import { enforceBudget } from '../budget.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
@@ -120,7 +120,8 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
       });
       let line = '';
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callees', db, repoRoot, language: sources[0]?.language }); }
-      catch { /* defensive */ }
+      // ⛔ NOT an empty catch — see lsp-evidence.js ABSENCE_TRUST_UNAVAILABLE.
+      catch { line = '\n' + ABSENCE_TRUST_UNAVAILABLE; }
       return prefixReadWarnings(msg + line + scope, freshness.warnings);
     };
 

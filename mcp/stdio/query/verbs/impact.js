@@ -7,7 +7,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
 import { noMatchMessage } from '../did-you-mean.js';
 
@@ -99,7 +99,8 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     if (edges.length === 0 && overrideEdges.length === 0) {
       let line = '';
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'impact', db, repoRoot, language: targets[0]?.language }); }
-      catch { /* defensive */ }
+      // ⛔ NOT an empty catch — see lsp-evidence.js ABSENCE_TRUST_UNAVAILABLE.
+      catch { line = '\n' + ABSENCE_TRUST_UNAVAILABLE; }
       return prefixReadWarnings(
         // `graph_status()` is not in the default tools/list profile, so this told most readers
         // to call something they cannot reach. graph_health is the listed verb that answers

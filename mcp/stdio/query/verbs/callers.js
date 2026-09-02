@@ -8,7 +8,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { noMatchMessage } from '../did-you-mean.js';
@@ -106,7 +106,10 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       // The language comes from the resolved target, so the construct-coverage clause appears on a
       // C/C++ absence and costs zero bytes anywhere else.
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot, language: targets[0]?.language }); }
-      catch { /* defensive */ }
+      // ⛔ NOT an empty catch. Measured 2026-09-02: swallowing this shipped a BARE absence with no
+      // TRUST, no SCOPE and no NOT MODELLED — indistinguishable from an authoritative "nothing calls
+      // this". The answer still returns; the agent is told the caveat is missing.
+      catch { line = '\n' + ABSENCE_TRUST_UNAVAILABLE; }
       // ⚠ The scope note goes WITH the absence claim, where the reader is deciding whether nothing
       // uses this symbol — not into a separate field they would have to know to consult.
       return prefixReadWarnings(msg + line + scope, freshness.warnings);

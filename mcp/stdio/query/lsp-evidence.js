@@ -393,6 +393,26 @@ export function constructCoverageClause(language) {
     + ' This states what the analysis cannot see, NOT that this symbol is affected.';
 }
 
+// ⛔ WHAT AN ABSENCE SAYS WHEN ITS TRUST CONTRACT COULD NOT BE BUILT.
+//
+// Every absence consumer wraps the builder below in `catch { /* defensive */ }`, and until 2026-09-02
+// that catch left the line EMPTY. Measured under an induced fault, the agent received:
+//
+//     NO CALLERS for "alpha::Widget::render". Try graph_whereis(...) for an overview.
+//
+// A bare, unqualified absence — no TRUST, no SCOPE, no NOT MODELLED — indistinguishable from an
+// authoritative "nothing calls this", and byte-identical to a build without the feature. That is the
+// exact unsafe artifact M2 exists to prevent, and `callers.js:95-97` records this same catch hiding a
+// total failure once before.
+//
+// The guard now fails CLOSED in the sense that matters: the answer is still returned (a trust-line
+// bug must not take the verb down), but the agent is TOLD the caveat is missing rather than left to
+// infer its absence. One constant, so five call sites cannot drift.
+export const ABSENCE_TRUST_UNAVAILABLE =
+  'TRUST: UNAVAILABLE — the trust contract for this absence could not be built, so this result is'
+  + ' UNVERIFIED and its scope is unknown. Do NOT read it as evidence of no callers; confirm with'
+  + ' code_intel_references or rg before any delete or rename.';
+
 export async function buildAbsenceTrustLine({ noun = 'edges', db, language = null } = {}) {
   const scope = db ? spineScopeClause(db, noun) : '';
   // Zero bytes on a repo with no C/C++ — the 445-byte warning wall this project already had to tear

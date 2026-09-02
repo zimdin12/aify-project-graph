@@ -5,7 +5,7 @@ import { enforceBudget } from '../budget.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { NEIGHBOR_FAMILY } from '../../storage/taxonomy.js';
 
 // graph_neighbors exposes EVERY relation in the registry — including the new
@@ -44,7 +44,8 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
     if (edges.length === 0) {
       let line = '';
       try { line = '\n' + await buildAbsenceTrustLine({ noun: 'neighbors', db, repoRoot, language: targets[0]?.language }); }
-      catch { /* defensive */ }
+      // ⛔ NOT an empty catch — see lsp-evidence.js ABSENCE_TRUST_UNAVAILABLE.
+      catch { line = '\n' + ABSENCE_TRUST_UNAVAILABLE; }
       return prefixReadWarnings(
         `NO NEIGHBORS for "${symbol}". The symbol may be isolated. Try graph_whereis(symbol="${symbol}") to confirm it exists, or graph_search(query="${symbol}") for similar names.` + line,
         freshness.warnings,

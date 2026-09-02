@@ -23,7 +23,7 @@ import { openExistingDb } from '../../storage/db.js';
 import { resolveSymbol } from './symbol_lookup.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine, buildAbsenceTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import {
   countGraphNodes,
   getSourceBundleBudget,
@@ -356,7 +356,9 @@ export async function graphTrace({ repoRoot, from, to, max_hops = 7 }) {
       trustLine = '\n\n' + (pathSteps
         ? await buildTrustLine({ edges: trustEdges, db, repoRoot })
         : await buildAbsenceTrustLine({ noun: 'path', db, repoRoot, language: fromNodes[0]?.language }));
-    } catch { /* defensive — never block on trust-line failure */ }
+    // ⛔ Still never BLOCKS on a trust-line failure — but no longer stays silent about it. An empty
+    // string here shipped a bare "NO STATIC PATH", which reads as licence to change A.
+    } catch { trustLine = '\n\n' + ABSENCE_TRUST_UNAVAILABLE; }
 
     return prefixReadWarnings(body + trustLine, freshness.warnings);
   } finally {
