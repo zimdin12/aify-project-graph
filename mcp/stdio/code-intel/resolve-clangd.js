@@ -143,13 +143,32 @@ export function clangdVersion(command) {
   }
 }
 
+// ⛔ FLAGS THAT BOUND clangd's RESOURCE USE, SPLIT OUT BECAUSE A SECOND SPAWN PATH MISSED THEM.
+//
+// `cli/serve-lsp.js` — the host-integration relay (Claude `.lsp.json`, Codex MCP, Pi) — carried its
+// OWN `defaultArgs: ['--background-index=false']` and never touched the list below. Without
+// `--pch-storage=memory` clangd falls back to its default `disk`, writing a `preamble-*.pch` per
+// translation unit into %TEMP% and never removing them. Measured on this machine: 3,854 files,
+// 84.2 GB, ~22 MB each, accumulated since 2026-08-18 — enough to fill the volume and stop the suite.
+//
+// ⇒ The two call sites now share ONE resource list. They legitimately differ on INDEXING MODE (the
+// relay disables background indexing because the host drives the protocol), so only the discipline
+// is shared — a single merged list would have forced one of them to lie about the other's intent.
+//
+// ⚠ This is the parallel-list defect class again: two places built clangd arguments and only one
+// was tuned. `tests/unit/code-intel/every-clangd-spawn-bounds-pch.test.js` derives the spawn sites
+// from source so a THIRD one cannot be added without the discipline.
+export const CLANGD_RESOURCE_ARGS = Object.freeze([
+  '--pch-storage=memory',
+  '-j=4',
+  '--limit-results=2000',
+]);
+
 // The tuned clangd flags shared by both transports.
 const BASE_CLANGD_ARGS = [
   '--background-index',
   '--background-index-priority=normal',
-  '--pch-storage=memory',
-  '-j=4',
-  '--limit-results=2000'
+  ...CLANGD_RESOURCE_ARGS,
 ];
 
 /**

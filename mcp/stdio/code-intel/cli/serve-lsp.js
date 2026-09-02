@@ -13,11 +13,19 @@
 import { spawn } from 'node:child_process';
 import { spawnSync } from 'node:child_process';
 
+// ⛔ THE RESOURCE FLAGS COME FROM THE ONE OWNER, NOT FROM A SECOND LIST HERE.
+// This file used to carry only `--background-index=false`, so clangd ran with its DEFAULT
+// `--pch-storage=disk` and wrote a preamble per translation unit into %TEMP% that nothing removed.
+// Measured: 3,854 files / 84.2 GB accumulated since 2026-08-18, which filled the volume.
+// `--background-index=false` stays local — the host owns the protocol here — but the discipline is
+// shared, because that is the half a relay has no business having its own opinion about.
+import { CLANGD_RESOURCE_ARGS } from '../resolve-clangd.js';
+
 const LANGUAGE_SERVERS = {
   cpp: {
     binary: 'clangd',
     versionArgs: ['--version'],
-    defaultArgs: ['--background-index=false'],
+    defaultArgs: ['--background-index=false', ...CLANGD_RESOURCE_ARGS],
     hint: 'install clangd via your package manager (apt install clangd / brew install llvm) and ensure it is on PATH'
   }
 };
