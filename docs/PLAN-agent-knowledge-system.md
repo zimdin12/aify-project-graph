@@ -293,6 +293,14 @@ The machinery exists but is opt-in and partial.
   ⇒ The 35.2 s / 91%-≥-15 s figures below describe **full rebuilds** (reproduced here at 75 s) and
   do not describe a burst. They no longer argue against default-on; they argue against confusing
   the two.
+  ⛔⛔ **A NEW AND STRONGER REASON NOT TO FLIP, found 2026-09-02**
+  (`docs/evidence/m3-freshness/FINDING-watcher-misses-new-files.md`): with the watcher running, a
+  MODIFIED tracked file reaches the graph but a **NEWLY CREATED file never does — not even after
+  `git add` + commit** — while `lastRunAt` advances on every edit and `lastError` stays `none`. A
+  graph that reports itself fresh with a whole file missing. Direct `graphIndex({force:false})` adds
+  new files correctly, so the gap is in the WATCHER path; the root cause is **not isolated** and no
+  fix was attempted. ⇒ Cost was never the real objection; **correctness is**.
+
   ⛔ **The default is NOT flipped. THREE blockers remain — one was retired 2026-09-02**
   (`docs/evidence/m3-freshness/FINDING-watcher-idle-cost.md`):
   ✅ the watcher's own IDLE cost — **measured 0.0 ms CPU and +4 KB RSS over 30 s with the watcher
