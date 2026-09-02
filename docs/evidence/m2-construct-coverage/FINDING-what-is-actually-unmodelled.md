@@ -56,3 +56,46 @@ the problem. Publishing it as an observation was.** Each check cost about four m
   wrong because of one. That remains M5's question.
 - **NOT covered:** `std::function` specifically (only a raw function pointer was tested), virtual
   dispatch, templates, and cross-language — the last is handled elsewhere, in the ambiguity path.
+
+---
+
+## Addendum 2026-09-02 — the SIXTH list item, cross-language, measured at last
+
+When the five constructs above were checked I wrote that cross-language is *"handled elsewhere, in
+the ambiguity path"*. That was an assertion from READING the code — the same move that produced
+three wrong sentences in this very document. Now measured, on a fixture with `applyGain` defined in
+both `src/audio.cpp` and `src/gain.glsl`:
+
+```
+UNDER TEST  applyGain   (C++ + GLSL)   ambiguous=true   crossLanguageNote=true   namesLanguages=true
+  - src::gain::applyGain          src/gain.glsl:2
+  - src::audio::audio::applyGain  src/audio.cpp:2
+CONTROL     sameLangDup (C++ only, twice)  ambiguous=true   crossLanguageNote=FALSE
+```
+
+⛔ **The control is what makes this mean anything.** A note that fired on every ambiguity would tell
+an agent nothing; it fires on the cross-language pair and stays silent on the same-language one.
+
+⇒ **Cross-language is DISCLOSED, not unmodelled** — so like `extern`-without-header it must NOT be
+added to the "NOT MODELLED" clause. Two of M2's six list items describe things this tool handles.
+⇒ Already guarded by `framing-not-data.test.js` and two others, so no new test was added. The claim
+was right; only the evidence for it was missing.
+
+### A cosmetic oddity, chased to the point where it stops mattering
+
+The C++ candidate displays as `src::audio::audio::applyGain` — module prefix `src.audio` plus
+namespace `audio`, doubled. `canonicalSymbolKey` strips the module prefix; `displaySymbolCandidate`
+does not, so the name shown differs from the identity resolved.
+
+**The decision-relevant question is whether the displayed name works when an agent retries with it**,
+because if it does not the refusal is a dead end — M1's exact failure. Measured, retrying with each
+string exactly as printed:
+
+```
+src::gain::applyGain          -> RESOLVED
+src::audio::audio::applyGain  -> RESOLVED
+```
+
+⇒ **Both resolve. No fix warranted.** Recorded so the next reader who notices the doubled segment
+does not re-investigate it, and so that if the retry ever stops resolving, this is the measurement it
+regressed against.
