@@ -6,7 +6,7 @@ import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { renderProvenanceTag } from '../renderer.js';
 import { computeCompileDbCoverage } from '../../code-intel/compile-db.js';
 import { getLatestCollection } from '../../code-intel/query.js';
@@ -267,7 +267,7 @@ ${scope}` : base) + unattestedNote;
     try {
       const trustEdges = incomingProvenance.map((row) => ({ provenance: row.provenance ?? 'EXTRACTED' }));
       headlineTrust = await buildTrustLine({ edges: trustEdges, db, repoRoot });
-    } catch { /* defensive — never block the preflight on trust-line failure */ }
+    } catch { headlineTrust = RESULTS_TRUST_UNAVAILABLE; }
 
     // Build output
     const lines = [];

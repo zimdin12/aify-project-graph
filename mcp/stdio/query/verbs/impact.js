@@ -7,7 +7,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { IMPACT_FAMILY } from '../../storage/taxonomy.js';
 import { noMatchMessage } from '../did-you-mean.js';
 
@@ -212,7 +212,9 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     let trustLine = '';
     try {
       trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
-    } catch { /* defensive — never block result on trust-line failure */ }
+    // ⛔ Still never BLOCKS the result — but no longer silent; see lsp-evidence.js
+    // RESULTS_TRUST_UNAVAILABLE.
+    } catch { trustLine = '\n' + RESULTS_TRUST_UNAVAILABLE; }
 
     return prefixReadWarnings(
       (rolledUp ? `${header}\n${body}` : body) + trustLine + confidenceFooter,

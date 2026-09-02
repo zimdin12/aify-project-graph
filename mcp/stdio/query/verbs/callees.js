@@ -6,7 +6,7 @@ import { enforceBudget } from '../budget.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { selectBestRoot } from './path.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
@@ -201,7 +201,9 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     let trustLine = '';
     try {
       trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, file: root?.file_path ?? null });
-    } catch { /* defensive — never block result on trust-line failure */ }
+    // ⛔ Still never BLOCKS the result — but no longer silent. An empty banner lets a partial caller
+    // set read as COMPLETE; see lsp-evidence.js RESULTS_TRUST_UNAVAILABLE.
+    } catch { trustLine = '\n' + RESULTS_TRUST_UNAVAILABLE; }
 
     // P2-1: turn "this set may be incomplete" into a POINTER. A callee list is
     // OUTGOING, which is exactly the direction the boundary scanner models — a

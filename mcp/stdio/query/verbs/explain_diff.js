@@ -23,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { openExistingDb } from '../../storage/db.js';
 import { inspectReadFreshness, attachReadWarnings } from './read_freshness.js';
 import { loadIntelligenceOverlays } from '../../intelligence/overlays.js';
-import { buildTrustLine, hasLspVerifiedEdge } from '../lsp-evidence.js';
+import { buildTrustLine, hasLspVerifiedEdge, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 
 // 1-hop incoming relations — same set graph_change_plan treats as "callers /
 // dependents that break when the target changes". Kept narrow on purpose:
@@ -320,7 +320,7 @@ export async function graphExplainDiff({ repoRoot, range, staged = false, files,
     let trustLine = '';
     try {
       trustLine = await buildTrustLine({ edges: affectedEdges, db, repoRoot });
-    } catch { /* defensive */ }
+    } catch { trustLine = RESULTS_TRUST_UNAVAILABLE; }
     const affectedIsHeuristic = !hasLspVerifiedEdge(affectedEdges);
 
     // 7. Optional diff-overlay.json for the dashboard (P2-2 blast-radius).

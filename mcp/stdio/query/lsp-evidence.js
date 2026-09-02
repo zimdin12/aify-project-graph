@@ -413,6 +413,21 @@ export const ABSENCE_TRUST_UNAVAILABLE =
   + ' UNVERIFIED and its scope is unknown. Do NOT read it as evidence of no callers; confirm with'
   + ' code_intel_references or rg before any delete or rename.';
 
+// ⛔ THE SAME DISCLOSURE FOR THE RESULTS PATH — a SECOND constant, deliberately.
+//
+// `ABSENCE_TRUST_UNAVAILABLE` says "do not read this as evidence of no callers", which is wrong on a
+// result that DID return edges. Reusing it would put absence wording on a non-empty answer, so the
+// preregistration allowed a second constant provided the reason was stated. This is the reason.
+//
+// Measured 2026-09-02 with buildTrustLine induced to throw: graph_callers returned
+// `EDGE use_helper→src::shapes::helper …` with NO trust statement at all. The banner is what carries
+// the FLOOR — that the set is heuristic and not exhaustive — so losing it silently lets a partial
+// caller list read as COMPLETE.
+export const RESULTS_TRUST_UNAVAILABLE =
+  'TRUST: UNAVAILABLE — the trust banner for this result could not be built, so its provenance and'
+  + ' completeness are unknown. Treat this set as a FLOOR, not an exhaustive list; confirm with'
+  + ' code_intel_references or rg before any delete or rename.';
+
 export async function buildAbsenceTrustLine({ noun = 'edges', db, language = null } = {}) {
   const scope = db ? spineScopeClause(db, noun) : '';
   // Zero bytes on a repo with no C/C++ — the 445-byte warning wall this project already had to tear

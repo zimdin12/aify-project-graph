@@ -5,7 +5,7 @@ import { enforceBudget } from '../budget.js';
 import { selectBestRoot } from './path.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { NEIGHBOR_FAMILY } from '../../storage/taxonomy.js';
 
 // graph_neighbors exposes EVERY relation in the registry — including the new
@@ -68,7 +68,9 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
     let trustLine = '';
     try {
       trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
-    } catch { /* defensive — never block result on trust-line failure */ }
+    // ⛔ Still never BLOCKS the result — but no longer silent; see lsp-evidence.js
+    // RESULTS_TRUST_UNAVAILABLE.
+    } catch { trustLine = '\n' + RESULTS_TRUST_UNAVAILABLE; }
 
     return prefixReadWarnings(
       body + trustLine,

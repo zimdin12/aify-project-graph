@@ -8,7 +8,7 @@ import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { loadManifest } from '../../freshness/manifest.js';
 import { computeTrustLevel } from './health.js';
 import { getUnresolvedCounts } from '../../freshness/unresolved-metrics.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { EXECUTION_FAMILY, CALL_FAMILY } from '../../storage/taxonomy.js';
 import { normalizePathArg } from '../../util/paths.js';
 import { noMatchMessage } from '../did-you-mean.js';
@@ -203,7 +203,9 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
         edges: mapped, db, repoRoot, truncated: edgesTruncated,
         file: targets?.[0]?.file_path ?? null,
       });
-    } catch { /* defensive — never block result on trust-line failure */ }
+    // ⛔ Still never BLOCKS the result — but no longer silent; see lsp-evidence.js
+    // RESULTS_TRUST_UNAVAILABLE.
+    } catch { trustLine = '\n' + RESULTS_TRUST_UNAVAILABLE; }
 
     // P0-4: state what the printed locations ARE. The Sand Castle field test
     // scored graph_callers 0/8 on a call-site census because its `file:line`

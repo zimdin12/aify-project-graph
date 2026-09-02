@@ -12,7 +12,7 @@ import { expandClassRollupTargets } from './target_rollup.js';
 import { buildAmbiguousMatchMessage, resolveSymbol } from './symbol_lookup.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
 import { getCodeIntelEvidenceForSymbol } from '../../code-intel/query.js';
-import { buildTrustLine } from '../lsp-evidence.js';
+import { buildTrustLine, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import { noMatchMessage } from '../did-you-mean.js';
 
 const SEARCH_TYPES = ['Function', 'Method', 'Class', 'Interface', 'Type', 'Test', 'Route', 'Entrypoint'];
@@ -316,7 +316,7 @@ export async function buildChangePlanWithContext(db, {
   let headlineTrust = '';
   try {
     headlineTrust = await buildTrustLine({ edges: incomingTrustEdges, db, repoRoot });
-  } catch { /* defensive — never block the plan on trust-line failure */ }
+  } catch { headlineTrust = RESULTS_TRUST_UNAVAILABLE; }
 
   const lines = [];
   lines.push(`CHANGE_PLAN ${root.label} ${(root.type ?? 'unknown').toLowerCase()} ${root.file_path}:${root.start_line}`);
