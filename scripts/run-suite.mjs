@@ -46,6 +46,31 @@ const headAtStart = (() => {
   } catch { return 'unknown'; }
 })();
 
+// ⛔ REFUSE TO RUN ON A TRACKED-DIRTY TREE.
+//
+// This script copies the finished log to a TRACKED path, so every completed run leaves the tree
+// dirty until that log is committed. Start the next run before committing and the suite measures a
+// dirty repo — `packet-snapshot-line.test.js` compares `git diff` against the packet's `dirty=` field
+// on the REAL repo and goes red. Observed 2026-09-02: run 1 left latest.log modified, run 2 failed
+// on exactly that, for a reason that had nothing to do with the code under test.
+//
+// The earlier fix stopped the log being written DURING a run. This closes the other half — the log
+// left over AFTER one. A self-inflicted red is worse than a missing check: it burns eleven minutes
+// and looks like a real defect.
+const trackedDirty = (() => {
+  try {
+    const unstaged = execFileSync('git', ['-C', REPO, 'diff', '--name-only'], { encoding: 'utf8' });
+    const staged = execFileSync('git', ['-C', REPO, 'diff', '--cached', '--name-only'], { encoding: 'utf8' });
+    return `${unstaged}${staged}`.split('\n').filter(Boolean);
+  } catch { return []; }
+})();
+if (trackedDirty.length > 0) {
+  console.error('REFUSED: the tree has tracked changes, so the suite would measure a dirty repo.');
+  for (const f of trackedDirty) console.error(`  M ${f}`);
+  console.error('\nCommit them first (the previous run\'s log is the usual culprit), then re-run.');
+  process.exit(2);
+}
+
 // Strip ANSI: no raw escape codes may reach a tracked file, and a stripped log stays greppable.
 const ANSI = /\x1b\[[0-9;]*m/g;
 const out = createWriteStream(SCRATCH);
