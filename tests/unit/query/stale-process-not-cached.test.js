@@ -117,7 +117,13 @@ describe('staleProcess is re-evaluated, not frozen at first call', () => {
     // about the tree.
     const mod = await import(`file://${join(root, 'mcp', 'stdio', 'server-build.js').replace(/\\/g, '/')}?t=${Date.now()}c`);
     const a = mod.serverBuildInfo();
-    await new Promise((r) => setTimeout(r, 5200));
+    // ⛔ THE SEAM IS RIGHT HERE, AND THE 5.2s SLEEP WAS NOT — the distinction is which property is
+    // under test. The test ABOVE asserts the verdict CACHE EXPIRES, so waiting out the real TTL is
+    // the assertion itself and it keeps its sleep. THIS test asserts only that immutable identity
+    // survives a RE-EVALUATION; it does not care what triggered one. `_resetServerBuildCache` exists
+    // for exactly that ("force the next call to re-derive instead of waiting out the TTL"), and the
+    // recompute it forces is the same code path the TTL expiry would reach.
+    mod._resetServerBuildCache();
     const b = mod.serverBuildInfo();
     expect(b.commit).toBe(a.commit);
     expect(b.startedAt).toBe(a.startedAt);
