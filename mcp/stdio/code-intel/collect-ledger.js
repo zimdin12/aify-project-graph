@@ -217,6 +217,56 @@ export function clearLedger(projectRoot) {
   try { fs.rmSync(ledgerPath(projectRoot), { force: true }); return true; } catch { return false; }
 }
 
+/**
+ * What to TELL a caller whose run was cut short by the budget.
+ *
+ * ⛔ THREE OUTCOMES, NOT TWO, AND THE THIRD WAS SAYING THE OPPOSITE OF WHAT HAPPENED. The provider
+ * chose between "a re-run continues" and "a re-run repeats" on whether a ledger was ACTIVE. With
+ * `filesProcessed === 0` a ledger is active and EMPTY, so a caller was told "the collected files
+ * are recorded; run again to CONTINUE from where this stopped" over nothing recorded and no
+ * stopping point — while the structured fields beside it correctly read `filesProcessed: 0` and
+ * `zeroFilesProcessed.reason: BUDGET_EXHAUSTED_BEFORE_FIRST_FILE`. One payload, disagreeing with
+ * itself, and the prose is the half an agent reads.
+ *
+ * ⚠ Measured 2026-09-03 on a 3-TU fixture: budgetMs 9000 gives the collect phase 5850ms; a ~2.9s
+ * clangd index wait leaves less than BUDGET_TAIL_RESERVE_MS (3000ms), so the per-file loop breaks
+ * on its first iteration having done nothing. Below roughly 6000ms this is the NORMAL outcome, not
+ * an edge case.
+ *
+ * ⇒ It lives here, as a pure function, because the partial-progress branch cannot be produced on
+ * demand with a real language server — that branch needs the budget to land inside a window a few
+ * hundred milliseconds wide, which is exactly the timing dependence that made two suite tests fail.
+ * A branch only reachable by luck is a branch nothing guards.
+ *
+ * ★ The retry advice is KEPT for the zero-progress case, because it is true: the clangd index
+ * persists across runs, so a re-run does start warmer. Only the claim of recorded progress was
+ * false, and the reliable remedy is named instead.
+ */
+export function budgetExhaustedMessage({
+  ledgerActive = false,
+  filesProcessed = 0,
+  filesTotal = 0,
+  budgetMs = null,
+  overall = '',
+} = {}) {
+  const progressClause = filesProcessed < filesTotal
+    ? `${filesProcessed}/${filesTotal} files done`
+    : 'index still warming';
+
+  if (!ledgerActive) {
+    return `partial: ${progressClause} within ${budgetMs}ms budget — this run used an explicit files[] scope,`
+      + ' so a re-run REPEATS these files rather than continuing. Pass the next chunk of files[] to make progress.';
+  }
+  if (filesProcessed === 0) {
+    return `partial: NO file completed within the ${budgetMs}ms budget — the clangd index wait consumed it,`
+      + ' so NOTHING was recorded and there is no point to resume from.'
+      + ' The index is now persisting, so a re-run starts warmer and may get further;'
+      + ` raising budgetMs is the reliable fix.${overall}`;
+  }
+  return `partial: ${progressClause} within ${budgetMs}ms budget — clangd index is now persisting and the collected files are recorded;`
+    + ` run graph_collect_code_intel again to CONTINUE from where this stopped (warm runs are ~fast).${overall}`;
+}
+
 // Split an enumerated file list into what still needs collecting and what a prior
 // run already covered. Only ever applied to an ENUMERATED list (scope=all/changed):
 // an explicit files[] request is the caller stating what they want, and must be

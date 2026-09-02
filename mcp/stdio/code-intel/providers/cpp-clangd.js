@@ -8,7 +8,7 @@ import { prepareCompileDb, enumerateFirstParty } from '../compile-db.js';
 import { buildClangdSpawn } from '../resolve-clangd.js';
 import { getHeadCommit } from '../../freshness/git.js';
 import { findIdentifierPosition, leafNameOf, isAnonymousSymbolName } from '../identifier-position.js';
-import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness, collectionComplete } from '../collect-ledger.js';
+import { readLedger, writeLedger, pendingFiles, graphEvidenceWitness, collectionComplete, budgetExhaustedMessage } from '../collect-ledger.js';
 import { admitLocations } from '../location-coherence.js';
 import { createDocumentSnapshot } from '../document-snapshot.js';
 
@@ -821,9 +821,6 @@ export function createCppClangdProvider({ spawn } = {}) {
         // P0-1: human/agent-readable resume note for the partial envelope.
         const notes = [];
         if (budgetExhausted) {
-          const progressClause = filesProcessed < filesTotal
-            ? `${filesProcessed}/${filesTotal} files done`
-            : 'index still warming';
           // The resume promise is now BACKED. It used to say "run again to
           // continue/complete" while the per-file loop restarted at index 0 with
           // nothing persisted — a warm redo, not a resume, which is how a 185-file
@@ -833,13 +830,26 @@ export function createCppClangdProvider({ spawn } = {}) {
           const overall = enumeratedTotal != null
             ? ` Overall ${resumedFrom + filesProcessed}/${enumeratedTotal} first-party files collected.`
             : '';
+          // ⛔ AND THE CONDITION WAS THE WRONG FACT. The comment above is right — claim
+          // continuation only when the ledger is RECORDING it — but `ledger` asks whether a ledger
+          // is active, not whether it holds anything. With `filesProcessed === 0` the ledger is
+          // active and EMPTY, so this told the caller "the collected files are recorded; run again
+          // to CONTINUE from where this stopped" over nothing recorded and no stopping point.
+          //
+          // Measured 2026-09-03 on a 3-TU fixture: budgetMs 9000 → collect slice 5850ms, a ~2.9s
+          // index wait, then the per-file loop breaks on its FIRST iteration because what remains
+          // is under BUDGET_TAIL_RESERVE_MS. Envelope: filesProcessed 0, ledger.collected [],
+          // zeroFilesProcessed.reason BUDGET_EXHAUSTED_BEFORE_FIRST_FILE — every structured field
+          // honest, and the prose beside them contradicting all of it.
+          //
+          // ⚠ The retry advice itself is NOT futile and is kept: the clangd index persists across
+          // runs, so a second run really does start warmer. What was false is the claim that this
+          // run recorded progress. Raising budgetMs is the reliable fix, so it is what we say.
           notes.push({
             code: 'budget_exhausted',
-            message: ledger
-              ? `partial: ${progressClause} within ${budgetMs}ms budget — clangd index is now persisting and the collected files are recorded;`
-                + ` run graph_collect_code_intel again to CONTINUE from where this stopped (warm runs are ~fast).${overall}`
-              : `partial: ${progressClause} within ${budgetMs}ms budget — this run used an explicit files[] scope, so a re-run REPEATS these files rather than continuing.`
-                + ' Pass the next chunk of files[] to make progress.'
+            message: budgetExhaustedMessage({
+              ledgerActive: Boolean(ledger), filesProcessed, filesTotal, budgetMs, overall,
+            }),
           });
         }
 
