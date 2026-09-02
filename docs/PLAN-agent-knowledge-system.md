@@ -170,7 +170,7 @@ extraction fell through to the old merge branch.
     regression controls both pass. ⛔ Splitting alone was NOT enough: the first working version
     printed two identical candidate bullets under a hint telling the agent to qualify harder, which
     no C++ program can do for an overload set. The parameter types are now in the candidate list.
-    See `docs/evidence/m1b-overloads/FINDING-param-list-key.md`; the older `FINDING.md` reached the
+    See `docs/evidence/m1b-overloads/FINDING-param-list-key.md`; the older `docs/evidence/m1b-overloads/FINDING.md` reached the
     opposite conclusion and is marked superseded in place.
 - **Ship (after repair):** ambiguity returns the qualified candidates WITH their caller sets.
   ⛔ **THIS BULLET CARRIED A ✅ FOR THE WRONG CLAIM until 2026-09-02.** It read "DONE for the
@@ -248,7 +248,7 @@ cannot follow a pointer), while clangd only sees what the compile database actua
 disagree in the safe direction: the code refuses the false claim even if this prose invites it.
 
 - Partially begun (`no_compile_db`, shape detectors on empty sets).
-- ✅ **LANDED (status corrected 2026-09-01) — `index.zeroFilesProcessed`.** In the tree at `mcp/stdio/code-intel/zero-files-reason.js`, wired into `collect_code_intel.js`, covered by three test files, nothing unpushed. The previous "IN FLIGHT, UNVERIFIED, NOT PUSHED" status was stale.** The collect path could
+- ✅ **LANDED (status corrected 2026-09-01) — `index.zeroFilesProcessed`.** In the tree at `mcp/stdio/code-intel/zero-files-reason.js`, wired into `mcp/stdio/query/verbs/collect_code_intel.js`, covered by three test files, nothing unpushed. The previous "IN FLIGHT, UNVERIFIED, NOT PUSHED" status was stale.** The collect path could
   return `status:'partial'` having collected nothing with no field saying why, so the integration
   test asserted `expected 0 to be greater than 0`: **the test and the product shared one ambiguous
   failure string**, and a starved clangd was indistinguishable from a broken graph join. The field
@@ -305,7 +305,7 @@ The machinery exists but is opt-in and partial.
 - **M3b:** ⚠ RENAMED `reconfirm_candidate`. "needs_reconfirm" overclaims: a structural fingerprint
   can prove an anchored span or file CHANGED; it cannot prove that what the anchor DOES changed.
   Only review, compiler or behaviour evidence may promote a candidate to semantic drift. ⚠ **STATUS CORRECTED 2026-09-01 against the evidence file this bullet cites.** Two things here
-  were stale. (1) The **52.9% figure is RETRACTED** in `GRANULARITY-FINDING.md` itself — it was a
+  were stale. (1) The **52.9% figure is RETRACTED** in `docs/evidence/needs-reconfirm/GRANULARITY-FINDING.md` itself — it was a
   model-derived proxy under an unstated edit model, not an observed false rate. What actually
   disqualifies per-file is STRUCTURAL: `structural_fingerprints` is keyed on `file_path`, so one
   changed file marks every symbol anchor in it indistinguishably (mean 4.3, median 3 symbols per
@@ -323,7 +323,7 @@ The machinery exists but is opt-in and partial.
   spread is median 3 / mean 4.3 / p90 9 / max 49 symbols per file. ⚠ That **CONFIRMS the figures
   already in this bullet rather than discovering them** — re-derivation from the artifact, not a
   new result.
-  ⭐ **What IS new, and it reframes M3b:** `ingest/fingerprint.js` hashes symbol shapes plus the
+  ⭐ **What IS new, and it reframes M3b:** `mcp/stdio/ingest/fingerprint.js` hashes symbol shapes plus the
   outgoing ref set and **deliberately excludes bodies** — its own header says a
   body-only/comment/whitespace/literal edit leaves the hash UNCHANGED. So flipping a comparison or
   changing a constant is invisible unless it also adds or removes a call. That is how a
@@ -342,7 +342,7 @@ The machinery exists but is opt-in and partial.
   first changed the question, and building (b) would not have unblocked anything.
   Evidence: `docs/evidence/m3-freshness/FINDING-m3b-does-not-earn-its-place.md`.
   - Even with the lineage built, a reconfirm would fire at **file granularity** (mean 4.3 symbols
-    per file) and would miss **behavioural** drift entirely — `ingest/fingerprint.js` excludes
+    per file) and would miss **behavioural** drift entirely — `mcp/stdio/ingest/fingerprint.js` excludes
     bodies by design, so a finer fingerprint does not help: the insensitivity is to BODIES, not to
     scope.
   - Against this plan's own purpose test, a signal that fires several times per real change AND
@@ -429,7 +429,7 @@ executing consumer is its own unit test. `scripts/ab-runner.mjs` — the harness
 the arms — scores with `ordered_contains`/`groups`, which measure **retrieval, not decision**.
 
 ⇒ **The blocker is WIRING, not rubric design**, and wiring costs no agent budget to build — only to
-run. `PREREGISTRATION.md`'s "the rubric is not settled" was true of the OLD retrieval harness and is
+run. `docs/evidence/m5-scale/PREREGISTRATION.md`'s "the rubric is not settled" was true of the OLD retrieval harness and is
 stale for the decision one.
 ⚠ Two things still open and NOT to be guessed at: the **budget** (4 repos × 3 tasks × 2 arms × 3
 repeats = 72 runs, Steven's call), and a **"tier B"** design the ground-truth key references which I
