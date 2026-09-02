@@ -28,7 +28,7 @@ import { computeTrustLevel } from './health.js';
 import { buildAmbiguousMatchMessage, resolveSymbolWithTotal } from './symbol_lookup.js';
 // Shared with the absence trust line, so the structured field and the prose sentence cannot drift.
 import { spineCoverage } from '../lsp-evidence.js';
-import { attachReadWarnings, inspectReadFreshness } from './read_freshness.js';
+import { attachReadWarnings, inspectReadFreshness, staleNotFoundCaveat } from './read_freshness.js';
 
 // Class names often appear multiple times — forward declarations in
 // headers + the definition body in a .cpp/.ts. Prefer non-header files
@@ -335,7 +335,13 @@ export async function graphConsequences({ repoRoot, target, symbol, receipt: rec
        LIMIT 10`, { t: input, p: `%/${input}` });
     const matches = [...symbolNodes, ...fileNodes];
     if (matches.length === 0) {
-      return `NO MATCH for "${input}". Try graph_search(query="${input}") to find similar names, or pass a repo-relative file path.`;
+      // ⛔ A NOT-FOUND IS A CLAIM. This verb HAND-ROLLS its NO MATCH rather than going through
+      // noMatchMessage, so the staleness caveat added to callers/callees/impact never reached it —
+      // found only by censusing the whole default surface instead of the verbs I had been editing.
+      return [
+        `NO MATCH for "${input}". Try graph_search(query="${input}") to find similar names, or pass a repo-relative file path.`,
+        staleNotFoundCaveat(freshness),
+      ].filter(Boolean).join('\n');
     }
 
     const matchedFiles = new Set(matches.map((n) => n.file_path).filter(Boolean));

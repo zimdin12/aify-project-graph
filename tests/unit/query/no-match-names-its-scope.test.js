@@ -27,19 +27,25 @@ import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 
 const ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 const ABSENT = 'definitelyNotIndexedSymbolXyz';
+// ⚠ THIS LIST GREW BY TWO, AND ONLY A WHOLE-SURFACE CENSUS FOUND THEM. graph_consequences and
+// graph_trace HAND-ROLL their own `NO MATCH` strings instead of calling noMatchMessage, so the fix
+// applied to callers/callees/impact never reached them. Three cycles of verb-by-verb fixing chose
+// its population by availability every time; driving all 16 listed verbs is what surfaced these.
 const ALL_TYPE_VERBS = [
   { verb: 'graph_callers', module: 'callers.js', fn: 'graphCallers' },
   { verb: 'graph_callees', module: 'callees.js', fn: 'graphCallees' },
   { verb: 'graph_impact', module: 'impact.js', fn: 'graphImpact' },
+  { verb: 'graph_consequences', module: 'consequences.js', fn: 'graphConsequences' },
+  { verb: 'graph_trace', module: 'trace.js', fn: 'graphTrace', extra: { from: ABSENT, to: `${ABSENT}2` } },
 ];
 const STALE_FACT = /behind HEAD|staleness could NOT be determined/i;
 
 let fresh;
 let stale;
 
-async function ask(repo, module, fn) {
+async function ask(repo, module, fn, extra = {}) {
   const mod = await import(`../../../mcp/stdio/query/verbs/${module}`);
-  return String(await mod[fn]({ repoRoot: repo, symbol: ABSENT }));
+  return String(await mod[fn]({ repoRoot: repo, symbol: ABSENT, ...extra }));
 }
 
 function makeRepo(name) {
@@ -83,7 +89,7 @@ describe('a NO MATCH names the population it searched', () => {
 
   for (const v of ALL_TYPE_VERBS) {
     it(`★★★ ${v.verb} ties its NO MATCH to index staleness when the index IS stale`, async () => {
-      const text = await ask(stale.repo, v.module, v.fn);
+      const text = await ask(stale.repo, v.module, v.fn, v.extra);
       expect(text, 'still a NO MATCH — otherwise this says nothing about the message').toContain('NO MATCH');
       expect(text, 'a bare NO MATCH reads as a fact about the REPOSITORY').toMatch(STALE_FACT);
     }, 120_000);
@@ -93,7 +99,7 @@ describe('a NO MATCH names the population it searched', () => {
       // the stale assertion while telling the reader nothing, and the standard the whereis work set
       // is explicit: "a generic 'results may be incomplete' costs the reader as much as a false
       // claim — they go and check either way."
-      const text = await ask(fresh.repo, v.module, v.fn);
+      const text = await ask(fresh.repo, v.module, v.fn, v.extra);
       expect(text).toContain('NO MATCH');
       // ⚠ A LIVE matcher, not a bare not.toMatch — the repo ratchets those down, and it caught me
       // on this exact shape two cycles ago. The canaries are real strings: the caveat's own wording

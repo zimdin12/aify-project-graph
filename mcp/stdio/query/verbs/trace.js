@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { openExistingDb } from '../../storage/db.js';
 import { resolveSymbol } from './symbol_lookup.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
-import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
+import { inspectReadFreshness, prefixReadWarnings, staleNotFoundCaveat } from './read_freshness.js';
 import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import {
   countGraphNodes,
@@ -313,14 +313,18 @@ export async function graphTrace({ repoRoot, from, to, max_hops = 7 }) {
   const db = openExistingDb(join(repoRoot, '.aify-graph', 'graph.sqlite'));
   try {
     const fromNodes = resolveSymbol(db, from);
-    if (fromNodes.length === 0) return `NO MATCH for from="${from}". Try graph_search(query="${from}").`;
+    // ⛔ THREE HAND-ROLLED NOT-FOUNDS. Like graph_consequences, this verb never routed through
+    // noMatchMessage, so the staleness caveat added to callers/callees/impact never reached it. A
+    // stale index makes any of these three a false claim about the repository.
+    const notFound = (msg) => [msg, staleNotFoundCaveat(freshness)].filter(Boolean).join('\n');
+    if (fromNodes.length === 0) return notFound(`NO MATCH for from="${from}". Try graph_search(query="${from}").`);
     const toNodes = resolveSymbol(db, to);
-    if (toNodes.length === 0) return `NO MATCH for to="${to}". Try graph_search(query="${to}").`;
+    if (toNodes.length === 0) return notFound(`NO MATCH for to="${to}". Try graph_search(query="${to}").`);
 
     // Path-proximity pairing for duplicate names (db enables the out-degree /
     // definition-preference tie-break so we don't anchor on a header decl).
     const pair = pickBestPair(fromNodes, toNodes, db);
-    if (!pair) return `NO MATCH — could not pair from="${from}" with to="${to}".`;
+    if (!pair) return notFound(`NO MATCH — could not pair from="${from}" with to="${to}".`);
     const fromNode = pair.from;
     const toNode = pair.to;
 
