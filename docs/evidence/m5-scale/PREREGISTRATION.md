@@ -86,7 +86,31 @@ verdict about the product.
 
 ## What is NOT preregistered here
 
-The rubric for "better decision" is not settled, and I am not inventing one to look complete. The
-existing `AB_TASKS` use `ordered_contains` against expected paths, which measures *retrieval*, not
-decision quality. Whether that is the right proxy is an open question and belongs in the
-authorisation conversation, not in this file.
+⛔ **THIS PARAGRAPH IS SUPERSEDED (2026-09-02) AND IT COST A CYCLE.** It read:
+
+> The rubric for "better decision" is not settled, and I am not inventing one to look complete. The
+> existing `AB_TASKS` use `ordered_contains` against expected paths, which measures *retrieval*, not
+> decision quality. Whether that is the right proxy is an open question and belongs in the
+> authorisation conversation, not in this file.
+
+Every sentence was true of the OLD retrieval harness, and the refusal to invent a rubric was right.
+**But a settled decision rubric was built afterwards and this file never learned of it**, so a
+reader — me, this morning — concludes the rubric is an open design question and starts building one.
+I proposed one, began implementing it in `scripts/ab-runner.mjs`, then found the better one already
+in the tree and withdrew the proposal. Left visible rather than deleted, because the wrong belief is
+what a future reader needs to recognise.
+
+**What actually exists:** `scripts/lib/ab-rubric.mjs` — blind to which arm produced a transcript,
+primary endpoint `unsafeAuthoritativeConclusion` three-valued (`true`/`false`/`ambiguous`) so it
+cannot fail open, verbs derived from the real 43-tool registry — with preregistered ground truth in
+`tests/fixtures/linkage-scope/ground-truth.json` (6 classes, `freezeRule`, `knownRouteGap`,
+`notReachedRule`) and `tests/unit/ab/rubric-cannot-fail-open.test.js` pinning the branches that must
+not resolve to "safe".
+
+⛔ **Nothing consumes it.** Verified across the whole repo including `await import()` forms: the only
+executing consumer is its own unit test. `scripts/ab-runner.mjs` still scores with
+`ordered_contains`/`groups`.
+
+⇒ **The open question is not "what rubric" but "wire the one we have".** That costs no agent budget
+to build — only to run. What remains genuinely unsettled: the **budget** (72 runs) and the **"tier
+B"** design this key references and I could not locate. Inventing that is the mistake recorded above.
