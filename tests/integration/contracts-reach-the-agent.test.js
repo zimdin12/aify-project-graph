@@ -23,10 +23,29 @@ import { fileURLToPath } from 'node:url';
 import { expectAbsentWithLiveMatcher } from '../helpers/live-matcher.js';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const SYM = 'alpha::Widget::render';
+
+// EVERY consumer of the M2 absence contract — derived from the callers of `buildAbsenceTrustLine`
+// (lsp-evidence.js:396), not a hand-picked sample. `consequences.js:1150` mentions it in a COMMENT
+// only and is deliberately not here.
+//
+// ⛔ graph_neighbors needs `edge_types: ['CALLS']`. Without it the symbol has structural CONTAINS and
+// DEFINES edges, the result is non-empty, and the absence branch never fires — the verb would look
+// "unreachable" when it had simply never been asked the question.
+const ABSENCE_CONSUMERS = Object.freeze([
+  { verb: 'graph_callers', noun: 'CALLERS', args: (repo) => ({ repo, symbol: SYM }) },
+  { verb: 'graph_callees', noun: 'CALLEES', args: (repo) => ({ repo, symbol: SYM }) },
+  { verb: 'graph_impact', noun: 'IMPACT', args: (repo) => ({ repo, symbol: SYM }) },
+  { verb: 'graph_neighbors', noun: 'NEIGHBORS', args: (repo) => ({ repo, symbol: SYM, edge_types: ['CALLS'] }) },
+  { verb: 'graph_trace', noun: 'NO STATIC PATH', args: (repo) => ({ repo, from: SYM, to: 'beta::Widget::render' }) },
+]);
+
 let repo;
 let ambiguous = '';
 let absence = '';
 let rpcError = null;
+let listed = new Set();
+let consumerText = new Map();
 
 function rpc(messages) {
   return new Promise((resolve, reject) => {
@@ -59,12 +78,18 @@ beforeAll(async () => {
     { jsonrpc: '2.0', id: 1, method: 'initialize', params: {} },
     { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'graph_index', arguments: { repo } } },
     { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'graph_callers', arguments: { repo, symbol: 'render' } } },
-    { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'graph_callers', arguments: { repo, symbol: 'alpha::Widget::render' } } },
+    { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'graph_callers', arguments: { repo, symbol: SYM } } },
+    { jsonrpc: '2.0', id: 5, method: 'tools/list', params: {} },
+    ...ABSENCE_CONSUMERS.map((c, i) => ({
+      jsonrpc: '2.0', id: 10 + i, method: 'tools/call', params: { name: c.verb, arguments: c.args(repo) },
+    })),
   ]);
   const byId = new Map(lines.map((l) => [l.id, l]));
   rpcError = byId.get(3)?.error ?? byId.get(4)?.error ?? null;
   ambiguous = textOf(byId.get(3));
   absence = textOf(byId.get(4));
+  listed = new Set((byId.get(5)?.result?.tools ?? []).map((t) => t.name));
+  consumerText = new Map(ABSENCE_CONSUMERS.map((c, i) => [c.verb, textOf(byId.get(10 + i))]));
 }, 180_000);
 
 afterAll(() => { if (repo) rmSync(repo, { recursive: true, force: true }); });
@@ -119,5 +144,46 @@ describe('what an agent receives through tools/call', () => {
     // "no callers in indexed scope" must be distinguishable from "no callers", with the scope NAMED.
     expect(absence).toContain('SCOPE:');
     expect(absence).toContain('NOT exhaustive');
+  });
+});
+
+describe('the absence contract reaches an agent from EVERY consumer, not just the one I picked', () => {
+  // The previous finding proved the contract arrives from graph_callers — the verb I happened to
+  // choose — and said so in its ceiling. M2 is recorded DONE with FIVE consumers, and "one consumer
+  // works" has been mistaken for "the contract is delivered" in this project before.
+  const MARKER = 'NOT MODELLED: a macro-generated call is invisible to BOTH tiers';
+
+  it('POSITIVE CONTROL: every consumer actually returned an ABSENCE', () => {
+    // The contract fires only on an empty result. A verb that returned edges was never asked the
+    // question, and calling its silence "unreachable" would be an artefact of the query, not a
+    // property of the product. This control caught exactly that: graph_neighbors first came back
+    // with CONTAINS/DEFINES edges.
+    for (const { verb, noun } of ABSENCE_CONSUMERS) {
+      expect(consumerText.get(verb), `${verb} did not produce an absence — it was never asked`)
+        .toContain(noun);
+    }
+  });
+
+  it('★★★ all five consumers carry the NOT MODELLED clause to the agent', () => {
+    const missing = ABSENCE_CONSUMERS
+      .filter(({ verb }) => !consumerText.get(verb)?.includes(MARKER))
+      .map(({ verb }) => verb);
+    expect(missing, 'a shipped contract that does not arrive is undelivered, not merely untested')
+      .toEqual([]);
+  });
+
+  it('SURFACE: the primary delete-decision consumer is in the listing an agent sees', () => {
+    // ⛔ TRANSPORT AND SURFACE ARE DIFFERENT NOUNS. tools/call reaches unlisted verbs, but a runtime
+    // that defers tools behind a search step reaches only what is LISTED. Measured 2026-09-02:
+    // graph_callees and graph_neighbors are callable and NOT in the default 16, so their (correct)
+    // contract is delivered in principle and undelivered in practice there.
+    //
+    // That gating is deliberate — "agents under-pick from big lists" — so the unlisted set is
+    // recorded in the finding rather than pinned here, where it would fight a legitimate change.
+    // What must hold is that the listing works and the primary consumer is in it.
+    expect(listed.size, 'an empty listing would score every verb unreachable for the wrong reason')
+      .toBeGreaterThan(0);
+    expect(listed.has('graph_callers'),
+      'the verb a delete decision routes through must be reachable in the default surface').toBe(true);
   });
 });
