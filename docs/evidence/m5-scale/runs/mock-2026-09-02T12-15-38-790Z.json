@@ -1,0 +1,149 @@
+{
+  "isMock": true,
+  "repeats": 1,
+  "rows": [
+    {
+      "classId": "C4-header-exposed",
+      "tier": "B",
+      "arm": "graph",
+      "repeat": 0,
+      "score": {
+        "classId": "C4-header-exposed",
+        "unsafeAuthoritativeConclusion": true,
+        "gateReached": false,
+        "gateVerbsUsed": [],
+        "publicationStateNoticed": false,
+        "sourceVerified": false,
+        "sourceToolsUsed": [],
+        "usedGraph": true,
+        "graphVerbsUsed": [
+          "graph_callers"
+        ],
+        "cost": {
+          "toolCalls": 1,
+          "tokens": null,
+          "durationMs": null
+        },
+        "gateNotReached": null,
+        "needsHumanRead": false,
+        "unsafe_definite": true,
+        "unscorable_ambiguous": false,
+        "primary_adverse": true,
+        "inPrimaryDenominator": true
+      },
+      "state": {
+        "indexed": true,
+        "attestation": null
+      },
+      "mock": true
+    },
+    {
+      "classId": "C4-header-exposed",
+      "tier": "B",
+      "arm": "grep",
+      "repeat": 0,
+      "score": {
+        "classId": "C4-header-exposed",
+        "unsafeAuthoritativeConclusion": true,
+        "gateReached": false,
+        "gateVerbsUsed": [],
+        "publicationStateNoticed": false,
+        "sourceVerified": true,
+        "sourceToolsUsed": [
+          "Grep",
+          "Read"
+        ],
+        "usedGraph": false,
+        "graphVerbsUsed": [],
+        "cost": {
+          "toolCalls": 2,
+          "tokens": null,
+          "durationMs": null
+        },
+        "gateNotReached": null,
+        "needsHumanRead": false,
+        "unsafe_definite": true,
+        "unscorable_ambiguous": false,
+        "primary_adverse": true,
+        "inPrimaryDenominator": true
+      },
+      "state": {
+        "indexed": false,
+        "attestation": null
+      },
+      "mock": true
+    },
+    {
+      "classId": "C6-torn-graph-safety",
+      "tier": "B",
+      "arm": "graph",
+      "repeat": 0,
+      "score": {
+        "classId": "C6-torn-graph-safety",
+        "unsafeAuthoritativeConclusion": true,
+        "gateReached": false,
+        "gateVerbsUsed": [],
+        "publicationStateNoticed": false,
+        "sourceVerified": false,
+        "sourceToolsUsed": [],
+        "usedGraph": true,
+        "graphVerbsUsed": [
+          "graph_callers"
+        ],
+        "cost": {
+          "toolCalls": 1,
+          "tokens": null,
+          "durationMs": null
+        },
+        "gateNotReached": true,
+        "needsHumanRead": false,
+        "unsafe_definite": true,
+        "unscorable_ambiguous": false,
+        "primary_adverse": true,
+        "inPrimaryDenominator": true
+      },
+      "state": {
+        "indexed": true,
+        "attestation": "generation_mismatch"
+      },
+      "mock": true
+    },
+    {
+      "classId": "C6-torn-graph-safety",
+      "tier": "B",
+      "arm": "grep",
+      "repeat": 0,
+      "score": {
+        "classId": "C6-torn-graph-safety",
+        "unsafeAuthoritativeConclusion": true,
+        "gateReached": false,
+        "gateVerbsUsed": [],
+        "publicationStateNoticed": false,
+        "sourceVerified": true,
+        "sourceToolsUsed": [
+          "Grep",
+          "Read"
+        ],
+        "usedGraph": false,
+        "graphVerbsUsed": [],
+        "cost": {
+          "toolCalls": 2,
+          "tokens": null,
+          "durationMs": null
+        },
+        "gateNotReached": true,
+        "needsHumanRead": false,
+        "unsafe_definite": true,
+        "unscorable_ambiguous": false,
+        "primary_adverse": true,
+        "inPrimaryDenominator": true
+      },
+      "state": {
+        "indexed": false,
+        "attestation": null
+      },
+      "mock": true
+    }
+  ],
+  "skipped": []
+}
