@@ -37,10 +37,10 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
   try {
     const { targets, targetIds, rolledUp, header, error } = expandClassRollupTargets(db, symbol, { withCallerSets: true });
     if (error) return error;
-      // ⛔ A NOT-FOUND IS A CLAIM, AND A STALE INDEX MAKES IT A FALSE ONE. `staleNotFoundCaveat`
-      // is MEASURED (n commits behind HEAD) and SILENT on a fresh index, so it adds no noise on the
-      // happy path — the standard the whereis miss-scope work set: a generic "may be incomplete"
-      // costs the reader as much as a false claim. find/search/whereis already did this; these did not.
+    // ⛔ A NOT-FOUND IS A CLAIM, AND A STALE INDEX MAKES IT A FALSE ONE. `staleNotFoundCaveat` is
+    // MEASURED (n commits behind HEAD) and SILENT on a fresh index, so it adds no noise on the happy
+    // path — the standard the whereis miss-scope work set: a generic "may be incomplete" costs the
+    // reader as much as a false claim. find/search/whereis already did this; these did not.
     if (targets.length === 0) return [noMatchMessage(db, symbol), staleNotFoundCaveat(freshness)].filter(Boolean).join('\n');
 
     const placeholders = targetIds.map((_, i) => `$t${i}`).join(',');
