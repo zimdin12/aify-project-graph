@@ -1,7 +1,29 @@
 import { defineConfig } from 'vitest/config';
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+// ⛔ EVERY TEST'S TEMP DIRECTORY LIVES INSIDE ONE PER-RUN ROOT THAT IS DELETED WHOLESALE.
+//
+// Measured 2026-09-02: 379,380 leaked directories in %TEMP%, 328,427 of them ours, ~26 GB,
+// accumulating since 2026-05-31 at roughly 2,000–4,000 per full suite run. Dozens of test files
+// call `mkdtempSync` and each relied on its own `afterAll`; the ones that forgot were invisible
+// because nothing checked. The volume eventually hit 100% and the suite died with ENOSPC.
+//
+// Node's `os.tmpdir()` reads TEMP/TMP (Windows) or TMPDIR (POSIX) at CALL time, so redirecting them
+// here relocates every `mkdtempSync(join(os.tmpdir(), …))` in every worker — and anything a spawned
+// child writes to its own temp dir, clangd included — without touching a single test file.
+//
+// ⇒ Computed at config-evaluation time because the value has to reach BOTH the worker `env` below
+// and the globalSetup teardown, which runs in this process.
+const RUN_TMP = join(tmpdir(), `apg-vitest-${process.pid}-${Date.now()}`);
+mkdirSync(RUN_TMP, { recursive: true });
+process.env.APG_TEST_TMP_ROOT = RUN_TMP;
 
 export default defineConfig({
   test: {
+    // Deletes RUN_TMP after the run, and prunes roots abandoned by a crashed one.
+    globalSetup: ['./tests/helpers/temp-root.global.js'],
     include: ['tests/**/*.test.js'],
     testTimeout: 30000,
     hookTimeout: 30000,
@@ -78,6 +100,15 @@ export default defineConfig({
     // The PRODUCT default is untouched at 2000ms — `live-budget-is-configurable.test.js` pins it in
     // a child process, because the constant resolves at module load and an in-process assertion
     // cannot tell a read environment from an ignored one.
-    env: { APG_PACKET_SEAL_STRICT: '1', APG_LIVE_BUDGET_MS: '8000' },
+    // TEMP/TMP/TMPDIR are all three set because os.tmpdir() consults a different one per platform,
+    // and the suite must behave identically on Windows and POSIX.
+    env: {
+      APG_PACKET_SEAL_STRICT: '1',
+      APG_LIVE_BUDGET_MS: '8000',
+      TEMP: RUN_TMP,
+      TMP: RUN_TMP,
+      TMPDIR: RUN_TMP,
+      APG_TEST_TMP_ROOT: RUN_TMP,
+    },
   },
 });
