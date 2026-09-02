@@ -114,6 +114,12 @@ describe('a result whose trust banner failed to build', () => {
     { verb: 'graph_neighbors', module: 'neighbors.js', fn: 'graphNeighbors', args: { symbol: CALLED }, answers: /EDGE/ },
     { verb: 'graph_change_plan', module: 'change_plan.js', fn: 'graphChangePlan', args: { symbol: CALLED }, answers: /CHANGE_PLAN/ },
     { verb: 'graph_preflight', module: 'preflight.js', fn: 'graphPreflight', args: { symbol: CALLED }, answers: /PREFLIGHT/ },
+    // ⛔ THE LAST SITE, and the one that exposed a defect. trace.js has ONE catch serving TWO calls:
+    // buildTrustLine when a path is found, buildAbsenceTrustLine when it is not. The absence branch
+    // was already covered by the sibling test; this drives the PATH-FOUND branch, where the wording
+    // must be the RESULTS one. My first version assigned the absence constant unconditionally, so a
+    // run that DID find a path was told "do not read this as evidence of no callers".
+    { verb: 'graph_trace (path found)', module: 'trace.js', fn: 'graphTrace', args: { from: 'use_helper', to: CALLED }, answers: /TRACE/ },
   ];
 
   for (const d of DRIVEN) {
@@ -121,6 +127,22 @@ describe('a result whose trust banner failed to build', () => {
       const { text } = await resultsUnderFault(d.module, d.fn, d.args);
       expect(text, `${d.verb} stopped answering — the fix must not block the verb`).toMatch(d.answers);
       expect(text, 'a set with no floor caveat reads as COMPLETE').toMatch(/TRUST: UNAVAILABLE/);
+      // ⛔ AND THE RIGHT NOUN. Absence wording on a result that DID return something is a claim
+      // about the wrong thing — the reason two constants exist rather than one.
+      //
+      // ⚠ A LIVE matcher, though the ratchet only counts `not.toMatch` and would not have caught a
+      // bare `not.toContain` here. Its REASONING applies identically: a bare negative passes whether
+      // the text is absent or the needle is a typo. The canaries are the two real constants, so this
+      // also proves the matcher can tell them apart.
+      expectAbsentWithLiveMatcher(
+        /evidence of no callers/,
+        {
+          forbidden: 'Do NOT read it as evidence of no callers; confirm with',
+          allowed: 'Treat this set as a FLOOR, not an exhaustive list',
+        },
+        text,
+        `${d.verb} used the ABSENCE wording on a non-empty result`,
+      );
     }, 90_000);
   }
 

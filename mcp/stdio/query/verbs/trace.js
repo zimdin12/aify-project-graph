@@ -23,7 +23,7 @@ import { openExistingDb } from '../../storage/db.js';
 import { resolveSymbol } from './symbol_lookup.js';
 import { scanDynamicBoundaries, renderDynamicBoundaries, readSymbolBody } from '../dynamic-boundaries.js';
 import { inspectReadFreshness, prefixReadWarnings } from './read_freshness.js';
-import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
+import { buildTrustLine, buildAbsenceTrustLine, ABSENCE_TRUST_UNAVAILABLE, RESULTS_TRUST_UNAVAILABLE } from '../lsp-evidence.js';
 import {
   countGraphNodes,
   getSourceBundleBudget,
@@ -358,7 +358,12 @@ export async function graphTrace({ repoRoot, from, to, max_hops = 7 }) {
         : await buildAbsenceTrustLine({ noun: 'path', db, repoRoot, language: fromNodes[0]?.language }));
     // ⛔ Still never BLOCKS on a trust-line failure — but no longer stays silent about it. An empty
     // string here shipped a bare "NO STATIC PATH", which reads as licence to change A.
-    } catch { trustLine = '\n\n' + ABSENCE_TRUST_UNAVAILABLE; }
+    //
+    // ⚠ AND THE NOUN FOLLOWS THE BRANCH. This catch serves BOTH calls above, and my first version
+    // assigned the ABSENCE wording unconditionally — so a run that DID find a path was told "do not
+    // read this as evidence of no callers", which is about the wrong thing entirely. Same wrong-noun
+    // class that produced the two constants in the first place.
+    } catch { trustLine = '\n\n' + (pathSteps ? RESULTS_TRUST_UNAVAILABLE : ABSENCE_TRUST_UNAVAILABLE); }
 
     return prefixReadWarnings(body + trustLine, freshness.warnings);
   } finally {
