@@ -85,8 +85,19 @@ under every profile including `full`** are callable at the protocol and unreacha
 that defers tools behind a search step.
 
 Dead hypothesis, recorded dead: the instructions advertise **0** verbs that are not registered.
-Open candidate for M4, not acted on: 4 of the default-16 (`graph_census`, `graph_dashboard`,
-`graph_trace`, `graph_explore`, 5,239 of 25,539 bytes) are never named in the routing text.
+
+⚠ **THE "4 NEVER-NAMED VERBS" LINE WAS TRUE AND MISLEADING — CORRECTED 2026-09-02**
+(`docs/evidence/surface-receipts/FINDING-never-named-is-not-unrouted.md`). The count replicates
+exactly (4 of the default-16; 5,239 of 25,512 bytes, 20.5%), but **the instructions are not the only
+routing surface**. Three of the four route themselves in their own `tools/list` description:
+`graph_trace` and `graph_explore` both open "PRIMARY for …", and `graph_census` routes via
+`graph_health`. Reading the count as "four verbs an agent gets no guidance on" is a slide from a
+textual claim to a semantic one, and would scope the work **4× too wide**.
+
+The actionable population is **one verb**: `graph_dashboard`, whose entire description is
+"Open the interactive graph browser. Returns {url, port}." — what it does, never when to reach for
+it, and an **interactive browser UI for a human** in a product whose stated users are agents.
+⛔ NOT acted on: M4 is HYPOTHESIS REFUTED / do NOT narrow, and a description read is not usage data.
 
 ### M0b — Identity qualification  ✅ DONE — THE CARRIER FAILED  `docs/evidence/identity-qualification/`
 
