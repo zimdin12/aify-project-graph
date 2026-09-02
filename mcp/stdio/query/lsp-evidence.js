@@ -23,6 +23,7 @@
 // already loaded by the verb plus the latest code_intel_collections row, so no
 // extra graph traversal is needed.
 
+import { uncommittedSourceClause } from './verbs/read_freshness.js';
 import { getLatestCollection } from '../code-intel/query.js';
 import { getHeadCommit } from '../freshness/git.js';
 import { computeCoverage } from '../code-intel/coverage.js';
@@ -428,14 +429,30 @@ export const RESULTS_TRUST_UNAVAILABLE =
   + ' completeness are unknown. Treat this set as a FLOOR, not an exhaustive list; confirm with'
   + ' code_intel_references or rg before any delete or rename.';
 
-export async function buildAbsenceTrustLine({ noun = 'edges', db, language = null } = {}) {
+export async function buildAbsenceTrustLine({ noun = 'edges', db, language = null, freshness = null } = {}) {
   const scope = db ? spineScopeClause(db, noun) : '';
   // Zero bytes on a repo with no C/C++ — the 445-byte warning wall this project already had to tear
   // out was unconditional prose, and the lesson was that a caveat everyone skims protects nobody.
   const constructs = constructCoverageClause(language);
+  // ⛔ "NO CALLERS" IS WHAT AN AGENT READS AS A DELETION LICENCE, and it was handing that licence
+  // out over its own uncommitted work.
+  //
+  // Measured 2026-09-03 through the verb, both populations, with a positive control in the same
+  // pass (a COMMITTED caller IS reported, so the zeros are measured rather than a broken query):
+  //   A. caller in an UNTRACKED file        -> NOTHING disclosed. The dirty-tree warning keys on
+  //                                            trackedDirty by design, so it cannot see this case.
+  //   B. caller in a MODIFIED TRACKED file  -> "working tree has 1 modified tracked file" appears,
+  //                                            but never says a CALLER could be in it.
+  //
+  // ⚠ THE GENERIC TRUST LINE ABOVE IS NOT A SUBSTITUTE, by this repo's own standard: "a generic
+  // 'results may be incomplete' costs the reader as much as a false claim — they go and check
+  // either way." Naming the file turns a doubt the reader must act on blindly into one they can
+  // resolve in a second. Silent when nothing uncommitted exists, so it costs zero on a clean tree.
+  const uncommitted = uncommittedSourceClause(freshness ?? {});
   return `TRUST: absence is from the heuristic graph and is NOT exhaustive — `
     + `for a trustworthy "no ${noun}" check use code_intel_references `
-    + `(live clangd, per-symbol evidence), or verify with rg.${scope}${constructs}`;
+    + `(live clangd, per-symbol evidence), or verify with rg.${scope}${constructs}`
+    + (uncommitted ? `\n${uncommitted}` : '');
 }
 
 // Build the single trust line for a result.

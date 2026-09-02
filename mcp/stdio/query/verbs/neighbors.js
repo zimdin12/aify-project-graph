@@ -43,7 +43,7 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
     // I1 — gate the absence claim on exhaustive evidence (see callers.js).
     if (edges.length === 0) {
       let line = '';
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'neighbors', db, repoRoot, language: targets[0]?.language }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'neighbors', db, repoRoot, freshness, language: targets[0]?.language }); }
       // ⛔ NOT an empty catch — see lsp-evidence.js ABSENCE_TRUST_UNAVAILABLE.
       catch { line = '\n' + ABSENCE_TRUST_UNAVAILABLE; }
       return prefixReadWarnings(

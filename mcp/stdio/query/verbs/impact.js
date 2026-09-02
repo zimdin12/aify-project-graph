@@ -102,7 +102,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     // non-exhaustive caveat unless fresh index-ready clangd evidence backs it.
     if (edges.length === 0 && overrideEdges.length === 0) {
       let line = '';
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'impact', db, repoRoot, language: targets[0]?.language }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'impact', db, repoRoot, freshness, language: targets[0]?.language }); }
       // ⛔ NOT an empty catch — see lsp-evidence.js ABSENCE_TRUST_UNAVAILABLE.
       catch { line = '\n' + ABSENCE_TRUST_UNAVAILABLE; }
       return prefixReadWarnings(

@@ -359,7 +359,7 @@ export async function graphTrace({ repoRoot, from, to, max_hops = 7 }) {
     try {
       trustLine = '\n\n' + (pathSteps
         ? await buildTrustLine({ edges: trustEdges, db, repoRoot })
-        : await buildAbsenceTrustLine({ noun: 'path', db, repoRoot, language: fromNodes[0]?.language }));
+        : await buildAbsenceTrustLine({ noun: 'path', db, repoRoot, freshness, language: fromNodes[0]?.language }));
     // ⛔ Still never BLOCKS on a trust-line failure — but no longer stays silent about it. An empty
     // string here shipped a bare "NO STATIC PATH", which reads as licence to change A.
     //

@@ -86,7 +86,7 @@ export function staleNotFoundCaveat(freshness) {
  * observed; saying nothing is honest, and the stale===null branch above already tells the reader
  * that a check did not happen.
  */
-function uncommittedSourceClause(freshness) {
+export function uncommittedSourceClause(freshness) {
   const files = freshness.uncommittedSources;
   // ⛔ null IS A MEASUREMENT THAT FAILED, AND IT USED TO READ AS SILENCE. A mutant that made an
   // unobserved tree report `[]` instead of `null` SURVIVED the first version of this test file,

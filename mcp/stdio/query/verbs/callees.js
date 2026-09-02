@@ -123,7 +123,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
         remedy: 'graph_neighbors shows every relation on this symbol, in both directions.',
       });
       let line = '';
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callees', db, repoRoot, language: sources[0]?.language }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callees', db, repoRoot, freshness, language: sources[0]?.language }); }
       // ⛔ NOT an empty catch — see lsp-evidence.js ABSENCE_TRUST_UNAVAILABLE.
       catch { line = '\n' + ABSENCE_TRUST_UNAVAILABLE; }
       return prefixReadWarnings(msg + line + scope, freshness.warnings);
