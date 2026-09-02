@@ -85,3 +85,43 @@ I have not read the full rubric implementation or run it against any transcript,
 designed the runner. Whether the wiring is a small job or a large one is UNMEASURED — the
 ground-truth key references a "tier B" whose design I have not located, and inventing one would be
 the same mistake this document already records once.
+
+---
+
+## ⛔ CORRECTION 2026-09-02 — "a tier B design I could not locate" WAS FALSE, and I used it to not build
+
+I wrote that the wiring was blocked on a **"tier B" design the ground-truth key references and I
+could not locate**, and repeated it as a reason to leave M5 untouched. It is wrong. I asserted it
+from a shallow grep and never opened the fixture directory.
+
+**`tier` is a PER-CLASS FIELD, not a missing document:**
+
+```
+A  PURPOSE-BUILT QUALIFICATION (C1,2,3,5) — can the rule distinguish the mechanisms at all?
+   "Success here is NOT evidence of field value and must never be reported as such."
+B  REAL PINNED SNAPSHOTS (C4,6) — the product-value estimate: route, adoption, decision utility.
+analysisRule: report per tier, per class, per runtime. NEVER average synthetic and real into one
+   "X% better" headline.
+```
+
+**And everything the experiment needs is already in the tree:**
+
+| piece | where | state |
+|---|---|---|
+| corpus | `tests/fixtures/linkage-scope/corpus/` | 7 C++ files present |
+| exact prompts | `tests/fixtures/linkage-scope/prompts.json` | present, with a LEAK RULE and 19 forbidden words |
+| ground truth | `tests/fixtures/linkage-scope/ground-truth.json` | 6 classes: symbol, files, question, truth, `cheapestAuthoritativeRoute`, `graphShouldWin`, `unsafeAnswer`, tier |
+| rubric | `scripts/lib/ab-rubric.mjs` | blind, three-valued, verbs from the real registry |
+| analysis rule | the `tiers` block | present |
+| **runner** | — | **THE ONLY MISSING PIECE** |
+
+⇒ **The blocker was mine, not the repo's.** This is the same defect I corrected in the plan's M3b
+bullet hours earlier — *naming a blocker without checking it*, which stops work at the wrong place.
+I did it to myself, in the document that records me doing it to the plan.
+
+⇒ **Building the runner costs NO agent budget.** Only running it does. The budget question is
+genuinely Steven's; the wiring never was.
+
+⚠ Still not established: whether `graphShouldWin` per class matches reality — that is what the run
+measures, and 4 of 6 classes say the graph should NOT win, which is what makes this key credible
+rather than flattering.
