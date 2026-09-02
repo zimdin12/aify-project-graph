@@ -68,6 +68,12 @@ instrument already works certifies nothing.**
 
 ## Ceiling
 
+- ⭐ **SHARPENED 2026-09-02 by measurement** (`FINDING-tearing-contrast.md`): a verb that opens the
+  publication door does **not** thereby change what it says when the graph is torn. `graph_callers`
+  consumes publication state and is byte-identical under tearing. This census bounds which verbs
+  *could* be moved by a publication-state treatment; only a contrast shows which actually **are**.
+  The negative column keeps its full force — a verb with no door cannot change under tearing — so the
+  `knownRouteGap` conclusion below is unaffected.
 - This is a **consumption census by door**, not a dataflow proof. It shows a consuming verb *opens*
   the door; it does not show that every code path inside that verb renders what comes through it.
 - The **negative column is the sound claim**: a verb with no door cannot render the state, so a
