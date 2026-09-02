@@ -49,16 +49,34 @@ describe('the report never averages tier A with tier B', () => {
     process.env.APG_LINKAGE_RUNNER_NO_MAIN = '1';
     const { buildReport } = await import('../../../scripts/linkage-scope-runner.mjs');
     const rows = [
-      { classId: 'C1', tier: 'A', arm: 'graph', score: { unsafeAuthoritativeConclusion: true, gateReached: false, sourceVerified: false } },
-      { classId: 'C4', tier: 'B', arm: 'graph', score: { unsafeAuthoritativeConclusion: false, gateReached: true, sourceVerified: true } },
+      { classId: 'C1', tier: 'A', arm: 'graph', runtime: 'claude-code', score: { unsafeAuthoritativeConclusion: true, gateReached: false, sourceVerified: false } },
+      { classId: 'C4', tier: 'B', arm: 'graph', runtime: 'claude-code', score: { unsafeAuthoritativeConclusion: false, gateReached: true, sourceVerified: true } },
     ];
     const out = buildReport(rows);
     expect(Object.keys(out).sort()).toEqual(['A', 'B']);
-    expect(out.A.C1.graph.unsafe).toBe(1);
-    expect(out.B.C4.graph.refused).toBe(1);
+    expect(out.A.C1['claude-code'].graph.unsafe).toBe(1);
+    expect(out.B.C4['claude-code'].graph.refused).toBe(1);
     // The shape itself is the guarantee: there is no key that could hold a pooled figure.
     expect(out).not.toHaveProperty('all');
     expect(out).not.toHaveProperty('total');
+  });
+
+  it('⛔ two RUNTIMES are never pooled either — "Hermes and Claude Code reported separately"', async () => {
+    // Pooling runtimes is the same defect as averaging tiers, one level down, and it is INVISIBLE in
+    // the output: a pooled cell looks exactly like a single-runtime cell with more runs. Only the
+    // shape can rule it out.
+    process.env.APG_LINKAGE_RUNNER_NO_MAIN = '1';
+    const { buildReport } = await import('../../../scripts/linkage-scope-runner.mjs');
+    const out = buildReport([
+      { classId: 'C4', tier: 'B', arm: 'graph', runtime: 'claude-code', score: { unsafeAuthoritativeConclusion: true, gateReached: true, sourceVerified: true } },
+      { classId: 'C4', tier: 'B', arm: 'graph', runtime: 'hermes', score: { unsafeAuthoritativeConclusion: false, gateReached: false, sourceVerified: false } },
+    ]);
+    expect(Object.keys(out.B.C4).sort()).toEqual(['claude-code', 'hermes']);
+    expect(out.B.C4['claude-code'].graph.runs).toBe(1);
+    expect(out.B.C4.hermes.graph.runs).toBe(1);
+    // The decisive assertion: neither cell absorbed the other's verdict.
+    expect(out.B.C4['claude-code'].graph.unsafe).toBe(1);
+    expect(out.B.C4.hermes.graph.unsafe).toBe(0);
   });
 
   it('POSITIVE CONTROL: an ambiguous verdict is counted, not dropped', async () => {
@@ -67,9 +85,9 @@ describe('the report never averages tier A with tier B', () => {
     process.env.APG_LINKAGE_RUNNER_NO_MAIN = '1';
     const { buildReport } = await import('../../../scripts/linkage-scope-runner.mjs');
     const out = buildReport([
-      { classId: 'C3', tier: 'A', arm: 'grep', score: { unsafeAuthoritativeConclusion: 'ambiguous', gateReached: false, sourceVerified: true } },
+      { classId: 'C3', tier: 'A', arm: 'grep', runtime: 'mock', score: { unsafeAuthoritativeConclusion: 'ambiguous', gateReached: false, sourceVerified: true } },
     ]);
-    expect(out.A.C3.grep.ambiguous).toBe(1);
-    expect(out.A.C3.grep.runs).toBe(1);
+    expect(out.A.C3.mock.grep.ambiguous).toBe(1);
+    expect(out.A.C3.mock.grep.runs).toBe(1);
   });
 });

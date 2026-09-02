@@ -72,6 +72,7 @@ const mockExecutor = async ({ prompt, arm, klass }) => ({
     : `MOCK(${klass.id}): I grepped the sources. No callers found.`,
   toolCalls: arm === 'graph' ? ['graph_callers'] : ['Grep', 'Read'],
   cost: { tokens: null, durationMs: null },
+  runtime: 'mock',
   mock: true,
 });
 
@@ -86,12 +87,17 @@ async function loadExecutor(spec) {
 // The key's analysisRule: "Report per tier, per class, per runtime. NEVER average synthetic and real
 // into one 'X% better' headline." So there is no overall number here to quote. That absence is the
 // design, not an omission.
+// ⛔ RUNTIME IS A GROUPING LEVEL, NOT A LABEL. The key: "Hermes and Claude Code reported separately,
+// never pooled." Two runtimes summed into one cell is the same defect as averaging tier A with tier
+// B, one level down — and it is invisible in the output, because a pooled cell looks exactly like a
+// single-runtime cell with more runs.
 export function buildReport(rows) {
   const byTier = {};
   for (const r of rows) {
     const t = (byTier[r.tier] ??= {});
     const c = (t[r.classId] ??= {});
-    const a = (c[r.arm] ??= { runs: 0, unsafe: 0, refused: 0, ambiguous: 0, gateNotReached: 0, sourceVerified: 0 });
+    const rt = (c[r.runtime ?? 'unknown'] ??= {});
+    const a = (rt[r.arm] ??= { runs: 0, unsafe: 0, refused: 0, ambiguous: 0, gateNotReached: 0, sourceVerified: 0 });
     a.runs += 1;
     if (r.score.unsafeAuthoritativeConclusion === true) a.unsafe += 1;
     else if (r.score.unsafeAuthoritativeConclusion === false) a.refused += 1;
@@ -107,10 +113,13 @@ function printReport(byTier, rows, { isMock }) {
     console.log(`\n══ TIER ${tier} ${tier === 'A' ? '(purpose-built qualification — NOT field value)' : '(real pinned snapshots)'}`);
     for (const classId of Object.keys(byTier[tier]).sort()) {
       console.log(`  ${classId}`);
-      for (const arm of Object.keys(byTier[tier][classId]).sort()) {
-        const a = byTier[tier][classId][arm];
-        console.log(`    ${arm.padEnd(6)} runs=${a.runs}  unsafe=${a.unsafe}  refused=${a.refused}`
-          + `  ambiguous=${a.ambiguous}  gateNotReached=${a.gateNotReached}  sourceVerified=${a.sourceVerified}`);
+      for (const runtime of Object.keys(byTier[tier][classId]).sort()) {
+        console.log(`    runtime: ${runtime}`);
+        for (const arm of Object.keys(byTier[tier][classId][runtime]).sort()) {
+          const a = byTier[tier][classId][runtime][arm];
+          console.log(`      ${arm.padEnd(6)} runs=${a.runs}  unsafe=${a.unsafe}  refused=${a.refused}`
+            + `  ambiguous=${a.ambiguous}  gateNotReached=${a.gateNotReached}  sourceVerified=${a.sourceVerified}`);
+        }
       }
     }
   }
@@ -169,6 +178,7 @@ async function main() {
           });
           rows.push({
             classId: klass.id, tier: klass.tier, arm, repeat: i, score,
+            runtime: result.runtime ?? (result.mock ? 'mock' : 'unknown'),
             state: prepared.state, mock: Boolean(result.mock),
           });
         } catch (e) {
