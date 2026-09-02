@@ -440,16 +440,29 @@ dispositions were graded; interview and cost evidence is n=3.
 
 ## Order (revised with review, agreed)
 
+⚠ **STATUS COLUMN ADDED 2026-09-02.** Six of these eight rows carried NO status while their own
+sections recorded closed work — the at-a-glance table contradicted every section beneath it, and it
+is the part of this document a reader sees first. Re-derived from the artifacts, not from recall.
+
 ```
 M0a actual runtime/profile surface receipts   | DONE
 M0b no-agent scale/identity qualification     | DONE — carrier FAILED
-M1a identity contract
-M1b bounded per-identity answers
-M2  action/absence contracts
-M3  freshness/reconfirmation
-M4  wider-task surface experiment
-M5  expensive scale A/B
+M1a identity contract                         | DONE  (caller sets disjoint, JS + C++)
+M1b bounded per-identity answers              | DONE  (overloads split; refusal carries caller sets)
+M2  action/absence contracts                  | DONE  (scope + construct coverage, 5 consumers)
+M3  freshness/reconfirmation                  | ANSWERED, NOT BUILT
+                                              |   M3a cost objection REFUSED; default NOT flipped
+                                              |   M3b dispositioned: scope to structural, or drop
+M4  wider-task surface experiment             | HYPOTHESIS REFUTED — do NOT narrow
+M5  expensive scale A/B                       | BLOCKED — budget (72 runs) + a "tier B" design
 ```
+
+⇒ **M5 is the only row that can still move, and it cannot move here.** The plan's own stop condition
+is now live: M1 and M2 have shipped, so what remains is to find out whether a graph-armed agent
+actually beats a grep-armed one at scale — and to say so plainly if it does not.
+⚠ Every DONE above is measured on fixtures and this repo. None of it establishes prevalence in real
+C++, and none of it shows a decision changed at scale. That is the single thing M5 exists to supply,
+and the reason no row above should be read as evidence the product works.
 
 Not "M5 first" in the expensive sense. It is: prove the substrate and the measurement population
 before adding another identity layer on top of a heuristic one.
