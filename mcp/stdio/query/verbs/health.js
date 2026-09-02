@@ -1869,7 +1869,18 @@ export async function graphHealth({ repoRoot }) {
       }
       : {
         dirtyFilesNote: dirtyFiles.length > 0
-          ? `${dirtyFiles.length} dirty file(s), none of them tracked by git — untracked build/backup residue, so the names are omitted. Nothing tracked has moved under the snapshot.`
+          // ⛔ IT USED TO CALL THEM "untracked build/backup residue" — a claim about what these
+          // files ARE, made without looking at one of them. Measured 2026-09-03: an agent that
+          // writes three new SOURCE files and has not committed them yet lands in exactly this
+          // branch and is told its own work is residue, with the names withheld.
+          //
+          // ⚠ AND THE ACTIONABLE FACT WAS MISSING. Untracked files are deliberately NOT indexed by
+          // an incremental run (`shouldDeferUntrackedFreshness`), so those three files are absent
+          // from the graph — and a query about one answers a bare `NO MATCH`. "trust: strong" with
+          // a new source file invisible is exactly the shape this verb exists to prevent.
+          //
+          // Names stay omitted: that part was right, an untracked set can run to thousands.
+          ? `${dirtyFiles.length} dirty file(s), none of them tracked by git — names omitted because an untracked set is often build output and can run to thousands. ⚠ UNTRACKED FILES ARE NOT INDEXED until committed, so a source file you have just created is counted here and is NOT in the graph; commit it, or run graph_index({ force: true }), before asking about it. Nothing tracked has moved under the snapshot.`
           : undefined,
       }),
     dirtyFilesTotal: dirtyFiles.length,

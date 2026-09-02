@@ -19,6 +19,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { openDb } from '../../../mcp/stdio/storage/db.js';
+import { expectAbsentWithLiveMatcher } from '../../helpers/live-matcher.js';
 import { graphHealth } from '../../../mcp/stdio/query/verbs/health.js';
 
 describe('graph_health response stays bounded', () => {
@@ -68,6 +69,38 @@ describe('graph_health response stays bounded', () => {
     // And the omission must announce itself — an absent list is otherwise
     // indistinguishable from a clean tree.
     expect(h.dirtyFilesNote).toMatch(/none of them tracked by git/);
+  });
+
+  it('★★★ the note does not say what the untracked files ARE, and does say they are not indexed', async () => {
+    // ⛔ THE NOTE USED TO CALL THEM "untracked build/backup residue". Measured
+    // 2026-09-03: an agent that writes new SOURCE files and has not committed them
+    // yet lands in this exact branch — nothing tracked dirty, everything untracked —
+    // and was told its own work was residue. The verb had not looked at one of them.
+    //
+    // So this fixture is deliberately MIXED: 300 real backup files AND a source file
+    // the agent just wrote. Any note that characterises this population is wrong
+    // about half of it.
+    writeFileSync(join(repo, 'src', 'just-written.js'), 'export function justWritten(){return 1;}\n');
+    const h = await graphHealth({ repoRoot: repo });
+    expect(h.trackedDirtyFiles, 'precondition: still nothing tracked is dirty').toEqual([]);
+
+    expectAbsentWithLiveMatcher(
+      /\bresidue\b/i,
+      { forbidden: 'untracked build/backup residue, so the names are omitted',
+        allowed: 'names omitted because an untracked set is often build output' },
+      h.dirtyFilesNote,
+      'the note asserts what these files are, having inspected none of them',
+    );
+
+    // ⚠ AND THE ACTIONABLE FACT MUST BE THERE. The truth this rests on — a brand-new
+    // untracked file is deliberately NOT indexed by an incremental run — is pinned by
+    // tests/unit/freshness/untracked-deferral-scope.test.js against a real index. This
+    // test is only the disclosure: without it, "trust: strong" is the whole message an
+    // agent gets while the file it just wrote is absent from the graph.
+    expect(h.dirtyFilesNote, 'an agent cannot act on a count alone')
+      .toMatch(/NOT INDEXED/i);
+    expect(h.dirtyFilesNote, 'and it must say what to do about it')
+      .toMatch(/commit|force/i);
   });
 
   it('★ with TRACKED files dirty, the capped list comes back', async () => {
