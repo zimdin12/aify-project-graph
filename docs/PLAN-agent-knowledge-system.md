@@ -283,6 +283,22 @@ disagree in the safe direction: the code refuses the false claim even if this pr
 
 The machinery exists but is opt-in and partial.
 
+⛔⛔⛔ **READ THIS BEFORE ANY M3a WORK — THE QUESTION BELOW IS MALFORMED.**
+`docs/evidence/m3-freshness/FINDING-m3a-debated-an-unreachable-flag.md` (2026-09-03, positive control
+in the same pass): **`APG_AUTO_SYNC` has no production consumer.** `startAutoSync` is imported only by
+its own tests and two probes; the MCP server never calls it and nothing starts a watcher at boot. So
+"should it default on" has no default to flip, and all four blockers filed under it were gating a
+decision that could have no effect.
+⚠ The MEASUREMENTS still stand — the probes drove the real `startWatcher` and the real `ensureFresh`,
+which is the same watcher `graph_watch` uses. It is the FRAMING that is void.
+⇒ The real questions, none of them answered:
+  1. Should `graph_watch` be in the default listed set? It is the only agent-reachable freshness
+     control, and it is absent from `DEFAULT_TOOL_NAMES` — an agent reaches it only by knowing the
+     name. (⚠ M4 measured that listing does not govern reach, so this is a question, not a verdict.)
+  2. Is the git-hook path enough alone? It is the only AUTOMATIC mechanism and it fires on commit, so
+     an agent editing without committing works against a stale graph whatever any watcher default says.
+  3. Should `startAutoSync` be wired, or deleted? Tested module, no caller. FILED, not fixed.
+
 - **M3a:** ⏸ **STILL HELD, but the COST objection is now refused rather than open.** Measured
   2026-09-02 in the state that matters — HEAD unchanged, bytes dirty mid-edit — over three
   interleaved repeats: cosmetic **313 ms**, body-only **36 ms**, signature change **42 ms**, added
