@@ -63,12 +63,17 @@ afterEach(async () => {
   if (repo) await rm(repo, { recursive: true, force: true });
 });
 
-const firstSentence = (text) => String(text).split('\n')[0];
+// ⛔ LOCATE THE CLAIM; DO NOT ASSUME IT IS LINE 0. Measured while writing this test: on a DIRTY tree
+// `prefixReadWarnings` puts "SNAPSHOT WARNINGS" above everything, so the absence headline is NOT the
+// first line. The property under test is that the scope sits in the SAME SENTENCE as the claim, not
+// that the claim comes first — the positional version would have passed on this clean fixture and
+// said nothing about the tree an agent actually works in.
+const claimLine = (text) => String(text).split('\n').find((l) => /NO CALLERS/.test(l)) ?? '';
 
 describe('the NO CALLERS headline carries its own scope', () => {
-  it('★★★ the FIRST LINE names the indexed scope and its limit', async () => {
+  it('★★★ the CLAIM SENTENCE names the indexed scope and its limit', async () => {
     const out = String(await graphCallers({ repoRoot: repo, symbol: 'orphan' }));
-    const head = firstSentence(out);
+    const head = claimLine(out);
 
     // Fixture precondition: this must actually be the absence shape, or the assertions describe
     // something else. Bucket by the shape OBSERVED, never the shape intended.
@@ -86,7 +91,7 @@ describe('the NO CALLERS headline carries its own scope', () => {
     // shape before: a guard that fired correctly and also deleted real edges.
     const out = String(await graphCallers({ repoRoot: repo, symbol: 'hub' }));
     expect(out, 'the caller set must still be returned').toMatch(/hubCaller/);
-    expect(firstSentence(out), 'a result is not an absence').not.toMatch(/NO CALLERS/);
+    expect(claimLine(out), 'a result is not an absence').toBe('');
   }, 60_000);
 
   it('★★ the scope fact appears ONCE, not twice', async () => {

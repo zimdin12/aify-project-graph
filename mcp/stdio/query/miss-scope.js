@@ -149,13 +149,34 @@ export function missScopeNote(db, { types, what = 'declaration types' } = {}) {
  * ⚠ SILENT ON AN UNREADABLE COUNT, never "0 files": a failed query must not render as a measured
  * empty graph.
  */
-export function indexedScopeClause(db, { brief = false } = {}) {
-  if (!db) return '';
-  let files = null;
+// ⭐ THE COUNT HAS ONE OWNER, AND CALLERS THAT WANT THE NUMBER TAKE IT FROM HERE.
+//
+// `graph_callers` now states the scope in its HEADLINE rather than in the clause below, and the
+// obvious way to do that — a second `SELECT COUNT(*) ... WHERE type = 'File'` in callers.js — is the
+// mistake this project made three times in one evening: writing a helper that already existed.
+// Two counts of one population drift, and the drift is invisible because both look plausible.
+//
+// ⚠ `null` MEANS "COULD NOT COUNT" AND IS NOT ZERO. A failed COUNT must never become
+// "INDEXED SCOPE: 0 files", which reads as a measured empty graph. Both consumers below must treat
+// null as "say nothing" rather than as a number.
+export function indexedFileCount(db) {
+  if (!db) return null;
   try {
-    files = db.get(`SELECT COUNT(*) AS c FROM nodes WHERE type = 'File'`)?.c ?? null;
-  } catch { return ''; }
-  if (typeof files !== 'number' || files <= 0) return '';
+    const files = db.get(`SELECT COUNT(*) AS c FROM nodes WHERE type = 'File'`)?.c ?? null;
+    return (typeof files === 'number' && files > 0) ? files : null;
+  } catch { return null; }
+}
+
+/** The scope fact as a HEADLINE fragment: "in 939 indexed files (not the whole repository)". */
+export function indexedScopePhrase(db) {
+  const files = indexedFileCount(db);
+  if (files === null) return '';
+  return ` in ${files} indexed file${files === 1 ? '' : 's'} (not the whole repository)`;
+}
+
+export function indexedScopeClause(db, { brief = false } = {}) {
+  const files = indexedFileCount(db);
+  if (files === null) return '';
   const noun = `${files} file${files === 1 ? '' : 's'}`;
   // ⛔ ONE WORDING NOW, AND THE LONG ONE IS GONE. `brief` was introduced for the NO MATCH surface
   // after measuring that it still carries the limit — "not the whole repository" is the whole

@@ -15,6 +15,7 @@ import { noMatchMessage } from '../did-you-mean.js';
 // ⚠ Shared with graph_callees, which has the identical defect mirrored onto outgoing edges.
 // One owner: fixing one verb and pasting into the other is how the two drift apart.
 import { unsearchedRelationNote } from '../unsearched-scope.js';
+import { indexedScopePhrase } from '../miss-scope.js';
 
 const EXECUTION_RELATIONS = EXECUTION_FAMILY;
 
@@ -109,7 +110,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       let line = '';
       // The language comes from the resolved target, so the construct-coverage clause appears on a
       // C/C++ absence and costs zero bytes anywhere else.
-      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot, freshness, language: targets[0]?.language }); }
+      try { line = '\n' + await buildAbsenceTrustLine({ noun: 'callers', db, repoRoot, freshness, language: targets[0]?.language, scopeInHeadline: true }); }
       // ⛔ NOT an empty catch. Measured 2026-09-02: swallowing this shipped a BARE absence with no
       // TRUST, no SCOPE and no NOT MODELLED — indistinguishable from an authoritative "nothing calls
       // this". The answer still returns; the agent is told the caveat is missing.
@@ -119,7 +120,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
       return prefixReadWarnings(msg + line + scope, freshness.warnings);
     };
 
-    if (edges.length === 0) return absence(`NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+    if (edges.length === 0) return absence(`NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
 
     // NOTE (P0-4): `source_file`/`source_line` here carry the CALLER's
     // DECLARATION location, not the call site. That is deliberate — edges are
@@ -142,7 +143,7 @@ export async function graphCallers({ repoRoot, symbol, depth = 1, top_k = 10, fi
     if (rolledUp) mapped = collapseCallerEdges(mapped, symbol);
     // File scope filter: only show callers from a specific directory
     if (file) mapped = mapped.filter(e => e.source_file && e.source_file.startsWith(file));
-    if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"` : `NO CALLERS for "${symbol}". Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
+    if (mapped.length === 0) return absence(file ? `NO CALLERS from "${file}"${indexedScopePhrase(db)}` : `NO CALLERS for "${symbol}"${indexedScopePhrase(db)}. Try graph_whereis(symbol="${symbol}", expand=true) for an overview.`);
     const ranked = rankCallers(mapped);
     const { kept, dropped } = enforceBudget(ranked, top_k);
     const body = renderCompact({ nodes: [], edges: kept, truncated: dropped, suggestion: `top_k=${top_k + 10}` });
