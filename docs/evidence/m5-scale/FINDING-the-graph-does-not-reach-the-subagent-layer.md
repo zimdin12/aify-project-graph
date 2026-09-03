@@ -171,3 +171,52 @@ transcripts live. The fix is a paragraph in a file, not index quality.
 ⚠ Unverified, and stated as such: whether a Hermes `delegate_task` child inherits MCP tools. The
 server IS configured globally in `~/.hermes/config.yaml`, but the OpenAI pool is at 0% and no Hermes
 agent is reachable to test it. Do not assume it mirrors Claude Code.
+
+---
+
+# Provenance of the "false zeros" line — resolved, and it is neither of my two guesses
+
+I recorded it first as a field observation, then corrected that to "a BELIEF with no incident". Both
+were wrong. sc-manager, who owns the rewrite that introduced it, answered directly:
+
+> "Look at its neighbours in that list: the TH-4 gate refusing and exiting 0, `ctest` printing a
+> failure and exiting 0, a stale `.pyc` executing old code invisibly. That whole block is a list of
+> instruments that report success they have not earned, every other entry backed by a dated incident
+> on this project. **Your tool was written into a pattern, not out of an observation.**"
+
+⇒ Not an incident, and not arbitrary either: **category membership.** The rewrite generalised a real,
+heavily-evidenced local failure class onto a tool it had no incident for, because the shape fit.
+
+⚠ **And the unearned warning turned out to be right.** They are keeping the line — marked as
+inherited rather than measured — because tonight's `dirty=0` defect means a pre-tonight server does
+report a tree cleaner than it is. The sentence was accurate for a reason nobody had when it was
+written.
+
+⇒ The lesson is not "they were unfair to us". It is that **a tool joins a reputation class by
+resembling its members**, and the defence against that is not argument, it is not being in the class.
+Every fail-open we ship makes the inherited caution more correct.
+
+They also confirmed the blast radius was nil on their side: their session made zero graph verb calls
+and every dirty-tree claim came from `git status --porcelain` directly.
+
+## CANDIDATE, not a finding — in-progress git operations are invisible to our freshness code
+
+From the same reply: they added a check for what porcelain itself cannot see, an in-progress merge or
+cherry-pick sitting in `.git/sequencer`.
+
+Measured here, with a positive control so the zero is readable:
+
+```
+references to sequencer / MERGE_HEAD / CHERRY_PICK_HEAD / REBASE_HEAD
+  in mcp/stdio/freshness/ and read_freshness.js : 0
+POSITIVE CONTROL — same grep for "porcelain" in git.js : 2 hits
+```
+
+⚠ **Stated as a hypothesis, not a defect.** Porcelain does report conflicted files, so file-level
+conflict is visible. What is not visible is that the repo is MID-OPERATION: during a rebase HEAD is
+transient, and the manifest compares the indexed commit against HEAD. The hazard to test is whether
+the graph can index against a mid-rebase HEAD, call itself fresh, and then have HEAD move again when
+the operation completes.
+
+Not investigated tonight. Preregister population, identity rule and controls before measuring it, and
+do not write the caveat before the measurement.
