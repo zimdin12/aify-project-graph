@@ -92,17 +92,26 @@ describe('an absence claim names what the analysis structurally cannot see', () 
   });
 
   it('⛔ a language with NO verified blind spot still pays zero — the wall lesson survives', () => {
-    // The original reasoning is kept where it still applies. Eight of the twelve configured
-    // languages have no fixture establishing what our extractor misses, so they say nothing rather
-    // than carrying invented prose. Silence here is a recorded decision, not an oversight.
+    // The original reasoning is kept where it still applies: a language with no fixture establishing
+    // what our extractor misses says NOTHING, rather than carrying invented prose. Silence here is a
+    // recorded decision, not an oversight.
+    //
+    // ⚠ THE SPECIMENS MOVED, THE PRINCIPLE DID NOT. This asserted `ruby` and `go` when eight
+    // languages were uninvestigated. Both have since been FIXTURED (ruby: send(); go: a function
+    // value received as a parameter) and now carry earned clauses, so they stopped being examples of
+    // the rule while remaining perfectly consistent with it.
+    // docs/evidence/m2-contract/FINDING-blind-spots-across-seven-languages.md
+    //
+    // ⇒ glsl and css are what is left uninvestigated. If they are ever fixtured, this test needs new
+    // specimens again — not a weaker assertion.
     expectAbsentWithLiveMatcher(
       /NOT MODELLED/,
       { forbidden: ' NOT MODELLED: a call through a computed key — table[name](), obj[k]()',
         allowed: '' },
-      constructCoverageClause('ruby'),
+      constructCoverageClause('glsl'),
       'an uninvestigated language must not carry an invented caveat',
     );
-    expect(constructCoverageClause('go')).toBe('');
+    expect(constructCoverageClause('css')).toBe('');
   });
 
   it('the C-family is recognised through the backend registry, not a parallel list', () => {
@@ -120,7 +129,9 @@ describe('an absence claim names what the analysis structurally cannot see', () 
     expect(constructCoverageClause(null)).toBe('');
     expect(constructCoverageClause(undefined)).toBe('');
     expect(constructCoverageClause('')).toBe('');
-    expect(constructCoverageClause('rust')).toBe('');
+    // ⚠ was `rust`, which is now fixtured and earns a clause. The point of this line is a language
+    // the map knows and has NOTHING verified for — css is that now.
+    expect(constructCoverageClause('css')).toBe('');
   });
 
   it('the base absence caveat is unchanged for every language', async () => {
