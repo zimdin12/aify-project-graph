@@ -89,7 +89,10 @@ try {
   orphan = db0.get(`
     SELECT n.label FROM nodes n
     WHERE n.type = 'Function' AND n.label != ''
-      AND NOT EXISTS (SELECT 1 FROM edges e WHERE e.to_id = n.id)
+      -- ⛔ NO INCOMING *CALLS*, not no incoming edges at all. Every function has an incoming
+      -- CONTAINS edge from its file, so the broader query returned nothing and the abandon rule
+      -- fired — correctly, on a wrong noun in my own instrument.
+      AND NOT EXISTS (SELECT 1 FROM edges e WHERE e.to_id = n.id AND e.relation = 'CALLS')
     ORDER BY n.label LIMIT 1
   `)?.label ?? null;
 } finally { db0.close?.(); }
