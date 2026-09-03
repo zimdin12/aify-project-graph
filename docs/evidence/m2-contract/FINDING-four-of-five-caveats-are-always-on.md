@@ -66,3 +66,35 @@ tree was clean by construction** — that is the probe working, not evidence the
 
 ⇒ The decision still wants a second reader. It is now a question with data attached rather than a
 matter of taste.
+
+## ⭐ The uncommitted clauses are tree-state dependent — both readings observed
+
+The table above was taken on a CLEAN tree, where `NOT COVERED` fired 0/21. A later run of the same
+probe on a DIRTY tree (the probe's own file uncommitted) put it at **10/10 = 100%** on NO MATCH and
+100% on NO CALLERS.
+
+⇒ The 0% was the probe working, exactly as the ceiling said, and not evidence the clause is dead. It
+also means **`NOT COVERED` joins the always-on set whenever an agent has uncommitted work** — which
+is most of the time an agent is actually working. Recorded because a single-state reading of that row
+would understate the surface an agent really meets.
+
+## Reviewer's answer, and the correction I owe it
+
+ef-manager answered **TRUST**, on a different and better axis than frequency: *"if the agent fully
+believed this clause, what would it DO differently before deleting?"* — INDEXED SCOPE, LSP SCOPE and
+NOT MODELLED each name a probe; TRUST, they argued, names none.
+
+⛔ **That premise is false of the real clause, and the fault is mine.** I quoted TRUST to them as
+*"absence is heuristic, not exhaustive"* — my summary. The clause actually reads:
+
+> TRUST: absence is from the heuristic graph and is NOT exhaustive — for a trustworthy "no callers"
+> check use **code_intel_references** (live clangd, per-symbol evidence), or **verify with rg**.
+
+It names two probes. Under their own test, TRUST is actionable. They reasoned correctly from input I
+truncated.
+
+⭐ **What survives, and is now the live thread:** their point that **LSP SCOPE at 73/627 = 11.6%
+coverage is not a caveat but a CANNOT-ANSWER wearing an answer's clothes.** *"A refusal that shares a
+channel with a result gets read as a result."* This repo has prior form: a 0.6% collection once
+silenced graph_health's only code-intel warning. That is a correctness question, not a byte question,
+and it is where this goes next.
