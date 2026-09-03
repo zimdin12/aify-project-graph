@@ -406,14 +406,23 @@ export const NOT_MODELLED_BY_LANGUAGE = Object.freeze({
     + ' to the heuristic graph.' + DYNAMIC_DISPATCH_NOTE,
   python: ' NOT MODELLED: a call made through getattr(obj, name)() is invisible to the heuristic'
     + ' graph.' + DYNAMIC_DISPATCH_NOTE,
-  // ⚠ MEASURED AS SILENT, NOT INVESTIGATED. These are recorded decisions, not oversights: no fixture
-  // has yet established which constructs our extractor misses for them, and a clause asserting a
-  // blind spot without one would be an invented claim.
-  php: null,
-  go: null,
-  rust: null,
-  ruby: null,
-  java: null,
+  php: ' NOT MODELLED: a variable function call — $name(), call_user_func() — is invisible to the'
+    + ' heuristic graph.' + DYNAMIC_DISPATCH_NOTE,
+  ruby: ' NOT MODELLED: a call made through send() is invisible to the heuristic graph.'
+    + DYNAMIC_DISPATCH_NOTE,
+  java: ' NOT MODELLED: a reflective call — Class.getMethod(..).invoke(..) — is invisible to the'
+    + ' heuristic graph.' + DYNAMIC_DISPATCH_NOTE,
+  // ⚠ THE CONSTRUCT IS NAMED PRECISELY, AND THE PRECISION IS MEASURED. Saying "function pointers"
+  // would be wrong: a pointer assigned in the SAME body (`f := sink; f()`) IS reported, because the
+  // callee is named there and the extractor resolves by name. What is invisible is a function value
+  // the caller RECEIVED — the callee's name appears nowhere in that body. Fixtured both ways.
+  go: ' NOT MODELLED: a call through a function value the caller received as a parameter is invisible'
+    + ' to the heuristic graph.' + DYNAMIC_DISPATCH_NOTE,
+  rust: ' NOT MODELLED: a call through a function value the caller received as a parameter is'
+    + ' invisible to the heuristic graph.' + DYNAMIC_DISPATCH_NOTE,
+  // ⚠ STILL MEASURED-SILENT AND UNINVESTIGATED. No fixture has established what our extractor misses
+  // for these, and a clause asserting a blind spot without one would be invented. `null` is a
+  // recorded decision; the forced-door test below requires the KEY, not a clause.
   glsl: null,
   css: null,
   // c and cpp are handled by the richer tier-dependent clause below.

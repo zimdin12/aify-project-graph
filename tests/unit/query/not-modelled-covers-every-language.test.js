@@ -54,6 +54,30 @@ describe('the NOT MODELLED contract covers the whole language registry', () => {
     expect(constructCoverageClause('python')).toMatch(/getattr/);
   });
 
+  it('★★★ the five languages fixtured later state THEIR construct too', () => {
+    // Each was fixtured before its clause was written: no caller->callee edge while an ordinary
+    // direct call in the same file produced one.
+    // docs/evidence/m2-contract/FINDING-blind-spots-across-seven-languages.md
+    for (const lang of ['php', 'ruby', 'java', 'go', 'rust']) {
+      expect(constructCoverageClause(lang), `${lang} must state its blind spot`).toMatch(/NOT MODELLED/);
+    }
+    expect(constructCoverageClause('php')).toMatch(/call_user_func/);
+    expect(constructCoverageClause('ruby')).toMatch(/send\(\)/);
+    expect(constructCoverageClause('java')).toMatch(/invoke/);
+  });
+
+  it('⛔ go and rust name the construct that is ACTUALLY invisible, not "function pointers"', () => {
+    // ⚠ THE PRECISION HERE IS A MEASUREMENT, NOT A STYLE CHOICE. A function value assigned in the
+    // SAME body (`f := sink; f()`) IS reported — the callee is named there and the extractor resolves
+    // by name. Only a value the caller RECEIVED is invisible. My first fixtures used the same-body
+    // form, both languages reported SEEN, and I nearly recorded "no blind spot here" from an edge
+    // that existed for the wrong reason.
+    for (const lang of ['go', 'rust']) {
+      expect(constructCoverageClause(lang), `${lang} must name the received-parameter case`)
+        .toMatch(/received as a parameter/);
+    }
+  });
+
   it('⛔ every clause disclaims that it is about the ANALYSIS, not about this symbol', () => {
     // Without this sentence a reader takes "NOT MODELLED: dynamic dispatch" as a statement that THIS
     // symbol is reached dynamically — a semantic claim none of these fixtures support.
