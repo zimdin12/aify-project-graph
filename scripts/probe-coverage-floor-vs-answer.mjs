@@ -38,8 +38,14 @@
 //     REFUSAL DETECTABLE  graph_callers must produce a REFUSAL shape for at least one input. If no
 //                       input refuses, the detector cannot tell refusal from answer, and "it never
 //                       refuses" would be unfalsifiable rather than measured.
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+//
+// ⚠ AMENDED AFTER THE RUN, AND THE AMENDMENT IS THE RESULT. REFUSAL DETECTABLE could not fire: it
+// assumed an UNINDEXED repository is reachable, and it is not — graph_callers indexes on demand. The
+// control is replaced, in place and on the record, by a REACHABILITY check with its own positive
+// control (see below). The replacement asks the same question over the whole file instead of over
+// the inputs I guessed, so it is stronger; it is recorded here because a preregistration edited to
+// match its result is worthless unless the edit says what changed and why.
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const repoRoot = process.cwd();
@@ -98,15 +104,22 @@ say(`  = ${pct === null ? 'unknown' : pct.toFixed(1) + '%'} of eligible files ca
 say('');
 
 // ── SURFACE 1: what graph_health says about absence authority, on this repo ──────────────────────
-const healthText = String(await graphHealth({ repoRoot }));
-const authorityLine = healthText.split('\n').find((l) => /absenceAuthority/i.test(l)) ?? '(not reported)';
-const reasonLine = healthText.split('\n').find((l) => /\breason\b/i.test(l)) ?? '(no reason line)';
-const healthDenies = /absenceAuthority\W+false/i.test(healthText);
+// ⛔ READ THE FIELD, NOT A RENDERING THAT WAS NEVER PRODUCED. My first version did
+// `String(await graphHealth(...))` and searched the result for "absenceAuthority". graphHealth
+// returns an OBJECT, so that string was the 15 characters "[object Object]" — the field was absent
+// from a rendering that does not exist, and the probe wrote that absence down as GRANTS, the
+// permissive answer. Same wrong-carrier error this repo keeps recording: I never asked what the text
+// I searched was the text OF.
+const health = await graphHealth({ repoRoot });
+const caps = health?.capabilities ?? null;
+const healthDenies = caps?.absenceAuthority === false;
 const COVERAGE_REASONS = ['collection_partial', 'no_collection', 'trust_spine_empty'];
-const coverageCause = COVERAGE_REASONS.find((r) => healthText.includes(r)) ?? null;
+const coverageCause = COVERAGE_REASONS.includes(caps?.reason) ? caps.reason : null;
 say('--- SURFACE 1: graph_health');
-say(`  ${authorityLine.trim()}`);
-say(`  ${reasonLine.trim()}`);
+say(`  absenceAuthority: ${caps?.absenceAuthority ?? '(field missing)'}`);
+say(`  reason:           ${caps?.reason ?? '(none)'}`);
+say(`  compilerVerifiedEdges: ${caps?.compilerVerifiedEdges ?? '(none)'}`);
+say(`  [${caps ? 'PASS' : 'FAIL'}] FIELD PRESENT: capabilities object was actually read`);
 say(`  [${healthDenies ? 'DENIES' : 'GRANTS'}] absence authority`);
 say(`  [${coverageCause ? 'PASS' : 'FAIL'}] COVERAGE CAUSE CONTROL: denial reason is coverage-related (${coverageCause ?? 'none found'})`);
 say('');
@@ -139,28 +152,45 @@ if (called.length > 0) {
 }
 say(`  [${answerShapeOk ? 'PASS' : 'FAIL'}] ANSWER SHAPE CONTROL: "${called[0] ?? '-'}" (has callers) -> ${controlShape}`);
 
-// CONTROL: is a REFUSAL shape reachable at all? An empty directory has no index.
-const empty = mkdtempSync(join(tmpdir(), 'apg-norepo-'));
-let refusalReachable = false;
-let refusalShape = '(threw)';
-try {
-  const out = String(await graphCallers({ repoRoot: empty, symbol: 'anything' }));
-  refusalShape = shapeOf(out);
-  refusalReachable = refusalShape === 'REFUSAL' || /not indexed|no graph|run graph_index/i.test(out);
-} catch (e) {
-  refusalShape = `threw: ${e.message.slice(0, 60)}`;
-  refusalReachable = true; // a throw is a refusal the caller cannot mistake for a result
-} finally { rmSync(empty, { recursive: true, force: true }); }
-say(`  [${refusalReachable ? 'PASS' : 'FAIL'}] REFUSAL DETECTABLE CONTROL: unindexed repo -> ${refusalShape}`);
+// ── IS A REFUSAL REACHABLE AT ALL? ──────────────────────────────────────────────────────────────
+// ⛔ THE PREREGISTERED CONTROL COULD NOT FIRE, AND THAT IS THE FINDING, NOT A PASS.
+//
+// I planned to reach a refusal by querying an UNINDEXED repository. There is no such state to reach:
+// graph_callers indexes on demand, and a fresh git repo with one source file answers
+// `NO MATCH ... INDEXED SCOPE: 1 file` — it had built an index by the time it replied. My premise was
+// wrong, not the verb.
+//
+// ⇒ So ask the question by CONSTRUCTION instead of by sampling, which is the stronger form: does the
+// answer path consult the coverage gate at all? `graph_health` computes `absenceAuthority` and denies
+// it on partial coverage. If `callers.js` never reads that gate, no input can make it refuse, and
+// "it never refuses" is established over the whole file rather than over the inputs I happened to try.
+//
+// ⚠ A ZERO NEEDS A POSITIVE CONTROL. The same search must FIND these names in health.js — otherwise
+// "absent from callers.js" is a property of my regex, not of the file. This repo has already shipped
+// a confident zero that was the instrument failing to look.
+const COVERAGE_GATE = /absenceAuthority|graphCapabilities|coverageComplete|collection_partial/;
+const callersSrc = readFileSync(join(repoRoot, 'mcp/stdio/query/verbs/callers.js'), 'utf8');
+const healthSrc = readFileSync(join(repoRoot, 'mcp/stdio/query/verbs/health.js'), 'utf8');
+const gateInCallers = COVERAGE_GATE.test(callersSrc);
+const gateInHealth = COVERAGE_GATE.test(healthSrc);
+say('--- IS THE COVERAGE GATE REACHABLE FROM THE ANSWER PATH?');
+say(`  [${gateInHealth ? 'PASS' : 'FAIL'}] POSITIVE CONTROL: the gate IS found in health.js (${gateInHealth})`);
+say(`  graph_callers consults the coverage gate: ${gateInCallers}`);
+const refusalReachable = gateInHealth; // the control that licenses reading the zero above
 say('');
 
 // ── VERDICT ─────────────────────────────────────────────────────────────────────────────────────
-const controlsOk = grant.absenceAuthority === true && answerShapeOk && refusalReachable;
+// ⛔ GATE ON EVERY PREREGISTERED CONTROL, NOT THE SUBSET I HAPPENED TO WIRE. The first version
+// listed four controls in its header and enforced three: COVERAGE CAUSE was printed as FAIL and the
+// verdict rendered anyway — announcing "the surfaces agree" in the same run where a control said the
+// measurement was unreadable. A verdict that survives its own failed control is decoration.
+const controlsOk = grant.absenceAuthority === true && Boolean(caps)
+  && answerShapeOk && refusalReachable && Boolean(coverageCause);
 if (!controlsOk) {
   say('⛔ CONTROLS FAILED — conclude nothing about the two surfaces.');
   process.exit(2);
 }
-const answersDespiteDenial = healthDenies && Boolean(coverageCause)
+const answersDespiteDenial = healthDenies && Boolean(coverageCause) && !gateInCallers
   && [...shapes.keys()].some((s) => s.startsWith('ANSWER:'));
 say(answersDespiteDenial
   ? 'VERDICT: ⚠ THE SURFACES DISAGREE. graph_health denies absence authority for a coverage reason,\n'
