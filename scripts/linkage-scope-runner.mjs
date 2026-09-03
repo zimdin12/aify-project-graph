@@ -124,6 +124,72 @@ export function buildReport(rows) {
   return byTier;
 }
 
+/**
+ * The PAIRED view — graph vs nograph on the SAME cell.
+ *
+ * ⛔ WITHOUT THIS, DROPPING REPEATS LEFT THE EXPERIMENT UNANALYSABLE. With repeats=3 the per-arm
+ * counts in `buildReport` carried within-cell information. At repeats=1 every count is 0 or 1, and
+ * the only statement the design still supports — "the graph arm was safer in N of M cells" — was
+ * computed nowhere. The instrument has to follow the analysis unit; Steven moved the unit on
+ * 2026-09-03 and this is the half that had to move with it.
+ *
+ * ⛔ PER TIER AND PER RUNTIME, NEVER POOLED. The key's analysisRule forbids averaging synthetic
+ * (tier A) with real (tier B) into one headline, and forbids pooling Hermes with Claude Code. A
+ * single "N of 12" across everything would break both rules at once, which is exactly the shape a
+ * reader most wants to quote.
+ *
+ * ⚠ UNPAIRABLE CELLS ARE COUNTED, NOT DROPPED. A cell where one arm errored or never ran cannot be
+ * compared, and silently omitting it shrinks the denominator — the failure mode that has produced
+ * more wrong numbers in this project than any other.
+ *
+ * Safety axis is the rubric's primary one: `unsafeAuthoritativeConclusion === true` is the harm.
+ */
+export function buildPairedReport(rows) {
+  const cells = new Map(); // tier|runtime|classId -> { graph, nograph }
+  for (const r of rows) {
+    const key = `${r.tier}|${r.runtime ?? 'unknown'}|${r.classId}`;
+    const cell = cells.get(key) ?? {};
+    cell[r.arm] = r;
+    cells.set(key, cell);
+  }
+
+  const out = {};
+  for (const [key, cell] of cells) {
+    const [tier, runtime, classId] = key.split('|');
+    const bucket = ((out[tier] ??= {})[runtime] ??= {
+      graphSafer: 0, nographSafer: 0, same: 0, unpairable: 0, unpairableCells: [],
+    });
+    const g = cell.graph;
+    const n = cell.nograph;
+    if (!g || !n) {
+      bucket.unpairable += 1;
+      bucket.unpairableCells.push(`${classId} (missing ${!g ? 'graph' : 'nograph'})`);
+      continue;
+    }
+    const gUnsafe = g.score.unsafeAuthoritativeConclusion === true;
+    const nUnsafe = n.score.unsafeAuthoritativeConclusion === true;
+    if (gUnsafe === nUnsafe) bucket.same += 1;
+    else if (nUnsafe) bucket.graphSafer += 1;
+    else bucket.nographSafer += 1;
+  }
+  return out;
+}
+
+function printPaired(paired) {
+  console.log('\n══ PAIRED OUTCOMES — graph vs nograph on the SAME cell');
+  console.log('   (n=1 per cell: a single cell\'s difference is NOT signal. Read the counts.)');
+  for (const tier of Object.keys(paired).sort()) {
+    for (const runtime of Object.keys(paired[tier]).sort()) {
+      const b = paired[tier][runtime];
+      const pairs = b.graphSafer + b.nographSafer + b.same;
+      console.log(`   tier ${tier} · ${runtime}: graph safer ${b.graphSafer}/${pairs}`
+        + ` · nograph safer ${b.nographSafer}/${pairs} · same ${b.same}/${pairs}`
+        + (b.unpairable ? `  ⚠ UNPAIRABLE ${b.unpairable}: ${b.unpairableCells.join(', ')}` : ''));
+    }
+  }
+  console.log('   No cross-tier and no cross-runtime total: the key forbids both.');
+}
+
 function printReport(byTier, rows, { isMock }) {
   for (const tier of Object.keys(byTier).sort()) {
     console.log(`\n══ TIER ${tier} ${tier === 'A' ? '(purpose-built qualification — NOT field value)' : '(real pinned snapshots)'}`);
@@ -209,6 +275,7 @@ async function main() {
   }
 
   printReport(buildReport(rows), rows, { isMock });
+  printPaired(buildPairedReport(rows));
 
   if (skipped.length) {
     console.log(`\n⚠ NOT RUN (${skipped.length}) — reported, not silently dropped:`);
