@@ -120,8 +120,14 @@ describe('a non-empty result names uncommitted files that MENTION the queried sy
 // argument proves the wiring and not that the value survived to the output.
 //
 // ⚠ WHAT IS DELIBERATELY NOT COVERED, said plainly rather than left to be discovered:
-//   graph_explain_diff, graph_trace — neither has ONE queried symbol (a range, and a from/to pair),
-//     so the relevance gate has nothing to gate on.
+//   graph_trace — EXCLUDED ON A CORRECTNESS ARGUMENT, not on effort. An uncommitted file can only
+//     ADD an edge, never remove one, so a FOUND path stays true regardless of what is unindexed;
+//     and the no-path branch already passes `freshness` to buildAbsenceTrustLine, so the absence
+//     side is covered. The claim trace makes is "there IS a path", not "this is the only path".
+//   graph_explain_diff — ⚠ OPEN, not settled. It has no single symbol (it explains a range), so the
+//     gate has nothing to key on as written; but an uncommitted file CAN contain callers of the
+//     changed symbols, so the hazard is not obviously absent. Keying the gate on the SET of changed
+//     symbols would be a real extension. Recorded as unmeasured rather than dismissed.
 //
 // ⚠ graph_change_plan WAS on that list and no longer is. The stated reason — "a helper with two
 // callers" — was half true: the second caller (`buildChangePlan`) is used only by tests, so the

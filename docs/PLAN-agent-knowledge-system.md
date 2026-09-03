@@ -247,11 +247,17 @@ and the feature quietly becomes the thing that was rejected.
 ⚠ It is a TEXTUAL claim, worded as one ("mentions", never "calls") — a name in an unindexed file
 could be a comment or a string. Bounded, and degrades to SILENCE past the cap rather than to a
 partial claim.
-⛔ **Wired on 5 of 8 `buildTrustLine` consumers, and the gaps are named rather than left to be
-found:** `graph_change_plan` builds its trust line in a helper with two callers and no `freshness`
-parameter (I wired it, the suite went RED, I reverted — half-threading a shared helper is worse than
-a stated gap); `graph_explain_diff` and `graph_trace` have no single queried symbol for the gate to
-use.
+⛔ **Wired on 6 of 8 `buildTrustLine` consumers, and the two exclusions carry ARGUMENTS, not effort
+estimates.** `graph_change_plan` is now included — I first excluded it as "a helper with two
+callers", then found the second caller is used only by tests, so the production path was single and
+threading `freshness` was small. ⚠ **I had judged the size without opening it**, on the verb an agent
+reads BEFORE editing — the most consequential place for the defect to survive.
+- `graph_trace` — excluded on a correctness argument: an uncommitted file can only ADD an edge, never
+  remove one, so a FOUND path stays true; and its no-path branch already passes `freshness` to
+  `buildAbsenceTrustLine`. Its claim is "there IS a path", not "this is the only path".
+- `graph_explain_diff` — ⚠ **OPEN, not settled.** No single symbol to key on as written, but an
+  uncommitted file CAN contain callers of the changed symbols, so the hazard is not obviously absent.
+  Keying on the SET of changed symbols would be a real extension. Recorded as unmeasured.
 
 Such a result states what it did NOT model: indirection, macros, conditional compilation,
 extern-without-header, included `.cpp`, cross-language. Separate "no callers in indexed scope" from
