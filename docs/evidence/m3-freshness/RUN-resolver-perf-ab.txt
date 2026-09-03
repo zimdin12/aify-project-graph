@@ -1,0 +1,56 @@
+# A/B — resolver suffix lookup, same clone, same source state, only the code varying
+
+Probe:    scripts/probe-resolver-equivalence.mjs
+Clone:    a --no-hardlinks git clone of this repo, 881 File nodes
+Method:   rebuild the SAME clone with each code version. The clone's source is never touched
+          between the two rebuilds, so any difference is attributable to the code.
+
+## DETERMINISM CONTROL (run first — without it a hash difference is unreadable)
+
+Two rebuilds, identical code, identical source:
+
+    rebuild ms: 62187   nodes=6513 files=881 edges=21126   hash=da857ab8df674a7f
+    rebuild ms: 52637   nodes=6513 files=881 edges=21126   hash=da857ab8df674a7f
+
+Identical. The builder is deterministic, so the comparison below carries information.
+(The 62 s vs 52 s gap is first-run warmth, not code — both are the same version.)
+
+## THE COMPARISON
+
+    PRE-FIX   rebuild 52,041 ms   nodes=6518 files=881 edges=21131  hash=7060536822c4276a
+    POST-FIX  rebuild 19,559 ms   nodes=6518 files=881 edges=21131  hash=7060536822c4276a
+
+Identical graph. 62% less wall time.
+
+## INCREMENTAL PATH, interleaved on the same clone
+
+    POST-FIX  42,113 ms / 43,910 ms   (processedFiles=4)
+    PRE-FIX   54,748 ms / 52,552 ms   (processedFiles=4)
+
+⚠ Those incremental numbers are from the FIRST fix only (the pendingNodes scan and globToRegExp).
+The SQL fix landed after them, and the full-rebuild row above is what measures all three.
+
+## PROFILE, after the first fix — how the real cause was found
+
+    37.11 s   82.6%  findByQnameSuffix  @ resolver.js:424
+     0.34 s    0.8%  pathMatchesPattern @ ignored-dirs.js:107
+
+globToRegExp (7.27 s / 13.2% before) left the top entirely — a correct diagnosis. findByQnameSuffix
+did NOT move despite its JS scan being gone, which is what identified the prepared statement inside
+it as the real cost rather than the function body the profile frame is named for.
+
+## SUITE
+
+    SUITE FOR COMMIT b4a1c0fd971fbd8e7819b95b324f887d1117defa
+    Test Files 464 passed (464)   Tests 3809 passed | 4 skipped   VITEST_EXIT=0
+
+## ⛔ A RETRACTED INTERMEDIATE RESULT, kept because it was convincing
+
+An earlier comparison read +5 nodes / +5 edges and I had a ready explanation: SQL LIKE treats `_` as
+a single-character wildcard and the new match is literal, so the new code is stricter. The semantic
+difference is REAL. The +5 was not caused by it — the incremental A/B runs had been appending probe
+functions to the clone's SOURCE, so the two builds read different source. Re-run with the source held
+constant, the hashes are identical.
+
+⇒ A plausible causal story for an artifact is more dangerous than an unexplained one, and this story
+was credible precisely because the mechanism it named genuinely exists.
