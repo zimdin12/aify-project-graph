@@ -5,7 +5,12 @@ symbols in the same repository, in the same pass. The two surfaces disagree, and
 calls when it asks "who calls X" is the permissive one.
 
 Probe: `scripts/probe-coverage-floor-vs-answer.mjs` (preregistered before the run, at `11ad91ad`).
-Run: `docs/evidence/m2-contract/coverage-floor-vs-answer.log`.
+Run: `docs/evidence/m2-contract/coverage-floor-vs-answer.txt`.
+
+> ⚠ The extension is not cosmetic. This was first written as `.log`, which `.gitignore:4`
+> excludes, so the finding cited a file that was not in the repository. The evidence gate caught
+> it: *"a commit citing this file as proof would point at nothing in the repo."* A pointer you
+> cannot resolve is not a pointer.
 
 ## Where the question came from
 
@@ -55,8 +60,13 @@ and the **same search finds them in `health.js`**, so the zero is the verb's sil
 instrument's.
 
 ⇒ No input can make `graph_callers` refuse. The gate that would justify a refusal is computed, is
-correct, is tested — and the answer path does not call it. That is the third recorded instance of
+correct, is tested — and the answer path does not call it. That is the FOURTH recorded instance of
 the pattern in `quality-of-the-unreachable`: hardening something without asking who consumes it.
+
+⚠ And it adds an edge the earlier three did not have. The gate is not merely unconsumed — it sits
+on `graph_health`, the verb an agent calls ONCE at session start, while the question it governs is
+asked mid-task by `graph_callers`. For an agent moving fast, a gate on the reflective surface and
+not the reflexive one is the same as no gate at all.
 
 ## What did not work
 

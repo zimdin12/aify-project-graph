@@ -1,0 +1,25 @@
+[PASS] AUTHORITY GRANT CONTROL: complete inputs -> absenceAuthority=true
+        partial coverage -> absenceAuthority=false reason=collection_partial
+
+spine coverage on this repository: {"language":"typescript","files_processed":73,"files_eligible":627}
+  = 11.6% of eligible files carry compiler-verified evidence
+
+--- SURFACE 1: graph_health
+  absenceAuthority: false
+  reason:           collection_partial
+  compilerVerifiedEdges: 1002
+  [PASS] FIELD PRESENT: capabilities object was actually read
+  [DENIES] absence authority
+  [PASS] COVERAGE CAUSE CONTROL: denial reason is coverage-related (collection_partial)
+
+--- SURFACE 2: graph_callers on callerless symbols
+   12 x ANSWER:NO CALLERS
+  [PASS] ANSWER SHAPE CONTROL: "#onData" (has callers) -> ANSWER:RESULTS
+--- IS THE COVERAGE GATE REACHABLE FROM THE ANSWER PATH?
+  [PASS] POSITIVE CONTROL: the gate IS found in health.js (true)
+  graph_callers consults the coverage gate: false
+
+VERDICT: ⚠ THE SURFACES DISAGREE. graph_health denies absence authority for a coverage reason,
+  and graph_callers answers anyway for symbols in the same repository at the same instant.
+  ⚠ That makes the coverage-floor question LIVE. It does not say where the floor is, and it
+  does not measure whether any agent was misled — that is the A/B, not this.
