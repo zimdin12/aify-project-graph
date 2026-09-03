@@ -80,3 +80,94 @@ work repos where this tool is also used.
 
 ⚠ `graph_health` leads by 2×. The most-called verb is the one that asks *"can I trust what I am
 about to be told"* — which is worth remembering when deciding what to build next.
+
+---
+
+# Follow-up, same day: it is not availability, and the fix is one file
+
+Four probes, live, against running agents rather than transcripts.
+
+## 1. Are the tools reachable from a subagent at all?
+
+A `general-purpose` subagent, asked to census its own toolset:
+
+```
+graph tools in loaded toolset : NO
+ToolSearch present            : YES
+ToolSearch("graph") returns   : graph_callers, graph_census, graph_consequences,
+                                graph_dashboard, graph_health
+actual toolset                : Agent, Artifact, Bash, Edit, Glob, Grep,
+                                ToolSearch, PowerShell, Read, Skill, Write
+```
+
+⇒ **Reachable, but deferred.** Not in the loaded set; a subagent that reads its tool list concludes
+correctly that it has grep and not a graph.
+
+## 2. So is deferred-ness the barrier? No.
+
+The availability discriminator (`scripts/m4-subagent-availability.mjs`, which already existed and
+frames exactly this question) over 1,115 subagent transcripts:
+
+```
+with a GRAPH call            9
+with ANOTHER mcp__ call      8      <- MCP surface WAS present, graph passed over
+with NO mcp__ call at all 1,098      <- availability UNKNOWN, not proven absent
+other MCP servers used   : aify-comms 21,663 · chrome-devtools 1,075 · playwright 22
+```
+
+⛔ **21,663 calls to another deferred MCP server.** Deferred MCP plainly reaches subagents and gets
+used heavily. Those agents had a reason to reach for comms and none to reach for the graph.
+
+⇒ This CORRECTS the section above. I wrote that the dominant factor was *presence*. It is not
+presence and it is not permission — **nothing at the subagent layer says this tool exists.**
+
+## 3. Where does an instruction have to live to reach them?
+
+Probed directly, answered from context before any tool call:
+
+```
+project instruction text (AGENTS.md / CLAUDE.md) in a subagent's context : NO
+  verbatim: "no project instruction text in context"
+auto-memory MEMORY.md in a subagent's context                            : YES
+```
+
+⛔ **`AGENTS.md` and `CLAUDE.md` do not reach subagents.** The obvious place to put this instruction
+would have changed nothing, and the change would have looked done.
+
+## 4. Does the fix work end to end?
+
+Wrote the routing knowledge to the channel that reaches — the auto-memory — then probed a FRESH
+subagent WITHOUT quoting the instruction to it, so the test measures the channel and not the prompt:
+
+```
+1. context routing : the deferred-tools statement reached it
+2. load mechanism  : ToolSearch loaded the schema, no error
+3. execution       : graph_health returned a 24-field response
+```
+
+⭐ **Instruction-level reach works, verified end to end on a running agent.**
+
+## ⛔ And a correction I made in the same hour
+
+An earlier probe had `graph_callers` refuse with "STALE SERVER PROCESS — refusing to answer rather
+than answering from code that is no longer on disk", and I reported that the server "has been
+refusing every call for ~6 hours". **That was an overclaim from one verb.** `graph_health` answered
+normally under the identical staleness and reported it as a `_warnings` field inside the response.
+
+⚠ The verb-dependence looks deliberate rather than broken: health is the diagnostic verb, so it must
+answer *especially* when stale, or a reader cannot find out why anything else refused. Recorded as
+observed; not filed as a defect.
+
+⚠ Separately and genuinely worth acting on: **15 `aify-project-graph` server processes** are alive on
+this machine, the oldest from 2026-08-31. The one serving this repo loaded `90e4ab4e` and the
+checkout is 6 hours past it.
+
+## What this changes
+
+The roadmap's R4 asked which of four causes we had — discoverability, trust, latency, genuine
+non-need. Measured: **discoverability**, and specifically at the subagent layer, where 31× the
+transcripts live. The fix is a paragraph in a file, not index quality.
+
+⚠ Unverified, and stated as such: whether a Hermes `delegate_task` child inherits MCP tools. The
+server IS configured globally in `~/.hermes/config.yaml`, but the OpenAI pool is at 0% and no Hermes
+agent is reachable to test it. Do not assume it mirrors Claude Code.
