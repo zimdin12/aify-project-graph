@@ -67,7 +67,7 @@ export async function graphNeighbors({ repoRoot, symbol, edge_types = [], depth 
     // heuristic undercount caveat otherwise.
     let trustLine = '';
     try {
-      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, freshness, symbol });
     // ⛔ Still never BLOCKS the result — but no longer silent; see lsp-evidence.js
     // RESULTS_TRUST_UNAVAILABLE.
     } catch { trustLine = '\n' + RESULTS_TRUST_UNAVAILABLE; }

@@ -266,7 +266,7 @@ ${scope}` : base) + unattestedNote;
     let headlineTrust = '';
     try {
       const trustEdges = incomingProvenance.map((row) => ({ provenance: row.provenance ?? 'EXTRACTED' }));
-      headlineTrust = await buildTrustLine({ edges: trustEdges, db, repoRoot });
+      headlineTrust = await buildTrustLine({ edges: trustEdges, db, repoRoot, freshness, symbol });
     } catch { headlineTrust = RESULTS_TRUST_UNAVAILABLE; }
 
     // Build output

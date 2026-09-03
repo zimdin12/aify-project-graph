@@ -204,7 +204,7 @@ export async function graphCallees({ repoRoot, symbol, depth = 1, top_k = 10, fi
     // marked as clangd ground truth. One line, shared helper.
     let trustLine = '';
     try {
-      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, file: root?.file_path ?? null });
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, file: root?.file_path ?? null, freshness, symbol });
     // ⛔ Still never BLOCKS the result — but no longer silent. An empty banner lets a partial caller
     // set read as COMPLETE; see lsp-evidence.js RESULTS_TRUST_UNAVAILABLE.
     } catch { trustLine = '\n' + RESULTS_TRUST_UNAVAILABLE; }

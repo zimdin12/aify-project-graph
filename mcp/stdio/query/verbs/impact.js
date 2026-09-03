@@ -215,7 +215,7 @@ export async function graphImpact({ repoRoot, symbol, depth = 3, top_k = 30 }) {
     // shared helper keeps the line identical across all four read verbs.
     let trustLine = '';
     try {
-      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot });
+      trustLine = '\n' + await buildTrustLine({ edges: mapped, db, repoRoot, freshness, symbol });
     // ⛔ Still never BLOCKS the result — but no longer silent; see lsp-evidence.js
     // RESULTS_TRUST_UNAVAILABLE.
     } catch { trustLine = '\n' + RESULTS_TRUST_UNAVAILABLE; }

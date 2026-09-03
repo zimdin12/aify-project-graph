@@ -84,3 +84,42 @@ describe('a non-empty result names uncommitted files that MENTION the queried sy
     expect(clause, 'and must not claim the file calls the symbol').not.toMatch(/\bcalls\b/);
   }, 60_000);
 });
+
+// ⛔ THE SWEEP MUST REACH MORE THAN THE VERB IT WAS WRITTEN FOR.
+//
+// buildTrustLine serves eight verbs. Wiring only `graph_callers` would leave the same silent gap in
+// the other seven while the finding read as closed — "one fix is not a sweep" is a lesson this repo
+// has paid for repeatedly. These assert the EFFECT through two more verbs, because passing the
+// argument proves the wiring and not that the value survived to the output.
+//
+// ⚠ WHAT IS DELIBERATELY NOT COVERED, said plainly rather than left to be discovered:
+//   graph_change_plan — its trust line is built in `buildChangePlanWithContext`, a helper with two
+//     callers and no `freshness` parameter. Threading it is a larger change than this one, and
+//     half-threading a shared helper is worse than a stated gap.
+//   graph_explain_diff, graph_trace — neither has ONE queried symbol (a range, and a from/to pair),
+//     so the relevance gate has nothing to gate on.
+describe('the disclosure reaches other verbs on the shared trust line', () => {
+  it('★★★ graph_callees names a relevant uncommitted file too', async () => {
+    // ⚠ THE FIXTURE HAD TO BE FIXED, AND THE FIRST FAILURE WAS MINE. Querying callees of `target`
+    // returns NO CALLEES — target calls nothing — so it took the ABSENCE path and emitted the
+    // absence clause, correctly. The relevance gate lives on the NON-EMPTY path, so this needs a
+    // symbol that HAS callees and is itself mentioned by an uncommitted file.
+    const { graphCallees } = await import('../../../mcp/stdio/query/verbs/callees.js');
+    writeFileSync(join(repo, 'src', 'mentions-caller.js'),
+      '// a note about committedCaller, still uncommitted\nexport function noteFn() { return 1; }\n');
+    await graphIndex({ repoRoot: repo, force: false });
+
+    const out = String(await graphCallees({ repoRoot: repo, symbol: 'committedCaller' }));
+    expect(out, 'precondition: this must be the NON-EMPTY path, not an absence').toMatch(/target/);
+    expect(out, 'callees shares buildTrustLine, so it must carry the same clause')
+      .toMatch(/MAY BE INCOMPLETE/);
+    expect(out).toMatch(/mentions-caller\.js/);
+  }, 120_000);
+
+  it('★★★ graph_neighbors names it as well', async () => {
+    const { graphNeighbors } = await import('../../../mcp/stdio/query/verbs/neighbors.js');
+    const out = String(await graphNeighbors({ repoRoot: repo, symbol: 'target' }));
+    expect(out, 'neighbors shares buildTrustLine').toMatch(/MAY BE INCOMPLETE/);
+    expect(out).toMatch(/newcaller\.js/);
+  }, 120_000);
+});
