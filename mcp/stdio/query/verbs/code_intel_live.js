@@ -810,6 +810,21 @@ export async function codeIntelReferences({ repoRoot, language, file, line, col,
 
   const uri = await openIfNeeded(session, file);
   const pos = { line: line - 1, character: (col || 1) - 1 };
+  // ⚠ NO UNCOMMITTED-SOURCE DISCLOSURE HERE, AND THAT IS MEASURED RATHER THAN OVERLOOKED.
+  //
+  // The GRAPH absence paths (staleNotFoundCaveat, buildAbsenceTrustLine) name uncommitted source
+  // files, because they answer from an index that deliberately excludes untracked files — so their
+  // absence can be false. This verb asks the LIVE language server, which reads the working tree.
+  //
+  // Measured 2026-09-03 on TypeScript, both controls passing (a COMMITTED caller was found, so the
+  // session was alive; a symbol with no callers returned zero, so "found" is not indiscriminate):
+  // an UNCOMMITTED caller of the target WAS returned. The live path sees the working tree, so the
+  // hazard the graph paths disclose does not exist here.
+  //
+  // ⛔ LANGUAGE-SCOPED, and the C++ case differs BY MECHANISM, not by degree: a new .cpp absent from
+  // compile_commands.json is never seen by clangd at all. That limitation is separate from
+  // uncommitted-ness, is already documented in the safe-to-delete skill, and is not what this note
+  // is about.
   let refs = (await session.client.references(uri, pos)) || [];
   let resultState = refs.length > 0 ? 'found' : 'not_found_after_retry';
   if (refs.length === 0) {
